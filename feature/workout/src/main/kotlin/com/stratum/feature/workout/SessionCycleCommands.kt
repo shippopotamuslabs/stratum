@@ -104,6 +104,7 @@ internal suspend fun LiveWorkoutSessionRuntime.handleApplyCycleSnapshot(cmd: Ses
                 liftNamesById,
                 loadTypesById = liftsById.mapValues { it.value.loadType },
                 isCompoundById = liftsById.mapValues { it.value.isCompound },
+                liftPinnedNotesById = liftsById.mapValues { it.value.pinnedNote },
                 isPlateLoadedById = liftsById.mapValues { it.value.isPlateLoaded },
                 isDoubleSidedById = liftsById.mapValues { it.value.isDoubleSidedPlateLoad },
             )
@@ -159,6 +160,7 @@ internal suspend fun LiveWorkoutSessionRuntime.handleApplyCycleSnapshot(cmd: Ses
             shouldRecompute = true
         }
     }
+    applyPinnedNotesFromTemplate(workout)
     if (shouldRecompute) {
         recomputeRecommendations()
         // Persist post-restore recs (and any established-block freeze) so the next

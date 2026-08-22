@@ -49,6 +49,7 @@ internal fun WorkoutLiftEntity.toDomain(sets: List<LiftSet>): WorkoutLift = Work
     sets = sets,
     supersetGroupId = supersetGroupId,
     useRestTimerBetweenLifts = useRestTimerBetweenLifts,
+    pinnedNote = pinnedNote,
 )
 
 internal fun LiftSetEntity.toDomain(): LiftSet = LiftSet(
@@ -103,6 +104,7 @@ internal fun WorkoutLift.toEntity(
     position = position,
     supersetGroupId = supersetGroupId,
     useRestTimerBetweenLifts = useRestTimerBetweenLifts,
+    pinnedNote = pinnedNote,
     updatedAtEpochMillis = nowMillis,
     pendingSync = SyncFlags.PENDING_UPSERT,
 )

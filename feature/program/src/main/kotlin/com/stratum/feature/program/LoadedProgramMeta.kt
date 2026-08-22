@@ -124,6 +124,7 @@ internal fun CreateProgramUiState.toDomainProgram(meta: LoadedProgramMeta?): Pro
                                 },
                             supersetGroupId = lift.supersetGroupId?.let { WorkoutSupersetGroupId(it) },
                             useRestTimerBetweenLifts = lift.useRestTimerBetweenLifts,
+                            pinnedNote = lift.pinnedNote,
                         )
                     },
             )

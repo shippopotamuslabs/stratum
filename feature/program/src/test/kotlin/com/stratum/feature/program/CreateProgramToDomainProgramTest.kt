@@ -264,6 +264,32 @@ class CreateProgramToDomainProgramTest {
         assertTrue(saved.restSlotIndices.isEmpty())
     }
 
+    @Test
+    @DisplayName("create-program save preserves workout-lift pinned notes")
+    fun createProgramPreservesPinnedNotes() {
+        val state =
+            CreateProgramUiState(
+                programId = "prog-pins",
+                programName = "Pinned",
+                days =
+                    listOf(
+                        dayUi(
+                            id = "w-a",
+                            name = "Day 1",
+                            position = 0,
+                            isRest = false,
+                            lifts =
+                                listOf(
+                                    editLift("wl-1", "bench-press", "Bench Press")
+                                        .copy(pinnedNote = "Elbows in"),
+                                ),
+                        ),
+                    ),
+            )
+        val saved = state.toDomainProgram(meta = null)
+        assertEquals("Elbows in", saved.workouts.single().workoutLifts.single().pinnedNote)
+    }
+
     private fun dayUi(
         id: String,
         name: String,

@@ -1,8 +1,10 @@
 package com.stratum.core.ui.component.workoutlog
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,6 +16,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.StratumEdgeToEdgeCard
@@ -41,6 +45,8 @@ fun StratumWorkoutLogLiftPanel(
     headerTrailing: (@Composable () -> Unit)? = null,
     onAddSet: (() -> Unit)? = null,
     addSetContentDescription: String? = null,
+    onWorkoutPinnedNoteClick: (() -> Unit)? = null,
+    onLiftPinnedNoteClick: (() -> Unit)? = null,
 ) {
     val showTrailingColumn = lift.sets.any { it.showCheckbox }
 
@@ -60,6 +66,13 @@ fun StratumWorkoutLogLiftPanel(
             )
             headerTrailing?.invoke()
         }
+
+        PinnedLiftNotesSlot(
+            workoutNote = lift.workoutPinnedNote,
+            liftNote = lift.liftPinnedNote,
+            onWorkoutNoteClick = onWorkoutPinnedNoteClick,
+            onLiftNoteClick = onLiftPinnedNoteClick,
+        )
 
         lift.supersetGroupId?.let { groupId ->
             SupersetGroupChip(
@@ -103,6 +116,82 @@ fun StratumWorkoutLogLiftPanel(
                 showTrailingColumn = showTrailingColumn,
                 onAddSet = onAddSet,
                 contentDescription = addSetContentDescription ?: "Add set",
+            )
+        }
+    }
+}
+
+@Composable
+private fun PinnedLiftNotesSlot(
+    workoutNote: String?,
+    liftNote: String?,
+    onWorkoutNoteClick: (() -> Unit)?,
+    onLiftNoteClick: (() -> Unit)?,
+) {
+    val workout = workoutNote?.trim().orEmpty()
+    val catalog = liftNote?.trim().orEmpty()
+    if (workout.isEmpty() && catalog.isEmpty()) return
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = WorkoutLogHeaderHorizontalPadding)
+                .padding(top = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        if (workout.isNotEmpty()) {
+            PinnedLiftNoteRow(
+                caption = stringResource(CoreUiR.string.lift_notes_scope_workout),
+                body = workout,
+                onClick = onWorkoutNoteClick,
+            )
+        }
+        if (catalog.isNotEmpty()) {
+            PinnedLiftNoteRow(
+                caption = stringResource(CoreUiR.string.lift_notes_scope_lift),
+                body = catalog,
+                onClick = onLiftNoteClick,
+            )
+        }
+    }
+}
+
+@Composable
+private fun PinnedLiftNoteRow(
+    caption: String,
+    body: String,
+    onClick: (() -> Unit)?,
+) {
+    val rowModifier =
+        if (onClick != null) {
+            Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+        } else {
+            Modifier.fillMaxWidth()
+        }
+    Row(
+        modifier = rowModifier.padding(vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(
+            painter = painterResource(CoreUiR.drawable.ic_push_pin),
+            contentDescription = null,
+            tint = StratumThemeAccessor.colors.textMuted,
+            modifier = Modifier.size(14.dp),
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            StratumText(
+                text = caption,
+                style = StratumThemeAccessor.typography.sectionLabel,
+                muted = true,
+            )
+            StratumText(
+                text = body,
+                style = StratumThemeAccessor.typography.bodyLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }

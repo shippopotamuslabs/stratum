@@ -42,6 +42,7 @@ class SyncHandlerRegistryTest {
                 workoutLiftDao = db.workoutLiftDao(),
                 liftSetDao = db.liftSetDao(),
                 sessionDao = db.trainingSessionDao(),
+                liftSessionNoteDao = db.liftSessionNoteDao(),
                 loggedSetDao = db.trainingLoggedSetDao(),
                 programChangeEventDao = db.programChangeEventDao(),
                 encoders = encoders,

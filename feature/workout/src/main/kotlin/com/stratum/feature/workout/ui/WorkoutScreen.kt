@@ -88,6 +88,7 @@ data class WorkoutScreenActions(
     val onSetRestSecondsForSlots: (Map<String, Int>) -> Unit = {},
     /** Change a set's type (Standard / Myo / Drop). Minis are blocked in the ViewModel. */
     val onSetSetKind: (slotKey: String, kind: WorkoutSetKind) -> Unit = { _, _ -> },
+    val liftNotes: WorkoutLiftNotesActions = WorkoutLiftNotesActions(),
 )
 
 @Composable
@@ -107,6 +108,8 @@ fun WorkoutScreen(
     var showRestSheet by remember { mutableStateOf(false) }
     var showDiscardDialog by remember { mutableStateOf(false) }
     var liftActionsLiftId by remember { mutableStateOf<String?>(null) }
+    var liftSheetMode by remember { mutableStateOf<LiftOptionsSheetMode>(LiftOptionsSheetMode.Options) }
+    var pastSessionNotesLiftId by remember { mutableStateOf<String?>(null) }
     var configureRestLiftId by remember { mutableStateOf<String?>(null) }
     var showRestConfigDiscardDialog by remember { mutableStateOf(false) }
     var supersetSheetLiftId by remember { mutableStateOf<String?>(null) }
@@ -304,7 +307,14 @@ fun WorkoutScreen(
                         onAddSet = actions.onAddSet,
                         onDeleteSet = actions.onDeleteSet,
                         onSetSetKind = actions.onSetSetKind,
-                        onShowLiftActions = { liftActionsLiftId = it },
+                        onShowLiftActions = {
+                            liftSheetMode = LiftOptionsSheetMode.Options
+                            liftActionsLiftId = it
+                        },
+                        onOpenManageNotes = { workoutLiftId, tab ->
+                            liftSheetMode = LiftOptionsSheetMode.ManageNotes(tab)
+                            liftActionsLiftId = workoutLiftId
+                        },
                         onAddLift = actions.onAddLift,
                         onDiscardClick = { showDiscardDialog = true },
                     ),
@@ -329,7 +339,17 @@ fun WorkoutScreen(
                 showDiscardDialog = showDiscardDialog,
                 onShowDiscardDialogChange = { showDiscardDialog = it },
                 liftActionsLiftId = liftActionsLiftId,
-                onLiftActionsLiftIdChange = { liftActionsLiftId = it },
+                onLiftActionsLiftIdChange = {
+                    liftActionsLiftId = it
+                    if (it == null) liftSheetMode = LiftOptionsSheetMode.Options
+                },
+                notes =
+                    LiftNotesSheetHostState(
+                        liftSheetMode = liftSheetMode,
+                        onLiftSheetModeChange = { liftSheetMode = it },
+                        pastSessionNotesLiftId = pastSessionNotesLiftId,
+                        onPastSessionNotesLiftIdChange = { pastSessionNotesLiftId = it },
+                    ),
                 configureRestLiftId = configureRestLiftId,
                 onConfigureRestLiftIdChange = { configureRestLiftId = it },
                 showRestConfigDiscardDialog = showRestConfigDiscardDialog,

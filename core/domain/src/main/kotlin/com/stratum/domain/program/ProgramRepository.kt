@@ -1,6 +1,7 @@
 package com.stratum.domain.program
 
 import com.stratum.domain.program.identity.ProgramId
+import com.stratum.domain.program.identity.WorkoutLiftId
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -49,6 +50,12 @@ interface ProgramRepository {
 
     /** Inactive user programs (excludes active and import-history). */
     fun observeLibraryPrograms(): Flow<List<Program>>
+
+    /**
+     * Targeted pin-note write for one template slot. Returns false when no `workout_lifts`
+     * row exists (overlay-added / ad-hoc slot — caller should persist on the overlay).
+     */
+    suspend fun setWorkoutLiftPinnedNote(id: WorkoutLiftId, note: String?): Boolean
 
     /**
      * @param cycleStartEpochDay when non-null, updates the cycle projection anchor (typically on

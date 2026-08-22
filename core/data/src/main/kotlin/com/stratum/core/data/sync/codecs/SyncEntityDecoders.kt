@@ -4,6 +4,7 @@ import com.stratum.core.data.db.EquipmentEntity
 import com.stratum.core.data.db.GymPreferenceEntity
 import com.stratum.core.data.db.IncrementTierEntity
 import com.stratum.core.data.db.LiftEntity
+import com.stratum.core.data.db.LiftSessionNoteEntity
 import com.stratum.core.data.db.LiftSetEntity
 import com.stratum.core.data.db.LoggedSetEntity
 import com.stratum.core.data.db.OnboardingProgressEntity
@@ -23,9 +24,11 @@ import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.MuscleLengthBias
+import com.stratum.domain.lift.sanitizeLiftNoteBody
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.IncrementTierId
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.lift.identity.LiftSessionNoteId
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.onboarding.LastTrainedBucket
 import com.stratum.domain.onboarding.MuscleGroup
@@ -167,6 +170,7 @@ class SyncEntityDecoders @Inject constructor() {
                 fatigueProfile = enumOrNull(data["fatigue_profile"]) ?: FatigueProfile.Low,
                 loadType = enumOrNull(data["load_type"]) ?: LoadType.Weighted,
                 defaultRestSeconds = (data["default_rest_seconds"] as? Number)?.toInt(),
+                pinnedNote = sanitizeLiftNoteBody(data["pinned_note"] as? String),
                 updatedAtEpochMillis = remoteUpdatedAt(data),
                 pendingSync = SyncFlags.CLEAN,
             )
@@ -236,6 +240,7 @@ class SyncEntityDecoders @Inject constructor() {
                 position = (data["position"] as? Number)?.toInt() ?: 0,
                 supersetGroupId = (data["superset_group_id"] as? String)?.let(::WorkoutSupersetGroupId),
                 useRestTimerBetweenLifts = data["use_rest_timer_between_lifts"] as? Boolean ?: false,
+                pinnedNote = sanitizeLiftNoteBody(data["pinned_note"] as? String),
                 updatedAtEpochMillis = remoteUpdatedAt(data),
                 pendingSync = SyncFlags.CLEAN,
             )
@@ -325,6 +330,19 @@ class SyncEntityDecoders @Inject constructor() {
                 newLiftId = (data["new_lift_id"] as? String)?.let(::LiftId),
                 workoutId = (data["workout_id"] as? String)?.let(::WorkoutId),
                 completedCycleNumber = (data["completed_cycle_number"] as? Number)?.toInt(),
+                updatedAtEpochMillis = remoteUpdatedAt(data),
+                pendingSync = SyncFlags.CLEAN,
+            )
+        }.getOrNull()
+
+    fun liftSessionNote(id: String, data: Map<String, Any?>): LiftSessionNoteEntity? =
+        runCatching {
+            LiftSessionNoteEntity(
+                id = LiftSessionNoteId(id),
+                sessionId = TrainingSessionId(data["session_id"] as? String ?: return null),
+                liftId = LiftId(data["lift_id"] as? String ?: return null),
+                workoutLiftId = WorkoutLiftId(data["workout_lift_id"] as? String ?: return null),
+                body = sanitizeLiftNoteBody(data["body"] as? String) ?: return null,
                 updatedAtEpochMillis = remoteUpdatedAt(data),
                 pendingSync = SyncFlags.CLEAN,
             )

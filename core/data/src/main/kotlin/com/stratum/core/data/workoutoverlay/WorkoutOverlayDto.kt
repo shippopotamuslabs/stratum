@@ -185,6 +185,12 @@ data class OverlayAddedLiftDto(
     val useRestTimerBetweenLifts: Boolean = false,
 )
 
+@Serializable
+data class WorkoutLiftPinnedNoteEntryDto(
+    val workoutLiftId: String,
+    val body: String,
+)
+
 /**
  * DTO mirror of [com.stratum.domain.workout.WorkoutOverlay].
  * All collection-typed domain fields become entry lists / nullable lists.
@@ -205,6 +211,7 @@ data class WorkoutOverlayDto(
     val restSecondsOverrides: List<RestSecondsOverrideEntryDto> = emptyList(),
     val slotShapeOverrides: List<SlotShapeOverrideEntryDto> = emptyList(),
     val orderedLiftIds: List<String>? = null,
+    val workoutLiftPinnedNotes: List<WorkoutLiftPinnedNoteEntryDto> = emptyList(),
 )
 
 /** Entry list element for [WorkoutOverlayDto.recommendations]. */

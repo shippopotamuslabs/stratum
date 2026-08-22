@@ -11,6 +11,8 @@ data class WorkoutLogLiftUi(
     val showWeightColumn: Boolean = true,
     val weightHeaderLabel: String = "Weight",
     val supersetGroupId: String? = null,
+    val workoutPinnedNote: String? = null,
+    val liftPinnedNote: String? = null,
     val isPlateLoaded: Boolean = false,
     val isDoubleSided: Boolean = true,
     val unitLabel: String = "lb",

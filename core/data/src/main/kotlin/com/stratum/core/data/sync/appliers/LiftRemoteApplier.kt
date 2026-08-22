@@ -32,6 +32,7 @@ class LiftRemoteApplier @Inject constructor(
                 "enabled" to entity.enabled,
                 "default_rest_seconds" to entity.defaultRestSeconds,
                 "equipment_id" to entity.equipmentId?.value,
+                "pinned_note" to entity.pinnedNote.orEmpty(),
             )
         }
 
@@ -103,10 +104,17 @@ class LiftRemoteApplier @Inject constructor(
             } else {
                 existing.equipmentId
             }
+        val pinnedNote =
+            if (data.containsKey("pinned_note")) {
+                com.stratum.domain.lift.sanitizeLiftNoteBody(data["pinned_note"] as? String)
+            } else {
+                existing.pinnedNote
+            }
         return existing.copy(
             enabled = enabled,
             defaultRestSeconds = rest,
             equipmentId = equipmentId,
+            pinnedNote = pinnedNote,
             updatedAtEpochMillis =
                 (data[FirestoreSyncMetadata.UPDATED_AT] as? Number)?.toLong()
                     ?: existing.updatedAtEpochMillis,

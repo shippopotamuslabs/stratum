@@ -3,6 +3,7 @@ package com.stratum.core.testing.program
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.ProgramRepository
 import com.stratum.domain.program.identity.ProgramId
+import com.stratum.domain.program.identity.WorkoutLiftId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
@@ -76,6 +77,26 @@ class FakeProgramRepository(
             "Import-history program cannot be deleted"
         }
         programs.value = programs.value - programId.value
+    }
+
+    override suspend fun setWorkoutLiftPinnedNote(id: WorkoutLiftId, note: String?): Boolean {
+        var found = false
+        val next = programs.value.mapValues { (_, program) ->
+            val workouts = program.workouts.map { workout ->
+                val lifts = workout.workoutLifts.map { lift ->
+                    if (lift.id == id) {
+                        found = true
+                        lift.copy(pinnedNote = note)
+                    } else {
+                        lift
+                    }
+                }
+                workout.copy(workoutLifts = lifts)
+            }
+            program.copy(workouts = workouts)
+        }
+        if (found) programs.value = next
+        return found
     }
 
     override suspend fun updateCyclePointer(

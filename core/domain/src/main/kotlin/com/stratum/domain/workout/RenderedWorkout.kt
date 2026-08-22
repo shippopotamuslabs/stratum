@@ -53,6 +53,8 @@ data class RenderedWorkoutLift(
     val useRestTimerBetweenLifts: Boolean = false,
     val isPlateLoaded: Boolean = false,
     val isDoubleSided: Boolean = true,
+    val workoutPinnedNote: String? = null,
+    val liftPinnedNote: String? = null,
 )
 
 /** The fully merged rendered workout (D1). Pure output of `MergeRenderedWorkoutUseCase`. */

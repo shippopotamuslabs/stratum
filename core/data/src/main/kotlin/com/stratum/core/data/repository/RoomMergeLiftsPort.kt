@@ -2,6 +2,7 @@ package com.stratum.core.data.repository
 
 import androidx.room.withTransaction
 import com.stratum.core.data.db.LiftDao
+import com.stratum.core.data.db.LiftSessionNoteDao
 import com.stratum.core.data.db.StratumDatabase
 import com.stratum.core.data.db.TrainingLoggedSetDao
 import com.stratum.core.data.db.WorkoutLiftDao
@@ -23,6 +24,7 @@ class RoomMergeLiftsPort @Inject constructor(
     private val loggedSetDao: TrainingLoggedSetDao,
     private val workoutLiftDao: WorkoutLiftDao,
     private val liftDao: LiftDao,
+    private val liftSessionNoteDao: LiftSessionNoteDao,
     private val syncTouch: SyncTouch,
 ) : MergeLiftsPort {
 
@@ -50,6 +52,12 @@ class RoomMergeLiftsPort @Inject constructor(
                 )
 
                 workoutLiftDao.repointLiftIds(
+                    sourceLiftIds = sourceList,
+                    targetLiftId = targetLiftId,
+                    updatedAtEpochMillis = now,
+                )
+
+                liftSessionNoteDao.remapLiftIds(
                     sourceLiftIds = sourceList,
                     targetLiftId = targetLiftId,
                     updatedAtEpochMillis = now,

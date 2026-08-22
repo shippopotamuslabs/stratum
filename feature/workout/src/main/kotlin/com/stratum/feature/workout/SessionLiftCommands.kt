@@ -223,6 +223,21 @@ internal suspend fun LiveWorkoutSessionRuntime.handleSetRestSecondsForSlots(cmd:
     flushOverlay()
 }
 
+internal suspend fun LiveWorkoutSessionRuntime.handleSetWorkoutLiftPinnedNote(
+    cmd: SessionCommand.SetWorkoutLiftPinnedNote,
+) {
+    val sanitized = com.stratum.domain.lift.sanitizeLiftNoteBody(cmd.body)
+    val nextNotes =
+        if (sanitized == null) {
+            overlay.workoutLiftPinnedNotes - cmd.workoutLiftId
+        } else {
+            overlay.workoutLiftPinnedNotes + (cmd.workoutLiftId to sanitized)
+        }
+    commitOverlay(overlay.copy(workoutLiftPinnedNotes = nextNotes))
+    render()
+    flushOverlay()
+}
+
 internal fun LiveWorkoutSessionRuntime.getLinkableLifts(): List<SupersetLinkableLiftState> {
     val currentRendered = merge()
     return currentRendered.lifts.map { lift ->

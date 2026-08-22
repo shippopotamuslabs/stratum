@@ -23,6 +23,7 @@ enum class SyncCollection(
     WorkoutLifts("workout_lifts"),
     LiftSets("lift_sets"),
     TrainingSessions("training_sessions"),
+    LiftSessionNotes("lift_session_notes"),
     LoggedSets("logged_sets"),
     ProgramChangeEvents("program_change_events"),
     ;
@@ -40,6 +41,7 @@ enum class SyncCollection(
                 WorkoutLifts -> listOf(Workouts, Lifts)
                 LiftSets -> listOf(WorkoutLifts)
                 LoggedSets -> listOf(TrainingSessions)
+                LiftSessionNotes -> listOf(TrainingSessions)
                 ProgramChangeEvents -> listOf(Programs)
                 UserProfile,
                 OnboardingProgress,

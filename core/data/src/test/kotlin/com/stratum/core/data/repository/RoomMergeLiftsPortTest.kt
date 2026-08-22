@@ -2,6 +2,7 @@ package com.stratum.core.data.repository
 
 import androidx.room.Room
 import com.stratum.core.data.db.LiftEntity
+import com.stratum.core.data.db.LiftSessionNoteEntity
 import com.stratum.core.data.db.LiftSetEntity
 import com.stratum.core.data.db.LoggedSetEntity
 import com.stratum.core.data.db.ProgramEntity
@@ -9,6 +10,7 @@ import com.stratum.core.data.db.StratumDatabase
 import com.stratum.core.data.db.TrainingSessionEntity
 import com.stratum.core.data.db.WorkoutEntity
 import com.stratum.core.data.db.WorkoutLiftEntity
+import com.stratum.domain.lift.identity.LiftSessionNoteId
 import com.stratum.core.data.sync.SyncCollection
 import com.stratum.core.data.sync.SyncFlags
 import com.stratum.domain.importing.identity.LoggedSetId
@@ -66,6 +68,7 @@ class RoomMergeLiftsPortTest {
                 loggedSetDao = database.trainingLoggedSetDao(),
                 workoutLiftDao = database.workoutLiftDao(),
                 liftDao = database.liftDao(),
+                liftSessionNoteDao = database.liftSessionNoteDao(),
                 syncTouch = syncTouch,
             )
     }
@@ -81,6 +84,15 @@ class RoomMergeLiftsPortTest {
         seedLifts()
         seedSessionAndSets()
         seedProgramWithSourceAndTarget()
+        database.liftSessionNoteDao().upsert(
+            LiftSessionNoteEntity(
+                id = LiftSessionNoteId("n-source"),
+                sessionId = TrainingSessionId("ts-1"),
+                liftId = seedSourceId,
+                workoutLiftId = WorkoutLiftId("wl-source"),
+                body = "cue from source",
+            ),
+        )
 
         subject.applyMerge(
             targetLiftId = targetId,
@@ -116,6 +128,14 @@ class RoomMergeLiftsPortTest {
                     it.entityId == customSourceId.value
             },
         )
+
+        val remappedNote =
+            database.liftSessionNoteDao().getBySessionAndWorkoutLift(
+                TrainingSessionId("ts-1"),
+                WorkoutLiftId("wl-source"),
+            )
+        assertEquals(targetId, remappedNote?.liftId)
+        assertEquals("cue from source", remappedNote?.body)
     }
 
     @Test
