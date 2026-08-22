@@ -55,31 +55,22 @@ fun StratumSetLogKeyboardContent(
     actions: SetLogKeyboardPadActions,
     modifier: Modifier = Modifier,
 ) {
-    val isPrimaryCheck = state.canComplete
     val primaryIcon =
-        when {
-            isPrimaryCheck -> SetLogKeyboardPrimaryIcon.Check
-            state.activeField == SetLogKeyboardField.Weight -> SetLogKeyboardPrimaryIcon.NextReps
-            else -> SetLogKeyboardPrimaryIcon.PrevWeight
-        }
+        setLogKeyboardPrimaryIcon(canComplete = state.canComplete)
     val primaryDescription =
         when (primaryIcon) {
             SetLogKeyboardPrimaryIcon.Check ->
                 stringResource(CoreUiR.string.set_log_keyboard_action_complete)
-            SetLogKeyboardPrimaryIcon.NextReps ->
-                stringResource(CoreUiR.string.set_log_keyboard_action_next_reps)
-            SetLogKeyboardPrimaryIcon.PrevWeight ->
-                stringResource(CoreUiR.string.set_log_keyboard_action_prev_weight)
+            SetLogKeyboardPrimaryIcon.NextReps,
+            SetLogKeyboardPrimaryIcon.PrevWeight,
+            null,
+            -> null
         }
     val elevatedNavIcon =
-        if (isPrimaryCheck && state.showWeightInput) {
-            when (state.activeField) {
-                SetLogKeyboardField.Weight -> SetLogKeyboardPrimaryIcon.NextReps
-                SetLogKeyboardField.Reps -> SetLogKeyboardPrimaryIcon.PrevWeight
-            }
-        } else {
-            null
-        }
+        setLogKeyboardElevatedNavIcon(
+            active = state.activeField,
+            showWeightInput = state.showWeightInput,
+        )
     val elevatedDescription =
         when (elevatedNavIcon) {
             SetLogKeyboardPrimaryIcon.NextReps ->
@@ -113,10 +104,13 @@ fun StratumSetLogKeyboardContent(
             onBackspace = actions.onBackspace,
             onDismiss = actions.onDismiss,
             primaryContentDescription = primaryDescription,
-            onPrimaryAction = actions.onPrimaryAction,
-            primaryContent = {
-                SetLogKeyboardNavIcon(icon = primaryIcon)
-            },
+            onPrimaryAction = if (primaryIcon != null) actions.onPrimaryAction else null,
+            primaryContent =
+                if (primaryIcon != null) {
+                    { SetLogKeyboardNavIcon(icon = primaryIcon) }
+                } else {
+                    null
+                },
             elevatedActionKey =
                 if (elevatedNavIcon != null && actions.onElevatedNavAction != null && elevatedDescription != null) {
                     NumericPadActionKey(

@@ -432,83 +432,19 @@ class SetLogKeyboardLogicTest {
         fun canCompleteCheck() {
             assertEquals(
                 SetLogKeyboardPrimaryIcon.Check,
-                setLogKeyboardPrimaryIcon(
-                    active = SetLogKeyboardField.Weight,
-                    canComplete = true,
-                    showWeightInput = true,
-                ),
-            )
-            assertEquals(
-                SetLogKeyboardPrimaryIcon.Check,
-                setLogKeyboardPrimaryIcon(
-                    active = SetLogKeyboardField.Reps,
-                    canComplete = true,
-                    showWeightInput = true,
-                ),
+                setLogKeyboardPrimaryIcon(canComplete = true),
             )
             assertEquals(
                 SetLogKeyboardAction.Complete,
-                resolveSetLogKeyboardAction(
-                    active = SetLogKeyboardField.Reps,
-                    canComplete = true,
-                    showWeightInput = true,
-                ),
+                resolveSetLogKeyboardAction(canComplete = true),
             )
         }
 
         @Test
-        @DisplayName("cannot complete on weight navigates to reps")
-        fun weightNext() {
-            assertEquals(
-                SetLogKeyboardPrimaryIcon.NextReps,
-                setLogKeyboardPrimaryIcon(
-                    active = SetLogKeyboardField.Weight,
-                    canComplete = false,
-                    showWeightInput = true,
-                ),
-            )
-            assertEquals(
-                SetLogKeyboardAction.FocusReps,
-                resolveSetLogKeyboardAction(
-                    active = SetLogKeyboardField.Weight,
-                    canComplete = false,
-                    showWeightInput = true,
-                ),
-            )
-        }
-
-        @Test
-        @DisplayName("cannot complete on reps navigates to weight")
-        fun repsPrev() {
-            assertEquals(
-                SetLogKeyboardPrimaryIcon.PrevWeight,
-                setLogKeyboardPrimaryIcon(
-                    active = SetLogKeyboardField.Reps,
-                    canComplete = false,
-                    showWeightInput = true,
-                ),
-            )
-            assertEquals(
-                SetLogKeyboardAction.FocusWeight,
-                resolveSetLogKeyboardAction(
-                    active = SetLogKeyboardField.Reps,
-                    canComplete = false,
-                    showWeightInput = true,
-                ),
-            )
-        }
-
-        @Test
-        @DisplayName("check without canComplete dismisses")
-        fun checkDismiss() {
-            assertEquals(
-                SetLogKeyboardAction.Dismiss,
-                resolveSetLogKeyboardAction(
-                    active = SetLogKeyboardField.Reps,
-                    canComplete = false,
-                    showWeightInput = false,
-                ),
-            )
+        @DisplayName("cannot complete hides primary (no nav substitute in the check slot)")
+        fun cannotCompleteHidesPrimary() {
+            assertEquals(null, setLogKeyboardPrimaryIcon(canComplete = false))
+            assertEquals(null, resolveSetLogKeyboardAction(canComplete = false))
         }
     }
 
@@ -516,13 +452,12 @@ class SetLogKeyboardLogicTest {
     @DisplayName("elevated nav icon")
     inner class ElevatedNav {
         @Test
-        @DisplayName("when check is primary and weight input shown, elevates field chevron")
-        fun elevatesWhenCheckWithWeight() {
+        @DisplayName("when weight input shown, elevates field chevron even without check")
+        fun elevatesWhenWeightInputShown() {
             assertEquals(
                 SetLogKeyboardPrimaryIcon.NextReps,
                 setLogKeyboardElevatedNavIcon(
                     active = SetLogKeyboardField.Weight,
-                    canComplete = true,
                     showWeightInput = true,
                 ),
             )
@@ -530,7 +465,6 @@ class SetLogKeyboardLogicTest {
                 SetLogKeyboardPrimaryIcon.PrevWeight,
                 setLogKeyboardElevatedNavIcon(
                     active = SetLogKeyboardField.Reps,
-                    canComplete = true,
                     showWeightInput = true,
                 ),
             )
@@ -538,7 +472,6 @@ class SetLogKeyboardLogicTest {
                 SetLogKeyboardAction.FocusReps,
                 resolveSetLogKeyboardElevatedNavAction(
                     active = SetLogKeyboardField.Weight,
-                    canComplete = true,
                     showWeightInput = true,
                 ),
             )
@@ -546,28 +479,6 @@ class SetLogKeyboardLogicTest {
                 SetLogKeyboardAction.FocusWeight,
                 resolveSetLogKeyboardElevatedNavAction(
                     active = SetLogKeyboardField.Reps,
-                    canComplete = true,
-                    showWeightInput = true,
-                ),
-            )
-        }
-
-        @Test
-        @DisplayName("null when primary is already a nav chevron (no duplicate)")
-        fun nullWhenPrimaryIsNav() {
-            assertEquals(
-                null,
-                setLogKeyboardElevatedNavIcon(
-                    active = SetLogKeyboardField.Weight,
-                    canComplete = false,
-                    showWeightInput = true,
-                ),
-            )
-            assertEquals(
-                null,
-                setLogKeyboardElevatedNavIcon(
-                    active = SetLogKeyboardField.Reps,
-                    canComplete = false,
                     showWeightInput = true,
                 ),
             )
@@ -580,15 +491,13 @@ class SetLogKeyboardLogicTest {
                 null,
                 setLogKeyboardElevatedNavIcon(
                     active = SetLogKeyboardField.Reps,
-                    canComplete = true,
                     showWeightInput = false,
                 ),
             )
             assertEquals(
                 null,
-                setLogKeyboardElevatedNavIcon(
+                resolveSetLogKeyboardElevatedNavAction(
                     active = SetLogKeyboardField.Reps,
-                    canComplete = false,
                     showWeightInput = false,
                 ),
             )

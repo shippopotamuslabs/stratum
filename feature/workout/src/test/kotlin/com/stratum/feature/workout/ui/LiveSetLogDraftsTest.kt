@@ -278,6 +278,29 @@ class LiveSetLogDraftsTest {
                 )
             assertFalse(logLift.sets.single().canComplete)
         }
+
+        @Test
+        @DisplayName("bodyweight canComplete with reps rec and no weight text")
+        fun bodyweightCanCompleteWithoutWeight() {
+            val source =
+                set(
+                    "s1",
+                    recommendedWeight = 0.0,
+                    recommendedReps = 10,
+                    recommendedWeightLabel = "",
+                    recommendedRepsLabel = "10",
+                    showWeightInput = false,
+                )
+            val logLift =
+                mergeLiveLogLift(
+                    lift(source).copy(showWeightColumn = false, weightHeaderLabel = ""),
+                    mapOf("s1" to SetFieldDraft(weightText = "", repsText = "", rir = 2)),
+                )
+            val row = logLift.sets.single()
+            assertFalse(logLift.showWeightColumn)
+            assertFalse(row.showWeightInput)
+            assertTrue(row.canComplete)
+        }
     }
 
     @Nested
