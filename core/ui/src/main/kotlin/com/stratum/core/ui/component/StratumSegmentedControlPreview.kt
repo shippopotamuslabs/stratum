@@ -40,6 +40,7 @@ private fun SegmentedControlPreviewGrid(family: StratumThemeId) {
                 selectedIndex = 1,
                 onSelectedIndexChange = {},
                 leadingIconRes = listOf(null, R.drawable.ic_push_pin, R.drawable.ic_push_pin),
+                modified = listOf(true, false, true),
             )
             StratumText(
                 text = "Multi-select (weekdays)",

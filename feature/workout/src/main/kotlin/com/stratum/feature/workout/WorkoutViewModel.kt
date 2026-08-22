@@ -460,13 +460,13 @@ class WorkoutViewModel @Inject constructor(
                         workoutLiftId = WorkoutLiftId(request.workoutLiftId),
                         liftId = LiftId(request.liftId),
                         sessionNote =
-                            request.sessionDraft.takeIf { it != request.loadedSession }
+                            request.sessionDraft.takeIf { request.sessionModified }
                                 ?.let(::OptionalNoteEdit),
                         workoutNote =
-                            request.workoutDraft.takeIf { it != request.loadedWorkout }
+                            request.workoutDraft.takeIf { request.workoutModified }
                                 ?.let(::OptionalNoteEdit),
                         liftNote =
-                            request.liftDraft.takeIf { it != request.loadedLift }
+                            request.liftDraft.takeIf { request.liftModified }
                                 ?.let(::OptionalNoteEdit),
                     ),
                 ).getOrElse {
