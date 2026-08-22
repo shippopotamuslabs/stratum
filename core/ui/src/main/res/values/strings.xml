@@ -3,6 +3,7 @@
     <!-- Brand & Share -->
     <string name="stratum_brand_cd">Stratum</string>
     <string name="stratum_text_field_clear_cd">Clear</string>
+    <string name="stratum_segment_modified">modified</string>
     <string name="share_chooser_title">Share</string>
     <string name="workout_share_title">Workout Completed</string>
     <string name="workout_share_duration">Duration</string>

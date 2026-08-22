@@ -79,10 +79,17 @@ internal fun ManageLiftNotesContent(
             stringResource(CoreUiR.string.lift_notes_tab_lift),
         )
     val pin = CoreUiR.drawable.ic_push_pin
-    val dirty =
-        sessionDraft != loadedSession ||
-            workoutDraft != loadedWorkout ||
-            liftDraft != loadedLiftNote
+    val notes =
+        LiftNotesSaveRequest(
+            workoutLiftId = lift.workoutLiftId,
+            liftId = lift.liftId,
+            sessionDraft = sessionDraft,
+            workoutDraft = workoutDraft,
+            liftDraft = liftDraft,
+            loadedSession = loadedSession,
+            loadedWorkout = loadedWorkout,
+            loadedLift = loadedLiftNote,
+        )
 
     Column(
         modifier =
@@ -110,6 +117,7 @@ internal fun ManageLiftNotesContent(
                 selectedTab = LiftNoteTab.entries[index]
             },
             leadingIconRes = listOf(null, pin, pin),
+            modified = notes.tabModified,
         )
         val (draft, onDraftChange, caption) =
             when (selectedTab) {
@@ -148,21 +156,8 @@ internal fun ManageLiftNotesContent(
         )
         StratumButton(
             text = stringResource(CoreUiR.string.lift_notes_save),
-            enabled = dirty,
-            onClick = {
-                onSave(
-                    LiftNotesSaveRequest(
-                        workoutLiftId = lift.workoutLiftId,
-                        liftId = lift.liftId,
-                        sessionDraft = sessionDraft,
-                        workoutDraft = workoutDraft,
-                        liftDraft = liftDraft,
-                        loadedSession = loadedSession,
-                        loadedWorkout = loadedWorkout,
-                        loadedLift = loadedLiftNote,
-                    ),
-                )
-            },
+            enabled = notes.isDirty,
+            onClick = { onSave(notes) },
             modifier = Modifier.fillMaxWidth(),
         )
     }

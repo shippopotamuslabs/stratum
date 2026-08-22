@@ -84,7 +84,16 @@ data class LiftNotesSaveRequest(
     val loadedSession: String,
     val loadedWorkout: String,
     val loadedLift: String,
-)
+) {
+    val sessionModified: Boolean get() = sessionDraft != loadedSession
+    val workoutModified: Boolean get() = workoutDraft != loadedWorkout
+    val liftModified: Boolean get() = liftDraft != loadedLift
+    val isDirty: Boolean get() = sessionModified || workoutModified || liftModified
+
+    /** Session, Workout, Lift — same order as the Manage Notes tabs. */
+    val tabModified: List<Boolean>
+        get() = listOf(sessionModified, workoutModified, liftModified)
+}
 
 data class WorkoutLiftNotesActions(
     val onLoadSessionNote: suspend (workoutLiftId: String) -> String = { "" },
