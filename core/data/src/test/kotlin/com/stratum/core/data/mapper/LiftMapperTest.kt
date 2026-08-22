@@ -263,4 +263,24 @@ class LiftMapperTest {
         )
         assertEquals(LoadType.Weighted, lift.toEntity().loadType)
     }
+
+    @Test
+    @DisplayName("Given a pinned note when mapped to entity and back then pinnedNote round-trips")
+    fun roundTripsPinnedNote() {
+        val lift = Lift(
+            id = LiftId("squat"),
+            name = "Squat",
+            movementPatterns = setOf(MovementPattern.SquatPattern),
+            primaryMuscles = setOf(MuscleGroup.Quad),
+            secondaryMuscles = emptySet(),
+            incrementTiers = emptyList(),
+            presetTags = emptySet(),
+            enabled = true,
+            pinnedNote = "Belt on working sets",
+        )
+        val entity = lift.toEntity()
+        assertEquals("Belt on working sets", entity.pinnedNote)
+        val back = LiftWithTiers(entity, emptyList()).toDomain()
+        assertEquals("Belt on working sets", back.pinnedNote)
+    }
 }

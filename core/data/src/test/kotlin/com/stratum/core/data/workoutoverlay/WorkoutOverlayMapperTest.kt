@@ -113,6 +113,7 @@ class WorkoutOverlayMapperTest {
                 ),
             ),
             orderedLiftIds = listOf("wl-1", "wl-2"),
+            workoutLiftPinnedNotes = mapOf(workoutLiftId to "Keep elbows tucked"),
         )
 
         val restored = overlay.toDto().toDomain()

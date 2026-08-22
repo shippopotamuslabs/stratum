@@ -62,12 +62,47 @@ data class RenderedLiftUi(
      * **exits** so the rest timer is not stuck on the short mini-rest value.
      */
     val defaultRestSeconds: Int = 120,
+    val workoutPinnedNote: String? = null,
+    val liftPinnedNote: String? = null,
     val isPlateLoaded: Boolean = false,
     val isDoubleSided: Boolean = true,
     val unitLabel: String = "lb",
 ) : SupersetLinkableLift {
     override val name: String get() = liftName
 }
+
+data class PastSessionNoteUi(
+    val dateLabel: String,
+    val workoutName: String,
+    val body: String,
+)
+
+/** Dirty-tab payload from Manage Notes → [com.stratum.feature.workout.WorkoutViewModel.saveLiftNotes]. */
+data class LiftNotesSaveRequest(
+    val workoutLiftId: String,
+    val liftId: String,
+    val sessionDraft: String,
+    val workoutDraft: String,
+    val liftDraft: String,
+    val loadedSession: String,
+    val loadedWorkout: String,
+    val loadedLift: String,
+) {
+    val sessionModified: Boolean get() = sessionDraft != loadedSession
+    val workoutModified: Boolean get() = workoutDraft != loadedWorkout
+    val liftModified: Boolean get() = liftDraft != loadedLift
+    val isDirty: Boolean get() = sessionModified || workoutModified || liftModified
+
+    /** Session, Workout, Lift — same order as the Manage Notes tabs. */
+    val tabModified: List<Boolean>
+        get() = listOf(sessionModified, workoutModified, liftModified)
+}
+
+data class WorkoutLiftNotesActions(
+    val onLoadSessionNote: suspend (workoutLiftId: String) -> String = { "" },
+    val onSave: (LiftNotesSaveRequest) -> Unit = {},
+    val onLoadPastNotes: suspend (liftId: String) -> List<PastSessionNoteUi> = { emptyList() },
+)
 
 /**
  * Presentation set type for the live workout set-type chip (S / M / MM / D).

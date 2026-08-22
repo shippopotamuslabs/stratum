@@ -2,6 +2,8 @@
 <resources>
     <!-- Brand & Share -->
     <string name="stratum_brand_cd">Stratum</string>
+    <string name="stratum_text_field_clear_cd">Clear</string>
+    <string name="stratum_segment_modified">modified</string>
     <string name="share_chooser_title">Share</string>
     <string name="workout_share_title">Workout Completed</string>
     <string name="workout_share_duration">Duration</string>
@@ -306,6 +308,23 @@
     <string name="import_program_timeline_convert">Convert</string>
     <string name="import_program_timeline_match">Match lifts</string>
     <string name="import_program_timeline_done">Save to library</string>
+
+    <!-- Lift notes (live workout) -->
+    <string name="lift_notes_manage">Manage Notes</string>
+    <string name="lift_notes_view_past">View Past Session Notes</string>
+    <string name="lift_notes_tab_session">Session</string>
+    <string name="lift_notes_tab_workout">Workout</string>
+    <string name="lift_notes_tab_lift">Lift</string>
+    <string name="lift_notes_field_label">Note</string>
+    <string name="lift_notes_close_cd">Discard notes</string>
+    <string name="lift_notes_save">Save</string>
+    <string name="lift_notes_caption_session">Note will be saved to this session\'s history and not pinned to the lift</string>
+    <string name="lift_notes_caption_workout">Note will be pinned to this lift within this workout</string>
+    <string name="lift_notes_caption_lift">Note will be pinned to this lift across all workouts and programs</string>
+    <string name="lift_notes_scope_workout">Workout</string>
+    <string name="lift_notes_scope_lift">Lift</string>
+    <string name="lift_notes_past_title">Past Session Notes</string>
+    <string name="lift_notes_past_empty">No past session notes for this lift</string>
 
     <!-- Custom Set Log Keyboard -->
     <string name="set_log_keyboard_action_complete">Complete set</string>

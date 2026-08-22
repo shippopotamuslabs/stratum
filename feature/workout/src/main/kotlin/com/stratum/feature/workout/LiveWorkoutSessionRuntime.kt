@@ -12,6 +12,7 @@ import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.resolvedDefaultRestSeconds
 import com.stratum.domain.lift.storageWeightFromDisplay
+import com.stratum.domain.program.GetProgramByIdUseCase
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.SaveWorkoutUseCase
@@ -52,6 +53,8 @@ import com.stratum.domain.workout.StructuralMutation
 import com.stratum.domain.workout.WorkoutOverlay
 import com.stratum.domain.workout.WorkoutStructureProjection
 import com.stratum.domain.workout.intensifier.RestDefaultForTransition
+import com.stratum.domain.workout.resolvedLiftPinnedNote
+import com.stratum.domain.workout.resolvedWorkoutPinnedNote
 import com.stratum.feature.workout.ui.WorkoutUiEvent
 import com.stratum.feature.workout.ui.WorkoutUiMapper
 import java.time.Instant
@@ -82,6 +85,7 @@ internal class LiveWorkoutSessionRuntime(
     val finalizeTrainingSession: FinalizeTrainingSessionUseCase,
     val applyOverlayToWorkout: ApplyOverlayToWorkoutUseCase,
     val saveWorkoutUseCase: SaveWorkoutUseCase,
+    val getProgramById: GetProgramByIdUseCase,
     val observeLiftTrainingInsights: ObserveLiftTrainingInsightsUseCase,
     val manageWorkoutOverlay: ManageWorkoutOverlayUseCase,
 ) {
@@ -248,6 +252,40 @@ internal class LiveWorkoutSessionRuntime(
                         "${set.myoRepKind?.name.orEmpty()}:${set.isTopSet}"
                 }
         }
+
+    /**
+     * Copies Room/catalog pins onto the current projection without rebuilding slots
+     * (pin edits must not recompute live recs).
+     */
+    internal fun applyPinnedNotesFromTemplate(workout: Workout) {
+        val current = structure ?: return
+        val pinsByWl = workout.workoutLifts.associate { lift -> lift.id to lift.pinnedNote }
+        structure =
+            current.copy(
+                lifts =
+                    current.lifts.map { lift ->
+                        val templateNote =
+                            if (pinsByWl.containsKey(lift.workoutLiftId)) {
+                                pinsByWl[lift.workoutLiftId]
+                            } else {
+                                lift.workoutPinnedNote
+                            }
+                        lift.copy(
+                            workoutPinnedNote =
+                                resolvedWorkoutPinnedNote(
+                                    overlay.workoutLiftPinnedNotes,
+                                    lift.workoutLiftId,
+                                    templateNote,
+                                ),
+                            liftPinnedNote =
+                                resolvedLiftPinnedNote(
+                                    liftsById[lift.liftId],
+                                    lift.liftPinnedNote,
+                                ),
+                        )
+                    },
+            )
+    }
 
     internal fun merge(): RenderedWorkout =
         LiveWorkoutOverlayOps.merge(

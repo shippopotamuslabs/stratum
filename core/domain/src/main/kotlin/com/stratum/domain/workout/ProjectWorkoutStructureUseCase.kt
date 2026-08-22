@@ -25,6 +25,7 @@ class ProjectWorkoutStructureUseCase @javax.inject.Inject constructor() {
         liftNames: Map<LiftId, String>,
         loadTypesById: Map<LiftId, LoadType> = emptyMap(),
         isCompoundById: Map<LiftId, Boolean> = emptyMap(),
+        liftPinnedNotesById: Map<LiftId, String?> = emptyMap(),
         isPlateLoadedById: Map<LiftId, Boolean> = emptyMap(),
         isDoubleSidedById: Map<LiftId, Boolean> = emptyMap(),
     ): WorkoutStructureProjection {
@@ -38,6 +39,8 @@ class ProjectWorkoutStructureUseCase @javax.inject.Inject constructor() {
                 supersetGroupId = workoutLift.supersetGroupId,
                 loadType = loadTypesById[workoutLift.liftId] ?: LoadType.Weighted,
                 useRestTimerBetweenLifts = workoutLift.useRestTimerBetweenLifts,
+                workoutPinnedNote = workoutLift.pinnedNote,
+                liftPinnedNote = liftPinnedNotesById[workoutLift.liftId],
                 isPlateLoaded = isPlateLoadedById[workoutLift.liftId] ?: false,
                 isDoubleSided = isDoubleSidedById[workoutLift.liftId] ?: true,
                 slots = workoutLift.sets.map { liftSet ->

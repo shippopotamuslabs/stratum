@@ -57,6 +57,7 @@ internal data class WorkoutLiftListActions(
     val onDeleteSet: (slotKey: String) -> Unit,
     val onSetSetKind: (slotKey: String, kind: WorkoutSetKind) -> Unit = { _, _ -> },
     val onShowLiftActions: (workoutLiftId: String) -> Unit,
+    val onOpenManageNotes: (workoutLiftId: String, tab: LiftNoteTab) -> Unit = { _, _ -> },
     val onAddLift: () -> Unit,
     val onDiscardClick: () -> Unit,
 )
@@ -135,6 +136,9 @@ internal fun WorkoutLiftList(
                     onDeleteSet = actions.onDeleteSet,
                     onSetSetKind = actions.onSetSetKind,
                     onShowLiftActions = { actions.onShowLiftActions(lift.workoutLiftId) },
+                    onOpenManageNotes = { tab ->
+                        actions.onOpenManageNotes(lift.workoutLiftId, tab)
+                    },
                     failedLogSlotKey = failedLogSlotKey,
                     onFailedLogConsumed = onFailedLogConsumed,
                     displayUnitEpoch = displayUnitEpoch,
@@ -182,6 +186,7 @@ internal fun WorkoutLiftList(
  * Rest timer / autoscroll / complete sheet run after log success
  * (see [pendingSetLoggedSlotKey] on [WorkoutScreen]).
  */
+@Suppress("LongParameterList")
 @Composable
 internal fun LiveLiftSection(
     lift: RenderedLiftUi,
@@ -191,6 +196,7 @@ internal fun LiveLiftSection(
     onDeleteSet: (slotKey: String) -> Unit,
     onSetSetKind: (slotKey: String, kind: WorkoutSetKind) -> Unit = { _, _ -> },
     onShowLiftActions: () -> Unit,
+    onOpenManageNotes: (LiftNoteTab) -> Unit = {},
     modifier: Modifier = Modifier,
     allLifts: List<RenderedLiftUi> = emptyList(),
     failedLogSlotKey: String? = null,
@@ -264,6 +270,8 @@ internal fun LiveLiftSection(
                 )
             }
         },
+        onWorkoutPinnedNoteClick = { onOpenManageNotes(LiftNoteTab.Workout) },
+        onLiftPinnedNoteClick = { onOpenManageNotes(LiftNoteTab.Lift) },
         onAddSet = onAddSet,
         addSetContentDescription = addSetCd,
         setRowActions = { setUi ->

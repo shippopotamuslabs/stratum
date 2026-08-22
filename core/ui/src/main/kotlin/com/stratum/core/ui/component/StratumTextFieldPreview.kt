@@ -54,10 +54,16 @@ private fun TextFieldPreviewGrid(family: StratumThemeId) {
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             )
             StratumTextField(
-                value = "",
+                value = "Keep elbows tucked on the bench.",
                 onValueChange = {},
                 label = "Notes",
-                enabled = false,
+                singleLine = false,
+                options =
+                    StratumTextFieldOptions(
+                        minLines = 3,
+                        showClearButton = true,
+                        supportingText = "Note will be pinned to this lift within this workout",
+                    ),
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
             )
         }

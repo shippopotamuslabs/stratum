@@ -1,16 +1,21 @@
 package com.stratum.core.ui.component
 
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -20,6 +25,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -28,6 +35,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.stratum.core.ui.R
 import com.stratum.core.ui.theme.StratumColors
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
@@ -42,6 +50,9 @@ fun StratumSegmentedControl(
     selectedIndex: Int?,
     onSelectedIndexChange: (Int) -> Unit,
     enabled: Boolean = true,
+    leadingIconRes: List<Int?> = emptyList(),
+    /** When true at an index, a small dirty-dot trails that segment's label. */
+    modified: List<Boolean> = emptyList(),
 ) {
     require(segments.isNotEmpty()) { "StratumSegmentedControl requires at least one segment." }
     if (selectedIndex != null) {
@@ -55,13 +66,15 @@ fun StratumSegmentedControl(
     ) { segmentModifier ->
         segments.forEachIndexed { index, label ->
             val selected = index == selectedIndex
+            val isModified = modified.getOrNull(index) == true
             ConnectedSegmentCell(
                 label = label,
                 selected = selected,
                 enabled = enabled,
                 onClick = { onSelectedIndexChange(index) },
                 modifier = segmentModifier(index),
-                contentDescription = label + if (selected) ", selected" else "",
+                leadingIconRes = leadingIconRes.getOrNull(index),
+                modified = isModified,
             )
         }
     }
@@ -92,7 +105,6 @@ fun StratumToggleGroup(
                 enabled = enabled,
                 onClick = { onOptionToggle(label) },
                 modifier = segmentModifier(index),
-                contentDescription = label + if (selected) ", selected" else "",
             )
         }
     }
@@ -146,8 +158,9 @@ private fun ConnectedSegmentCell(
     selected: Boolean,
     enabled: Boolean,
     onClick: () -> Unit,
-    contentDescription: String,
     modifier: Modifier = Modifier,
+    @DrawableRes leadingIconRes: Int? = null,
+    modified: Boolean = false,
 ) {
     val colors = StratumThemeAccessor.colors
     val background = segmentBackground(selected = selected, enabled = enabled, colors = colors)
@@ -156,6 +169,16 @@ private fun ConnectedSegmentCell(
         selected -> colors.onAccent
         else -> colors.textPrimary
     }
+    val modifiedLabel = stringResource(R.string.stratum_segment_modified)
+    val tabDescription =
+        buildString {
+            append(label)
+            if (selected) append(", selected")
+            if (modified) {
+                append(", ")
+                append(modifiedLabel)
+            }
+        }
     val interactionSource = remember { MutableInteractionSource() }
 
     Box(
@@ -164,7 +187,7 @@ private fun ConnectedSegmentCell(
             .semantics {
                 role = Role.Tab
                 this.selected = selected
-                this.contentDescription = contentDescription
+                this.contentDescription = tabDescription
             }
             .clickable(
                 enabled = enabled,
@@ -174,14 +197,38 @@ private fun ConnectedSegmentCell(
             ),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            text = label,
-            style = StratumThemeAccessor.typography.bodyLarge,
-            color = labelColor,
-            textAlign = TextAlign.Center,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            if (leadingIconRes != null) {
+                Icon(
+                    painter = painterResource(leadingIconRes),
+                    contentDescription = null,
+                    tint = labelColor,
+                    modifier = Modifier.size(14.dp),
+                )
+            }
+            Text(
+                text = label,
+                style = StratumThemeAccessor.typography.bodyLarge,
+                color = labelColor,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (modified) {
+                Box(
+                    modifier =
+                        Modifier
+                            .size(ModifiedDotSize)
+                            .clip(CircleShape)
+                            .background(
+                                if (selected) colors.onAccent else colors.accent,
+                            ),
+                )
+            }
+        }
     }
 }
 
@@ -196,3 +243,4 @@ private fun segmentBackground(
 }
 
 private val MinSegmentHeight = 48.dp
+private val ModifiedDotSize = 6.dp

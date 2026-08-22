@@ -102,6 +102,7 @@ data class WorkoutLiftEntity(
     val position: Int,
     @ColumnInfo(name = "superset_group_id") val supersetGroupId: WorkoutSupersetGroupId? = null,
     @ColumnInfo(name = "use_rest_timer_between_lifts") val useRestTimerBetweenLifts: Boolean = false,
+    @ColumnInfo(name = "pinned_note") val pinnedNote: String? = null,
     @ColumnInfo(name = "updated_at_epoch_millis")
     val updatedAtEpochMillis: Long = 0L,
     @ColumnInfo(name = "pending_sync")

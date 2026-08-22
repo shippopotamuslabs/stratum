@@ -16,8 +16,12 @@ import com.stratum.core.testing.importing.FakeMuscleVolumeBaselineRepository
 import com.stratum.core.testing.importing.FakeSupersetAffinityRepository
 import com.stratum.core.testing.lift.FakeWeightDisplayPreferencesRepository
 import com.stratum.domain.importing.ExtractTrainingInsightsUseCase
+import com.stratum.domain.lift.GetPastSessionNotesForLiftUseCase
+import com.stratum.domain.lift.GetSessionLiftNoteUseCase
 import com.stratum.domain.lift.Lift
+import com.stratum.domain.lift.LiftSessionNote
 import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.lift.identity.LiftSessionNoteId
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
 import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.Weight
@@ -25,6 +29,7 @@ import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.Weekday
+import com.stratum.domain.program.GetProgramByIdUseCase
 import com.stratum.domain.program.LiftSet
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.ProgressionScheme
@@ -62,6 +67,7 @@ import com.stratum.domain.workout.SlotHistoryRequest
 import com.stratum.domain.workout.progression.DoubleProgressionEngine
 import com.stratum.domain.workout.progression.LinearProgressionDefaults
 import com.stratum.domain.workout.progression.LinearProgressionEngine
+import com.stratum.feature.workout.ui.LiftNotesSaveRequest
 import com.stratum.feature.workout.ui.WorkoutUiEvent
 import com.stratum.feature.workout.ui.WorkoutUiState
 import java.io.File
@@ -100,6 +106,7 @@ class WorkoutViewModelTest {
     private lateinit var progressionHistory: FakeProgressionHistoryRepository
     private lateinit var workoutEditSession: WorkoutEditSession
     private lateinit var overlayStore: FakeWorkoutOverlayStore
+    private lateinit var liftNotesRepository: com.stratum.core.testing.lift.FakeLiftNotesRepository
 
     @BeforeEach
     fun setUp() {
@@ -124,6 +131,7 @@ class WorkoutViewModelTest {
         progressionHistory = FakeProgressionHistoryRepository()
         workoutEditSession = WorkoutEditSession()
         overlayStore = FakeWorkoutOverlayStore()
+        liftNotesRepository = com.stratum.core.testing.lift.FakeLiftNotesRepository()
         seedHistoryForTopSet()
     }
 
@@ -382,6 +390,7 @@ class WorkoutViewModelTest {
             finalizeTrainingSession = finalizeTrainingSession(liftRepo = liftRepository),
             applyOverlayToWorkout = com.stratum.domain.workout.ApplyOverlayToWorkoutUseCase(),
             saveWorkoutUseCase = com.stratum.domain.program.SaveWorkoutUseCase(programRepository, NoOpProgramChangeEventRepository(), FakeLoggingPort()),
+            getProgramById = GetProgramByIdUseCase(programRepository),
             observeLiftTrainingInsights = com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase(
                 com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository(),
             ),
@@ -391,6 +400,18 @@ class WorkoutViewModelTest {
             observeWeightDisplayPreferences =
                 ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
             logError = LogErrorUseCase(FakeLoggingPort()),
+            saveLiftNotesUseCase = com.stratum.domain.lift.SaveLiftNotesUseCase(
+                liftNotesRepository,
+                liftRepository,
+                programRepository,
+                FakeLoggingPort(),
+            ),
+            getPastSessionNotesForLift = GetPastSessionNotesForLiftUseCase(
+                liftNotesRepository,
+            ),
+            getSessionLiftNote = GetSessionLiftNoteUseCase(
+                liftNotesRepository,
+            ),
         )
     }
 
@@ -451,6 +472,7 @@ class WorkoutViewModelTest {
             finalizeTrainingSession = finalizeTrainingSession(liftRepo = liftRepository),
             applyOverlayToWorkout = com.stratum.domain.workout.ApplyOverlayToWorkoutUseCase(),
             saveWorkoutUseCase = com.stratum.domain.program.SaveWorkoutUseCase(programRepository, NoOpProgramChangeEventRepository(), FakeLoggingPort()),
+            getProgramById = GetProgramByIdUseCase(programRepository),
             observeLiftTrainingInsights = com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase(
                 com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository(),
             ),
@@ -460,6 +482,18 @@ class WorkoutViewModelTest {
             observeWeightDisplayPreferences =
                 ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
             logError = LogErrorUseCase(FakeLoggingPort()),
+            saveLiftNotesUseCase = com.stratum.domain.lift.SaveLiftNotesUseCase(
+                liftNotesRepository,
+                liftRepository,
+                programRepository,
+                FakeLoggingPort(),
+            ),
+            getPastSessionNotesForLift = GetPastSessionNotesForLiftUseCase(
+                liftNotesRepository,
+            ),
+            getSessionLiftNote = GetSessionLiftNoteUseCase(
+                liftNotesRepository,
+            ),
         )
     }
 
@@ -506,6 +540,7 @@ class WorkoutViewModelTest {
             finalizeTrainingSession = finalizeTrainingSession(liftRepo = liftRepository),
             applyOverlayToWorkout = com.stratum.domain.workout.ApplyOverlayToWorkoutUseCase(),
             saveWorkoutUseCase = com.stratum.domain.program.SaveWorkoutUseCase(programRepository, NoOpProgramChangeEventRepository(), FakeLoggingPort()),
+            getProgramById = GetProgramByIdUseCase(programRepository),
             observeLiftTrainingInsights = com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase(
                 com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository(
                     listOf(
@@ -527,6 +562,18 @@ class WorkoutViewModelTest {
             observeWeightDisplayPreferences =
                 ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
             logError = LogErrorUseCase(FakeLoggingPort()),
+            saveLiftNotesUseCase = com.stratum.domain.lift.SaveLiftNotesUseCase(
+                liftNotesRepository,
+                liftRepository,
+                programRepository,
+                FakeLoggingPort(),
+            ),
+            getPastSessionNotesForLift = GetPastSessionNotesForLiftUseCase(
+                liftNotesRepository,
+            ),
+            getSessionLiftNote = GetSessionLiftNoteUseCase(
+                liftNotesRepository,
+            ),
         )
     }
 
@@ -1156,6 +1203,7 @@ class WorkoutViewModelTest {
             finalizeTrainingSession = finalizeTrainingSession(liftRepo = liftRepository),
             applyOverlayToWorkout = com.stratum.domain.workout.ApplyOverlayToWorkoutUseCase(),
             saveWorkoutUseCase = com.stratum.domain.program.SaveWorkoutUseCase(programRepository, NoOpProgramChangeEventRepository(), FakeLoggingPort()),
+            getProgramById = GetProgramByIdUseCase(programRepository),
             observeLiftTrainingInsights = com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase(
                 com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository(),
             ),
@@ -1165,6 +1213,18 @@ class WorkoutViewModelTest {
             observeWeightDisplayPreferences =
                 ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
             logError = LogErrorUseCase(FakeLoggingPort()),
+            saveLiftNotesUseCase = com.stratum.domain.lift.SaveLiftNotesUseCase(
+                liftNotesRepository,
+                liftRepository,
+                programRepository,
+                FakeLoggingPort(),
+            ),
+            getPastSessionNotesForLift = GetPastSessionNotesForLiftUseCase(
+                liftNotesRepository,
+            ),
+            getSessionLiftNote = GetSessionLiftNoteUseCase(
+                liftNotesRepository,
+            ),
         )
 
         localViewModel.startSession(workoutId)
@@ -1222,6 +1282,7 @@ class WorkoutViewModelTest {
             finalizeTrainingSession = finalizeTrainingSession(liftRepo = liftRepository),
             applyOverlayToWorkout = com.stratum.domain.workout.ApplyOverlayToWorkoutUseCase(),
             saveWorkoutUseCase = com.stratum.domain.program.SaveWorkoutUseCase(programRepository, NoOpProgramChangeEventRepository(), FakeLoggingPort()),
+            getProgramById = GetProgramByIdUseCase(programRepository),
             observeLiftTrainingInsights = com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase(
                 com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository(),
             ),
@@ -1231,6 +1292,18 @@ class WorkoutViewModelTest {
             observeWeightDisplayPreferences =
                 ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
             logError = LogErrorUseCase(FakeLoggingPort()),
+            saveLiftNotesUseCase = com.stratum.domain.lift.SaveLiftNotesUseCase(
+                liftNotesRepository,
+                liftRepository,
+                programRepository,
+                FakeLoggingPort(),
+            ),
+            getPastSessionNotesForLift = GetPastSessionNotesForLiftUseCase(
+                liftNotesRepository,
+            ),
+            getSessionLiftNote = GetSessionLiftNoteUseCase(
+                liftNotesRepository,
+            ),
         )
 
         localViewModel.startSession(workoutId)
@@ -2558,6 +2631,161 @@ class WorkoutViewModelTest {
             setsAfterRefresh.any { it.slotKey.startsWith("mini-") },
             "mini slot must remain after cycle re-emit",
         )
+    }
+
+    @Test
+    @DisplayName("save lift notes updates rendered workout and lift pins")
+    fun saveLiftNotesUpdatesRenderedPins() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+        val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertNull(loaded.lifts.single().workoutPinnedNote)
+        assertNull(loaded.lifts.single().liftPinnedNote)
+
+        viewModel.saveLiftNotes(
+            LiftNotesSaveRequest(
+                workoutLiftId = workoutLiftId.value,
+                liftId = liftId.value,
+                sessionDraft = "session only",
+                workoutDraft = "workout pin",
+                liftDraft = "lift pin",
+                loadedSession = "",
+                loadedWorkout = "",
+                loadedLift = "",
+            ),
+        )
+        advanceUntilIdle()
+
+        val updated = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertEquals("workout pin", updated.lifts.single().workoutPinnedNote)
+        assertEquals("lift pin", updated.lifts.single().liftPinnedNote)
+    }
+
+    @Test
+    @DisplayName("clearing a catalog pin updates the rendered lift card")
+    fun clearingCatalogPinUpdatesCard() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+        viewModel.saveLiftNotes(
+            LiftNotesSaveRequest(
+                workoutLiftId = workoutLiftId.value,
+                liftId = liftId.value,
+                sessionDraft = "",
+                workoutDraft = "",
+                liftDraft = "lift pin",
+                loadedSession = "",
+                loadedWorkout = "",
+                loadedLift = "",
+            ),
+        )
+        advanceUntilIdle()
+        assertEquals("lift pin", (viewModel.uiState.value as WorkoutUiState.Loaded).lifts.single().liftPinnedNote)
+
+        viewModel.saveLiftNotes(
+            LiftNotesSaveRequest(
+                workoutLiftId = workoutLiftId.value,
+                liftId = liftId.value,
+                sessionDraft = "",
+                workoutDraft = "",
+                liftDraft = "",
+                loadedSession = "",
+                loadedWorkout = "",
+                loadedLift = "lift pin",
+            ),
+        )
+        advanceUntilIdle()
+        assertNull((viewModel.uiState.value as WorkoutUiState.Loaded).lifts.single().liftPinnedNote)
+    }
+
+    @Test
+    @DisplayName("overlay-only workout pin does not rewrite the template slot")
+    fun overlayOnlyWorkoutPinSkipsTemplate() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+        viewModel.addLifts(listOf(LiftId("L-2")))
+        advanceUntilIdle()
+        val added = (viewModel.uiState.value as WorkoutUiState.Loaded).lifts.last()
+        assertTrue(added.workoutLiftId != workoutLiftId.value)
+
+        viewModel.saveLiftNotes(
+            LiftNotesSaveRequest(
+                workoutLiftId = added.workoutLiftId,
+                liftId = added.liftId,
+                sessionDraft = "",
+                workoutDraft = "adhoc pin",
+                liftDraft = "",
+                loadedSession = "",
+                loadedWorkout = "",
+                loadedLift = "",
+            ),
+        )
+        advanceUntilIdle()
+
+        val rendered = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertEquals("adhoc pin", rendered.lifts.last().workoutPinnedNote)
+        assertNull(
+            programRepository.getProgram()!!.workouts.single().workoutLifts.single().pinnedNote,
+        )
+    }
+
+    @Test
+    @DisplayName("complete save-template keeps a Room workout pin written during the session")
+    fun completeSaveTemplateKeepsWorkoutPin() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+        viewModel.saveLiftNotes(
+            LiftNotesSaveRequest(
+                workoutLiftId = workoutLiftId.value,
+                liftId = liftId.value,
+                sessionDraft = "",
+                workoutDraft = "keep me",
+                liftDraft = "",
+                loadedSession = "",
+                loadedWorkout = "",
+                loadedLift = "",
+            ),
+        )
+        advanceUntilIdle()
+        viewModel.completeWorkout(saveTemplate = true)
+        advanceUntilIdle()
+        assertEquals(
+            "keep me",
+            programRepository.getProgram()!!.workouts.single().workoutLifts.single().pinnedNote,
+        )
+    }
+
+    @Test
+    @DisplayName("past session notes map date, workout name, and body")
+    fun pastSessionNotesMapping() = runTest {
+        val pastSession = TrainingSessionId("ts-past")
+        liftNotesRepository.upsertSessionNote(
+            LiftSessionNote(
+                id = LiftSessionNoteId("n-past"),
+                sessionId = pastSession,
+                liftId = liftId,
+                workoutLiftId = workoutLiftId,
+                body = "High bar today",
+                updatedAt = Instant.EPOCH,
+            ),
+        )
+        liftNotesRepository.markSessionCompleted(
+            pastSession,
+            Instant.parse("2026-08-14T12:00:00Z"),
+            "Lower A",
+        )
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        val notes = viewModel.pastSessionNotes(liftId.value)
+        assertEquals(1, notes.size)
+        assertEquals("Lower A", notes.single().workoutName)
+        assertEquals("High bar today", notes.single().body)
+        assertTrue(notes.single().dateLabel.isNotBlank())
     }
 
     private suspend fun app.cash.turbine.ReceiveTurbine<WorkoutUiState>.awaitLoaded(): WorkoutUiState.Loaded {

@@ -1,6 +1,7 @@
 package com.stratum.feature.workout
 
 import com.stratum.domain.lift.Lift
+import com.stratum.domain.program.GetProgramByIdUseCase
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.SaveWorkoutUseCase
 import com.stratum.domain.program.Workout
@@ -56,6 +57,7 @@ internal class LiveWorkoutSessionActor(
     finalizeTrainingSession: FinalizeTrainingSessionUseCase,
     applyOverlayToWorkout: ApplyOverlayToWorkoutUseCase,
     saveWorkoutUseCase: SaveWorkoutUseCase,
+    getProgramById: GetProgramByIdUseCase,
     observeLiftTrainingInsights: ObserveLiftTrainingInsightsUseCase,
     manageWorkoutOverlay: ManageWorkoutOverlayUseCase,
     private val logError: LogErrorUseCase,
@@ -78,6 +80,7 @@ internal class LiveWorkoutSessionActor(
             finalizeTrainingSession = finalizeTrainingSession,
             applyOverlayToWorkout = applyOverlayToWorkout,
             saveWorkoutUseCase = saveWorkoutUseCase,
+            getProgramById = getProgramById,
             observeLiftTrainingInsights = observeLiftTrainingInsights,
             manageWorkoutOverlay = manageWorkoutOverlay,
         )
@@ -210,6 +213,8 @@ internal class LiveWorkoutSessionActor(
                 runtime.handleSetUseRestTimerBetweenLifts(cmd)
             is SessionCommand.SetRestSecondsForSlots ->
                 runtime.handleSetRestSecondsForSlots(cmd)
+            is SessionCommand.SetWorkoutLiftPinnedNote ->
+                runtime.handleSetWorkoutLiftPinnedNote(cmd)
             is SessionCommand.CompleteWorkout -> runtime.handleCompleteWorkout(cmd)
         }
     }
@@ -258,6 +263,7 @@ internal fun sessionCommandFailureIsTerminal(cmd: SessionCommand): Boolean =
         is SessionCommand.RemoveFromSuperset,
         is SessionCommand.SetUseRestTimerBetweenLifts,
         is SessionCommand.SetRestSecondsForSlots,
+        is SessionCommand.SetWorkoutLiftPinnedNote,
         SessionCommand.BeginAbandon,
         SessionCommand.CancelAbandon,
         SessionCommand.FinalizeAbandonLocal,

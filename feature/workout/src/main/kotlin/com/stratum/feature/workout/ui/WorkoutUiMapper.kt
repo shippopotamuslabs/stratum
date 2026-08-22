@@ -71,6 +71,8 @@ internal object WorkoutUiMapper {
                 imageUrl = imageUrlByLiftId[lift.liftId.value],
                 navigatorInitials = liftNavigatorInitials(lift.liftName),
                 defaultRestSeconds = liftDefaultRest,
+                workoutPinnedNote = lift.workoutPinnedNote,
+                liftPinnedNote = lift.liftPinnedNote,
                 isPlateLoaded = isPlateLoaded,
                 isDoubleSided = isDoubleSided,
                 unitLabel = unitLabel,

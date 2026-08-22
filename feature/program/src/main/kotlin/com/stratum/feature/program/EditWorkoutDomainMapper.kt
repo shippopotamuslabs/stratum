@@ -53,6 +53,7 @@ internal fun List<EditLiftState>.toWorkout(
                             },
                         supersetGroupId = editLift.supersetGroupId?.let { WorkoutSupersetGroupId(it) },
                         useRestTimerBetweenLifts = persistUseRestTimerBetweenLifts(editLift, this),
+                        pinnedNote = editLift.pinnedNote,
                     )
                 },
     )

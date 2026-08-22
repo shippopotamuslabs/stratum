@@ -223,6 +223,24 @@ interface WorkoutLiftDao {
     suspend fun markSyncedIfUnchanged(id: String, updatedAt: Long)
 
     /**
+     * Targeted pin-note write. Returns affected row count (0 when the slot is not in Room).
+     */
+    @Query(
+        """
+        UPDATE workout_lifts
+        SET pinned_note = :note,
+            pending_sync = ${SyncFlags.PENDING_UPSERT},
+            updated_at_epoch_millis = :updatedAtEpochMillis
+        WHERE id = :id
+        """,
+    )
+    suspend fun setPinnedNote(
+        id: WorkoutLiftId,
+        note: String?,
+        updatedAtEpochMillis: Long,
+    ): Int
+
+    /**
      * Re-points template slots from source catalog ids onto [targetLiftId] without rewriting the
      * full program hierarchy (merge-lifts path).
      */

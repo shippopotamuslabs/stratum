@@ -21,10 +21,10 @@ import com.stratum.core.ui.R
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
 /**
- * Search input with a leading magnifier and a trailing clear button. [StratumTextField] has no
- * icon slots, so this sibling exists for the swap sheet's filter-within-list search. Same
- * `StratumThemeAccessor` color/shape scheme as [StratumTextField] — kept inside `:core:ui`
- * (Detekt-exempt) so feature code never imports raw M3 text fields.
+ * Search input with a leading magnifier and a trailing clear button. Sibling of
+ * [StratumTextField] for the swap sheet's filter-within-list search. Same
+ * `StratumThemeAccessor` color/shape scheme — kept inside `:core:ui` (Detekt-exempt) so
+ * feature code never imports raw M3 text fields.
  *
  * Single-line, capitalises words (lift names), and dismisses the keyboard when the trailing
  * clear `StratumIconButton` is tapped. The trailing control is only rendered when there is text

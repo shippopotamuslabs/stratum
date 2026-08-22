@@ -4,6 +4,7 @@ import com.stratum.core.data.db.EquipmentDao
 import com.stratum.core.data.db.GymPreferenceDao
 import com.stratum.core.data.db.IncrementTierDao
 import com.stratum.core.data.db.LiftDao
+import com.stratum.core.data.db.LiftSessionNoteDao
 import com.stratum.core.data.db.LiftSetDao
 import com.stratum.core.data.db.OnboardingProgressDao
 import com.stratum.core.data.db.ProgramChangeEventDao
@@ -26,6 +27,7 @@ import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.IncrementTierId
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.lift.identity.LiftSessionNoteId
 import com.stratum.domain.onboarding.identity.GymPreferenceId
 import com.stratum.domain.onboarding.identity.OnboardingProgressId
 import com.stratum.domain.onboarding.identity.SpecializationPreferenceId
@@ -45,6 +47,7 @@ import javax.inject.Singleton
  * custom encode path for catalog overlays.
  */
 @Singleton
+@Suppress("LongParameterList")
 class SyncHandlersProvider @Inject constructor(
     private val userProfileDao: UserProfileDao,
     private val onboardingDao: OnboardingProgressDao,
@@ -58,6 +61,7 @@ class SyncHandlersProvider @Inject constructor(
     private val workoutLiftDao: WorkoutLiftDao,
     private val liftSetDao: LiftSetDao,
     private val sessionDao: TrainingSessionDao,
+    private val liftSessionNoteDao: LiftSessionNoteDao,
     private val loggedSetDao: TrainingLoggedSetDao,
     private val programChangeEventDao: ProgramChangeEventDao,
     private val encoders: SyncEntityEncoders,
@@ -88,6 +92,7 @@ class SyncHandlersProvider @Inject constructor(
             workoutLiftsHandler(),
             liftSetsHandler(),
             trainingSessionsHandler(),
+            liftSessionNotesHandler(),
             loggedSetsHandler(),
             programChangeEventsHandler(),
         )
@@ -271,9 +276,16 @@ class SyncHandlersProvider @Inject constructor(
             markSynced = { id, at -> workoutLiftDao.markSyncedIfUnchanged(id, at) },
             encode = encoders::workoutLift,
             decodeUpsert = { id, data ->
-                decoders.workoutLift(id, data)?.let {
-                    workoutLiftDao.upsertAll(listOf(it)); true
-                } ?: false
+                val decoded = decoders.workoutLift(id, data) ?: return@entityHandler false
+                val existing = workoutLiftDao.getById(WorkoutLiftId(id))
+                val merged =
+                    if (!data.containsKey("pinned_note") && existing != null) {
+                        decoded.copy(pinnedNote = existing.pinnedNote)
+                    } else {
+                        decoded
+                    }
+                workoutLiftDao.upsertAll(listOf(merged))
+                true
             },
         )
 
@@ -310,6 +322,26 @@ class SyncHandlersProvider @Inject constructor(
             encode = encoders::trainingSession,
             decodeUpsert = { id, data ->
                 decoders.trainingSession(id, data)?.let { sessionDao.upsert(it); true } ?: false
+            },
+        )
+
+    private fun liftSessionNotesHandler(): SyncCollectionHandler =
+        entityHandler(
+            collection = SyncCollection.LiftSessionNotes,
+            pending = { liftSessionNoteDao.getPending(it) },
+            id = { it.id.value },
+            updatedAt = { it.updatedAtEpochMillis },
+            loadMeta = { id ->
+                liftSessionNoteDao.getById(LiftSessionNoteId(id))
+                    ?.let { LocalSyncMeta(it.pendingSync, it.updatedAtEpochMillis) }
+            },
+            delete = { liftSessionNoteDao.deleteById(LiftSessionNoteId(it)) },
+            markSynced = { id, at -> liftSessionNoteDao.markSyncedIfUnchanged(id, at) },
+            encode = encoders::liftSessionNote,
+            decodeUpsert = { id, data ->
+                val entity = decoders.liftSessionNote(id, data) ?: return@entityHandler false
+                liftSessionNoteDao.upsertMergingUniqueSlot(entity)
+                true
             },
         )
 
