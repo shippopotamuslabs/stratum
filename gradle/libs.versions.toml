@@ -1,5 +1,5 @@
 [versions]
-agp = "9.5.0-alpha01"
+agp = "9.5.0-alpha02"
 coreKtx = "1.15.0"
 detekt = "1.23.8"
 junit = "4.13.2"

@@ -51,8 +51,10 @@ import com.stratum.core.ui.theme.StratumThemeAccessor
  * . 0 ⌫ [primary]
  * ```
  * When [allowDecimal] is false the decimal slot is an empty spacer.
- * [primaryContent] fills the bottom-right action key.
- * Optional [elevatedActionKey] fills the key above primary (e.g. field-nav chevron when primary is Check).
+ * [primaryContent] fills the bottom-right action key when both it and [onPrimaryAction]
+ * are present; otherwise that cell is an empty spacer (e.g. bodyweight with no Check).
+ * Optional [elevatedActionKey] fills the key above primary (field-nav chevron when a
+ * weight field exists).
  * Optional [auxiliaryActionKey] fills the key above elevated (e.g. plate calculator).
  */
 @Composable
@@ -62,9 +64,9 @@ internal fun StratumNumericPad(
     onDecimal: () -> Unit,
     onBackspace: () -> Unit,
     onDismiss: () -> Unit,
-    primaryContentDescription: String,
-    onPrimaryAction: () -> Unit,
-    primaryContent: @Composable () -> Unit,
+    primaryContentDescription: String? = null,
+    onPrimaryAction: (() -> Unit)? = null,
+    primaryContent: (@Composable () -> Unit)? = null,
     modifier: Modifier = Modifier,
     elevatedActionKey: NumericPadActionKey? = null,
     auxiliaryActionKey: NumericPadActionKey? = null,
@@ -141,11 +143,15 @@ internal fun StratumNumericPad(
                     modifier = Modifier.size(NumericPadKeyIconSize),
                 )
             }
-            ActionKey(
-                onClick = onPrimaryAction,
-                contentDescription = primaryContentDescription,
-                content = primaryContent,
-            )
+            if (onPrimaryAction != null && primaryContent != null && primaryContentDescription != null) {
+                ActionKey(
+                    onClick = onPrimaryAction,
+                    contentDescription = primaryContentDescription,
+                    content = primaryContent,
+                )
+            } else {
+                PadSpacerKey()
+            }
         }
     }
 }

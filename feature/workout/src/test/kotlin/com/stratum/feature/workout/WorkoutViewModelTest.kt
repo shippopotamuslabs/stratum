@@ -20,6 +20,7 @@ import com.stratum.domain.lift.GetPastSessionNotesForLiftUseCase
 import com.stratum.domain.lift.GetSessionLiftNoteUseCase
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.LiftSessionNote
+import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.identity.LiftSessionNoteId
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
@@ -845,6 +846,26 @@ class WorkoutViewModelTest {
         assertEquals("5", firstSet.recommendedRepsLabel)
         assertNull(firstSet.loggedWeightLabel)
         assertFalse(firstSet.hasLiveRepsRecommendation)
+    }
+
+    @Test
+    @DisplayName("bodyweight catalog lift hides weight column and does not require weight to complete")
+    fun bodyweightCatalogLiftHidesWeightColumn() = runTest {
+        val viewModel = buildViewModelWithProgram(
+            program = program(),
+            lifts = listOf(catalogLift().copy(loadType = LoadType.Bodyweight, name = "Pull Up")),
+        )
+        viewModel.startSession(workoutId)
+        viewModel.uiState.test {
+            val loaded = awaitLoaded()
+            val lift = loaded.lifts.single()
+            assertFalse(lift.showWeightColumn)
+            assertEquals("", lift.weightHeaderLabel)
+            lift.sets.forEach { set ->
+                assertFalse(set.showWeightInput)
+            }
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     @Test

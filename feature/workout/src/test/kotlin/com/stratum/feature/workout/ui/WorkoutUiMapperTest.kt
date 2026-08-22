@@ -139,6 +139,61 @@ class WorkoutUiMapperTest {
         )
 
         assertFalse(result.lifts[0].isPlateLoaded)
+        assertFalse(result.lifts[0].showWeightColumn)
+        assertEquals("", result.lifts[0].weightHeaderLabel)
+    }
+
+    @Test
+    @DisplayName("bodyweight lifts hide the weight column and do not require weight input")
+    fun bodyweightHidesWeightColumnAndInput() {
+        val workout = RenderedWorkout(
+            workoutId = WorkoutId("w-1"),
+            workoutName = "Pull Day",
+            lifts = listOf(
+                RenderedWorkoutLift(
+                    workoutLiftId = WorkoutLiftId("wl-bw"),
+                    liftId = LiftId("l-bw"),
+                    liftName = "Pull Up",
+                    progressionScheme = ProgressionScheme.Double,
+                    loadType = LoadType.Bodyweight,
+                    sets = listOf(
+                        RenderedSet(
+                            slotId = SetSlotId.Template(LiftSetId("ls-bw")),
+                            workoutLiftId = WorkoutLiftId("wl-bw"),
+                            liftId = LiftId("l-bw"),
+                            position = 0,
+                            setType = SetType.Standard,
+                            isTopSet = true,
+                            repMin = 8,
+                            repMax = 12,
+                            rirGoal = 2,
+                            restSeconds = 90,
+                            recommendedWeight = Weight(0.0, Weight.WeightUnit.Lb),
+                            recommendedReps = 10,
+                            loggedValue = null,
+                            previousWeight = Weight(0.0, Weight.WeightUnit.Lb),
+                            previousReps = 8,
+                            previousRir = 2,
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        val result = WorkoutUiMapper.map(
+            rendered = workout,
+            sessionStartedAtEpochMilli = 1000L,
+            displayUnit = Weight.WeightUnit.Lb,
+        )
+        val lift = result.lifts.single()
+        val set = lift.sets.single()
+
+        assertFalse(lift.showWeightColumn)
+        assertEquals("", lift.weightHeaderLabel)
+        assertFalse(set.showWeightInput)
+        assertEquals("", set.recommendedWeightLabel)
+        assertEquals("8", set.previousWeightLabel)
+        assertEquals("2 RIR", set.previousRirLabel)
     }
 
     @Test

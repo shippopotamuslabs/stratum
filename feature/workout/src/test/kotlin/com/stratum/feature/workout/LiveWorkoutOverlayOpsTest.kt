@@ -1,5 +1,7 @@
 package com.stratum.feature.workout
 
+import com.stratum.domain.lift.Lift
+import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.SetType
@@ -241,6 +243,55 @@ class LiveWorkoutOverlayOpsTest {
         assertEquals(swappedLiftId, rendered.lifts.single().liftId)
         assertEquals("Swapped Lift", rendered.lifts.single().liftName)
         assertEquals(swappedLiftId, rendered.lifts.single().sets.single().liftId)
+    }
+
+    @Test
+    @DisplayName("merge applies catalog Bodyweight loadType even when projection is stale Weighted")
+    fun mergeAppliesCatalogBodyweightOverStaleProjection() {
+        val catalogLiftId = originalLiftId
+        val liftsById = mapOf(
+            catalogLiftId to Lift(
+                id = catalogLiftId,
+                name = "Pull Up",
+                movementPatterns = emptySet(),
+                primaryMuscles = emptySet(),
+                secondaryMuscles = emptySet(),
+                incrementTiers = emptyList(),
+                presetTags = emptySet(),
+                enabled = true,
+                loadType = LoadType.Bodyweight,
+            ),
+        )
+
+        val rendered = LiveWorkoutOverlayOps.merge(
+            structure = structure,
+            overlay = WorkoutOverlay(),
+            snapshotBySlot = emptyMap(),
+            liftsById = liftsById,
+            liftNamesById = liftsById.mapValues { it.value.name },
+            mergeRenderedWorkout = MergeRenderedWorkoutUseCase(),
+        )
+
+        assertEquals(LoadType.Bodyweight, rendered.lifts.single().loadType)
+    }
+
+    @Test
+    @DisplayName("merge keeps projection Bodyweight when catalog entry is missing")
+    fun mergeKeepsProjectionBodyweightWithoutCatalog() {
+        val bodyweightStructure = structure.copy(
+            lifts = structure.lifts.map { it.copy(loadType = LoadType.Bodyweight) },
+        )
+
+        val rendered = LiveWorkoutOverlayOps.merge(
+            structure = bodyweightStructure,
+            overlay = WorkoutOverlay(),
+            snapshotBySlot = emptyMap(),
+            liftsById = emptyMap(),
+            liftNamesById = emptyMap(),
+            mergeRenderedWorkout = MergeRenderedWorkoutUseCase(),
+        )
+
+        assertEquals(LoadType.Bodyweight, rendered.lifts.single().loadType)
     }
 
 
