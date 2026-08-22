@@ -104,6 +104,10 @@ fun StratumWorkoutLogSetRow(
                     actions.onCheckedChange?.let { onChecked ->
                         { onChecked(true) }
                     },
+                isPlateLoaded = set.isPlateLoaded,
+                recommendedWeightAmount = set.recommendedWeightAmount,
+                unitLabel = set.unitLabel,
+                isDoubleSided = set.isDoubleSided,
             )
         }
     }

@@ -1,8 +1,15 @@
 package com.stratum.core.ui.component.workoutlog
 
 import android.content.res.Configuration
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Stable
@@ -16,6 +23,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.stratum.core.ui.component.formatWeightAmount
+import com.stratum.core.ui.component.platecalculator.PlateInventoryUi
+import com.stratum.core.ui.component.platecalculator.StratumPlateCalculatorMiniDrawer
+import com.stratum.core.ui.component.platecalculator.StratumPlateCalculatorSheet
+import com.stratum.core.ui.component.platecalculator.computePlateLoadUi
+import com.stratum.core.ui.component.platecalculator.defaultPlateInventory
+import com.stratum.core.ui.component.platecalculator.parsePlateTargetWeight
 
 /**
  * Fraction of the **screen** height for the custom set-log keyboard pad (~system IME).
@@ -40,6 +54,10 @@ data class SetLogKeyboardSession(
     val onRepsChange: (String) -> Unit,
     val onRirChange: (Int) -> Unit,
     val onComplete: (() -> Unit)?,
+    val isPlateLoaded: Boolean = false,
+    val recommendedWeightAmount: Double = 0.0,
+    val unitLabel: String = "lb",
+    val isDoubleSided: Boolean = true,
 )
 
 /**
@@ -60,7 +78,7 @@ class SetLogKeyboardHostState(
     var session: SetLogKeyboardSession? by mutableStateOf(null)
         private set
 
-    /** Live draft values for the open set (host-owned while session is open). */
+    /** In-flight drafts for the active [session] (set-log custom pad owns edits). */
     var weightText: String by mutableStateOf("")
         private set
     var repsText: String by mutableStateOf("")
@@ -72,6 +90,19 @@ class SetLogKeyboardHostState(
     var weightCursor: Int by mutableIntStateOf(0)
         private set
     var repsCursor: Int by mutableIntStateOf(0)
+        private set
+
+    var isPlateDrawerOpen: Boolean by mutableStateOf(false)
+        private set
+    var isPlateSheetOpen: Boolean by mutableStateOf(false)
+        private set
+
+    /**
+     * In-memory bar/plate selection for this logging screen. Shared by the mini drawer and
+     * expanded sheet. Updated only when the sheet **Apply**s — Done/dismiss discards drafts.
+     * Not written to equipment or preferences.
+     */
+    var plateInventory: PlateInventoryUi? by mutableStateOf(null)
         private set
 
     /** @see StratumOverlayDockHostState.dockHeightDp */
@@ -92,6 +123,47 @@ class SetLogKeyboardHostState(
 
     val isOpen: Boolean get() = session != null
 
+    fun togglePlateDrawer() {
+        isPlateDrawerOpen = !isPlateDrawerOpen
+        if (isPlateDrawerOpen) {
+            overlay.requestReveal()
+        }
+    }
+
+    fun openPlateSheet() {
+        isPlateSheetOpen = true
+    }
+
+    fun closePlateSheet() {
+        isPlateSheetOpen = false
+    }
+
+    fun plateInventoryFor(unitLabel: String): PlateInventoryUi {
+        val held = plateInventory
+        if (held != null && held.unitLabel.equals(unitLabel, ignoreCase = true)) {
+            return held
+        }
+        return defaultPlateInventory(unitLabel)
+    }
+
+    fun commitPlateInventory(inventory: PlateInventoryUi) {
+        plateInventory = inventory
+    }
+
+    fun applyWeightFromCalculator(weight: Double) {
+        val s = session ?: return
+        val formatted = formatWeightAmount(weight)
+        weightText = formatted
+        weightCursor = formatted.length
+        s.onWeightChange(formatted)
+    }
+
+    fun applyCalculatorToSet(weight: Double, inventory: PlateInventoryUi) {
+        commitPlateInventory(inventory)
+        applyWeightFromCalculator(weight)
+    }
+
+    @Suppress("LongParameterList")
     fun open(
         setKey: String,
         field: SetLogKeyboardField,
@@ -105,6 +177,10 @@ class SetLogKeyboardHostState(
         onRepsChange: (String) -> Unit,
         onRirChange: (Int) -> Unit,
         onComplete: (() -> Unit)?,
+        isPlateLoaded: Boolean = false,
+        recommendedWeightAmount: Double = 0.0,
+        unitLabel: String = "lb",
+        isDoubleSided: Boolean = true,
     ) {
         val previous = session
         if (previous != null && previous.setKey == setKey) {
@@ -126,6 +202,10 @@ class SetLogKeyboardHostState(
                     onRepsChange = onRepsChange,
                     onRirChange = onRirChange,
                     onComplete = onComplete,
+                    isPlateLoaded = isPlateLoaded,
+                    recommendedWeightAmount = recommendedWeightAmount,
+                    unitLabel = unitLabel,
+                    isDoubleSided = isDoubleSided,
                 )
             overlay.requestReveal()
             return
@@ -135,6 +215,8 @@ class SetLogKeyboardHostState(
         this.weightText = weightText
         this.repsText = repsText
         this.rir = rir
+        this.isPlateDrawerOpen = false
+        this.isPlateSheetOpen = false
         weightCursor = weightText.length
         repsCursor = repsText.length
         session =
@@ -153,6 +235,10 @@ class SetLogKeyboardHostState(
                 onRepsChange = onRepsChange,
                 onRirChange = onRirChange,
                 onComplete = onComplete,
+                isPlateLoaded = isPlateLoaded,
+                recommendedWeightAmount = recommendedWeightAmount,
+                unitLabel = unitLabel,
+                isDoubleSided = isDoubleSided,
             )
         // Open chrome is derived by ProvideStratumOverlayDock from session != null (dockContent).
         // Always request reveal (also covers open-while-open set switches where isOpen stays true).
@@ -169,37 +255,47 @@ class SetLogKeyboardHostState(
         hasWeightRecommendation: Boolean? = null,
         hasRepsRecommendation: Boolean? = null,
     ) {
-        val current = session ?: return
-        if (current.setKey != setKey) return
+        val s = session ?: return
+        if (s.setKey != setKey) return
         this.rir = rir
-        val nextWeightRec = hasWeightRecommendation ?: return
-        val nextRepsRec = hasRepsRecommendation ?: return
-        val recsChanged =
-            nextWeightRec != current.hasWeightRecommendation ||
-                nextRepsRec != current.hasRepsRecommendation
-        if (recsChanged) {
-            session =
-                current.copy(
-                    hasWeightRecommendation = nextWeightRec,
-                    hasRepsRecommendation = nextRepsRec,
-                )
+        session =
+            s.copy(
+                hasWeightRecommendation = hasWeightRecommendation ?: s.hasWeightRecommendation,
+                hasRepsRecommendation = hasRepsRecommendation ?: s.hasRepsRecommendation,
+            )
+    }
+
+    fun setField(field: SetLogKeyboardField) {
+        val s = session ?: return
+        if (s.field == field) return
+        val clampedField =
+            if (!s.showWeightInput && field == SetLogKeyboardField.Weight) {
+                SetLogKeyboardField.Reps
+            } else {
+                field
+            }
+        session = s.copy(field = clampedField)
+        when (clampedField) {
+            SetLogKeyboardField.Weight -> weightCursor = weightText.length
+            SetLogKeyboardField.Reps -> repsCursor = repsText.length
         }
     }
 
-    /**
-     * @deprecated Prefer [syncSessionChrome]. Name retained so older call sites compile during
-     * migration; still does not reseed weight/reps text.
-     */
-    @Suppress("UNUSED_PARAMETER")
+    fun isSetActive(setKey: String): Boolean = session?.setKey == setKey
+
+    fun isFieldActive(setKey: String, field: SetLogKeyboardField): Boolean =
+        session?.let { it.setKey == setKey && it.field == field } ?: false
+
+    fun setCursor(field: SetLogKeyboardField, cursor: Int) = setCursorForField(field, cursor)
+
     fun syncValues(
         setKey: String,
-        weightText: String,
-        repsText: String,
+        @Suppress("UnusedParameter") weightText: String,
+        @Suppress("UnusedParameter") repsText: String,
         rir: Int,
         hasWeightRecommendation: Boolean? = null,
         hasRepsRecommendation: Boolean? = null,
     ) {
-        // weightText/repsText intentionally ignored — host is SoT while open.
         syncSessionChrome(
             setKey = setKey,
             rir = rir,
@@ -208,47 +304,46 @@ class SetLogKeyboardHostState(
         )
     }
 
-    fun setField(field: SetLogKeyboardField) {
-        val current = session ?: return
-        val next =
-            if (!current.showWeightInput && field == SetLogKeyboardField.Weight) {
-                SetLogKeyboardField.Reps
-            } else {
-                field
-            }
-        if (next != current.field) {
-            session = current.copy(field = next)
-            overlay.requestReveal()
-        }
-    }
-
-    /** Cell tap moved the caret inside the given field. */
-    fun setCursor(
-        field: SetLogKeyboardField,
-        index: Int,
-    ) {
-        when (field) {
-            SetLogKeyboardField.Weight ->
-                weightCursor = index.coerceIn(0, weightText.length)
-            SetLogKeyboardField.Reps ->
-                repsCursor = index.coerceIn(0, repsText.length)
-        }
-    }
-
     /**
-     * Applies a pad edit to the active field and **commits** text to the session callbacks
-     * (live set-log write-through).
+     * Updates caret index for the active session field (called on click within active field).
      */
-    fun applyPadEditAndCommit(updated: NumericEditBuffer) {
-        val current = session ?: return
-        val coerced = updated.coerced()
-        when (current.field) {
+    fun setCursorForField(field: SetLogKeyboardField, cursor: Int) {
+        val s = session ?: return
+        if (s.field != field) return
+        when (field) {
+            SetLogKeyboardField.Weight -> weightCursor = cursor.coerceIn(0, weightText.length)
+            SetLogKeyboardField.Reps -> repsCursor = cursor.coerceIn(0, repsText.length)
+        }
+    }
+
+    /** Active text buffer + caret for the focused session field. */
+    fun activeBuffer(): NumericEditBuffer? {
+        val s = session ?: return null
+        return when (s.field) {
+            SetLogKeyboardField.Weight ->
+                NumericEditBuffer(
+                    text = weightText,
+                    cursor = weightCursor.coerceIn(0, weightText.length),
+                )
+            SetLogKeyboardField.Reps ->
+                NumericEditBuffer(
+                    text = repsText,
+                    cursor = repsCursor.coerceIn(0, repsText.length),
+                )
+        }
+    }
+
+    /** Applies a pad edit to host state and commits text upstream to VM. */
+    fun applyPadEditAndCommit(buffer: NumericEditBuffer) {
+        val s = session ?: return
+        val coerced = buffer.coerced()
+        when (s.field) {
             SetLogKeyboardField.Weight -> {
                 val textChanged = weightText != coerced.text
                 weightText = coerced.text
                 weightCursor = coerced.cursor
                 if (textChanged) {
-                    current.onWeightChange(coerced.text)
+                    s.onWeightChange(coerced.text)
                 }
             }
             SetLogKeyboardField.Reps -> {
@@ -256,71 +351,70 @@ class SetLogKeyboardHostState(
                 repsText = coerced.text
                 repsCursor = coerced.cursor
                 if (textChanged) {
-                    current.onRepsChange(coerced.text)
+                    s.onRepsChange(coerced.text)
                 }
             }
         }
     }
 
-    fun activeBuffer(): NumericEditBuffer? {
-        val current = session ?: return null
-        return when (current.field) {
-            SetLogKeyboardField.Weight ->
-                NumericEditBuffer(text = weightText, cursor = weightCursor).coerced()
-            SetLogKeyboardField.Reps ->
-                NumericEditBuffer(text = repsText, cursor = repsCursor).coerced()
-        }
-    }
-
     fun dismiss() {
         session = null
-        // Closed chrome is derived by ProvideStratumOverlayDock when dockContent becomes null.
+        isPlateDrawerOpen = false
+        isPlateSheetOpen = false
     }
-
-    fun isFieldActive(
-        setKey: String,
-        field: SetLogKeyboardField,
-    ): Boolean = session?.setKey == setKey && session?.field == field
-
-    fun isSetActive(setKey: String): Boolean = session?.setKey == setKey
 }
 
 val LocalSetLogKeyboardHost =
     staticCompositionLocalOf<SetLogKeyboardHostState?> { null }
 
 /**
- * Provides a [SetLogKeyboardHostState] and draws an in-hierarchy bottom keyboard **over** the
- * list. Lists must add [SetLogKeyboardHostState.dockHeightDp] to their own contentPadding so
- * fields can scroll above the dock; do not shrink the list with Modifier.padding.
+ * Wraps list/screen content and provides [SetLogKeyboardHostState] + dock composition.
+ * Dock content is null while there is no session so a closed pad does not paint
+ * navigation-bar padding over the list.
  */
 @Composable
 fun ProvideSetLogKeyboardHost(
     modifier: Modifier = Modifier,
     content: @Composable (listModifier: Modifier) -> Unit,
 ) {
-    val host = remember { SetLogKeyboardHostState() }
     val configuration = LocalConfiguration.current
     val contentHeight =
         remember(configuration.screenHeightDp) {
             setLogKeyboardContentHeight(configuration)
         }
+    val hostState = remember { SetLogKeyboardHostState() }
+    val session = hostState.session
 
-    CompositionLocalProvider(LocalSetLogKeyboardHost provides host) {
-        ProvideStratumOverlayDock(
-            modifier = modifier,
-            host = host.overlay,
-            dockContent =
-                host.session?.let { session ->
-                    {
-                        SetLogKeyboardDockContent(
-                            host = host,
-                            session = session,
-                            contentHeight = contentHeight,
-                        )
-                    }
-                },
-        ) { listModifier, _ ->
+    ProvideStratumOverlayDock(
+        modifier = modifier,
+        host = hostState.overlay,
+        dockContent =
+            if (session != null) {
+                {
+                    SetLogKeyboardDockContent(
+                        host = hostState,
+                        contentHeight = contentHeight,
+                    )
+                }
+            } else {
+                null
+            },
+    ) { listModifier, _ ->
+        CompositionLocalProvider(LocalSetLogKeyboardHost provides hostState) {
             content(listModifier)
+        }
+        if (hostState.isPlateSheetOpen && session != null) {
+            StratumPlateCalculatorSheet(
+                initialTargetWeight = parsePlateTargetWeight(
+                    text = hostState.weightText,
+                    fallback = session.recommendedWeightAmount,
+                ),
+                unitLabel = session.unitLabel,
+                isDoubleSided = session.isDoubleSided,
+                initialInventory = hostState.plateInventoryFor(session.unitLabel),
+                onDismissRequest = { hostState.closePlateSheet() },
+                onApplyWeight = hostState::applyCalculatorToSet,
+            )
         }
     }
 }
@@ -328,10 +422,12 @@ fun ProvideSetLogKeyboardHost(
 @Composable
 private fun SetLogKeyboardDockContent(
     host: SetLogKeyboardHostState,
-    session: SetLogKeyboardSession,
     contentHeight: Dp,
 ) {
+    val session = host.session ?: return
     val allowDecimal = session.field == SetLogKeyboardField.Weight
+
+    // Live validation against host's in-flight text (not stale row props).
     val liveCanComplete =
         canCompleteSetLog(
             showWeightInput = session.showWeightInput,
@@ -340,83 +436,125 @@ private fun SetLogKeyboardDockContent(
             repsText = host.repsText,
             hasRepsRecommendation = session.hasRepsRecommendation,
         )
-    val completeAndDismiss: () -> Unit = {
-        // Host is SoT for weight/reps while open — flush so the commit path sees typed
-        // digits even if a write-through was skipped, then skip dock scroll restore so
-        // post-log autoscroll is not cancelled by the collapse anchor restore.
+
+    val completeAndDismiss = {
         session.onWeightChange(host.weightText)
         session.onRepsChange(host.repsText)
         host.overlay.skipNextCollapseScrollRestore = true
         session.onComplete?.invoke()
         host.dismiss()
     }
-    StratumSetLogKeyboardContent(
-        state =
-            SetLogKeyboardPadState(
-                activeField = session.field,
-                selectedRir = host.rir,
-                showWeightInput = session.showWeightInput,
-                allowDecimal = allowDecimal,
-                canComplete = liveCanComplete,
-            ),
-        actions =
-            SetLogKeyboardPadActions(
-                onRirSelected = { value ->
-                    host.syncSessionChrome(session.setKey, value)
-                    session.onRirChange(value)
-                },
-                onDigit = { digit ->
-                    host.activeBuffer()?.let { base ->
-                        host.applyPadEditAndCommit(insertNumericKey(base, digit, allowDecimal))
-                    }
-                },
-                onDecimal = {
-                    if (session.field == SetLogKeyboardField.Weight) {
+
+    val showPlateCalculator =
+        session.showWeightInput && session.isPlateLoaded && session.field == SetLogKeyboardField.Weight
+    val currentTargetWeight =
+        parsePlateTargetWeight(host.weightText, session.recommendedWeightAmount)
+    val inventory = host.plateInventoryFor(session.unitLabel)
+    val plateLoad =
+        remember(
+            currentTargetWeight,
+            inventory,
+            session.unitLabel,
+            session.isDoubleSided,
+        ) {
+            computePlateLoadUi(
+                targetWeight = currentTargetWeight,
+                barWeight = inventory.barWeight,
+                availablePlates = inventory.enabledPlates.toList(),
+                unitLabel = session.unitLabel,
+                isDoubleSided = session.isDoubleSided,
+            )
+        }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        AnimatedVisibility(
+            visible = host.isPlateDrawerOpen && showPlateCalculator,
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut(),
+        ) {
+            StratumPlateCalculatorMiniDrawer(
+                plateLoad = plateLoad,
+                onExpandClick = { host.openPlateSheet() },
+                onCloseClick = { host.togglePlateDrawer() },
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 6.dp, vertical = 4.dp),
+            )
+        }
+
+        StratumSetLogKeyboardContent(
+            state =
+                SetLogKeyboardPadState(
+                    activeField = session.field,
+                    selectedRir = host.rir,
+                    showWeightInput = session.showWeightInput,
+                    allowDecimal = allowDecimal,
+                    canComplete = liveCanComplete,
+                    showPlateCalculator = showPlateCalculator,
+                ),
+            actions =
+                SetLogKeyboardPadActions(
+                    onRirSelected = { value ->
+                        host.syncSessionChrome(session.setKey, value)
+                        session.onRirChange(value)
+                    },
+                    onDigit = { digit ->
                         host.activeBuffer()?.let { base ->
-                            host.applyPadEditAndCommit(
-                                insertNumericKey(base, '.', allowDecimal = true),
-                            )
+                            host.applyPadEditAndCommit(insertNumericKey(base, digit, allowDecimal))
                         }
-                    }
-                },
-                onBackspace = {
-                    host.activeBuffer()?.let { base ->
-                        host.applyPadEditAndCommit(backspaceNumericBuffer(base))
-                    }
-                },
-                onPrimaryAction = {
-                    applySetLogKeyboardAction(
-                        action =
-                            resolveSetLogKeyboardAction(
-                                active = session.field,
-                                canComplete = liveCanComplete,
-                                showWeightInput = session.showWeightInput,
-                            ),
-                        onFieldChange = host::setField,
-                        onComplete = completeAndDismiss,
-                        onDismiss = host::dismiss,
-                    )
-                },
-                onDismiss = host::dismiss,
-                onElevatedNavAction = {
-                    applySetLogKeyboardAction(
-                        action =
-                            resolveSetLogKeyboardElevatedNavAction(
-                                active = session.field,
-                                canComplete = liveCanComplete,
-                                showWeightInput = session.showWeightInput,
-                            ),
-                        onFieldChange = host::setField,
-                        onComplete = completeAndDismiss,
-                        onDismiss = host::dismiss,
-                    )
-                },
-            ),
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .height(contentHeight),
-    )
+                    },
+                    onDecimal = {
+                        if (session.field == SetLogKeyboardField.Weight) {
+                            host.activeBuffer()?.let { base ->
+                                host.applyPadEditAndCommit(
+                                    insertNumericKey(base, '.', allowDecimal = true),
+                                )
+                            }
+                        }
+                    },
+                    onBackspace = {
+                        host.activeBuffer()?.let { base ->
+                            host.applyPadEditAndCommit(backspaceNumericBuffer(base))
+                        }
+                    },
+                    onPrimaryAction = {
+                        applySetLogKeyboardAction(
+                            action =
+                                resolveSetLogKeyboardAction(
+                                    active = session.field,
+                                    canComplete = liveCanComplete,
+                                    showWeightInput = session.showWeightInput,
+                                ),
+                            onFieldChange = host::setField,
+                            onComplete = completeAndDismiss,
+                            onDismiss = host::dismiss,
+                        )
+                    },
+                    onDismiss = host::dismiss,
+                    onElevatedNavAction = {
+                        applySetLogKeyboardAction(
+                            action =
+                                resolveSetLogKeyboardElevatedNavAction(
+                                    active = session.field,
+                                    canComplete = liveCanComplete,
+                                    showWeightInput = session.showWeightInput,
+                                ),
+                            onFieldChange = host::setField,
+                            onComplete = completeAndDismiss,
+                            onDismiss = host::dismiss,
+                        )
+                    },
+                    onPlateCalculatorClick = {
+                        host.togglePlateDrawer()
+                    },
+                ),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(contentHeight),
+        )
+    }
 }
 
 @Composable

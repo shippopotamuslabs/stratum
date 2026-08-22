@@ -83,6 +83,7 @@
     <string name="set_log_keyboard_next_reps">Next field, reps</string>
     <string name="set_log_keyboard_prev_weight">Previous field, weight</string>
     <string name="set_log_keyboard_complete_set">Complete set</string>
+    <string name="set_log_keyboard_plate_calculator">Plate calculator</string>
 
     <!-- Rep-range slim keyboard (edit workout) -->
     <string name="rep_range_keyboard_over_to_max">Next field, max reps</string>
@@ -324,4 +325,56 @@
     <string name="lift_notes_scope_lift">Lift</string>
     <string name="lift_notes_past_title">Past Session Notes</string>
     <string name="lift_notes_past_empty">No past session notes for this lift</string>
+
+    <!-- Custom Set Log Keyboard -->
+    <string name="set_log_keyboard_action_complete">Complete set</string>
+    <string name="set_log_keyboard_action_next_reps">Next field: Reps</string>
+    <string name="set_log_keyboard_action_prev_weight">Previous field: Weight</string>
+
+    <!-- Weight Plate Calculator -->
+    <string name="plate_calculator_open">Calculate plates</string>
+    <string name="plate_calculator_title">Plate Calculator</string>
+    <string name="plate_calculator_unit">Unit: %1$s</string>
+    <string name="plate_calculator_close">Close plate calculator</string>
+    <string name="plate_calculator_per_side">per side</string>
+    <string name="plate_calculator_per_side_badge">Per Side</string>
+    <string name="plate_calculator_one_side_badge">1× Side</string>
+    <string name="plate_calculator_bar">Bar</string>
+    <string name="plate_calculator_target_weight">Target Weight</string>
+    <string name="plate_calculator_target_weight_label">Target Weight (%1$s)</string>
+    <string name="plate_calculator_bar_weight_label">Bar Weight (%1$s)</string>
+    <string name="plate_calculator_target_placeholder">e.g. 225</string>
+    <string name="plate_calculator_target_display">Target %1$s %2$s</string>
+    <string name="plate_calculator_apply">Apply Weight</string>
+    <string name="plate_calculator_apply_to_set">Apply %1$s %2$s to Set</string>
+    <string name="plate_calculator_done">Done</string>
+    <string name="plate_calculator_available_plates">Available Plates</string>
+    <string name="plate_calculator_bar_weight_presets">Bar Weight Presets</string>
+    <string name="plate_calculator_barbell_diagram">Barbell Diagram</string>
+    <string name="plate_calculator_per_side_breakdown">Per Side Breakdown</string>
+    <string name="plate_calculator_each_side">Each Side</string>
+    <string name="plate_calculator_exact_match">Exact match</string>
+    <string name="plate_calculator_below_bar">Target is below bar weight</string>
+    <string name="plate_calculator_below_bar_minimum">Minimum bar is %1$s %2$s</string>
+    <string name="plate_calculator_cannot_match">Cannot match exactly with available plates</string>
+    <string name="plate_calculator_remainder">Remainder %1$s %2$s</string>
+    <string name="plate_calculator_bar_only">Bar only (%1$s %2$s)</string>
+    <string name="plate_calculator_empty_bar">Empty bar (0 %1$s)</string>
+    <string name="plate_calculator_no_plates_needed">No plates needed on the bar (%1$s %2$s bar only)</string>
+    <string name="plate_calculator_no_plates_loaded">No plates loaded (0 %1$s)</string>
+    <string name="plate_calculator_base">Base %1$s %2$s</string>
+    <string name="plate_calculator_total_dot">• Total %1$s %2$s</string>
+    <string name="plate_calculator_bar_summary">Bar: %1$s %2$s</string>
+    <string name="plate_calculator_plates_summary">Plates: %1$s %2$s</string>
+    <string name="plate_calculator_total_summary">Total: %1$s %2$s</string>
+    <string name="plate_calculator_plate_item">%1$s %2$s plate</string>
+    <string name="plate_calculator_expand">Expand plate calculator</string>
+    <string name="plate_calculator_collapse">Collapse plate calculator</string>
+    <string name="plate_calculator_preset_olympic">%1$s %2$s (Olympic)</string>
+    <string name="plate_calculator_preset_womens">%1$s %2$s (Women\'s)</string>
+    <string name="plate_calculator_preset_squat">%1$s %2$s (Squat)</string>
+    <string name="plate_calculator_preset_ez">%1$s %2$s (EZ Bar)</string>
+    <string name="plate_calculator_preset_technique">%1$s %2$s (Technique)</string>
+    <string name="plate_calculator_preset_trap">%1$s %2$s (Trap Bar)</string>
+    <string name="plate_calculator_preset_none">0 %1$s (No Bar)</string>
 </resources>

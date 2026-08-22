@@ -3,6 +3,8 @@ package com.stratum.domain.training
 import com.stratum.domain.lift.LiftRepository
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.lift.isDoubleSidedPlateLoad
+import com.stratum.domain.lift.isPlateLoaded
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.logging.runCatchingLogged
 import com.stratum.domain.program.ProgramRepository
@@ -51,12 +53,24 @@ class GetCompletedSessionForEditUseCase @Inject constructor(
                     .mapNotNull { it.liftId }
                     .distinct()
                     .associateWith { liftId -> liftsById[liftId]?.loadType ?: LoadType.Weighted }
+            val isPlateLoadedByLiftId =
+                sets
+                    .mapNotNull { it.liftId }
+                    .distinct()
+                    .associateWith { liftId -> liftsById[liftId]?.isPlateLoaded ?: false }
+            val isDoubleSidedByLiftId =
+                sets
+                    .mapNotNull { it.liftId }
+                    .distinct()
+                    .associateWith { liftId -> liftsById[liftId]?.isDoubleSidedPlateLoad ?: true }
 
             CompletedSessionEditSnapshot(
                 sessionId = sessionId,
                 workoutName = workoutName,
                 sets = sets,
                 loadTypeByLiftId = loadTypeByLiftId,
+                isPlateLoadedByLiftId = isPlateLoadedByLiftId,
+                isDoubleSidedByLiftId = isDoubleSidedByLiftId,
             )
         }
 
@@ -70,4 +84,6 @@ data class CompletedSessionEditSnapshot(
     val workoutName: String,
     val sets: List<LoggedSet>,
     val loadTypeByLiftId: Map<LiftId, LoadType>,
+    val isPlateLoadedByLiftId: Map<LiftId, Boolean> = emptyMap(),
+    val isDoubleSidedByLiftId: Map<LiftId, Boolean> = emptyMap(),
 )
