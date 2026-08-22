@@ -424,17 +424,16 @@ internal object LiveWorkoutOverlayOps {
 
             var currentLiftId = lift.liftId
             var currentLiftName = lift.liftName
-            var currentLoadType = lift.loadType
-            var currentIsPlateLoaded = lift.isPlateLoaded
-            var currentIsDoubleSided = lift.isDoubleSided
             if (swappedLiftId != null) {
                 currentLiftId = swappedLiftId
                 currentLiftName = liftNamesById[swappedLiftId].orEmpty()
-                val catalog = liftsById[swappedLiftId]
-                currentLoadType = catalog?.loadType ?: LoadType.Weighted
-                currentIsPlateLoaded = catalog?.isPlateLoaded ?: false
-                currentIsDoubleSided = catalog?.isDoubleSidedPlateLoad ?: true
             }
+            // Catalog loadType wins over a stale Weighted projection (fingerprint rebuild
+            // skips catalog-only edits such as switching a lift to Bodyweight).
+            val catalog = liftsById[currentLiftId]
+            val currentLoadType = catalog?.loadType ?: lift.loadType
+            val currentIsPlateLoaded = catalog?.isPlateLoaded ?: lift.isPlateLoaded
+            val currentIsDoubleSided = catalog?.isDoubleSidedPlateLoad ?: lift.isDoubleSided
 
             val currentSupersetGroupId = if (overlay.supersetGroupIdOverrides.containsKey(lift.workoutLiftId)) {
                 overlay.supersetGroupIdOverrides[lift.workoutLiftId]
@@ -468,7 +467,7 @@ internal object LiveWorkoutOverlayOps {
                     lift.workoutPinnedNote,
                 ),
                 liftPinnedNote = resolvedLiftPinnedNote(
-                    liftsById[currentLiftId],
+                    catalog,
                     lift.liftPinnedNote,
                 ),
             )

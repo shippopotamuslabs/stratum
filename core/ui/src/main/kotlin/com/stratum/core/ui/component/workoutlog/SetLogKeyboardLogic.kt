@@ -19,15 +19,15 @@ fun toggleRepRangeField(active: RepRangeKeyboardField): RepRangeKeyboardField =
         RepRangeKeyboardField.Max -> RepRangeKeyboardField.Min
     }
 
-/** Primary (bottom-right) control shown on the set-log pad. */
+/** Icons used on the set-log pad action column (primary Check or elevated field-nav). */
 enum class SetLogKeyboardPrimaryIcon {
-    /** Advance weight → reps. */
+    /** Advance weight → reps (elevated slot). */
     NextReps,
 
-    /** Return reps → weight. */
+    /** Return reps → weight (elevated slot). */
     PrevWeight,
 
-    /** Complete set (or dismiss when complete is unavailable). */
+    /** Complete set — bottom-right primary only. */
     Check,
 }
 
@@ -328,51 +328,24 @@ fun canCompleteSetLogFromFields(
     )
 
 /**
- * Icon for the bottom-right pad key.
+ * Icon for the bottom-right pad key, or null to hide it.
  *
- * When [canComplete] is true → always Check (same rule as the row checkbox).
- * Otherwise navigate toward the unfilled field: weight → reps, reps → weight.
+ * Same rule as the row checkbox: [SetLogKeyboardPrimaryIcon.Check] only when [canComplete].
+ * Field-nav chevrons never occupy this slot — they live in [setLogKeyboardElevatedNavIcon].
  */
-fun setLogKeyboardPrimaryIcon(
-    active: SetLogKeyboardField,
-    canComplete: Boolean,
-    showWeightInput: Boolean,
-): SetLogKeyboardPrimaryIcon =
-    if (canComplete) {
-        SetLogKeyboardPrimaryIcon.Check
-    } else {
-        when (active) {
-            SetLogKeyboardField.Weight -> SetLogKeyboardPrimaryIcon.NextReps
-            SetLogKeyboardField.Reps ->
-                if (showWeightInput) {
-                    SetLogKeyboardPrimaryIcon.PrevWeight
-                } else {
-                    // Bodyweight without a reps value/rec — Check dismisses (cannot complete).
-                    SetLogKeyboardPrimaryIcon.Check
-                }
-        }
-    }
+fun setLogKeyboardPrimaryIcon(canComplete: Boolean): SetLogKeyboardPrimaryIcon? =
+    if (canComplete) SetLogKeyboardPrimaryIcon.Check else null
 
 /**
  * Icon for the key **above** the primary action (row of 7-8-9).
  *
- * Only when primary is [SetLogKeyboardPrimaryIcon.Check] **and** weight↔reps navigation is
- * available — avoids duplicating a chevron that already occupies the primary slot.
- * Returns null when the elevated slot should stay empty.
+ * Shown whenever weight↔reps navigation exists ([showWeightInput]), including while the
+ * Check key is hidden. Bodyweight has no second field — always null.
  */
 fun setLogKeyboardElevatedNavIcon(
     active: SetLogKeyboardField,
-    canComplete: Boolean,
     showWeightInput: Boolean,
 ): SetLogKeyboardPrimaryIcon? {
-    val primary =
-        setLogKeyboardPrimaryIcon(
-            active = active,
-            canComplete = canComplete,
-            showWeightInput = showWeightInput,
-        )
-    if (primary != SetLogKeyboardPrimaryIcon.Check) return null
-    // Bodyweight rows only have reps — nothing to toggle.
     if (!showWeightInput) return null
     return when (active) {
         SetLogKeyboardField.Weight -> SetLogKeyboardPrimaryIcon.NextReps
@@ -381,48 +354,19 @@ fun setLogKeyboardElevatedNavIcon(
 }
 
 /**
- * Action for the bottom-right pad key.
- *
- * When the icon is [SetLogKeyboardPrimaryIcon.Check]: [Complete] if [canComplete], else [Dismiss].
- * Navigation icons map to [FocusReps] / [FocusWeight].
+ * Action for the bottom-right pad key, or null when that key is hidden.
  */
-fun resolveSetLogKeyboardAction(
-    active: SetLogKeyboardField,
-    canComplete: Boolean,
-    showWeightInput: Boolean,
-): SetLogKeyboardAction =
-    when (
-        setLogKeyboardPrimaryIcon(
-            active = active,
-            canComplete = canComplete,
-            showWeightInput = showWeightInput,
-        )
-    ) {
-        SetLogKeyboardPrimaryIcon.NextReps -> SetLogKeyboardAction.FocusReps
-        SetLogKeyboardPrimaryIcon.PrevWeight -> SetLogKeyboardAction.FocusWeight
-        SetLogKeyboardPrimaryIcon.Check ->
-            if (canComplete) {
-                SetLogKeyboardAction.Complete
-            } else {
-                SetLogKeyboardAction.Dismiss
-            }
-    }
+fun resolveSetLogKeyboardAction(canComplete: Boolean): SetLogKeyboardAction? =
+    if (canComplete) SetLogKeyboardAction.Complete else null
 
 /**
  * Action for the elevated nav key (above primary), or null when that key is hidden.
  */
 fun resolveSetLogKeyboardElevatedNavAction(
     active: SetLogKeyboardField,
-    canComplete: Boolean,
     showWeightInput: Boolean,
 ): SetLogKeyboardAction? =
-    when (
-        setLogKeyboardElevatedNavIcon(
-            active = active,
-            canComplete = canComplete,
-            showWeightInput = showWeightInput,
-        )
-    ) {
+    when (setLogKeyboardElevatedNavIcon(active = active, showWeightInput = showWeightInput)) {
         SetLogKeyboardPrimaryIcon.NextReps -> SetLogKeyboardAction.FocusReps
         SetLogKeyboardPrimaryIcon.PrevWeight -> SetLogKeyboardAction.FocusWeight
         SetLogKeyboardPrimaryIcon.Check, null -> null

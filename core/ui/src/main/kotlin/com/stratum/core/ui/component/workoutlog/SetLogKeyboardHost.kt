@@ -520,12 +520,7 @@ private fun SetLogKeyboardDockContent(
                     },
                     onPrimaryAction = {
                         applySetLogKeyboardAction(
-                            action =
-                                resolveSetLogKeyboardAction(
-                                    active = session.field,
-                                    canComplete = liveCanComplete,
-                                    showWeightInput = session.showWeightInput,
-                                ),
+                            action = resolveSetLogKeyboardAction(canComplete = liveCanComplete),
                             onFieldChange = host::setField,
                             onComplete = completeAndDismiss,
                             onDismiss = host::dismiss,
@@ -537,7 +532,6 @@ private fun SetLogKeyboardDockContent(
                             action =
                                 resolveSetLogKeyboardElevatedNavAction(
                                     active = session.field,
-                                    canComplete = liveCanComplete,
                                     showWeightInput = session.showWeightInput,
                                 ),
                             onFieldChange = host::setField,
