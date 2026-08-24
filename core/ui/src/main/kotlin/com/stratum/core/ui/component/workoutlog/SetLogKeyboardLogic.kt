@@ -39,6 +39,18 @@ enum class SetLogKeyboardAction {
     Complete,
 }
 
+/** Whether pad digits edit full reps or partial reps. Default is [Full]. */
+enum class RepsEntryMode {
+    Full,
+    Partial,
+}
+
+/** Split the reps cell when editing partials, or when a partial value is already logged. */
+fun shouldShowSplitRepsCell(
+    mode: RepsEntryMode,
+    partialRepsText: String,
+): Boolean = mode == RepsEntryMode.Partial || partialRepsText.isNotBlank()
+
 /**
  * Editable numeric buffer with a caret index in `0..text.length` (between characters).
  * Used by custom set-log / rep-range pads so insert and backspace are not end-only.

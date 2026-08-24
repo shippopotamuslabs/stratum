@@ -503,4 +503,27 @@ class SetLogKeyboardLogicTest {
             )
         }
     }
+
+    @Nested
+    @DisplayName("shouldShowSplitRepsCell")
+    inner class SplitRepsCell {
+        @Test
+        @DisplayName("full mode without partials stays single cell")
+        fun fullWithoutPartials() {
+            assertFalse(shouldShowSplitRepsCell(RepsEntryMode.Full, ""))
+        }
+
+        @Test
+        @DisplayName("full mode with partials splits")
+        fun fullWithPartials() {
+            assertTrue(shouldShowSplitRepsCell(RepsEntryMode.Full, "2"))
+        }
+
+        @Test
+        @DisplayName("partial mode always splits")
+        fun partialAlwaysSplits() {
+            assertTrue(shouldShowSplitRepsCell(RepsEntryMode.Partial, ""))
+            assertTrue(shouldShowSplitRepsCell(RepsEntryMode.Partial, "1"))
+        }
+    }
 }

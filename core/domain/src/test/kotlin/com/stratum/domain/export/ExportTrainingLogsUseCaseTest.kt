@@ -20,6 +20,7 @@ import java.time.Instant
 import java.time.LocalDate
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -278,5 +279,27 @@ class ExportTrainingLogsUseCaseTest {
         val sessionObj = root.requireObject("history").requireArray("sessions").values[0] as JsonObject
         assertEquals("must-export-id", sessionObj.requireString("id"))
         assertTrue(sessionObj.entries.containsKey("id"))
+    }
+
+    @Test
+    @DisplayName("partialReps is omitted when none logged and written when present")
+    fun partialRepsOptionalOnExport() = runTest {
+        val none = set("set-none", "sess-a")
+        val withPartials = set("set-partial", "sess-a").copy(partialReps = 2)
+        val repo = FakeTrainingLogRepository(
+            initialSessions = listOf(sessionA),
+            initialSets = listOf(none, withPartials),
+        )
+        val result = useCase(repo)(ExportLogRange.AllTime)
+        assertTrue(result.isSuccess)
+        val sets = decodeRoot(result.getOrThrow().bytes)
+            .requireObject("history")
+            .requireArray("sets")
+            .values
+            .map { it as JsonObject }
+            .associateBy { it.requireString("id") }
+        assertNull(sets.getValue("set-none").optionalInt("partialReps"))
+        assertEquals(false, sets.getValue("set-none").entries.containsKey("partialReps"))
+        assertEquals(2, sets.getValue("set-partial").requireInt("partialReps"))
     }
 }

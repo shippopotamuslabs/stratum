@@ -84,6 +84,14 @@
     <string name="set_log_keyboard_prev_weight">Previous field, weight</string>
     <string name="set_log_keyboard_complete_set">Complete set</string>
     <string name="set_log_keyboard_plate_calculator">Plate calculator</string>
+    <string name="set_log_keyboard_reps_mode_full_letter">F</string>
+    <string name="set_log_keyboard_reps_mode_partial_letter">P</string>
+    <string name="set_log_keyboard_reps_mode_full">Log full reps</string>
+    <string name="set_log_keyboard_reps_mode_partial">Log partial reps</string>
+    <string name="set_log_keyboard_now_full">now logging full reps</string>
+    <string name="set_log_keyboard_now_partial">now logging partial reps</string>
+    <string name="set_log_reps_full_half">Full reps</string>
+    <string name="set_log_reps_partial_half">Partial reps</string>
 
     <!-- Rep-range slim keyboard (edit workout) -->
     <string name="rep_range_keyboard_over_to_max">Next field, max reps</string>

@@ -585,6 +585,7 @@ internal object LiveWorkoutOverlayOps {
                         weight = logged.weight,
                         reps = logged.reps,
                         rir = logged.rir,
+                        partialReps = logged.partialReps,
                         persistedLoggedSetId = logged.id.value,
                     )
                 }

@@ -21,32 +21,43 @@ fun formatWorkoutDuration(millis: Long): String {
     }
 }
 
-fun formatSetPerformance(weightAmount: Double, reps: Int): String =
-    if (weightAmount == 0.0) {
-        reps.toString()
+fun formatSetPerformance(weightAmount: Double, reps: Int, partialReps: Int? = null): String {
+    val repsLabel = formatRepsWithPartials(reps, partialReps)
+    return if (weightAmount == 0.0) {
+        repsLabel
     } else {
-        "${formatWeightAmount(weightAmount)} × $reps"
+        "${formatWeightAmount(weightAmount)} × $repsLabel"
     }
+}
 
 /**
  * Formats set performance after converting [weight] into [displayUnit].
  * When [includeUnit] is true, appends the short unit label (e.g. `"135 lb × 5"`).
+ * Partials render as `5+2` when [partialReps] is greater than zero.
  */
 fun formatSetPerformance(
     weight: Weight,
     reps: Int,
     displayUnit: Weight.WeightUnit,
     includeUnit: Boolean = false,
+    partialReps: Int? = null,
 ): String {
     val amount =
         WeightConversion.convertAmount(weight.amount, weight.unit, displayUnit)
-    if (amount == 0.0) return reps.toString()
+    val repsLabel = formatRepsWithPartials(reps, partialReps)
+    if (amount == 0.0) return repsLabel
     val amountLabel = formatWeightAmount(amount)
     return if (includeUnit) {
-        "$amountLabel ${displayUnit.shortLabel()} × $reps"
+        "$amountLabel ${displayUnit.shortLabel()} × $repsLabel"
     } else {
-        "$amountLabel × $reps"
+        "$amountLabel × $repsLabel"
     }
+}
+
+/** Full reps, plus `+N` when [partialReps] is greater than zero. */
+fun formatRepsWithPartials(reps: Int, partialReps: Int?): String {
+    val partials = partialReps?.takeIf { it > 0 }
+    return if (partials == null) reps.toString() else "$reps+$partials"
 }
 
 /**

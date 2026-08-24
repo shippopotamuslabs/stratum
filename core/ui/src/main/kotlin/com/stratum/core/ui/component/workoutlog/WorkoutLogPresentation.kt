@@ -35,6 +35,7 @@ data class WorkoutLogSetUi(
     val weightPlaceholder: String = "",
     val repsText: String = "",
     val repsPlaceholder: String = "",
+    val partialRepsText: String = "",
     val rir: Int = 2,
     val isComplete: Boolean = false,
     val fieldsEnabled: Boolean = true,
@@ -62,6 +63,7 @@ data class WorkoutLogSetUi(
 data class WorkoutLogSetRowActions(
     val onWeightChange: (String) -> Unit = {},
     val onRepsChange: (String) -> Unit = {},
+    val onPartialRepsChange: (String) -> Unit = {},
     val onRirChange: (Int) -> Unit = {},
     val onCheckedChange: ((Boolean) -> Unit)? = null,
     /**

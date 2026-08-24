@@ -893,6 +893,57 @@ class WorkoutViewModelTest {
     }
 
     @Test
+    @DisplayName("logSet persists partialReps and reloads them")
+    fun logSetPersistsPartialReps() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        viewModel.logSet(
+            slotKey = liftSetId.value,
+            weight = lb(185.0),
+            reps = 5,
+            rir = 1,
+            partialReps = 2,
+        )
+        advanceUntilIdle()
+
+        val stored =
+            trainingLogRepository.getSetsForSession(TrainingSessionId("ts-active")).single()
+        assertEquals(5, stored.reps)
+        assertEquals(2, stored.partialReps)
+        assertEquals(
+            2,
+            overlayStore.storedOverlay().loggedSets.values.single().partialReps,
+        )
+    }
+
+    @Test
+    @DisplayName("logSet stores zero partialReps as none on Room and overlay")
+    fun logSetZeroPartialRepsStoresNull() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        viewModel.logSet(
+            slotKey = liftSetId.value,
+            weight = lb(185.0),
+            reps = 5,
+            rir = 1,
+            partialReps = 0,
+        )
+        advanceUntilIdle()
+
+        val stored =
+            trainingLogRepository.getSetsForSession(TrainingSessionId("ts-active")).single()
+        assertNull(stored.partialReps)
+        assertNull(overlayStore.storedOverlay().loggedSets.values.single().partialReps)
+        val set =
+            (viewModel.uiState.value as WorkoutUiState.Loaded).lifts.first().sets.first()
+        assertNull(set.loggedPartialReps)
+    }
+
+    @Test
     @DisplayName("S7-amend-completed-set-updates-without-insert-or-SetLogged")
     fun `S7-amend-completed-set-updates-without-insert-or-SetLogged`() = runTest {
         val viewModel = buildViewModel()

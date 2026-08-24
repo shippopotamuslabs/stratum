@@ -14,6 +14,8 @@ data class LoggedSetValue(
     val weight: Weight,
     val reps: Int,
     val rir: Int?,
+    /** Incomplete extra reps after [reps]; null/0 means none logged. */
+    val partialReps: Int? = null,
     /**
      * Stable Room [com.stratum.domain.importing.identity.LoggedSetId] for this slot when known.
      * Used so amend/unlog/find survive position renumber (e.g. myo minis inserted between

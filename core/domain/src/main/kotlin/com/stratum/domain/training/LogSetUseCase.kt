@@ -41,6 +41,7 @@ class LogSetUseCase @Inject constructor(
                 weight = command.weight,
                 reps = command.reps,
                 rir = command.rir,
+                partialReps = command.partialReps.normalizedPartialReps(),
                 completedAt = command.completedAt,
                 liftContext = liftContext,
             )

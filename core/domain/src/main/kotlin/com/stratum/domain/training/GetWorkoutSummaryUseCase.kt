@@ -92,6 +92,7 @@ class GetWorkoutSummaryUseCase @Inject constructor(
                 rir = best.rir,
                 isPersonalRecord = best.isPersonalRecord,
                 estimatedOneRm = best.estimatedOneRm,
+                partialReps = best.partialReps.normalizedPartialReps(),
             )
         }
 
