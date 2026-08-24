@@ -38,6 +38,7 @@ private data class ImportedSetDto(
     @SerialName("weightUnit") val weightUnitName: String? = null,
     val reps: Int,
     val rir: Int? = null,
+    val partialReps: Int? = null,
     val completedAt: String,
 )
 
@@ -78,6 +79,7 @@ internal object ImportedHistoryJsonParser {
                     reps = dto.reps,
                     rir = dto.rir,
                     completedAt = ImportTimestamps.parse(dto.completedAt),
+                    partialReps = dto.partialReps,
                 )
             }
         return sessions to sets

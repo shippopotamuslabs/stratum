@@ -51,7 +51,7 @@ private val KeyboardRevealMargin = 8.dp
 
 /** Set-log callbacks for [WorkoutLiftList] — bag avoids Detekt LongParameterList. */
 internal data class WorkoutLiftListActions(
-    val onLogSet: (slotKey: String, weightAmountDisplay: Double, reps: Int, rir: Int?) -> Unit,
+    val onLogSet: (slotKey: String, weightAmountDisplay: Double, reps: Int, rir: Int?, partialReps: Int?) -> Unit,
     val onUnlogSet: (String) -> Unit,
     val onAddSet: (workoutLiftId: String) -> Unit,
     val onDeleteSet: (slotKey: String) -> Unit,
@@ -190,7 +190,7 @@ internal fun WorkoutLiftList(
 @Composable
 internal fun LiveLiftSection(
     lift: RenderedLiftUi,
-    onLogSet: (slotKey: String, weightAmountDisplay: Double, reps: Int, rir: Int?) -> Unit,
+    onLogSet: (slotKey: String, weightAmountDisplay: Double, reps: Int, rir: Int?, partialReps: Int?) -> Unit,
     onUnlogSet: (String) -> Unit,
     onAddSet: () -> Unit,
     onDeleteSet: (slotKey: String) -> Unit,
@@ -281,11 +281,18 @@ internal fun LiveLiftSection(
                 // Materialize placeholders into draft text before/while VM persists so the row
                 // never sits empty+placeholder after confirm.
                 draftStore.applyResolvedCommit(source, commit)
-                onLogSet(commit.slotKey, commit.weightAmountDisplay, commit.reps, commit.rir)
+                onLogSet(
+                    commit.slotKey,
+                    commit.weightAmountDisplay,
+                    commit.reps,
+                    commit.rir,
+                    commit.partialReps,
+                )
             }
             WorkoutLogSetRowActions(
                 onWeightChange = { draftStore.setWeight(setUi.setKey, it) },
                 onRepsChange = { draftStore.setReps(setUi.setKey, it) },
+                onPartialRepsChange = { draftStore.setPartialReps(setUi.setKey, it) },
                 onRirChange = { rir ->
                     draftStore.setRir(setUi.setKey, rir)
                     // RIR-only: keep previous weight/reps if fields were cleared mid-edit.

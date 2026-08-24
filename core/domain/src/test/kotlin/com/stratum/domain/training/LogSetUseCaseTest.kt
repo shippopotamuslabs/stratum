@@ -13,6 +13,7 @@ import com.stratum.domain.training.identity.TrainingSessionId
 import java.time.Instant
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -159,6 +160,24 @@ class LogSetUseCaseTest {
         assertEquals(1, repo.insertSetCallCount)
         assertEquals(sessionOnlyId, set.liftContext.workoutLiftId)
         assertEquals(ProgressionScheme.Double, set.liftContext.progressionScheme)
+    }
+
+    @Test
+    @DisplayName("partialReps persist; zero/empty become null")
+    fun partialRepsNormalizedOnPersist() = runTest {
+        val repo = FakeTrainingLogRepository()
+        repo.seedSession(WorkoutLoggingFixtures.inProgressSession(id = "ts-live-1"))
+        val useCase = buildUseCase(repo)
+
+        val withPartials = useCase(command().copy(partialReps = 2)).getOrThrow()
+        assertEquals(2, withPartials.partialReps)
+        assertEquals(
+            2,
+            repo.getSetsForSession(withPartials.sessionId).single().partialReps,
+        )
+
+        val zero = useCase(command().copy(partialReps = 0)).getOrThrow()
+        assertNull(zero.partialReps)
     }
 
     private fun buildUseCase(

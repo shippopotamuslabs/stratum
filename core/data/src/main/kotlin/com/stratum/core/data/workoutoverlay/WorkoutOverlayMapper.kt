@@ -190,6 +190,7 @@ private fun LoggedSetValue.toDto(): LoggedSetValueDto = LoggedSetValueDto(
     weight = weight.toDto(),
     reps = reps,
     rir = rir,
+    partialReps = partialReps,
     persistedLoggedSetId = persistedLoggedSetId,
 )
 
@@ -200,6 +201,7 @@ private fun LoggedSetValueDto.toDomain(slotId: SetSlotId): LoggedSetValue {
         weight = weight,
         reps = reps,
         rir = rir,
+        partialReps = partialReps,
         persistedLoggedSetId = persistedLoggedSetId,
     )
 }
@@ -211,6 +213,7 @@ private fun SlotRecommendation.toDto(): SlotRecommendationDto = SlotRecommendati
     previousWeight = previousWeight?.toDto(),
     previousReps = previousReps,
     previousRir = previousRir,
+    previousPartialReps = previousPartialReps,
 )
 
 private fun SlotRecommendationDto.toDomain(slotId: SetSlotId): SlotRecommendation {
@@ -223,6 +226,7 @@ private fun SlotRecommendationDto.toDomain(slotId: SetSlotId): SlotRecommendatio
         previousWeight = prev,
         previousReps = previousReps,
         previousRir = previousRir,
+        previousPartialReps = previousPartialReps,
     )
 }
 

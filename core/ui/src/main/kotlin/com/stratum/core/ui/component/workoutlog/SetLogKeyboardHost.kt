@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -21,8 +22,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.stratum.core.ui.R as CoreUiR
+import com.stratum.core.ui.component.StratumText
+import com.stratum.core.ui.theme.StratumThemeAccessor
+import kotlinx.coroutines.delay
 import com.stratum.core.ui.component.formatWeightAmount
 import com.stratum.core.ui.component.platecalculator.PlateInventoryUi
 import com.stratum.core.ui.component.platecalculator.StratumPlateCalculatorMiniDrawer
@@ -52,6 +58,7 @@ data class SetLogKeyboardSession(
     val hasRepsRecommendation: Boolean,
     val onWeightChange: (String) -> Unit,
     val onRepsChange: (String) -> Unit,
+    val onPartialRepsChange: (String) -> Unit = {},
     val onRirChange: (Int) -> Unit,
     val onComplete: (() -> Unit)?,
     val isPlateLoaded: Boolean = false,
@@ -90,6 +97,14 @@ class SetLogKeyboardHostState(
     var weightCursor: Int by mutableIntStateOf(0)
         private set
     var repsCursor: Int by mutableIntStateOf(0)
+        private set
+    var partialRepsText: String by mutableStateOf("")
+        private set
+    var partialRepsCursor: Int by mutableIntStateOf(0)
+        private set
+    var repsEntryMode: RepsEntryMode by mutableStateOf(RepsEntryMode.Full)
+        private set
+    var repsModeToast: RepsEntryMode? by mutableStateOf(null)
         private set
 
     var isPlateDrawerOpen: Boolean by mutableStateOf(false)
@@ -175,9 +190,11 @@ class SetLogKeyboardHostState(
         hasRepsRecommendation: Boolean,
         onWeightChange: (String) -> Unit,
         onRepsChange: (String) -> Unit,
+        onPartialRepsChange: (String) -> Unit = {},
         onRirChange: (Int) -> Unit,
         onComplete: (() -> Unit)?,
         isPlateLoaded: Boolean = false,
+        partialRepsText: String = "",
         recommendedWeightAmount: Double = 0.0,
         unitLabel: String = "lb",
         isDoubleSided: Boolean = true,
@@ -200,6 +217,7 @@ class SetLogKeyboardHostState(
                     hasRepsRecommendation = hasRepsRecommendation,
                     onWeightChange = onWeightChange,
                     onRepsChange = onRepsChange,
+                    onPartialRepsChange = onPartialRepsChange,
                     onRirChange = onRirChange,
                     onComplete = onComplete,
                     isPlateLoaded = isPlateLoaded,
@@ -214,11 +232,15 @@ class SetLogKeyboardHostState(
         // New set (or first open): seed drafts from row props, carets at end.
         this.weightText = weightText
         this.repsText = repsText
+        this.partialRepsText = partialRepsText
         this.rir = rir
         this.isPlateDrawerOpen = false
         this.isPlateSheetOpen = false
+        this.repsEntryMode = RepsEntryMode.Full
+        this.repsModeToast = null
         weightCursor = weightText.length
         repsCursor = repsText.length
+        partialRepsCursor = partialRepsText.length
         session =
             SetLogKeyboardSession(
                 setKey = setKey,
@@ -233,6 +255,7 @@ class SetLogKeyboardHostState(
                 hasRepsRecommendation = hasRepsRecommendation,
                 onWeightChange = onWeightChange,
                 onRepsChange = onRepsChange,
+                onPartialRepsChange = onPartialRepsChange,
                 onRirChange = onRirChange,
                 onComplete = onComplete,
                 isPlateLoaded = isPlateLoaded,
@@ -277,8 +300,29 @@ class SetLogKeyboardHostState(
         session = s.copy(field = clampedField)
         when (clampedField) {
             SetLogKeyboardField.Weight -> weightCursor = weightText.length
-            SetLogKeyboardField.Reps -> repsCursor = repsText.length
+            SetLogKeyboardField.Reps -> {
+                if (repsEntryMode == RepsEntryMode.Partial) {
+                    partialRepsCursor = partialRepsText.length
+                } else {
+                    repsCursor = repsText.length
+                }
+            }
         }
+    }
+
+    fun selectRepsEntryMode(mode: RepsEntryMode) {
+        if (repsEntryMode == mode) return
+        repsEntryMode = mode
+        repsModeToast = mode
+        if (mode == RepsEntryMode.Partial) {
+            partialRepsCursor = partialRepsText.length
+        } else {
+            repsCursor = repsText.length
+        }
+    }
+
+    fun clearRepsModeToast() {
+        repsModeToast = null
     }
 
     fun isSetActive(setKey: String): Boolean = session?.setKey == setKey
@@ -312,7 +356,12 @@ class SetLogKeyboardHostState(
         if (s.field != field) return
         when (field) {
             SetLogKeyboardField.Weight -> weightCursor = cursor.coerceIn(0, weightText.length)
-            SetLogKeyboardField.Reps -> repsCursor = cursor.coerceIn(0, repsText.length)
+            SetLogKeyboardField.Reps ->
+                if (repsEntryMode == RepsEntryMode.Partial) {
+                    partialRepsCursor = cursor.coerceIn(0, partialRepsText.length)
+                } else {
+                    repsCursor = cursor.coerceIn(0, repsText.length)
+                }
         }
     }
 
@@ -326,10 +375,17 @@ class SetLogKeyboardHostState(
                     cursor = weightCursor.coerceIn(0, weightText.length),
                 )
             SetLogKeyboardField.Reps ->
-                NumericEditBuffer(
-                    text = repsText,
-                    cursor = repsCursor.coerceIn(0, repsText.length),
-                )
+                if (repsEntryMode == RepsEntryMode.Partial) {
+                    NumericEditBuffer(
+                        text = partialRepsText,
+                        cursor = partialRepsCursor.coerceIn(0, partialRepsText.length),
+                    )
+                } else {
+                    NumericEditBuffer(
+                        text = repsText,
+                        cursor = repsCursor.coerceIn(0, repsText.length),
+                    )
+                }
         }
     }
 
@@ -347,11 +403,20 @@ class SetLogKeyboardHostState(
                 }
             }
             SetLogKeyboardField.Reps -> {
-                val textChanged = repsText != coerced.text
-                repsText = coerced.text
-                repsCursor = coerced.cursor
-                if (textChanged) {
-                    s.onRepsChange(coerced.text)
+                if (repsEntryMode == RepsEntryMode.Partial) {
+                    val textChanged = partialRepsText != coerced.text
+                    partialRepsText = coerced.text
+                    partialRepsCursor = coerced.cursor
+                    if (textChanged) {
+                        s.onPartialRepsChange(coerced.text)
+                    }
+                } else {
+                    val textChanged = repsText != coerced.text
+                    repsText = coerced.text
+                    repsCursor = coerced.cursor
+                    if (textChanged) {
+                        s.onRepsChange(coerced.text)
+                    }
                 }
             }
         }
@@ -361,6 +426,7 @@ class SetLogKeyboardHostState(
         session = null
         isPlateDrawerOpen = false
         isPlateSheetOpen = false
+        repsModeToast = null
     }
 }
 
@@ -440,9 +506,19 @@ private fun SetLogKeyboardDockContent(
     val completeAndDismiss = {
         session.onWeightChange(host.weightText)
         session.onRepsChange(host.repsText)
+        session.onPartialRepsChange(host.partialRepsText)
         host.overlay.skipNextCollapseScrollRestore = true
         session.onComplete?.invoke()
         host.dismiss()
+    }
+
+    val showRepsModeToggle = session.field == SetLogKeyboardField.Reps
+    val toastMode = host.repsModeToast
+    LaunchedEffect(toastMode) {
+        if (toastMode != null) {
+            delay(1_000)
+            host.clearRepsModeToast()
+        }
     }
 
     val showPlateCalculator =
@@ -467,6 +543,25 @@ private fun SetLogKeyboardDockContent(
         }
 
     Column(modifier = Modifier.fillMaxWidth()) {
+        val toast = toastMode
+        if (toast != null) {
+            StratumText(
+                text =
+                    stringResource(
+                        if (toast == RepsEntryMode.Partial) {
+                            CoreUiR.string.set_log_keyboard_now_partial
+                        } else {
+                            CoreUiR.string.set_log_keyboard_now_full
+                        },
+                    ),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                style = StratumThemeAccessor.typography.sectionLabel,
+                color = StratumThemeAccessor.colors.textMuted,
+            )
+        }
         AnimatedVisibility(
             visible = host.isPlateDrawerOpen && showPlateCalculator,
             enter = expandVertically() + fadeIn(),
@@ -492,6 +587,8 @@ private fun SetLogKeyboardDockContent(
                     allowDecimal = allowDecimal,
                     canComplete = liveCanComplete,
                     showPlateCalculator = showPlateCalculator,
+                    showRepsModeToggle = showRepsModeToggle,
+                    repsEntryMode = host.repsEntryMode,
                 ),
             actions =
                 SetLogKeyboardPadActions(
@@ -542,6 +639,7 @@ private fun SetLogKeyboardDockContent(
                     onPlateCalculatorClick = {
                         host.togglePlateDrawer()
                     },
+                    onRepsEntryModeChange = host::selectRepsEntryMode,
                 ),
             modifier =
                 Modifier

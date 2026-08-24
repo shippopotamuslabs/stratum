@@ -57,6 +57,7 @@ data class LoggedSetEntity(
     val weightUnit: String,
     val reps: Int,
     val rir: Int?,
+    val partialReps: Int? = null,
     val completedAtEpochMillis: Long,
     val liftName: String = "",
     val movementPatternsBitmask: Int = 0,

@@ -55,6 +55,7 @@ internal object WorkoutSessionDetailUiMapper {
                                         reps = set.reps,
                                         displayUnit = displayUnit,
                                         includeUnit = false,
+                                        partialReps = set.partialReps,
                                     ),
                                 rir = set.rir,
                                 isPersonalRecord = set.isPersonalRecord,

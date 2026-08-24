@@ -126,6 +126,7 @@ class WorkoutCompleteViewModel @Inject constructor(
                                                     reps = best.reps,
                                                     displayUnit = displayUnit,
                                                     includeUnit = false,
+                                                    partialReps = best.partialReps,
                                                 ),
                                             rirLabel =
                                                 best.rir?.toString() ?: RIR_NONE_LABEL,

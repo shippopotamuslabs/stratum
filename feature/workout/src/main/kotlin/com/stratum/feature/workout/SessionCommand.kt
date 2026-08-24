@@ -39,6 +39,7 @@ internal sealed interface SessionCommand {
         val weight: Weight,
         val reps: Int,
         val rir: Int?,
+        val partialReps: Int? = null,
     ) : SessionCommand
 
     data class UnlogSet(val slotKey: String) : SessionCommand

@@ -19,4 +19,9 @@ data class LoggedSet(
     val liftContext: LoggedLiftContext,
     val isPersonalRecord: Boolean = false,
     val estimatedOneRm: Double? = null,
+    /** Incomplete extra reps after [reps]; null/0 means none logged. Not used in progression. */
+    val partialReps: Int? = null,
 )
+
+/** Treats null and non-positive values as "no partials logged." */
+fun Int?.normalizedPartialReps(): Int? = this?.takeIf { it > 0 }

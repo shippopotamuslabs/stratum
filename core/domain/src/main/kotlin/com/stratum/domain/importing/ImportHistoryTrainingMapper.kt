@@ -11,6 +11,7 @@ import com.stratum.domain.training.LoggedLiftContext
 import com.stratum.domain.training.LoggedLiftContextFactory
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.TrainingSession
+import com.stratum.domain.training.normalizedPartialReps
 import com.stratum.domain.training.TrainingSessionKind
 import com.stratum.domain.training.TrainingSessionOrigin
 import com.stratum.domain.training.TrainingSessionStatus
@@ -53,6 +54,7 @@ object ImportHistoryTrainingMapper {
         reps: Int,
         rir: Int?,
         completedAt: Instant,
+        partialReps: Int? = null,
     ): LoggedSet =
         LoggedSet(
             id = id,
@@ -65,6 +67,7 @@ object ImportHistoryTrainingMapper {
             rir = rir,
             completedAt = completedAt,
             liftContext = placeholderLiftContext(exerciseNameRaw),
+            partialReps = partialReps.normalizedPartialReps(),
         )
 
     fun enrichLiftContext(

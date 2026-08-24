@@ -35,6 +35,8 @@ data class SetLogKeyboardPadState(
     val allowDecimal: Boolean,
     val canComplete: Boolean,
     val showPlateCalculator: Boolean = false,
+    val showRepsModeToggle: Boolean = false,
+    val repsEntryMode: RepsEntryMode = RepsEntryMode.Full,
 )
 
 @Immutable
@@ -47,6 +49,7 @@ data class SetLogKeyboardPadActions(
     val onDismiss: () -> Unit,
     val onElevatedNavAction: (() -> Unit)? = null,
     val onPlateCalculatorClick: (() -> Unit)? = null,
+    val onRepsEntryModeChange: ((RepsEntryMode) -> Unit)? = null,
 )
 
 @Composable
@@ -135,6 +138,17 @@ fun StratumSetLogKeyboardContent(
                             )
                         },
                     )
+                } else {
+                    null
+                },
+            auxiliaryContent =
+                if (state.showRepsModeToggle && actions.onRepsEntryModeChange != null) {
+                    {
+                        StratumRepsModeToggle(
+                            mode = state.repsEntryMode,
+                            onModeChange = actions.onRepsEntryModeChange,
+                        )
+                    }
                 } else {
                     null
                 },

@@ -201,6 +201,33 @@ class WorkoutSessionDetailViewModelTest {
         assertEquals(false, shareContent.visibleSets.single().isPersonalRecord)
     }
 
+    @Test
+    @DisplayName("Performance label includes +N when partialReps are logged")
+    fun performanceLabelIncludesPartials() = runTest {
+        val setWithPartials =
+            LoggedSet(
+                id = LoggedSetId("set-1"),
+                sessionId = TrainingSessionId("ts-1"),
+                exerciseNameRaw = "Bench",
+                liftId = WorkoutLoggingFixtures.liftBenchId,
+                setIndex = 0,
+                weight = Weight(135.0, Weight.WeightUnit.Lb),
+                reps = 8,
+                rir = 2,
+                completedAt = Instant.parse("2025-01-01T10:10:00Z"),
+                liftContext = WorkoutLoggingFixtures.importLiftContext(),
+                isPersonalRecord = true,
+                partialReps = 2,
+            )
+        val (vm, _) = buildViewModel(sets = listOf(setWithPartials))
+        vm.load("ts-1")
+        advanceUntilIdle()
+
+        val loaded = vm.uiState.value as WorkoutSessionDetailUiState.Loaded
+        assertEquals("135 × 8+2", loaded.lifts.single().sets.single().performanceLabel)
+        assertEquals("135 × 8+2", loaded.toShareContent().visibleSets.single().performanceLabel)
+    }
+
     private fun buildViewModel(
         sets: List<LoggedSet>? = null,
     ): Pair<WorkoutSessionDetailViewModel, FakeTrainingLogRepository> {
