@@ -61,6 +61,33 @@ class FatigueProfileSyncCodecTest {
     }
 
     @Test
+    @DisplayName("logged-set sync encodes partial_reps and decodes a missing key as null")
+    fun loggedSetPartialRepsOptional() {
+        val withPartials =
+            LoggedSetEntity(
+                id = LoggedSetId("set-1"),
+                sessionId = TrainingSessionId("session-1"),
+                exerciseNameRaw = "Curl",
+                liftId = null,
+                setIndex = 0,
+                weightAmount = 20.0,
+                weightUnit = "Lb",
+                reps = 10,
+                rir = 2,
+                partialReps = 2,
+                completedAtEpochMillis = 0L,
+                fatigueProfile = FatigueProfile.Medium,
+            )
+        val encoded = encoders.loggedSet(withPartials)
+        assertEquals(2, encoded["partial_reps"])
+        val roundTrip = requireNotNull(decoders.loggedSet("set-1", encoded))
+        assertEquals(2, roundTrip.partialReps)
+
+        val missing = requireNotNull(decoders.loggedSet("set-1", baseLoggedSetDoc()))
+        assertEquals(null, missing.partialReps)
+    }
+
+    @Test
     @DisplayName("FPR-S2-010 lift sync decode unknown or missing fatigue_profile yields Low")
     fun fprS2010_liftDecodeFallbackLow() {
         val missing = baseLiftDoc()

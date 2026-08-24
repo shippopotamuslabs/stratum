@@ -55,6 +55,7 @@ internal fun LoggedSetEntity.toTrainingDomain(): LoggedSet = LoggedSet(
     reps = reps,
     rir = rir,
     completedAt = java.time.Instant.ofEpochMilli(completedAtEpochMillis),
+    partialReps = partialReps,
     liftContext =
         LoggedLiftContext(
             liftName = liftName,
@@ -86,6 +87,7 @@ internal fun LoggedSet.toEntity(
     weightUnit = weight.unit.name,
     reps = reps,
     rir = rir,
+    partialReps = partialReps,
     completedAtEpochMillis = completedAt.toEpochMilli(),
     liftName = liftContext.liftName,
     movementPatternsBitmask = liftContext.movementPatternsBitmask,

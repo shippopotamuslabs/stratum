@@ -377,6 +377,30 @@ class LiveSetLogDraftsTest {
             assertEquals(135.0, commit.weightAmountDisplay)
             assertEquals(8, commit.reps)
         }
+
+        @Test
+        @DisplayName("partialRepsText parses to partialReps; blank and zero become null")
+        fun partialRepsParse() {
+            val source = set("s1", isComplete = false)
+            val withPartials =
+                resolveLiveSetLogCommit(
+                    source,
+                    SetFieldDraft(weightText = "135", repsText = "5", partialRepsText = "2", rir = 2),
+                )
+            assertEquals(2, withPartials.partialReps)
+            val blank =
+                resolveLiveSetLogCommit(
+                    source,
+                    SetFieldDraft(weightText = "135", repsText = "5", partialRepsText = "", rir = 2),
+                )
+            assertEquals(null, blank.partialReps)
+            val zero =
+                resolveLiveSetLogCommit(
+                    source,
+                    SetFieldDraft(weightText = "135", repsText = "5", partialRepsText = "0", rir = 2),
+                )
+            assertEquals(null, zero.partialReps)
+        }
     }
 
     @Nested

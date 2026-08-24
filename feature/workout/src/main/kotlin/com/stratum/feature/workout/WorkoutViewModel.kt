@@ -309,8 +309,8 @@ class WorkoutViewModel @Inject constructor(
     /** Unit live set fields are shown/typed in (Settings preference). */
     fun currentDisplayUnit(): Weight.WeightUnit = displayUnit.value
 
-    fun logSet(slotKey: String, weight: Weight, reps: Int, rir: Int?) {
-        enqueue(SessionCommand.LogSet(slotKey, weight, reps, rir))
+    fun logSet(slotKey: String, weight: Weight, reps: Int, rir: Int?, partialReps: Int? = null) {
+        enqueue(SessionCommand.LogSet(slotKey, weight, reps, rir, partialReps))
     }
 
     fun unlogSet(slotKey: String) {

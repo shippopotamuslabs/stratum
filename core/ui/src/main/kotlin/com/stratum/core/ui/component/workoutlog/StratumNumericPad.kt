@@ -70,6 +70,7 @@ internal fun StratumNumericPad(
     modifier: Modifier = Modifier,
     elevatedActionKey: NumericPadActionKey? = null,
     auxiliaryActionKey: NumericPadActionKey? = null,
+    auxiliaryContent: (@Composable () -> Unit)? = null,
 ) {
     Column(
         modifier = modifier,
@@ -95,15 +96,17 @@ internal fun StratumNumericPad(
             DigitKey('4', onDigit)
             DigitKey('5', onDigit)
             DigitKey('6', onDigit)
-            if (auxiliaryActionKey != null) {
-                IconKey(
-                    onClick = auxiliaryActionKey.onAction,
-                    contentDescription = auxiliaryActionKey.contentDescription,
-                ) {
-                    auxiliaryActionKey.content()
-                }
-            } else {
-                PadSpacerKey()
+            when {
+                auxiliaryActionKey != null ->
+                    IconKey(
+                        onClick = auxiliaryActionKey.onAction,
+                        contentDescription = auxiliaryActionKey.contentDescription,
+                    ) {
+                        auxiliaryActionKey.content()
+                    }
+                auxiliaryContent != null ->
+                    PadHostKey(content = auxiliaryContent)
+                else -> PadSpacerKey()
             }
         }
         PadRow(Modifier.weight(1f)) {
@@ -236,6 +239,31 @@ private fun RowScope.ActionKey(
 @Composable
 private fun RowScope.PadSpacerKey() {
     Box(modifier = Modifier.weight(1f).fillMaxHeight())
+}
+
+@Composable
+private fun RowScope.PadHostKey(
+    content: @Composable () -> Unit,
+) {
+    val shape = RoundedCornerShape(NumericPadKeyCornerRadius)
+    Surface(
+        modifier =
+            Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .clip(shape),
+        shape = shape,
+        color = StratumThemeAccessor.colors.surfaceRaised,
+        contentColor = StratumThemeAccessor.colors.textPrimary,
+        border = BorderStroke(1.dp, StratumThemeAccessor.colors.borderSubtle),
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center,
+        ) {
+            content()
+        }
+    }
 }
 
 @Composable

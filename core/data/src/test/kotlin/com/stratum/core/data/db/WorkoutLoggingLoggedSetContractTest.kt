@@ -111,4 +111,28 @@ class WorkoutLoggingLoggedSetContractTest {
         assertEquals(WorkoutLoggingFixtures.TRICEPS_BITMASK, read.secondaryMusclesBitmask)
         assertNull(read.workoutLiftId)
     }
+
+    @Test
+    @DisplayName("LoggedSetEntity persists partialReps")
+    fun persistsPartialReps() = runTest {
+        val entity = LoggedSetEntity(
+            id = LoggedSetId("set-partial"),
+            sessionId = TrainingSessionId("ts-001"),
+            exerciseNameRaw = "Bench Press",
+            liftId = LiftId("lift-bench"),
+            setIndex = 0,
+            weightAmount = 185.0,
+            weightUnit = "Lb",
+            reps = 5,
+            rir = 1,
+            partialReps = 2,
+            completedAtEpochMillis = 1_700_001_000_000L,
+            liftName = "Barbell Bench Press",
+        )
+        setDao.upsert(entity)
+
+        val read = setDao.getForSession(TrainingSessionId("ts-001")).single()
+        assertEquals(2, read.partialReps)
+        assertEquals(5, read.reps)
+    }
 }

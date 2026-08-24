@@ -9,7 +9,6 @@ import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.program.identity.WorkoutSupersetGroupId
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -21,13 +20,13 @@ import org.robolectric.RuntimeEnvironment
 import tech.apter.junit.jupiter.robolectric.RobolectricExtension
 
 /**
- * Schema invariants and converter tests. Room v3 adds lift/workout pinned notes and
- * `lift_session_notes` via AutoMigration(2→3).
+ * Schema invariants and converter tests. Room v4 adds `partialReps` on logged sets
+ * via AutoMigration(3→4). v3 added lift/workout pinned notes and `lift_session_notes`.
  */
 @ExtendWith(RobolectricExtension::class)
 class ProgramSchemaContractTest {
     @Nested
-    @DisplayName("DB version is 3 and program tables exist")
+    @DisplayName("DB version is 4 and program tables exist")
     inner class SchemaInvariants {
         @Test
         fun `the four program tables exist in the database`() {
@@ -52,12 +51,19 @@ class ProgramSchemaContractTest {
         }
 
         @Test
-        fun `v1 v2 and v3 schema exports exist`() {
+        fun `v1 through v4 schema exports exist`() {
             val schemasDir = java.io.File("schemas/com.stratum.core.data.db.StratumDatabase")
             assertTrue(schemasDir.resolve("1.json").exists(), "1.json schema export missing")
             assertTrue(schemasDir.resolve("2.json").exists(), "2.json schema export missing")
             assertTrue(schemasDir.resolve("3.json").exists(), "3.json schema export missing")
-            assertFalse(schemasDir.resolve("4.json").exists(), "4.json schema export should not exist")
+            assertTrue(schemasDir.resolve("4.json").exists(), "4.json schema export missing")
+        }
+
+        @Test
+        fun `v4 schema includes partialReps on logged_sets`() {
+            val schema = java.io.File("schemas/com.stratum.core.data.db.StratumDatabase/4.json").readText()
+            assertTrue(schema.contains("\"partialReps\""), "v4 schema must include partialReps")
+            assertTrue(schema.contains("\"version\": 4"), "schema file must declare version 4")
         }
 
         @Test

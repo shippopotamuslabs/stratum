@@ -91,6 +91,46 @@ class EditHistoricalWorkoutViewModelTest {
     }
 
     @Test
+    @DisplayName("Confirm persists partialReps; blank text stores null")
+    fun confirmPersistsPartialReps() = runTest {
+        val env = buildEnv()
+        env.vm.load("ts-1")
+        advanceUntilIdle()
+
+        val loaded = env.vm.uiState.value as EditHistoricalWorkoutUiState.Loaded
+        val setKey = loaded.lifts.single().sets.single().setKey
+        val liftKey = loaded.lifts.single().key
+
+        env.vm.onPartialRepsChange(liftKey, setKey, "2")
+        env.vm.events.test {
+            env.vm.confirm()
+            advanceUntilIdle()
+            assertEquals(EditHistoricalWorkoutEvent.NavigateBack, awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertEquals(2, env.logRepo.getSetsForSession(TrainingSessionId("ts-1")).single().partialReps)
+
+        env.vm.load("ts-1")
+        advanceUntilIdle()
+        val reloaded = env.vm.uiState.value as EditHistoricalWorkoutUiState.Loaded
+        env.vm.onPartialRepsChange(
+            reloaded.lifts.single().key,
+            reloaded.lifts.single().sets.single().setKey,
+            "",
+        )
+        env.vm.events.test {
+            env.vm.confirm()
+            advanceUntilIdle()
+            assertEquals(EditHistoricalWorkoutEvent.NavigateBack, awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertEquals(
+            null,
+            env.logRepo.getSetsForSession(TrainingSessionId("ts-1")).single().partialReps,
+        )
+    }
+
+    @Test
     @DisplayName("Add set increases draft rows and marks dirty")
     fun addSetMarksDirty() = runTest {
         val env = buildEnv()

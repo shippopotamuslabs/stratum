@@ -1,5 +1,6 @@
 package com.stratum.feature.workout.ui
 
+import com.stratum.core.ui.component.formatRepsWithPartials
 import com.stratum.core.ui.component.formatWeightAmount
 import com.stratum.core.ui.component.formatWeightAmountForDisplay
 import com.stratum.core.ui.component.formatWeightForDisplay
@@ -81,6 +82,7 @@ internal object WorkoutUiMapper {
                         previousPerformanceLabel(
                             previousWeight = set.previousWeight,
                             previousReps = set.previousReps,
+                            previousPartialReps = set.previousPartialReps,
                             showWeightColumn = showWeightColumn,
                             displayUnit = displayUnit,
                             assistMode = assistMode,
@@ -185,6 +187,7 @@ internal object WorkoutUiMapper {
                         loggedRepsLabel = set.loggedValue?.reps?.toString(),
                         loggedWeightAmount = loggedDisplayAmount,
                         loggedReps = set.loggedValue?.reps,
+                        loggedPartialReps = set.loggedValue?.partialReps,
                         isComplete = set.loggedValue != null,
                         previousWeightLabel = prevLabel,
                         previousRirLabel = prevRirLabel,
@@ -228,12 +231,14 @@ internal object WorkoutUiMapper {
     private fun previousPerformanceLabel(
         previousWeight: Weight?,
         previousReps: Int?,
+        previousPartialReps: Int?,
         showWeightColumn: Boolean,
         displayUnit: Weight.WeightUnit,
         assistMode: Boolean,
     ): String {
         if (previousReps == null) return "—"
-        if (!showWeightColumn) return previousReps.toString()
+        val repsLabel = formatRepsWithPartials(previousReps, previousPartialReps)
+        if (!showWeightColumn) return repsLabel
         val weight = previousWeight ?: return "—"
         val displayWeight =
             formatWeightForDisplay(
@@ -242,7 +247,7 @@ internal object WorkoutUiMapper {
                 assistMode = assistMode,
                 includeUnit = true,
             )
-        return "$displayWeight × $previousReps"
+        return "$displayWeight × $repsLabel"
     }
 
     /** Prior RIR only when there is a prior performance to anchor it. */

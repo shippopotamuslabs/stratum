@@ -93,12 +93,14 @@ fun StratumWorkoutLogSetRow(
                 field = field,
                 weightText = set.weightText,
                 repsText = set.repsText,
+                partialRepsText = set.partialRepsText,
                 rir = set.rir,
                 showWeightInput = set.showWeightInput,
                 hasWeightRecommendation = weightRec,
                 hasRepsRecommendation = repsRec,
                 onWeightChange = actions.onWeightChange,
                 onRepsChange = actions.onRepsChange,
+                onPartialRepsChange = actions.onPartialRepsChange,
                 onRirChange = actions.onRirChange,
                 onComplete =
                     actions.onCheckedChange?.let { onChecked ->
@@ -180,6 +182,14 @@ fun StratumWorkoutLogSetRow(
             // While this set's pad is open, host drafts are SoT for both fields (not just the
             // active one) so weight stays correct while editing reps mid-session.
             val setSessionHost = keyboardHost.takeIf { keyboardOpenForSet }
+            val livePartialRepsText = setSessionHost?.partialRepsText ?: set.partialRepsText
+            val liveRepsMode =
+                if (keyboardOpenForSet && keyboardHost != null) {
+                    keyboardHost.repsEntryMode
+                } else {
+                    RepsEntryMode.Full
+                }
+            val showSplitReps = shouldShowSplitRepsCell(liveRepsMode, livePartialRepsText)
             if (set.showWeightInput) {
                 StratumInlineNumericCell(
                     value = setSessionHost?.weightText ?: set.weightText,
@@ -203,26 +213,33 @@ fun StratumWorkoutLogSetRow(
                 )
             }
 
-            StratumInlineNumericCell(
-                value = setSessionHost?.repsText ?: set.repsText,
-                placeholder = set.repsPlaceholder,
-                onValueChange = actions.onRepsChange,
-                enabled = set.fieldsEnabled,
-                isActive = repsActive,
-                onActivate = { openKeyboard(SetLogKeyboardField.Reps) },
-                completed = set.isComplete,
-                cursorIndex = setSessionHost?.repsCursor ?: set.repsText.length,
-                onCursorChange =
-                    if (repsActive && setSessionHost != null) {
-                        { index -> setSessionHost.setCursor(SetLogKeyboardField.Reps, index) }
-                    } else {
-                        null
-                    },
-                modifier =
-                    Modifier
-                        .weight(weights.reps)
-                        .padding(horizontal = 2.dp),
-            )
+            if (showSplitReps) {
+                WorkoutLogSplitRepsField(
+                    set = set,
+                    host = keyboardHost,
+                    sessionHost = setSessionHost,
+                    livePartialRepsText = livePartialRepsText,
+                    liveRepsMode = liveRepsMode,
+                    repsActive = repsActive,
+                    openKeyboard = openKeyboard,
+                    modifier =
+                        Modifier
+                            .weight(weights.reps)
+                            .padding(horizontal = 2.dp),
+                )
+            } else {
+                WorkoutLogSingleRepsField(
+                    set = set,
+                    actions = actions,
+                    sessionHost = setSessionHost,
+                    repsActive = repsActive,
+                    openKeyboard = openKeyboard,
+                    modifier =
+                        Modifier
+                            .weight(weights.reps)
+                            .padding(horizontal = 2.dp),
+                )
+            }
 
             Box(modifier = Modifier.weight(weights.rir), contentAlignment = Alignment.Center) {
                 RirTargetBadge(
@@ -293,6 +310,65 @@ fun StratumWorkoutLogSetRow(
             onDismiss = { showRirSheet = false },
         )
     }
+}
+
+@Composable
+private fun WorkoutLogSplitRepsField(
+    set: WorkoutLogSetUi,
+    host: SetLogKeyboardHostState?,
+    sessionHost: SetLogKeyboardHostState?,
+    livePartialRepsText: String,
+    liveRepsMode: RepsEntryMode,
+    repsActive: Boolean,
+    openKeyboard: (SetLogKeyboardField) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    StratumSplitRepsCell(
+        fullRepsText = sessionHost?.repsText ?: set.repsText,
+        partialRepsText = livePartialRepsText,
+        fullPlaceholder = set.repsPlaceholder,
+        selectedMode = liveRepsMode,
+        enabled = set.fieldsEnabled,
+        isActive = repsActive,
+        completed = set.isComplete,
+        onSelectFull = {
+            openKeyboard(SetLogKeyboardField.Reps)
+            host?.selectRepsEntryMode(RepsEntryMode.Full)
+        },
+        onSelectPartial = {
+            openKeyboard(SetLogKeyboardField.Reps)
+            host?.selectRepsEntryMode(RepsEntryMode.Partial)
+        },
+        modifier = modifier,
+    )
+}
+
+@Composable
+private fun WorkoutLogSingleRepsField(
+    set: WorkoutLogSetUi,
+    actions: WorkoutLogSetRowActions,
+    sessionHost: SetLogKeyboardHostState?,
+    repsActive: Boolean,
+    openKeyboard: (SetLogKeyboardField) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    StratumInlineNumericCell(
+        value = sessionHost?.repsText ?: set.repsText,
+        placeholder = set.repsPlaceholder,
+        onValueChange = actions.onRepsChange,
+        enabled = set.fieldsEnabled,
+        isActive = repsActive,
+        onActivate = { openKeyboard(SetLogKeyboardField.Reps) },
+        completed = set.isComplete,
+        cursorIndex = sessionHost?.repsCursor ?: set.repsText.length,
+        onCursorChange =
+            if (repsActive && sessionHost != null) {
+                { index -> sessionHost.setCursor(SetLogKeyboardField.Reps, index) }
+            } else {
+                null
+            },
+        modifier = modifier,
+    )
 }
 
 /**

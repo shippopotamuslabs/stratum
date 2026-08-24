@@ -69,6 +69,7 @@ data class LoggedSetValueDto(
     val weight: WeightDto,
     val reps: Int,
     val rir: Int? = null,
+    val partialReps: Int? = null,
     /** Room LoggedSetId.value when known (optional for older overlay JSON). */
     val persistedLoggedSetId: String? = null,
 )
@@ -88,6 +89,7 @@ data class SlotRecommendationDto(
     val previousWeight: WeightDto? = null,
     val previousReps: Int? = null,
     val previousRir: Int? = null,
+    val previousPartialReps: Int? = null,
 )
 
 /** One entry of the `dynamicBaselines` map (slot key + baseline). */

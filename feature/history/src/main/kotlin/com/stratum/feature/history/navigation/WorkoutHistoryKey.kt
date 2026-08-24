@@ -180,6 +180,7 @@ private fun EditHistoricalWorkoutRoute(
         onConfirmClick = viewModel::confirm,
         onWeightChange = viewModel::onWeightChange,
         onRepsChange = viewModel::onRepsChange,
+        onPartialRepsChange = viewModel::onPartialRepsChange,
         onRirChange = viewModel::onRirChange,
         onAddSet = viewModel::onAddSet,
         onDeleteSet = viewModel::onDeleteSet,

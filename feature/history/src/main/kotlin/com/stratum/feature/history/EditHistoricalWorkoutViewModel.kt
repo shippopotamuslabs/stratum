@@ -17,6 +17,7 @@ import com.stratum.domain.training.LoggedLiftContext
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.UpdateCompletedSessionSetsUseCase
 import com.stratum.domain.training.identity.TrainingSessionId
+import com.stratum.domain.training.normalizedPartialReps
 import com.stratum.feature.history.ui.EditHistoricalWorkoutEvent
 import com.stratum.feature.history.ui.EditHistoricalWorkoutUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -91,6 +92,10 @@ class EditHistoricalWorkoutViewModel @Inject constructor(
 
     fun onRepsChange(liftKey: String, setId: String, text: String) {
         mutateSet(liftKey, setId) { it.copy(repsText = text) }
+    }
+
+    fun onPartialRepsChange(liftKey: String, setId: String, text: String) {
+        mutateSet(liftKey, setId) { it.copy(partialRepsText = text) }
     }
 
     fun onRirChange(liftKey: String, setId: String, rir: Int) {
@@ -245,6 +250,8 @@ class EditHistoricalWorkoutViewModel @Inject constructor(
                                         )
                                     },
                                 repsText = set.reps.toString(),
+                                partialRepsText =
+                                    set.partialReps?.takeIf { it > 0 }?.toString().orEmpty(),
                                 rir = set.rir ?: set.liftContext.rirGoal ?: 2,
                                 completedAt = set.completedAt,
                                 exerciseNameRaw = set.exerciseNameRaw,
@@ -306,6 +313,7 @@ class EditHistoricalWorkoutViewModel @Inject constructor(
                         weightPlaceholder = set.weightText,
                         repsText = set.repsText,
                         repsPlaceholder = set.repsText,
+                        partialRepsText = set.partialRepsText,
                         rir = set.rir,
                         isComplete = true,
                         fieldsEnabled = true,
@@ -358,6 +366,7 @@ class EditHistoricalWorkoutViewModel @Inject constructor(
                         rir = set.rir,
                         completedAt = set.completedAt,
                         liftContext = set.liftContext,
+                        partialReps = set.partialRepsText.toIntOrNull().normalizedPartialReps(),
                     )
             }
         }
@@ -368,7 +377,7 @@ class EditHistoricalWorkoutViewModel @Inject constructor(
     private fun signature(lifts: List<DraftLift>): String =
         lifts.joinToString("|") { lift ->
             lift.sets.joinToString(",") { set ->
-                "${set.id}:${set.weightText}:${set.repsText}:${set.rir}:${set.setIndex}"
+                "${set.id}:${set.weightText}:${set.repsText}:${set.partialRepsText}:${set.rir}:${set.setIndex}"
             }
         }
 
@@ -390,6 +399,7 @@ class EditHistoricalWorkoutViewModel @Inject constructor(
         val setTypeLabel: String,
         val weightText: String,
         val repsText: String,
+        val partialRepsText: String = "",
         val rir: Int,
         val completedAt: Instant,
         val exerciseNameRaw: String,

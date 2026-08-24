@@ -125,6 +125,22 @@ class WorkoutCompleteViewModelTest {
     }
 
     @Test
+    @DisplayName("Best-set performance label includes +N partials")
+    fun performanceLabelIncludesPartials() = runTest {
+        val viewModel = buildViewModelWithBenchSet(
+            weight = 185.0,
+            reps = 3,
+            rir = 1,
+            partialReps = 2,
+        )
+        viewModel.loadSummary("ts-1")
+        advanceUntilIdle()
+
+        val bestSet = (viewModel.uiState.value as WorkoutCompleteUiState.Loaded).bestSets.single()
+        assertEquals("185 × 3+2", bestSet.performanceLabel)
+    }
+
+    @Test
     @DisplayName("isPersonalRecord is always false until PR detection ships")
     fun personalRecordAlwaysFalseToday() = runTest {
         val viewModel = buildViewModelWithBenchSet(
@@ -741,6 +757,7 @@ class WorkoutCompleteViewModelTest {
         weight: Double,
         reps: Int,
         rir: Int?,
+        partialReps: Int? = null,
     ): WorkoutCompleteViewModel {
         val programRepo = FakeProgramRepository(WorkoutLoggingFixtures.twoWorkoutProgram())
         val session = WorkoutLoggingFixtures.completedLiveSession(id = "ts-1")
@@ -756,6 +773,7 @@ class WorkoutCompleteViewModelTest {
                 rir = rir,
                 completedAt = Instant.parse("2025-01-01T10:05:00Z"),
                 liftContext = WorkoutLoggingFixtures.importLiftContext(),
+                partialReps = partialReps,
             )
         val logRepo =
             FakeTrainingLogRepository(
