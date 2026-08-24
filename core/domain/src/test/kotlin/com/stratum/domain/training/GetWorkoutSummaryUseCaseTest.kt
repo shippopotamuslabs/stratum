@@ -20,6 +20,7 @@ import com.stratum.domain.training.identity.TrainingSessionId
 import java.time.Instant
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 
@@ -109,6 +110,61 @@ class GetWorkoutSummaryUseCaseTest {
         val best = summary.bestSets[0]
         assertEquals(185.0, best.weight.amount)
         assertEquals(3, best.reps)
+    }
+
+    @Test
+    @DisplayName("Best-set partialReps keep positives and drop zero")
+    fun bestSetPartialRepsNormalized() = runTest {
+        val programRepo = FakeProgramRepository(WorkoutLoggingFixtures.twoWorkoutProgram())
+        val session = WorkoutLoggingFixtures.completedLiveSession(id = "ts-1")
+        val logRepo = FakeTrainingLogRepository(
+            initialSessions = listOf(session),
+            programRepository = programRepo,
+        )
+        val liftRepo = FakeLiftRepository(initialLifts = listOf(benchLift()))
+        val useCase = GetWorkoutSummaryUseCase(
+            logRepo,
+            programRepo,
+            ObserveLiftCatalogUseCase(liftRepo),
+            FakeLoggingPort(),
+        )
+        logRepo.insertSet(
+            LoggedSet(
+                id = LoggedSetId("set-1"),
+                sessionId = TrainingSessionId("ts-1"),
+                exerciseNameRaw = "Barbell Bench Press",
+                liftId = WorkoutLoggingFixtures.liftBenchId,
+                setIndex = 0,
+                weight = Weight(185.0, Weight.WeightUnit.Lb),
+                reps = 3,
+                rir = 1,
+                completedAt = Instant.parse("2025-01-01T10:15:00Z"),
+                liftContext = WorkoutLoggingFixtures.importLiftContext(),
+                partialReps = 0,
+            ),
+        )
+
+        val zeroSummary = useCase(TrainingSessionId("ts-1")).getOrThrow()
+        assertNull(zeroSummary.bestSets.single().partialReps)
+
+        logRepo.insertSet(
+            LoggedSet(
+                id = LoggedSetId("set-2"),
+                sessionId = TrainingSessionId("ts-1"),
+                exerciseNameRaw = "Barbell Bench Press",
+                liftId = WorkoutLoggingFixtures.liftBenchId,
+                setIndex = 1,
+                weight = Weight(225.0, Weight.WeightUnit.Lb),
+                reps = 5,
+                rir = 1,
+                completedAt = Instant.parse("2025-01-01T10:20:00Z"),
+                liftContext = WorkoutLoggingFixtures.importLiftContext(),
+                partialReps = 2,
+            ),
+        )
+
+        val withPartials = useCase(TrainingSessionId("ts-1")).getOrThrow()
+        assertEquals(2, withPartials.bestSets.single().partialReps)
     }
 
     @Test

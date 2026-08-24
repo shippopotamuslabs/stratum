@@ -65,7 +65,13 @@ class WorkoutOverlayMapperTest {
 
         val overlay = WorkoutOverlay(
             loggedSets = mapOf(
-                templateSlotId to LoggedSetValue(templateSlotId, Weight(135.0, Weight.WeightUnit.Lb), reps = 8, rir = 2),
+                templateSlotId to LoggedSetValue(
+                    templateSlotId,
+                    Weight(135.0, Weight.WeightUnit.Lb),
+                    reps = 8,
+                    rir = 2,
+                    partialReps = 2,
+                ),
             ),
             addedSlots = listOf(addedSlot),
             deletedSlotIds = setOf(SetSlotId.Template(LiftSetId("ls-2"))),
@@ -83,6 +89,7 @@ class WorkoutOverlayMapperTest {
                     previousWeight = Weight(90.0, Weight.WeightUnit.Kg),
                     previousReps = 6,
                     previousRir = 2,
+                    previousPartialReps = 1,
                 ),
             ),
             swappedLifts = mapOf(workoutLiftId to LiftId("front-squat")),
@@ -159,5 +166,32 @@ class WorkoutOverlayMapperTest {
         val restored = dto.toDomain()
         assertEquals(1, restored.swappedLifts.size)
         assertNotNull(restored.swappedLifts[WorkoutLiftId("wl-1")])
+    }
+
+    @Test
+    @DisplayName("LoggedSetValueDto omits partialReps for older overlay JSON")
+    fun missingPartialRepsDefaultsNull() {
+        val dto =
+            LoggedSetValueDto(
+                slotId = SetSlotIdDto.Template("ls-1"),
+                weight = WeightDto(135.0, WeightDto.WeightUnitDto.Lb),
+                reps = 8,
+                rir = 2,
+            )
+        assertNull(dto.partialReps)
+        val restored =
+            WorkoutOverlay(
+                loggedSets =
+                    mapOf(
+                        SetSlotId.Template(LiftSetId("ls-1")) to
+                            LoggedSetValue(
+                                slotId = SetSlotId.Template(LiftSetId("ls-1")),
+                                weight = Weight(135.0, Weight.WeightUnit.Lb),
+                                reps = 8,
+                                rir = 2,
+                            ),
+                    ),
+            ).toDto().toDomain()
+        assertNull(restored.loggedSets.values.single().partialReps)
     }
 }

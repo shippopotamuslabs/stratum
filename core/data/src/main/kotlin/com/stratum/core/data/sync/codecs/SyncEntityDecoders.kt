@@ -298,6 +298,7 @@ class SyncEntityDecoders @Inject constructor() {
                 weightUnit = data["weight_unit"] as? String ?: "Lb",
                 reps = (data["reps"] as? Number)?.toInt() ?: 0,
                 rir = (data["rir"] as? Number)?.toInt(),
+                partialReps = (data["partial_reps"] as? Number)?.toInt(),
                 completedAtEpochMillis = (data["completed_at_epoch_millis"] as? Number)?.toLong() ?: 0L,
                 liftName = data["lift_name"] as? String ?: "",
                 movementPatternsBitmask = (data["movement_patterns_bitmask"] as? Number)?.toInt() ?: 0,

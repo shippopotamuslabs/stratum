@@ -72,7 +72,7 @@ data class WorkoutScreenActions(
     val onCompleteWorkout: (saveTemplate: Boolean) -> Unit,
     val onAbandon: () -> Unit,
     /** [weightAmountDisplay] is the UI magnitude; the ViewModel converts to storage Lb. */
-    val onLogSet: (slotKey: String, weightAmountDisplay: Double, reps: Int, rir: Int?) -> Unit,
+    val onLogSet: (slotKey: String, weightAmountDisplay: Double, reps: Int, rir: Int?, partialReps: Int?) -> Unit,
     val onUnlogSet: (String) -> Unit,
     val onSwapLiftClick: (workoutId: String, workoutLiftId: String?, liftId: String?, liftName: String?) -> Unit,
     val onLinkSupersetWithPrevious: (String) -> Unit,
@@ -170,9 +170,10 @@ fun WorkoutScreen(
 
     // Log only — rest timer, autoscroll, and complete sheet run after [pendingSetLogged]
     // is set by the route once the ViewModel confirms persistence (avoids optimistic chrome).
-    val handleLogSet: (String, Double, Int, Int?) -> Unit = { slotKey, weightAmountDisplay, reps, rir ->
-        actions.onLogSet(slotKey, weightAmountDisplay, reps, rir)
-    }
+    val handleLogSet: (String, Double, Int, Int?, Int?) -> Unit =
+        { slotKey, weightAmountDisplay, reps, rir, partialReps ->
+            actions.onLogSet(slotKey, weightAmountDisplay, reps, rir, partialReps)
+        }
 
     // Post-success side effects: rest (unless session done), focus next lift, complete sheet.
     // Clear pending only after work finishes so restarting this effect does not cancel mid-run.

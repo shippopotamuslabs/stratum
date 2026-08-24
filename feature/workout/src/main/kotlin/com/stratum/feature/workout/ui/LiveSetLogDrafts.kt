@@ -4,6 +4,7 @@ import com.stratum.core.ui.component.formatWeightAmount
 import com.stratum.core.ui.component.workoutlog.WorkoutLogLiftUi
 import com.stratum.core.ui.component.workoutlog.WorkoutLogSetUi
 import com.stratum.core.ui.component.workoutlog.canCompleteSetLogFromFields
+import com.stratum.domain.training.normalizedPartialReps
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -12,6 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
 data class SetFieldDraft(
     val weightText: String = "",
     val repsText: String = "",
+    val partialRepsText: String = "",
     val rir: Int = 2,
 )
 
@@ -22,6 +24,7 @@ data class SetLogCommit(
     val weightAmountDisplay: Double,
     val reps: Int,
     val rir: Int?,
+    val partialReps: Int? = null,
 )
 
 /** Durable logged labels used as the seed throttle key. */
@@ -29,6 +32,7 @@ data class LoggedFieldSnapshot(
     val weightLabel: String,
     val repsLabel: String,
     val rir: Int,
+    val partialRepsLabel: String = "",
 )
 
 /**
@@ -53,12 +57,14 @@ private fun RenderedSetUi.durableSnapshot(): LoggedFieldSnapshot =
         weightLabel = loggedWeightLabel.orEmpty(),
         repsLabel = loggedRepsLabel.orEmpty(),
         rir = loggedRir ?: rirGoal,
+        partialRepsLabel = loggedPartialReps?.takeIf { it > 0 }?.toString().orEmpty(),
     )
 
 private fun RenderedSetUi.draftFromDurable(): SetFieldDraft =
     SetFieldDraft(
         weightText = loggedWeightLabel.orEmpty(),
         repsText = loggedRepsLabel.orEmpty(),
+        partialRepsText = loggedPartialReps?.takeIf { it > 0 }?.toString().orEmpty(),
         rir = loggedRir ?: rirGoal,
     )
 
@@ -68,6 +74,7 @@ private fun draftMatchesDurable(
 ): Boolean =
     draft.weightText == durable.weightLabel &&
         draft.repsText == durable.repsLabel &&
+        draft.partialRepsText == durable.partialRepsLabel &&
         draft.rir == durable.rir
 
 /**
@@ -205,6 +212,7 @@ internal fun mergeLiveLogLift(
                     weightPlaceholder = set.recommendedWeightLabel,
                     repsText = draft.repsText,
                     repsPlaceholder = set.recommendedRepsLabel,
+                    partialRepsText = draft.partialRepsText,
                     rir = draft.rir,
                     isComplete = set.isComplete,
                     fieldsEnabled = true,
@@ -244,6 +252,7 @@ internal fun resolveLiveSetLogCommit(
         weightAmountDisplay = weight,
         reps = reps,
         rir = draft.rir,
+        partialReps = draft.partialRepsText.toIntOrNull().normalizedPartialReps(),
     )
 }
 
@@ -260,6 +269,7 @@ internal fun draftFromCommit(
                 formatWeightAmount(commit.weightAmountDisplay, assistMode = assistMode)
             },
         repsText = commit.reps.toString(),
+        partialRepsText = commit.partialReps?.takeIf { it > 0 }?.toString().orEmpty(),
         rir = commit.rir ?: 2,
     )
 
@@ -309,6 +319,13 @@ class LiveSetLogDraftStore {
         text: String,
     ) {
         updateDraft(slotKey) { it.copy(repsText = text) }
+    }
+
+    fun setPartialReps(
+        slotKey: String,
+        text: String,
+    ) {
+        updateDraft(slotKey) { it.copy(partialRepsText = text) }
     }
 
     fun setRir(

@@ -287,4 +287,75 @@ class SetLogKeyboardHostStateTest {
             assertNotEquals(kg.enabledPlates, lbInventory.enabledPlates)
         }
     }
+
+    @Nested
+    @DisplayName("reps entry mode")
+    inner class RepsEntry {
+        @Test
+        @DisplayName("digits in Full mode update reps, not partials")
+        fun fullModeRoutesToReps() {
+            val partialCommits = mutableListOf<String>()
+            host.open(
+                setKey = "set-1",
+                field = SetLogKeyboardField.Reps,
+                weightText = "135",
+                repsText = "8",
+                partialRepsText = "",
+                rir = 2,
+                showWeightInput = true,
+                hasWeightRecommendation = true,
+                hasRepsRecommendation = true,
+                onWeightChange = { weightCommits += it },
+                onRepsChange = { repsCommits += it },
+                onPartialRepsChange = { partialCommits += it },
+                onRirChange = {},
+                onComplete = null,
+            )
+            host.applyPadEditAndCommit(
+                insertNumericKey(host.activeBuffer()!!, '5', allowDecimal = false),
+            )
+            assertEquals("85", host.repsText)
+            assertEquals(listOf("85"), repsCommits)
+            assertEquals("", host.partialRepsText)
+            assertTrue(partialCommits.isEmpty())
+        }
+
+        @Test
+        @DisplayName("digits in Partial mode update partials")
+        fun partialModeRoutesToPartials() {
+            val partialCommits = mutableListOf<String>()
+            host.open(
+                setKey = "set-1",
+                field = SetLogKeyboardField.Reps,
+                weightText = "135",
+                repsText = "8",
+                rir = 2,
+                showWeightInput = true,
+                hasWeightRecommendation = true,
+                hasRepsRecommendation = true,
+                onWeightChange = { weightCommits += it },
+                onRepsChange = { repsCommits += it },
+                onPartialRepsChange = { partialCommits += it },
+                onRirChange = {},
+                onComplete = null,
+            )
+            host.selectRepsEntryMode(RepsEntryMode.Partial)
+            host.applyPadEditAndCommit(
+                insertNumericKey(host.activeBuffer()!!, '2', allowDecimal = false),
+            )
+            assertEquals("8", host.repsText)
+            assertEquals("2", host.partialRepsText)
+            assertEquals(listOf("2"), partialCommits)
+            assertTrue(repsCommits.isEmpty())
+        }
+
+        @Test
+        @DisplayName("new set resets mode to Full")
+        fun newSetResetsMode() {
+            open(setKey = "a", field = SetLogKeyboardField.Reps)
+            host.selectRepsEntryMode(RepsEntryMode.Partial)
+            open(setKey = "b", field = SetLogKeyboardField.Reps)
+            assertEquals(RepsEntryMode.Full, host.repsEntryMode)
+        }
+    }
 }

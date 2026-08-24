@@ -30,6 +30,7 @@ import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.training.LogSetCommand
 import com.stratum.domain.training.LogSetUseCase
 import com.stratum.domain.training.LoggedSet
+import com.stratum.domain.training.normalizedPartialReps
 import com.stratum.domain.training.TrainingSession
 import com.stratum.domain.training.TrainingSessionDisplayName
 import com.stratum.domain.training.TrainingSessionKind
@@ -78,6 +79,7 @@ internal suspend fun LiveWorkoutSessionRuntime.handleLogSet(cmd: SessionCommand.
         )
 
     val wasAlreadyLogged = slotId in overlay.loggedSets
+    val normalizedPartials = cmd.partialReps.normalizedPartialReps()
     val persistedId =
         persistLoggedSet(
             session = session,
@@ -85,6 +87,7 @@ internal suspend fun LiveWorkoutSessionRuntime.handleLogSet(cmd: SessionCommand.
             weight = normalizedWeight,
             reps = cmd.reps,
             rir = cmd.rir,
+            partialReps = normalizedPartials,
         )
     if (persistedId == null) {
         effects.emitEvent(WorkoutUiEvent.SetLogFailed(slotKey = cmd.slotKey))
@@ -102,6 +105,7 @@ internal suspend fun LiveWorkoutSessionRuntime.handleLogSet(cmd: SessionCommand.
                                 weight = normalizedWeight,
                                 reps = cmd.reps,
                                 rir = cmd.rir,
+                                partialReps = normalizedPartials,
                                 persistedLoggedSetId = persistedId.value,
                             )
                     ),
@@ -182,12 +186,19 @@ internal suspend fun LiveWorkoutSessionRuntime.persistLoggedSet(
     weight: Weight,
     reps: Int,
     rir: Int?,
+    partialReps: Int? = null,
 ): LoggedSetId? {
+    val normalizedPartials = partialReps.normalizedPartialReps()
     val dbSet = findLoggedSetForSlot(session, slot)
     if (dbSet != null) {
         val updateResult =
             updateLoggedSet(
-                dbSet.copy(weight = weight, reps = reps, rir = rir),
+                dbSet.copy(
+                    weight = weight,
+                    reps = reps,
+                    rir = rir,
+                    partialReps = normalizedPartials,
+                ),
             )
         if (updateResult.isFailure) {
             effects.publishUserMessage(LiveWorkoutSessionRuntime.MSG_LOG_SET_FAILED)
@@ -212,6 +223,7 @@ internal suspend fun LiveWorkoutSessionRuntime.persistLoggedSet(
                 repMin = slot.repMin,
                 repMax = slot.repMax,
                 rirGoal = slot.rirGoal,
+                partialReps = normalizedPartials,
             ),
         )
     if (insertResult.isFailure) {

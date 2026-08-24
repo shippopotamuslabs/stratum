@@ -33,4 +33,6 @@ data class LogSetCommand(
     val repMin: Int? = null,
     val repMax: Int? = null,
     val rirGoal: Int? = null,
+    /** Incomplete extra reps after [reps]; null/0 means none logged. */
+    val partialReps: Int? = null,
 )

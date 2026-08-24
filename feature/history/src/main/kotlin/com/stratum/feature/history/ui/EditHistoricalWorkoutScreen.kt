@@ -43,6 +43,7 @@ fun EditHistoricalWorkoutScreen(
     onConfirmClick: () -> Unit,
     onWeightChange: (liftKey: String, setId: String, text: String) -> Unit,
     onRepsChange: (liftKey: String, setId: String, text: String) -> Unit,
+    onPartialRepsChange: (liftKey: String, setId: String, text: String) -> Unit,
     onRirChange: (liftKey: String, setId: String, rir: Int) -> Unit,
     onAddSet: (liftKey: String) -> Unit,
     onDeleteSet: (liftKey: String, setId: String) -> Unit,
@@ -155,6 +156,9 @@ fun EditHistoricalWorkoutScreen(
                                         },
                                         onRepsChange = { text ->
                                             onRepsChange(lift.key, set.setKey, text)
+                                        },
+                                        onPartialRepsChange = { text ->
+                                            onPartialRepsChange(lift.key, set.setKey, text)
                                         },
                                         onRirChange = { rir ->
                                             onRirChange(lift.key, set.setKey, rir)

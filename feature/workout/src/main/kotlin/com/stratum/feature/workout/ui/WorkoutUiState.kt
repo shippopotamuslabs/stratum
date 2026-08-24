@@ -150,6 +150,7 @@ data class RenderedSetUi(
      */
     val loggedWeightAmount: Double? = null,
     val loggedReps: Int? = null,
+    val loggedPartialReps: Int? = null,
     val isComplete: Boolean,
     val previousWeightLabel: String? = null,
     /** Second line under prev weight×reps, e.g. `"2 RIR"`; null when no prior RIR. */

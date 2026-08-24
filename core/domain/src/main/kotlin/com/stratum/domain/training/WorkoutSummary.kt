@@ -22,4 +22,5 @@ data class LiftBestSet(
     val rir: Int?,
     val isPersonalRecord: Boolean,
     val estimatedOneRm: Double?,
+    val partialReps: Int? = null,
 )

@@ -165,6 +165,7 @@ class SyncEntityEncoders @Inject constructor() {
             "weight_unit" to e.weightUnit,
             "reps" to e.reps,
             "rir" to e.rir,
+            "partial_reps" to e.partialReps,
             "completed_at_epoch_millis" to e.completedAtEpochMillis,
             "lift_name" to e.liftName,
             "movement_patterns_bitmask" to e.movementPatternsBitmask,

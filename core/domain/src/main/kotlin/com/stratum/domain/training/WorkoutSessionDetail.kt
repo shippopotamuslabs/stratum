@@ -30,4 +30,6 @@ data class WorkoutSessionSetDetail(
     val reps: Int,
     val rir: Int?,
     val isPersonalRecord: Boolean,
+    /** Incomplete extra reps after [reps]; null/0 means none logged. */
+    val partialReps: Int? = null,
 )

@@ -192,6 +192,7 @@ internal suspend fun LiveWorkoutSessionRuntime.restoreOverlayOnInitialLoad(
                     rir = dbSet.rir,
                     // Stamp Room id so amend/unlog survive later position renumber.
                     persistedLoggedSetId = dbSet.id.value,
+                    partialReps = dbSet.partialReps,
                 )
         }
     }

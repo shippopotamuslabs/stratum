@@ -83,6 +83,7 @@ fun recommendShared(
     val prevWeight = latest?.loggedSet?.weight
     val prevReps = latest?.loggedSet?.reps
     val prevRir = latest?.loggedSet?.rir
+    val prevPartialReps = latest?.loggedSet?.partialReps
     val baselineEntry = baselineEntryFor(request.progressionBaseline)
 
     if (request.loadType == LoadType.Bodyweight) {
@@ -95,6 +96,7 @@ fun recommendShared(
             previousWeight = prevWeight,
             previousReps = prevReps,
             previousRir = prevRir,
+            previousPartialReps = prevPartialReps,
         )
     }
 
@@ -131,6 +133,7 @@ fun recommendShared(
         previousWeight = prevWeight,
         previousReps = prevReps,
         previousRir = prevRir,
+        previousPartialReps = prevPartialReps,
         isProjected = isProjected,
     )
 }

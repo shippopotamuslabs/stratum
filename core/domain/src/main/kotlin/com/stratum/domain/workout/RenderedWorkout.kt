@@ -36,6 +36,8 @@ data class RenderedSet(
     val previousReps: Int? = null,
     /** Prior session RIR for this slot position (UI prev column); null when unlogged. */
     val previousRir: Int? = null,
+    /** Prior session partial reps for this slot position (UI prev column); null when none. */
+    val previousPartialReps: Int? = null,
     val isProjected: Boolean = false,
     /** Present for MyoRep slots so UI can distinguish floor (M) vs match (MM). */
     val myoRepKind: MyoRepKind? = null,
