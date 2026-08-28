@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -19,6 +20,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.StratumText
@@ -42,6 +44,8 @@ fun StratumSplitRepsCell(
     onSelectFull: () -> Unit,
     onSelectPartial: () -> Unit,
     modifier: Modifier = Modifier,
+    fullSelection: TextRange = TextRange.Zero,
+    partialSelection: TextRange = TextRange.Zero,
 ) {
     val colors = StratumThemeAccessor.colors
     val shapes = StratumThemeAccessor.shapes
@@ -70,6 +74,7 @@ fun StratumSplitRepsCell(
             completed = completed,
             contentDescription = stringResource(CoreUiR.string.set_log_reps_full_half),
             onClick = onSelectFull,
+            selection = fullSelection,
             modifier = Modifier.weight(1f).fillMaxHeight(),
         )
         Box(
@@ -88,6 +93,7 @@ fun StratumSplitRepsCell(
             completed = completed,
             contentDescription = stringResource(CoreUiR.string.set_log_reps_partial_half),
             onClick = onSelectPartial,
+            selection = partialSelection,
             modifier = Modifier.weight(1f).fillMaxHeight(),
         )
     }
@@ -104,6 +110,7 @@ private fun SplitHalf(
     contentDescription: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    selection: TextRange = TextRange.Zero,
 ) {
     val colors = StratumThemeAccessor.colors
     val sunkenOrInset = if (completed || !enabled) colors.surfaceSunken else colors.surfaceInset
@@ -115,6 +122,7 @@ private fun SplitHalf(
         }
     val display = value.ifBlank { placeholder }
     val muted = value.isBlank()
+    val isTextSelected = isActive && selected && value.isNotBlank() && selection.min < selection.max
     Box(
         modifier =
             modifier
@@ -127,10 +135,22 @@ private fun SplitHalf(
                 .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
+        val textModifier =
+            if (isTextSelected) {
+                Modifier
+                    .background(
+                        color = colors.accent.copy(alpha = 0.35f),
+                        shape = StratumThemeAccessor.shapes.chip,
+                    )
+                    .padding(horizontal = 4.dp)
+            } else {
+                Modifier
+            }
         StratumText(
             text = display,
             style = StratumThemeAccessor.typography.bodyLarge,
             color = if (muted) colors.textMuted else colors.textData,
+            modifier = textModifier,
         )
     }
 }

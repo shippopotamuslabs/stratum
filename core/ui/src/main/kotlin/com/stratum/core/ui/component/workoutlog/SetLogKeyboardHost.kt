@@ -23,6 +23,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R as CoreUiR
@@ -85,22 +86,27 @@ class SetLogKeyboardHostState(
     var session: SetLogKeyboardSession? by mutableStateOf(null)
         private set
 
-    /** In-flight drafts for the active [session] (set-log custom pad owns edits). */
-    var weightText: String by mutableStateOf("")
+    /** In-flight edit buffers for active session. */
+    var weightBuffer: NumericEditBuffer by mutableStateOf(NumericEditBuffer("", 0))
         private set
-    var repsText: String by mutableStateOf("")
+    var repsBuffer: NumericEditBuffer by mutableStateOf(NumericEditBuffer("", 0))
         private set
-    var rir: Int by mutableIntStateOf(2)
+    var partialRepsBuffer: NumericEditBuffer by mutableStateOf(NumericEditBuffer("", 0))
         private set
 
-    /** Caret indices for [weightText] / [repsText] (`0..length`). */
-    var weightCursor: Int by mutableIntStateOf(0)
-        private set
-    var repsCursor: Int by mutableIntStateOf(0)
-        private set
-    var partialRepsText: String by mutableStateOf("")
-        private set
-    var partialRepsCursor: Int by mutableIntStateOf(0)
+    val weightText: String get() = weightBuffer.text
+    val weightCursor: Int get() = weightBuffer.cursor
+    val weightSelection: TextRange get() = weightBuffer.selection
+
+    val repsText: String get() = repsBuffer.text
+    val repsCursor: Int get() = repsBuffer.cursor
+    val repsSelection: TextRange get() = repsBuffer.selection
+
+    val partialRepsText: String get() = partialRepsBuffer.text
+    val partialRepsCursor: Int get() = partialRepsBuffer.cursor
+    val partialRepsSelection: TextRange get() = partialRepsBuffer.selection
+
+    var rir: Int by mutableIntStateOf(2)
         private set
     var repsEntryMode: RepsEntryMode by mutableStateOf(RepsEntryMode.Full)
         private set
@@ -168,8 +174,7 @@ class SetLogKeyboardHostState(
     fun applyWeightFromCalculator(weight: Double) {
         val s = session ?: return
         val formatted = formatWeightAmount(weight)
-        weightText = formatted
-        weightCursor = formatted.length
+        weightBuffer = NumericEditBuffer(formatted, formatted.length)
         s.onWeightChange(formatted)
     }
 
@@ -198,17 +203,31 @@ class SetLogKeyboardHostState(
         recommendedWeightAmount: Double = 0.0,
         unitLabel: String = "lb",
         isDoubleSided: Boolean = true,
+        initialRepsMode: RepsEntryMode = RepsEntryMode.Full,
     ) {
         val previous = session
         if (previous != null && previous.setKey == setKey) {
             // Same set: host drafts stay SoT. Refresh chrome/callbacks and tab the field only.
             this.rir = rir
+            this.repsEntryMode = initialRepsMode
             val nextField =
                 if (!showWeightInput && field == SetLogKeyboardField.Weight) {
                     SetLogKeyboardField.Reps
                 } else {
                     field
                 }
+            when (nextField) {
+                SetLogKeyboardField.Weight -> {
+                    weightBuffer = weightBuffer.selectAll()
+                }
+                SetLogKeyboardField.Reps -> {
+                    if (repsEntryMode == RepsEntryMode.Partial) {
+                        partialRepsBuffer = partialRepsBuffer.selectAll()
+                    } else {
+                        repsBuffer = repsBuffer.selectAll()
+                    }
+                }
+            }
             session =
                 previous.copy(
                     field = nextField,
@@ -229,27 +248,38 @@ class SetLogKeyboardHostState(
             return
         }
 
-        // New set (or first open): seed drafts from row props, carets at end.
-        this.weightText = weightText
-        this.repsText = repsText
-        this.partialRepsText = partialRepsText
+        // New set (or first open): seed drafts from row props, select focused field numbers.
+        weightBuffer = NumericEditBuffer(weightText, weightText.length)
+        repsBuffer = NumericEditBuffer(repsText, repsText.length)
+        partialRepsBuffer = NumericEditBuffer(partialRepsText, partialRepsText.length)
         this.rir = rir
         this.isPlateDrawerOpen = false
         this.isPlateSheetOpen = false
-        this.repsEntryMode = RepsEntryMode.Full
+        this.repsEntryMode = initialRepsMode
         this.repsModeToast = null
-        weightCursor = weightText.length
-        repsCursor = repsText.length
-        partialRepsCursor = partialRepsText.length
+
+        val resolvedField =
+            if (!showWeightInput && field == SetLogKeyboardField.Weight) {
+                SetLogKeyboardField.Reps
+            } else {
+                field
+            }
+        when (resolvedField) {
+            SetLogKeyboardField.Weight -> {
+                weightBuffer = weightBuffer.selectAll()
+            }
+            SetLogKeyboardField.Reps -> {
+                if (initialRepsMode == RepsEntryMode.Partial) {
+                    partialRepsBuffer = partialRepsBuffer.selectAll()
+                } else {
+                    repsBuffer = repsBuffer.selectAll()
+                }
+            }
+        }
         session =
             SetLogKeyboardSession(
                 setKey = setKey,
-                field =
-                    if (!showWeightInput && field == SetLogKeyboardField.Weight) {
-                        SetLogKeyboardField.Reps
-                    } else {
-                        field
-                    },
+                field = resolvedField,
                 showWeightInput = showWeightInput,
                 hasWeightRecommendation = hasWeightRecommendation,
                 hasRepsRecommendation = hasRepsRecommendation,
@@ -263,8 +293,6 @@ class SetLogKeyboardHostState(
                 unitLabel = unitLabel,
                 isDoubleSided = isDoubleSided,
             )
-        // Open chrome is derived by ProvideStratumOverlayDock from session != null (dockContent).
-        // Always request reveal (also covers open-while-open set switches where isOpen stays true).
         overlay.requestReveal()
     }
 
@@ -290,7 +318,6 @@ class SetLogKeyboardHostState(
 
     fun setField(field: SetLogKeyboardField) {
         val s = session ?: return
-        if (s.field == field) return
         val clampedField =
             if (!s.showWeightInput && field == SetLogKeyboardField.Weight) {
                 SetLogKeyboardField.Reps
@@ -299,25 +326,29 @@ class SetLogKeyboardHostState(
             }
         session = s.copy(field = clampedField)
         when (clampedField) {
-            SetLogKeyboardField.Weight -> weightCursor = weightText.length
+            SetLogKeyboardField.Weight -> {
+                weightBuffer = weightBuffer.selectAll()
+            }
             SetLogKeyboardField.Reps -> {
                 if (repsEntryMode == RepsEntryMode.Partial) {
-                    partialRepsCursor = partialRepsText.length
+                    partialRepsBuffer = partialRepsBuffer.selectAll()
                 } else {
-                    repsCursor = repsText.length
+                    repsBuffer = repsBuffer.selectAll()
                 }
             }
         }
     }
 
     fun selectRepsEntryMode(mode: RepsEntryMode) {
-        if (repsEntryMode == mode) return
+        val modeChanged = repsEntryMode != mode
         repsEntryMode = mode
-        repsModeToast = mode
+        if (modeChanged) {
+            repsModeToast = mode
+        }
         if (mode == RepsEntryMode.Partial) {
-            partialRepsCursor = partialRepsText.length
+            partialRepsBuffer = partialRepsBuffer.selectAll()
         } else {
-            repsCursor = repsText.length
+            repsBuffer = repsBuffer.selectAll()
         }
     }
 
@@ -355,37 +386,26 @@ class SetLogKeyboardHostState(
         val s = session ?: return
         if (s.field != field) return
         when (field) {
-            SetLogKeyboardField.Weight -> weightCursor = cursor.coerceIn(0, weightText.length)
-            SetLogKeyboardField.Reps ->
+            SetLogKeyboardField.Weight -> {
+                weightBuffer = weightBuffer.setCursor(cursor)
+            }
+            SetLogKeyboardField.Reps -> {
                 if (repsEntryMode == RepsEntryMode.Partial) {
-                    partialRepsCursor = cursor.coerceIn(0, partialRepsText.length)
+                    partialRepsBuffer = partialRepsBuffer.setCursor(cursor)
                 } else {
-                    repsCursor = cursor.coerceIn(0, repsText.length)
+                    repsBuffer = repsBuffer.setCursor(cursor)
                 }
+            }
         }
     }
 
-    /** Active text buffer + caret for the focused session field. */
+    /** Active text buffer + caret + selection for the focused session field. */
     fun activeBuffer(): NumericEditBuffer? {
         val s = session ?: return null
         return when (s.field) {
-            SetLogKeyboardField.Weight ->
-                NumericEditBuffer(
-                    text = weightText,
-                    cursor = weightCursor.coerceIn(0, weightText.length),
-                )
+            SetLogKeyboardField.Weight -> weightBuffer
             SetLogKeyboardField.Reps ->
-                if (repsEntryMode == RepsEntryMode.Partial) {
-                    NumericEditBuffer(
-                        text = partialRepsText,
-                        cursor = partialRepsCursor.coerceIn(0, partialRepsText.length),
-                    )
-                } else {
-                    NumericEditBuffer(
-                        text = repsText,
-                        cursor = repsCursor.coerceIn(0, repsText.length),
-                    )
-                }
+                if (repsEntryMode == RepsEntryMode.Partial) partialRepsBuffer else repsBuffer
         }
     }
 
@@ -395,25 +415,22 @@ class SetLogKeyboardHostState(
         val coerced = buffer.coerced()
         when (s.field) {
             SetLogKeyboardField.Weight -> {
-                val textChanged = weightText != coerced.text
-                weightText = coerced.text
-                weightCursor = coerced.cursor
+                val textChanged = weightBuffer.text != coerced.text
+                weightBuffer = coerced
                 if (textChanged) {
                     s.onWeightChange(coerced.text)
                 }
             }
             SetLogKeyboardField.Reps -> {
                 if (repsEntryMode == RepsEntryMode.Partial) {
-                    val textChanged = partialRepsText != coerced.text
-                    partialRepsText = coerced.text
-                    partialRepsCursor = coerced.cursor
+                    val textChanged = partialRepsBuffer.text != coerced.text
+                    partialRepsBuffer = coerced
                     if (textChanged) {
                         s.onPartialRepsChange(coerced.text)
                     }
                 } else {
-                    val textChanged = repsText != coerced.text
-                    repsText = coerced.text
-                    repsCursor = coerced.cursor
+                    val textChanged = repsBuffer.text != coerced.text
+                    repsBuffer = coerced
                     if (textChanged) {
                         s.onRepsChange(coerced.text)
                     }
@@ -427,6 +444,9 @@ class SetLogKeyboardHostState(
         isPlateDrawerOpen = false
         isPlateSheetOpen = false
         repsModeToast = null
+        weightBuffer = NumericEditBuffer("", 0)
+        repsBuffer = NumericEditBuffer("", 0)
+        partialRepsBuffer = NumericEditBuffer("", 0)
     }
 }
 
