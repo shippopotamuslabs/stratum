@@ -1,5 +1,6 @@
 package com.stratum.core.ui.component.workoutlog
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -22,6 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.SolidColor
@@ -80,6 +82,8 @@ fun StratumInlineNumericCell(
     cursorIndex: Int = -1,
     /** Caret moved by tap inside the focused custom-keyboard field. Required when active. */
     onCursorChange: ((Int) -> Unit)? = null,
+    /** Selection range when active with a custom keyboard. */
+    selection: TextRange = if (cursorIndex >= 0) TextRange(cursorIndex) else TextRange(value.length),
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val useCustomKeyboard = onActivate != null
@@ -135,6 +139,7 @@ fun StratumInlineNumericCell(
                 value = value,
                 placeholder = placeholder,
                 cursorIndex = resolvedCursor,
+                selection = selection,
                 onCursorChange = onCursorChange ?: {},
                 enabled = enabled,
                 modifier = cellModifier,
@@ -194,6 +199,7 @@ private fun CustomKeyboardFocusedCell(
     value: String,
     placeholder: String,
     cursorIndex: Int,
+    selection: TextRange,
     onCursorChange: (Int) -> Unit,
     enabled: Boolean,
     modifier: Modifier,
@@ -202,6 +208,7 @@ private fun CustomKeyboardFocusedCell(
     val view = LocalView.current
     val density = LocalDensity.current
     val clampedCursor = cursorIndex.coerceIn(0, value.length)
+    val hasSelection = selection.min < selection.max && value.isNotEmpty()
     val caretColor = StratumThemeAccessor.colors.accent
     // Start-aligned style: caret geometry from getCursorRect is relative to glyph origin.
     // Do not use TextAlign.Center here — that inflates layout width and shifts caret coords.
@@ -228,8 +235,12 @@ private fun CustomKeyboardFocusedCell(
         imm?.hideSoftInputFromWindow(view.windowToken, 0)
     }
 
-    // Blink like a platform caret; reset on caret/text change.
-    LaunchedEffect(clampedCursor, value) {
+    // Blink like a platform caret; reset on caret/text change. Pause blink while selection is active.
+    LaunchedEffect(clampedCursor, value, hasSelection) {
+        if (hasSelection) {
+            caretVisible = false
+            return@LaunchedEffect
+        }
         caretVisible = true
         while (true) {
             delay(CARET_BLINK_HALF_PERIOD_MS)
@@ -285,11 +296,35 @@ private fun CustomKeyboardFocusedCell(
         } else {
             // TopStart box: BasicText at (0,0) and caret offset from getCursorRect share one
             // origin. Do NOT center-align children here — that double-shifts the caret right.
+            val selectionModifier =
+                if (hasSelection) {
+                    Modifier.drawBehind {
+                        val layout =
+                            textLayout?.takeIf { measured ->
+                                measured.layoutInput.text.text == value
+                            }
+                        if (layout != null) {
+                            val safeStart = selection.min.coerceIn(0, value.length)
+                            val safeEnd = selection.max.coerceIn(0, value.length)
+                            if (safeStart < safeEnd) {
+                                val selectionPath = layout.getPathForRange(safeStart, safeEnd)
+                                drawPath(
+                                    path = selectionPath,
+                                    color = caretColor.copy(alpha = 0.35f),
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    Modifier
+                }
             Box(
                 modifier =
-                    Modifier.onGloballyPositioned { coords ->
-                        textOriginInCell = coords.positionInParent()
-                    },
+                    Modifier
+                        .then(selectionModifier)
+                        .onGloballyPositioned { coords ->
+                            textOriginInCell = coords.positionInParent()
+                        },
             ) {
                 BasicText(
                     text = value,
@@ -304,7 +339,7 @@ private fun CustomKeyboardFocusedCell(
                     textLayout?.takeIf { measured ->
                         measured.layoutInput.text.text == value
                     }
-                if (layout != null && caretVisible) {
+                if (layout != null && caretVisible && !hasSelection) {
                     val layoutLength = layout.layoutInput.text.length
                     val safeCursor = clampedCursor.coerceIn(0, layoutLength)
                     val cursorRect = layout.getCursorRect(safeCursor)

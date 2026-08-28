@@ -1,5 +1,6 @@
 package com.stratum.core.ui.component.workoutlog
 
+import androidx.compose.ui.text.TextRange
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -196,6 +197,42 @@ class SetLogKeyboardLogicTest {
                 ),
             )
         }
+
+        @Test
+        @DisplayName("digit replaces full active selection")
+        fun replacesFullSelection() {
+            val next =
+                insertNumericKey(
+                    buffer = NumericEditBuffer(text = "135", cursor = 3, selection = TextRange(0, 3)),
+                    key = '8',
+                    allowDecimal = true,
+                )
+            assertEquals(NumericEditBuffer(text = "8", cursor = 1, selection = TextRange(1)), next)
+        }
+
+        @Test
+        @DisplayName("digit replaces partial active selection")
+        fun replacesPartialSelection() {
+            val next =
+                insertNumericKey(
+                    buffer = NumericEditBuffer(text = "135", cursor = 2, selection = TextRange(1, 2)),
+                    key = '4',
+                    allowDecimal = true,
+                )
+            assertEquals(NumericEditBuffer(text = "145", cursor = 2, selection = TextRange(2)), next)
+        }
+
+        @Test
+        @DisplayName("decimal replaces active selection containing decimal")
+        fun decimalReplacesSelectionWithDecimal() {
+            val next =
+                insertNumericKey(
+                    buffer = NumericEditBuffer(text = "135.5", cursor = 5, selection = TextRange(0, 5)),
+                    key = '.',
+                    allowDecimal = true,
+                )
+            assertEquals(NumericEditBuffer(text = ".", cursor = 1, selection = TextRange(1)), next)
+        }
     }
 
     @Nested
@@ -235,6 +272,26 @@ class SetLogKeyboardLogicTest {
                 NumericEditBuffer(text = "", cursor = 0),
                 backspaceNumericBuffer(NumericEditBuffer(text = "", cursor = 0)),
             )
+        }
+
+        @Test
+        @DisplayName("backspace deletes full active selection")
+        fun deletesFullSelection() {
+            val next =
+                backspaceNumericBuffer(
+                    NumericEditBuffer(text = "135", cursor = 3, selection = TextRange(0, 3)),
+                )
+            assertEquals(NumericEditBuffer(text = "", cursor = 0, selection = TextRange(0)), next)
+        }
+
+        @Test
+        @DisplayName("backspace deletes partial active selection")
+        fun deletesPartialSelection() {
+            val next =
+                backspaceNumericBuffer(
+                    NumericEditBuffer(text = "135", cursor = 2, selection = TextRange(1, 2)),
+                )
+            assertEquals(NumericEditBuffer(text = "15", cursor = 1, selection = TextRange(1)), next)
         }
     }
 

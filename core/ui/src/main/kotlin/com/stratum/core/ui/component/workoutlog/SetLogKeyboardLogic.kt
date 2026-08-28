@@ -1,5 +1,7 @@
 package com.stratum.core.ui.component.workoutlog
 
+import androidx.compose.ui.text.TextRange
+
 /** Which set-log field the custom keyboard is editing. */
 enum class SetLogKeyboardField {
     Weight,
@@ -51,25 +53,55 @@ fun shouldShowSplitRepsCell(
     partialRepsText: String,
 ): Boolean = mode == RepsEntryMode.Partial || partialRepsText.isNotBlank()
 
+fun TextRange.coerceIn(min: Int, max: Int): TextRange {
+    val s = start.coerceIn(min, max)
+    val e = end.coerceIn(min, max)
+    return TextRange(s, e)
+}
+
 /**
- * Editable numeric buffer with a caret index in `0..text.length` (between characters).
- * Used by custom set-log / rep-range pads so insert and backspace are not end-only.
+ * Editable numeric buffer with a caret index in `0..text.length` (between characters)
+ * and an optional [selection] range (`selection.min..selection.max`).
+ * Used by custom set-log / rep-range pads so insert, backspace, and replacement are not end-only.
  */
 data class NumericEditBuffer(
     val text: String,
     val cursor: Int,
+    val selection: TextRange = TextRange(cursor),
 ) {
-    /** Caret clamped into a valid range for [text]. */
+    val hasSelection: Boolean get() = selection.min < selection.max
+
+    /** Caret and selection clamped into valid ranges for [text]. */
     fun coerced(): NumericEditBuffer {
-        val clamped = cursor.coerceIn(0, text.length)
-        return if (clamped == cursor) this else copy(cursor = clamped)
+        val clampedCursor = cursor.coerceIn(0, text.length)
+        val clampedSelection = selection.coerceIn(0, text.length)
+        return if (clampedCursor == cursor && clampedSelection == selection) {
+            this
+        } else {
+            copy(cursor = clampedCursor, selection = clampedSelection)
+        }
     }
 }
 
+/** Returns a copy with the entire text selected and cursor at end. */
+fun NumericEditBuffer.selectAll(): NumericEditBuffer =
+    copy(cursor = text.length, selection = TextRange(0, text.length)).coerced()
+
+/** Returns a copy with selection collapsed to the end of the text. */
+fun NumericEditBuffer.collapseToEnd(): NumericEditBuffer =
+    copy(cursor = text.length, selection = TextRange(text.length)).coerced()
+
+/** Returns a copy with cursor placed at [c] and selection collapsed. */
+fun NumericEditBuffer.setCursor(c: Int): NumericEditBuffer {
+    val clamped = c.coerceIn(0, text.length)
+    return copy(cursor = clamped, selection = TextRange(clamped))
+}
+
 /**
- * Inserts a pad key at the caret. Digits always insert; `.` inserts only when
- * [allowDecimal] and the value does not already contain a decimal point.
- * Cursor advances past the inserted character on success.
+ * Inserts a pad key at the caret or replaces the active [NumericEditBuffer.selection].
+ * Digits always insert; `.` inserts only when [allowDecimal] and the resulting value does
+ * not already contain a decimal point.
+ * Cursor advances past the inserted character on success and collapses selection.
  */
 fun insertNumericKey(
     buffer: NumericEditBuffer,
@@ -80,35 +112,62 @@ fun insertNumericKey(
     val insert =
         when {
             key.isDigit() -> key.toString()
-            key == '.' && allowDecimal && !current.text.contains('.') -> "."
+            key == '.' && allowDecimal -> {
+                val textWithoutSelection =
+                    if (current.hasSelection) {
+                        current.text.removeRange(current.selection.min, current.selection.max)
+                    } else {
+                        current.text
+                    }
+                if (!textWithoutSelection.contains('.')) "." else return current
+            }
             else -> return current
         }
-    val index = current.cursor
-    val nextText = current.text.substring(0, index) + insert + current.text.substring(index)
-    return NumericEditBuffer(text = nextText, cursor = index + insert.length)
+
+    val (nextText, nextCursor) =
+        if (current.hasSelection) {
+            val start = current.selection.min
+            val end = current.selection.max
+            val replaced = current.text.substring(0, start) + insert + current.text.substring(end)
+            replaced to (start + insert.length)
+        } else {
+            val index = current.cursor
+            val replaced = current.text.substring(0, index) + insert + current.text.substring(index)
+            replaced to (index + insert.length)
+        }
+
+    return NumericEditBuffer(
+        text = nextText,
+        cursor = nextCursor,
+        selection = TextRange(nextCursor),
+    )
 }
 
 /**
- * Deletes the character before the caret, or no-ops when the caret is at index 0.
+ * Deletes the character before the caret, or deletes the active [NumericEditBuffer.selection],
+ * or no-ops when the caret is at index 0 without an active selection.
  */
 fun backspaceNumericBuffer(buffer: NumericEditBuffer): NumericEditBuffer {
     val current = buffer.coerced()
+    if (current.hasSelection) {
+        val start = current.selection.min
+        val end = current.selection.max
+        val nextText = current.text.removeRange(start, end)
+        return NumericEditBuffer(
+            text = nextText,
+            cursor = start,
+            selection = TextRange(start),
+        )
+    }
     if (current.cursor <= 0) return current
     val index = current.cursor
     val nextText = current.text.removeRange(index - 1, index)
-    return NumericEditBuffer(text = nextText, cursor = index - 1)
+    return NumericEditBuffer(
+        text = nextText,
+        cursor = index - 1,
+        selection = TextRange(index - 1),
+    )
 }
-
-/** @deprecated Prefer [insertNumericKey]. Kept as a name alias for set-log call sites. */
-fun insertSetLogKey(
-    buffer: NumericEditBuffer,
-    key: Char,
-    allowDecimal: Boolean,
-): NumericEditBuffer = insertNumericKey(buffer, key, allowDecimal)
-
-/** @deprecated Prefer [backspaceNumericBuffer]. */
-fun backspaceSetLogBuffer(buffer: NumericEditBuffer): NumericEditBuffer =
-    backspaceNumericBuffer(buffer)
 
 /**
  * Appends a pad key to [current] (caret at end). Digits always append; `.` appends only when
@@ -128,16 +187,6 @@ fun appendNumericKey(
 /** Drops the last character, or returns [current] when empty. */
 fun backspaceNumericValue(current: String): String =
     backspaceNumericBuffer(NumericEditBuffer(text = current, cursor = current.length)).text
-
-/** @deprecated Prefer [appendNumericKey]. */
-fun appendSetLogKey(
-    current: String,
-    key: Char,
-    allowDecimal: Boolean,
-): String = appendNumericKey(current, key, allowDecimal)
-
-/** @deprecated Prefer [backspaceNumericValue]. */
-fun backspaceSetLogValue(current: String): String = backspaceNumericValue(current)
 
 /**
  * Parses a rep-range pad draft into a non-negative int for ViewModel commit.

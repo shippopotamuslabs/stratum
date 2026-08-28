@@ -16,6 +16,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -85,7 +86,7 @@ fun StratumWorkoutLogSetRow(
         }
     }
 
-    val openKeyboard: (SetLogKeyboardField) -> Unit = { field ->
+    val openKeyboard: (SetLogKeyboardField, RepsEntryMode) -> Unit = { field, initialMode ->
         if (set.fieldsEnabled) {
             showRirSheet = false
             keyboardHost?.open(
@@ -110,6 +111,7 @@ fun StratumWorkoutLogSetRow(
                 recommendedWeightAmount = set.recommendedWeightAmount,
                 unitLabel = set.unitLabel,
                 isDoubleSided = set.isDoubleSided,
+                initialRepsMode = initialMode,
             )
         }
     }
@@ -183,12 +185,7 @@ fun StratumWorkoutLogSetRow(
             // active one) so weight stays correct while editing reps mid-session.
             val setSessionHost = keyboardHost.takeIf { keyboardOpenForSet }
             val livePartialRepsText = setSessionHost?.partialRepsText ?: set.partialRepsText
-            val liveRepsMode =
-                if (keyboardOpenForSet && keyboardHost != null) {
-                    keyboardHost.repsEntryMode
-                } else {
-                    RepsEntryMode.Full
-                }
+            val liveRepsMode = setSessionHost?.repsEntryMode ?: RepsEntryMode.Full
             val showSplitReps = shouldShowSplitRepsCell(liveRepsMode, livePartialRepsText)
             if (set.showWeightInput) {
                 StratumInlineNumericCell(
@@ -197,9 +194,10 @@ fun StratumWorkoutLogSetRow(
                     onValueChange = actions.onWeightChange,
                     enabled = set.fieldsEnabled,
                     isActive = weightActive,
-                    onActivate = { openKeyboard(SetLogKeyboardField.Weight) },
+                    onActivate = { openKeyboard(SetLogKeyboardField.Weight, RepsEntryMode.Full) },
                     completed = set.isComplete,
                     cursorIndex = setSessionHost?.weightCursor ?: set.weightText.length,
+                    selection = setSessionHost?.weightSelection ?: TextRange(set.weightText.length),
                     onCursorChange =
                         if (weightActive && setSessionHost != null) {
                             { index -> setSessionHost.setCursor(SetLogKeyboardField.Weight, index) }
@@ -216,7 +214,6 @@ fun StratumWorkoutLogSetRow(
             if (showSplitReps) {
                 WorkoutLogSplitRepsField(
                     set = set,
-                    host = keyboardHost,
                     sessionHost = setSessionHost,
                     livePartialRepsText = livePartialRepsText,
                     liveRepsMode = liveRepsMode,
@@ -315,12 +312,11 @@ fun StratumWorkoutLogSetRow(
 @Composable
 private fun WorkoutLogSplitRepsField(
     set: WorkoutLogSetUi,
-    host: SetLogKeyboardHostState?,
     sessionHost: SetLogKeyboardHostState?,
     livePartialRepsText: String,
     liveRepsMode: RepsEntryMode,
     repsActive: Boolean,
-    openKeyboard: (SetLogKeyboardField) -> Unit,
+    openKeyboard: (SetLogKeyboardField, RepsEntryMode) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     StratumSplitRepsCell(
@@ -331,13 +327,13 @@ private fun WorkoutLogSplitRepsField(
         enabled = set.fieldsEnabled,
         isActive = repsActive,
         completed = set.isComplete,
+        fullSelection = sessionHost?.repsSelection ?: TextRange.Zero,
+        partialSelection = sessionHost?.partialRepsSelection ?: TextRange.Zero,
         onSelectFull = {
-            openKeyboard(SetLogKeyboardField.Reps)
-            host?.selectRepsEntryMode(RepsEntryMode.Full)
+            openKeyboard(SetLogKeyboardField.Reps, RepsEntryMode.Full)
         },
         onSelectPartial = {
-            openKeyboard(SetLogKeyboardField.Reps)
-            host?.selectRepsEntryMode(RepsEntryMode.Partial)
+            openKeyboard(SetLogKeyboardField.Reps, RepsEntryMode.Partial)
         },
         modifier = modifier,
     )
@@ -349,7 +345,7 @@ private fun WorkoutLogSingleRepsField(
     actions: WorkoutLogSetRowActions,
     sessionHost: SetLogKeyboardHostState?,
     repsActive: Boolean,
-    openKeyboard: (SetLogKeyboardField) -> Unit,
+    openKeyboard: (SetLogKeyboardField, RepsEntryMode) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     StratumInlineNumericCell(
@@ -358,9 +354,10 @@ private fun WorkoutLogSingleRepsField(
         onValueChange = actions.onRepsChange,
         enabled = set.fieldsEnabled,
         isActive = repsActive,
-        onActivate = { openKeyboard(SetLogKeyboardField.Reps) },
+        onActivate = { openKeyboard(SetLogKeyboardField.Reps, RepsEntryMode.Full) },
         completed = set.isComplete,
         cursorIndex = sessionHost?.repsCursor ?: set.repsText.length,
+        selection = sessionHost?.repsSelection ?: TextRange(set.repsText.length),
         onCursorChange =
             if (repsActive && sessionHost != null) {
                 { index -> sessionHost.setCursor(SetLogKeyboardField.Reps, index) }

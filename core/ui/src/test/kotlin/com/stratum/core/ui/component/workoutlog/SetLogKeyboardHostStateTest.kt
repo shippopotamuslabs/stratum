@@ -1,5 +1,6 @@
 package com.stratum.core.ui.component.workoutlog
 
+import androidx.compose.ui.text.TextRange
 import com.stratum.core.ui.component.platecalculator.PlateInventoryUi
 import com.stratum.core.ui.component.platecalculator.defaultPlateInventory
 import com.stratum.domain.lift.PlateCalculator
@@ -53,13 +54,15 @@ class SetLogKeyboardHostStateTest {
     @DisplayName("open")
     inner class Open {
         @Test
-        @DisplayName("new set seeds drafts and places carets at end")
+        @DisplayName("new set seeds drafts, places carets at end, and selects focused field")
         fun newSetSeedsAtEnd() {
             open(weight = "135", reps = "10")
             assertEquals("135", host.weightText)
             assertEquals("10", host.repsText)
             assertEquals(3, host.weightCursor)
             assertEquals(2, host.repsCursor)
+            assertEquals(TextRange(0, 3), host.weightSelection)
+            assertEquals(TextRange(2), host.repsSelection)
             assertEquals(SetLogKeyboardField.Weight, host.session?.field)
         }
 
@@ -67,6 +70,7 @@ class SetLogKeyboardHostStateTest {
         @DisplayName("same set open does not reseed drafts from props")
         fun sameSetKeepsHostDrafts() {
             open(weight = "135", reps = "8")
+            host.setCursor(SetLogKeyboardField.Weight, 3)
             host.applyPadEditAndCommit(
                 insertNumericKey(
                     buffer = host.activeBuffer()!!,
@@ -81,6 +85,7 @@ class SetLogKeyboardHostStateTest {
             open(weight = "135", reps = "8", field = SetLogKeyboardField.Reps)
             assertEquals("1357", host.weightText)
             assertEquals("8", host.repsText)
+            assertEquals(TextRange(0, 1), host.repsSelection)
             assertEquals(SetLogKeyboardField.Reps, host.session?.field)
         }
 
@@ -96,6 +101,7 @@ class SetLogKeyboardHostStateTest {
             assertEquals("6", host.repsText)
             assertEquals(3, host.weightCursor)
             assertEquals(1, host.repsCursor)
+            assertEquals(TextRange(0, 3), host.weightSelection)
         }
     }
 
@@ -103,13 +109,14 @@ class SetLogKeyboardHostStateTest {
     @DisplayName("setField and cursor")
     inner class FieldAndCursor {
         @Test
-        @DisplayName("setField switches field without touching drafts")
+        @DisplayName("setField switches field without touching drafts and selects new field")
         fun setFieldPreservesDrafts() {
-            open(field = SetLogKeyboardField.Weight, weight = "100")
+            open(field = SetLogKeyboardField.Weight, weight = "100", reps = "8")
             host.setCursor(SetLogKeyboardField.Weight, 1)
             host.setField(SetLogKeyboardField.Reps)
             assertEquals("100", host.weightText)
             assertEquals(1, host.weightCursor)
+            assertEquals(TextRange(0, 1), host.repsSelection)
             assertEquals(SetLogKeyboardField.Reps, host.session?.field)
         }
 
@@ -127,6 +134,20 @@ class SetLogKeyboardHostStateTest {
         }
 
         @Test
+        @DisplayName("typing immediately upon focus replaces initial selection")
+        fun typingReplacesInitialSelection() {
+            open(weight = "135")
+            assertEquals(TextRange(0, 3), host.weightSelection)
+            host.applyPadEditAndCommit(
+                insertNumericKey(host.activeBuffer()!!, '7', allowDecimal = true),
+            )
+            assertEquals("7", host.weightText)
+            assertEquals(1, host.weightCursor)
+            assertEquals(TextRange(1), host.weightSelection)
+            assertEquals(listOf("7"), weightCommits)
+        }
+
+        @Test
         @DisplayName("backspace at cursor zero is a no-op")
         fun backspaceAtStart() {
             open(weight = "12")
@@ -135,6 +156,18 @@ class SetLogKeyboardHostStateTest {
             assertEquals("12", host.weightText)
             assertEquals(0, host.weightCursor)
             assertTrue(weightCommits.isEmpty())
+        }
+
+        @Test
+        @DisplayName("backspace immediately upon focus clears initial selection")
+        fun backspaceClearsInitialSelection() {
+            open(weight = "135")
+            assertEquals(TextRange(0, 3), host.weightSelection)
+            host.applyPadEditAndCommit(backspaceNumericBuffer(host.activeBuffer()!!))
+            assertEquals("", host.weightText)
+            assertEquals(0, host.weightCursor)
+            assertEquals(TextRange(0), host.weightSelection)
+            assertEquals(listOf(""), weightCommits)
         }
     }
 
@@ -157,6 +190,7 @@ class SetLogKeyboardHostStateTest {
         @DisplayName("does not overwrite host weight or reps text")
         fun doesNotReseedText() {
             open(weight = "135", reps = "8", rir = 2)
+            host.setCursor(SetLogKeyboardField.Weight, 3)
             host.applyPadEditAndCommit(
                 insertNumericKey(host.activeBuffer()!!, '0', allowDecimal = true),
             )
@@ -177,6 +211,7 @@ class SetLogKeyboardHostStateTest {
         @DisplayName("legacy syncValues ignores weight and reps args")
         fun legacySyncValuesIgnoresText() {
             open(weight = "135")
+            host.setCursor(SetLogKeyboardField.Weight, 3)
             host.applyPadEditAndCommit(
                 insertNumericKey(host.activeBuffer()!!, '5', allowDecimal = true),
             )
@@ -292,7 +327,7 @@ class SetLogKeyboardHostStateTest {
     @DisplayName("reps entry mode")
     inner class RepsEntry {
         @Test
-        @DisplayName("digits in Full mode update reps, not partials")
+        @DisplayName("digits in Full mode update reps, replacing initial selection")
         fun fullModeRoutesToReps() {
             val partialCommits = mutableListOf<String>()
             host.open(
@@ -311,17 +346,18 @@ class SetLogKeyboardHostStateTest {
                 onRirChange = {},
                 onComplete = null,
             )
+            assertEquals(TextRange(0, 1), host.repsSelection)
             host.applyPadEditAndCommit(
                 insertNumericKey(host.activeBuffer()!!, '5', allowDecimal = false),
             )
-            assertEquals("85", host.repsText)
-            assertEquals(listOf("85"), repsCommits)
+            assertEquals("5", host.repsText)
+            assertEquals(listOf("5"), repsCommits)
             assertEquals("", host.partialRepsText)
             assertTrue(partialCommits.isEmpty())
         }
 
         @Test
-        @DisplayName("digits in Partial mode update partials")
+        @DisplayName("digits in Partial mode update partials, selecting existing partials")
         fun partialModeRoutesToPartials() {
             val partialCommits = mutableListOf<String>()
             host.open(
@@ -329,6 +365,7 @@ class SetLogKeyboardHostStateTest {
                 field = SetLogKeyboardField.Reps,
                 weightText = "135",
                 repsText = "8",
+                partialRepsText = "3",
                 rir = 2,
                 showWeightInput = true,
                 hasWeightRecommendation = true,
@@ -340,6 +377,7 @@ class SetLogKeyboardHostStateTest {
                 onComplete = null,
             )
             host.selectRepsEntryMode(RepsEntryMode.Partial)
+            assertEquals(TextRange(0, 1), host.partialRepsSelection)
             host.applyPadEditAndCommit(
                 insertNumericKey(host.activeBuffer()!!, '2', allowDecimal = false),
             )
@@ -356,6 +394,31 @@ class SetLogKeyboardHostStateTest {
             host.selectRepsEntryMode(RepsEntryMode.Partial)
             open(setKey = "b", field = SetLogKeyboardField.Reps)
             assertEquals(RepsEntryMode.Full, host.repsEntryMode)
+        }
+
+        @Test
+        @DisplayName("opening directly with Partial mode selects partials and emits no toast")
+        fun openDirectlyWithPartialMode() {
+            host.open(
+                setKey = "set-1",
+                field = SetLogKeyboardField.Reps,
+                weightText = "135",
+                repsText = "8",
+                partialRepsText = "4",
+                rir = 2,
+                showWeightInput = true,
+                hasWeightRecommendation = true,
+                hasRepsRecommendation = true,
+                onWeightChange = {},
+                onRepsChange = {},
+                onPartialRepsChange = {},
+                onRirChange = {},
+                onComplete = null,
+                initialRepsMode = RepsEntryMode.Partial,
+            )
+            assertEquals(RepsEntryMode.Partial, host.repsEntryMode)
+            assertEquals(null, host.repsModeToast)
+            assertEquals(TextRange(0, 1), host.partialRepsSelection)
         }
     }
 }
