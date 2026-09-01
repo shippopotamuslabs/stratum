@@ -1,6 +1,7 @@
 package com.stratum.domain.importing
 
 import com.stratum.domain.lift.FatigueProfile
+import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.SeedEquipmentIds
 import com.stratum.domain.lift.Weight
@@ -26,6 +27,7 @@ class InferredCustomLiftMetadataTest {
         assertNull(definition.equipmentName)
         assertNull(definition.equipmentCreateIncrement)
         assertNull(definition.increment)
+        assertEquals(LoadType.Weighted, definition.loadType)
     }
 
     @Test
@@ -50,7 +52,7 @@ class InferredCustomLiftMetadataTest {
     }
 
     @Test
-    @DisplayName("Null loading maps to shared Default equipment at +5")
+    @DisplayName("Null loading maps to seed Default equipment")
     fun nullLoadingUsesDefault() {
         val definition =
             InferredCustomLiftMetadata(
@@ -60,16 +62,29 @@ class InferredCustomLiftMetadataTest {
                 loading = null,
             ).toCustomLiftDefinition()
 
-        assertNull(definition.equipmentId)
-        assertEquals(InferredEquipmentLoading.DEFAULT_EQUIPMENT_NAME, definition.equipmentName)
-        assertEquals(
-            Weight(InferredEquipmentLoading.DEFAULT_INCREMENT_LB, Weight.WeightUnit.Lb),
-            definition.equipmentCreateIncrement,
-        )
+        assertEquals(SeedEquipmentIds.Default, definition.equipmentId)
+        assertNull(definition.equipmentName)
+        assertNull(definition.equipmentCreateIncrement)
+        assertEquals(LoadType.Weighted, definition.loadType)
     }
 
     @Test
-    @DisplayName("Blank custom name becomes Default")
+    @DisplayName("Seed bodyweight loading maps to LoadType.Bodyweight")
+    fun seedBodyweightSetsBodyweightLoadType() {
+        val definition =
+            InferredCustomLiftMetadata(
+                exerciseNameRaw = "Pull-Up",
+                movementPattern = MovementPattern.VerticalPull,
+                primaryMuscles = setOf(MuscleGroup.Back),
+                loading = InferredEquipmentLoading.Seed(SeedEquipmentIds.Bodyweight),
+            ).toCustomLiftDefinition()
+
+        assertEquals(SeedEquipmentIds.Bodyweight, definition.equipmentId)
+        assertEquals(LoadType.Bodyweight, definition.loadType)
+    }
+
+    @Test
+    @DisplayName("Blank custom name becomes seed Default")
     fun blankCustomNameUsesDefault() {
         val definition =
             InferredCustomLiftMetadata(
@@ -79,7 +94,8 @@ class InferredCustomLiftMetadataTest {
                 loading = InferredEquipmentLoading.Custom(name = "  ", incrementLb = 5.0),
             ).toCustomLiftDefinition()
 
-        assertEquals(InferredEquipmentLoading.DEFAULT_EQUIPMENT_NAME, definition.equipmentName)
+        assertEquals(SeedEquipmentIds.Default, definition.equipmentId)
+        assertNull(definition.equipmentName)
     }
 
     @Test

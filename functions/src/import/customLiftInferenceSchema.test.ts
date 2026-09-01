@@ -3,7 +3,6 @@ import { describe, it } from "node:test";
 import {
   CUSTOM_LIFT_INFERENCE_MAX_BATCH,
   DEFAULT_CUSTOM_INCREMENT_LB,
-  DEFAULT_EQUIPMENT_NAME,
   parseInferredCustomLifts,
   primaryMusclesForPattern,
 } from "./customLiftInferenceSchema";
@@ -91,7 +90,7 @@ describe("parseInferredCustomLifts", () => {
     assert.deepEqual(rows[0]?.primaryMuscles, ["Chest"]);
   });
 
-  it("falls back blank custom name to shared Default equipment and +5 increment", () => {
+  it("falls back blank custom name to seed Default equipment", () => {
     const rows = parseInferredCustomLifts(
       {
         lifts: [
@@ -109,13 +108,12 @@ describe("parseInferredCustomLifts", () => {
 
     assert.equal(rows.length, 1);
     assert.deepEqual(rows[0]?.loading, {
-      type: "custom",
-      name: DEFAULT_EQUIPMENT_NAME,
-      incrementLb: DEFAULT_CUSTOM_INCREMENT_LB,
+      type: "seed",
+      equipmentId: "default",
     });
   });
 
-  it("invalid equipmentKind becomes shared Default equipment without fuzzy seed matching", () => {
+  it("invalid equipmentKind becomes seed Default without fuzzy seed matching", () => {
     const rows = parseInferredCustomLifts(
       {
         lifts: [
@@ -133,9 +131,8 @@ describe("parseInferredCustomLifts", () => {
 
     assert.equal(rows.length, 1);
     assert.deepEqual(rows[0]?.loading, {
-      type: "custom",
-      name: DEFAULT_EQUIPMENT_NAME,
-      incrementLb: DEFAULT_CUSTOM_INCREMENT_LB,
+      type: "seed",
+      equipmentId: "default",
     });
   });
 

@@ -14,6 +14,7 @@ import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.lift.ObserveEquipmentCatalogUseCase
 import com.stratum.domain.lift.SeedEquipmentIds
 import com.stratum.domain.lift.SetLiftDefaultRestUseCase
+import com.stratum.domain.lift.alignedWithEquipment
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.inferFatigueProfile
@@ -59,8 +60,8 @@ class CreateLiftViewModel @Inject constructor(
         val bias: MuscleLengthBias = MuscleLengthBias.MidRange,
         val fatigue: FatigueProfile = FatigueProfile.Low,
         val load: LoadType = LoadType.Weighted,
-        /** Default implement: bodyweight-only (catalog null remains for legacy unassigned rows). */
-        val equipmentId: EquipmentId = SeedEquipmentIds.Bodyweight,
+        /** Hidden seed Default implement (+2.5 lb). Bodyweight is an explicit Details action. */
+        val equipmentId: EquipmentId = SeedEquipmentIds.Default,
         val restOverride: Int? = null,
     )
 
@@ -105,8 +106,12 @@ class CreateLiftViewModel @Inject constructor(
                 if (pick.generation <= lastSeenPickGen) return@collect
                 lastSeenPickGen = pick.generation
                 awaitingEquipmentPick = false
+                val nextId = pick.equipmentId ?: SeedEquipmentIds.Default
                 draft.update {
-                    it.copy(equipmentId = pick.equipmentId ?: SeedEquipmentIds.Bodyweight)
+                    it.copy(
+                        equipmentId = nextId,
+                        load = it.load.alignedWithEquipment(nextId),
+                    )
                 }
             }
         }
@@ -237,9 +242,14 @@ class CreateLiftViewModel @Inject constructor(
         sheets.update { it.copy(editing = null) }
     }
 
-    /** Assign bodyweight-only equipment (does not change [LoadType]). */
+    /** Assign bodyweight-only equipment and couple [LoadType] via [alignedWithEquipment]. */
     fun onAssignBodyweightEquipment() {
-        draft.update { it.copy(equipmentId = SeedEquipmentIds.Bodyweight) }
+        draft.update {
+            it.copy(
+                equipmentId = SeedEquipmentIds.Bodyweight,
+                load = it.load.alignedWithEquipment(SeedEquipmentIds.Bodyweight),
+            )
+        }
         sheets.update { it.copy(editing = null) }
     }
 
@@ -318,6 +328,7 @@ class CreateLiftViewModel @Inject constructor(
                     movementPatternLabels = d.patterns.map { it.displayName }.sorted(),
                     fatigueLabel = d.fatigue.toDetailLabel(),
                     loadTypeLabel = d.load.toDetailLabel(),
+                    showLoadType = showsLoadType(d.equipmentId, d.load),
                     equipment = equipmentDetailLabel(d.equipmentId, snapshot.equipmentName),
                     // Category is derived and non-actionable on create — omit the row.
                     categoryLabel = null,

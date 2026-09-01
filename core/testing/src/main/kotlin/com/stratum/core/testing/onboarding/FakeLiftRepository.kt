@@ -6,6 +6,7 @@ import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.LiftRepository
+import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId
@@ -174,12 +175,13 @@ class FakeLiftRepository(
         }
     }
 
-    override suspend fun setLiftEquipment(id: LiftId, equipmentId: EquipmentId?) {
+    override suspend fun setLiftEquipment(id: LiftId, equipmentId: EquipmentId?, loadType: LoadType) {
         lifts.value = lifts.value.map { lift ->
             if (lift.id == id) {
                 lift.copy(
                     equipmentId = equipmentId,
                     equipmentName = equipmentId?.let { equipmentNamesById[it] },
+                    loadType = loadType,
                     // Changing equipment clears lift-scoped overrides so new defaults apply.
                     incrementTiers = emptyList(),
                     usesEquipmentDefaultIncrements = true,

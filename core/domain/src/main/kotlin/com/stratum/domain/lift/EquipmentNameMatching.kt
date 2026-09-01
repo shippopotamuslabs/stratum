@@ -104,6 +104,10 @@ object EquipmentNameMatching {
                 "machine leg press",
             )
             alias(
+                EquipmentId("default"),
+                "default",
+            )
+            alias(
                 EquipmentId("bodyweight"),
                 "bodyweight",
                 "body weight",

@@ -79,6 +79,8 @@ data class LiftDetailsEditorState(
     val movementPatternLabels: List<String> = emptyList(),
     val fatigueLabel: String = "",
     val loadTypeLabel: String = "",
+    /** False when seed bodyweight equipment already has Bodyweight load type. */
+    val showLoadType: Boolean = true,
     val equipment: String? = null,
     /**
      * Derived Gym / swap category label. Non-null shows the row (Lift Info);
@@ -108,7 +110,7 @@ data class LiftDetailsEditorActions(
     val onSelectLoadType: (String) -> Unit,
     val onToggleDraftMovementPattern: (String) -> Unit,
     val onConfirmMovementPatterns: () -> Unit,
-    /** Assign bodyweight-only equipment (no external load implement). Does not change load type. */
+    /** Assign bodyweight-only equipment and couple load type to Bodyweight. */
     val onAssignBodyweightEquipment: () -> Unit,
     /** Navigate to full Choose Equipment screen. */
     val onChooseEquipment: () -> Unit,
@@ -178,12 +180,14 @@ fun LiftDetailsEditor(
                 onSelect = actions.onSelectFatigue,
             )
         LiftDetailEditField.LoadType ->
-            SingleSelectDetailSheet(
-                title = stringResource(UiR.string.lift_info_load_type),
-                options = state.loadTypeOptions,
-                onDismiss = actions.onDismissDetailEditor,
-                onSelect = actions.onSelectLoadType,
-            )
+            if (state.showLoadType) {
+                SingleSelectDetailSheet(
+                    title = stringResource(UiR.string.lift_info_load_type),
+                    options = state.loadTypeOptions,
+                    onDismiss = actions.onDismissDetailEditor,
+                    onSelect = actions.onSelectLoadType,
+                )
+            }
         LiftDetailEditField.MovementPatterns ->
             MultiSelectDetailSheet(
                 title = stringResource(UiR.string.lift_info_movement_patterns),
@@ -251,13 +255,15 @@ private fun LiftDetailsEditorContent(
                     editField = LiftDetailEditField.Fatigue,
                 ),
             )
-            add(
-                DetailSpec(
-                    label = stringResource(UiR.string.lift_info_load_type),
-                    value = state.loadTypeLabel.ifBlank { "—" },
-                    editField = LiftDetailEditField.LoadType,
-                ),
-            )
+            if (state.showLoadType) {
+                add(
+                    DetailSpec(
+                        label = stringResource(UiR.string.lift_info_load_type),
+                        value = state.loadTypeLabel.ifBlank { "—" },
+                        editField = LiftDetailEditField.LoadType,
+                    ),
+                )
+            }
             state.categoryLabel?.let { label ->
                 add(
                     DetailSpec(
