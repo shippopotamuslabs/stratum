@@ -27,6 +27,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -144,6 +145,84 @@ class UpdateCompletedSessionSetsUseCaseTest {
         val current = repo.getSetsForLift(liftId).first { it.id.value == "current-pr" }
         assertTrue(older.isPersonalRecord, "older stronger set should become PR")
         assertFalse(current.isPersonalRecord, "demoted set should lose PR")
+    }
+
+    @Test
+    @DisplayName("demotes bodyweight PR on edited set and promotes higher-rep historical set")
+    fun demotesAndPromotesBodyweightPrAcrossHistory() = runTest {
+        val repo = FakeTrainingLogRepository()
+        val olderSessionId = TrainingSessionId("ts-older")
+        repo.seedSession(
+            completedSession(id = olderSessionId.value).copy(
+                startedAt = Instant.parse("2024-12-01T10:00:00Z"),
+                endedAt = Instant.parse("2024-12-01T11:00:00Z"),
+            ),
+        )
+        repo.seedSession(completedSession())
+        val olderStrong =
+            loggedSet(
+                id = "older-strong",
+                sessionId = olderSessionId,
+                weight = 0.0,
+                reps = 12,
+                rir = 0,
+                completedAt = Instant.parse("2024-12-01T10:30:00Z"),
+            ).copy(isPersonalRecord = false, estimatedOneRm = null)
+        val currentPr =
+            loggedSet(
+                id = "current-pr",
+                weight = 0.0,
+                reps = 15,
+                rir = 0,
+                completedAt = Instant.parse("2025-01-01T10:30:00Z"),
+            ).copy(isPersonalRecord = true, estimatedOneRm = null)
+        repo.seedSet(olderStrong)
+        repo.seedSet(currentPr)
+        val useCase = buildUseCase(repo)
+
+        val demoted = currentPr.copy(reps = 8)
+        assertTrue(useCase(sessionId, listOf(demoted)).isSuccess)
+
+        val older = repo.getSetsForLift(liftId).first { it.id.value == "older-strong" }
+        val current = repo.getSetsForLift(liftId).first { it.id.value == "current-pr" }
+        assertTrue(older.isPersonalRecord, "older higher-rep set should become PR")
+        assertFalse(current.isPersonalRecord, "demoted bodyweight set should lose PR")
+        assertNull(older.estimatedOneRm)
+        assertNull(current.estimatedOneRm)
+    }
+
+    @Test
+    @DisplayName("loaded working set stays PR over a later bodyweight backoff in the same history")
+    fun loadedWorkingSetBeatsBodyweightBackoff() = runTest {
+        val repo = FakeTrainingLogRepository()
+        repo.seedSession(completedSession())
+        val working =
+            loggedSet(
+                id = "work",
+                weight = 45.0,
+                reps = 5,
+                rir = 0,
+                setIndex = 0,
+                completedAt = Instant.parse("2025-01-01T10:10:00Z"),
+            ).copy(isPersonalRecord = true)
+        val backoff =
+            loggedSet(
+                id = "bw",
+                weight = 0.0,
+                reps = 12,
+                rir = 0,
+                setIndex = 1,
+                completedAt = Instant.parse("2025-01-01T10:20:00Z"),
+            ).copy(isPersonalRecord = false)
+        repo.seedSet(working)
+        repo.seedSet(backoff)
+        val useCase = buildUseCase(repo)
+
+        assertTrue(useCase(sessionId, listOf(working, backoff)).isSuccess)
+
+        val stored = repo.getSetsForLift(liftId)
+        assertTrue(stored.first { it.id.value == "work" }.isPersonalRecord)
+        assertFalse(stored.first { it.id.value == "bw" }.isPersonalRecord)
     }
 
     @Test

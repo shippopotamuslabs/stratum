@@ -13,8 +13,6 @@ import com.stratum.domain.lift.ApplyEquipmentIncrementProposalUseCase
 import com.stratum.domain.lift.EquipmentIncrementRemedy
 import com.stratum.domain.lift.EquipmentProposalPreferences
 import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
-import com.stratum.domain.lift.Weight
-import com.stratum.domain.training.EstimatedOneRm
 import com.stratum.domain.training.GetWorkoutSummaryUseCase
 import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.domain.workout.AnalyzeSessionRepRangeShiftProposalsUseCase
@@ -137,13 +135,7 @@ class WorkoutCompleteViewModel @Inject constructor(
                                                         sourceUnit = best.weight.unit,
                                                         displayUnit = displayUnit,
                                                     ).ifEmpty { "0" }
-                                                }
-                                                    ?: formatEstimatedOneRm(
-                                                        weight = best.weight,
-                                                        reps = best.reps,
-                                                        rir = best.rir,
-                                                        displayUnit = displayUnit,
-                                                    ),
+                                                } ?: RIR_NONE_LABEL,
                                             isPersonalRecord = best.isPersonalRecord,
                                         )
                                     },
@@ -359,21 +351,5 @@ class WorkoutCompleteViewModel @Inject constructor(
         if (current is WorkoutCompleteUiState.Loaded) {
             _uiState.value = transform(current)
         }
-    }
-
-    private fun formatEstimatedOneRm(
-        weight: Weight,
-        reps: Int,
-        rir: Int?,
-        displayUnit: Weight.WeightUnit,
-    ): String {
-        val effectiveReps = reps + (rir ?: 0)
-        // e1RM magnitude is in the same unit as the performed weight.
-        val e1Rm = EstimatedOneRm.calculate(weight.amount, effectiveReps)
-        return formatWeightAmountForDisplay(
-            amount = e1Rm,
-            sourceUnit = weight.unit,
-            displayUnit = displayUnit,
-        ).ifEmpty { "0" }
     }
 }
