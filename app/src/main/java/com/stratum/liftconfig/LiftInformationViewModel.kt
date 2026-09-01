@@ -194,8 +194,7 @@ class LiftInformationViewModel @Inject constructor(
                 lastSeenPickGen = pick.generation
                 awaitingEquipmentPick = false
                 val id = liftId.value ?: return@collect
-                setLiftEquipment(LiftId(id), pick.equipmentId)
-                    .onFailure { _userMessage.value = MSG_SAVE_FAILED }
+                persistEquipment(LiftId(id), pick.equipmentId)
             }
         }
     }
@@ -357,13 +356,11 @@ class LiftInformationViewModel @Inject constructor(
         editingField.value = null
     }
 
-    /** Assign bodyweight-only equipment (does not change [LoadType]). */
+    /** Assign bodyweight-only equipment; [SetLiftEquipmentUseCase] couples [LoadType]. */
     fun onAssignBodyweightEquipment() {
         val id = liftId.value ?: return
         viewModelScope.launch {
-            setLiftEquipment(LiftId(id), SeedEquipmentIds.Bodyweight)
-                .onSuccess { editingField.value = null }
-                .onFailure { _userMessage.value = MSG_SAVE_FAILED }
+            persistEquipment(LiftId(id), SeedEquipmentIds.Bodyweight)
         }
     }
 
@@ -415,6 +412,16 @@ class LiftInformationViewModel @Inject constructor(
         val patterns = draftMovementPatterns.value
         if (patterns.isEmpty()) return
         persistDetails { it.copy(movementPatterns = patterns) }
+    }
+
+    /**
+     * Assigns [equipmentId] (catalog or custom) in one write; load type is coupled in
+     * [SetLiftEquipmentUseCase].
+     */
+    private suspend fun persistEquipment(id: LiftId, equipmentId: EquipmentId?) {
+        setLiftEquipment(id, equipmentId)
+            .onSuccess { editingField.value = null }
+            .onFailure { _userMessage.value = MSG_SAVE_FAILED }
     }
 
     private fun persistDetails(transform: (CustomLiftDetails) -> CustomLiftDetails) {
@@ -505,6 +512,7 @@ class LiftInformationViewModel @Inject constructor(
                         lift.movementPatterns.map { it.displayName }.sorted(),
                     fatigueLabel = lift.fatigueProfile.toDetailLabel(),
                     loadTypeLabel = lift.loadType.toDetailLabel(),
+                    showLoadType = showsLoadType(lift.equipmentId, lift.loadType),
                     equipment = equipmentDetailLabel(lift.equipmentId, lift.equipmentName),
                     categoryLabel = lift.classifyLiftCategory().displayName,
                     defaultRestLabel = formatRestDisplay(lift.resolvedDefaultRestSeconds()),

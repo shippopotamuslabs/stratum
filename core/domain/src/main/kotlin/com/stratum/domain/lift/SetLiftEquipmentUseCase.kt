@@ -9,7 +9,8 @@ import javax.inject.Inject
 /**
  * Assigns or clears the equipment reference on a lift (catalog or custom). Changing equipment
  * also clears lift-scoped increment override tiers so effective increments re-resolve from the
- * new equipment defaults (or global fallback when unassigned).
+ * new equipment defaults (or global fallback when unassigned), and couples [LoadType] via
+ * [alignedWithEquipment] in the same write.
  */
 class SetLiftEquipmentUseCase @Inject constructor(
     private val repository: LiftRepository,
@@ -17,7 +18,11 @@ class SetLiftEquipmentUseCase @Inject constructor(
 ) {
     suspend operator fun invoke(id: LiftId, equipmentId: EquipmentId?): Result<Unit> =
         runCatchingLogged(loggingPort, TAG, "Failed to set lift equipment") {
-            repository.setLiftEquipment(id, equipmentId)
+            val lift =
+                repository.getLiftsByIds(listOf(id)).firstOrNull()
+                    ?: error("Lift not found")
+            val nextLoad = lift.loadType.alignedWithEquipment(equipmentId)
+            repository.setLiftEquipment(id, equipmentId, nextLoad)
         }
 
     private companion object {

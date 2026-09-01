@@ -1,5 +1,7 @@
 package com.stratum.domain.lift
 
+import com.stratum.domain.lift.identity.EquipmentId
+
 /**
  * How external load relates to a [Lift]'s resistance profile.
  *
@@ -18,3 +20,18 @@ enum class LoadType {
     Bodyweight,
     Assisted,
 }
+
+/**
+ * Couples logging modality to the selected implement so bodyweight equipment cannot stay
+ * Weighted (or the reverse) after a Details-tab assignment.
+ *
+ * Bodyweight equipment always becomes [Bodyweight]. Leaving bodyweight restores [Weighted]
+ * only when the current value is [Bodyweight]; [Assisted] is left alone.
+ */
+fun LoadType.alignedWithEquipment(equipmentId: EquipmentId?): LoadType =
+    when {
+        equipmentId == null -> this
+        equipmentId == SeedEquipmentIds.Bodyweight -> LoadType.Bodyweight
+        this == LoadType.Bodyweight -> LoadType.Weighted
+        else -> this
+    }

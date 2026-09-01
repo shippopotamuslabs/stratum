@@ -196,10 +196,7 @@ class FirebaseCustomLiftInferenceAdapterTest {
             )
         val parsed = FirebaseCustomLiftInferenceAdapter.parseResponse(data)
         assertEquals(
-            InferredEquipmentLoading.Custom(
-                name = InferredEquipmentLoading.DEFAULT_EQUIPMENT_NAME,
-                incrementLb = 5.0,
-            ),
+            InferredEquipmentLoading.defaultEquipment(),
             parsed.single().loading,
         )
     }

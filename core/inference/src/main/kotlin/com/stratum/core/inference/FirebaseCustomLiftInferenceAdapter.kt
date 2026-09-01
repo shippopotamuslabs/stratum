@@ -20,7 +20,7 @@ import kotlinx.coroutines.tasks.await
  *
  * Decodes the **server-normalized** payload (`loading: { type, ... }` + movementPattern).
  * Primary/secondary muscles are always derived from pattern via [ImportStubLiftGuesser]
- * (LLM free-form muscle tags are ignored). Unknown loading becomes the shared Default lattice.
+ * (LLM free-form muscle tags are ignored). Unknown loading becomes the seed Default lattice.
  */
 @Singleton
 class FirebaseCustomLiftInferenceAdapter @Inject constructor(
@@ -84,7 +84,7 @@ class FirebaseCustomLiftInferenceAdapter @Inject constructor(
 
         /**
          * Decodes server `loading` objects produced by `parseInferredCustomLifts`.
-         * Malformed / missing → shared Default equipment (+5 lb).
+         * Malformed / missing → seed Default equipment.
          */
         private fun parseCallableLoading(raw: Any?): InferredEquipmentLoading {
             val loading = raw as? Map<*, *> ?: return InferredEquipmentLoading.defaultEquipment()
@@ -96,13 +96,15 @@ class FirebaseCustomLiftInferenceAdapter @Inject constructor(
                 }
                 "custom" -> {
                     val rawName = (loading["name"] as? String)?.trim().orEmpty()
-                    val name =
-                        rawName.ifEmpty { InferredEquipmentLoading.DEFAULT_EQUIPMENT_NAME }
-                    val increment =
-                        InferredEquipmentLoading.sanitizeIncrementLb(
-                            parseNumber(loading["incrementLb"]),
-                        )
-                    InferredEquipmentLoading.Custom(name = name, incrementLb = increment)
+                    if (rawName.isEmpty()) {
+                        InferredEquipmentLoading.defaultEquipment()
+                    } else {
+                        val increment =
+                            InferredEquipmentLoading.sanitizeIncrementLb(
+                                parseNumber(loading["incrementLb"]),
+                            )
+                        InferredEquipmentLoading.Custom(name = rawName, incrementLb = increment)
+                    }
                 }
                 else -> InferredEquipmentLoading.defaultEquipment()
             }

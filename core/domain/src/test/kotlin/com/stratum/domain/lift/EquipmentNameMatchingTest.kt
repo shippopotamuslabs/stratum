@@ -48,6 +48,13 @@ class EquipmentNameMatchingTest {
     }
 
     @Test
+    @DisplayName("seedIdFromFreeText maps default to seed id")
+    fun defaultAlias() {
+        assertEquals(EquipmentId("default"), EquipmentNameMatching.seedIdFromFreeText("default"))
+        assertEquals(EquipmentId("default"), EquipmentNameMatching.seedIdFromFreeText("Default"))
+    }
+
+    @Test
     @DisplayName("unknown free-text returns null so callers can create custom equipment")
     fun unknownReturnsNull() {
         assertNull(EquipmentNameMatching.seedIdFromFreeText("Life Fitness Pro2 Stack"))

@@ -54,6 +54,14 @@ class ManageEquipmentViewModelTest {
                     incrementTiers = emptyList(),
                 ),
                 Equipment(
+                    id = EquipmentId("default"),
+                    name = "Default",
+                    incrementTiers =
+                        listOf(
+                            IncrementTier(Weight(0.0, lb), null, Weight(2.5, lb)),
+                        ),
+                ),
+                Equipment(
                     id = EquipmentId("dumbbell"),
                     name = "Dumbbells",
                     incrementTiers =
@@ -85,12 +93,13 @@ class ManageEquipmentViewModelTest {
     }
 
     @Test
-    @DisplayName("Given catalog with bodyweight when observed then bodyweight is omitted")
-    fun omitsBodyweightFromRows() = runTest {
+    @DisplayName("Given catalog with bodyweight and default when observed then both are omitted")
+    fun omitsHiddenSeedEquipmentFromRows() = runTest {
         subject.uiState.test {
             val state = awaitCatalogState()
             assertEquals(listOf("cable", "dumbbell"), state.rows.map { it.id })
             assertFalse(state.rows.any { it.name == "Bodyweight" })
+            assertFalse(state.rows.any { it.name == "Default" })
             cancelAndIgnoreRemainingEvents()
         }
     }
