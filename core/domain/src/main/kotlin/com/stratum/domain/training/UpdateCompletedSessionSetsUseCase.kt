@@ -1,9 +1,6 @@
 package com.stratum.domain.training
 
 import com.stratum.domain.di.ApplicationScope
-import com.stratum.domain.importing.identity.LoggedSetId
-import com.stratum.domain.lift.WeightConversion
-import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.response.ResponseModelingSchedulerPort
 import com.stratum.domain.response.ResponseProfileMetadataRepository
@@ -139,42 +136,11 @@ class UpdateCompletedSessionSetsUseCase @Inject constructor(
     }
 
     /**
-     * Recomputes e1RM for every set and marks exactly one PR (max e1RM) per lift batch.
-     * Matches [ComputePersonalRecordsUseCase] effective-reps formula: reps + rir.
-     * Uses absolute load so assisted (negative-stored) weights score correctly.
+     * Recomputes e1RM (null for zero-load) and marks exactly one PR per lift batch
+     * via [PersonalRecordScoring.withPersonalRecords].
      */
-    internal fun assignPersonalRecords(sets: List<LoggedSet>): List<LoggedSet> {
-        val withE1rm =
-            sets.map { set ->
-                if (set.liftId != null && set.reps > 0) {
-                    val effectiveReps = (set.reps + (set.rir ?: 0)).coerceAtLeast(1)
-                    val loadMagnitudeLb = WeightConversion.loadMagnitudeLb(set.weight)
-                    val e1Rm =
-                        if (loadMagnitudeLb > 0.0) {
-                            EstimatedOneRm.calculate(loadMagnitudeLb, effectiveReps)
-                        } else {
-                            null
-                        }
-                    set.copy(estimatedOneRm = e1Rm, isPersonalRecord = false)
-                } else {
-                    set.copy(estimatedOneRm = null, isPersonalRecord = false)
-                }
-            }
-        val maxSet =
-            withE1rm
-                .filter { it.estimatedOneRm != null }
-                .maxWithOrNull(
-                    compareBy<LoggedSet> { it.estimatedOneRm!! }
-                        .thenBy { it.completedAt },
-                )
-        return if (maxSet == null) {
-            withE1rm
-        } else {
-            withE1rm.map { set ->
-                set.copy(isPersonalRecord = set.id == maxSet.id)
-            }
-        }
-    }
+    internal fun assignPersonalRecords(sets: List<LoggedSet>): List<LoggedSet> =
+        PersonalRecordScoring.withPersonalRecords(sets)
 
     private companion object {
         const val TAG = "UpdateCompletedSessionSets"

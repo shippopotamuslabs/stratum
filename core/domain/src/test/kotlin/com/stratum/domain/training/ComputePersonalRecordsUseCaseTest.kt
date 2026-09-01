@@ -204,6 +204,95 @@ class ComputePersonalRecordsUseCaseTest {
         assertEquals(expected, set.estimatedOneRm!!, 0.01)
     }
 
+    @Test
+    @DisplayName("Compute PRs marks first bodyweight set as PR without storing e1RM")
+    fun computePrs_firstBodyweightSetIsPr() = runTest {
+        val repo = FakeTrainingLogRepository()
+        val useCase = ComputePersonalRecordsUseCase(repo)
+        val sets = listOf(
+            createSet("bw-8", weight = 0.0, reps = 8),
+            createSet("bw-12", weight = 0.0, reps = 12),
+            createSet("bw-6", weight = 0.0, reps = 6),
+        )
+
+        val result = useCase(sets).getOrThrow()
+
+        val eight = result.updatedIncomingSets.first { it.id.value == "bw-8" }
+        val twelve = result.updatedIncomingSets.first { it.id.value == "bw-12" }
+        val six = result.updatedIncomingSets.first { it.id.value == "bw-6" }
+        assertFalse(eight.isPersonalRecord)
+        assertTrue(twelve.isPersonalRecord)
+        assertFalse(six.isPersonalRecord)
+        assertNull(twelve.estimatedOneRm)
+        assertTrue(result.oldPrSetsToUpdate.isEmpty())
+    }
+
+    @Test
+    @DisplayName("Compute PRs demotes existing bodyweight PR when a later session has more reps")
+    fun computePrs_bodyweightBetterThanExistingDemotes() = runTest {
+        val repo = FakeTrainingLogRepository()
+        val oldPr = createSet("old-bw", weight = 0.0, reps = 8, isPr = true)
+        repo.seedSet(oldPr)
+        val useCase = ComputePersonalRecordsUseCase(repo)
+
+        val result = useCase(listOf(createSet("new-bw", weight = 0.0, reps = 12))).getOrThrow()
+
+        assertEquals(1, result.oldPrSetsToUpdate.size)
+        assertEquals("old-bw", result.oldPrSetsToUpdate.first().id.value)
+        assertFalse(result.oldPrSetsToUpdate.first().isPersonalRecord)
+        assertTrue(result.updatedIncomingSets.single().isPersonalRecord)
+        assertNull(result.updatedIncomingSets.single().estimatedOneRm)
+    }
+
+    @Test
+    @DisplayName("Compute PRs keeps existing bodyweight PR when incoming reps are not greater")
+    fun computePrs_bodyweightWorseThanExistingKeepsOld() = runTest {
+        val repo = FakeTrainingLogRepository()
+        val oldPr = createSet("old-bw", weight = 0.0, reps = 15, isPr = true)
+        repo.seedSet(oldPr)
+        val useCase = ComputePersonalRecordsUseCase(repo)
+
+        val result = useCase(listOf(createSet("new-bw", weight = 0.0, reps = 10))).getOrThrow()
+
+        assertTrue(result.oldPrSetsToUpdate.isEmpty())
+        assertFalse(result.updatedIncomingSets.single().isPersonalRecord)
+    }
+
+    @Test
+    @DisplayName("Compute PRs backfills an unflagged historical bodyweight set over a weaker incoming set")
+    fun computePrs_backfillsUnflaggedHistoricalBodyweight() = runTest {
+        val repo = FakeTrainingLogRepository()
+        val historical =
+            createSet("old-20", weight = 0.0, reps = 20, isPr = false)
+        repo.seedSet(historical)
+        val useCase = ComputePersonalRecordsUseCase(repo)
+
+        val result = useCase(listOf(createSet("new-8", weight = 0.0, reps = 8))).getOrThrow()
+
+        assertFalse(result.updatedIncomingSets.single().isPersonalRecord)
+        assertEquals(1, result.oldPrSetsToUpdate.size)
+        assertEquals("old-20", result.oldPrSetsToUpdate.single().id.value)
+        assertTrue(result.oldPrSetsToUpdate.single().isPersonalRecord)
+        assertNull(result.oldPrSetsToUpdate.single().estimatedOneRm)
+    }
+
+    @Test
+    @DisplayName("Compute PRs keeps a loaded working set as PR over a later bodyweight backoff")
+    fun computePrs_loadedWorkingSetBeatsBodyweightBackoff() = runTest {
+        val repo = FakeTrainingLogRepository()
+        val useCase = ComputePersonalRecordsUseCase(repo)
+        val result =
+            useCase(
+                listOf(
+                    createSet("work", weight = 45.0, reps = 5),
+                    createSet("bw", weight = 0.0, reps = 12),
+                ),
+            ).getOrThrow()
+
+        assertTrue(result.updatedIncomingSets.first { it.id.value == "work" }.isPersonalRecord)
+        assertFalse(result.updatedIncomingSets.first { it.id.value == "bw" }.isPersonalRecord)
+    }
+
     private fun createSet(
         id: String,
         weight: Double,

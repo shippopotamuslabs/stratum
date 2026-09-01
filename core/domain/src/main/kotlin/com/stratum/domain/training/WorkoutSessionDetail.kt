@@ -22,6 +22,8 @@ data class WorkoutSessionDetail(
 data class WorkoutSessionLiftDetail(
     val liftName: String,
     val sets: List<WorkoutSessionSetDetail>,
+    /** Session-best set using [PersonalRecordScoring.bestPersonalRecordSet]; null if none. */
+    val bestSet: WorkoutSessionSetDetail? = null,
 )
 
 data class WorkoutSessionSetDetail(

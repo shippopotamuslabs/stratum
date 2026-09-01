@@ -58,19 +58,26 @@ class GetWorkoutSessionDetailUseCase @Inject constructor(
                         val liftName =
                             ordered.first().liftContext.liftName.takeIf { it.isNotBlank() }
                                 ?: ordered.first().exerciseNameRaw
+                        val mappedSets =
+                            ordered.map { set ->
+                                WorkoutSessionSetDetail(
+                                    setIndex = set.setIndex,
+                                    weight = set.weight,
+                                    reps = set.reps,
+                                    rir = set.rir,
+                                    isPersonalRecord = set.isPersonalRecord,
+                                    partialReps = set.partialReps.normalizedPartialReps(),
+                                )
+                            }
+                        val bestLogged =
+                            PersonalRecordScoring.bestPersonalRecordSet(ordered)
+                                ?: ordered.first()
                         WorkoutSessionLiftDetail(
                             liftName = liftName,
-                            sets =
-                                ordered.map { set ->
-                                    WorkoutSessionSetDetail(
-                                        setIndex = set.setIndex,
-                                        weight = set.weight,
-                                        reps = set.reps,
-                                        rir = set.rir,
-                                        isPersonalRecord = set.isPersonalRecord,
-                                        partialReps = set.partialReps.normalizedPartialReps(),
-                                    )
-                                },
+                            sets = mappedSets,
+                            bestSet =
+                                mappedSets.find { it.setIndex == bestLogged.setIndex }
+                                    ?: mappedSets.firstOrNull(),
                         )
                     }
 

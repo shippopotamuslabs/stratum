@@ -98,6 +98,8 @@ class GetWorkoutSessionDetailUseCaseTest {
         assertEquals(1, detail.lifts.size)
         assertEquals(2, detail.lifts.single().sets.size)
         assertTrue(detail.lifts.single().sets.first().isPersonalRecord)
+        assertEquals(0, detail.lifts.single().bestSet?.setIndex)
+        assertTrue(detail.lifts.single().bestSet?.isPersonalRecord == true)
         assertTrue(detail.muscleVolumes.isNotEmpty())
     }
 

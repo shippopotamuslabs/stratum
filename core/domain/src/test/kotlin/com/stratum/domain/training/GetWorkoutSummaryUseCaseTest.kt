@@ -21,6 +21,7 @@ import java.time.Instant
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 
@@ -110,6 +111,90 @@ class GetWorkoutSummaryUseCaseTest {
         val best = summary.bestSets[0]
         assertEquals(185.0, best.weight.amount)
         assertEquals(3, best.reps)
+    }
+
+    @Test
+    @DisplayName("Bodyweight best set is max reps and copies isPersonalRecord")
+    fun bodyweightBestSetIsMaxRepsAndCopiesPr() = runTest {
+        val programRepo = FakeProgramRepository(WorkoutLoggingFixtures.twoWorkoutProgram())
+        val session = WorkoutLoggingFixtures.completedLiveSession(id = "ts-1")
+        val logRepo = FakeTrainingLogRepository(
+            initialSessions = listOf(session),
+            programRepository = programRepo,
+        )
+        val liftRepo = FakeLiftRepository(initialLifts = listOf(benchLift()))
+        val useCase = GetWorkoutSummaryUseCase(
+            logRepo,
+            programRepo,
+            ObserveLiftCatalogUseCase(liftRepo),
+            FakeLoggingPort(),
+        )
+        logRepo.insertSet(bodyweightSet("set-8", reps = 8, setIndex = 0, isPr = false))
+        logRepo.insertSet(bodyweightSet("set-12", reps = 12, setIndex = 1, isPr = true))
+        logRepo.insertSet(bodyweightSet("set-6", reps = 6, setIndex = 2, isPr = false))
+
+        val summary = useCase(TrainingSessionId("ts-1")).getOrThrow()
+
+        assertEquals(1, summary.bestSets.size)
+        val best = summary.bestSets.single()
+        assertEquals(12, best.reps)
+        assertEquals(0.0, best.weight.amount)
+        assertTrue(best.isPersonalRecord)
+        assertNull(best.estimatedOneRm)
+    }
+
+    @Test
+    @DisplayName("Mixed session best set is the loaded working set, not a bodyweight backoff")
+    fun mixedSessionBestSetIsLoaded() = runTest {
+        val programRepo = FakeProgramRepository(WorkoutLoggingFixtures.twoWorkoutProgram())
+        val session = WorkoutLoggingFixtures.completedLiveSession(id = "ts-1")
+        val logRepo = FakeTrainingLogRepository(
+            initialSessions = listOf(session),
+            programRepository = programRepo,
+        )
+        val liftRepo = FakeLiftRepository(initialLifts = listOf(benchLift()))
+        val useCase = GetWorkoutSummaryUseCase(
+            logRepo,
+            programRepo,
+            ObserveLiftCatalogUseCase(liftRepo),
+            FakeLoggingPort(),
+        )
+        logRepo.insertSet(
+            LoggedSet(
+                id = LoggedSetId("work"),
+                sessionId = TrainingSessionId("ts-1"),
+                exerciseNameRaw = "Barbell Bench Press",
+                liftId = WorkoutLoggingFixtures.liftBenchId,
+                setIndex = 0,
+                weight = Weight(45.0, Weight.WeightUnit.Lb),
+                reps = 5,
+                rir = 0,
+                completedAt = Instant.parse("2025-01-01T10:05:00Z"),
+                liftContext = WorkoutLoggingFixtures.importLiftContext(),
+                isPersonalRecord = true,
+            ),
+        )
+        logRepo.insertSet(
+            LoggedSet(
+                id = LoggedSetId("bw"),
+                sessionId = TrainingSessionId("ts-1"),
+                exerciseNameRaw = "Barbell Bench Press",
+                liftId = WorkoutLoggingFixtures.liftBenchId,
+                setIndex = 1,
+                weight = Weight(0.0, Weight.WeightUnit.Lb),
+                reps = 12,
+                rir = null,
+                completedAt = Instant.parse("2025-01-01T10:15:00Z"),
+                liftContext = WorkoutLoggingFixtures.importLiftContext(),
+                isPersonalRecord = false,
+            ),
+        )
+
+        val summary = useCase(TrainingSessionId("ts-1")).getOrThrow()
+        val best = summary.bestSets.single()
+        assertEquals(45.0, best.weight.amount)
+        assertEquals(5, best.reps)
+        assertTrue(best.isPersonalRecord)
     }
 
     @Test
@@ -316,6 +401,26 @@ class GetWorkoutSummaryUseCaseTest {
         assertEquals("Barbell Squat", summary.bestSets[0].liftName)
         assertEquals("Barbell Bench Press", summary.bestSets[1].liftName)
     }
+
+    private fun bodyweightSet(
+        id: String,
+        reps: Int,
+        setIndex: Int,
+        isPr: Boolean,
+    ): LoggedSet =
+        LoggedSet(
+            id = LoggedSetId(id),
+            sessionId = TrainingSessionId("ts-1"),
+            exerciseNameRaw = "Barbell Bench Press",
+            liftId = WorkoutLoggingFixtures.liftBenchId,
+            setIndex = setIndex,
+            weight = Weight(0.0, Weight.WeightUnit.Lb),
+            reps = reps,
+            rir = null,
+            completedAt = Instant.parse("2025-01-01T10:05:00Z").plusSeconds(setIndex.toLong()),
+            liftContext = WorkoutLoggingFixtures.importLiftContext(),
+            isPersonalRecord = isPr,
+        )
 
     private fun programWithOrderedLifts(vararg lifts: WorkoutLift): Program {
         val base = WorkoutLoggingFixtures.twoWorkoutProgram()
