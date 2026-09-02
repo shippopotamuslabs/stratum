@@ -155,7 +155,8 @@ interface LiftDao {
     )
 
     /**
-     * Assign or clear equipment on catalog or custom lifts. Does not touch override tiers.
+     * Assign or clear equipment on catalog or custom lifts. Does not touch override tiers
+     * or [LoadType].
      */
     @Query(
         """
@@ -169,6 +170,27 @@ interface LiftDao {
     suspend fun setEquipmentId(
         id: LiftId,
         equipmentId: EquipmentId?,
+        updatedAtEpochMillis: Long,
+    )
+
+    /**
+     * Assign or clear equipment and persist [loadType] on catalog or custom lifts.
+     * Does not touch override tiers.
+     */
+    @Query(
+        """
+        UPDATE lifts
+        SET equipmentId = :equipmentId,
+            loadType = :loadType,
+            pending_sync = ${SyncFlags.PENDING_UPSERT},
+            updated_at_epoch_millis = :updatedAtEpochMillis
+        WHERE id = :id
+        """,
+    )
+    suspend fun setEquipmentIdAndLoadType(
+        id: LiftId,
+        equipmentId: EquipmentId?,
+        loadType: LoadType,
         updatedAtEpochMillis: Long,
     )
 

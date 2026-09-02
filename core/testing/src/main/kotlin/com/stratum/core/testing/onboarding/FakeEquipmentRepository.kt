@@ -4,6 +4,7 @@ import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.EquipmentNameMatching
 import com.stratum.domain.lift.EquipmentRepository
 import com.stratum.domain.lift.IncrementTier
+import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
@@ -79,7 +80,12 @@ class FakeEquipmentRepository(
         if (lifts != null) {
             lifts.equipmentNamesById = lifts.equipmentNamesById + (id to name)
             for (liftId in distinct) {
-                lifts.setLiftEquipment(liftId, id)
+                val existing = lifts.currentLifts.firstOrNull { it.id == liftId }
+                lifts.setLiftEquipment(
+                    liftId,
+                    id,
+                    existing?.loadType ?: LoadType.Weighted,
+                )
             }
         }
         return id

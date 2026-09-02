@@ -1,5 +1,12 @@
 [
   {
+    "id": "default",
+    "name": "Default",
+    "incrementTiers": [
+      { "lowerBound": 0.0, "upperBound": null, "increment": 2.5 }
+    ]
+  },
+  {
     "id": "dumbbell",
     "name": "Dumbbells",
     "incrementTiers": [
