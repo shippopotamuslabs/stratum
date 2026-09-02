@@ -754,9 +754,8 @@ class PersistImportedHistoryUseCase @Inject constructor(
             outcome.resolvedSets.map { set ->
                 ImportHistoryTrainingMapper.enrichLiftContext(set, factory, lifts)
             }
-        val existingSetIds = existingSets.map { it.id.value }.toSet()
         val computation =
-            computePersonalRecords(enrichedSets, excludeSetIds = existingSetIds).getOrThrow()
+            computePersonalRecords(enrichedSets).getOrThrow()
 
         onProgress(
             ImportProgress(
@@ -764,11 +763,12 @@ class PersistImportedHistoryUseCase @Inject constructor(
                 catalogStep = ImportCatalogProgressStep.SavingHistory,
             ),
         )
-        // Demoted LIVE PRs (isPersonalRecord=false). Capture restore copies before writing.
-        val demotedPrSets = computation.oldPrSetsToUpdate
-        val restorePrSets = demotedPrSets.map { it.copy(isPersonalRecord = true) }
-        if (demotedPrSets.isNotEmpty()) {
-            trainingLogRepository.updateSets(demotedPrSets)
+        // Historical PR/e1RM updates (demote and promote). Invert flags on unwind.
+        val historicalPrUpdates = computation.oldPrSetsToUpdate
+        val restorePrSets =
+            historicalPrUpdates.map { it.copy(isPersonalRecord = !it.isPersonalRecord) }
+        if (historicalPrUpdates.isNotEmpty()) {
+            trainingLogRepository.updateSets(historicalPrUpdates)
         }
         val appendedSessions = filtered.sessions
         val appendedSets = computation.updatedIncomingSets

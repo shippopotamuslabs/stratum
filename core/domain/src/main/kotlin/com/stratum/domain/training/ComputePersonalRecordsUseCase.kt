@@ -1,7 +1,5 @@
 package com.stratum.domain.training
 
-import com.stratum.domain.lift.WeightConversion
-import com.stratum.domain.lift.identity.LiftId
 import javax.inject.Inject
 
 class ComputePersonalRecordsUseCase @Inject constructor(
@@ -19,89 +17,38 @@ class ComputePersonalRecordsUseCase @Inject constructor(
         val updatedIncoming = mutableListOf<LoggedSet>()
         val oldPrSetsToUpdate = mutableMapOf<String, LoggedSet>()
 
-        // 1. e1RM in **Lb magnitude** (RIR-adjusted). Assisted loads are negative in storage;
-        //    use abs so e1RM stays positive and comparable across load types.
-        val setsWithE1rm = newOrUpdatedSets.map { set ->
-            if (set.liftId != null && set.reps > 0) {
-                val effectiveReps = set.reps + (set.rir ?: 0)
-                val loadMagnitudeLb = WeightConversion.loadMagnitudeLb(set.weight)
-                val e1Rm =
-                    if (loadMagnitudeLb > 0.0 && effectiveReps > 0) {
-                        EstimatedOneRm.calculate(loadMagnitudeLb, effectiveReps)
-                    } else {
-                        null
-                    }
-                set.copy(
-                    estimatedOneRm = e1Rm,
-                    isPersonalRecord = false
-                )
-            } else {
-                set.copy(
-                    estimatedOneRm = null,
-                    isPersonalRecord = false
-                )
-            }
-        }
+        val incomingStamped = newOrUpdatedSets.map(PersonalRecordScoring::withComputedEstimatedOneRm)
+        val incomingIds = incomingStamped.map { it.id }.toSet()
 
-        // 2. Group sets by liftId
-        val groups = setsWithE1rm.filter { it.liftId != null }.groupBy { it.liftId!! }
+        val noLiftIdSets = incomingStamped.filter { it.liftId == null }
+        updatedIncoming.addAll(
+            noLiftIdSets.map { it.copy(isPersonalRecord = false, estimatedOneRm = null) },
+        )
 
-        // Keep track of the final mapped sets. For incoming sets without liftId, add them directly.
-        val noLiftIdSets = setsWithE1rm.filter { it.liftId == null }
-        updatedIncoming.addAll(noLiftIdSets)
+        val groups = incomingStamped.filter { it.liftId != null }.groupBy { it.liftId!! }
 
-        for ((liftId, sets) in groups) {
-            // Find incoming set with max e1RM
-            val maxIncomingSet = sets.maxByOrNull { it.estimatedOneRm ?: 0.0 }
-            
-            // Query the current PR set for this lift
-            val existingPr = trainingLogRepository.getPersonalRecordForLift(liftId)
-            
-            val activeExistingPr = if (existingPr != null && existingPr.id.value !in excludeSetIds) {
-                existingPr
-            } else {
-                null
-            }
+        for ((liftId, incoming) in groups) {
+            val historyRaw =
+                trainingLogRepository.getSetsForLift(liftId)
+                    .filter { it.id !in incomingIds && it.id.value !in excludeSetIds }
+            val flagged =
+                PersonalRecordScoring.withPersonalRecords(incoming + historyRaw)
+                    .associateBy { it.id }
 
-            if (maxIncomingSet != null && maxIncomingSet.estimatedOneRm != null) {
-                val newMaxE1rm = maxIncomingSet.estimatedOneRm
-                val existingMaxE1rm = activeExistingPr?.estimatedOneRm ?: 0.0
+            updatedIncoming.addAll(incoming.map { flagged.getValue(it.id) })
 
-                if (activeExistingPr == null || newMaxE1rm > existingMaxE1rm) {
-                    // We have a new PR!
-                    val mappedSets = sets.map { set ->
-                        if (set.id == maxIncomingSet.id) {
-                            set.copy(isPersonalRecord = true)
-                        } else {
-                            set.copy(isPersonalRecord = false)
-                        }
-                    }
-                    updatedIncoming.addAll(mappedSets)
-
-                    if (activeExistingPr != null) {
-                        if (mappedSets.none { it.id == activeExistingPr.id }) {
-                            oldPrSetsToUpdate[activeExistingPr.id.value] = activeExistingPr.copy(isPersonalRecord = false)
-                        }
-                    }
-                } else {
-                    // Existing PR remains
-                    val mappedSets = sets.map { set ->
-                        set.copy(isPersonalRecord = false)
-                    }
-                    updatedIncoming.addAll(mappedSets)
+            for (raw in historyRaw) {
+                val next = flagged.getValue(raw.id)
+                if (next.isPersonalRecord != raw.isPersonalRecord) {
+                    oldPrSetsToUpdate[raw.id.value] = next
                 }
-            } else {
-                // All incoming sets have null e1RM
-                val mappedSets = sets.map { set ->
-                    set.copy(isPersonalRecord = false)
-                }
-                updatedIncoming.addAll(mappedSets)
             }
         }
 
         ComputationResult(
             updatedIncomingSets = updatedIncoming,
-            oldPrSetsToUpdate = oldPrSetsToUpdate.values.toList(),
+            oldPrSetsToUpdate =
+                oldPrSetsToUpdate.values.sortedBy { it.isPersonalRecord },
         )
     }
 }

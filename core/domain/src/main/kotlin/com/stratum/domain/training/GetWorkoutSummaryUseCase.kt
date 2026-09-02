@@ -1,7 +1,6 @@
 package com.stratum.domain.training
 
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
-import com.stratum.domain.lift.WeightConversion
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.toStorageLb
 import com.stratum.domain.logging.LoggingPort
@@ -15,9 +14,8 @@ import kotlinx.coroutines.flow.first
 /**
  * Builds a [WorkoutSummary] for the workout completion screen. Loads the completed session,
  * its logged sets, and the lift catalog (for human-readable lift names), then computes the
- * duration and the best set per lift (highest weight × reps).
- *
- * PR detection is deferred — the best set is purely "best within this session."
+ * duration and the best set per lift ([PersonalRecordScoring.bestPersonalRecordSet]).
+ * Copies [LoggedSet.isPersonalRecord] from that pick so the recap PR icon cannot miss.
  */
 class GetWorkoutSummaryUseCase @Inject constructor(
     private val trainingLogRepository: TrainingLogRepository,
@@ -79,19 +77,21 @@ class GetWorkoutSummaryUseCase @Inject constructor(
 
         fun bestOf(sets: List<LoggedSet>): LiftBestSet {
             val liftId = sets.first().liftId!!
-            // Compare in Lb (canonical); e1RM when present is already Lb magnitude from PR path.
             val best =
-                sets.maxByOrNull { set ->
-                    set.estimatedOneRm
-                        ?: WeightConversion.loadMagnitudeLb(set.weight)
-                } ?: sets.first()
+                PersonalRecordScoring.bestPersonalRecordSet(sets) ?: sets.first()
             return LiftBestSet(
                 liftName = liftNamesById[liftId] ?: "Unknown",
                 weight = best.weight.toStorageLb(),
                 reps = best.reps,
                 rir = best.rir,
                 isPersonalRecord = best.isPersonalRecord,
-                estimatedOneRm = best.estimatedOneRm,
+                estimatedOneRm =
+                    best.estimatedOneRm
+                        ?: PersonalRecordScoring.estimatedOneRmLb(
+                            best.weight,
+                            best.reps,
+                            best.rir,
+                        ),
                 partialReps = best.partialReps.normalizedPartialReps(),
             )
         }

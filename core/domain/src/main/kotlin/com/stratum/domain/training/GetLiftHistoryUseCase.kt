@@ -24,7 +24,7 @@ data class LiftHistory(
 
 /**
  * Builds the History tab model for lift configuration: current PR (if any) plus sessions
- * ordered newest-first, each with a best set (max e1RM, else weight×reps proxy).
+ * ordered newest-first, each with a best set ([PersonalRecordScoring.bestPersonalRecordSet]).
  */
 class GetLiftHistoryUseCase @Inject constructor(
     private val trainingLogRepository: TrainingLogRepository,
@@ -86,10 +86,7 @@ class GetLiftHistoryUseCase @Inject constructor(
     }
 
     private fun pickBestSet(sets: List<LoggedSet>): LoggedSet? =
-        sets.maxWithOrNull(
-            compareBy<LoggedSet> { it.estimatedOneRm ?: 0.0 }
-                .thenBy { it.weight.amount * it.reps },
-        )
+        PersonalRecordScoring.bestPersonalRecordSet(sets) ?: sets.firstOrNull()
 
     private companion object {
         const val TAG = "GetLiftHistory"

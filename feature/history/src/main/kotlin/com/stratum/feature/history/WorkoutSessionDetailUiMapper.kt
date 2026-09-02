@@ -5,7 +5,6 @@ import com.stratum.core.ui.component.formatWorkoutDuration
 import com.stratum.core.ui.component.toLowerVolumeCards
 import com.stratum.core.ui.component.toUpperVolumeCards
 import com.stratum.domain.lift.Weight
-import com.stratum.domain.lift.WeightConversion
 import com.stratum.domain.training.WorkoutSessionDetail
 import com.stratum.feature.history.ui.HistoryDaySessionSummaryUi
 import com.stratum.feature.history.ui.HistoryLiftUi
@@ -20,9 +19,6 @@ import java.util.Locale
 
 /** Maps domain session detail → history presentation models. */
 internal object WorkoutSessionDetailUiMapper {
-    private const val PR_SELECTION_PRIORITY_BOOST = 1_000_000.0
-    private const val EPLEY_REP_DENOMINATOR = 30.0
-
     fun toDetailLoaded(
         detail: WorkoutSessionDetail,
         displayUnit: Weight.WeightUnit = Weight.WeightUnit.Lb,
@@ -61,17 +57,10 @@ internal object WorkoutSessionDetailUiMapper {
                                 isPersonalRecord = set.isPersonalRecord,
                             )
                         }
-                    val bestDomainSet =
-                        lift.sets.maxByOrNull { set ->
-                            val baseLoad =
-                                WeightConversion.loadMagnitudeLb(set.weight) *
-                                    (1.0 + set.reps / EPLEY_REP_DENOMINATOR)
-                            if (set.isPersonalRecord) baseLoad + PR_SELECTION_PRIORITY_BOOST else baseLoad
-                        }
                     val bestSetUi =
-                        bestDomainSet?.let { best ->
+                        lift.bestSet?.let { best ->
                             uiSets.find { it.setIndex == best.setIndex } ?: uiSets.firstOrNull()
-                        }
+                        } ?: uiSets.firstOrNull()
                     HistoryLiftUi(
                         liftName = lift.liftName,
                         sets = uiSets,
