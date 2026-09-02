@@ -122,6 +122,7 @@ class WorkoutCompleteViewModelTest {
 
         val bestSet = (viewModel.uiState.value as WorkoutCompleteUiState.Loaded).bestSets.single()
         assertEquals("8", bestSet.performanceLabel)
+        assertEquals("—", bestSet.estimatedOneRmLabel)
     }
 
     @Test
@@ -141,19 +142,22 @@ class WorkoutCompleteViewModelTest {
     }
 
     @Test
-    @DisplayName("isPersonalRecord is always false until PR detection ships")
-    fun personalRecordAlwaysFalseToday() = runTest {
+    @DisplayName("isPersonalRecord maps through from the summary best set")
+    fun personalRecordMapsFromSummary() = runTest {
         val viewModel = buildViewModelWithBenchSet(
-            weight = 225.0,
-            reps = 1,
+            weight = 0.0,
+            reps = 12,
             rir = 0,
+            isPersonalRecord = true,
         )
 
         viewModel.loadSummary("ts-1")
         advanceUntilIdle()
 
         val bestSet = (viewModel.uiState.value as WorkoutCompleteUiState.Loaded).bestSets.single()
-        assertFalse(bestSet.isPersonalRecord)
+        assertTrue(bestSet.isPersonalRecord)
+        assertEquals("12", bestSet.performanceLabel)
+        assertEquals("—", bestSet.estimatedOneRmLabel)
     }
 
     @Test
@@ -758,6 +762,7 @@ class WorkoutCompleteViewModelTest {
         reps: Int,
         rir: Int?,
         partialReps: Int? = null,
+        isPersonalRecord: Boolean = false,
     ): WorkoutCompleteViewModel {
         val programRepo = FakeProgramRepository(WorkoutLoggingFixtures.twoWorkoutProgram())
         val session = WorkoutLoggingFixtures.completedLiveSession(id = "ts-1")
@@ -774,6 +779,7 @@ class WorkoutCompleteViewModelTest {
                 completedAt = Instant.parse("2025-01-01T10:05:00Z"),
                 liftContext = WorkoutLoggingFixtures.importLiftContext(),
                 partialReps = partialReps,
+                isPersonalRecord = isPersonalRecord,
             )
         val logRepo =
             FakeTrainingLogRepository(

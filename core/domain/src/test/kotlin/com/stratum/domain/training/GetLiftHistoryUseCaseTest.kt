@@ -126,8 +126,58 @@ class GetLiftHistoryUseCaseTest {
         assertEquals("Push A", history.sessions[0].workoutLabel)
         assertEquals(prSet.id, history.sessions[0].bestSet.id)
         assertEquals(olderSession.id, history.sessions[1].sessionId)
-        assertEquals(olderBest.id, history.sessions[1].bestSet.id)
+        assertEquals(olderWeak.id, history.sessions[1].bestSet.id)
         assertEquals(2, history.sessions[1].sets.size)
+    }
+
+    @Test
+    @DisplayName("Bodyweight session best set is max reps when e1RM is absent")
+    fun bodyweightSessionBestIsMaxReps() = runTest {
+        val session =
+            session(
+                id = "s-bw",
+                started = Instant.parse("2026-03-01T10:00:00Z"),
+                ended = Instant.parse("2026-03-01T11:00:00Z"),
+            )
+        val eight =
+            loggedSet(
+                id = "bw-8",
+                sessionId = session.id,
+                setIndex = 0,
+                weight = 0.0,
+                reps = 8,
+                rir = null,
+                e1rm = null,
+                at = Instant.parse("2026-03-01T10:10:00Z"),
+            )
+        val twelve =
+            loggedSet(
+                id = "bw-12",
+                sessionId = session.id,
+                setIndex = 1,
+                weight = 0.0,
+                reps = 12,
+                rir = null,
+                e1rm = null,
+                isPr = true,
+                at = Instant.parse("2026-03-01T10:20:00Z"),
+            )
+        val logRepo =
+            FakeTrainingLogRepository(
+                initialSessions = listOf(session),
+                initialSets = listOf(eight, twelve),
+            )
+        val useCase =
+            GetLiftHistoryUseCase(
+                trainingLogRepository = logRepo,
+                programRepository = FakeProgramRepository(),
+                FakeLoggingPort(),
+            )
+
+        val history = useCase(liftId)
+
+        assertEquals(twelve.id, history.personalRecord?.id)
+        assertEquals(twelve.id, history.sessions.single().bestSet.id)
     }
 
     private fun session(
