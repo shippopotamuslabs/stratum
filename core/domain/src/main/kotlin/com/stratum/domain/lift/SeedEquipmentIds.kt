@@ -9,6 +9,8 @@ import com.stratum.domain.lift.identity.EquipmentId
  * `SEED_LOADING_KINDS` list used by `inferCustomLifts`.
  */
 object SeedEquipmentIds {
+    /** Hidden system fallback: unspecified implement with a 2.5 lb open band. */
+    val Default = EquipmentId("default")
     val Dumbbell = EquipmentId("dumbbell")
     val DoubleWeightPlates = EquipmentId("double-weight-plates")
     val SingleWeightPlate = EquipmentId("single-weight-plate")
@@ -21,6 +23,7 @@ object SeedEquipmentIds {
     /** All seed loading-method ids (not including LLM `"custom"`). */
     val ALL: Set<EquipmentId> =
         setOf(
+            Default,
             Dumbbell,
             DoubleWeightPlates,
             SingleWeightPlate,
@@ -30,6 +33,13 @@ object SeedEquipmentIds {
             Kettlebell,
             Bodyweight,
         )
+
+    /**
+     * Seed implements omitted from Manage Equipment and the equipment picker.
+     * Bodyweight is assigned via the Details "Bodyweight only" action; Default is the
+     * create-lift / unknown-loading fallback.
+     */
+    val hiddenFromCatalog: Set<EquipmentId> = setOf(Default, Bodyweight)
 
     fun fromWireId(value: String): EquipmentId? {
         val id = EquipmentId(value.trim())

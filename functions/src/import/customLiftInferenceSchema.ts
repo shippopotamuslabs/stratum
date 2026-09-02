@@ -48,6 +48,7 @@ export const MUSCLE_GROUPS = [
  * `core/data/src/main/assets/lifts/seed-equipment.json`). Plus `custom` for brand-specific stacks.
  */
 export const SEED_LOADING_KINDS = [
+  "default",
   "dumbbell",
   "double-weight-plates",
   "single-weight-plate",
@@ -97,7 +98,7 @@ export interface InferredCustomLiftRow {
 }
 
 export const CUSTOM_LIFT_INFERENCE_MAX_BATCH = 75;
-/** Shared unknown-loading fallback: one reusable custom equipment row (+5 lb open band). */
+/** Display name of the seed Default implement (unknown-loading fallback, +2.5 lb open band). */
 export const DEFAULT_EQUIPMENT_NAME = "Default";
 export const DEFAULT_CUSTOM_INCREMENT_LB = 5;
 /** Reject absurd LLM steps; fall back to [DEFAULT_CUSTOM_INCREMENT_LB]. */
@@ -203,6 +204,7 @@ equipmentKind is a closed loading lattice (prefer seed over custom):
 - pin-loaded-machine: selectorized pin stack only (NOT plate-loaded dual horns)
 - cable: cable weight stack
 - dumbbell / kettlebell / fixed-barbell / bodyweight: as named
+- default: unknown / unspecified loading (shared 2.5 lb open band)
 - custom: ONLY when load steps are brand-specific and not modeled by the seeds; then set customEquipmentName (short label) and customIncrementLb (positive lb step, e.g. 5 or 10)
 
 Examples:
@@ -301,7 +303,7 @@ export function parseInferredCustomLifts(
 
 /**
  * Maps wire equipmentKind fields to structured loading. Invalid/missing kinds become the
- * shared "Default" custom equipment (+5 lb) — no fuzzy aliasing onto seed ids and no
+ * seed Default implement (+2.5 lb) — no fuzzy aliasing onto other seed ids and no
  * per-exercise phantom stacks.
  */
 export function resolveLoading(
@@ -318,23 +320,24 @@ export function resolveLoading(
   return defaultEquipmentLoading();
 }
 
-function resolveCustomLoading(row: Record<string, unknown>): CustomEquipmentLoading {
+function resolveCustomLoading(row: Record<string, unknown>): InferredEquipmentLoading {
   const rawName =
     typeof row.customEquipmentName === "string" ? row.customEquipmentName.trim() : "";
-  // Blank / unknown name → shared Default so progression always has a +5 lattice.
-  const name = rawName.length > 0 ? rawName : DEFAULT_EQUIPMENT_NAME;
+  // Blank / unknown name → seed Default so progression always has a lattice.
+  if (rawName.length === 0) {
+    return defaultEquipmentLoading();
+  }
   return {
     type: "custom",
-    name,
+    name: rawName,
     incrementLb: resolveCustomIncrementLb(row.customIncrementLb),
   };
 }
 
-export function defaultEquipmentLoading(): CustomEquipmentLoading {
+export function defaultEquipmentLoading(): SeedEquipmentLoading {
   return {
-    type: "custom",
-    name: DEFAULT_EQUIPMENT_NAME,
-    incrementLb: DEFAULT_CUSTOM_INCREMENT_LB,
+    type: "seed",
+    equipmentId: "default",
   };
 }
 

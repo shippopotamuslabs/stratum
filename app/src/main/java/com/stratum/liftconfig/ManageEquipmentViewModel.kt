@@ -7,6 +7,7 @@ import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.ForkEquipmentUseCase
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.ObserveEquipmentCatalogUseCase
+import com.stratum.domain.lift.SeedEquipmentIds
 import com.stratum.domain.lift.identity.EquipmentId
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -90,7 +91,7 @@ class ManageEquipmentViewModel @Inject constructor(
                 CatalogSlice(
                     rows =
                         catalog
-                            .filterNot { it.id == BODYWEIGHT_EQUIPMENT_ID }
+                            .filterNot { it.id in SeedEquipmentIds.hiddenFromCatalog }
                             .map { it.toRowUi() },
                     nameDraft = draft,
                     isCreating = creating,
@@ -244,8 +245,5 @@ class ManageEquipmentViewModel @Inject constructor(
         const val MSG_CREATE_FAILED = "Couldn't create equipment. Try again."
         const val MSG_FORK_FAILED = "Couldn't copy equipment. Try again."
         const val FORK_NAME_SUFFIX = " (copy)"
-
-        /** Seed equipment with no meaningful weight bands — omit from manage/pick lists. */
-        val BODYWEIGHT_EQUIPMENT_ID = EquipmentId("bodyweight")
     }
 }

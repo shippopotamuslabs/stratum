@@ -54,6 +54,13 @@ fun equipmentDetailLabel(
         else -> equipmentName
     }
 
+/**
+ * Load type is implied for seed bodyweight equipment once logging is already Bodyweight.
+ * A trapped Weighted (or Assisted) row stays editable so the user can recover.
+ */
+fun showsLoadType(equipmentId: EquipmentId?, loadType: LoadType): Boolean =
+    equipmentId != SeedEquipmentIds.Bodyweight || loadType != LoadType.Bodyweight
+
 fun Set<MuscleGroup>.toMuscleCards(): List<StratumMuscleFilterCardState> =
     sortedBy { it.name }.map { StratumMuscleFilterCardState(it, it.toVolumeDisplayName()) }
 

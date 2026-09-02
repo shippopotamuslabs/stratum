@@ -21,6 +21,7 @@ import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.LiftRepository
+import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId
@@ -260,16 +261,17 @@ class RoomLiftRepository @Inject constructor(
         }
     }
 
-    override suspend fun setLiftEquipment(id: LiftId, equipmentId: EquipmentId?) {
+    override suspend fun setLiftEquipment(id: LiftId, equipmentId: EquipmentId?, loadType: LoadType) {
         val now = System.currentTimeMillis()
         syncTouch.withWriteLock {
             database.withTransaction {
                 val previousTierIds = incrementTierDao.idsForLift(id)
                 syncTouch.replaceIds(SyncCollection.IncrementTiers, previousTierIds, emptyList(), now)
                 incrementTierDao.deleteForLift(id)
-                liftDao.setEquipmentId(
+                liftDao.setEquipmentIdAndLoadType(
                     id = id,
                     equipmentId = equipmentId,
+                    loadType = loadType,
                     updatedAtEpochMillis = now,
                 )
             }

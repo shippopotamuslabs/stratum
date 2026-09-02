@@ -86,11 +86,11 @@ interface LiftRepository {
     suspend fun setIncrementTiers(id: LiftId, tiers: List<IncrementTier>)
 
     /**
-     * Assigns or clears [equipmentId] on a catalog or custom lift. Clears any lift-scoped
-     * increment override tiers so the lift re-inherits the new equipment defaults (or global
-     * fallback when unassigned).
+     * Assigns or clears [equipmentId] on a catalog or custom lift and persists [loadType]
+     * in the same write. Clears any lift-scoped increment override tiers so the lift
+     * re-inherits the new equipment defaults (or global fallback when unassigned).
      */
-    suspend fun setLiftEquipment(id: LiftId, equipmentId: EquipmentId?)
+    suspend fun setLiftEquipment(id: LiftId, equipmentId: EquipmentId?, loadType: LoadType)
 
     /**
      * Updates primary/secondary muscle tags for [id]. Bitmasks are derived in the data
