@@ -848,27 +848,25 @@ class OnboardingViewModel @Inject constructor(
         importProgramJob?.cancel()
         importProgramJob =
             viewModelScope.launch {
-                try {
-                    val result =
-                        importProgramTemplate(file.bytes, file.fileName) { phase ->
-                            withContext(Dispatchers.Main.immediate) {
-                                publishImportProgramProgress(phase)
-                            }
+                val result =
+                    importProgramTemplate(file.bytes, file.fileName) { phase ->
+                        withContext(Dispatchers.Main.immediate) {
+                            publishImportProgramProgress(phase)
                         }
-                    result.exceptionOrNull()?.let { error -> setImportProgramError(error) }
-                    if (result.isSuccess) {
+                    }
+                result.fold(
+                    onSuccess = {
                         ephemeral.update {
                             it.copy(
                                 importProgramState = ImportProgramState.Idle,
                                 importMaxTimelineIndex = 0,
                             )
                         }
-                    }
-                } catch (error: CancellationException) {
-                    throw error
-                } catch (error: Exception) {
-                    setImportProgramError(error)
-                }
+                    },
+                    onFailure = { error ->
+                        setImportProgramError(error)
+                    },
+                )
             }
     }
 
