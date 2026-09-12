@@ -39,4 +39,20 @@ class DiscardActiveProgramUseCaseTest {
 
         assertTrue(result.isSuccess)
     }
+
+    @Test
+    @DisplayName("Propagates failure if active program cannot be deleted")
+    fun propagatesDeleteFailure() = runTest {
+        val program = WorkoutLoggingFixtures.twoWorkoutProgram()
+        val programRepo = FakeProgramRepository(program)
+        val trainingLog = FakeTrainingLogRepository().apply {
+            seedSession(WorkoutLoggingFixtures.inProgressSession())
+        }
+        val delete = DeleteProgramUseCase(programRepo, trainingLog, FakeLoggingPort())
+        val subject = DiscardActiveProgramUseCase(programRepo, delete, FakeLoggingPort())
+
+        val result = subject()
+
+        assertTrue(result.isFailure)
+    }
 }
