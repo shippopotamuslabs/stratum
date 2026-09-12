@@ -14,11 +14,13 @@ class DiscardActiveProgramUseCase @Inject constructor(
     private val deleteProgram: DeleteProgramUseCase,
     private val loggingPort: LoggingPort,
 ) {
-    suspend operator fun invoke(): Result<Unit> =
-        runCatchingLogged(loggingPort, TAG, "Failed to discard active program") {
-            val active = programRepository.getProgram() ?: return@runCatchingLogged
-            deleteProgram(active.id).getOrThrow()
-        }
+    suspend operator fun invoke(): Result<Unit> {
+        val active = runCatchingLogged(loggingPort, TAG, "Failed to inspect active program") {
+            programRepository.getProgram()
+        }.getOrElse { error -> return Result.failure(error) } ?: return Result.success(Unit)
+
+        return deleteProgram(active.id)
+    }
 
     private companion object {
         const val TAG = "DiscardActiveProgram"
