@@ -7,6 +7,7 @@ import com.stratum.core.ui.component.LiftSwapOptionState
 import com.stratum.core.ui.component.LiftSwapSheetState
 import com.stratum.domain.lift.RankSwapCandidatesUseCase
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.domain.program.SwapWorkoutLiftUseCase
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.workout.WorkoutEditSession
@@ -39,6 +40,7 @@ class LiftSwapViewModel @Inject constructor(
     private val rankSwapCandidates: RankSwapCandidatesUseCase,
     private val workoutEditSession: WorkoutEditSession,
     private val swapWorkoutLift: SwapWorkoutLiftUseCase,
+    private val logError: LogErrorUseCase,
 ) : ViewModel() {
     private val targetWorkoutId = MutableStateFlow<String?>(null)
     private val targetWorkoutLiftId = MutableStateFlow<String?>(null)
@@ -219,13 +221,19 @@ class LiftSwapViewModel @Inject constructor(
         val workoutLiftId = targetWorkoutLiftId.value
         when (commitMode) {
             LiftSwapCommitMode.PersistToProgram -> {
-                if (workoutLiftId.isNullOrBlank()) return
+                if (workoutLiftId.isNullOrBlank()) {
+                    logError(TAG, "Cannot persist swap to program: workoutLiftId is null or blank")
+                    return
+                }
                 if (persistSwapJob?.isActive == true) return
                 persistSwapJob =
                     viewModelScope.launch {
                         swapWorkoutLift(WorkoutLiftId(workoutLiftId), LiftId(newLiftId))
                             .onSuccess { onComplete() }
-                            .onFailure { _userMessage.value = MSG_SWAP_FAILED }
+                            .onFailure { error ->
+                                logError(TAG, "Failed to persist lift swap in program: ${error.message}", error)
+                                _userMessage.value = MSG_SWAP_FAILED
+                            }
                     }
             }
             LiftSwapCommitMode.EditSession -> {
@@ -242,6 +250,7 @@ class LiftSwapViewModel @Inject constructor(
         if (value in this) this - value else this + value
 
     private companion object {
+        const val TAG = "LiftSwapViewModel"
         const val MSG_SWAP_FAILED = "Couldn't swap that lift. Try again."
     }
 }
