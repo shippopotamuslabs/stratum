@@ -23,14 +23,14 @@ class ReorderProgramCycleDaysUseCase @Inject constructor(
     suspend operator fun invoke(
         programId: ProgramId,
         orderedDayIds: List<String>,
-    ): Result<Unit> =
-        runCatchingLogged(loggingPort, TAG, "Failed to reorder program cycle days") {
-            val program =
-                programRepository.getProgramById(programId)
-                    ?: error("Program not found: ${programId.value}")
-            val reordered = program.reorderCycleDays(orderedDayIds)
-            if (reordered == program) return@runCatchingLogged
+    ): Result<Unit> {
+        val program =
+            programRepository.getProgramById(programId)
+                ?: return Result.failure(IllegalArgumentException("Program not found: ${programId.value}"))
+        val reordered = program.reorderCycleDays(orderedDayIds)
+        if (reordered == program) return Result.success(Unit)
 
+        return runCatchingLogged(loggingPort, TAG, "Failed to reorder program cycle days") {
             val slotRemap = program.slotIndexRemapAfterReorder(orderedDayIds)
             val sessions = trainingLogRepository.getAllSessions()
             val remappedSessions =
@@ -57,6 +57,7 @@ class ReorderProgramCycleDaysUseCase @Inject constructor(
                 )
             programRepository.saveProgram(reconciled)
         }
+    }
 
     /** Loads reorder rows for the given program (empty when missing). */
     suspend fun loadReorderItems(programId: ProgramId): List<ReorderDayItem> {
