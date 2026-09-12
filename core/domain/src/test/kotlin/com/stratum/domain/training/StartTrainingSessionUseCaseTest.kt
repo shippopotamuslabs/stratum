@@ -25,7 +25,8 @@ class StartTrainingSessionUseCaseTest {
 
         val result = useCase(StartTrainingSessionRequest.ProgramWorkout(WorkoutLoggingFixtures.workoutAId))
 
-        val session = result.getOrThrow()
+        assertTrue(result is StartTrainingSessionResult.Success)
+        val session = (result as StartTrainingSessionResult.Success).session
         assertEquals(TrainingSessionStatus.IN_PROGRESS, session.status)
         assertEquals(WorkoutLoggingFixtures.workoutAId, session.workoutId)
         assertEquals(TrainingSessionKind.PROGRAM_WORKOUT, session.kind)
@@ -43,7 +44,8 @@ class StartTrainingSessionUseCaseTest {
 
         val result = useCase(StartTrainingSessionRequest.AdHocEmpty)
 
-        val session = result.getOrThrow()
+        assertTrue(result is StartTrainingSessionResult.Success)
+        val session = (result as StartTrainingSessionResult.Success).session
         assertEquals(TrainingSessionKind.AD_HOC, session.kind)
         assertNull(session.workoutId)
         assertEquals(TrainingSessionStatus.IN_PROGRESS, session.status)
@@ -51,7 +53,7 @@ class StartTrainingSessionUseCaseTest {
     }
 
     @Test
-    @DisplayName("WL-022 Second start throws ActiveTrainingSessionExistsException")
+    @DisplayName("WL-022 Second start returns ActiveSessionExists conflict")
     fun wl022_secondStartThrowsConflict() = runTest {
         val repo = FakeTrainingLogRepository()
         repo.seedSession(WorkoutLoggingFixtures.inProgressSession(id = "ts-active"))
@@ -62,12 +64,10 @@ class StartTrainingSessionUseCaseTest {
         )
 
         val firstStart = useCase(StartTrainingSessionRequest.ProgramWorkout(WorkoutLoggingFixtures.workoutBId))
-        assertTrue(firstStart.isFailure)
-        val error = firstStart.exceptionOrNull()
-        assertTrue(error is ActiveTrainingSessionExistsException)
+        assertTrue(firstStart is StartTrainingSessionResult.ActiveSessionExists)
         assertEquals(
             TrainingSessionId("ts-active"),
-            (error as ActiveTrainingSessionExistsException).activeSessionId,
+            (firstStart as StartTrainingSessionResult.ActiveSessionExists).existingSessionId,
         )
     }
 
@@ -91,9 +91,37 @@ class StartTrainingSessionUseCaseTest {
         val result =
             useCase(StartTrainingSessionRequest.ProgramWorkout(WorkoutLoggingFixtures.workoutBId))
 
-        val session = result.getOrThrow()
+        assertTrue(result is StartTrainingSessionResult.Success)
+        val session = (result as StartTrainingSessionResult.Success).session
         assertEquals(WorkoutLoggingFixtures.workoutBId, session.workoutId)
         assertNull(trainingLog.getSession(TrainingSessionId("ts-orphan")))
+    }
+
+    @Test
+    @DisplayName("Start when no active program exists returns NoActiveProgram")
+    fun noActiveProgramReturnsNoActiveProgram() = runTest {
+        val useCase = StartTrainingSessionUseCase(
+            FakeTrainingLogRepository(),
+            FakeProgramRepository(null),
+            FakeLoggingPort(),
+        )
+
+        val result = useCase(StartTrainingSessionRequest.AdHocEmpty)
+        assertEquals(StartTrainingSessionResult.NoActiveProgram, result)
+    }
+
+    @Test
+    @DisplayName("Start with non-existent workout ID returns WorkoutNotFound")
+    fun unknownWorkoutReturnsWorkoutNotFound() = runTest {
+        val useCase = StartTrainingSessionUseCase(
+            FakeTrainingLogRepository(),
+            FakeProgramRepository(program()),
+            FakeLoggingPort(),
+        )
+
+        val unknownId = WorkoutId("unknown-w")
+        val result = useCase(StartTrainingSessionRequest.ProgramWorkout(unknownId))
+        assertEquals(StartTrainingSessionResult.WorkoutNotFound(unknownId), result)
     }
 
     private fun program() = WorkoutLoggingFixtures.twoWorkoutProgram()
