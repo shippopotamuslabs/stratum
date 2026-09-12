@@ -56,19 +56,26 @@ class SubscriptionRepositoryImpl @Inject constructor(
                 loggingPort.debug(TAG, "Entitlement changed: $state")
             }
 
-    override suspend fun refreshEntitlement(): Result<EntitlementState> = runCatching {
-        billingPort.restorePurchases().getOrThrow()
-        val auth = authManager.authState.value
-        val purchases = billingPort.activePurchases.first()
-        val complimentary = if (auth is AuthState.Authenticated) {
-            complimentaryAccessStore.getComplimentaryAccess(auth.user.uid)
-        } else {
-            false
+    override suspend fun refreshEntitlement(): Result<EntitlementState> {
+        val restoreResult = billingPort.restorePurchases()
+        if (restoreResult.isFailure) {
+            return Result.failure(
+                restoreResult.exceptionOrNull() ?: IllegalStateException("Failed to restore purchases"),
+            )
         }
-        if (auth is AuthState.Authenticated) {
-            syncActivePurchaseTokens(purchases)
+        return runCatching {
+            val auth = authManager.authState.value
+            val purchases = billingPort.activePurchases.first()
+            val complimentary = if (auth is AuthState.Authenticated) {
+                complimentaryAccessStore.getComplimentaryAccess(auth.user.uid)
+            } else {
+                false
+            }
+            if (auth is AuthState.Authenticated) {
+                syncActivePurchaseTokens(purchases)
+            }
+            resolveEntitlement(auth, complimentary, purchases)
         }
-        resolveEntitlement(auth, complimentary, purchases)
     }
 
     private fun syncActivePurchaseTokens(purchases: List<SubscriptionPurchase>) {
@@ -76,11 +83,10 @@ class SubscriptionRepositoryImpl @Inject constructor(
             val token = purchase.purchaseToken
             if (token.isBlank()) continue
             applicationScope.launch {
-                runCatching {
-                    playEntitlementSync.syncPurchaseToken(token).getOrThrow()
-                }.onFailure { error ->
-                    loggingPort.error(TAG, "Play entitlement sync failed", error)
-                }
+                playEntitlementSync.syncPurchaseToken(token)
+                    .onFailure { error ->
+                        loggingPort.error(TAG, "Play entitlement sync failed", error)
+                    }
             }
         }
     }

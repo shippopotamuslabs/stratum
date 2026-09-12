@@ -112,7 +112,10 @@ class FakeEntitlementRepository(
             )
         }
 
-    override suspend fun refreshEntitlement(): Result<EntitlementState> = Result.success(state.value)
+    var refreshResult: Result<EntitlementState>? = null
+
+    override suspend fun refreshEntitlement(): Result<EntitlementState> =
+        refreshResult ?: Result.success(state.value)
 }
 
 class FakePlayEntitlementSyncPort : PlayEntitlementSyncPort {
