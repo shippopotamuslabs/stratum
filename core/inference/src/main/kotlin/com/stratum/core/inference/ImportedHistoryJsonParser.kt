@@ -68,7 +68,7 @@ internal object ImportedHistoryJsonParser {
                 val unit =
                     dto.weightUnitName
                         ?.takeIf { it.isNotBlank() }
-                        ?.let(Weight.WeightUnit::parse)
+                        ?.let(Weight.WeightUnit::parseOrNull)
                         ?: fallbackWeightUnit
                 ImportHistoryTrainingMapper.parseSet(
                     id = LoggedSetId(dto.id),
