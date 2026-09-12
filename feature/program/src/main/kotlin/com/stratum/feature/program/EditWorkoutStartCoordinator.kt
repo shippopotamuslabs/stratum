@@ -3,9 +3,9 @@ package com.stratum.feature.program
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.training.AbandonTrainingSessionUseCase
-import com.stratum.domain.training.ActiveTrainingSessionExistsException
 import com.stratum.domain.training.ObserveCycleProgressUseCase
 import com.stratum.domain.training.StartTrainingSessionRequest
+import com.stratum.domain.training.StartTrainingSessionResult
 import com.stratum.domain.training.StartTrainingSessionUseCase
 import com.stratum.domain.workout.ManageWorkoutOverlayUseCase
 import com.stratum.feature.program.ui.EditWorkoutUiState
@@ -120,13 +120,11 @@ internal class EditWorkoutStartCoordinator(
     }
 
     private suspend fun startProgramWorkout(workoutId: WorkoutId): StartOutcome {
-        val result = startTrainingSession(StartTrainingSessionRequest.ProgramWorkout(workoutId))
-        if (result.isSuccess) return StartOutcome.Navigate(workoutId.value)
-        // Never silent-resume after conflict — UI must confirm discard first.
-        if (result.exceptionOrNull() is ActiveTrainingSessionExistsException) {
-            return StartOutcome.UserMessage(MSG_START_WORKOUT_FAILED)
+        return when (startTrainingSession(StartTrainingSessionRequest.ProgramWorkout(workoutId))) {
+            is StartTrainingSessionResult.Success -> StartOutcome.Navigate(workoutId.value)
+            is StartTrainingSessionResult.ActiveSessionExists -> StartOutcome.UserMessage(MSG_START_WORKOUT_FAILED)
+            else -> StartOutcome.UserMessage(MSG_START_WORKOUT_FAILED)
         }
-        return StartOutcome.UserMessage(MSG_START_WORKOUT_FAILED)
     }
 
     sealed interface StartOutcome {

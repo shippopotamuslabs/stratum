@@ -9,7 +9,7 @@ import com.stratum.domain.program.ObserveProgramsUiPreferencesUseCase
 import com.stratum.domain.program.SetExpandedWorkoutIdUseCase
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.lift.identity.LiftId
-import com.stratum.domain.training.ActiveTrainingSessionExistsException
+import com.stratum.domain.training.StartTrainingSessionResult
 import com.stratum.domain.training.AbandonTrainingSessionUseCase
 import com.stratum.domain.training.GetLoggedSetsForSessionUseCase
 import com.stratum.domain.training.ObserveCycleProgressUseCase
@@ -175,38 +175,43 @@ class ProgramsViewModel @Inject constructor(
 
     fun startEmptyWorkout() {
         viewModelScope.launch {
-            val result = startTrainingSession(StartTrainingSessionRequest.AdHocEmpty)
-            if (result.isSuccess) {
-                // Ad-hoc has no template workoutId — route key is the session id.
-                _events.send(ProgramsUiEvent.NavigateToWorkout(result.getOrThrow().liveWorkoutRouteId()))
-                return@launch
+            when (val result = startTrainingSession(StartTrainingSessionRequest.AdHocEmpty)) {
+                is StartTrainingSessionResult.Success -> {
+                    // Ad-hoc has no template workoutId — route key is the session id.
+                    _events.send(ProgramsUiEvent.NavigateToWorkout(result.session.liveWorkoutRouteId()))
+                }
+                is StartTrainingSessionResult.ActiveSessionExists -> {
+                    handleActiveSessionConflict()
+                }
+                else -> {
+                    showUserMessage(MSG_START_WORKOUT_FAILED)
+                }
             }
-            handleStartFailure(result)
         }
     }
 
     private suspend fun startOrResumeProgramWorkout(workoutId: WorkoutId) {
-        val result = startTrainingSession(StartTrainingSessionRequest.ProgramWorkout(workoutId))
-        if (result.isSuccess) {
-            _events.send(ProgramsUiEvent.NavigateToWorkout(workoutId.value))
-            return
+        when (val result = startTrainingSession(StartTrainingSessionRequest.ProgramWorkout(workoutId))) {
+            is StartTrainingSessionResult.Success -> {
+                _events.send(ProgramsUiEvent.NavigateToWorkout(workoutId.value))
+            }
+            is StartTrainingSessionResult.ActiveSessionExists -> {
+                handleActiveSessionConflict()
+            }
+            else -> {
+                showUserMessage(MSG_START_WORKOUT_FAILED)
+            }
         }
-        handleStartFailure(result)
     }
 
-    private suspend fun handleStartFailure(result: Result<TrainingSession>) {
-        when (result.exceptionOrNull()) {
-            is ActiveTrainingSessionExistsException -> {
-                val progress = observeCycleProgress().first()
-                val routeId = progress.activeSession?.liveWorkoutRouteId()
-                if (routeId != null) {
-                    // Resume whatever is live (program or ad-hoc) instead of deadlocking.
-                    _events.send(ProgramsUiEvent.NavigateToWorkout(routeId))
-                } else {
-                    showUserMessage(MSG_START_WORKOUT_FAILED)
-                }
-            }
-            else -> showUserMessage(MSG_START_WORKOUT_FAILED)
+    private suspend fun handleActiveSessionConflict() {
+        val progress = observeCycleProgress().first()
+        val routeId = progress.activeSession?.liveWorkoutRouteId()
+        if (routeId != null) {
+            // Resume whatever is live (program or ad-hoc) instead of deadlocking.
+            _events.send(ProgramsUiEvent.NavigateToWorkout(routeId))
+        } else {
+            showUserMessage(MSG_START_WORKOUT_FAILED)
         }
     }
 
