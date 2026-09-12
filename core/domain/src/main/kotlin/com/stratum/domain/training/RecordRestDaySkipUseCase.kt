@@ -19,27 +19,29 @@ class RecordRestDaySkipUseCase @Inject constructor(
     private val trainingLogRepository: TrainingLogRepository,
     private val programRepository: ProgramRepository,
 ) {
-    suspend operator fun invoke(slotIndex: Int): Result<TrainingSession> = runCatching {
+    suspend operator fun invoke(slotIndex: Int): Result<TrainingSession> {
         val program =
             programRepository.getProgram()
-                ?: error("No active program found to record rest day skip")
+                ?: return Result.failure(IllegalStateException("No active program found to record rest day skip"))
         val slots = program.resolvedCycleSlots()
         val restSlot =
             slots.filterIsInstance<CycleSlot.Rest>().firstOrNull { it.slotIndex == slotIndex }
-                ?: error("Slot $slotIndex is not a rest slot on program ${program.id.value}")
+                ?: return Result.failure(IllegalArgumentException("Slot $slotIndex is not a rest slot on program ${program.id.value}"))
         val projectedWeekday =
             program.cycleStartEpochDay?.let { start ->
                 CycleProjection.projectedWeekday(start, restSlot.slotIndex)
             }
-        persistRestSession(
-            programId = program.id,
-            programName = program.name,
-            cycleNumber = program.currentCycleNumber,
-            slotIndex = restSlot.slotIndex,
-            weekday = projectedWeekday,
-            sessionsBefore = trainingLogRepository.getAllSessions(),
-            program = program,
-        )
+        return runCatching {
+            persistRestSession(
+                programId = program.id,
+                programName = program.name,
+                cycleNumber = program.currentCycleNumber,
+                slotIndex = restSlot.slotIndex,
+                weekday = projectedWeekday,
+                sessionsBefore = trainingLogRepository.getAllSessions(),
+                program = program,
+            )
+        }
     }
 
     /**
@@ -47,10 +49,10 @@ class RecordRestDaySkipUseCase @Inject constructor(
      * rest slot with a non-null [TrainingSession.cycleSlotIndexSnapshot] so rest counts toward
      * cycle progress and can be unskipped.
      */
-    suspend operator fun invoke(weekday: Weekday): Result<TrainingSession> = runCatching {
+    suspend operator fun invoke(weekday: Weekday): Result<TrainingSession> {
         val program =
             programRepository.getProgram()
-                ?: error("No active program found to record rest day skip")
+                ?: return Result.failure(IllegalStateException("No active program found to record rest day skip"))
         val sessions = trainingLogRepository.getAllSessions()
         val progress = CycleProgressResolver.reconcileSlotProgress(program, sessions)
         val slots = program.resolvedCycleSlots()
@@ -67,16 +69,18 @@ class RecordRestDaySkipUseCase @Inject constructor(
             } else {
                 null
             } ?: restCandidates.firstOrNull()
-                ?: error("No unconsumed rest slot to mark for $weekday")
-        persistRestSession(
-            programId = program.id,
-            programName = program.name,
-            cycleNumber = program.currentCycleNumber,
-            slotIndex = matched.slotIndex,
-            weekday = weekday,
-            sessionsBefore = sessions,
-            program = program,
-        )
+                ?: return Result.failure(NoSuchElementException("No unconsumed rest slot to mark for $weekday"))
+        return runCatching {
+            persistRestSession(
+                programId = program.id,
+                programName = program.name,
+                cycleNumber = program.currentCycleNumber,
+                slotIndex = matched.slotIndex,
+                weekday = weekday,
+                sessionsBefore = sessions,
+                program = program,
+            )
+        }
     }
 
     private suspend fun persistRestSession(

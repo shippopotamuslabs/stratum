@@ -25,62 +25,69 @@ class UnskipWorkoutUseCase @Inject constructor(
     private val trainingLogRepository: TrainingLogRepository,
     private val programRepository: ProgramRepository,
 ) {
-    suspend operator fun invoke(workoutId: WorkoutId): Result<Unit> = runCatching {
+    suspend operator fun invoke(workoutId: WorkoutId): Result<Unit> {
         val program =
             programRepository.getProgram()
-                ?: error("No active program found to unskip workout")
-        val sessions = trainingLogRepository.getAllSessions()
-        val workoutSessions = sessions.filter { session ->
-            session.programId == program.id &&
-                session.workoutId == workoutId &&
-                session.cycleNumberSnapshot == program.currentCycleNumber &&
-                session.status == TrainingSessionStatus.COMPLETED &&
-                session.kind == TrainingSessionKind.PROGRAM_WORKOUT
+                ?: return Result.failure(IllegalStateException("No active program found to unskip workout"))
+        return runCatching {
+            val sessions = trainingLogRepository.getAllSessions()
+            val workoutSessions = sessions.filter { session ->
+                session.programId == program.id &&
+                    session.workoutId == workoutId &&
+                    session.cycleNumberSnapshot == program.currentCycleNumber &&
+                    session.status == TrainingSessionStatus.COMPLETED &&
+                    session.kind == TrainingSessionKind.PROGRAM_WORKOUT
+            }
+            if (workoutSessions.isNotEmpty()) {
+                val remainingAfterWorkout = sessions.filterNot { session -> session.id in workoutSessions.map { it.id }.toSet() }
+                val orphanedAutoRests =
+                    autoRestSessionsNoLongerJustified(
+                        program = program,
+                        remainingSessions = remainingAfterWorkout,
+                        deletedWorkoutIds = setOf(workoutId),
+                    )
+                applyUnskip(program, sessions, workoutSessions + orphanedAutoRests)
+            }
         }
-        if (workoutSessions.isEmpty()) return@runCatching
-        val remainingAfterWorkout = sessions.filterNot { session -> session.id in workoutSessions.map { it.id }.toSet() }
-        val orphanedAutoRests =
-            autoRestSessionsNoLongerJustified(
-                program = program,
-                remainingSessions = remainingAfterWorkout,
-                deletedWorkoutIds = setOf(workoutId),
-            )
-        applyUnskip(program, sessions, workoutSessions + orphanedAutoRests)
     }
 
     /**
      * Un-skip a rest day by deleting the matching COMPLETED REST_DAY session for the current
      * cycle and recomputing the cycle pointer (rests count toward cycle completion).
      */
-    suspend operator fun invoke(weekday: Weekday): Result<Unit> = runCatching {
+    suspend operator fun invoke(weekday: Weekday): Result<Unit> {
         val program =
             programRepository.getProgram()
-                ?: error("No active program found to unskip rest day")
-        val sessions = trainingLogRepository.getAllSessions()
-        val toDelete = sessions.filter { session ->
-            session.programId == program.id &&
-                session.cycleNumberSnapshot == program.currentCycleNumber &&
-                session.status == TrainingSessionStatus.COMPLETED &&
-                session.kind == TrainingSessionKind.REST_DAY &&
-                session.weekdaySnapshot == weekday
+                ?: return Result.failure(IllegalStateException("No active program found to unskip rest day"))
+        return runCatching {
+            val sessions = trainingLogRepository.getAllSessions()
+            val toDelete = sessions.filter { session ->
+                session.programId == program.id &&
+                    session.cycleNumberSnapshot == program.currentCycleNumber &&
+                    session.status == TrainingSessionStatus.COMPLETED &&
+                    session.kind == TrainingSessionKind.REST_DAY &&
+                    session.weekdaySnapshot == weekday
+            }
+            applyUnskip(program, sessions, toDelete)
         }
-        applyUnskip(program, sessions, toDelete)
     }
 
     /** Un-skip rest by cycle slot index. */
-    suspend fun unskipRestSlot(slotIndex: Int): Result<Unit> = runCatching {
+    suspend fun unskipRestSlot(slotIndex: Int): Result<Unit> {
         val program =
             programRepository.getProgram()
-                ?: error("No active program found to unskip rest day")
-        val sessions = trainingLogRepository.getAllSessions()
-        val toDelete = sessions.filter { session ->
-            session.programId == program.id &&
-                session.cycleNumberSnapshot == program.currentCycleNumber &&
-                session.status == TrainingSessionStatus.COMPLETED &&
-                session.kind == TrainingSessionKind.REST_DAY &&
-                session.cycleSlotIndexSnapshot == slotIndex
+                ?: return Result.failure(IllegalStateException("No active program found to unskip rest day"))
+        return runCatching {
+            val sessions = trainingLogRepository.getAllSessions()
+            val toDelete = sessions.filter { session ->
+                session.programId == program.id &&
+                    session.cycleNumberSnapshot == program.currentCycleNumber &&
+                    session.status == TrainingSessionStatus.COMPLETED &&
+                    session.kind == TrainingSessionKind.REST_DAY &&
+                    session.cycleSlotIndexSnapshot == slotIndex
+            }
+            applyUnskip(program, sessions, toDelete)
         }
-        applyUnskip(program, sessions, toDelete)
     }
 
     private suspend fun applyUnskip(

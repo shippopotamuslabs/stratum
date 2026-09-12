@@ -146,4 +146,22 @@ class UnskipWorkoutUseCaseTest {
 
         assertTrue(logRepo.getSession(restDaySession.id) == null)
     }
+
+    @Test
+    @DisplayName("Returns failure when no active program exists")
+    fun returnsFailureWhenNoActiveProgram() = runTest {
+        val useCase = UnskipWorkoutUseCase(FakeTrainingLogRepository(), FakeProgramRepository(null))
+
+        val workoutResult = useCase(workoutAId)
+        assertTrue(workoutResult.isFailure)
+        assertTrue(workoutResult.exceptionOrNull() is IllegalStateException)
+
+        val weekdayResult = useCase(Weekday.Tuesday)
+        assertTrue(weekdayResult.isFailure)
+        assertTrue(weekdayResult.exceptionOrNull() is IllegalStateException)
+
+        val slotResult = useCase.unskipRestSlot(1)
+        assertTrue(slotResult.isFailure)
+        assertTrue(slotResult.exceptionOrNull() is IllegalStateException)
+    }
 }

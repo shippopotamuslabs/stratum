@@ -12,13 +12,13 @@ class RecordWorkoutSkipUseCase @Inject constructor(
     private val trainingLogRepository: TrainingLogRepository,
     private val programRepository: ProgramRepository,
 ) {
-    suspend operator fun invoke(workoutId: WorkoutId): Result<TrainingSession> = runCatching {
+    suspend operator fun invoke(workoutId: WorkoutId): Result<TrainingSession> {
         val program =
             programRepository.getProgram()
-                ?: error("No active program found to record workout skip")
+                ?: return Result.failure(IllegalStateException("No active program found to record workout skip"))
         val workout =
             program.workouts.firstOrNull { it.id == workoutId }
-                ?: throw IllegalArgumentException("Workout ${workoutId.value} not found in program")
+                ?: return Result.failure(IllegalArgumentException("Workout ${workoutId.value} not found in program"))
         val now = Instant.now()
 
         val slotIndex =
@@ -44,21 +44,23 @@ class RecordWorkoutSkipUseCase @Inject constructor(
                 workoutNameSnapshot = workout.name,
             )
 
-        val baseSessions = trainingLogRepository.getAllSessions() + session
-        val (ledger, autoRests) =
-            sessionsWithMaterializedAutoRests(
-                program = program,
-                sessions = baseSessions,
-                now = now,
+        return runCatching {
+            val baseSessions = trainingLogRepository.getAllSessions() + session
+            val (ledger, autoRests) =
+                sessionsWithMaterializedAutoRests(
+                    program = program,
+                    sessions = baseSessions,
+                    now = now,
+                )
+            val effects = computeCycleAdvancement(program = program, sessions = ledger)
+
+            trainingLogRepository.persistSessionsWithCycleEffects(
+                sessions = listOf(session) + autoRests,
+                cyclePointerUpdate = effects.pointerUpdate,
+                cycleCompletedEvent = effects.cycleCompletedEvent,
             )
-        val effects = computeCycleAdvancement(program = program, sessions = ledger)
 
-        trainingLogRepository.persistSessionsWithCycleEffects(
-            sessions = listOf(session) + autoRests,
-            cyclePointerUpdate = effects.pointerUpdate,
-            cycleCompletedEvent = effects.cycleCompletedEvent,
-        )
-
-        session
+            session
+        }
     }
 }
