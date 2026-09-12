@@ -29,7 +29,7 @@ class ExportTrainingLogsUseCase(
     suspend operator fun invoke(range: ExportLogRange): Result<ExportFileResult> {
         val now = clock()
         val bounds =
-            runCatching { ExportRangeBounds.resolve(range, now) }
+            ExportRangeBounds.resolve(range, now)
                 .getOrElse { return Result.failure(it) }
         val (sessions, sets) =
             runCatchingLogged(loggingPort, TAG, "Failed to read training logs") {

@@ -18,9 +18,7 @@ class PreviewExportTrainingLogsUseCase(
         val now = clock()
         // Invalid custom range: treat as empty preview rather than throwing for UI.
         val bounds =
-            try {
-                ExportRangeBounds.resolve(range, now)
-            } catch (_: IllegalArgumentException) {
+            ExportRangeBounds.resolve(range, now).getOrElse {
                 return ExportLogPreview(sessionCount = 0, setCount = 0)
             }
         val allSessions = trainingLogRepository.getAllSessions()

@@ -12,24 +12,25 @@ object ExportRangeBounds {
     fun resolve(
         range: ExportLogRange,
         now: Instant = Instant.now(),
-    ): Pair<Instant, Instant>? {
+    ): Result<Pair<Instant, Instant>?> {
         return when (range) {
-            ExportLogRange.AllTime -> null
+            ExportLogRange.AllTime -> Result.success(null)
             is ExportLogRange.LastDays -> {
                 val today = todayInZone(range.zone, now)
                 val startDate = today.minusDays((range.days - 1).toLong())
-                boundsForCalendar(startDate, today, range.zone)
+                Result.success(boundsForCalendar(startDate, today, range.zone))
             }
             is ExportLogRange.YearToDate -> {
                 val today = todayInZone(range.zone, now)
                 val startDate = LocalDate.of(today.year, 1, 1)
-                boundsForCalendar(startDate, today, range.zone)
+                Result.success(boundsForCalendar(startDate, today, range.zone))
             }
             is ExportLogRange.Custom -> {
-                require(range.startDate <= range.endDateInclusive) {
-                    "Start date must be on or before end date."
+                if (range.startDate > range.endDateInclusive) {
+                    Result.failure(IllegalArgumentException("Start date must be on or before end date."))
+                } else {
+                    Result.success(boundsForCalendar(range.startDate, range.endDateInclusive, range.zone))
                 }
-                boundsForCalendar(range.startDate, range.endDateInclusive, range.zone)
             }
         }
     }
