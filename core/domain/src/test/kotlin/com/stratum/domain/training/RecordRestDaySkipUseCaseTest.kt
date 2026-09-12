@@ -28,6 +28,31 @@ class RecordRestDaySkipUseCaseTest {
         assertTrue(repo.getSetsForSession(session.id).isEmpty())
     }
 
+    @Test
+    @DisplayName("Returns failure when no active program exists")
+    fun returnsFailureWhenNoActiveProgram() = runTest {
+        val useCase = RecordRestDaySkipUseCase(FakeTrainingLogRepository(), FakeProgramRepository(null))
+
+        val slotResult = useCase(slotIndex = 1)
+        assertTrue(slotResult.isFailure)
+        assertTrue(slotResult.exceptionOrNull() is IllegalStateException)
+
+        val weekdayResult = useCase(weekday = Weekday.Tuesday)
+        assertTrue(weekdayResult.isFailure)
+        assertTrue(weekdayResult.exceptionOrNull() is IllegalStateException)
+    }
+
+    @Test
+    @DisplayName("Returns failure when slot is not a rest slot")
+    fun returnsFailureWhenSlotNotRest() = runTest {
+        val useCase = RecordRestDaySkipUseCase(FakeTrainingLogRepository(), FakeProgramRepository(program()))
+
+        // slot 0 is a training workout, not rest
+        val result = useCase(slotIndex = 0)
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull() is IllegalArgumentException)
+    }
+
     private fun program() =
         WorkoutLoggingFixtures.twoWorkoutProgram().copy(
             cycleLength = 7,

@@ -68,5 +68,29 @@ class RecordWorkoutSkipUseCaseTest {
         assertEquals(0, programRepo.getProgram()?.cyclePosition)
     }
 
+    @Test
+    @DisplayName("Returns failure when no active program exists")
+    fun returnsFailureWhenNoActiveProgram() = runTest {
+        val programRepo = FakeProgramRepository(null)
+        val useCase = RecordWorkoutSkipUseCase(FakeTrainingLogRepository(), programRepo)
+
+        val result = useCase(WorkoutLoggingFixtures.workoutAId)
+
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull() is IllegalStateException)
+    }
+
+    @Test
+    @DisplayName("Returns failure when workout does not belong to active program")
+    fun returnsFailureWhenWorkoutNotFound() = runTest {
+        val programRepo = FakeProgramRepository(program())
+        val useCase = RecordWorkoutSkipUseCase(FakeTrainingLogRepository(), programRepo)
+
+        val result = useCase(com.stratum.domain.program.identity.WorkoutId("non-existent"))
+
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull() is IllegalArgumentException)
+    }
+
     private fun program() = WorkoutLoggingFixtures.twoWorkoutProgram()
 }
