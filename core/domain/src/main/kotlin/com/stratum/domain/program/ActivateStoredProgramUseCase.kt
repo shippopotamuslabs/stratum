@@ -19,20 +19,22 @@ class ActivateStoredProgramUseCase @Inject constructor(
     private val programRepository: ProgramRepository,
     private val loggingPort: LoggingPort,
 ) {
-    suspend operator fun invoke(programId: ProgramId): Result<Unit> =
-        runCatchingLogged(loggingPort, TAG, "Failed to activate program") {
-            require(!programId.isImportHistory) {
-                "Import-history program cannot be activated"
-            }
-            val existing =
-                programRepository.getProgramById(programId)
-                    ?: error("Cannot activate unknown program: ${programId.value}")
-            require(existing.workouts.isNotEmpty()) { "Program must have at least one workout" }
-            require(existing.workouts.any { workout -> workout.workoutLifts.isNotEmpty() }) {
-                "Program must have at least one exercise"
-            }
-            val resolvedStart =
-                existing.cycleStartEpochDay ?: resolveInitialCycleStartEpochDay(existing)
+    suspend operator fun invoke(programId: ProgramId): Result<Unit> {
+        if (programId.isImportHistory) {
+            return Result.failure(IllegalArgumentException("Import-history program cannot be activated"))
+        }
+        val existing =
+            programRepository.getProgramById(programId)
+                ?: return Result.failure(IllegalArgumentException("Cannot activate unknown program: ${programId.value}"))
+        if (existing.workouts.isEmpty()) {
+            return Result.failure(IllegalArgumentException("Program must have at least one workout"))
+        }
+        if (existing.workouts.none { it.workoutLifts.isNotEmpty() }) {
+            return Result.failure(IllegalArgumentException("Program must have at least one exercise"))
+        }
+        val resolvedStart =
+            existing.cycleStartEpochDay ?: resolveInitialCycleStartEpochDay(existing)
+        return runCatchingLogged(loggingPort, TAG, "Failed to activate program") {
             if (existing.cycleStartEpochDay != resolvedStart || !existing.isActive) {
                 programRepository.saveProgram(
                     existing.copy(
@@ -44,6 +46,7 @@ class ActivateStoredProgramUseCase @Inject constructor(
                 programRepository.activateProgram(programId)
             }
         }
+    }
 
     private companion object {
         const val TAG = "ActivateStoredProgram"

@@ -20,24 +20,27 @@ class DeleteProgramUseCase @Inject constructor(
     private val trainingLogRepository: TrainingLogRepository,
     private val loggingPort: LoggingPort,
 ) {
-    suspend operator fun invoke(programId: ProgramId): Result<Unit> =
-        runCatchingLogged(loggingPort, TAG, "Failed to delete program") {
-            require(!programId.isImportHistory) {
-                "Import-history program cannot be deleted"
-            }
-            val activeSession = trainingLogRepository.getActiveSession()
-            if (
-                activeSession != null &&
-                activeSession.status == TrainingSessionStatus.IN_PROGRESS &&
-                activeSession.programId == programId
-            ) {
-                error(
+    suspend operator fun invoke(programId: ProgramId): Result<Unit> {
+        if (programId.isImportHistory) {
+            return Result.failure(IllegalArgumentException("Import-history program cannot be deleted"))
+        }
+        val activeSession = trainingLogRepository.getActiveSession()
+        if (
+            activeSession != null &&
+            activeSession.status == TrainingSessionStatus.IN_PROGRESS &&
+            activeSession.programId == programId
+        ) {
+            return Result.failure(
+                IllegalStateException(
                     "Cannot delete this program while a workout is in progress. " +
                         "Finish or abandon the session first.",
-                )
-            }
+                ),
+            )
+        }
+        return runCatchingLogged(loggingPort, TAG, "Failed to delete program") {
             programRepository.deleteProgram(programId)
         }
+    }
 
     private companion object {
         const val TAG = "DeleteProgram"
