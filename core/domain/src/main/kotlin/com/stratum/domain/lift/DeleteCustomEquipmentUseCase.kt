@@ -13,13 +13,20 @@ class DeleteCustomEquipmentUseCase @Inject constructor(
     private val repository: EquipmentRepository,
     private val loggingPort: LoggingPort,
 ) {
-    suspend operator fun invoke(id: EquipmentId): Result<Unit> =
-        runCatchingLogged(loggingPort, TAG, "Failed to delete custom equipment") {
-            val deleted = repository.deleteCustomEquipment(id)
-            if (!deleted) {
-                error("Equipment cannot be deleted (seed, missing, or still in use)")
-            }
+    suspend operator fun invoke(id: EquipmentId): Result<Unit> {
+        val deleted =
+            runCatchingLogged(loggingPort, TAG, "Failed to delete custom equipment") {
+                repository.deleteCustomEquipment(id)
+            }.getOrElse { return Result.failure(it) }
+
+        return if (deleted) {
+            Result.success(Unit)
+        } else {
+            Result.failure(
+                IllegalStateException("Equipment cannot be deleted (seed, missing, or still in use)"),
+            )
         }
+    }
 
     private companion object {
         const val TAG = "DeleteCustomEquipment"

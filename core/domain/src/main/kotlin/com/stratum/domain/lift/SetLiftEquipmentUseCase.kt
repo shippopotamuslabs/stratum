@@ -16,14 +16,15 @@ class SetLiftEquipmentUseCase @Inject constructor(
     private val repository: LiftRepository,
     private val loggingPort: LoggingPort,
 ) {
-    suspend operator fun invoke(id: LiftId, equipmentId: EquipmentId?): Result<Unit> =
-        runCatchingLogged(loggingPort, TAG, "Failed to set lift equipment") {
-            val lift =
-                repository.getLiftsByIds(listOf(id)).firstOrNull()
-                    ?: error("Lift not found")
-            val nextLoad = lift.loadType.alignedWithEquipment(equipmentId)
+    suspend operator fun invoke(id: LiftId, equipmentId: EquipmentId?): Result<Unit> {
+        val lift =
+            repository.getLiftsByIds(listOf(id)).firstOrNull()
+                ?: return Result.failure(IllegalArgumentException("Lift not found"))
+        val nextLoad = lift.loadType.alignedWithEquipment(equipmentId)
+        return runCatchingLogged(loggingPort, TAG, "Failed to set lift equipment") {
             repository.setLiftEquipment(id, equipmentId, nextLoad)
         }
+    }
 
     private companion object {
         const val TAG = "SetLiftEquipment"

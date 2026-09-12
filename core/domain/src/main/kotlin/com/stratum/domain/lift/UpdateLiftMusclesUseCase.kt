@@ -24,13 +24,14 @@ class UpdateLiftMusclesUseCase @Inject constructor(
         if (primaryMuscles.isEmpty()) {
             return Result.failure(IllegalArgumentException("At least one primary muscle is required"))
         }
+        val lift =
+            repository.observeLifts().first().firstOrNull { it.id == id }
+                ?: return Result.failure(IllegalArgumentException("Lift not found"))
+        if (!lift.isCustom) {
+            return Result.failure(IllegalStateException("Catalog lifts cannot be edited"))
+        }
+        val secondary = secondaryMuscles - primaryMuscles
         return runCatchingLogged(loggingPort, TAG, "Failed to update lift muscles") {
-            val lift =
-                repository.observeLifts().first().firstOrNull { it.id == id }
-                    ?: error("Lift not found")
-            require(lift.isCustom) { "Catalog lifts cannot be edited" }
-            // Secondary must not overlap primary (primary wins).
-            val secondary = secondaryMuscles - primaryMuscles
             repository.updateLiftMuscles(id, primaryMuscles, secondary)
         }
     }

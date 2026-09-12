@@ -23,11 +23,13 @@ class UpdateCustomLiftDetailsUseCase @Inject constructor(
                 IllegalArgumentException("At least one movement pattern is required"),
             )
         }
+        val lift =
+            repository.observeLifts().first().firstOrNull { it.id == id }
+                ?: return Result.failure(IllegalArgumentException("Lift not found"))
+        if (!lift.isCustom) {
+            return Result.failure(IllegalStateException("Catalog lifts cannot be edited"))
+        }
         return runCatchingLogged(loggingPort, TAG, "Failed to update custom lift details") {
-            val lift =
-                repository.observeLifts().first().firstOrNull { it.id == id }
-                    ?: error("Lift not found")
-            require(lift.isCustom) { "Catalog lifts cannot be edited" }
             repository.updateCustomLiftDetails(id, details)
         }
     }

@@ -23,9 +23,9 @@ class SetLiftDefaultRestUseCase @Inject constructor(
                 ),
             )
         }
+        repository.observeLifts().first().firstOrNull { it.id == id }
+            ?: return Result.failure(IllegalArgumentException("Lift not found"))
         return runCatchingLogged(loggingPort, TAG, "Failed to set default rest") {
-            repository.observeLifts().first().firstOrNull { it.id == id }
-                ?: error("Lift not found")
             repository.setDefaultRestSeconds(id, restSeconds)
         }
     }
