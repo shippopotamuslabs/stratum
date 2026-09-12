@@ -9,7 +9,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.LocalDate
 import java.time.ZoneId
 import javax.inject.Inject
-import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -42,47 +41,41 @@ class HistoryDaySessionsViewModel @Inject constructor(
         loadJob =
             viewModelScope.launch {
                 _uiState.value = HistoryDaySessionsUiState.Loading
-                try {
-                    val date =
-                        runCatching { LocalDate.parse(dateIso) }.getOrElse {
-                            _uiState.value = HistoryDaySessionsUiState.Error
-                            return@launch
-                        }
-                    val daySessions =
-                        observeWorkoutHistoryCalendar(zoneId = zoneId)
-                            .first()
-                            .days[date]
-                            .orEmpty()
-                    if (daySessions.isEmpty()) {
+                val date =
+                    runCatching { LocalDate.parse(dateIso) }.getOrElse {
                         _uiState.value = HistoryDaySessionsUiState.Error
                         return@launch
                     }
-                    val results =
-                        coroutineScope {
-                            daySessions
-                                .map { daySession ->
-                                    async {
-                                        getWorkoutSessionDetail(daySession.sessionId)
-                                            .map(WorkoutSessionDetailUiMapper::toDaySummary)
-                                    }
-                                }
-                                .awaitAll()
-                        }
-                    // Fail closed: a missing/corrupt session must not silently shrink the day list.
-                    if (results.any { it.isFailure }) {
-                        _uiState.value = HistoryDaySessionsUiState.Error
-                        return@launch
-                    }
-                    _uiState.value =
-                        HistoryDaySessionsUiState.Loaded(
-                            dateTitle = WorkoutSessionDetailUiMapper.formatDayTitle(dateIso),
-                            sessions = results.map { it.getOrThrow() },
-                        )
-                } catch (cancelled: CancellationException) {
-                    throw cancelled
-                } catch (_: Exception) {
+                val daySessions =
+                    observeWorkoutHistoryCalendar(zoneId = zoneId)
+                        .first()
+                        .days[date]
+                        .orEmpty()
+                if (daySessions.isEmpty()) {
                     _uiState.value = HistoryDaySessionsUiState.Error
+                    return@launch
                 }
+                val results =
+                    coroutineScope {
+                        daySessions
+                            .map { daySession ->
+                                async {
+                                    getWorkoutSessionDetail(daySession.sessionId)
+                                        .map(WorkoutSessionDetailUiMapper::toDaySummary)
+                                }
+                            }
+                            .awaitAll()
+                    }
+                // Fail closed: a missing/corrupt session must not silently shrink the day list.
+                if (results.any { it.isFailure }) {
+                    _uiState.value = HistoryDaySessionsUiState.Error
+                    return@launch
+                }
+                _uiState.value =
+                    HistoryDaySessionsUiState.Loaded(
+                        dateTitle = WorkoutSessionDetailUiMapper.formatDayTitle(dateIso),
+                        sessions = results.mapNotNull { it.getOrNull() },
+                    )
             }
     }
 }

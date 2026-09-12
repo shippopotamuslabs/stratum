@@ -316,30 +316,21 @@ class SettingsViewModel @Inject constructor(
         }
         rebuildProgressUi.update { it.copy(showConfirm = false, isRunning = true) }
         viewModelScope.launch {
-            try {
-                forceRefreshDerived()
-                    .onSuccess {
-                        rebuildProgressUi.update {
-                            it.copy(
-                                isRunning = false,
-                                cooldownUntilEpochMs =
-                                    System.currentTimeMillis() + FORCE_REFRESH_COOLDOWN_MS,
-                            )
-                        }
-                        _userMessage.value = MSG_FORCE_REFRESH_QUEUED
+            forceRefreshDerived()
+                .onSuccess {
+                    rebuildProgressUi.update {
+                        it.copy(
+                            isRunning = false,
+                            cooldownUntilEpochMs =
+                                System.currentTimeMillis() + FORCE_REFRESH_COOLDOWN_MS,
+                        )
                     }
-                    .onFailure { error ->
-                        if (error is CancellationException) throw error
-                        rebuildProgressUi.update { it.copy(isRunning = false) }
-                        _userMessage.value = MSG_FORCE_REFRESH_FAILED
-                    }
-            } catch (e: CancellationException) {
-                rebuildProgressUi.update { it.copy(isRunning = false) }
-                throw e
-            } catch (_: Throwable) {
-                rebuildProgressUi.update { it.copy(isRunning = false) }
-                _userMessage.value = MSG_FORCE_REFRESH_FAILED
-            }
+                    _userMessage.value = MSG_FORCE_REFRESH_QUEUED
+                }
+                .onFailure {
+                    rebuildProgressUi.update { it.copy(isRunning = false) }
+                    _userMessage.value = MSG_FORCE_REFRESH_FAILED
+                }
         }
     }
 

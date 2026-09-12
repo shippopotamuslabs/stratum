@@ -162,36 +162,30 @@ internal class CreateProgramGenerateController(
         generateJob?.cancel()
         generateJob =
             scope.launch {
-                try {
-                    flushPreferencesForGeneration()
-                    val result =
-                        generateProgram(
-                            restSlotIndices = schedule.restSlotIndices,
-                            cycleLength = schedule.cycleLength,
-                        ) { progress ->
-                            withContext(Dispatchers.Main.immediate) {
-                                val ui = progress.toUi()
-                                val index = ui.phase.activeTimelineIndex()
-                                state.update { current ->
-                                    current.copy(
-                                        generateProgress = ui,
-                                        generateMaxTimelineIndex =
-                                            maxOf(current.generateMaxTimelineIndex, index),
-                                    )
-                                }
+                flushPreferencesForGeneration()
+                val result =
+                    generateProgram(
+                        restSlotIndices = schedule.restSlotIndices,
+                        cycleLength = schedule.cycleLength,
+                    ) { progress ->
+                        withContext(Dispatchers.Main.immediate) {
+                            val ui = progress.toUi()
+                            val index = ui.phase.activeTimelineIndex()
+                            state.update { current ->
+                                current.copy(
+                                    generateProgress = ui,
+                                    generateMaxTimelineIndex =
+                                        maxOf(current.generateMaxTimelineIndex, index),
+                                )
                             }
                         }
-                    val program =
-                        result.getOrElse { error ->
-                            publishGenerateFailure(error)
-                            return@launch
-                        }
-                    onProgramGenerated(program)
-                } catch (error: kotlinx.coroutines.CancellationException) {
-                    throw error
-                } catch (error: Exception) {
-                    publishGenerateFailure(error)
-                }
+                    }
+                val program =
+                    result.getOrElse { error ->
+                        publishGenerateFailure(error)
+                        return@launch
+                    }
+                onProgramGenerated(program)
             }
     }
 
