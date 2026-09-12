@@ -392,8 +392,10 @@ class OnboardingViewModel @Inject constructor(
             ephemeral.update {
                 it.copy(
                     applyingPreset = false,
-                    presetApplyError = result.exceptionOrNull().toPresetApplyErrorMessage()
-                        .takeIf { result.isFailure },
+                    presetApplyError = result.fold(
+                        onSuccess = { null },
+                        onFailure = { error -> error.toPresetApplyErrorMessage() },
+                    ),
                 )
             }
         }
@@ -798,8 +800,7 @@ class OnboardingViewModel @Inject constructor(
                             ProgramGenerationProgress(ProgramGenerationProgressPhase.SavingProgram),
                         )
                     }
-                    val activateResult = activateProgram(program)
-                    activateResult.exceptionOrNull()?.let { error ->
+                    activateProgram(program).onFailure { error ->
                         logGenerateFailure(error)
                         ephemeral.update(OnboardingProgramFlowOps::generateFailed)
                         return@launch

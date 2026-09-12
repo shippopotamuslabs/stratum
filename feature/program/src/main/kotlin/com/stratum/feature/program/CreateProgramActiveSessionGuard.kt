@@ -92,16 +92,14 @@ internal class CreateProgramActiveSessionGuard(
         val reason = state.value.pendingActiveSessionDiscard ?: return null
         val session = inProgressSessionOrNull()
         if (session != null) {
-            val abandonResult = abandonTrainingSession(session.id)
-            if (abandonResult.isFailure) {
+            abandonTrainingSession(session.id).onFailure { error ->
                 pendingPersistMode = null
                 pendingPersistOnDone = null
                 state.update {
                     it.copy(
                         pendingActiveSessionDiscard = null,
                         saveErrorMessage =
-                            abandonResult.exceptionOrNull()?.message
-                                ?: "Couldn't discard the in-progress workout. Try again.",
+                            error.message ?: "Couldn't discard the in-progress workout. Try again.",
                     )
                 }
                 return null
