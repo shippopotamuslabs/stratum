@@ -107,6 +107,43 @@ class ApplyCheckInRecommendationsUseCaseTest {
         assertEquals(3, programRepo.getProgram()!!.workouts.first().workoutLifts.first().sets.size)
     }
 
+    @Test
+    @DisplayName("returns failure when no active program exists")
+    fun returnsFailureWhenNoActiveProgram() = runTest {
+        val useCase =
+            ApplyCheckInRecommendationsUseCase(
+                programRepository = FakeProgramRepository(null),
+                programChangeEventRepository = FakeProgramChangeEventRepository(),
+                completeCheckIn = CompleteCheckInUseCase(FakeCheckInPreferencesRepository(), FakeLoggingPort()),
+                loggingPort = FakeLoggingPort(),
+            )
+
+        val result = useCase(listOf(CheckInApplyCommand.SetWorkingSets(workoutLiftId, 3)))
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull() is IllegalStateException)
+    }
+
+    @Test
+    @DisplayName("returns failure when workout lift not found")
+    fun returnsFailureWhenWorkoutLiftNotFound() = runTest {
+        val useCase =
+            ApplyCheckInRecommendationsUseCase(
+                programRepository = FakeProgramRepository(programWithSets(3, "bench")),
+                programChangeEventRepository = FakeProgramChangeEventRepository(),
+                completeCheckIn = CompleteCheckInUseCase(FakeCheckInPreferencesRepository(), FakeLoggingPort()),
+                loggingPort = FakeLoggingPort(),
+            )
+
+        val missingId = WorkoutLiftId("missing")
+        val swapResult = useCase(listOf(CheckInApplyCommand.Swap(missingId, LiftId("squat"))))
+        assertTrue(swapResult.isFailure)
+        assertTrue(swapResult.exceptionOrNull() is IllegalArgumentException)
+
+        val setsResult = useCase(listOf(CheckInApplyCommand.SetWorkingSets(missingId, 4)))
+        assertTrue(setsResult.isFailure)
+        assertTrue(setsResult.exceptionOrNull() is IllegalArgumentException)
+    }
+
     private fun programWithSets(setCount: Int, liftId: String): Program {
         val sets =
             (0 until setCount).map { index ->
