@@ -164,7 +164,7 @@ class EditHistoricalWorkoutViewModel @Inject constructor(
             isSaving = true
             publishLoaded()
             val desired =
-                runCatching { buildDesiredSets(id) }.getOrElse { error ->
+                buildDesiredSets(id).getOrElse { error ->
                     isSaving = false
                     publishLoaded()
                     _userMessage.value = error.message ?: "Invalid set values"
@@ -329,22 +329,28 @@ class EditHistoricalWorkoutViewModel @Inject constructor(
         )
     }
 
-    private fun buildDesiredSets(sessionId: TrainingSessionId): List<LoggedSet> {
+    private fun buildDesiredSets(sessionId: TrainingSessionId): Result<List<LoggedSet>> {
         val result = mutableListOf<LoggedSet>()
         for (lift in draftLifts) {
             for (set in lift.sets) {
                 val reps =
                     set.repsText.toIntOrNull()
-                        ?: throw IllegalArgumentException("Enter reps for ${lift.liftName}")
-                require(reps > 0) { "Reps must be positive for ${lift.liftName}" }
+                        ?: return Result.failure(
+                            IllegalArgumentException("Enter reps for ${lift.liftName}"),
+                        )
+                if (reps <= 0) {
+                    return Result.failure(
+                        IllegalArgumentException("Reps must be positive for ${lift.liftName}"),
+                    )
+                }
                 val weight =
                     if (!lift.showWeightColumn) {
                         Weight(0.0, Weight.WeightUnit.Lb)
                     } else {
                         val parsedDisplay =
                             set.weightText.toDoubleOrNull()
-                                ?: throw IllegalArgumentException(
-                                    "Enter weight for ${lift.liftName}",
+                                ?: return Result.failure(
+                                    IllegalArgumentException("Enter weight for ${lift.liftName}"),
                                 )
                         // Draft fields are in displayUnit; canonical storage is always Lb.
                         storageWeightFromDisplay(
@@ -370,8 +376,10 @@ class EditHistoricalWorkoutViewModel @Inject constructor(
                     )
             }
         }
-        require(result.isNotEmpty()) { "Keep at least one set" }
-        return result
+        if (result.isEmpty()) {
+            return Result.failure(IllegalArgumentException("Keep at least one set"))
+        }
+        return Result.success(result)
     }
 
     private fun signature(lifts: List<DraftLift>): String =

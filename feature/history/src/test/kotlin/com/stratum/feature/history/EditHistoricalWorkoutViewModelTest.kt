@@ -145,6 +145,46 @@ class EditHistoricalWorkoutViewModelTest {
         assertTrue(loaded.isDirty)
     }
 
+    @Test
+    @DisplayName("Confirm with blank reps sets userMessage and does not persist")
+    fun confirmBlankRepsValidation() = runTest {
+        val env = buildEnv()
+        env.vm.load("ts-1")
+        advanceUntilIdle()
+
+        val loaded = env.vm.uiState.value as EditHistoricalWorkoutUiState.Loaded
+        val setKey = loaded.lifts.single().sets.single().setKey
+        val liftKey = loaded.lifts.single().key
+
+        env.vm.onRepsChange(liftKey, setKey, "")
+        env.vm.confirm()
+        advanceUntilIdle()
+
+        assertEquals("Enter reps for Barbell Bench Press", env.vm.userMessage.value)
+        val stored = env.logRepo.getSetsForSession(TrainingSessionId("ts-1")).single()
+        assertEquals(8, stored.reps)
+    }
+
+    @Test
+    @DisplayName("Confirm with blank weight sets userMessage and does not persist")
+    fun confirmBlankWeightValidation() = runTest {
+        val env = buildEnv()
+        env.vm.load("ts-1")
+        advanceUntilIdle()
+
+        val loaded = env.vm.uiState.value as EditHistoricalWorkoutUiState.Loaded
+        val setKey = loaded.lifts.single().sets.single().setKey
+        val liftKey = loaded.lifts.single().key
+
+        env.vm.onWeightChange(liftKey, setKey, "")
+        env.vm.confirm()
+        advanceUntilIdle()
+
+        assertEquals("Enter weight for Barbell Bench Press", env.vm.userMessage.value)
+        val stored = env.logRepo.getSetsForSession(TrainingSessionId("ts-1")).single()
+        assertEquals(135.0, stored.weight.amount)
+    }
+
     private suspend fun buildEnv(): Env {
         val programRepo = FakeProgramRepository(WorkoutLoggingFixtures.twoWorkoutProgram())
         val session =
