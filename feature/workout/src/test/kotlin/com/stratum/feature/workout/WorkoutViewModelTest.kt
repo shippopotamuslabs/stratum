@@ -359,6 +359,7 @@ class WorkoutViewModelTest {
     private fun buildViewModel(
         liftRepository: FakeLiftRepository =
             FakeLiftRepository(initialLifts = listOf(catalogLift(), catalogLift2())),
+        fakeLogging: FakeLoggingPort = FakeLoggingPort(),
     ): WorkoutViewModel {
         // Uses the seeded [programRepository] / [progressionHistory] from [setUp].
         return WorkoutViewModel(
@@ -400,7 +401,7 @@ class WorkoutViewModelTest {
             liveWorkoutSurfaces = fakeLiveWorkoutSurfaces(),
             observeWeightDisplayPreferences =
                 ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
-            logError = LogErrorUseCase(FakeLoggingPort()),
+            logError = LogErrorUseCase(fakeLogging),
             saveLiftNotesUseCase = com.stratum.domain.lift.SaveLiftNotesUseCase(
                 liftNotesRepository,
                 liftRepository,
@@ -2276,6 +2277,45 @@ class WorkoutViewModelTest {
         val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
         assertEquals(2, loaded.lifts.size)
         assertEquals("Bench Press", loaded.lifts.last().liftName)
+    }
+
+    @Test
+    @DisplayName("LiftSelected with workoutLiftId swaps lift via edit session")
+    fun liftSelectedWithWorkoutLiftIdSwapsLift() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        workoutEditSession.selectLift(
+            workoutId = workoutId.value,
+            workoutLiftId = workoutLiftId.value,
+            liftId = "L-2",
+        )
+        advanceUntilIdle()
+
+        val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertEquals("Bench Press", loaded.lifts.first().liftName)
+        assertEquals("L-2", loaded.lifts.first().liftId)
+    }
+
+    @Test
+    @DisplayName("LiftSelected with mismatched workoutId logs error and ignores event")
+    fun liftSelectedWithMismatchedWorkoutIdLogsError() = runTest {
+        val fakeLogging = FakeLoggingPort()
+        val viewModel = buildViewModel(fakeLogging = fakeLogging)
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        workoutEditSession.selectLift(
+            workoutId = "wrong-workout-id",
+            workoutLiftId = workoutLiftId.value,
+            liftId = "L-2",
+        )
+        advanceUntilIdle()
+
+        val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertEquals("Squat", loaded.lifts.first().liftName)
+        assertTrue(fakeLogging.errors.any { it.message.contains("Ignored LiftSelected") })
     }
 
     @Test
