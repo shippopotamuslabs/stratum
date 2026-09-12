@@ -21,7 +21,7 @@ data class Weight(
         ;
 
         companion object {
-            fun parse(raw: String): WeightUnit {
+            fun parseOrNull(raw: String): WeightUnit? {
                 val trimmed = raw.trim()
                 val normalized =
                     trimmed
@@ -31,11 +31,12 @@ data class Weight(
                 return when (normalized) {
                     "lb", "pound", "pounds" -> Lb
                     "kg", "kilogram", "kilograms", "kilo" -> Kg
-                    else ->
-                        entries.find { it.name.equals(trimmed, ignoreCase = true) }
-                            ?: throw IllegalArgumentException("Unsupported weight unit: $raw")
+                    else -> entries.find { it.name.equals(trimmed, ignoreCase = true) }
                 }
             }
+
+            fun parse(raw: String): WeightUnit =
+                parseOrNull(raw) ?: throw IllegalArgumentException("Unsupported weight unit: $raw")
         }
     }
 }

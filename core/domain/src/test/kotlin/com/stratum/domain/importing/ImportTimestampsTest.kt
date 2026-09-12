@@ -51,6 +51,15 @@ class ImportTimestampsTest {
         assertThrows<IllegalArgumentException> {
             ImportTimestamps.parse("not-a-date")
         }
+        assertEquals(null, ImportTimestamps.parseOrNull("not-a-date"))
+    }
+
+    @Test
+    fun `parseOrNull returns instant for valid timestamp`() {
+        assertEquals(
+            Instant.parse("2025-12-28T15:30:00Z"),
+            ImportTimestamps.parseOrNull("2025-12-28T15:30:00Z"),
+        )
     }
 }
 

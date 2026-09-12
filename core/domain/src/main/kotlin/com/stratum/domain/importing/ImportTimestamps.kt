@@ -15,23 +15,32 @@ object ImportTimestamps {
         .append(DateTimeFormatter.ISO_LOCAL_TIME)
         .toFormatter()
 
-    fun parse(raw: String): Instant {
+    fun parseOrNull(raw: String): Instant? {
         val trimmed = raw.trim()
-        runCatching { return Instant.parse(trimmed) }
-        runCatching {
+        try {
+            return Instant.parse(trimmed)
+        } catch (_: Exception) {
+        }
+        try {
             return LocalDate.parse(trimmed, DateTimeFormatter.ISO_LOCAL_DATE)
                 .atStartOfDay(ZoneOffset.UTC)
                 .toInstant()
+        } catch (_: Exception) {
         }
-        runCatching {
+        try {
             return LocalDateTime.parse(trimmed, DateTimeFormatter.ISO_LOCAL_DATE_TIME)
                 .toInstant(ZoneOffset.UTC)
+        } catch (_: Exception) {
         }
-        runCatching {
+        try {
             return LocalDateTime.parse(trimmed, SPACE_DATE_TIME_FORMATTER)
                 .toInstant(ZoneOffset.UTC)
+        } catch (_: Exception) {
         }
-        throw IllegalArgumentException("Unsupported timestamp format: $raw")
+        return null
     }
+
+    fun parse(raw: String): Instant =
+        parseOrNull(raw) ?: throw IllegalArgumentException("Unsupported timestamp format: $raw")
 }
 

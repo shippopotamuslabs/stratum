@@ -11,6 +11,7 @@ class WeightUnitParseTest {
     @CsvSource("lbs,Lb", "lb,Lb", "LB,Lb", "Lb,Lb", "pounds,Lb", "kg,Kg", "KG,Kg", "kilograms,Kg")
     fun `parse accepts common import variants`(raw: String, expected: Weight.WeightUnit) {
         assertEquals(expected, Weight.WeightUnit.parse(raw))
+        assertEquals(expected, Weight.WeightUnit.parseOrNull(raw))
     }
 
     @Test
@@ -18,5 +19,6 @@ class WeightUnitParseTest {
         assertThrows(IllegalArgumentException::class.java) {
             Weight.WeightUnit.parse("stone")
         }
+        assertEquals(null, Weight.WeightUnit.parseOrNull("stone"))
     }
 }
