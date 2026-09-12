@@ -253,39 +253,37 @@ class CheckInViewModel @Inject constructor(
         if (!state.canAdvanceSubjective) return
         viewModelScope.launch {
             _uiState.update { it.copy(isEvaluating = true, errorMessage = null) }
-            runCatching {
-                val muscleMap =
-                    if (state.hasLocalizedIssues == true) {
-                        state.muscleSignals.associate { row ->
-                            MuscleGroup.valueOf(row.muscleKey) to row.signal.toDomain()
-                        }
-                    } else {
-                        emptyMap()
+            val muscleMap =
+                if (state.hasLocalizedIssues == true) {
+                    state.muscleSignals.associate { row ->
+                        MuscleGroup.valueOf(row.muscleKey) to row.signal.toDomain()
                     }
-                val subjective =
-                    CheckInSubjectiveFeedback(
-                        overallRecovery = state.overallRecovery.toDomain(),
-                        muscleSignals = muscleMap,
-                    )
-                val evaluation =
-                    evaluateCheckIn(subjective)
-                        ?: error("No active program to evaluate")
+                } else {
+                    emptyMap()
+                }
+            val subjective =
+                CheckInSubjectiveFeedback(
+                    overallRecovery = state.overallRecovery.toDomain(),
+                    muscleSignals = muscleMap,
+                )
+            val evaluation = evaluateCheckIn(subjective)
+            if (evaluation == null) {
                 _uiState.update {
                     it.copy(
                         isEvaluating = false,
-                        phase = CheckInPhase.Recommendations,
-                        programLiftIds = evaluation.programLiftIds.map { id -> id.value }.toSet(),
-                        recommendations =
-                            evaluation.recommendations.mapNotNull { rec -> rec.toUi(accepted = true) },
+                        errorMessage = "No active program to evaluate",
                     )
                 }
-            }.onFailure { error ->
-                _uiState.update {
-                    it.copy(
-                        isEvaluating = false,
-                        errorMessage = error.message ?: "Could not evaluate check-in",
-                    )
-                }
+                return@launch
+            }
+            _uiState.update {
+                it.copy(
+                    isEvaluating = false,
+                    phase = CheckInPhase.Recommendations,
+                    programLiftIds = evaluation.programLiftIds.map { id -> id.value }.toSet(),
+                    recommendations =
+                        evaluation.recommendations.mapNotNull { rec -> rec.toUi(accepted = true) },
+                )
             }
         }
     }
@@ -294,20 +292,22 @@ class CheckInViewModel @Inject constructor(
         if (!applyInFlight.compareAndSet(false, true)) return
         viewModelScope.launch {
             _uiState.update { it.copy(isApplying = true, errorMessage = null) }
-            runCatching {
-                val commands =
-                    _uiState.value.recommendations.mapNotNull { it.toApplyCommand() }
-                applyRecommendations(commands).getOrThrow()
-                dismiss()
-            }.onFailure { error ->
-                applyInFlight.set(false)
-                _uiState.update {
-                    it.copy(
-                        isApplying = false,
-                        errorMessage = error.message ?: "Could not apply check-in",
-                    )
+            val commands =
+                _uiState.value.recommendations.mapNotNull { it.toApplyCommand() }
+            applyRecommendations(commands)
+                .onSuccess {
+                    applyInFlight.set(false)
+                    dismiss()
                 }
-            }
+                .onFailure { error ->
+                    applyInFlight.set(false)
+                    _uiState.update {
+                        it.copy(
+                            isApplying = false,
+                            errorMessage = error.message ?: "Could not apply check-in",
+                        )
+                    }
+                }
         }
     }
 

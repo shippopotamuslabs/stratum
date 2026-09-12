@@ -30,22 +30,25 @@ class ApplyCheckInRecommendationsUseCase @Inject constructor(
     suspend operator fun invoke(
         commands: List<CheckInApplyCommand>,
         now: Instant = Instant.now(),
-    ): Result<Unit> =
-        com.stratum.domain.logging.runCatchingLogged(
-            loggingPort,
-            TAG,
-            "Failed to apply check-in recommendations",
-        ) {
-            if (commands.isNotEmpty()) {
-                val program =
-                    programRepository.getProgram()
-                        ?: error("No active program found to apply check-in")
-                val (updated, events) = applyAll(program, commands, now)
+    ): Result<Unit> {
+        if (commands.isNotEmpty()) {
+            val program =
+                programRepository.getProgram()
+                    ?: return Result.failure(IllegalStateException("No active program found to apply check-in"))
+            val (updated, events) =
+                applyAll(program, commands, now).getOrElse { return Result.failure(it) }
+            return com.stratum.domain.logging.runCatchingLogged(
+                loggingPort,
+                TAG,
+                "Failed to apply check-in recommendations",
+            ) {
                 programRepository.saveProgram(updated)
                 events.forEach { programChangeEventRepository.append(it) }
+                completeCheckIn(now).getOrThrow()
             }
-            completeCheckIn(now).getOrThrow()
         }
+        return completeCheckIn(now)
+    }
 
     private companion object {
         const val TAG = "ApplyCheckIn"
@@ -55,15 +58,18 @@ class ApplyCheckInRecommendationsUseCase @Inject constructor(
         program: Program,
         commands: List<CheckInApplyCommand>,
         now: Instant,
-    ): Pair<Program, List<ProgramChangeEvent>> {
+    ): Result<Pair<Program, List<ProgramChangeEvent>>> {
         var workouts = program.workouts
         val events = mutableListOf<ProgramChangeEvent>()
 
         for (command in commands) {
             when (command) {
                 is CheckInApplyCommand.Swap -> {
-                    val hit = findWorkoutLift(workouts, command.workoutLiftId)
-                        ?: error("Workout lift ${command.workoutLiftId.value} not found")
+                    val hit =
+                        findWorkoutLift(workouts, command.workoutLiftId)
+                            ?: return Result.failure(
+                                IllegalArgumentException("Workout lift ${command.workoutLiftId.value} not found"),
+                            )
                     val (workout, lift) = hit
                     val previousLiftId = lift.liftId
                     workouts =
@@ -99,8 +105,11 @@ class ApplyCheckInRecommendationsUseCase @Inject constructor(
                 }
                 is CheckInApplyCommand.SetWorkingSets -> {
                     if (command.targetSetCount >= 1) {
-                        val hit = findWorkoutLift(workouts, command.workoutLiftId)
-                            ?: error("Workout lift ${command.workoutLiftId.value} not found")
+                        val hit =
+                            findWorkoutLift(workouts, command.workoutLiftId)
+                                ?: return Result.failure(
+                                    IllegalArgumentException("Workout lift ${command.workoutLiftId.value} not found"),
+                                )
                         val (workout, lift) = hit
                         if (lift.sets.size != command.targetSetCount) {
                             workouts =
@@ -136,7 +145,7 @@ class ApplyCheckInRecommendationsUseCase @Inject constructor(
                 }
             }
         }
-        return program.copy(workouts = workouts) to events
+        return Result.success(program.copy(workouts = workouts) to events)
     }
 
     private fun findWorkoutLift(
