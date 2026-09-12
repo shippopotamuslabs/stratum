@@ -1,7 +1,6 @@
 package com.stratum.domain.workout
 
 import com.stratum.domain.logging.LoggingPort
-import com.stratum.domain.logging.runCatchingLogged
 import com.stratum.domain.program.ProgramRepository
 import com.stratum.domain.program.ProgressionRepRangePolicy
 import com.stratum.domain.program.WorkoutLift
@@ -42,17 +41,15 @@ class ApplyRepRangeShiftUseCase @Inject constructor(
         proposedRepMax: Int,
         fatigueSlope: Double,
         setCount: Int,
-    ): Result<Unit> =
-        runCatchingLogged(
-            loggingPort = loggingPort,
-            tag = TAG,
-            message = "Failed to apply rep-range shift for ${workoutLiftId.value}",
-        ) {
-            require(proposedRepMin > 0) { "proposedRepMin must be positive" }
-            require(proposedRepMax >= proposedRepMin) {
-                "proposedRepMax must be ≥ proposedRepMin"
-            }
+    ): ApplyRepRangeShiftResult {
+        if (proposedRepMin <= 0) {
+            return ApplyRepRangeShiftResult.ProposalMismatch("proposedRepMin must be positive")
+        }
+        if (proposedRepMax < proposedRepMin) {
+            return ApplyRepRangeShiftResult.ProposalMismatch("proposedRepMax must be ≥ proposedRepMin")
+        }
 
+        return try {
             writeMutex.withLock {
                 applyLocked(
                     workoutLiftId = workoutLiftId,
@@ -64,7 +61,11 @@ class ApplyRepRangeShiftUseCase @Inject constructor(
                     setCount = setCount,
                 )
             }
+        } catch (t: Throwable) {
+            loggingPort.error(TAG, "Failed to apply rep-range shift for ${workoutLiftId.value}", t)
+            ApplyRepRangeShiftResult.Failure(t)
         }
+    }
 
     private suspend fun applyLocked(
         workoutLiftId: WorkoutLiftId,
@@ -74,55 +75,31 @@ class ApplyRepRangeShiftUseCase @Inject constructor(
         proposedRepMax: Int,
         fatigueSlope: Double,
         setCount: Int,
-    ) {
+    ): ApplyRepRangeShiftResult {
         val program =
             programRepository.getProgram()
-                ?: error("No active program found to apply rep-range shift")
+                ?: return ApplyRepRangeShiftResult.ProgramNotFound
 
         val hit =
             program.workouts.firstNotNullOfOrNull { workout ->
                 workout.workoutLifts
                     .firstOrNull { it.id == workoutLiftId }
                     ?.let { workout to it }
-            }
-                ?: error("Workout lift ${workoutLiftId.value} not found in the program")
+            } ?: return ApplyRepRangeShiftResult.LiftNotFound
 
         val (parentWorkout, targetLift) = hit
-        val liveBand = currentBand(targetLift)
-        if (liveBand.first != expectedCurrentRepMin || liveBand.second != expectedCurrentRepMax) {
-            error(
-                "Rep band changed since proposal " +
-                    "(live ${liveBand.first}–${liveBand.second}, " +
-                    "expected $expectedCurrentRepMin–$expectedCurrentRepMax)",
+        val mismatch =
+            validateProposal(
+                targetLift = targetLift,
+                workoutLiftId = workoutLiftId,
+                expectedCurrentRepMin = expectedCurrentRepMin,
+                expectedCurrentRepMax = expectedCurrentRepMax,
+                proposedRepMin = proposedRepMin,
+                proposedRepMax = proposedRepMax,
+                fatigueSlope = fatigueSlope,
+                setCount = setCount,
             )
-        }
-
-        val liveSetCount = targetLift.sets.size
-        if (setCount > 0 && setCount != liveSetCount) {
-            error(
-                "Set count changed since proposal (live $liveSetCount, expected $setCount)",
-            )
-        }
-        val evaluation =
-            evaluateRepRangeShift(
-                RepRangeShiftInput(
-                    fatigueSlope = fatigueSlope,
-                    setCount = liveSetCount,
-                    currentRepMin = liveBand.first,
-                    currentRepMax = liveBand.second,
-                ),
-            ) ?: error("Rep-range shift no longer warranted for ${workoutLiftId.value}")
-
-        if (
-            evaluation.proposedRepMin != proposedRepMin ||
-            evaluation.proposedRepMax != proposedRepMax
-        ) {
-            error(
-                "Proposed band mismatch " +
-                    "(live eval ${evaluation.proposedRepMin}–${evaluation.proposedRepMax}, " +
-                    "card $proposedRepMin–$proposedRepMax)",
-            )
-        }
+        if (mismatch != null) return mismatch
 
         val updatedLift =
             withRepBand(
@@ -164,6 +141,58 @@ class ApplyRepRangeShiftUseCase @Inject constructor(
                 error,
             )
         }
+
+        return ApplyRepRangeShiftResult.Success
+    }
+
+    private fun validateProposal(
+        targetLift: WorkoutLift,
+        workoutLiftId: WorkoutLiftId,
+        expectedCurrentRepMin: Int,
+        expectedCurrentRepMax: Int,
+        proposedRepMin: Int,
+        proposedRepMax: Int,
+        fatigueSlope: Double,
+        setCount: Int,
+    ): ApplyRepRangeShiftResult.ProposalMismatch? {
+        val liveBand = currentBand(targetLift)
+        if (liveBand.first != expectedCurrentRepMin || liveBand.second != expectedCurrentRepMax) {
+            return ApplyRepRangeShiftResult.ProposalMismatch(
+                "Rep band changed since proposal " +
+                    "(live ${liveBand.first}–${liveBand.second}, " +
+                    "expected $expectedCurrentRepMin–$expectedCurrentRepMax)",
+            )
+        }
+
+        val liveSetCount = targetLift.sets.size
+        if (setCount > 0 && setCount != liveSetCount) {
+            return ApplyRepRangeShiftResult.ProposalMismatch(
+                "Set count changed since proposal (live $liveSetCount, expected $setCount)",
+            )
+        }
+        val evaluation =
+            evaluateRepRangeShift(
+                RepRangeShiftInput(
+                    fatigueSlope = fatigueSlope,
+                    setCount = liveSetCount,
+                    currentRepMin = liveBand.first,
+                    currentRepMax = liveBand.second,
+                ),
+            ) ?: return ApplyRepRangeShiftResult.ProposalMismatch(
+                "Rep-range shift no longer warranted for ${workoutLiftId.value}",
+            )
+
+        if (
+            evaluation.proposedRepMin != proposedRepMin ||
+            evaluation.proposedRepMax != proposedRepMax
+        ) {
+            return ApplyRepRangeShiftResult.ProposalMismatch(
+                "Proposed band mismatch " +
+                    "(live eval ${evaluation.proposedRepMin}–${evaluation.proposedRepMax}, " +
+                    "card $proposedRepMin–$proposedRepMax)",
+            )
+        }
+        return null
     }
 
     /**

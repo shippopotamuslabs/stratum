@@ -16,6 +16,7 @@ import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.training.GetWorkoutSummaryUseCase
 import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.domain.workout.AnalyzeSessionRepRangeShiftProposalsUseCase
+import com.stratum.domain.workout.ApplyRepRangeShiftResult
 import com.stratum.domain.workout.ApplyRepRangeShiftUseCase
 import com.stratum.domain.workout.RepRangeShiftProposalPreferences
 import com.stratum.feature.workout.ui.EquipmentProposalUiMapper
@@ -191,8 +192,8 @@ class WorkoutCompleteViewModel @Inject constructor(
                             fatigueSlope = proposal.fatigueSlope,
                             setCount = proposal.setCount,
                         )
-                    result
-                        .onSuccess {
+                    when (result) {
+                        is ApplyRepRangeShiftResult.Success -> {
                             settled = true
                             enqueueUserMessage(RepRangeShiftUiMapper.successMessage(proposal))
                             applyRepRangeSnapshot(
@@ -203,7 +204,7 @@ class WorkoutCompleteViewModel @Inject constructor(
                             )
                             publishNextUserMessage()
                         }
-                        .onFailure {
+                        else -> {
                             settled = true
                             enqueueUserMessage(RepRangeShiftUiMapper.MSG_APPLY_FAILED)
                             applyRepRangeSnapshot(
@@ -214,6 +215,7 @@ class WorkoutCompleteViewModel @Inject constructor(
                             )
                             publishNextUserMessage()
                         }
+                    }
                 } finally {
                     if (!settled) {
                         applyRepRangeSnapshot(repRangeSession.releaseApply(proposalId))

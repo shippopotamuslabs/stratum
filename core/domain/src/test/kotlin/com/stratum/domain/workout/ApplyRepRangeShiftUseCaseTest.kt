@@ -143,7 +143,7 @@ class ApplyRepRangeShiftUseCaseTest {
                 FakeLoggingPort(),
             )
 
-        assertTrue(
+        val result =
             useCase(
                 workoutLiftId = wlId,
                 expectedCurrentRepMin = 8,
@@ -152,8 +152,9 @@ class ApplyRepRangeShiftUseCaseTest {
                 proposedRepMax = 16,
                 fatigueSlope = -3.0,
                 setCount = 4,
-            ).isFailure,
-        )
+            )
+        assertTrue(result.isFailure)
+        assertTrue(result is ApplyRepRangeShiftResult.ProposalMismatch)
         assertEquals(0, programRepo.saveProgramCalls.size)
     }
 
@@ -167,7 +168,7 @@ class ApplyRepRangeShiftUseCaseTest {
                 FakeProgramChangeEventRepository(),
                 FakeLoggingPort(),
             )
-        assertTrue(
+        val result =
             useCase(
                 workoutLiftId = WorkoutLiftId("missing"),
                 expectedCurrentRepMin = 8,
@@ -176,8 +177,9 @@ class ApplyRepRangeShiftUseCaseTest {
                 proposedRepMax = 12,
                 fatigueSlope = -2.0,
                 setCount = 3,
-            ).isFailure,
-        )
+            )
+        assertTrue(result.isFailure)
+        assertEquals(ApplyRepRangeShiftResult.LiftNotFound, result)
     }
 
     private fun set(
