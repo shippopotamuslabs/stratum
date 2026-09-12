@@ -36,14 +36,21 @@ class MergeLiftsUseCase @Inject constructor(
     suspend operator fun invoke(
         targetLiftId: LiftId,
         sourceLiftIds: Set<LiftId>,
-    ): Result<Unit> =
-        runCatchingLogged(loggingPort, TAG, "Failed to merge lifts") {
-            require(sourceLiftIds.isNotEmpty()) { "At least one source lift is required" }
-            require(targetLiftId !in sourceLiftIds) { "Target lift cannot also be a source" }
+    ): Result<Unit> {
+        if (sourceLiftIds.isEmpty()) {
+            return Result.failure(IllegalArgumentException("At least one source lift is required"))
+        }
+        if (targetLiftId in sourceLiftIds) {
+            return Result.failure(IllegalArgumentException("Target lift cannot also be a source"))
+        }
 
-            val allIds = sourceLiftIds + targetLiftId
-            val lifts = liftRepository.getLiftsByIds(allIds)
-            require(lifts.size == allIds.size) { "One or more selected lifts were not found" }
+        val allIds = sourceLiftIds + targetLiftId
+        val lifts = liftRepository.getLiftsByIds(allIds)
+        if (lifts.size != allIds.size) {
+            return Result.failure(IllegalArgumentException("One or more selected lifts were not found"))
+        }
+
+        return runCatchingLogged(loggingPort, TAG, "Failed to merge lifts") {
             val target = lifts.first { it.id == targetLiftId }
             val sources = lifts.filter { it.id in sourceLiftIds }
 
@@ -71,6 +78,7 @@ class MergeLiftsUseCase @Inject constructor(
                 )
             }
         }
+    }
 
     private suspend fun remapActiveSessionOverlay(
         sourceLiftIds: Set<LiftId>,
@@ -88,7 +96,7 @@ class MergeLiftsUseCase @Inject constructor(
         val allForTarget = trainingLogRepository.getSetsForLift(targetLiftId)
         if (allForTarget.isEmpty()) return
 
-        val prResult = computePersonalRecords(allForTarget).getOrThrow()
+        val prResult = computePersonalRecords(allForTarget).getOrElse { return }
         val toPersist = prResult.updatedIncomingSets + prResult.oldPrSetsToUpdate
         if (toPersist.isNotEmpty()) {
             trainingLogRepository.updateSets(toPersist)

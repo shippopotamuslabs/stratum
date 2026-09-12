@@ -419,6 +419,15 @@ class MergeLiftsUseCaseTest {
         assertEquals(0, mergePort.applyMergeCallCount)
     }
 
+    @Test
+    @DisplayName("Given missing lift id when invoked then fails")
+    fun rejectsMissingLift() = runTest {
+        val unknownId = LiftId("unknown-lift")
+        val result = subject(targetLiftId = targetId, sourceLiftIds = setOf(unknownId))
+        assertTrue(result.isFailure)
+        assertEquals(0, mergePort.applyMergeCallCount)
+    }
+
     private fun lift(
         id: LiftId,
         name: String,
