@@ -45,32 +45,36 @@ class LocalDerivedTrainingStages @Inject constructor(
                 if (includeInsights) {
                     val insightsResult = extractTrainingInsights(scope = InsightsAnalysisScope.All)
                     if (insightsResult.isFailure) {
+                        val error = insightsResult.exceptionOrNull()
                         loggingPort.error(
                             logTag,
-                            "Insights rollup failed: ${insightsResult.exceptionOrNull()?.message}",
-                            insightsResult.exceptionOrNull(),
+                            "Insights rollup failed: ${error?.message}",
+                            error,
                         )
-                        when (failPolicy) {
-                            FailPolicy.Throw -> insightsResult.getOrThrow()
-                            FailPolicy.LogAndContinue -> Unit
+                        if (failPolicy == FailPolicy.Throw) {
+                            return@withContext Result.failure(
+                                error ?: IllegalStateException("Insights rollup failed"),
+                            )
                         }
                     }
                 }
                 ensureActive()
                 val weeklyResult = refreshWeeklySeries()
                 if (weeklyResult.isFailure) {
+                    val error = weeklyResult.exceptionOrNull()
                     loggingPort.error(
                         logTag,
-                        "Weekly series rebuild failed: ${weeklyResult.exceptionOrNull()?.message}",
-                        weeklyResult.exceptionOrNull(),
+                        "Weekly series rebuild failed: ${error?.message}",
+                        error,
                     )
-                    when (failPolicy) {
-                        FailPolicy.Throw -> weeklyResult.getOrThrow()
-                        FailPolicy.LogAndContinue -> Unit
+                    if (failPolicy == FailPolicy.Throw) {
+                        return@withContext Result.failure(
+                            error ?: IllegalStateException("Weekly series rebuild failed"),
+                        )
                     }
                 }
+                Result.success(Unit)
             }
-            Result.success(Unit)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
