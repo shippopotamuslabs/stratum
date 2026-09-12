@@ -36,21 +36,30 @@ class UpdateCompletedSessionSetsUseCase @Inject constructor(
     suspend operator fun invoke(
         sessionId: TrainingSessionId,
         desiredSets: List<LoggedSet>,
-    ): Result<Unit> = runCatching {
+    ): Result<Unit> {
         val session =
             trainingLogRepository.getSession(sessionId)
-                ?: throw IllegalArgumentException("Training session ${sessionId.value} not found")
-        require(session.status == TrainingSessionStatus.COMPLETED) {
-            "Training session ${sessionId.value} is not completed (status=${session.status})"
+                ?: return Result.failure(
+                    IllegalArgumentException("Training session ${sessionId.value} not found"),
+                )
+        if (session.status != TrainingSessionStatus.COMPLETED) {
+            return Result.failure(
+                IllegalArgumentException("Training session ${sessionId.value} is not completed (status=${session.status})"),
+            )
         }
-        require(desiredSets.isNotEmpty()) {
-            "Completed session ${sessionId.value} must retain at least one set"
+        if (desiredSets.isEmpty()) {
+            return Result.failure(
+                IllegalArgumentException("Completed session ${sessionId.value} must retain at least one set"),
+            )
         }
-        require(desiredSets.all { it.sessionId == sessionId }) {
-            "All desired sets must belong to session ${sessionId.value}"
+        if (desiredSets.any { it.sessionId != sessionId }) {
+            return Result.failure(
+                IllegalArgumentException("All desired sets must belong to session ${sessionId.value}"),
+            )
         }
 
-        val currentSets = trainingLogRepository.getSetsForSession(sessionId)
+        return runCatching {
+            val currentSets = trainingLogRepository.getSetsForSession(sessionId)
         val currentById = currentSets.associateBy { it.id }
         val desiredById = desiredSets.associateBy { it.id }
 
@@ -122,6 +131,7 @@ class UpdateCompletedSessionSetsUseCase @Inject constructor(
         }
     }.onFailure { error ->
         loggingPort.error(TAG, "Failed to update completed session sets: ${error.message}", error)
+    }
     }
 
     /**

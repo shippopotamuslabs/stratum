@@ -30,21 +30,21 @@ class FinalizeTrainingSessionUseCase @Inject constructor(
     @ApplicationScope private val refreshScope: CoroutineScope =
         CoroutineScope(Dispatchers.Main.immediate),
 ) {
-    suspend operator fun invoke(sessionId: TrainingSessionId): Result<TrainingSession> =
-        runCatchingLogged(
+    suspend operator fun invoke(sessionId: TrainingSessionId): Result<TrainingSession> {
+        val session =
+            trainingLogRepository.getSession(sessionId)
+                ?: return Result.failure(
+                    IllegalArgumentException("Training session ${sessionId.value} not found"),
+                )
+        if (session.status != TrainingSessionStatus.IN_PROGRESS) {
+            return Result.failure(TrainingSessionNotInProgressException(sessionId, session.status))
+        }
+
+        return runCatchingLogged(
             loggingPort = loggingPort,
             tag = TAG,
             message = "Failed to finalize training session ${sessionId.value}",
         ) {
-            val session =
-                trainingLogRepository.getSession(sessionId)
-                    ?: throw IllegalArgumentException(
-                        "Training session ${sessionId.value} not found",
-                    )
-            if (session.status != TrainingSessionStatus.IN_PROGRESS) {
-                throw TrainingSessionNotInProgressException(sessionId, session.status)
-            }
-
             val completed =
                 session.copy(
                     status = TrainingSessionStatus.COMPLETED,
@@ -128,6 +128,7 @@ class FinalizeTrainingSessionUseCase @Inject constructor(
 
             completed
         }
+    }
 
     private companion object {
         const val TAG = "FinalizeTrainingSession"

@@ -358,15 +358,36 @@ class FinalizeTrainingSessionUseCaseTest {
         assertEquals(TrainingSessionStatus.COMPLETED, result.getOrThrow().status)
     }
 
+    @Test
+    @DisplayName("Returns failure when session not found")
+    fun returnsFailureWhenSessionNotFound() = runTest {
+        val useCase = buildUseCase()
+        val result = useCase(TrainingSessionId("missing"))
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull() is IllegalArgumentException)
+    }
+
+    @Test
+    @DisplayName("Returns failure when session is not in progress")
+    fun returnsFailureWhenSessionNotInProgress() = runTest {
+        val programRepo = FakeProgramRepository(WorkoutLoggingFixtures.twoWorkoutProgram())
+        val repo = FakeTrainingLogRepository(programRepository = programRepo)
+        repo.seedSession(WorkoutLoggingFixtures.completedLiveSession(id = "ts-completed"))
+        val useCase = buildUseCase(programRepo = programRepo, repo = repo)
+        val result = useCase(TrainingSessionId("ts-completed"))
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull() is TrainingSessionNotInProgressException)
+    }
+
     private suspend fun buildUseCase(
         programRepo: FakeProgramRepository = FakeProgramRepository(WorkoutLoggingFixtures.twoWorkoutProgram()),
         eventRepository: FakeProgramChangeEventRepository = FakeProgramChangeEventRepository(),
-    ): FinalizeTrainingSessionUseCase {
-        val repo =
+        repo: FakeTrainingLogRepository =
             FakeTrainingLogRepository(
                 programRepository = programRepo,
                 programChangeEventRepository = eventRepository,
-            )
+            ),
+    ): FinalizeTrainingSessionUseCase {
         repo.seedSession(WorkoutLoggingFixtures.inProgressSession(id = "ts-live-1"))
         repo.seedSession(
             WorkoutLoggingFixtures.inProgressSession(

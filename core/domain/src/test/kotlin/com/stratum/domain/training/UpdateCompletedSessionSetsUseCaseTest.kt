@@ -78,6 +78,31 @@ class UpdateCompletedSessionSetsUseCaseTest {
     }
 
     @Test
+    @DisplayName("returns failure when session is not found")
+    fun returnsFailureWhenSessionNotFound() = runTest {
+        val repo = FakeTrainingLogRepository()
+        val useCase = buildUseCase(repo)
+
+        val result = useCase(TrainingSessionId("non-existent"), listOf(loggedSet("set-1")))
+
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull() is IllegalArgumentException)
+    }
+
+    @Test
+    @DisplayName("returns failure when desired sets list is empty")
+    fun returnsFailureWhenDesiredSetsEmpty() = runTest {
+        val repo = FakeTrainingLogRepository()
+        repo.seedSession(completedSession())
+        val useCase = buildUseCase(repo)
+
+        val result = useCase(sessionId, emptyList())
+
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull() is IllegalArgumentException)
+    }
+
+    @Test
     @DisplayName("adds a new set and deletes a removed set on a completed session")
     fun addAndDeleteSets() = runTest {
         val repo = FakeTrainingLogRepository()

@@ -36,22 +36,29 @@ class UpdateCompletedSessionTimesUseCase @Inject constructor(
         sessionId: TrainingSessionId,
         startedAt: Instant,
         endedAt: Instant,
-    ): Result<Unit> = runCatchingLogged(
-        loggingPort = loggingPort,
-        tag = TAG,
-        message = "Failed to update completed session times",
-    ) {
+    ): Result<Unit> {
         val session =
             trainingLogRepository.getSession(sessionId)
-                ?: throw IllegalArgumentException("Training session ${sessionId.value} not found")
-        require(session.status == TrainingSessionStatus.COMPLETED) {
-            "Training session ${sessionId.value} is not completed (status=${session.status})"
+                ?: return Result.failure(
+                    IllegalArgumentException("Training session ${sessionId.value} not found"),
+                )
+        if (session.status != TrainingSessionStatus.COMPLETED) {
+            return Result.failure(
+                IllegalArgumentException("Training session ${sessionId.value} is not completed (status=${session.status})"),
+            )
         }
-        require(!startedAt.isAfter(endedAt)) {
-            "Start time ($startedAt) cannot be after finish time ($endedAt)"
+        if (startedAt.isAfter(endedAt)) {
+            return Result.failure(
+                IllegalArgumentException("Start time ($startedAt) cannot be after finish time ($endedAt)"),
+            )
         }
 
-        val wasInModel = sessionWasInLastModelingRun(session)
+        return runCatchingLogged(
+            loggingPort = loggingPort,
+            tag = TAG,
+            message = "Failed to update completed session times",
+        ) {
+            val wasInModel = sessionWasInLastModelingRun(session)
 
         val currentSets = trainingLogRepository.getSetsForSession(sessionId)
         val shiftedSets =
@@ -101,8 +108,8 @@ class UpdateCompletedSessionTimesUseCase @Inject constructor(
                 logTag = TAG,
             )
         }
-        Unit
     }
+}
 
     internal fun shiftSetTimestamps(
         sets: List<LoggedSet>,
