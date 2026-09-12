@@ -55,6 +55,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * Screen ViewModel for the live workout session.
@@ -92,7 +93,7 @@ class WorkoutViewModel @Inject constructor(
     private val workoutEditSession: WorkoutEditSession,
     private val liveWorkoutSurfaces: LiveWorkoutSurfaces,
     observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
-    logError: LogErrorUseCase,
+    private val logError: LogErrorUseCase,
     private val saveLiftNotesUseCase: SaveLiftNotesUseCase,
     private val getPastSessionNotesForLift: GetPastSessionNotesForLiftUseCase,
     private val getSessionLiftNote: GetSessionLiftNoteUseCase,
@@ -211,7 +212,15 @@ class WorkoutViewModel @Inject constructor(
             workoutEditSession.events.collect { event ->
                 when (event) {
                     is EditSessionEvent.LiftSelected -> {
-                        if (event.workoutId != session.activeWorkoutId()?.value) return@collect
+                        val activeWorkoutId = session.activeWorkoutId()?.value
+                        if (event.workoutId != activeWorkoutId) {
+                            logError(
+                                TAG,
+                                "Ignored LiftSelected: event workoutId (${event.workoutId}) " +
+                                    "does not match active session ($activeWorkoutId)",
+                            )
+                            return@collect
+                        }
                         val targetLiftId = event.workoutLiftId
                         if (targetLiftId != null) {
                             swapLift(WorkoutLiftId(targetLiftId), LiftId(event.liftId))
@@ -220,15 +229,30 @@ class WorkoutViewModel @Inject constructor(
                         }
                     }
                     is EditSessionEvent.LiftsSelected -> {
-                        if (event.workoutId != session.activeWorkoutId()?.value) return@collect
+                        val activeWorkoutId = session.activeWorkoutId()?.value
+                        if (event.workoutId != activeWorkoutId) {
+                            logError(
+                                TAG,
+                                "Ignored LiftsSelected: event workoutId (${event.workoutId}) " +
+                                    "does not match active session ($activeWorkoutId)",
+                            )
+                            return@collect
+                        }
                         addLifts(
                             liftIds = event.liftIds.map { LiftId(it) },
                             asSuperset = event.asSuperset,
                         )
                     }
                     is EditSessionEvent.LiftsReordered -> {
-                        if (event.workoutId == session.activeWorkoutId()?.value) {
+                        val activeWorkoutId = session.activeWorkoutId()?.value
+                        if (event.workoutId == activeWorkoutId) {
                             reorderLifts(event.orderedWorkoutLiftIds)
+                        } else {
+                            logError(
+                                TAG,
+                                "Ignored LiftsReordered: event workoutId (${event.workoutId}) " +
+                                    "does not match active session ($activeWorkoutId)",
+                            )
                         }
                     }
                 }
@@ -499,10 +523,19 @@ class WorkoutViewModel @Inject constructor(
         }
     }
 
-    /** Non-critical UI mutators; surfaces a message if the session channel is closed. */
+    /** Non-critical UI mutators; dispatches to the session actor or surfaces a message if closed. */
     private fun enqueue(cmd: SessionCommand) {
         if (!session.trySend(cmd)) {
-            _userMessage.value = MSG_SESSION_COMMAND_DROPPED
+            viewModelScope.launch {
+                try {
+                    session.send(cmd)
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (error: Throwable) {
+                    logError(TAG, "Session command dropped: ${error.message}", error)
+                    _userMessage.value = MSG_SESSION_COMMAND_DROPPED
+                }
+            }
         }
     }
 
@@ -575,6 +608,7 @@ class WorkoutViewModel @Inject constructor(
     }
 
     private companion object {
+        const val TAG = "WorkoutViewModel"
         const val MSG_ABANDON_FAILED = "Couldn't cancel the workout. Try again."
         const val MSG_SESSION_COMMAND_DROPPED =
             "Couldn't update the workout. Leave and re-open the session."

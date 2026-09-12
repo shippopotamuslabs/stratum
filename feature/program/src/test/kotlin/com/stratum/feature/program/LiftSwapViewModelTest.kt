@@ -2,6 +2,7 @@ package com.stratum.feature.program
 
 import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.NoOpProgramChangeEventRepository
@@ -10,6 +11,7 @@ import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.RankSwapCandidatesUseCase
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.Program
@@ -41,6 +43,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 @OptIn(ExperimentalCoroutinesApi::class)
 @ExtendWith(MainDispatcherRule::class)
 class LiftSwapViewModelTest {
+    private lateinit var fakeLoggingPort: FakeLoggingPort
     private lateinit var liftRepository: FakeLiftRepository
     private lateinit var workoutEditSession: WorkoutEditSession
     private lateinit var programRepository: FakeProgramRepository
@@ -48,6 +51,7 @@ class LiftSwapViewModelTest {
 
     @BeforeEach
     fun setUp() {
+        fakeLoggingPort = FakeLoggingPort()
         liftRepository =
             FakeLiftRepository(
                 initialLifts =
@@ -66,8 +70,9 @@ class LiftSwapViewModelTest {
                 swapWorkoutLift = SwapWorkoutLiftUseCase(
                     programRepository,
                     NoOpProgramChangeEventRepository(),
-                    com.stratum.core.testing.logging.FakeLoggingPort(),
+                    fakeLoggingPort,
                 ),
+                logError = LogErrorUseCase(fakeLoggingPort),
             )
     }
 
@@ -301,6 +306,31 @@ class LiftSwapViewModelTest {
             cancelAndIgnoreRemainingEvents()
         }
         job.cancel()
+    }
+
+    @Test
+    @DisplayName("Given PersistToProgram when swap fails then user message is shown and error is logged")
+    fun persistToProgramLogsErrorWhenSwapFails() = runTest {
+        viewModel.initialize(
+            workoutId = WORKOUT_ID,
+            workoutLiftId = "wl-nonexistent",
+            liftId = "bench-press",
+            liftName = "Barbell Bench Press",
+            commitMode = LiftSwapCommitMode.PersistToProgram,
+        )
+
+        viewModel.liftSwapState.test {
+            val state = awaitNonNullState()
+            val incline = state.options.first { it.id == "incline-press" }
+            var completed = false
+            viewModel.onLiftClicked(incline) { completed = true }
+            advanceUntilIdle()
+            assertFalse(completed)
+            assertEquals("Couldn't swap that lift. Try again.", viewModel.userMessage.value)
+            assertTrue(fakeLoggingPort.errors.isNotEmpty())
+            assertTrue(fakeLoggingPort.errors.any { it.message.contains("Failed to persist lift swap") })
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     private suspend fun app.cash.turbine.ReceiveTurbine<LiftSwapSheetState?>.awaitNonNullState(): LiftSwapSheetState {

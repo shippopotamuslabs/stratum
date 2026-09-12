@@ -72,7 +72,8 @@ class SwapWorkoutLiftUseCaseTest {
 
         assertTrue(result.isFailure)
         assertTrue(result.exceptionOrNull() is IllegalStateException)
-        assertTrue(logging.errors.isEmpty())
+        assertEquals(1, logging.errors.size)
+        assertTrue(logging.errors.first().message.contains("No active program found"))
     }
 
     @Test
@@ -116,7 +117,8 @@ class SwapWorkoutLiftUseCaseTest {
         // Verify program was not modified
         val currentProgram = repository.getProgram()
         assertEquals(LiftId("bench-press"), currentProgram?.workouts?.first()?.workoutLifts?.first()?.liftId)
-        assertTrue(logging.errors.isEmpty())
+        assertEquals(1, logging.errors.size)
+        assertTrue(logging.errors.first().message.contains("not found in the program"))
     }
 
     @Test
