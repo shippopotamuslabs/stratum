@@ -32,7 +32,13 @@ class SwapWorkoutLiftUseCase @Inject constructor(
             } catch (error: Throwable) {
                 loggingPort.error(TAG, "Failed to swap workout lift: ${error.message}", error)
                 return Result.failure(error)
-            } ?: return Result.failure(IllegalStateException("No active program found to swap lift"))
+            }
+
+        if (program == null) {
+            val error = IllegalStateException("No active program found to swap lift")
+            loggingPort.error(TAG, "Failed to swap workout lift: ${error.message}", error)
+            return Result.failure(error)
+        }
 
         var found = false
         var previousLiftId: LiftId? = null
@@ -50,9 +56,9 @@ class SwapWorkoutLiftUseCase @Inject constructor(
         }
 
         if (!found) {
-            return Result.failure(
-                IllegalArgumentException("Workout lift with ID $workoutLiftId not found in the program"),
-            )
+            val error = IllegalArgumentException("Workout lift with ID $workoutLiftId not found in the program")
+            loggingPort.error(TAG, "Failed to swap workout lift: ${error.message}", error)
+            return Result.failure(error)
         }
 
         val updatedProgram = program.copy(workouts = updatedWorkouts)
