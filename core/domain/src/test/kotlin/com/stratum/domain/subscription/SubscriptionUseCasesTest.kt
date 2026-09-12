@@ -63,6 +63,24 @@ class SubscriptionUseCasesTest {
     }
 
     @Test
+    fun `restore purchases propagates billing failure`() = runTest {
+        fakeBilling.restorePurchasesResult = Result.failure(IllegalStateException("Billing unavailable"))
+        val useCase = RestorePurchasesUseCase(fakeBilling, fakeRepo)
+        val result = useCase()
+        assertTrue(result.isFailure)
+        assertEquals("Billing unavailable", result.exceptionOrNull()?.message)
+    }
+
+    @Test
+    fun `restore purchases propagates repository refresh failure`() = runTest {
+        fakeRepo.refreshResult = Result.failure(IllegalStateException("Refresh failed"))
+        val useCase = RestorePurchasesUseCase(fakeBilling, fakeRepo)
+        val result = useCase()
+        assertTrue(result.isFailure)
+        assertEquals("Refresh failed", result.exceptionOrNull()?.message)
+    }
+
+    @Test
     fun `observe billing purchase results forwards port emissions`() = runTest {
         val useCase = ObserveBillingPurchaseResultsUseCase(fakeBilling)
         useCase().test {

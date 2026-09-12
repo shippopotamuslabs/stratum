@@ -27,10 +27,11 @@ class RestorePurchasesUseCase @Inject constructor(
     private val billingPort: BillingPort,
     private val repository: EntitlementRepository,
 ) {
-    suspend operator fun invoke(): Result<EntitlementState> = runCatching {
-        billingPort.restorePurchases().getOrThrow()
-        repository.refreshEntitlement().getOrThrow()
-    }
+    suspend operator fun invoke(): Result<EntitlementState> =
+        billingPort.restorePurchases().fold(
+            onSuccess = { repository.refreshEntitlement() },
+            onFailure = { Result.failure(it) },
+        )
 }
 
 class ObserveBillingPurchaseResultsUseCase @Inject constructor(

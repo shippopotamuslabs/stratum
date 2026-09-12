@@ -121,6 +121,16 @@ class SubscriptionRepositoryImplTest {
     }
 
     @Test
+    @DisplayName("refresh propagates failure when billing restore fails")
+    fun refreshFailsWhenBillingRestoreFails() = runTest {
+        fakeBilling.restorePurchasesResult = Result.failure(IllegalStateException("Billing service down"))
+
+        val result = repository.refreshEntitlement()
+        org.junit.jupiter.api.Assertions.assertTrue(result.isFailure)
+        assertEquals("Billing service down", result.exceptionOrNull()?.message)
+    }
+
+    @Test
     @DisplayName("complimentary access wins over a known Play purchase")
     fun complimentaryWinsOverPlay() = runTest {
         fakeAuthManager.setState(authenticated("uid-dev"))
