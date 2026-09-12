@@ -34,22 +34,27 @@ class LogoutUseCase @Inject constructor(
 ) {
     suspend operator fun invoke(): Result<Unit> {
         val uid = (authManager.authState.value as? AuthState.Authenticated)?.user?.uid
-        return try {
-            if (uid != null) {
-                endSessionAndWipe(uid).getOrThrow()
-            } else {
-                stopCloudSync()
-            }
-            authManager.signOut().getOrThrow()
+        val wipeOrStopResult = if (uid != null) {
+            endSessionAndWipe(uid)
+        } else {
+            stopCloudSync()
             Result.success(Unit)
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (error: Throwable) {
+        }
+        if (wipeOrStopResult.isFailure) {
             if (uid != null && authManager.authState.value is AuthState.Authenticated) {
                 runCatching { startCloudSync(uid) }
             }
-            Result.failure(error)
+            return wipeOrStopResult
         }
+
+        val signOutResult = authManager.signOut()
+        if (signOutResult.isFailure) {
+            if (uid != null && authManager.authState.value is AuthState.Authenticated) {
+                runCatching { startCloudSync(uid) }
+            }
+            return signOutResult
+        }
+        return Result.success(Unit)
     }
 }
 
@@ -98,43 +103,31 @@ class DeleteAccountUseCase @Inject constructor(
     suspend operator fun invoke(): Result<Unit> {
         val uid = (authManager.authState.value as? AuthState.Authenticated)?.user?.uid
             ?: return Result.failure(IllegalStateException("Not signed in."))
-        var remoteDataDeleted = false
-        return try {
-            // Freeze uploads before Admin cascade so WorkManager cannot re-push Room residuals.
-            stopCloudSync()
-            accountDeletionPort.deleteRemoteUserData().getOrThrow()
-            remoteDataDeleted = true
-            withContext(NonCancellable) {
-                wipeLocalOrThrow(uid)
-                deleteAuthOrThrow()
-                // Auth user is already gone; clear local session/credentials if possible.
-                runCatching { authManager.signOut().getOrThrow() }
-            }
-            Result.success(Unit)
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (error: Throwable) {
-            // Restore sync only when cloud data was not removed (retryable pre-cascade failure).
-            if (
-                !remoteDataDeleted &&
-                authManager.authState.value is AuthState.Authenticated
-            ) {
+        // Freeze uploads before Admin cascade so WorkManager cannot re-push Room residuals.
+        stopCloudSync()
+        val deleteRemoteResult = accountDeletionPort.deleteRemoteUserData()
+        if (deleteRemoteResult.isFailure) {
+            if (authManager.authState.value is AuthState.Authenticated) {
                 runCatching { startCloudSync(uid) }
             }
-            Result.failure(error)
+            return deleteRemoteResult
         }
-    }
-
-    private suspend fun wipeLocalOrThrow(uid: String) {
-        endSessionAndWipe(uid).getOrElse { wipeError ->
-            throw LocalCleanupAfterAccountDeletionException(wipeError)
-        }
-    }
-
-    private suspend fun deleteAuthOrThrow() {
-        accountDeletionPort.deleteRemoteAuthUser().getOrElse { error ->
-            if (error is CancellationException) throw error
-            throw AuthDeleteAfterAccountWipeException(error)
+        return withContext(NonCancellable) {
+            val wipeResult = endSessionAndWipe(uid)
+            if (wipeResult.isFailure) {
+                return@withContext Result.failure(
+                    LocalCleanupAfterAccountDeletionException(wipeResult.exceptionOrNull()),
+                )
+            }
+            val deleteAuthResult = accountDeletionPort.deleteRemoteAuthUser()
+            if (deleteAuthResult.isFailure) {
+                return@withContext Result.failure(
+                    AuthDeleteAfterAccountWipeException(deleteAuthResult.exceptionOrNull()),
+                )
+            }
+            // Auth user is already gone; clear local session/credentials if possible.
+            runCatching { authManager.signOut() }
+            Result.success(Unit)
         }
     }
 }
