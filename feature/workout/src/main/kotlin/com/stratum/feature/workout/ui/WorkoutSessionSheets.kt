@@ -385,6 +385,14 @@ internal fun formatRestDisplay(seconds: Int): String {
     return "$m:$sStr"
 }
 
+internal fun hasUnsavedRestChanges(
+    baseline: Map<String, Int>,
+    pending: Map<String, Int>,
+): Boolean =
+    pending.size != baseline.size ||
+        pending.any { (key, value) -> baseline[key] != value }
+
+
 /**
  * Hosts Lift Options + Configure Rest Times sheets so [WorkoutScreen] stays under
  * Detekt cyclomatic-complexity limits.
@@ -531,9 +539,7 @@ private fun ConfigureRestTimesBottomSheet(
         mutableStateMapOf<String, Int>().apply { putAll(baseline) }
     }
     var expandedSlotKey by remember(lift.workoutLiftId) { mutableStateOf<String?>(null) }
-    val hasUnsaved =
-        pending.entries.any { (key, value) -> baseline[key] != value } ||
-            pending.keys != baseline.keys
+    val hasUnsaved = hasUnsavedRestChanges(baseline = baseline, pending = pending)
 
     StratumBottomSheet(
         onDismissRequest = { onRequestDismiss(hasUnsaved) },
