@@ -73,6 +73,7 @@ dependencies {
     // Firestore requires protobuf-javalite + protolite. Do not exclude them (VerifyError on
     // WriteResponse). OR-Tools full protobuf is relocated in :core:ortools-shaded.
     implementation(libs.firebase.firestore)
+    implementation(libs.firebase.config)
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services.auth)
     implementation(libs.googleid)
@@ -90,6 +91,7 @@ dependencies {
     testImplementation(libs.androidx.junit)
     testImplementation(libs.apter.junit5.robolectric.extension)
     testImplementation(libs.androidx.room.testing)
+    testImplementation(libs.mockk)
     testImplementation(project(":core:testing"))
     testRuntimeOnly(libs.junit.platform.launcher)
 }

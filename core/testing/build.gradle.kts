@@ -22,5 +22,6 @@ dependencies {
     api(libs.kotlinx.coroutines.test)
 
     testImplementation(libs.kotlin.test.junit5)
+    testImplementation(libs.turbine)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
