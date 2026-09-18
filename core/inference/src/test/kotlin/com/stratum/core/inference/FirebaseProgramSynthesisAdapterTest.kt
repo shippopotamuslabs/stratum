@@ -151,6 +151,38 @@ class FirebaseProgramSynthesisAdapterTest {
     }
 
     @Nested
+    @DisplayName("synthesisTraceOutcome")
+    inner class TraceOutcome {
+        @Test
+        @DisplayName("ready status maps to ready")
+        fun ready() {
+            assertEquals("ready", synthesisTraceOutcome(SynthesisRemoteStatus.Ready, timedOut = false))
+        }
+
+        @Test
+        @DisplayName("rejected status maps to rejected")
+        fun rejected() {
+            assertEquals("rejected", synthesisTraceOutcome(SynthesisRemoteStatus.Rejected, timedOut = false))
+        }
+
+        @Test
+        @DisplayName("timeout flag wins over any status")
+        fun timeout() {
+            assertEquals("timeout", synthesisTraceOutcome(status = null, timedOut = true))
+            assertEquals("timeout", synthesisTraceOutcome(SynthesisRemoteStatus.Ready, timedOut = true))
+        }
+
+        @Test
+        @DisplayName("failed, pending, running and unknown states collapse to failed")
+        fun failures() {
+            assertEquals("failed", synthesisTraceOutcome(SynthesisRemoteStatus.Failed, timedOut = false))
+            assertEquals("failed", synthesisTraceOutcome(SynthesisRemoteStatus.Pending, timedOut = false))
+            assertEquals("failed", synthesisTraceOutcome(SynthesisRemoteStatus.Running, timedOut = false))
+            assertEquals("failed", synthesisTraceOutcome(status = null, timedOut = false))
+        }
+    }
+
+    @Nested
     @DisplayName("isUserSafeErrorMessage")
     inner class SafeMessage {
         @Test

@@ -3,6 +3,7 @@ package com.stratum.core.inference
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.functions.FirebaseFunctionsException
+import com.google.firebase.perf.FirebasePerformance
 import com.google.firebase.storage.FirebaseStorage
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
@@ -41,6 +42,9 @@ class FirebaseProgramSynthesisAdapter @Inject constructor(
                 ?: throw ProgramSynthesisException(MESSAGE_SIGN_IN_REQUIRED)
         val jobId = UUID.randomUUID().toString()
         val requestStoragePath = buildSynthesisRequestStoragePath(uid, jobId)
+        val trace = FirebasePerformance.getInstance().newTrace(TRACE_PROGRAM_SYNTHESIS)
+        var outcome = synthesisTraceOutcome(status = null, timedOut = false)
+        trace.start()
 
         try {
             val requestJson = ProgramSynthesisWire.encodeRequest(weeklyTargets, context)
@@ -67,6 +71,7 @@ class FirebaseProgramSynthesisAdapter @Inject constructor(
                         poll = { pollStatus(jobId) },
                     )
                 } catch (_: IllegalStateException) {
+                    outcome = synthesisTraceOutcome(status = null, timedOut = true)
                     throw ProgramSynthesisException(MESSAGE_TIMEOUT)
                 }
 
@@ -81,17 +86,20 @@ class FirebaseProgramSynthesisAdapter @Inject constructor(
                             .child(resultPath)
                             .getBytes(MAX_DOWNLOAD_BYTES)
                             .await()
+                    outcome = synthesisTraceOutcome(snapshot.status, timedOut = false)
                     ProgramSynthesisWire.decodeResult(bytes.decodeToString())
                 }
                 SynthesisRemoteStatus.Failed,
                 SynthesisRemoteStatus.Rejected,
-                ->
+                -> {
+                    outcome = synthesisTraceOutcome(snapshot.status, timedOut = false)
                     throw ProgramSynthesisException(
                         // Prefer server-provided user-safe copy when present; never surface raw infra.
                         snapshot.errorMessage
                             ?.takeIf { it.isUserSafeErrorMessage() }
                             ?: MESSAGE_GENERATION_FAILED,
                     )
+                }
                 SynthesisRemoteStatus.Pending,
                 SynthesisRemoteStatus.Running,
                 ->
@@ -111,6 +119,9 @@ class FirebaseProgramSynthesisAdapter @Inject constructor(
                 message = MESSAGE_GENERATION_FAILED,
                 cause = error,
             )
+        } finally {
+            trace.putAttribute(TRACE_ATTR_OUTCOME, outcome)
+            trace.stop()
         }
     }
 
@@ -213,6 +224,24 @@ internal const val MESSAGE_ALREADY_IN_PROGRESS =
 internal const val MESSAGE_GENERATION_FAILED = "Program generation failed. Please try again."
 internal const val MESSAGE_TIMEOUT =
     "Program generation timed out. Please try again."
+
+internal const val TRACE_PROGRAM_SYNTHESIS = "program_synthesis"
+internal const val TRACE_ATTR_OUTCOME = "outcome"
+
+/**
+ * Outcome label for the `program_synthesis` Performance trace. Kept pure so it stays
+ * unit-testable without Firebase: unexpected states collapse to `"failed"`.
+ */
+internal fun synthesisTraceOutcome(
+    status: SynthesisRemoteStatus?,
+    timedOut: Boolean,
+): String =
+    when {
+        timedOut -> "timeout"
+        status == SynthesisRemoteStatus.Ready -> "ready"
+        status == SynthesisRemoteStatus.Rejected -> "rejected"
+        else -> "failed"
+    }
 
 /**
  * Maps Firebase Functions [code] names (e.g. `RESOURCE_EXHAUSTED`) to user-safe copy.
