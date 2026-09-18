@@ -12,7 +12,11 @@ import com.stratum.domain.importing.ImportFileInput
 import com.stratum.domain.importing.ImportHistoryPersistPolicy
 import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.logging.LogAnalyticsEventUseCase
 import com.stratum.domain.logging.LogErrorUseCase
+import com.stratum.domain.logging.PARAM_ACTION
+import com.stratum.domain.logging.PARAM_SCREEN
+import com.stratum.domain.logging.USER_VISIBLE_ERROR_EVENT
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Job
@@ -44,6 +48,7 @@ class ImportLogsViewModel @Inject constructor(
     private val cancelImport: CancelHistoricalImportUseCase,
     private val authManager: AuthManager,
     private val logError: LogErrorUseCase,
+    private val logAnalytics: LogAnalyticsEventUseCase,
     observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ImportLogsUiState())
@@ -140,6 +145,10 @@ class ImportLogsViewModel @Inject constructor(
         logError(
             IMPORT_LOGS_LOG_TAG,
             "Could not read import files: ${logDetail?.takeIf { it.isNotBlank() } ?: "(no detail)"}",
+        )
+        logAnalytics(
+            USER_VISIBLE_ERROR_EVENT,
+            mapOf(PARAM_SCREEN to "import_logs", PARAM_ACTION to "read_files"),
         )
         _uiState.update {
             it.copy(
@@ -245,6 +254,10 @@ class ImportLogsViewModel @Inject constructor(
                             logError(
                                 IMPORT_LOGS_LOG_TAG,
                                 "Historical import failed (kind=${event.kind}): ${event.message}",
+                            )
+                            logAnalytics(
+                                USER_VISIBLE_ERROR_EVENT,
+                                mapOf(PARAM_SCREEN to "import_logs", PARAM_ACTION to "import_history"),
                             )
                             _uiState.update {
                                 it.copy(

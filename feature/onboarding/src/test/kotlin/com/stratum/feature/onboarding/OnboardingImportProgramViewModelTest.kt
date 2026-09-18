@@ -65,7 +65,8 @@ class OnboardingImportProgramViewModelTest {
                 ),
             ),
         )
-        val (viewModel, onboardingRepo, _) = buildViewModel(importPort, testScheduler)
+        val analytics = com.stratum.core.testing.telemetry.FakeAnalyticsPort()
+        val (viewModel, onboardingRepo, _) = buildViewModel(importPort, testScheduler, analytics)
 
         viewModel.importExistingProgram(ImportFileInput(byteArrayOf(1), "bad.csv"))
         advanceUntilIdle()
@@ -76,6 +77,13 @@ class OnboardingImportProgramViewModelTest {
             assertTrue(state.importProgramState is ImportProgramState.Error)
             cancelAndIgnoreRemainingEvents()
         }
+        val event = analytics.events.single()
+        assertEquals(
+            com.stratum.domain.logging.USER_VISIBLE_ERROR_EVENT,
+            event.name,
+        )
+        assertEquals("onboarding", event.params[com.stratum.domain.logging.PARAM_SCREEN])
+        assertEquals("import_program", event.params[com.stratum.domain.logging.PARAM_ACTION])
     }
 
     @Test
@@ -188,6 +196,8 @@ class OnboardingImportProgramViewModelTest {
     private fun buildViewModel(
         importPort: FakeProgramTemplateImportPort,
         testScheduler: TestCoroutineScheduler,
+        analytics: com.stratum.core.testing.telemetry.FakeAnalyticsPort =
+            com.stratum.core.testing.telemetry.FakeAnalyticsPort(),
     ): Triple<OnboardingViewModel, FakeOnboardingRepository, FakeProgramRepository> {
         val onboardingRepo = FakeOnboardingRepository()
         val profileRepo = FakeUserTrainingProfileRepository(UserTrainingProfile.Empty)
@@ -299,6 +309,10 @@ class OnboardingImportProgramViewModelTest {
             completeOnboarding = completeOnboarding,
             importProgramTemplate = importUseCase,
             logError = com.stratum.domain.logging.LogErrorUseCase(FakeLoggingPort()),
+            logAnalytics =
+                com.stratum.domain.logging.LogAnalyticsEventUseCase(
+                    analytics,
+                ),
             observeWeightDisplayPreferences =
                 com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase(
                     weightDisplayPreferences,

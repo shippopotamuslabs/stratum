@@ -4,6 +4,11 @@ import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.subscription.FakeBillingPort
 import com.stratum.core.testing.subscription.FakeEntitlementRepository
+import com.stratum.core.testing.telemetry.FakeAnalyticsPort
+import com.stratum.domain.logging.LogAnalyticsEventUseCase
+import com.stratum.domain.logging.PARAM_ACTION
+import com.stratum.domain.logging.PARAM_SCREEN
+import com.stratum.domain.logging.USER_VISIBLE_ERROR_EVENT
 import com.stratum.domain.subscription.BillingPurchaseResult
 import com.stratum.domain.subscription.EntitlementSource
 import com.stratum.domain.subscription.EntitlementState
@@ -40,13 +45,16 @@ class PaywallViewModelTest {
         viewModel = createViewModel()
     }
 
-    private fun createViewModel(): PaywallViewModel =
+    private fun createViewModel(
+        analytics: FakeAnalyticsPort = FakeAnalyticsPort(),
+    ): PaywallViewModel =
         PaywallViewModel(
             getSubscriptionProducts = GetSubscriptionProductsUseCase(fakeBilling),
             purchaseSubscription = PurchaseSubscriptionUseCase(fakeBilling),
             restorePurchases = RestorePurchasesUseCase(fakeBilling, fakeRepo),
             observeEntitlement = ObserveEntitlementUseCase(fakeRepo),
             observeBillingPurchaseResults = ObserveBillingPurchaseResultsUseCase(fakeBilling),
+            logAnalytics = LogAnalyticsEventUseCase(analytics),
         )
 
     @Test
@@ -123,13 +131,18 @@ class PaywallViewModelTest {
     @Test
     fun `query failure is Error`() = runTest {
         fakeBilling.queryException = IllegalStateException("Play Billing unavailable")
-        viewModel = createViewModel()
+        val analytics = FakeAnalyticsPort()
+        viewModel = createViewModel(analytics)
 
         viewModel.uiState.test {
             val state = awaitErrorState()
             assertEquals(PaywallCopy.LOAD_ERROR, state.message)
             cancelAndIgnoreRemainingEvents()
         }
+        val event = analytics.events.single()
+        assertEquals(USER_VISIBLE_ERROR_EVENT, event.name)
+        assertEquals("paywall", event.params[PARAM_SCREEN])
+        assertEquals("load_offerings", event.params[PARAM_ACTION])
     }
 
     @Test
@@ -174,6 +187,30 @@ class PaywallViewModelTest {
             assertEquals(PaywallCopy.RESTORE_NONE, restored.userMessage)
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    @Test
+    fun `restore failure records analytics and shows message`() = runTest {
+        fakeBilling.restorePurchasesResult = Result.failure(IllegalStateException("Sync down"))
+        val analytics = FakeAnalyticsPort()
+        viewModel = createViewModel(analytics)
+
+        viewModel.uiState.test {
+            awaitContent()
+            viewModel.onRestorePurchasesClicked()
+            val updated = awaitItem() as PaywallUiState.Content
+            val restored = if (updated.isRestoring) {
+                awaitItem() as PaywallUiState.Content
+            } else {
+                updated
+            }
+            assertFalse(restored.isRestoring)
+            cancelAndIgnoreRemainingEvents()
+        }
+        val event = analytics.events.single()
+        assertEquals(USER_VISIBLE_ERROR_EVENT, event.name)
+        assertEquals("paywall", event.params[PARAM_SCREEN])
+        assertEquals("restore_purchases", event.params[PARAM_ACTION])
     }
 
     @Test

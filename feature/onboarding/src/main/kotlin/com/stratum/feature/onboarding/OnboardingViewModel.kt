@@ -17,7 +17,11 @@ import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.SetSelectedPresetUseCase
 import com.stratum.domain.lift.SetWeightDisplayUnitUseCase
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.logging.LogAnalyticsEventUseCase
 import com.stratum.domain.logging.LogErrorUseCase
+import com.stratum.domain.logging.PARAM_ACTION
+import com.stratum.domain.logging.PARAM_SCREEN
+import com.stratum.domain.logging.USER_VISIBLE_ERROR_EVENT
 import com.stratum.domain.onboarding.AdvanceOnboardingStepResult
 import com.stratum.domain.onboarding.AdvanceOnboardingStepUseCase
 import com.stratum.domain.onboarding.CompleteOnboardingUseCase
@@ -78,6 +82,7 @@ class OnboardingViewModel @Inject constructor(
     private val completeOnboarding: CompleteOnboardingUseCase,
     private val importProgramTemplate: ImportProgramTemplateUseCase,
     private val logError: LogErrorUseCase,
+    private val logAnalytics: LogAnalyticsEventUseCase,
     observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
     private val setWeightDisplayUnit: SetWeightDisplayUnitUseCase,
 ) : ViewModel() {
@@ -885,6 +890,10 @@ class OnboardingViewModel @Inject constructor(
             OnboardingProgramFlowOps.TAG_IMPORT,
             OnboardingProgramFlowOps.fileReadFailureLogMessage(logDetail ?: userFacingMessage),
         )
+        logAnalytics(
+            USER_VISIBLE_ERROR_EVENT,
+            mapOf(PARAM_SCREEN to "onboarding", PARAM_ACTION to "read_files"),
+        )
         ephemeral.update {
             it.copy(
                 importProgramState = ImportProgramState.Error(userFacingMessage),
@@ -903,6 +912,10 @@ class OnboardingViewModel @Inject constructor(
             OnboardingProgramFlowOps.importFailureLogMessage(error),
             error,
         )
+        logAnalytics(
+            USER_VISIBLE_ERROR_EVENT,
+            mapOf(PARAM_SCREEN to "onboarding", PARAM_ACTION to "import_program"),
+        )
         ephemeral.update { OnboardingProgramFlowOps.importProgramFailed(it, error) }
     }
 
@@ -920,5 +933,9 @@ class OnboardingViewModel @Inject constructor(
 
     private fun logGenerateFailure(error: Throwable) {
         logError(OnboardingProgramFlowOps.TAG, OnboardingProgramFlowOps.MSG_GENERATE_FAILED, error)
+        logAnalytics(
+            USER_VISIBLE_ERROR_EVENT,
+            mapOf(PARAM_SCREEN to "onboarding", PARAM_ACTION to "generate_program"),
+        )
     }
 }
