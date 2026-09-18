@@ -44,6 +44,13 @@ class AndroidCrashTelemetryAdapter @Inject constructor() : CrashTelemetryPort {
         }
     }
 
+    override fun setFlagState(
+        key: String,
+        enabled: Boolean,
+    ) {
+        setScrubbedKey(KEY_FLAG_PREFIX + key, enabled.toString(), "setFlagState")
+    }
+
     override fun recordNonFatal(throwable: Throwable) {
         val targetThrowable = TelemetryThrowableSanitizer.sanitize(throwable)
         runCatching {
@@ -64,6 +71,7 @@ class AndroidCrashTelemetryAdapter @Inject constructor() : CrashTelemetryPort {
 
     private companion object {
         const val TAG = "CrashTelemetry"
+        const val KEY_FLAG_PREFIX = "flag_"
         const val KEY_CURRENT_SCREEN = "current_screen"
         const val KEY_ACTIVE_WORKOUT_ID = "active_workout_id"
         const val KEY_SUBSCRIPTION_TIER = "subscription_tier"
