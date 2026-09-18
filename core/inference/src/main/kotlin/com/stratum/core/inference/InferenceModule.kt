@@ -1,6 +1,8 @@
 package com.stratum.core.inference
 
 import com.stratum.domain.auth.AccountDeletionPort
+import com.stratum.domain.featureflag.AppFeatureFlag
+import com.stratum.domain.featureflag.FeatureFlagRepository
 import com.stratum.domain.importing.CustomLiftInferencePort
 import com.stratum.domain.importing.HistoricalImportPort
 import com.stratum.domain.importing.HistoricalImportRunnerPort
@@ -8,6 +10,7 @@ import com.stratum.domain.importing.ImportEquipmentInferencePort
 import com.stratum.domain.importing.LiftNameEmbeddingPort
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.program.generation.swap.LiftSwapPort
+import com.stratum.domain.program.generation.synthesis.FlagGatedProgramSynthesisPort
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisPort
 import com.stratum.domain.program.importing.ProgramTemplateImportPort
 import com.stratum.domain.subscription.PlayEntitlementSyncPort
@@ -15,9 +18,11 @@ import com.stratum.domain.telemetry.AnalyticsPort
 import com.stratum.domain.telemetry.CrashTelemetryPort
 import dagger.Binds
 import dagger.Module
+import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
+import kotlin.jvm.JvmStatic
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -56,11 +61,24 @@ abstract class InferenceModule {
     @Singleton
     abstract fun bindLiftSwapPort(impl: FirebaseLiftSwapAdapter): LiftSwapPort
 
-    @Binds
-    @Singleton
-    abstract fun bindProgramSynthesisPort(
-        impl: FirebaseProgramSynthesisAdapter,
-    ): ProgramSynthesisPort
+    companion object {
+        /**
+         * Wraps the cloud synthesis adapter in its kill-switch so flipping
+         * `cloud_program_synthesis` to false fails fast without network use.
+         */
+        @Provides
+        @Singleton
+        @JvmStatic
+        fun provideProgramSynthesisPort(
+            cloud: FirebaseProgramSynthesisAdapter,
+            flags: FeatureFlagRepository,
+        ): ProgramSynthesisPort =
+            FlagGatedProgramSynthesisPort(
+                delegate = cloud,
+                flags = flags,
+                gate = AppFeatureFlag.CLOUD_PROGRAM_SYNTHESIS,
+            )
+    }
 
     @Binds
     @Singleton
