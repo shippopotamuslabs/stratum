@@ -4,6 +4,7 @@ package com.stratum.core.data.featureflag
 
 import com.google.android.gms.tasks.Tasks
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig
+import com.google.firebase.remoteconfig.FirebaseRemoteConfigFetchThrottledException
 import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.telemetry.FakeAnalyticsPort
@@ -12,8 +13,11 @@ import com.stratum.domain.featureflag.FeatureFlag
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -117,6 +121,84 @@ class FirebaseFeatureFlagRepositoryTest {
         val result = repository.syncFlags()
 
         assertFalse(result)
+    }
+
+    @Test
+    @DisplayName("Given transient fetch failures when syncFlags called then retries and returns true on success")
+    fun syncFlagsRetriesTransientFailures() = runTest(testDispatcher) {
+        every { remoteConfig.fetchAndActivate() } returnsMany
+            listOf(
+                Tasks.forException<Boolean>(RuntimeException("flaky network")),
+                Tasks.forResult(true),
+            )
+
+        val result = repository.syncFlags()
+
+        assertTrue(result)
+    }
+
+    @Test
+    @DisplayName("Given persistent fetch failures when syncFlags called then gives up after three attempts")
+    fun syncFlagsGivesUpAfterMaxAttempts() = runTest(testDispatcher) {
+        var calls = 0
+        every { remoteConfig.fetchAndActivate() } answers {
+            calls++
+            Tasks.forException<Boolean>(RuntimeException("Network error"))
+        }
+
+        val result = repository.syncFlags()
+
+        assertFalse(result)
+        assertEquals(3, calls)
+    }
+
+    @Test
+    @DisplayName("Given throttled fetch when syncFlags called then returns false without retrying")
+    fun syncFlagsDoesNotRetryWhenThrottled() = runTest(testDispatcher) {
+        // MockK instantiation bypasses the SDK constructor, which needs Android TextUtils.
+        val throttled = mockk<FirebaseRemoteConfigFetchThrottledException>()
+        every { throttled.message } returns "Fetch was throttled."
+        var calls = 0
+        every { remoteConfig.fetchAndActivate() } answers {
+            calls++
+            Tasks.forException<Boolean>(throttled)
+        }
+
+        val result = repository.syncFlags()
+
+        assertFalse(result)
+        assertEquals(1, calls)
+        assertTrue(fakeLogging.warnings.single().message.contains("throttled", ignoreCase = true))
+    }
+
+    @Test
+    @DisplayName("Given cancelled task when syncFlags called then returns false without retrying")
+    fun syncFlagsDoesNotRetryWhenCancelled() = runTest(testDispatcher) {
+        var calls = 0
+        every { remoteConfig.fetchAndActivate() } answers {
+            calls++
+            Tasks.forCanceled<Boolean>()
+        }
+
+        val result = repository.syncFlags()
+
+        assertFalse(result)
+        assertEquals(1, calls)
+    }
+
+    @Test
+    @DisplayName("Given coroutine cancelled during backoff when syncFlags called then cancellation propagates")
+    fun syncFlagsPropagatesCoroutineCancellation() = runTest(testDispatcher) {
+        every { remoteConfig.fetchAndActivate() } returns Tasks.forException(RuntimeException("Network error"))
+
+        val deferred = async(testDispatcher) { repository.syncFlags() }
+        runCurrent()
+        deferred.cancel()
+
+        assertThrows<kotlinx.coroutines.CancellationException> {
+            deferred.await()
+        }
+        assertTrue(deferred.isCancelled)
     }
 
     @Test
