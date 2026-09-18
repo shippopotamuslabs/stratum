@@ -6,12 +6,15 @@ import com.google.android.gms.tasks.Tasks
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig
 import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.logging.FakeLoggingPort
+import com.stratum.core.testing.telemetry.FakeAnalyticsPort
+import com.stratum.core.testing.telemetry.FakeCrashTelemetryPort
 import com.stratum.domain.featureflag.FeatureFlag
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
@@ -32,6 +35,8 @@ class FirebaseFeatureFlagRepositoryTest {
 
     private val remoteConfig: FirebaseRemoteConfig = mockk(relaxed = true)
     private val fakeLogging = FakeLoggingPort()
+    private val fakeAnalytics = FakeAnalyticsPort()
+    private val fakeCrashTelemetry = FakeCrashTelemetryPort()
     private val testDispatcher = StandardTestDispatcher()
     private lateinit var repository: FirebaseFeatureFlagRepository
 
@@ -40,6 +45,8 @@ class FirebaseFeatureFlagRepositoryTest {
         repository = FirebaseFeatureFlagRepository(
             remoteConfig = remoteConfig,
             loggingPort = fakeLogging,
+            analyticsPort = fakeAnalytics,
+            crashTelemetryPort = fakeCrashTelemetry,
             ioDispatcher = testDispatcher,
         )
     }
@@ -110,5 +117,42 @@ class FirebaseFeatureFlagRepositoryTest {
         val result = repository.syncFlags()
 
         assertFalse(result)
+    }
+
+    @Test
+    @DisplayName("Given first evaluation when isEnabled checked then records analytics exposure and flag state")
+    fun firstEvaluationRecordsExposure() {
+        every { remoteConfig.getBoolean(TestFeatureFlag.SAMPLE_FLAG.key) } returns true
+
+        assertTrue(repository.isEnabled(TestFeatureFlag.SAMPLE_FLAG))
+
+        val event = fakeAnalytics.events.single()
+        assertEquals(FirebaseFeatureFlagRepository.FLAG_EXPOSURE_EVENT, event.name)
+        assertEquals(TestFeatureFlag.SAMPLE_FLAG.key, event.params["flag_key"])
+        assertEquals("true", event.params["enabled"])
+        assertEquals(true, fakeCrashTelemetry.flagStates[TestFeatureFlag.SAMPLE_FLAG.key])
+    }
+
+    @Test
+    @DisplayName("Given repeat evaluations when isEnabled checked then exposure is recorded once")
+    fun repeatEvaluationsRecordExposureOnce() {
+        every { remoteConfig.getBoolean(TestFeatureFlag.SAMPLE_FLAG.key) } returns true
+
+        repository.isEnabled(TestFeatureFlag.SAMPLE_FLAG)
+        repository.isEnabled(TestFeatureFlag.SAMPLE_FLAG)
+
+        assertEquals(1, fakeAnalytics.events.size)
+    }
+
+    @Test
+    @DisplayName("Given remote config throws when isEnabled checked then returns false and records exposure")
+    fun readFailureRecordsExposureAsDisabled() {
+        every { remoteConfig.getBoolean(TestFeatureFlag.SAMPLE_FLAG.key) } throws RuntimeException("Remote config error")
+
+        assertFalse(repository.isEnabled(TestFeatureFlag.SAMPLE_FLAG))
+
+        val event = fakeAnalytics.events.single()
+        assertEquals("false", event.params["enabled"])
+        assertEquals(false, fakeCrashTelemetry.flagStates[TestFeatureFlag.SAMPLE_FLAG.key])
     }
 }

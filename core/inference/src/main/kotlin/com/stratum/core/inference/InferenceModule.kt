@@ -11,6 +11,7 @@ import com.stratum.domain.program.generation.swap.LiftSwapPort
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisPort
 import com.stratum.domain.program.importing.ProgramTemplateImportPort
 import com.stratum.domain.subscription.PlayEntitlementSyncPort
+import com.stratum.domain.telemetry.AnalyticsPort
 import com.stratum.domain.telemetry.CrashTelemetryPort
 import dagger.Binds
 import dagger.Module
@@ -80,4 +81,8 @@ abstract class InferenceModule {
     @Binds
     @Singleton
     abstract fun bindCrashTelemetryPort(impl: AndroidCrashTelemetryAdapter): CrashTelemetryPort
+
+    @Binds
+    @Singleton
+    abstract fun bindAnalyticsPort(impl: AndroidAnalyticsAdapter): AnalyticsPort
 }

@@ -8,6 +8,8 @@ import com.stratum.domain.di.IoDispatcher
 import com.stratum.domain.featureflag.FeatureFlag
 import com.stratum.domain.featureflag.FeatureFlagRepository
 import com.stratum.domain.logging.LoggingPort
+import com.stratum.domain.telemetry.AnalyticsPort
+import com.stratum.domain.telemetry.CrashTelemetryPort
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -23,22 +25,44 @@ import javax.inject.Singleton
 class FirebaseFeatureFlagRepository @Inject constructor(
     private val remoteConfig: FirebaseRemoteConfig,
     private val loggingPort: LoggingPort,
+    private val analyticsPort: AnalyticsPort,
+    private val crashTelemetryPort: CrashTelemetryPort,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : FeatureFlagRepository {
 
     private val devOverrides = ConcurrentHashMap<String, Boolean>()
+    private val exposedKeys = ConcurrentHashMap.newKeySet<String>()
 
     override fun isEnabled(flag: FeatureFlag): Boolean {
         // 1. In-memory developer override takes precedence (for QA / dogfooding)
-        devOverrides[flag.key]?.let { return it }
+        devOverrides[flag.key]?.let { return recordExposure(flag.key, it) }
 
         // 2. Firebase Remote Config value (defaults to false if unconfigured)
         return try {
-            remoteConfig.getBoolean(flag.key)
+            recordExposure(flag.key, remoteConfig.getBoolean(flag.key))
         } catch (e: Exception) {
             loggingPort.warning(TAG, "Failed reading flag ${flag.key}: ${e.message}")
-            false
+            recordExposure(flag.key, false)
         }
+    }
+
+    /**
+     * Records the first evaluation of [key] per process as an analytics exposure event and a
+     * Crashlytics flag key, so error spikes can be attributed to flag-gated paths. Repeat
+     * evaluations return the value without re-emitting.
+     */
+    private fun recordExposure(
+        key: String,
+        enabled: Boolean,
+    ): Boolean {
+        if (exposedKeys.add(key)) {
+            analyticsPort.logEvent(
+                FLAG_EXPOSURE_EVENT,
+                mapOf(PARAM_FLAG_KEY to key, PARAM_ENABLED to enabled.toString()),
+            )
+            crashTelemetryPort.setFlagState(key, enabled)
+        }
+        return enabled
     }
 
     override fun observe(flag: FeatureFlag): Flow<Boolean> = callbackFlow {
@@ -88,5 +112,8 @@ class FirebaseFeatureFlagRepository @Inject constructor(
 
     companion object {
         private const val TAG = "FirebaseFeatureFlagRepository"
+        const val FLAG_EXPOSURE_EVENT = "flag_exposure"
+        private const val PARAM_FLAG_KEY = "flag_key"
+        private const val PARAM_ENABLED = "enabled"
     }
 }

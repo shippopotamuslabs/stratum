@@ -17,5 +17,14 @@ interface CrashTelemetryPort {
     fun recordBreadcrumb(message: String)
 
     fun recordNonFatal(throwable: Throwable)
+
+    /**
+     * Records a feature-flag evaluation so crash reports can be filtered by flag state.
+     * Platform adapters namespace the key (e.g. `flag_<key>`).
+     */
+    fun setFlagState(
+        key: String,
+        enabled: Boolean,
+    )
 }
 

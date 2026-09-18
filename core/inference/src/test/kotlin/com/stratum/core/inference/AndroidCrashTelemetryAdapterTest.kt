@@ -75,6 +75,15 @@ class AndroidCrashTelemetryAdapterTest {
     }
 
     @Test
+    fun `setFlagState sets namespaced flag key`() {
+        adapter.setFlagState("enable_sample_flag", true)
+        adapter.setFlagState("enable_other_flag", false)
+
+        verify { crashlytics.setCustomKey("flag_enable_sample_flag", "true") }
+        verify { crashlytics.setCustomKey("flag_enable_other_flag", "false") }
+    }
+
+    @Test
     fun `recordBreadcrumb scrubs message and logs to Crashlytics`() {
         adapter.recordBreadcrumb("Opened user@example.com profile")
 
