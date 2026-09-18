@@ -4,6 +4,7 @@ import com.google.firebase.remoteconfig.ConfigUpdate
 import com.google.firebase.remoteconfig.ConfigUpdateListener
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig
 import com.google.firebase.remoteconfig.FirebaseRemoteConfigException
+import com.google.firebase.remoteconfig.FirebaseRemoteConfigFetchThrottledException
 import com.stratum.domain.di.IoDispatcher
 import com.stratum.domain.featureflag.FeatureFlag
 import com.stratum.domain.featureflag.FeatureFlagRepository
@@ -11,7 +12,10 @@ import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.telemetry.AnalyticsPort
 import com.stratum.domain.telemetry.CrashTelemetryPort
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flowOn
@@ -87,15 +91,39 @@ class FirebaseFeatureFlagRepository @Inject constructor(
         awaitClose { registration.remove() }
     }.flowOn(ioDispatcher)
 
+    /**
+     * Fetches and activates Remote Config with bounded retries. Transient failures retry with
+     * linear backoff ([SYNC_RETRY_DELAY_BASE_MS] × attempt); server throttling is never
+     * retried (it would burn the throttle budget), and coroutine cancellation propagates.
+     *
+     * On JVM, [CancellationException] is shared between coroutine cancellation and a
+     * cancelled Remote Config task, so [ensureActive] disambiguates: a cancelled coroutine
+     * rethrows (structured cancellation), while a task cancelled underneath a live
+     * coroutine is a terminal false, not a retry.
+     */
     override suspend fun syncFlags(): Boolean = withContext(ioDispatcher) {
-        try {
-            val updated = remoteConfig.fetchAndActivate().await()
-            loggingPort.info(TAG, "Remote config sync complete. New params activated: $updated")
-            true
-        } catch (e: Exception) {
-            loggingPort.warning(TAG, "Remote config sync failed: ${e.message}")
-            false
+        for (attempt in 1..MAX_SYNC_ATTEMPTS) {
+            try {
+                val updated = remoteConfig.fetchAndActivate().await()
+                loggingPort.info(TAG, "Remote config sync complete. New params activated: $updated")
+                return@withContext true
+            } catch (e: CancellationException) {
+                ensureActive()
+                loggingPort.warning(TAG, "Remote config sync cancelled: ${e.message}")
+                return@withContext false
+            } catch (e: FirebaseRemoteConfigFetchThrottledException) {
+                loggingPort.warning(TAG, "Remote config sync throttled; not retrying: ${e.message}")
+                return@withContext false
+            } catch (e: Exception) {
+                if (attempt >= MAX_SYNC_ATTEMPTS) {
+                    loggingPort.warning(TAG, "Remote config sync failed after $attempt attempts: ${e.message}")
+                    return@withContext false
+                }
+                loggingPort.info(TAG, "Remote config sync attempt $attempt failed; retrying: ${e.message}")
+                delay(SYNC_RETRY_DELAY_BASE_MS * attempt)
+            }
         }
+        false
     }
 
     fun setDevOverride(flag: FeatureFlag, enabled: Boolean?) {
@@ -112,6 +140,8 @@ class FirebaseFeatureFlagRepository @Inject constructor(
 
     companion object {
         private const val TAG = "FirebaseFeatureFlagRepository"
+        private const val MAX_SYNC_ATTEMPTS = 3
+        private const val SYNC_RETRY_DELAY_BASE_MS = 1_000L
         const val FLAG_EXPOSURE_EVENT = "flag_exposure"
         private const val PARAM_FLAG_KEY = "flag_key"
         private const val PARAM_ENABLED = "enabled"
