@@ -4,6 +4,7 @@ import com.google.firebase.remoteconfig.FirebaseRemoteConfig
 import com.google.firebase.remoteconfig.FirebaseRemoteConfigSettings
 import com.stratum.core.data.BuildConfig
 import com.stratum.core.data.featureflag.FirebaseFeatureFlagRepository
+import com.stratum.domain.featureflag.AppFeatureFlag
 import com.stratum.domain.featureflag.FeatureFlagRepository
 import dagger.Binds
 import dagger.Module
@@ -25,6 +26,9 @@ object FeatureFlagProvidesModule {
             .setFetchTimeoutInSeconds(5L)
             .build()
         config.setConfigSettingsAsync(settings)
+        // Kill-switch flags default OPEN (backend allowed) so an unconfigured flag or a
+        // failed first fetch can never disable its path. The console flips them to false.
+        config.setDefaultsAsync(mapOf(AppFeatureFlag.CLOUD_PROGRAM_SYNTHESIS.key to true))
         return config
     }
 }
