@@ -1,3 +1,5 @@
+import com.android.build.api.variant.HasUnitTestBuilder
+
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.compose)
@@ -30,6 +32,17 @@ android {
         unitTests {
             isIncludeAndroidResources = true
         }
+    }
+}
+
+// AGP 9.5.0-alpha06 validates Compose Preview prerequisites at configuration time and
+// requires unit tests for every variant it packages preview runfiles for. Release unit
+// tests resolve disabled by default, so opt back in (nothing executes them uninvoked).
+androidComponents {
+    beforeVariants(selector().withBuildType("release")) {
+        // NOTE: call through HasUnitTestBuilder — the same accessors inherited via
+        // VariantBuilder are synthetic in 9.5.0-alpha06 and invisible to Kotlin.
+        (it as HasUnitTestBuilder).enableUnitTest = true
     }
 }
 
