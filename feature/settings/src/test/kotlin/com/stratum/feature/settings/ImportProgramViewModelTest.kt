@@ -2,6 +2,11 @@ package com.stratum.feature.settings
 
 import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.auth.FakeAuthManager
+import com.stratum.core.testing.telemetry.FakeAnalyticsPort
+import com.stratum.domain.logging.LogAnalyticsEventUseCase
+import com.stratum.domain.logging.PARAM_ACTION
+import com.stratum.domain.logging.PARAM_SCREEN
+import com.stratum.domain.logging.USER_VISIBLE_ERROR_EVENT
 import com.stratum.core.testing.importing.FakeLiftNameResolverPort
 import com.stratum.core.testing.importing.FakeProgramTemplateImportPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
@@ -79,7 +84,7 @@ class ImportProgramViewModelTest {
     fun ieS7_005_signedOut() = runTest {
         val auth = FakeAuthManager(AuthState.Unauthenticated)
         val useCase = RecordingImportProgramTemplatesUseCase()
-        val vm = ImportProgramViewModel(useCase, auth)
+        val vm = ImportProgramViewModel(useCase, auth, LogAnalyticsEventUseCase(FakeAnalyticsPort()))
         vm.onFileSelected(byteArrayOf(1), "p.json")
         advanceUntilIdle()
         assertTrue(vm.uiState.value.signedOutGuidanceVisible)
@@ -92,7 +97,7 @@ class ImportProgramViewModelTest {
         val auth =
             FakeAuthManager(AuthState.Authenticated(UserProfile("u1", "U", "u@e.com", null)))
         val useCase = RecordingImportProgramTemplatesUseCase()
-        val vm = ImportProgramViewModel(useCase, auth)
+        val vm = ImportProgramViewModel(useCase, auth, LogAnalyticsEventUseCase(FakeAnalyticsPort()))
         vm.onFileSelected(byteArrayOf(1), "p.json")
         advanceUntilIdle()
         val options = useCase.lastOptions!!
@@ -107,7 +112,7 @@ class ImportProgramViewModelTest {
         val auth =
             FakeAuthManager(AuthState.Authenticated(UserProfile("u1", "U", "u@e.com", null)))
         val useCase = RecordingImportProgramTemplatesUseCase()
-        val vm = ImportProgramViewModel(useCase, auth)
+        val vm = ImportProgramViewModel(useCase, auth, LogAnalyticsEventUseCase(FakeAnalyticsPort()))
         vm.onFileSelected(byteArrayOf(1), "p.json")
         advanceUntilIdle()
         assertEquals(ImportProgramPhaseUi.Complete, vm.uiState.value.phase)
@@ -122,12 +127,37 @@ class ImportProgramViewModelTest {
         val auth =
             FakeAuthManager(AuthState.Authenticated(UserProfile("u1", "U", "u@e.com", null)))
         val useCase = RecordingImportProgramTemplatesUseCase()
-        val vm = ImportProgramViewModel(useCase, auth)
+        val analytics = FakeAnalyticsPort()
+        val vm = ImportProgramViewModel(useCase, auth, LogAnalyticsEventUseCase(analytics))
         vm.onReadFilesFailed("Could not open document")
         advanceUntilIdle()
         assertEquals("Could not open document", vm.uiState.value.errorMessage)
         assertEquals(0, useCase.callCount)
         assertEquals(false, vm.uiState.value.isImporting)
+        val event = analytics.events.single()
+        assertEquals(USER_VISIBLE_ERROR_EVENT, event.name)
+        assertEquals("import_program", event.params[PARAM_SCREEN])
+        assertEquals("read_files", event.params[PARAM_ACTION])
+    }
+
+    @Test
+    @DisplayName("IE-S7-009 Import failure records analytics and surfaces error")
+    fun ieS7_009_importFailureRecordsAnalytics() = runTest {
+        val auth =
+            FakeAuthManager(AuthState.Authenticated(UserProfile("u1", "U", "u@e.com", null)))
+        val useCase =
+            RecordingImportProgramTemplatesUseCase(
+                result = Result.failure(RuntimeException("boom")),
+            )
+        val analytics = FakeAnalyticsPort()
+        val vm = ImportProgramViewModel(useCase, auth, LogAnalyticsEventUseCase(analytics))
+        vm.onFileSelected(byteArrayOf(1), "p.json")
+        advanceUntilIdle()
+        assertEquals(false, vm.uiState.value.isImporting)
+        val event = analytics.events.single()
+        assertEquals(USER_VISIBLE_ERROR_EVENT, event.name)
+        assertEquals("import_program", event.params[PARAM_SCREEN])
+        assertEquals("import_templates", event.params[PARAM_ACTION])
     }
 
     @Test

@@ -85,8 +85,9 @@ class OnboardingGenerateViewModelTest {
     @DisplayName("PROG-GEN-602 error state offers retry and back-to-review handlers")
     inner class ErrorState {
         @Test
-        fun `the terminal generateState is Error on failure`() =
-            runGenerateTest(fail = true) { viewModel, onboardingRepo, _ ->
+        fun `the terminal generateState is Error on failure and records analytics`() {
+            val analytics = com.stratum.core.testing.telemetry.FakeAnalyticsPort()
+            runGenerateTest(fail = true, analytics = analytics) { viewModel, onboardingRepo, _ ->
                 viewModel.uiState.test {
                     val state = awaitItem()
                     assertEquals(GenerateState.Error, state.generateState)
@@ -94,7 +95,15 @@ class OnboardingGenerateViewModelTest {
                     cancelAndIgnoreRemainingEvents()
                 }
                 assertFalse(onboardingRepo.current.isComplete)
+                val event = analytics.events.single()
+                assertEquals(
+                    com.stratum.domain.logging.USER_VISIBLE_ERROR_EVENT,
+                    event.name,
+                )
+                assertEquals("onboarding", event.params[com.stratum.domain.logging.PARAM_SCREEN])
+                assertEquals("generate_program", event.params[com.stratum.domain.logging.PARAM_ACTION])
             }
+        }
 
         @Test
         fun `generate failure does not surface technical exception message in ui state`() =
@@ -137,6 +146,8 @@ class OnboardingGenerateViewModelTest {
         fail: Boolean,
         @Suppress("UNUSED_PARAMETER") failMessage: String = "generation failed",
         generationDispatcher: CoroutineDispatcher = kotlinx.coroutines.Dispatchers.Default,
+        analytics: com.stratum.core.testing.telemetry.FakeAnalyticsPort =
+            com.stratum.core.testing.telemetry.FakeAnalyticsPort(),
     ): Triple<OnboardingViewModel, FakeOnboardingRepository, FakeProgramRepository> {
         val onboardingRepo = FakeOnboardingRepository()
         val profileRepo = FakeUserTrainingProfileRepository(
@@ -270,6 +281,10 @@ class OnboardingGenerateViewModelTest {
                 programChangeEventRepository = com.stratum.core.testing.training.NoOpProgramChangeEventRepository(),
             ),
             logError = com.stratum.domain.logging.LogErrorUseCase(FakeLoggingPort()),
+            logAnalytics =
+                com.stratum.domain.logging.LogAnalyticsEventUseCase(
+                    analytics,
+                ),
             observeWeightDisplayPreferences =
                 com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase(
                     weightDisplayPreferences,
@@ -286,6 +301,8 @@ class OnboardingGenerateViewModelTest {
     private fun runGenerateTest(
         fail: Boolean,
         failMessage: String = "generation failed",
+        analytics: com.stratum.core.testing.telemetry.FakeAnalyticsPort =
+            com.stratum.core.testing.telemetry.FakeAnalyticsPort(),
         block: suspend (OnboardingViewModel, FakeOnboardingRepository, FakeProgramRepository) -> Unit,
     ) = runTest {
         val generationDispatcher = UnconfinedTestDispatcher(testScheduler)
@@ -294,6 +311,7 @@ class OnboardingGenerateViewModelTest {
                 fail = fail,
                 failMessage = failMessage,
                 generationDispatcher = generationDispatcher,
+                analytics = analytics,
             )
         viewModel.generate()
         block(viewModel, onboardingRepo, programRepo)

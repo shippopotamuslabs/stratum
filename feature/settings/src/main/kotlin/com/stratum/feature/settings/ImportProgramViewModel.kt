@@ -8,6 +8,10 @@ import com.stratum.domain.program.importing.ImportProgramTemplatesUseCase
 import com.stratum.domain.program.importing.ProgramImportActivation
 import com.stratum.domain.program.importing.ProgramTemplateImportOptions
 import com.stratum.domain.program.importing.ProgramTemplateRejectedException
+import com.stratum.domain.logging.LogAnalyticsEventUseCase
+import com.stratum.domain.logging.PARAM_ACTION
+import com.stratum.domain.logging.PARAM_SCREEN
+import com.stratum.domain.logging.USER_VISIBLE_ERROR_EVENT
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,6 +35,7 @@ data class ImportProgramUiState(
 class ImportProgramViewModel @Inject constructor(
     private val importPrograms: ImportProgramTemplatesUseCase,
     private val authManager: AuthManager,
+    private val logAnalytics: LogAnalyticsEventUseCase,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ImportProgramUiState())
     val uiState: StateFlow<ImportProgramUiState> = _uiState.asStateFlow()
@@ -106,6 +111,10 @@ class ImportProgramViewModel @Inject constructor(
                     }
                 },
                 onFailure = { error ->
+                    logAnalytics(
+                        USER_VISIBLE_ERROR_EVENT,
+                        mapOf(PARAM_SCREEN to "import_program", PARAM_ACTION to "import_templates"),
+                    )
                     _uiState.update {
                         it.copy(
                             phase = null,
@@ -120,6 +129,10 @@ class ImportProgramViewModel @Inject constructor(
 
     /** Surfaces SAF permission/read failures from the UI layer (off main-thread load). */
     fun onReadFilesFailed(message: String) {
+        logAnalytics(
+            USER_VISIBLE_ERROR_EVENT,
+            mapOf(PARAM_SCREEN to "import_program", PARAM_ACTION to "read_files"),
+        )
         _uiState.update {
             it.copy(
                 phase = null,

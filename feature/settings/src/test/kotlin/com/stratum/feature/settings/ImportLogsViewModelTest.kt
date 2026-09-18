@@ -34,7 +34,12 @@ import com.stratum.domain.importing.SupersetAffinity
 import com.stratum.domain.importing.SupersetAffinityRepository
 import com.stratum.domain.importing.ValidateImportFilesUseCase
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.core.testing.telemetry.FakeAnalyticsPort
+import com.stratum.domain.logging.LogAnalyticsEventUseCase
 import com.stratum.domain.logging.LogErrorUseCase
+import com.stratum.domain.logging.PARAM_ACTION
+import com.stratum.domain.logging.PARAM_SCREEN
+import com.stratum.domain.logging.USER_VISIBLE_ERROR_EVENT
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -111,6 +116,7 @@ class ImportLogsViewModelTest {
     private fun buildVm(
         auth: FakeAuthManager,
         runner: FakeHistoricalImportRunnerPort,
+        analytics: FakeAnalyticsPort = FakeAnalyticsPort(),
     ): ImportLogsViewModel {
         val execute = buildExecute(runner)
         val cancel =
@@ -159,6 +165,7 @@ class ImportLogsViewModelTest {
             cancelImport = cancel,
             authManager = auth,
             logError = LogErrorUseCase(loggingPort),
+            logAnalytics = LogAnalyticsEventUseCase(analytics),
             observeWeightDisplayPreferences =
                 com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase(
                     com.stratum.core.testing.lift.FakeWeightDisplayPreferencesRepository(),
@@ -249,13 +256,18 @@ class ImportLogsViewModelTest {
         val runner = FakeHistoricalImportRunnerPort()
         val auth =
             FakeAuthManager(AuthState.Authenticated(UserProfile("u1", "U", "u@e.com", null)))
-        val vm = buildVm(auth, runner)
+        val analytics = FakeAnalyticsPort()
+        val vm = buildVm(auth, runner, analytics)
         vm.onReadFilesFailed("Could not open document")
         advanceUntilIdle()
         assertEquals(IMPORT_LOGS_READ_FILES_ERROR, vm.uiState.value.errorMessage)
         assertEquals(0, runner.invocations.size)
         assertEquals(false, vm.uiState.value.isImporting)
         assertTrue(loggingPort.errors.any { it.message.contains("Could not open document") })
+        val event = analytics.events.single()
+        assertEquals(USER_VISIBLE_ERROR_EVENT, event.name)
+        assertEquals("import_logs", event.params[PARAM_SCREEN])
+        assertEquals("read_files", event.params[PARAM_ACTION])
     }
 
     @Test
@@ -304,7 +316,8 @@ class ImportLogsViewModelTest {
             )
         val auth =
             FakeAuthManager(AuthState.Authenticated(UserProfile("u1", "U", "u@e.com", null)))
-        val vm = buildVm(auth, runner)
+        val analytics = FakeAnalyticsPort()
+        val vm = buildVm(auth, runner, analytics)
         vm.onFilesSelected(listOf("x".toByteArray() to "export.csv"))
         advanceUntilIdle()
         assertEquals(IMPORT_LOGS_GENERIC_ERROR, vm.uiState.value.errorMessage)
@@ -312,6 +325,10 @@ class ImportLogsViewModelTest {
         assertFalse(vm.uiState.value.errorMessage!!.contains("tokens"))
         assertTrue(loggingPort.errors.any { it.message.contains(technical) })
         assertEquals(false, vm.uiState.value.isImporting)
+        val event = analytics.events.single()
+        assertEquals(USER_VISIBLE_ERROR_EVENT, event.name)
+        assertEquals("import_logs", event.params[PARAM_SCREEN])
+        assertEquals("import_history", event.params[PARAM_ACTION])
     }
 
     @Test

@@ -12,6 +12,10 @@ import com.stratum.domain.subscription.PurchaseSubscriptionUseCase
 import com.stratum.domain.subscription.RestorePurchasesUseCase
 import com.stratum.domain.subscription.SubscriptionCatalog
 import com.stratum.domain.subscription.SubscriptionProduct
+import com.stratum.domain.logging.LogAnalyticsEventUseCase
+import com.stratum.domain.logging.PARAM_ACTION
+import com.stratum.domain.logging.PARAM_SCREEN
+import com.stratum.domain.logging.USER_VISIBLE_ERROR_EVENT
 import com.stratum.domain.subscription.annualSavingsPercent
 import com.stratum.domain.subscription.monthlyEquivalentMicros
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -44,6 +48,7 @@ class PaywallViewModel @Inject constructor(
     private val getSubscriptionProducts: GetSubscriptionProductsUseCase,
     private val purchaseSubscription: PurchaseSubscriptionUseCase,
     private val restorePurchases: RestorePurchasesUseCase,
+    private val logAnalytics: LogAnalyticsEventUseCase,
     observeEntitlement: ObserveEntitlementUseCase,
     observeBillingPurchaseResults: ObserveBillingPurchaseResultsUseCase,
 ) : ViewModel() {
@@ -174,6 +179,10 @@ class PaywallViewModel @Inject constructor(
                     }
                 }
                 .onFailure {
+                    logAnalytics(
+                        USER_VISIBLE_ERROR_EVENT,
+                        mapOf(PARAM_SCREEN to "paywall", PARAM_ACTION to "load_offerings"),
+                    )
                     transientState.update { it.copy(loadError = PaywallCopy.LOAD_ERROR) }
                 }
         }
@@ -193,6 +202,9 @@ class PaywallViewModel @Inject constructor(
             transientState.update {
                 it.copy(isPurchasing = true, errorMessage = null, userMessage = null)
             }
+            // NOTE: user-visible purchase failures are deliberately NOT counted here —
+            // billing-flow cancellations surface on this branch and are not errors.
+            // Counting it needs cancellation discrimination first.
             purchaseSubscription(product).onFailure { error ->
                 transientState.update {
                     it.copy(
@@ -225,6 +237,10 @@ class PaywallViewModel @Inject constructor(
                     }
                 }
                 .onFailure { error ->
+                    logAnalytics(
+                        USER_VISIBLE_ERROR_EVENT,
+                        mapOf(PARAM_SCREEN to "paywall", PARAM_ACTION to "restore_purchases"),
+                    )
                     val message = error.message ?: PaywallCopy.RESTORE_FAILED
                     transientState.update {
                         it.copy(isRestoring = false, errorMessage = message, userMessage = message)
