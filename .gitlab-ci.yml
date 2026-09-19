@@ -147,7 +147,9 @@ emulator-tests:
     - echo "no" | avdmanager create avd -n ci -k "system-images;android-34;google_apis;x86_64" --device "pixel_7" --force
     - test -f "$ANDROID_AVD_HOME/ci.ini" || (echo "AVD 'ci' was not created under $ANDROID_AVD_HOME" && exit 1)
   script:
-    - $ANDROID_HOME/emulator/emulator -avd ci -no-window -gpu swiftshader_indirect -no-audio -no-snapshot -no-boot-anim &
+    # -partition-size 2048: the runner disk can't fit the pixel_7 default userdata
+    # partition (needs ~7.4 GB, ~6.8 GB free); 2 GB is plenty for these tests.
+    - $ANDROID_HOME/emulator/emulator -avd ci -no-window -gpu swiftshader_indirect -no-audio -no-snapshot -no-boot-anim -partition-size 2048 &
     - timeout 1200 bash -c 'adb wait-for-device; while [[ -z $(adb shell getprop sys.boot_completed | tr -d "\r") ]]; do sleep 5; done'
     - ./gradlew :app:connectedDebugAndroidTest :core:data:connectedDebugAndroidTest
   artifacts:
