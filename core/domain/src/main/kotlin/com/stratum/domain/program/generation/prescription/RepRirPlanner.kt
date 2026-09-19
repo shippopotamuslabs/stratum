@@ -10,6 +10,7 @@ import com.stratum.domain.program.generation.reference.RP_REP_RIR_BANDS
 import com.stratum.domain.program.generation.reference.RpRepProfile
 import com.stratum.domain.program.generation.reference.RpRepRirBand
 import com.stratum.domain.program.generation.slots.WorkoutSlotTemplate
+import com.stratum.domain.response.POPULATION_FATIGUE_DECAY_SLOPE
 import com.stratum.domain.training.EstimatedOneRm
 import com.stratum.domain.workout.fatigue.LAST_SET_REP_FLOOR
 import com.stratum.domain.workout.fatigue.REP_RANGE_CEILING
@@ -81,9 +82,12 @@ fun repRirForSlot(
  *
  * Guards:
  * - Floor is always ≥ [HYPERTROPHIC_FLOOR] (enforced).
- * - `slope == null` or `setCount <= 1` → floor is the [HYPERTROPHIC_FLOOR] (no fatigue signal).
+ * - `slope == null` and `setCount <= 1` → the static [fallback] band (pure fallback).
+ * - `slope == null` with `setCount > 1` → [POPULATION_FATIGUE_DECAY_SLOPE]: a discarded
+ *   measurement is no confident signal, not zero fatigue (consistent with
+ *   [com.stratum.domain.workout.fatigue.projectReps]).
+ * - Measured slope with `setCount <= 1` → floor is the [HYPERTROPHIC_FLOOR] (no multi-set signal).
  * - Ceiling is capped at [REP_RANGE_CEILING_CAP].
- * - Pure fallback (no slope AND no setCount) → the static [fallback] band.
  */
 fun repRangeFromFatigue(
     fatigueSlope: Double?,
@@ -94,11 +98,15 @@ fun repRangeFromFatigue(
     if (fatigueSlope == null && setCount <= 1) {
         return fallback.repMin to fallback.repMax
     }
+    // A discarded (null) measurement on a multi-set lift is not zero fatigue: fall back to the
+    // population default slope. Only the pure fallback (no slope AND no usable set count) keeps
+    // the static band above.
+    val effectiveSlope = fatigueSlope ?: POPULATION_FATIGUE_DECAY_SLOPE
     val fatigueDrop =
-        if (fatigueSlope == null || setCount <= 1) {
+        if (setCount <= 1) {
             0
         } else {
-            fatigueDropReps(fatigueSlope, setCount)
+            fatigueDropReps(effectiveSlope, setCount)
         }
     // Generation also enforces the hypertrophic floor (strength bands stay out of this planner).
     val repMin = maxOf(HYPERTROPHIC_FLOOR, LAST_SET_FLOOR + fatigueDrop)

@@ -48,6 +48,22 @@ object TrainingInsightsExtractor {
      */
     private const val MAX_FATIGUE_SLOPE_MAGNITUDE = 4.0
 
+    /**
+     * Minimum confident fatigue slope magnitude (reps/set). An average slope flatter than −0.5
+     * is indistinguishable from RIR noise / flat training and is discarded (null) so downstream
+     * falls back to the population default (−2.0) instead of projecting flat rep recommendations.
+     * An average of exactly −0.5 is kept. Consistent with the positive-slope discard philosophy:
+     * only a confidently negative average is kept as a measurement.
+     */
+    private const val MIN_FATIGUE_SLOPE_MAGNITUDE = 0.5
+
+    /**
+     * Recency window for the fatigue slope: only the N most recent sessions per lift contribute
+     * per-session slopes to the average. Smaller is more responsive to recent training, larger is
+     * less noisy; 7 is the starting point — a single constant to tune.
+     */
+    private const val FATIGUE_SESSION_WINDOW = 7
+
     data class AnalysisInput(
         val sessions: List<TrainingSession>,
         val sets: List<LoggedSet>,
@@ -118,12 +134,20 @@ object TrainingInsightsExtractor {
         val byLift = sets.filter { it.liftId != null }.groupBy { it.liftId!! }
         return byLift.mapNotNull { (liftId, liftSets) ->
             val bySession = liftSets.groupBy { it.sessionId }
-            if (bySession.size < MIN_SESSIONS_FOR_FATIGUE) return@mapNotNull null
+            // Recency window for the fatigue slope only: the newest FATIGUE_SESSION_WINDOW
+            // sessions per lift by max completedAt. Everything else (sessionPeaks, progress
+            // trend, volume baselines, sessionCount) stays on full history.
+            val fatigueWindowIds = bySession.entries
+                .sortedByDescending { (_, sessionSets) -> sessionSets.maxOf { it.completedAt } }
+                .take(FATIGUE_SESSION_WINDOW)
+                .map { it.key }
+                .toSet()
+            if (fatigueWindowIds.size < MIN_SESSIONS_FOR_FATIGUE) return@mapNotNull null
 
             val slopes = mutableListOf<Double>()
             val sessionPeaks = mutableListOf<Pair<Instant, Double>>()
 
-            bySession.forEach { (_, sessionSets) ->
+            bySession.forEach { (sessionId, sessionSets) ->
                 // Main-block sets only — myo minis / drops intentionally tank reps under
                 // short rest and must not steepen the per-lift fatigue slope used for
                 // rep-range planning and post-workout band shift proposals.
@@ -150,7 +174,7 @@ object TrainingInsightsExtractor {
                 // Require ≥3 sets per session: a 2-point OLS is an exact line (zero residual),
                 // so RIR noise maps 1:1 to the slope. A top set at RPE 8 followed by a failure
                 // set at RPE 10 would yield a slope of −7, which is noise, not fatigue.
-                if (failureReps.size >= MIN_SETS_PER_SESSION_FOR_SLOPE) {
+                if (sessionId in fatigueWindowIds && failureReps.size >= MIN_SETS_PER_SESSION_FOR_SLOPE) {
                     val regression = linearRegression(failureReps.indices.map { it + 1.0 }, failureReps)
                     slopes += regression.slope
                 }
@@ -159,16 +183,19 @@ object TrainingInsightsExtractor {
             }
 
             val avgSlope = slopes.average().takeIf { slopes.isNotEmpty() }
-            // Fatigue only reduces capacity across sets. A non-negative average slope indicates
-            // misjudged RIR (e.g. 120x8@2 → 120x10@2 — reps rising at the same weight) rather than
-            // genuine positive decay. Discard the measurement so downstream falls back to the
-            // population fatigue decay default instead of compounding the error.
+            // Keep the average slope only when it is a confident fatigue measurement. Fatigue
+            // only reduces capacity across sets, so a non-negative average indicates misjudged
+            // RIR (e.g. 120x8@2 → 120x10@2 — reps rising at the same weight) rather than genuine
+            // decay; likewise an average flatter than [MIN_FATIGUE_SLOPE_MAGNITUDE] is
+            // indistinguishable from RIR noise / flat training and would project identical reps
+            // for every set downstream. Discard either case so downstream falls back to the
+            // population fatigue decay default (−2.0) instead of compounding the error.
             //
             // Also discard slopes steeper than [MAX_FATIGUE_SLOPE_MAGNITUDE]: real fatigue ranges
             // from −1.0 to −4.0 reps/set. Anything steeper is RIR noise (e.g. a 2-point
             // regression through a high-RPE top set and a failure set) that would produce absurd
             // rep-range floors (e.g. repMin 12 for a 2-set lift from a −7.0 slope).
-            val safeSlope = avgSlope?.takeIf { it < 0.0 && abs(it) <= MAX_FATIGUE_SLOPE_MAGNITUDE }
+            val safeSlope = avgSlope?.takeIf { it <= -MIN_FATIGUE_SLOPE_MAGNITUDE && abs(it) <= MAX_FATIGUE_SLOPE_MAGNITUDE }
             // The decay contract is `decay = slope * (setIndex - 1) + intercept`, where intercept
             // represents decay at the first set — which is zero by definition (no sets completed
             // yet). A regression intercept on reps-vs-index is the extrapolated failure-reps at

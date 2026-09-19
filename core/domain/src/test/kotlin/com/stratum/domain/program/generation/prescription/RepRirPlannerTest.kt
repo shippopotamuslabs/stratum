@@ -130,7 +130,21 @@ class RepRirPlannerTest {
     @DisplayName("repRangeFromFatigue: null slope + setCount<=1 falls back to the static band")
     fun repRangeFromFatigueNullSlopeFallsBack() {
         val band = RP_REP_RIR_BANDS.getValue(RpRepProfile.LowerFreeWeightCompound)
-        assertEquals(8 to 12, repRangeFromFatigue(null, 4, 4, band))
+        assertEquals(8 to 12, repRangeFromFatigue(null, 1, 4, band))
+    }
+
+    @Test
+    @DisplayName("repRangeFromFatigue: null slope with multi-set count uses the population default")
+    fun repRangeFromFatigueNullSlopeMultiSetUsesPopulationDefault() {
+        // A discarded (null) measurement is no confident signal, not zero fatigue: same band as
+        // an explicit population slope (-2.0, 4 sets) → repMin = max(8, 5+6) = 11; width 4 → 11-15.
+        val band = RP_REP_RIR_BANDS.getValue(RpRepProfile.LowerMachineOrUpperPress)
+        assertEquals(11 to 15, repRangeFromFatigue(null, 4, 4, band))
+        assertEquals(
+            repRangeFromFatigue(-2.0, 4, 4, band),
+            repRangeFromFatigue(null, 4, 4, band),
+            "Discarded measurement must match the population default slope",
+        )
     }
 
     @Test
@@ -197,10 +211,12 @@ class RepRirPlannerTest {
     }
 
     @Test
-    @DisplayName("repRangeFromFatigue: null slope + setCount>1 keeps floor at 8, width from increment")
-    fun repRangeFromFatigueNullSlopeWithSetCountKeepsHypertrophicFloor() {
+    @DisplayName("repRangeFromFatigue: null slope + setCount>1 uses the population default slope")
+    fun repRangeFromFatigueNullSlopeWithSetCountUsesPopulationDefault() {
+        // Discarded measurement is not zero fatigue: population slope (-2.0, 4 sets) →
+        // fatigueDrop = 2 * 3 = 6 → repMin = max(8, 5+6) = 11; width 4 → 11-15.
         val band = RP_REP_RIR_BANDS.getValue(RpRepProfile.LowerFreeWeightCompound)
-        assertEquals(8 to 12, repRangeFromFatigue(null, 4, 4, band))
+        assertEquals(11 to 15, repRangeFromFatigue(null, 4, 4, band))
     }
 
     // --- repWidthFromIncrement: width from the increment:typical-load ratio ---
