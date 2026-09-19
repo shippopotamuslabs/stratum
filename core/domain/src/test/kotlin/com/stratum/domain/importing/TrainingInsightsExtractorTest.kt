@@ -324,9 +324,10 @@ class TrainingInsightsExtractorTest {
 
     @Test
     fun `extractor handles fluctuating or reversed fatigue sets in sessions if overall trend is negative`() {
-        // Test fluctuating reps: 8 -> 10 -> 6 (RIR is null).
-        // Regression on [8.0, 10.0, 6.0] yields slope of -1.0.
-        // Since -1.0 is confidently negative (steeper than -0.5), it is kept as valid fatigue.
+        // Test fluctuating reps: 8 -> 10 -> 7 (RIR is null).
+        // Regression on [8.0, 10.0, 7.0] yields slope of exactly -0.5, the confidence floor.
+        // Since -0.5 is within the kept range (only flatter averages are discarded), it is kept.
+        // This pins the boundary: exactly -0.5 is a valid fatigue measurement.
         val squatId = LiftId("hack-squat")
         val lifts = listOf(
             lift(squatId, "Hack Squat", MovementPattern.SquatPattern, MuscleGroup.Quad),
@@ -343,14 +344,14 @@ class TrainingInsightsExtractorTest {
             sessions.forEach { session ->
                 add(importSet("${session.id.value}-s1", session, "Hack Squat", squatId, 1, Weight(100.0, Weight.WeightUnit.Lb), 8, null, session.startedAt.plusSeconds(1)))
                 add(importSet("${session.id.value}-s2", session, "Hack Squat", squatId, 2, Weight(100.0, Weight.WeightUnit.Lb), 10, null, session.startedAt.plusSeconds(61)))
-                add(importSet("${session.id.value}-s3", session, "Hack Squat", squatId, 3, Weight(100.0, Weight.WeightUnit.Lb), 6, null, session.startedAt.plusSeconds(121)))
+                add(importSet("${session.id.value}-s3", session, "Hack Squat", squatId, 3, Weight(100.0, Weight.WeightUnit.Lb), 7, null, session.startedAt.plusSeconds(121)))
             }
         }
         val output = TrainingInsightsExtractor.analyze(
             TrainingInsightsExtractor.AnalysisInput(sessions, sets, lifts),
         )
         val insights = output.liftInsights.first { it.liftId == squatId }
-        assertEquals(-1.0, insights.fatigueDecaySlope!!, 0.001, "Fluctuating slope must be kept if confidently negative")
+        assertEquals(-0.5, insights.fatigueDecaySlope!!, 0.001, "Boundary slope of exactly -0.5 must be kept")
     }
 
     @Test
