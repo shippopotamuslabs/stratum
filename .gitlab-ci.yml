@@ -146,6 +146,10 @@ emulator-tests:
     - sdkmanager "platform-tools" "platforms;android-34" "system-images;android-34;google_apis;x86_64" "emulator"
     - echo "no" | avdmanager create avd -n ci -k "system-images;android-34;google_apis;x86_64" --device "pixel_7" --force
     - test -f "$ANDROID_AVD_HOME/ci.ini" || (echo "AVD 'ci' was not created under $ANDROID_AVD_HOME" && exit 1)
+    # Shrink the userdata partition in the AVD config itself: the emulator's
+    # pre-boot disk check reads config.ini (it ignores -partition-size there),
+    # and the runner disk can't fit the pixel_7 default (~7.4 GB needed).
+    - sed -i '/^disk.dataPartition.size=/d' "$ANDROID_AVD_HOME/ci.avd/config.ini" && echo 'disk.dataPartition.size=2048M' >> "$ANDROID_AVD_HOME/ci.avd/config.ini"
   script:
     # -partition-size 2048: the runner disk can't fit the pixel_7 default userdata
     # partition (needs ~7.4 GB, ~6.8 GB free); 2 GB is plenty for these tests.
