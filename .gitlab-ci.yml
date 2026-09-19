@@ -149,10 +149,19 @@ emulator-tests:
     # Shrink the userdata partition in the AVD config itself: the emulator's
     # pre-boot disk check reads config.ini (it ignores -partition-size there),
     # and the runner disk can't fit the pixel_7 default (~7.4 GB needed).
-    - sed -i '/^disk.dataPartition.size=/d' "$ANDROID_AVD_HOME/ci.avd/config.ini" && echo 'disk.dataPartition.size=2048M' >> "$ANDROID_AVD_HOME/ci.avd/config.ini"
+    # Bytes format: the original value was bytes, and the "2048M" form was ignored.
+    - grep "^disk.dataPartition.size=" "$ANDROID_AVD_HOME/ci.avd/config.ini" || echo "key absent originally"
+    - sed -i '/^disk.dataPartition.size=/d' "$ANDROID_AVD_HOME/ci.avd/config.ini" && echo 'disk.dataPartition.size=2147483648' >> "$ANDROID_AVD_HOME/ci.avd/config.ini"
+    # Disk diagnostics for the pre-boot space check.
+    - df -h "$CI_PROJECT_DIR" /opt /tmp 2>/dev/null || df -h
+    - du -sh .git 2>/dev/null || true
   script:
     # -partition-size 2048: the runner disk can't fit the pixel_7 default userdata
     # partition (needs ~7.4 GB, ~6.8 GB free); 2 GB is plenty for these tests.
+    # Probe the emulator in the foreground for 90s: its pre-boot disk check fails
+    # fast (FATAL) instead of hanging adb wait-for-device for 20 minutes.
+    - timeout 90 $ANDROID_HOME/emulator/emulator -avd ci -no-window -gpu swiftshader_indirect -no-audio -no-snapshot -no-boot-anim -partition-size 2048 > /tmp/emu-probe.log 2>&1 || true
+    - if grep -q "FATAL" /tmp/emu-probe.log; then echo "EMULATOR FATAL:"; grep "FATAL" /tmp/emu-probe.log | head -3; exit 1; fi
     - $ANDROID_HOME/emulator/emulator -avd ci -no-window -gpu swiftshader_indirect -no-audio -no-snapshot -no-boot-anim -partition-size 2048 &
     - timeout 1200 bash -c 'adb wait-for-device; while [[ -z $(adb shell getprop sys.boot_completed | tr -d "\r") ]]; do sleep 5; done'
     - ./gradlew :app:connectedDebugAndroidTest :core:data:connectedDebugAndroidTest
