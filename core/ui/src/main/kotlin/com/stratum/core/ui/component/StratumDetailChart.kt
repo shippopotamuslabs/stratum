@@ -18,6 +18,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
@@ -53,7 +54,6 @@ import com.stratum.core.ui.theme.StratumThemeAccessor
 import java.time.Instant
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 import kotlin.math.max
 import kotlin.math.min
 
@@ -228,8 +228,10 @@ private fun DetailChartContent(
         thickness = ZERO_LINE_THICKNESS_DP.dp,
     )
 
-    val dateFormatter = remember {
-        DateTimeFormatter.ofPattern("MMM d", Locale.getDefault())
+    // Observable read: the formatter rebuilds if the system locale changes.
+    val locale = LocalLocale.current
+    val dateFormatter = remember(locale) {
+        DateTimeFormatter.ofPattern("MMM d", locale.platformLocale)
     }
     // X is a pure epoch-day integer (LocalDate.toEpochDay). Format via UTC midnight of that
     // proleptic day so weekly Monday-UTC and local daily keys both label the intended calendar date.

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.theme.StratumThemeAccessor
@@ -16,7 +17,6 @@ import com.stratum.feature.history.ui.HistoryMiniMonthUi
 import com.stratum.feature.history.ui.HistoryYearUi
 import java.time.YearMonth
 import java.time.format.TextStyle
-import java.util.Locale
 
 @Composable
 internal fun HistoryYearBlock(
@@ -62,6 +62,9 @@ internal fun MiniMonthHeatmap(
     modifier: Modifier = Modifier,
     interactive: Boolean = true,
 ) {
+    // Observable read: recomposes if the system locale changes.
+    // platformLocale bridges Compose's Locale to java.util.Locale for getDisplayName.
+    val locale = LocalLocale.current.platformLocale
     Column(
         modifier =
             modifier.then(
@@ -74,7 +77,7 @@ internal fun MiniMonthHeatmap(
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         StratumText(
-            text = mini.yearMonth.month.getDisplayName(TextStyle.SHORT, Locale.getDefault()),
+            text = mini.yearMonth.month.getDisplayName(TextStyle.SHORT, locale),
             style = StratumThemeAccessor.typography.sectionLabel,
             muted = true,
         )
