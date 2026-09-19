@@ -1,0 +1,158 @@
+# Stratum CI — phase 1: merge-request gates + nightly device runs.
+#
+# ONE-TIME SETUP (GitLab project -> Settings -> CI/CD -> Variables):
+# - GOOGLE_SERVICES_JSON (type: File): paste the contents of app/google-services.json.
+#   The file is gitignored, so without this every Android job fails at configuration time.
+# - Optional: a pipeline schedule (e.g. nightly 02:00 UTC) to enable emulator-tests.
+#
+# OPTIONAL BUT RECOMMENDED (Settings -> Merge requests):
+# - "Pipelines must succeed" + "All threads must be resolved" before merge.
+#
+# DELIBERATE NON-GOALS (see pre-launch list at the bottom):
+# - :core:domain-solver-tests never runs here: one file currently fails to compile and
+#   the suite is slow by design. It moves to nightly only after the compile fix +
+#   quarantine plan (tracked separately). Never use bare `./gradlew build`/`check`
+#   in this file — those would compile that module's broken test sources.
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == 'schedule'
+
+default:
+  interruptible: true
+
+variables:
+  GRADLE_USER_HOME: "$CI_PROJECT_DIR/.gradle-home"
+  ANDROID_USER_HOME: "$CI_PROJECT_DIR/.android-home"
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.caching=true"
+
+stages:
+  - lint
+  - test
+  - nightly
+
+# Shared setup for every Android job: Firebase config + SDK licenses.
+.android-job:
+  image: ghcr.io/cirruslabs/android-sdk:34
+  before_script:
+    - test -n "$GOOGLE_SERVICES_JSON" || (echo "Missing GOOGLE_SERVICES_JSON file variable — see header of .gitlab-ci.yml" && exit 1)
+    - cp "$GOOGLE_SERVICES_JSON" app/google-services.json
+    - chmod +x gradlew
+    - yes | sdkmanager --licenses > /dev/null
+  cache:
+    key:
+      files:
+        - gradle/libs.versions.toml
+        - settings.gradle.kts
+    paths:
+      - .gradle-home/caches/
+      - .gradle-home/wrapper/
+    policy: pull-push
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+detekt:
+  extends: .android-job
+  stage: lint
+  script:
+    - ./gradlew detekt
+  artifacts:
+    when: always
+    paths:
+      - '**/build/reports/detekt/'
+    expire_in: 1 week
+
+lint:
+  extends: .android-job
+  stage: lint
+  script:
+    - ./gradlew lintDebug
+  artifacts:
+    when: always
+    paths:
+      - '**/build/reports/lint-results-debug.html'
+    expire_in: 1 week
+
+unit-tests:
+  extends: .android-job
+  stage: test
+  script:
+    # JVM domain tests + every Android module's debug unit tests.
+    # Solver tests are excluded by construction (see header).
+    - ./gradlew testDebugUnitTest :core:domain:test
+  artifacts:
+    when: always
+    paths:
+      - '**/build/reports/tests/'
+    reports:
+      junit: '**/build/test-results/**/TEST-*.xml'
+    expire_in: 2 weeks
+
+assemble-debug:
+  extends: .android-job
+  stage: test
+  script:
+    - ./gradlew :app:assembleDebug
+  artifacts:
+    paths:
+      - app/build/outputs/apk/debug/*.apk
+    expire_in: 1 week
+
+functions-tests:
+  image: node:22
+  stage: test
+  cache:
+    key:
+      files:
+        - functions/package-lock.json
+    paths:
+      - functions/node_modules/
+    policy: pull-push
+  script:
+    - cd functions
+    - npm ci
+    - npm run build
+    - npm test
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# Device tests on shared runners: no KVM, so the emulator runs unaccelerated and
+# slow. Nightly + allow_failure until green, then decide about per-MR.
+# Covers AppLaunchTest (:app) and LiftDaoDeviceTest (:core:data) on real SQLite.
+emulator-tests:
+  extends: .android-job
+  stage: nightly
+  timeout: 2h
+  allow_failure: true
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'schedule'
+  before_script:
+    - test -n "$GOOGLE_SERVICES_JSON" || (echo "Missing GOOGLE_SERVICES_JSON file variable — see header of .gitlab-ci.yml" && exit 1)
+    - cp "$GOOGLE_SERVICES_JSON" app/google-services.json
+    - chmod +x gradlew
+    - yes | sdkmanager --licenses > /dev/null
+    - sdkmanager "platform-tools" "platforms;android-34" "system-images;android-34;google_apis;x86_64" "emulator"
+    - echo "no" | avdmanager create avd -n ci -k "system-images;android-34;google_apis;x86_64" --device "pixel_7" --force
+  script:
+    - $ANDROID_HOME/emulator/emulator -avd ci -no-window -gpu swiftshader_indirect -no-audio -no-snapshot -no-boot-anim &
+    - timeout 1200 bash -c 'adb wait-for-device; while [[ -z $(adb shell getprop sys.boot_completed | tr -d "\r") ]]; do sleep 5; done'
+    - ./gradlew :app:connectedDebugAndroidTest :core:data:connectedDebugAndroidTest
+  artifacts:
+    when: always
+    paths:
+      - '**/build/reports/androidTests/'
+      - '**/build/outputs/androidTest-results/'
+    reports:
+      junit: '**/build/outputs/androidTest-results/connected/*.xml'
+    expire_in: 2 weeks
+
+# PRE-LAUNCH ADDITIONS (not now):
+# - assembleRelease gate (R8 + Hilt + perf plugin only meet in release builds).
+# - lintRelease once release-blocking lint is triaged.
+# - Roborazzi screenshot tests (JVM, no emulator).
+# - Coverage ratchet (Kover) on touched code.
+# - Play Internal-track deploy + Test Lab robo test.

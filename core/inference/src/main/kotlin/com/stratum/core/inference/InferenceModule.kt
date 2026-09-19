@@ -22,7 +22,6 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
-import kotlin.jvm.JvmStatic
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -68,7 +67,6 @@ abstract class InferenceModule {
          */
         @Provides
         @Singleton
-        @JvmStatic
         fun provideProgramSynthesisPort(
             cloud: FirebaseProgramSynthesisAdapter,
             flags: FeatureFlagRepository,
