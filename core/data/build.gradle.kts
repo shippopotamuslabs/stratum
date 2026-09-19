@@ -94,4 +94,8 @@ dependencies {
     testImplementation(libs.mockk)
     testImplementation(project(":core:testing"))
     testRuntimeOnly(libs.junit.platform.launcher)
+
+    androidTestImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.test.core)
+    androidTestImplementation(libs.androidx.junit)
 }
