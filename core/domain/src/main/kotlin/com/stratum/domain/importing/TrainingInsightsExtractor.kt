@@ -52,8 +52,8 @@ object TrainingInsightsExtractor {
      * Minimum confident fatigue slope magnitude (reps/set). An average slope flatter than −0.5
      * is indistinguishable from RIR noise / flat training and is discarded (null) so downstream
      * falls back to the population default (−2.0) instead of projecting flat rep recommendations.
-     * Consistent with the positive-slope discard philosophy: only a confidently negative average
-     * is kept as a measurement.
+     * An average of exactly −0.5 is kept. Consistent with the positive-slope discard philosophy:
+     * only a confidently negative average is kept as a measurement.
      */
     private const val MIN_FATIGUE_SLOPE_MAGNITUDE = 0.5
 
@@ -195,7 +195,7 @@ object TrainingInsightsExtractor {
             // from −1.0 to −4.0 reps/set. Anything steeper is RIR noise (e.g. a 2-point
             // regression through a high-RPE top set and a failure set) that would produce absurd
             // rep-range floors (e.g. repMin 12 for a 2-set lift from a −7.0 slope).
-            val safeSlope = avgSlope?.takeIf { it < -MIN_FATIGUE_SLOPE_MAGNITUDE && abs(it) <= MAX_FATIGUE_SLOPE_MAGNITUDE }
+            val safeSlope = avgSlope?.takeIf { it <= -MIN_FATIGUE_SLOPE_MAGNITUDE && abs(it) <= MAX_FATIGUE_SLOPE_MAGNITUDE }
             // The decay contract is `decay = slope * (setIndex - 1) + intercept`, where intercept
             // represents decay at the first set — which is zero by definition (no sets completed
             // yet). A regression intercept on reps-vs-index is the extrapolated failure-reps at
