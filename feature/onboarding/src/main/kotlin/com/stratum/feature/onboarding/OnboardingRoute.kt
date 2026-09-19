@@ -79,6 +79,13 @@ fun OnboardingRoute(
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    // Hoisted for the program-import result callback below: resource queries must use
+    // stringResource() in composable context, not LocalContext.current.getString().
+    val importTooLargeMessage =
+        stringResource(
+            R.string.onboarding_import_error_too_large,
+            ProgramTemplateImportLimits.MAX_FILE_SIZE_MB,
+        )
     var draftImportUnit by remember(state.appWeightUnitIsKg) {
         mutableStateOf(
             if (state.appWeightUnitIsKg) {
@@ -132,11 +139,7 @@ fun OnboardingRoute(
                     // is generous. Saves bandwidth and protects the server-side LLM budget.
                     if (file.bytes.size > ProgramTemplateImportLimits.MAX_FILE_BYTES) {
                         viewModel.showImportProgramError(
-                            userFacingMessage =
-                                context.getString(
-                                    R.string.onboarding_import_error_too_large,
-                                    ProgramTemplateImportLimits.MAX_FILE_SIZE_MB,
-                                ),
+                            userFacingMessage = importTooLargeMessage,
                         )
                     } else {
                         viewModel.importExistingProgram(file)
