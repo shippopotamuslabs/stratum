@@ -130,9 +130,11 @@ emulator-tests:
   timeout: 2h
   allow_failure: true
   variables:
-    # avdmanager honors ANDROID_USER_HOME, but the emulator does not search it —
-    # it looks in $ANDROID_AVD_HOME, $ANDROID_SDK_HOME/avd, $HOME/.android/avd.
-    ANDROID_AVD_HOME: "$CI_PROJECT_DIR/.android-home/.android/avd"
+    # This cmdline-tools' avdmanager ignores ANDROID_AVD_HOME and writes the AVD
+    # to $ANDROID_USER_HOME/avd (the runner sets ANDROID_USER_HOME to
+    # $CI_PROJECT_DIR/.android-home), while the emulator searches ANDROID_AVD_HOME.
+    # Point ANDROID_AVD_HOME at the location avdmanager actually uses.
+    ANDROID_AVD_HOME: "$CI_PROJECT_DIR/.android-home/avd"
   rules:
     - if: $CI_PIPELINE_SOURCE == 'schedule'
   before_script:
@@ -143,12 +145,7 @@ emulator-tests:
     - yes | sdkmanager --licenses > /dev/null || [ $? -eq 141 ]
     - sdkmanager "platform-tools" "platforms;android-34" "system-images;android-34;google_apis;x86_64" "emulator"
     - echo "no" | avdmanager create avd -n ci -k "system-images;android-34;google_apis;x86_64" --device "pixel_7" --force
-    # Diagnostics: fail fast if the AVD wasn't created instead of timing out on boot.
-    - 'echo "avdmanager exit: $?"'
-    - echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME ANDROID_USER_HOME=$ANDROID_USER_HOME HOME=$HOME"
-    - avdmanager list avd || true
-    - find "$CI_PROJECT_DIR" -name "ci.ini" 2>/dev/null || true
-    - test -f "$ANDROID_AVD_HOME/ci.ini" || (echo "AVD 'ci' was not created — failing fast" && exit 1)
+    - test -f "$ANDROID_AVD_HOME/ci.ini" || (echo "AVD 'ci' was not created under $ANDROID_AVD_HOME" && exit 1)
   script:
     - $ANDROID_HOME/emulator/emulator -avd ci -no-window -gpu swiftshader_indirect -no-audio -no-snapshot -no-boot-anim &
     - timeout 1200 bash -c 'adb wait-for-device; while [[ -z $(adb shell getprop sys.boot_completed | tr -d "\r") ]]; do sleep 5; done'
