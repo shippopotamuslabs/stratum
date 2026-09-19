@@ -40,7 +40,8 @@ stages:
     - test -n "$GOOGLE_SERVICES_JSON" || (echo "Missing GOOGLE_SERVICES_JSON file variable — see header of .gitlab-ci.yml" && exit 1)
     - cp "$GOOGLE_SERVICES_JSON" app/google-services.json
     - chmod +x gradlew
-    - yes | sdkmanager --licenses > /dev/null
+    # `yes` dies with SIGPIPE (141) once sdkmanager exits; tolerate only that.
+    - yes | sdkmanager --licenses > /dev/null || [ $? -eq 141 ]
   cache:
     key:
       files:
@@ -134,7 +135,8 @@ emulator-tests:
     - test -n "$GOOGLE_SERVICES_JSON" || (echo "Missing GOOGLE_SERVICES_JSON file variable — see header of .gitlab-ci.yml" && exit 1)
     - cp "$GOOGLE_SERVICES_JSON" app/google-services.json
     - chmod +x gradlew
-    - yes | sdkmanager --licenses > /dev/null
+    # `yes` dies with SIGPIPE (141) once sdkmanager exits; tolerate only that.
+    - yes | sdkmanager --licenses > /dev/null || [ $? -eq 141 ]
     - sdkmanager "platform-tools" "platforms;android-34" "system-images;android-34;google_apis;x86_64" "emulator"
     - echo "no" | avdmanager create avd -n ci -k "system-images;android-34;google_apis;x86_64" --device "pixel_7" --force
   script:
