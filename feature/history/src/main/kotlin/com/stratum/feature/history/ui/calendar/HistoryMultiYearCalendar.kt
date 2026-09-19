@@ -8,13 +8,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.history.ui.HistoryYearUi
 import java.time.format.TextStyle
-import java.util.Locale
 
 @Composable
 internal fun HistoryMultiYearBlock(
@@ -22,6 +22,9 @@ internal fun HistoryMultiYearBlock(
     onYearClick: (year: Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Observable read: recomposes if the system locale changes.
+    // platformLocale bridges Compose's Locale to java.util.Locale for getDisplayName.
+    val locale = LocalLocale.current.platformLocale
     Column(
         modifier =
             modifier
@@ -46,7 +49,7 @@ internal fun HistoryMultiYearBlock(
                     StratumText(
                         text =
                             mini.yearMonth.month
-                                .getDisplayName(TextStyle.SHORT, Locale.getDefault())
+                                .getDisplayName(TextStyle.SHORT, locale)
                                 .take(1),
                         style = StratumThemeAccessor.typography.sectionLabel,
                         muted = true,
