@@ -36,7 +36,8 @@ internal fun HistoryMonthBlock(
     modifier: Modifier = Modifier,
 ) {
     // Observable read: recomposes if the system locale changes.
-    val locale = LocalLocale.current
+    // platformLocale bridges Compose's Locale to java.util.Locale for getDisplayName.
+    val locale = LocalLocale.current.platformLocale
     Column(
         modifier = modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
