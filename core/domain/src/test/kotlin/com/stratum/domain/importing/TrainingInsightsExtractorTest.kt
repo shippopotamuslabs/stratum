@@ -12,6 +12,7 @@ import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.TrainingSession
 import java.time.Instant
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -324,8 +325,9 @@ class TrainingInsightsExtractorTest {
     @Test
     fun `extractor handles fluctuating or reversed fatigue sets in sessions if overall trend is negative`() {
         // Test fluctuating reps: 8 -> 10 -> 7 (RIR is null).
-        // Regression on [8.0, 10.0, 7.0] yields slope of -0.5.
-        // Since -0.5 is negative, it should be kept as a valid fatigue slope.
+        // Regression on [8.0, 10.0, 7.0] yields slope of exactly -0.5, the confidence floor.
+        // Since -0.5 is within the kept range (only flatter averages are discarded), it is kept.
+        // This pins the boundary: exactly -0.5 is a valid fatigue measurement.
         val squatId = LiftId("hack-squat")
         val lifts = listOf(
             lift(squatId, "Hack Squat", MovementPattern.SquatPattern, MuscleGroup.Quad),
@@ -349,7 +351,7 @@ class TrainingInsightsExtractorTest {
             TrainingInsightsExtractor.AnalysisInput(sessions, sets, lifts),
         )
         val insights = output.liftInsights.first { it.liftId == squatId }
-        assertEquals(-0.5, insights.fatigueDecaySlope!!, 0.001, "Fluctuating slope must be kept if overall trend is negative")
+        assertEquals(-0.5, insights.fatigueDecaySlope!!, 0.001, "Boundary slope of exactly -0.5 must be kept")
     }
 
     @Test
@@ -489,6 +491,152 @@ class TrainingInsightsExtractorTest {
         )
         val insights = output.liftInsights.firstOrNull { it.liftId == curlId }
         assertEquals(null, insights?.fatigueDecaySlope, "Slope steeper than the plausible bound must be discarded")
+    }
+
+    @Test
+    fun `extractor discards near-flat average fatigue slope below the confidence floor`() {
+        // Two flat sessions (10 -> 10 -> 10, slope 0.0) plus one mildly declining session
+        // (8 -> 10 -> 7 is slope -0.5): average = (0.0 + 0.0 - 0.5) / 3 ≈ -0.167, flatter than
+        // -0.5, so no confident measurement — discard so downstream uses the population default.
+        val squatId = LiftId("hack-squat")
+        val lifts = listOf(
+            lift(squatId, "Hack Squat", MovementPattern.SquatPattern, MuscleGroup.Quad),
+        )
+        val t0 = Instant.parse("2025-01-01T10:00:00Z")
+        val sessions = (1..3).map { index ->
+            WorkoutLoggingFixtures.importTrainingSession(
+                id = "session-$index",
+                startedAt = t0.plusSeconds(index * 86_400L),
+                endedAt = null,
+            )
+        }
+        val sets = buildList {
+            sessions.take(2).forEach { session ->
+                listOf(10, 10, 10).forEachIndexed { i, reps ->
+                    add(importSet("${session.id.value}-f$i", session, "Hack Squat", squatId, i + 1, Weight(100.0, Weight.WeightUnit.Lb), reps, null, session.startedAt.plusSeconds(1 + i * 60L)))
+                }
+            }
+            val s3 = sessions[2]
+            add(importSet("s3-1", s3, "Hack Squat", squatId, 1, Weight(100.0, Weight.WeightUnit.Lb), 8, null, s3.startedAt.plusSeconds(1)))
+            add(importSet("s3-2", s3, "Hack Squat", squatId, 2, Weight(100.0, Weight.WeightUnit.Lb), 10, null, s3.startedAt.plusSeconds(61)))
+            add(importSet("s3-3", s3, "Hack Squat", squatId, 3, Weight(100.0, Weight.WeightUnit.Lb), 7, null, s3.startedAt.plusSeconds(121)))
+        }
+        val output = TrainingInsightsExtractor.analyze(
+            TrainingInsightsExtractor.AnalysisInput(sessions, sets, lifts),
+        )
+        val insights = output.liftInsights.firstOrNull { it.liftId == squatId }
+        assertEquals(null, insights?.fatigueDecaySlope, "Near-flat average slope must be discarded")
+        assertEquals(null, insights?.fatigueDecayIntercept, "Intercept must be discarded with the slope")
+    }
+
+    @Test
+    fun `extractor keeps confident average fatigue slope at minus 0 point 6`() {
+        // Per-session slopes: three at -2.0 (12 -> 10 -> 8), one at +2.0 (8 -> 10 -> 12),
+        // one at +1.0 (8 -> 12 -> 10). Average = (-6 + 2 + 1) / 5 = -0.6, steeper than the
+        // -0.5 floor and within the max-magnitude guard, so it is kept.
+        val squatId = LiftId("hack-squat")
+        val lifts = listOf(
+            lift(squatId, "Hack Squat", MovementPattern.SquatPattern, MuscleGroup.Quad),
+        )
+        val t0 = Instant.parse("2025-01-01T10:00:00Z")
+        val sessions = (1..5).map { index ->
+            WorkoutLoggingFixtures.importTrainingSession(
+                id = "session-$index",
+                startedAt = t0.plusSeconds(index * 86_400L),
+                endedAt = null,
+            )
+        }
+        val sets = buildList {
+            sessions.take(3).forEach { session ->
+                listOf(12, 10, 8).forEachIndexed { i, reps ->
+                    add(importSet("${session.id.value}-d$i", session, "Hack Squat", squatId, i + 1, Weight(100.0, Weight.WeightUnit.Lb), reps, null, session.startedAt.plusSeconds(1 + i * 60L)))
+                }
+            }
+            val rising = sessions[3]
+            listOf(8, 10, 12).forEachIndexed { i, reps ->
+                add(importSet("rising-$i", rising, "Hack Squat", squatId, i + 1, Weight(100.0, Weight.WeightUnit.Lb), reps, null, rising.startedAt.plusSeconds(1 + i * 60L)))
+            }
+            val mild = sessions[4]
+            listOf(8, 12, 10).forEachIndexed { i, reps ->
+                add(importSet("mild-$i", mild, "Hack Squat", squatId, i + 1, Weight(100.0, Weight.WeightUnit.Lb), reps, null, mild.startedAt.plusSeconds(1 + i * 60L)))
+            }
+        }
+        val output = TrainingInsightsExtractor.analyze(
+            TrainingInsightsExtractor.AnalysisInput(sessions, sets, lifts),
+        )
+        val insights = output.liftInsights.first { it.liftId == squatId }
+        assertEquals(-0.6, insights.fatigueDecaySlope!!, 0.001, "Confident average slope must be kept")
+        assertEquals(0.0, insights.fatigueDecayIntercept!!, 0.001, "Intercept is pinned to 0 by the decay contract")
+    }
+
+    @Test
+    fun `fatigue slope uses only the 7 most recent sessions per lift`() {
+        // 12 sessions: oldest 5 ascend (8 -> 10 -> 12, slope +2.0 each), newest 7 decay
+        // (12 -> 10 -> 8, slope -2.0 each). Unwindowed average would be (10 - 14) / 12 ≈ -0.33
+        // (discarded as no confident measurement); windowed to the newest 7 the average is -2.0.
+        // sessionCount stays on full history (12), proving only the slope is windowed.
+        val pulldownId = LiftId("lat-pulldown")
+        val lifts = listOf(
+            lift(pulldownId, "Lat Pulldown", MovementPattern.VerticalPull, MuscleGroup.Back),
+        )
+        val t0 = Instant.parse("2025-01-01T10:00:00Z")
+        val sessions = (1..12).map { index ->
+            WorkoutLoggingFixtures.importTrainingSession(
+                id = "session-$index",
+                startedAt = t0.plusSeconds(index * 86_400L),
+                endedAt = null,
+            )
+        }
+        val sets = buildList {
+            sessions.take(5).forEach { session ->
+                listOf(8, 10, 12).forEachIndexed { i, reps ->
+                    add(importSet("${session.id.value}-old$i", session, "Lat Pulldown", pulldownId, i + 1, Weight(120.0, Weight.WeightUnit.Lb), reps, null, session.startedAt.plusSeconds(1 + i * 60L)))
+                }
+            }
+            sessions.drop(5).forEach { session ->
+                listOf(12, 10, 8).forEachIndexed { i, reps ->
+                    add(importSet("${session.id.value}-new$i", session, "Lat Pulldown", pulldownId, i + 1, Weight(120.0, Weight.WeightUnit.Lb), reps, null, session.startedAt.plusSeconds(1 + i * 60L)))
+                }
+            }
+        }
+        val output = TrainingInsightsExtractor.analyze(
+            TrainingInsightsExtractor.AnalysisInput(sessions, sets, lifts),
+        )
+        val insights = output.liftInsights.first { it.liftId == pulldownId }
+        assertEquals(-2.0, insights.fatigueDecaySlope!!, 0.001, "Slope must reflect the recent window, not diluted history")
+        assertEquals(12, insights.sessionCount, "sessionCount stays on full history")
+    }
+
+    @Test
+    fun `fewer than 3 windowed sessions yields no fatigue slope`() {
+        // Only 2 sessions exist, so the recency window holds 2 < MIN_SESSIONS_FOR_FATIGUE (3):
+        // no lift insights are emitted, preserving the existing qualifier behavior.
+        val squatId = LiftId("hack-squat")
+        val lifts = listOf(
+            lift(squatId, "Hack Squat", MovementPattern.SquatPattern, MuscleGroup.Quad),
+        )
+        val t0 = Instant.parse("2025-01-01T10:00:00Z")
+        val sessions = (1..2).map { index ->
+            WorkoutLoggingFixtures.importTrainingSession(
+                id = "session-$index",
+                startedAt = t0.plusSeconds(index * 86_400L),
+                endedAt = null,
+            )
+        }
+        val sets = buildList {
+            sessions.forEach { session ->
+                listOf(12, 10, 8).forEachIndexed { i, reps ->
+                    add(importSet("${session.id.value}-s$i", session, "Hack Squat", squatId, i + 1, Weight(100.0, Weight.WeightUnit.Lb), reps, null, session.startedAt.plusSeconds(1 + i * 60L)))
+                }
+            }
+        }
+        val output = TrainingInsightsExtractor.analyze(
+            TrainingInsightsExtractor.AnalysisInput(sessions, sets, lifts),
+        )
+        assertNull(
+            output.liftInsights.firstOrNull { it.liftId == squatId },
+            "No lift insights are emitted with fewer than 3 sessions",
+        )
     }
 
     private fun importSet(
