@@ -143,6 +143,12 @@ emulator-tests:
     - yes | sdkmanager --licenses > /dev/null || [ $? -eq 141 ]
     - sdkmanager "platform-tools" "platforms;android-34" "system-images;android-34;google_apis;x86_64" "emulator"
     - echo "no" | avdmanager create avd -n ci -k "system-images;android-34;google_apis;x86_64" --device "pixel_7" --force
+    # Diagnostics: fail fast if the AVD wasn't created instead of timing out on boot.
+    - echo "avdmanager exit: $?"
+    - echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME ANDROID_USER_HOME=$ANDROID_USER_HOME HOME=$HOME"
+    - avdmanager list avd || true
+    - find "$CI_PROJECT_DIR" -name "ci.ini" 2>/dev/null || true
+    - test -f "$ANDROID_AVD_HOME/ci.ini" || (echo "AVD 'ci' was not created — failing fast" && exit 1)
   script:
     - $ANDROID_HOME/emulator/emulator -avd ci -no-window -gpu swiftshader_indirect -no-audio -no-snapshot -no-boot-anim &
     - timeout 1200 bash -c 'adb wait-for-device; while [[ -z $(adb shell getprop sys.boot_completed | tr -d "\r") ]]; do sleep 5; done'
