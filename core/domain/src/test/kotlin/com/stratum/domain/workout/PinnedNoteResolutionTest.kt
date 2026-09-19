@@ -61,4 +61,55 @@ class PinnedNoteResolutionTest {
     fun missingCatalogFallsBack() {
         assertEquals("projected", resolvedLiftPinnedNote(catalog = null, projectedNote = "projected"))
     }
+
+    @Test
+    @DisplayName("overlay workout note list wins over template list")
+    fun overlayListWins() {
+        assertEquals(
+            listOf("overlay-a", "overlay-b"),
+            resolvedWorkoutPinnedNotes(
+                overlayNotes = mapOf(workoutLiftId to listOf("overlay-a", "overlay-b")),
+                workoutLiftId = workoutLiftId,
+                templateNotes = listOf("template"),
+            ),
+        )
+    }
+
+    @Test
+    @DisplayName("missing overlay key keeps template note list")
+    fun templateListWhenOverlayAbsent() {
+        assertEquals(
+            listOf("template"),
+            resolvedWorkoutPinnedNotes(
+                overlayNotes = emptyMap(),
+                workoutLiftId = workoutLiftId,
+                templateNotes = listOf("template"),
+            ),
+        )
+    }
+
+    @Test
+    @DisplayName("present catalog list is authoritative including an explicit clear")
+    fun catalogListClearIsAuthoritative() {
+        assertEquals(
+            emptyList<String>(),
+            resolvedLiftPinnedNotes(catalogNotes = emptyList(), projectedNotes = listOf("stale")),
+        )
+        assertEquals(
+            listOf("catalog-a", "catalog-b"),
+            resolvedLiftPinnedNotes(
+                catalogNotes = listOf("catalog-a", "catalog-b"),
+                projectedNotes = listOf("stale"),
+            ),
+        )
+    }
+
+    @Test
+    @DisplayName("missing catalog list falls back to the projected list")
+    fun missingCatalogListFallsBack() {
+        assertEquals(
+            listOf("projected"),
+            resolvedLiftPinnedNotes(catalogNotes = null, projectedNotes = listOf("projected")),
+        )
+    }
 }

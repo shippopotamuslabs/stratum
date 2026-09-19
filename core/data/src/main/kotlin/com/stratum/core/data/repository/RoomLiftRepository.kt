@@ -18,16 +18,21 @@ import com.stratum.domain.lift.CustomLiftDefinition
 import com.stratum.domain.lift.CustomLiftDetails
 import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.GymPreset
+import com.stratum.domain.lift.CatalogNoteInput
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.Lift
+import com.stratum.domain.lift.LiftCatalogNote
 import com.stratum.domain.lift.LiftRepository
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.IncrementTierId
+import com.stratum.domain.lift.identity.LiftCatalogNoteId
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.lift.sanitizeLiftNoteBody
 import com.stratum.domain.onboarding.identity.GymPreferenceId
+import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
@@ -333,6 +338,27 @@ class RoomLiftRepository @Inject constructor(
             )
             syncTouch.markDirty()
         }
+    }
+
+    override suspend fun getPinnedNotes(id: LiftId): List<LiftCatalogNote> {
+        val row = liftDao.getById(id) ?: return emptyList()
+        val body = row.pinnedNote?.takeIf { it.isNotBlank() } ?: return emptyList()
+        return listOf(
+            LiftCatalogNote(
+                id = LiftCatalogNoteId("${id.value}::0"),
+                liftId = id,
+                body = body,
+                position = 0,
+                updatedAt = Instant.ofEpochMilli(row.updatedAtEpochMillis),
+            ),
+        )
+    }
+
+    override suspend fun setPinnedNotes(id: LiftId, notes: List<CatalogNoteInput>) {
+        // PR1 legacy-backed shim: the single pinned_note column keeps the first surviving
+        // note (PR2 moves list storage to lift_notes). No production caller sends lists yet.
+        val first = notes.mapNotNull { sanitizeLiftNoteBody(it.body) }.firstOrNull()
+        setPinnedNote(id, first)
     }
 
     override suspend fun deleteLifts(ids: Collection<LiftId>) {

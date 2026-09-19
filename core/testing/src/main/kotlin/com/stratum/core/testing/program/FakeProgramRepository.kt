@@ -1,9 +1,16 @@
 package com.stratum.core.testing.program
 
+import com.stratum.domain.lift.WorkoutLiftNote
+import com.stratum.domain.lift.WorkoutLiftNoteInput
+import com.stratum.domain.lift.sanitizeLiftNoteBody
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.ProgramRepository
+import com.stratum.domain.program.WorkoutLift
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutLiftId
+import com.stratum.domain.program.identity.WorkoutLiftNoteId
+import java.time.Instant
+import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
@@ -19,7 +26,30 @@ class FakeProgramRepository(
     private val programs = MutableStateFlow<Map<String, Program>>(
         if (initial == null) emptyMap() else mapOf(initial.id.value to initial.copy(isActive = true)),
     )
+    /** Source of truth for workout note lists; [WorkoutLift.pinnedNote] mirrors the first body. */
+    private val workoutNotes = MutableStateFlow<Map<String, List<WorkoutLiftNote>>>(emptyMap())
     val saveProgramCalls = mutableListOf<Program>()
+
+    private fun findWorkoutLift(id: WorkoutLiftId): WorkoutLift? =
+        programs.value.values
+            .flatMap { program -> program.workouts }
+            .flatMap { workout -> workout.workoutLifts }
+            .firstOrNull { it.id == id }
+
+    private fun updateWorkoutLiftPin(id: WorkoutLiftId, note: String?) {
+        val next = programs.value.mapValues { (_, program) ->
+            program.copy(
+                workouts = program.workouts.map { workout ->
+                    workout.copy(
+                        workoutLifts = workout.workoutLifts.map { lift ->
+                            if (lift.id == id) lift.copy(pinnedNote = note) else lift
+                        },
+                    )
+                },
+            )
+        }
+        programs.value = next
+    }
 
     /** Active program only (matches production [getProgram]). */
     val current: Program? get() = programs.value.values.firstOrNull { it.isActive }
@@ -80,23 +110,52 @@ class FakeProgramRepository(
     }
 
     override suspend fun setWorkoutLiftPinnedNote(id: WorkoutLiftId, note: String?): Boolean {
-        var found = false
-        val next = programs.value.mapValues { (_, program) ->
-            val workouts = program.workouts.map { workout ->
-                val lifts = workout.workoutLifts.map { lift ->
-                    if (lift.id == id) {
-                        found = true
-                        lift.copy(pinnedNote = note)
-                    } else {
-                        lift
-                    }
-                }
-                workout.copy(workoutLifts = lifts)
-            }
-            program.copy(workouts = workouts)
+        val clean = sanitizeLiftNoteBody(note)
+        if (clean == null) {
+            return setWorkoutLiftPinnedNotes(id, emptyList())
         }
-        if (found) programs.value = next
-        return found
+        val existingId = getWorkoutLiftPinnedNotes(id).firstOrNull()?.id
+        return setWorkoutLiftPinnedNotes(id, listOf(WorkoutLiftNoteInput(id = existingId, body = clean)))
+    }
+
+    override suspend fun getWorkoutLiftPinnedNotes(id: WorkoutLiftId): List<WorkoutLiftNote> =
+        workoutNotes.value[id.value] ?: findWorkoutLift(id)?.pinnedNote
+            ?.takeIf { it.isNotBlank() }
+            ?.let { body ->
+                listOf(
+                    WorkoutLiftNote(
+                        id = WorkoutLiftNoteId("${id.value}::0"),
+                        workoutLiftId = id,
+                        body = body,
+                        position = 0,
+                        updatedAt = Instant.now(),
+                    ),
+                )
+            }.orEmpty()
+
+    override suspend fun setWorkoutLiftPinnedNotes(
+        id: WorkoutLiftId,
+        notes: List<WorkoutLiftNoteInput>,
+    ): Boolean {
+        if (findWorkoutLift(id) == null) return false
+        val now = Instant.now()
+        val currentIds = getWorkoutLiftPinnedNotes(id).map { it.id }.toSet()
+        val minted =
+            notes.mapNotNull { input ->
+                sanitizeLiftNoteBody(input.body)?.let { body -> input to body }
+            }.mapIndexed { index, (input, body) ->
+                WorkoutLiftNote(
+                    id = input.id?.takeIf { it in currentIds }
+                        ?: WorkoutLiftNoteId(UUID.randomUUID().toString()),
+                    workoutLiftId = id,
+                    body = body,
+                    position = index,
+                    updatedAt = now,
+                )
+            }
+        workoutNotes.value = workoutNotes.value + (id.value to minted)
+        updateWorkoutLiftPin(id, minted.firstOrNull()?.body)
+        return true
     }
 
     override suspend fun updateCyclePointer(

@@ -1,5 +1,7 @@
 package com.stratum.domain.program
 
+import com.stratum.domain.lift.WorkoutLiftNote
+import com.stratum.domain.lift.WorkoutLiftNoteInput
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import kotlinx.coroutines.flow.Flow
@@ -56,6 +58,19 @@ interface ProgramRepository {
      * row exists (overlay-added / ad-hoc slot — caller should persist on the overlay).
      */
     suspend fun setWorkoutLiftPinnedNote(id: WorkoutLiftId, note: String?): Boolean
+
+    /** All workout notes for one template slot, display order (position ascending). */
+    suspend fun getWorkoutLiftPinnedNotes(id: WorkoutLiftId): List<WorkoutLiftNote>
+
+    /**
+     * Replaces the whole workout note list for one template slot. Returns false when
+     * no `workout_lifts` row exists (overlay fallback). See
+     * [com.stratum.domain.lift.LiftNotesRepository.replaceSessionNotes] for id semantics.
+     */
+    suspend fun setWorkoutLiftPinnedNotes(
+        id: WorkoutLiftId,
+        notes: List<WorkoutLiftNoteInput>,
+    ): Boolean
 
     /**
      * @param cycleStartEpochDay when non-null, updates the cycle projection anchor (typically on
