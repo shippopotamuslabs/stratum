@@ -129,6 +129,10 @@ emulator-tests:
   stage: nightly
   timeout: 2h
   allow_failure: true
+  variables:
+    # avdmanager honors ANDROID_USER_HOME, but the emulator does not search it —
+    # it looks in $ANDROID_AVD_HOME, $ANDROID_SDK_HOME/avd, $HOME/.android/avd.
+    ANDROID_AVD_HOME: "$CI_PROJECT_DIR/.android-home/.android/avd"
   rules:
     - if: $CI_PIPELINE_SOURCE == 'schedule'
   before_script:
