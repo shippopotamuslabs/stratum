@@ -9,7 +9,10 @@ import com.stratum.core.data.sync.SyncTouch
 import com.stratum.domain.lift.LiftNotesRepository
 import com.stratum.domain.lift.LiftSessionNote
 import com.stratum.domain.lift.PastSessionLiftNote
+import com.stratum.domain.lift.SessionNoteInput
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.lift.identity.LiftSessionNoteId
+import com.stratum.domain.lift.sanitizeLiftNoteBody
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.training.identity.TrainingSessionId
 import java.time.Instant
@@ -35,6 +38,39 @@ class RoomLiftNotesRepository @Inject constructor(
             }
             syncTouch.markDirty()
         }
+    }
+
+    override suspend fun getSessionNotes(
+        sessionId: TrainingSessionId,
+        workoutLiftId: WorkoutLiftId,
+    ): List<LiftSessionNote> =
+        dao.getBySessionAndWorkoutLift(sessionId, workoutLiftId)?.toDomain()?.let(::listOf)
+            .orEmpty()
+
+    override suspend fun replaceSessionNotes(
+        sessionId: TrainingSessionId,
+        workoutLiftId: WorkoutLiftId,
+        liftId: LiftId,
+        notes: List<SessionNoteInput>,
+    ) {
+        // PR1 legacy-backed shim: the single-row slot keeps the first surviving note
+        // (PR2 relaxes the unique slot to multi-row). No production caller sends lists yet.
+        val first = notes.mapNotNull { sanitizeLiftNoteBody(it.body) }.firstOrNull()
+        if (first == null) {
+            deleteSessionNote(sessionId, workoutLiftId)
+            return
+        }
+        val existing = dao.getBySessionAndWorkoutLift(sessionId, workoutLiftId)
+        upsertSessionNote(
+            LiftSessionNote(
+                id = existing?.id ?: LiftSessionNoteId.forSlot(sessionId, workoutLiftId),
+                sessionId = sessionId,
+                liftId = liftId,
+                workoutLiftId = workoutLiftId,
+                body = first,
+                updatedAt = Instant.now(),
+            ),
+        )
     }
 
     override suspend fun deleteSessionNote(

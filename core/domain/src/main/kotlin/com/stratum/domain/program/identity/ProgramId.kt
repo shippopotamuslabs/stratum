@@ -51,3 +51,14 @@ value class WorkoutSupersetGroupId(override val value: String) : EntityId {
         require(value.isNotBlank()) { "WorkoutSupersetGroupId cannot be blank" }
     }
 }
+
+/**
+ * Type-safe identifier for a single row in the per-slot workout note list
+ * (multi-note successor of the legacy `workout_lifts.pinned_note` column).
+ */
+@JvmInline
+value class WorkoutLiftNoteId(override val value: String) : EntityId {
+    init {
+        require(value.isNotBlank()) { "WorkoutLiftNoteId cannot be blank" }
+    }
+}
