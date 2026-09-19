@@ -36,6 +36,9 @@ stages:
 # Shared setup for every Android job: Firebase config + SDK licenses.
 .android-job:
   image: ghcr.io/cirruslabs/android-sdk:34
+  # All jobs run on Sean's self-hosted home-server runner (docker executor,
+  # privileged=true for /dev/kvm): zero CI-minute quota burn.
+  tags: [home-server]
   before_script:
     - test -n "$GOOGLE_SERVICES_JSON" || (echo "Missing GOOGLE_SERVICES_JSON file variable — see header of .gitlab-ci.yml" && exit 1)
     - cp "$GOOGLE_SERVICES_JSON" app/google-services.json
@@ -104,6 +107,7 @@ assemble-debug:
 
 functions-tests:
   image: node:22
+  tags: [home-server]
   stage: test
   cache:
     key:
