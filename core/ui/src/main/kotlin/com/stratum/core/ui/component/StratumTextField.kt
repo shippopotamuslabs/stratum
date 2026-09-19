@@ -103,27 +103,32 @@ fun StratumTextField(
             )
         }
 
-    if (!options.showClearButton || value.isEmpty()) {
+    if (!options.showClearButton) {
         field(modifier)
         return
     }
 
+    // Keep the field at a stable composition slot: toggling the clear icon's presence
+    // must not move the text field, or the focused node is disposed on the first
+    // empty -> non-empty transition and the IME collapses.
     Box(modifier = modifier.fillMaxWidth()) {
         field(Modifier)
-        Icon(
-            painter = painterResource(R.drawable.ic_close),
-            contentDescription = stringResource(R.string.stratum_text_field_clear_cd),
-            tint = StratumThemeAccessor.colors.textMuted,
-            modifier =
-                Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = CLEAR_ICON_INSET, end = CLEAR_ICON_INSET)
-                    .size(CLEAR_ICON_SIZE)
-                    .clickable(
-                        role = Role.Button,
-                        onClick = { onValueChange("") },
-                    ),
-        )
+        if (value.isNotEmpty()) {
+            Icon(
+                painter = painterResource(R.drawable.ic_close),
+                contentDescription = stringResource(R.string.stratum_text_field_clear_cd),
+                tint = StratumThemeAccessor.colors.textMuted,
+                modifier =
+                    Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = CLEAR_ICON_INSET, end = CLEAR_ICON_INSET)
+                        .size(CLEAR_ICON_SIZE)
+                        .clickable(
+                            role = Role.Button,
+                            onClick = { onValueChange("") },
+                        ),
+            )
+        }
     }
 }
 
