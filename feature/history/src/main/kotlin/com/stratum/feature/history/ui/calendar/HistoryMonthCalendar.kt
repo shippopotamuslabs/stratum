@@ -17,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -27,7 +28,6 @@ import com.stratum.feature.history.R
 import com.stratum.feature.history.ui.HistoryDayUi
 import com.stratum.feature.history.ui.HistoryMonthUi
 import java.time.format.TextStyle
-import java.util.Locale
 
 @Composable
 internal fun HistoryMonthBlock(
@@ -35,6 +35,8 @@ internal fun HistoryMonthBlock(
     onDayClick: (day: HistoryDayUi) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Observable read: recomposes if the system locale changes.
+    val locale = LocalLocale.current
     Column(
         modifier = modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -42,7 +44,7 @@ internal fun HistoryMonthBlock(
         StratumText(
             text =
                 month.yearMonth.month
-                    .getDisplayName(TextStyle.FULL, Locale.getDefault()) +
+                    .getDisplayName(TextStyle.FULL, locale) +
                     " ${month.yearMonth.year}",
             style = StratumThemeAccessor.typography.titleLarge,
         )
