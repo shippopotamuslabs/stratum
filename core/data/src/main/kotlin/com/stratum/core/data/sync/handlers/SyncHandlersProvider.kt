@@ -1,11 +1,14 @@
 package com.stratum.core.data.sync.handlers
 
+import androidx.room.withTransaction
 import com.stratum.core.data.db.EquipmentDao
 import com.stratum.core.data.db.GymPreferenceDao
+import com.stratum.core.data.db.StratumDatabase
 import com.stratum.core.data.db.IncrementTierDao
 import com.stratum.core.data.db.LiftDao
 import com.stratum.core.data.db.LiftNoteDao
 import com.stratum.core.data.db.LiftSessionNoteDao
+import com.stratum.core.data.db.LiftSessionNoteEntity
 import com.stratum.core.data.db.LiftSetDao
 import com.stratum.core.data.db.WorkoutLiftNoteDao
 import com.stratum.core.data.db.OnboardingProgressDao
@@ -19,6 +22,7 @@ import com.stratum.core.data.db.WorkoutDao
 import com.stratum.core.data.db.WorkoutLiftDao
 import com.stratum.core.data.sync.LocalSyncMeta
 import com.stratum.core.data.sync.SyncCollection
+import com.stratum.core.data.sync.SyncTouch
 import com.stratum.core.data.sync.appliers.IncrementTierRemoteApplier
 import com.stratum.core.data.sync.appliers.LiftRemoteApplier
 import com.stratum.core.data.sync.appliers.LoggedSetRemoteApplier
@@ -53,6 +57,8 @@ import javax.inject.Singleton
 @Singleton
 @Suppress("LongParameterList")
 class SyncHandlersProvider @Inject constructor(
+    private val database: StratumDatabase,
+    private val syncTouch: SyncTouch,
     private val userProfileDao: UserProfileDao,
     private val onboardingDao: OnboardingProgressDao,
     private val gymDao: GymPreferenceDao,
@@ -384,10 +390,7 @@ class SyncHandlersProvider @Inject constructor(
             encode = encoders::liftSessionNote,
             decodeUpsert = { id, data ->
                 val entity = decoders.liftSessionNote(id, data) ?: return@entityHandler false
-                // Multi-row slots merge per document id (last-writer-wins per note).
-                // TODO(PR3): cross-version interop — a legacy single-row doc id
-                // (session::slot) arriving alongside newer per-note rows.
-                liftSessionNoteDao.upsert(entity)
+                mergeSessionSlot(entity)
                 true
             },
         )
@@ -427,6 +430,38 @@ class SyncHandlersProvider @Inject constructor(
                 } ?: false
             },
         )
+
+    /**
+     * Cross-version slot merge for session notes. Per-note documents (UUID ids) merge
+     * row-by-row, but a legacy single-row document (`session::slot` id) represents the
+     * whole slot: sibling rows are displaced (tombstoned so other devices converge) and
+     * the legacy row is kept. Pull is cursor-ordered, so an arriving legacy doc is a
+     * newer whole-slot write, not stale state.
+     */
+    private suspend fun mergeSessionSlot(entity: LiftSessionNoteEntity) {
+        if (entity.id != LiftSessionNoteId.forSlot(entity.sessionId, entity.workoutLiftId)) {
+            liftSessionNoteDao.upsert(entity)
+            return
+        }
+        val now = System.currentTimeMillis()
+        syncTouch.withWriteLock {
+            database.withTransaction {
+                val others =
+                    liftSessionNoteDao.getIdsForSlot(entity.sessionId, entity.workoutLiftId)
+                        .filterNot { it == entity.id }
+                liftSessionNoteDao.deleteBySessionAndWorkoutLift(entity.sessionId, entity.workoutLiftId)
+                liftSessionNoteDao.upsert(entity)
+                if (others.isNotEmpty()) {
+                    syncTouch.enqueueDelete(
+                        SyncCollection.LiftSessionNotes,
+                        others.map { it.value },
+                        now,
+                    )
+                }
+            }
+            syncTouch.markDirty()
+        }
+    }
 
     private fun <E> entityHandler(
         collection: SyncCollection,

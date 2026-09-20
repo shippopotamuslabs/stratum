@@ -8,6 +8,7 @@ import com.stratum.core.data.sync.appliers.LoggedSetRemoteApplier
 import com.stratum.core.data.sync.appliers.ProgramRemoteApplier
 import com.stratum.core.data.sync.codecs.SyncEntityDecoders
 import com.stratum.core.data.sync.codecs.SyncEntityEncoders
+import com.stratum.core.data.sync.testSyncTouch
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -30,6 +31,8 @@ class SyncHandlerRegistryTest {
         val decoders = SyncEntityDecoders()
         val provider =
             SyncHandlersProvider(
+                database = db,
+                syncTouch = testSyncTouch(RuntimeEnvironment.getApplication(), db.pendingCloudDeleteDao()),
                 userProfileDao = db.userProfileDao(),
                 onboardingDao = db.onboardingProgressDao(),
                 gymDao = db.gymPreferenceDao(),
