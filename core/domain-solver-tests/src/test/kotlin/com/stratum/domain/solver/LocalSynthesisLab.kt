@@ -64,7 +64,7 @@ class LocalSynthesisLab {
 
         println("=== LocalSynthesisLab ===")
         println("days=$days layout=$layout sessionMinutes=$sessionMinutes deadlineMs=$deadlineMs")
-        println("weekdays=${emptyList() /* cycle slots, not weekdays */}")
+        println("weekdays=${emptyList<String>() /* cycle slots, not weekdays */}")
         println("specialization=$specialization")
         println(
             "regionFiltersBySession=" +
