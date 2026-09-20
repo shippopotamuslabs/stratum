@@ -4,6 +4,7 @@ import com.stratum.domain.lift.LiftNotesRepository
 import com.stratum.domain.lift.LiftSessionNote
 import com.stratum.domain.lift.PastSessionLiftNote
 import com.stratum.domain.lift.SessionNoteInput
+import com.stratum.domain.lift.sanitizeLiftNoteBody
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.identity.LiftSessionNoteId
 import com.stratum.domain.program.identity.WorkoutLiftId
@@ -69,16 +70,25 @@ class FakeLiftNotesRepository : LiftNotesRepository {
         notes: List<SessionNoteInput>,
     ) {
         val now = Instant.now()
-        val currentIds = this.notes.value.map { it.id }.toSet()
+        // Id retention is scoped to the target slot: an id minted for another
+        // slot is unknown here, so it mints a new row (port contract).
+        val currentIds =
+            this.notes.value
+                .filter { it.sessionId == sessionId && it.workoutLiftId == workoutLiftId }
+                .map { it.id }
+                .toSet()
         val minted =
-            notes.mapIndexed { index, input ->
+            notes.mapNotNull { input ->
+                // Port contract: blank bodies are dropped, overlong bodies truncate.
+                sanitizeLiftNoteBody(input.body)?.let { body -> input to body }
+            }.mapIndexed { index, (input, body) ->
                 LiftSessionNote(
                     id = input.id?.takeIf { it in currentIds }
                         ?: LiftSessionNoteId(UUID.randomUUID().toString()),
                     sessionId = sessionId,
                     liftId = liftId,
                     workoutLiftId = workoutLiftId,
-                    body = input.body.trim(),
+                    body = body,
                     updatedAt = now,
                     position = index,
                 )

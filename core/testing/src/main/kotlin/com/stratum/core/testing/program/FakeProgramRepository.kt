@@ -36,6 +36,44 @@ class FakeProgramRepository(
             .flatMap { workout -> workout.workoutLifts }
             .firstOrNull { it.id == id }
 
+    /**
+     * Drops note-map entries for workout slots absent from every stored program.
+     * Mirrors production, where deleting a program or replacing its hierarchy
+     * removes the underlying rows (and their notes) with it.
+     */
+    private fun pruneOrphanedWorkoutNotes() {
+        val liveSlotIds =
+            programs.value.values
+                .flatMap { program -> program.workouts }
+                .flatMap { workout -> workout.workoutLifts }
+                .map { it.id.value }
+                .toSet()
+        workoutNotes.value = workoutNotes.value.filterKeys { it in liveSlotIds }
+    }
+
+    /**
+     * Reconciles per-slot note lists after a program save. If the save changed a
+     * slot's scalar pin, a stale list entry must not keep overriding the newly
+     * saved pin, so it is dropped and the scalar becomes authoritative again.
+     * Slots whose pin is untouched keep their existing note lists.
+     */
+    private fun reconcileWorkoutNotesAfterSave(previous: Program?, updated: Program) {
+        val previousPins =
+            previous?.workouts
+                ?.flatMap { workout -> workout.workoutLifts }
+                ?.associate { it.id.value to it.pinnedNote }
+                .orEmpty()
+        val changedSlotIds =
+            updated.workouts
+                .flatMap { workout -> workout.workoutLifts }
+                .filter { slot -> previousPins[slot.id.value] != slot.pinnedNote }
+                .map { it.id.value }
+                .toSet()
+        if (changedSlotIds.isNotEmpty()) {
+            workoutNotes.value = workoutNotes.value.filterKeys { it !in changedSlotIds }
+        }
+    }
+
     private fun updateWorkoutLiftPin(id: WorkoutLiftId, note: String?) {
         val next = programs.value.mapValues { (_, program) ->
             program.copy(
@@ -78,12 +116,15 @@ class FakeProgramRepository(
     override suspend fun saveProgram(program: Program) {
         check(!failOnSave) { "FakeProgramRepository configured to fail on save" }
         saveProgramCalls.add(program)
+        val previous = programs.value[program.id.value]
         val next = programs.value.toMutableMap()
         if (program.isActive) {
             next.replaceAll { _, existing -> existing.copy(isActive = false) }
         }
         next[program.id.value] = program
         programs.value = next
+        pruneOrphanedWorkoutNotes()
+        reconcileWorkoutNotesAfterSave(previous, program)
     }
 
     override suspend fun saveToLibrary(program: Program) {
@@ -107,6 +148,7 @@ class FakeProgramRepository(
             "Import-history program cannot be deleted"
         }
         programs.value = programs.value - programId.value
+        pruneOrphanedWorkoutNotes()
     }
 
     override suspend fun setWorkoutLiftPinnedNote(id: WorkoutLiftId, note: String?): Boolean {

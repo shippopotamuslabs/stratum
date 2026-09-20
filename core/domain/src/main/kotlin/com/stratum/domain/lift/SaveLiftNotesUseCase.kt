@@ -48,7 +48,12 @@ class SaveLiftNotesUseCase @Inject constructor(
         command: SaveLiftNotesCommand,
         inputs: List<SessionNoteInput>,
     ) {
-        val surviving = inputs.filter { sanitizeLiftNoteBody(it.body) != null }
+        // Sanitize before delegating: the repository contract drops blanks and
+        // truncates overlong bodies, so downstream ports always see clean data.
+        val surviving =
+            inputs.mapNotNull { input ->
+                sanitizeLiftNoteBody(input.body)?.let { body -> input.copy(body = body) }
+            }
         if (surviving.isEmpty()) {
             liftNotesRepository.deleteSessionNote(command.sessionId, command.workoutLiftId)
             return
