@@ -1,5 +1,6 @@
 package com.stratum.feature.workout.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -109,6 +110,7 @@ fun WorkoutScreen(
     var showDiscardDialog by remember { mutableStateOf(false) }
     var liftActionsLiftId by remember { mutableStateOf<String?>(null) }
     var liftSheetMode by remember { mutableStateOf<LiftOptionsSheetMode>(LiftOptionsSheetMode.Options) }
+    var editingNotes by remember { mutableStateOf<EditingNotesTarget?>(null) }
     var pastSessionNotesLiftId by remember { mutableStateOf<String?>(null) }
     var configureRestLiftId by remember { mutableStateOf<String?>(null) }
     var showRestConfigDiscardDialog by remember { mutableStateOf(false) }
@@ -235,6 +237,19 @@ fun WorkoutScreen(
 
     val elapsedTimeStr = rememberElapsedWorkoutTime(state.sessionStartedAtEpochMilli)
 
+    BackHandler(enabled = editingNotes != null) {
+        editingNotes = null
+    }
+    editingNotes?.let { target ->
+        ManageNotesScreen(
+            target = target,
+            liftNotes = actions.liftNotes,
+            onClose = { editingNotes = null },
+            modifier = modifier,
+        )
+        return
+    }
+
     StratumScaffold(
         modifier = modifier.fillMaxSize(),
         snackbarHostState = snackbarHostState,
@@ -350,6 +365,7 @@ fun WorkoutScreen(
                         onLiftSheetModeChange = { liftSheetMode = it },
                         pastSessionNotesLiftId = pastSessionNotesLiftId,
                         onPastSessionNotesLiftIdChange = { pastSessionNotesLiftId = it },
+                        onEditNotes = { editingNotes = it },
                     ),
                 configureRestLiftId = configureRestLiftId,
                 onConfigureRestLiftIdChange = { configureRestLiftId = it },

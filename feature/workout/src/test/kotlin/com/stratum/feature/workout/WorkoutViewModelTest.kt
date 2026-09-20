@@ -17,7 +17,7 @@ import com.stratum.core.testing.importing.FakeSupersetAffinityRepository
 import com.stratum.core.testing.lift.FakeWeightDisplayPreferencesRepository
 import com.stratum.domain.importing.ExtractTrainingInsightsUseCase
 import com.stratum.domain.lift.GetPastSessionNotesForLiftUseCase
-import com.stratum.domain.lift.GetSessionLiftNoteUseCase
+import com.stratum.domain.lift.GetLiftNoteListsUseCase
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.LiftSessionNote
 import com.stratum.domain.lift.LoadType
@@ -68,7 +68,8 @@ import com.stratum.domain.workout.SlotHistoryRequest
 import com.stratum.domain.workout.progression.DoubleProgressionEngine
 import com.stratum.domain.workout.progression.LinearProgressionDefaults
 import com.stratum.domain.workout.progression.LinearProgressionEngine
-import com.stratum.feature.workout.ui.LiftNotesSaveRequest
+import com.stratum.feature.workout.ui.LiftNoteListsSaveRequest
+import com.stratum.feature.workout.ui.NoteDraftUi
 import com.stratum.feature.workout.ui.WorkoutUiEvent
 import com.stratum.feature.workout.ui.WorkoutUiState
 import java.io.File
@@ -411,8 +412,10 @@ class WorkoutViewModelTest {
             getPastSessionNotesForLift = GetPastSessionNotesForLiftUseCase(
                 liftNotesRepository,
             ),
-            getSessionLiftNote = GetSessionLiftNoteUseCase(
+            getLiftNoteLists = GetLiftNoteListsUseCase(
                 liftNotesRepository,
+                liftRepository,
+                programRepository,
             ),
         )
     }
@@ -493,8 +496,10 @@ class WorkoutViewModelTest {
             getPastSessionNotesForLift = GetPastSessionNotesForLiftUseCase(
                 liftNotesRepository,
             ),
-            getSessionLiftNote = GetSessionLiftNoteUseCase(
+            getLiftNoteLists = GetLiftNoteListsUseCase(
                 liftNotesRepository,
+                liftRepository,
+                programRepository,
             ),
         )
     }
@@ -573,8 +578,10 @@ class WorkoutViewModelTest {
             getPastSessionNotesForLift = GetPastSessionNotesForLiftUseCase(
                 liftNotesRepository,
             ),
-            getSessionLiftNote = GetSessionLiftNoteUseCase(
+            getLiftNoteLists = GetLiftNoteListsUseCase(
                 liftNotesRepository,
+                liftRepository,
+                programRepository,
             ),
         )
     }
@@ -1295,8 +1302,10 @@ class WorkoutViewModelTest {
             getPastSessionNotesForLift = GetPastSessionNotesForLiftUseCase(
                 liftNotesRepository,
             ),
-            getSessionLiftNote = GetSessionLiftNoteUseCase(
+            getLiftNoteLists = GetLiftNoteListsUseCase(
                 liftNotesRepository,
+                liftRepository,
+                programRepository,
             ),
         )
 
@@ -1374,8 +1383,10 @@ class WorkoutViewModelTest {
             getPastSessionNotesForLift = GetPastSessionNotesForLiftUseCase(
                 liftNotesRepository,
             ),
-            getSessionLiftNote = GetSessionLiftNoteUseCase(
+            getLiftNoteLists = GetLiftNoteListsUseCase(
                 liftNotesRepository,
+                liftRepository,
+                programRepository,
             ),
         )
 
@@ -2756,15 +2767,12 @@ class WorkoutViewModelTest {
         assertNull(loaded.lifts.single().liftPinnedNote)
 
         viewModel.saveLiftNotes(
-            LiftNotesSaveRequest(
+            LiftNoteListsSaveRequest(
                 workoutLiftId = workoutLiftId.value,
                 liftId = liftId.value,
-                sessionDraft = "session only",
-                workoutDraft = "workout pin",
-                liftDraft = "lift pin",
-                loadedSession = "",
-                loadedWorkout = "",
-                loadedLift = "",
+                sessionNotes = listOf(NoteDraftUi(body = "session only")),
+                workoutNotes = listOf(NoteDraftUi(body = "workout pin")),
+                liftNotes = listOf(NoteDraftUi(body = "lift pin")),
             ),
         )
         advanceUntilIdle()
@@ -2775,36 +2783,53 @@ class WorkoutViewModelTest {
     }
 
     @Test
+    @DisplayName("save lift note lists persists several notes per tab")
+    fun saveLiftNoteListsMultiNote() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        viewModel.saveLiftNotes(
+            LiftNoteListsSaveRequest(
+                workoutLiftId = workoutLiftId.value,
+                liftId = liftId.value,
+                liftNotes =
+                    listOf(
+                        NoteDraftUi(body = "belt on"),
+                        NoteDraftUi(body = "knees out"),
+                    ),
+            ),
+        )
+        advanceUntilIdle()
+
+        val lists = viewModel.noteLists(workoutLiftId.value, liftId.value)
+        assertEquals(listOf("belt on", "knees out"), lists.lift.map { it.body })
+        assertTrue(lists.lift.all { it.id != null })
+        val updated = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertEquals("belt on", updated.lifts.single().liftPinnedNote)
+    }
+
+    @Test
     @DisplayName("clearing a catalog pin updates the rendered lift card")
     fun clearingCatalogPinUpdatesCard() = runTest {
         val viewModel = buildViewModel()
         viewModel.startSession(workoutId)
         advanceUntilIdle()
         viewModel.saveLiftNotes(
-            LiftNotesSaveRequest(
+            LiftNoteListsSaveRequest(
                 workoutLiftId = workoutLiftId.value,
                 liftId = liftId.value,
-                sessionDraft = "",
-                workoutDraft = "",
-                liftDraft = "lift pin",
-                loadedSession = "",
-                loadedWorkout = "",
-                loadedLift = "",
+                liftNotes = listOf(NoteDraftUi(body = "lift pin")),
             ),
         )
         advanceUntilIdle()
         assertEquals("lift pin", (viewModel.uiState.value as WorkoutUiState.Loaded).lifts.single().liftPinnedNote)
 
         viewModel.saveLiftNotes(
-            LiftNotesSaveRequest(
+            LiftNoteListsSaveRequest(
                 workoutLiftId = workoutLiftId.value,
                 liftId = liftId.value,
-                sessionDraft = "",
-                workoutDraft = "",
-                liftDraft = "",
-                loadedSession = "",
-                loadedWorkout = "",
-                loadedLift = "lift pin",
+                liftNotes = emptyList(),
             ),
         )
         advanceUntilIdle()
@@ -2823,15 +2848,14 @@ class WorkoutViewModelTest {
         assertTrue(added.workoutLiftId != workoutLiftId.value)
 
         viewModel.saveLiftNotes(
-            LiftNotesSaveRequest(
+            LiftNoteListsSaveRequest(
                 workoutLiftId = added.workoutLiftId,
                 liftId = added.liftId,
-                sessionDraft = "",
-                workoutDraft = "adhoc pin",
-                liftDraft = "",
-                loadedSession = "",
-                loadedWorkout = "",
-                loadedLift = "",
+                workoutNotes =
+                    listOf(
+                        NoteDraftUi(body = "adhoc pin"),
+                        NoteDraftUi(body = "second cue"),
+                    ),
             ),
         )
         advanceUntilIdle()
@@ -2850,15 +2874,10 @@ class WorkoutViewModelTest {
         viewModel.startSession(workoutId)
         advanceUntilIdle()
         viewModel.saveLiftNotes(
-            LiftNotesSaveRequest(
+            LiftNoteListsSaveRequest(
                 workoutLiftId = workoutLiftId.value,
                 liftId = liftId.value,
-                sessionDraft = "",
-                workoutDraft = "keep me",
-                liftDraft = "",
-                loadedSession = "",
-                loadedWorkout = "",
-                loadedLift = "",
+                workoutNotes = listOf(NoteDraftUi(body = "keep me")),
             ),
         )
         advanceUntilIdle()

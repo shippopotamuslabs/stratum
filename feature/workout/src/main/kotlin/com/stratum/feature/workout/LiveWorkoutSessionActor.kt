@@ -213,8 +213,8 @@ internal class LiveWorkoutSessionActor(
                 runtime.handleSetUseRestTimerBetweenLifts(cmd)
             is SessionCommand.SetRestSecondsForSlots ->
                 runtime.handleSetRestSecondsForSlots(cmd)
-            is SessionCommand.SetWorkoutLiftPinnedNote ->
-                runtime.handleSetWorkoutLiftPinnedNote(cmd)
+            is SessionCommand.SetWorkoutLiftPinnedNotes ->
+                runtime.handleSetWorkoutLiftPinnedNotes(cmd)
             is SessionCommand.CompleteWorkout -> runtime.handleCompleteWorkout(cmd)
         }
     }
@@ -263,7 +263,7 @@ internal fun sessionCommandFailureIsTerminal(cmd: SessionCommand): Boolean =
         is SessionCommand.RemoveFromSuperset,
         is SessionCommand.SetUseRestTimerBetweenLifts,
         is SessionCommand.SetRestSecondsForSlots,
-        is SessionCommand.SetWorkoutLiftPinnedNote,
+        is SessionCommand.SetWorkoutLiftPinnedNotes,
         SessionCommand.BeginAbandon,
         SessionCommand.CancelAbandon,
         SessionCommand.FinalizeAbandonLocal,

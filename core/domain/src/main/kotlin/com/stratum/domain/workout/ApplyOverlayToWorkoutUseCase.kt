@@ -69,8 +69,8 @@ class ApplyOverlayToWorkoutUseCase @Inject constructor() {
                     sets = allSets,
                     supersetGroupId = updatedSupersetGroupId,
                     useRestTimerBetweenLifts = updatedRestTimer,
-                    pinnedNote = resolvedWorkoutPinnedNote(
-                        overlay.workoutLiftPinnedNotes,
+                    pinnedNote = resolvedWorkoutPinnedNoteFirst(
+                        overlay,
                         lift.id,
                         lift.pinnedNote,
                     ),
@@ -120,8 +120,8 @@ class ApplyOverlayToWorkoutUseCase @Inject constructor() {
                     sets = sets,
                     supersetGroupId = groupOverride,
                     useRestTimerBetweenLifts = restOverride ?: added.useRestTimerBetweenLifts,
-                    pinnedNote = resolvedWorkoutPinnedNote(
-                        overlay.workoutLiftPinnedNotes,
+                    pinnedNote = resolvedWorkoutPinnedNoteFirst(
+                        overlay,
                         added.workoutLiftId,
                         templateNote = null,
                     ),
