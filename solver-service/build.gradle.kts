@@ -30,6 +30,19 @@ dependencies {
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.firebase.admin)
 
+    // CVE remediation floors (see docs/security-scanning.md): align transitive
+    // dependency versions with releases carrying fixes for OSV-flagged
+    // vulnerabilities. BOM platforms only add constraints, they don't add
+    // dependencies; the httpcomponents pins are direct version constraints.
+    implementation(platform("io.netty:netty-bom:4.2.17.Final"))
+    implementation(platform("com.fasterxml.jackson:jackson-bom:2.18.9"))
+    implementation(platform("io.opentelemetry:opentelemetry-bom:1.62.0"))
+    constraints {
+        implementation("org.apache.httpcomponents.client5:httpclient5:5.6.3")
+        implementation("org.apache.httpcomponents.core5:httpcore5:5.4.3")
+        implementation("org.apache.httpcomponents.core5:httpcore5-h2:5.4.3")
+    }
+
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.kotlin.test.junit5)
     testRuntimeOnly(libs.junit.platform.launcher)

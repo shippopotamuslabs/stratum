@@ -20,6 +20,12 @@
     {
       "description": "Group AndroidX / AGP / Compose updates into one weekly MR",
       "groupName": "androidx",
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "pin",
+        "digest"
+      ],
       "matchPackagePatterns": [
         "^androidx\\.",
         "^com\\.android\\."
@@ -28,6 +34,12 @@
     {
       "description": "Group Kotlin updates into one weekly MR",
       "groupName": "kotlin",
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "pin",
+        "digest"
+      ],
       "matchPackagePatterns": [
         "^org\\.jetbrains\\.kotlin"
       ]
@@ -35,6 +47,12 @@
     {
       "description": "Group Firebase and Google Play services updates into one weekly MR",
       "groupName": "firebase-google",
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "pin",
+        "digest"
+      ],
       "matchPackagePatterns": [
         "^com\\.google\\.firebase",
         "^com\\.google\\.gms",
@@ -44,6 +62,12 @@
     {
       "description": "Group Dagger/Hilt updates into one weekly MR",
       "groupName": "dagger-hilt",
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "pin",
+        "digest"
+      ],
       "matchPackagePatterns": [
         "^com\\.google\\.dagger"
       ]
@@ -57,6 +81,12 @@
     {
       "description": "Group Node dependency updates for the Firebase functions",
       "groupName": "functions-npm",
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "pin",
+        "digest"
+      ],
       "matchManagers": [
         "npm"
       ]
@@ -64,6 +94,12 @@
     {
       "description": "Group Python dependency updates for the Python functions",
       "groupName": "functions-python",
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "pin",
+        "digest"
+      ],
       "matchManagers": [
         "pip_requirements"
       ]

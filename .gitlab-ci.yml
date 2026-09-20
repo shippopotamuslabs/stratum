@@ -147,10 +147,13 @@ functions-tests:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
-# OSV vulnerability scanning: builds a CycloneDX SBOM from the resolved :app
-# release runtime classpath (no Gradle lockfiles are committed to the repo)
-# plus the functions lockfiles, then fails the job when OSV reports a known
-# CVE. Runs on MRs and the default branch. Triage path: docs/security-scanning.md
+# OSV vulnerability scanning: builds CycloneDX SBOMs from the resolved :app
+# release runtime classpath and the :solver-service: runtime classpath (the
+# Cloud Run fat JAR ships its own JVM dependency graph and is not a dependency
+# of :app, so it needs its own SBOM) via scripts/generate-sbom.py — no Gradle
+# lockfiles are committed to the repo — plus the functions lockfiles, then
+# fails the job when OSV reports a known CVE. Runs on MRs and the default
+# branch. Triage path: docs/security-scanning.md
 osv-scan:
   extends: .android-job
   stage: lint
@@ -168,20 +171,27 @@ osv-scan:
       curl -sSL --retry 3 -o /tmp/osv-scanner "$OSV_URL"
       chmod +x /tmp/osv-scanner
       /tmp/osv-scanner --version
-    # Resolved dependency tree -> CycloneDX SBOM (scripts/generate-sbom.py).
-    - ./gradlew :app:dependencies --configuration releaseRuntimeClasspath -q > /tmp/gradle-dependencies.txt
-    - python3 scripts/generate-sbom.py < /tmp/gradle-dependencies.txt > bom.cdx.json
-    # Scan the Android SBOM plus the functions lockfiles. Exit code 1 = CVEs found.
+    # Resolved dependency trees -> CycloneDX SBOMs (scripts/generate-sbom.py).
+    # The generator exits nonzero on any FAILED (unresolved) dependency, so a
+    # partial tree can never scan clean. :solver-service gets its own SBOM:
+    # the Cloud Run fat JAR is deployed separately and is not on :app's
+    # classpath, so its JVM dependencies would otherwise bypass the gate.
+    - ./gradlew :app:dependencies --configuration releaseRuntimeClasspath -q > /tmp/gradle-app-deps.txt
+    - python3 scripts/generate-sbom.py < /tmp/gradle-app-deps.txt > bom.cdx.json
+    - ./gradlew :solver-service:dependencies --configuration runtimeClasspath -q > /tmp/gradle-solver-deps.txt
+    - python3 scripts/generate-sbom.py --component-name stratum-solver < /tmp/gradle-solver-deps.txt > bom-solver.cdx.json
+    # Scan both SBOMs plus the functions lockfiles. Exit code 1 = CVEs found.
     # A repo-root .osv-scanner.toml (documented suppressions) applies to every
     # scanned file via --config when present.
     - |
-      SCAN_ARGS="-L bom.cdx.json --lockfile=functions/package-lock.json --lockfile=functions-python/requirements.txt"
+      SCAN_ARGS="-L bom.cdx.json -L bom-solver.cdx.json --lockfile=functions/package-lock.json --lockfile=functions-python/requirements.txt"
       if [ -f .osv-scanner.toml ]; then SCAN_ARGS="$SCAN_ARGS --config=.osv-scanner.toml"; fi
       /tmp/osv-scanner scan source $SCAN_ARGS --format=table
   artifacts:
     when: always
     paths:
       - bom.cdx.json
+      - bom-solver.cdx.json
     expire_in: 2 weeks
 
 # Device tests on shared runners: no KVM, so the emulator runs unaccelerated and
