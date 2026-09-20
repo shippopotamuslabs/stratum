@@ -1,11 +1,14 @@
 package com.stratum.core.data.sync.handlers
 
+import androidx.room.withTransaction
 import com.stratum.core.data.db.EquipmentDao
 import com.stratum.core.data.db.GymPreferenceDao
+import com.stratum.core.data.db.StratumDatabase
 import com.stratum.core.data.db.IncrementTierDao
 import com.stratum.core.data.db.LiftDao
 import com.stratum.core.data.db.LiftNoteDao
 import com.stratum.core.data.db.LiftSessionNoteDao
+import com.stratum.core.data.db.LiftSessionNoteEntity
 import com.stratum.core.data.db.LiftSetDao
 import com.stratum.core.data.db.WorkoutLiftNoteDao
 import com.stratum.core.data.db.OnboardingProgressDao
@@ -17,8 +20,11 @@ import com.stratum.core.data.db.TrainingSessionDao
 import com.stratum.core.data.db.UserProfileDao
 import com.stratum.core.data.db.WorkoutDao
 import com.stratum.core.data.db.WorkoutLiftDao
+import com.stratum.core.data.sync.FirestoreSyncMetadata
+import com.stratum.core.data.sync.FirestoreSyncRemoteApplyPolicy
 import com.stratum.core.data.sync.LocalSyncMeta
 import com.stratum.core.data.sync.SyncCollection
+import com.stratum.core.data.sync.SyncTouch
 import com.stratum.core.data.sync.appliers.IncrementTierRemoteApplier
 import com.stratum.core.data.sync.appliers.LiftRemoteApplier
 import com.stratum.core.data.sync.appliers.LoggedSetRemoteApplier
@@ -53,6 +59,8 @@ import javax.inject.Singleton
 @Singleton
 @Suppress("LongParameterList")
 class SyncHandlersProvider @Inject constructor(
+    private val database: StratumDatabase,
+    private val syncTouch: SyncTouch,
     private val userProfileDao: UserProfileDao,
     private val onboardingDao: OnboardingProgressDao,
     private val gymDao: GymPreferenceDao,
@@ -384,10 +392,7 @@ class SyncHandlersProvider @Inject constructor(
             encode = encoders::liftSessionNote,
             decodeUpsert = { id, data ->
                 val entity = decoders.liftSessionNote(id, data) ?: return@entityHandler false
-                // Multi-row slots merge per document id (last-writer-wins per note).
-                // TODO(PR3): cross-version interop — a legacy single-row doc id
-                // (session::slot) arriving alongside newer per-note rows.
-                liftSessionNoteDao.upsert(entity)
+                mergeSessionSlot(data, entity)
                 true
             },
         )
@@ -427,6 +432,65 @@ class SyncHandlersProvider @Inject constructor(
                 } ?: false
             },
         )
+
+    /**
+     * Cross-version slot merge for session notes. Per-note documents (UUID ids) merge
+     * row-by-row. A legacy single-row document (`session::slot` id) represents the whole
+     * slot, but siblings are displaced only when the existing remote-apply rules say so:
+     * pending rows are always preserved, clean rows lose only to a strictly newer remote
+     * (ties break toward remote, matching [FirestoreSyncRemoteApplyPolicy] with an
+     * unknown local device). When any sibling is preserved, the losing legacy document
+     * is tombstoned so all devices converge on the kept rows.
+     *
+     * Lock contract: production callers (pull engine, conflict adoption) already hold the
+     * coordinator write lock — this path must not reacquire it (`Mutex` is non-reentrant).
+     * Atomicity of rows + outbox comes from the Room transaction below.
+     */
+    private suspend fun mergeSessionSlot(
+        data: Map<String, Any?>,
+        entity: LiftSessionNoteEntity,
+    ) {
+        if (entity.id != LiftSessionNoteId.forSlot(entity.sessionId, entity.workoutLiftId)) {
+            liftSessionNoteDao.upsert(entity)
+            return
+        }
+        val remoteUpdatedAt =
+            (data[FirestoreSyncMetadata.UPDATED_AT] as? Number)?.toLong() ?: 0L
+        val remoteDeviceId = data[FirestoreSyncMetadata.DEVICE_ID] as? String
+        database.withTransaction {
+            val siblings =
+                liftSessionNoteDao.getNotesForSlot(entity.sessionId, entity.workoutLiftId)
+                    .filterNot { it.id == entity.id }
+            if (siblings.isEmpty()) {
+                liftSessionNoteDao.upsert(entity)
+                return@withTransaction
+            }
+            val replace =
+                siblings.all { row ->
+                    FirestoreSyncRemoteApplyPolicy.decide(
+                        localMeta = LocalSyncMeta(row.pendingSync, row.updatedAtEpochMillis),
+                        remoteUpdatedAt = remoteUpdatedAt,
+                        remoteDeviceId = remoteDeviceId,
+                        // The handler has no device context: pending rows are still always
+                        // preserved (unknown local never equals a remote device id).
+                        localDeviceId = null,
+                        remoteDeleted = false,
+                    ) == FirestoreSyncRemoteApplyPolicy.Decision.Apply
+                }
+            if (replace) {
+                liftSessionNoteDao.deleteBySessionAndWorkoutLift(entity.sessionId, entity.workoutLiftId)
+                liftSessionNoteDao.upsert(entity)
+                syncTouch.enqueueDelete(
+                    SyncCollection.LiftSessionNotes,
+                    siblings.map { it.id.value },
+                )
+            } else {
+                liftSessionNoteDao.deleteById(entity.id)
+                syncTouch.enqueueDelete(SyncCollection.LiftSessionNotes, entity.id.value)
+            }
+        }
+        syncTouch.markDirty()
+    }
 
     private fun <E> entityHandler(
         collection: SyncCollection,
