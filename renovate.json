@@ -1,0 +1,108 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ],
+  "timezone": "America/New_York",
+  "schedule": [
+    "on monday before 9am"
+  ],
+  "labels": [
+    "type::chore"
+  ],
+  "semanticCommits": "enabled",
+  "semanticCommitType": "chore",
+  "semanticCommitScope": "deps",
+  "dependencyDashboard": true,
+  "osvVulnerabilityAlerts": true,
+  "minimumReleaseAge": "7 days",
+  "packageRules": [
+    {
+      "description": "Group AndroidX / AGP / Compose updates into one weekly MR",
+      "groupName": "androidx",
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "pin",
+        "digest"
+      ],
+      "matchPackagePatterns": [
+        "^androidx\\.",
+        "^com\\.android\\."
+      ]
+    },
+    {
+      "description": "Group Kotlin updates into one weekly MR",
+      "groupName": "kotlin",
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "pin",
+        "digest"
+      ],
+      "matchPackagePatterns": [
+        "^org\\.jetbrains\\.kotlin"
+      ]
+    },
+    {
+      "description": "Group Firebase and Google Play services updates into one weekly MR",
+      "groupName": "firebase-google",
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "pin",
+        "digest"
+      ],
+      "matchPackagePatterns": [
+        "^com\\.google\\.firebase",
+        "^com\\.google\\.gms",
+        "^com\\.google\\.android\\.libraries"
+      ]
+    },
+    {
+      "description": "Group Dagger/Hilt updates into one weekly MR",
+      "groupName": "dagger-hilt",
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "pin",
+        "digest"
+      ],
+      "matchPackagePatterns": [
+        "^com\\.google\\.dagger"
+      ]
+    },
+    {
+      "description": "Keep major version bumps in their own MRs, separate from minor/patch",
+      "matchUpdateTypes": [
+        "major"
+      ]
+    },
+    {
+      "description": "Group Node dependency updates for the Firebase functions",
+      "groupName": "functions-npm",
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "pin",
+        "digest"
+      ],
+      "matchManagers": [
+        "npm"
+      ]
+    },
+    {
+      "description": "Group Python dependency updates for the Python functions",
+      "groupName": "functions-python",
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "pin",
+        "digest"
+      ],
+      "matchManagers": [
+        "pip_requirements"
+      ]
+    }
+  ]
+}
