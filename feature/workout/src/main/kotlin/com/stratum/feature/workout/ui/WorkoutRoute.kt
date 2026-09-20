@@ -205,7 +205,7 @@ fun WorkoutRoute(
                     },
                     liftNotes =
                         WorkoutLiftNotesActions(
-                            onLoadSessionNote = viewModel::sessionNoteBody,
+                            onLoadNoteLists = viewModel::noteLists,
                             onSave = viewModel::saveLiftNotes,
                             onLoadPastNotes = viewModel::pastSessionNotes,
                         ),

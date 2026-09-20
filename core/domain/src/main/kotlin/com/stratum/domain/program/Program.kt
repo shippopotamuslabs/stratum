@@ -83,6 +83,14 @@ data class WorkoutLift(
     val useRestTimerBetweenLifts: Boolean = false,
     /** User-authored note pinned to this template slot across sessions of this workout. */
     val pinnedNote: String? = null,
+    /**
+     * Ordered workout-note bodies carried through a template save. Write-carry
+     * only: storage reads leave this empty (use
+     * [ProgramRepository.getWorkoutLiftPinnedNotes] for stored lists); template
+     * saves with a non-empty list replace the stored rows, while an empty list
+     * keeps the existing scalar-authoritative restore behavior.
+     */
+    val pinnedNotes: List<String> = emptyList(),
 )
 
 /**

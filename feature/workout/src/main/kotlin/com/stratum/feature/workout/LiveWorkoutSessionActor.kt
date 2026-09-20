@@ -6,6 +6,7 @@ import com.stratum.domain.program.Program
 import com.stratum.domain.program.SaveWorkoutUseCase
 import com.stratum.domain.program.Workout
 import com.stratum.domain.program.identity.WorkoutId
+import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.training.DeleteLoggedSetUseCase
 import com.stratum.domain.training.FinalizeTrainingSessionUseCase
 import com.stratum.domain.training.GetLoggedSetsForSessionUseCase
@@ -128,6 +129,16 @@ internal class LiveWorkoutSessionActor(
 
     fun cachedSessionId(): TrainingSessionId? = runtime.cachedSessionId
 
+    /**
+     * Explicit overlay workout-note bodies for [workoutLiftId], or null when the
+     * overlay has no entry (caller falls back to the program repository). The
+     * multi-note list wins; a legacy scalar pin degrades to a single body —
+     * mirroring merge/display precedence.
+     */
+    fun cachedOverlayWorkoutNotes(workoutLiftId: WorkoutLiftId): List<String>? =
+        runtime.overlay.workoutLiftPinnedNoteLists[workoutLiftId]
+            ?: runtime.overlay.workoutLiftPinnedNotes[workoutLiftId]?.let { listOf(it) }
+
     fun sessionStartedAtEpochMs(): Long? = runtime.sessionStartedAt?.toEpochMilli()
 
     fun requiresCascadeDeleteConfirm(slotId: SetSlotId): Boolean =
@@ -213,8 +224,8 @@ internal class LiveWorkoutSessionActor(
                 runtime.handleSetUseRestTimerBetweenLifts(cmd)
             is SessionCommand.SetRestSecondsForSlots ->
                 runtime.handleSetRestSecondsForSlots(cmd)
-            is SessionCommand.SetWorkoutLiftPinnedNote ->
-                runtime.handleSetWorkoutLiftPinnedNote(cmd)
+            is SessionCommand.SetWorkoutLiftPinnedNotes ->
+                runtime.handleSetWorkoutLiftPinnedNotes(cmd)
             is SessionCommand.CompleteWorkout -> runtime.handleCompleteWorkout(cmd)
         }
     }
@@ -263,7 +274,7 @@ internal fun sessionCommandFailureIsTerminal(cmd: SessionCommand): Boolean =
         is SessionCommand.RemoveFromSuperset,
         is SessionCommand.SetUseRestTimerBetweenLifts,
         is SessionCommand.SetRestSecondsForSlots,
-        is SessionCommand.SetWorkoutLiftPinnedNote,
+        is SessionCommand.SetWorkoutLiftPinnedNotes,
         SessionCommand.BeginAbandon,
         SessionCommand.CancelAbandon,
         SessionCommand.FinalizeAbandonLocal,

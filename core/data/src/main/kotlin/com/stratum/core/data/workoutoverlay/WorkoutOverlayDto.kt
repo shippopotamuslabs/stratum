@@ -193,6 +193,13 @@ data class WorkoutLiftPinnedNoteEntryDto(
     val body: String,
 )
 
+/** One entry of the `workoutLiftPinnedNoteLists` map (workoutLift key + ordered bodies). */
+@Serializable
+data class WorkoutLiftPinnedNoteListEntryDto(
+    val workoutLiftId: String,
+    val bodies: List<String> = emptyList(),
+)
+
 /**
  * DTO mirror of [com.stratum.domain.workout.WorkoutOverlay].
  * All collection-typed domain fields become entry lists / nullable lists.
@@ -214,6 +221,11 @@ data class WorkoutOverlayDto(
     val slotShapeOverrides: List<SlotShapeOverrideEntryDto> = emptyList(),
     val orderedLiftIds: List<String>? = null,
     val workoutLiftPinnedNotes: List<WorkoutLiftPinnedNoteEntryDto> = emptyList(),
+    /**
+     * Multi-note overlay pins. Absent (default) in DTOs written before list
+     * support — those restore an empty map and keep the legacy scalar entries.
+     */
+    val workoutLiftPinnedNoteLists: List<WorkoutLiftPinnedNoteListEntryDto> = emptyList(),
 )
 
 /** Entry list element for [WorkoutOverlayDto.recommendations]. */

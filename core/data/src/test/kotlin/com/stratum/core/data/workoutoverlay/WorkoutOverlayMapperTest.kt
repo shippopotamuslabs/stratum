@@ -194,4 +194,36 @@ class WorkoutOverlayMapperTest {
             ).toDto().toDomain()
         assertNull(restored.loggedSets.values.single().partialReps)
     }
+
+    @Test
+    @DisplayName("multiple overlay note lists survive serialization and restoration")
+    fun multiNoteListsRoundTrip() {
+        val overlay = WorkoutOverlay(
+            workoutLiftPinnedNoteLists = mapOf(
+                WorkoutLiftId("wl-1") to listOf("tuck elbows", "brace hard"),
+                WorkoutLiftId("wl-2") to listOf("slow eccentric"),
+            ),
+        )
+
+        val restored = overlay.toDto().toDomain()
+
+        assertEquals(overlay.workoutLiftPinnedNoteLists, restored.workoutLiftPinnedNoteLists)
+        assertTrue(restored.workoutLiftPinnedNotes.isEmpty())
+    }
+
+    @Test
+    @DisplayName("DTOs without the list field restore compatible defaults and keep scalar pins")
+    fun legacyDtoWithoutListsRestoresDefaults() {
+        // A DTO written before list support: no list field, only the legacy scalar entry.
+        val dto = WorkoutOverlayDto(
+            workoutLiftPinnedNotes = listOf(
+                WorkoutLiftPinnedNoteEntryDto(workoutLiftId = "wl-1", body = "Keep elbows tucked"),
+            ),
+        )
+
+        val restored = dto.toDomain()
+
+        assertTrue(restored.workoutLiftPinnedNoteLists.isEmpty())
+        assertEquals(mapOf(WorkoutLiftId("wl-1") to "Keep elbows tucked"), restored.workoutLiftPinnedNotes)
+    }
 }

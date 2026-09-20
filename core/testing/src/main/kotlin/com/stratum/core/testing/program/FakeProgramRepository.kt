@@ -125,6 +125,38 @@ class FakeProgramRepository(
         programs.value = next
         pruneOrphanedWorkoutNotes()
         reconcileWorkoutNotesAfterSave(previous, program)
+        installCarriedWorkoutNotes(program)
+    }
+
+    /**
+     * Installs ordered note lists carried through a template save (mirrors
+     * production hierarchy write-through). Runs after the scalar-authoritative
+     * reconcile so carried lists replace stale rows instead of being dropped.
+     */
+    private fun installCarriedWorkoutNotes(updated: Program) {
+        val now = Instant.now()
+        var next = workoutNotes.value
+        var changed = false
+        for (slot in updated.workouts.flatMap { workout -> workout.workoutLifts }) {
+            val bodies = slot.pinnedNotes.mapNotNull(::sanitizeLiftNoteBody)
+            // Idempotent: re-saving an already-installed list keeps existing row ids.
+            val current = next[slot.id.value]
+            val needsInstall =
+                bodies.isNotEmpty() && (current == null || current.map { it.body } != bodies)
+            if (needsInstall) {
+                next = next + (slot.id.value to bodies.mapIndexed { index, body ->
+                    WorkoutLiftNote(
+                        id = WorkoutLiftNoteId(UUID.randomUUID().toString()),
+                        workoutLiftId = slot.id,
+                        body = body,
+                        position = index,
+                        updatedAt = now,
+                    )
+                })
+                changed = true
+            }
+        }
+        if (changed) workoutNotes.value = next
     }
 
     override suspend fun saveToLibrary(program: Program) {
