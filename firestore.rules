@@ -22,6 +22,8 @@ service cloud.firestore {
         'lift_sets',
         'training_sessions',
         'lift_session_notes',
+        'lift_notes',
+        'workout_lift_notes',
         'logged_sets',
         'program_change_events'
       ];

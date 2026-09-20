@@ -4,7 +4,6 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
-import androidx.room.Transaction
 import com.stratum.core.data.sync.SyncFlags
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.identity.LiftSessionNoteId
@@ -16,23 +15,8 @@ interface LiftSessionNoteDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entity: LiftSessionNoteEntity)
 
-    /**
-     * Inserts [entity], replacing any other row for the same session+slot (different PK).
-     * Returns the displaced id so callers can enqueue a cloud tombstone.
-     */
-    @Transaction
-    suspend fun upsertMergingUniqueSlot(entity: LiftSessionNoteEntity): String? {
-        val existing = getBySessionAndWorkoutLift(entity.sessionId, entity.workoutLiftId)
-        val displaced =
-            if (existing != null && existing.id != entity.id) {
-                deleteById(existing.id)
-                existing.id.value
-            } else {
-                null
-            }
-        upsert(entity)
-        return displaced
-    }
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(entities: List<LiftSessionNoteEntity>)
 
     @Query(
         """
@@ -45,6 +29,30 @@ interface LiftSessionNoteDao {
         sessionId: TrainingSessionId,
         workoutLiftId: WorkoutLiftId,
     ): LiftSessionNoteEntity?
+
+    /** All notes for one slot in display order. */
+    @Query(
+        """
+        SELECT * FROM lift_session_notes
+        WHERE session_id = :sessionId AND workout_lift_id = :workoutLiftId
+        ORDER BY position ASC, updated_at_epoch_millis ASC
+        """,
+    )
+    suspend fun getNotesForSlot(
+        sessionId: TrainingSessionId,
+        workoutLiftId: WorkoutLiftId,
+    ): List<LiftSessionNoteEntity>
+
+    @Query(
+        """
+        SELECT id FROM lift_session_notes
+        WHERE session_id = :sessionId AND workout_lift_id = :workoutLiftId
+        """,
+    )
+    suspend fun getIdsForSlot(
+        sessionId: TrainingSessionId,
+        workoutLiftId: WorkoutLiftId,
+    ): List<LiftSessionNoteId>
 
     @Query(
         """
@@ -73,8 +81,7 @@ interface LiftSessionNoteDao {
 
     @Query(
         """
-        SELECT n.id, n.session_id, n.lift_id, n.workout_lift_id, n.body,
-               n.updated_at_epoch_millis, n.pending_sync,
+        SELECT n.*,
                s.started_at_epoch_millis, s.workout_name_snapshot
         FROM lift_session_notes n
         INNER JOIN training_sessions s ON s.id = n.session_id
@@ -92,8 +99,7 @@ interface LiftSessionNoteDao {
 
     @Query(
         """
-        SELECT n.id, n.session_id, n.lift_id, n.workout_lift_id, n.body,
-               n.updated_at_epoch_millis, n.pending_sync,
+        SELECT n.*,
                s.started_at_epoch_millis, s.workout_name_snapshot
         FROM lift_session_notes n
         INNER JOIN training_sessions s ON s.id = n.session_id

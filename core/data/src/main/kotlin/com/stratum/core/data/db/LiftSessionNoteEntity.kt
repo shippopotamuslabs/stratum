@@ -16,6 +16,9 @@ import com.stratum.domain.training.identity.TrainingSessionId
  * Transient session note for one lift slot. Historical after the session completes.
  * CASCADE-deleted with the training session (abandon wipes in-progress notes).
  * [workoutLiftId] is a soft ref so overlay-added slots can persist without a template row.
+ *
+ * Multi-note since v5: a slot holds an ordered list ([position]); the old
+ * unique `(session_id, workout_lift_id)` index is now non-unique.
  */
 @Entity(
     tableName = "lift_session_notes",
@@ -28,7 +31,7 @@ import com.stratum.domain.training.identity.TrainingSessionId
         ),
     ],
     indices = [
-        Index(value = ["session_id", "workout_lift_id"], unique = true),
+        Index(value = ["session_id", "workout_lift_id"]),
         Index("lift_id"),
         Index("session_id"),
     ],
@@ -39,6 +42,9 @@ data class LiftSessionNoteEntity(
     @ColumnInfo(name = "lift_id") val liftId: LiftId,
     @ColumnInfo(name = "workout_lift_id") val workoutLiftId: WorkoutLiftId,
     val body: String,
+    val position: Int = 0,
+    @ColumnInfo(name = "created_at_epoch_millis")
+    val createdAtEpochMillis: Long = 0L,
     @ColumnInfo(name = "updated_at_epoch_millis")
     val updatedAtEpochMillis: Long = 0L,
     @ColumnInfo(name = "pending_sync")

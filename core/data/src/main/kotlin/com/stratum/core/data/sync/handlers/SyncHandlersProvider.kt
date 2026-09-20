@@ -4,8 +4,10 @@ import com.stratum.core.data.db.EquipmentDao
 import com.stratum.core.data.db.GymPreferenceDao
 import com.stratum.core.data.db.IncrementTierDao
 import com.stratum.core.data.db.LiftDao
+import com.stratum.core.data.db.LiftNoteDao
 import com.stratum.core.data.db.LiftSessionNoteDao
 import com.stratum.core.data.db.LiftSetDao
+import com.stratum.core.data.db.WorkoutLiftNoteDao
 import com.stratum.core.data.db.OnboardingProgressDao
 import com.stratum.core.data.db.ProgramChangeEventDao
 import com.stratum.core.data.db.ProgramDao
@@ -26,6 +28,7 @@ import com.stratum.core.data.sync.codecs.SyncEntityEncoders
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.IncrementTierId
+import com.stratum.domain.lift.identity.LiftCatalogNoteId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.identity.LiftSessionNoteId
 import com.stratum.domain.onboarding.identity.GymPreferenceId
@@ -36,6 +39,7 @@ import com.stratum.domain.program.identity.LiftSetId
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
+import com.stratum.domain.program.identity.WorkoutLiftNoteId
 import com.stratum.domain.training.identity.ProgramChangeEventId
 import com.stratum.domain.training.identity.TrainingSessionId
 import javax.inject.Inject
@@ -62,6 +66,8 @@ class SyncHandlersProvider @Inject constructor(
     private val liftSetDao: LiftSetDao,
     private val sessionDao: TrainingSessionDao,
     private val liftSessionNoteDao: LiftSessionNoteDao,
+    private val liftNoteDao: LiftNoteDao,
+    private val workoutLiftNoteDao: WorkoutLiftNoteDao,
     private val loggedSetDao: TrainingLoggedSetDao,
     private val programChangeEventDao: ProgramChangeEventDao,
     private val encoders: SyncEntityEncoders,
@@ -86,10 +92,12 @@ class SyncHandlersProvider @Inject constructor(
             specializationHandler(),
             equipmentHandler(),
             liftsHandler(),
+            liftCatalogNotesHandler(),
             incrementTiersHandler(),
             programsHandler(),
             workoutsHandler(),
             workoutLiftsHandler(),
+            workoutLiftNotesHandler(),
             liftSetsHandler(),
             trainingSessionsHandler(),
             liftSessionNotesHandler(),
@@ -212,6 +220,24 @@ class SyncHandlersProvider @Inject constructor(
             checkHasPending = { liftDao.getPending(1).isNotEmpty() },
         )
 
+    private fun liftCatalogNotesHandler(): SyncCollectionHandler =
+        entityHandler(
+            collection = SyncCollection.LiftCatalogNotes,
+            pending = { liftNoteDao.getPending(it) },
+            id = { it.id.value },
+            updatedAt = { it.updatedAtEpochMillis },
+            loadMeta = { id ->
+                liftNoteDao.getById(LiftCatalogNoteId(id))
+                    ?.let { LocalSyncMeta(it.pendingSync, it.updatedAtEpochMillis) }
+            },
+            delete = { liftNoteDao.deleteById(LiftCatalogNoteId(it)) },
+            markSynced = { id, at -> liftNoteDao.markSyncedIfUnchanged(id, at) },
+            encode = encoders::liftCatalogNote,
+            decodeUpsert = { id, data ->
+                decoders.liftCatalogNote(id, data)?.let { liftNoteDao.upsertAll(listOf(it)); true } ?: false
+            },
+        )
+
     private fun incrementTiersHandler(): SyncCollectionHandler =
         entityHandler(
             collection = SyncCollection.IncrementTiers,
@@ -289,6 +315,24 @@ class SyncHandlersProvider @Inject constructor(
             },
         )
 
+    private fun workoutLiftNotesHandler(): SyncCollectionHandler =
+        entityHandler(
+            collection = SyncCollection.WorkoutLiftNotes,
+            pending = { workoutLiftNoteDao.getPending(it) },
+            id = { it.id.value },
+            updatedAt = { it.updatedAtEpochMillis },
+            loadMeta = { id ->
+                workoutLiftNoteDao.getById(WorkoutLiftNoteId(id))
+                    ?.let { LocalSyncMeta(it.pendingSync, it.updatedAtEpochMillis) }
+            },
+            delete = { workoutLiftNoteDao.deleteById(WorkoutLiftNoteId(it)) },
+            markSynced = { id, at -> workoutLiftNoteDao.markSyncedIfUnchanged(id, at) },
+            encode = encoders::workoutLiftNote,
+            decodeUpsert = { id, data ->
+                decoders.workoutLiftNote(id, data)?.let { workoutLiftNoteDao.upsertAll(listOf(it)); true } ?: false
+            },
+        )
+
     private fun liftSetsHandler(): SyncCollectionHandler =
         entityHandler(
             collection = SyncCollection.LiftSets,
@@ -340,7 +384,10 @@ class SyncHandlersProvider @Inject constructor(
             encode = encoders::liftSessionNote,
             decodeUpsert = { id, data ->
                 val entity = decoders.liftSessionNote(id, data) ?: return@entityHandler false
-                liftSessionNoteDao.upsertMergingUniqueSlot(entity)
+                // Multi-row slots merge per document id (last-writer-wins per note).
+                // TODO(PR3): cross-version interop — a legacy single-row doc id
+                // (session::slot) arriving alongside newer per-note rows.
+                liftSessionNoteDao.upsert(entity)
                 true
             },
         )

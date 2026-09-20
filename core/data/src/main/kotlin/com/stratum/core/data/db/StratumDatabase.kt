@@ -39,13 +39,16 @@ import androidx.room.TypeConverters
         ProgramChangeEventEntity::class,
         PendingCloudDeleteEntity::class,
         LiftSessionNoteEntity::class,
+        LiftNoteEntity::class,
+        WorkoutLiftNoteEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
         AutoMigration(from = 2, to = 3),
         AutoMigration(from = 3, to = 4),
+        // 4 → 5 is a manual migration (MIGRATION_4_5: backfill + index rebuild).
     ],
 )
 @TypeConverters(WeekdaySetConverter::class, IntSetConverter::class, EnumConverters::class)
@@ -114,6 +117,10 @@ abstract class StratumDatabase : RoomDatabase() {
     abstract fun pendingCloudDeleteDao(): PendingCloudDeleteDao
 
     abstract fun liftSessionNoteDao(): LiftSessionNoteDao
+
+    abstract fun liftNoteDao(): LiftNoteDao
+
+    abstract fun workoutLiftNoteDao(): WorkoutLiftNoteDao
 
     companion object {
         const val DATABASE_NAME = "stratum.db"

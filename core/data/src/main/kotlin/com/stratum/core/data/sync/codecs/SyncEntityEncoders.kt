@@ -4,8 +4,10 @@ import com.stratum.core.data.db.EquipmentEntity
 import com.stratum.core.data.db.GymPreferenceEntity
 import com.stratum.core.data.db.IncrementTierEntity
 import com.stratum.core.data.db.LiftEntity
+import com.stratum.core.data.db.LiftNoteEntity
 import com.stratum.core.data.db.LiftSessionNoteEntity
 import com.stratum.core.data.db.LiftSetEntity
+import com.stratum.core.data.db.WorkoutLiftNoteEntity
 import com.stratum.core.data.db.LoggedSetEntity
 import com.stratum.core.data.db.OnboardingProgressEntity
 import com.stratum.core.data.db.ProgramChangeEventEntity
@@ -201,5 +203,23 @@ class SyncEntityEncoders @Inject constructor() {
             "lift_id" to e.liftId.value,
             "workout_lift_id" to e.workoutLiftId.value,
             "body" to e.body,
+            "position" to e.position,
+            "created_at_epoch_millis" to e.createdAtEpochMillis,
+        )
+
+    fun liftCatalogNote(e: LiftNoteEntity): Map<String, Any?> =
+        mapOf(
+            "lift_id" to e.liftId.value,
+            "body" to e.body,
+            "position" to e.position,
+            "created_at_epoch_millis" to e.createdAtEpochMillis,
+        )
+
+    fun workoutLiftNote(e: WorkoutLiftNoteEntity): Map<String, Any?> =
+        mapOf(
+            "workout_lift_id" to e.workoutLiftId.value,
+            "body" to e.body,
+            "position" to e.position,
+            "created_at_epoch_millis" to e.createdAtEpochMillis,
         )
 }
