@@ -39,7 +39,7 @@ export async function deterministicProgramConvert(
   // which the trigger handler surfaces as a distinct "too large" rejection.
   assertWithinSizeLimit(rawBytes.length);
 
-  const detected = detectAndParseProgramTemplate(rawBytes);
+  const detected = await detectAndParseProgramTemplate(rawBytes);
   if (!detected) {
     return null;
   }

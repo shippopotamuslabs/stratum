@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import * as xlsx from "xlsx";
+import { xlsxFromAoa } from "../../testUtils/xlsxFixtures";
 import {
   isXlsxBytes,
   matchesMacroFactorCsv,
@@ -28,20 +28,17 @@ const MACROFACTOR_CSV = [
 ].join("\n");
 
 /** Build a real .xlsx buffer from the same rows, to exercise the XLSX path. */
-function buildMacroFactorXlsx(): Buffer {
-  const aoa: (string | number)[][] = [
-    ["Date", "Workout Duration", "Workout", "Exercise", "Exercise Base Weight (lbs)", "Set Type", "Weight (lbs)", "Reps", "RIR", "Duration", "Distance short (Yd)", "Distance long (Mi)"],
-    ["2025-12-28", 2841.0, "5 Day Upper/Lower (Upper A)", "Low Incline Dumbbell Press ∈ SS1", "", "Standard Set", 140.0, 7.0, 1.0, "", "", ""],
-    ["2025-12-28", 2841.0, "5 Day Upper/Lower (Upper A)", "Iso-Lateral High Row (Nautilus) ∈ SS1", "", "Standard Set", 160.0, 8.0, 2.0, "", "", ""],
-    ["2025-12-29", 3374.0, "5 Day Upper/Lower (Lower A)", "Standing Smith Machine Calf Raise", "", "Standard Set", 215.0, 18.0, 1.0, "", "", ""],
-    // Blank reps row — skipped.
-    ["2025-12-29", 3374.0, "5 Day Upper/Lower (Lower A)", "Standing Smith Machine Calf Raise", "", "Standard Set", 215.0, "", 1.0, "", "", ""],
-  ];
-  const sheet = xlsx.utils.aoa_to_sheet(aoa);
-  const book = xlsx.utils.book_new();
-  xlsx.utils.book_append_sheet(book, sheet, "MacroFactor-Export");
-  // `buffer` type returns a Node Buffer when running under Node.
-  return xlsx.write(book, { type: "buffer", bookType: "xlsx" }) as unknown as Buffer;
+function buildMacroFactorXlsx(): Promise<Buffer> {
+  return xlsxFromAoa({
+    "MacroFactor-Export": [
+      ["Date", "Workout Duration", "Workout", "Exercise", "Exercise Base Weight (lbs)", "Set Type", "Weight (lbs)", "Reps", "RIR", "Duration", "Distance short (Yd)", "Distance long (Mi)"],
+      ["2025-12-28", 2841.0, "5 Day Upper/Lower (Upper A)", "Low Incline Dumbbell Press ∈ SS1", "", "Standard Set", 140.0, 7.0, 1.0, "", "", ""],
+      ["2025-12-28", 2841.0, "5 Day Upper/Lower (Upper A)", "Iso-Lateral High Row (Nautilus) ∈ SS1", "", "Standard Set", 160.0, 8.0, 2.0, "", "", ""],
+      ["2025-12-29", 3374.0, "5 Day Upper/Lower (Lower A)", "Standing Smith Machine Calf Raise", "", "Standard Set", 215.0, 18.0, 1.0, "", "", ""],
+      // Blank reps row — skipped.
+      ["2025-12-29", 3374.0, "5 Day Upper/Lower (Lower A)", "Standing Smith Machine Calf Raise", "", "Standard Set", 215.0, "", 1.0, "", "", ""],
+    ],
+  });
 }
 
 describe("macroFactorParser", () => {
@@ -53,8 +50,8 @@ describe("macroFactorParser", () => {
     assert.equal(matchesMacroFactorCsv("a,b,c\n1,2,3"), false);
   });
 
-  it("detects XLSX magic bytes", () => {
-    assert.equal(isXlsxBytes(buildMacroFactorXlsx()), true);
+  it("detects XLSX magic bytes", async () => {
+    assert.equal(isXlsxBytes(await buildMacroFactorXlsx()), true);
     assert.equal(isXlsxBytes(Buffer.from("not an xlsx")), false);
     assert.equal(isXlsxBytes(Buffer.from("PK")), false); // too short
   });
@@ -87,14 +84,14 @@ describe("macroFactorParser", () => {
     assert.equal(highRow.rir, 2);
   });
 
-  it("parses the XLSX variant identically to the CSV variant", () => {
-    const xlsxBytes = buildMacroFactorXlsx();
+  it("parses the XLSX variant identically to the CSV variant", async () => {
+    const xlsxBytes = await buildMacroFactorXlsx();
     assert.equal(isXlsxBytes(xlsxBytes), true);
 
-    const rows = readXlsxRows(xlsxBytes);
+    const rows = await readXlsxRows(xlsxBytes);
     assert.ok(matchesMacroFactorRows(rows));
 
-    const history = parseMacroFactorXlsx(xlsxBytes);
+    const history = await parseMacroFactorXlsx(xlsxBytes);
     assert.ok(history);
 
     assert.equal(history!.sessions.length, 2);
@@ -125,5 +122,29 @@ describe("macroFactorParser", () => {
   it("returns null for an empty sheet", () => {
     assert.equal(matchesMacroFactorRows([]), null);
     assert.equal(matchesMacroFactorRows(undefined), null);
+  });
+
+  it("blanks merged Date followers so they do not import extra sets", async () => {
+    // MacroFactor XLSX exports can vertically merge the Date cell across a
+    // workout's set rows. exceljs repeats the master value on follower cells;
+    // SheetJS surfaced them as missing, so the follower row must be skipped.
+    const ExcelJS = (await import("exceljs-community")).default;
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("MacroFactor-Export");
+    sheet.addRow(["Date", "Workout Duration", "Workout", "Exercise", "Weight (lbs)", "Reps", "RIR"]);
+    sheet.addRow(["2025-12-28", 2841, "Upper A", "Low Incline Dumbbell Press", 140, 7, 1]);
+    sheet.addRow(["", 2841, "Upper A", "Iso-Lateral High Row (Nautilus)", 160, 8, 2]);
+    sheet.mergeCells("A2:A3");
+    const bytes = Buffer.from(await workbook.xlsx.writeBuffer());
+
+    const rows = await readXlsxRows(bytes);
+    assert.equal(rows[2]![0], ""); // follower blanked, not the repeated date
+
+    const history = await parseMacroFactorXlsx(bytes);
+    assert.ok(history);
+    // Without the blanking, the follower row's repeated date would create a
+    // second set in the same session.
+    assert.equal(history!.sets.length, 1);
+    assert.equal(history!.sets[0]!.exerciseNameRaw, "Low Incline Dumbbell Press");
   });
 });

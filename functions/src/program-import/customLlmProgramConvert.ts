@@ -70,7 +70,7 @@ export async function customLlmProgramConvert(
     updatedAt: FieldValue.serverTimestamp(),
   });
 
-  const workbook = normalizeWorkbook(rawBytes);
+  const workbook = await normalizeWorkbook(rawBytes);
   const feasibility = assessProgramImportFeasibility(workbook);
   if (feasibility.decision === "reject" || feasibility.bestSheetIndex === null) {
     return {

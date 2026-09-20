@@ -6,7 +6,7 @@ import {
   isXlsxBytes,
   matchesMacroFactorRows,
   parseMacroFactorCsv,
-  parseMacroFactorXlsx,
+  parseMacroFactorRows,
   readXlsxRows,
 } from "./macroFactorParser";
 import { matchesAlphaProgression, parseAlphaProgression } from "./alphaProgressionParser";
@@ -26,12 +26,16 @@ import type { ImportFormat } from "./types";
  * Order: (1) XLSX MacroFactor, (2) Stratum log JSON, (3) Alpha Progression,
  * (4) Hevy / MacroFactor CSV / Strong.
  */
-export function detectAndParse(rawBytes: Buffer, fileName: string): { format: ImportFormat; history: NormalizedHistory } | null {
-  // 1. XLSX (binary): only MacroFactor ships XLSX today.
+export async function detectAndParse(
+  rawBytes: Buffer,
+  fileName: string,
+): Promise<{ format: ImportFormat; history: NormalizedHistory } | null> {
+  // 1. XLSX (binary): only MacroFactor ships XLSX today. Read the workbook
+  //    once and reuse the rows for both signature sniff and parse.
   if (isXlsxBytes(rawBytes)) {
-    const rows = readXlsxRows(rawBytes);
+    const rows = await readXlsxRows(rawBytes);
     if (matchesMacroFactorRows(rows)) {
-      const history = parseMacroFactorXlsx(rawBytes);
+      const history = parseMacroFactorRows(rows);
       if (history) {
         return { format: "macrofactor", history };
       }

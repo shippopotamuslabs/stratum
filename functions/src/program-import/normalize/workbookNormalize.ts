@@ -4,7 +4,13 @@
  * Produces a human-readable cell grid (with Excel date-as-rep-range recovery) so an LLM can see
  * the file the way a coach would, without receiving raw XLSX bytes or formula soup.
  */
-import * as xlsx from "xlsx";
+import type { Cell, Workbook } from "exceljs-community";
+import {
+  isMergedFollower,
+  loadWorkbook,
+  rawCellValue,
+  usedRangeBounds,
+} from "../../import/deterministic/excelCells";
 import { parseCsv } from "../../import/deterministic/csvReader";
 import {
   excelSerialToUtcDate,
@@ -88,22 +94,28 @@ function formatPlainValue(value: unknown): string {
 }
 
 /**
- * Convert one SheetJS cell to a display string, applying month-day rep-range recovery.
+ * Convert one exceljs cell to a display string, applying month-day rep-range recovery.
+ *
+ * exceljs materializes date-formatted serials as UTC-midnight Dates (its own `excelToDate`
+ * uses UTC), so calendar fields are extracted in UTC — the old SheetJS path produced
+ * local-midnight Dates and read local fields, which is the same calendar day in
+ * production's UTC runtime.
  */
-export function cellToDisplay(cell: xlsx.CellObject | undefined): {
+export function cellToDisplay(cell: Cell | undefined): {
   text: string;
   recoveredDate: boolean;
   formula: boolean;
   literal: boolean;
 } {
-  if (!cell) {
+  if (!cell || isMergedFollower(cell)) {
     return { text: "", recoveredDate: false, formula: false, literal: false };
   }
 
-  const z = typeof cell.z === "string" ? cell.z : undefined;
-  const hasFormula = typeof cell.f === "string" && cell.f.length > 0;
+  const z = typeof cell.numFmt === "string" ? cell.numFmt : undefined;
+  const hasFormula = typeof cell.formula === "string" && cell.formula.length > 0;
+  const v = rawCellValue(cell);
 
-  if (cell.v === undefined || cell.v === null || cell.v === "") {
+  if (v === null || v === "") {
     return {
       text: "",
       recoveredDate: false,
@@ -112,22 +124,23 @@ export function cellToDisplay(cell: xlsx.CellObject | undefined): {
     };
   }
 
-  if (cell.v instanceof Date) {
-    // SheetJS cellDates yields local-midnight Date objects; use local calendar fields.
-    const recovered = recoverMonthDayRepRange(cell.v, z, "local");
+  if (v instanceof Date) {
+    // Date-formatted serial: extract calendar fields in UTC so a non-UTC runtime
+    // cannot shift the day.
+    const recovered = recoverMonthDayRepRange(v, z, "utc");
     if (recovered) {
       return { text: recovered, recoveredDate: true, formula: hasFormula, literal: !hasFormula };
     }
     return {
-      text: cell.v.toISOString().slice(0, 10),
+      text: v.toISOString().slice(0, 10),
       recoveredDate: false,
       formula: hasFormula,
       literal: !hasFormula,
     };
   }
 
-  if (typeof cell.v === "number" && isMonthDayOnlyFormat(z)) {
-    const asDate = excelSerialToUtcDate(cell.v);
+  if (typeof v === "number" && isMonthDayOnlyFormat(z)) {
+    const asDate = excelSerialToUtcDate(v);
     if (asDate) {
       // Serial → UTC Date; extract with UTC fields so timezone offsets cannot shift the day.
       const recovered = recoverMonthDayRepRange(asDate, z, "utc");
@@ -137,7 +150,7 @@ export function cellToDisplay(cell: xlsx.CellObject | undefined): {
     }
   }
 
-  const text = formatPlainValue(cell.v);
+  const text = formatPlainValue(v);
   if (text.startsWith("=")) {
     return { text: "", recoveredDate: false, formula: true, literal: false };
   }
@@ -168,33 +181,27 @@ function sheetFromMatrix(
   };
 }
 
-function normalizeXlsx(bytes: Buffer): NormalizedWorkbook {
-  let workbook: xlsx.WorkBook;
+async function normalizeXlsx(bytes: Buffer): Promise<NormalizedWorkbook> {
+  let workbook: Workbook;
   try {
-    workbook = xlsx.read(bytes, {
-      type: "buffer",
-      cellDates: true,
-      cellNF: true,
-      cellText: false,
-    });
+    workbook = await loadWorkbook(bytes);
   } catch {
     return { kind: "unknown", sheets: [], unreadable: true };
   }
-  if (!workbook.SheetNames.length) {
+  if (!workbook.worksheets.length) {
     return { kind: "xlsx", sheets: [], unreadable: true };
   }
 
   const sheets: NormalizedSheet[] = [];
-  for (const name of workbook.SheetNames) {
-    const sheet = workbook.Sheets[name];
-    if (!sheet || !sheet["!ref"]) {
-      sheets.push(sheetFromMatrix(name, [], [], 0, 0, 0));
+  for (const sheet of workbook.worksheets) {
+    const bounds = usedRangeBounds(sheet);
+    if (!bounds) {
+      sheets.push(sheetFromMatrix(sheet.name, [], [], 0, 0, 0));
       continue;
     }
-    const range = xlsx.utils.decode_range(sheet["!ref"]);
     // Cap extreme sheets (abuse / calculator sprawl) — feasibility rejects; keep parse bounded.
-    const maxR = Math.min(range.e.r, range.s.r + 800);
-    const maxC = Math.min(range.e.c, range.s.c + 40);
+    const maxR = Math.min(bounds.bottom, bounds.top + 800);
+    const maxC = Math.min(bounds.right, bounds.left + 40);
 
     const rows: string[][] = [];
     const excelRowNumbers: number[] = [];
@@ -202,13 +209,11 @@ function normalizeXlsx(bytes: Buffer): NormalizedWorkbook {
     let formulaCells = 0;
     let literalCells = 0;
 
-    for (let r = range.s.r; r <= maxR; r++) {
+    for (let r = bounds.top; r <= maxR; r++) {
       const row: string[] = [];
       let rowHasContent = false;
-      for (let c = range.s.c; c <= maxC; c++) {
-        const addr = xlsx.utils.encode_cell({ r, c });
-        const cell = sheet[addr] as xlsx.CellObject | undefined;
-        const { text, recoveredDate, formula, literal } = cellToDisplay(cell);
+      for (let c = bounds.left; c <= maxC; c++) {
+        const { text, recoveredDate, formula, literal } = cellToDisplay(sheet.getCell(r, c));
         row.push(text);
         if (text) {
           rowHasContent = true;
@@ -225,11 +230,11 @@ function normalizeXlsx(bytes: Buffer): NormalizedWorkbook {
       }
       if (rowHasContent) {
         rows.push(row);
-        excelRowNumbers.push(r + 1); // 1-based Excel row
+        excelRowNumbers.push(r); // 1-based Excel row
       }
     }
     sheets.push(
-      sheetFromMatrix(name, rows, excelRowNumbers, recoveredDateCells, formulaCells, literalCells),
+      sheetFromMatrix(sheet.name, rows, excelRowNumbers, recoveredDateCells, formulaCells, literalCells),
     );
   }
 
@@ -276,7 +281,7 @@ function normalizeCsv(bytes: Buffer): NormalizedWorkbook {
 }
 
 /** Decode raw upload bytes into a normalized multi-sheet workbook view. */
-export function normalizeWorkbook(rawBytes: Buffer): NormalizedWorkbook {
+export async function normalizeWorkbook(rawBytes: Buffer): Promise<NormalizedWorkbook> {
   if (!rawBytes || rawBytes.length === 0) {
     return { kind: "unknown", sheets: [], unreadable: true };
   }
