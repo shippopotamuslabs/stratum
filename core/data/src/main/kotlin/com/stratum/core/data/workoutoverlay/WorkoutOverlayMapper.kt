@@ -61,6 +61,9 @@ fun WorkoutOverlay.toDto(): WorkoutOverlayDto = WorkoutOverlayDto(
     workoutLiftPinnedNotes = workoutLiftPinnedNotes.entries.map { (workoutLiftId, body) ->
         WorkoutLiftPinnedNoteEntryDto(workoutLiftId.value, body)
     },
+    workoutLiftPinnedNoteLists = workoutLiftPinnedNoteLists.entries.map { (workoutLiftId, bodies) ->
+        WorkoutLiftPinnedNoteListEntryDto(workoutLiftId.value, bodies)
+    },
 )
 
 /** `DTO → WorkoutOverlay`. Blank-id entries are skipped. */
@@ -109,6 +112,9 @@ fun WorkoutOverlayDto.toDomain(): WorkoutOverlay = WorkoutOverlay(
             put(key, entry.body)
         }
     },
+    workoutLiftPinnedNoteLists = workoutLiftPinnedNoteLists
+        .mapNotNull { entry -> entry.toNoteListPairOrNull() }
+        .toMap(),
 )
 
 private fun List<LoggedSetEntryDto>.toLoggedSetMap(): Map<SetSlotId, LoggedSetValue> = buildMap {
@@ -120,6 +126,13 @@ private fun List<LoggedSetEntryDto>.toLoggedSetMap(): Map<SetSlotId, LoggedSetVa
 
 private fun List<LiveSetRecommendationEntryDto>.toRecommendationMap(): Map<SetSlotId, LiveSetRecommendation> =
     mapNotNull { entry -> entry.toDomainPairOrNull() }.toMap()
+
+private fun WorkoutLiftPinnedNoteListEntryDto.toNoteListPairOrNull(): Pair<WorkoutLiftId, List<String>>? {
+    val key = workoutLiftId.toWorkoutLiftIdOrNull() ?: return null
+    val bodies = bodies.filter { it.isNotBlank() }
+    if (bodies.isEmpty()) return null
+    return key to bodies
+}
 
 private fun LiveSetRecommendationEntryDto.toDomainPairOrNull(): Pair<SetSlotId, LiveSetRecommendation>? {
     val key = slotId.toDomain() ?: return null

@@ -2868,6 +2868,54 @@ class WorkoutViewModelTest {
     }
 
     @Test
+    @DisplayName("overlay-backed notes survive reopen and edit without losing entries")
+    fun overlayNotesReopenEditPreservesEntries() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+        viewModel.addLifts(listOf(LiftId("L-2")))
+        advanceUntilIdle()
+        val added = (viewModel.uiState.value as WorkoutUiState.Loaded).lifts.last()
+
+        viewModel.saveLiftNotes(
+            LiftNoteListsSaveRequest(
+                workoutLiftId = added.workoutLiftId,
+                liftId = added.liftId,
+                workoutNotes =
+                    listOf(
+                        NoteDraftUi(body = "first cue"),
+                        NoteDraftUi(body = "second cue"),
+                    ),
+            ),
+        )
+        advanceUntilIdle()
+
+        // Reopen: the loader resolves the workout tab from the overlay entry.
+        val reopened = viewModel.noteLists(added.workoutLiftId, added.liftId)
+        assertEquals(listOf("first cue", "second cue"), reopened.workout.map { it.body })
+        assertTrue(reopened.workout.all { it.id != null })
+
+        // Edit the first note in place, keeping the second untouched.
+        viewModel.saveLiftNotes(
+            LiftNoteListsSaveRequest(
+                workoutLiftId = added.workoutLiftId,
+                liftId = added.liftId,
+                workoutNotes =
+                    listOf(
+                        reopened.workout[0].copy(body = "first cue edited"),
+                        reopened.workout[1],
+                    ),
+            ),
+        )
+        advanceUntilIdle()
+
+        val edited = viewModel.noteLists(added.workoutLiftId, added.liftId)
+        assertEquals(listOf("first cue edited", "second cue"), edited.workout.map { it.body })
+        // Template untouched: the overlay-added slot was never written to the program.
+        assertEquals(1, programRepository.getProgram()!!.workouts.single().workoutLifts.size)
+    }
+
+    @Test
     @DisplayName("complete save-template keeps a Room workout pin written during the session")
     fun completeSaveTemplateKeepsWorkoutPin() = runTest {
         val viewModel = buildViewModel()
@@ -2886,6 +2934,39 @@ class WorkoutViewModelTest {
         assertEquals(
             "keep me",
             programRepository.getProgram()!!.workouts.single().workoutLifts.single().pinnedNote,
+        )
+    }
+
+    @Test
+    @DisplayName("complete save-template keeps every overlay note of an added lift in order")
+    fun completeSaveTemplateKeepsOverlayNoteList() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+        viewModel.addLifts(listOf(LiftId("L-2")))
+        advanceUntilIdle()
+        val added = (viewModel.uiState.value as WorkoutUiState.Loaded).lifts.last()
+
+        viewModel.saveLiftNotes(
+            LiftNoteListsSaveRequest(
+                workoutLiftId = added.workoutLiftId,
+                liftId = added.liftId,
+                workoutNotes =
+                    listOf(
+                        NoteDraftUi(body = "cue one"),
+                        NoteDraftUi(body = "cue two"),
+                    ),
+            ),
+        )
+        advanceUntilIdle()
+        viewModel.completeWorkout(saveTemplate = true)
+        advanceUntilIdle()
+
+        val stored = programRepository.getWorkoutLiftPinnedNotes(WorkoutLiftId(added.workoutLiftId))
+        assertEquals(listOf("cue one", "cue two"), stored.map { it.body })
+        assertEquals(
+            "cue one",
+            programRepository.getProgram()!!.workouts.single().workoutLifts.last().pinnedNote,
         )
     }
 

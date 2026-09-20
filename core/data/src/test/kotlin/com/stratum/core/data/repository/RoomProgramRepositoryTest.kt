@@ -419,6 +419,44 @@ class RoomProgramRepositoryTest {
         }
 
         @Test
+        fun `saveProgram with a carried note list persists rows in order with a first-note mirror`() = runTest {
+            seedReferencedLifts()
+            repository.saveProgram(PROGRAM_P1)
+            val slot = WorkoutLiftId("wl-1")
+            repository.setWorkoutLiftPinnedNotes(slot, listOf(WorkoutLiftNoteInput(body = "old")))
+            val oldId = repository.getWorkoutLiftPinnedNotes(slot).single().id
+
+            val carried = PROGRAM_P1.copy(
+                workouts = PROGRAM_P1.workouts.map { workout ->
+                    workout.copy(
+                        workoutLifts = workout.workoutLifts.map { lift ->
+                            if (lift.id == slot) {
+                                lift.copy(
+                                    pinnedNote = "alpha",
+                                    pinnedNotes = listOf("alpha", "beta"),
+                                )
+                            } else {
+                                lift
+                            }
+                        },
+                    )
+                },
+            )
+            repository.saveProgram(carried)
+
+            val stored = repository.getWorkoutLiftPinnedNotes(slot)
+            assertEquals(listOf("alpha", "beta"), stored.map { it.body })
+            assertEquals(listOf(0, 1), stored.map { it.position })
+            assertEquals("alpha", database.workoutLiftDao().getById(slot)?.pinnedNote)
+            val tombstoned =
+                database.pendingCloudDeleteDao().peekPending()
+                    .filter { it.collectionPath == SyncCollection.WorkoutLiftNotes.firestorePath }
+                    .map { it.entityId }
+                    .toSet()
+            assertTrue(oldId.value in tombstoned)
+        }
+
+        @Test
         fun `deleteProgram cascades slot notes`() = runTest {
             seedReferencedLifts()
             repository.saveProgram(PROGRAM_P1)

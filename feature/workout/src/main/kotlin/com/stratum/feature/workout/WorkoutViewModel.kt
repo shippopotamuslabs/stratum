@@ -462,11 +462,16 @@ class WorkoutViewModel @Inject constructor(
 
     suspend fun noteLists(workoutLiftId: String, liftId: String): NoteListsUi {
         val sessionId = session.cachedSessionId() ?: return NoteListsUi()
+        val slotId = WorkoutLiftId(workoutLiftId)
         val lists =
             getLiftNoteLists(
                 sessionId,
-                WorkoutLiftId(workoutLiftId),
+                slotId,
                 LiftId(liftId),
+                // Overlay-added slots have no `workout_lifts` row: resolve the
+                // workout tab from the explicit overlay entry when present so
+                // reopening the editor shows (and preserves) existing notes.
+                overlayWorkoutNotes = session.cachedOverlayWorkoutNotes(slotId),
             )
         return NoteListsUi(
             session = lists.session.map { NoteDraftUi(id = it.id.value, body = it.body) },
