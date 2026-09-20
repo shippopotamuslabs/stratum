@@ -18,25 +18,25 @@ const UID = "user-1";
 const JOB_ID = "job-1";
 
 describe("program-template formatDetector", () => {
-  it("detects the Alpha Progression plan fixture", () => {
+  it("detects the Alpha Progression plan fixture", async () => {
     const bytes = readFileSync(join(FIXTURES, "alpha_progression_plan.csv"));
-    const result = detectAndParseProgramTemplate(bytes);
+    const result = await detectAndParseProgramTemplate(bytes);
     assert.ok(result);
     assert.equal(result!.format, "alpha_progression");
     assert.ok(result!.template.workouts.length > 0);
   });
 
-  it("detects the MacroFactor program fixture", () => {
+  it("detects the MacroFactor program fixture", async () => {
     const bytes = readFileSync(join(FIXTURES, "macro_factor_programs.xlsx"));
-    const result = detectAndParseProgramTemplate(bytes);
+    const result = await detectAndParseProgramTemplate(bytes);
     assert.ok(result);
     assert.equal(result!.format, "macrofactor");
     assert.ok(result!.template.workouts.length > 0);
   });
 
-  it("returns null for an unrecognized file (caller rejects)", () => {
+  it("returns null for an unrecognized file (caller rejects)", async () => {
     const junk = Buffer.from("name,reps\nSquat,5\n", "utf8");
-    assert.equal(detectAndParseProgramTemplate(junk), null);
+    assert.equal(await detectAndParseProgramTemplate(junk), null);
   });
 });
 

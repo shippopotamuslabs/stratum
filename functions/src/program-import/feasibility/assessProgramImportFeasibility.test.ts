@@ -1,11 +1,11 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import * as xlsx from "xlsx";
+import ExcelJS from "exceljs-community";
 import { normalizeWorkbook } from "../normalize/workbookNormalize";
 import { assessProgramImportFeasibility } from "./assessProgramImportFeasibility";
 
 describe("assessProgramImportFeasibility", () => {
-  it("accepts a tidy personal program CSV", () => {
+  it("accepts a tidy personal program CSV", async () => {
     const csv = [
       "Day,Movement Pattern,Lift Name,Sets,Rep Range",
       "Upper A (Sunday),Horizontal Press,Incline DB Bench Press,4,8-10",
@@ -15,14 +15,14 @@ describe("assessProgramImportFeasibility", () => {
       ",Hip Hinge,Deadlift (Nautilus),4,8-10",
       ",Quad Isolation,Leg Extensions,3,10-12",
     ].join("\n");
-    const wb = normalizeWorkbook(Buffer.from(csv, "utf8"));
+    const wb = await normalizeWorkbook(Buffer.from(csv, "utf8"));
     const result = assessProgramImportFeasibility(wb);
     assert.equal(result.decision, "accept");
     assert.equal(result.reasonCode, "ok");
     assert.equal(result.bestSheetIndex, 0);
   });
 
-  it("accepts a Nippard-style multi-week coaching table", () => {
+  it("accepts a Nippard-style multi-week coaching table", async () => {
     const csv = [
       "Section,Exercise,Warm-up Sets,Working Sets,Reps,RPE,Rest",
       "Week 1,Exercise,,,,,",
@@ -36,47 +36,43 @@ describe("assessProgramImportFeasibility", () => {
       "Lower #1,Deadlift,4,3,3,N/A,3-5 min",
       ",Leg curl,1,3,6-8,8,1-2 min",
     ].join("\n");
-    const wb = normalizeWorkbook(Buffer.from(csv, "utf8"));
+    const wb = await normalizeWorkbook(Buffer.from(csv, "utf8"));
     const result = assessProgramImportFeasibility(wb);
     assert.equal(result.decision, "accept", result.message);
   });
 
-  it("rejects SBS-like calculator multi-sheet workbooks", () => {
+  it("rejects SBS-like calculator multi-sheet workbooks", async () => {
     // Build sheets with cross-sheet formulas + frequency tabs (Quick Setup / Setup / 2x–4x).
-    const book = xlsx.utils.book_new();
-    const qs = xlsx.utils.aoa_to_sheet([
-      ["Main Lifts", "Maxes"],
-      ["Squat", 490],
-    ]);
-    xlsx.utils.book_append_sheet(book, qs, "Quick Setup");
-    const setup = xlsx.utils.aoa_to_sheet([["Lift"], [null]]);
-    setup["A2"] = { t: "n", v: 1, f: "'Quick Setup'!C5" } as xlsx.CellObject;
-    setup["B2"] = { t: "n", v: 2, f: "'Quick Setup'!C60" } as xlsx.CellObject;
-    setup["C2"] = { t: "n", v: 3, f: "Setup!B3" } as xlsx.CellObject;
-    setup["!ref"] = "A1:C2";
-    xlsx.utils.book_append_sheet(book, setup, "Setup");
+    const book = new ExcelJS.Workbook();
+    const qs = book.addWorksheet("Quick Setup");
+    qs.addRow(["Main Lifts", "Maxes"]);
+    qs.addRow(["Squat", 490]);
+    const setup = book.addWorksheet("Setup");
+    setup.addRow(["Lift"]);
+    setup.getCell("A2").value = { formula: "'Quick Setup'!C5", result: 1 };
+    setup.getCell("B2").value = { formula: "'Quick Setup'!C60", result: 2 };
+    setup.getCell("C2").value = { formula: "Setup!B3", result: 3 };
     for (const name of ["2x", "3x", "4x"]) {
-      const sh = xlsx.utils.aoa_to_sheet([["Day 1"], [null]]);
-      sh["A2"] = { t: "n", v: 1, f: "Setup!A3" } as xlsx.CellObject;
-      sh["B2"] = { t: "n", v: 2, f: "Setup!C3" } as xlsx.CellObject;
-      sh["!ref"] = "A1:B2";
-      xlsx.utils.book_append_sheet(book, sh, name);
+      const sh = book.addWorksheet(name);
+      sh.addRow(["Day 1"]);
+      sh.getCell("A2").value = { formula: "Setup!A3", result: 1 };
+      sh.getCell("B2").value = { formula: "Setup!C3", result: 2 };
     }
-    const calcBytes = xlsx.write(book, { type: "buffer", bookType: "xlsx" }) as Buffer;
-    const wb = normalizeWorkbook(calcBytes);
+    const calcBytes = Buffer.from(await book.xlsx.writeBuffer());
+    const wb = await normalizeWorkbook(calcBytes);
     const result = assessProgramImportFeasibility(wb);
     assert.equal(result.decision, "reject");
     assert.equal(result.reasonCode, "calculator");
   });
 
-  it("rejects garbage CSV", () => {
-    const wb = normalizeWorkbook(Buffer.from("foo,bar\n1,2\n3,4\n", "utf8"));
+  it("rejects garbage CSV", async () => {
+    const wb = await normalizeWorkbook(Buffer.from("foo,bar\n1,2\n3,4\n", "utf8"));
     const result = assessProgramImportFeasibility(wb);
     assert.equal(result.decision, "reject");
     assert.ok(["not_a_program", "too_thin"].includes(result.reasonCode));
   });
 
-  it("accepts a Spanish-language program table", () => {
+  it("accepts a Spanish-language program table", async () => {
     const csv = [
       "Día,Ejercicio,Series,Repeticiones",
       "Superior A,Press de banca,4,8-10",
@@ -86,7 +82,7 @@ describe("assessProgramImportFeasibility", () => {
       ",Peso muerto rumano,3,8",
       ",Extensión de cuádriceps,3,10-12",
     ].join("\n");
-    const wb = normalizeWorkbook(Buffer.from(csv, "utf8"));
+    const wb = await normalizeWorkbook(Buffer.from(csv, "utf8"));
     const result = assessProgramImportFeasibility(wb);
     assert.equal(result.decision, "accept", result.message);
   });
