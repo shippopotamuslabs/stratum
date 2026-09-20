@@ -66,8 +66,8 @@ class LiftSessionNoteDaoTest {
     }
 
     @Test
-    @DisplayName("unique session+workoutLift replaces a competing primary key")
-    fun uniqueConflictDifferentIds() = runTest {
+    @DisplayName("same slot holds several rows with distinct primary keys")
+    fun sameSlotMultiRow() = runTest {
         insertSession("ts-1", TrainingSessionStatus.IN_PROGRESS, startedAt = 10L)
         notes.upsert(
             LiftSessionNoteEntity(
@@ -76,27 +76,26 @@ class LiftSessionNoteDaoTest {
                 liftId = LiftId("squat"),
                 workoutLiftId = WorkoutLiftId("wl-1"),
                 body = "first",
+                position = 0,
                 updatedAtEpochMillis = 1L,
                 pendingSync = SyncFlags.PENDING_UPSERT,
             ),
         )
-        val displaced =
-            notes.upsertMergingUniqueSlot(
-                LiftSessionNoteEntity(
-                    id = LiftSessionNoteId("n-b"),
-                    sessionId = TrainingSessionId("ts-1"),
-                    liftId = LiftId("squat"),
-                    workoutLiftId = WorkoutLiftId("wl-1"),
-                    body = "second",
-                    updatedAtEpochMillis = 2L,
-                    pendingSync = SyncFlags.PENDING_UPSERT,
-                ),
-            )
-        assertEquals("n-a", displaced)
-        val loaded = notes.getBySessionAndWorkoutLift(TrainingSessionId("ts-1"), WorkoutLiftId("wl-1"))
-        assertEquals("n-b", loaded?.id?.value)
-        assertEquals("second", loaded?.body)
-        assertNull(notes.getById(LiftSessionNoteId("n-a")))
+        notes.upsert(
+            LiftSessionNoteEntity(
+                id = LiftSessionNoteId("n-b"),
+                sessionId = TrainingSessionId("ts-1"),
+                liftId = LiftId("squat"),
+                workoutLiftId = WorkoutLiftId("wl-1"),
+                body = "second",
+                position = 1,
+                updatedAtEpochMillis = 2L,
+                pendingSync = SyncFlags.PENDING_UPSERT,
+            ),
+        )
+        val loaded = notes.getNotesForSlot(TrainingSessionId("ts-1"), WorkoutLiftId("wl-1"))
+        assertEquals(listOf("first", "second"), loaded.map { it.body })
+        assertEquals("n-a", notes.getById(LiftSessionNoteId("n-a"))?.id?.value)
     }
 
     @Test

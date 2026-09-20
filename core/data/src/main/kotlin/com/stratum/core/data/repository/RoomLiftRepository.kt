@@ -7,6 +7,7 @@ import com.stratum.core.data.db.GymPreferenceEntity
 import com.stratum.core.data.db.IncrementTierDao
 import com.stratum.core.data.db.IncrementTierEntity
 import com.stratum.core.data.db.LiftDao
+import com.stratum.core.data.db.LiftNoteEntity
 import com.stratum.core.data.db.StratumDatabase
 import com.stratum.core.data.mapper.toBitmask
 import com.stratum.core.data.mapper.toDomain
@@ -341,24 +342,58 @@ class RoomLiftRepository @Inject constructor(
     }
 
     override suspend fun getPinnedNotes(id: LiftId): List<LiftCatalogNote> {
-        val row = liftDao.getById(id) ?: return emptyList()
-        val body = row.pinnedNote?.takeIf { it.isNotBlank() } ?: return emptyList()
+        val rows = database.liftNoteDao().getForLift(id)
+        if (rows.isNotEmpty()) return rows.map { it.toCatalogNote() }
+        // Dual-read fallback: rows predate the v5 backfill (or were written remotely
+        // by an old client) — surface the legacy column as a single note.
+        val legacy = liftDao.getById(id)?.pinnedNote?.takeIf { it.isNotBlank() }
+            ?: return emptyList()
         return listOf(
             LiftCatalogNote(
                 id = LiftCatalogNoteId("${id.value}::0"),
                 liftId = id,
-                body = body,
+                body = legacy,
                 position = 0,
-                updatedAt = Instant.ofEpochMilli(row.updatedAtEpochMillis),
+                updatedAt = Instant.now(),
             ),
         )
     }
 
     override suspend fun setPinnedNotes(id: LiftId, notes: List<CatalogNoteInput>) {
-        // PR1 legacy-backed shim: the single pinned_note column keeps the first surviving
-        // note (PR2 moves list storage to lift_notes). No production caller sends lists yet.
-        val first = notes.mapNotNull { sanitizeLiftNoteBody(it.body) }.firstOrNull()
-        setPinnedNote(id, first)
+        if (liftDao.getById(id) == null) return
+        val now = System.currentTimeMillis()
+        syncTouch.withWriteLock {
+            database.withTransaction {
+                val currentIds = database.liftNoteDao().idsForLift(id).toSet()
+                val minted =
+                    notes.mapNotNull { input ->
+                        sanitizeLiftNoteBody(input.body)?.let { body -> input to body }
+                    }.mapIndexed { index, (input, body) ->
+                        LiftNoteEntity(
+                            id = input.id?.takeIf { it in currentIds }
+                                ?: LiftCatalogNoteId(UUID.randomUUID().toString()),
+                            liftId = id,
+                            body = body,
+                            position = index,
+                            createdAtEpochMillis = now,
+                            updatedAtEpochMillis = now,
+                            pendingSync = SyncFlags.PENDING_UPSERT,
+                        )
+                    }
+                database.liftNoteDao().deleteForLift(id)
+                if (minted.isNotEmpty()) {
+                    database.liftNoteDao().upsertAll(minted)
+                }
+                // Legacy mirror: old readers (mappers, sync) see the first note until
+                // the column is retired. Delete propagation for the new rows lands in PR3.
+                liftDao.setPinnedNote(
+                    id = id,
+                    note = minted.firstOrNull()?.body,
+                    updatedAtEpochMillis = now,
+                )
+            }
+            syncTouch.markDirty()
+        }
     }
 
     override suspend fun deleteLifts(ids: Collection<LiftId>) {
@@ -402,3 +437,12 @@ class RoomLiftRepository @Inject constructor(
     private fun singleOpenTier(increment: Weight): IncrementTier =
         IncrementTier(Weight(0.0, increment.unit), null, increment)
 }
+
+internal fun LiftNoteEntity.toCatalogNote(): LiftCatalogNote =
+    LiftCatalogNote(
+        id = id,
+        liftId = liftId,
+        body = body,
+        position = position,
+        updatedAt = Instant.ofEpochMilli(updatedAtEpochMillis),
+    )

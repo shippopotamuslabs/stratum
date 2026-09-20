@@ -340,7 +340,10 @@ class SyncHandlersProvider @Inject constructor(
             encode = encoders::liftSessionNote,
             decodeUpsert = { id, data ->
                 val entity = decoders.liftSessionNote(id, data) ?: return@entityHandler false
-                liftSessionNoteDao.upsertMergingUniqueSlot(entity)
+                // Multi-row slots merge per document id (last-writer-wins per note).
+                // TODO(PR3): cross-version interop — a legacy single-row doc id
+                // (session::slot) arriving alongside newer per-note rows.
+                liftSessionNoteDao.upsert(entity)
                 true
             },
         )

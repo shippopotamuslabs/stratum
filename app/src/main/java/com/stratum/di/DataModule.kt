@@ -146,9 +146,10 @@ object DatabaseModule {
         seedGate: com.stratum.core.data.sync.LiftCatalogSeedGate,
         loggingPort: LoggingPort,
     ): StratumDatabase {
-        // v3 adds lift/workout pinned notes and lift_session_notes via AutoMigration(2→3).
+        // v5 moves pins to note-list tables via MIGRATION_4_5 (backfill + index rebuild).
         // Destructive fallback remains for unrecoverable paths (missing migration, identity skew).
         val database = Room.databaseBuilder(context, StratumDatabase::class.java, StratumDatabase.DATABASE_NAME)
+            .addMigrations(com.stratum.core.data.db.MIGRATION_4_5)
             .fallbackToDestructiveMigration(dropAllTables = true)
             .build()
         // Never call DAOs from RoomDatabase.Callback.onCreate — Room holds the DB lock during
