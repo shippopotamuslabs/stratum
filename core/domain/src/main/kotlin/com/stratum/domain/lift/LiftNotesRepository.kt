@@ -18,6 +18,24 @@ interface LiftNotesRepository {
         workoutLiftId: WorkoutLiftId,
     )
 
+    /** All notes for one slot, display order (position ascending). */
+    suspend fun getSessionNotes(
+        sessionId: TrainingSessionId,
+        workoutLiftId: WorkoutLiftId,
+    ): List<LiftSessionNote>
+
+    /**
+     * Replaces the whole note list for one slot. Blank bodies are dropped; an empty
+     * surviving list deletes all rows. Null input ids mint new rows; unknown ids are
+     * treated as new rows so legacy single-note callers can migrate forward.
+     */
+    suspend fun replaceSessionNotes(
+        sessionId: TrainingSessionId,
+        workoutLiftId: WorkoutLiftId,
+        liftId: LiftId,
+        notes: List<SessionNoteInput>,
+    )
+
     /**
      * Completed sessions only, non-blank body, newest first.
      * [excludeSessionId] skips the in-progress session when present.

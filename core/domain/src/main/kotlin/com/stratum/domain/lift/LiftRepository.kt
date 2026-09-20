@@ -122,6 +122,16 @@ interface LiftRepository {
      */
     suspend fun setPinnedNote(id: LiftId, note: String?)
 
+    /** All catalog notes for one lift, display order (position ascending). */
+    suspend fun getPinnedNotes(id: LiftId): List<LiftCatalogNote>
+
+    /**
+     * Replaces the whole catalog note list for one lift. Blank bodies are dropped;
+     * an empty surviving list clears all notes. See
+     * [LiftNotesRepository.replaceSessionNotes] for id semantics.
+     */
+    suspend fun setPinnedNotes(id: LiftId, notes: List<CatalogNoteInput>)
+
     /**
      * Permanently removes catalog rows for [ids] (increment tiers cascade). Caller must re-point
      * or remove any `workout_lifts` that reference these ids first (FK RESTRICT). Empty [ids]
