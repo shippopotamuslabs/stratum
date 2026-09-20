@@ -279,13 +279,33 @@ class RoomProgramRepository @Inject constructor(
         if (lifts.isEmpty()) return
         workoutLiftDao.upsertAll(lifts.map { it.toEntity(nowMillis = now) })
         val nextPins = lifts.associate { it.id to it.pinnedNote }
+        // Slots carrying an explicit ordered list through the template save
+        // replace their stored rows; everything else keeps the
+        // scalar-authoritative restore behavior.
+        val carriedNoteLists = lifts
+            .filter { it.pinnedNotes.isNotEmpty() }
+            .associate { it.id to it.pinnedNotes }
         val restored =
             prevNotes.filter { row ->
                 row.workoutLiftId in nextPins &&
+                    row.workoutLiftId !in carriedNoteLists &&
                     prevPins[row.workoutLiftId] == nextPins[row.workoutLiftId]
             }
         if (restored.isNotEmpty()) {
             database.workoutLiftNoteDao().upsertAll(restored)
+        }
+        for ((slotId, bodies) in carriedNoteLists) {
+            replaceWorkoutLiftNotes(
+                slotId,
+                bodies.map { body -> WorkoutLiftNoteInput(body = body) },
+                now,
+            )
+            // The hierarchy delete CASCADE-cleared the previous rows without
+            // tombstones; enqueue deletes so synced devices drop replaced rows.
+            val replacedIds = prevNotes.filter { it.workoutLiftId == slotId }.map { it.id.value }
+            if (replacedIds.isNotEmpty()) {
+                syncTouch.enqueueDelete(SyncCollection.WorkoutLiftNotes, replacedIds, now)
+            }
         }
         // Tombstone note rows of removed slots before the CASCADE delete clears them.
         val removedNoteIds =

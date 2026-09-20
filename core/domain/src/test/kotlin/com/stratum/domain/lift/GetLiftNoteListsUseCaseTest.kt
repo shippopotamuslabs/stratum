@@ -19,6 +19,7 @@ import com.stratum.domain.training.identity.TrainingSessionId
 import java.time.Instant
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 
@@ -58,6 +59,44 @@ class GetLiftNoteListsUseCaseTest {
         assertEquals(listOf("second", "first"), lists.session.map { it.body })
         assertEquals(listOf("tuck"), lists.workout.map { it.body })
         assertEquals(listOf("belt on"), lists.lift.map { it.body })
+    }
+
+    @Test
+    @DisplayName("explicit overlay workout notes win over the repository list")
+    fun overlayWorkoutNotesPreferred() = runTest {
+        val programs = FakeProgramRepository(sampleProgram())
+        programs.setWorkoutLiftPinnedNotes(
+            workoutLiftId,
+            listOf(WorkoutLiftNoteInput(body = "repo pin")),
+        )
+        val useCase = useCase(programs = programs)
+
+        val lists =
+            useCase(
+                sessionId,
+                workoutLiftId,
+                liftId,
+                overlayWorkoutNotes = listOf("overlay one", "overlay two"),
+            )
+
+        assertEquals(listOf("overlay one", "overlay two"), lists.workout.map { it.body })
+        assertEquals(listOf(0, 1), lists.workout.map { it.position })
+        assertTrue(lists.workout.all { it.id.value.startsWith("${workoutLiftId.value}::overlay::") })
+    }
+
+    @Test
+    @DisplayName("null overlay notes fall back to the repository list")
+    fun nullOverlayFallsBackToRepository() = runTest {
+        val programs = FakeProgramRepository(sampleProgram())
+        programs.setWorkoutLiftPinnedNotes(
+            workoutLiftId,
+            listOf(WorkoutLiftNoteInput(body = "repo pin")),
+        )
+        val useCase = useCase(programs = programs)
+
+        val lists = useCase(sessionId, workoutLiftId, liftId, overlayWorkoutNotes = null)
+
+        assertEquals(listOf("repo pin"), lists.workout.map { it.body })
     }
 
     private fun useCase(

@@ -74,6 +74,11 @@ class ApplyOverlayToWorkoutUseCase @Inject constructor() {
                         lift.id,
                         lift.pinnedNote,
                     ),
+                    pinnedNotes = resolvedWorkoutPinnedNotes(
+                        overlay.workoutLiftPinnedNoteLists,
+                        lift.id,
+                        lift.pinnedNotes,
+                    ),
                 )
             }
 
@@ -124,6 +129,11 @@ class ApplyOverlayToWorkoutUseCase @Inject constructor() {
                         overlay,
                         added.workoutLiftId,
                         templateNote = null,
+                    ),
+                    pinnedNotes = resolvedWorkoutPinnedNotes(
+                        overlay.workoutLiftPinnedNoteLists,
+                        added.workoutLiftId,
+                        templateNotes = emptyList(),
                     ),
                 )
             }
