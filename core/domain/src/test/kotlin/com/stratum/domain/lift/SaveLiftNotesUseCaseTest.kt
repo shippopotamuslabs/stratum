@@ -233,6 +233,29 @@ class SaveLiftNotesUseCaseTest {
     }
 
     @Test
+    @DisplayName("single-note upsert retains sibling rows in the slot")
+    fun surgicalUpsertRetainsSiblings() = runTest {
+        val notes = FakeLiftNotesRepository()
+        notes.replaceSessionNotes(
+            sessionId = sessionId,
+            workoutLiftId = workoutLiftId,
+            liftId = liftId,
+            notes = listOf(
+                SessionNoteInput(body = "first"),
+                SessionNoteInput(body = "second"),
+            ),
+        )
+        val target = notes.getSessionNotes(sessionId, workoutLiftId).first()
+
+        notes.upsertSessionNote(target.copy(body = "first edited"))
+
+        assertEquals(
+            listOf("first edited", "second"),
+            notes.getSessionNotes(sessionId, workoutLiftId).map { it.body },
+        )
+    }
+
+    @Test
     @DisplayName("workout note list on a missing template slot needs overlay")
     fun overlayOnlyWorkoutNoteList() = runTest {
         val programs = FakeProgramRepository(sampleProgram())

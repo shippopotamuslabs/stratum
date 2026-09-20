@@ -11,6 +11,7 @@ import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.IncrementTierId
+import com.stratum.domain.lift.identity.LiftCatalogNoteId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.identity.LiftSessionNoteId
 import com.stratum.domain.importing.identity.ImportJobId
@@ -22,6 +23,7 @@ import com.stratum.domain.workout.myorep.MyoRepKind
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
+import com.stratum.domain.program.identity.WorkoutLiftNoteId
 import com.stratum.domain.program.identity.WorkoutSupersetGroupId
 import com.stratum.domain.onboarding.LastTrainedBucket
 import com.stratum.domain.onboarding.MuscleGroup
@@ -170,6 +172,20 @@ class EnumConverters {
     @TypeConverter
     fun toLiftSessionNoteId(value: String?): LiftSessionNoteId? =
         value?.let { runCatching { LiftSessionNoteId(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromLiftCatalogNoteId(id: LiftCatalogNoteId?): String? = id?.value
+
+    @TypeConverter
+    fun toLiftCatalogNoteId(value: String?): LiftCatalogNoteId? =
+        value?.let { runCatching { LiftCatalogNoteId(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromWorkoutLiftNoteId(id: WorkoutLiftNoteId?): String? = id?.value
+
+    @TypeConverter
+    fun toWorkoutLiftNoteId(value: String?): WorkoutLiftNoteId? =
+        value?.let { runCatching { WorkoutLiftNoteId(it) }.getOrNull() }
 
     @TypeConverter
     fun fromIncrementTierId(id: IncrementTierId?): String? = id?.value

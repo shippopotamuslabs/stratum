@@ -7,7 +7,9 @@ import com.stratum.core.data.db.LiftEntity
 import com.stratum.core.data.mapper.toBitmask
 import com.stratum.core.data.mapper.toPresetCsv
 import com.stratum.core.data.db.StratumDatabase
+import com.stratum.core.data.sync.SyncCollection
 import com.stratum.core.data.sync.SyncFlags
+import com.stratum.domain.lift.CatalogNoteInput
 import com.stratum.domain.lift.CustomLiftDefinition
 import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.FatigueProfile
@@ -398,5 +400,151 @@ class RoomLiftRepositoryTest {
                 enabled = enabled,
             ),
         )
+    }
+
+    @Nested
+    @DisplayName("pinned note lists")
+    inner class PinnedNoteLists {
+        @Test
+        @DisplayName("Given two drafts when set then both persist ordered with a legacy mirror")
+        fun setTwoNotesOrdered() = runTest {
+            val id = LiftId("squat")
+            seedLift(id)
+
+            subject.setPinnedNotes(
+                id,
+                listOf(
+                    CatalogNoteInput(body = "belt on"),
+                    CatalogNoteInput(body = "knees out"),
+                ),
+            )
+
+            val stored = subject.getPinnedNotes(id)
+            assertEquals(listOf("belt on", "knees out"), stored.map { it.body })
+            assertEquals(listOf(0, 1), stored.map { it.position })
+            assertEquals("belt on", database.liftDao().getById(id)?.pinnedNote)
+        }
+
+        @Test
+        @DisplayName("Given existing notes when re-saved then known ids are stable and blanks drop")
+        fun resaveKeepsIds() = runTest {
+            val id = LiftId("squat")
+            seedLift(id)
+            subject.setPinnedNotes(
+                id,
+                listOf(
+                    CatalogNoteInput(body = "keep"),
+                    CatalogNoteInput(body = "drop"),
+                ),
+            )
+            val keptId = subject.getPinnedNotes(id).first().id
+
+            subject.setPinnedNotes(
+                id,
+                listOf(
+                    CatalogNoteInput(id = keptId, body = "keep edited"),
+                    CatalogNoteInput(body = "   "),
+                ),
+            )
+
+            val stored = subject.getPinnedNotes(id)
+            assertEquals(listOf("keep edited"), stored.map { it.body })
+            assertEquals(keptId, stored.single().id)
+        }
+
+        @Test
+        @DisplayName("Given a missing lift when read or written then empty result and no-op")
+        fun missingLiftIgnored() = runTest {
+            val missing = LiftId("ghost")
+
+            assertTrue(subject.getPinnedNotes(missing).isEmpty())
+            subject.setPinnedNotes(
+                missing,
+                listOf(CatalogNoteInput(body = "orphan")),
+            )
+
+            assertTrue(subject.getPinnedNotes(missing).isEmpty())
+        }
+
+        @Test
+        @DisplayName("Given notes when the lift is deleted then its rows cascade")
+        fun deleteCascades() = runTest {
+            val id = LiftId("squat")
+            seedLift(id)
+            subject.setPinnedNotes(
+                id,
+                listOf(CatalogNoteInput(body = "pin")),
+            )
+
+            subject.deleteLifts(listOf(id))
+
+            assertTrue(subject.getPinnedNotes(id).isEmpty())
+        }
+
+        @Test
+        @DisplayName("Given only a legacy pin when read then it surfaces as a single note")
+        fun legacyFallback() = runTest {
+            val id = LiftId("squat")
+            seedLift(id)
+            database.liftDao().setPinnedNote(id, "legacy", System.currentTimeMillis())
+
+            val stored = subject.getPinnedNotes(id)
+            assertEquals(listOf("legacy"), stored.map { it.body })
+        }
+
+        @Test
+        @DisplayName("Given a backfilled row when scalar-edited then the table row updates, not just the mirror")
+        fun scalarEditUpdatesTableRow() = runTest {
+            val id = LiftId("squat")
+            seedLift(id)
+            database.liftDao().setPinnedNote(id, "legacy", 1L)
+            subject.setPinnedNotes(id, listOf(CatalogNoteInput(body = "migrated")))
+            val rowId = subject.getPinnedNotes(id).single().id
+
+            subject.setPinnedNote(id, "edited")
+
+            val stored = subject.getPinnedNotes(id)
+            assertEquals(listOf("edited"), stored.map { it.body })
+            assertEquals(rowId, stored.single().id)
+            assertEquals("edited", database.liftDao().getById(id)?.pinnedNote)
+        }
+
+        @Test
+        @DisplayName("Given note rows when scalar-cleared then rows and mirror are removed")
+        fun scalarClearRemovesRows() = runTest {
+            val id = LiftId("squat")
+            seedLift(id)
+            subject.setPinnedNotes(
+                id,
+                listOf(CatalogNoteInput(body = "one"), CatalogNoteInput(body = "two")),
+            )
+
+            subject.setPinnedNote(id, null)
+
+            assertTrue(subject.getPinnedNotes(id).isEmpty())
+            assertEquals(null, database.liftDao().getById(id)?.pinnedNote)
+        }
+
+        @Test
+        @DisplayName("Given a removed row when replaced then its tombstone is enqueued")
+        fun removedRowTombstoned() = runTest {
+            val id = LiftId("squat")
+            seedLift(id)
+            subject.setPinnedNotes(
+                id,
+                listOf(CatalogNoteInput(body = "keep"), CatalogNoteInput(body = "drop")),
+            )
+            val droppedId = subject.getPinnedNotes(id).last().id
+
+            subject.setPinnedNotes(id, listOf(CatalogNoteInput(body = "keep")))
+
+            val tombstones = database.pendingCloudDeleteDao().peekPending()
+            assertTrue(
+                tombstones.any {
+                    it.collectionPath == SyncCollection.LiftCatalogNotes.firestorePath &&
+                        it.entityId == droppedId.value
+                },
+            )
+        }
     }
 }

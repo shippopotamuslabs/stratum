@@ -38,11 +38,12 @@ class FakeLiftNotesRepository : LiftNotesRepository {
         workoutLiftId: WorkoutLiftId,
     ): LiftSessionNote? = getSessionNotes(sessionId, workoutLiftId).firstOrNull()
 
+    /**
+     * Surgical single-row write: updates or inserts only this note's row, retaining
+     * sibling rows in the slot (mirrors Room).
+     */
     override suspend fun upsertSessionNote(note: LiftSessionNote) {
-        notes.value =
-            notes.value.filterNot {
-                it.sessionId == note.sessionId && it.workoutLiftId == note.workoutLiftId
-            } + note
+        notes.value = notes.value.filterNot { it.id == note.id } + note
     }
 
     override suspend fun deleteSessionNote(

@@ -4,7 +4,9 @@ import androidx.room.Room
 import app.cash.turbine.test
 import com.stratum.core.data.db.LiftEntity
 import com.stratum.core.data.db.StratumDatabase
+import com.stratum.core.data.sync.SyncCollection
 import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.lift.WorkoutLiftNoteInput
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.LiftSet
@@ -22,6 +24,7 @@ import java.time.Instant
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
@@ -351,6 +354,137 @@ class RoomProgramRepositoryTest {
                 )
             assertEquals(PROGRAM_P1.id, session?.programId)
             assertEquals(WorkoutId("w-1"), session?.workoutId)
+        }
+    }
+
+    @Nested
+    @DisplayName("workout note lists")
+    inner class WorkoutNoteLists {
+        @Test
+        fun `set and get round-trips an ordered list with a legacy mirror`() = runTest {
+            seedReferencedLifts()
+            repository.saveProgram(PROGRAM_P1)
+            val slot = WorkoutLiftId("wl-1")
+
+            assertTrue(repository.setWorkoutLiftPinnedNotes(slot, listOf(WorkoutLiftNoteInput(body = "a"), WorkoutLiftNoteInput(body = "b"))))
+
+            val stored = repository.getWorkoutLiftPinnedNotes(slot)
+            assertEquals(listOf("a", "b"), stored.map { it.body })
+            assertEquals(listOf(0, 1), stored.map { it.position })
+            assertEquals("a", database.workoutLiftDao().getById(slot)?.pinnedNote)
+        }
+
+        @Test
+        fun `missing slot returns false and empty`() = runTest {
+            assertFalse(repository.setWorkoutLiftPinnedNotes(WorkoutLiftId("ghost"), listOf(WorkoutLiftNoteInput(body = "x"))))
+            assertTrue(repository.getWorkoutLiftPinnedNotes(WorkoutLiftId("ghost")).isEmpty())
+        }
+
+        @Test
+        fun `unchanged hierarchy re-save preserves note ids`() = runTest {
+            seedReferencedLifts()
+            repository.saveProgram(PROGRAM_P1)
+            val slot = WorkoutLiftId("wl-1")
+            repository.setWorkoutLiftPinnedNotes(slot, listOf(WorkoutLiftNoteInput(body = "kept")))
+            val id = repository.getWorkoutLiftPinnedNotes(slot).single().id
+
+            // Re-save the stored program unchanged: the pin was not edited, so the list stays.
+            val storedProgram = repository.getProgramById(ProgramId("p-1"))!!
+            repository.saveProgram(storedProgram)
+
+            val stored = repository.getWorkoutLiftPinnedNotes(slot)
+            assertEquals(listOf("kept"), stored.map { it.body })
+            assertEquals(id, stored.single().id)
+        }
+
+        @Test
+        fun `changed scalar pin drops the stale list`() = runTest {
+            seedReferencedLifts()
+            repository.saveProgram(PROGRAM_P1)
+            val slot = WorkoutLiftId("wl-1")
+            repository.setWorkoutLiftPinnedNotes(slot, listOf(WorkoutLiftNoteInput(body = "old pin")))
+
+            val changed = PROGRAM_P1.copy(
+                workouts = PROGRAM_P1.workouts.map { workout ->
+                    workout.copy(
+                        workoutLifts = workout.workoutLifts.map { lift ->
+                            if (lift.id == slot) lift.copy(pinnedNote = "new pin") else lift
+                        },
+                    )
+                },
+            )
+            repository.saveProgram(changed)
+
+            assertEquals(listOf("new pin"), repository.getWorkoutLiftPinnedNotes(slot).map { it.body })
+        }
+
+        @Test
+        fun `deleteProgram cascades slot notes`() = runTest {
+            seedReferencedLifts()
+            repository.saveProgram(PROGRAM_P1)
+            val slot = WorkoutLiftId("wl-1")
+            repository.setWorkoutLiftPinnedNotes(slot, listOf(WorkoutLiftNoteInput(body = "pin")))
+
+            repository.deleteProgram(ProgramId("p-1"))
+
+            assertTrue(repository.getWorkoutLiftPinnedNotes(slot).isEmpty())
+        }
+
+        @Test
+        fun `scalar edit updates the table row, not just the mirror`() = runTest {
+            seedReferencedLifts()
+            repository.saveProgram(PROGRAM_P1)
+            val slot = WorkoutLiftId("wl-1")
+            database.workoutLiftDao().setPinnedNote(slot, "legacy", 1L)
+            repository.setWorkoutLiftPinnedNotes(slot, listOf(WorkoutLiftNoteInput(body = "migrated")))
+            val rowId = repository.getWorkoutLiftPinnedNotes(slot).single().id
+
+            assertTrue(repository.setWorkoutLiftPinnedNote(slot, "edited"))
+
+            val stored = repository.getWorkoutLiftPinnedNotes(slot)
+            assertEquals(listOf("edited"), stored.map { it.body })
+            assertEquals(rowId, stored.single().id)
+            assertEquals("edited", database.workoutLiftDao().getById(slot)?.pinnedNote)
+        }
+
+        @Test
+        fun `scalar clear removes rows and mirror`() = runTest {
+            seedReferencedLifts()
+            repository.saveProgram(PROGRAM_P1)
+            val slot = WorkoutLiftId("wl-1")
+            repository.setWorkoutLiftPinnedNotes(
+                slot,
+                listOf(WorkoutLiftNoteInput(body = "one"), WorkoutLiftNoteInput(body = "two")),
+            )
+
+            assertTrue(repository.setWorkoutLiftPinnedNote(slot, null))
+
+            assertTrue(repository.getWorkoutLiftPinnedNotes(slot).isEmpty())
+            assertEquals(null, database.workoutLiftDao().getById(slot)?.pinnedNote)
+        }
+
+        @Test
+        fun `removed rows are tombstoned on replace and program delete`() = runTest {
+            seedReferencedLifts()
+            repository.saveProgram(PROGRAM_P1)
+            val slot = WorkoutLiftId("wl-1")
+            repository.setWorkoutLiftPinnedNotes(
+                slot,
+                listOf(WorkoutLiftNoteInput(body = "keep"), WorkoutLiftNoteInput(body = "drop")),
+            )
+            val droppedId = repository.getWorkoutLiftPinnedNotes(slot).last().id
+            repository.setWorkoutLiftPinnedNotes(slot, listOf(WorkoutLiftNoteInput(body = "keep")))
+
+            val keptId = repository.getWorkoutLiftPinnedNotes(slot).single().id
+            repository.deleteProgram(ProgramId("p-1"))
+
+            val tombstoned =
+                database.pendingCloudDeleteDao().peekPending()
+                    .filter { it.collectionPath == SyncCollection.WorkoutLiftNotes.firestorePath }
+                    .map { it.entityId }
+                    .toSet()
+            assertTrue(droppedId.value in tombstoned)
+            assertTrue(keptId.value in tombstoned)
         }
     }
 
