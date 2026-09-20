@@ -11,8 +11,8 @@ const FIXTURES = join(SRC_DIR, "fixtures");
 const FIX_STRATUM_PROGRAMS = readFileSync(join(FIXTURES, "stratum_programs_v1.json"), "utf8");
 
 describe("stratumProgramParser", () => {
-  it("IE-S3-004 Stratum program fixture detects as stratum", () => {
-    const result = detectAndParseProgramTemplate(Buffer.from(FIX_STRATUM_PROGRAMS, "utf8"));
+  it("IE-S3-004 Stratum program fixture detects as stratum", async () => {
+    const result = await detectAndParseProgramTemplate(Buffer.from(FIX_STRATUM_PROGRAMS, "utf8"));
     assert.ok(result);
     assert.equal(result!.format, "stratum");
   });
@@ -29,9 +29,9 @@ describe("stratumProgramParser", () => {
     }
   });
 
-  it("IE-S3-008 Alpha Progression program CSV still detects as alpha_progression", () => {
+  it("IE-S3-008 Alpha Progression program CSV still detects as alpha_progression", async () => {
     const bytes = readFileSync(join(FIXTURES, "alpha_progression_plan.csv"));
-    const result = detectAndParseProgramTemplate(bytes);
+    const result = await detectAndParseProgramTemplate(bytes);
     assert.ok(result);
     assert.equal(result!.format, "alpha_progression");
   });

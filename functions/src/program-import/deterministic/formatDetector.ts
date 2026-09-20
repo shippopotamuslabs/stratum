@@ -35,12 +35,12 @@ export type ProgramTemplateDetectResult = {
  * Order: (1) XLSX MacroFactor, (2) Stratum program JSON, (3) Alpha Progression plan CSV.
  * Hevy and Strong do not export programs, so their files never match here and are rejected.
  */
-export function detectAndParseProgramTemplate(
+export async function detectAndParseProgramTemplate(
   rawBytes: Buffer,
-): ProgramTemplateDetectResult | null {
+): Promise<ProgramTemplateDetectResult | null> {
   // 1. XLSX: only MacroFactor ships a program XLSX today.
   if (isXlsxBytes(rawBytes)) {
-    const template = parseMacroFactorProgramXlsx(rawBytes);
+    const template = await parseMacroFactorProgramXlsx(rawBytes);
     if (template) {
       return { format: "macrofactor", template };
     }

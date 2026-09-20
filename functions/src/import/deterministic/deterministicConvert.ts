@@ -56,7 +56,7 @@ export async function deterministicConvert(
 
   const rawBytes = await deps.storage.download(rawStoragePath);
 
-  const detected = detectAndParse(rawBytes, (jobData?.fileName as string | undefined) ?? "");
+  const detected = await detectAndParse(rawBytes, (jobData?.fileName as string | undefined) ?? "");
   if (!detected) {
     return null;
   }

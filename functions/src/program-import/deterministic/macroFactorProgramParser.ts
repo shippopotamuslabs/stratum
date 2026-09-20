@@ -1,4 +1,9 @@
-import * as xlsx from "xlsx";
+import {
+  isMergedFollower,
+  loadWorkbook,
+  scalarCellValue,
+  usedRangeBounds,
+} from "../../import/deterministic/excelCells";
 import type {
   NormalizedProgramTemplate,
   NormalizedProgramTemplateWorkout,
@@ -63,31 +68,39 @@ export function matchesMacroFactorProgramRows(rows: CellValue[][]): boolean {
  * Decode an XLSX file into a dense matrix of cell values, dropping fully-empty rows. The MacroFactor
  * export declares a range extending past real content (empty placeholder rows), so empty rows are
  * skipped to keep the matrix tight.
+ *
+ * exceljs repeats a merge master's value on follower cells; those are normalized back to null
+ * (as SheetJS surfaced them) so vertically-merged day-name cells don't open a new day per row.
  */
-function readCellMatrix(bytes: Buffer): CellValue[][] {
-  let workbook: xlsx.WorkBook;
+async function readCellMatrix(bytes: Buffer): Promise<CellValue[][]> {
+  let workbook;
   try {
-    workbook = xlsx.read(bytes, { type: "buffer", cellDates: false });
+    workbook = await loadWorkbook(bytes);
   } catch {
     // Not a valid XLSX (corrupt, encrypted, or just magic bytes without real ZIP structure).
     return [];
   }
-  const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  if (!sheet || !sheet["!ref"]) {
+  const sheet = workbook.worksheets[0];
+  const bounds = sheet ? usedRangeBounds(sheet) : null;
+  if (!sheet || !bounds) {
     return [];
   }
-  const range = xlsx.utils.decode_range(sheet["!ref"]);
+  const date1904 = workbook.properties.date1904 === true;
   const matrix: CellValue[][] = [];
-  for (let r = range.s.r; r <= range.e.r; r++) {
+  for (let r = bounds.top; r <= bounds.bottom; r++) {
     const row: CellValue[] = [];
     let rowHasContent = false;
-    for (let c = range.s.c; c <= range.e.c; c++) {
-      const addr = xlsx.utils.encode_cell({ r, c });
-      const cell = sheet[addr];
-      if (!cell || cell.v === undefined || cell.v === null || cell.v === "") {
+    for (let c = bounds.left; c <= bounds.right; c++) {
+      const cell = sheet.getCell(r, c);
+      if (isMergedFollower(cell)) {
+        row.push(null);
+        continue;
+      }
+      const value = scalarCellValue(cell, date1904);
+      if (value === null || value === "") {
         row.push(null);
       } else {
-        row.push(cell.v);
+        row.push(value as CellValue);
         rowHasContent = true;
       }
     }
@@ -179,8 +192,8 @@ function splitSuperset(rawName: string): { name: string; supersetGroupKey: strin
  *
  * Only the first program in the sheet is imported. `Rest` day rows are dropped.
  */
-export function parseMacroFactorProgramXlsx(bytes: Buffer): NormalizedProgramTemplate | null {
-  const matrix = readCellMatrix(bytes);
+export async function parseMacroFactorProgramXlsx(bytes: Buffer): Promise<NormalizedProgramTemplate | null> {
+  const matrix = await readCellMatrix(bytes);
   if (!matchesMacroFactorProgramRows(matrix)) {
     return null;
   }

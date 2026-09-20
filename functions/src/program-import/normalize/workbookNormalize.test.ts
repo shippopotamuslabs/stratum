@@ -1,26 +1,18 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import * as xlsx from "xlsx";
+import ExcelJS from "exceljs-community";
+import { xlsxFromAoa } from "../../testUtils/xlsxFixtures";
 import { cellToDisplay, normalizeWorkbook, renderSheetView } from "./workbookNormalize";
 
-function xlsxFromAoa(sheets: Record<string, unknown[][]>): Buffer {
-  const book = xlsx.utils.book_new();
-  for (const [name, aoa] of Object.entries(sheets)) {
-    const sheet = xlsx.utils.aoa_to_sheet(aoa);
-    xlsx.utils.book_append_sheet(book, sheet, name);
-  }
-  return xlsx.write(book, { type: "buffer", bookType: "xlsx" }) as Buffer;
-}
-
 describe("workbookNormalize", () => {
-  it("parses a tidy CSV program table", () => {
+  it("parses a tidy CSV program table", async () => {
     const csv = [
       "Day,Lift Name,Sets,Rep Range",
       "Upper A,Incline DB Bench Press,4,8-10",
       ",High Row,3,8-10",
       "Lower A,Hack Squat,2,8-10",
     ].join("\n");
-    const wb = normalizeWorkbook(Buffer.from(csv, "utf8"));
+    const wb = await normalizeWorkbook(Buffer.from(csv, "utf8"));
     assert.equal(wb.kind, "csv");
     assert.equal(wb.unreadable, false);
     assert.equal(wb.sheets.length, 1);
@@ -28,8 +20,8 @@ describe("workbookNormalize", () => {
     assert.ok(wb.sheets[0]!.rows[1]!.includes("Incline DB Bench Press"));
   });
 
-  it("parses multi-sheet xlsx and drops empty rows", () => {
-    const bytes = xlsxFromAoa({
+  it("parses multi-sheet xlsx and drops empty rows", async () => {
+    const bytes = await xlsxFromAoa({
       Program: [
         ["Day", "Lift", "Sets", "Reps"],
         ["Upper A", "Bench Press", 4, "8-10"],
@@ -41,62 +33,65 @@ describe("workbookNormalize", () => {
         ["Press", 1],
       ],
     });
-    const wb = normalizeWorkbook(bytes);
+    const wb = await normalizeWorkbook(bytes);
     assert.equal(wb.kind, "xlsx");
     assert.equal(wb.sheets.length, 2);
     const program = wb.sheets.find((s) => s.name === "Program")!;
     assert.equal(program.rows.length, 3); // empty row dropped
   });
 
-  it("recovers month-day dates on cells when format is m-d", () => {
-    // Local midnight Date matches SheetJS cellDates; m-d format triggers recovery.
-    const sheet = xlsx.utils.aoa_to_sheet([["Reps"], [null]]);
-    const addr = xlsx.utils.encode_cell({ r: 1, c: 0 });
-    sheet[addr] = {
-      t: "d",
-      v: new Date(2025, 7, 10), // August 10 local
-      z: "m-d",
-    } as xlsx.CellObject;
-    sheet["!ref"] = "A1:A2";
-    const book = xlsx.utils.book_new();
-    xlsx.utils.book_append_sheet(book, sheet, "P");
-    const bytes = xlsx.write(book, { type: "buffer", bookType: "xlsx" }) as Buffer;
+  it("recovers month-day dates on cells when format is m-d", async () => {
+    // Numeric serial with an m-d number format: exceljs rehydrates it as a
+    // UTC-midnight Date on read, and cellToDisplay recovers the month-day.
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("P");
+    sheet.getCell("A1").value = "Reps";
+    const dateCell = sheet.getCell("A2");
+    dateCell.value = 45879; // 2025-08-10 Excel serial
+    dateCell.numFmt = "m-d";
+    const bytes = Buffer.from(await workbook.xlsx.writeBuffer());
 
-    const wb = normalizeWorkbook(bytes);
+    const wb = await normalizeWorkbook(bytes);
     const rows = wb.sheets[0]!.rows;
-    // After XLSX round-trip SheetJS may rehydrate the cell; accept recovered 8-10
-    // or direct cellToDisplay on the constructed cell.
-    const direct = cellToDisplay({
-      t: "d",
-      v: new Date(2025, 7, 10),
-      z: "m-d",
-    } as xlsx.CellObject);
-    assert.equal(direct.text, "8-10");
-    assert.equal(direct.recoveredDate, true);
-    // Round-trip still produces a date-like value (may be ISO if format lost).
-    assert.ok(rows.length >= 1);
-    assert.ok(rows.some((r) => r.some((c) => c.length > 0)));
+    assert.ok(rows.some((r) => r.includes("8-10")), `expected 8-10 in ${JSON.stringify(rows)}`);
+    assert.equal(wb.sheets[0]!.recoveredDateCells, 1);
   });
 
-  it("marks unreadable binary non-xlsx as unknown when null bytes present", () => {
-    const wb = normalizeWorkbook(Buffer.from([0x00, 0x01, 0x02, 0xff]));
+  it("marks unreadable binary non-xlsx as unknown when null bytes present", async () => {
+    const wb = await normalizeWorkbook(Buffer.from([0x00, 0x01, 0x02, 0xff]));
     // May be csv-decoded with replacement chars or unknown — null byte triggers unreadable
     assert.equal(wb.unreadable, true);
   });
 
-  it("cellToDisplay recovers Date with m-d format using local calendar", () => {
-    // Local midnight matches SheetJS cellDates output.
-    const result = cellToDisplay({
-      t: "d",
-      v: new Date(2025, 9, 12), // October 12 local
-      z: "m-d",
-    } as xlsx.CellObject);
+  it("cellToDisplay recovers Date with m-d format using UTC calendar", () => {
+    // exceljs surfaces date-formatted serials as UTC-midnight Dates; the
+    // calendar fields are extracted in UTC so the day cannot shift.
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("P");
+    const cell = sheet.getCell("A1");
+    cell.value = new Date(Date.UTC(2025, 9, 12)); // October 12
+    cell.numFmt = "m-d";
+    const result = cellToDisplay(cell);
     assert.equal(result.text, "10-12");
     assert.equal(result.recoveredDate, true);
   });
 
-  it("renderSheetView includes row numbers and region label", () => {
-    const wb = normalizeWorkbook(
+  it("cellToDisplay blanks merged-follower cells", () => {
+    // exceljs repeats the merge master's value on follower cells; the
+    // normalizer must blank them (SheetJS surfaced them as missing).
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("P");
+    sheet.getCell("A1").value = "Upper A";
+    sheet.mergeCells("A1:A2");
+    const follower = sheet.getCell("A2");
+    assert.equal(follower.type, ExcelJS.ValueType.Merge);
+    const result = cellToDisplay(follower);
+    assert.equal(result.text, "");
+    assert.equal(result.literal, false);
+  });
+
+  it("renderSheetView includes row numbers and region label", async () => {
+    const wb = await normalizeWorkbook(
       Buffer.from("Day,Lift,Sets\nA,Squat,3\n", "utf8"),
     );
     const sheet = wb.sheets[0]!;
@@ -104,5 +99,18 @@ describe("workbookNormalize", () => {
     assert.ok(text.includes('Sheet "Sheet1"'));
     assert.ok(text.includes("Week 1"));
     assert.ok(text.includes("Squat"));
+  });
+
+  it("normalizes an empty sheet to an empty matrix instead of throwing", async () => {
+    // exceljs reports an all-zero dimensions model for an empty worksheet;
+    // usedRangeBounds must return null so the reader never calls getCell(0, 0).
+    const workbook = new ExcelJS.Workbook();
+    workbook.addWorksheet("empty");
+    const bytes = Buffer.from(await workbook.xlsx.writeBuffer());
+
+    const wb = await normalizeWorkbook(bytes);
+    assert.equal(wb.sheets.length, 1);
+    assert.equal(wb.sheets[0]!.name, "empty");
+    assert.deepEqual(wb.sheets[0]!.rows, []);
   });
 });

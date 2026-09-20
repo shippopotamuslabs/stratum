@@ -11,8 +11,8 @@ const FIXTURES = join(SRC_DIR, "fixtures");
 const FIX_STRATUM_LOGS = readFileSync(join(FIXTURES, "stratum_logs_v1.json"), "utf8");
 
 describe("stratumLogParser", () => {
-  it("IE-S3-001 Stratum log fixture detects as stratum", () => {
-    const result = detectAndParse(Buffer.from(FIX_STRATUM_LOGS, "utf8"), "stratum-logs.json");
+  it("IE-S3-001 Stratum log fixture detects as stratum", async () => {
+    const result = await detectAndParse(Buffer.from(FIX_STRATUM_LOGS, "utf8"), "stratum-logs.json");
     assert.ok(result);
     assert.equal(result!.format, "stratum");
   });
@@ -77,17 +77,17 @@ describe("stratumLogParser", () => {
 });
 
 describe("formatDetector stratum regression", () => {
-  it("IE-S3-006 Third-party Hevy CSV still detects as hevy", () => {
+  it("IE-S3-006 Third-party Hevy CSV still detects as hevy", async () => {
     const HEVY =
       "title,start_time,end_time,description,exercise_title,superset_id,exercise_notes,set_index,set_type,weight_lbs,reps,distance_miles,duration_seconds,rpe\n" +
       'Upper B,"17 Dec 2025, 12:37","17 Dec 2025, 13:44","",Crunch (Machine),,,"0","normal",205,18,,,9\n';
-    const result = detectAndParse(Buffer.from(HEVY, "utf8"), "hevy.csv");
+    const result = await detectAndParse(Buffer.from(HEVY, "utf8"), "hevy.csv");
     assert.ok(result);
     assert.equal(result!.format, "hevy");
   });
 
-  it("IE-S3-007 Unknown JSON without stratum markers returns null", () => {
-    const result = detectAndParse(Buffer.from('{"foo":1}', "utf8"), "unknown.json");
+  it("IE-S3-007 Unknown JSON without stratum markers returns null", async () => {
+    const result = await detectAndParse(Buffer.from('{"foo":1}', "utf8"), "unknown.json");
     assert.equal(result, null);
   });
 });
