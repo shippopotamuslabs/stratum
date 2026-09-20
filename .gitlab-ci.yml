@@ -111,6 +111,19 @@ assemble-debug:
       - app/build/outputs/apk/debug/*.apk
     expire_in: 1 week
 
+# Release gate: R8 shrinking/optimization, resource shrinking, Hilt, and the
+# perf plugin only meet in release builds. Unsigned (no keystore in CI) — this
+# validates minification, not ship-readiness.
+assemble-release:
+  extends: .android-job
+  stage: test
+  script:
+    - ./gradlew :app:assembleRelease
+  artifacts:
+    paths:
+      - app/build/outputs/apk/release/*.apk
+    expire_in: 1 week
+
 functions-tests:
   image: node:22
   tags: [home-server]
@@ -188,7 +201,6 @@ emulator-tests:
     expire_in: 2 weeks
 
 # PRE-LAUNCH ADDITIONS (not now):
-# - assembleRelease gate (R8 + Hilt + perf plugin only meet in release builds).
 # - lintRelease once release-blocking lint is triaged.
 # - Roborazzi screenshot tests (JVM, no emulator).
 # - Coverage ratchet (Kover) on touched code.
