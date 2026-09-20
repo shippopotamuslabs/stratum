@@ -77,30 +77,45 @@ data class PastSessionNoteUi(
     val body: String,
 )
 
-/** Dirty-tab payload from Manage Notes → [com.stratum.feature.workout.WorkoutViewModel.saveLiftNotes]. */
-data class LiftNotesSaveRequest(
+/** One note draft in the editor. A null [id] means "append as new"; blank bodies drop on save. */
+data class NoteDraftUi(
+    val id: String? = null,
+    val body: String = "",
+)
+
+/** Loaded note lists for one slot (ids are stable row ids; empty when untouched). */
+data class NoteListsUi(
+    val session: List<NoteDraftUi> = emptyList(),
+    val workout: List<NoteDraftUi> = emptyList(),
+    val lift: List<NoteDraftUi> = emptyList(),
+)
+
+/**
+ * Dirty-tab payload from Manage Notes → [com.stratum.feature.workout.WorkoutViewModel.saveLiftNotes].
+ * A null list means "tab untouched" (whole-list replace only for edited tabs).
+ */
+data class LiftNoteListsSaveRequest(
     val workoutLiftId: String,
     val liftId: String,
-    val sessionDraft: String,
-    val workoutDraft: String,
-    val liftDraft: String,
-    val loadedSession: String,
-    val loadedWorkout: String,
-    val loadedLift: String,
+    val sessionNotes: List<NoteDraftUi>? = null,
+    val workoutNotes: List<NoteDraftUi>? = null,
+    val liftNotes: List<NoteDraftUi>? = null,
 ) {
-    val sessionModified: Boolean get() = sessionDraft != loadedSession
-    val workoutModified: Boolean get() = workoutDraft != loadedWorkout
-    val liftModified: Boolean get() = liftDraft != loadedLift
-    val isDirty: Boolean get() = sessionModified || workoutModified || liftModified
-
-    /** Session, Workout, Lift — same order as the Manage Notes tabs. */
-    val tabModified: List<Boolean>
-        get() = listOf(sessionModified, workoutModified, liftModified)
+    val isDirty: Boolean get() = sessionNotes != null || workoutNotes != null || liftNotes != null
 }
 
+/** Full-screen notes-editor target (conditional content in [WorkoutScreen], not a nav destination). */
+data class EditingNotesTarget(
+    val workoutLiftId: String,
+    val liftId: String,
+    val liftName: String,
+    val tab: LiftNoteTab,
+)
+
 data class WorkoutLiftNotesActions(
-    val onLoadSessionNote: suspend (workoutLiftId: String) -> String = { "" },
-    val onSave: (LiftNotesSaveRequest) -> Unit = {},
+    val onLoadNoteLists: suspend (workoutLiftId: String, liftId: String) -> NoteListsUi =
+        { _, _ -> NoteListsUi() },
+    val onSave: (LiftNoteListsSaveRequest) -> Unit = {},
     val onLoadPastNotes: suspend (liftId: String) -> List<PastSessionNoteUi> = { emptyList() },
 )
 

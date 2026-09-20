@@ -59,6 +59,7 @@ internal data class LiftNotesSheetHostState(
     val onLiftSheetModeChange: (LiftOptionsSheetMode) -> Unit,
     val pastSessionNotesLiftId: String?,
     val onPastSessionNotesLiftIdChange: (String?) -> Unit,
+    val onEditNotes: (EditingNotesTarget) -> Unit,
 )
 
 /** Mutable sheet/dialog flags for [WorkoutSessionOverlays] — one bag for Detekt. */
@@ -452,13 +453,20 @@ private fun LiftActionsAndRestConfigSheets(
                             },
                         )
                     is LiftOptionsSheetMode.ManageNotes ->
-                        ManageLiftNotesContent(
+                        ManageNotesSummaryContent(
                             lift = lift,
                             initialTab = mode.tab,
-                            loadSessionNote = actions.liftNotes.onLoadSessionNote,
-                            onSave = { request ->
-                                actions.liftNotes.onSave(request)
+                            loadNoteLists = actions.liftNotes.onLoadNoteLists,
+                            onEditNotes = { tab ->
                                 onLiftActionsLiftIdChange(null)
+                                notesHost.onEditNotes(
+                                    EditingNotesTarget(
+                                        workoutLiftId = lift.workoutLiftId,
+                                        liftId = lift.liftId,
+                                        liftName = lift.liftName,
+                                        tab = tab,
+                                    ),
+                                )
                             },
                             onDismiss = { onLiftActionsLiftIdChange(null) },
                         )

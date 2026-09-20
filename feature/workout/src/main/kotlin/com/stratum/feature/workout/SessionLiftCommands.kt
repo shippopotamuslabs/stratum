@@ -11,6 +11,7 @@ import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.resolvedDefaultRestSeconds
+import com.stratum.domain.lift.sanitizeLiftNoteBody
 import com.stratum.domain.lift.storageWeightFromDisplay
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.ProgressionScheme
@@ -223,17 +224,22 @@ internal suspend fun LiveWorkoutSessionRuntime.handleSetRestSecondsForSlots(cmd:
     flushOverlay()
 }
 
-internal suspend fun LiveWorkoutSessionRuntime.handleSetWorkoutLiftPinnedNote(
-    cmd: SessionCommand.SetWorkoutLiftPinnedNote,
+internal suspend fun LiveWorkoutSessionRuntime.handleSetWorkoutLiftPinnedNotes(
+    cmd: SessionCommand.SetWorkoutLiftPinnedNotes,
 ) {
-    val sanitized = com.stratum.domain.lift.sanitizeLiftNoteBody(cmd.body)
-    val nextNotes =
-        if (sanitized == null) {
-            overlay.workoutLiftPinnedNotes - cmd.workoutLiftId
+    val sanitized = cmd.bodies.mapNotNull(::sanitizeLiftNoteBody)
+    val nextLists =
+        if (sanitized.isEmpty()) {
+            overlay.workoutLiftPinnedNoteLists - cmd.workoutLiftId
         } else {
-            overlay.workoutLiftPinnedNotes + (cmd.workoutLiftId to sanitized)
+            overlay.workoutLiftPinnedNoteLists + (cmd.workoutLiftId to sanitized)
         }
-    commitOverlay(overlay.copy(workoutLiftPinnedNotes = nextNotes))
+    commitOverlay(
+        overlay.copy(
+            workoutLiftPinnedNotes = overlay.workoutLiftPinnedNotes - cmd.workoutLiftId,
+            workoutLiftPinnedNoteLists = nextLists,
+        ),
+    )
     render()
     flushOverlay()
 }

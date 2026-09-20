@@ -27,6 +27,19 @@ fun resolvedWorkoutPinnedNotes(
 ): List<String> = overlayNotes[workoutLiftId] ?: templateNotes
 
 /**
+ * Display form: first overlay list entry wins; otherwise the legacy single-note
+ * resolution (overlay pin, then template). Keeps single-string readers working
+ * while slots carry ordered lists.
+ */
+fun resolvedWorkoutPinnedNoteFirst(
+    overlay: WorkoutOverlay,
+    workoutLiftId: WorkoutLiftId,
+    templateNote: String?,
+): String? =
+    overlay.workoutLiftPinnedNoteLists[workoutLiftId]?.firstOrNull()
+        ?: resolvedWorkoutPinnedNote(overlay.workoutLiftPinnedNotes, workoutLiftId, templateNote)
+
+/**
  * List form of [resolvedLiftPinnedNote]: catalog list is authoritative when the
  * catalog row is present (including an explicitly cleared empty list).
  * Missing catalog falls back to the current projection.

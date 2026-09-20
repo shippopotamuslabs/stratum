@@ -6,9 +6,9 @@ import com.stratum.core.ui.theme.StratumTheme
 
 @PreviewLightDark
 @Composable
-private fun ManageLiftNotesContentPreview() {
+private fun ManageNotesSummaryContentPreview() {
     StratumTheme {
-        ManageLiftNotesContent(
+        ManageNotesSummaryContent(
             lift =
                 RenderedLiftUi(
                     workoutLiftId = "wl-1",
@@ -19,9 +19,45 @@ private fun ManageLiftNotesContentPreview() {
                     liftPinnedNote = "Belt on working sets",
                 ),
             initialTab = LiftNoteTab.Workout,
-            loadSessionNote = { "" },
-            onSave = {},
+            loadNoteLists = { _, _ ->
+                NoteListsUi(
+                    session = listOf(NoteDraftUi(id = "n-1", body = "Session cue")),
+                    workout = listOf(NoteDraftUi(id = "w-1", body = "Keep elbows tucked")),
+                    lift = listOf(NoteDraftUi(id = "c-1", body = "Belt on working sets")),
+                )
+            },
+            onEditNotes = {},
             onDismiss = {},
+        )
+    }
+}
+
+@PreviewLightDark
+@Composable
+private fun ManageNotesScreenPreview() {
+    StratumTheme {
+        ManageNotesScreen(
+            target =
+                EditingNotesTarget(
+                    workoutLiftId = "wl-1",
+                    liftId = "lift-1",
+                    liftName = "Squat",
+                    tab = LiftNoteTab.Lift,
+                ),
+            liftNotes =
+                WorkoutLiftNotesActions(
+                    onLoadNoteLists = { _, _ ->
+                        NoteListsUi(
+                            lift =
+                                listOf(
+                                    NoteDraftUi(id = "c-1", body = "Belt on working sets"),
+                                    NoteDraftUi(body = ""),
+                                ),
+                        )
+                    },
+                    onSave = {},
+                ),
+            onClose = {},
         )
     }
 }

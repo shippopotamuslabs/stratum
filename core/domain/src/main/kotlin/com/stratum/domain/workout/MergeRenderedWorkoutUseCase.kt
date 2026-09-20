@@ -90,8 +90,8 @@ class MergeRenderedWorkoutUseCase @javax.inject.Inject constructor() {
                 useRestTimerBetweenLifts = lift.useRestTimerBetweenLifts,
                 isPlateLoaded = lift.isPlateLoaded,
                 isDoubleSided = lift.isDoubleSided,
-                workoutPinnedNote = resolvedWorkoutPinnedNote(
-                    overlay.workoutLiftPinnedNotes,
+                workoutPinnedNote = resolvedWorkoutPinnedNoteFirst(
+                    overlay,
                     lift.workoutLiftId,
                     lift.workoutPinnedNote,
                 ),

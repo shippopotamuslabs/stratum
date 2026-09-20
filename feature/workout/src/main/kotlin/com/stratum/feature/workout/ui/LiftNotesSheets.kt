@@ -5,9 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
@@ -20,7 +18,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.StratumBottomSheet
@@ -28,14 +25,9 @@ import com.stratum.core.ui.component.StratumButton
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumSegmentedControl
 import com.stratum.core.ui.component.StratumText
-import com.stratum.core.ui.component.StratumTextField
-import com.stratum.core.ui.component.StratumTextFieldOptions
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
-/** Matches [com.stratum.domain.lift.MAX_LIFT_NOTE_LENGTH]; keep in sync (UI must not import domain). */
-private const val LIFT_NOTE_FIELD_MAX_LENGTH = 2000
-
-internal enum class LiftNoteTab {
+enum class LiftNoteTab {
     Session,
     Workout,
     Lift,
@@ -46,56 +38,38 @@ internal sealed interface LiftOptionsSheetMode {
     data class ManageNotes(val tab: LiftNoteTab) : LiftOptionsSheetMode
 }
 
+/**
+ * Sheet summary for the hybrid notes flow: per-tab counts with a first-line preview and
+ * an entry point into the full-screen [ManageNotesScreen], which owns all editing.
+ */
 @Composable
-internal fun ManageLiftNotesContent(
+internal fun ManageNotesSummaryContent(
     lift: RenderedLiftUi,
     initialTab: LiftNoteTab,
-    loadSessionNote: suspend (workoutLiftId: String) -> String,
-    onSave: (LiftNotesSaveRequest) -> Unit,
+    loadNoteLists: suspend (workoutLiftId: String, liftId: String) -> NoteListsUi,
+    onEditNotes: (LiftNoteTab) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var selectedTab by remember(lift.workoutLiftId, initialTab) { mutableStateOf(initialTab) }
-    val loadedWorkout = lift.workoutPinnedNote.orEmpty()
-    val loadedLiftNote = lift.liftPinnedNote.orEmpty()
-    var loadedSession by remember(lift.workoutLiftId) { mutableStateOf("") }
-    var sessionDraft by remember(lift.workoutLiftId) { mutableStateOf("") }
-    var workoutDraft by remember(lift.workoutLiftId, loadedWorkout) { mutableStateOf(loadedWorkout) }
-    var liftDraft by remember(lift.workoutLiftId, loadedLiftNote) { mutableStateOf(loadedLiftNote) }
-
-    LaunchedEffect(lift.workoutLiftId) {
-        val body = loadSessionNote(lift.workoutLiftId)
-        if (sessionDraft == loadedSession) {
-            loadedSession = body
-            sessionDraft = body
-        } else {
-            loadedSession = body
-        }
+    var lists by remember(lift.workoutLiftId, lift.liftId) {
+        mutableStateOf<NoteListsUi?>(null)
     }
 
-    val sessionLabels =
+    LaunchedEffect(lift.workoutLiftId, lift.liftId) {
+        lists = loadNoteLists(lift.workoutLiftId, lift.liftId)
+    }
+
+    val loaded = lists
+    val tabLists =
         listOf(
-            stringResource(CoreUiR.string.lift_notes_tab_session),
-            stringResource(CoreUiR.string.lift_notes_tab_workout),
-            stringResource(CoreUiR.string.lift_notes_tab_lift),
+            loaded?.session.orEmpty(),
+            loaded?.workout.orEmpty(),
+            loaded?.lift.orEmpty(),
         )
     val pin = CoreUiR.drawable.ic_push_pin
-    val notes =
-        LiftNotesSaveRequest(
-            workoutLiftId = lift.workoutLiftId,
-            liftId = lift.liftId,
-            sessionDraft = sessionDraft,
-            workoutDraft = workoutDraft,
-            liftDraft = liftDraft,
-            loadedSession = loadedSession,
-            loadedWorkout = loadedWorkout,
-            loadedLift = loadedLiftNote,
-        )
 
     Column(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .imePadding(),
+        modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
@@ -111,56 +85,60 @@ internal fun ManageLiftNotesContent(
             }
         }
         StratumSegmentedControl(
-            segments = sessionLabels,
+            segments =
+                listOf(
+                    summaryLabel(LiftNoteTab.Session, tabLists[0].size),
+                    summaryLabel(LiftNoteTab.Workout, tabLists[1].size),
+                    summaryLabel(LiftNoteTab.Lift, tabLists[2].size),
+                ),
             selectedIndex = selectedTab.ordinal,
             onSelectedIndexChange = { index ->
                 selectedTab = LiftNoteTab.entries[index]
             },
             leadingIconRes = listOf(null, pin, pin),
-            modified = notes.tabModified,
+            modified = listOf(false, false, false),
         )
-        val (draft, onDraftChange, caption) =
-            when (selectedTab) {
-                LiftNoteTab.Session ->
-                    Triple(
-                        sessionDraft,
-                        { value: String -> sessionDraft = value.take(LIFT_NOTE_FIELD_MAX_LENGTH) },
-                        stringResource(CoreUiR.string.lift_notes_caption_session),
+        val preview = tabLists[selectedTab.ordinal]
+        if (preview.isEmpty()) {
+            StratumText(
+                text = stringResource(CoreUiR.string.lift_notes_summary_empty),
+                muted = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        } else {
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                preview.take(2).forEach { note ->
+                    StratumText(
+                        text = note.body.lines().firstOrNull().orEmpty(),
+                        style = StratumThemeAccessor.typography.bodyLarge,
+                        modifier = Modifier.fillMaxWidth(),
                     )
-                LiftNoteTab.Workout ->
-                    Triple(
-                        workoutDraft,
-                        { value: String -> workoutDraft = value.take(LIFT_NOTE_FIELD_MAX_LENGTH) },
-                        stringResource(CoreUiR.string.lift_notes_caption_workout),
-                    )
-                LiftNoteTab.Lift ->
-                    Triple(
-                        liftDraft,
-                        { value: String -> liftDraft = value.take(LIFT_NOTE_FIELD_MAX_LENGTH) },
-                        stringResource(CoreUiR.string.lift_notes_caption_lift),
-                    )
+                }
             }
-        StratumTextField(
-            value = draft,
-            onValueChange = onDraftChange,
-            label = stringResource(CoreUiR.string.lift_notes_field_label),
-            singleLine = false,
-            options =
-                StratumTextFieldOptions(
-                    minLines = 4,
-                    maxLines = 8,
-                    showClearButton = true,
-                    supportingText = caption,
-                ),
-            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-        )
+        }
         StratumButton(
-            text = stringResource(CoreUiR.string.lift_notes_save),
-            enabled = notes.isDirty,
-            onClick = { onSave(notes) },
+            text = stringResource(CoreUiR.string.lift_notes_edit_notes),
+            onClick = { onEditNotes(selectedTab) },
             modifier = Modifier.fillMaxWidth(),
         )
     }
+}
+
+@Composable
+private fun summaryLabel(tab: LiftNoteTab, count: Int): String {
+    val base =
+        when (tab) {
+            LiftNoteTab.Session -> stringResource(CoreUiR.string.lift_notes_tab_session)
+            LiftNoteTab.Workout -> stringResource(CoreUiR.string.lift_notes_tab_workout)
+            LiftNoteTab.Lift -> stringResource(CoreUiR.string.lift_notes_tab_lift)
+        }
+    return if (count == 0) base else "$base ($count)"
 }
 
 @Composable

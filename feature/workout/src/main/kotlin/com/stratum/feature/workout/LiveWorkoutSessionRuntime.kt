@@ -54,7 +54,7 @@ import com.stratum.domain.workout.WorkoutOverlay
 import com.stratum.domain.workout.WorkoutStructureProjection
 import com.stratum.domain.workout.intensifier.RestDefaultForTransition
 import com.stratum.domain.workout.resolvedLiftPinnedNote
-import com.stratum.domain.workout.resolvedWorkoutPinnedNote
+import com.stratum.domain.workout.resolvedWorkoutPinnedNoteFirst
 import com.stratum.feature.workout.ui.WorkoutUiEvent
 import com.stratum.feature.workout.ui.WorkoutUiMapper
 import java.time.Instant
@@ -272,8 +272,8 @@ internal class LiveWorkoutSessionRuntime(
                             }
                         lift.copy(
                             workoutPinnedNote =
-                                resolvedWorkoutPinnedNote(
-                                    overlay.workoutLiftPinnedNotes,
+                                resolvedWorkoutPinnedNoteFirst(
+                                    overlay,
                                     lift.workoutLiftId,
                                     templateNote,
                                 ),

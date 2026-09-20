@@ -4,8 +4,17 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.core.ui.component.SupersetLinkDirection
 import com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase
+import com.stratum.domain.lift.CatalogNoteInput
+import com.stratum.domain.lift.GetLiftNoteListsUseCase
 import com.stratum.domain.lift.GetPastSessionNotesForLiftUseCase
-import com.stratum.domain.lift.GetSessionLiftNoteUseCase
+import com.stratum.domain.lift.SessionNoteInput
+import com.stratum.domain.lift.WorkoutLiftNoteInput
+import com.stratum.domain.lift.identity.LiftCatalogNoteId
+import com.stratum.domain.lift.identity.LiftSessionNoteId
+import com.stratum.domain.program.identity.WorkoutLiftNoteId
+import com.stratum.feature.workout.ui.LiftNoteListsSaveRequest
+import com.stratum.feature.workout.ui.NoteDraftUi
+import com.stratum.feature.workout.ui.NoteListsUi
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
 import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.OptionalNoteEdit
@@ -36,7 +45,6 @@ import com.stratum.domain.workout.SetSlotId
 import com.stratum.domain.workout.WorkoutEditSession
 import com.stratum.feature.workout.notification.LiveWorkoutSurfaces
 import com.stratum.feature.workout.notification.RestTimerState
-import com.stratum.feature.workout.ui.LiftNotesSaveRequest
 import com.stratum.feature.workout.ui.PastSessionNoteUi
 import com.stratum.feature.workout.ui.WorkoutUiEvent
 import com.stratum.feature.workout.ui.WorkoutUiState
@@ -96,7 +104,7 @@ class WorkoutViewModel @Inject constructor(
     private val logError: LogErrorUseCase,
     private val saveLiftNotesUseCase: SaveLiftNotesUseCase,
     private val getPastSessionNotesForLift: GetPastSessionNotesForLiftUseCase,
-    private val getSessionLiftNote: GetSessionLiftNoteUseCase,
+    private val getLiftNoteLists: GetLiftNoteListsUseCase,
 ) : ViewModel() {
 
     /**
@@ -452,9 +460,19 @@ class WorkoutViewModel @Inject constructor(
         enqueue(SessionCommand.SetRestSecondsForSlots(updates))
     }
 
-    suspend fun sessionNoteBody(workoutLiftId: String): String {
-        val sessionId = session.cachedSessionId() ?: return ""
-        return getSessionLiftNote(sessionId, WorkoutLiftId(workoutLiftId))?.body.orEmpty()
+    suspend fun noteLists(workoutLiftId: String, liftId: String): NoteListsUi {
+        val sessionId = session.cachedSessionId() ?: return NoteListsUi()
+        val lists =
+            getLiftNoteLists(
+                sessionId,
+                WorkoutLiftId(workoutLiftId),
+                LiftId(liftId),
+            )
+        return NoteListsUi(
+            session = lists.session.map { NoteDraftUi(id = it.id.value, body = it.body) },
+            workout = lists.workout.map { NoteDraftUi(id = it.id.value, body = it.body) },
+            lift = lists.lift.map { NoteDraftUi(id = it.id.value, body = it.body) },
+        )
     }
 
     suspend fun pastSessionNotes(liftId: String): List<PastSessionNoteUi> {
@@ -474,7 +492,8 @@ class WorkoutViewModel @Inject constructor(
         }
     }
 
-    fun saveLiftNotes(request: LiftNotesSaveRequest) {
+    fun saveLiftNotes(request: LiftNoteListsSaveRequest) {
+        if (!request.isDirty) return
         val sessionId = session.cachedSessionId() ?: return
         viewModelScope.launch {
             val result =
@@ -483,15 +502,9 @@ class WorkoutViewModel @Inject constructor(
                         sessionId = sessionId,
                         workoutLiftId = WorkoutLiftId(request.workoutLiftId),
                         liftId = LiftId(request.liftId),
-                        sessionNote =
-                            request.sessionDraft.takeIf { request.sessionModified }
-                                ?.let(::OptionalNoteEdit),
-                        workoutNote =
-                            request.workoutDraft.takeIf { request.workoutModified }
-                                ?.let(::OptionalNoteEdit),
-                        liftNote =
-                            request.liftDraft.takeIf { request.liftModified }
-                                ?.let(::OptionalNoteEdit),
+                        sessionNotes = request.sessionNotes?.map { it.toSessionInput() },
+                        workoutNotes = request.workoutNotes?.map { it.toWorkoutInput() },
+                        liftNotes = request.liftNotes?.map { it.toCatalogInput() },
                     ),
                 ).getOrElse {
                     _userMessage.value = MSG_NOTES_SAVE_FAILED
@@ -499,9 +512,9 @@ class WorkoutViewModel @Inject constructor(
                 }
             if (result.workoutNoteNeedsOverlay) {
                 enqueue(
-                    SessionCommand.SetWorkoutLiftPinnedNote(
+                    SessionCommand.SetWorkoutLiftPinnedNotes(
                         workoutLiftId = WorkoutLiftId(request.workoutLiftId),
-                        body = request.workoutDraft,
+                        bodies = request.workoutNotes.orEmpty().map { it.body },
                     ),
                 )
             }
@@ -615,3 +628,12 @@ class WorkoutViewModel @Inject constructor(
         const val MSG_NOTES_SAVE_FAILED = "Couldn't save notes. Try again."
     }
 }
+
+private fun NoteDraftUi.toSessionInput(): SessionNoteInput =
+    SessionNoteInput(id = id?.let(::LiftSessionNoteId), body = body)
+
+private fun NoteDraftUi.toWorkoutInput(): WorkoutLiftNoteInput =
+    WorkoutLiftNoteInput(id = id?.let(::WorkoutLiftNoteId), body = body)
+
+private fun NoteDraftUi.toCatalogInput(): CatalogNoteInput =
+    CatalogNoteInput(id = id?.let(::LiftCatalogNoteId), body = body)

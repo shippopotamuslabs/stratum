@@ -333,6 +333,12 @@
     <string name="lift_notes_scope_lift">Lift</string>
     <string name="lift_notes_past_title">Past Session Notes</string>
     <string name="lift_notes_past_empty">No past session notes for this lift</string>
+    <string name="lift_notes_add_note">Add Note</string>
+    <string name="lift_notes_edit_notes">Edit notes</string>
+    <string name="lift_notes_delete_note_cd">Delete note</string>
+    <string name="lift_notes_summary_count">%1$s · %2$d</string>
+    <string name="lift_notes_summary_empty">No notes yet</string>
+    <string name="lift_notes_back_cd">Back to workout</string>
 
     <!-- Custom Set Log Keyboard -->
     <string name="set_log_keyboard_action_complete">Complete set</string>
