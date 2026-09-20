@@ -2,17 +2,20 @@ package com.stratum.core.data.sync.handlers
 
 import androidx.room.Room
 import com.stratum.core.data.db.LiftEntity
+import com.stratum.core.data.db.LiftSessionNoteEntity
 import com.stratum.core.data.db.StratumDatabase
 import com.stratum.core.data.db.TrainingSessionEntity
 import com.stratum.core.data.sync.FirestoreSyncMetadata
 import com.stratum.core.data.sync.SyncCollection
 import com.stratum.core.data.sync.SyncFlags
+import com.stratum.core.data.sync.testSyncTouch
 import com.stratum.core.data.sync.appliers.LiftRemoteApplier
 import com.stratum.core.data.sync.appliers.LoggedSetRemoteApplier
 import com.stratum.core.data.sync.appliers.ProgramRemoteApplier
 import com.stratum.core.data.sync.codecs.SyncEntityDecoders
 import com.stratum.core.data.sync.codecs.SyncEntityEncoders
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.lift.identity.LiftSessionNoteId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.training.TrainingSessionKind
 import com.stratum.domain.training.TrainingSessionOrigin
@@ -52,6 +55,11 @@ class NoteSyncConvergenceTest {
         val decoders = SyncEntityDecoders()
         val provider =
             SyncHandlersProvider(
+                database = database,
+                syncTouch = testSyncTouch(
+                    RuntimeEnvironment.getApplication(),
+                    database.pendingCloudDeleteDao(),
+                ),
                 userProfileDao = database.userProfileDao(),
                 onboardingDao = database.onboardingProgressDao(),
                 gymDao = database.gymPreferenceDao(),
@@ -171,6 +179,102 @@ class NoteSyncConvergenceTest {
                     WorkoutLiftId("wl-1"),
                 ).map { it.body },
         )
+    }
+
+    @Test
+    @DisplayName("legacy slot document displaces per-note siblings with tombstones")
+    fun legacySlotDocDisplacesSiblings() = runTest {
+        seedSession("ts-1")
+        val dao = database.liftSessionNoteDao()
+        dao.upsertAll(
+            listOf(
+                LiftSessionNoteEntity(
+                    id = LiftSessionNoteId("uuid-a"),
+                    sessionId = TrainingSessionId("ts-1"),
+                    liftId = LiftId("lift-1"),
+                    workoutLiftId = WorkoutLiftId("wl-1"),
+                    body = "new ui note",
+                    position = 0,
+                    updatedAtEpochMillis = 5L,
+                ),
+                LiftSessionNoteEntity(
+                    id = LiftSessionNoteId("uuid-b"),
+                    sessionId = TrainingSessionId("ts-1"),
+                    liftId = LiftId("lift-1"),
+                    workoutLiftId = WorkoutLiftId("wl-1"),
+                    body = "second note",
+                    position = 1,
+                    updatedAtEpochMillis = 6L,
+                ),
+            ),
+        )
+        val handler = registry.get(SyncCollection.LiftSessionNotes)
+
+        assertTrue(
+            handler.upsertFromRemote(
+                "ts-1::wl-1",
+                mapOf(
+                    "session_id" to "ts-1",
+                    "lift_id" to "lift-1",
+                    "workout_lift_id" to "wl-1",
+                    "body" to "legacy whole slot",
+                    FirestoreSyncMetadata.UPDATED_AT to 50L,
+                ),
+            ),
+        )
+
+        assertEquals(
+            listOf("legacy whole slot"),
+            dao.getNotesForSlot(TrainingSessionId("ts-1"), WorkoutLiftId("wl-1")).map { it.body },
+        )
+        val tombstoned =
+            database.pendingCloudDeleteDao().peekPending()
+                .filter { it.collectionPath == SyncCollection.LiftSessionNotes.firestorePath }
+                .map { it.entityId }
+                .toSet()
+        assertEquals(setOf("uuid-a", "uuid-b"), tombstoned)
+    }
+
+    @Test
+    @DisplayName("per-note documents merge row-by-row without touching siblings")
+    fun perNoteDocsMergeSurgically() = runTest {
+        seedSession("ts-1")
+        val dao = database.liftSessionNoteDao()
+        dao.upsertAll(
+            listOf(
+                LiftSessionNoteEntity(
+                    id = LiftSessionNoteId("uuid-a"),
+                    sessionId = TrainingSessionId("ts-1"),
+                    liftId = LiftId("lift-1"),
+                    workoutLiftId = WorkoutLiftId("wl-1"),
+                    body = "existing",
+                    position = 0,
+                    updatedAtEpochMillis = 5L,
+                ),
+            ),
+        )
+        val handler = registry.get(SyncCollection.LiftSessionNotes)
+
+        assertTrue(
+            handler.upsertFromRemote(
+                "uuid-b",
+                mapOf(
+                    "session_id" to "ts-1",
+                    "lift_id" to "lift-1",
+                    "workout_lift_id" to "wl-1",
+                    "body" to "arriving",
+                    "position" to 1,
+                    "created_at_epoch_millis" to 20L,
+                    FirestoreSyncMetadata.UPDATED_AT to 21L,
+                ),
+            ),
+        )
+
+        assertEquals(
+            listOf("existing", "arriving"),
+            dao.getNotesForSlot(TrainingSessionId("ts-1"), WorkoutLiftId("wl-1")).map { it.body },
+        )
+        assertTrue(database.pendingCloudDeleteDao().peekPending().isEmpty())
     }
 
     private suspend fun seedSession(id: String) {
