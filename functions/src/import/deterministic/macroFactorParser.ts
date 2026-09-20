@@ -1,4 +1,4 @@
-import * as xlsx from "xlsx";
+import { loadWorkbook, scalarCellValue } from "./excelCells";
 import type { NormalizedHistory, NormalizedSession, NormalizedSet } from "../schemas";
 import { field, headerIndex, parseCsv } from "./csvReader";
 import { parseInteger, parseNumber, stripSupersetSuffix, normalizeTimestamp } from "./values";
@@ -11,7 +11,7 @@ import type { ImportFormat } from "./types";
  * default in-app export) and `.csv` (an alternate). The columns are identical
  * either way — `Workout Duration`, `Workout`, `Exercise`, `Weight (lbs)`,
  * `Reps`, `RIR`, `Set Type` — so this parser consumes a normalised row matrix
- * and the caller picks the right decoder (SheetJS for XLSX, the CSV reader for
+ * and the caller picks the right decoder (exceljs-community for XLSX, the CSV reader for
  * CSV). Weights are always pounds. RIR is already integer-valued, so it passes
  * through. Set-type and the `∈ SS1` superset suffix have no field in the
  * normalized contract: the suffix is stripped from the exercise name (so it
@@ -49,28 +49,46 @@ export function matchesMacroFactorCsv(csvText: string): boolean {
 /**
  * XLSX magic-byte sniff. MacroFactor XLSX files start with the ZIP local-file
  * header (`PK\x03\x04`); CSVs do not. Used by the detector to decide whether to
- * decode with SheetJS or the CSV reader.
+ * decode with exceljs-community or the CSV reader.
  */
 export function isXlsxBytes(bytes: Buffer): boolean {
   return bytes.length >= 4 && bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 0x03 && bytes[3] === 0x04;
 }
 
-/** Decode an XLSX file into a row matrix of trimmed string cells. */
-export function readXlsxRows(bytes: Buffer): string[][] {
-  const workbook = xlsx.read(bytes, { type: "buffer", cellDates: false });
-  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+/**
+ * Decode an XLSX file into a row matrix of trimmed string cells.
+ *
+ * Mirrors the old SheetJS decode (`sheet_to_json` with `header: 1`,
+ * `raw: true`, `blankrows: false`, `defval: ""`, `cellDates: false`):
+ * only the first worksheet is read, Excel serials stay serials (Dates are
+ * converted back), and fully empty rows are dropped.
+ */
+export async function readXlsxRows(bytes: Buffer): Promise<string[][]> {
+  const workbook = await loadWorkbook(bytes);
+  const sheet = workbook.worksheets[0];
   if (!sheet) {
     return [];
   }
-  const matrix = xlsx.utils.sheet_to_json<unknown[]>(sheet, {
-    header: 1,
-    raw: true,
-    blankrows: false,
-    defval: "",
+  const date1904 = workbook.properties.date1904 === true;
+  const columnCount = sheet.columnCount;
+  const matrix: string[][] = [];
+  sheet.eachRow({ includeEmpty: true }, (row) => {
+    const cells: string[] = [];
+    let hasContent = false;
+    for (let c = 1; c <= columnCount; c++) {
+      const value = scalarCellValue(row.getCell(c), date1904);
+      if (value === null || value === "") {
+        cells.push("");
+        continue;
+      }
+      cells.push(String(value).trim());
+      hasContent = true;
+    }
+    if (hasContent) {
+      matrix.push(cells);
+    }
   });
-  return matrix.map((row) =>
-    (Array.isArray(row) ? row : []).map((cell) => (cell === null || cell === undefined ? "" : String(cell)).trim()),
-  );
+  return matrix;
 }
 
 /**
@@ -146,8 +164,8 @@ export function parseMacroFactorCsv(csvText: string): NormalizedHistory | null {
 }
 
 /** Parse a MacroFactor XLSX export. Returns null on header mismatch. */
-export function parseMacroFactorXlsx(bytes: Buffer): NormalizedHistory | null {
-  return parseMacroFactorRows(readXlsxRows(bytes));
+export async function parseMacroFactorXlsx(bytes: Buffer): Promise<NormalizedHistory | null> {
+  return parseMacroFactorRows(await readXlsxRows(bytes));
 }
 
 export const macroFactorFormat: ImportFormat = "macrofactor";

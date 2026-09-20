@@ -4,7 +4,7 @@ import { normalizeWorkbook } from "./workbookNormalize";
 import { selectRegionRowIndices, sliceProgramRegion } from "./sliceProgramRegion";
 
 describe("sliceProgramRegion", () => {
-  it("slices to Week 1 only on multi-week tables", () => {
+  it("slices to Week 1 only on multi-week tables", async () => {
     const csv = [
       "Section,Exercise,Sets,Reps",
       "Week 1,Exercise,,",
@@ -17,7 +17,7 @@ describe("sliceProgramRegion", () => {
       "Week 3,Exercise,,",
       "Full Body 1,Back squat,3,5",
     ].join("\n");
-    const wb = normalizeWorkbook(Buffer.from(csv, "utf8"));
+    const wb = await normalizeWorkbook(Buffer.from(csv, "utf8"));
     const sheet = wb.sheets[0]!;
     const { indices, weekSliced, regionLabel } = selectRegionRowIndices(sheet);
     assert.equal(weekSliced, true);
@@ -29,7 +29,7 @@ describe("sliceProgramRegion", () => {
     assert.ok(!text.includes("Week 3"));
   });
 
-  it("stops before volume summary on tidy personal sheets", () => {
+  it("stops before volume summary on tidy personal sheets", async () => {
     const csv = [
       "Day,Lift Name,Sets,Rep Range",
       "Upper A,Bench Press,4,8-10",
@@ -40,14 +40,14 @@ describe("sliceProgramRegion", () => {
       "Chest,20,,",
       "Back,10,,",
     ].join("\n");
-    const wb = normalizeWorkbook(Buffer.from(csv, "utf8"));
+    const wb = await normalizeWorkbook(Buffer.from(csv, "utf8"));
     const sliced = sliceProgramRegion(wb, 0);
     assert.ok(sliced.viewText.includes("Bench Press"));
     assert.ok(!sliced.viewText.includes("Muscle Group"));
     assert.ok(sliced.liftRowEstimate >= 2);
   });
 
-  it("includes multi-week note when week-sliced", () => {
+  it("includes multi-week note when week-sliced", async () => {
     const csv = [
       "A,B,C",
       "Week 1,Exercise,",
@@ -55,7 +55,7 @@ describe("sliceProgramRegion", () => {
       "Week 2,Exercise,",
       "Day 1,Bench,3",
     ].join("\n");
-    const wb = normalizeWorkbook(Buffer.from(csv, "utf8"));
+    const wb = await normalizeWorkbook(Buffer.from(csv, "utf8"));
     const sliced = sliceProgramRegion(wb, 0);
     assert.equal(sliced.weekSliced, true);
     assert.ok(sliced.viewText.includes("Multi-week"));

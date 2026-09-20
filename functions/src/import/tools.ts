@@ -56,7 +56,7 @@ async function detectFormatFromPath(
 ): Promise<string | undefined> {
   try {
     const bytes = await storage.download(path);
-    const detected = detectAndParse(bytes, fileName);
+    const detected = await detectAndParse(bytes, fileName);
     if (detected) return detected.format;
     // detectAndParse swallows Stratum parse errors after match — still stamp stratum.
     const text = bytes.toString("utf8");

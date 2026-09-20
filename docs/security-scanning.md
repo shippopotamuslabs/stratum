@@ -160,13 +160,13 @@ The CI re-scan after the pins is the proof — see the `osv-scan` job log.
   `httpcore5`/`httpcore5-h2` 5.4.3. These clear the netty/httpclient/jackson/
   OpenTelemetry CVEs in the solver's transitive graph (10 vulnerable packages
   before remediation).
-- **Suppressed with expiry** (`.osv-scanner.toml`) — SheetJS `xlsx` 0.20.3 has
-  two High CVEs (GHSA-4r6h-8v6p-xvw6 prototype pollution, GHSA-5pgg-2g8v-p4x9
-  ReDoS) and **no fixed version exists upstream** — 0.20.3 is the latest
-  release. The library parses user-uploaded MacroFactor and custom-program
-  workbooks in Cloud Functions, so this is real exposure, not test-only.
-  Accepted pending evaluation of a maintained replacement (e.g. `exceljs`),
-  tracked in issue #10; suppression expires 2026-12-20 and forces re-triage.
+- **Fixed by dependency replacement** — SheetJS `xlsx` 0.20.3 (two High CVEs,
+  GHSA-4r6h-8v6p-xvw6 prototype pollution and GHSA-5pgg-2g8v-p4x9 ReDoS, with
+  **no fixed version upstream**) was replaced by the maintained community fork
+  `exceljs-community` 5.2.0 in `functions/package.json`. The XLSX import
+  parsers (`functions/src/**/macroFactor*`, `workbookNormalize.ts`) were
+  ported to the exceljs API and the `.osv-scanner.toml` SheetJS suppressions
+  were deleted. OSV reports no vulnerabilities for `exceljs-community` 5.2.0.
 
 ## Local runs
 

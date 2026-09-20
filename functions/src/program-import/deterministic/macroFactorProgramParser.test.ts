@@ -14,9 +14,9 @@ const FIXTURES = join(SRC_DIR, "fixtures");
 const SAMPLE_PATH = join(FIXTURES, "macro_factor_programs.xlsx");
 
 describe("macroFactorProgramParser", () => {
-  it("parses the sample fixture: program name, workouts, lifts, sets", () => {
+  it("parses the sample fixture: program name, workouts, lifts, sets", async () => {
     const bytes = readFileSync(SAMPLE_PATH);
-    const template = parseMacroFactorProgramXlsx(bytes);
+    const template = await parseMacroFactorProgramXlsx(bytes);
     assert.ok(template, "fixture should parse");
 
     // First program is "5 Day Upper/Lower". Meso "Cycles: 9" is NOT cycleLength —
@@ -52,9 +52,9 @@ describe("macroFactorProgramParser", () => {
     assert.equal(upperA.lifts[0].sets[1].repMax, 1); // "1+" parses to repMin=repMax=1
   });
 
-  it("captures superset group keys and strips them from the lift name", () => {
+  it("captures superset group keys and strips them from the lift name", async () => {
     const bytes = readFileSync(SAMPLE_PATH);
-    const template = parseMacroFactorProgramXlsx(bytes);
+    const template = await parseMacroFactorProgramXlsx(bytes);
     assert.ok(template);
 
     const upperA = template!.workouts[0];
@@ -66,9 +66,9 @@ describe("macroFactorProgramParser", () => {
     assert.ok(straight, "expected at least one straight lift in Upper A");
   });
 
-  it("handles the Myo-set compound rep-range / RIR strings", () => {
+  it("handles the Myo-set compound rep-range / RIR strings", async () => {
     const bytes = readFileSync(SAMPLE_PATH);
-    const template = parseMacroFactorProgramXlsx(bytes);
+    const template = await parseMacroFactorProgramXlsx(bytes);
     assert.ok(template);
 
     // "Machine Crunch (With Overhead Handles)" is the Myo set in Upper B.
@@ -85,24 +85,24 @@ describe("macroFactorProgramParser", () => {
     assert.equal(myoSet.rirGoal, 0);
   });
 
-  it("produces a template that passes validation", () => {
+  it("produces a template that passes validation", async () => {
     const bytes = readFileSync(SAMPLE_PATH);
-    const template = parseMacroFactorProgramXlsx(bytes);
+    const template = await parseMacroFactorProgramXlsx(bytes);
     assert.ok(template);
     assert.doesNotThrow(() => validateProgramTemplate(template!));
   });
 
-  it("matches the row sniff on a real MacroFactor program export", () => {
+  it("matches the row sniff on a real MacroFactor program export", async () => {
     const bytes = readFileSync(SAMPLE_PATH);
     // readCellMatrix is internal; exercise via the public parse which runs the sniff itself.
-    const template = parseMacroFactorProgramXlsx(bytes);
+    const template = await parseMacroFactorProgramXlsx(bytes);
     assert.ok(template);
   });
 
-  it("returns null for a non-MacroFactor XLSX", () => {
+  it("returns null for a non-MacroFactor XLSX", async () => {
     // An XLSX without the Program:/Set header structure should not match.
     const garbage = Buffer.from("PK\x03\x04not really an xlsx but has magic bytes");
-    assert.equal(parseMacroFactorProgramXlsx(garbage), null);
+    assert.equal(await parseMacroFactorProgramXlsx(garbage), null);
   });
 
   it("returns null when rows do not look like a MacroFactor program", () => {
