@@ -223,7 +223,9 @@ class AntagonistMaintenanceBalanceTest {
             lastTrained = null,
             sessionLengthMinutes = 60,
             trainingDaysPerWeek = 4,
-            weekdays = listOf("Monday", "Tuesday", "Thursday", "Friday"),
+            // Mon/Tue/Thu/Fri on a Mon-start 7-cycle: rests Wed(2), Sat(5), Sun(6).
+            restSlotIndices = setOf(2, 5, 6),
+            cycleLength = 7,
             specialization = emptyMap(),
             liftsById = liftsById,
             muscleVolumeSnapshotsByMuscle = landmarks.associateBy { it.muscle },
@@ -446,7 +448,9 @@ class AntagonistMaintenanceBalanceTest {
             lastTrained = null,
             sessionLengthMinutes = 75,
             trainingDaysPerWeek = 5,
-            weekdays = listOf("Monday", "Tuesday", "Thursday", "Friday", "Saturday"),
+            // Mon/Tue/Thu/Fri/Sat on a Mon-start 7-cycle: rests Wed(2), Sun(6).
+            restSlotIndices = setOf(2, 6),
+            cycleLength = 7,
             specialization = emptyMap(),
             liftsById = liftsById,
             muscleVolumeSnapshotsByMuscle = landmarks.associateBy { it.muscle },
@@ -518,7 +522,9 @@ class AntagonistMaintenanceBalanceTest {
             lastTrained = null,
             sessionLengthMinutes = 75,
             trainingDaysPerWeek = 5,
-            weekdays = listOf("Monday", "Tuesday", "Thursday", "Friday", "Saturday"),
+            // Mon/Tue/Thu/Fri/Sat on a Mon-start 7-cycle: rests Wed(2), Sun(6).
+            restSlotIndices = setOf(2, 6),
+            cycleLength = 7,
             specialization = emptyMap(),
             liftsById = liftsById,
             muscleVolumeSnapshotsByMuscle = landmarks.associateBy { it.muscle },
