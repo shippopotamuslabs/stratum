@@ -43,6 +43,8 @@ class SyncHandlerRegistryTest {
                 liftSetDao = db.liftSetDao(),
                 sessionDao = db.trainingSessionDao(),
                 liftSessionNoteDao = db.liftSessionNoteDao(),
+                liftNoteDao = db.liftNoteDao(),
+                workoutLiftNoteDao = db.workoutLiftNoteDao(),
                 loggedSetDao = db.trainingLoggedSetDao(),
                 programChangeEventDao = db.programChangeEventDao(),
                 encoders = encoders,
@@ -59,7 +61,9 @@ class SyncHandlerRegistryTest {
         fun index(c: SyncCollection) = ordered.indexOfFirst { it.collection == c }
         assertTrue(index(SyncCollection.Equipment) < index(SyncCollection.Lifts))
         assertTrue(index(SyncCollection.Lifts) < index(SyncCollection.IncrementTiers))
+        assertTrue(index(SyncCollection.Lifts) < index(SyncCollection.LiftCatalogNotes))
         assertTrue(index(SyncCollection.Programs) < index(SyncCollection.Workouts))
+        assertTrue(index(SyncCollection.WorkoutLifts) < index(SyncCollection.WorkoutLiftNotes))
         assertTrue(index(SyncCollection.TrainingSessions) < index(SyncCollection.LoggedSets))
         db.close()
     }

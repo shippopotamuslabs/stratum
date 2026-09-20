@@ -4,8 +4,10 @@ import com.stratum.core.data.db.EquipmentEntity
 import com.stratum.core.data.db.GymPreferenceEntity
 import com.stratum.core.data.db.IncrementTierEntity
 import com.stratum.core.data.db.LiftEntity
+import com.stratum.core.data.db.LiftNoteEntity
 import com.stratum.core.data.db.LiftSessionNoteEntity
 import com.stratum.core.data.db.LiftSetEntity
+import com.stratum.core.data.db.WorkoutLiftNoteEntity
 import com.stratum.core.data.db.LoggedSetEntity
 import com.stratum.core.data.db.OnboardingProgressEntity
 import com.stratum.core.data.db.ProgramChangeEventEntity
@@ -27,6 +29,7 @@ import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.lift.sanitizeLiftNoteBody
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.IncrementTierId
+import com.stratum.domain.lift.identity.LiftCatalogNoteId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.identity.LiftSessionNoteId
 import com.stratum.domain.importing.identity.LoggedSetId
@@ -48,6 +51,7 @@ import com.stratum.domain.program.identity.LiftSetId
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
+import com.stratum.domain.program.identity.WorkoutLiftNoteId
 import com.stratum.domain.program.identity.WorkoutSupersetGroupId
 import com.stratum.domain.training.ProgramChangeEventType
 import com.stratum.domain.training.TrainingSessionKind
@@ -344,6 +348,35 @@ class SyncEntityDecoders @Inject constructor() {
                 liftId = LiftId(data["lift_id"] as? String ?: return null),
                 workoutLiftId = WorkoutLiftId(data["workout_lift_id"] as? String ?: return null),
                 body = sanitizeLiftNoteBody(data["body"] as? String) ?: return null,
+                // Absent on pre-v5 documents — zero keeps the legacy single-note read working.
+                position = (data["position"] as? Number)?.toInt() ?: 0,
+                createdAtEpochMillis = (data["created_at_epoch_millis"] as? Number)?.toLong() ?: 0L,
+                updatedAtEpochMillis = remoteUpdatedAt(data),
+                pendingSync = SyncFlags.CLEAN,
+            )
+        }.getOrNull()
+
+    fun liftCatalogNote(id: String, data: Map<String, Any?>): LiftNoteEntity? =
+        runCatching {
+            LiftNoteEntity(
+                id = LiftCatalogNoteId(id),
+                liftId = LiftId(data["lift_id"] as? String ?: return null),
+                body = sanitizeLiftNoteBody(data["body"] as? String) ?: return null,
+                position = (data["position"] as? Number)?.toInt() ?: 0,
+                createdAtEpochMillis = (data["created_at_epoch_millis"] as? Number)?.toLong() ?: 0L,
+                updatedAtEpochMillis = remoteUpdatedAt(data),
+                pendingSync = SyncFlags.CLEAN,
+            )
+        }.getOrNull()
+
+    fun workoutLiftNote(id: String, data: Map<String, Any?>): WorkoutLiftNoteEntity? =
+        runCatching {
+            WorkoutLiftNoteEntity(
+                id = WorkoutLiftNoteId(id),
+                workoutLiftId = WorkoutLiftId(data["workout_lift_id"] as? String ?: return null),
+                body = sanitizeLiftNoteBody(data["body"] as? String) ?: return null,
+                position = (data["position"] as? Number)?.toInt() ?: 0,
+                createdAtEpochMillis = (data["created_at_epoch_millis"] as? Number)?.toLong() ?: 0L,
                 updatedAtEpochMillis = remoteUpdatedAt(data),
                 pendingSync = SyncFlags.CLEAN,
             )

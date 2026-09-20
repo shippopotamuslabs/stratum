@@ -1,14 +1,18 @@
 package com.stratum.core.data.sync.codecs
 
 import com.stratum.core.data.db.LiftEntity
+import com.stratum.core.data.db.LiftNoteEntity
 import com.stratum.core.data.db.LiftSessionNoteEntity
 import com.stratum.core.data.db.WorkoutLiftEntity
+import com.stratum.core.data.db.WorkoutLiftNoteEntity
 import com.stratum.core.data.sync.FirestoreSyncMetadata
+import com.stratum.domain.lift.identity.LiftCatalogNoteId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.identity.LiftSessionNoteId
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
+import com.stratum.domain.program.identity.WorkoutLiftNoteId
 import com.stratum.domain.training.identity.TrainingSessionId
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -147,6 +151,97 @@ class PinnedNoteSyncCodecTest {
                 ),
             )
         assertEquals(null, blank.pinnedNote)
+    }
+
+    @Test
+    @DisplayName("session note order and creation time round-trip for a shared slot")
+    fun sessionNoteOrderRoundTrip() {
+        fun entity(id: String, body: String, position: Int, createdAt: Long) =
+            LiftSessionNoteEntity(
+                id = LiftSessionNoteId(id),
+                sessionId = TrainingSessionId("ts-1"),
+                liftId = LiftId("lift-1"),
+                workoutLiftId = WorkoutLiftId("wl-1"),
+                body = body,
+                position = position,
+                createdAtEpochMillis = createdAt,
+            )
+        val decoded =
+            listOf(
+                entity("n-1", "first", 0, 10L),
+                entity("n-2", "second", 1, 20L),
+            ).map { note ->
+                requireNotNull(
+                    decoders.liftSessionNote(
+                        note.id.value,
+                        encoders.liftSessionNote(note) + (FirestoreSyncMetadata.UPDATED_AT to 1L),
+                    ),
+                )
+            }.sortedBy { it.position }
+        assertEquals(listOf("first", "second"), decoded.map { it.body })
+        assertEquals(listOf(10L, 20L), decoded.map { it.createdAtEpochMillis })
+    }
+
+    @Test
+    @DisplayName("legacy session documents without order fields decode to zero")
+    fun sessionNoteLegacyDefaults() {
+        val decoded =
+            requireNotNull(
+                decoders.liftSessionNote(
+                    "n-1",
+                    mapOf(
+                        "session_id" to "ts-1",
+                        "lift_id" to "lift-1",
+                        "workout_lift_id" to "wl-1",
+                        "body" to "legacy",
+                        FirestoreSyncMetadata.UPDATED_AT to 1L,
+                    ),
+                ),
+            )
+        assertEquals(0, decoded.position)
+        assertEquals(0L, decoded.createdAtEpochMillis)
+    }
+
+    @Test
+    @DisplayName("catalog and slot note rows round-trip parent, order, and creation time")
+    fun noteRowRoundTrip() {
+        val catalog =
+            LiftNoteEntity(
+                id = LiftCatalogNoteId("c-1"),
+                liftId = LiftId("lift-1"),
+                body = "belt on",
+                position = 2,
+                createdAtEpochMillis = 30L,
+            )
+        val decodedCatalog =
+            requireNotNull(
+                decoders.liftCatalogNote(
+                    "c-1",
+                    encoders.liftCatalogNote(catalog) + (FirestoreSyncMetadata.UPDATED_AT to 1L),
+                ),
+            )
+        assertEquals("lift-1", decodedCatalog.liftId.value)
+        assertEquals(2, decodedCatalog.position)
+        assertEquals(30L, decodedCatalog.createdAtEpochMillis)
+
+        val slot =
+            WorkoutLiftNoteEntity(
+                id = WorkoutLiftNoteId("w-1"),
+                workoutLiftId = WorkoutLiftId("wl-1"),
+                body = "tuck",
+                position = 1,
+                createdAtEpochMillis = 40L,
+            )
+        val decodedSlot =
+            requireNotNull(
+                decoders.workoutLiftNote(
+                    "w-1",
+                    encoders.workoutLiftNote(slot) + (FirestoreSyncMetadata.UPDATED_AT to 1L),
+                ),
+            )
+        assertEquals("wl-1", decodedSlot.workoutLiftId.value)
+        assertEquals(1, decodedSlot.position)
+        assertEquals(40L, decodedSlot.createdAtEpochMillis)
     }
 
     @Test

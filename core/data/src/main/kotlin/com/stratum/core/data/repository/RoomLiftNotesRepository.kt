@@ -33,13 +33,30 @@ class RoomLiftNotesRepository @Inject constructor(
         workoutLiftId: WorkoutLiftId,
     ): LiftSessionNote? = getSessionNotes(sessionId, workoutLiftId).firstOrNull()
 
+    /**
+     * Surgical single-row write: updates or inserts only this note's row, retaining
+     * sibling rows in the slot. Whole-slot replacement (with tombstones) is reserved
+     * for [replaceSessionNotes], where the caller supplies the full list.
+     */
     override suspend fun upsertSessionNote(note: LiftSessionNote) {
-        replaceSlot(
-            sessionId = note.sessionId,
-            workoutLiftId = note.workoutLiftId,
-            liftId = note.liftId,
-            inputs = listOf(SessionNoteInput(id = note.id, body = note.body)),
-        )
+        val now = System.currentTimeMillis()
+        syncTouch.withWriteLock {
+            val existing = dao.getById(note.id)
+            dao.upsert(
+                LiftSessionNoteEntity(
+                    id = note.id,
+                    sessionId = note.sessionId,
+                    liftId = note.liftId,
+                    workoutLiftId = note.workoutLiftId,
+                    body = note.body,
+                    position = existing?.position ?: note.position,
+                    createdAtEpochMillis = existing?.createdAtEpochMillis ?: now,
+                    updatedAtEpochMillis = now,
+                    pendingSync = SyncFlags.PENDING_UPSERT,
+                ),
+            )
+            syncTouch.markDirty()
+        }
     }
 
     override suspend fun getSessionNotes(
