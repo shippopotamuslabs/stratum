@@ -248,6 +248,41 @@ class ApplyOverlayToWorkoutUseCaseTest {
     }
 
     @Test
+    @DisplayName("Overlay note lists are carried onto the template with a first-note scalar mirror")
+    fun overlayNoteListsCarriedToTemplate() {
+        val newWlId = WorkoutLiftId("wl-added")
+        val overlay =
+            WorkoutOverlay(
+                addedLifts =
+                    listOf(
+                        OverlayAddedLift(
+                            workoutLiftId = newWlId,
+                            liftId = LiftId("lift-row"),
+                            progressionScheme = ProgressionScheme.Double,
+                        ),
+                    ),
+                workoutLiftPinnedNoteLists =
+                    mapOf(
+                        newWlId to listOf("added one", "added two"),
+                        WorkoutLiftId("wl-1") to listOf("tmpl one", "tmpl two"),
+                    ),
+            )
+
+        val result = useCase(sampleWorkout(), overlay)
+
+        val added = result.workoutLifts.single { it.id == newWlId }
+        assertEquals(listOf("added one", "added two"), added.pinnedNotes)
+        assertEquals("added one", added.pinnedNote)
+        val existing = result.workoutLifts.single { it.id == WorkoutLiftId("wl-1") }
+        assertEquals(listOf("tmpl one", "tmpl two"), existing.pinnedNotes)
+        assertEquals("tmpl one", existing.pinnedNote)
+        // Untouched slots carry nothing, keeping restore behavior downstream.
+        val untouched = result.workoutLifts.single { it.id == WorkoutLiftId("wl-2") }
+        assertTrue(untouched.pinnedNotes.isEmpty())
+        assertEquals(null, untouched.pinnedNote)
+    }
+
+    @Test
     @DisplayName("Rest timer overrides are applied")
     fun restTimerOverridesApplied() {
         val baseline = sampleWorkout()

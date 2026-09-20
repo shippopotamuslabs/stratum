@@ -27,7 +27,7 @@ import com.stratum.domain.workout.WorkoutStructureProjection
 import com.stratum.domain.workout.applyRestOverride
 import com.stratum.domain.workout.applyShapeOverride
 import com.stratum.domain.workout.resolvedLiftPinnedNote
-import com.stratum.domain.workout.resolvedWorkoutPinnedNote
+import com.stratum.domain.workout.resolvedWorkoutPinnedNoteFirst
 import java.util.UUID
 
 /**
@@ -461,8 +461,8 @@ internal object LiveWorkoutOverlayOps {
                 slots = orderedSlots,
                 useRestTimerBetweenLifts = overlay.useRestTimerBetweenLiftsOverrides[lift.workoutLiftId]
                     ?: lift.useRestTimerBetweenLifts,
-                workoutPinnedNote = resolvedWorkoutPinnedNote(
-                    overlay.workoutLiftPinnedNotes,
+                workoutPinnedNote = resolvedWorkoutPinnedNoteFirst(
+                    overlay,
                     lift.workoutLiftId,
                     lift.workoutPinnedNote,
                 ),
@@ -500,7 +500,11 @@ internal object LiveWorkoutOverlayOps {
                     isDoubleSided = catalog?.isDoubleSidedPlateLoad ?: true,
                     useRestTimerBetweenLifts = overlay.useRestTimerBetweenLiftsOverrides[added.workoutLiftId]
                         ?: added.useRestTimerBetweenLifts,
-                    workoutPinnedNote = overlay.workoutLiftPinnedNotes[added.workoutLiftId],
+                    workoutPinnedNote = resolvedWorkoutPinnedNoteFirst(
+                        overlay,
+                        added.workoutLiftId,
+                        templateNote = null,
+                    ),
                     liftPinnedNote = resolvedLiftPinnedNote(catalog, projectedNote = null),
                 )
             }

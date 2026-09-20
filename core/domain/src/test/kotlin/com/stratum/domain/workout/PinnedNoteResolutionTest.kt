@@ -112,4 +112,28 @@ class PinnedNoteResolutionTest {
             resolvedLiftPinnedNotes(catalogNotes = null, projectedNotes = listOf("projected")),
         )
     }
+
+    @Test
+    @DisplayName("overlay list first entry wins for display")
+    fun overlayListFirstWins() {
+        val overlay =
+            WorkoutOverlay(
+                workoutLiftPinnedNoteLists = mapOf(workoutLiftId to listOf("first", "second")),
+                workoutLiftPinnedNotes = mapOf(workoutLiftId to "stale single"),
+            )
+        assertEquals("first", resolvedWorkoutPinnedNoteFirst(overlay, workoutLiftId, "template"))
+    }
+
+    @Test
+    @DisplayName("display falls back to single map then template")
+    fun displayFallbackChain() {
+        val singleOnly =
+            WorkoutOverlay(workoutLiftPinnedNotes = mapOf(workoutLiftId to "single"))
+        assertEquals("single", resolvedWorkoutPinnedNoteFirst(singleOnly, workoutLiftId, "template"))
+        assertEquals(
+            "template",
+            resolvedWorkoutPinnedNoteFirst(WorkoutOverlay(), workoutLiftId, "template"),
+        )
+        assertNull(resolvedWorkoutPinnedNoteFirst(WorkoutOverlay(), workoutLiftId, null))
+    }
 }
