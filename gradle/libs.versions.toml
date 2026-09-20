@@ -36,7 +36,7 @@ vico = "3.2.3"
 work = "2.11.2"
 hiltAndroidx = "1.4.0"
 shadow = "9.0.2"
-firebaseAdmin = "9.4.3"
+firebaseAdmin = "9.10.0"
 healthConnect = "1.2.0-alpha04"
 billing = "9.1.0"
 

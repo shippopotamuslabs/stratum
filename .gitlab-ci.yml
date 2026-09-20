@@ -27,6 +27,9 @@ variables:
   GRADLE_USER_HOME: "$CI_PROJECT_DIR/.gradle-home"
   ANDROID_USER_HOME: "$CI_PROJECT_DIR/.android-home"
   GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.caching=true"
+  # OSV-Scanner release used by the osv-scan job. Bump when a new release lands
+  # (check https://github.com/google/osv-scanner/releases).
+  OSV_SCANNER_VERSION: "2.6.0"
 
 stages:
   - lint
@@ -143,6 +146,53 @@ functions-tests:
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# OSV vulnerability scanning: builds CycloneDX SBOMs from the resolved :app
+# release runtime classpath and the :solver-service: runtime classpath (the
+# Cloud Run fat JAR ships its own JVM dependency graph and is not a dependency
+# of :app, so it needs its own SBOM) via scripts/generate-sbom.py — no Gradle
+# lockfiles are committed to the repo — plus the functions lockfiles, then
+# fails the job when OSV reports a known CVE. Runs on MRs and the default
+# branch. Triage path: docs/security-scanning.md
+osv-scan:
+  extends: .android-job
+  stage: lint
+  script:
+    # Install the OSV-Scanner release binary (static Go binary; the shell
+    # executor can't run the analyzer Docker images GitLab's own templates use).
+    - |
+      case "$(uname -m)" in
+        x86_64) OSV_ARCH=amd64 ;;
+        aarch64|arm64) OSV_ARCH=arm64 ;;
+        *) echo "Unsupported architecture: $(uname -m)"; exit 1 ;;
+      esac
+      OSV_URL="https://github.com/google/osv-scanner/releases/download/v${OSV_SCANNER_VERSION}/osv-scanner_linux_${OSV_ARCH}"
+      echo "Downloading osv-scanner ${OSV_SCANNER_VERSION} (${OSV_ARCH})"
+      curl -sSL --retry 3 -o /tmp/osv-scanner "$OSV_URL"
+      chmod +x /tmp/osv-scanner
+      /tmp/osv-scanner --version
+    # Resolved dependency trees -> CycloneDX SBOMs (scripts/generate-sbom.py).
+    # The generator exits nonzero on any FAILED (unresolved) dependency, so a
+    # partial tree can never scan clean. :solver-service gets its own SBOM:
+    # the Cloud Run fat JAR is deployed separately and is not on :app's
+    # classpath, so its JVM dependencies would otherwise bypass the gate.
+    - ./gradlew :app:dependencies --configuration releaseRuntimeClasspath -q > /tmp/gradle-app-deps.txt
+    - python3 scripts/generate-sbom.py < /tmp/gradle-app-deps.txt > bom.cdx.json
+    - ./gradlew :solver-service:dependencies --configuration runtimeClasspath -q > /tmp/gradle-solver-deps.txt
+    - python3 scripts/generate-sbom.py --component-name stratum-solver < /tmp/gradle-solver-deps.txt > bom-solver.cdx.json
+    # Scan both SBOMs plus the functions lockfiles. Exit code 1 = CVEs found.
+    # A repo-root .osv-scanner.toml (documented suppressions) applies to every
+    # scanned file via --config when present.
+    - |
+      SCAN_ARGS="-L bom.cdx.json -L bom-solver.cdx.json --lockfile=functions/package-lock.json --lockfile=functions-python/requirements.txt"
+      if [ -f .osv-scanner.toml ]; then SCAN_ARGS="$SCAN_ARGS --config=.osv-scanner.toml"; fi
+      /tmp/osv-scanner scan source $SCAN_ARGS --format=table
+  artifacts:
+    when: always
+    paths:
+      - bom.cdx.json
+      - bom-solver.cdx.json
+    expire_in: 2 weeks
 
 # Device tests on shared runners: no KVM, so the emulator runs unaccelerated and
 # slow. Nightly + allow_failure until green, then decide about per-MR.
