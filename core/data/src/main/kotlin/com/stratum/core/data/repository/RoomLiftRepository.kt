@@ -331,14 +331,16 @@ class RoomLiftRepository @Inject constructor(
     }
 
     override suspend fun setPinnedNote(id: LiftId, note: String?) {
-        syncTouch.withWriteLock {
-            liftDao.setPinnedNote(
-                id = id,
-                note = note,
-                updatedAtEpochMillis = System.currentTimeMillis(),
-            )
-            syncTouch.markDirty()
+        // Scalar writes go through the list path so the note table and the legacy
+        // mirror stay consistent (reads prefer the table). Preserves the first-row
+        // id; a blank note clears the list.
+        val clean = sanitizeLiftNoteBody(note)
+        if (clean == null) {
+            setPinnedNotes(id, emptyList())
+            return
         }
+        val existingId = database.liftNoteDao().idsForLift(id).firstOrNull()
+        setPinnedNotes(id, listOf(CatalogNoteInput(id = existingId, body = clean)))
     }
 
     override suspend fun getPinnedNotes(id: LiftId): List<LiftCatalogNote> {
@@ -384,8 +386,13 @@ class RoomLiftRepository @Inject constructor(
                 if (minted.isNotEmpty()) {
                     database.liftNoteDao().upsertAll(minted)
                 }
+                val retained = minted.map { it.id }.toSet()
+                val removed = currentIds.filterNot { it in retained }.map { it.value }
+                if (removed.isNotEmpty()) {
+                    syncTouch.enqueueDelete(SyncCollection.LiftCatalogNotes, removed, now)
+                }
                 // Legacy mirror: old readers (mappers, sync) see the first note until
-                // the column is retired. Delete propagation for the new rows lands in PR3.
+                // the column is retired.
                 liftDao.setPinnedNote(
                     id = id,
                     note = minted.firstOrNull()?.body,
@@ -402,8 +409,16 @@ class RoomLiftRepository @Inject constructor(
         val now = System.currentTimeMillis()
         syncTouch.withWriteLock {
             database.withTransaction {
+                // Tombstone note rows before the CASCADE delete clears them locally.
+                val noteIds =
+                    distinct.flatMap { id ->
+                        database.liftNoteDao().idsForLift(id).map { it.value }
+                    }
                 for (id in distinct) {
                     liftDao.deleteById(id)
+                }
+                if (noteIds.isNotEmpty()) {
+                    syncTouch.enqueueDelete(SyncCollection.LiftCatalogNotes, noteIds, now)
                 }
                 syncTouch.enqueueDelete(
                     SyncCollection.Lifts,

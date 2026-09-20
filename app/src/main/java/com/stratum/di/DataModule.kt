@@ -263,6 +263,14 @@ object DatabaseModule {
         database.liftSessionNoteDao()
 
     @Provides
+    fun provideLiftNoteDao(database: StratumDatabase): com.stratum.core.data.db.LiftNoteDao =
+        database.liftNoteDao()
+
+    @Provides
+    fun provideWorkoutLiftNoteDao(database: StratumDatabase): com.stratum.core.data.db.WorkoutLiftNoteDao =
+        database.workoutLiftNoteDao()
+
+    @Provides
     fun provideLiftTrainingInsightsDao(database: StratumDatabase): LiftTrainingInsightsDao =
         database.liftTrainingInsightsDao()
 

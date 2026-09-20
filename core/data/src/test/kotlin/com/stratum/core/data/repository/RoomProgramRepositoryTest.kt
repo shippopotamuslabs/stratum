@@ -4,6 +4,7 @@ import androidx.room.Room
 import app.cash.turbine.test
 import com.stratum.core.data.db.LiftEntity
 import com.stratum.core.data.db.StratumDatabase
+import com.stratum.core.data.sync.SyncCollection
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.WorkoutLiftNoteInput
 import com.stratum.domain.lift.identity.LiftId
@@ -427,6 +428,63 @@ class RoomProgramRepositoryTest {
             repository.deleteProgram(ProgramId("p-1"))
 
             assertTrue(repository.getWorkoutLiftPinnedNotes(slot).isEmpty())
+        }
+
+        @Test
+        fun `scalar edit updates the table row, not just the mirror`() = runTest {
+            seedReferencedLifts()
+            repository.saveProgram(PROGRAM_P1)
+            val slot = WorkoutLiftId("wl-1")
+            database.workoutLiftDao().setPinnedNote(slot, "legacy", 1L)
+            repository.setWorkoutLiftPinnedNotes(slot, listOf(WorkoutLiftNoteInput(body = "migrated")))
+            val rowId = repository.getWorkoutLiftPinnedNotes(slot).single().id
+
+            assertTrue(repository.setWorkoutLiftPinnedNote(slot, "edited"))
+
+            val stored = repository.getWorkoutLiftPinnedNotes(slot)
+            assertEquals(listOf("edited"), stored.map { it.body })
+            assertEquals(rowId, stored.single().id)
+            assertEquals("edited", database.workoutLiftDao().getById(slot)?.pinnedNote)
+        }
+
+        @Test
+        fun `scalar clear removes rows and mirror`() = runTest {
+            seedReferencedLifts()
+            repository.saveProgram(PROGRAM_P1)
+            val slot = WorkoutLiftId("wl-1")
+            repository.setWorkoutLiftPinnedNotes(
+                slot,
+                listOf(WorkoutLiftNoteInput(body = "one"), WorkoutLiftNoteInput(body = "two")),
+            )
+
+            assertTrue(repository.setWorkoutLiftPinnedNote(slot, null))
+
+            assertTrue(repository.getWorkoutLiftPinnedNotes(slot).isEmpty())
+            assertEquals(null, database.workoutLiftDao().getById(slot)?.pinnedNote)
+        }
+
+        @Test
+        fun `removed rows are tombstoned on replace and program delete`() = runTest {
+            seedReferencedLifts()
+            repository.saveProgram(PROGRAM_P1)
+            val slot = WorkoutLiftId("wl-1")
+            repository.setWorkoutLiftPinnedNotes(
+                slot,
+                listOf(WorkoutLiftNoteInput(body = "keep"), WorkoutLiftNoteInput(body = "drop")),
+            )
+            val droppedId = repository.getWorkoutLiftPinnedNotes(slot).last().id
+            repository.setWorkoutLiftPinnedNotes(slot, listOf(WorkoutLiftNoteInput(body = "keep")))
+
+            val keptId = repository.getWorkoutLiftPinnedNotes(slot).single().id
+            repository.deleteProgram(ProgramId("p-1"))
+
+            val tombstoned =
+                database.pendingCloudDeleteDao().peekPending()
+                    .filter { it.collectionPath == SyncCollection.WorkoutLiftNotes.firestorePath }
+                    .map { it.entityId }
+                    .toSet()
+            assertTrue(droppedId.value in tombstoned)
+            assertTrue(keptId.value in tombstoned)
         }
     }
 

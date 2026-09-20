@@ -116,6 +116,32 @@ class RoomLiftNotesRepositoryTest {
     }
 
     @Test
+    @DisplayName("single-note upsert retains sibling rows in the slot")
+    fun surgicalUpsertRetainsSiblings() = runTest {
+        insertSession()
+        subject.replaceSessionNotes(
+            sessionId = sessionId,
+            workoutLiftId = workoutLiftId,
+            liftId = liftId,
+            notes = listOf(
+                SessionNoteInput(body = "first"),
+                SessionNoteInput(body = "second"),
+            ),
+        )
+        val before = subject.getSessionNotes(sessionId, workoutLiftId)
+        val target = before.first()
+
+        subject.upsertSessionNote(
+            target.copy(body = "first edited", updatedAt = Instant.now()),
+        )
+
+        val stored = subject.getSessionNotes(sessionId, workoutLiftId)
+        assertEquals(listOf("first edited", "second"), stored.map { it.body })
+        assertEquals(target.id, stored.first().id)
+        assertEquals(target.position, stored.first().position)
+    }
+
+    @Test
     @DisplayName("empty replace clears the slot")
     fun emptyReplaceClears() = runTest {
         insertSession()

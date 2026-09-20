@@ -138,17 +138,16 @@ class RoomProgramRepository @Inject constructor(
     }
 
     override suspend fun setWorkoutLiftPinnedNote(id: WorkoutLiftId, note: String?): Boolean {
-        var updated = 0
-        syncTouch.withWriteLock {
-            updated =
-                workoutLiftDao.setPinnedNote(
-                    id = id,
-                    note = note,
-                    updatedAtEpochMillis = System.currentTimeMillis(),
-                )
-            if (updated > 0) syncTouch.markDirty()
+        // Scalar writes go through the list path so the note table and the legacy
+        // mirror stay consistent (reads prefer the table). Preserves the first-row
+        // id; a blank note clears the list. Missing slots still report false.
+        if (workoutLiftDao.getById(id) == null) return false
+        val clean = sanitizeLiftNoteBody(note)
+        if (clean == null) {
+            return setWorkoutLiftPinnedNotes(id, emptyList())
         }
-        return updated > 0
+        val existingId = database.workoutLiftNoteDao().idsForWorkoutLift(id).firstOrNull()
+        return setWorkoutLiftPinnedNotes(id, listOf(WorkoutLiftNoteInput(id = existingId, body = clean)))
     }
 
     override suspend fun getWorkoutLiftPinnedNotes(id: WorkoutLiftId): List<WorkoutLiftNote> {
@@ -213,6 +212,11 @@ class RoomProgramRepository @Inject constructor(
         noteDao.deleteForWorkoutLift(id)
         if (minted.isNotEmpty()) {
             noteDao.upsertAll(minted)
+        }
+        val retained = minted.map { it.id }.toSet()
+        val removed = currentIds.filterNot { it in retained }.map { it.value }
+        if (removed.isNotEmpty()) {
+            syncTouch.enqueueDelete(SyncCollection.WorkoutLiftNotes, removed, now)
         }
         workoutLiftDao.setPinnedNote(
             id = id,
@@ -283,6 +287,14 @@ class RoomProgramRepository @Inject constructor(
         if (restored.isNotEmpty()) {
             database.workoutLiftNoteDao().upsertAll(restored)
         }
+        // Tombstone note rows of removed slots before the CASCADE delete clears them.
+        val removedNoteIds =
+            prevNotes
+                .filterNot { it.workoutLiftId in nextPins }
+                .map { it.id.value }
+        if (removedNoteIds.isNotEmpty()) {
+            syncTouch.enqueueDelete(SyncCollection.WorkoutLiftNotes, removedNoteIds, now)
+        }
         val sets = lifts.flatMap { it.sets }
         if (sets.isNotEmpty()) {
             liftSetDao.upsertAll(sets.map { it.toEntity(nowMillis = now) })
@@ -292,6 +304,11 @@ class RoomProgramRepository @Inject constructor(
     private suspend fun enqueueHierarchyDeletes(programId: ProgramId, now: Long) {
         syncTouch.enqueueDelete(SyncCollection.LiftSets, liftSetDao.idsForProgram(programId), now)
         syncTouch.enqueueDelete(SyncCollection.WorkoutLifts, workoutLiftDao.idsForProgram(programId), now)
+        syncTouch.enqueueDelete(
+            SyncCollection.WorkoutLiftNotes,
+            database.workoutLiftNoteDao().idsForProgram(programId).map { it.value },
+            now,
+        )
         syncTouch.enqueueDelete(SyncCollection.Workouts, workoutDao.idsForProgram(programId), now)
         // Events CASCADE-delete locally; enqueue tombstones so remote devices drop orphans.
         syncTouch.enqueueDelete(

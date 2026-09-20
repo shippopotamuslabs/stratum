@@ -17,10 +17,12 @@ enum class SyncCollection(
     /** Parent of lift.equipmentId and equipment-owned increment tiers. */
     Equipment("equipment"),
     Lifts("lifts"),
+    LiftCatalogNotes("lift_notes"),
     IncrementTiers("increment_tiers"),
     Programs("programs"),
     Workouts("workouts"),
     WorkoutLifts("workout_lifts"),
+    WorkoutLiftNotes("workout_lift_notes"),
     LiftSets("lift_sets"),
     TrainingSessions("training_sessions"),
     LiftSessionNotes("lift_session_notes"),
@@ -36,9 +38,11 @@ enum class SyncCollection(
         get() =
             when (this) {
                 Lifts -> listOf(Equipment)
+                LiftCatalogNotes -> listOf(Lifts)
                 IncrementTiers -> listOf(Equipment, Lifts)
                 Workouts -> listOf(Programs)
                 WorkoutLifts -> listOf(Workouts, Lifts)
+                WorkoutLiftNotes -> listOf(Workouts, Lifts)
                 LiftSets -> listOf(WorkoutLifts)
                 LoggedSets -> listOf(TrainingSessions)
                 LiftSessionNotes -> listOf(TrainingSessions)
