@@ -1,17 +1,22 @@
 package com.stratum.core.testing.onboarding
 
+import com.stratum.domain.lift.CatalogNoteInput
 import com.stratum.domain.lift.CustomLiftDefinition
 import com.stratum.domain.lift.CustomLiftDetails
 import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.Lift
+import com.stratum.domain.lift.LiftCatalogNote
 import com.stratum.domain.lift.LiftRepository
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId
+import com.stratum.domain.lift.identity.LiftCatalogNoteId
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.lift.sanitizeLiftNoteBody
 import com.stratum.domain.onboarding.MuscleGroup
+import java.time.Instant
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,6 +39,8 @@ class FakeLiftRepository(
     private val lifts = MutableStateFlow(initialLifts)
     private val selectedPreset = MutableStateFlow(initialPreset)
     private val usedHistoricalImport = MutableStateFlow(false)
+    /** Source of truth for catalog note lists; [Lift.pinnedNote] mirrors the first body. */
+    private val catalogNotes = MutableStateFlow<Map<String, List<LiftCatalogNote>>>(emptyMap())
 
     /** Optional name lookup for equipment ids when [addCustomLift] only has a name. */
     var equipmentNamesById: Map<EquipmentId, String> = emptyMap()
@@ -234,8 +241,58 @@ class FakeLiftRepository(
     }
 
     override suspend fun setPinnedNote(id: LiftId, note: String?) {
+        val clean = sanitizeLiftNoteBody(note)
+        if (clean == null) {
+            setPinnedNotes(id, emptyList())
+        } else {
+            val existingId = getPinnedNotes(id).firstOrNull()?.id
+            setPinnedNotes(id, listOf(CatalogNoteInput(id = existingId, body = clean)))
+        }
+    }
+
+    override suspend fun getPinnedNotes(id: LiftId): List<LiftCatalogNote> =
+        // Match Room: a missing lift row yields no notes, never orphaned map entries.
+        if (lifts.value.none { it.id == id }) {
+            emptyList()
+        } else {
+            catalogNotes.value[id.value]
+                ?: lifts.value.firstOrNull { it.id == id }?.pinnedNote
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { body ->
+                        listOf(
+                            LiftCatalogNote(
+                                id = LiftCatalogNoteId("${id.value}::0"),
+                                liftId = id,
+                                body = body,
+                                position = 0,
+                                updatedAt = Instant.now(),
+                            ),
+                        )
+                    }.orEmpty()
+        }
+
+    override suspend fun setPinnedNotes(id: LiftId, notes: List<CatalogNoteInput>) {
+        // Match Room: writing notes for a missing lift touches zero rows.
+        if (lifts.value.none { it.id == id }) return
+        val now = Instant.now()
+        val currentIds = getPinnedNotes(id).map { it.id }.toSet()
+        val minted =
+            notes.mapNotNull { input ->
+                sanitizeLiftNoteBody(input.body)?.let { body -> input to body }
+            }.mapIndexed { index, (input, body) ->
+                LiftCatalogNote(
+                    id = input.id?.takeIf { it in currentIds }
+                        ?: LiftCatalogNoteId(UUID.randomUUID().toString()),
+                    liftId = id,
+                    body = body,
+                    position = index,
+                    updatedAt = now,
+                )
+            }
+        catalogNotes.value = catalogNotes.value + (id.value to minted)
+        val first = minted.firstOrNull()?.body
         lifts.value = lifts.value.map { lift ->
-            if (lift.id == id) lift.copy(pinnedNote = note) else lift
+            if (lift.id == id) lift.copy(pinnedNote = first) else lift
         }
     }
 
@@ -243,5 +300,9 @@ class FakeLiftRepository(
         if (ids.isEmpty()) return
         val remove = ids.toSet()
         lifts.value = lifts.value.filterNot { it.id in remove }
+        // Notes live in a side map: drop them with the lift so deleted lifts
+        // expose no orphaned notes (matches Room cascade behavior).
+        val removeValues = remove.map { it.value }.toSet()
+        catalogNotes.value = catalogNotes.value.filterKeys { it !in removeValues }
     }
 }

@@ -12,10 +12,15 @@ import com.stratum.core.data.mapper.rejoinProgram
 import com.stratum.core.data.mapper.toEntity
 import com.stratum.core.data.sync.SyncCollection
 import com.stratum.core.data.sync.SyncTouch
+import com.stratum.domain.lift.WorkoutLiftNote
+import com.stratum.domain.lift.WorkoutLiftNoteInput
+import com.stratum.domain.lift.sanitizeLiftNoteBody
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.ProgramRepository
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutLiftId
+import com.stratum.domain.program.identity.WorkoutLiftNoteId
+import java.time.Instant
 import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -141,6 +146,31 @@ class RoomProgramRepository @Inject constructor(
             if (updated > 0) syncTouch.markDirty()
         }
         return updated > 0
+    }
+
+    override suspend fun getWorkoutLiftPinnedNotes(id: WorkoutLiftId): List<WorkoutLiftNote> {
+        val row = workoutLiftDao.getById(id) ?: return emptyList()
+        val body = row.pinnedNote?.takeIf { it.isNotBlank() } ?: return emptyList()
+        return listOf(
+            WorkoutLiftNote(
+                id = WorkoutLiftNoteId("${id.value}::0"),
+                workoutLiftId = id,
+                body = body,
+                position = 0,
+                updatedAt = Instant.ofEpochMilli(row.updatedAtEpochMillis),
+            ),
+        )
+    }
+
+    override suspend fun setWorkoutLiftPinnedNotes(
+        id: WorkoutLiftId,
+        notes: List<WorkoutLiftNoteInput>,
+    ): Boolean {
+        // PR1 legacy-backed shim: the single pinned_note column keeps the first surviving
+        // note (PR2 moves list storage to workout_lift_notes). No production caller sends
+        // lists yet — the use-case list path is covered by fakes until then.
+        val first = notes.mapNotNull { sanitizeLiftNoteBody(it.body) }.firstOrNull()
+        return setWorkoutLiftPinnedNote(id, first)
     }
 
     override suspend fun updateCyclePointer(

@@ -95,6 +95,169 @@ class SaveLiftNotesUseCaseTest {
     }
 
     @Test
+    @DisplayName("session note list replaces the slot in display order")
+    fun sessionNoteListReplace() = runTest {
+        val notes = FakeLiftNotesRepository()
+        val useCase =
+            SaveLiftNotesUseCase(
+                notes,
+                FakeLiftRepository(listOf(sampleLift())),
+                FakeProgramRepository(sampleProgram()),
+                FakeLoggingPort(),
+            )
+
+        useCase(
+            SaveLiftNotesCommand(
+                sessionId = sessionId,
+                workoutLiftId = workoutLiftId,
+                liftId = liftId,
+                sessionNotes = listOf(
+                    SessionNoteInput(body = "first cue"),
+                    SessionNoteInput(body = "second cue"),
+                ),
+            ),
+        )
+
+        val stored = notes.getSessionNotes(sessionId, workoutLiftId)
+        assertEquals(listOf("first cue", "second cue"), stored.map { it.body })
+        assertEquals(listOf(0, 1), stored.map { it.position })
+    }
+
+    @Test
+    @DisplayName("session note list keeps stable ids across re-saves and drops blanks")
+    fun sessionNoteListStableIds() = runTest {
+        val notes = FakeLiftNotesRepository()
+        val useCase =
+            SaveLiftNotesUseCase(
+                notes,
+                FakeLiftRepository(listOf(sampleLift())),
+                FakeProgramRepository(sampleProgram()),
+                FakeLoggingPort(),
+            )
+        suspend fun stored() = notes.getSessionNotes(sessionId, workoutLiftId)
+
+        useCase(
+            SaveLiftNotesCommand(
+                sessionId = sessionId,
+                workoutLiftId = workoutLiftId,
+                liftId = liftId,
+                sessionNotes = listOf(
+                    SessionNoteInput(body = "keep me"),
+                    SessionNoteInput(body = "drop me"),
+                ),
+            ),
+        )
+        val firstId = stored().first().id
+
+        useCase(
+            SaveLiftNotesCommand(
+                sessionId = sessionId,
+                workoutLiftId = workoutLiftId,
+                liftId = liftId,
+                sessionNotes = listOf(
+                    SessionNoteInput(id = firstId, body = "keep me edited"),
+                    SessionNoteInput(body = "  "),
+                    SessionNoteInput(body = "appended"),
+                ),
+            ),
+        )
+
+        val next = stored()
+        assertEquals(listOf("keep me edited", "appended"), next.map { it.body })
+        assertEquals(firstId, next.first().id)
+    }
+
+    @Test
+    @DisplayName("empty session note list deletes the slot")
+    fun sessionNoteListEmptyDeletes() = runTest {
+        val notes = FakeLiftNotesRepository()
+        notes.upsertSessionNote(
+            LiftSessionNote(
+                id = LiftSessionNoteId("n-1"),
+                sessionId = sessionId,
+                liftId = liftId,
+                workoutLiftId = workoutLiftId,
+                body = "old",
+                updatedAt = Instant.EPOCH,
+            ),
+        )
+        val useCase =
+            SaveLiftNotesUseCase(
+                notes,
+                FakeLiftRepository(listOf(sampleLift())),
+                FakeProgramRepository(sampleProgram()),
+                FakeLoggingPort(),
+            )
+
+        useCase(
+            SaveLiftNotesCommand(
+                sessionId = sessionId,
+                workoutLiftId = workoutLiftId,
+                liftId = liftId,
+                sessionNotes = emptyList(),
+            ),
+        )
+
+        assertTrue(notes.getSessionNotes(sessionId, workoutLiftId).isEmpty())
+    }
+
+    @Test
+    @DisplayName("catalog note list replaces pins and drops blanks")
+    fun catalogNoteListReplace() = runTest {
+        val lifts = FakeLiftRepository(listOf(sampleLift()))
+        val useCase =
+            SaveLiftNotesUseCase(
+                FakeLiftNotesRepository(),
+                lifts,
+                FakeProgramRepository(sampleProgram()),
+                FakeLoggingPort(),
+            )
+
+        useCase(
+            SaveLiftNotesCommand(
+                sessionId = sessionId,
+                workoutLiftId = workoutLiftId,
+                liftId = liftId,
+                liftNotes = listOf(
+                    CatalogNoteInput(body = "belt on"),
+                    CatalogNoteInput(body = "   "),
+                    CatalogNoteInput(body = "knees out"),
+                ),
+            ),
+        )
+
+        val stored = lifts.getPinnedNotes(liftId)
+        assertEquals(listOf("belt on", "knees out"), stored.map { it.body })
+        // Legacy single-note read mirrors the first entry until PR2 removes the column.
+        assertEquals("belt on", lifts.currentLifts.single().pinnedNote)
+    }
+
+    @Test
+    @DisplayName("workout note list on a missing template slot needs overlay")
+    fun overlayOnlyWorkoutNoteList() = runTest {
+        val programs = FakeProgramRepository(sampleProgram())
+        val useCase =
+            SaveLiftNotesUseCase(
+                FakeLiftNotesRepository(),
+                FakeLiftRepository(listOf(sampleLift())),
+                programs,
+                FakeLoggingPort(),
+            )
+
+        val result =
+            useCase(
+                SaveLiftNotesCommand(
+                    sessionId = sessionId,
+                    workoutLiftId = WorkoutLiftId("wl-overlay"),
+                    liftId = liftId,
+                    workoutNotes = listOf(WorkoutLiftNoteInput(body = "overlay pin")),
+                ),
+            )
+
+        assertTrue(result.getOrThrow().workoutNoteNeedsOverlay)
+    }
+
+    @Test
     @DisplayName("workout pin on a missing template slot needs overlay")
     fun overlayOnlyWorkoutPin() = runTest {
         val useCase =
@@ -116,6 +279,173 @@ class SaveLiftNotesUseCaseTest {
             )
 
         assertTrue(result.getOrThrow().workoutNoteNeedsOverlay)
+    }
+
+    @Test
+    @DisplayName("session note list truncates overlong bodies to the domain limit")
+    fun sessionNoteListTruncatesLongBodies() = runTest {
+        val notes = FakeLiftNotesRepository()
+        val useCase =
+            SaveLiftNotesUseCase(
+                notes,
+                FakeLiftRepository(listOf(sampleLift())),
+                FakeProgramRepository(sampleProgram()),
+                FakeLoggingPort(),
+            )
+
+        useCase(
+            SaveLiftNotesCommand(
+                sessionId = sessionId,
+                workoutLiftId = workoutLiftId,
+                liftId = liftId,
+                sessionNotes = listOf(SessionNoteInput(body = "x".repeat(MAX_LIFT_NOTE_LENGTH + 500))),
+            ),
+        )
+
+        val stored = notes.getSessionNotes(sessionId, workoutLiftId)
+        assertEquals(1, stored.size)
+        assertEquals(MAX_LIFT_NOTE_LENGTH, stored.single().body.length)
+    }
+
+    @Test
+    @DisplayName("fake session replace drops blank bodies directly")
+    fun fakeSessionReplaceDropsBlanks() = runTest {
+        val notes = FakeLiftNotesRepository()
+
+        notes.replaceSessionNotes(
+            sessionId = sessionId,
+            workoutLiftId = workoutLiftId,
+            liftId = liftId,
+            notes = listOf(
+                SessionNoteInput(body = "keep"),
+                SessionNoteInput(body = "   "),
+                SessionNoteInput(body = "also keep"),
+            ),
+        )
+
+        assertEquals(
+            listOf("keep", "also keep"),
+            notes.getSessionNotes(sessionId, workoutLiftId).map { it.body },
+        )
+    }
+
+    @Test
+    @DisplayName("foreign-slot note id mints a new id instead of duplicating")
+    fun sessionNoteForeignIdMintsNew() = runTest {
+        val notes = FakeLiftNotesRepository()
+        val otherSlot = WorkoutLiftId("wl-2")
+        notes.replaceSessionNotes(
+            sessionId = sessionId,
+            workoutLiftId = otherSlot,
+            liftId = liftId,
+            notes = listOf(SessionNoteInput(body = "other slot")),
+        )
+        val foreignId = notes.getSessionNotes(sessionId, otherSlot).single().id
+
+        notes.replaceSessionNotes(
+            sessionId = sessionId,
+            workoutLiftId = workoutLiftId,
+            liftId = liftId,
+            notes = listOf(SessionNoteInput(id = foreignId, body = "target slot")),
+        )
+
+        val stored = notes.getSessionNotes(sessionId, workoutLiftId)
+        assertEquals(1, stored.size)
+        // The foreign id was unknown for this slot, so a fresh id was minted...
+        assertTrue(stored.single().id != foreignId)
+        // ...and the other slot's row still owns it.
+        assertEquals(foreignId, notes.getSessionNotes(sessionId, otherSlot).single().id)
+    }
+
+    @Test
+    @DisplayName("replacing the program hierarchy drops stale workout notes")
+    fun programReplacePrunesStaleWorkoutNotes() = runTest {
+        val programs = FakeProgramRepository(sampleProgram())
+        val useCase =
+            SaveLiftNotesUseCase(
+                FakeLiftNotesRepository(),
+                FakeLiftRepository(listOf(sampleLift())),
+                programs,
+                FakeLoggingPort(),
+            )
+        useCase(
+            SaveLiftNotesCommand(
+                sessionId = sessionId,
+                workoutLiftId = workoutLiftId,
+                liftId = liftId,
+                workoutNotes = listOf(WorkoutLiftNoteInput(body = "old pin")),
+            ),
+        )
+        assertEquals(
+            "old pin",
+            programs.getWorkoutLiftPinnedNotes(workoutLiftId).single().body,
+        )
+
+        // Replace the hierarchy: the slot keeps its id but carries a new scalar pin.
+        val replacement =
+            sampleProgram().copy(
+                workouts =
+                    listOf(
+                        sampleProgram().workouts.single().copy(
+                            workoutLifts =
+                                listOf(
+                                    sampleProgram().workouts.single().workoutLifts.single()
+                                        .copy(pinnedNote = "new pin"),
+                                ),
+                        ),
+                    ),
+            )
+        programs.saveProgram(replacement)
+
+        assertEquals(
+            listOf("new pin"),
+            programs.getWorkoutLiftPinnedNotes(workoutLiftId).map { it.body },
+        )
+    }
+
+    @Test
+    @DisplayName("program re-save without pin changes preserves workout notes")
+    fun programResavePreservesWorkoutNotes() = runTest {
+        val programs = FakeProgramRepository(sampleProgram())
+        val useCase =
+            SaveLiftNotesUseCase(
+                FakeLiftNotesRepository(),
+                FakeLiftRepository(listOf(sampleLift())),
+                programs,
+                FakeLoggingPort(),
+            )
+        useCase(
+            SaveLiftNotesCommand(
+                sessionId = sessionId,
+                workoutLiftId = workoutLiftId,
+                liftId = liftId,
+                workoutNotes = listOf(WorkoutLiftNoteInput(body = "kept pin")),
+            ),
+        )
+
+        // Re-save the stored program unchanged: the pin was not edited, so the list stays.
+        val stored = programs.getProgramById(ProgramId("p-1"))!!
+        programs.saveProgram(stored)
+
+        assertEquals(
+            listOf("kept pin"),
+            programs.getWorkoutLiftPinnedNotes(workoutLiftId).map { it.body },
+        )
+    }
+
+    @Test
+    @DisplayName("deleted lifts expose no catalog notes and reject new writes")
+    fun deletedLiftDropsCatalogNotes() = runTest {
+        val lifts = FakeLiftRepository(listOf(sampleLift()))
+        lifts.setPinnedNotes(liftId, listOf(CatalogNoteInput(body = "belt on")))
+        assertEquals(1, lifts.getPinnedNotes(liftId).size)
+
+        lifts.deleteLifts(listOf(liftId))
+
+        assertTrue(lifts.getPinnedNotes(liftId).isEmpty())
+        // Writes for a missing lift are a no-op, matching Room's zero-row update.
+        lifts.setPinnedNotes(liftId, listOf(CatalogNoteInput(body = "ghost")))
+        assertTrue(lifts.getPinnedNotes(liftId).isEmpty())
     }
 
     private fun sampleLift(): Lift =

@@ -3,10 +3,14 @@ package com.stratum.core.testing.lift
 import com.stratum.domain.lift.LiftNotesRepository
 import com.stratum.domain.lift.LiftSessionNote
 import com.stratum.domain.lift.PastSessionLiftNote
+import com.stratum.domain.lift.SessionNoteInput
+import com.stratum.domain.lift.sanitizeLiftNoteBody
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.lift.identity.LiftSessionNoteId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.training.identity.TrainingSessionId
 import java.time.Instant
+import java.util.UUID
 import kotlinx.coroutines.flow.MutableStateFlow
 
 class FakeLiftNotesRepository : LiftNotesRepository {
@@ -32,10 +36,7 @@ class FakeLiftNotesRepository : LiftNotesRepository {
     override suspend fun getSessionNote(
         sessionId: TrainingSessionId,
         workoutLiftId: WorkoutLiftId,
-    ): LiftSessionNote? =
-        notes.value.firstOrNull {
-            it.sessionId == sessionId && it.workoutLiftId == workoutLiftId
-        }
+    ): LiftSessionNote? = getSessionNotes(sessionId, workoutLiftId).firstOrNull()
 
     override suspend fun upsertSessionNote(note: LiftSessionNote) {
         notes.value =
@@ -54,6 +55,50 @@ class FakeLiftNotesRepository : LiftNotesRepository {
             }
     }
 
+    override suspend fun getSessionNotes(
+        sessionId: TrainingSessionId,
+        workoutLiftId: WorkoutLiftId,
+    ): List<LiftSessionNote> =
+        notes.value
+            .filter { it.sessionId == sessionId && it.workoutLiftId == workoutLiftId }
+            .sortedBy { it.position }
+
+    override suspend fun replaceSessionNotes(
+        sessionId: TrainingSessionId,
+        workoutLiftId: WorkoutLiftId,
+        liftId: LiftId,
+        notes: List<SessionNoteInput>,
+    ) {
+        val now = Instant.now()
+        // Id retention is scoped to the target slot: an id minted for another
+        // slot is unknown here, so it mints a new row (port contract).
+        val currentIds =
+            this.notes.value
+                .filter { it.sessionId == sessionId && it.workoutLiftId == workoutLiftId }
+                .map { it.id }
+                .toSet()
+        val minted =
+            notes.mapNotNull { input ->
+                // Port contract: blank bodies are dropped, overlong bodies truncate.
+                sanitizeLiftNoteBody(input.body)?.let { body -> input to body }
+            }.mapIndexed { index, (input, body) ->
+                LiftSessionNote(
+                    id = input.id?.takeIf { it in currentIds }
+                        ?: LiftSessionNoteId(UUID.randomUUID().toString()),
+                    sessionId = sessionId,
+                    liftId = liftId,
+                    workoutLiftId = workoutLiftId,
+                    body = body,
+                    updatedAt = now,
+                    position = index,
+                )
+            }
+        this.notes.value =
+            this.notes.value.filterNot {
+                it.sessionId == sessionId && it.workoutLiftId == workoutLiftId
+            } + minted
+    }
+
     override suspend fun getPastNotesForLift(
         liftId: LiftId,
         excludeSessionId: TrainingSessionId?,
@@ -65,6 +110,11 @@ class FakeLiftNotesRepository : LiftNotesRepository {
                     note.sessionId.value in completedSessionIds &&
                     note.sessionId != excludeSessionId
             }
+            .sortedWith(
+                compareByDescending<LiftSessionNote> {
+                    sessionStartedAt[it.sessionId.value] ?: Instant.EPOCH
+                }.thenBy { it.position },
+            )
             .map { note ->
                 PastSessionLiftNote(
                     sessionId = note.sessionId,
@@ -74,7 +124,6 @@ class FakeLiftNotesRepository : LiftNotesRepository {
                     workoutName = sessionWorkoutNames[note.sessionId.value],
                 )
             }
-            .sortedByDescending { it.sessionStartedAt }
 
     override suspend fun remapLiftIds(sourceLiftIds: Set<LiftId>, targetLiftId: LiftId) {
         if (sourceLiftIds.isEmpty()) return
