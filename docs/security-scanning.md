@@ -114,7 +114,7 @@ When `osv-scan` fails or Renovate opens a vulnerability-alert MR:
 ### Baseline remediation (2026-09-20)
 
 The first scan (before this MR) found 8 vulnerabilities, all in
-`functions/package-lock.json`; the Android SBOM (107 packages) was clean:
+`functions/package-lock.json`; the Android SBOM (297 packages) was clean:
 
 - **Fixed by version bump** — `npm update` within the parents' semver ranges:
   `body-parser` 1.20.5 → 1.20.8, `fast-xml-parser` 5.9.3 → 5.11.1,
