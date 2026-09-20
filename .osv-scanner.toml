@@ -1,0 +1,26 @@
+# OSV-Scanner suppressions for the osv-scan CI job.
+#
+# Every entry here MUST have:
+#   - reason:      why the CVE is accepted rather than fixed
+#   - ignoreUntil: a date (max ~3 months out) forcing re-triage
+#
+# When an entry expires, osv-scan fails again until someone re-triages it:
+# either the CVE is fixed upstream, a replacement dependency lands, or the
+# suppression is consciously renewed with a new reason. See
+# docs/security-scanning.md ("Triaging findings") for the full process.
+
+# SheetJS xlsx 0.20.3 is the latest published release; both CVEs below have no
+# fixed version upstream. The library parses user-uploaded MacroFactor and
+# custom-program workbooks in Cloud Functions (functions/src/**/macroFactor*,
+# workbookNormalize.ts), so this is real exposure, not test-only. Accepted
+# pending evaluation of a maintained replacement (e.g. exceljs); tracked in
+# issue #10. Re-triage on or before 2026-12-20.
+[[IgnoredVulns]]
+id = "GHSA-4r6h-8v6p-xvw6"
+reason = "Prototype pollution in SheetJS xlsx 0.20.3 (latest release, no fix upstream). Parses user-uploaded workbooks in Cloud Functions. Risk accepted pending maintained-parser evaluation; see issue #10."
+ignoreUntil = "2026-12-20T00:00:00Z"
+
+[[IgnoredVulns]]
+id = "GHSA-5pgg-2g8v-p4x9"
+reason = "ReDoS in SheetJS xlsx 0.20.3 (latest release, no fix upstream). Parses user-uploaded workbooks in Cloud Functions. Risk accepted pending maintained-parser evaluation; see issue #10."
+ignoreUntil = "2026-12-20T00:00:00Z"
