@@ -22,12 +22,15 @@ object FirestoreSyncRemoteApplyPolicy {
 
     /**
      * @param localMeta null when the row is absent locally (always apply upserts / deletes).
+     * @param localDeviceId null when the caller has no device context (slot-level merges):
+     * an unknown local never equals a remote device id, so dirty rows are always preserved
+     * and clean ties break toward remote.
      */
     fun decide(
         localMeta: LocalSyncMeta?,
         remoteUpdatedAt: Long,
         remoteDeviceId: String?,
-        localDeviceId: String,
+        localDeviceId: String?,
         remoteDeleted: Boolean = false,
     ): Decision {
         if (localMeta == null) return Decision.Apply
