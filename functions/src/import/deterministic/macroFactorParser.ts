@@ -1,4 +1,4 @@
-import { loadWorkbook, scalarCellValue } from "./excelCells";
+import { isMergedFollower, loadWorkbook, scalarCellValue } from "./excelCells";
 import type { NormalizedHistory, NormalizedSession, NormalizedSet } from "../schemas";
 import { field, headerIndex, parseCsv } from "./csvReader";
 import { parseInteger, parseNumber, stripSupersetSuffix, normalizeTimestamp } from "./values";
@@ -76,7 +76,15 @@ export async function readXlsxRows(bytes: Buffer): Promise<string[][]> {
     const cells: string[] = [];
     let hasContent = false;
     for (let c = 1; c <= columnCount; c++) {
-      const value = scalarCellValue(row.getCell(c), date1904);
+      const cell = row.getCell(c);
+      // Merged followers repeat the master value in exceljs; SheetJS surfaced
+      // them as missing. A follower in a required column (e.g. Date) must not
+      // resurrect a row — blank it like the other parsers do.
+      if (isMergedFollower(cell)) {
+        cells.push("");
+        continue;
+      }
+      const value = scalarCellValue(cell, date1904);
       if (value === null || value === "") {
         cells.push("");
         continue;

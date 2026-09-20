@@ -100,4 +100,17 @@ describe("workbookNormalize", () => {
     assert.ok(text.includes("Week 1"));
     assert.ok(text.includes("Squat"));
   });
+
+  it("normalizes an empty sheet to an empty matrix instead of throwing", async () => {
+    // exceljs reports an all-zero dimensions model for an empty worksheet;
+    // usedRangeBounds must return null so the reader never calls getCell(0, 0).
+    const workbook = new ExcelJS.Workbook();
+    workbook.addWorksheet("empty");
+    const bytes = Buffer.from(await workbook.xlsx.writeBuffer());
+
+    const wb = await normalizeWorkbook(bytes);
+    assert.equal(wb.sheets.length, 1);
+    assert.equal(wb.sheets[0]!.name, "empty");
+    assert.deepEqual(wb.sheets[0]!.rows, []);
+  });
 });

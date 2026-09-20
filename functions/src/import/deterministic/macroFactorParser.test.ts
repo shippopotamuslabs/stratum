@@ -123,4 +123,28 @@ describe("macroFactorParser", () => {
     assert.equal(matchesMacroFactorRows([]), null);
     assert.equal(matchesMacroFactorRows(undefined), null);
   });
+
+  it("blanks merged Date followers so they do not import extra sets", async () => {
+    // MacroFactor XLSX exports can vertically merge the Date cell across a
+    // workout's set rows. exceljs repeats the master value on follower cells;
+    // SheetJS surfaced them as missing, so the follower row must be skipped.
+    const ExcelJS = (await import("exceljs-community")).default;
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("MacroFactor-Export");
+    sheet.addRow(["Date", "Workout Duration", "Workout", "Exercise", "Weight (lbs)", "Reps", "RIR"]);
+    sheet.addRow(["2025-12-28", 2841, "Upper A", "Low Incline Dumbbell Press", 140, 7, 1]);
+    sheet.addRow(["", 2841, "Upper A", "Iso-Lateral High Row (Nautilus)", 160, 8, 2]);
+    sheet.mergeCells("A2:A3");
+    const bytes = Buffer.from(await workbook.xlsx.writeBuffer());
+
+    const rows = await readXlsxRows(bytes);
+    assert.equal(rows[2]![0], ""); // follower blanked, not the repeated date
+
+    const history = await parseMacroFactorXlsx(bytes);
+    assert.ok(history);
+    // Without the blanking, the follower row's repeated date would create a
+    // second set in the same session.
+    assert.equal(history!.sets.length, 1);
+    assert.equal(history!.sets[0]!.exerciseNameRaw, "Low Incline Dumbbell Press");
+  });
 });
