@@ -105,6 +105,16 @@ describe("macroFactorProgramParser", () => {
     assert.equal(await parseMacroFactorProgramXlsx(garbage), null);
   });
 
+  it("returns null for an empty first sheet instead of throwing", async () => {
+    // exceljs reports an all-zero dimensions model for an empty worksheet;
+    // the matrix reader must treat it as empty, not call getCell(0, 0).
+    const ExcelJS = (await import("exceljs-community")).default;
+    const workbook = new ExcelJS.Workbook();
+    workbook.addWorksheet("empty");
+    const bytes = Buffer.from(await workbook.xlsx.writeBuffer());
+    assert.equal(await parseMacroFactorProgramXlsx(bytes), null);
+  });
+
   it("returns null when rows do not look like a MacroFactor program", () => {
     assert.equal(matchesMacroFactorProgramRows([]), false);
     assert.equal(

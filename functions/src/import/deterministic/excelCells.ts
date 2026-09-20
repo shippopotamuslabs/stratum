@@ -102,6 +102,9 @@ export function usedRangeBounds(sheet: Worksheet): UsedRange | null {
     | { model?: { top: number; left: number; bottom: number; right: number } }
     | undefined;
   const model = dimensions?.model;
-  if (!model || model.bottom < model.top || model.right < model.left) return null;
+  // exceljs reports an all-zero model ({top:0,left:0,bottom:0,right:0}) for an
+  // empty worksheet; the range is 1-based, so top/left below 1 means "empty".
+  // Without this, callers loop from row/column 0 and getCell(0, 0) throws.
+  if (!model || model.top < 1 || model.left < 1 || model.bottom < model.top || model.right < model.left) return null;
   return { top: model.top, left: model.left, bottom: model.bottom, right: model.right };
 }
