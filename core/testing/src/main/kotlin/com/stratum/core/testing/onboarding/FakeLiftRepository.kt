@@ -251,22 +251,29 @@ class FakeLiftRepository(
     }
 
     override suspend fun getPinnedNotes(id: LiftId): List<LiftCatalogNote> =
-        catalogNotes.value[id.value]
-            ?: lifts.value.firstOrNull { it.id == id }?.pinnedNote
-                ?.takeIf { it.isNotBlank() }
-                ?.let { body ->
-                    listOf(
-                        LiftCatalogNote(
-                            id = LiftCatalogNoteId("${id.value}::0"),
-                            liftId = id,
-                            body = body,
-                            position = 0,
-                            updatedAt = Instant.now(),
-                        ),
-                    )
-                }.orEmpty()
+        // Match Room: a missing lift row yields no notes, never orphaned map entries.
+        if (lifts.value.none { it.id == id }) {
+            emptyList()
+        } else {
+            catalogNotes.value[id.value]
+                ?: lifts.value.firstOrNull { it.id == id }?.pinnedNote
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { body ->
+                        listOf(
+                            LiftCatalogNote(
+                                id = LiftCatalogNoteId("${id.value}::0"),
+                                liftId = id,
+                                body = body,
+                                position = 0,
+                                updatedAt = Instant.now(),
+                            ),
+                        )
+                    }.orEmpty()
+        }
 
     override suspend fun setPinnedNotes(id: LiftId, notes: List<CatalogNoteInput>) {
+        // Match Room: writing notes for a missing lift touches zero rows.
+        if (lifts.value.none { it.id == id }) return
         val now = Instant.now()
         val currentIds = getPinnedNotes(id).map { it.id }.toSet()
         val minted =
@@ -293,5 +300,9 @@ class FakeLiftRepository(
         if (ids.isEmpty()) return
         val remove = ids.toSet()
         lifts.value = lifts.value.filterNot { it.id in remove }
+        // Notes live in a side map: drop them with the lift so deleted lifts
+        // expose no orphaned notes (matches Room cascade behavior).
+        val removeValues = remove.map { it.value }.toSet()
+        catalogNotes.value = catalogNotes.value.filterKeys { it !in removeValues }
     }
 }
