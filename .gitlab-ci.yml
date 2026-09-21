@@ -3,6 +3,13 @@
 # ONE-TIME SETUP (GitLab project -> Settings -> CI/CD -> Variables):
 # - GOOGLE_SERVICES_JSON (type: File): paste the contents of app/google-services.json.
 #   The file is gitignored, so without this every Android job fails at configuration time.
+# - KEYSTORE_BASE64 (type: File): base64 of the release keystore, never committed:
+#     base64 -w0 .keystore/stratum_keystore.jks
+# - STORE_PASSWORD / KEY_ALIAS / KEY_PASSWORD (masked): keystore.properties values
+#   (see keystore.properties.example). Reconstructs the gitignored keystore.properties.
+# - PLAY_PUBLISHER_JSON (type: File): Play service-account JSON key. The account needs
+#   Internal-track release rights (Play Console -> Users and permissions) plus, for the
+#   robo job, Firebase Test Lab roles in GCP IAM.
 # - Optional: a pipeline schedule (e.g. nightly 02:00 UTC) to enable emulator-tests.
 #
 # OPTIONAL BUT RECOMMENDED (Settings -> Merge requests):
@@ -35,6 +42,7 @@ stages:
   - lint
   - test
   - nightly
+  - deploy
 
 # Shared setup for every Android job: Firebase config + SDK licenses.
 .android-job:
@@ -317,4 +325,63 @@ solver-tests-nightly:
 # - lintRelease once release-blocking lint is triaged.
 # - Roborazzi screenshot tests (JVM, no emulator).
 # - Coverage ratchet (Kover) on touched code.
-# - Play Internal-track deploy + Test Lab robo test.
+# - Tighten test-lab-robo (allow_failure: true until the first green run).
+
+# Play Internal-track lane (work item 7): manual on the default branch. The job
+# reconstructs release signing from CI variables, so app/build.gradle.kts signs
+# exactly like a local release build. Every upload needs a versionCode Play has
+# not seen before — bump versionCode in app/build.gradle.kts before re-running,
+# or the upload fails with a duplicate-version error.
+deploy-internal:
+  extends: .android-job
+  stage: deploy
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+  script:
+    - test -n "$KEYSTORE_BASE64" || (echo "Missing KEYSTORE_BASE64 file variable — see header of .gitlab-ci.yml" && exit 1)
+    - test -n "$STORE_PASSWORD" || (echo "Missing STORE_PASSWORD variable — see header of .gitlab-ci.yml" && exit 1)
+    - test -n "$KEY_ALIAS" || (echo "Missing KEY_ALIAS variable — see header of .gitlab-ci.yml" && exit 1)
+    - test -n "$KEY_PASSWORD" || (echo "Missing KEY_PASSWORD variable — see header of .gitlab-ci.yml" && exit 1)
+    - test -n "$PLAY_PUBLISHER_JSON" || (echo "Missing PLAY_PUBLISHER_JSON file variable — see header of .gitlab-ci.yml" && exit 1)
+    # KEYSTORE_BASE64 is a File variable: a path to a file holding base64 text.
+    - mkdir -p .keystore
+    - base64 -d "$KEYSTORE_BASE64" > .keystore/stratum_keystore.jks
+    - |
+      printf 'storeFile=.keystore/stratum_keystore.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
+        "$STORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > keystore.properties
+    # Signed AAB for Play + signed APK for the Test Lab robo job below.
+    - ./gradlew :app:bundleRelease :app:assembleRelease
+    - pip3 install --user --quiet google-api-python-client google-auth
+    - python3 scripts/play-upload-internal.py app/build/outputs/bundle/release/app-release.aab
+  artifacts:
+    paths:
+      - app/build/outputs/bundle/release/*.aab
+      - app/build/outputs/apk/release/*.apk
+    expire_in: 2 weeks
+
+# Firebase Test Lab robo test on the signed release APK from deploy-internal.
+# allow_failure until the first green run proves the service-account IAM (Play
+# Console grants alone are not enough for Test Lab — the account also needs
+# Firebase Test Lab roles in GCP IAM) and the device combo below.
+test-lab-robo:
+  extends: .android-job
+  stage: deploy
+  needs: [deploy-internal]
+  allow_failure: true
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: on_success
+  script:
+    - gcloud auth activate-service-account --key-file="$PLAY_PUBLISHER_JSON"
+    - PROJECT_ID=$(python3 -c "import json;print(json.load(open('app/google-services.json'))['project_info']['project_id'])")
+    - APK=$(ls app/build/outputs/apk/release/*.apk | head -1)
+    # MediumPhone.arm is a virtual device: physical Pixels in Test Lab top out
+    # below minSdk 34 for this account's catalog (panther maxes at 33).
+    - gcloud --project="$PROJECT_ID" firebase test android run --type robo --app "$APK"
+      --device model=MediumPhone.arm,version=35,locale=en,orientation=portrait --timeout 5m 2>&1 | tee test-lab-robo.log
+  artifacts:
+    when: always
+    paths:
+      - test-lab-robo.log
+    expire_in: 2 weeks
