@@ -244,6 +244,20 @@ internal suspend fun LiveWorkoutSessionRuntime.handleSetWorkoutLiftPinnedNotes(
     flushOverlay()
 }
 
+/**
+ * Reloads stored note lists (e.g. after a notes save) and re-renders the lift cards.
+ * Structure-only — no overlay write, so refreshing pins never dirties the session.
+ */
+internal suspend fun LiveWorkoutSessionRuntime.handleRefreshPinnedNotes() {
+    val workout = baselineWorkout ?: return
+    // Best-effort like the initial load: keep serving the current pins on repo failure.
+    sessionPinnedNotes =
+        runCatching { getSessionPinnedNoteLists(workout) }
+            .getOrElse { return }
+    applyPinnedNotesFromTemplate()
+    render()
+}
+
 internal fun LiveWorkoutSessionRuntime.getLinkableLifts(): List<SupersetLinkableLiftState> {
     val currentRendered = merge()
     return currentRendered.lifts.map { lift ->

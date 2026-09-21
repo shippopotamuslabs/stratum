@@ -95,6 +95,12 @@ internal sealed interface SessionCommand {
         val bodies: List<String>,
     ) : SessionCommand
 
+    /**
+     * Reload stored note lists after a notes save and re-render the lift cards.
+     * Structure-only (no overlay write), so refreshing pins never dirties the session.
+     */
+    data object RefreshPinnedNotes : SessionCommand
+
     data class CompleteWorkout(val saveTemplate: Boolean) : SessionCommand
 
     /**
