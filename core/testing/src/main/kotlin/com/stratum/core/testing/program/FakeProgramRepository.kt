@@ -14,6 +14,8 @@ import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * In-memory multi-program [ProgramRepository]. [saveProgram] upserts by id; when [Program.isActive]
@@ -28,6 +30,12 @@ class FakeProgramRepository(
     )
     /** Source of truth for workout note lists; [WorkoutLift.pinnedNote] mirrors the first body. */
     private val workoutNotes = MutableStateFlow<Map<String, List<WorkoutLiftNote>>>(emptyMap())
+    /**
+     * Serializes note-map check-then-write sequences (lazy-migrate, replace),
+     * mirroring Room's write-lock semantics so concurrent first reads converge
+     * on one migrated row instead of minting competing ids.
+     */
+    private val notesMutex = Mutex()
     val saveProgramCalls = mutableListOf<Program>()
 
     private fun findWorkoutLift(id: WorkoutLiftId): WorkoutLift? =
@@ -41,14 +49,16 @@ class FakeProgramRepository(
      * Mirrors production, where deleting a program or replacing its hierarchy
      * removes the underlying rows (and their notes) with it.
      */
-    private fun pruneOrphanedWorkoutNotes() {
-        val liveSlotIds =
-            programs.value.values
-                .flatMap { program -> program.workouts }
-                .flatMap { workout -> workout.workoutLifts }
-                .map { it.id.value }
-                .toSet()
-        workoutNotes.value = workoutNotes.value.filterKeys { it in liveSlotIds }
+    private suspend fun pruneOrphanedWorkoutNotes() {
+        notesMutex.withLock {
+            val liveSlotIds =
+                programs.value.values
+                    .flatMap { program -> program.workouts }
+                    .flatMap { workout -> workout.workoutLifts }
+                    .map { it.id.value }
+                    .toSet()
+            workoutNotes.value = workoutNotes.value.filterKeys { it in liveSlotIds }
+        }
     }
 
     /**
@@ -57,20 +67,22 @@ class FakeProgramRepository(
      * saved pin, so it is dropped and the scalar becomes authoritative again.
      * Slots whose pin is untouched keep their existing note lists.
      */
-    private fun reconcileWorkoutNotesAfterSave(previous: Program?, updated: Program) {
-        val previousPins =
-            previous?.workouts
-                ?.flatMap { workout -> workout.workoutLifts }
-                ?.associate { it.id.value to it.pinnedNote }
-                .orEmpty()
-        val changedSlotIds =
-            updated.workouts
-                .flatMap { workout -> workout.workoutLifts }
-                .filter { slot -> previousPins[slot.id.value] != slot.pinnedNote }
-                .map { it.id.value }
-                .toSet()
-        if (changedSlotIds.isNotEmpty()) {
-            workoutNotes.value = workoutNotes.value.filterKeys { it !in changedSlotIds }
+    private suspend fun reconcileWorkoutNotesAfterSave(previous: Program?, updated: Program) {
+        notesMutex.withLock {
+            val previousPins =
+                previous?.workouts
+                    ?.flatMap { workout -> workout.workoutLifts }
+                    ?.associate { it.id.value to it.pinnedNote }
+                    .orEmpty()
+            val changedSlotIds =
+                updated.workouts
+                    .flatMap { workout -> workout.workoutLifts }
+                    .filter { slot -> previousPins[slot.id.value] != slot.pinnedNote }
+                    .map { it.id.value }
+                    .toSet()
+            if (changedSlotIds.isNotEmpty()) {
+                workoutNotes.value = workoutNotes.value.filterKeys { it !in changedSlotIds }
+            }
         }
     }
 
@@ -133,30 +145,32 @@ class FakeProgramRepository(
      * production hierarchy write-through). Runs after the scalar-authoritative
      * reconcile so carried lists replace stale rows instead of being dropped.
      */
-    private fun installCarriedWorkoutNotes(updated: Program) {
-        val now = Instant.now()
-        var next = workoutNotes.value
-        var changed = false
-        for (slot in updated.workouts.flatMap { workout -> workout.workoutLifts }) {
-            val bodies = slot.pinnedNotes.mapNotNull(::sanitizeLiftNoteBody)
-            // Idempotent: re-saving an already-installed list keeps existing row ids.
-            val current = next[slot.id.value]
-            val needsInstall =
-                bodies.isNotEmpty() && (current == null || current.map { it.body } != bodies)
-            if (needsInstall) {
-                next = next + (slot.id.value to bodies.mapIndexed { index, body ->
-                    WorkoutLiftNote(
-                        id = WorkoutLiftNoteId(UUID.randomUUID().toString()),
-                        workoutLiftId = slot.id,
-                        body = body,
-                        position = index,
-                        updatedAt = now,
-                    )
-                })
-                changed = true
+    private suspend fun installCarriedWorkoutNotes(updated: Program) {
+        notesMutex.withLock {
+            val now = Instant.now()
+            var next = workoutNotes.value
+            var changed = false
+            for (slot in updated.workouts.flatMap { workout -> workout.workoutLifts }) {
+                val bodies = slot.pinnedNotes.mapNotNull(::sanitizeLiftNoteBody)
+                // Idempotent: re-saving an already-installed list keeps existing row ids.
+                val current = next[slot.id.value]
+                val needsInstall =
+                    bodies.isNotEmpty() && (current == null || current.map { it.body } != bodies)
+                if (needsInstall) {
+                    next = next + (slot.id.value to bodies.mapIndexed { index, body ->
+                        WorkoutLiftNote(
+                            id = WorkoutLiftNoteId(UUID.randomUUID().toString()),
+                            workoutLiftId = slot.id,
+                            body = body,
+                            position = index,
+                            updatedAt = now,
+                        )
+                    })
+                    changed = true
+                }
             }
+            if (changed) workoutNotes.value = next
         }
-        if (changed) workoutNotes.value = next
     }
 
     override suspend fun saveToLibrary(program: Program) {
@@ -192,44 +206,59 @@ class FakeProgramRepository(
         return setWorkoutLiftPinnedNotes(id, listOf(WorkoutLiftNoteInput(id = existingId, body = clean)))
     }
 
-    override suspend fun getWorkoutLiftPinnedNotes(id: WorkoutLiftId): List<WorkoutLiftNote> =
-        workoutNotes.value[id.value] ?: findWorkoutLift(id)?.pinnedNote
-            ?.takeIf { it.isNotBlank() }
-            ?.let { body ->
+    override suspend fun getWorkoutLiftPinnedNotes(id: WorkoutLiftId): List<WorkoutLiftNote> {
+        notesMutex.withLock {
+            workoutNotes.value[id.value]?.let { return it }
+            // Sanitizer parity with Room: trim and enforce the length cap before
+            // creating the row; a blank legacy pin migrates to nothing.
+            val clean = sanitizeLiftNoteBody(findWorkoutLift(id)?.pinnedNote)
+                ?: return emptyList()
+            // Client lazy-migrate parity: persist the legacy pin as the
+            // position-0 row (written inline — routing through the setter would
+            // recurse via its id-retention read). The mirror already matches,
+            // so it is untouched.
+            val migrated =
                 listOf(
                     WorkoutLiftNote(
-                        id = WorkoutLiftNoteId("${id.value}::0"),
+                        id = WorkoutLiftNoteId(UUID.randomUUID().toString()),
                         workoutLiftId = id,
-                        body = body,
+                        body = clean,
                         position = 0,
                         updatedAt = Instant.now(),
                     ),
                 )
-            }.orEmpty()
+            workoutNotes.value = workoutNotes.value + (id.value to migrated)
+            return migrated
+        }
+    }
 
     override suspend fun setWorkoutLiftPinnedNotes(
         id: WorkoutLiftId,
         notes: List<WorkoutLiftNoteInput>,
     ): Boolean {
         if (findWorkoutLift(id) == null) return false
-        val now = Instant.now()
-        val currentIds = getWorkoutLiftPinnedNotes(id).map { it.id }.toSet()
-        val minted =
-            notes.mapNotNull { input ->
-                sanitizeLiftNoteBody(input.body)?.let { body -> input to body }
-            }.mapIndexed { index, (input, body) ->
-                WorkoutLiftNote(
-                    id = input.id?.takeIf { it in currentIds }
-                        ?: WorkoutLiftNoteId(UUID.randomUUID().toString()),
-                    workoutLiftId = id,
-                    body = body,
-                    position = index,
-                    updatedAt = now,
-                )
-            }
-        workoutNotes.value = workoutNotes.value + (id.value to minted)
-        updateWorkoutLiftPin(id, minted.firstOrNull()?.body)
-        return true
+        notesMutex.withLock {
+            val now = Instant.now()
+            // Read the map directly: the getter lazy-migrates legacy pins, which
+            // would mint a throwaway row just to compute id retention here.
+            val currentIds = workoutNotes.value[id.value]?.map { it.id }?.toSet().orEmpty()
+            val minted =
+                notes.mapNotNull { input ->
+                    sanitizeLiftNoteBody(input.body)?.let { body -> input to body }
+                }.mapIndexed { index, (input, body) ->
+                    WorkoutLiftNote(
+                        id = input.id?.takeIf { it in currentIds }
+                            ?: WorkoutLiftNoteId(UUID.randomUUID().toString()),
+                        workoutLiftId = id,
+                        body = body,
+                        position = index,
+                        updatedAt = now,
+                    )
+                }
+            workoutNotes.value = workoutNotes.value + (id.value to minted)
+            updateWorkoutLiftPin(id, minted.firstOrNull()?.body)
+            return true
+        }
     }
 
     override suspend fun updateCyclePointer(

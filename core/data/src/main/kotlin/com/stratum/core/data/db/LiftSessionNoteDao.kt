@@ -35,7 +35,7 @@ interface LiftSessionNoteDao {
         """
         SELECT * FROM lift_session_notes
         WHERE session_id = :sessionId AND workout_lift_id = :workoutLiftId
-        ORDER BY position ASC, updated_at_epoch_millis ASC
+        ORDER BY position ASC, updated_at_epoch_millis ASC, rowid ASC
         """,
     )
     suspend fun getNotesForSlot(
@@ -86,10 +86,11 @@ interface LiftSessionNoteDao {
         FROM lift_session_notes n
         INNER JOIN training_sessions s ON s.id = n.session_id
         WHERE n.lift_id = :liftId
-          AND n.body != ''
+          AND TRIM(n.body) != ''
           AND s.status = 'COMPLETED'
           AND n.session_id != :excludeSessionId
-        ORDER BY s.started_at_epoch_millis DESC
+        ORDER BY s.started_at_epoch_millis DESC, n.session_id DESC, n.position ASC,
+            n.updated_at_epoch_millis ASC, n.rowid ASC
         """,
     )
     suspend fun getPastNotesForLiftExcluding(
@@ -104,9 +105,10 @@ interface LiftSessionNoteDao {
         FROM lift_session_notes n
         INNER JOIN training_sessions s ON s.id = n.session_id
         WHERE n.lift_id = :liftId
-          AND n.body != ''
+          AND TRIM(n.body) != ''
           AND s.status = 'COMPLETED'
-        ORDER BY s.started_at_epoch_millis DESC
+        ORDER BY s.started_at_epoch_millis DESC, n.session_id DESC, n.position ASC,
+            n.updated_at_epoch_millis ASC, n.rowid ASC
         """,
     )
     suspend fun getPastNotesForLift(liftId: LiftId): List<LiftSessionNoteWithSession>

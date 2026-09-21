@@ -21,6 +21,8 @@ import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * In-memory fake for [LiftRepository]. Defaults to an empty catalog and a `null` preset
@@ -41,6 +43,12 @@ class FakeLiftRepository(
     private val usedHistoricalImport = MutableStateFlow(false)
     /** Source of truth for catalog note lists; [Lift.pinnedNote] mirrors the first body. */
     private val catalogNotes = MutableStateFlow<Map<String, List<LiftCatalogNote>>>(emptyMap())
+    /**
+     * Serializes catalog-note-map check-then-write sequences (lazy-migrate,
+     * replace), mirroring Room's write-lock semantics so concurrent first reads
+     * converge on one migrated row instead of minting competing ids.
+     */
+    private val notesMutex = Mutex()
 
     /** Optional name lookup for equipment ids when [addCustomLift] only has a name. */
     var equipmentNamesById: Map<EquipmentId, String> = emptyMap()
@@ -250,49 +258,60 @@ class FakeLiftRepository(
         }
     }
 
-    override suspend fun getPinnedNotes(id: LiftId): List<LiftCatalogNote> =
+    override suspend fun getPinnedNotes(id: LiftId): List<LiftCatalogNote> {
         // Match Room: a missing lift row yields no notes, never orphaned map entries.
-        if (lifts.value.none { it.id == id }) {
-            emptyList()
-        } else {
-            catalogNotes.value[id.value]
-                ?: lifts.value.firstOrNull { it.id == id }?.pinnedNote
-                    ?.takeIf { it.isNotBlank() }
-                    ?.let { body ->
-                        listOf(
-                            LiftCatalogNote(
-                                id = LiftCatalogNoteId("${id.value}::0"),
-                                liftId = id,
-                                body = body,
-                                position = 0,
-                                updatedAt = Instant.now(),
-                            ),
-                        )
-                    }.orEmpty()
+        if (lifts.value.none { it.id == id }) return emptyList()
+        notesMutex.withLock {
+            catalogNotes.value[id.value]?.let { return it }
+            // Sanitizer parity with Room: trim and enforce the length cap before
+            // creating the row; a blank legacy pin migrates to nothing.
+            val clean = sanitizeLiftNoteBody(lifts.value.firstOrNull { it.id == id }?.pinnedNote)
+                ?: return emptyList()
+            // Client lazy-migrate parity: persist the legacy pin as the
+            // position-0 row (written inline — routing through the setter would
+            // recurse via its id-retention read). The mirror already matches,
+            // so it is untouched.
+            val migrated =
+                listOf(
+                    LiftCatalogNote(
+                        id = LiftCatalogNoteId(UUID.randomUUID().toString()),
+                        liftId = id,
+                        body = clean,
+                        position = 0,
+                        updatedAt = Instant.now(),
+                    ),
+                )
+            catalogNotes.value = catalogNotes.value + (id.value to migrated)
+            return migrated
         }
+    }
 
     override suspend fun setPinnedNotes(id: LiftId, notes: List<CatalogNoteInput>) {
         // Match Room: writing notes for a missing lift touches zero rows.
         if (lifts.value.none { it.id == id }) return
-        val now = Instant.now()
-        val currentIds = getPinnedNotes(id).map { it.id }.toSet()
-        val minted =
-            notes.mapNotNull { input ->
-                sanitizeLiftNoteBody(input.body)?.let { body -> input to body }
-            }.mapIndexed { index, (input, body) ->
-                LiftCatalogNote(
-                    id = input.id?.takeIf { it in currentIds }
-                        ?: LiftCatalogNoteId(UUID.randomUUID().toString()),
-                    liftId = id,
-                    body = body,
-                    position = index,
-                    updatedAt = now,
-                )
+        notesMutex.withLock {
+            val now = Instant.now()
+            // Read the map directly: the getter lazy-migrates legacy pins, which
+            // would mint a throwaway row just to compute id retention here.
+            val currentIds = catalogNotes.value[id.value]?.map { it.id }?.toSet().orEmpty()
+            val minted =
+                notes.mapNotNull { input ->
+                    sanitizeLiftNoteBody(input.body)?.let { body -> input to body }
+                }.mapIndexed { index, (input, body) ->
+                    LiftCatalogNote(
+                        id = input.id?.takeIf { it in currentIds }
+                            ?: LiftCatalogNoteId(UUID.randomUUID().toString()),
+                        liftId = id,
+                        body = body,
+                        position = index,
+                        updatedAt = now,
+                    )
+                }
+            catalogNotes.value = catalogNotes.value + (id.value to minted)
+            val first = minted.firstOrNull()?.body
+            lifts.value = lifts.value.map { lift ->
+                if (lift.id == id) lift.copy(pinnedNote = first) else lift
             }
-        catalogNotes.value = catalogNotes.value + (id.value to minted)
-        val first = minted.firstOrNull()?.body
-        lifts.value = lifts.value.map { lift ->
-            if (lift.id == id) lift.copy(pinnedNote = first) else lift
         }
     }
 

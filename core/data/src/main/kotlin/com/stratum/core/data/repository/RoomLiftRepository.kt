@@ -346,19 +346,55 @@ class RoomLiftRepository @Inject constructor(
     override suspend fun getPinnedNotes(id: LiftId): List<LiftCatalogNote> {
         val rows = database.liftNoteDao().getForLift(id)
         if (rows.isNotEmpty()) return rows.map { it.toCatalogNote() }
-        // Dual-read fallback: rows predate the v5 backfill (or were written remotely
-        // by an old client) — surface the legacy column as a single note.
-        val legacy = liftDao.getById(id)?.pinnedNote?.takeIf { it.isNotBlank() }
-            ?: return emptyList()
-        return listOf(
-            LiftCatalogNote(
-                id = LiftCatalogNoteId("${id.value}::0"),
-                liftId = id,
-                body = legacy,
-                position = 0,
-                updatedAt = Instant.now(),
-            ),
-        )
+        // Client lazy-migrate for lifts that predate the v5 backfill (or were
+        // written remotely by an old client): persist the legacy column as the
+        // position-0 row so later reads and sync converge on the new shape.
+        if (migrateLegacyCatalogPin(id)) {
+            return database.liftNoteDao().getForLift(id).map { it.toCatalogNote() }
+        }
+        return emptyList()
+    }
+
+    /**
+     * Returns true when a legacy-only pin was persisted as the position-0 row.
+     * The empty-child check, parent lookup, authoritative pin read, and insert
+     * all happen inside one write-locked transaction: a concurrent clear or
+     * remote update that commits first leaves nothing eligible, so a stale
+     * pre-lock capture can never overwrite its newer value. A second
+     * concurrent migrate sees the first one's row and skips (no id churn, no
+     * phantom tombstone), and the in-lock parent check keeps a mid-migrate
+     * delete from violating the note-table FK out of a read path.
+     */
+    private suspend fun migrateLegacyCatalogPin(id: LiftId): Boolean {
+        val now = System.currentTimeMillis()
+        var migrated = false
+        syncTouch.withWriteLock {
+            database.withTransaction {
+                if (database.liftNoteDao().getForLift(id).isEmpty()) {
+                    val current = liftDao.getById(id)?.pinnedNote?.takeIf { it.isNotBlank() }
+                    if (current != null) {
+                        val body = sanitizeLiftNoteBody(current) ?: return@withTransaction
+                        database.liftNoteDao().upsertAll(
+                            listOf(
+                                LiftNoteEntity(
+                                    id = LiftCatalogNoteId(UUID.randomUUID().toString()),
+                                    liftId = id,
+                                    body = body,
+                                    position = 0,
+                                    createdAtEpochMillis = now,
+                                    updatedAtEpochMillis = now,
+                                    pendingSync = SyncFlags.PENDING_UPSERT,
+                                ),
+                            ),
+                        )
+                        liftDao.setPinnedNote(id = id, note = body, updatedAtEpochMillis = now)
+                        migrated = true
+                    }
+                }
+            }
+            if (migrated) syncTouch.markDirty()
+        }
+        return migrated
     }
 
     override suspend fun setPinnedNotes(id: LiftId, notes: List<CatalogNoteInput>) {
