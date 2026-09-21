@@ -151,7 +151,10 @@ class RoomLiftNotesRepository @Inject constructor(
             } else {
                 dao.getPastNotesForLiftExcluding(liftId, excludeSessionId)
             }
-        return rows.map { it.toPastNote() }
+        // Kotlin blank semantics (all Unicode whitespace), matching
+        // sanitizeLiftNoteBody — SQLite TRIM in the queries only strips spaces,
+        // so tab/newline-only bodies retained by the v5 backfill are dropped here.
+        return rows.map { it.toPastNote() }.filter { it.body.isNotBlank() }
     }
 
     override suspend fun remapLiftIds(sourceLiftIds: Set<LiftId>, targetLiftId: LiftId) {

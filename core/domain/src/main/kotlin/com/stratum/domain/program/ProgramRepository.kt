@@ -59,7 +59,14 @@ interface ProgramRepository {
      */
     suspend fun setWorkoutLiftPinnedNote(id: WorkoutLiftId, note: String?): Boolean
 
-    /** All workout notes for one template slot, display order (position ascending). */
+    /**
+     * All workout notes for one template slot, display order (position ascending).
+     *
+     * Client lazy-migrate: when the slot carries only a legacy `pinned_note`
+     * and no rows, implementations persist it as the position-0 row before
+     * returning, so this read can dirty the store. Callers must treat it as a
+     * read-write operation, not a pure query.
+     */
     suspend fun getWorkoutLiftPinnedNotes(id: WorkoutLiftId): List<WorkoutLiftNote>
 
     /**

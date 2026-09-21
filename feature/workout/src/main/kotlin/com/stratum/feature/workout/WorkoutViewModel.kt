@@ -45,7 +45,7 @@ import com.stratum.domain.workout.SetSlotId
 import com.stratum.domain.workout.WorkoutEditSession
 import com.stratum.feature.workout.notification.LiveWorkoutSurfaces
 import com.stratum.feature.workout.notification.RestTimerState
-import com.stratum.feature.workout.ui.PastSessionNoteUi
+import com.stratum.feature.workout.ui.PastSessionNotesGroupUi
 import com.stratum.feature.workout.ui.WorkoutUiEvent
 import com.stratum.feature.workout.ui.WorkoutUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -480,7 +480,7 @@ class WorkoutViewModel @Inject constructor(
         )
     }
 
-    suspend fun pastSessionNotes(liftId: String): List<PastSessionNoteUi> {
+    suspend fun pastSessionNotes(liftId: String): List<PastSessionNotesGroupUi> {
         val notes =
             getPastSessionNotesForLift(
                 LiftId(liftId),
@@ -488,11 +488,14 @@ class WorkoutViewModel @Inject constructor(
             )
         val formatter =
             DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withZone(ZoneId.systemDefault())
-        return notes.map { note ->
-            PastSessionNoteUi(
-                dateLabel = formatter.format(note.sessionStartedAt),
-                workoutName = note.workoutName.orEmpty(),
-                body = note.body,
+        // Notes arrive newest-session first with in-session append order; groupBy
+        // preserves first-seen key order, so groups stay newest-first.
+        return notes.groupBy { it.sessionId }.map { (_, sessionNotes) ->
+            val first = sessionNotes.first()
+            PastSessionNotesGroupUi(
+                dateLabel = formatter.format(first.sessionStartedAt),
+                workoutName = first.workoutName.orEmpty(),
+                bodies = sessionNotes.map { it.body },
             )
         }
     }

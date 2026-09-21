@@ -238,13 +238,51 @@ class SyncHandlersProvider @Inject constructor(
                 liftNoteDao.getById(LiftCatalogNoteId(id))
                     ?.let { LocalSyncMeta(it.pendingSync, it.updatedAtEpochMillis) }
             },
-            delete = { liftNoteDao.deleteById(LiftCatalogNoteId(it)) },
+            delete = { deleteCatalogNoteAndRefreshMirror(LiftCatalogNoteId(it)) },
             markSynced = { id, at -> liftNoteDao.markSyncedIfUnchanged(id, at) },
             encode = encoders::liftCatalogNote,
             decodeUpsert = { id, data ->
                 decoders.liftCatalogNote(id, data)?.let { liftNoteDao.upsertAll(listOf(it)); true } ?: false
             },
         )
+
+    /**
+     * Applies a remote catalog-note tombstone and recomputes the parent legacy
+     * mirror from the remaining rows (clearing it when none remain), in one
+     * transaction. Without the mirror update, a stale mirror plus the
+     * lazy-migrate read fallback would recreate the deleted row and re-upload
+     * it. The mirror write marks the parent dirty so the clearing propagates.
+     */
+    private suspend fun deleteCatalogNoteAndRefreshMirror(id: LiftCatalogNoteId) {
+        val row = liftNoteDao.getById(id) ?: return
+        database.withTransaction {
+            liftNoteDao.deleteById(id)
+            val remaining = liftNoteDao.getForLift(row.liftId)
+            liftDao.setPinnedNote(
+                id = row.liftId,
+                note = remaining.firstOrNull()?.body,
+                updatedAtEpochMillis = System.currentTimeMillis(),
+            )
+        }
+    }
+
+    /**
+     * Workout-slot counterpart of [deleteCatalogNoteAndRefreshMirror]: a remote
+     * note tombstone must not leave a mirror that the lazy-migrate fallback
+     * would treat as legacy-only data.
+     */
+    private suspend fun deleteWorkoutNoteAndRefreshMirror(id: WorkoutLiftNoteId) {
+        val row = workoutLiftNoteDao.getById(id) ?: return
+        database.withTransaction {
+            workoutLiftNoteDao.deleteById(id)
+            val remaining = workoutLiftNoteDao.getForWorkoutLift(row.workoutLiftId)
+            workoutLiftDao.setPinnedNote(
+                id = row.workoutLiftId,
+                note = remaining.firstOrNull()?.body,
+                updatedAtEpochMillis = System.currentTimeMillis(),
+            )
+        }
+    }
 
     private fun incrementTiersHandler(): SyncCollectionHandler =
         entityHandler(
@@ -333,7 +371,7 @@ class SyncHandlersProvider @Inject constructor(
                 workoutLiftNoteDao.getById(WorkoutLiftNoteId(id))
                     ?.let { LocalSyncMeta(it.pendingSync, it.updatedAtEpochMillis) }
             },
-            delete = { workoutLiftNoteDao.deleteById(WorkoutLiftNoteId(it)) },
+            delete = { deleteWorkoutNoteAndRefreshMirror(WorkoutLiftNoteId(it)) },
             markSynced = { id, at -> workoutLiftNoteDao.markSyncedIfUnchanged(id, at) },
             encode = encoders::workoutLiftNote,
             decodeUpsert = { id, data ->

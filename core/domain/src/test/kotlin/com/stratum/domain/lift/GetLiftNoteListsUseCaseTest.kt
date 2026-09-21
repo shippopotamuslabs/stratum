@@ -17,7 +17,11 @@ import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.training.identity.TrainingSessionId
 import java.time.Instant
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
@@ -99,6 +103,50 @@ class GetLiftNoteListsUseCaseTest {
         assertEquals(listOf("repo pin"), lists.workout.map { it.body })
     }
 
+    @Test
+    @DisplayName("legacy scalar pins migrate to rows on first load with stable ids")
+    fun legacyPinsMigrateOnLoad() = runTest {
+        val programs = FakeProgramRepository(sampleProgram(slotPin = "slot legacy"))
+        val lifts = FakeLiftRepository(listOf(sampleLift().copy(pinnedNote = "catalog legacy")))
+        val useCase = useCase(lifts = lifts, programs = programs)
+
+        val first = useCase(sessionId, workoutLiftId, liftId)
+        assertEquals(listOf("slot legacy"), first.workout.map { it.body })
+        assertEquals(listOf("catalog legacy"), first.lift.map { it.body })
+
+        val second = useCase(sessionId, workoutLiftId, liftId)
+        assertEquals(first.workout.single().id, second.workout.single().id)
+        assertEquals(first.lift.single().id, second.lift.single().id)
+    }
+
+    @Test
+    @DisplayName("legacy pins migrate sanitized (trimmed and length-capped)")
+    fun legacyPinsMigrateSanitized() = runTest {
+        val programs = FakeProgramRepository(sampleProgram(slotPin = "  padded  "))
+        val lifts = FakeLiftRepository(listOf(sampleLift().copy(pinnedNote = "x".repeat(2500))))
+        val useCase = useCase(lifts = lifts, programs = programs)
+
+        val lists = useCase(sessionId, workoutLiftId, liftId)
+
+        assertEquals(listOf("padded"), lists.workout.map { it.body })
+        assertEquals(listOf(MAX_LIFT_NOTE_LENGTH), lists.lift.map { it.body.length })
+    }
+
+    @Test
+    @DisplayName("concurrent first reads converge on one migrated row")
+    fun concurrentMigrateReadsConverge() = runTest {
+        val programs = FakeProgramRepository(sampleProgram(slotPin = "slot legacy"))
+        val useCase = useCase(programs = programs)
+
+        val ids = withContext(Dispatchers.Default) {
+            (1..16).map { async { useCase(sessionId, workoutLiftId, liftId) } }
+                .awaitAll()
+                .map { it.workout.single().id }
+        }
+
+        assertEquals(1, ids.toSet().size)
+    }
+
     private fun useCase(
         notes: FakeLiftNotesRepository = FakeLiftNotesRepository(),
         lifts: FakeLiftRepository = FakeLiftRepository(listOf(sampleLift())),
@@ -117,7 +165,7 @@ class GetLiftNoteListsUseCaseTest {
             enabled = true,
         )
 
-    private fun sampleProgram(): Program =
+    private fun sampleProgram(slotPin: String? = null): Program =
         Program(
             id = ProgramId("p-1"),
             name = "P",
@@ -141,6 +189,7 @@ class GetLiftNoteListsUseCaseTest {
                                     progressionScheme = ProgressionScheme.Double,
                                     position = 0,
                                     sets = emptyList(),
+                                    pinnedNote = slotPin,
                                 ),
                             ),
                     ),

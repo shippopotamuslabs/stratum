@@ -2973,21 +2973,11 @@ class WorkoutViewModelTest {
     @Test
     @DisplayName("past session notes map date, workout name, and body")
     fun pastSessionNotesMapping() = runTest {
-        val pastSession = TrainingSessionId("ts-past")
-        liftNotesRepository.upsertSessionNote(
-            LiftSessionNote(
-                id = LiftSessionNoteId("n-past"),
-                sessionId = pastSession,
-                liftId = liftId,
-                workoutLiftId = workoutLiftId,
-                body = "High bar today",
-                updatedAt = Instant.EPOCH,
-            ),
-        )
-        liftNotesRepository.markSessionCompleted(
-            pastSession,
-            Instant.parse("2026-08-14T12:00:00Z"),
-            "Lower A",
+        seedCompletedSession(
+            sessionId = TrainingSessionId("ts-past"),
+            startedAt = "2026-08-14T12:00:00Z",
+            workoutName = "Lower A",
+            bodies = listOf("High bar today"),
         )
         val viewModel = buildViewModel()
         viewModel.startSession(workoutId)
@@ -2996,8 +2986,59 @@ class WorkoutViewModelTest {
         val notes = viewModel.pastSessionNotes(liftId.value)
         assertEquals(1, notes.size)
         assertEquals("Lower A", notes.single().workoutName)
-        assertEquals("High bar today", notes.single().body)
+        assertEquals(listOf("High bar today"), notes.single().bodies)
         assertTrue(notes.single().dateLabel.isNotBlank())
+    }
+
+    @Test
+    @DisplayName("past session notes group multiple bodies under one session header")
+    fun pastSessionNotesGrouping() = runTest {
+        seedCompletedSession(
+            sessionId = TrainingSessionId("ts-past"),
+            startedAt = "2026-08-14T12:00:00Z",
+            workoutName = "Lower A",
+            bodies = listOf("High bar today", "Belt on top set"),
+        )
+        seedCompletedSession(
+            sessionId = TrainingSessionId("ts-older"),
+            startedAt = "2026-08-07T12:00:00Z",
+            workoutName = "Lower A",
+            bodies = listOf("Low bar last week"),
+        )
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        val notes = viewModel.pastSessionNotes(liftId.value)
+        assertEquals(2, notes.size)
+        assertEquals(listOf("High bar today", "Belt on top set"), notes[0].bodies)
+        assertEquals(listOf("Low bar last week"), notes[1].bodies)
+    }
+
+    private suspend fun seedCompletedSession(
+        sessionId: TrainingSessionId,
+        startedAt: String,
+        workoutName: String,
+        bodies: List<String>,
+    ) {
+        bodies.forEachIndexed { index, body ->
+            liftNotesRepository.upsertSessionNote(
+                LiftSessionNote(
+                    id = LiftSessionNoteId("${sessionId.value}-n-$index"),
+                    sessionId = sessionId,
+                    liftId = liftId,
+                    workoutLiftId = workoutLiftId,
+                    body = body,
+                    updatedAt = Instant.EPOCH,
+                    position = index,
+                ),
+            )
+        }
+        liftNotesRepository.markSessionCompleted(
+            sessionId,
+            Instant.parse(startedAt),
+            workoutName,
+        )
     }
 
     private suspend fun app.cash.turbine.ReceiveTurbine<WorkoutUiState>.awaitLoaded(): WorkoutUiState.Loaded {

@@ -153,18 +153,42 @@ class RoomProgramRepository @Inject constructor(
     override suspend fun getWorkoutLiftPinnedNotes(id: WorkoutLiftId): List<WorkoutLiftNote> {
         val rows = database.workoutLiftNoteDao().getForWorkoutLift(id)
         if (rows.isNotEmpty()) return rows.map { it.toWorkoutLiftNote() }
-        // Dual-read fallback: slot predates the v5 backfill — surface the legacy column.
-        val legacy = workoutLiftDao.getById(id)?.pinnedNote?.takeIf { it.isNotBlank() }
-            ?: return emptyList()
-        return listOf(
-            WorkoutLiftNote(
-                id = WorkoutLiftNoteId("${id.value}::0"),
-                workoutLiftId = id,
-                body = legacy,
-                position = 0,
-                updatedAt = Instant.now(),
-            ),
-        )
+        // Client lazy-migrate for slots that predate the v5 backfill (or were
+        // written remotely by an old client): persist the legacy column as the
+        // position-0 row so later reads and sync converge on the new shape.
+        if (migrateLegacyWorkoutPin(id)) {
+            return database.workoutLiftNoteDao().getForWorkoutLift(id).map { it.toWorkoutLiftNote() }
+        }
+        return emptyList()
+    }
+
+    /**
+     * Returns true when a legacy-only pin was persisted as the position-0 row.
+     * The empty-child check, parent lookup, authoritative pin read, and insert
+     * all happen inside one write-locked transaction: a concurrent clear or
+     * remote update that commits first leaves nothing eligible, so a stale
+     * pre-lock capture can never overwrite its newer value. A second
+     * concurrent migrate sees the first one's row and skips (no id churn, no
+     * phantom tombstone), and the in-lock parent check keeps a mid-migrate
+     * delete from violating the note-table FK out of a read path.
+     */
+    private suspend fun migrateLegacyWorkoutPin(id: WorkoutLiftId): Boolean {
+        val now = System.currentTimeMillis()
+        var migrated = false
+        syncTouch.withWriteLock {
+            database.withTransaction {
+                if (database.workoutLiftNoteDao().getForWorkoutLift(id).isEmpty()) {
+                    val current =
+                        workoutLiftDao.getById(id)?.pinnedNote?.takeIf { it.isNotBlank() }
+                    if (current != null) {
+                        replaceWorkoutLiftNotes(id, listOf(WorkoutLiftNoteInput(body = current)), now)
+                        migrated = true
+                    }
+                }
+            }
+            if (migrated) syncTouch.markDirty()
+        }
+        return migrated
     }
 
     override suspend fun setWorkoutLiftPinnedNotes(
