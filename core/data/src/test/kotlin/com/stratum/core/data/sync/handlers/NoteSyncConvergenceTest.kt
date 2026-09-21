@@ -31,6 +31,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assertions.fail
 import org.junit.jupiter.api.BeforeEach
@@ -148,6 +149,43 @@ class NoteSyncConvergenceTest {
 
         handler.deleteLocal("c-1")
         assertTrue(database.liftNoteDao().getForLift(LiftId("lift-1")).isEmpty())
+    }
+
+    @Test
+    @DisplayName("remote note delete recomputes the parent mirror from remaining rows")
+    fun noteDeleteRefreshesMirror() = runTest {
+        seedLift("lift-1")
+        val handler = registry.get(SyncCollection.LiftCatalogNotes)
+        handler.upsertFromRemote(
+            "c-1",
+            mapOf(
+                "lift_id" to "lift-1",
+                "body" to "first",
+                "position" to 0,
+                "created_at_epoch_millis" to 30L,
+                FirestoreSyncMetadata.UPDATED_AT to 40L,
+            ),
+        )
+        handler.upsertFromRemote(
+            "c-2",
+            mapOf(
+                "lift_id" to "lift-1",
+                "body" to "second",
+                "position" to 1,
+                "created_at_epoch_millis" to 31L,
+                FirestoreSyncMetadata.UPDATED_AT to 41L,
+            ),
+        )
+        database.liftDao().setPinnedNote(LiftId("lift-1"), "first", 40L)
+
+        // Deleting one row refreshes the mirror to the remaining first body.
+        handler.deleteLocal("c-1")
+        assertEquals("second", database.liftDao().getById(LiftId("lift-1"))?.pinnedNote)
+
+        // Deleting the final row clears the mirror, so the lazy-migrate read
+        // fallback cannot recreate the deleted note and re-upload it.
+        handler.deleteLocal("c-2")
+        assertNull(database.liftDao().getById(LiftId("lift-1"))?.pinnedNote)
     }
 
     @Test

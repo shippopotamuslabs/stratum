@@ -1,8 +1,10 @@
 package com.stratum.core.data.repository
 
 import androidx.room.Room
+import com.stratum.core.data.db.LiftSessionNoteEntity
 import com.stratum.core.data.db.StratumDatabase
 import com.stratum.core.data.db.TrainingSessionEntity
+import com.stratum.core.data.sync.SyncFlags
 import com.stratum.core.data.sync.SyncCollection
 import com.stratum.domain.lift.LiftSessionNote
 import com.stratum.domain.lift.SessionNoteInput
@@ -164,6 +166,52 @@ class RoomLiftNotesRepositoryTest {
         )
 
         assertTrue(subject.getSessionNotes(sessionId, workoutLiftId).isEmpty())
+    }
+
+    @Test
+    @DisplayName("past notes exclude whitespace-only bodies in any whitespace flavor")
+    fun pastNotesExcludeWhitespaceBodies() = runTest {
+        database.trainingSessionDao().upsert(
+            TrainingSessionEntity(
+                id = TrainingSessionId("ts-past"),
+                programId = null,
+                workoutId = null,
+                status = TrainingSessionStatus.COMPLETED,
+                kind = TrainingSessionKind.PROGRAM_WORKOUT,
+                origin = TrainingSessionOrigin.LIVE,
+                cycleNumberSnapshot = 1,
+                weekdaySnapshot = null,
+                startedAtEpochMillis = 10L,
+                endedAtEpochMillis = 11L,
+                sourceApp = null,
+                workoutNameSnapshot = "Past",
+            ),
+        )
+        // Bypass the sanitizing replace path to simulate rows retained by the
+        // v5 backfill before blank filtering existed.
+        val dao = database.liftSessionNoteDao()
+        suspend fun insertRaw(id: String, body: String, position: Int) {
+            dao.upsert(
+                LiftSessionNoteEntity(
+                    id = LiftSessionNoteId(id),
+                    sessionId = TrainingSessionId("ts-past"),
+                    liftId = liftId,
+                    workoutLiftId = workoutLiftId,
+                    body = body,
+                    position = position,
+                    updatedAtEpochMillis = 1L,
+                    pendingSync = SyncFlags.CLEAN,
+                ),
+            )
+        }
+        insertRaw("n-kept", "kept", 0)
+        insertRaw("n-tab", "\t", 1)
+        insertRaw("n-nl", "\n \n", 2)
+        insertRaw("n-sp", "   ", 3)
+
+        val past = subject.getPastNotesForLift(liftId, null)
+
+        assertEquals(listOf("kept"), past.map { it.body })
     }
 
     private suspend fun insertSession() {
