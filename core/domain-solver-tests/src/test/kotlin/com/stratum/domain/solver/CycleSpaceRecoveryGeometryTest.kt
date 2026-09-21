@@ -23,6 +23,10 @@ class CycleSpaceRecoveryGeometryTest {
     @DisplayName("6-in-8 default: cycle slots are 0,1,2,4,5,6 with mid and wrap gap 2")
     fun sixDayEightSlot_assignmentUsesTrainSlots() =
         runBlocking {
+            // Structural solve needs a realistic catalog: the 2-lift default fixture
+            // yields 4 slots in 2 uniqueness groups, but every session requires
+            // ≥3 active lifts from distinct (pattern, muscle) groups — correctly
+            // INFEASIBLE, and unrelated to the geometry under test.
             val context =
                 GenerationContextTestFixtures
                     .contextWith(
@@ -39,6 +43,8 @@ class CycleSpaceRecoveryGeometryTest {
                                         "Saturday",
                                     ),
                             ),
+                        provenLifts = GenerationContextTestFixtures.volumePlannerLifts,
+                        literatureVolumeSnapshots = GenerationContextTestFixtures.volumePlannerSnapshots,
                     ).withResolvedCycleSpace()
             assertEquals(8, context.cycleLength)
             assertEquals(GenerationCycleDefaults.SIX_DAY_ROTATING_DEFAULT_RESTS, context.restSlotIndices)
@@ -79,6 +85,8 @@ class CycleSpaceRecoveryGeometryTest {
                                         "Saturday",
                                     ),
                             ),
+                        provenLifts = GenerationContextTestFixtures.volumePlannerLifts,
+                        literatureVolumeSnapshots = GenerationContextTestFixtures.volumePlannerSnapshots,
                     ).copy(
                         cycleLength = 7,
                         restSlotIndices = setOf(6),

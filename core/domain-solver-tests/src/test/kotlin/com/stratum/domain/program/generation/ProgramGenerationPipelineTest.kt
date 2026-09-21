@@ -4,6 +4,7 @@ import com.stratum.core.testing.program.testProgramGenerationPipeline
 import com.stratum.core.testing.program.SCENARIO_LIFT_CATALOG
 import com.stratum.core.testing.program.ScenarioConfig
 import com.stratum.core.testing.program.activeSolverScenarios
+import com.stratum.core.testing.program.cycleSpaceForWeekdayLayout
 import com.stratum.core.testing.program.lowerDominantWorkouts
 import com.stratum.core.testing.program.parseScenarioContext
 import com.stratum.core.testing.program.scenarioPayload
@@ -53,8 +54,12 @@ class ProgramGenerationPipelineTest {
     // withReconciledTrainingWeekdays() after sanitization. Mirror that single path here — no
     // inline if/else fallback, no profile-weekday rebinding.
     val program = normalized.toDomainProgram().withReconciledTrainingWeekdays()
-    assertEquals(config.days, program.cycleLength)
+    // Cycle-space identity (not the legacy N==cycleLength week): the full ring is
+    // sessions + rests — classic weeks stay 7 slots, 6-day rotating uses 8.
     assertEquals(config.days, program.workouts.size)
+    val expectedRests = cycleSpaceForWeekdayLayout(config.days, config.weekdayLayout).second
+    assertEquals(expectedRests, program.restSlotIndices)
+    assertEquals(config.days + expectedRests.size, program.cycleLength)
     for (workout in program.workouts) {
       assertTrue(workout.weekday != null)
       val ids = workout.workoutLifts.map { it.liftId }
