@@ -6,10 +6,6 @@ include:
     ref: v1.0.3
     file: '/templates/forge.gitlab-ci.yml'
 
-variables:
-  FORGE_ENABLED: "true"
-  FORGE_REF: "v1.0.3"
-
 # ONE-TIME SETUP (GitLab project -> Settings -> CI/CD -> Variables):
 # - GOOGLE_SERVICES_JSON (type: File): paste the contents of app/google-services.json.
 #   The file is gitignored, so without this every Android job fails at configuration time.
@@ -47,6 +43,9 @@ variables:
   # OSV-Scanner release used by the osv-scan job. Bump when a new release lands
   # (check https://github.com/google/osv-scanner/releases).
   OSV_SCANNER_VERSION: "2.6.0"
+  # Forge reviewer (standalone template)
+  FORGE_ENABLED: "true"
+  FORGE_REF: "v1.0.3"
 
 stages:
   - lint
