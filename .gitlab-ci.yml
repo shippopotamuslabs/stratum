@@ -194,6 +194,43 @@ osv-scan:
       - bom-solver.cdx.json
     expire_in: 2 weeks
 
+# Solver container-image CVE scan: builds the production Cloud Run image
+# (solver-service/Dockerfile, repo root as context) and runs
+# `osv-scanner scan image` against it, covering the OS/base-image layer
+# (eclipse-temurin:17-jre-jammy plus libgomp1 from apt) that the SBOM-based
+# osv-scan job cannot see. Triage path: docs/security-scanning.md.
+# Tracked in #11 (implementation) / #12 (design).
+#
+# ROLLOUT: allow_failure stays true. The 2026-09-21 baseline (see
+# docs/security-scanning.md) found 79 Ubuntu base-layer CVEs with no
+# upstream fix, so a hard gate has no path to green — the job is an
+# informational control plus Renovate base-update tracking. Revisit only if
+# a fixable (especially network-reachable) image CVE appears. (Same
+# precedent as emulator-tests / solver-tests-nightly.)
+osv-scan-image:
+  extends: .android-job
+  stage: lint
+  allow_failure: true
+  script:
+    # Same pinned static binary as osv-scan (shell executor can't run the
+    # analyzer Docker images GitLab's own templates use).
+    - |
+      case "$(uname -m)" in
+        x86_64) OSV_ARCH=amd64 ;;
+        aarch64|arm64) OSV_ARCH=arm64 ;;
+        *) echo "Unsupported architecture: $(uname -m)"; exit 1 ;;
+      esac
+      OSV_URL="https://github.com/google/osv-scanner/releases/download/v${OSV_SCANNER_VERSION}/osv-scanner_linux_${OSV_ARCH}"
+      echo "Downloading osv-scanner ${OSV_SCANNER_VERSION} (${OSV_ARCH})"
+      curl -sSL --retry 3 -o /tmp/osv-scanner "$OSV_URL"
+      chmod +x /tmp/osv-scanner
+      /tmp/osv-scanner --version
+    # Fat jar first: the Dockerfile COPYs it out of the repo-root context.
+    - ./gradlew :solver-service:shadowJar
+    # Fail-closed Docker guard, build, provenance, scan.
+    # Exit code 1 = CVEs found, matching the osv-scan failure policy.
+    - OSV_SCANNER_BIN=/tmp/osv-scanner ./scripts/scan-solver-image.sh stratum-solver:ci
+
 # Device tests on shared runners: no KVM, so the emulator runs unaccelerated and
 # slow. Nightly + allow_failure until green, then decide about per-MR.
 # Covers AppLaunchTest (:app) and LiftDaoDeviceTest (:core:data) on real SQLite.
@@ -219,8 +256,12 @@ emulator-tests:
     - command -v sdkmanager || (echo "sdkmanager not found under $ANDROID_HOME" && exit 1)
     # `yes` dies with SIGPIPE (141) once sdkmanager exits; tolerate only that.
     - yes | sdkmanager --licenses > /dev/null || [ $? -eq 141 ]
-    - sdkmanager "platform-tools" "platforms;android-34" "system-images;android-34;google_apis;x86_64" "emulator"
-    - echo "no" | avdmanager create avd -n ci -k "system-images;android-34;google_apis;x86_64" --device "pixel_7" --force
+    # API 35 = lowest system image the host SDK carries (minSdk is 34, but
+    # no android-34 image is installed or installable anymore — avdmanager
+    # lists only 35/36/36.1 — so the AVD tracks the closest runtime above
+    # minSdk. compileSdk/targetSdk (37) are unaffected: those are build-time.
+    - sdkmanager "platform-tools" "platforms;android-35" "system-images;android-35;google_apis;x86_64" "emulator"
+    - echo "no" | avdmanager create avd -n ci -k "system-images;android-35;google_apis;x86_64" --device "pixel_7" --force
     - test -f "$ANDROID_AVD_HOME/ci.ini" || (echo "AVD 'ci' was not created under $ANDROID_AVD_HOME" && exit 1)
     # Shrink the userdata partition in the AVD config itself: the emulator's
     # pre-boot disk check reads config.ini (it ignores -partition-size there),
