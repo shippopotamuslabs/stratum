@@ -11,8 +11,9 @@ data class WorkoutLogLiftUi(
     val showWeightColumn: Boolean = true,
     val weightHeaderLabel: String = "Weight",
     val supersetGroupId: String? = null,
-    val workoutPinnedNote: String? = null,
-    val liftPinnedNote: String? = null,
+    /** Ordered pinned notes rendered as stacked rows on the lift card. */
+    val workoutPinnedNotes: List<String> = emptyList(),
+    val liftPinnedNotes: List<String> = emptyList(),
     val isPlateLoaded: Boolean = false,
     val isDoubleSided: Boolean = true,
     val unitLabel: String = "lb",

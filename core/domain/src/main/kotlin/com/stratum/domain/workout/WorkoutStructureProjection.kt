@@ -19,10 +19,17 @@ data class WorkoutLiftProjection(
     val useRestTimerBetweenLifts: Boolean = false,
     val isPlateLoaded: Boolean = false,
     val isDoubleSided: Boolean = true,
-    /** Pinned note on the [com.stratum.domain.program.WorkoutLift] template slot. */
-    val workoutPinnedNote: String? = null,
-    /** Pinned note on the catalog [com.stratum.domain.lift.Lift]. */
-    val liftPinnedNote: String? = null,
+    /**
+     * Ordered pinned notes on the [com.stratum.domain.program.WorkoutLift] template slot.
+     * Falls back to the legacy single [com.stratum.domain.program.WorkoutLift.pinnedNote]
+     * when the slot predates list storage.
+     */
+    val workoutPinnedNotes: List<String> = emptyList(),
+    /**
+     * Ordered pinned notes on the catalog [com.stratum.domain.lift.Lift].
+     * Falls back to the legacy single [com.stratum.domain.lift.Lift.pinnedNote].
+     */
+    val liftPinnedNotes: List<String> = emptyList(),
 )
 
 /**

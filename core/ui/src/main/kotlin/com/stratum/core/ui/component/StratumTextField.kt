@@ -10,12 +10,20 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextFieldColors
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R
@@ -30,12 +38,19 @@ import com.stratum.core.ui.theme.StratumThemeAccessor
  *
  * [StratumTextFieldOptions.showClearButton] draws a compact X in the top-end corner with no
  * filled background, so it stays inside the outline on multiline fields.
+ *
+ * [StratumTextFieldOptions.selectAllOnFocus] selects all text on the first focus acquisition
+ * (quick-replace editing, e.g. note fields); later focuses place the cursor normally.
+ *
+ * Pass `label = null` for label-less fields (e.g. swipe-to-delete note rows, where the
+ * floating label's top strip sits outside the field container); use [placeholder] for the
+ * empty-state caption instead.
  */
 @Composable
 fun StratumTextField(
     value: String,
     onValueChange: (String) -> Unit,
-    label: String,
+    label: String?,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     isError: Boolean = false,
@@ -47,60 +62,75 @@ fun StratumTextField(
     options: StratumTextFieldOptions = StratumTextFieldOptions(),
 ) {
     val maxLines = options.maxLines ?: if (singleLine) 1 else Int.MAX_VALUE
+    // Shared chrome so the select-all and plain branches differ only in value wiring.
+    val labelContent: (@Composable () -> Unit)? = label?.let { text -> { Text(text = text) } }
+    val placeholderContent: (@Composable () -> Unit)? =
+        placeholder?.let { { Text(text = it) } }
+    val supportingContent = supportingLine(isError, errorText, options.supportingText)
+    val fieldShape = StratumThemeAccessor.shapes.panel
+    val fieldColors = stratumTextFieldColors(isError)
+    // Selection state for select-all-on-focus. Unconditional hooks; only read when enabled.
+    // External value changes (e.g. length truncation) adopt the text and park the cursor at
+    // the end; keystrokes flow through onValueChange so typing never fights the parent.
+    var selectValue by remember { mutableStateOf(TextFieldValue(text = value)) }
+    var selectArmed by remember { mutableStateOf(true) }
+    val selecting = options.selectAllOnFocus
+    if (selecting && selectValue.text != value) {
+        selectValue = TextFieldValue(text = value, selection = TextRange(value.length))
+    }
     val field =
         @Composable { fieldModifier: Modifier ->
-            OutlinedTextField(
-                value = value,
-                onValueChange = onValueChange,
-                modifier = fieldModifier.fillMaxWidth(),
-                enabled = enabled,
-                label = { Text(text = label) },
-                placeholder = placeholder?.let { { Text(text = it) } },
-                singleLine = singleLine,
-                minLines = options.minLines,
-                maxLines = maxLines,
-                isError = isError,
-                supportingText = supportingLine(isError, errorText, options.supportingText),
-                keyboardOptions = keyboardOptions,
-                visualTransformation = visualTransformation,
-                shape = StratumThemeAccessor.shapes.panel,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = StratumThemeAccessor.colors.textPrimary,
-                    unfocusedTextColor = StratumThemeAccessor.colors.textPrimary,
-                    disabledTextColor = StratumThemeAccessor.colors.textMuted,
-                    focusedContainerColor = StratumThemeAccessor.colors.surfaceBase,
-                    unfocusedContainerColor = StratumThemeAccessor.colors.surfaceBase,
-                    disabledContainerColor = StratumThemeAccessor.colors.surfaceSunken,
-                    cursorColor = StratumThemeAccessor.colors.accent,
-                    errorCursorColor = StratumThemeAccessor.colors.error,
-                    selectionColors = null,
-                    focusedBorderColor = StratumThemeAccessor.colors.accent,
-                    unfocusedBorderColor = StratumThemeAccessor.colors.borderSubtle,
-                    disabledBorderColor = StratumThemeAccessor.colors.borderSubtle,
-                    errorBorderColor = StratumThemeAccessor.colors.error,
-                    focusedLabelColor = StratumThemeAccessor.colors.accent,
-                    unfocusedLabelColor = StratumThemeAccessor.colors.textMuted,
-                    disabledLabelColor = StratumThemeAccessor.colors.textMuted,
-                    errorLabelColor = StratumThemeAccessor.colors.error,
-                    focusedSupportingTextColor =
-                        if (isError) {
-                            StratumThemeAccessor.colors.error
-                        } else {
-                            StratumThemeAccessor.colors.textMuted
-                        },
-                    unfocusedSupportingTextColor =
-                        if (isError) {
-                            StratumThemeAccessor.colors.error
-                        } else {
-                            StratumThemeAccessor.colors.textMuted
-                        },
-                    disabledSupportingTextColor = StratumThemeAccessor.colors.textMuted,
-                    errorSupportingTextColor = StratumThemeAccessor.colors.error,
-                    focusedPlaceholderColor = StratumThemeAccessor.colors.textMuted,
-                    unfocusedPlaceholderColor = StratumThemeAccessor.colors.textMuted,
-                    disabledPlaceholderColor = StratumThemeAccessor.colors.textMuted,
-                ),
-            )
+            if (selecting) {
+                OutlinedTextField(
+                    value = selectValue,
+                    onValueChange = { next ->
+                        selectValue = next
+                        if (next.text != value) onValueChange(next.text)
+                    },
+                    modifier =
+                        fieldModifier
+                            .fillMaxWidth()
+                            .onFocusChanged { focus ->
+                                if (focus.isFocused && selectArmed) {
+                                    selectArmed = false
+                                    selectValue =
+                                        selectValue.copy(
+                                            selection = TextRange(0, selectValue.text.length),
+                                        )
+                                }
+                            },
+                    enabled = enabled,
+                    label = labelContent,
+                    placeholder = placeholderContent,
+                    singleLine = singleLine,
+                    minLines = options.minLines,
+                    maxLines = maxLines,
+                    isError = isError,
+                    supportingText = supportingContent,
+                    keyboardOptions = keyboardOptions,
+                    visualTransformation = visualTransformation,
+                    shape = fieldShape,
+                    colors = fieldColors,
+                )
+            } else {
+                OutlinedTextField(
+                    value = value,
+                    onValueChange = onValueChange,
+                    modifier = fieldModifier.fillMaxWidth(),
+                    enabled = enabled,
+                    label = labelContent,
+                    placeholder = placeholderContent,
+                    singleLine = singleLine,
+                    minLines = options.minLines,
+                    maxLines = maxLines,
+                    isError = isError,
+                    supportingText = supportingContent,
+                    keyboardOptions = keyboardOptions,
+                    visualTransformation = visualTransformation,
+                    shape = fieldShape,
+                    colors = fieldColors,
+                )
+            }
         }
 
     if (!options.showClearButton) {
@@ -131,6 +161,45 @@ fun StratumTextField(
         }
     }
 }
+
+@Composable
+private fun stratumTextFieldColors(isError: Boolean): TextFieldColors =
+    OutlinedTextFieldDefaults.colors(
+        focusedTextColor = StratumThemeAccessor.colors.textPrimary,
+        unfocusedTextColor = StratumThemeAccessor.colors.textPrimary,
+        disabledTextColor = StratumThemeAccessor.colors.textMuted,
+        focusedContainerColor = StratumThemeAccessor.colors.surfaceBase,
+        unfocusedContainerColor = StratumThemeAccessor.colors.surfaceBase,
+        disabledContainerColor = StratumThemeAccessor.colors.surfaceSunken,
+        cursorColor = StratumThemeAccessor.colors.accent,
+        errorCursorColor = StratumThemeAccessor.colors.error,
+        selectionColors = null,
+        focusedBorderColor = StratumThemeAccessor.colors.accent,
+        unfocusedBorderColor = StratumThemeAccessor.colors.borderSubtle,
+        disabledBorderColor = StratumThemeAccessor.colors.borderSubtle,
+        errorBorderColor = StratumThemeAccessor.colors.error,
+        focusedLabelColor = StratumThemeAccessor.colors.accent,
+        unfocusedLabelColor = StratumThemeAccessor.colors.textMuted,
+        disabledLabelColor = StratumThemeAccessor.colors.textMuted,
+        errorLabelColor = StratumThemeAccessor.colors.error,
+        focusedSupportingTextColor =
+            if (isError) {
+                StratumThemeAccessor.colors.error
+            } else {
+                StratumThemeAccessor.colors.textMuted
+            },
+        unfocusedSupportingTextColor =
+            if (isError) {
+                StratumThemeAccessor.colors.error
+            } else {
+                StratumThemeAccessor.colors.textMuted
+            },
+        disabledSupportingTextColor = StratumThemeAccessor.colors.textMuted,
+        errorSupportingTextColor = StratumThemeAccessor.colors.error,
+        focusedPlaceholderColor = StratumThemeAccessor.colors.textMuted,
+        unfocusedPlaceholderColor = StratumThemeAccessor.colors.textMuted,
+        disabledPlaceholderColor = StratumThemeAccessor.colors.textMuted,
+    )
 
 @Composable
 private fun supportingLine(

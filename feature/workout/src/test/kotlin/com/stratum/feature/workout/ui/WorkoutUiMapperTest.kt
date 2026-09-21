@@ -42,7 +42,7 @@ class WorkoutUiMapperTest {
     }
 
     @Test
-    @DisplayName("pinned workout and lift notes copy as presentation strings")
+    @DisplayName("all pinned workout and lift notes copy as presentation lists")
     fun pinnedNotesCopyToUi() {
         val rendered =
             RenderedWorkout(
@@ -57,14 +57,14 @@ class WorkoutUiMapperTest {
                             progressionScheme = ProgressionScheme.Double,
                             sets = emptyList(),
                             loadType = LoadType.Weighted,
-                            workoutPinnedNote = "Elbows in",
-                            liftPinnedNote = "Belt on",
+                            workoutPinnedNotes = listOf("Elbows in", "Chest up"),
+                            liftPinnedNotes = listOf("Belt on"),
                         ),
                     ),
             )
         val mapped = WorkoutUiMapper.map(rendered, sessionStartedAtEpochMilli = 1L)
-        assertEquals("Elbows in", mapped.lifts.single().workoutPinnedNote)
-        assertEquals("Belt on", mapped.lifts.single().liftPinnedNote)
+        assertEquals(listOf("Elbows in", "Chest up"), mapped.lifts.single().workoutPinnedNotes)
+        assertEquals(listOf("Belt on"), mapped.lifts.single().liftPinnedNotes)
     }
 
     @Test
