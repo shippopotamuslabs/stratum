@@ -27,7 +27,9 @@ import org.junit.jupiter.api.Test
  *  - §1.1/§7.2: muscles are hard-forbidden from meaningful exposure on adjacent days regardless of
  *    specialization tier (Maintenance Quad below); §7.2's MinVolume-as-priority bug is gone.
  *  - §4.1: a Glute-Specialize user gets a direct hip-thrust slot; a Maintenance user does not.
- *  - §7.5: duplicate training weekdays surface an actionable error.
+ *  - §7.5: degenerate input fails loud — an empty lift catalog surfaces an
+ *    actionable empty-universe error (the legacy duplicate-weekday guard retired
+ *    with the cycle-space identity: duplicates are unrepresentable).
  */
 class ProgramSynthesisAuditFixTest {
 
@@ -105,11 +107,16 @@ class ProgramSynthesisAuditFixTest {
     }
 
     @Test
-    fun duplicateTrainingWeekdaysThrowActionableError() {
+    fun emptyLiftCatalogThrowsActionableError() {
+        // Audit §7.5's duplicate-weekday guard was retired with the cycle-space identity
+        // (d520324c): duplicate weekdays are unrepresentable now — the context carries
+        // N + rests + length, and the profile holds a Set<Weekday>. The living fail-loud
+        // contract is the degenerate catalog: synthesis must name the empty universe
+        // instead of burning the deadline or emitting a lift-less program.
         val context = parseScenarioContext(
             """
             {"profile":{"trainingAge":"Intermediate","sessionLengthMinutes":75,
-            "weekdays":"Monday,Monday,Wednesday","trainingDaysPerWeek":3},
+            "trainingDaysPerWeek":3},
             "specialization":{},"provenLifts":[],"availableLifts":[],
             "literatureVolumeSnapshots":[]}
             """.trimIndent(),
@@ -119,8 +126,8 @@ class ProgramSynthesisAuditFixTest {
             runBlocking { synthesizer.synthesize(planWeeklyVolume(context), context) }
         }
         assertTrue(
-            ex.message?.contains("duplicates", ignoreCase = true) == true,
-            "Duplicate-weekday error must be actionable: ${ex.message}",
+            ex.message?.contains("Slot universe is empty", ignoreCase = true) == true,
+            "Empty-catalog error must be actionable: ${ex.message}",
         )
     }
 
