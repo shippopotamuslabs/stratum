@@ -457,6 +457,24 @@ class RoomProgramRepositoryTest {
         }
 
         @Test
+        fun `reading a legacy-only pin migrates it to a position-0 row`() = runTest {
+            seedReferencedLifts()
+            repository.saveProgram(PROGRAM_P1)
+            val slot = WorkoutLiftId("wl-1")
+            // Simulate pre-backfill storage: legacy column set, no child rows.
+            database.workoutLiftDao().setPinnedNote(slot, "legacy", 1L)
+
+            val first = repository.getWorkoutLiftPinnedNotes(slot)
+            assertEquals(listOf("legacy"), first.map { it.body })
+            assertEquals(0, first.single().position)
+
+            // Second read hits the migrated row — stable id, no duplicate rows.
+            val second = repository.getWorkoutLiftPinnedNotes(slot)
+            assertEquals(first.single().id, second.single().id)
+            assertEquals("legacy", database.workoutLiftDao().getById(slot)?.pinnedNote)
+        }
+
+        @Test
         fun `deleteProgram cascades slot notes`() = runTest {
             seedReferencedLifts()
             repository.saveProgram(PROGRAM_P1)

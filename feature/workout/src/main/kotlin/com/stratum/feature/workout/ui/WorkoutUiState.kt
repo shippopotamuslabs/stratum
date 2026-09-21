@@ -71,10 +71,14 @@ data class RenderedLiftUi(
     override val name: String get() = liftName
 }
 
-data class PastSessionNoteUi(
+/**
+ * Past notes for one completed session: a single date/workout header with every
+ * note body from that session in append order (newest session first).
+ */
+data class PastSessionNotesGroupUi(
     val dateLabel: String,
     val workoutName: String,
-    val body: String,
+    val bodies: List<String>,
 )
 
 /** One note draft in the editor. A null [id] means "append as new"; blank bodies drop on save. */
@@ -116,7 +120,7 @@ data class WorkoutLiftNotesActions(
     val onLoadNoteLists: suspend (workoutLiftId: String, liftId: String) -> NoteListsUi =
         { _, _ -> NoteListsUi() },
     val onSave: (LiftNoteListsSaveRequest) -> Unit = {},
-    val onLoadPastNotes: suspend (liftId: String) -> List<PastSessionNoteUi> = { emptyList() },
+    val onLoadPastNotes: suspend (liftId: String) -> List<PastSessionNotesGroupUi> = { emptyList() },
 )
 
 /**

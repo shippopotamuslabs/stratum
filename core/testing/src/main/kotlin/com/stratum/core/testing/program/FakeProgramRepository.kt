@@ -192,20 +192,26 @@ class FakeProgramRepository(
         return setWorkoutLiftPinnedNotes(id, listOf(WorkoutLiftNoteInput(id = existingId, body = clean)))
     }
 
-    override suspend fun getWorkoutLiftPinnedNotes(id: WorkoutLiftId): List<WorkoutLiftNote> =
-        workoutNotes.value[id.value] ?: findWorkoutLift(id)?.pinnedNote
-            ?.takeIf { it.isNotBlank() }
-            ?.let { body ->
-                listOf(
-                    WorkoutLiftNote(
-                        id = WorkoutLiftNoteId("${id.value}::0"),
-                        workoutLiftId = id,
-                        body = body,
-                        position = 0,
-                        updatedAt = Instant.now(),
-                    ),
-                )
-            }.orEmpty()
+    override suspend fun getWorkoutLiftPinnedNotes(id: WorkoutLiftId): List<WorkoutLiftNote> {
+        workoutNotes.value[id.value]?.let { return it }
+        val legacy = findWorkoutLift(id)?.pinnedNote?.takeIf { it.isNotBlank() }
+            ?: return emptyList()
+        // Client lazy-migrate parity: persist the legacy pin as the position-0
+        // row (written inline — routing through the setter would recurse via its
+        // id-retention read). The mirror already matches, so it is untouched.
+        val migrated =
+            listOf(
+                WorkoutLiftNote(
+                    id = WorkoutLiftNoteId(UUID.randomUUID().toString()),
+                    workoutLiftId = id,
+                    body = legacy,
+                    position = 0,
+                    updatedAt = Instant.now(),
+                ),
+            )
+        workoutNotes.value = workoutNotes.value + (id.value to migrated)
+        return migrated
+    }
 
     override suspend fun setWorkoutLiftPinnedNotes(
         id: WorkoutLiftId,
@@ -213,7 +219,9 @@ class FakeProgramRepository(
     ): Boolean {
         if (findWorkoutLift(id) == null) return false
         val now = Instant.now()
-        val currentIds = getWorkoutLiftPinnedNotes(id).map { it.id }.toSet()
+        // Read the map directly: the getter lazy-migrates legacy pins, which
+        // would mint a throwaway row just to compute id retention here.
+        val currentIds = workoutNotes.value[id.value]?.map { it.id }?.toSet().orEmpty()
         val minted =
             notes.mapNotNull { input ->
                 sanitizeLiftNoteBody(input.body)?.let { body -> input to body }

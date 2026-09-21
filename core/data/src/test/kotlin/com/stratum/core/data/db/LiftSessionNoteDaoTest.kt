@@ -123,6 +123,33 @@ class LiftSessionNoteDaoTest {
         )
     }
 
+    @Test
+    @DisplayName("past notes order within a session follows position, not insert order")
+    fun pastNotesPositionOrder() = runTest {
+        insertSession("ts-old", TrainingSessionStatus.COMPLETED, startedAt = 1L, name = "Lower A")
+        notes.upsert(note("n-second", "ts-old", "squat", "second").copy(position = 1))
+        notes.upsert(note("n-first", "ts-old", "squat", "first").copy(position = 0))
+
+        val past = notes.getPastNotesForLift(LiftId("squat"))
+
+        assertEquals(listOf("first", "second"), past.map { it.note.body })
+    }
+
+    @Test
+    @DisplayName("excluding variant orders within a session by position too")
+    fun pastNotesExcludingPositionOrder() = runTest {
+        insertSession("ts-old", TrainingSessionStatus.COMPLETED, startedAt = 1L, name = "Lower A")
+        insertSession("ts-cur", TrainingSessionStatus.COMPLETED, startedAt = 9L, name = "Today")
+        notes.upsert(note("n-second", "ts-old", "squat", "second").copy(position = 1))
+        notes.upsert(note("n-first", "ts-old", "squat", "first").copy(position = 0))
+        notes.upsert(note("n-cur", "ts-cur", "squat", "current"))
+
+        val past =
+            notes.getPastNotesForLiftExcluding(LiftId("squat"), TrainingSessionId("ts-cur"))
+
+        assertEquals(listOf("first", "second"), past.map { it.note.body })
+    }
+
     private suspend fun insertSession(
         id: String,
         status: TrainingSessionStatus,

@@ -143,7 +143,7 @@ private fun summaryLabel(tab: LiftNoteTab, count: Int): String {
 
 @Composable
 internal fun PastSessionNotesSheet(
-    notes: List<PastSessionNoteUi>,
+    notes: List<PastSessionNotesGroupUi>,
     onDismiss: () -> Unit,
 ) {
     StratumBottomSheet(
@@ -164,8 +164,8 @@ internal fun PastSessionNotesSheet(
                         .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                notes.forEach { note ->
-                    PastSessionNoteRow(note)
+                notes.forEach { group ->
+                    PastSessionNotesGroup(group)
                 }
             }
         }
@@ -173,7 +173,7 @@ internal fun PastSessionNotesSheet(
 }
 
 @Composable
-private fun PastSessionNoteRow(note: PastSessionNoteUi) {
+private fun PastSessionNotesGroup(group: PastSessionNotesGroupUi) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -183,21 +183,23 @@ private fun PastSessionNoteRow(note: PastSessionNoteUi) {
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             StratumText(
-                text = note.dateLabel,
+                text = group.dateLabel,
                 style = StratumThemeAccessor.typography.sectionLabel,
                 muted = true,
             )
-            if (note.workoutName.isNotBlank()) {
+            if (group.workoutName.isNotBlank()) {
                 StratumText(
-                    text = note.workoutName,
+                    text = group.workoutName,
                     style = StratumThemeAccessor.typography.sectionLabel,
                     muted = true,
                 )
             }
         }
-        StratumText(
-            text = note.body,
-            style = StratumThemeAccessor.typography.bodyLarge,
-        )
+        group.bodies.forEach { body ->
+            StratumText(
+                text = body,
+                style = StratumThemeAccessor.typography.bodyLarge,
+            )
+        }
     }
 }

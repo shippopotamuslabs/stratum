@@ -122,7 +122,14 @@ interface LiftRepository {
      */
     suspend fun setPinnedNote(id: LiftId, note: String?)
 
-    /** All catalog notes for one lift, display order (position ascending). */
+    /**
+     * All catalog notes for one lift, display order (position ascending).
+     *
+     * Client lazy-migrate: when the lift carries only a legacy `pinned_note`
+     * and no rows, implementations persist it as the position-0 row before
+     * returning, so this read can dirty the store. Callers must treat it as a
+     * read-write operation, not a pure query.
+     */
     suspend fun getPinnedNotes(id: LiftId): List<LiftCatalogNote>
 
     /**

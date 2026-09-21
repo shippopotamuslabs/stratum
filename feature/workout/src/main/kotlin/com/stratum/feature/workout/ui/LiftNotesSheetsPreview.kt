@@ -69,10 +69,14 @@ private fun PastSessionNotesSheetPreview() {
         PastSessionNotesSheet(
             notes =
                 listOf(
-                    PastSessionNoteUi(
+                    PastSessionNotesGroupUi(
                         dateLabel = "Aug 14, 2026",
                         workoutName = "Lower A",
-                        body = "Switched to high-bar this session",
+                        bodies =
+                            listOf(
+                                "Switched to high-bar this session",
+                                "Belt on top set only",
+                            ),
                     ),
                 ),
             onDismiss = {},

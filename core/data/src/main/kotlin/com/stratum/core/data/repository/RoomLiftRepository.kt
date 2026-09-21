@@ -350,6 +350,13 @@ class RoomLiftRepository @Inject constructor(
         // by an old client) — surface the legacy column as a single note.
         val legacy = liftDao.getById(id)?.pinnedNote?.takeIf { it.isNotBlank() }
             ?: return emptyList()
+        // Client lazy-migrate: persist the legacy body as the position-0 row so
+        // later reads (and sync, via the row's pending-upsert flag) converge on
+        // the new shape.
+        migrateLegacyCatalogPin(id, legacy)
+        val migrated = database.liftNoteDao().getForLift(id)
+        if (migrated.isNotEmpty()) return migrated.map { it.toCatalogNote() }
+        // Lift vanished mid-migrate: surface the legacy body without persisting.
         return listOf(
             LiftCatalogNote(
                 id = LiftCatalogNoteId("${id.value}::0"),
@@ -359,6 +366,40 @@ class RoomLiftRepository @Inject constructor(
                 updatedAt = Instant.now(),
             ),
         )
+    }
+
+    /**
+     * Check-then-write inside the sync write lock: a second concurrent migrate
+     * sees the first one's row and skips (no id churn, no phantom tombstone),
+     * and the in-lock parent re-check keeps a mid-migrate delete from violating
+     * the note-table FK out of a read path.
+     */
+    private suspend fun migrateLegacyCatalogPin(id: LiftId, legacy: String) {
+        val body = sanitizeLiftNoteBody(legacy) ?: return
+        val now = System.currentTimeMillis()
+        var migrated = false
+        syncTouch.withWriteLock {
+            database.withTransaction {
+                if (database.liftNoteDao().getForLift(id).isEmpty() && liftDao.getById(id) != null) {
+                    database.liftNoteDao().upsertAll(
+                        listOf(
+                            LiftNoteEntity(
+                                id = LiftCatalogNoteId(UUID.randomUUID().toString()),
+                                liftId = id,
+                                body = body,
+                                position = 0,
+                                createdAtEpochMillis = now,
+                                updatedAtEpochMillis = now,
+                                pendingSync = SyncFlags.PENDING_UPSERT,
+                            ),
+                        ),
+                    )
+                    liftDao.setPinnedNote(id = id, note = body, updatedAtEpochMillis = now)
+                    migrated = true
+                }
+            }
+            if (migrated) syncTouch.markDirty()
+        }
     }
 
     override suspend fun setPinnedNotes(id: LiftId, notes: List<CatalogNoteInput>) {

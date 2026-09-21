@@ -156,6 +156,13 @@ class RoomProgramRepository @Inject constructor(
         // Dual-read fallback: slot predates the v5 backfill — surface the legacy column.
         val legacy = workoutLiftDao.getById(id)?.pinnedNote?.takeIf { it.isNotBlank() }
             ?: return emptyList()
+        // Client lazy-migrate: persist the legacy body as the position-0 row so
+        // later reads (and sync, via the row's pending-upsert flag) converge on
+        // the new shape.
+        migrateLegacyWorkoutPin(id, legacy)
+        val migrated = database.workoutLiftNoteDao().getForWorkoutLift(id)
+        if (migrated.isNotEmpty()) return migrated.map { it.toWorkoutLiftNote() }
+        // Slot vanished mid-migrate: surface the legacy body without persisting.
         return listOf(
             WorkoutLiftNote(
                 id = WorkoutLiftNoteId("${id.value}::0"),
@@ -165,6 +172,27 @@ class RoomProgramRepository @Inject constructor(
                 updatedAt = Instant.now(),
             ),
         )
+    }
+
+    /**
+     * Check-then-write inside the sync write lock: a second concurrent migrate
+     * sees the first one's row and skips (no id churn, no phantom tombstone),
+     * and the in-lock parent re-check keeps a mid-migrate delete from violating
+     * the note-table FK out of a read path.
+     */
+    private suspend fun migrateLegacyWorkoutPin(id: WorkoutLiftId, body: String) {
+        val now = System.currentTimeMillis()
+        var migrated = false
+        syncTouch.withWriteLock {
+            database.withTransaction {
+                val alreadyStored = database.workoutLiftNoteDao().getForWorkoutLift(id)
+                if (alreadyStored.isEmpty() && workoutLiftDao.getById(id) != null) {
+                    replaceWorkoutLiftNotes(id, listOf(WorkoutLiftNoteInput(body = body)), now)
+                    migrated = true
+                }
+            }
+            if (migrated) syncTouch.markDirty()
+        }
     }
 
     override suspend fun setWorkoutLiftPinnedNotes(
