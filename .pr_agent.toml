@@ -1,0 +1,17 @@
+# PR-Agent (Qodo open-source, AGPL-3.0) repo configuration.
+# Canonical source of the reviewer's Stratum guidance. The forge:review CI job
+# fetches this file via the repository files API and injects [pr_reviewer]
+# extra_instructions as PR_REVIEWER__EXTRA_INSTRUCTIONS, because the review
+# container has no repo checkout (GIT_STRATEGY: none) and cannot auto-load it.
+
+[pr_reviewer]
+# Stratum-specific guidance appended to the reviewer's prompt.
+extra_instructions = """
+- Respect the contracts in /contracts/: never suggest changing files under /contracts/ themselves; flag any diff that touches them as needing an explicit Contract Waiver.
+- Keep the com.stratum source package namespace; the Play applicationId is com.aether.stratum. Do not suggest renaming source trees to match it.
+- Clean architecture: dependencies point inward toward :core:domain. Domain must not depend on data, UI, app, or feature modules. Flag violations.
+- Tests use JUnit 5 + Turbine + fakes from :core:testing. MockK is allowed only at third-party SDK boundaries.
+- Do not suggest Room schema version bumps or new tables/columns for transient UI state; the schema is locked at v1 during development.
+- No on-device LLM weights and no on-device OR-Tools natives; solver and LLM work belongs server-side (Firebase/Cloud Run via :core:inference).
+- Keep findings evidence-backed and severity-calibrated; skip style and naming nits.
+"""
