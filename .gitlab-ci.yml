@@ -1,5 +1,15 @@
 # Stratum CI — phase 1: merge-request gates + nightly device runs.
 #
+# Forge reviewer: included from the standalone forge-reviewer repo.
+include:
+  - project: 'browntown.development/forge-reviewer'
+    ref: v1.0.3
+    file: '/templates/forge.gitlab-ci.yml'
+
+variables:
+  FORGE_ENABLED: "true"
+  FORGE_REF: "v1.0.3"
+
 # ONE-TIME SETUP (GitLab project -> Settings -> CI/CD -> Variables):
 # - GOOGLE_SERVICES_JSON (type: File): paste the contents of app/google-services.json.
 #   The file is gitignored, so without this every Android job fails at configuration time.
