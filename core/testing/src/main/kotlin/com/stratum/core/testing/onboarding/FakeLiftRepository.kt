@@ -250,32 +250,37 @@ class FakeLiftRepository(
         }
     }
 
-    override suspend fun getPinnedNotes(id: LiftId): List<LiftCatalogNote> =
+    override suspend fun getPinnedNotes(id: LiftId): List<LiftCatalogNote> {
         // Match Room: a missing lift row yields no notes, never orphaned map entries.
-        if (lifts.value.none { it.id == id }) {
-            emptyList()
-        } else {
-            catalogNotes.value[id.value]
-                ?: lifts.value.firstOrNull { it.id == id }?.pinnedNote
-                    ?.takeIf { it.isNotBlank() }
-                    ?.let { body ->
-                        listOf(
-                            LiftCatalogNote(
-                                id = LiftCatalogNoteId("${id.value}::0"),
-                                liftId = id,
-                                body = body,
-                                position = 0,
-                                updatedAt = Instant.now(),
-                            ),
-                        )
-                    }.orEmpty()
-        }
+        if (lifts.value.none { it.id == id }) return emptyList()
+        catalogNotes.value[id.value]?.let { return it }
+        val legacy = lifts.value.firstOrNull { it.id == id }?.pinnedNote
+            ?.takeIf { it.isNotBlank() }
+            ?: return emptyList()
+        // Client lazy-migrate parity: persist the legacy pin as the position-0
+        // row (written inline — routing through the setter would recurse via its
+        // id-retention read). The mirror already matches, so it is untouched.
+        val migrated =
+            listOf(
+                LiftCatalogNote(
+                    id = LiftCatalogNoteId(UUID.randomUUID().toString()),
+                    liftId = id,
+                    body = legacy,
+                    position = 0,
+                    updatedAt = Instant.now(),
+                ),
+            )
+        catalogNotes.value = catalogNotes.value + (id.value to migrated)
+        return migrated
+    }
 
     override suspend fun setPinnedNotes(id: LiftId, notes: List<CatalogNoteInput>) {
         // Match Room: writing notes for a missing lift touches zero rows.
         if (lifts.value.none { it.id == id }) return
         val now = Instant.now()
-        val currentIds = getPinnedNotes(id).map { it.id }.toSet()
+        // Read the map directly: the getter lazy-migrates legacy pins, which
+        // would mint a throwaway row just to compute id retention here.
+        val currentIds = catalogNotes.value[id.value]?.map { it.id }?.toSet().orEmpty()
         val minted =
             notes.mapNotNull { input ->
                 sanitizeLiftNoteBody(input.body)?.let { body -> input to body }

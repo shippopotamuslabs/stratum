@@ -453,6 +453,24 @@ class RoomLiftRepositoryTest {
         }
 
         @Test
+        @DisplayName("Given a legacy-only pin when read then it migrates to a position-0 row")
+        fun legacyPinMigratesOnRead() = runTest {
+            val id = LiftId("squat")
+            seedLift(id)
+            // Simulate pre-backfill storage: legacy column set, no child rows.
+            database.liftDao().setPinnedNote(id, "legacy", 1L)
+
+            val first = subject.getPinnedNotes(id)
+            assertEquals(listOf("legacy"), first.map { it.body })
+            assertEquals(0, first.single().position)
+
+            // Second read hits the migrated row — stable id, no duplicate rows.
+            val second = subject.getPinnedNotes(id)
+            assertEquals(first.single().id, second.single().id)
+            assertEquals("legacy", database.liftDao().getById(id)?.pinnedNote)
+        }
+
+        @Test
         @DisplayName("Given a missing lift when read or written then empty result and no-op")
         fun missingLiftIgnored() = runTest {
             val missing = LiftId("ghost")

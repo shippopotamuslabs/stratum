@@ -480,7 +480,7 @@ private fun LiftActionsAndRestConfigSheets(
     notesHost.pastSessionNotesLiftId?.let { liftId ->
         val lift = state.lifts.firstOrNull { it.workoutLiftId == liftId }
         if (lift != null) {
-            var notes by remember(lift.liftId) { mutableStateOf<List<PastSessionNoteUi>>(emptyList()) }
+            var notes by remember(lift.liftId) { mutableStateOf<List<PastSessionNotesGroupUi>>(emptyList()) }
             LaunchedEffect(lift.liftId) {
                 notes = actions.liftNotes.onLoadPastNotes(lift.liftId)
             }
