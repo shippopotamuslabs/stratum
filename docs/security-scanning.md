@@ -87,12 +87,37 @@ The job **fails (exit 1) when OSV reports any known vulnerability**, so a CVE in
 a new dependency blocks the MR before merge. On `main` it guards against
 vulnerabilities published against dependencies we already ship.
 
-Known coverage gap: the solver's production *container image* (the
-`eclipse-temurin:17-jre-jammy` base plus `libgomp1` from apt) is not
-CVE-scanned — only its JVM dependency graph is. The base image is tracked for
-*updates* by Renovate's `dockerfile` manager; scanning the built image
-(`osv-scanner scan image`) needs Docker on the CI runner and is tracked as a
-follow-up work item.
+Container-image coverage: the solver's production *container image* (the
+`eclipse-temurin:17-jre-jammy` base plus `libgomp1` from apt) is scanned by
+the `osv-scan-image` job (`osv-scanner scan image` against a freshly built
+`solver-service/Dockerfile` image), which the SBOM-based `osv-scan` job
+cannot see — SBOMs cover only the JVM dependency graph. The base image is
+also tracked for *updates* by Renovate's `dockerfile` manager.
+The image job exits 1 on any known CVE, matching the `osv-scan`
+failure code; triage follows the same path below (suppressions in
+`.osv-scanner.toml` apply via `--config`). The job runs `allow_failure: true`
+as an informational control, not a merge blocker — see baseline.
+
+### Image baseline (2026-09-21, first Docker run on the home-server runner)
+
+Fresh `docker build` of `solver-service/Dockerfile` (current
+`eclipse-temurin:17-jre-jammy` upstream; image
+`sha256:f2f916e122b56ab42639a818464a4b2e0ee7c6c5420f7ee599e7b51d65057a89`):
+**79 findings, all Ubuntu base-layer** (2 Critical, 31 High, 39 Medium,
+5 Low, 2 Unknown). 76 have **no upstream fix** — a hard gate would stay red
+forever with no remediation path short of changing the base image (glibc
+Ubuntu is effectively required for the OR-Tools JNI natives, so Alpine/musl
+is out). One package (`sqlite3`, Low, local-only) shows a fix available and
+will resolve via base-image updates, which Renovate's `dockerfile` manager
+already tracks.
+
+Exploitability in our context is low: the worker runs as `nobody` on
+private Cloud Run with no interactive shell or local users, and the
+network-vector examples (curl, expat) sit in libraries the service never
+exercises against untrusted input. Policy: keep the job informational and
+re-triage when a **fixable** (especially network-reachable) image CVE
+appears — do not bulk-suppress the base image in `.osv-scanner.toml`.
+Full log: job output (table) plus a JSON re-scan kept alongside the run.
 
 Why generate an SBOM instead of committing Gradle lockfiles? Lockfiles would
 change build behavior and add churn to every dependency PR; the SBOM is derived
@@ -183,4 +208,8 @@ The CI re-scan after the pins is the proof — see the `osv-scan` job log.
 osv-scanner scan source -L bom.cdx.json -L bom-solver.cdx.json \
   --lockfile=functions/package-lock.json \
   --lockfile=functions-python/requirements.txt
+
+# Scan the solver production image (needs Docker + the fat jar):
+./gradlew :solver-service:shadowJar
+./scripts/scan-solver-image.sh
 ```
