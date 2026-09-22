@@ -335,6 +335,9 @@ class SyncEntityDecoders @Inject constructor() {
                 newLiftId = (data["new_lift_id"] as? String)?.let(::LiftId),
                 workoutId = (data["workout_id"] as? String)?.let(::WorkoutId),
                 completedCycleNumber = (data["completed_cycle_number"] as? Number)?.toInt(),
+                schemeLiftId = (data["scheme_lift_id"] as? String)?.let(::LiftId),
+                previousScheme = enumOrNull<ProgressionScheme>(data["previous_scheme"]),
+                currentScheme = enumOrNull<ProgressionScheme>(data["current_scheme"]),
                 updatedAtEpochMillis = remoteUpdatedAt(data),
                 pendingSync = SyncFlags.CLEAN,
             )

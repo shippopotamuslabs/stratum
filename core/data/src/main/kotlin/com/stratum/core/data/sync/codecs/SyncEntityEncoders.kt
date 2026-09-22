@@ -195,6 +195,9 @@ class SyncEntityEncoders @Inject constructor() {
             "new_lift_id" to e.newLiftId?.value,
             "workout_id" to e.workoutId?.value,
             "completed_cycle_number" to e.completedCycleNumber,
+            "scheme_lift_id" to e.schemeLiftId?.value,
+            "previous_scheme" to e.previousScheme?.name,
+            "current_scheme" to e.currentScheme?.name,
         )
 
     fun liftSessionNote(e: LiftSessionNoteEntity): Map<String, Any?> =
