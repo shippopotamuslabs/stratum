@@ -3,6 +3,7 @@ package com.stratum.feature.workout.navigation
 import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
+import com.stratum.feature.workout.ui.EquipmentEditRequest
 import com.stratum.feature.workout.ui.WorkoutRoute
 import kotlinx.serialization.Serializable
 
@@ -19,7 +20,7 @@ fun EntryProviderScope<NavKey>.workoutEntry(
     onNavigateBack: () -> Unit,
     onNavigateToFinalize: (sessionId: String) -> Unit,
     onSwapLiftClick: (workoutId: String, workoutLiftId: String?, liftId: String?, liftName: String?) -> Unit,
-    onEditEquipmentClick: (liftId: String, equipmentId: String?, hasIncrementOverride: Boolean) -> Unit,
+    onEditEquipmentClick: (EquipmentEditRequest) -> Unit,
     onReorderLiftsClick: (workoutId: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {

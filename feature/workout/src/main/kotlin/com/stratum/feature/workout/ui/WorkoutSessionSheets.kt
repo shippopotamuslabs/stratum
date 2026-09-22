@@ -448,9 +448,15 @@ private fun LiftActionsAndRestConfigSheets(
                                     {
                                         onLiftActionsLiftIdChange(null)
                                         actions.onEditEquipmentClick(
-                                            lift.liftId,
-                                            lift.equipmentId,
-                                            lift.hasIncrementOverride,
+                                            EquipmentEditRequest(
+                                                liftId = lift.liftId,
+                                                target =
+                                                    EquipmentEditTarget(
+                                                        equipmentId = lift.equipmentId,
+                                                        hasIncrementOverride =
+                                                            lift.hasIncrementOverride,
+                                                    ),
+                                            ),
                                         )
                                     }
                                 } else {

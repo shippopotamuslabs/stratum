@@ -12,9 +12,10 @@ class EquipmentEditorDestinationTest {
         assertEquals(
             EquipmentEditorDestination.LiftOverride("lift-1"),
             resolveEquipmentEditorDestination(
-                liftId = "lift-1",
-                equipmentId = "eq-1",
-                hasIncrementOverride = true,
+                EquipmentEditRequest(
+                    liftId = "lift-1",
+                    target = EquipmentEditTarget(equipmentId = "eq-1", hasIncrementOverride = true),
+                ),
             ),
         )
     }
@@ -25,9 +26,10 @@ class EquipmentEditorDestinationTest {
         assertEquals(
             EquipmentEditorDestination.SharedEquipment("eq-1"),
             resolveEquipmentEditorDestination(
-                liftId = "lift-1",
-                equipmentId = "eq-1",
-                hasIncrementOverride = false,
+                EquipmentEditRequest(
+                    liftId = "lift-1",
+                    target = EquipmentEditTarget(equipmentId = "eq-1", hasIncrementOverride = false),
+                ),
             ),
         )
     }
@@ -38,9 +40,10 @@ class EquipmentEditorDestinationTest {
         assertEquals(
             EquipmentEditorDestination.LiftOverride("lift-1"),
             resolveEquipmentEditorDestination(
-                liftId = "lift-1",
-                equipmentId = null,
-                hasIncrementOverride = false,
+                EquipmentEditRequest(
+                    liftId = "lift-1",
+                    target = EquipmentEditTarget(equipmentId = null, hasIncrementOverride = false),
+                ),
             ),
         )
     }

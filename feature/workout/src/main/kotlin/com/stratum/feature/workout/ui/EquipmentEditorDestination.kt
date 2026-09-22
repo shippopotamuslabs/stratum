@@ -1,6 +1,16 @@
 package com.stratum.feature.workout.ui
 
 /**
+ * Everything the router needs for one "Edit equipment" request: the catalog lift plus
+ * its catalog equipment join. Threaded as one value through the sheet, actions, route,
+ * and NavHost so no boundary unpacks and repacks the triple.
+ */
+data class EquipmentEditRequest(
+    val liftId: String,
+    val target: EquipmentEditTarget,
+)
+
+/**
  * Which increments editor an "Edit equipment" request resolves to.
  *
  * A lift carrying its own per-lift override tiers edits the override; a lift inheriting
@@ -13,13 +23,9 @@ sealed interface EquipmentEditorDestination {
     data class SharedEquipment(val equipmentId: String) : EquipmentEditorDestination
 }
 
-fun resolveEquipmentEditorDestination(
-    liftId: String,
-    equipmentId: String?,
-    hasIncrementOverride: Boolean,
-): EquipmentEditorDestination =
-    if (hasIncrementOverride || equipmentId == null) {
-        EquipmentEditorDestination.LiftOverride(liftId)
+fun resolveEquipmentEditorDestination(request: EquipmentEditRequest): EquipmentEditorDestination =
+    if (request.target.hasIncrementOverride || request.target.equipmentId == null) {
+        EquipmentEditorDestination.LiftOverride(request.liftId)
     } else {
-        EquipmentEditorDestination.SharedEquipment(equipmentId)
+        EquipmentEditorDestination.SharedEquipment(request.target.equipmentId)
     }
