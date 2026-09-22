@@ -51,8 +51,12 @@ default:
   interruptible: true
 
 variables:
-  GRADLE_USER_HOME: "$CI_PROJECT_DIR/.gradle-home"
-  ANDROID_USER_HOME: "$CI_PROJECT_DIR/.android-home"
+  # Gradle/Android homes live OUTSIDE the project dir on purpose: every job's
+  # checkout runs `git clean -ffdx`, which used to nuke these mid-pipeline (and
+  # across concurrent jobs sharing one builds dir). The home-server runner must
+  # persist $HOME/.cache between jobs for this to act as a cache.
+  GRADLE_USER_HOME: "${HOME}/.cache/gitlab-ci/${CI_PROJECT_PATH_SLUG:-stratum}/gradle-home"
+  ANDROID_USER_HOME: "${HOME}/.cache/gitlab-ci/${CI_PROJECT_PATH_SLUG:-stratum}/android-home"
   GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.caching=true"
   # OSV-Scanner release used by the osv-scan job. Bump when a new release lands
   # (check https://github.com/google/osv-scanner/releases).
@@ -87,15 +91,8 @@ stages:
     - command -v sdkmanager || (echo "sdkmanager not found under $ANDROID_HOME" && exit 1)
     # `yes` dies with SIGPIPE (141) once sdkmanager exits; tolerate only that.
     - yes | sdkmanager --licenses > /dev/null || [ $? -eq 141 ]
-  cache:
-    key:
-      files:
-        - gradle/libs.versions.toml
-        - settings.gradle.kts
-    paths:
-      - .gradle-home/caches/
-      - .gradle-home/wrapper/
-    policy: pull-push
+  # No cache stanza here: GitLab cache paths must live inside the project dir,
+  # but GRADLE_USER_HOME above is a persistent out-of-tree home by design.
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
@@ -274,10 +271,9 @@ emulator-tests:
   allow_failure: true
   variables:
     # This cmdline-tools' avdmanager ignores ANDROID_AVD_HOME and writes the AVD
-    # to $ANDROID_USER_HOME/avd (the runner sets ANDROID_USER_HOME to
-    # $CI_PROJECT_DIR/.android-home), while the emulator searches ANDROID_AVD_HOME.
+    # to $ANDROID_USER_HOME/avd, while the emulator searches ANDROID_AVD_HOME.
     # Point ANDROID_AVD_HOME at the location avdmanager actually uses.
-    ANDROID_AVD_HOME: "$CI_PROJECT_DIR/.android-home/avd"
+    ANDROID_AVD_HOME: "${ANDROID_USER_HOME}/avd"
   rules:
     - if: $CI_PIPELINE_SOURCE == 'schedule'
   before_script:
