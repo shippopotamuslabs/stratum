@@ -410,6 +410,7 @@ fun StratumNavHost(
                     backStack.add(
                         equipmentEditorKey(
                             resolveEquipmentEditorDestination(request),
+                            sourceLiftId = request.liftId,
                         ),
                     )
                 },
@@ -439,11 +440,14 @@ fun StratumNavHost(
 }
 
 /** Maps an equipment-editing decision to the editor key (keeps `StratumNavHost` lean). */
-private fun equipmentEditorKey(destination: EquipmentEditorDestination): NavKey =
+private fun equipmentEditorKey(
+    destination: EquipmentEditorDestination,
+    sourceLiftId: String? = null,
+): NavKey =
     when (destination) {
         is EquipmentEditorDestination.LiftOverride -> LiftIncrementsKey(destination.liftId)
         is EquipmentEditorDestination.SharedEquipment ->
-            EquipmentIncrementsKey(destination.equipmentId)
+            EquipmentIncrementsKey(destination.equipmentId, sourceLiftId)
     }
 
 /** Matches navigation3 default forward/pop duration; fade only (no predictive scale-out). */
