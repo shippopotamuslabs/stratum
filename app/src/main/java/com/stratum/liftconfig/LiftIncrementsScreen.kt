@@ -2,6 +2,7 @@ package com.stratum.liftconfig
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -86,6 +87,11 @@ fun LiftIncrementsScreen(
      */
     showForkSaveBar: Boolean = false,
     onSaveAsNew: () -> Unit = {},
+    /**
+     * Equipment blast-radius banner slot. Null renders no banner; [AffectsBannerUi.onClick]
+     * null keeps it display-only. The lift override editor passes null.
+     */
+    affectsBanner: AffectsBannerUi? = null,
     modifier: Modifier = Modifier,
 ) {
     StratumScaffold(
@@ -117,9 +123,12 @@ fun LiftIncrementsScreen(
                 item {
                     IncrementsHelpCard()
                 }
-                if (state.affectsBanner != null) {
+                if (affectsBanner != null) {
                     item {
-                        InheritanceBanner(message = state.affectsBanner)
+                        InheritanceBanner(
+                            message = affectsBanner.message,
+                            onClick = affectsBanner.onClick,
+                        )
                     }
                 }
                 if (state.inheritanceBanner != null) {
@@ -201,24 +210,36 @@ fun LiftIncrementsScreen(
     }
 }
 
+/** Blast-radius banner for the equipment editor (message plus optional sheet entry). */
+data class AffectsBannerUi(
+    val message: String,
+    val onClick: (() -> Unit)? = null,
+)
+
 @Composable
-private fun InheritanceBanner(message: String) {
+private fun InheritanceBanner(
+    message: String,
+    onClick: (() -> Unit)? = null,
+) {
     val colors = StratumThemeAccessor.colors
     val shapes = StratumThemeAccessor.shapes
+    var modifier =
+        Modifier
+            .fillMaxWidth()
+            .background(color = colors.surfaceRaised, shape = shapes.panel)
+            .border(
+                width = shapes.borderWidth,
+                color = colors.accent,
+                shape = shapes.panel,
+            )
+    if (onClick != null) {
+        modifier = modifier.clickable(onClick = onClick)
+    }
     StratumText(
         text = message,
         style = StratumThemeAccessor.typography.sectionLabel,
         muted = true,
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .background(color = colors.surfaceRaised, shape = shapes.panel)
-                .border(
-                    width = shapes.borderWidth,
-                    color = colors.accent,
-                    shape = shapes.panel,
-                )
-                .padding(horizontal = 14.dp, vertical = 12.dp),
+        modifier = modifier.padding(horizontal = 14.dp, vertical = 12.dp),
     )
 }
 

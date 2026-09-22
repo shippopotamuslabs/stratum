@@ -46,6 +46,7 @@ class EquipmentIncrementsViewModelTest {
     private val fakeEquipmentRepository = FakeEquipmentRepository()
     private val fakeLiftRepository = FakeLiftRepository()
     private val fakeFeatureFlags = FakeFeatureFlagRepository()
+    private val equipmentPickResult = EquipmentPickResult()
     private lateinit var subject: EquipmentIncrementsViewModel
 
     @BeforeEach
@@ -96,6 +97,8 @@ class EquipmentIncrementsViewModelTest {
                         ),
                         SetLiftEquipmentUseCase(fakeLiftRepository, FakeLoggingPort()),
                     ),
+                setLiftEquipment = SetLiftEquipmentUseCase(fakeLiftRepository, FakeLoggingPort()),
+                equipmentPickResult = equipmentPickResult,
                 observeWeightDisplayPreferences =
                     com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase(
                         com.stratum.core.testing.lift.FakeWeightDisplayPreferencesRepository(),
@@ -144,26 +147,26 @@ class EquipmentIncrementsViewModelTest {
     }
 
     @Test
-    @DisplayName("Given the flag off when initialized then the legacy bar renders without fork")
-    fun forkBarHiddenByDefault() = runTest {
+    @DisplayName("Given the flag off when initialized then the v2 equipment UI is disabled")
+    fun equipmentV2DisabledByDefault() = runTest {
         subject.initialize(cableId.value)
         advanceUntilIdle()
 
         subject.uiState.test {
-            assertFalse(awaitItemWith { it.tiers.isNotEmpty() }.showForkSaveBar)
+            assertFalse(awaitItemWith { it.tiers.isNotEmpty() }.equipmentV2Enabled)
             cancelAndIgnoreRemainingEvents()
         }
     }
 
     @Test
-    @DisplayName("Given the flag on when initialized then the fork bar replaces the legacy save")
-    fun forkBarShownWhenFlagEnabled() = runTest {
+    @DisplayName("Given the flag on when initialized then the v2 equipment UI is enabled")
+    fun equipmentV2EnabledWhenFlagSet() = runTest {
         fakeFeatureFlags.setFlag(AppFeatureFlag.EQUIPMENT_MANAGEMENT_V2, true)
         subject.initialize(cableId.value)
         advanceUntilIdle()
 
         subject.uiState.test {
-            assertTrue(awaitItemWith { it.showForkSaveBar }.showForkSaveBar)
+            assertTrue(awaitItemWith { it.equipmentV2Enabled }.equipmentV2Enabled)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -215,6 +218,72 @@ class EquipmentIncrementsViewModelTest {
         val rows = fakeEquipmentRepository.current
         assertEquals(2, rows.size)
         assertTrue(rows.any { it.name == "Cables (copy)" })
+        val untouched =
+            fakeLiftRepository.getLiftsByIds(listOf(LiftId("lat-pulldown"))).single()
+        assertEquals(cableId, untouched.equipmentId)
+    }
+
+    @Test
+    @DisplayName(
+        "Given inheritors when initialized then the sheet rows carry ids, names, and enabled flags",
+    )
+    fun affectedLiftsMapToSheetRows() = runTest {
+        subject.initialize(cableId.value)
+        advanceUntilIdle()
+
+        subject.uiState.test {
+            val state = awaitItemWith { it.affectedLiftCount == 4 }
+            assertEquals(
+                listOf("cable-crunch", "cable-row", "lat-pulldown", "tricep-pushdown"),
+                state.affectedLifts.map { it.id }.sorted(),
+            )
+            val disabled = state.affectedLifts.single { it.id == "cable-row" }
+            assertEquals("Cable row", disabled.name)
+            assertFalse(disabled.enabled)
+            assertTrue(state.affectedLifts.single { it.id == "lat-pulldown" }.enabled)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName(
+        "Given a swap pick when published after begin swap then the lift is reassigned",
+    )
+    fun swapPickReassignsPendingLift() = runTest {
+        subject.initialize(cableId.value)
+        advanceUntilIdle()
+        subject.requestSwapForLift("lat-pulldown")
+        equipmentPickResult.publish(EquipmentId("other-eq"))
+        advanceUntilIdle()
+
+        val moved =
+            fakeLiftRepository.getLiftsByIds(listOf(LiftId("lat-pulldown"))).single()
+        assertEquals(EquipmentId("other-eq"), moved.equipmentId)
+    }
+
+    @Test
+    @DisplayName("Given a swap request when requested then one navigation is emitted")
+    fun swapRequestEmitsNavigation() = runTest {
+        subject.initialize(cableId.value)
+        advanceUntilIdle()
+        subject.requestSwapForLift("lat-pulldown")
+
+        subject.swapNavRequests.test {
+            assertEquals("lat-pulldown", awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName(
+        "Given no swap request when a pick is published then the pick is ignored",
+    )
+    fun strayPickIsIgnored() = runTest {
+        subject.initialize(cableId.value)
+        advanceUntilIdle()
+        equipmentPickResult.publish(EquipmentId("other-eq"))
+        advanceUntilIdle()
+
         val untouched =
             fakeLiftRepository.getLiftsByIds(listOf(LiftId("lat-pulldown"))).single()
         assertEquals(cableId, untouched.equipmentId)
