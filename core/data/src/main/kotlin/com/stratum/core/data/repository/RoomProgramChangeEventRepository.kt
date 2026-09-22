@@ -1,5 +1,6 @@
 package com.stratum.core.data.repository
 
+import android.util.Log
 import com.stratum.core.data.db.ProgramChangeEventDao
 import com.stratum.core.data.mapper.toDomain
 import com.stratum.core.data.mapper.toEntity
@@ -27,8 +28,21 @@ class RoomProgramChangeEventRepository @Inject constructor(
         val entities = dao.getForProgram(programId)
         return entities
             .filter { entity -> since == null || entity.occurredAtEpochMillis >= since.toEpochMilli() }
-            // Pre-v6 SCHEME_CHANGED rows carry no payload columns; toDomain() skips those
-            // instead of crashing the read path.
-            .mapNotNull { it.toDomain() }
+            // toDomain() returns null for any undecodable row (uniform contract); skipped
+            // rows are logged so history gaps stay observable instead of silent.
+            .mapNotNull { entity ->
+                entity.toDomain() ?: run {
+                    Log.w(
+                        TAG,
+                        "Skipping undecodable program_change_event " +
+                            "id=${entity.id.value} type=${entity.eventType}",
+                    )
+                    null
+                }
+            }
+    }
+
+    private companion object {
+        const val TAG = "ProgramChangeEvents"
     }
 }
