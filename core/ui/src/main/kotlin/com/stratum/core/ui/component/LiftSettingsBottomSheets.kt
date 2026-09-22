@@ -6,8 +6,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
@@ -319,54 +321,138 @@ fun LiftActionsSheetContent(
     onViewPastSessionNotes: (() -> Unit)? = null,
     onEditEquipment: (() -> Unit)? = null,
 ) {
-    LiftActionRow(
-        text = stringResource(CoreUiR.string.edit_workout_reorder_lifts),
-        leadingIconRes = CoreUiR.drawable.ic_swap_vert,
-        onClick = onReorderLifts,
-    )
-    LiftActionRow(
-        text = stringResource(CoreUiR.string.edit_workout_create_superset),
-        leadingIconRes = CoreUiR.drawable.ic_join,
-        onClick = onConfigureSuperset,
-    )
-    if (onConfigureRestTimes != null) {
-        LiftActionRow(
-            text = stringResource(CoreUiR.string.edit_workout_configure_rest_times),
-            leadingIconRes = CoreUiR.drawable.ic_settings,
-            onClick = onConfigureRestTimes,
+    val groups =
+        visibleLiftActionGroups(
+            showEditEquipment = onEditEquipment != null,
+            showRestTimes = onConfigureRestTimes != null,
+            showManageNotes = onManageNotes != null,
+            showPastNotes = onViewPastSessionNotes != null,
         )
+    groups.forEachIndexed { index, group ->
+        if (index > 0) {
+            LiftActionsGroupDivider()
+        }
+        group.forEach { item ->
+            when (item) {
+                LiftActionItem.Swap ->
+                    LiftActionRow(
+                        text = stringResource(CoreUiR.string.edit_workout_swap_lift),
+                        leadingIconRes = CoreUiR.drawable.ic_swap_horiz,
+                        onClick = onSwapLift,
+                    )
+                LiftActionItem.EditEquipment ->
+                    LiftActionRow(
+                        text = stringResource(CoreUiR.string.edit_workout_edit_equipment),
+                        leadingIconRes = CoreUiR.drawable.ic_barbell,
+                        onClick = onEditEquipment ?: {},
+                    )
+                LiftActionItem.Reorder ->
+                    LiftActionRow(
+                        text = stringResource(CoreUiR.string.edit_workout_reorder_lifts),
+                        leadingIconRes = CoreUiR.drawable.ic_swap_vert,
+                        onClick = onReorderLifts,
+                    )
+                LiftActionItem.RestTimes ->
+                    LiftActionRow(
+                        text = stringResource(CoreUiR.string.edit_workout_configure_rest_times),
+                        leadingIconRes = CoreUiR.drawable.ic_settings,
+                        onClick = onConfigureRestTimes ?: {},
+                    )
+                LiftActionItem.Superset ->
+                    LiftActionRow(
+                        text = stringResource(CoreUiR.string.edit_workout_create_superset),
+                        leadingIconRes = CoreUiR.drawable.ic_join,
+                        onClick = onConfigureSuperset,
+                    )
+                LiftActionItem.ManageNotes ->
+                    LiftActionRow(
+                        text = stringResource(CoreUiR.string.lift_notes_manage),
+                        leadingIconRes = CoreUiR.drawable.ic_note,
+                        onClick = onManageNotes ?: {},
+                    )
+                LiftActionItem.PastNotes ->
+                    LiftActionRow(
+                        text = stringResource(CoreUiR.string.lift_notes_view_past),
+                        leadingIconRes = CoreUiR.drawable.ic_history,
+                        onClick = onViewPastSessionNotes ?: {},
+                    )
+                LiftActionItem.Remove ->
+                    LiftActionRow(
+                        text = stringResource(CoreUiR.string.edit_workout_remove_lift),
+                        leadingIcon = Icons.Outlined.Delete,
+                        isDestructive = true,
+                        onClick = onRemoveLift,
+                    )
+            }
+        }
     }
-    if (onManageNotes != null) {
-        LiftActionRow(
-            text = stringResource(CoreUiR.string.lift_notes_manage),
-            leadingIconRes = CoreUiR.drawable.ic_note,
-            onClick = onManageNotes,
-        )
+}
+
+/** Sheet rows in display order: Swap / Edit / Reorder — Rest / Superset — Notes — Remove. */
+enum class LiftActionItem {
+    Swap,
+    EditEquipment,
+    Reorder,
+    RestTimes,
+    Superset,
+    ManageNotes,
+    PastNotes,
+    Remove,
+}
+
+/**
+ * Visible sheet groups in display order. The destructive [LiftActionItem.Remove] is always
+ * the last group alone so it stays visually separated; the notes group is dropped when
+ * both notes entries are absent.
+ */
+fun visibleLiftActionGroups(
+    showEditEquipment: Boolean,
+    showRestTimes: Boolean,
+    showManageNotes: Boolean,
+    showPastNotes: Boolean,
+): List<List<LiftActionItem>> {
+    val primary =
+        buildList {
+            add(LiftActionItem.Swap)
+            if (showEditEquipment) {
+                add(LiftActionItem.EditEquipment)
+            }
+            add(LiftActionItem.Reorder)
+        }
+    val configure =
+        buildList {
+            if (showRestTimes) {
+                add(LiftActionItem.RestTimes)
+            }
+            add(LiftActionItem.Superset)
+        }
+    val notes =
+        buildList {
+            if (showManageNotes) {
+                add(LiftActionItem.ManageNotes)
+            }
+            if (showPastNotes) {
+                add(LiftActionItem.PastNotes)
+            }
+        }
+    return buildList {
+        add(primary)
+        add(configure)
+        if (notes.isNotEmpty()) {
+            add(notes)
+        }
+        add(listOf(LiftActionItem.Remove))
     }
-    if (onViewPastSessionNotes != null) {
-        LiftActionRow(
-            text = stringResource(CoreUiR.string.lift_notes_view_past),
-            leadingIconRes = CoreUiR.drawable.ic_history,
-            onClick = onViewPastSessionNotes,
-        )
-    }
-    LiftActionRow(
-        text = stringResource(CoreUiR.string.edit_workout_swap_lift),
-        leadingIconRes = CoreUiR.drawable.ic_swap_horiz,
-        onClick = onSwapLift,
-    )
-    if (onEditEquipment != null) {
-        LiftActionRow(
-            text = stringResource(CoreUiR.string.edit_workout_edit_equipment),
-            leadingIconRes = CoreUiR.drawable.ic_barbell,
-            onClick = onEditEquipment,
-        )
-    }
-    LiftActionRow(
-        text = stringResource(CoreUiR.string.edit_workout_remove_lift),
-        leadingIcon = Icons.Outlined.Delete,
-        isDestructive = true,
-        onClick = onRemoveLift,
+}
+
+@Composable
+private fun LiftActionsGroupDivider(modifier: Modifier = Modifier) {
+    Box(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(StratumThemeAccessor.colors.borderSubtle),
     )
 }
 
