@@ -1,5 +1,18 @@
 # Stratum CI — phase 1: merge-request gates + nightly device runs.
 #
+# Forge reviewer: included from the standalone forge-reviewer repo.
+# Pinned to an immutable commit SHA. Tags like v1.0.3 are mutable and can be
+# force-moved, which would run attacker-controlled pipeline code in this
+# project's CI context (signing / google-services secrets). Human-readable
+# tag: v1.0.3. BUMP PROCESS: resolve the new tag to its peeled commit SHA
+# (git ls-remote https://gitlab.com/browntown.development/forge-reviewer.git,
+# take the ^{} peeled value), review the template diff,
+# then update `ref:` and FORGE_REF together.
+include:
+  - project: 'browntown.development/forge-reviewer'
+    ref: 5fc592e3c145cf7de4e262f46b3e0f110e8f2f90 # v1.0.4 — keep pinned, never a tag
+    file: '/templates/forge.gitlab-ci.yml'
+
 # ONE-TIME SETUP (GitLab project -> Settings -> CI/CD -> Variables):
 # - GOOGLE_SERVICES_JSON (type: File): paste the contents of app/google-services.json.
 #   The file is gitignored, so without this every Android job fails at configuration time.
@@ -10,6 +23,13 @@
 # - PLAY_PUBLISHER_JSON (type: File): Play service-account JSON key. The account needs
 #   Internal-track release rights (Play Console -> Users and permissions) plus, for the
 #   robo job, Firebase Test Lab roles in GCP IAM.
+# - FORGE TOKENS: OPENROUTER_API_KEY + PR_AGENT_GITLAB_TOKEN (api scope), both Masked.
+#   These are the only secrets forge:* jobs need. They intentionally do NOT extend
+#   .android-job, so they never copy google-services.json nor decode the keystore.
+#   Keep every Android secret above Protected (forge jobs run on
+#   merge_request_event and must not require them). Reviewed template v1.0.3 at the
+#   pinned SHA: only forge:master posts to GitLab; egress is the GitLab API,
+#   OpenRouter, and pinned pr-agent==0.46.0 from PyPI.
 # - Optional: a pipeline schedule (e.g. nightly 02:00 UTC) to enable emulator-tests.
 #
 # OPTIONAL BUT RECOMMENDED (Settings -> Merge requests):
@@ -37,6 +57,11 @@ variables:
   # OSV-Scanner release used by the osv-scan job. Bump when a new release lands
   # (check https://github.com/google/osv-scanner/releases).
   OSV_SCANNER_VERSION: "2.6.0"
+  # Forge reviewer (standalone template). FORGE_REF selects which upstream
+  # scripts .forge-setup downloads at runtime — same immutable pin as the
+  # include above (tag shown for readability only); keep the two in sync.
+  FORGE_ENABLED: "true"
+  FORGE_REF: "5fc592e3c145cf7de4e262f46b3e0f110e8f2f90" # v1.0.4 — keep pinned, never a tag
 
 stages:
   - lint
