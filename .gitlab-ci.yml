@@ -352,8 +352,11 @@ deploy-internal:
         "$STORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > keystore.properties
     # Signed AAB for Play + signed APK for the Test Lab robo job below.
     - ./gradlew :app:bundleRelease :app:assembleRelease
-    - pip3 install --user --quiet google-api-python-client google-auth
-    - python3 scripts/play-upload-internal.py app/build/outputs/bundle/release/app-release.aab
+    # PEP 668: the runner Python is externally managed, so installer deps go
+    # in an ephemeral venv rather than --user / system site.
+    - python3 -m venv /tmp/play-env
+    - /tmp/play-env/bin/pip install --quiet google-api-python-client google-auth
+    - /tmp/play-env/bin/python scripts/play-upload-internal.py app/build/outputs/bundle/release/app-release.aab
   artifacts:
     paths:
       - app/build/outputs/bundle/release/*.aab
