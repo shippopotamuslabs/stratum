@@ -4,9 +4,12 @@ import com.stratum.domain.lift.identity.EquipmentId
 import dagger.hilt.android.scopes.ActivityRetainedScoped
 import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.filterNotNull
 
 /**
  * Activity-retained one-shot result channel for Manage Equipment selection mode.
@@ -41,4 +44,11 @@ class EquipmentPickResult @Inject constructor() {
         val pick = _result.value ?: return null
         return if (pick.generation > lastSeenGen) pick else null
     }
+
+    /**
+     * Picks published strictly after [generation], for selection flows that arm-then-navigate.
+     * Collectors get one-shot semantics without reimplementing the generation guard.
+     */
+    fun picksAfter(generation: Long): Flow<Pick> =
+        result.filterNotNull().filter { it.generation > generation }
 }

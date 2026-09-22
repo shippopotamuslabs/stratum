@@ -43,7 +43,16 @@ fun EquipmentIncrementsRoute(
     LaunchedEffect(state.saveSucceeded) {
         if (state.saveSucceeded) onBackClick()
     }
+    LaunchedEffect(viewModel) {
+        viewModel.swapNavRequests.collect { onChooseEquipmentForLift(it) }
+    }
     var showAffectedSheet by rememberSaveable { mutableStateOf(false) }
+    val affectsClick =
+        if (state.equipmentV2Enabled && state.affectedLiftCount > 0) {
+            { showAffectedSheet = true }
+        } else {
+            null
+        }
     // Reuse the lift increments editor shell with equipment title/save.
     LiftIncrementsScreen(
         state =
@@ -58,7 +67,6 @@ fun EquipmentIncrementsRoute(
                 isSaving = state.isSaving,
                 saveSucceeded = state.saveSucceeded,
                 inheritanceBanner = null,
-                affectsBanner = formatAffectsBanner(state),
                 showResetToEquipment = false,
                 unitLabel = state.unitLabel,
             ),
@@ -71,14 +79,13 @@ fun EquipmentIncrementsRoute(
         onRemoveTier = viewModel::removeTier,
         onSave = viewModel::save,
         onResetToEquipment = {},
-        showForkSaveBar = state.showForkSaveBar,
+        showForkSaveBar = state.equipmentV2Enabled,
         onSaveAsNew = viewModel::saveAsNew,
-        onAffectsBannerClick =
-            if (state.showAffectedLiftActions) {
-                { showAffectedSheet = true }
-            } else {
-                null
-            },
+        affectsBanner =
+            AffectsBannerUi(
+                message = formatAffectsBanner(state.affectedLiftCount, state.affectedLiftNames),
+                onClick = affectsClick,
+            ),
         modifier = Modifier,
     )
     if (showAffectedSheet) {
@@ -91,8 +98,7 @@ fun EquipmentIncrementsRoute(
             },
             onSwapClick = { liftId ->
                 showAffectedSheet = false
-                viewModel.beginSwapEquipmentForLift(liftId)
-                onChooseEquipmentForLift(liftId)
+                viewModel.requestSwapForLift(liftId)
             },
         )
     }
@@ -152,12 +158,10 @@ private fun AffectedLiftsSheet(
  * Domain models stay out of the leaf editor; only strings enter [LiftIncrementsScreen].
  */
 @Composable
-internal fun formatAffectsBanner(state: EquipmentIncrementsUiState): String {
-    val count = state.affectedLiftCount
+internal fun formatAffectsBanner(count: Int, names: List<String>): String {
     if (count <= 0) {
         return stringResource(UiR.string.equipment_increments_affects_none)
     }
-    val names = state.affectedLiftNames
     if (names.isEmpty()) {
         return stringResource(UiR.string.equipment_increments_affects_count, count)
     }
