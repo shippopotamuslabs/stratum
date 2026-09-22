@@ -42,13 +42,16 @@ import androidx.room.TypeConverters
         LiftNoteEntity::class,
         WorkoutLiftNoteEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
         AutoMigration(from = 2, to = 3),
         AutoMigration(from = 3, to = 4),
         // 4 → 5 is a manual migration (MIGRATION_4_5: backfill + index rebuild).
+        // 5 → 6 adds the nullable SCHEME_CHANGED payload columns on program_change_events
+        // (scheme_lift_id, previous_scheme, current_scheme); pure column adds, no backfill.
+        AutoMigration(from = 5, to = 6),
     ],
 )
 @TypeConverters(WeekdaySetConverter::class, IntSetConverter::class, EnumConverters::class)

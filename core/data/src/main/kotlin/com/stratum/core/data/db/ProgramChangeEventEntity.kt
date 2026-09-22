@@ -7,6 +7,7 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.stratum.core.data.sync.SyncFlags
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
@@ -35,6 +36,10 @@ data class ProgramChangeEventEntity(
     @ColumnInfo(name = "new_lift_id") val newLiftId: LiftId? = null,
     @ColumnInfo(name = "workout_id") val workoutId: WorkoutId? = null,
     @ColumnInfo(name = "completed_cycle_number") val completedCycleNumber: Int? = null,
+    // SCHEME_CHANGED payload (v6): workoutLiftId is reused from the column above.
+    @ColumnInfo(name = "scheme_lift_id") val schemeLiftId: LiftId? = null,
+    @ColumnInfo(name = "previous_scheme") val previousScheme: ProgressionScheme? = null,
+    @ColumnInfo(name = "current_scheme") val currentScheme: ProgressionScheme? = null,
     @ColumnInfo(name = "updated_at_epoch_millis")
     val updatedAtEpochMillis: Long = 0L,
     @ColumnInfo(name = "pending_sync")
