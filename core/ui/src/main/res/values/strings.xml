@@ -336,6 +336,7 @@
     <string name="lift_notes_add_note">Add Note</string>
     <string name="lift_notes_edit_notes">Edit notes</string>
     <string name="lift_notes_delete_note_cd">Delete note</string>
+    <string name="lift_notes_swipe_hint">Slide a note left to delete it</string>
     <string name="lift_notes_summary_count">%1$s · %2$d</string>
     <string name="lift_notes_summary_empty">No notes yet</string>
     <string name="lift_notes_back_cd">Back to workout</string>

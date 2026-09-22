@@ -55,6 +55,7 @@ import com.stratum.domain.training.TrainingSessionStatus
 import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.domain.workout.EstimateAddedSetRepsUseCase
 import com.stratum.domain.workout.GenerateProgressionSnapshotUseCase
+import com.stratum.domain.workout.GetSessionPinnedNoteListsUseCase
 import com.stratum.domain.workout.ManageWorkoutOverlayUseCase
 import com.stratum.domain.workout.MergeRenderedWorkoutUseCase
 import com.stratum.domain.workout.WorkoutEditSession
@@ -417,6 +418,10 @@ class WorkoutViewModelTest {
                 liftRepository,
                 programRepository,
             ),
+            getSessionPinnedNoteLists = GetSessionPinnedNoteListsUseCase(
+                programRepository,
+                liftRepository,
+            ),
         )
     }
 
@@ -501,6 +506,10 @@ class WorkoutViewModelTest {
                 liftRepository,
                 programRepository,
             ),
+            getSessionPinnedNoteLists = GetSessionPinnedNoteListsUseCase(
+                programRepository,
+                liftRepository,
+            ),
         )
     }
 
@@ -582,6 +591,10 @@ class WorkoutViewModelTest {
                 liftNotesRepository,
                 liftRepository,
                 programRepository,
+            ),
+            getSessionPinnedNoteLists = GetSessionPinnedNoteListsUseCase(
+                programRepository,
+                liftRepository,
             ),
         )
     }
@@ -1307,6 +1320,10 @@ class WorkoutViewModelTest {
                 liftRepository,
                 programRepository,
             ),
+            getSessionPinnedNoteLists = GetSessionPinnedNoteListsUseCase(
+                programRepository,
+                liftRepository,
+            ),
         )
 
         localViewModel.startSession(workoutId)
@@ -1387,6 +1404,10 @@ class WorkoutViewModelTest {
                 liftNotesRepository,
                 liftRepository,
                 programRepository,
+            ),
+            getSessionPinnedNoteLists = GetSessionPinnedNoteListsUseCase(
+                programRepository,
+                liftRepository,
             ),
         )
 
@@ -2763,8 +2784,8 @@ class WorkoutViewModelTest {
         viewModel.startSession(workoutId)
         advanceUntilIdle()
         val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
-        assertNull(loaded.lifts.single().workoutPinnedNote)
-        assertNull(loaded.lifts.single().liftPinnedNote)
+        assertEquals(emptyList<String>(), loaded.lifts.single().workoutPinnedNotes)
+        assertEquals(emptyList<String>(), loaded.lifts.single().liftPinnedNotes)
 
         viewModel.saveLiftNotes(
             LiftNoteListsSaveRequest(
@@ -2778,8 +2799,8 @@ class WorkoutViewModelTest {
         advanceUntilIdle()
 
         val updated = viewModel.uiState.value as WorkoutUiState.Loaded
-        assertEquals("workout pin", updated.lifts.single().workoutPinnedNote)
-        assertEquals("lift pin", updated.lifts.single().liftPinnedNote)
+        assertEquals(listOf("workout pin"), updated.lifts.single().workoutPinnedNotes)
+        assertEquals(listOf("lift pin"), updated.lifts.single().liftPinnedNotes)
     }
 
     @Test
@@ -2806,7 +2827,7 @@ class WorkoutViewModelTest {
         assertEquals(listOf("belt on", "knees out"), lists.lift.map { it.body })
         assertTrue(lists.lift.all { it.id != null })
         val updated = viewModel.uiState.value as WorkoutUiState.Loaded
-        assertEquals("belt on", updated.lifts.single().liftPinnedNote)
+        assertEquals(listOf("belt on", "knees out"), updated.lifts.single().liftPinnedNotes)
     }
 
     @Test
@@ -2823,7 +2844,7 @@ class WorkoutViewModelTest {
             ),
         )
         advanceUntilIdle()
-        assertEquals("lift pin", (viewModel.uiState.value as WorkoutUiState.Loaded).lifts.single().liftPinnedNote)
+        assertEquals(listOf("lift pin"), (viewModel.uiState.value as WorkoutUiState.Loaded).lifts.single().liftPinnedNotes)
 
         viewModel.saveLiftNotes(
             LiftNoteListsSaveRequest(
@@ -2833,7 +2854,7 @@ class WorkoutViewModelTest {
             ),
         )
         advanceUntilIdle()
-        assertNull((viewModel.uiState.value as WorkoutUiState.Loaded).lifts.single().liftPinnedNote)
+        assertEquals(emptyList<String>(), (viewModel.uiState.value as WorkoutUiState.Loaded).lifts.single().liftPinnedNotes)
     }
 
     @Test
@@ -2861,10 +2882,27 @@ class WorkoutViewModelTest {
         advanceUntilIdle()
 
         val rendered = viewModel.uiState.value as WorkoutUiState.Loaded
-        assertEquals("adhoc pin", rendered.lifts.last().workoutPinnedNote)
+        assertEquals(listOf("adhoc pin", "second cue"), rendered.lifts.last().workoutPinnedNotes)
         assertNull(
             programRepository.getProgram()!!.workouts.single().workoutLifts.single().pinnedNote,
         )
+    }
+
+    @Test
+    @DisplayName("session-added lift shows its catalog pin on the card")
+    fun sessionAddedLiftShowsCatalogPin() = runTest {
+        val lifts =
+            FakeLiftRepository(
+                initialLifts = listOf(catalogLift(), catalogLift2().copy(pinnedNote = "unrack carefully")),
+            )
+        val viewModel = buildViewModel(liftRepository = lifts)
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+        viewModel.addLifts(listOf(LiftId("L-2")))
+        advanceUntilIdle()
+
+        val rendered = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertEquals(listOf("unrack carefully"), rendered.lifts.last().liftPinnedNotes)
     }
 
     @Test

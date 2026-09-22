@@ -3,32 +3,32 @@ package com.stratum.feature.workout.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R as CoreUiR
-import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumOutlinedButton
 import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumSegmentedControl
+import com.stratum.core.ui.component.StratumSwipeToRevealRow
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTextField
 import com.stratum.core.ui.component.StratumTextFieldOptions
@@ -95,6 +95,10 @@ fun ManageNotesScreen(
     }
     var liftDrafts by remember(target.workoutLiftId) {
         mutableStateOf(emptyList<EditableNote>())
+    }
+    /** Key of the note added via "Add Note" awaiting initial focus + keyboard. */
+    var pendingFocusKey by remember(target.workoutLiftId) {
+        mutableStateOf<String?>(null)
     }
 
     LaunchedEffect(target.workoutLiftId, target.liftId) {
@@ -183,7 +187,11 @@ fun ManageNotesScreen(
                         tabLabel(LiftNoteTab.Lift, liftDrafts.size),
                     ),
                 selectedIndex = selectedTab.ordinal,
-                onSelectedIndexChange = { index -> selectedTab = LiftNoteTab.entries[index] },
+                onSelectedIndexChange = { index ->
+                    selectedTab = LiftNoteTab.entries[index]
+                    // A tab switch strands any unconsumed add-note focus request.
+                    pendingFocusKey = null
+                },
                 leadingIconRes = listOf(null, CoreUiR.drawable.ic_push_pin, CoreUiR.drawable.ic_push_pin),
                 modified = listOf(sessionDirty, workoutDirty, liftDirty),
             )
@@ -196,6 +204,13 @@ fun ManageNotesScreen(
                     },
                 muted = true,
             )
+            if (currentDrafts.isNotEmpty()) {
+                StratumText(
+                    text = stringResource(CoreUiR.string.lift_notes_swipe_hint),
+                    style = StratumThemeAccessor.typography.sectionLabel,
+                    muted = true,
+                )
+            }
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -210,10 +225,21 @@ fun ManageNotesScreen(
                     }
                 }
                 items(currentDrafts, key = { it.key }) { draft ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.Top,
+                    val focusRequester = remember(draft.key) { FocusRequester() }
+                    StratumSwipeToRevealRow(
+                        onActionClick = {
+                            setDrafts(currentDrafts.filterNot { it.key == draft.key })
+                        },
+                        actionContentDescription =
+                            stringResource(CoreUiR.string.lift_notes_delete_note_cd),
+                        // Transparent so the red reveal shows through the corner notches where
+                        // the field's rounded outline curves away — otherwise a surfaceBase
+                        // sliver sits between the note edge and the red. Closed-state corner
+                        // notches fall outside the row clip below and stay invisible.
+                        contentBackgroundColor = Color.Transparent,
+                        // Clip to the field shape so the revealed red background conforms
+                        // to the note's rounded corners instead of peeking out square.
+                        modifier = Modifier.clip(StratumThemeAccessor.shapes.panel),
                     ) {
                         StratumTextField(
                             value = draft.body,
@@ -228,25 +254,29 @@ fun ManageNotesScreen(
                                     },
                                 )
                             },
-                            label = stringResource(CoreUiR.string.lift_notes_field_label),
+                            // No floating label: its top strip sits outside the field container
+                            // and would leak the red reveal above the note. The placeholder
+                            // captions the empty state instead (still in the a11y tree).
+                            label = null,
+                            placeholder = stringResource(CoreUiR.string.lift_notes_field_label),
                             singleLine = false,
                             options =
                                 StratumTextFieldOptions(
                                     minLines = 4,
                                     maxLines = 8,
-                                    showClearButton = true,
+                                    selectAllOnFocus = true,
                                 ),
                             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-                            modifier = Modifier.weight(1f),
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .focusRequester(focusRequester),
                         )
-                        StratumIconButton(
-                            onClick = { setDrafts(currentDrafts.filterNot { it.key == draft.key }) },
-                        ) {
-                            Icon(
-                                painter = painterResource(CoreUiR.drawable.ic_delete),
-                                contentDescription = stringResource(CoreUiR.string.lift_notes_delete_note_cd),
-                                tint = StratumThemeAccessor.colors.textPrimary,
-                            )
+                    }
+                    if (pendingFocusKey == draft.key) {
+                        LaunchedEffect(draft.key) {
+                            pendingFocusKey = null
+                            focusRequester.requestFocus()
                         }
                     }
                 }
@@ -254,9 +284,9 @@ fun ManageNotesScreen(
                     StratumOutlinedButton(
                         text = stringResource(CoreUiR.string.lift_notes_add_note),
                         onClick = {
-                            setDrafts(
-                                currentDrafts + EditableNote(key = UUID.randomUUID().toString()),
-                            )
+                            val key = UUID.randomUUID().toString()
+                            setDrafts(currentDrafts + EditableNote(key = key))
+                            pendingFocusKey = key
                         },
                         modifier = Modifier.fillMaxWidth(),
                     )

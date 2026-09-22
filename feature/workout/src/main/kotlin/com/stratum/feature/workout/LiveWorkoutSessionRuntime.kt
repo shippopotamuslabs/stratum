@@ -38,6 +38,7 @@ import com.stratum.domain.training.liveWorkoutRouteId
 import com.stratum.domain.workout.ApplyOverlayToWorkoutUseCase
 import com.stratum.domain.workout.EstimateAddedSetRepsUseCase
 import com.stratum.domain.workout.GenerateProgressionSnapshotUseCase
+import com.stratum.domain.workout.GetSessionPinnedNoteListsUseCase
 import com.stratum.domain.workout.LoggedSetValue
 import com.stratum.domain.workout.ManageWorkoutOverlayUseCase
 import com.stratum.domain.workout.MergeRenderedWorkoutUseCase
@@ -45,6 +46,7 @@ import com.stratum.domain.workout.OverlaySetInstanceId
 import com.stratum.domain.workout.ProjectWorkoutStructureUseCase
 import com.stratum.domain.workout.RecomputeRecommendationsUseCase
 import com.stratum.domain.workout.RenderedWorkout
+import com.stratum.domain.workout.SessionPinnedNoteLists
 import com.stratum.domain.workout.SetSlot
 import com.stratum.domain.workout.SetSlotId
 import com.stratum.domain.workout.SlotRecommendation
@@ -53,8 +55,6 @@ import com.stratum.domain.workout.StructuralMutation
 import com.stratum.domain.workout.WorkoutOverlay
 import com.stratum.domain.workout.WorkoutStructureProjection
 import com.stratum.domain.workout.intensifier.RestDefaultForTransition
-import com.stratum.domain.workout.resolvedLiftPinnedNote
-import com.stratum.domain.workout.resolvedWorkoutPinnedNoteFirst
 import com.stratum.feature.workout.ui.WorkoutUiEvent
 import com.stratum.feature.workout.ui.WorkoutUiMapper
 import java.time.Instant
@@ -88,6 +88,7 @@ internal class LiveWorkoutSessionRuntime(
     val getProgramById: GetProgramByIdUseCase,
     val observeLiftTrainingInsights: ObserveLiftTrainingInsightsUseCase,
     val manageWorkoutOverlay: ManageWorkoutOverlayUseCase,
+    val getSessionPinnedNoteLists: GetSessionPinnedNoteListsUseCase,
 ) {
     var activeWorkoutId: WorkoutId? = null
     var cachedProgramId: ProgramId? = null
@@ -102,6 +103,8 @@ internal class LiveWorkoutSessionRuntime(
     var snapshotLoaded: Boolean = false
     var templateLiftFingerprint: List<String> = emptyList()
     var baselineWorkout: Workout? = null
+    /** Stored multi-note lists by slot (authoritative template source for card pins). */
+    var sessionPinnedNotes: SessionPinnedNoteLists = SessionPinnedNoteLists()
     var canSaveTemplateChanges: Boolean = false
     var templateSavedThisComplete: Boolean = false
     var overlayRevision: Long = 0L
@@ -122,6 +125,7 @@ internal class LiveWorkoutSessionRuntime(
         liftNamesById = emptyMap()
         resetOverlay(WorkoutOverlay())
         baselineWorkout = null
+        sessionPinnedNotes = SessionPinnedNoteLists()
         canSaveTemplateChanges = false
         templateSavedThisComplete = false
         effects.clearLiveSurfaces()
@@ -142,6 +146,7 @@ internal class LiveWorkoutSessionRuntime(
         cachedSessionId = null
         sessionStartedAt = null
         baselineWorkout = null
+        sessionPinnedNotes = SessionPinnedNoteLists()
         canSaveTemplateChanges = false
         templateSavedThisComplete = false
         if (publishEmpty) {
@@ -231,6 +236,9 @@ internal class LiveWorkoutSessionRuntime(
                     liftsById = liftsById,
                     liftNamesById = liftNamesById,
                     mergeRenderedWorkout = mergeRenderedWorkout,
+                    // Same catalog-pin source as render-path merge; pins don't feed recs,
+                    // but the two call sites must not disagree by construction.
+                    liftPinnedNoteListsById = sessionPinnedNotes.byLiftId,
                 )
             recomputeRecommendationsUseCase(
                 rendered = renderedForRecs,
@@ -254,34 +262,23 @@ internal class LiveWorkoutSessionRuntime(
         }
 
     /**
-     * Copies Room/catalog pins onto the current projection without rebuilding slots
-     * (pin edits must not recompute live recs).
+     * Copies stored note lists onto the current projection without rebuilding slots
+     * (pin edits must not recompute live recs). Overlay entries win at merge time;
+     * this only refreshes the template side from [sessionPinnedNotes].
      */
-    internal fun applyPinnedNotesFromTemplate(workout: Workout) {
+    internal fun applyPinnedNotesFromTemplate() {
         val current = structure ?: return
-        val pinsByWl = workout.workoutLifts.associate { lift -> lift.id to lift.pinnedNote }
         structure =
             current.copy(
                 lifts =
                     current.lifts.map { lift ->
-                        val templateNote =
-                            if (pinsByWl.containsKey(lift.workoutLiftId)) {
-                                pinsByWl[lift.workoutLiftId]
-                            } else {
-                                lift.workoutPinnedNote
-                            }
                         lift.copy(
-                            workoutPinnedNote =
-                                resolvedWorkoutPinnedNoteFirst(
-                                    overlay,
-                                    lift.workoutLiftId,
-                                    templateNote,
-                                ),
-                            liftPinnedNote =
-                                resolvedLiftPinnedNote(
-                                    liftsById[lift.liftId],
-                                    lift.liftPinnedNote,
-                                ),
+                            workoutPinnedNotes =
+                                sessionPinnedNotes.byWorkoutLiftId[lift.workoutLiftId]
+                                    ?: lift.workoutPinnedNotes,
+                            liftPinnedNotes =
+                                sessionPinnedNotes.byLiftId[lift.liftId]
+                                    ?: lift.liftPinnedNotes,
                         )
                     },
             )
@@ -295,6 +292,7 @@ internal class LiveWorkoutSessionRuntime(
             liftsById = liftsById,
             liftNamesById = liftNamesById,
             mergeRenderedWorkout = mergeRenderedWorkout,
+            liftPinnedNoteListsById = sessionPinnedNotes.byLiftId,
         )
 
     internal fun visibleSlotsForLift(workoutLiftId: WorkoutLiftId): List<SetSlot> =

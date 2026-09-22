@@ -62,8 +62,9 @@ data class RenderedLiftUi(
      * **exits** so the rest timer is not stuck on the short mini-rest value.
      */
     val defaultRestSeconds: Int = 120,
-    val workoutPinnedNote: String? = null,
-    val liftPinnedNote: String? = null,
+    /** Ordered pinned notes shown on the lift card (all rows, not just the first). */
+    val workoutPinnedNotes: List<String> = emptyList(),
+    val liftPinnedNotes: List<String> = emptyList(),
     val isPlateLoaded: Boolean = false,
     val isDoubleSided: Boolean = true,
     val unitLabel: String = "lb",

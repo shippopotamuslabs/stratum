@@ -26,8 +26,8 @@ import com.stratum.domain.workout.WorkoutOverlay
 import com.stratum.domain.workout.WorkoutStructureProjection
 import com.stratum.domain.workout.applyRestOverride
 import com.stratum.domain.workout.applyShapeOverride
-import com.stratum.domain.workout.resolvedLiftPinnedNote
-import com.stratum.domain.workout.resolvedWorkoutPinnedNoteFirst
+import com.stratum.domain.workout.resolvedLiftPinnedNotes
+import com.stratum.domain.workout.resolvedWorkoutPinnedNotes
 import java.util.UUID
 
 /**
@@ -412,6 +412,13 @@ internal object LiveWorkoutOverlayOps {
         liftsById: Map<LiftId, Lift>,
         liftNamesById: Map<LiftId, String>,
         mergeRenderedWorkout: MergeRenderedWorkoutUseCase,
+        /**
+         * Stored catalog note lists by lift (see `GetSessionPinnedNoteListsUseCase`).
+         * A present key wins — including an explicitly cleared empty list. Missing keys
+         * (lifts outside the loaded set, e.g. swapped-in or session-added lifts) fall back
+         * to the live catalog mirror, then the projection lists.
+         */
+        liftPinnedNoteListsById: Map<LiftId, List<String>> = emptyMap(),
     ): RenderedWorkout {
         val base = structure ?: return RenderedWorkout(
             com.stratum.domain.program.identity.WorkoutId(""),
@@ -461,14 +468,17 @@ internal object LiveWorkoutOverlayOps {
                 slots = orderedSlots,
                 useRestTimerBetweenLifts = overlay.useRestTimerBetweenLiftsOverrides[lift.workoutLiftId]
                     ?: lift.useRestTimerBetweenLifts,
-                workoutPinnedNote = resolvedWorkoutPinnedNoteFirst(
+                workoutPinnedNotes = resolvedWorkoutPinnedNotes(
                     overlay,
                     lift.workoutLiftId,
-                    lift.workoutPinnedNote,
+                    lift.workoutPinnedNotes,
                 ),
-                liftPinnedNote = resolvedLiftPinnedNote(
-                    catalog,
-                    lift.liftPinnedNote,
+                liftPinnedNotes = resolvedLiftPinnedNotes(
+                    // Map miss (swapped-in / session-added lifts) falls back to the live
+                    // catalog mirror, then the projection — never the previous lift's pins.
+                    liftPinnedNoteListsById[currentLiftId]
+                        ?: liftsById[currentLiftId]?.pinnedNote?.let(::listOf),
+                    lift.liftPinnedNotes,
                 ),
             )
         }
@@ -500,12 +510,16 @@ internal object LiveWorkoutOverlayOps {
                     isDoubleSided = catalog?.isDoubleSidedPlateLoad ?: true,
                     useRestTimerBetweenLifts = overlay.useRestTimerBetweenLiftsOverrides[added.workoutLiftId]
                         ?: added.useRestTimerBetweenLifts,
-                    workoutPinnedNote = resolvedWorkoutPinnedNoteFirst(
+                    workoutPinnedNotes = resolvedWorkoutPinnedNotes(
                         overlay,
                         added.workoutLiftId,
-                        templateNote = null,
+                        templateNotes = emptyList(),
                     ),
-                    liftPinnedNote = resolvedLiftPinnedNote(catalog, projectedNote = null),
+                    liftPinnedNotes = resolvedLiftPinnedNotes(
+                        liftPinnedNoteListsById[effectiveLiftId]
+                            ?: liftsById[effectiveLiftId]?.pinnedNote?.let(::listOf),
+                        projectedNotes = emptyList(),
+                    ),
                 )
             }
 
