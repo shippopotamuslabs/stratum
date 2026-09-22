@@ -81,9 +81,11 @@ machine-derived outputs only.
 
 ## 7. Schema version policy
 
-- **Pre-release:** keep `StratumDatabase` at version **1** with **no migrations** until the
-  first store release. Apply entity changes by bumping version and reinstalling/clearing app
-  data (see `ARCHITECTURE.md` §6).
+- **Versioning:** every entity change bumps `StratumDatabase` and checks in the exported
+  JSON under `core/data/schemas/` (see `ARCHITECTURE.md` §6). Pure additive changes use
+  `AutoMigration`; backfill or reshaping requires a manual migration plus a migration test
+  (`*Migration*Test` pattern). During early development an uninstall/reinstall may
+  substitute for a migration only when no shipped build carries the old schema.
 - **Post-release:** additive migrations only with explicit maintainer approval; never drop
   columns users depend on without a data migration plan.
 - Schema JSON exports under `core/data/schemas/` are checked in and reviewed with every
