@@ -228,10 +228,10 @@ wired in `:app` via callbacks and shared routes.
 ## 6. Data & Background Work (Guidance)
 
 - **Schema lock:** no new Room tables/columns without explicit authorization (see `AGENTS.md`)
-- **Pre-release schema policy:** keep `StratumDatabase` at **version 1** with **no Room migrations**
-  until the first store release. During development, apply entity changes by bumping the version
-  and **uninstalling/reinstalling** the app (or clearing app data) rather than accumulating
-  migration files. Add proper migrations only when shipping to users with existing databases.
+- **Schema version policy:** `StratumDatabase` is versioned with exported JSON checked in
+  under `core/data/schemas/`. Apply entity changes by bumping the version: pure additive
+  changes via `AutoMigration`, backfill/reshaping via a manual migration plus a migration
+  test. Post-release, migrations are additive only (see `DATA_LAYER_RULES.md` §7).
 - **Local-first:** persistence and intelligence default to on-device; sync is opt-in later
 - **WorkManager** for periodic analysis (phase detection, insight generation) lives in `:core:data`
 - **On-device LLM** in a dedicated inference module with no Compose — deterministic core stays in domain/data
