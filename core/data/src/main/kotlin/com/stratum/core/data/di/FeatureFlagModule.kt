@@ -28,7 +28,13 @@ object FeatureFlagProvidesModule {
         config.setConfigSettingsAsync(settings)
         // Kill-switch flags default OPEN (backend allowed) so an unconfigured flag or a
         // failed first fetch can never disable its path. The console flips them to false.
-        config.setDefaultsAsync(mapOf(AppFeatureFlag.CLOUD_PROGRAM_SYNTHESIS.key to true))
+        // Launch flags default CLOSED (feature hidden); the console flips them to true.
+        config.setDefaultsAsync(
+            mapOf(
+                AppFeatureFlag.CLOUD_PROGRAM_SYNTHESIS.key to true,
+                AppFeatureFlag.EQUIPMENT_MANAGEMENT_V2.key to false,
+            ),
+        )
         return config
     }
 }
