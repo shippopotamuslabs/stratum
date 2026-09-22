@@ -17,6 +17,8 @@ import com.stratum.core.data.db.TrainingSessionEntity
 import com.stratum.core.data.db.UserProfileEntity
 import com.stratum.core.data.db.WorkoutEntity
 import com.stratum.core.data.db.WorkoutLiftEntity
+import com.stratum.core.data.mapper.decodeEventPayloadDto
+import com.stratum.core.data.mapper.toLegacyColumns
 import com.stratum.core.data.mapper.toMuscleSet
 import com.stratum.core.data.mapper.toMovementPatternSet
 import com.stratum.core.data.mapper.toPresetSet
@@ -185,17 +187,26 @@ class SyncEntityEncoders @Inject constructor() {
             "estimated_one_rm" to e.estimatedOneRm,
         )
 
-    fun programChangeEvent(e: ProgramChangeEventEntity): Map<String, Any?> =
-        mapOf(
+    fun programChangeEvent(e: ProgramChangeEventEntity): Map<String, Any?> {
+        // Dual-format for cross-version readers: v6+ readers use payload_json; pre-v6
+        // readers only know the flat fields, so derive them from the DTO when the stored
+        // columns predate JSON (new writes leave flats null).
+        val legacy =
+            e.payloadJson?.let { raw ->
+                decodeEventPayloadDto(raw)?.toLegacyColumns()
+            }
+        return mapOf(
             "program_id" to e.programId.value,
             "event_type" to e.eventType.name,
             "occurred_at_epoch_millis" to e.occurredAtEpochMillis,
-            "workout_lift_id" to e.workoutLiftId?.value,
-            "previous_lift_id" to e.previousLiftId?.value,
-            "new_lift_id" to e.newLiftId?.value,
-            "workout_id" to e.workoutId?.value,
-            "completed_cycle_number" to e.completedCycleNumber,
+            "payload_json" to e.payloadJson,
+            "workout_lift_id" to (e.workoutLiftId?.value ?: legacy?.workoutLiftId),
+            "previous_lift_id" to (e.previousLiftId?.value ?: legacy?.previousLiftId),
+            "new_lift_id" to (e.newLiftId?.value ?: legacy?.newLiftId),
+            "workout_id" to (e.workoutId?.value ?: legacy?.workoutId),
+            "completed_cycle_number" to (e.completedCycleNumber ?: legacy?.completedCycleNumber),
         )
+    }
 
     fun liftSessionNote(e: LiftSessionNoteEntity): Map<String, Any?> =
         mapOf(
