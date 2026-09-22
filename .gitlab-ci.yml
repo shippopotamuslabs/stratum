@@ -4,13 +4,13 @@
 # Pinned to an immutable commit SHA. Tags like v1.0.3 are mutable and can be
 # force-moved, which would run attacker-controlled pipeline code in this
 # project's CI context (signing / google-services secrets). Human-readable
-# tag: v1.0.3. BUMP PROCESS: resolve the new tag to its peeled commit SHA
+# tag: v1.0.8. BUMP PROCESS: resolve the new tag to its peeled commit SHA
 # (git ls-remote https://gitlab.com/browntown.development/forge-reviewer.git,
 # take the ^{} peeled value), review the template diff,
 # then update `ref:` and FORGE_REF together.
 include:
   - project: 'browntown.development/forge-reviewer'
-    ref: 4d02cf5e6cd21d84b775cef6799ade53562b071f # v1.0.7 — keep pinned, never a tag
+    ref: 1d2242da54e5f88ac686855896f58ca0571cb7c3 # v1.0.8 — keep pinned, never a tag
     file: '/templates/forge.gitlab-ci.yml'
 
 # ONE-TIME SETUP (GitLab project -> Settings -> CI/CD -> Variables):
@@ -27,7 +27,7 @@ include:
 #   These are the only secrets forge:* jobs need. They intentionally do NOT extend
 #   .android-job, so they never copy google-services.json nor decode the keystore.
 #   Keep every Android secret above Protected (forge jobs run on
-#   merge_request_event and must not require them). Reviewed template v1.0.3 at the
+#   merge_request_event and must not require them). Reviewed template v1.0.8 at the
 #   pinned SHA: only forge:master posts to GitLab; egress is the GitLab API,
 #   OpenRouter, and pinned pr-agent==0.46.0 from PyPI.
 # - Optional: a pipeline schedule (e.g. nightly 02:00 UTC) to enable emulator-tests.
@@ -69,7 +69,7 @@ variables:
   # scripts .forge-setup downloads at runtime — same immutable pin as the
   # include above (tag shown for readability only); keep the two in sync.
   FORGE_ENABLED: "true"
-  FORGE_REF: "4d02cf5e6cd21d84b775cef6799ade53562b071f" # v1.0.7 — keep pinned, never a tag
+  FORGE_REF: "1d2242da54e5f88ac686855896f58ca0571cb7c3" # v1.0.8 — keep pinned, never a tag
 
 stages:
   - lint
