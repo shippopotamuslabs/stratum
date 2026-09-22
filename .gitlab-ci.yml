@@ -383,6 +383,9 @@ deploy-internal:
     - /tmp/play-env/bin/pip install --quiet google-api-python-client google-auth
     - /tmp/play-env/bin/python scripts/play-upload-internal.py app/build/outputs/bundle/release/app-release.aab
   artifacts:
+    # when: always — a failed upload still leaves the signed bundle behind
+    # for a manual Console upload (declaration deadlocks like AD_ID/health).
+    when: always
     paths:
       - app/build/outputs/bundle/release/*.aab
       - app/build/outputs/apk/release/*.apk
