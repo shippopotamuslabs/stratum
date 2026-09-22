@@ -10,7 +10,7 @@
 # then update `ref:` and FORGE_REF together.
 include:
   - project: 'browntown.development/forge-reviewer'
-    ref: 40b66f84a92dad23e3530ac0719d14f59f1431ff # v1.0.3 — keep pinned, never a tag
+    ref: 5fc592e3c145cf7de4e262f46b3e0f110e8f2f90 # v1.0.4 — keep pinned, never a tag
     file: '/templates/forge.gitlab-ci.yml'
 
 # ONE-TIME SETUP (GitLab project -> Settings -> CI/CD -> Variables):
@@ -61,7 +61,7 @@ variables:
   # scripts .forge-setup downloads at runtime — same immutable pin as the
   # include above (tag shown for readability only); keep the two in sync.
   FORGE_ENABLED: "true"
-  FORGE_REF: "40b66f84a92dad23e3530ac0719d14f59f1431ff" # v1.0.3 — keep pinned, never a tag
+  FORGE_REF: "5fc592e3c145cf7de4e262f46b3e0f110e8f2f90" # v1.0.4 — keep pinned, never a tag
 
 stages:
   - lint
