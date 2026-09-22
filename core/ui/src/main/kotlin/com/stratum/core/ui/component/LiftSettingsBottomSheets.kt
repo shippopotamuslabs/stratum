@@ -289,6 +289,7 @@ fun LiftActionsBottomSheet(
     onConfigureRestTimes: (() -> Unit)? = null,
     onManageNotes: (() -> Unit)? = null,
     onViewPastSessionNotes: (() -> Unit)? = null,
+    onEditEquipment: (() -> Unit)? = null,
 ) {
     StratumBottomSheet(
         onDismissRequest = onDismiss,
@@ -302,6 +303,7 @@ fun LiftActionsBottomSheet(
             onConfigureRestTimes = onConfigureRestTimes,
             onManageNotes = onManageNotes,
             onViewPastSessionNotes = onViewPastSessionNotes,
+            onEditEquipment = onEditEquipment,
         )
     }
 }
@@ -315,6 +317,7 @@ fun LiftActionsSheetContent(
     onConfigureRestTimes: (() -> Unit)? = null,
     onManageNotes: (() -> Unit)? = null,
     onViewPastSessionNotes: (() -> Unit)? = null,
+    onEditEquipment: (() -> Unit)? = null,
 ) {
     LiftActionRow(
         text = stringResource(CoreUiR.string.edit_workout_reorder_lifts),
@@ -352,6 +355,13 @@ fun LiftActionsSheetContent(
         leadingIconRes = CoreUiR.drawable.ic_swap_horiz,
         onClick = onSwapLift,
     )
+    if (onEditEquipment != null) {
+        LiftActionRow(
+            text = stringResource(CoreUiR.string.edit_workout_edit_equipment),
+            leadingIconRes = CoreUiR.drawable.ic_barbell,
+            onClick = onEditEquipment,
+        )
+    }
     LiftActionRow(
         text = stringResource(CoreUiR.string.edit_workout_remove_lift),
         leadingIcon = Icons.Outlined.Delete,

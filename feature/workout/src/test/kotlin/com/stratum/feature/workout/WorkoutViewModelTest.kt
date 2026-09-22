@@ -2,6 +2,9 @@ package com.stratum.feature.workout
 
 import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
+import com.stratum.core.testing.featureflag.FakeFeatureFlagRepository
+import com.stratum.domain.featureflag.AppFeatureFlag
+import com.stratum.domain.featureflag.ObserveEquipmentManagementV2UseCase
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
@@ -110,6 +113,7 @@ class WorkoutViewModelTest {
     private lateinit var workoutEditSession: WorkoutEditSession
     private lateinit var overlayStore: FakeWorkoutOverlayStore
     private lateinit var liftNotesRepository: com.stratum.core.testing.lift.FakeLiftNotesRepository
+    private val fakeFeatureFlags = FakeFeatureFlagRepository()
 
     @BeforeEach
     fun setUp() {
@@ -135,6 +139,7 @@ class WorkoutViewModelTest {
         workoutEditSession = WorkoutEditSession()
         overlayStore = FakeWorkoutOverlayStore()
         liftNotesRepository = com.stratum.core.testing.lift.FakeLiftNotesRepository()
+        fakeFeatureFlags.clear()
         seedHistoryForTopSet()
     }
 
@@ -422,6 +427,7 @@ class WorkoutViewModelTest {
                 programRepository,
                 liftRepository,
             ),
+            observeEquipmentManagementV2 = ObserveEquipmentManagementV2UseCase(fakeFeatureFlags),
         )
     }
 
@@ -510,6 +516,7 @@ class WorkoutViewModelTest {
                 programRepository,
                 liftRepository,
             ),
+            observeEquipmentManagementV2 = ObserveEquipmentManagementV2UseCase(fakeFeatureFlags),
         )
     }
 
@@ -596,6 +603,7 @@ class WorkoutViewModelTest {
                 programRepository,
                 liftRepository,
             ),
+            observeEquipmentManagementV2 = ObserveEquipmentManagementV2UseCase(fakeFeatureFlags),
         )
     }
 
@@ -1324,6 +1332,7 @@ class WorkoutViewModelTest {
                 programRepository,
                 liftRepository,
             ),
+            observeEquipmentManagementV2 = ObserveEquipmentManagementV2UseCase(fakeFeatureFlags),
         )
 
         localViewModel.startSession(workoutId)
@@ -1409,6 +1418,7 @@ class WorkoutViewModelTest {
                 programRepository,
                 liftRepository,
             ),
+            observeEquipmentManagementV2 = ObserveEquipmentManagementV2UseCase(fakeFeatureFlags),
         )
 
         localViewModel.startSession(workoutId)
@@ -3077,6 +3087,29 @@ class WorkoutViewModelTest {
             Instant.parse(startedAt),
             workoutName,
         )
+    }
+
+    @Test
+    @DisplayName("Given the equipment flag off when session loads then the gate is closed")
+    fun equipmentGateClosedByDefault() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        viewModel.uiState.test {
+            assertFalse(awaitLoaded().equipmentManagementV2Enabled)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Given the equipment flag on when session loads then the gate is open")
+    fun equipmentGateOpenWhenFlagEnabled() = runTest {
+        fakeFeatureFlags.setFlag(AppFeatureFlag.EQUIPMENT_MANAGEMENT_V2, true)
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        viewModel.uiState.test {
+            assertTrue(awaitLoaded().equipmentManagementV2Enabled)
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     private suspend fun app.cash.turbine.ReceiveTurbine<WorkoutUiState>.awaitLoaded(): WorkoutUiState.Loaded {

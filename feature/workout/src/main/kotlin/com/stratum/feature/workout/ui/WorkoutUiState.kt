@@ -27,6 +27,11 @@ sealed interface WorkoutUiState {
          * (avoids reinterpreting typed magnitudes under the new unit).
          */
         val displayUnitEpoch: Int = 0,
+        /**
+         * Gates the equipment-management rework ([AppFeatureFlag.EQUIPMENT_MANAGEMENT_V2]).
+         * When false the workout shows the legacy lift-options sheet with no equipment entry.
+         */
+        val equipmentManagementV2Enabled: Boolean = false,
     ) : WorkoutUiState
 
     data class Error(val message: String) : WorkoutUiState
@@ -68,9 +73,25 @@ data class RenderedLiftUi(
     val isPlateLoaded: Boolean = false,
     val isDoubleSided: Boolean = true,
     val unitLabel: String = "lb",
+    /**
+     * Catalog equipment backing this lift, if assigned. Drives "Edit equipment" routing
+     * together with [hasIncrementOverride] (see `resolveEquipmentEditorDestination`).
+     */
+    val equipmentId: String? = null,
+    /** True when the lift carries its own per-lift override tiers (not equipment defaults). */
+    val hasIncrementOverride: Boolean = false,
 ) : SupersetLinkableLift {
     override val name: String get() = liftName
 }
+
+/**
+ * Catalog equipment data for one workout lift, joined by id in
+ * `LiveWorkoutSessionRuntime.render` (same pattern as `imageUrlByLiftId`).
+ */
+data class EquipmentEditTarget(
+    val equipmentId: String?,
+    val hasIncrementOverride: Boolean,
+)
 
 /**
  * Past notes for one completed session: a single date/workout header with every

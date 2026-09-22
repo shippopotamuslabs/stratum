@@ -3,6 +3,7 @@ package com.stratum.feature.workout
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.core.ui.component.SupersetLinkDirection
+import com.stratum.domain.featureflag.ObserveEquipmentManagementV2UseCase
 import com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase
 import com.stratum.domain.lift.CatalogNoteInput
 import com.stratum.domain.lift.GetLiftNoteListsUseCase
@@ -107,6 +108,7 @@ class WorkoutViewModel @Inject constructor(
     private val getPastSessionNotesForLift: GetPastSessionNotesForLiftUseCase,
     private val getLiftNoteLists: GetLiftNoteListsUseCase,
     getSessionPinnedNoteLists: GetSessionPinnedNoteListsUseCase,
+    private val observeEquipmentManagementV2: ObserveEquipmentManagementV2UseCase,
 ) : ViewModel() {
 
     /**
@@ -118,6 +120,9 @@ class WorkoutViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow<WorkoutUiState>(WorkoutUiState.Loading)
     val uiState: StateFlow<WorkoutUiState> = _uiState.asStateFlow()
+
+    /** Gates the "Edit equipment" sheet row; refreshed from Remote Config on collect. */
+    private val equipmentManagementV2Enabled = MutableStateFlow(false)
 
     /** Transient snackbar copy; cleared via [userMessageShown] after the UI presents it. */
     private val _userMessage = MutableStateFlow<String?>(null)
@@ -148,7 +153,14 @@ class WorkoutViewModel @Inject constructor(
     private val sessionEffects =
         object : SessionEffects {
             override fun publishUi(state: WorkoutUiState) {
-                _uiState.value = state
+                _uiState.value =
+                    if (state is WorkoutUiState.Loaded) {
+                        state.copy(
+                            equipmentManagementV2Enabled = equipmentManagementV2Enabled.value,
+                        )
+                    } else {
+                        state
+                    }
             }
 
             override fun publishUserMessage(message: String?) {
@@ -204,6 +216,16 @@ class WorkoutViewModel @Inject constructor(
         )
 
     init {
+        viewModelScope.launch {
+            observeEquipmentManagementV2().collect { enabled ->
+                equipmentManagementV2Enabled.value = enabled
+                // Patch the current frame so the sheet row appears without waiting
+                // for the next session re-render.
+                (_uiState.value as? WorkoutUiState.Loaded)?.let { loaded ->
+                    _uiState.value = loaded.copy(equipmentManagementV2Enabled = enabled)
+                }
+            }
+        }
         viewModelScope.launch {
             observeWeightDisplayPreferences()
                 .catch {
