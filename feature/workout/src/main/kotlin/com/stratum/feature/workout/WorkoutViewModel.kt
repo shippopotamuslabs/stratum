@@ -34,6 +34,7 @@ import com.stratum.domain.training.LogSetUseCase
 import com.stratum.domain.training.ObserveCycleProgressUseCase
 import com.stratum.domain.training.UpdateLoggedSetUseCase
 import com.stratum.domain.workout.ApplyOverlayToWorkoutUseCase
+import com.stratum.domain.workout.GetSessionPinnedNoteListsUseCase
 import com.stratum.domain.workout.EditSessionEvent
 import com.stratum.domain.workout.EstimateAddedSetRepsUseCase
 import com.stratum.domain.workout.GenerateProgressionSnapshotUseCase
@@ -105,6 +106,7 @@ class WorkoutViewModel @Inject constructor(
     private val saveLiftNotesUseCase: SaveLiftNotesUseCase,
     private val getPastSessionNotesForLift: GetPastSessionNotesForLiftUseCase,
     private val getLiftNoteLists: GetLiftNoteListsUseCase,
+    getSessionPinnedNoteLists: GetSessionPinnedNoteListsUseCase,
 ) : ViewModel() {
 
     /**
@@ -197,6 +199,7 @@ class WorkoutViewModel @Inject constructor(
             getProgramById = getProgramById,
             observeLiftTrainingInsights = observeLiftTrainingInsights,
             manageWorkoutOverlay = manageWorkoutOverlay,
+            getSessionPinnedNoteLists = getSessionPinnedNoteLists,
             logError = logError,
         )
 
@@ -525,6 +528,11 @@ class WorkoutViewModel @Inject constructor(
                         bodies = request.workoutNotes.orEmpty().map { it.body },
                     ),
                 )
+            }
+            // Saved pin lists live in the repos now; refresh the session's template-side
+            // copies so the lift cards render every pin. Session-tab-only saves skip this.
+            if (request.workoutNotes != null || request.liftNotes != null) {
+                enqueue(SessionCommand.RefreshPinnedNotes)
             }
         }
     }

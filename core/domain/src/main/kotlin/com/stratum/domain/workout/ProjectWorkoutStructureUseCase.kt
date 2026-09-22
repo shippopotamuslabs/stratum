@@ -4,6 +4,7 @@ import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.Workout
 import com.stratum.domain.program.coerceForCompound
+import com.stratum.domain.program.identity.WorkoutLiftId
 
 /**
  * Pure structure projection use case (D1). Builds the [WorkoutStructureProjection]
@@ -28,6 +29,14 @@ class ProjectWorkoutStructureUseCase @javax.inject.Inject constructor() {
         liftPinnedNotesById: Map<LiftId, String?> = emptyMap(),
         isPlateLoadedById: Map<LiftId, Boolean> = emptyMap(),
         isDoubleSidedById: Map<LiftId, Boolean> = emptyMap(),
+        /**
+         * Stored multi-note lists by slot (see [GetSessionPinnedNoteListsUseCase]).
+         * A present key wins — including an explicitly cleared empty list. Missing keys
+         * (slots outside the loaded set, e.g. freshly added template lifts) fall back to
+         * the template write-carry list, then the legacy single.
+         */
+        workoutPinnedNoteListsById: Map<WorkoutLiftId, List<String>> = emptyMap(),
+        liftPinnedNoteListsById: Map<LiftId, List<String>> = emptyMap(),
     ): WorkoutStructureProjection {
         val lifts = workout.workoutLifts.map { workoutLift ->
             val isCompound = isCompoundById[workoutLift.liftId] ?: true
@@ -39,8 +48,12 @@ class ProjectWorkoutStructureUseCase @javax.inject.Inject constructor() {
                 supersetGroupId = workoutLift.supersetGroupId,
                 loadType = loadTypesById[workoutLift.liftId] ?: LoadType.Weighted,
                 useRestTimerBetweenLifts = workoutLift.useRestTimerBetweenLifts,
-                workoutPinnedNote = workoutLift.pinnedNote,
-                liftPinnedNote = liftPinnedNotesById[workoutLift.liftId],
+                workoutPinnedNotes =
+                    workoutPinnedNoteListsById[workoutLift.id]
+                        ?: workoutLift.pinnedNotes.ifEmpty { listOfNotNull(workoutLift.pinnedNote) },
+                liftPinnedNotes =
+                    liftPinnedNoteListsById[workoutLift.liftId]
+                        ?: listOfNotNull(liftPinnedNotesById[workoutLift.liftId]),
                 isPlateLoaded = isPlateLoadedById[workoutLift.liftId] ?: false,
                 isDoubleSided = isDoubleSidedById[workoutLift.liftId] ?: true,
                 slots = workoutLift.sets.map { liftSet ->

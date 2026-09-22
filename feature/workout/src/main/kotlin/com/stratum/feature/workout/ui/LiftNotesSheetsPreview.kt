@@ -15,8 +15,8 @@ private fun ManageNotesSummaryContentPreview() {
                     liftId = "lift-1",
                     liftName = "Squat",
                     sets = emptyList(),
-                    workoutPinnedNote = "Keep elbows tucked",
-                    liftPinnedNote = "Belt on working sets",
+                    workoutPinnedNotes = listOf("Keep elbows tucked", "Chest up"),
+                    liftPinnedNotes = listOf("Belt on working sets"),
                 ),
             initialTab = LiftNoteTab.Workout,
             loadNoteLists = { _, _ ->

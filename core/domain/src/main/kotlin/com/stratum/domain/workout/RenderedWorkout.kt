@@ -55,8 +55,12 @@ data class RenderedWorkoutLift(
     val useRestTimerBetweenLifts: Boolean = false,
     val isPlateLoaded: Boolean = false,
     val isDoubleSided: Boolean = true,
-    val workoutPinnedNote: String? = null,
-    val liftPinnedNote: String? = null,
+    /**
+     * Ordered pinned notes for display. The legacy single-note readers were removed in
+     * favor of these lists (work item: show all pins on the lift card, not just the first).
+     */
+    val workoutPinnedNotes: List<String> = emptyList(),
+    val liftPinnedNotes: List<String> = emptyList(),
 )
 
 /** The fully merged rendered workout (D1). Pure output of `MergeRenderedWorkoutUseCase`. */

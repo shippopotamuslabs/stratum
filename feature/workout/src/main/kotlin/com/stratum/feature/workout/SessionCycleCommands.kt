@@ -46,6 +46,7 @@ import com.stratum.domain.workout.OverlaySetInstanceId
 import com.stratum.domain.workout.ProjectWorkoutStructureUseCase
 import com.stratum.domain.workout.RecomputeRecommendationsUseCase
 import com.stratum.domain.workout.RenderedWorkout
+import com.stratum.domain.workout.SessionPinnedNoteLists
 import com.stratum.domain.workout.SetSlot
 import com.stratum.domain.workout.SetSlotId
 import com.stratum.domain.workout.SlotRecommendation
@@ -98,6 +99,11 @@ internal suspend fun LiveWorkoutSessionRuntime.handleApplyCycleSnapshot(cmd: Ses
     var shouldRecompute = false
     if (needsStructureRebuild) {
         val isInitialLoad = !snapshotLoaded
+        // Stored multi-note lists (authoritative over the legacy single-note mirrors).
+        // Best-effort: a repo failure must not block the session from loading.
+        sessionPinnedNotes =
+            runCatching { getSessionPinnedNoteLists(workout) }
+                .getOrDefault(SessionPinnedNoteLists())
         val projected =
             projectStructure(
                 workout,
@@ -107,6 +113,8 @@ internal suspend fun LiveWorkoutSessionRuntime.handleApplyCycleSnapshot(cmd: Ses
                 liftPinnedNotesById = liftsById.mapValues { it.value.pinnedNote },
                 isPlateLoadedById = liftsById.mapValues { it.value.isPlateLoaded },
                 isDoubleSidedById = liftsById.mapValues { it.value.isDoubleSidedPlateLoad },
+                workoutPinnedNoteListsById = sessionPinnedNotes.byWorkoutLiftId,
+                liftPinnedNoteListsById = sessionPinnedNotes.byLiftId,
             )
         structure = projected
         val snapshotResult =
@@ -160,7 +168,7 @@ internal suspend fun LiveWorkoutSessionRuntime.handleApplyCycleSnapshot(cmd: Ses
             shouldRecompute = true
         }
     }
-    applyPinnedNotesFromTemplate(workout)
+    applyPinnedNotesFromTemplate()
     if (shouldRecompute) {
         recomputeRecommendations()
         // Persist post-restore recs (and any established-block freeze) so the next

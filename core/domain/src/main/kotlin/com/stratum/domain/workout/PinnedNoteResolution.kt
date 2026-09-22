@@ -27,6 +27,19 @@ fun resolvedWorkoutPinnedNotes(
 ): List<String> = overlayNotes[workoutLiftId] ?: templateNotes
 
 /**
+ * List form that also honors pre-list overlay entries: overlay list wins, then the
+ * legacy single overlay pin (older persisted sessions), then the template list.
+ */
+fun resolvedWorkoutPinnedNotes(
+    overlay: WorkoutOverlay,
+    workoutLiftId: WorkoutLiftId,
+    templateNotes: List<String>,
+): List<String> =
+    overlay.workoutLiftPinnedNoteLists[workoutLiftId]
+        ?: overlay.workoutLiftPinnedNotes[workoutLiftId]?.let(::listOf)
+        ?: templateNotes
+
+/**
  * Display form: first overlay list entry wins; otherwise the legacy single-note
  * resolution (overlay pin, then template). Keeps single-string readers working
  * while slots carry ordered lists.

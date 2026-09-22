@@ -68,8 +68,8 @@ fun StratumWorkoutLogLiftPanel(
         }
 
         PinnedLiftNotesSlot(
-            workoutNote = lift.workoutPinnedNote,
-            liftNote = lift.liftPinnedNote,
+            workoutNotes = lift.workoutPinnedNotes,
+            liftNotes = lift.liftPinnedNotes,
             onWorkoutNoteClick = onWorkoutPinnedNoteClick,
             onLiftNoteClick = onLiftPinnedNoteClick,
         )
@@ -123,13 +123,13 @@ fun StratumWorkoutLogLiftPanel(
 
 @Composable
 private fun PinnedLiftNotesSlot(
-    workoutNote: String?,
-    liftNote: String?,
+    workoutNotes: List<String>,
+    liftNotes: List<String>,
     onWorkoutNoteClick: (() -> Unit)?,
     onLiftNoteClick: (() -> Unit)?,
 ) {
-    val workout = workoutNote?.trim().orEmpty()
-    val catalog = liftNote?.trim().orEmpty()
+    val workout = workoutNotes.map { it.trim() }.filter { it.isNotEmpty() }
+    val catalog = liftNotes.map { it.trim() }.filter { it.isNotEmpty() }
     if (workout.isEmpty() && catalog.isEmpty()) return
     Column(
         modifier =
@@ -139,17 +139,17 @@ private fun PinnedLiftNotesSlot(
                 .padding(top = 4.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        if (workout.isNotEmpty()) {
+        workout.forEach { body ->
             PinnedLiftNoteRow(
                 caption = stringResource(CoreUiR.string.lift_notes_scope_workout),
-                body = workout,
+                body = body,
                 onClick = onWorkoutNoteClick,
             )
         }
-        if (catalog.isNotEmpty()) {
+        catalog.forEach { body ->
             PinnedLiftNoteRow(
                 caption = stringResource(CoreUiR.string.lift_notes_scope_lift),
-                body = catalog,
+                body = body,
                 onClick = onLiftNoteClick,
             )
         }

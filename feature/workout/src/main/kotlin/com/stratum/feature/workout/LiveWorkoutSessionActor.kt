@@ -20,6 +20,7 @@ import com.stratum.domain.training.liveWorkoutRouteId
 import com.stratum.domain.workout.ApplyOverlayToWorkoutUseCase
 import com.stratum.domain.workout.EstimateAddedSetRepsUseCase
 import com.stratum.domain.workout.GenerateProgressionSnapshotUseCase
+import com.stratum.domain.workout.GetSessionPinnedNoteListsUseCase
 import com.stratum.domain.workout.ManageWorkoutOverlayUseCase
 import com.stratum.domain.workout.MergeRenderedWorkoutUseCase
 import com.stratum.domain.workout.ProjectWorkoutStructureUseCase
@@ -61,6 +62,7 @@ internal class LiveWorkoutSessionActor(
     getProgramById: GetProgramByIdUseCase,
     observeLiftTrainingInsights: ObserveLiftTrainingInsightsUseCase,
     manageWorkoutOverlay: ManageWorkoutOverlayUseCase,
+    getSessionPinnedNoteLists: GetSessionPinnedNoteListsUseCase,
     private val logError: LogErrorUseCase,
 ) {
     private var commands = Channel<SessionCommand>(Channel.UNLIMITED)
@@ -84,6 +86,7 @@ internal class LiveWorkoutSessionActor(
             getProgramById = getProgramById,
             observeLiftTrainingInsights = observeLiftTrainingInsights,
             manageWorkoutOverlay = manageWorkoutOverlay,
+            getSessionPinnedNoteLists = getSessionPinnedNoteLists,
         )
 
     init {
@@ -226,6 +229,8 @@ internal class LiveWorkoutSessionActor(
                 runtime.handleSetRestSecondsForSlots(cmd)
             is SessionCommand.SetWorkoutLiftPinnedNotes ->
                 runtime.handleSetWorkoutLiftPinnedNotes(cmd)
+            SessionCommand.RefreshPinnedNotes ->
+                runtime.handleRefreshPinnedNotes()
             is SessionCommand.CompleteWorkout -> runtime.handleCompleteWorkout(cmd)
         }
     }
@@ -275,6 +280,7 @@ internal fun sessionCommandFailureIsTerminal(cmd: SessionCommand): Boolean =
         is SessionCommand.SetUseRestTimerBetweenLifts,
         is SessionCommand.SetRestSecondsForSlots,
         is SessionCommand.SetWorkoutLiftPinnedNotes,
+        SessionCommand.RefreshPinnedNotes,
         SessionCommand.BeginAbandon,
         SessionCommand.CancelAbandon,
         SessionCommand.FinalizeAbandonLocal,

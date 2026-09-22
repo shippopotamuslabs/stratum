@@ -183,8 +183,8 @@ internal fun mergeLiveLogLift(
                 allLifts.isEmpty() ||
                     com.stratum.core.ui.component.isSupersetPairMember(lift, allLifts)
             },
-        workoutPinnedNote = lift.workoutPinnedNote,
-        liftPinnedNote = lift.liftPinnedNote,
+        workoutPinnedNotes = lift.workoutPinnedNotes,
+        liftPinnedNotes = lift.liftPinnedNotes,
         isPlateLoaded = lift.isPlateLoaded,
         isDoubleSided = lift.isDoubleSided,
         unitLabel = lift.unitLabel,
