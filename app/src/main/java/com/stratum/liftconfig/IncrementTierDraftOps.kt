@@ -94,6 +94,8 @@ object IncrementTierDraftOps {
                     "The last band must be open-ended (and above)"
                 IncrementTiersValidationError.IncrementDecreased ->
                     "Step size should not decrease as weight increases"
+                IncrementTiersValidationError.NegativeLowerBound ->
+                    "The first band cannot start below 0"
             }
         }
 
