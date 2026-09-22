@@ -408,9 +408,7 @@ fun StratumNavHost(
                 },
                 onEditEquipmentClick = { request: EquipmentEditRequest ->
                     backStack.add(
-                        equipmentEditorKey(
-                            resolveEquipmentEditorDestination(request),
-                        ),
+                        equipmentEditorKey(resolveEquipmentEditorDestination(request)),
                     )
                 },
                 onReorderLiftsClick = { workoutId ->
@@ -443,7 +441,10 @@ private fun equipmentEditorKey(destination: EquipmentEditorDestination): NavKey 
     when (destination) {
         is EquipmentEditorDestination.LiftOverride -> LiftIncrementsKey(destination.liftId)
         is EquipmentEditorDestination.SharedEquipment ->
-            EquipmentIncrementsKey(destination.equipmentId)
+            EquipmentIncrementsKey(
+                equipmentId = destination.equipmentId,
+                sourceLiftId = destination.sourceLiftId,
+            )
     }
 
 /** Matches navigation3 default forward/pop duration; fade only (no predictive scale-out). */

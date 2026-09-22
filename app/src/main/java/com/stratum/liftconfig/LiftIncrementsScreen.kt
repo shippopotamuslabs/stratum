@@ -35,6 +35,7 @@ import com.stratum.core.ui.component.StratumOutlinedButton
 import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumSwitch
 import com.stratum.core.ui.component.StratumText
+import com.stratum.core.ui.component.StratumTextButton
 import com.stratum.core.ui.component.StratumTextField
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
@@ -79,6 +80,12 @@ fun LiftIncrementsScreen(
     onRemoveTier: (Int) -> Unit,
     onSave: () -> Unit,
     onResetToEquipment: () -> Unit = {},
+    /**
+     * Equipment-page two-button bar (Update Shared / Save As New). When false the
+     * legacy single Save button renders (per-lift override editor).
+     */
+    showForkSaveBar: Boolean = false,
+    onSaveAsNew: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     StratumScaffold(
@@ -145,6 +152,13 @@ fun LiftIncrementsScreen(
                         onRemove = { onRemoveTier(index) },
                     )
                 }
+                item {
+                    StratumTextButton(
+                        text = stringResource(UiR.string.lift_increments_add_tier),
+                        onClick = onAddTier,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             }
             Column(
                 modifier =
@@ -153,11 +167,6 @@ fun LiftIncrementsScreen(
                         .padding(top = 8.dp, bottom = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                StratumOutlinedButton(
-                    text = stringResource(UiR.string.lift_increments_add_tier),
-                    onClick = onAddTier,
-                    modifier = Modifier.fillMaxWidth(),
-                )
                 if (state.showResetToEquipment) {
                     StratumOutlinedButton(
                         text = stringResource(UiR.string.lift_increments_reset_to_equipment),
@@ -166,12 +175,27 @@ fun LiftIncrementsScreen(
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
-                StratumButton(
-                    text = stringResource(UiR.string.lift_increments_save),
-                    onClick = onSave,
-                    enabled = !state.isSaving && state.validationMessage == null,
-                    modifier = Modifier.padding(bottom = 20.dp).fillMaxWidth(),
-                )
+                if (showForkSaveBar) {
+                    StratumButton(
+                        text = stringResource(UiR.string.equipment_increments_update_shared),
+                        onClick = onSave,
+                        enabled = !state.isSaving && state.validationMessage == null,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    StratumOutlinedButton(
+                        text = stringResource(UiR.string.equipment_increments_save_as_new),
+                        onClick = onSaveAsNew,
+                        enabled = !state.isSaving && state.validationMessage == null,
+                        modifier = Modifier.padding(bottom = 20.dp).fillMaxWidth(),
+                    )
+                } else {
+                    StratumButton(
+                        text = stringResource(UiR.string.lift_increments_save),
+                        onClick = onSave,
+                        enabled = !state.isSaving && state.validationMessage == null,
+                        modifier = Modifier.padding(bottom = 20.dp).fillMaxWidth(),
+                    )
+                }
             }
         }
     }

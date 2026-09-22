@@ -20,12 +20,19 @@ data class EquipmentEditRequest(
  */
 sealed interface EquipmentEditorDestination {
     data class LiftOverride(val liftId: String) : EquipmentEditorDestination
-    data class SharedEquipment(val equipmentId: String) : EquipmentEditorDestination
+    data class SharedEquipment(
+        val equipmentId: String,
+        /** Catalog lift to reassign on Save As New (null when not launched from a lift). */
+        val sourceLiftId: String? = null,
+    ) : EquipmentEditorDestination
 }
 
 fun resolveEquipmentEditorDestination(request: EquipmentEditRequest): EquipmentEditorDestination =
     if (request.target.hasIncrementOverride || request.target.equipmentId == null) {
         EquipmentEditorDestination.LiftOverride(request.liftId)
     } else {
-        EquipmentEditorDestination.SharedEquipment(request.target.equipmentId)
+        EquipmentEditorDestination.SharedEquipment(
+            equipmentId = request.target.equipmentId,
+            sourceLiftId = request.liftId,
+        )
     }
