@@ -47,6 +47,9 @@
     <string name="equipment_increments_affects_none">No lifts use these defaults yet</string>
     <string name="equipment_increments_update_shared">Update shared</string>
     <string name="equipment_increments_save_as_new">Save as new</string>
+    <string name="equipment_affected_sheet_title">Affected lifts</string>
+    <string name="equipment_affected_disabled">Disabled</string>
+    <string name="equipment_affected_swap">Change equipment</string>
     <string name="lift_increments_using_equipment">Using defaults from %1$s. Save to override for this lift only.</string>
     <string name="lift_increments_using_fallback">No equipment defaults — these are global fallback bands. Save to override for this lift only.</string>
     <string name="lift_increments_override_banner">Custom override for this lift</string>

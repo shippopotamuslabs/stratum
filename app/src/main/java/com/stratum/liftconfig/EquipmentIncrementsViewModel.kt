@@ -44,6 +44,17 @@ data class EquipmentIncrementsUiState(
     val unitLabel: String = "lb",
     /** True when the Update Shared / Save As New bar replaces the legacy Save button. */
     val showForkSaveBar: Boolean = false,
+    /** Lifts inheriting these defaults (id + display name + enabled for the sheet). */
+    val affectedLifts: List<AffectedLiftUi> = emptyList(),
+    /** True when the affects banner opens the affected-lifts sheet (v2 UI). */
+    val showAffectedLiftActions: Boolean = false,
+)
+
+/** Presentation row for the affected-lifts sheet (domain stays out of composables). */
+data class AffectedLiftUi(
+    val id: String,
+    val name: String,
+    val enabled: Boolean,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -54,6 +65,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
     private val setEquipmentIncrementTiers: SetEquipmentIncrementTiersUseCase,
     private val validateIncrementTiers: ValidateIncrementTiersUseCase,
     private val forkEquipmentWithTiers: ForkEquipmentWithTiersUseCase,
+    private val equipmentPickResult: EquipmentPickResult,
     observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
     observeEquipmentManagementV2: ObserveEquipmentManagementV2UseCase,
 ) : ViewModel() {
@@ -65,7 +77,11 @@ class EquipmentIncrementsViewModel @Inject constructor(
     private val saveSucceeded = MutableStateFlow(false)
     private val validationOverride = MutableStateFlow<String?>(null)
     private val displayUnit = MutableStateFlow(Weight.WeightUnit.Lb)
-    private val showForkSaveBar = MutableStateFlow(false)
+    private val equipmentV2Enabled = MutableStateFlow(false)
+
+    private var awaitingEquipmentPick = false
+    private var lastSeenPickGen = 0L
+    private var pendingSwapLiftId: String? = null
 
     init {
         viewModelScope.launch {
@@ -78,9 +94,31 @@ class EquipmentIncrementsViewModel @Inject constructor(
         }
         viewModelScope.launch {
             observeEquipmentManagementV2().collect { enabled ->
-                showForkSaveBar.value = enabled
+                equipmentV2Enabled.value = enabled
             }
         }
+        viewModelScope.launch {
+            equipmentPickResult.result.collect { pick ->
+                if (!awaitingEquipmentPick || pick == null) return@collect
+                if (pick.generation <= lastSeenPickGen) return@collect
+                lastSeenPickGen = pick.generation
+                awaitingEquipmentPick = false
+                val liftId = pendingSwapLiftId ?: return@collect
+                pendingSwapLiftId = null
+                val result = setLiftEquipment(LiftId(liftId), pick.equipmentId)
+                if (result.isFailure) {
+                    validationOverride.value = result.exceptionOrNull()?.message
+                        ?: "Could not change equipment"
+                }
+            }
+        }
+    }
+
+    /** Call before opening Manage Equipment in selection mode for [liftId]. */
+    fun beginSwapEquipmentForLift(liftId: String) {
+        lastSeenPickGen = equipmentPickResult.currentGeneration()
+        pendingSwapLiftId = liftId
+        awaitingEquipmentPick = true
     }
 
     private data class Flags(
@@ -323,8 +361,17 @@ class EquipmentIncrementsViewModel @Inject constructor(
             saveSucceeded = saved,
             affectedLiftCount = affected.count,
             affectedLiftNames = affected.lifts.map { it.name },
+            affectedLifts =
+                affected.lifts.map { lift ->
+                    AffectedLiftUi(
+                        id = lift.id.value,
+                        name = lift.name,
+                        enabled = lift.enabled,
+                    )
+                },
             unitLabel = unit.shortLabel(),
             showForkSaveBar = equipmentV2Enabled,
+            showAffectedLiftActions = equipmentV2Enabled,
         )
     }
 

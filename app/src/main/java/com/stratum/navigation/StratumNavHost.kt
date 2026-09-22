@@ -278,7 +278,15 @@ fun StratumNavHost(
                     backStack.add(EquipmentIncrementsKey(equipmentId))
                 },
             )
-            equipmentIncrementsEntry(onBackClick = onNavigateBack)
+            equipmentIncrementsEntry(
+                onBackClick = onNavigateBack,
+                onNavigateToLift = { liftId ->
+                    backStack.add(LiftInformationKey(liftId))
+                },
+                onChooseEquipmentForLift = {
+                    backStack.add(ManageEquipmentKey(selectionMode = true))
+                },
+            )
             settingsEntry(
                 onBackClick = onNavigateBack,
                 onNavigateToLegal = { backStack.add(LegalKey) },
