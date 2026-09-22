@@ -12,6 +12,7 @@ import com.stratum.domain.lift.ObserveEquipmentAffectedLiftsUseCase
 import com.stratum.domain.lift.ObserveEquipmentCatalogUseCase
 import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.SetEquipmentIncrementTiersUseCase
+import com.stratum.domain.lift.SetLiftEquipmentUseCase
 import com.stratum.domain.lift.ValidateIncrementTiersUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId
@@ -65,6 +66,8 @@ class EquipmentIncrementsViewModel @Inject constructor(
     private val setEquipmentIncrementTiers: SetEquipmentIncrementTiersUseCase,
     private val validateIncrementTiers: ValidateIncrementTiersUseCase,
     private val forkEquipmentWithTiers: ForkEquipmentWithTiersUseCase,
+    /** Owned by the quick-swap path: applies a picked equipment to the pending lift. */
+    private val setLiftEquipment: SetLiftEquipmentUseCase,
     private val equipmentPickResult: EquipmentPickResult,
     observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
     observeEquipmentManagementV2: ObserveEquipmentManagementV2UseCase,
@@ -149,7 +152,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
                 isSaving,
                 saveSucceeded,
                 validationOverride,
-                showForkSaveBar,
+                equipmentV2Enabled,
             ) { draft, saving, saved, validation, equipmentV2 ->
                 Flags(draft, saving, saved, validation, equipmentV2)
             },
