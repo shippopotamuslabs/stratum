@@ -422,8 +422,11 @@ test-lab-robo:
     - APK=$(ls app/build/outputs/apk/release/*.apk | head -1)
     # MediumPhone.arm is a virtual device: physical Pixels in Test Lab top out
     # below minSdk 34 for this account's catalog (panther maxes at 33).
+    # Custom results bucket: the default test-lab-* bucket requires roles/editor,
+    # but play-publisher uses least-privilege (testAdmin + analyticsViewer +
+    # storage.objectAdmin on stratum-a1a5b-ftl-results).
     - gcloud --project="$PROJECT_ID" firebase test android run --type robo --app "$APK"
-      --device model=MediumPhone.arm,version=35,locale=en,orientation=portrait --timeout 5m 2>&1 | tee test-lab-robo.log
+      --device model=MediumPhone.arm,version=35,locale=en,orientation=portrait --timeout 5m --results-bucket=gs://stratum-a1a5b-ftl-results 2>&1 | tee test-lab-robo.log
   artifacts:
     when: always
     paths:
