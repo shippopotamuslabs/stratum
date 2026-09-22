@@ -72,6 +72,9 @@ import com.stratum.feature.workout.navigation.WorkoutKey
 import com.stratum.feature.workout.navigation.WorkoutCompleteKey
 import com.stratum.feature.workout.navigation.workoutEntry
 import com.stratum.feature.workout.navigation.workoutCompleteEntry
+import com.stratum.feature.workout.ui.EquipmentEditRequest
+import com.stratum.feature.workout.ui.EquipmentEditorDestination
+import com.stratum.feature.workout.ui.resolveEquipmentEditorDestination
 import com.stratum.liftconfig.CreateLiftKey
 import com.stratum.liftconfig.EquipmentIncrementsKey
 import com.stratum.liftconfig.LiftIncrementsKey
@@ -403,6 +406,13 @@ fun StratumNavHost(
                 onSwapLiftClick = { workoutId, workoutLiftId, liftId, liftName ->
                     backStack.add(LiftSwapKey(workoutId, workoutLiftId, liftId, liftName))
                 },
+                onEditEquipmentClick = { request: EquipmentEditRequest ->
+                    backStack.add(
+                        equipmentEditorKey(
+                            resolveEquipmentEditorDestination(request),
+                        ),
+                    )
+                },
                 onReorderLiftsClick = { workoutId ->
                     backStack.add(ReorderLiftsKey(workoutId))
                 },
@@ -427,6 +437,14 @@ fun StratumNavHost(
         }
     }
 }
+
+/** Maps an equipment-editing decision to the editor key (keeps `StratumNavHost` lean). */
+private fun equipmentEditorKey(destination: EquipmentEditorDestination): NavKey =
+    when (destination) {
+        is EquipmentEditorDestination.LiftOverride -> LiftIncrementsKey(destination.liftId)
+        is EquipmentEditorDestination.SharedEquipment ->
+            EquipmentIncrementsKey(destination.equipmentId)
+    }
 
 /** Matches navigation3 default forward/pop duration; fade only (no predictive scale-out). */
 private fun stratumNavFadeTransform(): ContentTransform =
