@@ -49,8 +49,9 @@ import androidx.room.TypeConverters
         AutoMigration(from = 2, to = 3),
         AutoMigration(from = 3, to = 4),
         // 4 → 5 is a manual migration (MIGRATION_4_5: backfill + index rebuild).
-        // 5 → 6 adds the nullable SCHEME_CHANGED payload columns on program_change_events
-        // (scheme_lift_id, previous_scheme, current_scheme); pure column adds, no backfill.
+        // 5 → 6 adds the nullable JSON event-payload column on program_change_events
+        // (payload_json); pure column add, no backfill. Pre-v6 rows keep null and read
+        // through the frozen flat columns; new writes are JSON-only.
         AutoMigration(from = 5, to = 6),
     ],
 )

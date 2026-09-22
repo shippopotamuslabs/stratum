@@ -17,6 +17,8 @@ import com.stratum.core.data.db.TrainingSessionEntity
 import com.stratum.core.data.db.UserProfileEntity
 import com.stratum.core.data.db.WorkoutEntity
 import com.stratum.core.data.db.WorkoutLiftEntity
+import com.stratum.core.data.db.eventType
+import com.stratum.core.data.mapper.decodeEventPayloadDto
 import com.stratum.core.data.mapper.toBitmask
 import com.stratum.core.data.mapper.toPresetCsv
 import com.stratum.core.data.sync.FirestoreSyncMetadata
@@ -325,19 +327,26 @@ class SyncEntityDecoders @Inject constructor() {
 
     fun programChangeEvent(id: String, data: Map<String, Any?>): ProgramChangeEventEntity? =
         runCatching {
+            val eventType = enumOrNull<ProgramChangeEventType>(data["event_type"]) ?: return null
+            // v6+ documents carry the self-describing payload; validate it now so a corrupt
+            // or mismatched blob fails the upsert instead of landing as an unreadable row.
+            // Pre-v6 documents have no payload_json and decode from the flat fields.
+            val payloadJson = data["payload_json"] as? String
+            if (payloadJson != null) {
+                val dto = decodeEventPayloadDto(payloadJson) ?: return null
+                if (dto.eventType() != eventType) return null
+            }
             ProgramChangeEventEntity(
                 id = ProgramChangeEventId(id),
                 programId = ProgramId(data["program_id"] as? String ?: return null),
-                eventType = enumOrNull(data["event_type"]) ?: return null,
+                eventType = eventType,
                 occurredAtEpochMillis = (data["occurred_at_epoch_millis"] as? Number)?.toLong() ?: 0L,
+                payloadJson = payloadJson,
                 workoutLiftId = (data["workout_lift_id"] as? String)?.let(::WorkoutLiftId),
                 previousLiftId = (data["previous_lift_id"] as? String)?.let(::LiftId),
                 newLiftId = (data["new_lift_id"] as? String)?.let(::LiftId),
                 workoutId = (data["workout_id"] as? String)?.let(::WorkoutId),
                 completedCycleNumber = (data["completed_cycle_number"] as? Number)?.toInt(),
-                schemeLiftId = (data["scheme_lift_id"] as? String)?.let(::LiftId),
-                previousScheme = enumOrNull<ProgressionScheme>(data["previous_scheme"]),
-                currentScheme = enumOrNull<ProgressionScheme>(data["current_scheme"]),
                 updatedAtEpochMillis = remoteUpdatedAt(data),
                 pendingSync = SyncFlags.CLEAN,
             )
