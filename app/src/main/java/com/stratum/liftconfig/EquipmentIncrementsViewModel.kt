@@ -5,14 +5,13 @@ import androidx.lifecycle.viewModelScope
 import com.stratum.domain.featureflag.ObserveEquipmentManagementV2UseCase
 import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.EquipmentAffectedLifts
-import com.stratum.domain.lift.ForkEquipmentUseCase
+import com.stratum.domain.lift.ForkEquipmentWithTiersUseCase
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.IncrementTiersValidationResult
 import com.stratum.domain.lift.ObserveEquipmentAffectedLiftsUseCase
 import com.stratum.domain.lift.ObserveEquipmentCatalogUseCase
 import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.SetEquipmentIncrementTiersUseCase
-import com.stratum.domain.lift.SetLiftEquipmentUseCase
 import com.stratum.domain.lift.ValidateIncrementTiersUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId
@@ -54,8 +53,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
     private val observeEquipmentAffectedLifts: ObserveEquipmentAffectedLiftsUseCase,
     private val setEquipmentIncrementTiers: SetEquipmentIncrementTiersUseCase,
     private val validateIncrementTiers: ValidateIncrementTiersUseCase,
-    private val forkEquipment: ForkEquipmentUseCase,
-    private val setLiftEquipment: SetLiftEquipmentUseCase,
+    private val forkEquipmentWithTiers: ForkEquipmentWithTiersUseCase,
     observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
     observeEquipmentManagementV2: ObserveEquipmentManagementV2UseCase,
 ) : ViewModel() {
@@ -90,13 +88,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
         val saving: Boolean,
         val saved: Boolean,
         val validation: String?,
-    )
-
-    private data class BaseInputs(
-        val id: String?,
-        val catalog: List<Equipment>,
-        val affected: EquipmentAffectedLifts,
-        val unit: Weight.WeightUnit,
+        val equipmentV2Enabled: Boolean,
     )
 
     private val affectedLifts =
@@ -110,25 +102,26 @@ class EquipmentIncrementsViewModel @Inject constructor(
 
     val uiState: StateFlow<EquipmentIncrementsUiState> =
         combine(
+            equipmentId,
+            observeEquipmentCatalog(),
+            affectedLifts,
+            displayUnit,
             combine(
-                equipmentId,
-                observeEquipmentCatalog(),
-                affectedLifts,
-                displayUnit,
-            ) { id, catalog, affected, unit ->
-                BaseInputs(id, catalog, affected, unit)
+                draftTiers,
+                isSaving,
+                saveSucceeded,
+                validationOverride,
+                showForkSaveBar,
+            ) { draft, saving, saved, validation, equipmentV2 ->
+                Flags(draft, saving, saved, validation, equipmentV2)
             },
-            showForkSaveBar,
-            combine(draftTiers, isSaving, saveSucceeded, validationOverride) { draft, saving, saved, validation ->
-                Flags(draft, saving, saved, validation)
-            },
-        ) { base, showForkBar, flags ->
+        ) { id, catalog, affected, unit, flags ->
             buildState(
-                id = base.id,
-                catalog = base.catalog,
-                affected = base.affected,
-                unit = base.unit,
-                showForkBar = showForkBar,
+                id = id,
+                catalog = catalog,
+                affected = affected,
+                unit = unit,
+                equipmentV2Enabled = flags.equipmentV2Enabled,
                 draft = flags.draft,
                 saving = flags.saving,
                 saved = flags.saved,
@@ -270,32 +263,21 @@ class EquipmentIncrementsViewModel @Inject constructor(
         val domainTiers = validatedDraftTiers() ?: return
         viewModelScope.launch {
             isSaving.value = true
-            val copyName = "${uiState.value.equipmentName.ifBlank { "Equipment" }} (copy)"
-            val newId =
-                forkEquipment(EquipmentId(id), copyName).getOrElse { error ->
-                    isSaving.value = false
-                    validationOverride.value = error.message ?: "Could not copy equipment"
-                    return@launch
+            try {
+                val copyName = "${uiState.value.equipmentName.ifBlank { "Equipment" }} (copy)"
+                val liftId = sourceLiftId.value?.let(::LiftId)
+                val result =
+                    forkEquipmentWithTiers(EquipmentId(id), copyName, domainTiers, liftId)
+                if (result.isSuccess) {
+                    saveSucceeded.value = true
+                    validationOverride.value = null
+                } else {
+                    validationOverride.value = result.exceptionOrNull()?.message
+                        ?: "Could not copy equipment"
                 }
-            val written = setEquipmentIncrementTiers(newId, domainTiers)
-            if (written.isFailure) {
+            } finally {
                 isSaving.value = false
-                validationOverride.value = written.exceptionOrNull()?.message
-                    ?: "Could not save increments"
-                return@launch
             }
-            sourceLiftId.value?.let { liftId ->
-                val reassigned = setLiftEquipment(LiftId(liftId), newId)
-                if (reassigned.isFailure) {
-                    isSaving.value = false
-                    validationOverride.value = reassigned.exceptionOrNull()?.message
-                        ?: "Could not move lift to the copy"
-                    return@launch
-                }
-            }
-            isSaving.value = false
-            saveSucceeded.value = true
-            validationOverride.value = null
         }
     }
 
@@ -321,7 +303,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
         catalog: List<Equipment>,
         affected: EquipmentAffectedLifts,
         unit: Weight.WeightUnit,
-        showForkBar: Boolean,
+        equipmentV2Enabled: Boolean,
         draft: List<IncrementTierDraft>?,
         saving: Boolean,
         saved: Boolean,
@@ -342,7 +324,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
             affectedLiftCount = affected.count,
             affectedLiftNames = affected.lifts.map { it.name },
             unitLabel = unit.shortLabel(),
-            showForkSaveBar = showForkBar,
+            showForkSaveBar = equipmentV2Enabled,
         )
     }
 

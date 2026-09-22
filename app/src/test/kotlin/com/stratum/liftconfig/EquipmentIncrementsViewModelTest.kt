@@ -10,6 +10,7 @@ import com.stratum.domain.featureflag.AppFeatureFlag
 import com.stratum.domain.featureflag.ObserveEquipmentManagementV2UseCase
 import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.ForkEquipmentUseCase
+import com.stratum.domain.lift.ForkEquipmentWithTiersUseCase
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
@@ -81,13 +82,20 @@ class EquipmentIncrementsViewModelTest {
                         FakeLoggingPort(),
                     ),
                 validateIncrementTiers = ValidateIncrementTiersUseCase(),
-                forkEquipment =
-                    ForkEquipmentUseCase(
-                        fakeEquipmentRepository,
-                        ValidateIncrementTiersUseCase(),
-                        FakeLoggingPort(),
+                forkEquipmentWithTiers =
+                    ForkEquipmentWithTiersUseCase(
+                        ForkEquipmentUseCase(
+                            fakeEquipmentRepository,
+                            ValidateIncrementTiersUseCase(),
+                            FakeLoggingPort(),
+                        ),
+                        SetEquipmentIncrementTiersUseCase(
+                            fakeEquipmentRepository,
+                            ValidateIncrementTiersUseCase(),
+                            FakeLoggingPort(),
+                        ),
+                        SetLiftEquipmentUseCase(fakeLiftRepository, FakeLoggingPort()),
                     ),
-                setLiftEquipment = SetLiftEquipmentUseCase(fakeLiftRepository, FakeLoggingPort()),
                 observeWeightDisplayPreferences =
                     com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase(
                         com.stratum.core.testing.lift.FakeWeightDisplayPreferencesRepository(),
