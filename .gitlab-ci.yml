@@ -53,10 +53,14 @@ default:
 variables:
   # Gradle/Android homes live OUTSIDE the project dir on purpose: every job's
   # checkout runs `git clean -ffdx`, which used to nuke these mid-pipeline (and
-  # across concurrent jobs sharing one builds dir). The home-server runner must
-  # persist $HOME/.cache between jobs for this to act as a cache.
-  GRADLE_USER_HOME: "${HOME}/.cache/gitlab-ci/${CI_PROJECT_PATH_SLUG:-stratum}/gradle-home"
-  ANDROID_USER_HOME: "${HOME}/.cache/gitlab-ci/${CI_PROJECT_PATH_SLUG:-stratum}/android-home"
+  # across concurrent jobs sharing one builds dir). Sibling of the checkout, so
+  # `git clean` never touches it yet it persists on the host between pipelines.
+  # NOTE: no $HOME here (empty in the runner's non-login shell) and no `:-`
+  # defaults (GitLab expansion doesn't support them) — only predefined
+  # variables. Shared across projects on this host by design (Gradle homes are
+  # safe to share; the runner runs with concurrent = 1).
+  GRADLE_USER_HOME: "$CI_PROJECT_DIR/../ci-home/gradle-home"
+  ANDROID_USER_HOME: "$CI_PROJECT_DIR/../ci-home/android-home"
   GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.caching=true"
   # OSV-Scanner release used by the osv-scan job. Bump when a new release lands
   # (check https://github.com/google/osv-scanner/releases).
