@@ -7,8 +7,9 @@ import javax.inject.Inject
  * guard against malformed seed data, and unit-tested directly.
  *
  * A tier list is valid when:
- * 1. **Sorted & contiguous** — tiers are ordered by `lowerBound` and each tier's `lowerBound`
- *    equals the previous tier's `upperBound`, so the bands tile without gaps or overlaps.
+ * 1. **Anchored tiling** — the first band starts at any `lowerBound >= 0` (cable stacks
+ *    need no fake `0–X` band); every later tier's `lowerBound` equals the previous tier's
+ *    `upperBound`, so the bands tile without gaps or overlaps.
  * 2. **Mixed units forbidden** — every weight shares one unit; mixing lb and kg on a single
  *    lift makes the bands meaningless.
  * 3. **Open final band** — the last tier's `upperBound` is `null` ("and above"); intermediate
@@ -31,10 +32,11 @@ class ValidateIncrementTiersUseCase @Inject constructor() {
             }
             if (!allSameUnit) add(IncrementTiersValidationError.MixedUnits)
 
-            // Bands must tile: prev.upperBound == next.lowerBound, in order. The per-tier
-            // checks live in [checkTier] (returns false on a structural break) so this loop
-            // has a single continuation point.
-            var previousUpper: Double? = 0.0
+            // Bands must tile: first lowerBound >= 0, then prev.upperBound ==
+            // next.lowerBound, in order. The per-tier checks live in [checkTier] (returns
+            // false on a structural break) so this loop has a single continuation point.
+            // Null means "no predecessor" (first band).
+            var previousUpper: Double? = null
             var previousIncrement: Double = 0.0
             var contiguous = true
             for ((index, tier) in tiers.withIndex()) {
@@ -78,7 +80,12 @@ class ValidateIncrementTiersUseCase @Inject constructor() {
         previousIncrement: Double,
         onError: (IncrementTiersValidationError) -> Unit,
     ): Triple<Boolean, Double?, Double> {
-        if (tier.lowerBound.amount != previousUpper) {
+        if (previousUpper == null) {
+            if (tier.lowerBound.amount < 0.0) {
+                onError(IncrementTiersValidationError.NegativeLowerBound)
+                return Triple(false, previousUpper, previousIncrement)
+            }
+        } else if (tier.lowerBound.amount != previousUpper) {
             return Triple(false, previousUpper, previousIncrement)
         }
         val upper = tier.upperBound
@@ -108,6 +115,7 @@ enum class IncrementTiersValidationError {
     IntermediateTierMissingUpperBound,
     FinalTierMustBeOpenEnded,
     IncrementDecreased,
+    NegativeLowerBound,
 }
 
 sealed interface IncrementTiersValidationResult {

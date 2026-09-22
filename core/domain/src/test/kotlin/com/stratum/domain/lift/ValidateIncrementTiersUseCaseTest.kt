@@ -54,6 +54,23 @@ class ValidateIncrementTiersUseCaseTest {
             )
             assertEquals(IncrementTiersValidationResult.Valid, subject.invoke(tiers))
         }
+
+        @Test
+        @DisplayName("Given a single open band starting above 0 when validated then it is valid")
+        fun singleShiftedBandIsValid() {
+            val tiers = listOf(tier(lower = 7.5, upper = null, inc = 5.0))
+            assertEquals(IncrementTiersValidationResult.Valid, subject.invoke(tiers))
+        }
+
+        @Test
+        @DisplayName("Given tiling bands starting above 0 when validated then it is valid")
+        fun shiftedTilingBandsAreValid() {
+            val tiers = listOf(
+                tier(lower = 7.5, upper = 20.0, inc = 5.0),
+                tier(lower = 20.0, upper = null, inc = 10.0),
+            )
+            assertEquals(IncrementTiersValidationResult.Valid, subject.invoke(tiers))
+        }
     }
 
     @Nested
@@ -125,6 +142,23 @@ class ValidateIncrementTiersUseCaseTest {
                 tier(lower = 100.0, upper = null, inc = 5.0),
             )
             assertInvalid(subject.invoke(tiers), IncrementTiersValidationError.IncrementDecreased)
+        }
+
+        @Test
+        @DisplayName("Given a first band starting below 0 when validated then NegativeLowerBound is returned")
+        fun negativeStartIsInvalid() {
+            val tiers = listOf(tier(lower = -5.0, upper = null, inc = 5.0))
+            assertInvalid(subject.invoke(tiers), IncrementTiersValidationError.NegativeLowerBound)
+        }
+
+        @Test
+        @DisplayName("Given a gap after a shifted start when validated then NotContiguous is returned")
+        fun gapAfterShiftedStartIsInvalid() {
+            val tiers = listOf(
+                tier(lower = 7.5, upper = 20.0, inc = 5.0),
+                tier(lower = 25.0, upper = null, inc = 5.0),
+            )
+            assertInvalid(subject.invoke(tiers), IncrementTiersValidationError.NotContiguous)
         }
     }
 

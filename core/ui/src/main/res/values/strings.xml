@@ -192,8 +192,8 @@
     <!-- Lift configuration (Gym tab) -->
     <string name="lift_config_use_in_recommendations">Use in recommendations</string>
     <string name="lift_config_use_in_recommendations_sub">Use lift in program generation and for swap recommendations</string>
-    <string name="lift_config_increments">Increments</string>
-    <string name="lift_config_increments_sub">Configure weight increments for this lift</string>
+    <string name="lift_config_increments">Equipment &amp; increments</string>
+    <string name="lift_config_increments_sub">Equipment and weight increments for this lift</string>
     <string name="lift_config_information">Information</string>
     <string name="lift_config_information_sub">Instructions, details, and history</string>
     <string name="lift_config_merge_lifts">Merge lifts</string>
