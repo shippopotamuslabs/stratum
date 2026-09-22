@@ -38,18 +38,19 @@ subprojects {
 
     tasks.withType<Test>().configureEach {
         useJUnitPlatform()
+        // Profile-driven default (see build/reports/profile): the Robolectric
+        // suites dominate build time and test classes are fork-isolated, so run
+        // them in parallel. Driven by testMaxParallelForks (gradle.properties;
+        // override per machine with -PtestMaxParallelForks=N or
+        // ~/.gradle/gradle.properties), never by host topology here.
+        maxParallelForks = providers.gradleProperty("testMaxParallelForks")
+            .map { it.toInt().coerceAtLeast(1) }
+            .getOrElse(1)
     }
 
-    plugins.withId("com.android.application") {
-        tasks.matching { it.name.startsWith("assemble") }.configureEach {
-            dependsOn(
-                rootProject.subprojects
-                    .filter { sub -> sub.path !in excludedModules && sub.tasks.findByName("detekt") != null }
-                    .map { "${it.path}:detekt" },
-            )
-        }
-    }
-
+    // NOTE: assemble intentionally does NOT depend on detekt. Static analysis is
+    // gated by the detekt CI job (required pipeline) instead, so local builds
+    // and CI assemble jobs stay fast. Run ./gradlew detekt explicitly.
     plugins.withId("org.jetbrains.kotlin.jvm") {
         val buildTypeAttr = Attribute.of("com.android.build.api.attributes.BuildTypeAttr", String::class.java)
         val artifactTypeAttr = Attribute.of("artifactType", String::class.java)
