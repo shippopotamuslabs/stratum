@@ -21,4 +21,6 @@ data class StratumColors(
     val onError: Color,
     val setComplete: Color,
     val prHighlight: Color,
+    /** Non-blocking warnings (e.g. increments that miss logged weights) — amber. */
+    val warning: Color,
 )

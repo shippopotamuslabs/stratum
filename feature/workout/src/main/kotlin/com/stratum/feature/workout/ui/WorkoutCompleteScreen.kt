@@ -52,19 +52,10 @@ import com.stratum.feature.workout.R
 @Composable
 fun WorkoutCompleteScreen(
     state: WorkoutCompleteUiState.Loaded,
-    onClose: () -> Unit,
+    actions: WorkoutCompleteActions,
     modifier: Modifier = Modifier,
     snackbarHostState: SnackbarHostState? = null,
-    onShareImage: (ImageBitmap) -> Unit = {},
-    onShareCaptureFailed: () -> Unit = {},
     isSharing: Boolean = false,
-    onAcceptProposal: (String) -> Unit = {},
-    onAcceptAlternative: (String) -> Unit = {},
-    onAcceptRepRangeShift: (String) -> Unit = {},
-    onSkipProposal: (String) -> Unit = {},
-    onNotNowProposal: (String) -> Unit = {},
-    onConfirmBlastRadius: () -> Unit = {},
-    onDismissBlastRadius: () -> Unit = {},
 ) {
     val shareContent =
         remember(state.workoutName, state.durationFormatted, state.bestSets) {
@@ -99,7 +90,7 @@ fun WorkoutCompleteScreen(
                         }
                         StratumTextButton(
                             text = stringResource(R.string.workout_complete_close),
-                            onClick = onClose,
+                            onClick = actions.onClose,
                             enabled = !actionsBusy,
                         )
                     },
@@ -129,19 +120,20 @@ fun WorkoutCompleteScreen(
                 if (state.repRangeProposals.isNotEmpty()) {
                     RepRangeProposalsSection(
                         proposals = state.repRangeProposals,
-                        onAccept = onAcceptRepRangeShift,
-                        onSkip = onSkipProposal,
-                        onNotNow = onNotNowProposal,
+                        onAccept = actions.onAcceptRepRangeShift,
+                        onSkip = actions.onSkipProposal,
+                        onNotNow = actions.onNotNowProposal,
                     )
                 }
 
                 if (state.equipmentProposals.isNotEmpty()) {
                     EquipmentProposalsSection(
                         proposals = state.equipmentProposals,
-                        onAccept = onAcceptProposal,
-                        onAcceptAlternative = onAcceptAlternative,
-                        onSkip = onSkipProposal,
-                        onNotNow = onNotNowProposal,
+                        onAccept = actions.onAcceptProposal,
+                        onAcceptAlternative = actions.onAcceptAlternative,
+                        onEdit = actions.onEditProposal,
+                        onSkip = actions.onSkipProposal,
+                        onNotNow = actions.onNotNowProposal,
                     )
                 }
             }
@@ -153,11 +145,11 @@ fun WorkoutCompleteScreen(
             pixelSize = SHARE_CAPTURE_DEFAULT_PIXEL_SIZE,
             onCaptured = { image ->
                 captureActive = false
-                onShareImage(image)
+                actions.onShareImage(image)
             },
             onCaptureFailed = {
                 captureActive = false
-                onShareCaptureFailed()
+                actions.onShareCaptureFailed()
             },
         ) {
             WorkoutShareCard(
@@ -173,8 +165,8 @@ fun WorkoutCompleteScreen(
             body = confirm.body,
             confirmLabel = confirm.confirmLabel,
             dismissLabel = stringResource(R.string.workout_complete_proposal_cancel),
-            onConfirm = onConfirmBlastRadius,
-            onDismiss = onDismissBlastRadius,
+            onConfirm = actions.onConfirmBlastRadius,
+            onDismiss = actions.onDismissBlastRadius,
         )
     }
 }
@@ -282,6 +274,7 @@ private fun EquipmentProposalsSection(
     proposals: List<EquipmentProposalCardUi>,
     onAccept: (String) -> Unit,
     onAcceptAlternative: (String) -> Unit,
+    onEdit: (String) -> Unit,
     onSkip: (String) -> Unit,
     onNotNow: (String) -> Unit,
 ) {
@@ -300,6 +293,7 @@ private fun EquipmentProposalsSection(
                 card = card,
                 onAccept = { onAccept(card.id) },
                 onAcceptAlternative = { onAcceptAlternative(card.id) },
+                onEdit = { onEdit(card.id) },
                 onSkip = { onSkip(card.id) },
                 onNotNow = { onNotNow(card.id) },
             )
@@ -312,6 +306,7 @@ private fun EquipmentProposalCard(
     card: EquipmentProposalCardUi,
     onAccept: () -> Unit,
     onAcceptAlternative: () -> Unit,
+    onEdit: () -> Unit,
     onSkip: () -> Unit,
     onNotNow: () -> Unit,
 ) {
@@ -379,18 +374,28 @@ private fun EquipmentProposalCard(
         }
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             StratumTextButton(
-                text = stringResource(R.string.workout_complete_proposal_skip),
-                onClick = onSkip,
+                text = stringResource(R.string.workout_complete_proposal_edit),
+                onClick = onEdit,
                 enabled = actionsEnabled,
             )
-            StratumTextButton(
-                text = stringResource(R.string.workout_complete_proposal_not_now),
-                onClick = onNotNow,
-                enabled = actionsEnabled,
-            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+            ) {
+                StratumTextButton(
+                    text = stringResource(R.string.workout_complete_proposal_skip),
+                    onClick = onSkip,
+                    enabled = actionsEnabled,
+                )
+                StratumTextButton(
+                    text = stringResource(R.string.workout_complete_proposal_not_now),
+                    onClick = onNotNow,
+                    enabled = actionsEnabled,
+                )
+            }
         }
     }
 }

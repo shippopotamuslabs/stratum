@@ -41,7 +41,10 @@ import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.domain.workout.AnalyzeSessionRepRangeShiftProposalsUseCase
 import com.stratum.domain.workout.ApplyRepRangeShiftUseCase
+import com.stratum.feature.workout.ui.EquipmentEditorDestination
+import com.stratum.feature.workout.ui.WorkoutCompleteEvent
 import com.stratum.feature.workout.ui.WorkoutCompleteUiState
+import com.stratum.feature.workout.ui.resolveEquipmentEditorDestination
 import java.time.Instant
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -302,6 +305,94 @@ class WorkoutCompleteViewModelTest {
     }
 
     @Test
+    @DisplayName("Given proposal when edit then editor event carries override target and proposed tiers")
+    fun editEmitsEditorRequestAndRemovesCard() = runTest {
+        val harness = buildCableAnomalyHarness()
+        harness.viewModel.loadSummary(harness.sessionId)
+        advanceUntilIdle()
+
+        val id =
+            (harness.viewModel.uiState.value as WorkoutCompleteUiState.Loaded)
+                .equipmentProposals
+                .single()
+                .id
+        harness.viewModel.events.test {
+            harness.viewModel.onEditProposal(id)
+
+            val event = awaitItem() as WorkoutCompleteEvent.OpenEquipmentEditor
+            // Fork primary on seed Cables → per-lift override for the anomalous lift.
+            assertEquals("lat-pulldown", event.request.liftId)
+            assertEquals("cable", event.request.target.equipmentId)
+            assertTrue(event.request.target.hasIncrementOverride)
+            assertEquals(
+                EquipmentEditorDestination.LiftOverride("lat-pulldown"),
+                resolveEquipmentEditorDestination(event.request),
+            )
+            assertTrue(event.request.initialTiersLb.isNotEmpty())
+            assertTrue(event.request.initialTiersLb.all { it.incrementLb > 0.0 })
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        val loaded = harness.viewModel.uiState.value as WorkoutCompleteUiState.Loaded
+        assertTrue(loaded.equipmentProposals.isEmpty())
+        // Session-scoped removal only — no permanent fingerprint like Not now.
+        assertTrue(harness.prefs.dismissedFingerprints.isEmpty())
+    }
+
+    @Test
+    @DisplayName("Given fixed tiers when refresh after editor return then card stays gone")
+    fun refreshAfterTiersFixedClearsCard() = runTest {
+        val harness = buildCableAnomalyHarness()
+        harness.viewModel.loadSummary(harness.sessionId)
+        advanceUntilIdle()
+
+        val before = harness.viewModel.uiState.value as WorkoutCompleteUiState.Loaded
+        assertEquals(1, before.equipmentProposals.size)
+        // Simulate the editor save: 62.5 / 67.5 now sit on a 2.5-lb lattice.
+        harness.liftRepo.setIncrementTiers(
+            latId,
+            listOf(IncrementTier(Weight(0.0, lb), null, Weight(2.5, lb))),
+        )
+        harness.viewModel.refreshEquipmentProposals(harness.sessionId)
+        advanceUntilIdle()
+
+        val loaded = harness.viewModel.uiState.value as WorkoutCompleteUiState.Loaded
+        assertTrue(loaded.equipmentProposals.isEmpty())
+        // Summary content is preserved by the equipment-only refresh.
+        assertEquals(before.bestSets, loaded.bestSets)
+    }
+
+    @Test
+    @DisplayName("Given unchanged tiers when refresh then card remains")
+    fun refreshWithoutChangesKeepsCard() = runTest {
+        val harness = buildCableAnomalyHarness()
+        harness.viewModel.loadSummary(harness.sessionId)
+        advanceUntilIdle()
+
+        harness.viewModel.refreshEquipmentProposals(harness.sessionId)
+        advanceUntilIdle()
+
+        val loaded = harness.viewModel.uiState.value as WorkoutCompleteUiState.Loaded
+        assertEquals(1, loaded.equipmentProposals.size)
+    }
+
+    @Test
+    @DisplayName("Given unknown proposal when edit then no event and state unchanged")
+    fun editUnknownIdEmitsNothing() = runTest {
+        val harness = buildCableAnomalyHarness()
+        harness.viewModel.loadSummary(harness.sessionId)
+        advanceUntilIdle()
+
+        harness.viewModel.events.test {
+            harness.viewModel.onEditProposal("missing-id")
+            expectNoEvents()
+        }
+
+        val loaded = harness.viewModel.uiState.value as WorkoutCompleteUiState.Loaded
+        assertEquals(1, loaded.equipmentProposals.size)
+    }
+
+    @Test
     @DisplayName("Given fork primary when accept then applies and removes card")
     fun acceptForkAppliesAndRemoves() = runTest {
         val harness = buildCableAnomalyHarness()
@@ -425,6 +516,7 @@ class WorkoutCompleteViewModelTest {
         val viewModel: WorkoutCompleteViewModel,
         val prefs: FakeEquipmentProposalPreferences,
         val equipmentRepo: FakeEquipmentRepository,
+        val liftRepo: FakeLiftRepository,
         val sessionId: String,
     )
 
@@ -734,7 +826,7 @@ class WorkoutCompleteViewModelTest {
                 clearHealthConnectSyncError =
                     ClearHealthConnectSyncErrorUseCase(healthConnectSyncStatus),
             )
-        return CableHarness(viewModel, prefs, equipmentRepo, sessionId)
+        return CableHarness(viewModel, prefs, equipmentRepo, liftRepo, sessionId)
     }
 
     private fun cableSet(
