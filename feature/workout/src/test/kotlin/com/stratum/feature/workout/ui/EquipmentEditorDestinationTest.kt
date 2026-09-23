@@ -24,7 +24,7 @@ class EquipmentEditorDestinationTest {
     @DisplayName("Given inherited equipment defaults when resolved then the shared equipment editor opens")
     fun inheritedDefaultsRouteToSharedEquipment() {
         assertEquals(
-            EquipmentEditorDestination.SharedEquipment("eq-1"),
+            EquipmentEditorDestination.SharedEquipment("eq-1", "lift-1"),
             resolveEquipmentEditorDestination(
                 EquipmentEditRequest(
                     liftId = "lift-1",
