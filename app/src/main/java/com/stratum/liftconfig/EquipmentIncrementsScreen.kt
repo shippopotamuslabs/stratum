@@ -14,9 +14,11 @@ fun EquipmentIncrementsRoute(
     equipmentId: String,
     onBackClick: () -> Unit,
     viewModel: EquipmentIncrementsViewModel = hiltViewModel(),
+    /** Catalog lift that opened this editor (Save As New reassigns it to the copy). */
+    sourceLiftId: String? = null,
 ) {
-    LaunchedEffect(equipmentId) {
-        viewModel.initialize(equipmentId)
+    LaunchedEffect(equipmentId, sourceLiftId) {
+        viewModel.initialize(equipmentId, sourceLiftId)
     }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     LaunchedEffect(state.saveSucceeded) {
@@ -49,6 +51,8 @@ fun EquipmentIncrementsRoute(
         onRemoveTier = viewModel::removeTier,
         onSave = viewModel::save,
         onResetToEquipment = {},
+        showForkSaveBar = state.showForkSaveBar,
+        onSaveAsNew = viewModel::saveAsNew,
         modifier = Modifier,
     )
 }

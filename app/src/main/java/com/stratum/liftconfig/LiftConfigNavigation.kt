@@ -22,7 +22,10 @@ data object CreateLiftKey : NavKey
 data class ManageEquipmentKey(val selectionMode: Boolean = false) : NavKey
 
 @Serializable
-data class EquipmentIncrementsKey(val equipmentId: String) : NavKey
+data class EquipmentIncrementsKey(
+    val equipmentId: String,
+    val sourceLiftId: String? = null,
+) : NavKey
 
 fun EntryProviderScope<NavKey>.liftIncrementsEntry(onBackClick: () -> Unit) {
     entry<LiftIncrementsKey> { key ->
@@ -76,6 +79,7 @@ fun EntryProviderScope<NavKey>.equipmentIncrementsEntry(onBackClick: () -> Unit)
         EquipmentIncrementsRoute(
             equipmentId = key.equipmentId,
             onBackClick = onBackClick,
+            sourceLiftId = key.sourceLiftId,
         )
     }
 }
