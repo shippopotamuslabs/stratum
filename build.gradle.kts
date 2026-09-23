@@ -38,6 +38,11 @@ subprojects {
 
     tasks.withType<Test>().configureEach {
         useJUnitPlatform()
+        // Profile-driven (build/reports/profile): :core:data:testDebugUnitTest is
+        // the single longest task (~70s, Robolectric). Test classes are isolated
+        // per fork, so run them in parallel; cap at 4 so ~3 concurrent CI jobs
+        // on the 16-core home server don't oversubscribe.
+        maxParallelForks = Runtime.getRuntime().availableProcessors().div(2).coerceIn(1, 4)
     }
 
     plugins.withId("com.android.application") {

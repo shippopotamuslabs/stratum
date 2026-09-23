@@ -58,10 +58,16 @@ variables:
   # NOTE: no $HOME here (empty in the runner's non-login shell) and no `:-`
   # defaults (GitLab expansion doesn't support them) — only predefined
   # variables. Shared across projects on this host by design (Gradle homes are
-  # safe to share; the runner runs with concurrent = 1).
+  # safe to share). Set the host runner to concurrent = 3 (see
+  # ~/.gitlab-runner/config.toml on the home server — host-only, not in git):
+  # each slot gets its own ci-home sibling and warms up after one pipeline.
   GRADLE_USER_HOME: "$CI_PROJECT_DIR/../ci-home/gradle-home"
   ANDROID_USER_HOME: "$CI_PROJECT_DIR/../ci-home/android-home"
-  GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.caching=true"
+  # Daemon stays enabled: the shell executor + persistent out-of-tree home above
+  # reuses it across invocations, so the ~7 cold JVM+configuration startups per
+  # pipeline become warm. Caching duplicates gradle.properties so plain
+  # `./gradlew` always benefits, even if this variable is ever dropped.
+  GRADLE_OPTS: "-Dorg.gradle.caching=true"
   # OSV-Scanner release used by the osv-scan job. Bump when a new release lands
   # (check https://github.com/google/osv-scanner/releases).
   OSV_SCANNER_VERSION: "2.6.0"
@@ -104,6 +110,10 @@ stages:
 detekt:
   extends: .android-job
   stage: lint
+  # needs: [] opts out of stage gating: this job is independent of every other
+  # MR job, so with runner concurrent > 1 it starts immediately instead of
+  # waiting for earlier stages. Same pattern on all independent lint/test jobs.
+  needs: []
   script:
     - ./gradlew detekt
   artifacts:
@@ -115,6 +125,7 @@ detekt:
 lint:
   extends: .android-job
   stage: lint
+  needs: []
   script:
     - ./gradlew lintDebug
   artifacts:
@@ -126,6 +137,7 @@ lint:
 unit-tests:
   extends: .android-job
   stage: test
+  needs: []
   script:
     # JVM domain tests + every Android module's debug unit tests.
     # Solver tests are excluded by construction (see header).
@@ -141,8 +153,12 @@ unit-tests:
 assemble-debug:
   extends: .android-job
   stage: test
+  needs: []
   script:
-    - ./gradlew :app:assembleDebug
+    # -x detekt: the detekt job already gates every pipeline, and
+    # build.gradle.kts wires assemble -> :detekt. Re-running it here is pure
+    # duplication, so skip it in CI only (local builds still run it).
+    - ./gradlew :app:assembleDebug -x detekt
   artifacts:
     paths:
       - app/build/outputs/apk/debug/*.apk
@@ -154,8 +170,10 @@ assemble-debug:
 assemble-release:
   extends: .android-job
   stage: test
+  needs: []
   script:
-    - ./gradlew :app:assembleRelease
+    # -x detekt: same as assemble-debug — the detekt job already gates.
+    - ./gradlew :app:assembleRelease -x detekt
   artifacts:
     paths:
       - app/build/outputs/apk/release/*.apk
@@ -165,6 +183,7 @@ functions-tests:
   image: node:22
   tags: [home-server]
   stage: test
+  needs: []
   cache:
     key:
       files:
@@ -174,11 +193,14 @@ functions-tests:
     policy: pull-push
   script:
     - cd functions
-    - npm ci
+    - npm ci --no-audit --no-fund
     - npm run build
     - npm test
+  # Unchanged functions/ code needs no re-test on MRs; main still always runs.
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+      changes:
+        - functions/**/*
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
 # OSV vulnerability scanning: builds CycloneDX SBOMs from the resolved :app
@@ -191,20 +213,26 @@ functions-tests:
 osv-scan:
   extends: .android-job
   stage: lint
+  needs: []
   script:
-    # Install the OSV-Scanner release binary (static Go binary; the shell
-    # executor can't run the analyzer Docker images GitLab's own templates use).
+    # OSV-Scanner release binary (static Go binary; the shell executor can't run
+    # the analyzer Docker images GitLab's own templates use). /tmp persists on
+    # the home-server host across jobs, so reuse the pinned binary when present.
     - |
-      case "$(uname -m)" in
-        x86_64) OSV_ARCH=amd64 ;;
-        aarch64|arm64) OSV_ARCH=arm64 ;;
-        *) echo "Unsupported architecture: $(uname -m)"; exit 1 ;;
-      esac
-      OSV_URL="https://github.com/google/osv-scanner/releases/download/v${OSV_SCANNER_VERSION}/osv-scanner_linux_${OSV_ARCH}"
-      echo "Downloading osv-scanner ${OSV_SCANNER_VERSION} (${OSV_ARCH})"
-      curl -sSL --retry 3 -o /tmp/osv-scanner "$OSV_URL"
-      chmod +x /tmp/osv-scanner
-      /tmp/osv-scanner --version
+      if [ -x /tmp/osv-scanner ] && /tmp/osv-scanner --version 2>/dev/null | grep -q "${OSV_SCANNER_VERSION}"; then
+        echo "Reusing cached osv-scanner ${OSV_SCANNER_VERSION} at /tmp/osv-scanner"
+      else
+        case "$(uname -m)" in
+          x86_64) OSV_ARCH=amd64 ;;
+          aarch64|arm64) OSV_ARCH=arm64 ;;
+          *) echo "Unsupported architecture: $(uname -m)"; exit 1 ;;
+        esac
+        OSV_URL="https://github.com/google/osv-scanner/releases/download/v${OSV_SCANNER_VERSION}/osv-scanner_linux_${OSV_ARCH}"
+        echo "Downloading osv-scanner ${OSV_SCANNER_VERSION} (${OSV_ARCH})"
+        curl -sSL --retry 3 -o /tmp/osv-scanner "$OSV_URL"
+        chmod +x /tmp/osv-scanner
+        /tmp/osv-scanner --version
+      fi
     # Resolved dependency trees -> CycloneDX SBOMs (scripts/generate-sbom.py).
     # The generator exits nonzero on any FAILED (unresolved) dependency, so a
     # partial tree can never scan clean. :solver-service gets its own SBOM:
@@ -245,20 +273,34 @@ osv-scan-image:
   extends: .android-job
   stage: lint
   allow_failure: true
+  needs: []
+  # Docker image build + scan only matters when the solver image inputs change;
+  # main still always runs. (Keeps allow_failure: true per the rollout note.)
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+      changes:
+        - solver-service/**/*
+        - scripts/scan-solver-image.sh
+        - gradle/libs.versions.toml
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   script:
     # Same pinned static binary as osv-scan (shell executor can't run the
-    # analyzer Docker images GitLab's own templates use).
+    # analyzer Docker images GitLab's own templates use). Reuse when present.
     - |
-      case "$(uname -m)" in
-        x86_64) OSV_ARCH=amd64 ;;
-        aarch64|arm64) OSV_ARCH=arm64 ;;
-        *) echo "Unsupported architecture: $(uname -m)"; exit 1 ;;
-      esac
-      OSV_URL="https://github.com/google/osv-scanner/releases/download/v${OSV_SCANNER_VERSION}/osv-scanner_linux_${OSV_ARCH}"
-      echo "Downloading osv-scanner ${OSV_SCANNER_VERSION} (${OSV_ARCH})"
-      curl -sSL --retry 3 -o /tmp/osv-scanner "$OSV_URL"
-      chmod +x /tmp/osv-scanner
-      /tmp/osv-scanner --version
+      if [ -x /tmp/osv-scanner ] && /tmp/osv-scanner --version 2>/dev/null | grep -q "${OSV_SCANNER_VERSION}"; then
+        echo "Reusing cached osv-scanner ${OSV_SCANNER_VERSION} at /tmp/osv-scanner"
+      else
+        case "$(uname -m)" in
+          x86_64) OSV_ARCH=amd64 ;;
+          aarch64|arm64) OSV_ARCH=arm64 ;;
+          *) echo "Unsupported architecture: $(uname -m)"; exit 1 ;;
+        esac
+        OSV_URL="https://github.com/google/osv-scanner/releases/download/v${OSV_SCANNER_VERSION}/osv-scanner_linux_${OSV_ARCH}"
+        echo "Downloading osv-scanner ${OSV_SCANNER_VERSION} (${OSV_ARCH})"
+        curl -sSL --retry 3 -o /tmp/osv-scanner "$OSV_URL"
+        chmod +x /tmp/osv-scanner
+        /tmp/osv-scanner --version
+      fi
     # Fat jar first: the Dockerfile COPYs it out of the repo-root context.
     - ./gradlew :solver-service:shadowJar
     # Fail-closed Docker guard, build, provenance, scan.
@@ -376,7 +418,8 @@ deploy-internal:
       printf 'storeFile=.keystore/stratum_keystore.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
         "$STORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > keystore.properties
     # Signed AAB for Play + signed APK for the Test Lab robo job below.
-    - ./gradlew :app:bundleRelease :app:assembleRelease
+    # -x detekt: MR pipelines already gate on the detekt job.
+    - ./gradlew :app:bundleRelease :app:assembleRelease -x detekt
     # PEP 668: the runner Python is externally managed, so installer deps go
     # in an ephemeral venv rather than --user / system site.
     - python3 -m venv /tmp/play-env
