@@ -91,12 +91,8 @@ class EquipmentIncrementsViewModel @Inject constructor(
     private val equipmentId = MutableStateFlow<String?>(null)
     private val sourceLiftId = MutableStateFlow<String?>(null)
     private val draftTiers = MutableStateFlow<List<IncrementTierDraft>?>(null)
-    /**
-     * Proposal launch input (prefill bands in storage pounds + sample weights for
-     * warnings); derived into drafts per display unit in [buildState]. Null for all
-     * non-proposal entry points.
-     */
-    private val proposalInput = MutableStateFlow<ProposalInput?>(null)
+    /** Shared proposal-prefill session (prefill bands, sample warnings, dismiss-on-save). */
+    private val proposalSession = ProposalEditorSession()
     private val isSaving = MutableStateFlow(false)
     private val saveSucceeded = MutableStateFlow(false)
     private val validationOverride = MutableStateFlow<String?>(null)
@@ -154,16 +150,9 @@ class EquipmentIncrementsViewModel @Inject constructor(
         swapNav.trySend(liftId)
     }
 
-    /** Proposal prefill bands plus sample weights; null outside "Edit steps" launches. */
-    private data class ProposalInput(
-        val initialTiersLb: List<ProposalTierArgs>,
-        val context: ProposalEditContext?,
-    )
-
     private data class Flags(
         val draft: List<IncrementTierDraft>?,
-        val initialTiersLb: List<ProposalTierArgs>,
-        val proposalContext: ProposalEditContext?,
+        val proposalInput: ProposalInput?,
         val saving: Boolean,
         val saved: Boolean,
         val validation: String?,
@@ -185,21 +174,21 @@ class EquipmentIncrementsViewModel @Inject constructor(
             observeEquipmentCatalog(),
             affectedLifts,
             displayUnit,
+            // Five typed flows: this coroutines version has no 6-flow combine overload,
+            // so the two save flags travel paired (see Lift VM's flat five for the same
+            // shape without the V2 flag).
             combine(
-                combine(draftTiers, proposalInput) { draft, input ->
-                    Triple(draft, input?.initialTiersLb.orEmpty(), input?.context)
-                },
-                isSaving,
-                saveSucceeded,
+                combine(isSaving, saveSucceeded) { saving, saved -> saving to saved },
+                draftTiers,
+                proposalSession.input,
                 validationOverride,
                 equipmentV2Enabled,
-            ) { triple, saving, saved, validation, equipmentV2 ->
+            ) { savingPair, draft, input, validation, equipmentV2 ->
                 Flags(
-                    triple.first,
-                    triple.second,
-                    triple.third,
-                    saving,
-                    saved,
+                    draft,
+                    input,
+                    savingPair.first,
+                    savingPair.second,
                     validation,
                     equipmentV2,
                 )
@@ -212,8 +201,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
                 unit = unit,
                 equipmentV2Enabled = flags.equipmentV2Enabled,
                 draft = flags.draft,
-                initialTiersLb = flags.initialTiersLb,
-                proposalContext = flags.proposalContext,
+                proposalInput = flags.proposalInput,
                 saving = flags.saving,
                 saved = flags.saved,
                 validation = flags.validation,
@@ -230,22 +218,16 @@ class EquipmentIncrementsViewModel @Inject constructor(
         initialTiersLb: List<ProposalTierArgs> = emptyList(),
         proposalContext: ProposalEditContext? = null,
     ) {
-        val input =
-            if (initialTiersLb.isEmpty() && proposalContext == null) {
-                null
-            } else {
-                ProposalInput(initialTiersLb, proposalContext)
-            }
+        val inputChanged = proposalSession.resolveInput(initialTiersLb, proposalContext)
         if (
             equipmentId.value == id &&
             this.sourceLiftId.value == sourceLiftId &&
-            proposalInput.value == input
+            !inputChanged
         ) {
             return
         }
         equipmentId.value = id
         this.sourceLiftId.value = sourceLiftId
-        proposalInput.value = input
         draftTiers.value = null
         saveSucceeded.value = false
         validationOverride.value = null
@@ -397,7 +379,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
      * miss logged weights — the user took ownership. Cancellation paths never call this.
      */
     private suspend fun dismissProposalContext() {
-        proposalInput.value?.context?.let { dismissEquipmentProposal(it.proposalId) }
+        proposalSession.dismissIfPresent(dismissEquipmentProposal)
     }
 
     private fun validatedDraftTiers(): List<IncrementTier>? {
@@ -424,8 +406,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
         unit: Weight.WeightUnit,
         equipmentV2Enabled: Boolean,
         draft: List<IncrementTierDraft>?,
-        initialTiersLb: List<ProposalTierArgs>,
-        proposalContext: ProposalEditContext?,
+        proposalInput: ProposalInput?,
         saving: Boolean,
         saved: Boolean,
         validation: String?,
@@ -433,15 +414,17 @@ class EquipmentIncrementsViewModel @Inject constructor(
         val equipment = catalog.firstOrNull { it.id.value == id }
         val tiers =
             draft
-                ?: IncrementTierDraftOps.fromProposalArgs(initialTiersLb, unit)
-                    .takeIf { it.isNotEmpty() }
+                ?: IncrementTierDraftOps.fromProposalArgs(
+                    proposalInput?.initialTiersLb.orEmpty(),
+                    unit,
+                ).takeIf { it.isNotEmpty() }
                 ?: equipment?.incrementTiers?.map { IncrementTierDraftOps.toDraft(it, unit) }
                 ?: listOf(IncrementTierDraftOps.defaultDraft(unit))
         val warnedTierIndexes =
             IncrementTierDraftOps.warnedIndexesForSamples(
                 drafts = tiers,
                 displayUnit = unit,
-                samplesLb = proposalContext?.sampleWeightsLb.orEmpty(),
+                samplesLb = proposalInput?.context?.sampleWeightsLb.orEmpty(),
             )
         return EquipmentIncrementsUiState(
             equipmentId = id.orEmpty(),

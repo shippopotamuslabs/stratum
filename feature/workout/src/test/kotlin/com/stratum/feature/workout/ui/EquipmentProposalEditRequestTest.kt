@@ -127,6 +127,32 @@ class EquipmentProposalEditRequestTest {
     }
 
     @Test
+    @DisplayName("Given fork with no lifts anywhere when mapped then shared equipment editor")
+    fun forkWithoutAnyLiftFallsBackToSharedEquipment() {
+        val proposal =
+            proposal(
+                liftIds = emptyList(),
+                liftNames = emptyList(),
+                primary =
+                    EquipmentIncrementRemedy.ForkCustomEquipment(
+                        suggestedName = "Cables (custom)",
+                        tiers = proposed,
+                        assignLiftIds = emptyList(),
+                    ),
+            )
+
+        val request = EquipmentProposalUiMapper.toEditRequest(proposal)
+
+        val destination = resolveEquipmentEditorDestination(request)
+        assertTrue(destination is EquipmentEditorDestination.SharedEquipment)
+        assertEquals(
+            cableId.value,
+            (destination as EquipmentEditorDestination.SharedEquipment).equipmentId,
+        )
+        assertEquals(expectedArgs, request.initialTiersLb)
+    }
+
+    @Test
     @DisplayName("Given unassigned cluster when amend impossible then fork edit carries null equipment")
     fun forkWithoutEquipmentCarriesNullEquipmentId() {
         val proposal =
@@ -151,12 +177,14 @@ class EquipmentProposalEditRequestTest {
     private fun proposal(
         primary: EquipmentIncrementRemedy,
         clusterEquipmentId: EquipmentId? = cableId,
+        liftIds: List<LiftId> = listOf(latId),
+        liftNames: List<String> = listOf("Lat pulldown"),
     ): EquipmentIncrementProposal =
         EquipmentIncrementProposal(
             id = "test-proposal",
             clusterEquipmentId = clusterEquipmentId,
-            liftIds = listOf(latId),
-            liftNames = listOf("Lat pulldown"),
+            liftIds = liftIds,
+            liftNames = liftNames,
             equipmentName = "Cables",
             sampleWeights = listOf(Weight(62.5, lb)),
             proposedTiers = proposed,

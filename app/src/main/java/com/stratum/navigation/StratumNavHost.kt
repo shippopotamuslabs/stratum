@@ -73,8 +73,6 @@ import com.stratum.feature.workout.navigation.WorkoutCompleteKey
 import com.stratum.feature.workout.navigation.workoutEntry
 import com.stratum.feature.workout.navigation.workoutCompleteEntry
 import com.stratum.feature.workout.ui.EquipmentEditRequest
-import com.stratum.feature.workout.ui.ProposalEditContext
-import com.stratum.feature.workout.ui.ProposalTierArgs
 import com.stratum.feature.workout.ui.EquipmentEditorDestination
 import com.stratum.feature.workout.ui.resolveEquipmentEditorDestination
 import com.stratum.liftconfig.CreateLiftKey
@@ -443,18 +441,15 @@ fun StratumNavHost(
     }
 }
 
-/** Shared "Edit steps" navigation for the live-workout and complete entries. */
+/**
+ * Shared "Edit steps" navigation for the live-workout and complete entries. The request
+ * travels intact into the editor key (no unpack-repack of its proposal fields).
+ */
 private fun pushEquipmentEditor(
     backStack: MutableList<NavKey>,
     request: EquipmentEditRequest,
 ) {
-    backStack.add(
-        equipmentEditorKey(
-            resolveEquipmentEditorDestination(request),
-            request.initialTiersLb,
-            request.proposalContext,
-        ),
-    )
+    backStack.add(equipmentEditorKey(request))
 }
 
 /**
@@ -462,24 +457,20 @@ private fun pushEquipmentEditor(
  * Blank lift ids (proposal clusters without a lift, e.g. Amend with no anomalous lift
  * captured) normalize to null so Save As New never reassigns a `LiftId("")`.
  */
-private fun equipmentEditorKey(
-    destination: EquipmentEditorDestination,
-    initialTiersLb: List<ProposalTierArgs> = emptyList(),
-    proposalContext: ProposalEditContext? = null,
-): NavKey =
-    when (destination) {
+private fun equipmentEditorKey(request: EquipmentEditRequest): NavKey =
+    when (val destination = resolveEquipmentEditorDestination(request)) {
         is EquipmentEditorDestination.LiftOverride ->
             LiftIncrementsKey(
                 liftId = destination.liftId,
-                initialTiersLb = initialTiersLb,
-                proposalContext = proposalContext,
+                initialTiersLb = request.initialTiersLb,
+                proposalContext = request.proposalContext,
             )
         is EquipmentEditorDestination.SharedEquipment ->
             EquipmentIncrementsKey(
                 equipmentId = destination.equipmentId,
                 sourceLiftId = destination.sourceLiftId?.takeIf { it.isNotBlank() },
-                initialTiersLb = initialTiersLb,
-                proposalContext = proposalContext,
+                initialTiersLb = request.initialTiersLb,
+                proposalContext = request.proposalContext,
             )
     }
 
