@@ -51,8 +51,9 @@ class EquipmentProposalEditRequestTest {
         assertEquals(cableId.value, request.target.equipmentId)
         assertEquals(false, request.target.hasIncrementOverride)
         assertEquals(expectedArgs, request.initialTiersLb)
-        assertEquals("test-proposal", request.proposalContext?.proposalId)
-        assertEquals(listOf(62.5), request.proposalContext?.sampleWeightsLb)
+        val context = checkNotNull(request.proposalContext as? ProposalEditContext.PostWorkout)
+        assertEquals("test-proposal", context.proposalId)
+        assertEquals(listOf(62.5), context.sampleWeightsLb)
         val destination = resolveEquipmentEditorDestination(request)
         assertTrue(destination is EquipmentEditorDestination.SharedEquipment)
         assertEquals(

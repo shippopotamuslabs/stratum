@@ -5,6 +5,7 @@ import com.stratum.core.testing.onboarding.FakeEquipmentProposalPreferences
 import com.stratum.domain.lift.DismissEquipmentProposalUseCase
 import com.stratum.feature.workout.ui.ProposalEditContext
 import com.stratum.feature.workout.ui.ProposalTierArgs
+import com.stratum.feature.workout.ui.samplesLb
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -19,7 +20,7 @@ class ProposalEditorSessionTest {
     private val prefs = FakeEquipmentProposalPreferences()
     private val dismiss = DismissEquipmentProposalUseCase(prefs, FakeLoggingPort())
     private val args = listOf(ProposalTierArgs(0.0, null, 2.5))
-    private val context = ProposalEditContext("proposal-1", listOf(62.5))
+    private val context = ProposalEditContext.PostWorkout("proposal-1", listOf(62.5))
 
     @Test
     @DisplayName("Given empty tiers and no context when resolved then null input and no change")
@@ -56,6 +57,20 @@ class ProposalEditorSessionTest {
     fun dismissWithoutContextDismissesNothing() = runTest {
         val session = ProposalEditorSession()
         session.resolveInput(emptyList(), null)
+
+        session.dismissIfPresent(dismiss)
+
+        assertTrue(prefs.dismissedFingerprints.isEmpty())
+    }
+
+    @Test
+    @DisplayName("Given live warnings-only context when dismissed then nothing is dismissed")
+    fun dismissLiveContextDismissesNothing() = runTest {
+        val session = ProposalEditorSession()
+        val live = ProposalEditContext.Live(listOf(62.5))
+
+        assertTrue(session.resolveInput(args, live))
+        assertEquals(listOf(62.5), session.input.value?.context?.samplesLb)
 
         session.dismissIfPresent(dismiss)
 

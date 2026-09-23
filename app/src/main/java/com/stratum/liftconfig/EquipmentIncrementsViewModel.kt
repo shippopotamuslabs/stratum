@@ -21,6 +21,7 @@ import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.shortLabel
 import com.stratum.feature.workout.ui.ProposalEditContext
 import com.stratum.feature.workout.ui.ProposalTierArgs
+import com.stratum.feature.workout.ui.samplesLb
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -424,7 +425,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
             IncrementTierDraftOps.warnedIndexesForSamples(
                 drafts = tiers,
                 displayUnit = unit,
-                samplesLb = proposalInput?.context?.sampleWeightsLb.orEmpty(),
+                samplesLb = proposalInput?.context?.samplesLb.orEmpty(),
             )
         return EquipmentIncrementsUiState(
             equipmentId = id.orEmpty(),

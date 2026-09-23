@@ -318,6 +318,14 @@ class WorkoutViewModel @Inject constructor(
         enqueue(SessionCommand.DismissEquipmentAdjust(WorkoutLiftId(workoutLiftId)))
     }
 
+    /**
+     * Tap-time inference inputs for one live lift card's editor request (read of
+     * session memory). The route builds the routed + seeded request from this; null
+     * when the card is unknown (caller falls back to the unseeded request).
+     */
+    fun liveEquipmentSeed(workoutLiftId: String): LiveEquipmentSeed? =
+        session.liveEquipmentSeed(WorkoutLiftId(workoutLiftId))
+
     fun startSession(workoutId: WorkoutId) {
         if (session.isLoadedFor(workoutId)) return
         retainLoadedUiForExit = false

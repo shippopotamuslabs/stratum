@@ -179,6 +179,27 @@ fun WorkoutRoute(
                     onUnlogSet = viewModel::unlogSet,
                     onSwapLiftClick = onSwapLiftClick,
                     onEditEquipmentClick = onEditEquipmentClick,
+                    // Pill tap resolves here (not in the screen): the routed base
+                    // request comes from the rendered lift via equipmentEditRequestFor
+                    // (single source of routing truth) and the session-backed seed
+                    // prefills it — falling back to the base when inconclusive so a
+                    // showing pill never dead-ends.
+                    onAdjustEquipmentTap = { workoutLiftId ->
+                        state.lifts.firstOrNull { it.workoutLiftId == workoutLiftId }?.let { lift ->
+                            val base = equipmentEditRequestFor(lift)
+                            val seed = viewModel.liveEquipmentSeed(workoutLiftId)
+                            onEditEquipmentClick(
+                                seed?.let {
+                                    liveEquipmentEditRequestFor(
+                                        base = base,
+                                        currentTiers = it.currentTiers,
+                                        loadType = it.loadType,
+                                        loggedWeights = it.loggedWeights,
+                                    )
+                                } ?: base,
+                            )
+                        }
+                    },
                     onDismissEquipmentAdjust = viewModel::dismissEquipmentAdjust,
                     onLinkSupersetWithPrevious = { liftId ->
                         viewModel.linkSuperset(WorkoutLiftId(liftId), SupersetLinkDirection.Previous)

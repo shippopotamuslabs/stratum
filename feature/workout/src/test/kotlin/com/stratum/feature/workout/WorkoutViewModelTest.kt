@@ -74,8 +74,11 @@ import com.stratum.domain.workout.progression.LinearProgressionDefaults
 import com.stratum.domain.workout.progression.LinearProgressionEngine
 import com.stratum.feature.workout.ui.LiftNoteListsSaveRequest
 import com.stratum.feature.workout.ui.NoteDraftUi
+import com.stratum.feature.workout.ui.ProposalEditContext
 import com.stratum.feature.workout.ui.WorkoutUiEvent
 import com.stratum.feature.workout.ui.WorkoutUiState
+import com.stratum.feature.workout.ui.equipmentEditRequestFor
+import com.stratum.feature.workout.ui.liveEquipmentEditRequestFor
 import java.io.File
 import java.time.Instant
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -3236,6 +3239,42 @@ class WorkoutViewModelTest {
         val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
         assertFalse(loaded.equipmentManagementV2Enabled)
         assertFalse(loaded.lifts.first().showAdjustEquipmentChip)
+    }
+
+    @Test
+    @DisplayName("Given an off-lattice logged weight when live editor requested then seeded tiers and samples")
+    fun liveEquipmentEditRequestSeeded() = runTest {
+        fakeFeatureFlags.setFlag(AppFeatureFlag.EQUIPMENT_MANAGEMENT_V2, true)
+        val viewModel =
+            buildViewModel(
+                liftRepository =
+                    FakeLiftRepository(
+                        initialLifts = listOf(catalogLiftWithTiers(), catalogLift2()),
+                    ),
+            )
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        viewModel.logSet(slotKey = liftSetId.value, weight = lb(62.5), reps = 5, rir = 2)
+        advanceUntilIdle()
+        val shown = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertTrue(shown.lifts.first().showAdjustEquipmentChip)
+
+        // Same assembly as the route: routed base from the rendered lift plus the
+        // session seed → seeded request carrying tiers and sample weights.
+        val lift = shown.lifts.first()
+        val seed = checkNotNull(viewModel.liveEquipmentSeed(workoutLiftId.value))
+        val request =
+            liveEquipmentEditRequestFor(
+                base = equipmentEditRequestFor(lift),
+                currentTiers = seed.currentTiers,
+                loadType = seed.loadType,
+                loggedWeights = seed.loggedWeights,
+            )
+        assertTrue(request.initialTiersLb.isNotEmpty())
+        assertTrue(request.initialTiersLb.all { it.incrementLb > 0.0 })
+        val context = checkNotNull(request.proposalContext as? ProposalEditContext.Live)
+        assertTrue(context.sampleWeightsLb.contains(62.5))
     }
 
     private suspend fun app.cash.turbine.ReceiveTurbine<WorkoutUiState>.awaitLoaded(): WorkoutUiState.Loaded {

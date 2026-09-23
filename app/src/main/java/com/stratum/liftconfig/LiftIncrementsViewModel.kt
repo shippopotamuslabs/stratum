@@ -14,6 +14,7 @@ import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.shortLabel
 import com.stratum.feature.workout.ui.ProposalEditContext
 import com.stratum.feature.workout.ui.ProposalTierArgs
+import com.stratum.feature.workout.ui.samplesLb
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -266,7 +267,7 @@ class LiftIncrementsViewModel @Inject constructor(
             IncrementTierDraftOps.warnedIndexesForSamples(
                 drafts = tiers,
                 displayUnit = unit,
-                samplesLb = flags.proposalInput?.context?.sampleWeightsLb.orEmpty(),
+                samplesLb = flags.proposalInput?.context?.samplesLb.orEmpty(),
             )
         val inheriting = lift?.usesEquipmentDefaultIncrements == true && flags.draft == null
         val inheritanceBanner =

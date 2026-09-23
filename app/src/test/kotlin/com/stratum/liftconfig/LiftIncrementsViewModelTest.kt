@@ -126,7 +126,7 @@ class LiftIncrementsViewModelTest {
         subject.initialize(
             latId.value,
             listOf(ProposalTierArgs(0.0, null, 2.5)),
-            ProposalEditContext(
+            ProposalEditContext.PostWorkout(
                 proposalId = "proposal-9",
                 sampleWeightsLb = listOf(62.5),
             ),
@@ -148,7 +148,7 @@ class LiftIncrementsViewModelTest {
         subject.initialize(
             latId.value,
             emptyList(),
-            ProposalEditContext(
+            ProposalEditContext.PostWorkout(
                 proposalId = "proposal-9",
                 sampleWeightsLb = listOf(62.5),
             ),
