@@ -147,26 +147,26 @@ class EquipmentIncrementsViewModelTest {
     }
 
     @Test
-    @DisplayName("Given the flag off when initialized then the legacy bar renders without fork")
-    fun forkBarHiddenByDefault() = runTest {
+    @DisplayName("Given the flag off when initialized then the v2 equipment UI is disabled")
+    fun equipmentV2DisabledByDefault() = runTest {
         subject.initialize(cableId.value)
         advanceUntilIdle()
 
         subject.uiState.test {
-            assertFalse(awaitItemWith { it.tiers.isNotEmpty() }.showForkSaveBar)
+            assertFalse(awaitItemWith { it.tiers.isNotEmpty() }.equipmentV2Enabled)
             cancelAndIgnoreRemainingEvents()
         }
     }
 
     @Test
-    @DisplayName("Given the flag on when initialized then the fork bar replaces the legacy save")
-    fun forkBarShownWhenFlagEnabled() = runTest {
+    @DisplayName("Given the flag on when initialized then the v2 equipment UI is enabled")
+    fun equipmentV2EnabledWhenFlagSet() = runTest {
         fakeFeatureFlags.setFlag(AppFeatureFlag.EQUIPMENT_MANAGEMENT_V2, true)
         subject.initialize(cableId.value)
         advanceUntilIdle()
 
         subject.uiState.test {
-            assertTrue(awaitItemWith { it.showForkSaveBar }.showForkSaveBar)
+            assertTrue(awaitItemWith { it.equipmentV2Enabled }.equipmentV2Enabled)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -252,7 +252,7 @@ class EquipmentIncrementsViewModelTest {
     fun swapPickReassignsPendingLift() = runTest {
         subject.initialize(cableId.value)
         advanceUntilIdle()
-        subject.beginSwapEquipmentForLift("lat-pulldown")
+        subject.requestSwapForLift("lat-pulldown")
         equipmentPickResult.publish(EquipmentId("other-eq"))
         advanceUntilIdle()
 
@@ -262,8 +262,21 @@ class EquipmentIncrementsViewModelTest {
     }
 
     @Test
+    @DisplayName("Given a swap request when requested then one navigation is emitted")
+    fun swapRequestEmitsNavigation() = runTest {
+        subject.initialize(cableId.value)
+        advanceUntilIdle()
+        subject.requestSwapForLift("lat-pulldown")
+
+        subject.swapNavRequests.test {
+            assertEquals("lat-pulldown", awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     @DisplayName(
-        "Given no begin swap when a pick is published then the pick is ignored",
+        "Given no swap request when a pick is published then the pick is ignored",
     )
     fun strayPickIsIgnored() = runTest {
         subject.initialize(cableId.value)

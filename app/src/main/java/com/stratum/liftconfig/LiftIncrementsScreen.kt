@@ -87,8 +87,11 @@ fun LiftIncrementsScreen(
      */
     showForkSaveBar: Boolean = false,
     onSaveAsNew: () -> Unit = {},
-    /** Opens the affected-lifts sheet; null keeps the affects banner display-only. */
-    onAffectsBannerClick: (() -> Unit)? = null,
+    /**
+     * Equipment blast-radius banner slot. Null renders no banner; [AffectsBannerUi.onClick]
+     * null keeps it display-only. The lift override editor passes null.
+     */
+    affectsBanner: AffectsBannerUi? = null,
     modifier: Modifier = Modifier,
 ) {
     StratumScaffold(
@@ -120,11 +123,11 @@ fun LiftIncrementsScreen(
                 item {
                     IncrementsHelpCard()
                 }
-                if (state.affectsBanner != null) {
+                if (affectsBanner != null) {
                     item {
                         InheritanceBanner(
-                            message = state.affectsBanner,
-                            onClick = onAffectsBannerClick,
+                            message = affectsBanner.message,
+                            onClick = affectsBanner.onClick,
                         )
                     }
                 }
@@ -206,6 +209,12 @@ fun LiftIncrementsScreen(
         }
     }
 }
+
+/** Blast-radius banner for the equipment editor (message plus optional sheet entry). */
+data class AffectsBannerUi(
+    val message: String,
+    val onClick: (() -> Unit)? = null,
+)
 
 @Composable
 private fun InheritanceBanner(
