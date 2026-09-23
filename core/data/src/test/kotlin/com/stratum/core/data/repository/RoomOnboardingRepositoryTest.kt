@@ -2,6 +2,7 @@ package com.stratum.core.data.repository
 
 import androidx.room.Room
 import app.cash.turbine.test
+import com.stratum.core.data.roomFirstEmissionTimeout
 import com.stratum.core.data.db.StratumDatabase
 import com.stratum.domain.onboarding.OnboardingStep
 import kotlinx.coroutines.test.runTest
@@ -39,7 +40,7 @@ class RoomOnboardingRepositoryTest {
     @Test
     @DisplayName("Given no progress when observed then null is emitted")
     fun emptyEmitsNull() = runTest {
-        subject.observeProgress().test {
+        subject.observeProgress().test(timeout = roomFirstEmissionTimeout) {
             assertNull(awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
@@ -50,7 +51,7 @@ class RoomOnboardingRepositoryTest {
     fun saveStepPersists() = runTest {
         subject.saveStep(OnboardingStep.Profile)
 
-        subject.observeProgress().test {
+        subject.observeProgress().test(timeout = roomFirstEmissionTimeout) {
             val emitted = awaitItem()
             assertNotNull(emitted)
             assertEquals(OnboardingStep.Profile, emitted?.currentStep)
@@ -66,7 +67,7 @@ class RoomOnboardingRepositoryTest {
 
         subject.markComplete()
 
-        subject.observeProgress().test {
+        subject.observeProgress().test(timeout = roomFirstEmissionTimeout) {
             val emitted = awaitItem()
             assertNotNull(emitted?.completedAt)
             cancelAndIgnoreRemainingEvents()
@@ -81,7 +82,7 @@ class RoomOnboardingRepositoryTest {
 
         subject.reopenWizard()
 
-        subject.observeProgress().test {
+        subject.observeProgress().test(timeout = roomFirstEmissionTimeout) {
             val emitted = awaitItem()
             assertEquals(OnboardingStep.ChoosePath, emitted?.currentStep)
             assertNull(emitted?.completedAt)

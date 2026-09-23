@@ -2,6 +2,7 @@ package com.stratum.core.data.repository
 
 import androidx.room.Room
 import app.cash.turbine.test
+import com.stratum.core.data.roomFirstEmissionTimeout
 import com.stratum.core.data.db.EquipmentEntity
 import com.stratum.core.data.db.LiftEntity
 import com.stratum.core.data.mapper.toBitmask
@@ -83,7 +84,7 @@ class RoomLiftRepositoryTest {
         @Test
         @DisplayName("Given an empty catalog when observed then an empty list is emitted")
         fun emptyCatalogEmitsEmpty() = runTest {
-            subject.observeLifts().test {
+            subject.observeLifts().test(timeout = roomFirstEmissionTimeout) {
                 assertEquals(emptyList<Any>(), awaitItem())
                 cancelAndIgnoreRemainingEvents()
             }
@@ -97,7 +98,7 @@ class RoomLiftRepositoryTest {
 
             subject.setLiftEnabled(id, enabled = true)
 
-            subject.observeLifts().test {
+            subject.observeLifts().test(timeout = roomFirstEmissionTimeout) {
                 val emitted = awaitItem()
                 assertEquals(1, emitted.size)
                 assertTrue(emitted.single().enabled)
@@ -138,7 +139,7 @@ class RoomLiftRepositoryTest {
         fun presetChoicePersists() = runTest {
             subject.setSelectedPreset(GymPreset.CommercialGym)
 
-            subject.observeSelectedPreset().test {
+            subject.observeSelectedPreset().test(timeout = roomFirstEmissionTimeout) {
                 assertEquals(GymPreset.CommercialGym, awaitItem())
                 cancelAndIgnoreRemainingEvents()
             }
@@ -150,7 +151,7 @@ class RoomLiftRepositoryTest {
             subject.setSelectedPreset(GymPreset.CommercialGym)
             subject.setSelectedPreset(null)
 
-            subject.observeSelectedPreset().test {
+            subject.observeSelectedPreset().test(timeout = roomFirstEmissionTimeout) {
                 assertEquals(null, awaitItem())
                 cancelAndIgnoreRemainingEvents()
             }
@@ -358,7 +359,7 @@ class RoomLiftRepositoryTest {
                 patterns = setOf(MovementPattern.SquatPattern, MovementPattern.HipExtension),
             )
 
-            subject.observeLiftsContainingPattern(MovementPattern.SquatPattern).test {
+            subject.observeLiftsContainingPattern(MovementPattern.SquatPattern).test(timeout = roomFirstEmissionTimeout) {
                 val emitted = awaitItem().map { it.id }
                 assertEquals(setOf(LiftId("back-squat"), LiftId("front-squat")), emitted.toSet())
                 cancelAndIgnoreRemainingEvents()
@@ -370,7 +371,7 @@ class RoomLiftRepositoryTest {
         fun observeLiftsContainingPatternEmptyWhenNoMatch() = runTest {
             seedLift(LiftId("back-squat"), patterns = setOf(MovementPattern.SquatPattern))
 
-            subject.observeLiftsContainingPattern(MovementPattern.ElbowFlexion).test {
+            subject.observeLiftsContainingPattern(MovementPattern.ElbowFlexion).test(timeout = roomFirstEmissionTimeout) {
                 assertEquals(emptyList<Any>(), awaitItem())
                 cancelAndIgnoreRemainingEvents()
             }

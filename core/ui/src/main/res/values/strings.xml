@@ -209,6 +209,7 @@
     <string name="gym_merge_need_two">Select at least two lifts to merge</string>
     <string name="lift_increments_title">Increments</string>
     <string name="lift_increments_help">Bands must tile without gaps. The last band is open-ended (and above). Example: 0–100 at +5, then 100+ at +10.</string>
+    <string name="lift_increments_sample_warning">Some steps don’t divide evenly with logged weight — you can still save.</string>
     <string name="lift_increments_tier_label">Tier %1$d</string>
     <string name="lift_increments_summary_closed">%1$s – %2$s · +%3$s</string>
     <string name="lift_increments_summary_open">%1$s+ · +%2$s</string>

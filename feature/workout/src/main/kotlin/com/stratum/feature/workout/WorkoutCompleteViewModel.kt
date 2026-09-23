@@ -22,18 +22,22 @@ import com.stratum.domain.workout.RepRangeShiftProposalPreferences
 import com.stratum.feature.workout.ui.EquipmentProposalUiMapper
 import com.stratum.feature.workout.ui.LiftBestSetUi
 import com.stratum.feature.workout.ui.RepRangeShiftUiMapper
+import com.stratum.feature.workout.ui.WorkoutCompleteEvent
 import com.stratum.feature.workout.ui.WorkoutCompleteUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -60,6 +64,9 @@ class WorkoutCompleteViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow<WorkoutCompleteUiState>(WorkoutCompleteUiState.Loading)
     val uiState: StateFlow<WorkoutCompleteUiState> = _uiState.asStateFlow()
+
+    private val _events = Channel<WorkoutCompleteEvent>(Channel.BUFFERED)
+    val events: Flow<WorkoutCompleteEvent> = _events.receiveAsFlow()
 
     private val equipmentSession = EquipmentProposalSession()
     private val repRangeSession = RepRangeShiftProposalSession()
@@ -235,6 +242,38 @@ class WorkoutCompleteViewModel @Inject constructor(
 
     fun onDismissConfirm() {
         applyEquipmentSnapshot(equipmentSession.dismissConfirm())
+    }
+
+    /**
+     * "Edit steps" on an equipment card: emit the editor request seeded with the
+     * proposal's tiers, then drop the card session-side (like Skip — no fingerprint).
+     * Removing up front avoids a stale Accept overwriting the user's manual correction;
+     * cancelling the editor resurfaces the proposal next session if still off-lattice.
+     */
+    /**
+     * Re-runs equipment-increment analysis for [sessionId] and reconciles the cards —
+     * called when returning from the increments editor so the screen reflects saved
+     * tiers. A fixed stack analyzes clean (card stays gone); cancelling without saving
+     * re-surfaces the card only if the weights are still off-lattice. Touches equipment
+     * cards only; summary, rep-range cards, and queued messages are preserved.
+     */
+    fun refreshEquipmentProposals(sessionId: String) {
+        // Guarded like loadSummary: a newer load wins over this refresh.
+        val generation = loadGeneration
+        viewModelScope.launch {
+            val proposals =
+                analyzeSessionEquipmentProposals(TrainingSessionId(sessionId))
+            if (generation == loadGeneration) {
+                applyEquipmentSnapshot(equipmentSession.load(proposals))
+            }
+        }
+    }
+
+    fun onEditProposal(proposalId: String) {
+        val proposal = equipmentSession.proposal(proposalId) ?: return
+        val request = EquipmentProposalUiMapper.toEditRequest(proposal)
+        applyEquipmentSnapshot(equipmentSession.remove(proposalId))
+        _events.trySend(WorkoutCompleteEvent.OpenEquipmentEditor(request))
     }
 
     fun onSkipProposal(proposalId: String) {

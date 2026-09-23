@@ -3,6 +3,7 @@ package com.stratum.feature.workout.navigation
 import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
+import com.stratum.feature.workout.ui.EquipmentEditRequest
 import com.stratum.feature.workout.ui.WorkoutCompleteRoute
 import kotlinx.serialization.Serializable
 
@@ -18,12 +19,14 @@ data class WorkoutCompleteKey(
 fun EntryProviderScope<NavKey>.workoutCompleteEntry(
     onCloseClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onEditEquipmentClick: (EquipmentEditRequest) -> Unit = {},
 ) {
     entry<WorkoutCompleteKey> { key ->
         WorkoutCompleteRoute(
             sessionId = key.sessionId,
             onClose = onCloseClick,
             modifier = modifier,
+            onEditEquipmentClick = onEditEquipmentClick,
         )
     }
 }
