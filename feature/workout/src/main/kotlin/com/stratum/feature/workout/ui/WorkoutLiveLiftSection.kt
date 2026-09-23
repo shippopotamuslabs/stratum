@@ -26,6 +26,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stratum.core.ui.R as CoreUiR
+import com.stratum.core.ui.component.StratumAssistChip
 import com.stratum.core.ui.component.StratumButton
 import com.stratum.core.ui.component.StratumConfirmDialog
 import com.stratum.core.ui.component.StratumIconButton
@@ -58,6 +59,8 @@ internal data class WorkoutLiftListActions(
     val onSetSetKind: (slotKey: String, kind: WorkoutSetKind) -> Unit = { _, _ -> },
     val onShowLiftActions: (workoutLiftId: String) -> Unit,
     val onOpenManageNotes: (workoutLiftId: String, tab: LiftNoteTab) -> Unit = { _, _ -> },
+    val onAdjustEquipment: (workoutLiftId: String) -> Unit = {},
+    val onDismissEquipmentAdjust: (workoutLiftId: String) -> Unit = {},
     val onAddLift: () -> Unit,
     val onDiscardClick: () -> Unit,
 )
@@ -139,6 +142,10 @@ internal fun WorkoutLiftList(
                     onOpenManageNotes = { tab ->
                         actions.onOpenManageNotes(lift.workoutLiftId, tab)
                     },
+                    onAdjustEquipmentClick = { actions.onAdjustEquipment(lift.workoutLiftId) },
+                    onDismissAdjustEquipmentClick = {
+                        actions.onDismissEquipmentAdjust(lift.workoutLiftId)
+                    },
                     failedLogSlotKey = failedLogSlotKey,
                     onFailedLogConsumed = onFailedLogConsumed,
                     displayUnitEpoch = displayUnitEpoch,
@@ -197,6 +204,8 @@ internal fun LiveLiftSection(
     onSetSetKind: (slotKey: String, kind: WorkoutSetKind) -> Unit = { _, _ -> },
     onShowLiftActions: () -> Unit,
     onOpenManageNotes: (LiftNoteTab) -> Unit = {},
+    onAdjustEquipmentClick: () -> Unit = {},
+    onDismissAdjustEquipmentClick: () -> Unit = {},
     modifier: Modifier = Modifier,
     allLifts: List<RenderedLiftUi> = emptyList(),
     failedLogSlotKey: String? = null,
@@ -258,6 +267,21 @@ internal fun LiveLiftSection(
     StratumWorkoutLogLiftPanel(
         lift = logLift,
         modifier = modifier,
+        headerUnderTitle =
+            if (lift.showAdjustEquipmentChip) {
+                {
+                    StratumAssistChip(
+                        label = stringResource(R.string.workout_live_adjust_equipment),
+                        onClick = onAdjustEquipmentClick,
+                        onDismissClick = onDismissAdjustEquipmentClick,
+                        dismissContentDescription =
+                            stringResource(R.string.workout_live_adjust_equipment_dismiss_cd),
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                    )
+                }
+            } else {
+                null
+            },
         headerTrailing = {
             StratumIconButton(
                 onClick = onShowLiftActions,

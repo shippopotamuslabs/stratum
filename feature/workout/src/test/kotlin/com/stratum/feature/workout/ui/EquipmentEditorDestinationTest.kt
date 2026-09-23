@@ -47,4 +47,44 @@ class EquipmentEditorDestinationTest {
             ),
         )
     }
+
+    @Test
+    @DisplayName("Given a rendered lift inheriting equipment when requested then the shared editor opens")
+    fun renderedLiftRequestRoutesToSharedEquipment() {
+        val request =
+            equipmentEditRequestFor(
+                RenderedLiftUi(
+                    workoutLiftId = "wl-1",
+                    liftId = "lift-1",
+                    liftName = "Lat pulldown",
+                    sets = emptyList(),
+                    equipmentId = "eq-1",
+                    hasIncrementOverride = false,
+                ),
+            )
+        assertEquals(
+            EquipmentEditorDestination.SharedEquipment("eq-1", "lift-1"),
+            resolveEquipmentEditorDestination(request),
+        )
+    }
+
+    @Test
+    @DisplayName("Given a rendered lift with an override when requested then the override editor opens")
+    fun renderedLiftOverrideRequestRoutesToLiftOverride() {
+        val request =
+            equipmentEditRequestFor(
+                RenderedLiftUi(
+                    workoutLiftId = "wl-1",
+                    liftId = "lift-1",
+                    liftName = "Lat pulldown",
+                    sets = emptyList(),
+                    equipmentId = "eq-1",
+                    hasIncrementOverride = true,
+                ),
+            )
+        assertEquals(
+            EquipmentEditorDestination.LiftOverride("lift-1"),
+            resolveEquipmentEditorDestination(request),
+        )
+    }
 }

@@ -132,7 +132,17 @@ class WorkoutViewModel @Inject constructor(
     val uiState: StateFlow<WorkoutUiState> =
         combine(sessionFrames, equipmentManagementV2Enabled) { frame, flagEnabled ->
             if (frame is WorkoutUiState.Loaded) {
-                frame.copy(equipmentManagementV2Enabled = flagEnabled)
+                frame.copy(
+                    equipmentManagementV2Enabled = flagEnabled,
+                    lifts = frame.lifts.map { lift ->
+                        // The runtime already clears dismissed/saved-away cards; the
+                        // ViewModel only applies the equipment-management gate.
+                        lift.copy(
+                            showAdjustEquipmentChip =
+                                lift.showAdjustEquipmentChip && flagEnabled,
+                        )
+                    },
+                )
             } else {
                 frame
             }
@@ -297,6 +307,15 @@ class WorkoutViewModel @Inject constructor(
 
     fun userMessageShown() {
         _userMessage.value = null
+    }
+
+    /**
+     * Quiets the "Adjust Equipment" chip for one lift card for the rest of the session.
+     * Called only from the chip's X affordance — tapping the chip to open the editor
+     * leaves it visible, and a real tier save resolves it in the session runtime.
+     */
+    fun dismissEquipmentAdjust(workoutLiftId: String) {
+        enqueue(SessionCommand.DismissEquipmentAdjust(WorkoutLiftId(workoutLiftId)))
     }
 
     fun startSession(workoutId: WorkoutId) {

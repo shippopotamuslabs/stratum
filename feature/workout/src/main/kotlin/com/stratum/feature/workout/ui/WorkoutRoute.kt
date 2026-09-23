@@ -179,6 +179,7 @@ fun WorkoutRoute(
                     onUnlogSet = viewModel::unlogSet,
                     onSwapLiftClick = onSwapLiftClick,
                     onEditEquipmentClick = onEditEquipmentClick,
+                    onDismissEquipmentAdjust = viewModel::dismissEquipmentAdjust,
                     onLinkSupersetWithPrevious = { liftId ->
                         viewModel.linkSuperset(WorkoutLiftId(liftId), SupersetLinkDirection.Previous)
                     },
