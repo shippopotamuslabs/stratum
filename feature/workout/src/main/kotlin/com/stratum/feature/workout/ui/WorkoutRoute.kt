@@ -52,7 +52,7 @@ fun WorkoutRoute(
     onNavigateBack: () -> Unit,
     onNavigateToFinalize: (sessionId: String) -> Unit,
     onSwapLiftClick: (workoutId: String, workoutLiftId: String?, liftId: String?, liftName: String?) -> Unit,
-    onEditEquipmentClick: (liftId: String, equipmentId: String?, hasIncrementOverride: Boolean) -> Unit,
+    onEditEquipmentClick: (EquipmentEditRequest) -> Unit,
     onReorderLiftsClick: (workoutId: String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: WorkoutViewModel = hiltViewModel(),

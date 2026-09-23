@@ -78,11 +78,9 @@ data class WorkoutScreenActions(
     val onSwapLiftClick: (workoutId: String, workoutLiftId: String?, liftId: String?, liftName: String?) -> Unit,
     /**
      * Opens the increments editor for the equipment a lift uses (or its per-lift
-     * override). Params: catalog lift id, catalog equipment id (null when unassigned),
-     * whether the lift carries its own override tiers. No-op default until wired.
+     * override). No-op default until wired.
      */
-    val onEditEquipmentClick: (liftId: String, equipmentId: String?, hasIncrementOverride: Boolean) -> Unit =
-        { _, _, _ -> },
+    val onEditEquipmentClick: (EquipmentEditRequest) -> Unit = {},
     val onLinkSupersetWithPrevious: (String) -> Unit,
     val onLinkSupersetWithNext: (String) -> Unit,
     val onRemoveFromSuperset: (String) -> Unit,

@@ -72,6 +72,7 @@ import com.stratum.feature.workout.navigation.WorkoutKey
 import com.stratum.feature.workout.navigation.WorkoutCompleteKey
 import com.stratum.feature.workout.navigation.workoutEntry
 import com.stratum.feature.workout.navigation.workoutCompleteEntry
+import com.stratum.feature.workout.ui.EquipmentEditRequest
 import com.stratum.feature.workout.ui.EquipmentEditorDestination
 import com.stratum.feature.workout.ui.resolveEquipmentEditorDestination
 import com.stratum.liftconfig.CreateLiftKey
@@ -405,14 +406,10 @@ fun StratumNavHost(
                 onSwapLiftClick = { workoutId, workoutLiftId, liftId, liftName ->
                     backStack.add(LiftSwapKey(workoutId, workoutLiftId, liftId, liftName))
                 },
-                onEditEquipmentClick = { liftId, equipmentId, hasIncrementOverride ->
+                onEditEquipmentClick = { request: EquipmentEditRequest ->
                     backStack.add(
                         equipmentEditorKey(
-                            resolveEquipmentEditorDestination(
-                                liftId,
-                                equipmentId,
-                                hasIncrementOverride,
-                            ),
+                            resolveEquipmentEditorDestination(request),
                         ),
                     )
                 },

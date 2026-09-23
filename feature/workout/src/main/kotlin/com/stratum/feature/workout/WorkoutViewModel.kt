@@ -59,11 +59,13 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -118,11 +120,23 @@ class WorkoutViewModel @Inject constructor(
     private val displayUnit = MutableStateFlow(Weight.WeightUnit.Lb)
     private val displayUnitEpoch = MutableStateFlow(0)
 
-    private val _uiState = MutableStateFlow<WorkoutUiState>(WorkoutUiState.Loading)
-    val uiState: StateFlow<WorkoutUiState> = _uiState.asStateFlow()
+    /**
+     * Raw session frames from the runtime. The flag is injected in [uiState], never here,
+     * so renders stay flag-agnostic and there is a single copy site.
+     */
+    private val sessionFrames = MutableStateFlow<WorkoutUiState>(WorkoutUiState.Loading)
 
     /** Gates the "Edit equipment" sheet row; refreshed from Remote Config on collect. */
     private val equipmentManagementV2Enabled = MutableStateFlow(false)
+
+    val uiState: StateFlow<WorkoutUiState> =
+        combine(sessionFrames, equipmentManagementV2Enabled) { frame, flagEnabled ->
+            if (frame is WorkoutUiState.Loaded) {
+                frame.copy(equipmentManagementV2Enabled = flagEnabled)
+            } else {
+                frame
+            }
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, WorkoutUiState.Loading)
 
     /** Transient snackbar copy; cleared via [userMessageShown] after the UI presents it. */
     private val _userMessage = MutableStateFlow<String?>(null)
@@ -153,14 +167,7 @@ class WorkoutViewModel @Inject constructor(
     private val sessionEffects =
         object : SessionEffects {
             override fun publishUi(state: WorkoutUiState) {
-                _uiState.value =
-                    if (state is WorkoutUiState.Loaded) {
-                        state.copy(
-                            equipmentManagementV2Enabled = equipmentManagementV2Enabled.value,
-                        )
-                    } else {
-                        state
-                    }
+                sessionFrames.value = state
             }
 
             override fun publishUserMessage(message: String?) {
@@ -219,11 +226,6 @@ class WorkoutViewModel @Inject constructor(
         viewModelScope.launch {
             observeEquipmentManagementV2().collect { enabled ->
                 equipmentManagementV2Enabled.value = enabled
-                // Patch the current frame so the sheet row appears without waiting
-                // for the next session re-render.
-                (_uiState.value as? WorkoutUiState.Loaded)?.let { loaded ->
-                    _uiState.value = loaded.copy(equipmentManagementV2Enabled = enabled)
-                }
             }
         }
         viewModelScope.launch {
@@ -236,7 +238,7 @@ class WorkoutViewModel @Inject constructor(
                     displayUnit.value = prefs.displayUnit
                     displayUnitEpoch.value += 1
                     // Re-render so recs/logged amounts flip units; drafts reseed via epoch.
-                    if (_uiState.value is WorkoutUiState.Loaded) {
+                    if (uiState.value is WorkoutUiState.Loaded) {
                         enqueue(SessionCommand.RenderOnly)
                     }
                 }
@@ -300,7 +302,7 @@ class WorkoutViewModel @Inject constructor(
     fun startSession(workoutId: WorkoutId) {
         if (session.isLoadedFor(workoutId)) return
         retainLoadedUiForExit = false
-        _uiState.value = WorkoutUiState.Loading
+        sessionFrames.value = WorkoutUiState.Loading
         sessionObservationJob?.cancel()
         session.stop()
         session.start()
@@ -606,7 +608,7 @@ class WorkoutViewModel @Inject constructor(
         if (trainingSessionId == null) {
             liveWorkoutSurfaces.clearSession()
             // Leaving intentionally — avoid NoActiveSession flash during pop when we had UI.
-            if (_uiState.value is WorkoutUiState.Loaded) {
+            if (uiState.value is WorkoutUiState.Loaded) {
                 retainLoadedUiForExit = true
             }
             viewModelScope.launch {
@@ -621,7 +623,7 @@ class WorkoutViewModel @Inject constructor(
         }
         val restoreWorkoutId = session.activeWorkoutId()
         val restoreName =
-            (_uiState.value as? WorkoutUiState.Loaded)?.workoutName
+            (uiState.value as? WorkoutUiState.Loaded)?.workoutName
         val restoreStartedMs = session.sessionStartedAtEpochMs()
         // Arm before domain delete so observe(null) cannot flash NoActiveSession mid-transition.
         retainLoadedUiForExit = true
