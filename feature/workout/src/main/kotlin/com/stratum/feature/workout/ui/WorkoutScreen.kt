@@ -108,6 +108,12 @@ fun WorkoutScreen(
     restTimer: RestTimerChrome,
     actions: WorkoutScreenActions,
     modifier: Modifier = Modifier,
+    /**
+     * Resolves the tap-time editor request for a pill tap. Defaults to the unseeded
+     * request; the route injects the session-backed seeded resolver (inferred tiers +
+     * sample warnings, falling back when inference is inconclusive).
+     */
+    resolveEquipmentRequest: (RenderedLiftUi) -> EquipmentEditRequest = ::equipmentEditRequestFor,
     snackbarHostState: SnackbarHostState? = null,
     /** Post-lifecycle [WorkoutUiEvent.SetLogged]; cleared via [onSetLoggedConsumed]. */
     pendingSetLogged: WorkoutUiEvent.SetLogged? = null,
@@ -345,7 +351,7 @@ fun WorkoutScreen(
                             // Opening the editor leaves the chip visible: only the X
                             // affordance or a real tier save quiets it for the session.
                             state.lifts.firstOrNull { it.workoutLiftId == workoutLiftId }?.let { lift ->
-                                actions.onEditEquipmentClick(equipmentEditRequestFor(lift))
+                                actions.onEditEquipmentClick(resolveEquipmentRequest(lift))
                             }
                         },
                         onDismissEquipmentAdjust = actions.onDismissEquipmentAdjust,

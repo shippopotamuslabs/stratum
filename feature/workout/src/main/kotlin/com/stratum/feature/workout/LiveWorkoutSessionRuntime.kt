@@ -56,9 +56,11 @@ import com.stratum.domain.workout.StructuralMutation
 import com.stratum.domain.workout.WorkoutOverlay
 import com.stratum.domain.workout.WorkoutStructureProjection
 import com.stratum.domain.workout.intensifier.RestDefaultForTransition
+import com.stratum.feature.workout.ui.EquipmentEditRequest
 import com.stratum.feature.workout.ui.EquipmentEditTarget
 import com.stratum.feature.workout.ui.WorkoutUiEvent
 import com.stratum.feature.workout.ui.WorkoutUiMapper
+import com.stratum.feature.workout.ui.liveEquipmentEditRequestFor
 import java.time.Instant
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -381,6 +383,34 @@ internal class LiveWorkoutSessionRuntime(
     internal fun handleDismissEquipmentAdjust(workoutLiftId: WorkoutLiftId) {
         equipmentAdjustTracker.dismiss(workoutLiftId)
         if (structure != null) render()
+    }
+
+    /**
+     * Builds the live "Adjust Equipment" pill's seeded editor request for one card:
+     * deterministic inference over the sets logged so far this session (canonical Lb)
+     * against the lift's current effective tiers. Inconclusive inference falls back to
+     * the unseeded request — a showing pill never dead-ends. Pure read of session
+     * memory (same join as the pill signal in [render]).
+     */
+    internal fun liveEquipmentEditRequest(workoutLiftId: WorkoutLiftId): EquipmentEditRequest? {
+        val renderedLift = merge().lifts.firstOrNull { it.workoutLiftId == workoutLiftId } ?: return null
+        val catalog = liftsById[renderedLift.liftId] ?: return null
+        val loggedWeights = renderedLift.sets.mapNotNull { it.loggedValue?.weight }
+        val base =
+            EquipmentEditRequest(
+                liftId = catalog.id.value,
+                target =
+                    EquipmentEditTarget(
+                        equipmentId = catalog.equipmentId?.value,
+                        hasIncrementOverride = !catalog.usesEquipmentDefaultIncrements,
+                    ),
+            )
+        return liveEquipmentEditRequestFor(
+            base = base,
+            currentTiers = catalog.incrementTiers,
+            loadType = catalog.loadType,
+            loggedWeights = loggedWeights,
+        )
     }
 
     internal fun resolveSlot(slotId: SetSlotId): SetSlot? =

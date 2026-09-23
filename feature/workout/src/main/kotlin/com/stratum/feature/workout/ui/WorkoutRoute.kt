@@ -154,6 +154,10 @@ fun WorkoutRoute(
             WorkoutScreen(
                 state = state,
                 restTimer = restChrome,
+                resolveEquipmentRequest = { lift ->
+                    viewModel.liveEquipmentEditRequest(lift.workoutLiftId)
+                        ?: equipmentEditRequestFor(lift)
+                },
                 snackbarHostState = snackbarHostState,
                 pendingSetLogged = pendingSetLogged,
                 onSetLoggedConsumed = { pendingSetLogged = null },
