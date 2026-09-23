@@ -2,6 +2,7 @@ package com.stratum.core.data.repository
 
 import androidx.room.Room
 import app.cash.turbine.test
+import com.stratum.core.data.roomFirstEmissionTimeout
 import com.stratum.core.data.db.StratumDatabase
 import com.stratum.domain.training.TrainingSessionStatus
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
@@ -152,7 +153,7 @@ class RoomTrainingLogRepositoryTest {
     fun wl011_observeActiveSessionEmits() = runTest {
         repository.insertSession(WorkoutLoggingFixtures.inProgressSession(id = "ts-active"))
 
-        repository.observeActiveSession().test {
+        repository.observeActiveSession().test(timeout = roomFirstEmissionTimeout) {
             assertEquals("ts-active", awaitItem()?.id?.value)
             cancelAndIgnoreRemainingEvents()
         }
@@ -165,7 +166,7 @@ class RoomTrainingLogRepositoryTest {
             WorkoutLoggingFixtures.completedProgramWorkoutSession("ts-done", WorkoutLoggingFixtures.workoutAId),
         )
 
-        repository.observeActiveSession().test {
+        repository.observeActiveSession().test(timeout = roomFirstEmissionTimeout) {
             assertNull(awaitItem())
             cancelAndIgnoreRemainingEvents()
         }

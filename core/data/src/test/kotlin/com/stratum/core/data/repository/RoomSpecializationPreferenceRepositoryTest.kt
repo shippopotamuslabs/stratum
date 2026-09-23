@@ -2,6 +2,7 @@ package com.stratum.core.data.repository
 
 import androidx.room.Room
 import app.cash.turbine.test
+import com.stratum.core.data.roomFirstEmissionTimeout
 import com.stratum.core.data.db.StratumDatabase
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.SpecializationLevel
@@ -43,7 +44,7 @@ class RoomSpecializationPreferenceRepositoryTest {
     @Test
     @DisplayName("Given an empty preference when observed then Empty is emitted")
     fun emptyPreferenceEmitsEmpty() = runTest {
-        subject.observe().test {
+        subject.observe().test(timeout = roomFirstEmissionTimeout) {
             assertEquals(SpecializationPreference.Empty, awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
@@ -62,7 +63,7 @@ class RoomSpecializationPreferenceRepositoryTest {
 
         subject.save(preference)
 
-        subject.observe().test {
+        subject.observe().test(timeout = roomFirstEmissionTimeout) {
             val emitted = awaitItem()
             assertEquals(setOf(MuscleGroup.Chest, MuscleGroup.Back, MuscleGroup.Quad), emitted.specializedMuscles)
             cancelAndIgnoreRemainingEvents()
@@ -88,7 +89,7 @@ class RoomSpecializationPreferenceRepositoryTest {
             ),
         )
 
-        subject.observe().test {
+        subject.observe().test(timeout = roomFirstEmissionTimeout) {
             val emitted = awaitItem()
             assertEquals(setOf(MuscleGroup.Hamstring), emitted.specializedMuscles)
             cancelAndIgnoreRemainingEvents()
@@ -105,7 +106,7 @@ class RoomSpecializationPreferenceRepositoryTest {
         )
         subject.save(SpecializationPreference.Empty)
 
-        subject.observe().test {
+        subject.observe().test(timeout = roomFirstEmissionTimeout) {
             assertEquals(SpecializationPreference.Empty, awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
@@ -120,7 +121,7 @@ class RoomSpecializationPreferenceRepositoryTest {
             ),
         )
 
-        subject.observe().test {
+        subject.observe().test(timeout = roomFirstEmissionTimeout) {
             val emitted = awaitItem()
             assertEquals(SpecializationLevel.Specialize, emitted.levelFor(MuscleGroup.Chest))
             assertEquals(SpecializationLevel.Maintenance, emitted.levelFor(MuscleGroup.Back))
@@ -140,7 +141,7 @@ class RoomSpecializationPreferenceRepositoryTest {
             ),
         )
 
-        subject.observe().test {
+        subject.observe().test(timeout = roomFirstEmissionTimeout) {
             val emitted = awaitItem()
             assertEquals(SpecializationLevel.Specialize, emitted.levelFor(MuscleGroup.Chest))
             assertEquals(SpecializationLevel.Maintenance, emitted.levelFor(MuscleGroup.Back))

@@ -2,6 +2,7 @@ package com.stratum.core.data.repository
 
 import androidx.room.Room
 import app.cash.turbine.test
+import com.stratum.core.data.roomFirstEmissionTimeout
 import com.stratum.core.data.db.StratumDatabase
 import com.stratum.domain.onboarding.LastTrainedBucket
 import com.stratum.domain.onboarding.TrainingAge
@@ -41,7 +42,7 @@ class RoomUserTrainingProfileRepositoryTest {
     @Test
     @DisplayName("Given no profile when observed then null is emitted")
     fun emptyEmitsNull() = runTest {
-        subject.observeProfile().test {
+        subject.observeProfile().test(timeout = roomFirstEmissionTimeout) {
             assertNull(awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
@@ -59,7 +60,7 @@ class RoomUserTrainingProfileRepositoryTest {
 
         subject.saveProfile(profile)
 
-        subject.observeProfile().test {
+        subject.observeProfile().test(timeout = roomFirstEmissionTimeout) {
             assertEquals(profile, awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
@@ -85,7 +86,7 @@ class RoomUserTrainingProfileRepositoryTest {
         )
         subject.saveProfile(updated)
 
-        subject.observeProfile().test {
+        subject.observeProfile().test(timeout = roomFirstEmissionTimeout) {
             assertEquals(updated, awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
