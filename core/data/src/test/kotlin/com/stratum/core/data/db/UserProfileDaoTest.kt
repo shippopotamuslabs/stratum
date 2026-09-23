@@ -2,6 +2,7 @@ package com.stratum.core.data.db
 
 import androidx.room.Room
 import app.cash.turbine.test
+import com.stratum.core.data.roomFirstEmissionTimeout
 import com.stratum.domain.onboarding.LastTrainedBucket
 import com.stratum.domain.onboarding.TrainingAge
 import com.stratum.domain.onboarding.Weekday
@@ -40,7 +41,7 @@ class UserProfileDaoTest {
     @Test
     @DisplayName("Given an empty table when observed then it emits null")
     fun emptyTableEmitsNull() = runTest {
-        subject.observe().test {
+        subject.observe().test(timeout = roomFirstEmissionTimeout) {
             assertNull(awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
@@ -58,7 +59,7 @@ class UserProfileDaoTest {
 
         subject.upsert(row)
 
-        subject.observe().test {
+        subject.observe().test(timeout = roomFirstEmissionTimeout) {
             val emitted = awaitItem()
             assertNotNull(emitted)
             assertEquals(TrainingAge.Intermediate, emitted?.trainingAge)

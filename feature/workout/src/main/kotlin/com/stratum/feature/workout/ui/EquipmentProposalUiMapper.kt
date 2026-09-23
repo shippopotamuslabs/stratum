@@ -45,6 +45,88 @@ internal object EquipmentProposalUiMapper {
             toCard(proposal, isApplying = proposal.id in applyingIds)
         }
 
+    /**
+     * Builds the "Edit steps" navigation request for [proposal]: the editor target matching
+     * the primary remedy's write destination, seeded with the proposed tiers so the user
+     * corrects the inference guess instead of accepting or ignoring it.
+     *
+     * - Amend → shared equipment editor (same write Accept would perform).
+     * - Fork / LiftOverride → per-lift override editor (the fork target does not exist yet,
+     *   so manual correction lands on the first affected lift's override).
+     */
+    fun toEditRequest(proposal: EquipmentIncrementProposal): EquipmentEditRequest {
+        val initialTiers =
+            proposal.proposedTiers.map { tier ->
+                ProposalTierArgs(
+                    lowerBoundLb = tier.lowerBound.amount,
+                    upperBoundLb = tier.upperBound?.amount,
+                    incrementLb = tier.increment.amount,
+                )
+            }
+        val context =
+            ProposalEditContext(
+                proposalId = proposal.id,
+                sampleWeightsLb = proposal.sampleWeights.map { it.amount },
+            )
+        return when (val remedy = proposal.primary) {
+            is EquipmentIncrementRemedy.AmendEquipmentTiers ->
+                EquipmentEditRequest(
+                    liftId = proposal.liftIds.firstOrNull()?.value.orEmpty(),
+                    target =
+                        EquipmentEditTarget(
+                            equipmentId = remedy.equipmentId.value,
+                            hasIncrementOverride = false,
+                        ),
+                    initialTiersLb = initialTiers,
+                    proposalContext = context,
+                )
+            is EquipmentIncrementRemedy.ForkCustomEquipment -> {
+                val liftId =
+                    (
+                        remedy.assignLiftIds.firstOrNull()
+                            ?: proposal.liftIds.firstOrNull()
+                    )?.value
+                val clusterEquipmentId = proposal.clusterEquipmentId
+                if (liftId == null && clusterEquipmentId != null) {
+                    // No lift to anchor an override editor: correct the shared stack
+                    // instead (blank liftId normalizes to a null source downstream).
+                    EquipmentEditRequest(
+                        liftId = "",
+                        target =
+                            EquipmentEditTarget(
+                                equipmentId = clusterEquipmentId.value,
+                                hasIncrementOverride = false,
+                            ),
+                        initialTiersLb = initialTiers,
+                        proposalContext = context,
+                    )
+                } else {
+                    EquipmentEditRequest(
+                        liftId = liftId.orEmpty(),
+                        target =
+                            EquipmentEditTarget(
+                                equipmentId = proposal.clusterEquipmentId?.value,
+                                hasIncrementOverride = true,
+                            ),
+                        initialTiersLb = initialTiers,
+                        proposalContext = context,
+                    )
+                }
+            }
+            is EquipmentIncrementRemedy.LiftOverride ->
+                EquipmentEditRequest(
+                    liftId = remedy.liftId.value,
+                    target =
+                        EquipmentEditTarget(
+                            equipmentId = proposal.clusterEquipmentId?.value,
+                            hasIncrementOverride = true,
+                        ),
+                    initialTiersLb = initialTiers,
+                    proposalContext = context,
+                )
+        }
+    }
+
     fun blastRadiusConfirm(
         proposal: EquipmentIncrementProposal,
     ): BlastRadiusConfirmUi {

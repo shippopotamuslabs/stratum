@@ -414,17 +414,14 @@ fun StratumNavHost(
                 onSwapLiftClick = { workoutId, workoutLiftId, liftId, liftName ->
                     backStack.add(LiftSwapKey(workoutId, workoutLiftId, liftId, liftName))
                 },
-                onEditEquipmentClick = { request: EquipmentEditRequest ->
-                    backStack.add(
-                        equipmentEditorKey(resolveEquipmentEditorDestination(request)),
-                    )
-                },
+                onEditEquipmentClick = { request -> pushEquipmentEditor(backStack, request) },
                 onReorderLiftsClick = { workoutId ->
                     backStack.add(ReorderLiftsKey(workoutId))
                 },
             )
             workoutCompleteEntry(
                 onCloseClick = onNavigateBack,
+                onEditEquipmentClick = { request -> pushEquipmentEditor(backStack, request) },
             )
             reorderLiftsEntry(
                 onBackClick = onNavigateBack,
@@ -444,14 +441,36 @@ fun StratumNavHost(
     }
 }
 
-/** Maps an equipment-editing decision to the editor key (keeps `StratumNavHost` lean). */
-private fun equipmentEditorKey(destination: EquipmentEditorDestination): NavKey =
-    when (destination) {
-        is EquipmentEditorDestination.LiftOverride -> LiftIncrementsKey(destination.liftId)
+/**
+ * Shared "Edit steps" navigation for the live-workout and complete entries. The request
+ * travels intact into the editor key (no unpack-repack of its proposal fields).
+ */
+private fun pushEquipmentEditor(
+    backStack: MutableList<NavKey>,
+    request: EquipmentEditRequest,
+) {
+    backStack.add(equipmentEditorKey(request))
+}
+
+/**
+ * Maps an equipment-editing decision to the editor key (keeps `StratumNavHost` lean).
+ * Blank lift ids (proposal clusters without a lift, e.g. Amend with no anomalous lift
+ * captured) normalize to null so Save As New never reassigns a `LiftId("")`.
+ */
+private fun equipmentEditorKey(request: EquipmentEditRequest): NavKey =
+    when (val destination = resolveEquipmentEditorDestination(request)) {
+        is EquipmentEditorDestination.LiftOverride ->
+            LiftIncrementsKey(
+                liftId = destination.liftId,
+                initialTiersLb = request.initialTiersLb,
+                proposalContext = request.proposalContext,
+            )
         is EquipmentEditorDestination.SharedEquipment ->
             EquipmentIncrementsKey(
                 equipmentId = destination.equipmentId,
-                sourceLiftId = destination.sourceLiftId,
+                sourceLiftId = destination.sourceLiftId?.takeIf { it.isNotBlank() },
+                initialTiersLb = request.initialTiersLb,
+                proposalContext = request.proposalContext,
             )
     }
 

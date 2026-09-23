@@ -43,3 +43,37 @@ fun List<IncrementTier>.isOnLattice(
     if (isEmpty()) return false
     return residual(weight, loadType) <= epsilon
 }
+
+/**
+ * Indexes of bands whose steps do not divide evenly with at least one of [samplesLb]
+ * (raw storage-pound magnitudes, e.g. a proposal's logged session weights). Powers the
+ * increments editor's non-blocking step warning: callers highlight the returned bands
+ * but still allow saving. Samples at or below zero, and samples outside every band,
+ * are ignored. Band containment and the remainder tie use [epsilon] (default
+ * [LATTICE_EPSILON]) so the warning agrees with proposal analysis.
+ */
+fun List<IncrementTier>.warnedIndexesForSamples(
+    samplesLb: List<Double>,
+    epsilon: Double = LATTICE_EPSILON,
+): Set<Int> {
+    if (samplesLb.isEmpty() || isEmpty()) return emptySet()
+    return samplesLb
+        .filter { it > 0.0 }
+        .mapNotNull { sample -> warnedIndexForSample(sample, epsilon) }
+        .toSet()
+}
+
+private fun List<IncrementTier>.warnedIndexForSample(sample: Double, epsilon: Double): Int? {
+    val index =
+        indexOfFirst { tier ->
+            val upper = tier.upperBound
+            sample >= tier.lowerBound.amount - epsilon &&
+                (upper == null || sample < upper.amount - epsilon)
+        }
+    if (index < 0) return null
+    val tier = this[index]
+    val step = tier.increment.amount
+    if (step <= 0.0) return null
+    val remainder = abs((sample - tier.lowerBound.amount) % step)
+    return index.takeIf { minOf(remainder, step - remainder) > epsilon }
+}

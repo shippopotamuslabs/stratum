@@ -41,15 +41,19 @@ import com.stratum.core.ui.component.StratumTextField
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
 import com.stratum.core.ui.theme.StratumThemeAccessor
+import com.stratum.feature.workout.ui.ProposalEditContext
+import com.stratum.feature.workout.ui.ProposalTierArgs
 
 @Composable
 fun LiftIncrementsRoute(
     liftId: String,
     onBackClick: () -> Unit,
     viewModel: LiftIncrementsViewModel = hiltViewModel(),
+    initialTiersLb: List<ProposalTierArgs> = emptyList(),
+    proposalContext: ProposalEditContext? = null,
 ) {
-    LaunchedEffect(liftId) {
-        viewModel.initialize(liftId)
+    LaunchedEffect(liftId, initialTiersLb, proposalContext) {
+        viewModel.initialize(liftId, initialTiersLb, proposalContext)
     }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     LaunchedEffect(state.saveSucceeded) {
@@ -147,6 +151,11 @@ fun LiftIncrementsScreen(
                         IncrementsValidationBanner(message = state.validationMessage)
                     }
                 }
+                if (state.warnedTierIndexes.isNotEmpty()) {
+                    item {
+                        SampleWarningBanner()
+                    }
+                }
                 itemsIndexed(state.tiers, key = { index, _ -> index }) { index, tier ->
                     TierEditorCard(
                         index = index,
@@ -154,6 +163,7 @@ fun LiftIncrementsScreen(
                         unitLabel = state.unitLabel,
                         isLast = index == state.tiers.lastIndex,
                         canRemove = state.tiers.size > 1,
+                        hasWarning = index in state.warnedTierIndexes,
                         onLowerChanged = { onTierLowerChanged(index, it) },
                         onUpperChanged = { onTierUpperChanged(index, it) },
                         onIncrementChanged = { onTierIncrementChanged(index, it) },
@@ -300,6 +310,38 @@ private fun IncrementsValidationBanner(message: String) {
 }
 
 @Composable
+private fun SampleWarningBanner() {
+    val colors = StratumThemeAccessor.colors
+    val shapes = StratumThemeAccessor.shapes
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(color = colors.surfaceRaised, shape = shapes.panel)
+                .border(
+                    width = shapes.borderWidth,
+                    color = colors.warning,
+                    shape = shapes.panel,
+                )
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Icon(
+            painter = painterResource(UiR.drawable.ic_info),
+            contentDescription = null,
+            tint = colors.warning,
+            modifier = Modifier.size(18.dp),
+        )
+        StratumText(
+            text = stringResource(UiR.string.lift_increments_sample_warning),
+            style = StratumThemeAccessor.typography.sectionLabel,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+@Composable
 private fun TierEditorCard(
     index: Int,
     tier: IncrementTierDraft,
@@ -311,6 +353,8 @@ private fun TierEditorCard(
     onIncrementChanged: (String) -> Unit,
     onOpenEndedToggled: (Boolean) -> Unit,
     onRemove: () -> Unit,
+    /** True when this band's step misses a proposal's logged weight (yellow, non-blocking). */
+    hasWarning: Boolean = false,
 ) {
     val colors = StratumThemeAccessor.colors
     val shapes = StratumThemeAccessor.shapes
@@ -323,7 +367,7 @@ private fun TierEditorCard(
                 .background(color = colors.surfaceRaised, shape = shapes.panel)
                 .border(
                     width = shapes.borderWidth,
-                    color = colors.borderSubtle,
+                    color = if (hasWarning) colors.warning else colors.borderSubtle,
                     shape = shapes.panel,
                 )
                 .padding(16.dp),

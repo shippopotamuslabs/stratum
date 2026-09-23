@@ -6,6 +6,8 @@ import com.stratum.domain.lift.IncrementTiersValidationError
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.WeightConversion
 import com.stratum.domain.lift.shortLabel
+import com.stratum.domain.lift.warnedIndexesForSamples
+import com.stratum.feature.workout.ui.ProposalTierArgs
 
 /**
  * Shared draft ↔ domain helpers for lift and equipment increment editors.
@@ -62,6 +64,50 @@ object IncrementTierDraftOps {
             increment = formatAmount(convert(tier.increment.amount)),
             openEnded = tier.upperBound == null,
         )
+    }
+
+    /**
+     * Seeds editor drafts from proposed bands in storage pounds (e.g. a post-workout
+     * equipment proposal's "Edit steps" prefill). Conversion mirrors [toDraft] so the
+     * prefill matches what saving the same bands would persist; live validation still
+     * applies on screen. Bands with non-positive steps are dropped — an empty result
+     * falls back to the catalog tiers at the call site.
+     */
+    fun fromProposalArgs(
+        args: List<ProposalTierArgs>,
+        displayUnit: Weight.WeightUnit = Weight.WeightUnit.Lb,
+    ): List<IncrementTierDraft> =
+        args.mapNotNull { arg ->
+            if (arg.incrementLb <= 0.0) {
+                null
+            } else {
+                toDraft(
+                    IncrementTier(
+                        lowerBound = Weight(arg.lowerBoundLb, Weight.WeightUnit.Lb),
+                        upperBound =
+                            arg.upperBoundLb?.let { Weight(it, Weight.WeightUnit.Lb) },
+                        increment = Weight(arg.incrementLb, Weight.WeightUnit.Lb),
+                    ),
+                    displayUnit,
+                )
+            }
+        }
+
+    /**
+     * Returns the indexes of bands whose steps do not divide evenly with at least one of
+     * [samplesLb] (storage pounds — e.g. a proposal's logged session weights). Used for a
+     * non-blocking editor warning: saving stays allowed. Bands that fail to parse yield
+     * no warnings; band math itself lives in domain
+     * ([warnedIndexesForSamples][com.stratum.domain.lift.warnedIndexesForSamples]).
+     */
+    fun warnedIndexesForSamples(
+        drafts: List<IncrementTierDraft>,
+        displayUnit: Weight.WeightUnit = Weight.WeightUnit.Lb,
+        samplesLb: List<Double>,
+    ): Set<Int> {
+        if (samplesLb.isEmpty()) return emptySet()
+        val tiers = toDomainOrNull(drafts, displayUnit) ?: return emptySet()
+        return tiers.warnedIndexesForSamples(samplesLb)
     }
 
     /**

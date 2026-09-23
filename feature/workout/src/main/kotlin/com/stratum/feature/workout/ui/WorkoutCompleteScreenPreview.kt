@@ -43,7 +43,7 @@ private fun WorkoutCompleteProposalsLightPreview() {
     StratumTheme {
         WorkoutCompleteScreen(
             state = previewLoadedWithProposals(),
-            onClose = {},
+            actions = WorkoutCompleteActions(onClose = {}),
         )
     }
 }
@@ -58,7 +58,7 @@ private fun WorkoutCompleteProposalsDarkPreview() {
     StratumTheme(darkTheme = true) {
         WorkoutCompleteScreen(
             state = previewLoadedWithProposals(),
-            onClose = {},
+            actions = WorkoutCompleteActions(onClose = {}),
         )
     }
 }
@@ -67,7 +67,7 @@ private fun WorkoutCompleteProposalsDarkPreview() {
 private fun WorkoutCompleteScreenPreviewContent() {
     WorkoutCompleteScreen(
         state = previewLoadedBase(),
-        onClose = {},
+        actions = WorkoutCompleteActions(onClose = {}),
     )
 }
 

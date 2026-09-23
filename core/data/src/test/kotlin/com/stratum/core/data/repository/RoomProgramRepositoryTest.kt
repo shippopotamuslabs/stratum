@@ -2,6 +2,7 @@ package com.stratum.core.data.repository
 
 import androidx.room.Room
 import app.cash.turbine.test
+import com.stratum.core.data.roomFirstEmissionTimeout
 import com.stratum.core.data.db.LiftEntity
 import com.stratum.core.data.db.StratumDatabase
 import com.stratum.core.data.sync.SyncCollection
@@ -77,7 +78,7 @@ class RoomProgramRepositoryTest {
 
         @Test
         fun `observeProgram first emission is null when empty`() = runTest {
-            repository.observeProgram().test {
+            repository.observeProgram().test(timeout = roomFirstEmissionTimeout) {
                 assertNull(awaitItem())
                 cancelAndIgnoreRemainingEvents()
             }
@@ -93,7 +94,7 @@ class RoomProgramRepositoryTest {
             seedReferencedLifts()
             repository.saveProgram(PROGRAM_P1)
 
-            repository.observeProgram().test {
+            repository.observeProgram().test(timeout = roomFirstEmissionTimeout) {
                 val initial = awaitItem()
                 assertEquals(LiftId("bench-press"), initial!!.workouts[0].workoutLifts[0].liftId)
 

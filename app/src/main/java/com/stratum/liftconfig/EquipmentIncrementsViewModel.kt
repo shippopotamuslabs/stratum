@@ -14,10 +14,13 @@ import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.SetEquipmentIncrementTiersUseCase
 import com.stratum.domain.lift.SetLiftEquipmentUseCase
 import com.stratum.domain.lift.ValidateIncrementTiersUseCase
+import com.stratum.domain.lift.DismissEquipmentProposalUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.shortLabel
+import com.stratum.feature.workout.ui.ProposalEditContext
+import com.stratum.feature.workout.ui.ProposalTierArgs
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -40,6 +43,11 @@ data class EquipmentIncrementsUiState(
     val equipmentName: String = "",
     val tiers: List<IncrementTierDraft> = emptyList(),
     val validationMessage: String? = null,
+    /**
+     * Band indexes whose steps miss a proposal's logged sample weights (yellow,
+     * non-blocking — saving stays allowed). Empty for all non-proposal entry points.
+     */
+    val warnedTierIndexes: Set<Int> = emptySet(),
     val isSaving: Boolean = false,
     val saveSucceeded: Boolean = false,
     /** Lifts inheriting this equipment's defaults (includes disabled). */
@@ -74,6 +82,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
     private val forkEquipmentWithTiers: ForkEquipmentWithTiersUseCase,
     /** Owned by the quick-swap path: applies a picked equipment to the pending lift. */
     private val setLiftEquipment: SetLiftEquipmentUseCase,
+    private val dismissEquipmentProposal: DismissEquipmentProposalUseCase,
     private val equipmentPickResult: EquipmentPickResult,
     observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
     observeEquipmentManagementV2: ObserveEquipmentManagementV2UseCase,
@@ -82,6 +91,8 @@ class EquipmentIncrementsViewModel @Inject constructor(
     private val equipmentId = MutableStateFlow<String?>(null)
     private val sourceLiftId = MutableStateFlow<String?>(null)
     private val draftTiers = MutableStateFlow<List<IncrementTierDraft>?>(null)
+    /** Shared proposal-prefill session (prefill bands, sample warnings, dismiss-on-save). */
+    private val proposalSession = ProposalEditorSession()
     private val isSaving = MutableStateFlow(false)
     private val saveSucceeded = MutableStateFlow(false)
     private val validationOverride = MutableStateFlow<String?>(null)
@@ -141,6 +152,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
 
     private data class Flags(
         val draft: List<IncrementTierDraft>?,
+        val proposalInput: ProposalInput?,
         val saving: Boolean,
         val saved: Boolean,
         val validation: String?,
@@ -162,14 +174,24 @@ class EquipmentIncrementsViewModel @Inject constructor(
             observeEquipmentCatalog(),
             affectedLifts,
             displayUnit,
+            // Five typed flows: this coroutines version has no 6-flow combine overload,
+            // so the two save flags travel paired (see Lift VM's flat five for the same
+            // shape without the V2 flag).
             combine(
+                combine(isSaving, saveSucceeded) { saving, saved -> saving to saved },
                 draftTiers,
-                isSaving,
-                saveSucceeded,
+                proposalSession.input,
                 validationOverride,
                 equipmentV2Enabled,
-            ) { draft, saving, saved, validation, equipmentV2 ->
-                Flags(draft, saving, saved, validation, equipmentV2)
+            ) { savingPair, draft, input, validation, equipmentV2 ->
+                Flags(
+                    draft,
+                    input,
+                    savingPair.first,
+                    savingPair.second,
+                    validation,
+                    equipmentV2,
+                )
             },
         ) { id, catalog, affected, unit, flags ->
             buildState(
@@ -179,6 +201,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
                 unit = unit,
                 equipmentV2Enabled = flags.equipmentV2Enabled,
                 draft = flags.draft,
+                proposalInput = flags.proposalInput,
                 saving = flags.saving,
                 saved = flags.saved,
                 validation = flags.validation,
@@ -189,8 +212,20 @@ class EquipmentIncrementsViewModel @Inject constructor(
             EquipmentIncrementsUiState(),
         )
 
-    fun initialize(id: String, sourceLiftId: String? = null) {
-        if (equipmentId.value == id && this.sourceLiftId.value == sourceLiftId) return
+    fun initialize(
+        id: String,
+        sourceLiftId: String? = null,
+        initialTiersLb: List<ProposalTierArgs> = emptyList(),
+        proposalContext: ProposalEditContext? = null,
+    ) {
+        val inputChanged = proposalSession.resolveInput(initialTiersLb, proposalContext)
+        if (
+            equipmentId.value == id &&
+            this.sourceLiftId.value == sourceLiftId &&
+            !inputChanged
+        ) {
+            return
+        }
         equipmentId.value = id
         this.sourceLiftId.value = sourceLiftId
         draftTiers.value = null
@@ -300,6 +335,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
             val result = setEquipmentIncrementTiers(EquipmentId(id), domainTiers)
             isSaving.value = false
             if (result.isSuccess) {
+                dismissProposalContext()
                 saveSucceeded.value = true
                 validationOverride.value = null
             } else {
@@ -325,6 +361,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
                 val result =
                     forkEquipmentWithTiers(EquipmentId(id), copyName, domainTiers, liftId)
                 if (result.isSuccess) {
+                    dismissProposalContext()
                     saveSucceeded.value = true
                     validationOverride.value = null
                 } else {
@@ -335,6 +372,14 @@ class EquipmentIncrementsViewModel @Inject constructor(
                 isSaving.value = false
             }
         }
+    }
+
+    /**
+     * A proposal-launched save resolves the proposal even when the hand-set tiers still
+     * miss logged weights — the user took ownership. Cancellation paths never call this.
+     */
+    private suspend fun dismissProposalContext() {
+        proposalSession.dismissIfPresent(dismissEquipmentProposal)
     }
 
     private fun validatedDraftTiers(): List<IncrementTier>? {
@@ -361,6 +406,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
         unit: Weight.WeightUnit,
         equipmentV2Enabled: Boolean,
         draft: List<IncrementTierDraft>?,
+        proposalInput: ProposalInput?,
         saving: Boolean,
         saved: Boolean,
         validation: String?,
@@ -368,13 +414,24 @@ class EquipmentIncrementsViewModel @Inject constructor(
         val equipment = catalog.firstOrNull { it.id.value == id }
         val tiers =
             draft
+                ?: IncrementTierDraftOps.fromProposalArgs(
+                    proposalInput?.initialTiersLb.orEmpty(),
+                    unit,
+                ).takeIf { it.isNotEmpty() }
                 ?: equipment?.incrementTiers?.map { IncrementTierDraftOps.toDraft(it, unit) }
                 ?: listOf(IncrementTierDraftOps.defaultDraft(unit))
+        val warnedTierIndexes =
+            IncrementTierDraftOps.warnedIndexesForSamples(
+                drafts = tiers,
+                displayUnit = unit,
+                samplesLb = proposalInput?.context?.sampleWeightsLb.orEmpty(),
+            )
         return EquipmentIncrementsUiState(
             equipmentId = id.orEmpty(),
             equipmentName = equipment?.name.orEmpty(),
             tiers = tiers,
             validationMessage = validation ?: liveValidationMessage(tiers, unit),
+            warnedTierIndexes = warnedTierIndexes,
             isSaving = saving,
             saveSucceeded = saved,
             affectedLiftCount = affected.count,

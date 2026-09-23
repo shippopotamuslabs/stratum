@@ -2,6 +2,7 @@ package com.stratum.core.data.db
 
 import androidx.room.Room
 import app.cash.turbine.test
+import com.stratum.core.data.roomFirstEmissionTimeout
 import com.stratum.domain.onboarding.OnboardingStep
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
@@ -38,7 +39,7 @@ class OnboardingProgressDaoTest {
     @Test
     @DisplayName("Given an empty table when observed then it emits null")
     fun emptyTableEmitsNull() = runTest {
-        subject.observe().test {
+        subject.observe().test(timeout = roomFirstEmissionTimeout) {
             assertNull(awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
@@ -55,7 +56,7 @@ class OnboardingProgressDaoTest {
 
         subject.upsert(row)
 
-        subject.observe().test {
+        subject.observe().test(timeout = roomFirstEmissionTimeout) {
             val emitted = awaitItem()
             assertNotNull(emitted)
             assertEquals(OnboardingStep.Profile, emitted?.currentStep)
