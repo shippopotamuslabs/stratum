@@ -101,6 +101,13 @@ internal sealed interface SessionCommand {
      */
     data object RefreshPinnedNotes : SessionCommand
 
+    /**
+     * Quiets the "Adjust Equipment" chip for one lift card for the rest of the session.
+     * Sent only from the chip's X affordance — tapping the chip to open the editor
+     * leaves it visible, and a real tier save resolves it via tier snapshots in render.
+     */
+    data class DismissEquipmentAdjust(val workoutLiftId: WorkoutLiftId) : SessionCommand
+
     data class CompleteWorkout(val saveTemplate: Boolean) : SessionCommand
 
     /**

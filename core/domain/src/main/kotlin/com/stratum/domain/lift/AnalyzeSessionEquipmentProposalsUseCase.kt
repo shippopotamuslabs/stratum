@@ -272,6 +272,43 @@ internal fun collectSessionAnomalies(
 }
 
 /**
+ * Usable work weights and their off-lattice residual subset — the shared core of the
+ * post-workout ([anomalyForLift]) and live ([shouldShowLiveEquipmentAdjust]) stack
+ * signals. One pipeline so epsilon, typo, and [LoadType] semantics cannot drift apart.
+ */
+internal data class LatticeScreening(
+    val usableWeights: List<Weight>,
+    val residualWeights: List<Weight>,
+)
+
+/**
+ * Splits [weights] into usable work weights and the off-lattice residual subset:
+ * typo-guard ([filterTypoWeights]), near-zero skip, then [isOnLattice]
+ * ([LoadType]-aware). Bodyweight lifts and empty tier lists screen empty (no signal).
+ */
+internal fun screenLatticeWeights(
+    weights: List<Weight>,
+    tiers: List<IncrementTier>,
+    loadType: LoadType,
+    epsilon: Double = LATTICE_EPSILON,
+): LatticeScreening {
+    if (loadType == LoadType.Bodyweight || tiers.isEmpty()) {
+        return LatticeScreening(emptyList(), emptyList())
+    }
+    val usable =
+        filterTypoWeights(weights, epsilon).filter { weight ->
+            abs(weight.amount) > epsilon
+        }
+    return LatticeScreening(
+        usableWeights = usable,
+        residualWeights =
+            usable.filter { weight ->
+                !tiers.isOnLattice(weight, loadType, epsilon)
+            },
+    )
+}
+
+/**
  * Builds an anomaly for one lift's sets, or `null` when the lift is not an off-lattice signal.
  */
 internal fun anomalyForLift(
@@ -280,24 +317,17 @@ internal fun anomalyForLift(
     liftsById: Map<LiftId, Lift>,
     epsilon: Double = LATTICE_EPSILON,
 ): LiftSessionAnomaly? {
-    val lift = liftsById[liftId]
-    val effectiveTiers = lift?.incrementTiers.orEmpty()
-    if (lift == null ||
-        lift.loadType == LoadType.Bodyweight ||
-        effectiveTiers.isEmpty()
-    ) {
-        return null
-    }
-
-    val afterTypo = filterTypoWeights(liftSets.map { it.weight }, epsilon)
-    val usable =
-        afterTypo.filter { weight ->
-            abs(weight.amount) > epsilon
-        }
-    val residual =
-        usable.filter { weight ->
-            !effectiveTiers.isOnLattice(weight, lift.loadType, epsilon)
-        }
+    val lift = liftsById[liftId] ?: return null
+    val effectiveTiers = lift.incrementTiers
+    val screening =
+        screenLatticeWeights(
+            weights = liftSets.map { it.weight },
+            tiers = effectiveTiers,
+            loadType = lift.loadType,
+            epsilon = epsilon,
+        )
+    val usable = screening.usableWeights
+    val residual = screening.residualWeights
     if (usable.isEmpty() || residual.isEmpty()) return null
 
     // Count residual sets by matching residual amounts (one pass over residual weights).

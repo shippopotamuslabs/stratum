@@ -3112,6 +3112,132 @@ class WorkoutViewModelTest {
         }
     }
 
+    @Test
+    @DisplayName("Given an off-lattice logged weight when rendered then the adjust chip shows until dismissed")
+    fun adjustChipShowsUntilDismissed() = runTest {
+        fakeFeatureFlags.setFlag(AppFeatureFlag.EQUIPMENT_MANAGEMENT_V2, true)
+        val viewModel =
+            buildViewModel(
+                liftRepository =
+                    FakeLiftRepository(
+                        initialLifts = listOf(catalogLiftWithTiers(), catalogLift2()),
+                    ),
+            )
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        viewModel.logSet(slotKey = liftSetId.value, weight = lb(62.5), reps = 5, rir = 2)
+        advanceUntilIdle()
+        val shown = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertTrue(shown.lifts.first().showAdjustEquipmentChip)
+
+        // Further off-lattice logs keep the chip (only X or a tier save quiets it).
+        viewModel.logSet(slotKey = backoffSetId.value, weight = lb(67.5), reps = 5, rir = 2)
+        advanceUntilIdle()
+        val staying = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertTrue(staying.lifts.first().showAdjustEquipmentChip)
+
+        viewModel.dismissEquipmentAdjust(workoutLiftId.value)
+        advanceUntilIdle()
+        val quiet = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertFalse(quiet.lifts.first().showAdjustEquipmentChip)
+
+        // No repeat nag: amending after dismiss stays quiet for the rest of the session.
+        viewModel.logSet(slotKey = liftSetId.value, weight = lb(62.5), reps = 6, rir = 2)
+        advanceUntilIdle()
+        val stillQuiet = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertFalse(stillQuiet.lifts.first().showAdjustEquipmentChip)
+    }
+
+    @Test
+    @DisplayName("Given a tier save after the chip showed when rendered then the chip stays quiet")
+    fun adjustChipResolvedByTierSave() = runTest {
+        fakeFeatureFlags.setFlag(AppFeatureFlag.EQUIPMENT_MANAGEMENT_V2, true)
+        val liftRepository =
+            FakeLiftRepository(
+                initialLifts = listOf(catalogLiftWithTiers(), catalogLift2()),
+            )
+        val viewModel = buildViewModel(liftRepository = liftRepository)
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        viewModel.logSet(slotKey = liftSetId.value, weight = lb(62.5), reps = 5, rir = 2)
+        advanceUntilIdle()
+        val shown = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertTrue(shown.lifts.first().showAdjustEquipmentChip)
+
+        // A real tier save quiets the chip even when the weights sit off the new
+        // lattice too (62.5 is off a 0–∞ @ 10 band as well).
+        liftRepository.seedLifts(
+            listOf(
+                catalogLiftWithTiers().copy(
+                    incrementTiers =
+                        listOf(
+                            com.stratum.domain.lift.IncrementTier(lb(0.0), null, lb(10.0)),
+                        ),
+                ),
+                catalogLift2(),
+            ),
+        )
+        advanceUntilIdle()
+        val quiet = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertFalse(quiet.lifts.first().showAdjustEquipmentChip)
+    }
+
+    @Test
+    @DisplayName("Given an on-lattice logged weight when rendered then the adjust chip stays hidden")
+    fun adjustChipHiddenForOnLatticeWeight() = runTest {
+        fakeFeatureFlags.setFlag(AppFeatureFlag.EQUIPMENT_MANAGEMENT_V2, true)
+        val viewModel =
+            buildViewModel(
+                liftRepository =
+                    FakeLiftRepository(
+                        initialLifts = listOf(catalogLiftWithTiers(), catalogLift2()),
+                    ),
+            )
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        viewModel.logSet(slotKey = liftSetId.value, weight = lb(65.0), reps = 5, rir = 2)
+        advanceUntilIdle()
+        val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertFalse(loaded.lifts.first().showAdjustEquipmentChip)
+    }
+
+    @Test
+    @DisplayName("Given a lift with no increment tiers when rendered then the adjust chip stays hidden")
+    fun adjustChipHiddenForEmptyTiers() = runTest {
+        fakeFeatureFlags.setFlag(AppFeatureFlag.EQUIPMENT_MANAGEMENT_V2, true)
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        viewModel.logSet(slotKey = liftSetId.value, weight = lb(62.5), reps = 5, rir = 2)
+        advanceUntilIdle()
+        val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertFalse(loaded.lifts.first().showAdjustEquipmentChip)
+    }
+
+    @Test
+    @DisplayName("Given the equipment flag off when off-lattice weight logged then the adjust chip stays hidden")
+    fun adjustChipHiddenWhenFlagDisabled() = runTest {
+        val viewModel =
+            buildViewModel(
+                liftRepository =
+                    FakeLiftRepository(
+                        initialLifts = listOf(catalogLiftWithTiers(), catalogLift2()),
+                    ),
+            )
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        viewModel.logSet(slotKey = liftSetId.value, weight = lb(62.5), reps = 5, rir = 2)
+        advanceUntilIdle()
+        val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertFalse(loaded.equipmentManagementV2Enabled)
+        assertFalse(loaded.lifts.first().showAdjustEquipmentChip)
+    }
+
     private suspend fun app.cash.turbine.ReceiveTurbine<WorkoutUiState>.awaitLoaded(): WorkoutUiState.Loaded {
         var item = awaitItem()
         while (item is WorkoutUiState.Loading) {

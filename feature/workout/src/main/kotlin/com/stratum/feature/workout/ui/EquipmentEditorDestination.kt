@@ -66,6 +66,20 @@ sealed interface EquipmentEditorDestination {
     ) : EquipmentEditorDestination
 }
 
+/**
+ * Builds the live-workout "Edit equipment" request for one rendered lift card.
+ * Same shape as the lift-options sheet entry point (see `WorkoutSessionSheets`).
+ */
+fun equipmentEditRequestFor(lift: RenderedLiftUi): EquipmentEditRequest =
+    EquipmentEditRequest(
+        liftId = lift.liftId,
+        target =
+            EquipmentEditTarget(
+                equipmentId = lift.equipmentId,
+                hasIncrementOverride = lift.hasIncrementOverride,
+            ),
+    )
+
 fun resolveEquipmentEditorDestination(request: EquipmentEditRequest): EquipmentEditorDestination =
     if (request.target.hasIncrementOverride || request.target.equipmentId == null) {
         EquipmentEditorDestination.LiftOverride(request.liftId)
