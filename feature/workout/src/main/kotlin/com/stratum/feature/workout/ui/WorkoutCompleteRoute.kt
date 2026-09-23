@@ -56,18 +56,23 @@ fun WorkoutCompleteRoute(
     LaunchedEffect(sessionId) {
         viewModel.loadSummary(sessionId)
     }
-    // Set when Edit launches the editor; cleared once the return refresh fires. Plain
-    // remember (not saveable): a recreated route reloads via loadSummary regardless.
-    var editorLaunched by remember { mutableStateOf(false) }
-    // Returning from the increments editor (save or cancel) resumes this entry — refresh
-    // equipment cards against the now-current tiers so a saved fix stays gone.
+    // Refresh equipment cards on every return to this entry (back from the increments
+    // editor, or foregrounding after editing tiers elsewhere): a pure re-analysis
+    // against now-current tiers, so a saved fix is reflected and a cancelled edit
+    // truthfully re-surfaces. The initial composition's resume is skipped; a recreated
+    // route reloads via loadSummary regardless. Plain remember (not saveable) is enough
+    // — worst case after process death is one missed refresh, and loadSummary covers it.
+    var initialResume by remember { mutableStateOf(true) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     DisposableEffect(lifecycle, sessionId) {
         val observer =
             LifecycleEventObserver { _, event ->
-                if (event == Lifecycle.Event.ON_RESUME && editorLaunched) {
-                    editorLaunched = false
-                    viewModel.refreshEquipmentProposals(sessionId)
+                if (event == Lifecycle.Event.ON_RESUME) {
+                    if (initialResume) {
+                        initialResume = false
+                    } else {
+                        viewModel.refreshEquipmentProposals(sessionId)
+                    }
                 }
             }
         lifecycle.addObserver(observer)
@@ -76,10 +81,8 @@ fun WorkoutCompleteRoute(
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
             when (event) {
-                is WorkoutCompleteEvent.OpenEquipmentEditor -> {
-                    editorLaunched = true
+                is WorkoutCompleteEvent.OpenEquipmentEditor ->
                     onEditEquipmentClick(event.request)
-                }
             }
         }
     }

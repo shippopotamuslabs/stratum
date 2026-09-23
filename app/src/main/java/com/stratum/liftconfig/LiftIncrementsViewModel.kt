@@ -60,22 +60,12 @@ class LiftIncrementsViewModel @Inject constructor(
 
     private val liftId = MutableStateFlow<String?>(null)
     private val draftTiers = MutableStateFlow<List<IncrementTierDraft>?>(null)
-    /**
-     * Proposal launch input (prefill bands in storage pounds + sample weights for
-     * warnings); derived into drafts per display unit in [buildState]. Null for all
-     * non-proposal entry points.
-     */
-    private val proposalInput = MutableStateFlow<ProposalInput?>(null)
+    /** Shared proposal-prefill session (prefill bands, sample warnings, dismiss-on-save). */
+    private val proposalSession = ProposalEditorSession()
     private val isSaving = MutableStateFlow(false)
     private val saveSucceeded = MutableStateFlow(false)
     private val validationOverride = MutableStateFlow<String?>(null)
     private val displayUnit = MutableStateFlow(Weight.WeightUnit.Lb)
-
-    /** Proposal prefill bands plus sample weights; null outside "Edit steps" launches. */
-    private data class ProposalInput(
-        val initialTiersLb: List<ProposalTierArgs>,
-        val context: ProposalEditContext?,
-    )
 
     private data class DraftFlags(
         val draft: List<IncrementTierDraft>?,
@@ -104,7 +94,7 @@ class LiftIncrementsViewModel @Inject constructor(
             displayUnit,
             combine(
                 draftTiers,
-                proposalInput,
+                proposalSession.input,
                 isSaving,
                 saveSucceeded,
                 validationOverride,
@@ -124,15 +114,9 @@ class LiftIncrementsViewModel @Inject constructor(
         initialTiersLb: List<ProposalTierArgs> = emptyList(),
         proposalContext: ProposalEditContext? = null,
     ) {
-        val input =
-            if (initialTiersLb.isEmpty() && proposalContext == null) {
-                null
-            } else {
-                ProposalInput(initialTiersLb, proposalContext)
-            }
-        if (liftId.value == id && proposalInput.value == input) return
+        val inputChanged = proposalSession.resolveInput(initialTiersLb, proposalContext)
+        if (liftId.value == id && !inputChanged) return
         liftId.value = id
-        proposalInput.value = input
         draftTiers.value = null
         saveSucceeded.value = false
         validationOverride.value = null
@@ -254,7 +238,7 @@ class LiftIncrementsViewModel @Inject constructor(
             if (result.isSuccess) {
                 // A proposal-launched save resolves the proposal even when the hand-set
                 // tiers still miss logged weights — the user took ownership.
-                proposalInput.value?.context?.let { dismissEquipmentProposal(it.proposalId) }
+                proposalSession.dismissIfPresent(dismissEquipmentProposal)
                 saveSucceeded.value = true
                 validationOverride.value = null
             } else {

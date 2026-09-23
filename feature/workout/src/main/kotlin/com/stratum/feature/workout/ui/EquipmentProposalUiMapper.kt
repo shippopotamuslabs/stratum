@@ -80,21 +80,39 @@ internal object EquipmentProposalUiMapper {
                     initialTiersLb = initialTiers,
                     proposalContext = context,
                 )
-            is EquipmentIncrementRemedy.ForkCustomEquipment ->
-                EquipmentEditRequest(
-                    liftId =
-                        (
-                            remedy.assignLiftIds.firstOrNull()
-                                ?: proposal.liftIds.firstOrNull()
-                        )?.value.orEmpty(),
-                    target =
-                        EquipmentEditTarget(
-                            equipmentId = proposal.clusterEquipmentId?.value,
-                            hasIncrementOverride = true,
-                        ),
-                    initialTiersLb = initialTiers,
-                    proposalContext = context,
-                )
+            is EquipmentIncrementRemedy.ForkCustomEquipment -> {
+                val liftId =
+                    (
+                        remedy.assignLiftIds.firstOrNull()
+                            ?: proposal.liftIds.firstOrNull()
+                    )?.value
+                val clusterEquipmentId = proposal.clusterEquipmentId
+                if (liftId == null && clusterEquipmentId != null) {
+                    // No lift to anchor an override editor: correct the shared stack
+                    // instead (blank liftId normalizes to a null source downstream).
+                    EquipmentEditRequest(
+                        liftId = "",
+                        target =
+                            EquipmentEditTarget(
+                                equipmentId = clusterEquipmentId.value,
+                                hasIncrementOverride = false,
+                            ),
+                        initialTiersLb = initialTiers,
+                        proposalContext = context,
+                    )
+                } else {
+                    EquipmentEditRequest(
+                        liftId = liftId.orEmpty(),
+                        target =
+                            EquipmentEditTarget(
+                                equipmentId = proposal.clusterEquipmentId?.value,
+                                hasIncrementOverride = true,
+                            ),
+                        initialTiersLb = initialTiers,
+                        proposalContext = context,
+                    )
+                }
+            }
             is EquipmentIncrementRemedy.LiftOverride ->
                 EquipmentEditRequest(
                     liftId = remedy.liftId.value,

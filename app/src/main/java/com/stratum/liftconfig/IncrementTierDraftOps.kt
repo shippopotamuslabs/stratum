@@ -3,12 +3,11 @@ package com.stratum.liftconfig
 import com.stratum.core.ui.component.formatIncrementAmount
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.IncrementTiersValidationError
-import com.stratum.domain.lift.LATTICE_EPSILON
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.WeightConversion
 import com.stratum.domain.lift.shortLabel
+import com.stratum.domain.lift.warnedIndexesForSamples
 import com.stratum.feature.workout.ui.ProposalTierArgs
-import kotlin.math.abs
 
 /**
  * Shared draft ↔ domain helpers for lift and equipment increment editors.
@@ -97,9 +96,9 @@ object IncrementTierDraftOps {
     /**
      * Returns the indexes of bands whose steps do not divide evenly with at least one of
      * [samplesLb] (storage pounds — e.g. a proposal's logged session weights). Used for a
-     * non-blocking editor warning: saving stays allowed. Bands that fail to parse, and
-     * samples outside every band, are ignored. Matches the domain lattice membership
-     * epsilon ([LATTICE_EPSILON]) so the warning agrees with proposal analysis.
+     * non-blocking editor warning: saving stays allowed. Bands that fail to parse yield
+     * no warnings; band math itself lives in domain
+     * ([warnedIndexesForSamples][com.stratum.domain.lift.warnedIndexesForSamples]).
      */
     fun warnedIndexesForSamples(
         drafts: List<IncrementTierDraft>,
@@ -108,25 +107,7 @@ object IncrementTierDraftOps {
     ): Set<Int> {
         if (samplesLb.isEmpty()) return emptySet()
         val tiers = toDomainOrNull(drafts, displayUnit) ?: return emptySet()
-        return samplesLb
-            .filter { it > 0.0 }
-            .mapNotNull { sample -> warnedIndexForSample(tiers, sample) }
-            .toSet()
-    }
-
-    private fun warnedIndexForSample(tiers: List<IncrementTier>, sample: Double): Int? {
-        val index =
-            tiers.indexOfFirst { tier ->
-                val upper = tier.upperBound
-                sample >= tier.lowerBound.amount - LATTICE_EPSILON &&
-                    (upper == null || sample < upper.amount - LATTICE_EPSILON)
-            }
-        if (index < 0) return null
-        val tier = tiers[index]
-        val step = tier.increment.amount
-        if (step <= 0.0) return null
-        val remainder = abs((sample - tier.lowerBound.amount) % step)
-        return index.takeIf { minOf(remainder, step - remainder) > LATTICE_EPSILON }
+        return tiers.warnedIndexesForSamples(samplesLb)
     }
 
     /**
