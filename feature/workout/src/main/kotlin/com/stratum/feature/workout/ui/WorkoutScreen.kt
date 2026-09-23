@@ -76,6 +76,11 @@ data class WorkoutScreenActions(
     val onLogSet: (slotKey: String, weightAmountDisplay: Double, reps: Int, rir: Int?, partialReps: Int?) -> Unit,
     val onUnlogSet: (String) -> Unit,
     val onSwapLiftClick: (workoutId: String, workoutLiftId: String?, liftId: String?, liftName: String?) -> Unit,
+    /**
+     * Opens the increments editor for the equipment a lift uses (or its per-lift
+     * override). No-op default until wired.
+     */
+    val onEditEquipmentClick: (EquipmentEditRequest) -> Unit = {},
     val onLinkSupersetWithPrevious: (String) -> Unit,
     val onLinkSupersetWithNext: (String) -> Unit,
     val onRemoveFromSuperset: (String) -> Unit,

@@ -55,6 +55,7 @@ import com.stratum.domain.workout.StructuralMutation
 import com.stratum.domain.workout.WorkoutOverlay
 import com.stratum.domain.workout.WorkoutStructureProjection
 import com.stratum.domain.workout.intensifier.RestDefaultForTransition
+import com.stratum.feature.workout.ui.EquipmentEditTarget
 import com.stratum.feature.workout.ui.WorkoutUiEvent
 import com.stratum.feature.workout.ui.WorkoutUiMapper
 import java.time.Instant
@@ -316,6 +317,13 @@ internal class LiveWorkoutSessionRuntime(
             liftsById.mapKeys { (id, _) -> id.value }.mapValues { (_, lift) ->
                 lift.resolvedDefaultRestSeconds()
             }
+        val equipmentEditTargetByLiftId =
+            liftsById.mapKeys { (id, _) -> id.value }.mapValues { (_, lift) ->
+                EquipmentEditTarget(
+                    equipmentId = lift.equipmentId?.value,
+                    hasIncrementOverride = !lift.usesEquipmentDefaultIncrements,
+                )
+            }
         val mapped =
             WorkoutUiMapper.map(
                 rendered,
@@ -326,6 +334,7 @@ internal class LiveWorkoutSessionRuntime(
                 displayUnit = effects.displayUnit(),
                 displayUnitEpoch = effects.displayUnitEpoch(),
                 defaultRestSecondsByLiftId = defaultRestSecondsByLiftId,
+                equipmentEditTargetByLiftId = equipmentEditTargetByLiftId,
             )
         // Active-workout notification snapshot is derived from domain session by
         // DomainActiveSessionSurfaceSync — do not dual-publish from render().

@@ -68,6 +68,52 @@ class WorkoutUiMapperTest {
     }
 
     @Test
+    @DisplayName("equipment join populates the edit-equipment routing fields")
+    fun equipmentJoinMapsRoutingFields() {
+        val rendered =
+            RenderedWorkout(
+                workoutId = WorkoutId("w-1"),
+                workoutName = "Lower",
+                lifts =
+                    listOf(
+                        RenderedWorkoutLift(
+                            workoutLiftId = WorkoutLiftId("wl-1"),
+                            liftId = LiftId("lift-1"),
+                            liftName = "Squat",
+                            progressionScheme = ProgressionScheme.Double,
+                            sets = emptyList(),
+                            loadType = LoadType.Weighted,
+                        ),
+                        RenderedWorkoutLift(
+                            workoutLiftId = WorkoutLiftId("wl-2"),
+                            liftId = LiftId("lift-2"),
+                            liftName = "Curl",
+                            progressionScheme = ProgressionScheme.Double,
+                            sets = emptyList(),
+                            loadType = LoadType.Weighted,
+                        ),
+                    ),
+            )
+        val mapped =
+            WorkoutUiMapper.map(
+                rendered,
+                sessionStartedAtEpochMilli = 1L,
+                equipmentEditTargetByLiftId =
+                    mapOf(
+                        "lift-1" to EquipmentEditTarget(
+                            equipmentId = "eq-1",
+                            hasIncrementOverride = false,
+                        ),
+                    ),
+            )
+        val (inheriting, unjoined) = mapped.lifts
+        assertEquals("eq-1", inheriting.equipmentId)
+        assertFalse(inheriting.hasIncrementOverride)
+        assertEquals(null, unjoined.equipmentId)
+        assertFalse(unjoined.hasIncrementOverride)
+    }
+
+    @Test
     @DisplayName("barbell and plate loaded lifts set isPlateLoaded to true")
     fun barbellLiftsMapIsPlateLoadedTrue() {
         val workout = RenderedWorkout(
