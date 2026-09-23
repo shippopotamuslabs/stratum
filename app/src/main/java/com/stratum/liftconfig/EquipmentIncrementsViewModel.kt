@@ -12,6 +12,7 @@ import com.stratum.domain.lift.ObserveEquipmentAffectedLiftsUseCase
 import com.stratum.domain.lift.ObserveEquipmentCatalogUseCase
 import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.SetEquipmentIncrementTiersUseCase
+import com.stratum.domain.lift.SetLiftEquipmentUseCase
 import com.stratum.domain.lift.ValidateIncrementTiersUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId
@@ -20,12 +21,17 @@ import com.stratum.domain.lift.shortLabel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -42,8 +48,20 @@ data class EquipmentIncrementsUiState(
     val affectedLiftNames: List<String> = emptyList(),
     /** Short unit label for field chrome (`lb` / `kg`) from Settings. */
     val unitLabel: String = "lb",
-    /** True when the Update Shared / Save As New bar replaces the legacy Save button. */
-    val showForkSaveBar: Boolean = false,
+    /** Lifts inheriting these defaults (id + display name + enabled for the sheet). */
+    val affectedLifts: List<AffectedLiftUi> = emptyList(),
+    /**
+     * Gates the v2 equipment UI (Update Shared / Save As New bar, tappable affects
+     * banner). One flag, read by each call site, so the surfaces cannot drift apart.
+     */
+    val equipmentV2Enabled: Boolean = false,
+)
+
+/** Presentation row for the affected-lifts sheet (domain stays out of composables). */
+data class AffectedLiftUi(
+    val id: String,
+    val name: String,
+    val enabled: Boolean,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -54,6 +72,9 @@ class EquipmentIncrementsViewModel @Inject constructor(
     private val setEquipmentIncrementTiers: SetEquipmentIncrementTiersUseCase,
     private val validateIncrementTiers: ValidateIncrementTiersUseCase,
     private val forkEquipmentWithTiers: ForkEquipmentWithTiersUseCase,
+    /** Owned by the quick-swap path: applies a picked equipment to the pending lift. */
+    private val setLiftEquipment: SetLiftEquipmentUseCase,
+    private val equipmentPickResult: EquipmentPickResult,
     observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
     observeEquipmentManagementV2: ObserveEquipmentManagementV2UseCase,
 ) : ViewModel() {
@@ -65,7 +86,18 @@ class EquipmentIncrementsViewModel @Inject constructor(
     private val saveSucceeded = MutableStateFlow(false)
     private val validationOverride = MutableStateFlow<String?>(null)
     private val displayUnit = MutableStateFlow(Weight.WeightUnit.Lb)
-    private val showForkSaveBar = MutableStateFlow(false)
+    private val equipmentV2Enabled = MutableStateFlow(false)
+
+    private data class PendingSwap(
+        val liftId: String,
+        val sinceGeneration: Long,
+    )
+
+    private val pendingSwap = MutableStateFlow<PendingSwap?>(null)
+    private val swapNav = Channel<String>(Channel.BUFFERED)
+
+    /** One-shot navigation requests for the sheet's quick swap (see [requestSwapForLift]). */
+    val swapNavRequests: Flow<String> = swapNav.receiveAsFlow()
 
     init {
         viewModelScope.launch {
@@ -78,9 +110,33 @@ class EquipmentIncrementsViewModel @Inject constructor(
         }
         viewModelScope.launch {
             observeEquipmentManagementV2().collect { enabled ->
-                showForkSaveBar.value = enabled
+                equipmentV2Enabled.value = enabled
             }
         }
+        viewModelScope.launch {
+            pendingSwap.filterNotNull().flatMapLatest { request ->
+                equipmentPickResult.picksAfter(request.sinceGeneration).map { pick ->
+                    request.liftId to pick
+                }
+            }.collect { (liftId, pick) ->
+                pendingSwap.value = null
+                val result = setLiftEquipment(LiftId(liftId), pick.equipmentId)
+                if (result.isFailure) {
+                    validationOverride.value = result.exceptionOrNull()?.message
+                        ?: "Could not change equipment"
+                }
+            }
+        }
+    }
+
+    /**
+     * Single entry for the sheet's quick swap: arms the pending request and emits the
+     * Manage-Equipment navigation in one call, so the UI cannot misorder the two halves.
+     */
+    fun requestSwapForLift(liftId: String) {
+        pendingSwap.value =
+            PendingSwap(liftId, sinceGeneration = equipmentPickResult.currentGeneration())
+        swapNav.trySend(liftId)
     }
 
     private data class Flags(
@@ -111,7 +167,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
                 isSaving,
                 saveSucceeded,
                 validationOverride,
-                showForkSaveBar,
+                equipmentV2Enabled,
             ) { draft, saving, saved, validation, equipmentV2 ->
                 Flags(draft, saving, saved, validation, equipmentV2)
             },
@@ -323,8 +379,16 @@ class EquipmentIncrementsViewModel @Inject constructor(
             saveSucceeded = saved,
             affectedLiftCount = affected.count,
             affectedLiftNames = affected.lifts.map { it.name },
+            affectedLifts =
+                affected.lifts.map { lift ->
+                    AffectedLiftUi(
+                        id = lift.id.value,
+                        name = lift.name,
+                        enabled = lift.enabled,
+                    )
+                },
             unitLabel = unit.shortLabel(),
-            showForkSaveBar = equipmentV2Enabled,
+            equipmentV2Enabled = equipmentV2Enabled,
         )
     }
 

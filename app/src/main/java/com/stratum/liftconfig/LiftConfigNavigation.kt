@@ -74,12 +74,18 @@ fun EntryProviderScope<NavKey>.manageEquipmentEntry(
     }
 }
 
-fun EntryProviderScope<NavKey>.equipmentIncrementsEntry(onBackClick: () -> Unit) {
+fun EntryProviderScope<NavKey>.equipmentIncrementsEntry(
+    onBackClick: () -> Unit,
+    onNavigateToLift: (liftId: String) -> Unit = {},
+    onChooseEquipmentForLift: (liftId: String) -> Unit = {},
+) {
     entry<EquipmentIncrementsKey> { key ->
         EquipmentIncrementsRoute(
             equipmentId = key.equipmentId,
             onBackClick = onBackClick,
             sourceLiftId = key.sourceLiftId,
+            onNavigateToLift = onNavigateToLift,
+            onChooseEquipmentForLift = onChooseEquipmentForLift,
         )
     }
 }
