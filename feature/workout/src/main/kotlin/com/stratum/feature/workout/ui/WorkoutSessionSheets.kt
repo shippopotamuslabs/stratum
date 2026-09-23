@@ -443,6 +443,19 @@ private fun LiftActionsAndRestConfigSheets(
                                 onLiftActionsLiftIdChange(null)
                                 actions.onSwapLiftClick(state.workoutId, liftId, lift.liftId, lift.liftName)
                             },
+                            onEditEquipment =
+                                if (state.equipmentManagementV2Enabled) {
+                                    {
+                                        onLiftActionsLiftIdChange(null)
+                                        actions.onEditEquipmentClick(
+                                            lift.liftId,
+                                            lift.equipmentId,
+                                            lift.hasIncrementOverride,
+                                        )
+                                    }
+                                } else {
+                                    null
+                                },
                             onRemoveLift = {
                                 onLiftActionsLiftIdChange(null)
                                 actions.onRemoveLift(liftId)

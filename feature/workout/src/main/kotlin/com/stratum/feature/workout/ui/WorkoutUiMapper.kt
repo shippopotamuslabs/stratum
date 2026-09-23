@@ -43,6 +43,8 @@ internal object WorkoutUiMapper {
         displayUnitEpoch: Int = 0,
         /** Lift id → catalog/default inter-set rest (seconds) for myo cluster exit. */
         defaultRestSecondsByLiftId: Map<String, Int> = emptyMap(),
+        /** Lift id → catalog equipment backing the lift (for "Edit equipment" routing). */
+        equipmentEditTargetByLiftId: Map<String, EquipmentEditTarget> = emptyMap(),
     ): WorkoutUiState.Loaded {
         val lifts = rendered.lifts.map { lift ->
             val showWeightColumn = lift.loadType != LoadType.Bodyweight
@@ -77,6 +79,9 @@ internal object WorkoutUiMapper {
                 isPlateLoaded = isPlateLoaded,
                 isDoubleSided = isDoubleSided,
                 unitLabel = unitLabel,
+                equipmentId = equipmentEditTargetByLiftId[lift.liftId.value]?.equipmentId,
+                hasIncrementOverride =
+                    equipmentEditTargetByLiftId[lift.liftId.value]?.hasIncrementOverride == true,
                 sets = lift.sets.mapIndexed { setIndex, set ->
                     val prevLabel =
                         previousPerformanceLabel(
