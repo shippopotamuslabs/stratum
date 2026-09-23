@@ -389,7 +389,7 @@ fun LiftActionsSheetContent(
 }
 
 /** Sheet rows in display order: Swap / Edit / Reorder — Rest / Superset — Notes — Remove. */
-enum class LiftActionItem {
+internal enum class LiftActionItem {
     Swap,
     EditEquipment,
     Reorder,
@@ -404,8 +404,11 @@ enum class LiftActionItem {
  * Visible sheet groups in display order. The destructive [LiftActionItem.Remove] is always
  * the last group alone so it stays visually separated; the notes group is dropped when
  * both notes entries are absent.
+ *
+ * Internal: a single-sheet layout detail. [LiftActionGroupsTest] locks the order so the
+ * enum, builder, and renderer cannot drift apart.
  */
-fun visibleLiftActionGroups(
+internal fun visibleLiftActionGroups(
     showEditEquipment: Boolean,
     showRestTimes: Boolean,
     showManageNotes: Boolean,
