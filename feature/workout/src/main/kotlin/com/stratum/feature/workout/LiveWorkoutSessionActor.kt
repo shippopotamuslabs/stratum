@@ -29,7 +29,6 @@ import com.stratum.domain.workout.RenderedWorkout
 import com.stratum.domain.workout.SetSlotId
 import com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase
 import com.stratum.domain.logging.LogErrorUseCase
-import com.stratum.feature.workout.ui.EquipmentEditRequest
 import com.stratum.feature.workout.ui.WorkoutUiEvent
 import com.stratum.feature.workout.ui.WorkoutUiState
 import kotlin.coroutines.cancellation.CancellationException
@@ -165,12 +164,11 @@ internal class LiveWorkoutSessionActor(
     fun mergeRendered(): RenderedWorkout = runtime.merge()
 
     /**
-     * Seeded increments-editor request for one live lift card (tap-time read of session
-     * memory). Null when the card or its catalog lift is unknown; inconclusive
-     * inference falls back to the unseeded request inside the runtime.
+     * Tap-time inference inputs for one live lift card's editor request (read of
+     * session memory). Null when the card or its catalog lift is unknown.
      */
-    fun liveEquipmentEditRequest(workoutLiftId: WorkoutLiftId): EquipmentEditRequest? =
-        runtime.liveEquipmentEditRequest(workoutLiftId)
+    fun liveEquipmentSeed(workoutLiftId: WorkoutLiftId): LiveEquipmentSeed? =
+        runtime.liveEquipmentSeed(workoutLiftId)
 
     // endregion
 

@@ -13,7 +13,6 @@ import com.stratum.domain.lift.WorkoutLiftNoteInput
 import com.stratum.domain.lift.identity.LiftCatalogNoteId
 import com.stratum.domain.lift.identity.LiftSessionNoteId
 import com.stratum.domain.program.identity.WorkoutLiftNoteId
-import com.stratum.feature.workout.ui.EquipmentEditRequest
 import com.stratum.feature.workout.ui.LiftNoteListsSaveRequest
 import com.stratum.feature.workout.ui.NoteDraftUi
 import com.stratum.feature.workout.ui.NoteListsUi
@@ -320,13 +319,12 @@ class WorkoutViewModel @Inject constructor(
     }
 
     /**
-     * Seeded increments-editor request for one live lift card: inferred tiers prefill
-     * plus sample weights for band warnings (warnings-only, no proposal dismissal).
-     * Tap-time read of session memory; null when the card is unknown (caller falls back
-     * to the unseeded request). Inconclusive inference already falls back inside.
+     * Tap-time inference inputs for one live lift card's editor request (read of
+     * session memory). The route builds the routed + seeded request from this; null
+     * when the card is unknown (caller falls back to the unseeded request).
      */
-    fun liveEquipmentEditRequest(workoutLiftId: String): EquipmentEditRequest? =
-        session.liveEquipmentEditRequest(WorkoutLiftId(workoutLiftId))
+    fun liveEquipmentSeed(workoutLiftId: String): LiveEquipmentSeed? =
+        session.liveEquipmentSeed(WorkoutLiftId(workoutLiftId))
 
     fun startSession(workoutId: WorkoutId) {
         if (session.isLoadedFor(workoutId)) return

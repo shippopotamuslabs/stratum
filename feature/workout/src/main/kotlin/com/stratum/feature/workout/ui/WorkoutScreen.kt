@@ -82,6 +82,12 @@ data class WorkoutScreenActions(
      */
     val onEditEquipmentClick: (EquipmentEditRequest) -> Unit = {},
     /**
+     * Live "Adjust Equipment" pill tap: emits the tapped card's workoutLiftId. The route
+     * resolves the seeded editor request (session read + inference) before navigating,
+     * so the screen stays a pure function of state with no session reads.
+     */
+    val onAdjustEquipmentTap: (workoutLiftId: String) -> Unit = {},
+    /**
      * Quiets the "Adjust Equipment" chip for one lift card ([RenderedLiftUi.workoutLiftId]).
      * The screen calls it only from the chip's X affordance.
      */
@@ -108,12 +114,6 @@ fun WorkoutScreen(
     restTimer: RestTimerChrome,
     actions: WorkoutScreenActions,
     modifier: Modifier = Modifier,
-    /**
-     * Resolves the tap-time editor request for a pill tap. Defaults to the unseeded
-     * request; the route injects the session-backed seeded resolver (inferred tiers +
-     * sample warnings, falling back when inference is inconclusive).
-     */
-    resolveEquipmentRequest: (RenderedLiftUi) -> EquipmentEditRequest = ::equipmentEditRequestFor,
     snackbarHostState: SnackbarHostState? = null,
     /** Post-lifecycle [WorkoutUiEvent.SetLogged]; cleared via [onSetLoggedConsumed]. */
     pendingSetLogged: WorkoutUiEvent.SetLogged? = null,
@@ -347,13 +347,10 @@ fun WorkoutScreen(
                             liftSheetMode = LiftOptionsSheetMode.ManageNotes(tab)
                             liftActionsLiftId = workoutLiftId
                         },
-                        onAdjustEquipment = { workoutLiftId ->
-                            // Opening the editor leaves the chip visible: only the X
-                            // affordance or a real tier save quiets it for the session.
-                            state.lifts.firstOrNull { it.workoutLiftId == workoutLiftId }?.let { lift ->
-                                actions.onEditEquipmentClick(resolveEquipmentRequest(lift))
-                            }
-                        },
+                        // Pill tap only emits the card id; the route resolves the seeded
+                        // request before navigating. Opening the editor leaves the chip
+                        // visible: only the X affordance or a real tier save quiets it.
+                        onAdjustEquipment = actions.onAdjustEquipmentTap,
                         onDismissEquipmentAdjust = actions.onDismissEquipmentAdjust,
                         onAddLift = actions.onAddLift,
                         onDiscardClick = { showDiscardDialog = true },

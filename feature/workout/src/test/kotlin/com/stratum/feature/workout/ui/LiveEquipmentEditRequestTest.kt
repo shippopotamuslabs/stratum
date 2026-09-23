@@ -5,7 +5,6 @@ import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.warnedIndexesForSamples
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -61,16 +60,16 @@ class LiveEquipmentEditRequestTest {
         // Routing preserved from the base request.
         assertEquals("lift-1", request.liftId)
         assertEquals(base().target, request.target)
+        // Warnings-only live context (no fingerprint to dismiss).
+        val context = checkNotNull(request.proposalContext as? ProposalEditContext.Live)
         // Prefill covers the logged sets …
         assertTrue(request.initialTiersLb.isNotEmpty())
         assertTrue(request.initialTiersLb.all { it.incrementLb > 0.0 })
-        val samples = request.proposalContext?.sampleWeightsLb.orEmpty()
+        val samples = context.sampleWeightsLb
         assertTrue(samples.contains(62.5))
         assertTrue(domainTiersOf(request).warnedIndexesForSamples(samples).isEmpty())
         // … while the current tiers miss them (the pill signal).
         assertTrue(currentTiers.warnedIndexesForSamples(samples).isNotEmpty())
-        // Warnings-only: no fingerprint, so saving never dismisses a proposal.
-        assertNull(request.proposalContext?.proposalId)
     }
 
     @Test
@@ -127,7 +126,7 @@ class LiveEquipmentEditRequestTest {
             )
 
         assertTrue(request.initialTiersLb.isNotEmpty())
-        assertNull(request.proposalContext?.proposalId)
-        assertEquals(listOf(62.5), request.proposalContext?.sampleWeightsLb)
+        val context = checkNotNull(request.proposalContext as? ProposalEditContext.Live)
+        assertEquals(listOf(62.5), context.sampleWeightsLb)
     }
 }
