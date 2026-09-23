@@ -155,10 +155,7 @@ assemble-debug:
   stage: test
   needs: []
   script:
-    # -x detekt: the detekt job already gates every pipeline, and
-    # build.gradle.kts wires assemble -> :detekt. Re-running it here is pure
-    # duplication, so skip it in CI only (local builds still run it).
-    - ./gradlew :app:assembleDebug -x detekt
+    - ./gradlew :app:assembleDebug
   artifacts:
     paths:
       - app/build/outputs/apk/debug/*.apk
@@ -172,8 +169,7 @@ assemble-release:
   stage: test
   needs: []
   script:
-    # -x detekt: same as assemble-debug — the detekt job already gates.
-    - ./gradlew :app:assembleRelease -x detekt
+    - ./gradlew :app:assembleRelease
   artifacts:
     paths:
       - app/build/outputs/apk/release/*.apk
@@ -216,23 +212,11 @@ osv-scan:
   needs: []
   script:
     # OSV-Scanner release binary (static Go binary; the shell executor can't run
-    # the analyzer Docker images GitLab's own templates use). /tmp persists on
-    # the home-server host across jobs, so reuse the pinned binary when present.
-    - |
-      if [ -x /tmp/osv-scanner ] && /tmp/osv-scanner --version 2>/dev/null | grep -q "${OSV_SCANNER_VERSION}"; then
-        echo "Reusing cached osv-scanner ${OSV_SCANNER_VERSION} at /tmp/osv-scanner"
-      else
-        case "$(uname -m)" in
-          x86_64) OSV_ARCH=amd64 ;;
-          aarch64|arm64) OSV_ARCH=arm64 ;;
-          *) echo "Unsupported architecture: $(uname -m)"; exit 1 ;;
-        esac
-        OSV_URL="https://github.com/google/osv-scanner/releases/download/v${OSV_SCANNER_VERSION}/osv-scanner_linux_${OSV_ARCH}"
-        echo "Downloading osv-scanner ${OSV_SCANNER_VERSION} (${OSV_ARCH})"
-        curl -sSL --retry 3 -o /tmp/osv-scanner "$OSV_URL"
-        chmod +x /tmp/osv-scanner
-        /tmp/osv-scanner --version
-      fi
+    # the analyzer Docker images GitLab's own templates use). Always downloaded
+    # fresh into a job-private dir: /tmp is host-shared and world-writable, so
+    # executing a reused binary from there is a poisoning vector.
+    - mkdir -p .tmp
+    - ./scripts/install-osv-scanner.sh "$OSV_SCANNER_VERSION" "$CI_PROJECT_DIR/.tmp/osv-scanner"
     # Resolved dependency trees -> CycloneDX SBOMs (scripts/generate-sbom.py).
     # The generator exits nonzero on any FAILED (unresolved) dependency, so a
     # partial tree can never scan clean. :solver-service gets its own SBOM:
@@ -248,7 +232,7 @@ osv-scan:
     - |
       SCAN_ARGS="-L bom.cdx.json -L bom-solver.cdx.json --lockfile=functions/package-lock.json --lockfile=functions-python/requirements.txt"
       if [ -f .osv-scanner.toml ]; then SCAN_ARGS="$SCAN_ARGS --config=.osv-scanner.toml"; fi
-      /tmp/osv-scanner scan source $SCAN_ARGS --format=table
+      ./.tmp/osv-scanner scan source $SCAN_ARGS --format=table
   artifacts:
     when: always
     paths:
@@ -284,28 +268,15 @@ osv-scan-image:
         - gradle/libs.versions.toml
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   script:
-    # Same pinned static binary as osv-scan (shell executor can't run the
-    # analyzer Docker images GitLab's own templates use). Reuse when present.
-    - |
-      if [ -x /tmp/osv-scanner ] && /tmp/osv-scanner --version 2>/dev/null | grep -q "${OSV_SCANNER_VERSION}"; then
-        echo "Reusing cached osv-scanner ${OSV_SCANNER_VERSION} at /tmp/osv-scanner"
-      else
-        case "$(uname -m)" in
-          x86_64) OSV_ARCH=amd64 ;;
-          aarch64|arm64) OSV_ARCH=arm64 ;;
-          *) echo "Unsupported architecture: $(uname -m)"; exit 1 ;;
-        esac
-        OSV_URL="https://github.com/google/osv-scanner/releases/download/v${OSV_SCANNER_VERSION}/osv-scanner_linux_${OSV_ARCH}"
-        echo "Downloading osv-scanner ${OSV_SCANNER_VERSION} (${OSV_ARCH})"
-        curl -sSL --retry 3 -o /tmp/osv-scanner "$OSV_URL"
-        chmod +x /tmp/osv-scanner
-        /tmp/osv-scanner --version
-      fi
+    # Same pinned installer as osv-scan (shell executor can't run the analyzer
+    # Docker images GitLab's own templates use), into a job-private dir.
+    - mkdir -p .tmp
+    - ./scripts/install-osv-scanner.sh "$OSV_SCANNER_VERSION" "$CI_PROJECT_DIR/.tmp/osv-scanner"
     # Fat jar first: the Dockerfile COPYs it out of the repo-root context.
     - ./gradlew :solver-service:shadowJar
     # Fail-closed Docker guard, build, provenance, scan.
     # Exit code 1 = CVEs found, matching the osv-scan failure policy.
-    - OSV_SCANNER_BIN=/tmp/osv-scanner ./scripts/scan-solver-image.sh stratum-solver:ci
+    - OSV_SCANNER_BIN="$CI_PROJECT_DIR/.tmp/osv-scanner" ./scripts/scan-solver-image.sh stratum-solver:ci
 
 # Device tests on shared runners: no KVM, so the emulator runs unaccelerated and
 # slow. Nightly + allow_failure until green, then decide about per-MR.
@@ -418,8 +389,7 @@ deploy-internal:
       printf 'storeFile=.keystore/stratum_keystore.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
         "$STORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > keystore.properties
     # Signed AAB for Play + signed APK for the Test Lab robo job below.
-    # -x detekt: MR pipelines already gate on the detekt job.
-    - ./gradlew :app:bundleRelease :app:assembleRelease -x detekt
+    - ./gradlew :app:bundleRelease :app:assembleRelease
     # PEP 668: the runner Python is externally managed, so installer deps go
     # in an ephemeral venv rather than --user / system site.
     - python3 -m venv /tmp/play-env
