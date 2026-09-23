@@ -97,6 +97,7 @@ class EquipmentIncrementsViewModelTest {
                         ),
                         SetLiftEquipmentUseCase(fakeLiftRepository, FakeLoggingPort()),
                     ),
+                setLiftEquipment = SetLiftEquipmentUseCase(fakeLiftRepository, FakeLoggingPort()),
                 equipmentPickResult = equipmentPickResult,
                 observeWeightDisplayPreferences =
                     com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase(
