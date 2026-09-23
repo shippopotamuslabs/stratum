@@ -4,10 +4,12 @@ import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.featureflag.FakeFeatureFlagRepository
 import com.stratum.core.testing.logging.FakeLoggingPort
+import com.stratum.core.testing.onboarding.FakeEquipmentProposalPreferences
 import com.stratum.core.testing.onboarding.FakeEquipmentRepository
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.domain.featureflag.AppFeatureFlag
 import com.stratum.domain.featureflag.ObserveEquipmentManagementV2UseCase
+import com.stratum.domain.lift.DismissEquipmentProposalUseCase
 import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.ForkEquipmentUseCase
 import com.stratum.domain.lift.ForkEquipmentWithTiersUseCase
@@ -23,6 +25,8 @@ import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.feature.workout.ui.ProposalEditContext
+import com.stratum.feature.workout.ui.ProposalTierArgs
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -46,6 +50,7 @@ class EquipmentIncrementsViewModelTest {
     private val fakeEquipmentRepository = FakeEquipmentRepository()
     private val fakeLiftRepository = FakeLiftRepository()
     private val fakeFeatureFlags = FakeFeatureFlagRepository()
+    private val fakeProposalPrefs = FakeEquipmentProposalPreferences()
     private val equipmentPickResult = EquipmentPickResult()
     private lateinit var subject: EquipmentIncrementsViewModel
 
@@ -98,6 +103,11 @@ class EquipmentIncrementsViewModelTest {
                         SetLiftEquipmentUseCase(fakeLiftRepository, FakeLoggingPort()),
                     ),
                 setLiftEquipment = SetLiftEquipmentUseCase(fakeLiftRepository, FakeLoggingPort()),
+                dismissEquipmentProposal =
+                    DismissEquipmentProposalUseCase(
+                        fakeProposalPrefs,
+                        FakeLoggingPort(),
+                    ),
                 equipmentPickResult = equipmentPickResult,
                 observeWeightDisplayPreferences =
                     com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase(
@@ -287,6 +297,114 @@ class EquipmentIncrementsViewModelTest {
         val untouched =
             fakeLiftRepository.getLiftsByIds(listOf(LiftId("lat-pulldown"))).single()
         assertEquals(cableId, untouched.equipmentId)
+    }
+
+    @Test
+    @DisplayName(
+        "Given proposal tiers when initialized then drafts show the proposal and save persists them",
+    )
+    fun proposalPrefillSeedsDraftsAndSaves() = runTest {
+        subject.initialize(
+            cableId.value,
+            null,
+            listOf(
+                ProposalTierArgs(0.0, 40.0, 2.5),
+                ProposalTierArgs(40.0, null, 5.0),
+            ),
+        )
+        subject.uiState.test {
+            val prefilled =
+                awaitItemWith {
+                    it.equipmentName == "Cables" &&
+                        it.tiers.any { tier -> tier.increment == "2.5" }
+                }
+            assertEquals(
+                listOf(
+                    IncrementTierDraft("0", "40", "2.5", openEnded = false),
+                    IncrementTierDraft("40", null, "5", openEnded = true),
+                ),
+                prefilled.tiers,
+            )
+            assertEquals(null, prefilled.validationMessage)
+            // Prefill is display-only until the user saves.
+            assertEquals(
+                openFive,
+                fakeEquipmentRepository.getEquipment(cableId)!!.incrementTiers,
+            )
+            subject.save()
+            assertTrue(awaitItemWith { it.saveSucceeded }.saveSucceeded)
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        assertEquals(
+            listOf(
+                IncrementTier(Weight(0.0, lb), Weight(40.0, lb), Weight(2.5, lb)),
+                IncrementTier(Weight(40.0, lb), null, Weight(5.0, lb)),
+            ),
+            fakeEquipmentRepository.getEquipment(cableId)!!.incrementTiers,
+        )
+    }
+
+    @Test
+    @DisplayName("Given proposal context when saved then the proposal fingerprint is dismissed")
+    fun proposalSaveDismissesFingerprint() = runTest {
+        subject.initialize(
+            cableId.value,
+            null,
+            listOf(
+                ProposalTierArgs(0.0, 40.0, 2.5),
+                ProposalTierArgs(40.0, null, 5.0),
+            ),
+            ProposalEditContext(
+                proposalId = "proposal-1",
+                sampleWeightsLb = listOf(62.5),
+            ),
+        )
+        subject.uiState.test {
+            awaitItemWith { it.tiers.any { tier -> tier.increment == "2.5" } }
+            assertTrue(fakeProposalPrefs.dismissedFingerprints.isEmpty())
+            subject.save()
+            assertTrue(awaitItemWith { it.saveSucceeded }.saveSucceeded)
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        assertEquals(setOf("proposal-1"), fakeProposalPrefs.dismissedFingerprints)
+    }
+
+    @Test
+    @DisplayName("Given sample weights missing the steps when shown then warned band indexes are set")
+    fun sampleWeightsMissingStepsWarnBands() = runTest {
+        subject.initialize(
+            cableId.value,
+            null,
+            emptyList(),
+            ProposalEditContext(
+                proposalId = "proposal-1",
+                sampleWeightsLb = listOf(62.5),
+            ),
+        )
+        subject.uiState.test {
+            // Catalog 0+ @ 5 misses 62.5 → band 0 warns; saving stays allowed.
+            val state =
+                awaitItemWith {
+                    it.equipmentName == "Cables" && it.warnedTierIndexes.isNotEmpty()
+                }
+            assertEquals(setOf(0), state.warnedTierIndexes)
+            assertEquals(null, state.validationMessage)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Given no proposal context when shown then no band warnings")
+    fun noContextWarnsNothing() = runTest {
+        subject.initialize(cableId.value)
+        advanceUntilIdle()
+        subject.uiState.test {
+            val state = awaitItemWith { it.tiers.isNotEmpty() }
+            assertTrue(state.warnedTierIndexes.isEmpty())
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     private suspend fun app.cash.turbine.ReceiveTurbine<EquipmentIncrementsUiState>.awaitItemWith(

@@ -73,6 +73,8 @@ import com.stratum.feature.workout.navigation.WorkoutCompleteKey
 import com.stratum.feature.workout.navigation.workoutEntry
 import com.stratum.feature.workout.navigation.workoutCompleteEntry
 import com.stratum.feature.workout.ui.EquipmentEditRequest
+import com.stratum.feature.workout.ui.ProposalEditContext
+import com.stratum.feature.workout.ui.ProposalTierArgs
 import com.stratum.feature.workout.ui.EquipmentEditorDestination
 import com.stratum.feature.workout.ui.resolveEquipmentEditorDestination
 import com.stratum.liftconfig.CreateLiftKey
@@ -414,17 +416,14 @@ fun StratumNavHost(
                 onSwapLiftClick = { workoutId, workoutLiftId, liftId, liftName ->
                     backStack.add(LiftSwapKey(workoutId, workoutLiftId, liftId, liftName))
                 },
-                onEditEquipmentClick = { request: EquipmentEditRequest ->
-                    backStack.add(
-                        equipmentEditorKey(resolveEquipmentEditorDestination(request)),
-                    )
-                },
+                onEditEquipmentClick = { request -> pushEquipmentEditor(backStack, request) },
                 onReorderLiftsClick = { workoutId ->
                     backStack.add(ReorderLiftsKey(workoutId))
                 },
             )
             workoutCompleteEntry(
                 onCloseClick = onNavigateBack,
+                onEditEquipmentClick = { request -> pushEquipmentEditor(backStack, request) },
             )
             reorderLiftsEntry(
                 onBackClick = onNavigateBack,
@@ -444,14 +443,43 @@ fun StratumNavHost(
     }
 }
 
-/** Maps an equipment-editing decision to the editor key (keeps `StratumNavHost` lean). */
-private fun equipmentEditorKey(destination: EquipmentEditorDestination): NavKey =
+/** Shared "Edit steps" navigation for the live-workout and complete entries. */
+private fun pushEquipmentEditor(
+    backStack: MutableList<NavKey>,
+    request: EquipmentEditRequest,
+) {
+    backStack.add(
+        equipmentEditorKey(
+            resolveEquipmentEditorDestination(request),
+            request.initialTiersLb,
+            request.proposalContext,
+        ),
+    )
+}
+
+/**
+ * Maps an equipment-editing decision to the editor key (keeps `StratumNavHost` lean).
+ * Blank lift ids (proposal clusters without a lift, e.g. Amend with no anomalous lift
+ * captured) normalize to null so Save As New never reassigns a `LiftId("")`.
+ */
+private fun equipmentEditorKey(
+    destination: EquipmentEditorDestination,
+    initialTiersLb: List<ProposalTierArgs> = emptyList(),
+    proposalContext: ProposalEditContext? = null,
+): NavKey =
     when (destination) {
-        is EquipmentEditorDestination.LiftOverride -> LiftIncrementsKey(destination.liftId)
+        is EquipmentEditorDestination.LiftOverride ->
+            LiftIncrementsKey(
+                liftId = destination.liftId,
+                initialTiersLb = initialTiersLb,
+                proposalContext = proposalContext,
+            )
         is EquipmentEditorDestination.SharedEquipment ->
             EquipmentIncrementsKey(
                 equipmentId = destination.equipmentId,
-                sourceLiftId = destination.sourceLiftId,
+                sourceLiftId = destination.sourceLiftId?.takeIf { it.isNotBlank() },
+                initialTiersLb = initialTiersLb,
+                proposalContext = proposalContext,
             )
     }
 

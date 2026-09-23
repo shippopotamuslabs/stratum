@@ -8,9 +8,12 @@ import com.stratum.domain.lift.ObserveLiftCatalogUseCase
 import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.SetLiftIncrementTiersUseCase
 import com.stratum.domain.lift.ValidateIncrementTiersUseCase
+import com.stratum.domain.lift.DismissEquipmentProposalUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.shortLabel
+import com.stratum.feature.workout.ui.ProposalEditContext
+import com.stratum.feature.workout.ui.ProposalTierArgs
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,6 +35,11 @@ data class LiftIncrementsUiState(
     val liftName: String = "",
     val tiers: List<IncrementTierDraft> = emptyList(),
     val validationMessage: String? = null,
+    /**
+     * Band indexes whose steps miss a proposal's logged sample weights (yellow,
+     * non-blocking — saving stays allowed). Empty for all non-proposal entry points.
+     */
+    val warnedTierIndexes: Set<Int> = emptySet(),
     val isSaving: Boolean = false,
     val saveSucceeded: Boolean = false,
     /** Non-null when the lift is inheriting equipment/fallback defaults (no override rows). */
@@ -46,18 +54,32 @@ class LiftIncrementsViewModel @Inject constructor(
     private val observeLiftCatalog: ObserveLiftCatalogUseCase,
     private val setLiftIncrementTiers: SetLiftIncrementTiersUseCase,
     private val validateIncrementTiers: ValidateIncrementTiersUseCase,
+    private val dismissEquipmentProposal: DismissEquipmentProposalUseCase,
     observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
 ) : ViewModel() {
 
     private val liftId = MutableStateFlow<String?>(null)
     private val draftTiers = MutableStateFlow<List<IncrementTierDraft>?>(null)
+    /**
+     * Proposal launch input (prefill bands in storage pounds + sample weights for
+     * warnings); derived into drafts per display unit in [buildState]. Null for all
+     * non-proposal entry points.
+     */
+    private val proposalInput = MutableStateFlow<ProposalInput?>(null)
     private val isSaving = MutableStateFlow(false)
     private val saveSucceeded = MutableStateFlow(false)
     private val validationOverride = MutableStateFlow<String?>(null)
     private val displayUnit = MutableStateFlow(Weight.WeightUnit.Lb)
 
+    /** Proposal prefill bands plus sample weights; null outside "Edit steps" launches. */
+    private data class ProposalInput(
+        val initialTiersLb: List<ProposalTierArgs>,
+        val context: ProposalEditContext?,
+    )
+
     private data class DraftFlags(
         val draft: List<IncrementTierDraft>?,
+        val proposalInput: ProposalInput?,
         val saving: Boolean,
         val saved: Boolean,
         val validation: String?,
@@ -80,8 +102,14 @@ class LiftIncrementsViewModel @Inject constructor(
             liftId,
             observeLiftCatalog(),
             displayUnit,
-            combine(draftTiers, isSaving, saveSucceeded, validationOverride) { draft, saving, saved, validation ->
-                DraftFlags(draft, saving, saved, validation)
+            combine(
+                draftTiers,
+                proposalInput,
+                isSaving,
+                saveSucceeded,
+                validationOverride,
+            ) { draft, input, saving, saved, validation ->
+                DraftFlags(draft, input, saving, saved, validation)
             },
         ) { id, catalog, unit, flags ->
             buildState(id, catalog, unit, flags)
@@ -91,9 +119,20 @@ class LiftIncrementsViewModel @Inject constructor(
             LiftIncrementsUiState(),
         )
 
-    fun initialize(id: String) {
-        if (liftId.value == id) return
+    fun initialize(
+        id: String,
+        initialTiersLb: List<ProposalTierArgs> = emptyList(),
+        proposalContext: ProposalEditContext? = null,
+    ) {
+        val input =
+            if (initialTiersLb.isEmpty() && proposalContext == null) {
+                null
+            } else {
+                ProposalInput(initialTiersLb, proposalContext)
+            }
+        if (liftId.value == id && proposalInput.value == input) return
         liftId.value = id
+        proposalInput.value = input
         draftTiers.value = null
         saveSucceeded.value = false
         validationOverride.value = null
@@ -213,6 +252,9 @@ class LiftIncrementsViewModel @Inject constructor(
             val result = setLiftIncrementTiers(LiftId(id), domainTiers)
             isSaving.value = false
             if (result.isSuccess) {
+                // A proposal-launched save resolves the proposal even when the hand-set
+                // tiers still miss logged weights — the user took ownership.
+                proposalInput.value?.context?.let { dismissEquipmentProposal(it.proposalId) }
                 saveSucceeded.value = true
                 validationOverride.value = null
             } else {
@@ -229,10 +271,19 @@ class LiftIncrementsViewModel @Inject constructor(
         flags: DraftFlags,
     ): LiftIncrementsUiState {
         val lift = catalog.firstOrNull { it.id.value == id }
+        val proposalTiers = flags.proposalInput?.initialTiersLb.orEmpty()
         val tiers =
             flags.draft
+                ?: IncrementTierDraftOps.fromProposalArgs(proposalTiers, unit)
+                    .takeIf { it.isNotEmpty() }
                 ?: lift?.incrementTiers?.map { IncrementTierDraftOps.toDraft(it, unit) }
                 ?: listOf(IncrementTierDraftOps.defaultDraft(unit))
+        val warnedTierIndexes =
+            IncrementTierDraftOps.warnedIndexesForSamples(
+                drafts = tiers,
+                displayUnit = unit,
+                samplesLb = flags.proposalInput?.context?.sampleWeightsLb.orEmpty(),
+            )
         val inheriting = lift?.usesEquipmentDefaultIncrements == true && flags.draft == null
         val inheritanceBanner =
             when {
@@ -252,6 +303,7 @@ class LiftIncrementsViewModel @Inject constructor(
             liftName = lift?.name.orEmpty(),
             tiers = tiers,
             validationMessage = flags.validation ?: liveValidationMessage(tiers, unit),
+            warnedTierIndexes = warnedTierIndexes,
             isSaving = flags.saving,
             saveSucceeded = flags.saved,
             inheritanceBanner = inheritanceBanner,

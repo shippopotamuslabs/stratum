@@ -2,10 +2,25 @@ package com.stratum.liftconfig
 
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
+import com.stratum.feature.workout.ui.ProposalEditContext
+import com.stratum.feature.workout.ui.ProposalTierArgs
 import kotlinx.serialization.Serializable
 
+/**
+ * Increments editor for one lift's override tiers.
+ *
+ * [initialTiersLb] seeds the editor with proposed bands (storage pounds) instead of the
+ * current catalog tiers — set when launched from a post-workout equipment proposal's
+ * "Edit steps" action. Empty preserves the legacy edit-current-tiers behavior.
+ * [proposalContext] carries the proposal fingerprint (dismissed on save) and logged
+ * sample weights (non-blocking step warnings). Null outside "Edit steps" launches.
+ */
 @Serializable
-data class LiftIncrementsKey(val liftId: String) : NavKey
+data class LiftIncrementsKey(
+    val liftId: String,
+    val initialTiersLb: List<ProposalTierArgs> = emptyList(),
+    val proposalContext: ProposalEditContext? = null,
+) : NavKey
 
 @Serializable
 data class LiftInformationKey(val liftId: String) : NavKey
@@ -25,6 +40,8 @@ data class ManageEquipmentKey(val selectionMode: Boolean = false) : NavKey
 data class EquipmentIncrementsKey(
     val equipmentId: String,
     val sourceLiftId: String? = null,
+    val initialTiersLb: List<ProposalTierArgs> = emptyList(),
+    val proposalContext: ProposalEditContext? = null,
 ) : NavKey
 
 fun EntryProviderScope<NavKey>.liftIncrementsEntry(onBackClick: () -> Unit) {
@@ -32,6 +49,8 @@ fun EntryProviderScope<NavKey>.liftIncrementsEntry(onBackClick: () -> Unit) {
         LiftIncrementsRoute(
             liftId = key.liftId,
             onBackClick = onBackClick,
+            initialTiersLb = key.initialTiersLb,
+            proposalContext = key.proposalContext,
         )
     }
 }
@@ -84,6 +103,8 @@ fun EntryProviderScope<NavKey>.equipmentIncrementsEntry(
             equipmentId = key.equipmentId,
             onBackClick = onBackClick,
             sourceLiftId = key.sourceLiftId,
+            initialTiersLb = key.initialTiersLb,
+            proposalContext = key.proposalContext,
             onNavigateToLift = onNavigateToLift,
             onChooseEquipmentForLift = onChooseEquipmentForLift,
         )

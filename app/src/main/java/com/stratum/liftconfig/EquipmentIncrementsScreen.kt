@@ -25,6 +25,8 @@ import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.theme.StratumThemeAccessor
+import com.stratum.feature.workout.ui.ProposalEditContext
+import com.stratum.feature.workout.ui.ProposalTierArgs
 
 @Composable
 fun EquipmentIncrementsRoute(
@@ -33,11 +35,13 @@ fun EquipmentIncrementsRoute(
     viewModel: EquipmentIncrementsViewModel = hiltViewModel(),
     /** Catalog lift that opened this editor (Save As New reassigns it to the copy). */
     sourceLiftId: String? = null,
+    initialTiersLb: List<ProposalTierArgs> = emptyList(),
+    proposalContext: ProposalEditContext? = null,
     onNavigateToLift: (liftId: String) -> Unit = {},
     onChooseEquipmentForLift: (liftId: String) -> Unit = {},
 ) {
-    LaunchedEffect(equipmentId, sourceLiftId) {
-        viewModel.initialize(equipmentId, sourceLiftId)
+    LaunchedEffect(equipmentId, sourceLiftId, initialTiersLb, proposalContext) {
+        viewModel.initialize(equipmentId, sourceLiftId, initialTiersLb, proposalContext)
     }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     LaunchedEffect(state.saveSucceeded) {
@@ -64,6 +68,7 @@ fun EquipmentIncrementsRoute(
                     },
                 tiers = state.tiers,
                 validationMessage = state.validationMessage,
+                warnedTierIndexes = state.warnedTierIndexes,
                 isSaving = state.isSaving,
                 saveSucceeded = state.saveSucceeded,
                 inheritanceBanner = null,
