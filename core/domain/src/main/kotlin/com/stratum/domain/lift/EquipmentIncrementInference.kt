@@ -24,6 +24,31 @@ data class InferredIncrementLattice(
 )
 
 /**
+ * Bundled tiers + micro inference baseline.
+ *
+ * Proportionate step toward a single lattice value type (public signatures stay
+ * stable while stacked lattice MRs are in flight): internal screening funnels
+ * the parallel params through this bundle. Deferred: promote to a public value
+ * type and fold in [screenLatticeWeights] once the stack lands.
+ */
+private data class LatticeBaseline(
+    val tiers: List<IncrementTier>,
+    val micro: List<Weight> = emptyList(),
+)
+
+/** Single normalization point binding parallel tiers + micro params into one baseline. */
+private fun normalizeLatticeBaseline(
+    tiers: List<IncrementTier>,
+    micro: List<Weight>,
+): LatticeBaseline = LatticeBaseline(tiers = tiers, micro = micro)
+
+private fun LatticeBaseline.isOnLattice(
+    weight: Weight,
+    loadType: LoadType,
+    epsilon: Double,
+): Boolean = tiers.isOnLattice(weight, loadType, epsilon, micro)
+
+/**
  * Infers a step size and a [ValidateIncrementTiersUseCase]-valid tier list from logged weights
  * that disagree with [currentTiers].
  *
@@ -34,6 +59,10 @@ data class InferredIncrementLattice(
  * When [currentTiers] is empty, every non-zero sample is treated as residual so a lattice
  * can be built from scratch. When non-empty, at least one sample must be off-lattice.
  * Assisted loads use absolute amounts (negative weights are valid samples).
+ *
+ * Non-empty [micro] admits `base + adder stop` points as on-lattice, so adder-exact
+ * samples are knob use — not residual signal — and never reach step inference (v1 does
+ * not propose adder changes).
  */
 fun inferIncrementLattice(
     sampleWeights: List<Weight>,
@@ -42,6 +71,7 @@ fun inferIncrementLattice(
     epsilon: Double = LATTICE_EPSILON,
     validate: (List<IncrementTier>) -> IncrementTiersValidationResult =
         { ValidateIncrementTiersUseCase()(it) },
+    micro: List<Weight> = emptyList(),
 ): InferredIncrementLattice? {
     val prepared =
         prepareIncrementInferenceSamples(
@@ -49,6 +79,7 @@ fun inferIncrementLattice(
             currentTiers = currentTiers,
             loadType = loadType,
             epsilon = epsilon,
+            micro = micro,
         ) ?: return null
 
     val step =
@@ -81,8 +112,11 @@ internal fun prepareIncrementInferenceSamples(
     currentTiers: List<IncrementTier>,
     loadType: LoadType = LoadType.Weighted,
     epsilon: Double = LATTICE_EPSILON,
+    micro: List<Weight> = emptyList(),
 ): PreparedIncrementInferenceSamples? {
     if (loadType == LoadType.Bodyweight) return null
+
+    val baseline = normalizeLatticeBaseline(currentTiers, micro)
 
     val usable =
         sampleWeights.filter { weight ->
@@ -94,15 +128,15 @@ internal fun prepareIncrementInferenceSamples(
     val mixedUnits = usable.any { it.unit != unit }
     // Sample unit must match every weight on existing tiers (no silent unit coercion).
     val unitMismatch =
-        currentTiers.isNotEmpty() &&
-            currentTiers.any { tier -> !tier.weightsUseUnit(unit) }
+        baseline.tiers.isNotEmpty() &&
+            baseline.tiers.any { tier -> !tier.weightsUseUnit(unit) }
     if (mixedUnits || unitMismatch) return null
 
     val residualWeights =
-        if (currentTiers.isEmpty()) {
+        if (baseline.tiers.isEmpty()) {
             usable
         } else {
-            usable.filter { !currentTiers.isOnLattice(it, loadType, epsilon) }
+            usable.filter { !baseline.isOnLattice(it, loadType, epsilon) }
         }
     if (residualWeights.isEmpty()) return null
 
