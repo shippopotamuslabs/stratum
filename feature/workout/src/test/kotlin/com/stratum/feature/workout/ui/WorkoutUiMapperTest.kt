@@ -191,7 +191,7 @@ class WorkoutUiMapperTest {
             WorkoutUiMapper.map(
                 rendered,
                 sessionStartedAtEpochMilli = 1L,
-                adjustEquipmentWorkoutLiftIds = setOf("wl-2"),
+                adjustEquipmentWorkoutLiftIds = setOf(WorkoutLiftId("wl-2")),
             )
         assertFalse(mapped.lifts[0].showAdjustEquipmentChip)
         assertTrue(mapped.lifts[1].showAdjustEquipmentChip)

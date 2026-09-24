@@ -1,7 +1,6 @@
 package com.stratum.core.ui.component
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -9,7 +8,6 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
@@ -20,8 +18,9 @@ import com.stratum.core.ui.theme.StratumThemeAccessor
  * `StratumTheme` semantic roles (UI_DESIGN.md §4) — the quiet-hint counterpart to
  * [StratumFilterChip]'s selectable semantics.
  *
- * Tapping the pill body calls [onClick]; tapping the trailing X calls [onDismissClick]
- * without triggering [onClick].
+ * M3 offers no dismiss-chip variant, so the trailing X is a standard nested click
+ * target: tapping the pill body calls [onClick]; tapping X calls [onDismissClick]
+ * without triggering [onClick]. Both respect [enabled].
  */
 @Composable
 fun StratumAssistChip(
@@ -48,8 +47,7 @@ fun StratumAssistChip(
                             Modifier
                                 .size(18.dp)
                                 .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null,
+                                    enabled = enabled,
                                     role = Role.Button,
                                     onClick = onDismissClick,
                                 ),

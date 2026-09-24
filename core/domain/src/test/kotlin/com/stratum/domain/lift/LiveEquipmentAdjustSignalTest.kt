@@ -1,7 +1,13 @@
 package com.stratum.domain.lift
 
+import com.stratum.core.testing.training.WorkoutLoggingFixtures
+import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.training.LoggedSet
+import com.stratum.domain.training.identity.TrainingSessionId
+import java.time.Instant
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
@@ -125,4 +131,45 @@ class LiveEquipmentAdjustSignalTest {
             ),
         )
     }
+
+    @Test
+    @DisplayName("Given session weights when checked then live and post-workout signals agree")
+    fun liveAndPostWorkoutSignalsAgree() {
+        val cases =
+            listOf(
+                listOf(60.0, 65.0) to false,
+                listOf(62.5) to true,
+                listOf(60.0, 65.0, 625.0) to false,
+                listOf(0.0, 0.0) to false,
+            )
+        for ((amounts, expected) in cases) {
+            val catalogLift = lift()
+            val loggedSets =
+                amounts.mapIndexed { index, amount ->
+                    LoggedSet(
+                        id = LoggedSetId("s-$index"),
+                        sessionId = TrainingSessionId("ts-1"),
+                        exerciseNameRaw = "Lat pulldown",
+                        liftId = catalogLift.id,
+                        setIndex = index,
+                        weight = Weight(amount, lb),
+                        reps = 10,
+                        rir = 2,
+                        completedAt = Instant.parse("2025-01-01T10:30:00Z"),
+                        liftContext = WorkoutLoggingFixtures.importLiftContext("Lat pulldown"),
+                    )
+                }
+            val live = shouldShowLiveEquipmentAdjust(weights(amounts), catalogLift)
+            val postWorkout =
+                anomalyForLift(
+                    liftId = catalogLift.id,
+                    liftSets = loggedSets,
+                    liftsById = mapOf(catalogLift.id to catalogLift),
+                ) != null
+            assertEquals(expected, live, "live signal for $amounts")
+            assertEquals(expected, postWorkout, "post-workout signal for $amounts")
+        }
+    }
+
+    private fun weights(amounts: List<Double>) = amounts.map { Weight(it, lb) }
 }
