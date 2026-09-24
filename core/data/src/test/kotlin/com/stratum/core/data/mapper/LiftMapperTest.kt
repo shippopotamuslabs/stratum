@@ -1,13 +1,16 @@
 package com.stratum.core.data.mapper
 
+import com.stratum.core.data.db.EquipmentEntity
 import com.stratum.core.data.db.IncrementTierEntity
 import com.stratum.core.data.db.LiftEntity
 import com.stratum.core.data.db.LiftWithTiers
+import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.WeightConversion
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
@@ -282,5 +285,152 @@ class LiftMapperTest {
         assertEquals("Belt on working sets", entity.pinnedNote)
         val back = LiftWithTiers(entity, emptyList()).toDomain()
         assertEquals("Belt on working sets", back.pinnedNote)
+    }
+
+    @Test
+    @DisplayName("Given equipment micro json when mapped then stops decode and re-encode")
+    fun equipmentMicroRoundTrips() {
+        val lb = Weight.WeightUnit.Lb
+        val equipment = Equipment(
+            id = EquipmentId("pin-loaded-machine"),
+            name = "Pin-Loaded Machine",
+            incrementTiers = emptyList(),
+            microIncrements = listOf(Weight(5.0, lb), Weight(10.0, lb)),
+        )
+
+        val entity = equipment.toEntity()
+        assertEquals("[5.0,10.0]", entity.microOptionsJson)
+
+        val back = entity.toDomain(emptyList())
+        assertEquals(listOf(5.0, 10.0), back.microIncrements.map { it.amount })
+    }
+
+    @Test
+    @DisplayName("Given kg-denominated stops when mapped then column stores storage-lb doubles")
+    fun kgMicroEncodesStorageLb() {
+        val kg = Weight.WeightUnit.Kg
+        val equipment = Equipment(
+            id = EquipmentId("pin-loaded-machine"),
+            name = "Pin-Loaded Machine",
+            incrementTiers = emptyList(),
+            microIncrements = listOf(
+                Weight(5.0 * WeightConversion.LB_TO_KG, kg),
+                Weight(10.0 * WeightConversion.LB_TO_KG, kg),
+            ),
+        )
+
+        val entity = equipment.toEntity()
+        assertEquals("[5.0,10.0]", entity.microOptionsJson)
+
+        val back = entity.toDomain(emptyList())
+        assertEquals(listOf(5.0, 10.0), back.microIncrements.map { it.amount })
+        assertEquals(Weight.WeightUnit.Lb, back.microIncrements.first().unit)
+    }
+
+    @Test
+    @DisplayName("Given empty equipment micro when mapped then column stays null")
+    fun emptyEquipmentMicroEncodesNull() {
+        val entity = Equipment(
+            id = EquipmentId("cable"),
+            name = "Cables",
+            incrementTiers = emptyList(),
+        ).toEntity()
+
+        assertNull(entity.microOptionsJson)
+        assertEquals(emptyList<Weight>(), entity.toDomain(emptyList()).microIncrements)
+    }
+
+    @Test
+    @DisplayName("Given legacy null micro when mapped then lift inherits equipment stops")
+    fun nullMicroInherits() {
+        val entity = liftEntity(microOptionsJson = null)
+        val equipment = pinEquipment()
+
+        val back = LiftWithTiers(entity, emptyList()).toDomain(
+            equipmentById = mapOf(equipment.id to equipment),
+        )
+
+        assertEquals(listOf(5.0, 10.0), back.microIncrements.map { it.amount })
+        assertTrue(back.usesEquipmentDefaultMicro)
+    }
+
+    @Test
+    @DisplayName("Given explicit lift micro when mapped then override wins over equipment")
+    fun explicitLiftMicroWins() {
+        val entity = liftEntity(microOptionsJson = "[2.5]")
+
+        val back = LiftWithTiers(entity, emptyList()).toDomain(
+            equipmentById = mapOf(pinEquipment().id to pinEquipment()),
+        )
+
+        assertEquals(listOf(2.5), back.microIncrements.map { it.amount })
+        assertEquals(false, back.usesEquipmentDefaultMicro)
+    }
+
+    @Test
+    @DisplayName("Given explicit empty lift micro when mapped then adder is cleared")
+    fun explicitEmptyLiftMicroClears() {
+        val entity = liftEntity(microOptionsJson = "[]")
+
+        val back = LiftWithTiers(entity, emptyList()).toDomain(
+            equipmentById = mapOf(pinEquipment().id to pinEquipment()),
+        )
+
+        assertEquals(emptyList<Weight>(), back.microIncrements)
+        assertEquals(false, back.usesEquipmentDefaultMicro)
+    }
+
+    @Test
+    @DisplayName("Given corrupt lift micro when mapped then it reads empty without failing")
+    fun corruptMicroReadsEmpty() {
+        val back = LiftWithTiers(liftEntity(microOptionsJson = "nope"), emptyList()).toDomain()
+
+        assertEquals(emptyList<Weight>(), back.microIncrements)
+        assertEquals(true, back.usesEquipmentDefaultMicro)
+    }
+
+    @Test
+    @DisplayName("Given explicit lift micro when written then override column round-trips")
+    fun liftMicroOverrideRoundTrips() {
+        val lb = Weight.WeightUnit.Lb
+        val lift = Lift(
+            id = LiftId("lat-pulldown"),
+            name = "Lat pulldown",
+            movementPatterns = setOf(MovementPattern.VerticalPull),
+            primaryMuscles = setOf(MuscleGroup.Back),
+            secondaryMuscles = emptySet(),
+            incrementTiers = emptyList(),
+            presetTags = emptySet(),
+            microIncrements = listOf(Weight(2.5, lb)),
+            usesEquipmentDefaultMicro = false,
+            enabled = true,
+        )
+
+        val entity = lift.toEntity()
+        assertEquals("[2.5]", entity.microOptionsJson)
+    }
+
+    private fun liftEntity(microOptionsJson: String?): LiftEntity =
+        LiftEntity(
+            id = LiftId("lat-pulldown"),
+            name = "Lat pulldown",
+            movementPatternsBitmask = setOf(MovementPattern.VerticalPull).toBitmask(),
+            primaryMusclesBitmask = setOf(MuscleGroup.Back).toBitmask(),
+            secondaryMusclesBitmask = 0,
+            presetTags = emptySet<GymPreset>().toPresetCsv(),
+            equipmentId = EquipmentId("pin-loaded-machine"),
+            isCustom = false,
+            enabled = true,
+            microOptionsJson = microOptionsJson,
+        )
+
+    private fun pinEquipment(): Equipment {
+        val lb = Weight.WeightUnit.Lb
+        return Equipment(
+            id = EquipmentId("pin-loaded-machine"),
+            name = "Pin-Loaded Machine",
+            incrementTiers = emptyList(),
+            microIncrements = listOf(Weight(5.0, lb), Weight(10.0, lb)),
+        )
     }
 }

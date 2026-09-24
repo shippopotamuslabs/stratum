@@ -17,6 +17,7 @@ class SetEquipmentIncrementTiersUseCaseTest {
         SetEquipmentIncrementTiersUseCase(
             repo,
             ValidateIncrementTiersUseCase(),
+            ValidateMicroIncrementsUseCase(),
             FakeLoggingPort(),
         )
 
@@ -36,11 +37,13 @@ class SetEquipmentIncrementTiersUseCaseTest {
     fun persistsValidTiers() = runTest {
         val repo = seed()
         val tiers = listOf(tier(0.0, null, 15.0))
+        val micro = listOf(stop(5.0), stop(10.0))
 
-        val result = subject(repo)(equipmentId, tiers)
+        val result = subject(repo)(equipmentId, tiers, micro)
 
         assertTrue(result.isSuccess)
         assertEquals(tiers, repo.current.single().incrementTiers)
+        assertEquals(micro, repo.current.single().microIncrements)
     }
 
     @Test
@@ -66,4 +69,6 @@ class SetEquipmentIncrementTiersUseCaseTest {
             upperBound = upper?.let { Weight(it, Weight.WeightUnit.Lb) },
             increment = Weight(inc, Weight.WeightUnit.Lb),
         )
+
+    private fun stop(amount: Double): Weight = Weight(amount, Weight.WeightUnit.Lb)
 }

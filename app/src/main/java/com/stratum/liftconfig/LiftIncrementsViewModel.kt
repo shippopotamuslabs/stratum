@@ -7,6 +7,7 @@ import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
 import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.SetLiftIncrementTiersUseCase
+import com.stratum.domain.lift.SetLiftMicroOverrideUseCase
 import com.stratum.domain.lift.ValidateIncrementTiersUseCase
 import com.stratum.domain.lift.DismissEquipmentProposalUseCase
 import com.stratum.domain.lift.Weight
@@ -54,6 +55,7 @@ data class LiftIncrementsUiState(
 class LiftIncrementsViewModel @Inject constructor(
     private val observeLiftCatalog: ObserveLiftCatalogUseCase,
     private val setLiftIncrementTiers: SetLiftIncrementTiersUseCase,
+    private val setLiftMicroOverride: SetLiftMicroOverrideUseCase,
     private val validateIncrementTiers: ValidateIncrementTiersUseCase,
     private val dismissEquipmentProposal: DismissEquipmentProposalUseCase,
     observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
@@ -301,7 +303,16 @@ class LiftIncrementsViewModel @Inject constructor(
         val id = liftId.value ?: return
         viewModelScope.launch {
             isSaving.value = true
-            val result = setLiftIncrementTiers(LiftId(id), emptyList())
+            // Clear the knob override first: a bands failure then leaves prior
+            // state fully intact, and a retry converges (bands-only retries would
+            // strand a stale knob). Null micro re-inherits the equipment stops.
+            val microResult = setLiftMicroOverride(LiftId(id), emptyList(), null)
+            val result =
+                if (microResult.isSuccess) {
+                    setLiftIncrementTiers(LiftId(id), emptyList())
+                } else {
+                    microResult
+                }
             isSaving.value = false
             if (result.isSuccess) {
                 draftTiers.value = null

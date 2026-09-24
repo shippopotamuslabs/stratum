@@ -13,6 +13,8 @@ import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
 import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.SetLiftIncrementTiersUseCase
+import com.stratum.domain.lift.SetLiftMicroOverrideUseCase
+import com.stratum.domain.lift.ValidateMicroIncrementsUseCase
 import com.stratum.domain.lift.ValidateIncrementTiersUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
@@ -71,6 +73,13 @@ class LiftIncrementsViewModelTest {
                     SetLiftIncrementTiersUseCase(
                         fakeLiftRepository,
                         ValidateIncrementTiersUseCase(),
+                        ValidateMicroIncrementsUseCase(),
+                        FakeLoggingPort(),
+                    ),
+                setLiftMicroOverride =
+                    SetLiftMicroOverrideUseCase(
+                        fakeLiftRepository,
+                        ValidateMicroIncrementsUseCase(),
                         FakeLoggingPort(),
                     ),
                 validateIncrementTiers = ValidateIncrementTiersUseCase(),
@@ -140,6 +149,40 @@ class LiftIncrementsViewModelTest {
         }
 
         assertEquals(setOf("proposal-9"), fakeProposalPrefs.dismissedFingerprints)
+    }
+
+    @Test
+    @DisplayName("Given band and knob overrides when reset then both re-inherit equipment defaults")
+    fun resetClearsBandsAndKnobOverride() = runTest {
+        fakeLiftRepository.seedLifts(
+            listOf(
+                Lift(
+                    id = latId,
+                    name = "Lat pulldown",
+                    movementPatterns = setOf(MovementPattern.VerticalPull),
+                    primaryMuscles = setOf(MuscleGroup.Back),
+                    secondaryMuscles = emptySet(),
+                    incrementTiers = catalogTiers,
+                    microIncrements = listOf(Weight(5.0, lb)),
+                    usesEquipmentDefaultMicro = false,
+                    presetTags = emptySet(),
+                    usesEquipmentDefaultIncrements = false,
+                    enabled = true,
+                ),
+            ),
+        )
+        subject.initialize(latId.value)
+        subject.uiState.test {
+            awaitItemWith { it.liftName == "Lat pulldown" && it.showResetToEquipment }
+            subject.resetToEquipmentDefaults()
+            assertEquals(true, awaitItemWith { it.saveSucceeded }.saveSucceeded)
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        val stored = fakeLiftRepository.getLiftsByIds(listOf(latId)).single()
+        assertEquals(emptyList<IncrementTier>(), stored.incrementTiers)
+        assertEquals(emptyList<Weight>(), stored.microIncrements)
+        assertTrue(stored.usesEquipmentDefaultMicro)
     }
 
     @Test

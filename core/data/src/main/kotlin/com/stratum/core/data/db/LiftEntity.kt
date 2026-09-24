@@ -60,6 +60,13 @@ data class LiftEntity(
     val defaultRestSeconds: Int? = null,
     @ColumnInfo(name = "pinned_note")
     val pinnedNote: String? = null,
+    /**
+     * Lift-scoped adder override as a JSON array of storage-lb doubles. Null means
+     * inherit the linked equipment's stops; `"[]"` means explicitly no adder.
+     * Parsed in `LiftMapper`.
+     */
+    @ColumnInfo(name = "micro_options_json")
+    val microOptionsJson: String? = null,
     @ColumnInfo(name = "updated_at_epoch_millis")
     val updatedAtEpochMillis: Long = 0L,
     @ColumnInfo(name = "pending_sync")
