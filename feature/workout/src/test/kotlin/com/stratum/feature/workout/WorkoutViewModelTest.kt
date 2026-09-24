@@ -3238,6 +3238,32 @@ class WorkoutViewModelTest {
         assertFalse(loaded.lifts.first().showAdjustEquipmentChip)
     }
 
+    @Test
+    @DisplayName("Given an off-lattice logged weight when live editor requested then seeded tiers and samples")
+    fun liveEquipmentEditRequestSeeded() = runTest {
+        fakeFeatureFlags.setFlag(AppFeatureFlag.EQUIPMENT_MANAGEMENT_V2, true)
+        val viewModel =
+            buildViewModel(
+                liftRepository =
+                    FakeLiftRepository(
+                        initialLifts = listOf(catalogLiftWithTiers(), catalogLift2()),
+                    ),
+            )
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        viewModel.logSet(slotKey = liftSetId.value, weight = lb(62.5), reps = 5, rir = 2)
+        advanceUntilIdle()
+        val shown = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertTrue(shown.lifts.first().showAdjustEquipmentChip)
+
+        val request = checkNotNull(viewModel.liveEquipmentEditRequest(workoutLiftId.value))
+        assertTrue(request.initialTiersLb.isNotEmpty())
+        assertTrue(request.initialTiersLb.all { it.incrementLb > 0.0 })
+        assertNull(request.proposalContext?.proposalId)
+        assertTrue(request.proposalContext?.sampleWeightsLb?.contains(62.5) == true)
+    }
+
     private suspend fun app.cash.turbine.ReceiveTurbine<WorkoutUiState>.awaitLoaded(): WorkoutUiState.Loaded {
         var item = awaitItem()
         while (item is WorkoutUiState.Loading) {

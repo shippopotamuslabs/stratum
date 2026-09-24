@@ -61,4 +61,18 @@ class ProposalEditorSessionTest {
 
         assertTrue(prefs.dismissedFingerprints.isEmpty())
     }
+
+    @Test
+    @DisplayName("Given live warnings-only context when dismissed then nothing is dismissed")
+    fun dismissLiveContextDismissesNothing() = runTest {
+        val session = ProposalEditorSession()
+        val live = ProposalEditContext(null, listOf(62.5))
+
+        assertTrue(session.resolveInput(args, live))
+        assertEquals(listOf(62.5), session.input.value?.context?.sampleWeightsLb)
+
+        session.dismissIfPresent(dismiss)
+
+        assertTrue(prefs.dismissedFingerprints.isEmpty())
+    }
 }

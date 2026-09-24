@@ -12,8 +12,9 @@ data class ProposalInput(
     /** Prefill bands in storage pounds; empty means "edit current catalog tiers". */
     val initialTiersLb: List<ProposalTierArgs>,
     /**
-     * Proposal fingerprint (dismissed on save) plus logged sample weights for the
-     * non-blocking step warning. Null outside "Edit steps" launches.
+     * Proposal fingerprint (dismissed on save; null for live warnings-only launches)
+     * plus logged sample weights for the non-blocking step warning. Null outside
+     * "Edit steps" / live-pill launches.
      */
     val context: ProposalEditContext?,
 )
@@ -50,8 +51,10 @@ class ProposalEditorSession {
     /**
      * Dismisses the launch proposal's fingerprint. Call only from successful saves —
      * cancellation paths must never call this (the card must survive a back-out).
+     * Live warnings-only launches carry a null fingerprint and dismiss nothing (pill
+     * quieting stays with the session tracker).
      */
     suspend fun dismissIfPresent(dismiss: DismissEquipmentProposalUseCase) {
-        _input.value?.context?.let { dismiss(it.proposalId) }
+        _input.value?.context?.proposalId?.let { dismiss(it) }
     }
 }
