@@ -111,6 +111,31 @@ class ValidateMicroIncrementsUseCaseTest {
     }
 
     @Test
+    @DisplayName("Given zero alongside other stops when validated then rejected as meaningless")
+    fun zeroAmongStopsMeaningless() {
+        val result = validate(singleFifteen, listOf(stop(0.0), stop(5.0)))
+
+        assertTrue(result is MicroIncrementsValidationResult.Invalid)
+        assertEquals(
+            setOf(MicroIncrementsValidationError.MeaninglessZero),
+            (result as MicroIncrementsValidationResult.Invalid).errors,
+        )
+    }
+
+    @Test
+    @DisplayName("Given trailing zero stop when validated then rejected as meaningless")
+    fun trailingZeroMeaningless() {
+        val result = validate(singleFifteen, listOf(stop(5.0), stop(0.0)))
+
+        assertTrue(result is MicroIncrementsValidationResult.Invalid)
+        assertTrue(
+            (result as MicroIncrementsValidationResult.Invalid).errors.contains(
+                MicroIncrementsValidationError.MeaninglessZero,
+            ),
+        )
+    }
+
+    @Test
     @DisplayName("Given mixed units when validated then rejected")
     fun mixedUnits() {
         val result =

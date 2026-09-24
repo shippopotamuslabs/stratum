@@ -6,7 +6,7 @@ import javax.inject.Inject
  * Validates micro-adjust (adder knob) stops against the major increment tiers. Pure (no I/O).
  *
  * Stored stops are non-zero offsets (e.g. `[5, 10]` displays as `0 / 5 / 10`); knob-off, the
- * bare stack load, is always legal, so a lone `[0]` is rejected as meaningless — use empty
+ * bare stack load, is always legal, so any `0` stop is rejected as meaningless — use empty
  * (no adder) instead. A stop list is valid when:
  *
  * 1. **Tiers present** — a knob with no stack is meaningless (bodyweight stays micro-empty).
@@ -40,7 +40,7 @@ class ValidateMicroIncrementsUseCase @Inject constructor() {
             if (!amounts.zipWithNext().all { (prior, next) -> prior < next }) {
                 add(MicroIncrementsValidationError.UnsortedOrDuplicate)
             }
-            if (amounts.size == 1 && amounts.single() == 0.0) {
+            if (amounts.any { it == 0.0 }) {
                 add(MicroIncrementsValidationError.MeaninglessZero)
             }
             val largestIncrement = tiers.maxOf { it.increment.amount }
