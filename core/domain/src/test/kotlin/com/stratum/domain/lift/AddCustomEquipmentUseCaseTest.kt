@@ -59,4 +59,30 @@ class AddCustomEquipmentUseCaseTest {
         assertTrue(result.isFailure)
         assertEquals(before, equipmentRepo.current.size)
     }
+
+    @Test
+    @DisplayName(
+        "Given stops legal for the default band when added without tiers then success",
+    )
+    fun addCustomWithoutTiersValidatesAgainstDefaultBand() = runTest {
+        // Empty tiers persist as the default single 5 lb band, so 2.5 must validate.
+        val result = subject("Pin stack", emptyList(), listOf(Weight(2.5, lb)))
+
+        assertTrue(result.isSuccess)
+        val stored = equipmentRepo.getEquipment(result.getOrThrow())!!
+        assertEquals(listOf(Weight(2.5, lb)), stored.microIncrements)
+        assertEquals(defaultSingleTiers(), stored.incrementTiers)
+    }
+
+    @Test
+    @DisplayName(
+        "Given stops above the default band when added without tiers then failure and no write",
+    )
+    fun addCustomWithoutTiersRejectsStopsAboveDefaultBand() = runTest {
+        val before = equipmentRepo.current.size
+        val result = subject("Pin stack", emptyList(), listOf(Weight(20.0, lb)))
+
+        assertTrue(result.isFailure)
+        assertEquals(before, equipmentRepo.current.size)
+    }
 }

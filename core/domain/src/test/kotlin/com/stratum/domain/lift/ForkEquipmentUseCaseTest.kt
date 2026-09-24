@@ -61,7 +61,7 @@ class ForkEquipmentUseCaseTest {
         val result = subject(cableId, "Life Fitness cables")
 
         assertTrue(result.isSuccess)
-        val newId = result.getOrThrow()
+        val newId = result.getOrThrow().id
         assertNotEquals(cableId, newId)
         val forked = equipmentRepo.getEquipment(newId)!!
         assertEquals("Life Fitness cables", forked.name)
@@ -77,7 +77,7 @@ class ForkEquipmentUseCaseTest {
         val result = subject(customId, "My stack (copy)")
 
         assertTrue(result.isSuccess)
-        val forked = equipmentRepo.getEquipment(result.getOrThrow())!!
+        val forked = equipmentRepo.getEquipment(result.getOrThrow().id)!!
         assertEquals(
             listOf(IncrementTier(Weight(0.0, lb), null, Weight(2.5, lb))),
             forked.incrementTiers,
@@ -122,7 +122,7 @@ class ForkEquipmentUseCaseTest {
         val result = subject(parentId, "Pin copy")
 
         assertTrue(result.isSuccess)
-        assertEquals(stops, equipmentRepo.getEquipment(result.getOrThrow())?.microIncrements)
+        assertEquals(stops, equipmentRepo.getEquipment(result.getOrThrow().id)?.microIncrements)
         assertEquals(stops, equipmentRepo.getEquipment(parentId)?.microIncrements)
     }
 
@@ -144,7 +144,7 @@ class ForkEquipmentUseCaseTest {
         val result = subject(parentId, "Pin copy", micro = listOf(Weight(2.5, lb)))
 
         assertTrue(result.isSuccess)
-        val forked = equipmentRepo.getEquipment(result.getOrThrow())!!
+        val forked = equipmentRepo.getEquipment(result.getOrThrow().id)!!
         assertEquals(listOf(Weight(2.5, lb)), forked.microIncrements)
         assertEquals(
             listOf(Weight(2.5, lb), Weight(5.0, lb)),
@@ -170,7 +170,7 @@ class ForkEquipmentUseCaseTest {
         val result = subject(parentId, "Pin copy", micro = emptyList())
 
         assertTrue(result.isSuccess)
-        assertEquals(emptyList<Weight>(), equipmentRepo.getEquipment(result.getOrThrow())?.microIncrements)
+        assertEquals(emptyList<Weight>(), equipmentRepo.getEquipment(result.getOrThrow().id)?.microIncrements)
         assertEquals(
             listOf(Weight(2.5, lb)),
             equipmentRepo.getEquipment(parentId)?.microIncrements,
@@ -185,6 +185,30 @@ class ForkEquipmentUseCaseTest {
 
         assertTrue(result.isFailure)
         assertEquals(before, equipmentRepo.current.size)
+    }
+
+    @Test
+    @DisplayName(
+        "Given explicit micro above the parent's largest step when source validation " +
+            "is skipped then the fork succeeds for destination-tier callers",
+    )
+    fun forkSkipsSourceValidationWhenAsked() = runTest {
+        // Parent's largest step is 2.5; 5.0 targets the wider replacement bands.
+        val result =
+            subject(
+                customId,
+                "Stack copy",
+                micro = listOf(Weight(5.0, lb)),
+                validateMicroAgainstSource = false,
+            )
+
+        assertTrue(result.isSuccess)
+        val forked = result.getOrThrow()
+        assertEquals(listOf(Weight(5.0, lb)), forked.microIncrements)
+        assertEquals(
+            listOf(Weight(5.0, lb)),
+            equipmentRepo.getEquipment(forked.id)?.microIncrements,
+        )
     }
 
     @Test
@@ -203,7 +227,7 @@ class ForkEquipmentUseCaseTest {
 
         val result = subject(emptyId, "Empty copy")
         assertTrue(result.isSuccess)
-        val forked = equipmentRepo.getEquipment(result.getOrThrow())!!
+        val forked = equipmentRepo.getEquipment(result.getOrThrow().id)!!
         // Fake/repo default single band when empty tiers passed.
         assertTrue(forked.incrementTiers.isNotEmpty())
     }

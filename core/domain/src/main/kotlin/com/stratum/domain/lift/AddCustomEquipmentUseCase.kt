@@ -32,8 +32,12 @@ class AddCustomEquipmentUseCase @Inject constructor(
                 IncrementTiersValidationResult.Valid -> Unit
             }
         }
+        // Micro validates against the persisted context: empty tiers become the
+        // repository's default single band on write, so stops legal for that band
+        // (e.g. ≤ 5 lb) must not be rejected as MicroWithoutTiers here.
+        val effectiveTiers = tiers.ifEmpty { defaultSingleTiers() }
         if (micro.isNotEmpty()) {
-            when (val result = validateMicro(tiers, micro)) {
+            when (val result = validateMicro(effectiveTiers, micro)) {
                 is MicroIncrementsValidationResult.Invalid ->
                     return Result.failure(MicroIncrementsInvalidException(result.errors))
                 MicroIncrementsValidationResult.Valid -> Unit

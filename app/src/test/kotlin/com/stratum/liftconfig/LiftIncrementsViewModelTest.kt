@@ -12,8 +12,8 @@ import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
 import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
+import com.stratum.domain.lift.ResetLiftIncrementsToEquipmentUseCase
 import com.stratum.domain.lift.SetLiftIncrementTiersUseCase
-import com.stratum.domain.lift.SetLiftMicroOverrideUseCase
 import com.stratum.domain.lift.ValidateIncrementTiersUseCase
 import com.stratum.domain.lift.ValidateMicroIncrementsUseCase
 import com.stratum.domain.lift.Weight
@@ -76,10 +76,9 @@ class LiftIncrementsViewModelTest {
                         ValidateMicroIncrementsUseCase(),
                         FakeLoggingPort(),
                     ),
-                setLiftMicroOverride =
-                    SetLiftMicroOverrideUseCase(
+                resetLiftIncrementsToEquipment =
+                    ResetLiftIncrementsToEquipmentUseCase(
                         fakeLiftRepository,
-                        ValidateMicroIncrementsUseCase(),
                         FakeLoggingPort(),
                     ),
                 validateIncrementTiers = ValidateIncrementTiersUseCase(),
@@ -298,6 +297,28 @@ class LiftIncrementsViewModelTest {
 
         val stored = fakeLiftRepository.getLiftsByIds(listOf(latId)).single()
         assertEquals(emptyList<Weight>(), stored.microIncrements)
+        assertEquals(false, stored.usesEquipmentDefaultMicro)
+    }
+
+    @Test
+    @DisplayName("Given back-to-back stop edits when saved then both stops persist")
+    fun backToBackMicroEditsBothPersist() = runTest {
+        subject.initialize(latId.value)
+        subject.uiState.test {
+            awaitItemWith { it.liftName == "Lat pulldown" && it.tiers.isNotEmpty() }
+            // No suspension between edits: each edit must build on the draft, not on
+            // the derived uiState which lags writes by at least one emission.
+            subject.onAddMicro()
+            subject.onMicroChanged(0, "1.25")
+            subject.onAddMicro()
+            subject.onMicroChanged(1, "2.5")
+            subject.save()
+            assertEquals(true, awaitItemWith { it.saveSucceeded }.saveSucceeded)
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        val stored = fakeLiftRepository.getLiftsByIds(listOf(latId)).single()
+        assertEquals(listOf(Weight(1.25, lb), Weight(2.5, lb)), stored.microIncrements)
         assertEquals(false, stored.usesEquipmentDefaultMicro)
     }
 

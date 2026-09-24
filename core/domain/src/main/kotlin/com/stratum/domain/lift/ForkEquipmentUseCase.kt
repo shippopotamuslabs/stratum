@@ -11,6 +11,15 @@ import javax.inject.Inject
  * Parent may be seed or custom. Does **not** create lineage / `forkedFrom` linkage — the
  * new row is standalone. Does not reassign lifts; callers assign lifts separately.
  */
+
+/**
+ * The copy id plus the adder stops it carries, so callers that overwrite the copy's
+ * tiers (e.g. fork-with-tiers) can reuse the resolved knob without re-reading the row.
+ */
+data class ForkedEquipment(
+    val id: EquipmentId,
+    val microIncrements: List<Weight>,
+)
 class ForkEquipmentUseCase @Inject constructor(
     private val equipmentRepository: EquipmentRepository,
     private val validate: ValidateIncrementTiersUseCase,
@@ -23,12 +32,17 @@ class ForkEquipmentUseCase @Inject constructor(
      *
      * @param micro adder stops for the copy; null copies the parent's stops (the default —
      * a clone starts with the same knob), non-null replaces them (empty = no knob).
+     * @param validateMicroAgainstSource skip when explicit [micro] targets replacement
+     * tiers the caller writes after the fork (fork-with-tiers): stops valid for the new
+     * bands but larger than the parent's largest step must not be rejected here — the
+     * destination write validates them. The parent-inherit path keeps validating.
      */
     suspend operator fun invoke(
         sourceEquipmentId: EquipmentId,
         newName: String,
         micro: List<Weight>? = null,
-    ): Result<EquipmentId> {
+        validateMicroAgainstSource: Boolean = true,
+    ): Result<ForkedEquipment> {
         val trimmed = newName.trim()
         if (trimmed.isEmpty()) {
             return Result.failure(IllegalArgumentException("Equipment name is required"))
@@ -45,7 +59,7 @@ class ForkEquipmentUseCase @Inject constructor(
             }
         }
         val resolvedMicro = micro ?: parent.microIncrements
-        if (resolvedMicro.isNotEmpty()) {
+        if (validateMicroAgainstSource && resolvedMicro.isNotEmpty()) {
             when (val result = validateMicro(tiers, resolvedMicro)) {
                 is MicroIncrementsValidationResult.Invalid ->
                     return Result.failure(MicroIncrementsInvalidException(result.errors))
@@ -53,7 +67,8 @@ class ForkEquipmentUseCase @Inject constructor(
             }
         }
         return runCatchingLogged(loggingPort, TAG, "Failed to fork equipment") {
-            equipmentRepository.addCustomEquipment(trimmed, tiers, resolvedMicro)
+            val id = equipmentRepository.addCustomEquipment(trimmed, tiers, resolvedMicro)
+            ForkedEquipment(id, resolvedMicro)
         }
     }
 

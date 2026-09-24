@@ -106,7 +106,6 @@ class EquipmentIncrementsViewModelTest {
                             FakeLoggingPort(),
                         ),
                         SetLiftEquipmentUseCase(fakeLiftRepository, FakeLoggingPort()),
-                        fakeEquipmentRepository,
                     ),
                 setLiftEquipment = SetLiftEquipmentUseCase(fakeLiftRepository, FakeLoggingPort()),
                 dismissEquipmentProposal =
