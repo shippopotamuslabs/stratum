@@ -1,5 +1,6 @@
 package com.stratum.domain.lift
 
+import com.stratum.core.testing.lift.PinAdderCatalogFixtures
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
@@ -323,8 +324,8 @@ class EquipmentIncrementInferenceTest {
     @Nested
     @DisplayName("inferIncrementLattice with micro")
     inner class InferLatticeAdder {
-        private val pinTiers = openBand(15.0)
-        private val pinMicro = listOf(lb(5.0), lb(10.0))
+        private val pinTiers = PinAdderCatalogFixtures.pinTiers()
+        private val pinMicro = PinAdderCatalogFixtures.pinMicro()
 
         @Test
         @DisplayName("Given adder-exact samples when inferred then null")

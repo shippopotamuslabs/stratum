@@ -1,5 +1,6 @@
 package com.stratum.domain.lift
 
+import com.stratum.core.testing.lift.PinAdderCatalogFixtures
 import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeEquipmentProposalPreferences
 import com.stratum.core.testing.onboarding.FakeEquipmentRepository
@@ -594,9 +595,8 @@ class AnalyzeSessionEquipmentProposalsUseCaseTest {
     }
 
     private val pinId = EquipmentId("pin-loaded-machine")
-    private val pinTiers =
-        listOf(IncrementTier(Weight(0.0, lb), null, Weight(15.0, lb)))
-    private val pinMicro = listOf(Weight(5.0, lb), Weight(10.0, lb))
+    private val pinTiers = PinAdderCatalogFixtures.pinTiers()
+    private val pinMicro = PinAdderCatalogFixtures.pinMicro()
 
     /** Custom pin stack with a 0 / 5 / 10 adder; lifts inherit its micro. */
     private fun seedPinCatalog() {

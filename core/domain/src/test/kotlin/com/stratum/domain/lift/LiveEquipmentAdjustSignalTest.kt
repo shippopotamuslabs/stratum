@@ -1,5 +1,6 @@
 package com.stratum.domain.lift
 
+import com.stratum.core.testing.lift.PinAdderCatalogFixtures
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.identity.LiftId
@@ -38,9 +39,8 @@ class LiveEquipmentAdjustSignalTest {
         loadType = loadType,
     )
 
-    private val pinTiers =
-        listOf(IncrementTier(Weight(0.0, lb), null, Weight(15.0, lb)))
-    private val pinMicro = listOf(Weight(5.0, lb), Weight(10.0, lb))
+    private val pinTiers = PinAdderCatalogFixtures.pinTiers()
+    private val pinMicro = PinAdderCatalogFixtures.pinMicro()
 
     private fun weights(vararg amounts: Double) = amounts.map { Weight(it, lb) }
 

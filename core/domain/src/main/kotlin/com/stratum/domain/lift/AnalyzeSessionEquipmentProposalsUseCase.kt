@@ -132,12 +132,8 @@ class AnalyzeSessionEquipmentProposalsUseCase @Inject constructor(
         // Current equipment defaults for inference baseline (not lift overrides).
         // Empty non-null tier lists are treated as missing so we fall back to effective tiers.
         // Micro mirrors the same baseline so adder-exact samples stay silent here too.
-        val currentTiers =
-            equipment?.incrementTiers?.takeIf { it.isNotEmpty() }
-                ?: first.effectiveTiers
-        val currentMicro =
-            equipment?.microIncrements?.takeIf { it.isNotEmpty() }
-                ?: first.micro
+        val currentTiers = resolveBaseline(equipment?.incrementTiers, first.effectiveTiers)
+        val currentMicro = resolveBaseline(equipment?.microIncrements, first.micro)
 
         val loadType =
             clusterAnomalies
@@ -206,6 +202,13 @@ class AnalyzeSessionEquipmentProposalsUseCase @Inject constructor(
             ),
         )
     }
+
+    /**
+     * Empty-as-missing baseline: null or empty equipment values fall back to the
+     * lift's effective values, keeping explicit null handling at this single point.
+     */
+    private fun <T> resolveBaseline(equipmentValues: List<T>?, fallback: List<T>): List<T> =
+        equipmentValues?.takeIf { it.isNotEmpty() } ?: fallback
 
     private companion object {
         const val TAG = "AnalyzeSessionEquipmentProposals"

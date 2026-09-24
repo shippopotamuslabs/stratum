@@ -1,5 +1,6 @@
 package com.stratum.domain.lift
 
+import com.stratum.core.testing.lift.PinAdderCatalogFixtures
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -11,8 +12,8 @@ class IncrementLatticeAdderTest {
     private val lb = Weight.WeightUnit.Lb
 
     /** Pin-loaded stack: 15 lb plates with a 0 / 5 / 10 adder knob. */
-    private val pinTiers = listOf(IncrementTier(Weight(0.0, lb), null, Weight(15.0, lb)))
-    private val pinMicro = listOf(Weight(5.0, lb), Weight(10.0, lb))
+    private val pinTiers = PinAdderCatalogFixtures.pinTiers()
+    private val pinMicro = PinAdderCatalogFixtures.pinMicro()
 
     @Test
     @DisplayName("Given base plus adder when checked then on lattice with zero residual")
