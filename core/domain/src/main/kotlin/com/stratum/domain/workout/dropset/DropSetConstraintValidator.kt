@@ -50,6 +50,7 @@ class EstimateDropSetWeightUseCase @Inject constructor() {
         incrementTiers: List<IncrementTier> = emptyList(),
         loadType: LoadType = LoadType.Weighted,
         capacityAtRir: ((weightAmountLb: Double) -> Int)? = null,
+        micro: List<Weight> = emptyList(),
     ): Weight {
         if (loadType == LoadType.Bodyweight || loadType == LoadType.Assisted) {
             return precedingWeight
@@ -57,9 +58,9 @@ class EstimateDropSetWeightUseCase @Inject constructor() {
         if (precedingWeight.amount <= 0.0) return precedingWeight
 
         val raw = Weight(precedingWeight.amount * DROP_FRACTION, precedingWeight.unit)
-        val roundedDown = roundDownToIncrement(raw, incrementTiers, loadType)
+        val roundedDown = roundDownToIncrement(raw, incrementTiers, loadType, micro)
         val capped = if (roundedDown.amount > raw.amount) {
-            stepDown(roundedDown, incrementTiers, loadType)
+            stepDown(roundedDown, incrementTiers, loadType, micro)
         } else {
             roundedDown
         }
@@ -75,6 +76,7 @@ class EstimateDropSetWeightUseCase @Inject constructor() {
             loadType = loadType,
             capacityAtRir = capacityAtRir,
             defaultBumpAmount = ::defaultLoadBumpAmount,
+            micro = micro,
         )
     }
 
@@ -82,6 +84,7 @@ class EstimateDropSetWeightUseCase @Inject constructor() {
         weight: Weight,
         incrementTiers: List<IncrementTier>,
         loadType: LoadType,
+        micro: List<Weight> = emptyList(),
     ): Weight {
         if (incrementTiers.isEmpty() || loadType == LoadType.Bodyweight) return weight
         val amount = weight.amount
@@ -90,7 +93,7 @@ class EstimateDropSetWeightUseCase @Inject constructor() {
         val floored = floor(amount / inc) * inc
         val candidate = Weight(floored.coerceAtLeast(0.0), weight.unit)
         // Guard: nearest-round helpers can land above target; enforce ≤ raw.
-        val nearest = incrementTiers.roundToIncrement(candidate, loadType)
+        val nearest = incrementTiers.roundToIncrement(candidate, loadType, micro)
         return if (nearest.amount <= weight.amount) nearest else candidate
     }
 
@@ -98,6 +101,7 @@ class EstimateDropSetWeightUseCase @Inject constructor() {
         weight: Weight,
         incrementTiers: List<IncrementTier>,
         loadType: LoadType,
+        micro: List<Weight> = emptyList(),
     ): Weight {
         if (incrementTiers.isEmpty()) {
             val step = defaultLoadBumpAmount(weight.unit)
@@ -106,7 +110,7 @@ class EstimateDropSetWeightUseCase @Inject constructor() {
         val inc = incrementTiers.incrementForAmount(weight.amount).takeIf { it > 0.0 }
             ?: defaultLoadBumpAmount(weight.unit)
         val lowered = Weight((weight.amount - inc).coerceAtLeast(0.0), weight.unit)
-        return incrementTiers.roundToIncrement(lowered, loadType)
+        return incrementTiers.roundToIncrement(lowered, loadType, micro)
     }
 
     companion object {

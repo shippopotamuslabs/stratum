@@ -31,6 +31,7 @@ class StraightSetRecommendationPolicy @Inject constructor(
         incrementTiers: List<IncrementTier>,
         fatigue: FatigueDecay,
         priorRecommendations: Map<SetSlotId, LiveSetRecommendation>,
+        micro: List<Weight> = emptyList(),
     ): Map<SetSlotId, LiveSetRecommendation> {
         val block =
             resolveStraightBlock(
@@ -80,6 +81,7 @@ class StraightSetRecommendationPolicy @Inject constructor(
             incrementTiers = incrementTiers,
             fatigue = fatigue,
             completedPrescribedWeight = completedPrescribedWeight,
+            micro = micro,
         )
     }
 
@@ -243,6 +245,7 @@ class StraightSetRecommendationPolicy @Inject constructor(
         incrementTiers: List<IncrementTier>,
         fatigue: FatigueDecay,
         completedPrescribedWeight: Weight,
+        micro: List<Weight> = emptyList(),
     ): Map<SetSlotId, LiveSetRecommendation> {
         // keepSnapshotWhenOnTrack when not post-myo/drop so engine null means "keep weight"
         // (caller still projects fatigue reps) rather than wiping live straight recs.
@@ -259,6 +262,7 @@ class StraightSetRecommendationPolicy @Inject constructor(
                 loadType = lift.loadType,
                 completedSetPrescribedWeight = block.performanceAnchor.recommendedWeight,
                 keepSnapshotWhenOnTrack = !block.forceLiveWeight,
+                micro = micro,
             )
         val sharedWeight =
             sharedOutcome?.let { recommendationEngine.weightOf(it) }

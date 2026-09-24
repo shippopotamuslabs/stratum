@@ -7,6 +7,7 @@ import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.lift.isOnLattice
 import com.stratum.domain.program.SetType
 import com.stratum.domain.program.identity.LiftSetId
 import com.stratum.domain.program.identity.ProgramId
@@ -349,6 +350,34 @@ class StraightSetSharedWeightTest {
                 perLiftIntercept = 0.0,
             )
             assertTrue(cap >= BACKOFF_REP_FLOOR, "reduced load must clear floor, cap=$cap")
+        }
+
+        @Test
+        @DisplayName("micro lattice aligns reduce to base plus adder points")
+        fun microLatticeAlignsToAdderPoints() {
+            val pinTiers =
+                listOf(
+                    IncrementTier(lb(0.0), null, lb(15.0)),
+                )
+            val pinMicro = listOf(lb(5.0), lb(10.0))
+            val e1rm = EstimatedOneRm.calculate(70.0, 6)
+            val reduced = reduceWeightForLastSetFloor(
+                e1rm = e1rm,
+                startFrom = lb(70.0),
+                lastSetIndex = 3,
+                rirGoal = 1,
+                perLiftSlope = -2.0,
+                perLiftIntercept = 0.0,
+                incrementTiers = pinTiers,
+                loadType = LoadType.Weighted,
+                micro = pinMicro,
+            )
+            assertTrue(reduced.amount > 0.0)
+            assertTrue(reduced.amount <= 70.0)
+            assertTrue(
+                pinTiers.isOnLattice(reduced, micro = pinMicro),
+                "reduce must agree with adder lattice, was ${reduced.amount}",
+            )
         }
 
         @Test
