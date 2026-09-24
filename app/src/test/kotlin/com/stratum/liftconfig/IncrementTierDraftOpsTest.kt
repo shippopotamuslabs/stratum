@@ -1,7 +1,9 @@
 package com.stratum.liftconfig
 
+import com.stratum.domain.lift.MicroIncrementsValidationError
 import com.stratum.domain.lift.Weight
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -90,6 +92,107 @@ class IncrementTierDraftOpsTest {
                 displayUnit = lb,
                 samplesLb = listOf(0.0, -5.0),
             ).isEmpty(),
+        )
+    }
+
+    @Test
+    @DisplayName("Given stops when drafted then display strings match the unit")
+    fun microDraftsMatchUnit() {
+        val stops =
+            listOf(Weight(5.0, lb), Weight(10.0, lb))
+
+        assertEquals(
+            listOf("5", "10"),
+            IncrementTierDraftOps.toMicroDrafts(stops, lb),
+        )
+    }
+
+    @Test
+    @DisplayName("Given kg display when drafted and parsed then stops round-trip")
+    fun microDraftsRoundTripKg() {
+        val stops = listOf(Weight(5.0, lb), Weight(10.0, lb))
+        val drafts =
+            IncrementTierDraftOps.toMicroDrafts(stops, Weight.WeightUnit.Kg)
+
+        // Display strings are converted (not lb identity) and lossy to display
+        // precision, like band drafts.
+        assertTrue(drafts != listOf("5", "10"))
+        val back =
+            IncrementTierDraftOps.microToDomainOrNull(drafts, Weight.WeightUnit.Kg)!!
+
+        assertEquals(5.0, back[0].amount, 0.1)
+        assertEquals(10.0, back[1].amount, 0.1)
+        assertTrue(back.all { it.unit == lb })
+    }
+
+    @Test
+    @DisplayName("Given unparseable stops when parsed then null")
+    fun microUnparseableIsNull() {
+        assertNull(
+            IncrementTierDraftOps.microToDomainOrNull(listOf("5", "abc"), lb),
+        )
+    }
+
+    @Test
+    @DisplayName("Given empty stops when parsed then empty")
+    fun microEmptyParsesEmpty() {
+        assertEquals(
+            emptyList<Weight>(),
+            IncrementTierDraftOps.microToDomainOrNull(emptyList(), lb),
+        )
+    }
+
+    @Test
+    @DisplayName("Given micro errors when messaged then each maps to guidance")
+    fun microMessagesCoverErrors() {
+        val message =
+            IncrementTierDraftOps.toMicroUserMessage(
+                setOf(
+                    MicroIncrementsValidationError.MixedUnits,
+                    MicroIncrementsValidationError.NegativeStop,
+                    MicroIncrementsValidationError.UnsortedOrDuplicate,
+                    MicroIncrementsValidationError.MeaninglessZero,
+                    MicroIncrementsValidationError.ExceedsLargestIncrement,
+                    MicroIncrementsValidationError.MicroWithoutTiers,
+                ),
+            )
+
+        assertTrue(message.isNotBlank())
+        assertTrue(message.contains("unit"))
+        assertTrue(message.contains("negative", ignoreCase = true))
+        assertTrue(message.contains("largest band step"))
+    }
+
+    @Test
+    @DisplayName("Given adder-exact samples with micro when checked then no bands warn")
+    fun adderExactSamplesWarnNothingWithMicro() {
+        val pinBand =
+            listOf(IncrementTierDraft("0", null, "15", openEnded = true))
+
+        assertTrue(
+            IncrementTierDraftOps.warnedIndexesForSamples(
+                drafts = pinBand,
+                displayUnit = lb,
+                samplesLb = listOf(65.0, 70.0),
+                microLb = listOf(5.0, 10.0),
+            ).isEmpty(),
+        )
+    }
+
+    @Test
+    @DisplayName("Given true residuals with micro when checked then the band still warns")
+    fun trueResidualsWarnWithMicro() {
+        val pinBand =
+            listOf(IncrementTierDraft("0", null, "15", openEnded = true))
+
+        assertEquals(
+            setOf(0),
+            IncrementTierDraftOps.warnedIndexesForSamples(
+                drafts = pinBand,
+                displayUnit = lb,
+                samplesLb = listOf(65.0, 62.5),
+                microLb = listOf(5.0, 10.0),
+            ),
         )
     }
 }
