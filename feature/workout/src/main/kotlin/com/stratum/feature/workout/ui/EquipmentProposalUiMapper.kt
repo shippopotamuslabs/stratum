@@ -1,10 +1,12 @@
 package com.stratum.feature.workout.ui
 
+import com.stratum.core.ui.component.formatIncrementAmount
 import com.stratum.core.ui.component.formatIncrementTierSummary
 import com.stratum.domain.lift.ApplyEquipmentIncrementResult
 import com.stratum.domain.lift.EquipmentIncrementProposal
 import com.stratum.domain.lift.EquipmentIncrementRemedy
 import com.stratum.domain.lift.IncrementTier
+import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.requiresBlastRadius
 import com.stratum.domain.lift.usefulAlternative
 
@@ -24,7 +26,7 @@ internal object EquipmentProposalUiMapper {
             id = proposal.id,
             title = copy.title,
             subtitle = copy.subtitle,
-            tierSummary = formatTierSummary(proposal.proposedTiers),
+            tierSummary = formatTierSummary(proposal.proposedTiers, proposal.microIncrements),
             liftNames =
                 proposal.liftNames
                     .filter { it.isNotBlank() }
@@ -156,16 +158,24 @@ internal object EquipmentProposalUiMapper {
             is ApplyEquipmentIncrementResult.LiftOverridden -> "Updated lift steps."
         }
 
-    fun formatTierSummary(tiers: List<IncrementTier>): String =
-        formatIncrementTierSummary(
-            tiers.map { tier ->
-                Triple(
-                    tier.lowerBound.amount,
-                    tier.upperBound?.amount,
-                    tier.increment.amount,
-                )
-            },
-        )
+    fun formatTierSummary(
+        tiers: List<IncrementTier>,
+        micro: List<Weight> = emptyList(),
+    ): String {
+        val base =
+            formatIncrementTierSummary(
+                tiers.map { tier ->
+                    Triple(
+                        tier.lowerBound.amount,
+                        tier.upperBound?.amount,
+                        tier.increment.amount,
+                    )
+                },
+            )
+        if (micro.isEmpty()) return base
+        val stops = micro.joinToString("/") { formatIncrementAmount(it.amount) }
+        return "$base + adder $stops"
+    }
 
     private fun cardCopy(
         proposal: EquipmentIncrementProposal,

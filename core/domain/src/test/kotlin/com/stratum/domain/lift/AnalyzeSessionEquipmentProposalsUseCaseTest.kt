@@ -480,6 +480,8 @@ class AnalyzeSessionEquipmentProposalsUseCaseTest {
             assertTrue(proposals.single().primary is EquipmentIncrementRemedy.AmendEquipmentTiers)
             // Only the true-residual sets count — the adder-exact set is knob use.
             assertEquals(2, proposals.single().residualSetCount)
+            // The card carries the baseline stops the analysis assumed.
+            assertEquals(pinMicro, proposals.single().microIncrements)
         }
 
         @Test

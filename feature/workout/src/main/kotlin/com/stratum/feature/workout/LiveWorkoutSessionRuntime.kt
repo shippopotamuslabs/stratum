@@ -350,11 +350,16 @@ internal class LiveWorkoutSessionRuntime(
             rendered.lifts.associate { lift ->
                 lift.workoutLiftId to liftsById[lift.liftId]?.incrementTiers.orEmpty()
             }
+        val microByWorkoutLiftId =
+            rendered.lifts.associate { lift ->
+                lift.workoutLiftId to liftsById[lift.liftId]?.microIncrements.orEmpty()
+            }
         val adjustEquipmentWorkoutLiftIds =
             equipmentAdjustTracker.update(
                 rawIds = rawAdjustIds,
                 tiersByWorkoutLiftId = tiersByWorkoutLiftId,
                 presentIds = rendered.lifts.map { it.workoutLiftId }.toSet(),
+                microByWorkoutLiftId = microByWorkoutLiftId,
             )
         val mapped =
             WorkoutUiMapper.map(
@@ -440,6 +445,7 @@ internal class LiveWorkoutSessionRuntime(
                 lifts = lifts,
                 loadTypesById = liftsById.mapValues { it.value.loadType },
                 incrementTiersById = liftsById.mapValues { (_, lift) -> lift.incrementTiers },
+                microIncrementsById = liftsById.mapValues { (_, lift) -> lift.microIncrements },
             ),
         ).onSuccess { snapshot ->
             if (snapshot.bySlot.isNotEmpty()) {

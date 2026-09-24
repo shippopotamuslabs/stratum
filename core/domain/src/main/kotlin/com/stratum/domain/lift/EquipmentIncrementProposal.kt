@@ -40,6 +40,12 @@ data class EquipmentIncrementProposal(
      */
     val requiresBlastRadiusConfirmation: Boolean,
     val affectedInheritingLiftCount: Int,
+    /**
+     * Baseline adder stops the residual analysis assumed (equipment stops, else the
+     * first anomalous lift's). Empty = no knob. Rendered on the card so the fix
+     * reads complete; editors keep seeding stops from the live effective micro.
+     */
+    val microIncrements: List<Weight> = emptyList(),
     /** Residual logged-set count used for cross-cluster ranking (higher = stronger signal). */
     val residualSetCount: Int = 0,
     /** Distinct residual weight amounts used for cross-cluster ranking. */
@@ -121,6 +127,8 @@ data class EquipmentIncrementRankInput(
     val residualSetCount: Int = 0,
     val distinctResidualAmounts: Int = 0,
     val existingEquipmentNames: Collection<String> = emptyList(),
+    /** Baseline adder stops for the cluster; surfaced on the proposal card copy. */
+    val micro: List<Weight> = emptyList(),
 )
 
 /**
@@ -322,6 +330,7 @@ fun rankEquipmentIncrementProposal(input: EquipmentIncrementRankInput): Equipmen
             equipmentIsCustom = equipmentIsCustom,
             requiresBlastRadiusConfirmation = false, // filled below from primary
             affectedInheritingLiftCount = input.inheritingCount,
+            microIncrements = input.micro,
             residualSetCount = input.residualSetCount,
             distinctResidualAmounts = input.distinctResidualAmounts,
         )
