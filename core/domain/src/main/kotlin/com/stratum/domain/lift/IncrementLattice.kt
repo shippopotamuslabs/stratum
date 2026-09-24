@@ -15,15 +15,17 @@ const val LATTICE_EPSILON: Double = 0.05
  *
  * Uses [roundToIncrement] (including [LoadType] sign handling for assisted loads). Empty
  * tiers have no lattice → [Double.POSITIVE_INFINITY]. [LoadType.Bodyweight] always yields
- * `0.0` (no stack signal).
+ * `0.0` (no stack signal). Non-empty [micro] additionally admits `base + adder stop`
+ * points (knob-off included), so adder-exact weights have ~zero residual.
  */
 fun List<IncrementTier>.residual(
     weight: Weight,
     loadType: LoadType = LoadType.Weighted,
+    micro: List<Weight> = emptyList(),
 ): Double {
     if (loadType == LoadType.Bodyweight) return 0.0
     if (isEmpty()) return Double.POSITIVE_INFINITY
-    val rounded = roundToIncrement(weight, loadType)
+    val rounded = roundToIncrement(weight, loadType, micro)
     return abs(weight.amount - rounded.amount)
 }
 
@@ -33,15 +35,17 @@ fun List<IncrementTier>.residual(
  * - Empty tiers → `false` (no lattice; callers should skip proposal signals).
  * - [LoadType.Bodyweight] → `true` (never a stack anomaly; callers should still skip).
  * - [LoadType.Assisted] uses magnitude-based band lookup via [roundToIncrement].
+ * - Non-empty [micro] admits `base + adder stop` points as on-lattice.
  */
 fun List<IncrementTier>.isOnLattice(
     weight: Weight,
     loadType: LoadType = LoadType.Weighted,
     epsilon: Double = LATTICE_EPSILON,
+    micro: List<Weight> = emptyList(),
 ): Boolean {
     if (loadType == LoadType.Bodyweight) return true
     if (isEmpty()) return false
-    return residual(weight, loadType) <= epsilon
+    return residual(weight, loadType, micro) <= epsilon
 }
 
 /**

@@ -30,7 +30,8 @@ data class IncrementTier(
 }
 
 /**
- * Rounds [amount] to the nearest point on the **multi-band lattice** defined by these tiers.
+ * Rounds [amount] to the nearest point on the **multi-band lattice** defined by these tiers,
+ * optionally shifted by micro (adder) offsets.
  *
  * Lattice construction (walk every band): for each tier `[lowerBound, upperBound)` with step
  * `S`, legal loads are `lowerBound + k·S` for integers `k ≥ 0` that stay inside the half-open
@@ -38,14 +39,53 @@ data class IncrementTier(
  * (e.g. 0–40 @ 2.5, 40–100 @ 5) match zero-anchored multiples; **shifted** open bands do
  * not — e.g. `[2.5, ∞) @ 5` yields `2.5, 7.5, 12.5…`, not `0, 5, 10…`.
  *
+ * With [microAmounts], each legal load additionally admits `base + a` for every stop `a`
+ * (knob-off `0` is always admitted). Minimizing over a fixed stop is equivalent to rounding
+ * the shifted amount, so each stop rounds independently and the nearest candidate wins.
+ *
  * Nearest-point ties break half-away-from-zero (prefer the larger magnitude). Empty tiers
  * are a passthrough. Sign is preserved so assisted negatives round in magnitude space.
+ * Micro stops must share the tiers' unit (enforced upstream by validation).
  */
-private fun List<IncrementTier>.roundMagnitude(amount: Double): Double {
+private fun List<IncrementTier>.roundMagnitude(
+    amount: Double,
+    microAmounts: List<Double> = emptyList(),
+): Double {
     if (isEmpty()) return amount
     if (amount == 0.0) return 0.0
     val sign = if (amount < 0.0) -1.0 else 1.0
-    return sign * nearestLatticePoint(abs(amount))
+    return sign * nearestPointWithMicro(abs(amount), microAmounts)
+}
+
+/**
+ * Nearest non-negative lattice point, optionally admitting micro-shifted points
+ * (`base + a` per stop `a`, plus knob-off `0`). Empty [microAmounts] is the plain
+ * [nearestLatticePoint] path.
+ */
+private fun List<IncrementTier>.nearestPointWithMicro(
+    magnitude: Double,
+    microAmounts: List<Double>,
+): Double {
+    if (microAmounts.isEmpty()) return nearestLatticePoint(magnitude)
+    var best: Double? = null
+    var bestDist = Double.POSITIVE_INFINITY
+    for (offset in (listOf(0.0) + microAmounts).distinct()) {
+        // Fixed-stop minimization: |m − (base + a)| = |(m − a) − base|.
+        val candidate = nearestLatticePoint(magnitude - offset) + offset
+        val dist = abs(magnitude - candidate)
+        when {
+            best == null || dist < bestDist - LATTICE_BOUND_EPS -> {
+                best = candidate
+                bestDist = dist
+            }
+            abs(dist - bestDist) <= LATTICE_BOUND_EPS && candidate > best -> {
+                // Tie → half-away-from-zero (larger magnitude).
+                best = candidate
+                bestDist = dist
+            }
+        }
+    }
+    return best ?: nearestLatticePoint(magnitude)
 }
 
 /**
@@ -145,17 +185,20 @@ fun List<IncrementTier>.incrementFor(weight: Weight): Weight? {
 }
 
 /**
- * Rounds [weight] to the nearest multi-band lattice point (see [roundMagnitude]). Used so
- * soft/e1RM loads land on realistic jumps (e.g. `61.35` → `60`, `93.93` → `95`). An empty
- * tier list is a passthrough — no rounding.
+ * Rounds [weight] to the nearest multi-band lattice point (see [roundMagnitude]), optionally
+ * admitting micro-shifted points (`base + adder stop`). Used so soft/e1RM loads land on
+ * realistic jumps (e.g. `61.35` → `60`, `93.93` → `95`). An empty tier list is a
+ * passthrough — no rounding. Empty [micro] is the plain major-lattice path.
  *
  * Prefer **not** re-applying this after a deliberate `base + band step` progression add:
  * logged bases can sit off-lattice (e.g. 135 on a 10 lb band), and re-snapping
  * `base + step` can half-step again (`145` → `150`). Use this for continuous estimates;
  * use [incrementFor] + raw add for session-to-session / too-easy advances.
  */
-fun List<IncrementTier>.roundToIncrement(weight: Weight): Weight =
-    Weight(roundMagnitude(weight.amount), weight.unit)
+fun List<IncrementTier>.roundToIncrement(
+    weight: Weight,
+    micro: List<Weight> = emptyList(),
+): Weight = Weight(roundMagnitude(weight.amount, micro.map { it.amount }), weight.unit)
 
 /**
  * [LoadType]-aware tier rounding. For [LoadType.Assisted], the tier lookup uses
@@ -163,13 +206,19 @@ fun List<IncrementTier>.roundToIncrement(weight: Weight): Weight =
  * and the result preserves the original sign (so `-47.3` rounds to `-45`, not `+45`).
  * For [LoadType.Bodyweight], returns the input unchanged (weight is always 0). For
  * [LoadType.Weighted], delegates to the standard [roundToIncrement].
+ *
+ * [micro] admits adder-shifted points for Weighted and Assisted alike (magnitude space).
  */
-fun List<IncrementTier>.roundToIncrement(weight: Weight, loadType: LoadType): Weight =
+fun List<IncrementTier>.roundToIncrement(
+    weight: Weight,
+    loadType: LoadType,
+    micro: List<Weight> = emptyList(),
+): Weight =
     when (loadType) {
         LoadType.Bodyweight -> weight
-        LoadType.Weighted -> roundToIncrement(weight)
+        LoadType.Weighted -> roundToIncrement(weight, micro)
         LoadType.Assisted -> {
-            val rounded = roundMagnitude(abs(weight.amount))
+            val rounded = roundMagnitude(abs(weight.amount), micro.map { it.amount })
             // Preserve the original sign so -47.3 rounds to -45, not +45.
             val signedRounded = if (weight.amount < 0) -rounded else rounded
             Weight(signedRounded, weight.unit)
