@@ -80,10 +80,17 @@ interface LiftRepository {
 
     /**
      * Replaces the full **lift-scoped override** increment-tier list for [id] (delete +
-     * insert). Empty list clears the override so the lift re-inherits equipment defaults
-     * (or global fallback when unassigned). Caller validates before invoking.
+     * insert) and, when non-null, its adder override in the same write. Empty list
+     * clears the override so the lift re-inherits equipment defaults (or global
+     * fallback when unassigned). Null [micro] leaves the stored override untouched;
+     * non-null replaces it (empty means explicitly no adder). Caller validates
+     * before invoking.
      */
-    suspend fun setIncrementTiers(id: LiftId, tiers: List<IncrementTier>)
+    suspend fun setIncrementTiers(
+        id: LiftId,
+        tiers: List<IncrementTier>,
+        micro: List<Weight>? = null,
+    )
 
     /**
      * Assigns or clears [equipmentId] on a catalog or custom lift and persists [loadType]

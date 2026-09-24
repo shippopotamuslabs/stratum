@@ -103,6 +103,34 @@ class RoomMicroIncrementsTest {
     }
 
     @Test
+    @DisplayName("Given stored stops when tiers rewritten without micro then stops are preserved")
+    fun tiersOnlyWritePreservesEquipmentMicro() = runTest {
+        val id = EquipmentId("pin-loaded-machine")
+        seedEquipment(id)
+        equipmentRepository.setIncrementTiers(id, pinTiers, pinMicro)
+
+        equipmentRepository.setIncrementTiers(id, pinTiers)
+
+        assertEquals(listOf(5.0, 10.0), equipmentRepository.getEquipment(id)!!.microIncrements.map { it.amount })
+    }
+
+    @Test
+    @DisplayName("Given bands plus micro when set together then both persist atomically")
+    fun liftBandsAndMicroPersistTogether() = runTest {
+        val equipmentId = EquipmentId("pin-loaded-machine")
+        val liftId = LiftId("lat-pulldown")
+        seedEquipment(equipmentId)
+        seedLift(liftId, equipmentId)
+
+        liftRepository.setIncrementTiers(liftId, pinTiers, pinMicro)
+
+        val read = liftRepository.getLiftsByIds(listOf(liftId)).single()
+        assertEquals(listOf(0.0), read.incrementTiers.map { it.lowerBound.amount })
+        assertEquals(listOf(5.0, 10.0), read.microIncrements.map { it.amount })
+        assertEquals(false, read.usesEquipmentDefaultMicro)
+    }
+
+    @Test
     @DisplayName("Given override when set then lift reads effective micro until cleared")
     fun liftMicroOverrideSetAndCleared() = runTest {
         val equipmentId = EquipmentId("pin-loaded-machine")

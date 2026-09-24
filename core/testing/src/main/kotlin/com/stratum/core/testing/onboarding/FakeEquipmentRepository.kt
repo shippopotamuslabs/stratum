@@ -101,11 +101,15 @@ class FakeEquipmentRepository(
     override suspend fun setIncrementTiers(
         id: EquipmentId,
         tiers: List<IncrementTier>,
-        micro: List<Weight>,
+        micro: List<Weight>?,
     ) {
         throwIfFailNextWrite()
         rows.value = rows.value.map { row ->
-            if (row.id == id) row.copy(incrementTiers = tiers, microIncrements = micro) else row
+            if (row.id == id) {
+                row.copy(incrementTiers = tiers, microIncrements = micro ?: row.microIncrements)
+            } else {
+                row
+            }
         }
     }
 

@@ -81,19 +81,13 @@ class RoomEquipmentRepository @Inject constructor(
                         emptyList(),
                         now,
                     )
-                    incrementTierDao.deleteForLift(liftId)
                     liftDao.setEquipmentId(
                         id = liftId,
                         equipmentId = id,
                         updatedAtEpochMillis = now,
                     )
-                    // Assigned lifts inherit the new machine's knob: clear any
-                    // lift-scoped micro override alongside the band rows.
-                    liftDao.setMicroOptions(
-                        id = liftId,
-                        microOptionsJson = null,
-                        updatedAtEpochMillis = now,
-                    )
+                    // Assigned lifts inherit the new machine's lattice and knob.
+                    clearLiftIncrementOverrides(incrementTierDao, liftDao, liftId, now)
                 }
             }
             syncTouch.markDirty()
@@ -111,7 +105,7 @@ class RoomEquipmentRepository @Inject constructor(
     override suspend fun setIncrementTiers(
         id: EquipmentId,
         tiers: List<IncrementTier>,
-        micro: List<Weight>,
+        micro: List<Weight>?,
     ) {
         val now = System.currentTimeMillis()
         syncTouch.withWriteLock {
@@ -124,11 +118,15 @@ class RoomEquipmentRepository @Inject constructor(
                 if (tiers.isNotEmpty()) {
                     incrementTierDao.upsertAll(tiers.toEquipmentEntities(id, now))
                 }
-                equipmentDao.updateMicroOptions(
-                    id = id,
-                    microOptionsJson = micro.toMicroJsonOrNull(),
-                    updatedAtEpochMillis = now,
-                )
+                // Null micro preserves the stored stops (tiers-only write must not
+                // silently wipe the adder); non-null replaces them outright.
+                if (micro != null) {
+                    equipmentDao.updateMicroOptions(
+                        id = id,
+                        microOptionsJson = micro.toMicroJsonOrNull(),
+                        updatedAtEpochMillis = now,
+                    )
+                }
             }
             syncTouch.markDirty()
         }

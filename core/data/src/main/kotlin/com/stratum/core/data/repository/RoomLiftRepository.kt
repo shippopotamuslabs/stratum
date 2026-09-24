@@ -239,7 +239,11 @@ class RoomLiftRepository @Inject constructor(
         return id
     }
 
-    override suspend fun setIncrementTiers(id: LiftId, tiers: List<IncrementTier>) {
+    override suspend fun setIncrementTiers(
+        id: LiftId,
+        tiers: List<IncrementTier>,
+        micro: List<Weight>?,
+    ) {
         val now = System.currentTimeMillis()
         syncTouch.withWriteLock {
             database.withTransaction {
@@ -263,6 +267,15 @@ class RoomLiftRepository @Inject constructor(
                         }
                     incrementTierDao.upsertAll(entities)
                 }
+                // Non-null micro rides the same transaction so bands and the knob
+                // can never half-persist; null leaves the stored override untouched.
+                if (micro != null) {
+                    liftDao.setMicroOptions(
+                        id = id,
+                        microOptionsJson = micro.toMicroJson(),
+                        updatedAtEpochMillis = now,
+                    )
+                }
             }
             syncTouch.markDirty()
         }
@@ -274,19 +287,14 @@ class RoomLiftRepository @Inject constructor(
             database.withTransaction {
                 val previousTierIds = incrementTierDao.idsForLift(id)
                 syncTouch.replaceIds(SyncCollection.IncrementTiers, previousTierIds, emptyList(), now)
-                incrementTierDao.deleteForLift(id)
                 liftDao.setEquipmentIdAndLoadType(
                     id = id,
                     equipmentId = equipmentId,
                     loadType = loadType,
                     updatedAtEpochMillis = now,
                 )
-                // Reassigned lifts inherit the new machine's knob.
-                liftDao.setMicroOptions(
-                    id = id,
-                    microOptionsJson = null,
-                    updatedAtEpochMillis = now,
-                )
+                // Reassigned lifts inherit the new machine's lattice and knob.
+                clearLiftIncrementOverrides(incrementTierDao, liftDao, id, now)
             }
             syncTouch.markDirty()
         }

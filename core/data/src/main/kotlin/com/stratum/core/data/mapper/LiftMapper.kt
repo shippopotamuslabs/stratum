@@ -13,6 +13,7 @@ import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.WeightConversion
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.IncrementTierId
 import com.stratum.domain.lift.identity.LiftId
@@ -234,7 +235,10 @@ private fun String?.toMicroOverride(): List<Weight>? =
  */
 internal fun List<Weight>.toMicroJsonOrNull(): String? {
     if (isEmpty()) return null
-    return MICRO_JSON.encodeToString(ListSerializer(Double.serializer()), map { it.amount })
+    return MICRO_JSON.encodeToString(
+        ListSerializer(Double.serializer()),
+        map { WeightConversion.convertAmount(it.amount, it.unit, Weight.WeightUnit.Lb) },
+    )
 }
 
 /**
@@ -243,7 +247,10 @@ internal fun List<Weight>.toMicroJsonOrNull(): String? {
  * Internal so repositories can write the column (null = clear) directly.
  */
 internal fun List<Weight>.toMicroJson(): String =
-    MICRO_JSON.encodeToString(ListSerializer(Double.serializer()), map { it.amount })
+    MICRO_JSON.encodeToString(
+        ListSerializer(Double.serializer()),
+        map { WeightConversion.convertAmount(it.amount, it.unit, Weight.WeightUnit.Lb) },
+    )
 
 private val DEFAULT_FALLBACK_TIERS: List<IncrementTier> =
     LiftCatalogSeeder.DEFAULT_TIERS.map { t ->

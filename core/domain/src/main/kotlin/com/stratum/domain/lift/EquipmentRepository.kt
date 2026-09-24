@@ -44,12 +44,14 @@ interface EquipmentRepository {
     /**
      * Replaces the full default tier list for [id] (delete + insert) and its adder
      * stops. Empty list clears equipment defaults so lifts without overrides fall
-     * through to global fallback; empty [micro] means no adder.
+     * through to global fallback. Null [micro] preserves the stored stops so
+     * tiers-only callers cannot silently wipe the adder; non-null replaces them
+     * (empty means explicitly no adder).
      */
     suspend fun setIncrementTiers(
         id: EquipmentId,
         tiers: List<IncrementTier>,
-        micro: List<Weight> = emptyList(),
+        micro: List<Weight>? = null,
     )
 
     /**
