@@ -5,11 +5,14 @@ import com.stratum.domain.lift.identity.LiftId
 import javax.inject.Inject
 
 /**
- * Forks [sourceId] under [copyName] carrying [tiers], leaving the shared defaults
- * untouched; reassigns [liftId] to the copy when provided so it inherits the edit.
+ * Forks [sourceId] under [copyName] carrying [tiers] and [micro], leaving the shared
+ * defaults untouched; reassigns [liftId] to the copy when provided so it inherits
+ * the edit.
  *
  * Sequential with first-failure return (no cross-repository transaction): the fork
- * validates the stored parent tiers, then the draft tiers overwrite the copy.
+ * validates the stored parent tiers, then the draft tiers and stops overwrite the
+ * copy. An empty [micro] means the copy has no adder; callers that never edited
+ * stops keep the default.
  */
 class ForkEquipmentWithTiersUseCase @Inject constructor(
     private val forkEquipment: ForkEquipmentUseCase,
@@ -21,9 +24,10 @@ class ForkEquipmentWithTiersUseCase @Inject constructor(
         copyName: String,
         tiers: List<IncrementTier>,
         liftId: LiftId? = null,
+        micro: List<Weight> = emptyList(),
     ): Result<EquipmentId> {
         val copyId = forkEquipment(sourceId, copyName).getOrElse { return Result.failure(it) }
-        setEquipmentIncrementTiers(copyId, tiers).onFailure { return Result.failure(it) }
+        setEquipmentIncrementTiers(copyId, tiers, micro).onFailure { return Result.failure(it) }
         if (liftId != null) {
             setLiftEquipment(liftId, copyId).onFailure { return Result.failure(it) }
         }

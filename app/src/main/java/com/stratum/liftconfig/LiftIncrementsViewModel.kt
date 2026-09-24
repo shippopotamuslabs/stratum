@@ -36,6 +36,17 @@ data class LiftIncrementsUiState(
     val liftId: String = "",
     val liftName: String = "",
     val tiers: List<IncrementTierDraft> = emptyList(),
+    /**
+     * Adder stop drafts (display-unit strings); empty = no adder. Owned by the
+     * caller: the equipment editor manages them (see its draft flow); the lift
+     * editor leaves the default until it wires drafts.
+     */
+    val microStops: List<String> = emptyList(),
+    /**
+     * Whether the adder card renders. The equipment route drives this from its
+     * V2 flag state; the lift route leaves the default until it wires drafts.
+     */
+    val showMicroCard: Boolean = false,
     val validationMessage: String? = null,
     /**
      * Band indexes whose steps miss a proposal's logged sample weights (yellow,
