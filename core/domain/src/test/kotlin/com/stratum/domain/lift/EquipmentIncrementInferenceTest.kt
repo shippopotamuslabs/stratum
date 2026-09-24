@@ -321,6 +321,60 @@ class EquipmentIncrementInferenceTest {
     }
 
     @Nested
+    @DisplayName("inferIncrementLattice with micro")
+    inner class InferLatticeAdder {
+        private val pinTiers = openBand(15.0)
+        private val pinMicro = listOf(lb(5.0), lb(10.0))
+
+        @Test
+        @DisplayName("Given adder-exact samples when inferred then null")
+        fun adderExactSamplesNull() {
+            assertNull(
+                inferIncrementLattice(
+                    sampleWeights = listOf(lb(65.0), lb(65.0), lb(70.0)),
+                    currentTiers = pinTiers,
+                    micro = pinMicro,
+                ),
+            )
+        }
+
+        @Test
+        @DisplayName("Given adder-exact plus true residuals when inferred then residual step only")
+        fun mixedSamplesInferResidualStep() {
+            val result =
+                inferIncrementLattice(
+                    sampleWeights = listOf(lb(65.0), lb(62.5), lb(62.5)),
+                    currentTiers = pinTiers,
+                    micro = pinMicro,
+                )
+            assertNotNull(result)
+            assertEquals(2.5, result!!.step)
+        }
+
+        @Test
+        @DisplayName("Given true residuals with micro when inferred then same as without micro")
+        fun trueResidualsUndistorted() {
+            val samples = listOf(lb(62.5), lb(67.5))
+            val withMicro =
+                inferIncrementLattice(
+                    sampleWeights = samples,
+                    currentTiers = pinTiers,
+                    micro = pinMicro,
+                )
+            val withoutMicro =
+                inferIncrementLattice(
+                    sampleWeights = samples,
+                    currentTiers = pinTiers,
+                )
+            assertNotNull(withMicro)
+            assertNotNull(withoutMicro)
+            assertEquals(withoutMicro!!.step, withMicro!!.step)
+            assertEquals(2.5, withMicro.step)
+            assertEquals(IncrementTiersValidationResult.Valid, validate(withMicro.tiers))
+        }
+    }
+
+    @Nested
     @DisplayName("tidyUpperBound / isNearMultiple / GCD helpers")
     inner class Helpers {
         @Test
