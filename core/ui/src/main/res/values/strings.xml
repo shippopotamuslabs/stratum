@@ -222,6 +222,12 @@
     <string name="lift_increments_save">Save</string>
     <string name="lift_increments_open_ended">Open-ended (and above)</string>
     <string name="lift_increments_error_generic">Fix tier bands before saving</string>
+    <string name="lift_increments_micro_title">Adder stops</string>
+    <string name="lift_increments_micro_help">Micro knob on the stack: each stop adds to a stack weight. Knob-off (the bare weight) is always available.</string>
+    <string name="lift_increments_micro_empty">No adder</string>
+    <string name="lift_increments_micro_add">Add stop</string>
+    <string name="lift_increments_micro_remove">Remove stop</string>
+    <string name="lift_increments_micro_stop">Stop (%1$s)</string>
     <string name="lift_info_title">Lift info</string>
     <string name="lift_info_tab_instructions">Instructions</string>
     <string name="lift_info_tab_details">Details</string>

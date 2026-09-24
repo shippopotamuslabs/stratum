@@ -73,6 +73,31 @@ fun LiftIncrementsRoute(
     )
 }
 
+/**
+ * Adder-card callbacks, grouped so the screen stays under the parameter-count gate.
+ * Defaults no-op; owners wire real handlers once they manage micro drafts.
+ */
+data class MicroEditorActions(
+    val onStopChanged: (Int, String) -> Unit = { _, _ -> },
+    val onAddStop: () -> Unit = {},
+    val onRemoveStop: (Int) -> Unit = {},
+)
+
+/**
+ * Equipment-page fork extras, grouped so the shell stays under the parameter-count gate:
+ *
+ * - [showForkSaveBar]: two-button bar (Update Shared / Save As New). When false the
+ *   legacy single Save button renders (per-lift override editor).
+ * - [affectsBanner]: blast-radius banner slot. Null renders no banner;
+ *   [AffectsBannerUi.onClick] null keeps it display-only. The lift override editor
+ *   passes null.
+ */
+data class ForkSaveUi(
+    val showForkSaveBar: Boolean = false,
+    val onSaveAsNew: () -> Unit = {},
+    val affectsBanner: AffectsBannerUi? = null,
+)
+
 @Composable
 fun LiftIncrementsScreen(
     state: LiftIncrementsUiState,
@@ -84,18 +109,9 @@ fun LiftIncrementsScreen(
     onAddTier: () -> Unit,
     onRemoveTier: (Int) -> Unit,
     onSave: () -> Unit,
+    microActions: MicroEditorActions = MicroEditorActions(),
     onResetToEquipment: () -> Unit = {},
-    /**
-     * Equipment-page two-button bar (Update Shared / Save As New). When false the
-     * legacy single Save button renders (per-lift override editor).
-     */
-    showForkSaveBar: Boolean = false,
-    onSaveAsNew: () -> Unit = {},
-    /**
-     * Equipment blast-radius banner slot. Null renders no banner; [AffectsBannerUi.onClick]
-     * null keeps it display-only. The lift override editor passes null.
-     */
-    affectsBanner: AffectsBannerUi? = null,
+    forkUi: ForkSaveUi = ForkSaveUi(),
     modifier: Modifier = Modifier,
 ) {
     StratumScaffold(
@@ -127,11 +143,11 @@ fun LiftIncrementsScreen(
                 item {
                     IncrementsHelpCard()
                 }
-                if (affectsBanner != null) {
+                if (forkUi.affectsBanner != null) {
                     item {
                         InheritanceBanner(
-                            message = affectsBanner.message,
-                            onClick = affectsBanner.onClick,
+                            message = forkUi.affectsBanner.message,
+                            onClick = forkUi.affectsBanner.onClick,
                         )
                     }
                 }
@@ -178,6 +194,17 @@ fun LiftIncrementsScreen(
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
+                if (state.showMicroCard) {
+                    item {
+                        MicroEditorCard(
+                            stops = state.microStops,
+                            unitLabel = state.unitLabel,
+                            onStopChanged = microActions.onStopChanged,
+                            onAddStop = microActions.onAddStop,
+                            onRemoveStop = microActions.onRemoveStop,
+                        )
+                    }
+                }
             }
             Column(
                 modifier =
@@ -194,7 +221,7 @@ fun LiftIncrementsScreen(
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
-                if (showForkSaveBar) {
+                if (forkUi.showForkSaveBar) {
                     StratumButton(
                         text = stringResource(UiR.string.equipment_increments_update_shared),
                         onClick = onSave,
@@ -203,7 +230,7 @@ fun LiftIncrementsScreen(
                     )
                     StratumOutlinedButton(
                         text = stringResource(UiR.string.equipment_increments_save_as_new),
-                        onClick = onSaveAsNew,
+                        onClick = forkUi.onSaveAsNew,
                         enabled = !state.isSaving && state.validationMessage == null,
                         modifier = Modifier.padding(bottom = 20.dp).fillMaxWidth(),
                     )
@@ -465,6 +492,79 @@ private fun TierEditorCard(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun MicroEditorCard(
+    stops: List<String>,
+    unitLabel: String,
+    onStopChanged: (Int, String) -> Unit,
+    onAddStop: () -> Unit,
+    onRemoveStop: (Int) -> Unit,
+) {
+    val colors = StratumThemeAccessor.colors
+    val shapes = StratumThemeAccessor.shapes
+    val summary =
+        if (stops.isEmpty()) {
+            stringResource(UiR.string.lift_increments_micro_empty)
+        } else {
+            "0 / ${stops.joinToString(separator = " / ")} $unitLabel"
+        }
+
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(color = colors.surfaceRaised, shape = shapes.panel)
+                .border(
+                    width = shapes.borderWidth,
+                    color = colors.borderSubtle,
+                    shape = shapes.panel,
+                )
+                .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        StratumText(
+            text = stringResource(UiR.string.lift_increments_micro_title),
+            style = StratumThemeAccessor.typography.titleMedium,
+        )
+        StratumNumber(
+            text = summary,
+            style = StratumThemeAccessor.typography.sectionLabel,
+        )
+        StratumText(
+            text = stringResource(UiR.string.lift_increments_micro_help),
+            style = StratumThemeAccessor.typography.sectionLabel,
+            muted = true,
+        )
+        stops.forEachIndexed { index, stop ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                StratumTextField(
+                    value = stop,
+                    onValueChange = { onStopChanged(index, it) },
+                    label = stringResource(UiR.string.lift_increments_micro_stop, unitLabel),
+                    modifier = Modifier.weight(1f),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                )
+                StratumIconButton(onClick = { onRemoveStop(index) }) {
+                    Icon(
+                        painter = painterResource(UiR.drawable.ic_close),
+                        contentDescription = stringResource(UiR.string.lift_increments_micro_remove),
+                        tint = colors.textMuted,
+                    )
+                }
+            }
+        }
+        StratumTextButton(
+            text = stringResource(UiR.string.lift_increments_micro_add),
+            onClick = onAddStop,
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }
 

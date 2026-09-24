@@ -3,8 +3,10 @@ package com.stratum.liftconfig
 import com.stratum.core.ui.component.formatIncrementAmount
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.IncrementTiersValidationError
+import com.stratum.domain.lift.MicroIncrementsValidationError
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.WeightConversion
+import com.stratum.domain.lift.isOnLattice
 import com.stratum.domain.lift.shortLabel
 import com.stratum.domain.lift.warnedIndexesForSamples
 import com.stratum.feature.workout.ui.ProposalTierArgs
@@ -99,16 +101,81 @@ object IncrementTierDraftOps {
      * non-blocking editor warning: saving stays allowed. Bands that fail to parse yield
      * no warnings; band math itself lives in domain
      * ([warnedIndexesForSamples][com.stratum.domain.lift.warnedIndexesForSamples]).
+     *
+     * Samples that land on `base + adder stop` ([microLb], storage pounds) are knob use,
+     * not band misses, and are excluded so the adder never trips the warning.
      */
     fun warnedIndexesForSamples(
         drafts: List<IncrementTierDraft>,
         displayUnit: Weight.WeightUnit = Weight.WeightUnit.Lb,
         samplesLb: List<Double>,
+        microLb: List<Double> = emptyList(),
     ): Set<Int> {
         if (samplesLb.isEmpty()) return emptySet()
         val tiers = toDomainOrNull(drafts, displayUnit) ?: return emptySet()
-        return tiers.warnedIndexesForSamples(samplesLb)
+        val micro = microLb.map { Weight(it, Weight.WeightUnit.Lb) }
+        val signal =
+            samplesLb.filter { sample ->
+                !tiers.isOnLattice(Weight(sample, Weight.WeightUnit.Lb), micro = micro)
+            }
+        if (signal.isEmpty()) return emptySet()
+        return tiers.warnedIndexesForSamples(signal)
     }
+
+    /**
+     * Maps domain adder stops (storage pounds) into draft field strings in [displayUnit].
+     */
+    fun toMicroDrafts(
+        stops: List<Weight>,
+        displayUnit: Weight.WeightUnit = Weight.WeightUnit.Lb,
+    ): List<String> =
+        stops.map { stop ->
+            formatAmount(
+                WeightConversion.convertAmount(
+                    stop.amount,
+                    Weight.WeightUnit.Lb,
+                    displayUnit,
+                ),
+            )
+        }
+
+    /**
+     * Parses stop drafts as [displayUnit] magnitudes and returns domain stops stamped as
+     * **Lb** for Room persistence (mirrors [toDomainOrNull]). Empty in → empty out.
+     * Null if any stop fails to parse.
+     */
+    fun microToDomainOrNull(
+        stops: List<String>,
+        displayUnit: Weight.WeightUnit = Weight.WeightUnit.Lb,
+    ): List<Weight>? {
+        val result = ArrayList<Weight>(stops.size)
+        for (draft in stops) {
+            val display = draft.toDoubleOrNull() ?: return null
+            result += Weight(
+                WeightConversion.convertAmount(display, displayUnit, Weight.WeightUnit.Lb),
+                Weight.WeightUnit.Lb,
+            )
+        }
+        return result
+    }
+
+    fun toMicroUserMessage(errors: Set<MicroIncrementsValidationError>): String =
+        errors.joinToString(separator = ". ") { error ->
+            when (error) {
+                MicroIncrementsValidationError.MixedUnits ->
+                    "Adder stops must use the same unit as the bands"
+                MicroIncrementsValidationError.NegativeStop ->
+                    "Adder stops cannot be negative"
+                MicroIncrementsValidationError.UnsortedOrDuplicate ->
+                    "Adder stops must be in order with no duplicates"
+                MicroIncrementsValidationError.MeaninglessZero ->
+                    "A lone 0 stop is meaningless — clear the stops for no adder"
+                MicroIncrementsValidationError.ExceedsLargestIncrement ->
+                    "Each adder stop must fit within the largest band step"
+                MicroIncrementsValidationError.MicroWithoutTiers ->
+                    "Adder stops need bands — add a tier first"
+            }
+        }
 
     /**
      * Parses draft fields as [displayUnit] magnitudes and returns domain tiers stamped as **Lb**

@@ -36,6 +36,14 @@ data class LiftIncrementsUiState(
     val liftId: String = "",
     val liftName: String = "",
     val tiers: List<IncrementTierDraft> = emptyList(),
+    /** Adder stop drafts (display-unit strings); empty = no adder. */
+    val microStops: List<String> = emptyList(),
+    /**
+     * Whether the adder card renders. Set once the owning ViewModel manages micro
+     * drafts (equipment editor in MR8, lift editor in MR9) — false keeps the card
+     * hidden so no dead controls ship.
+     */
+    val showMicroCard: Boolean = false,
     val validationMessage: String? = null,
     /**
      * Band indexes whose steps miss a proposal's logged sample weights (yellow,
