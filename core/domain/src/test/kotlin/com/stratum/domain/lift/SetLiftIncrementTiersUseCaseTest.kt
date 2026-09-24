@@ -14,11 +14,18 @@ class SetLiftIncrementTiersUseCaseTest {
 
     private val liftId = LiftId("bench-press")
 
+    private fun subject(repo: FakeLiftRepository): SetLiftIncrementTiersUseCase =
+        SetLiftIncrementTiersUseCase(
+            repo,
+            ValidateIncrementTiersUseCase(),
+            FakeLoggingPort(),
+        )
+
     @Test
     @DisplayName("Given valid tiers when invoked then they are persisted")
     fun persistsValidTiers() = runTest {
         val repo = FakeLiftRepository(listOf(sampleLift()))
-        val useCase = SetLiftIncrementTiersUseCase(repo, ValidateIncrementTiersUseCase(), FakeLoggingPort())
+        val useCase = subject(repo)
         val tiers =
             listOf(
                 tier(0.0, 100.0, 5.0),
@@ -35,7 +42,7 @@ class SetLiftIncrementTiersUseCaseTest {
     @DisplayName("Given invalid tiers when invoked then repository is not written")
     fun rejectsInvalidTiers() = runTest {
         val repo = FakeLiftRepository(listOf(sampleLift()))
-        val useCase = SetLiftIncrementTiersUseCase(repo, ValidateIncrementTiersUseCase(), FakeLoggingPort())
+        val useCase = subject(repo)
         val tiers =
             listOf(
                 tier(0.0, 40.0, 5.0),
@@ -54,7 +61,7 @@ class SetLiftIncrementTiersUseCaseTest {
     fun emptyTiersClear() = runTest {
         val existing = listOf(tier(0.0, null, 5.0))
         val repo = FakeLiftRepository(listOf(sampleLift(incrementTiers = existing)))
-        val useCase = SetLiftIncrementTiersUseCase(repo, ValidateIncrementTiersUseCase(), FakeLoggingPort())
+        val useCase = subject(repo)
 
         val result = useCase(liftId, emptyList())
 

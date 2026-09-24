@@ -8,6 +8,10 @@ import javax.inject.Inject
 /**
  * Validates then persists equipment default increment tiers. Empty tiers clear equipment
  * defaults so dependent lifts without overrides fall back to global defaults.
+ *
+ * Micro-adjust (adder) stops are validated separately via [ValidateMicroIncrementsUseCase]
+ * for editor drafts; micro persistence lands with the Room v7 columns and is added here
+ * atomically at that point (not as a validated-but-discarded parameter).
  */
 class SetEquipmentIncrementTiersUseCase @Inject constructor(
     private val repository: EquipmentRepository,
