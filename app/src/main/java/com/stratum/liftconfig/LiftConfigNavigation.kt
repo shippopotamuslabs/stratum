@@ -13,9 +13,9 @@ import kotlinx.serialization.Serializable
  * current catalog tiers — set when launched from a post-workout equipment proposal's
  * "Edit steps" action or the live "Adjust Equipment" pill. Empty preserves the legacy
  * edit-current-tiers behavior.
- * [proposalContext] carries the proposal fingerprint (dismissed on save; null for live
- * warnings-only launches) and logged sample weights (non-blocking step warnings).
- * Null outside "Edit steps" / live-pill launches.
+ * [proposalContext] is the post-workout fingerprint (dismissed on save) or the live
+ * warnings-only sample weights for non-blocking step warnings. Null outside
+ * "Edit steps" / live-pill launches.
  */
 @Serializable
 data class LiftIncrementsKey(

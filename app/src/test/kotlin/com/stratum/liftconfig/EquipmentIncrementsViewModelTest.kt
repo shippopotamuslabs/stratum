@@ -355,7 +355,7 @@ class EquipmentIncrementsViewModelTest {
                 ProposalTierArgs(0.0, 40.0, 2.5),
                 ProposalTierArgs(40.0, null, 5.0),
             ),
-            ProposalEditContext(
+            ProposalEditContext.PostWorkout(
                 proposalId = "proposal-1",
                 sampleWeightsLb = listOf(62.5),
             ),
@@ -378,7 +378,7 @@ class EquipmentIncrementsViewModelTest {
             cableId.value,
             null,
             emptyList(),
-            ProposalEditContext(
+            ProposalEditContext.PostWorkout(
                 proposalId = "proposal-1",
                 sampleWeightsLb = listOf(62.5),
             ),

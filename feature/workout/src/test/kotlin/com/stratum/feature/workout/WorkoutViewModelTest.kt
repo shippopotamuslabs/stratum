@@ -74,8 +74,11 @@ import com.stratum.domain.workout.progression.LinearProgressionDefaults
 import com.stratum.domain.workout.progression.LinearProgressionEngine
 import com.stratum.feature.workout.ui.LiftNoteListsSaveRequest
 import com.stratum.feature.workout.ui.NoteDraftUi
+import com.stratum.feature.workout.ui.ProposalEditContext
 import com.stratum.feature.workout.ui.WorkoutUiEvent
 import com.stratum.feature.workout.ui.WorkoutUiState
+import com.stratum.feature.workout.ui.equipmentEditRequestFor
+import com.stratum.feature.workout.ui.liveEquipmentEditRequestFor
 import java.io.File
 import java.time.Instant
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -3257,11 +3260,21 @@ class WorkoutViewModelTest {
         val shown = viewModel.uiState.value as WorkoutUiState.Loaded
         assertTrue(shown.lifts.first().showAdjustEquipmentChip)
 
-        val request = checkNotNull(viewModel.liveEquipmentEditRequest(workoutLiftId.value))
+        // Same assembly as the route: routed base from the rendered lift plus the
+        // session seed → seeded request carrying tiers and sample weights.
+        val lift = shown.lifts.first()
+        val seed = checkNotNull(viewModel.liveEquipmentSeed(workoutLiftId.value))
+        val request =
+            liveEquipmentEditRequestFor(
+                base = equipmentEditRequestFor(lift),
+                currentTiers = seed.currentTiers,
+                loadType = seed.loadType,
+                loggedWeights = seed.loggedWeights,
+            )
         assertTrue(request.initialTiersLb.isNotEmpty())
         assertTrue(request.initialTiersLb.all { it.incrementLb > 0.0 })
-        assertNull(request.proposalContext?.proposalId)
-        assertTrue(request.proposalContext?.sampleWeightsLb?.contains(62.5) == true)
+        val context = checkNotNull(request.proposalContext as? ProposalEditContext.Live)
+        assertTrue(context.sampleWeightsLb.contains(62.5))
     }
 
     private suspend fun app.cash.turbine.ReceiveTurbine<WorkoutUiState>.awaitLoaded(): WorkoutUiState.Loaded {

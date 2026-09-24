@@ -64,7 +64,7 @@ internal object EquipmentProposalUiMapper {
                 )
             }
         val context =
-            ProposalEditContext(
+            ProposalEditContext.PostWorkout(
                 proposalId = proposal.id,
                 sampleWeightsLb = proposal.sampleWeights.map { it.amount },
             )
