@@ -29,9 +29,9 @@ fun reduceWeightForLastSetFloor(
     defaultBumpAmount: (Weight.WeightUnit) -> Double = ::defaultLoadBumpAmount,
     micro: List<Weight> = emptyList(),
 ): Weight {
-    // Tiers and capacity lattice are Lb; normalize input so mixed-unit callers stay coherent.
+    // Tiers and capacity lattice are Lb; normalize the start weight so mixed-unit callers
+    // stay coherent. Micro stops are normalized to the tiers unit inside roundToIncrement.
     val startLb = startFrom.toStorageLb()
-    val microLb = micro.map { it.toStorageLb() }
     val unit = Weight.WeightUnit.Lb
     val ceiling = startLb.amount.coerceAtLeast(0.0)
     if (ceiling <= 0.0) {
@@ -61,9 +61,9 @@ fun reduceWeightForLastSetFloor(
         return Weight(bestContinuous, unit)
     }
 
-    var candidate = incrementTiers.roundToIncrement(Weight(bestContinuous, unit), loadType, microLb)
+    var candidate = incrementTiers.roundToIncrement(Weight(bestContinuous, unit), loadType, micro)
     if (candidate.amount > ceiling) {
-        candidate = stepDownAligned(candidate, incrementTiers, loadType, defaultBumpAmount, microLb)
+        candidate = stepDownAligned(candidate, incrementTiers, loadType, defaultBumpAmount, micro)
     }
 
     var guard = 0
@@ -72,7 +72,7 @@ fun reduceWeightForLastSetFloor(
         candidate.amount > 0.0 &&
         cap(candidate.amount) < BACKOFF_REP_FLOOR
     ) {
-        val next = stepDownAligned(candidate, incrementTiers, loadType, defaultBumpAmount, microLb)
+        val next = stepDownAligned(candidate, incrementTiers, loadType, defaultBumpAmount, micro)
         if (next.amount <= 0.0 || next.amount >= candidate.amount - AMOUNT_EPS) {
             break
         }
@@ -156,8 +156,8 @@ private fun stepDownAligned(
     micro: List<Weight> = emptyList(),
 ): Weight {
     // Tiers are Lb magnitudes; lattice ops always run in canonical storage unit.
+    // Micro stops are normalized to the tiers unit inside roundToIncrement.
     val weightLb = weight.toStorageLb()
-    val microLb = micro.map { it.toStorageLb() }
     val step = incrementTiers.incrementForAmount(weightLb.amount).let { s ->
         if (s > 0.0) s else defaultBumpAmount(Weight.WeightUnit.Lb)
     }
@@ -166,7 +166,7 @@ private fun stepDownAligned(
         return Weight(0.0, Weight.WeightUnit.Lb)
     }
     val rounded =
-        incrementTiers.roundToIncrement(Weight(lowerAmount, Weight.WeightUnit.Lb), loadType, microLb)
+        incrementTiers.roundToIncrement(Weight(lowerAmount, Weight.WeightUnit.Lb), loadType, micro)
     return if (rounded.amount <= lowerAmount + AMOUNT_EPS) {
         rounded
     } else {

@@ -45,8 +45,9 @@ data class IncrementTier(
  *
  * Nearest-point ties break half-away-from-zero (prefer the larger magnitude). Empty tiers
  * are a passthrough. Sign is preserved so assisted negatives round in magnitude space.
- * Micro stops must share the tiers' unit ([ValidateMicroIncrementsUseCase] enforces this
- * at the write boundary; [microStopAmounts] re-checks at the rounding boundary).
+ * Micro stops are converted to the tiers' unit here — the single `Weight` → amount
+ * mapping point — so rounding call sites never strip units themselves. Write-time
+ * validation still enforces a shared unit; conversion keeps unvalidated paths coherent.
  */
 private fun List<IncrementTier>.roundMagnitude(
     amount: Double,
@@ -62,18 +63,14 @@ private fun List<IncrementTier>.roundMagnitude(
  * Micro stop amounts in the tiers' unit with knob-off `0` first, distinct and
  * order-preserving. Empty [micro] yields an empty list (plain major-lattice path).
  * Single mapping point for `Weight` → raw amounts, so callers never strip units
- * themselves. Mixed-unit stops fail fast instead of silently skewing rounding.
+ * themselves. Mixed-unit stops are converted to the tiers' unit instead of
+ * silently skewing rounding.
  */
 private fun List<IncrementTier>.microStopAmounts(micro: List<Weight>): List<Double> {
     if (micro.isEmpty()) return emptyList()
     if (isEmpty()) return micro.map { it.amount }
     val unit = first().lowerBound.unit
-    micro.forEach {
-        require(it.unit == unit) {
-            "Micro stop unit ${it.unit} must match tiers unit $unit"
-        }
-    }
-    return (listOf(0.0) + micro.map { it.amount }).distinct()
+    return (listOf(0.0) + micro.map { WeightConversion.convertAmount(it.amount, it.unit, unit) }).distinct()
 }
 
 /**

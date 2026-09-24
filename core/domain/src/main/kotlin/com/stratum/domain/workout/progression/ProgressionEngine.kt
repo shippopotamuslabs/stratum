@@ -41,6 +41,7 @@ data class SlotProgressionRequest(
     /**
      * Per-lift adder stops from the catalog (storage Lb). Threaded into every
      * tier-rounding step so prescribed loads agree with lattice membership.
+     * Mixed-unit stops are converted to the tiers unit at the rounding boundary.
      */
     val microIncrements: List<Weight> = emptyList(),
 )
