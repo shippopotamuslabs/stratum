@@ -11,9 +11,11 @@ import com.stratum.domain.lift.IncrementTiersValidationResult
 import com.stratum.domain.lift.ObserveEquipmentAffectedLiftsUseCase
 import com.stratum.domain.lift.ObserveEquipmentCatalogUseCase
 import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
+import com.stratum.domain.lift.MicroIncrementsValidationResult
 import com.stratum.domain.lift.SetEquipmentIncrementTiersUseCase
 import com.stratum.domain.lift.SetLiftEquipmentUseCase
 import com.stratum.domain.lift.ValidateIncrementTiersUseCase
+import com.stratum.domain.lift.ValidateMicroIncrementsUseCase
 import com.stratum.domain.lift.DismissEquipmentProposalUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId
@@ -31,6 +33,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -43,6 +46,8 @@ data class EquipmentIncrementsUiState(
     val equipmentId: String = "",
     val equipmentName: String = "",
     val tiers: List<IncrementTierDraft> = emptyList(),
+    /** Adder stop drafts (display-unit strings); empty = no adder. */
+    val microStops: List<String> = emptyList(),
     val validationMessage: String? = null,
     /**
      * Band indexes whose steps miss a proposal's logged sample weights (yellow,
@@ -64,6 +69,12 @@ data class EquipmentIncrementsUiState(
      * banner). One flag, read by each call site, so the surfaces cannot drift apart.
      */
     val equipmentV2Enabled: Boolean = false,
+    /**
+     * Adder card visibility, derived from [equipmentV2Enabled] in [buildState] so
+     * the rollout decision lives in state construction — never a literal at a
+     * call site.
+     */
+    val showMicroCard: Boolean = false,
 )
 
 /** Presentation row for the affected-lifts sheet (domain stays out of composables). */
@@ -80,6 +91,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
     private val observeEquipmentAffectedLifts: ObserveEquipmentAffectedLiftsUseCase,
     private val setEquipmentIncrementTiers: SetEquipmentIncrementTiersUseCase,
     private val validateIncrementTiers: ValidateIncrementTiersUseCase,
+    private val validateMicroIncrements: ValidateMicroIncrementsUseCase,
     private val forkEquipmentWithTiers: ForkEquipmentWithTiersUseCase,
     /** Owned by the quick-swap path: applies a picked equipment to the pending lift. */
     private val setLiftEquipment: SetLiftEquipmentUseCase,
@@ -91,7 +103,12 @@ class EquipmentIncrementsViewModel @Inject constructor(
 
     private val equipmentId = MutableStateFlow<String?>(null)
     private val sourceLiftId = MutableStateFlow<String?>(null)
-    private val draftTiers = MutableStateFlow<List<IncrementTierDraft>?>(null)
+    /**
+     * Combined editor drafts; a null section seeds from stored/catalog values on
+     * next build (see [buildState]). One flow so tier and stop edits share a
+     * single reset and combine path instead of parallel per-section plumbing.
+     */
+    private val drafts = MutableStateFlow<EditorDrafts?>(null)
     /** Shared proposal-prefill session (prefill bands, sample warnings, dismiss-on-save). */
     private val proposalSession = ProposalEditorSession()
     private val isSaving = MutableStateFlow(false)
@@ -115,7 +132,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
         viewModelScope.launch {
             observeWeightDisplayPreferences().collect { prefs ->
                 if (displayUnit.value != prefs.displayUnit) {
-                    draftTiers.value = null
+                    resetDrafts()
                     displayUnit.value = prefs.displayUnit
                 }
             }
@@ -151,8 +168,14 @@ class EquipmentIncrementsViewModel @Inject constructor(
         swapNav.trySend(liftId)
     }
 
+    /** Both editor sections in one nullable holder; null seeds from stored values. */
+    private data class EditorDrafts(
+        val tiers: List<IncrementTierDraft>?,
+        val microStops: List<String>?,
+    )
+
     private data class Flags(
-        val draft: List<IncrementTierDraft>?,
+        val drafts: EditorDrafts?,
         val proposalInput: ProposalInput?,
         val saving: Boolean,
         val saved: Boolean,
@@ -176,17 +199,16 @@ class EquipmentIncrementsViewModel @Inject constructor(
             affectedLifts,
             displayUnit,
             // Five typed flows: this coroutines version has no 6-flow combine overload,
-            // so the two save flags travel paired (see Lift VM's flat five for the same
-            // shape without the V2 flag).
+            // so the two save flags travel paired.
             combine(
                 combine(isSaving, saveSucceeded) { saving, saved -> saving to saved },
-                draftTiers,
+                drafts,
                 proposalSession.input,
                 validationOverride,
                 equipmentV2Enabled,
-            ) { savingPair, draft, input, validation, equipmentV2 ->
+            ) { savingPair, editorDrafts, input, validation, equipmentV2 ->
                 Flags(
-                    draft,
+                    editorDrafts,
                     input,
                     savingPair.first,
                     savingPair.second,
@@ -201,7 +223,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
                 affected = affected,
                 unit = unit,
                 equipmentV2Enabled = flags.equipmentV2Enabled,
-                draft = flags.draft,
+                drafts = flags.drafts,
                 proposalInput = flags.proposalInput,
                 saving = flags.saving,
                 saved = flags.saved,
@@ -229,9 +251,35 @@ class EquipmentIncrementsViewModel @Inject constructor(
         }
         equipmentId.value = id
         this.sourceLiftId.value = sourceLiftId
-        draftTiers.value = null
+        resetDrafts()
         saveSucceeded.value = false
         validationOverride.value = null
+    }
+
+    /** Clears both editor sections so the next build re-seeds from stored values. */
+    private fun resetDrafts() {
+        drafts.value = null
+    }
+
+    fun onMicroChanged(index: Int, value: String) {
+        updateMicroDraft { stops ->
+            stops.mapIndexed { i, stop ->
+                if (i == index) IncrementTierDraftOps.filterNumeric(value) else stop
+            }
+        }
+    }
+
+    fun onAddMicro() {
+        val unit = displayUnit.value
+        updateMicroDraft { stops ->
+            stops + IncrementTierDraftOps.defaultMicroStop(unit)
+        }
+    }
+
+    fun onRemoveMicro(index: Int) {
+        updateMicroDraft { stops ->
+            if (index !in stops.indices) stops else stops.toMutableList().also { it.removeAt(index) }
+        }
     }
 
     fun onTierLowerChanged(index: Int, value: String) {
@@ -331,9 +379,10 @@ class EquipmentIncrementsViewModel @Inject constructor(
     fun save() {
         val id = equipmentId.value ?: return
         val domainTiers = validatedDraftTiers() ?: return
+        val domainMicro = validatedDraftMicro(domainTiers) ?: return
         viewModelScope.launch {
             isSaving.value = true
-            val result = setEquipmentIncrementTiers(EquipmentId(id), domainTiers)
+            val result = setEquipmentIncrementTiers(EquipmentId(id), domainTiers, domainMicro)
             isSaving.value = false
             if (result.isSuccess) {
                 dismissProposalContext()
@@ -354,13 +403,16 @@ class EquipmentIncrementsViewModel @Inject constructor(
     fun saveAsNew() {
         val id = equipmentId.value ?: return
         val domainTiers = validatedDraftTiers() ?: return
+        // Bands and stops both validated so the copy never inherits a broken draft;
+        // the edited stops ride onto the copy (never silently dropped).
+        val domainMicro = validatedDraftMicro(domainTiers) ?: return
         viewModelScope.launch {
             isSaving.value = true
             try {
                 val copyName = "${uiState.value.equipmentName.ifBlank { "Equipment" }} (copy)"
                 val liftId = sourceLiftId.value?.let(::LiftId)
                 val result =
-                    forkEquipmentWithTiers(EquipmentId(id), copyName, domainTiers, liftId)
+                    forkEquipmentWithTiers(EquipmentId(id), copyName, domainTiers, liftId, domainMicro)
                 if (result.isSuccess) {
                     dismissProposalContext()
                     saveSucceeded.value = true
@@ -400,13 +452,30 @@ class EquipmentIncrementsViewModel @Inject constructor(
         return domainTiers
     }
 
+    private fun validatedDraftMicro(domainTiers: List<IncrementTier>): List<Weight>? {
+        val micro =
+            IncrementTierDraftOps.microToDomainOrNull(uiState.value.microStops, displayUnit.value)
+        if (micro == null) {
+            validationOverride.value = "Enter valid numbers for adder stops"
+            return null
+        }
+        when (val result = validateMicroIncrements(domainTiers, micro)) {
+            is MicroIncrementsValidationResult.Invalid -> {
+                validationOverride.value = IncrementTierDraftOps.toMicroUserMessage(result.errors)
+                return null
+            }
+            MicroIncrementsValidationResult.Valid -> Unit
+        }
+        return micro
+    }
+
     private fun buildState(
         id: String?,
         catalog: List<Equipment>,
         affected: EquipmentAffectedLifts,
         unit: Weight.WeightUnit,
         equipmentV2Enabled: Boolean,
-        draft: List<IncrementTierDraft>?,
+        drafts: EditorDrafts?,
         proposalInput: ProposalInput?,
         saving: Boolean,
         saved: Boolean,
@@ -414,24 +483,36 @@ class EquipmentIncrementsViewModel @Inject constructor(
     ): EquipmentIncrementsUiState {
         val equipment = catalog.firstOrNull { it.id.value == id }
         val tiers =
-            draft
+            drafts?.tiers
                 ?: IncrementTierDraftOps.fromProposalArgs(
                     proposalInput?.initialTiersLb.orEmpty(),
                     unit,
                 ).takeIf { it.isNotEmpty() }
                 ?: equipment?.incrementTiers?.map { IncrementTierDraftOps.toDraft(it, unit) }
                 ?: listOf(IncrementTierDraftOps.defaultDraft(unit))
+        val microStops =
+            drafts?.microStops
+                ?: equipment?.microIncrements?.let {
+                    IncrementTierDraftOps.toMicroDrafts(it, unit)
+                }
+                ?: emptyList()
+        val microLb =
+            IncrementTierDraftOps.microToDomainOrNull(microStops, unit)
+                ?.map { it.amount }
+                .orEmpty()
         val warnedTierIndexes =
             IncrementTierDraftOps.warnedIndexesForSamples(
                 drafts = tiers,
                 displayUnit = unit,
                 samplesLb = proposalInput?.context?.samplesLb.orEmpty(),
+                microLb = microLb,
             )
         return EquipmentIncrementsUiState(
             equipmentId = id.orEmpty(),
             equipmentName = equipment?.name.orEmpty(),
             tiers = tiers,
-            validationMessage = validation ?: liveValidationMessage(tiers, unit),
+            microStops = microStops,
+            validationMessage = validation ?: liveValidationMessage(tiers, microStops, unit),
             warnedTierIndexes = warnedTierIndexes,
             isSaving = saving,
             saveSucceeded = saved,
@@ -447,25 +528,49 @@ class EquipmentIncrementsViewModel @Inject constructor(
                 },
             unitLabel = unit.shortLabel(),
             equipmentV2Enabled = equipmentV2Enabled,
+            showMicroCard = equipmentV2Enabled,
         )
     }
 
     private fun updateDraft(transform: (List<IncrementTierDraft>) -> List<IncrementTierDraft>) {
-        val current = uiState.value.tiers
-        draftTiers.value = transform(current)
+        // Read-modify-write on the source flow (not the derived uiState, which lags
+        // a combine cycle): back-to-back edits can never overwrite each other.
+        drafts.update { current ->
+            val tiers = transform(current?.tiers ?: uiState.value.tiers)
+            (current ?: EditorDrafts(null, null)).copy(tiers = tiers)
+        }
+        validationOverride.value = null
+        saveSucceeded.value = false
+    }
+
+    private fun updateMicroDraft(transform: (List<String>) -> List<String>) {
+        // Same source-flow discipline as [updateDraft]: the derived uiState list
+        // lags recombine, so rapid edits must chain on drafts.value instead.
+        drafts.update { current ->
+            val stops = transform(current?.microStops ?: uiState.value.microStops)
+            (current ?: EditorDrafts(null, null)).copy(microStops = stops)
+        }
         validationOverride.value = null
         saveSucceeded.value = false
     }
 
     private fun liveValidationMessage(
         tiers: List<IncrementTierDraft>,
+        microStops: List<String>,
         unit: Weight.WeightUnit,
     ): String? {
         val domain = IncrementTierDraftOps.toDomainOrNull(tiers, unit) ?: return null
-        return when (val result = validateIncrementTiers(domain)) {
+        when (val result = validateIncrementTiers(domain)) {
             is IncrementTiersValidationResult.Invalid ->
-                IncrementTierDraftOps.toUserMessage(result.errors)
-            IncrementTiersValidationResult.Valid -> null
+                return IncrementTierDraftOps.toUserMessage(result.errors)
+            IncrementTiersValidationResult.Valid -> Unit
+        }
+        val micro =
+            IncrementTierDraftOps.microToDomainOrNull(microStops, unit) ?: return null
+        return when (val result = validateMicroIncrements(domain, micro)) {
+            is MicroIncrementsValidationResult.Invalid ->
+                IncrementTierDraftOps.toMicroUserMessage(result.errors)
+            MicroIncrementsValidationResult.Valid -> null
         }
     }
 

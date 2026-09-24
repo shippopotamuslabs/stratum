@@ -67,6 +67,8 @@ fun EquipmentIncrementsRoute(
                         stringResource(UiR.string.equipment_increments_title)
                     },
                 tiers = state.tiers,
+                microStops = state.microStops,
+                showMicroCard = state.showMicroCard,
                 validationMessage = state.validationMessage,
                 warnedTierIndexes = state.warnedTierIndexes,
                 isSaving = state.isSaving,
@@ -83,6 +85,12 @@ fun EquipmentIncrementsRoute(
         onAddTier = viewModel::addTier,
         onRemoveTier = viewModel::removeTier,
         onSave = viewModel::save,
+        microActions =
+            MicroEditorActions(
+                onStopChanged = viewModel::onMicroChanged,
+                onAddStop = viewModel::onAddMicro,
+                onRemoveStop = viewModel::onRemoveMicro,
+            ),
         onResetToEquipment = {},
         forkUi =
             ForkSaveUi(
