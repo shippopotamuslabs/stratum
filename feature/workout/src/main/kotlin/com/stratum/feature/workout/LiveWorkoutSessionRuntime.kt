@@ -383,6 +383,23 @@ internal class LiveWorkoutSessionRuntime(
         if (structure != null) render()
     }
 
+    /**
+     * Tap-time inference inputs for one lift card's editor request: the sets logged so
+     * far this session (canonical Lb) with the lift's current effective tiers. Pure
+     * domain data, no navigation DTOs — the UI layer owns request routing (same join
+     * as the pill signal in [render]). Null when the card or its catalog lift is
+     * unknown.
+     */
+    internal fun liveEquipmentSeed(workoutLiftId: WorkoutLiftId): LiveEquipmentSeed? {
+        val renderedLift = merge().lifts.firstOrNull { it.workoutLiftId == workoutLiftId } ?: return null
+        val catalog = liftsById[renderedLift.liftId] ?: return null
+        return LiveEquipmentSeed(
+            currentTiers = catalog.incrementTiers,
+            loadType = catalog.loadType,
+            loggedWeights = renderedLift.sets.mapNotNull { it.loggedValue?.weight },
+        )
+    }
+
     internal fun resolveSlot(slotId: SetSlotId): SetSlot? =
         LiveWorkoutOverlayOps.resolveSlot(structure, overlay, slotId)
 

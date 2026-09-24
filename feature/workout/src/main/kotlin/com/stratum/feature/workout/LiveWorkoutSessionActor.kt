@@ -163,6 +163,13 @@ internal class LiveWorkoutSessionActor(
 
     fun mergeRendered(): RenderedWorkout = runtime.merge()
 
+    /**
+     * Tap-time inference inputs for one live lift card's editor request (read of
+     * session memory). Null when the card or its catalog lift is unknown.
+     */
+    fun liveEquipmentSeed(workoutLiftId: WorkoutLiftId): LiveEquipmentSeed? =
+        runtime.liveEquipmentSeed(workoutLiftId)
+
     // endregion
 
     private suspend fun handle(cmd: SessionCommand) {
