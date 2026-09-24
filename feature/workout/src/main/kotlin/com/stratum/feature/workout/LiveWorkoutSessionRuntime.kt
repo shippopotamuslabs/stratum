@@ -8,6 +8,7 @@ import com.stratum.domain.importing.FatigueDecay
 import com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.LoadType
+import com.stratum.domain.lift.shouldShowLiveEquipmentAdjust
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.resolvedDefaultRestSeconds
@@ -112,6 +113,12 @@ internal class LiveWorkoutSessionRuntime(
     var lastPersistedRevision: Long = 0L
     var sessionTerminal: Boolean = false
     var abandonInFlight: Boolean = false
+    /**
+     * Session bookkeeping for the "Adjust Equipment" chip (dismissed + tier-save
+     * resolution). Internal — mutated only through [EquipmentAdjustTracker].
+     * Same-package command handlers touch it, so it cannot be private.
+     */
+    internal val equipmentAdjustTracker = EquipmentAdjustTracker()
 
     internal fun clearToNoActiveSession(retainSessionId: TrainingSessionId? = null) {
         cachedProgramId = null
@@ -129,6 +136,7 @@ internal class LiveWorkoutSessionRuntime(
         sessionPinnedNotes = SessionPinnedNoteLists()
         canSaveTemplateChanges = false
         templateSavedThisComplete = false
+        equipmentAdjustTracker.clear()
         effects.clearLiveSurfaces()
         publishNoActiveSessionIfNeeded()
     }
@@ -150,6 +158,7 @@ internal class LiveWorkoutSessionRuntime(
         sessionPinnedNotes = SessionPinnedNoteLists()
         canSaveTemplateChanges = false
         templateSavedThisComplete = false
+        equipmentAdjustTracker.clear()
         if (publishEmpty) {
             publishNoActiveSessionIfNeeded()
         }
@@ -324,6 +333,29 @@ internal class LiveWorkoutSessionRuntime(
                     hasIncrementOverride = !lift.usesEquipmentDefaultIncrements,
                 )
             }
+        // Live off-lattice signal per lift card, from sets logged so far this session.
+        // Logged weights persist in canonical Lb, matching catalog tier units.
+        // Tier edits after the chip showed resolve it; untouched editor visits keep it.
+        val rawAdjustIds =
+            rendered.lifts.mapNotNull { lift ->
+                val catalog = liftsById[lift.liftId] ?: return@mapNotNull null
+                val loggedWeights = lift.sets.mapNotNull { it.loggedValue?.weight }
+                if (shouldShowLiveEquipmentAdjust(loggedWeights, catalog)) {
+                    lift.workoutLiftId
+                } else {
+                    null
+                }
+            }.toSet()
+        val tiersByWorkoutLiftId =
+            rendered.lifts.associate { lift ->
+                lift.workoutLiftId to liftsById[lift.liftId]?.incrementTiers.orEmpty()
+            }
+        val adjustEquipmentWorkoutLiftIds =
+            equipmentAdjustTracker.update(
+                rawIds = rawAdjustIds,
+                tiersByWorkoutLiftId = tiersByWorkoutLiftId,
+                presentIds = rendered.lifts.map { it.workoutLiftId }.toSet(),
+            )
         val mapped =
             WorkoutUiMapper.map(
                 rendered,
@@ -335,10 +367,20 @@ internal class LiveWorkoutSessionRuntime(
                 displayUnitEpoch = effects.displayUnitEpoch(),
                 defaultRestSecondsByLiftId = defaultRestSecondsByLiftId,
                 equipmentEditTargetByLiftId = equipmentEditTargetByLiftId,
+                adjustEquipmentWorkoutLiftIds = adjustEquipmentWorkoutLiftIds,
             )
         // Active-workout notification snapshot is derived from domain session by
         // DomainActiveSessionSurfaceSync — do not dual-publish from render().
         effects.publishUi(mapped)
+    }
+
+    /**
+     * Quiets the chip for one card (X affordance). UI-state only — no overlay write,
+     * so dismissing never dirties the session or persists anything.
+     */
+    internal fun handleDismissEquipmentAdjust(workoutLiftId: WorkoutLiftId) {
+        equipmentAdjustTracker.dismiss(workoutLiftId)
+        if (structure != null) render()
     }
 
     internal fun resolveSlot(slotId: SetSlotId): SetSlot? =

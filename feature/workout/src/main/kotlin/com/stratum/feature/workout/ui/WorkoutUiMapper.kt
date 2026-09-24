@@ -9,6 +9,7 @@ import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.WeightConversion
 import com.stratum.domain.program.DEFAULT_LIFT_SET_REST_SECONDS
 import com.stratum.domain.program.SetType
+import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.workout.RenderedSet
 import com.stratum.domain.workout.RenderedWorkout
 import com.stratum.domain.workout.SetSlot
@@ -45,6 +46,12 @@ internal object WorkoutUiMapper {
         defaultRestSecondsByLiftId: Map<String, Int> = emptyMap(),
         /** Lift id → catalog equipment backing the lift (for "Edit equipment" routing). */
         equipmentEditTargetByLiftId: Map<String, EquipmentEditTarget> = emptyMap(),
+        /**
+         * Workout lifts whose logged weights sit off the effective increment lattice.
+         * Computed by the session runtime (which joins catalog tiers); the mapper only
+         * copies the flag so no domain tier types cross into presentation.
+         */
+        adjustEquipmentWorkoutLiftIds: Set<WorkoutLiftId> = emptySet(),
     ): WorkoutUiState.Loaded {
         val lifts = rendered.lifts.map { lift ->
             val showWeightColumn = lift.loadType != LoadType.Bodyweight
@@ -82,6 +89,7 @@ internal object WorkoutUiMapper {
                 equipmentId = equipmentEditTargetByLiftId[lift.liftId.value]?.equipmentId,
                 hasIncrementOverride =
                     equipmentEditTargetByLiftId[lift.liftId.value]?.hasIncrementOverride == true,
+                showAdjustEquipmentChip = lift.workoutLiftId in adjustEquipmentWorkoutLiftIds,
                 sets = lift.sets.mapIndexed { setIndex, set ->
                     val prevLabel =
                         previousPerformanceLabel(

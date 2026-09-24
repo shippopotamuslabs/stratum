@@ -80,6 +80,13 @@ data class RenderedLiftUi(
     val equipmentId: String? = null,
     /** True when the lift carries its own per-lift override tiers (not equipment defaults). */
     val hasIncrementOverride: Boolean = false,
+    /**
+     * True when a logged weight this session sits off the lift's increment lattice.
+     * Drives the "Adjust Equipment" chip under the lift title. The session runtime
+     * clears it for dismissed (X) and saved-away (tier-edited) cards; the ViewModel
+     * additionally gates it on the equipment-management flag.
+     */
+    val showAdjustEquipmentChip: Boolean = false,
 ) : SupersetLinkableLift {
     override val name: String get() = liftName
 }
