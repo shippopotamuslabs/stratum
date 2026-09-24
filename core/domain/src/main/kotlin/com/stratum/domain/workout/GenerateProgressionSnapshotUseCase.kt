@@ -50,6 +50,7 @@ data class SnapshotRequest(
     /**
      * Per-lift adder stops from the catalog (storage Lb). Empty map / missing keys → no
      * adder (plain major-lattice path). Populated from the lift's effective micro.
+     * Mixed-unit stops are converted to the tiers unit at the rounding boundary.
      */
     val microIncrementsById: Map<LiftId, List<Weight>> = emptyMap(),
 )
