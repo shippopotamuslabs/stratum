@@ -3,6 +3,7 @@ package com.stratum.domain.workout.progression
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.isOnLattice
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.roundToIncrement
 import com.stratum.domain.program.SetType
@@ -113,5 +114,35 @@ class EnsureRepFloorPreferWeightDropTest {
         assertEquals(expected, weight)
         assertEquals(5, reps)
         assertEquals(true, weight.amount < target.amount)
+    }
+
+    @Test
+    @DisplayName("micro: floor drop snaps to base plus adder and agrees with membership")
+    fun microSnapsToAdderPoint() {
+        val target = lb(200.0)
+        val capacity = 5 // 5@0 → 3@2 below floor 5
+        val slot = topSet(repMin = 5, repMax = 8, rirGoal = 2)
+        val e1rm = EstimatedOneRm.calculate(target.amount, capacity)
+        val tiers = listOf(
+            IncrementTier(lb(0.0), null, lb(15.0)),
+        )
+        val micro = listOf(lb(5.0), lb(10.0))
+        val rawReduced = EstimatedOneRm.weightForReps(e1rm, minRecommendedReps(slot) + slot.rirGoal)
+        val expected = tiers.roundToIncrement(lb(rawReduced), LoadType.Weighted, micro)
+
+        val (weight, reps) = ensureRepFloorPreferWeightDrop(
+            targetWeight = target,
+            capacityRepsAt0Rir = capacity,
+            slot = slot,
+            e1rm = e1rm,
+            incrementTiers = tiers,
+            loadType = LoadType.Weighted,
+            micro = micro,
+        )
+
+        assertEquals(expected, weight)
+        assertEquals(5, reps)
+        assertEquals(true, weight.amount < target.amount)
+        assertEquals(true, tiers.isOnLattice(weight, micro = micro))
     }
 }

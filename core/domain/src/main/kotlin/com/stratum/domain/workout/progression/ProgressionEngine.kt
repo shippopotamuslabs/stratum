@@ -38,6 +38,11 @@ data class SlotProgressionRequest(
      * (Double: 5 lb; Linear: [LinearProgressionConfig] values).
      */
     val incrementTiers: List<IncrementTier> = emptyList(),
+    /**
+     * Per-lift adder stops from the catalog (storage Lb). Threaded into every
+     * tier-rounding step so prescribed loads agree with lattice membership.
+     */
+    val microIncrements: List<Weight> = emptyList(),
 )
 
 /**
@@ -235,6 +240,7 @@ private fun resolveSameWeightBaselineReps(
             e1rm = e1rm,
             incrementTiers = request.incrementTiers,
             loadType = request.loadType,
+            micro = request.microIncrements,
         )
         return applyFloorWeight(request, targetWeight, w) to r
     }
@@ -276,6 +282,7 @@ private fun resolveDifferentWeightBaselineReps(
         slot = slot,
         incrementTiers = request.incrementTiers,
         loadType = request.loadType,
+        micro = request.microIncrements,
     )
     return applyFloorWeight(request, targetWeight, w) to r
 }
@@ -358,6 +365,7 @@ fun projectBaselineAtTargetWeight(
     slot: SetSlot,
     incrementTiers: List<IncrementTier>,
     loadType: LoadType,
+    micro: List<Weight> = emptyList(),
 ): Pair<Weight, Int> {
     val prevSet = baselineEntry.loggedSet
     val failureReps = (prevSet.reps + (prevSet.rir ?: 0)).coerceAtLeast(1)
@@ -374,6 +382,7 @@ fun projectBaselineAtTargetWeight(
         e1rm = e1rm,
         incrementTiers = incrementTiers,
         loadType = loadType,
+        micro = micro,
     )
 }
 
@@ -408,6 +417,7 @@ private fun floorFromPriorFatigue(
         e1rm = priorE1rm,
         incrementTiers = request.incrementTiers,
         loadType = request.loadType,
+        micro = request.microIncrements,
     )
 }
 
@@ -492,6 +502,7 @@ fun ensureRepFloorPreferWeightDrop(
     e1rm: Double,
     incrementTiers: List<IncrementTier>,
     loadType: LoadType,
+    micro: List<Weight> = emptyList(),
 ): Pair<Weight, Int> {
     val minReps = minRecommendedReps(slot)
     val atRir = capacityRepsAt0Rir - slot.rirGoal
@@ -504,7 +515,7 @@ fun ensureRepFloorPreferWeightDrop(
     }
     val reducedAmount = EstimatedOneRm.weightForReps(e1rm, minReps + slot.rirGoal)
     val reduced = incrementTiers
-        .roundToIncrement(Weight(reducedAmount, targetWeight.unit), loadType)
+        .roundToIncrement(Weight(reducedAmount, targetWeight.unit), loadType, micro)
         .capAssistedAtZero(loadType)
     // Never raise load when trying to recover the rep floor.
     val finalWeight =

@@ -36,6 +36,7 @@ fun resolveStraightSetSharedWeight(
     perLiftIntercept: Double?,
     incrementTiers: List<IncrementTier>,
     loadType: LoadType,
+    micro: List<Weight> = emptyList(),
 ): Weight {
     if (loadType == LoadType.Bodyweight || loadType == LoadType.Assisted) return candidateWeight
     if (candidateWeight.amount <= 0.0 || slots.isEmpty()) return candidateWeight
@@ -55,6 +56,7 @@ fun resolveStraightSetSharedWeight(
                 slot = slots[i],
                 incrementTiers = incrementTiers,
                 loadType = loadType,
+                micro = micro,
             )
         }
     }
@@ -70,6 +72,7 @@ fun resolveStraightSetSharedWeight(
             perLiftIntercept = perLiftIntercept,
             incrementTiers = incrementTiers,
             loadType = loadType,
+            micro = micro,
         )
     }
 
@@ -86,6 +89,7 @@ private fun tightenForBaselineSlot(
     slot: SetSlot,
     incrementTiers: List<IncrementTier>,
     loadType: LoadType,
+    micro: List<Weight> = emptyList(),
 ): Weight {
     val set = performance.entry.loggedSet
     val failureReps = (set.reps + (set.rir ?: 0)).coerceAtLeast(1)
@@ -110,6 +114,7 @@ private fun tightenForBaselineSlot(
         perLiftIntercept = null,
         incrementTiers = incrementTiers,
         loadType = loadType,
+        micro = micro,
     )
 }
 
@@ -122,6 +127,7 @@ private fun tightenForPartialTail(
     perLiftIntercept: Double?,
     incrementTiers: List<IncrementTier>,
     loadType: LoadType,
+    micro: List<Weight> = emptyList(),
 ): Weight {
     // Gate on the last non-drop program set so a trailing drop does not own shared load.
     val lastStraightIndex = slots.indexOfLast { it.setType != SetType.DropSet }
@@ -151,6 +157,7 @@ private fun tightenForPartialTail(
         perLiftIntercept = perLiftIntercept,
         incrementTiers = incrementTiers,
         loadType = loadType,
+        micro = micro,
     )
 }
 

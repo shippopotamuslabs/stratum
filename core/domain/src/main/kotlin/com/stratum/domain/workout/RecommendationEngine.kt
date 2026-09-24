@@ -56,6 +56,8 @@ class RecommendationEngine @Inject constructor(
         perLiftIntercept: Double? = null,
         loadType: LoadType = LoadType.Weighted,
         completedSetPrescribedWeight: Weight? = null,
+        /** Lift adder stops (storage Lb); empty keeps the plain major-lattice path. */
+        micro: List<Weight> = emptyList(),
         /**
          * Pure straight blocks: on-track top set → `null` (keep snapshot).
          * Post-myo/drop: `false` so the same Hold/Reduce + last-set floor still runs.
@@ -77,6 +79,7 @@ class RecommendationEngine @Inject constructor(
             loadType = loadType,
             completedSetPrescribedWeight = completedSetPrescribedWeight,
             keepSnapshotWhenOnTrack = keepSnapshotWhenOnTrack,
+            micro = micro,
         )
     }
 
@@ -92,6 +95,7 @@ class RecommendationEngine @Inject constructor(
         loadType: LoadType,
         completedSetPrescribedWeight: Weight?,
         keepSnapshotWhenOnTrack: Boolean,
+        micro: List<Weight> = emptyList(),
     ): RecommendationOutcome? {
         val onTrack =
             isOnTrackPerformance(lastPerformed, completedSlot, completedSetPrescribedWeight)
@@ -137,6 +141,7 @@ class RecommendationEngine @Inject constructor(
             perLiftIntercept = perLiftIntercept,
             incrementTiers = incrementTiers,
             loadType = loadType,
+            micro = micro,
         )
     }
 
@@ -198,6 +203,7 @@ class RecommendationEngine @Inject constructor(
         perLiftIntercept: Double?,
         incrementTiers: List<IncrementTier>,
         loadType: LoadType,
+        micro: List<Weight> = emptyList(),
     ): RecommendationOutcome {
         val lastSetCapacityAtRir = capacityAtRir(
             e1rm = e1rm,
@@ -220,6 +226,7 @@ class RecommendationEngine @Inject constructor(
                     perLiftIntercept = perLiftIntercept,
                     incrementTiers = incrementTiers,
                     loadType = loadType,
+                    micro = micro,
                 ),
             )
         }
@@ -352,10 +359,12 @@ class RecommendationEngine @Inject constructor(
         perLiftIntercept: Double?,
         incrementTiers: List<IncrementTier>,
         loadType: LoadType,
+        micro: List<Weight> = emptyList(),
     ): Weight = sharedReduceWeightForLastSetFloor(
         startFrom = startFrom,
         incrementTiers = incrementTiers,
         loadType = loadType,
+        micro = micro,
         capacityAtRir = { amountLb ->
             capacityAtRir(
                 e1rm = e1rm,
