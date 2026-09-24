@@ -66,6 +66,7 @@ class SyncEntityEncoders @Inject constructor() {
         mapOf(
             "name" to e.name,
             "is_custom" to e.isCustom,
+            "micro_options" to microWireList(e.microOptionsJson),
         )
 
     fun lift(e: LiftEntity): Map<String, Any?> =
@@ -86,6 +87,7 @@ class SyncEntityEncoders @Inject constructor() {
             "load_type" to e.loadType.name,
             "default_rest_seconds" to e.defaultRestSeconds,
             "pinned_note" to e.pinnedNote.orEmpty(),
+            "micro_options" to microWireList(e.microOptionsJson),
         )
 
     fun incrementTier(e: IncrementTierEntity): Map<String, Any?> =

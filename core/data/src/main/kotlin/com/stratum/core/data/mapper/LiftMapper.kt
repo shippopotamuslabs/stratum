@@ -208,9 +208,12 @@ private val DEFAULT_LIFT_UNIT = Weight.WeightUnit.Lb
 
 private val MICRO_JSON = Json { ignoreUnknownKeys = true }
 
-/** Parses an adder-stop payload; null on corrupt input so callers can fail open. */
-private fun String.parseMicroAmounts(): List<Double>? =
-    runCatching { MICRO_JSON.decodeFromString(ListSerializer(Double.serializer()), this) }
+/**
+ * Parses an adder-stop JSON payload (`micro_options_json` grammar, owned here);
+ * null on corrupt input so callers can fail open. `"[]"` parses to empty.
+ */
+internal fun String.parseMicroJson(): List<Double>? =
+    runCatching { MICRO_JSON.decodeFromString(ListSerializer(Double.serializer()), this.trim()) }
         .getOrNull()
 
 /**
@@ -219,14 +222,23 @@ private fun String.parseMicroAmounts(): List<Double>? =
  * and forward-skewed payloads never break catalog reads.
  */
 private fun String?.toMicroIncrements(): List<Weight> =
-    this?.parseMicroAmounts()?.map { Weight(it, DEFAULT_LIFT_UNIT) }.orEmpty()
+    this?.parseMicroJson()?.map { Weight(it, DEFAULT_LIFT_UNIT) }.orEmpty()
 
 /**
  * Parses a lift-scoped micro override column: null column (pre-v7 rows) and corrupt
  * payloads decode to null (inherit equipment stops); `"[]"` decodes to explicit empty.
  */
 private fun String?.toMicroOverride(): List<Weight>? =
-    this?.parseMicroAmounts()?.map { Weight(it, DEFAULT_LIFT_UNIT) }
+    this?.parseMicroJson()?.map { Weight(it, DEFAULT_LIFT_UNIT) }
+
+/**
+ * Encodes raw storage-lb doubles as the canonical `micro_options_json` array grammar.
+ * Plain-doubles entry point so callers without domain weights (seed, sync) share the
+ * one grammar instead of hand-rolling brackets. No empty handling here — callers own
+ * their null-vs-empty contract explicitly.
+ */
+internal fun List<Double>.toMicroJsonArray(): String =
+    MICRO_JSON.encodeToString(ListSerializer(Double.serializer()), this)
 
 /**
  * Encodes adder stops as a JSON array of storage-lb doubles. Empty encodes to null
@@ -235,10 +247,8 @@ private fun String?.toMicroOverride(): List<Weight>? =
  */
 internal fun List<Weight>.toMicroJsonOrNull(): String? {
     if (isEmpty()) return null
-    return MICRO_JSON.encodeToString(
-        ListSerializer(Double.serializer()),
-        map { WeightConversion.convertAmount(it.amount, it.unit, Weight.WeightUnit.Lb) },
-    )
+    return map { WeightConversion.convertAmount(it.amount, it.unit, Weight.WeightUnit.Lb) }
+        .toMicroJsonArray()
 }
 
 /**
@@ -247,10 +257,8 @@ internal fun List<Weight>.toMicroJsonOrNull(): String? {
  * Internal so repositories can write the column (null = clear) directly.
  */
 internal fun List<Weight>.toMicroJson(): String =
-    MICRO_JSON.encodeToString(
-        ListSerializer(Double.serializer()),
-        map { WeightConversion.convertAmount(it.amount, it.unit, Weight.WeightUnit.Lb) },
-    )
+    map { WeightConversion.convertAmount(it.amount, it.unit, Weight.WeightUnit.Lb) }
+        .toMicroJsonArray()
 
 private val DEFAULT_FALLBACK_TIERS: List<IncrementTier> =
     LiftCatalogSeeder.DEFAULT_TIERS.map { t ->

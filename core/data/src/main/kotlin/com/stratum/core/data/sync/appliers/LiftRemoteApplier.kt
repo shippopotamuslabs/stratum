@@ -6,6 +6,8 @@ import com.stratum.core.data.sync.FirestoreSyncMetadata
 import com.stratum.core.data.sync.SyncFlags
 import com.stratum.core.data.sync.codecs.SyncEntityDecoders
 import com.stratum.core.data.sync.codecs.SyncEntityEncoders
+import com.stratum.core.data.sync.codecs.liftMicroJsonFromWire
+import com.stratum.core.data.sync.codecs.microWireList
 import com.stratum.domain.lift.identity.LiftId
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -33,6 +35,7 @@ class LiftRemoteApplier @Inject constructor(
                 "default_rest_seconds" to entity.defaultRestSeconds,
                 "equipment_id" to entity.equipmentId?.value,
                 "pinned_note" to entity.pinnedNote.orEmpty(),
+                "micro_options" to microWireList(entity.microOptionsJson),
             )
         }
 
@@ -64,6 +67,17 @@ class LiftRemoteApplier @Inject constructor(
         data class CatalogSeed(val entity: LiftEntity) : LocalLiftState()
         data class Custom(val entity: LiftEntity) : LocalLiftState()
     }
+
+    /**
+     * Nullable overlay-field merge: a present key applies (even when its value decodes
+     * to null, which clears), an absent key preserves the local value.
+     */
+    private fun <T> overlayValue(
+        data: Map<String, Any?>,
+        key: String,
+        existing: T,
+        decode: (Any?) -> T,
+    ): T = if (data.containsKey(key)) decode(data[key]) else existing
 
     private fun classifyRemote(data: Map<String, Any?>): RemoteLiftShape? {
         if (data["catalog_overlay"] as? Boolean == true) return RemoteLiftShape.Overlay
@@ -105,16 +119,21 @@ class LiftRemoteApplier @Inject constructor(
                 existing.equipmentId
             }
         val pinnedNote =
-            if (data.containsKey("pinned_note")) {
-                com.stratum.domain.lift.sanitizeLiftNoteBody(data["pinned_note"] as? String)
-            } else {
-                existing.pinnedNote
+            overlayValue(data, "pinned_note", existing.pinnedNote) {
+                com.stratum.domain.lift.sanitizeLiftNoteBody(it as? String)
+            }
+        // Micro override merges like the pin: present applies (null clears to inherit),
+        // absent preserves the local override.
+        val microOptionsJson =
+            overlayValue(data, "micro_options", existing.microOptionsJson) {
+                liftMicroJsonFromWire(it)
             }
         return existing.copy(
             enabled = enabled,
             defaultRestSeconds = rest,
             equipmentId = equipmentId,
             pinnedNote = pinnedNote,
+            microOptionsJson = microOptionsJson,
             updatedAtEpochMillis =
                 (data[FirestoreSyncMetadata.UPDATED_AT] as? Number)?.toLong()
                     ?: existing.updatedAtEpochMillis,

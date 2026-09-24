@@ -5,6 +5,7 @@ import com.stratum.core.data.db.EquipmentDao
 import com.stratum.core.data.db.EquipmentEntity
 import com.stratum.core.data.db.IncrementTierDao
 import com.stratum.core.data.db.IncrementTierEntity
+import com.stratum.core.data.mapper.toMicroJsonArray
 import com.stratum.core.data.sync.SyncFlags
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.IncrementTierId
@@ -36,6 +37,13 @@ class EquipmentCatalogSeeder(
                     id = id,
                     name = dto.name,
                     isCustom = false,
+                    // Seed stops are storage-lb doubles by DTO contract; knob-off 0 is
+                    // always admitted downstream, so zero stops are noise — drop them
+                    // and encode the rest with the canonical doubles grammar.
+                    microOptionsJson = dto.microIncrements
+                        .filter { it != 0.0 }
+                        .takeIf { it.isNotEmpty() }
+                        ?.toMicroJsonArray(),
                     updatedAtEpochMillis = 0L,
                     pendingSync = SyncFlags.CLEAN,
                 ),
