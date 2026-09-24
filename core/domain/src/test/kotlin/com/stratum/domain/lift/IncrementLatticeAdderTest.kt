@@ -2,6 +2,7 @@ package com.stratum.domain.lift
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -111,6 +112,28 @@ class IncrementLatticeAdderTest {
 
         assertTrue(pinTiers.isOnLattice(weight, LoadType.Bodyweight, micro = pinMicro))
         assertEquals(0.0, pinTiers.residual(weight, LoadType.Bodyweight, pinMicro), 0.0)
+    }
+
+    @Test
+    @DisplayName("Given mixed-unit micro stops when rounded then fails fast")
+    fun mixedUnitMicroFailsFast() {
+        val micro = listOf(Weight(5.0, Weight.WeightUnit.Kg))
+
+        assertThrows(IllegalArgumentException::class.java) {
+            pinTiers.roundToIncrement(Weight(65.0, lb), micro = micro)
+        }
+    }
+
+    @Test
+    @DisplayName("Given duplicate micro stops when rounded then adder-exact still holds")
+    fun duplicateStopsNormalized() {
+        val duplicated = listOf(Weight(5.0, lb), Weight(5.0, lb), Weight(10.0, lb))
+
+        assertEquals(
+            Weight(65.0, lb),
+            pinTiers.roundToIncrement(Weight(65.0, lb), micro = duplicated),
+        )
+        assertTrue(pinTiers.isOnLattice(Weight(65.0, lb), micro = duplicated))
     }
 
     @Test
