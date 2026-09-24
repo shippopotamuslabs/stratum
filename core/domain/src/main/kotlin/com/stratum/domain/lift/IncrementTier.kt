@@ -39,61 +39,90 @@ data class IncrementTier(
  * (e.g. 0–40 @ 2.5, 40–100 @ 5) match zero-anchored multiples; **shifted** open bands do
  * not — e.g. `[2.5, ∞) @ 5` yields `2.5, 7.5, 12.5…`, not `0, 5, 10…`.
  *
- * With [microAmounts], each legal load additionally admits `base + a` for every stop `a`
+ * With [micro], each legal load additionally admits `base + a` for every stop `a`
  * (knob-off `0` is always admitted). Minimizing over a fixed stop is equivalent to rounding
  * the shifted amount, so each stop rounds independently and the nearest candidate wins.
  *
  * Nearest-point ties break half-away-from-zero (prefer the larger magnitude). Empty tiers
  * are a passthrough. Sign is preserved so assisted negatives round in magnitude space.
- * Micro stops must share the tiers' unit (enforced upstream by validation).
+ * Micro stops must share the tiers' unit ([ValidateMicroIncrementsUseCase] enforces this
+ * at the write boundary; [microStopAmounts] re-checks at the rounding boundary).
  */
 private fun List<IncrementTier>.roundMagnitude(
     amount: Double,
-    microAmounts: List<Double> = emptyList(),
+    micro: List<Weight> = emptyList(),
 ): Double {
     if (isEmpty()) return amount
     if (amount == 0.0) return 0.0
     val sign = if (amount < 0.0) -1.0 else 1.0
-    return sign * nearestPointWithMicro(abs(amount), microAmounts)
+    return sign * nearestPointWithMicro(abs(amount), microStopAmounts(micro))
+}
+
+/**
+ * Micro stop amounts in the tiers' unit with knob-off `0` first, distinct and
+ * order-preserving. Empty [micro] yields an empty list (plain major-lattice path).
+ * Single mapping point for `Weight` → raw amounts, so callers never strip units
+ * themselves. Mixed-unit stops fail fast instead of silently skewing rounding.
+ */
+private fun List<IncrementTier>.microStopAmounts(micro: List<Weight>): List<Double> {
+    if (micro.isEmpty()) return emptyList()
+    if (isEmpty()) return micro.map { it.amount }
+    val unit = first().lowerBound.unit
+    micro.forEach {
+        require(it.unit == unit) {
+            "Micro stop unit ${it.unit} must match tiers unit $unit"
+        }
+    }
+    return (listOf(0.0) + micro.map { it.amount }).distinct()
+}
+
+/**
+ * Tracks the nearest candidate, breaking distance ties half-away-from-zero (larger
+ * magnitude wins). Single owner of the epsilon tie policy shared by
+ * [nearestLatticePoint] and [nearestPointWithMicro].
+ */
+private class NearestTracker {
+    var best: Double? = null
+        private set
+    private var bestDist: Double = Double.POSITIVE_INFINITY
+
+    fun offer(candidate: Double, dist: Double) {
+        val current = best
+        if (current == null || dist < bestDist - LATTICE_BOUND_EPS) {
+            best = candidate
+            bestDist = dist
+        } else if (abs(dist - bestDist) <= LATTICE_BOUND_EPS && candidate > current) {
+            // Tie → half-away-from-zero (larger magnitude).
+            best = candidate
+            bestDist = dist
+        }
+    }
 }
 
 /**
  * Nearest non-negative lattice point, optionally admitting micro-shifted points
- * (`base + a` per stop `a`, plus knob-off `0`). Empty [microAmounts] is the plain
- * [nearestLatticePoint] path.
+ * (`base + a` per normalized stop `a`, knob-off included). Empty [microAmounts] is
+ * the plain [nearestLatticePoint] path.
  */
 private fun List<IncrementTier>.nearestPointWithMicro(
     magnitude: Double,
     microAmounts: List<Double>,
 ): Double {
     if (microAmounts.isEmpty()) return nearestLatticePoint(magnitude)
-    var best: Double? = null
-    var bestDist = Double.POSITIVE_INFINITY
-    for (offset in (listOf(0.0) + microAmounts).distinct()) {
+    val tracker = NearestTracker()
+    for (offset in microAmounts) {
         // Fixed-stop minimization: |m − (base + a)| = |(m − a) − base|.
         val candidate = nearestLatticePoint(magnitude - offset) + offset
-        val dist = abs(magnitude - candidate)
-        when {
-            best == null || dist < bestDist - LATTICE_BOUND_EPS -> {
-                best = candidate
-                bestDist = dist
-            }
-            abs(dist - bestDist) <= LATTICE_BOUND_EPS && candidate > best -> {
-                // Tie → half-away-from-zero (larger magnitude).
-                best = candidate
-                bestDist = dist
-            }
-        }
+        tracker.offer(candidate, abs(magnitude - candidate))
     }
-    return best ?: nearestLatticePoint(magnitude)
+    return tracker.best ?: nearestLatticePoint(magnitude)
 }
 
 /**
  * Nearest non-negative lattice point under the full tier walk. See [roundMagnitude].
  */
 private fun List<IncrementTier>.nearestLatticePoint(amount: Double): Double {
-    var best: Double? = null
-    var bestDist = Double.POSITIVE_INFINITY
+    val tracker = NearestTracker()
 
     for (tier in this) {
         val lo = tier.lowerBound.amount
@@ -124,23 +153,13 @@ private fun List<IncrementTier>.nearestLatticePoint(amount: Double): Double {
                     (hi == null || candidate < hi - LATTICE_BOUND_EPS)
             if (!inBand) continue
 
-            val dist = abs(amount - candidate)
-            when {
-                best == null || dist < bestDist - LATTICE_BOUND_EPS -> {
-                    best = candidate
-                    bestDist = dist
-                }
-                abs(dist - bestDist) <= LATTICE_BOUND_EPS && candidate > best -> {
-                    // Tie → half-away-from-zero (larger magnitude).
-                    best = candidate
-                    bestDist = dist
-                }
-            }
+            tracker.offer(candidate, abs(amount - candidate))
         }
     }
 
     // No in-band candidate (should not happen for valid contiguous tiers from 0); fall back
     // to first-tier zero-anchored step so callers never get a NaN/null path.
+    val best = tracker.best
     if (best == null) {
         val step = first().increment.amount
         if (step <= 0.0) return amount
@@ -198,7 +217,7 @@ fun List<IncrementTier>.incrementFor(weight: Weight): Weight? {
 fun List<IncrementTier>.roundToIncrement(
     weight: Weight,
     micro: List<Weight> = emptyList(),
-): Weight = Weight(roundMagnitude(weight.amount, micro.map { it.amount }), weight.unit)
+): Weight = Weight(roundMagnitude(weight.amount, micro), weight.unit)
 
 /**
  * [LoadType]-aware tier rounding. For [LoadType.Assisted], the tier lookup uses
@@ -218,7 +237,7 @@ fun List<IncrementTier>.roundToIncrement(
         LoadType.Bodyweight -> weight
         LoadType.Weighted -> roundToIncrement(weight, micro)
         LoadType.Assisted -> {
-            val rounded = roundMagnitude(abs(weight.amount), micro.map { it.amount })
+            val rounded = roundMagnitude(abs(weight.amount), micro)
             // Preserve the original sign so -47.3 rounds to -45, not +45.
             val signedRounded = if (weight.amount < 0) -rounded else rounded
             Weight(signedRounded, weight.unit)
