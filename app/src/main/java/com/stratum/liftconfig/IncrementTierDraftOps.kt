@@ -6,7 +6,6 @@ import com.stratum.domain.lift.IncrementTiersValidationError
 import com.stratum.domain.lift.MicroIncrementsValidationError
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.WeightConversion
-import com.stratum.domain.lift.isOnLattice
 import com.stratum.domain.lift.shortLabel
 import com.stratum.domain.lift.warnedIndexesForSamples
 import com.stratum.feature.workout.ui.ProposalTierArgs
@@ -114,42 +113,34 @@ object IncrementTierDraftOps {
         if (samplesLb.isEmpty()) return emptySet()
         val tiers = toDomainOrNull(drafts, displayUnit) ?: return emptySet()
         val micro = microLb.map { Weight(it, Weight.WeightUnit.Lb) }
-        val signal =
-            samplesLb.filter { sample ->
-                !tiers.isOnLattice(Weight(sample, Weight.WeightUnit.Lb), micro = micro)
-            }
-        if (signal.isEmpty()) return emptySet()
-        return tiers.warnedIndexesForSamples(signal)
+        return tiers.warnedIndexesForSamples(samplesLb, micro)
     }
 
     /**
-     * Maps domain adder stops (storage pounds) into draft field strings in [displayUnit].
+     * Converts storage-Lb amounts to display-unit field strings. Shared scalar core
+     * for stop drafts (tier drafts keep their struct-shaped mapping in [toDraft]).
      */
-    fun toMicroDrafts(
-        stops: List<Weight>,
+    fun lbAmountsToDisplayStrings(
+        amounts: List<Double>,
         displayUnit: Weight.WeightUnit = Weight.WeightUnit.Lb,
     ): List<String> =
-        stops.map { stop ->
+        amounts.map { amount ->
             formatAmount(
-                WeightConversion.convertAmount(
-                    stop.amount,
-                    Weight.WeightUnit.Lb,
-                    displayUnit,
-                ),
+                WeightConversion.convertAmount(amount, Weight.WeightUnit.Lb, displayUnit),
             )
         }
 
     /**
-     * Parses stop drafts as [displayUnit] magnitudes and returns domain stops stamped as
-     * **Lb** for Room persistence (mirrors [toDomainOrNull]). Empty in → empty out.
-     * Null if any stop fails to parse.
+     * Parses display-unit magnitudes to domain stops stamped as **Lb** for Room
+     * persistence. Shared scalar core (tier drafts keep their struct-shaped parsing
+     * in [toDomainOrNull]). Empty in → empty out. Null if any value fails to parse.
      */
-    fun microToDomainOrNull(
-        stops: List<String>,
+    fun displayStringsToLbWeights(
+        drafts: List<String>,
         displayUnit: Weight.WeightUnit = Weight.WeightUnit.Lb,
     ): List<Weight>? {
-        val result = ArrayList<Weight>(stops.size)
-        for (draft in stops) {
+        val result = ArrayList<Weight>(drafts.size)
+        for (draft in drafts) {
             val display = draft.toDoubleOrNull() ?: return null
             result += Weight(
                 WeightConversion.convertAmount(display, displayUnit, Weight.WeightUnit.Lb),
@@ -159,23 +150,26 @@ object IncrementTierDraftOps {
         return result
     }
 
+    /**
+     * Maps domain adder stops (storage pounds) into draft field strings in [displayUnit].
+     */
+    fun toMicroDrafts(
+        stops: List<Weight>,
+        displayUnit: Weight.WeightUnit = Weight.WeightUnit.Lb,
+    ): List<String> = lbAmountsToDisplayStrings(stops.map { it.amount }, displayUnit)
+
+    /**
+     * Parses stop drafts as [displayUnit] magnitudes and returns domain stops stamped as
+     * **Lb** for Room persistence (mirrors [toDomainOrNull]). Empty in → empty out.
+     * Null if any stop fails to parse.
+     */
+    fun microToDomainOrNull(
+        stops: List<String>,
+        displayUnit: Weight.WeightUnit = Weight.WeightUnit.Lb,
+    ): List<Weight>? = displayStringsToLbWeights(stops, displayUnit)
+
     fun toMicroUserMessage(errors: Set<MicroIncrementsValidationError>): String =
-        errors.joinToString(separator = ". ") { error ->
-            when (error) {
-                MicroIncrementsValidationError.MixedUnits ->
-                    "Adder stops must use the same unit as the bands"
-                MicroIncrementsValidationError.NegativeStop ->
-                    "Adder stops cannot be negative"
-                MicroIncrementsValidationError.UnsortedOrDuplicate ->
-                    "Adder stops must be in order with no duplicates"
-                MicroIncrementsValidationError.MeaninglessZero ->
-                    "A lone 0 stop is meaningless — clear the stops for no adder"
-                MicroIncrementsValidationError.ExceedsLargestIncrement ->
-                    "Each adder stop must fit within the largest band step"
-                MicroIncrementsValidationError.MicroWithoutTiers ->
-                    "Adder stops need bands — add a tier first"
-            }
-        }
+        IncrementValidationMessages.join(errors.map(IncrementValidationMessages::microMessage))
 
     /**
      * Parses draft fields as [displayUnit] magnitudes and returns domain tiers stamped as **Lb**
@@ -195,22 +189,7 @@ object IncrementTierDraftOps {
     }
 
     fun toUserMessage(errors: Set<IncrementTiersValidationError>): String =
-        errors.joinToString(separator = ". ") { error ->
-            when (error) {
-                IncrementTiersValidationError.MixedUnits -> "All tiers must use the same unit"
-                IncrementTiersValidationError.NotContiguous ->
-                    "Bands must tile without gaps (each From equals previous To)"
-                IncrementTiersValidationError.ZeroWidthBand -> "Each band needs a positive width"
-                IncrementTiersValidationError.IntermediateTierMissingUpperBound ->
-                    "Only the last band can be open-ended"
-                IncrementTiersValidationError.FinalTierMustBeOpenEnded ->
-                    "The last band must be open-ended (and above)"
-                IncrementTiersValidationError.IncrementDecreased ->
-                    "Step size should not decrease as weight increases"
-                IncrementTiersValidationError.NegativeLowerBound ->
-                    "The first band cannot start below 0"
-            }
-        }
+        IncrementValidationMessages.join(errors.map(IncrementValidationMessages::tierMessage))
 
     /** Formats a split-point amount that was computed in display units. */
     fun formatDisplayAmount(amount: Double): String = formatAmount(amount)
@@ -250,4 +229,46 @@ object IncrementTierDraftOps {
             increment = Weight(toLb(incDisplay), storage),
         )
     }
+}
+
+/**
+ * Single home for increments-editor validation copy. Tier and micro error sets keep
+ * their own per-error sentences, but joining lives here so both pipelines read
+ * identically. (Plain strings: the state layer carries messages without a Context;
+ * resource migration belongs with the MR8/MR9 card wiring if localization lands.)
+ */
+object IncrementValidationMessages {
+    fun tierMessage(error: IncrementTiersValidationError): String =
+        when (error) {
+            IncrementTiersValidationError.MixedUnits -> "All tiers must use the same unit"
+            IncrementTiersValidationError.NotContiguous ->
+                "Bands must tile without gaps (each From equals previous To)"
+            IncrementTiersValidationError.ZeroWidthBand -> "Each band needs a positive width"
+            IncrementTiersValidationError.IntermediateTierMissingUpperBound ->
+                "Only the last band can be open-ended"
+            IncrementTiersValidationError.FinalTierMustBeOpenEnded ->
+                "The last band must be open-ended (and above)"
+            IncrementTiersValidationError.IncrementDecreased ->
+                "Step size should not decrease as weight increases"
+            IncrementTiersValidationError.NegativeLowerBound ->
+                "The first band cannot start below 0"
+        }
+
+    fun microMessage(error: MicroIncrementsValidationError): String =
+        when (error) {
+            MicroIncrementsValidationError.MixedUnits ->
+                "Adder stops must use the same unit as the bands"
+            MicroIncrementsValidationError.NegativeStop ->
+                "Adder stops cannot be negative"
+            MicroIncrementsValidationError.UnsortedOrDuplicate ->
+                "Adder stops must be in order with no duplicates"
+            MicroIncrementsValidationError.MeaninglessZero ->
+                "A lone 0 stop is meaningless — clear the stops for no adder"
+            MicroIncrementsValidationError.ExceedsLargestIncrement ->
+                "Each adder stop must fit within the largest band step"
+            MicroIncrementsValidationError.MicroWithoutTiers ->
+                "Adder stops need bands — add a tier first"
+        }
+
+    fun join(messages: List<String>): String = messages.joinToString(separator = ". ")
 }
