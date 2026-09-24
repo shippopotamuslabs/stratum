@@ -18,6 +18,13 @@ package com.stratum.domain.lift
  * Micro (adder) resolution is **independent** of the tier override: the knob is physical, so a
  * lift with band overrides still inherits the linked equipment's stops unless it carries an
  * explicit lift micro override (null = inherit, non-null including empty = lift-scoped value).
+ *
+ * Sentinel-note: tier and micro overrides intentionally use different sentinels. Tier
+ * overrides are a plain list where empty doubles as "cleared, re-inherit" (an empty tier
+ * list carries no information to preserve). Micro overrides need a tri-state —
+ * inherit vs explicitly-cleared vs explicit stops — so they are nullable: `null` inherits,
+ * `emptyList()` explicitly clears the adder, and a non-empty list is the lift-scoped value.
+ * Call sites must not conflate the two: empty tiers means inherit, empty micro means clear.
  */
 data class EffectiveIncrementTiers(
     val tiers: List<IncrementTier>,
@@ -36,31 +43,34 @@ fun resolveEffectiveIncrementTiers(
     liftMicroOverride: List<Weight>? = null,
     equipmentMicro: List<Weight> = emptyList(),
 ): EffectiveIncrementTiers {
-    val tiersResult =
-        if (liftOverrideTiers.isNotEmpty()) {
-            EffectiveIncrementTiers(
-                tiers = liftOverrideTiers,
-                usesEquipmentDefaultIncrements = false,
-                inheritsFromEquipmentLattice = false,
-            )
+    val resolvedTiers: List<IncrementTier>
+    val usesEquipmentDefaultIncrements: Boolean
+    val inheritsFromEquipmentLattice: Boolean
+    if (liftOverrideTiers.isNotEmpty()) {
+        resolvedTiers = liftOverrideTiers
+        usesEquipmentDefaultIncrements = false
+        inheritsFromEquipmentLattice = false
+    } else {
+        val fromEquipment = equipmentTiers.orEmpty()
+        if (fromEquipment.isNotEmpty()) {
+            resolvedTiers = fromEquipment
+            usesEquipmentDefaultIncrements = true
+            inheritsFromEquipmentLattice = true
         } else {
-            val fromEquipment = equipmentTiers.orEmpty()
-            if (fromEquipment.isNotEmpty()) {
-                EffectiveIncrementTiers(
-                    tiers = fromEquipment,
-                    usesEquipmentDefaultIncrements = true,
-                    inheritsFromEquipmentLattice = true,
-                )
-            } else {
-                EffectiveIncrementTiers(
-                    tiers = fallbackTiers,
-                    usesEquipmentDefaultIncrements = true,
-                    inheritsFromEquipmentLattice = false,
-                )
-            }
+            resolvedTiers = fallbackTiers
+            usesEquipmentDefaultIncrements = true
+            inheritsFromEquipmentLattice = false
         }
-    return tiersResult.copy(
-        microIncrements = liftMicroOverride ?: equipmentMicro,
-        usesEquipmentDefaultMicro = liftMicroOverride == null,
+    }
+
+    val resolvedMicro: List<Weight> = liftMicroOverride ?: equipmentMicro
+    val usesEquipmentDefaultMicro: Boolean = liftMicroOverride == null
+
+    return EffectiveIncrementTiers(
+        tiers = resolvedTiers,
+        usesEquipmentDefaultIncrements = usesEquipmentDefaultIncrements,
+        inheritsFromEquipmentLattice = inheritsFromEquipmentLattice,
+        microIncrements = resolvedMicro,
+        usesEquipmentDefaultMicro = usesEquipmentDefaultMicro,
     )
 }

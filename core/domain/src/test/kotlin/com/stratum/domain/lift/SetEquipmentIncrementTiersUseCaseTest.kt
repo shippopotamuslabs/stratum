@@ -17,7 +17,6 @@ class SetEquipmentIncrementTiersUseCaseTest {
         SetEquipmentIncrementTiersUseCase(
             repo,
             ValidateIncrementTiersUseCase(),
-            ValidateMicroIncrementsUseCase(),
             FakeLoggingPort(),
         )
 
@@ -33,32 +32,31 @@ class SetEquipmentIncrementTiersUseCaseTest {
         )
 
     @Test
-    @DisplayName("Given valid tiers and micro when invoked then tiers persist")
-    fun persistsValidTiersAndMicro() = runTest {
+    @DisplayName("Given valid tiers when invoked then tiers persist")
+    fun persistsValidTiers() = runTest {
         val repo = seed()
         val tiers = listOf(tier(0.0, null, 15.0))
 
-        val result = subject(repo)(equipmentId, tiers, listOf(stop(5.0), stop(10.0)))
+        val result = subject(repo)(equipmentId, tiers)
 
         assertTrue(result.isSuccess)
         assertEquals(tiers, repo.current.single().incrementTiers)
     }
 
     @Test
-    @DisplayName("Given invalid micro when invoked then repository is not written")
-    fun rejectsInvalidMicro() = runTest {
+    @DisplayName("Given invalid tiers when invoked then repository is not written")
+    fun rejectsInvalidTiers() = runTest {
         val repo = seed()
         val before = repo.current.single().incrementTiers
 
         val result =
             subject(repo)(
                 equipmentId,
-                listOf(tier(0.0, null, 15.0)),
-                listOf(stop(20.0)),
+                listOf(tier(0.0, 40.0, 5.0), tier(50.0, null, 10.0)), // gap
             )
 
         assertTrue(result.isFailure)
-        assertTrue(result.exceptionOrNull() is MicroIncrementsInvalidException)
+        assertTrue(result.exceptionOrNull() is IncrementTiersInvalidException)
         assertEquals(before, repo.current.single().incrementTiers)
     }
 
@@ -68,6 +66,4 @@ class SetEquipmentIncrementTiersUseCaseTest {
             upperBound = upper?.let { Weight(it, Weight.WeightUnit.Lb) },
             increment = Weight(inc, Weight.WeightUnit.Lb),
         )
-
-    private fun stop(amount: Double): Weight = Weight(amount, Weight.WeightUnit.Lb)
 }

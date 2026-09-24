@@ -70,7 +70,6 @@ class ForkEquipmentWithTiersUseCaseTest {
                     SetEquipmentIncrementTiersUseCase(
                         equipmentRepo,
                         ValidateIncrementTiersUseCase(),
-                        ValidateMicroIncrementsUseCase(),
                         FakeLoggingPort(),
                     ),
                 setLiftEquipment = SetLiftEquipmentUseCase(liftRepo, FakeLoggingPort()),

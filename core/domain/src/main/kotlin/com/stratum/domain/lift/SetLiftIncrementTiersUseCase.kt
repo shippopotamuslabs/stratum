@@ -10,30 +10,25 @@ import javax.inject.Inject
  * lift-config Increments screen. Empty tiers are allowed (Valid) and clear the lift-scoped
  * override so the lift re-inherits equipment defaults (or global fallback).
  *
- * @param micro lift-scoped adder override validated against [tiers]; micro persistence
- * lands with the Room v7 columns — until then this validates the draft so no invalid
- * stops can flow into the editors.
+ * Micro-adjust (adder) stops are validated separately via [ValidateMicroIncrementsUseCase]
+ * for editor drafts; micro persistence lands with the Room v7 columns and is added here
+ * atomically at that point (not as a validated-but-discarded parameter). Validating micro
+ * against the override list alone would then also be wrong: an empty override re-inherits
+ * equipment tiers, so lift micro must be checked against the *effective* tiers.
  */
 class SetLiftIncrementTiersUseCase @Inject constructor(
     private val repository: LiftRepository,
     private val validate: ValidateIncrementTiersUseCase,
-    private val validateMicro: ValidateMicroIncrementsUseCase,
     private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(
         id: LiftId,
         tiers: List<IncrementTier>,
-        micro: List<Weight> = emptyList(),
     ): Result<Unit> {
         when (val result = validate(tiers)) {
             is IncrementTiersValidationResult.Invalid ->
                 return Result.failure(IncrementTiersInvalidException(result.errors))
             IncrementTiersValidationResult.Valid -> Unit
-        }
-        when (val result = validateMicro(tiers, micro)) {
-            is MicroIncrementsValidationResult.Invalid ->
-                return Result.failure(MicroIncrementsInvalidException(result.errors))
-            MicroIncrementsValidationResult.Valid -> Unit
         }
         return runCatchingLogged(loggingPort, TAG, "Failed to set increment tiers") {
             repository.setIncrementTiers(id, tiers)
