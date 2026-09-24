@@ -90,6 +90,7 @@ class EquipmentIncrementsViewModelTest {
                         FakeLoggingPort(),
                     ),
                 validateIncrementTiers = ValidateIncrementTiersUseCase(),
+                validateMicroIncrements = ValidateMicroIncrementsUseCase(),
                 forkEquipmentWithTiers =
                     ForkEquipmentWithTiersUseCase(
                         ForkEquipmentUseCase(
@@ -408,6 +409,92 @@ class EquipmentIncrementsViewModelTest {
             assertTrue(state.warnedTierIndexes.isEmpty())
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    @Test
+    @DisplayName("Given equipment with stops when initialized then micro drafts seed")
+    fun microStopsSeedFromEquipment() = runTest {
+        seedPin()
+        subject.initialize(pinId.value)
+        advanceUntilIdle()
+
+        subject.uiState.test {
+            val state = awaitItemWith { it.equipmentName == "Pin" && it.microStops.isNotEmpty() }
+            assertEquals(listOf("5", "10"), state.microStops)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Given edited stops when saved then the equipment carries them")
+    fun editedMicroSavesToEquipment() = runTest {
+        seedPin()
+        subject.initialize(pinId.value)
+        subject.uiState.test {
+            awaitItemWith { it.equipmentName == "Pin" && it.microStops.isNotEmpty() }
+            subject.onMicroChanged(0, "7.5")
+            subject.onRemoveMicro(1)
+            subject.save()
+            assertTrue(awaitItemWith { it.saveSucceeded }.saveSucceeded)
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        assertEquals(
+            listOf(7.5),
+            fakeEquipmentRepository.current.single().microIncrements.map { it.amount },
+        )
+    }
+
+    @Test
+    @DisplayName("Given a stop above the largest band when saved then save blocks with a message")
+    fun invalidMicroBlocksSave() = runTest {
+        seedPin()
+        subject.initialize(pinId.value)
+        subject.uiState.test {
+            awaitItemWith { it.equipmentName == "Pin" && it.microStops.isNotEmpty() }
+            subject.onMicroChanged(0, "20")
+            subject.save()
+            val state = awaitItemWith { it.validationMessage != null }
+            assertTrue(state.validationMessage!!.contains("largest band step"))
+            assertFalse(state.saveSucceeded)
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        assertEquals(
+            listOf(5.0, 10.0),
+            fakeEquipmentRepository.current.single().microIncrements.map { it.amount },
+        )
+    }
+
+    @Test
+    @DisplayName("Given equipment without stops when saved then it stays adder-free")
+    fun emptyMicroSavesAsNoAdder() = runTest {
+        subject.initialize(cableId.value)
+        subject.uiState.test {
+            awaitItemWith { it.equipmentName == "Cables" && it.tiers.isNotEmpty() }
+            subject.save()
+            assertTrue(awaitItemWith { it.saveSucceeded }.saveSucceeded)
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        assertTrue(fakeEquipmentRepository.current.single().microIncrements.isEmpty())
+    }
+
+    private val pinId = EquipmentId("pin-loaded-machine")
+
+    private fun seedPin() {
+        fakeEquipmentRepository.seed(
+            listOf(
+                Equipment(
+                    id = pinId,
+                    name = "Pin",
+                    incrementTiers =
+                        listOf(IncrementTier(Weight(0.0, lb), null, Weight(15.0, lb))),
+                    isCustom = true,
+                    microIncrements = listOf(Weight(5.0, lb), Weight(10.0, lb)),
+                ),
+            ),
+        )
     }
 
     private suspend fun app.cash.turbine.ReceiveTurbine<EquipmentIncrementsUiState>.awaitItemWith(
