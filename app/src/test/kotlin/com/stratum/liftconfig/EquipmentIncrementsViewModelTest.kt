@@ -96,6 +96,7 @@ class EquipmentIncrementsViewModelTest {
                         ForkEquipmentUseCase(
                             fakeEquipmentRepository,
                             ValidateIncrementTiersUseCase(),
+                            ValidateMicroIncrementsUseCase(),
                             FakeLoggingPort(),
                         ),
                         SetEquipmentIncrementTiersUseCase(
@@ -105,6 +106,7 @@ class EquipmentIncrementsViewModelTest {
                             FakeLoggingPort(),
                         ),
                         SetLiftEquipmentUseCase(fakeLiftRepository, FakeLoggingPort()),
+                        fakeEquipmentRepository,
                     ),
                 setLiftEquipment = SetLiftEquipmentUseCase(fakeLiftRepository, FakeLoggingPort()),
                 dismissEquipmentProposal =

@@ -53,13 +53,18 @@ class FakeEquipmentRepository(
     override suspend fun getEquipment(id: EquipmentId): Equipment? =
         rows.value.firstOrNull { it.id == id }
 
-    override suspend fun addCustomEquipment(name: String, tiers: List<IncrementTier>): EquipmentId {
+    override suspend fun addCustomEquipment(
+        name: String,
+        tiers: List<IncrementTier>,
+        micro: List<Weight>,
+    ): EquipmentId {
         throwIfFailNextWrite()
         val id = EquipmentId(UUID.randomUUID().toString())
         val resolvedTiers = tiers.ifEmpty { defaultSingleTiers() }
         rows.value = rows.value + Equipment(
             id = id,
             name = name,
+            microIncrements = micro,
             incrementTiers = resolvedTiers,
             isCustom = true,
         )

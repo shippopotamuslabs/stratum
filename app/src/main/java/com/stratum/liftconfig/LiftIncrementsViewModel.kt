@@ -2,13 +2,16 @@ package com.stratum.liftconfig
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.IncrementTiersValidationResult
 import com.stratum.domain.lift.Lift
+import com.stratum.domain.lift.MicroIncrementsValidationResult
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
 import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.SetLiftIncrementTiersUseCase
 import com.stratum.domain.lift.SetLiftMicroOverrideUseCase
 import com.stratum.domain.lift.ValidateIncrementTiersUseCase
+import com.stratum.domain.lift.ValidateMicroIncrementsUseCase
 import com.stratum.domain.lift.DismissEquipmentProposalUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
@@ -68,12 +71,19 @@ class LiftIncrementsViewModel @Inject constructor(
     private val setLiftIncrementTiers: SetLiftIncrementTiersUseCase,
     private val setLiftMicroOverride: SetLiftMicroOverrideUseCase,
     private val validateIncrementTiers: ValidateIncrementTiersUseCase,
+    private val validateMicroIncrements: ValidateMicroIncrementsUseCase,
     private val dismissEquipmentProposal: DismissEquipmentProposalUseCase,
     observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
 ) : ViewModel() {
 
     private val liftId = MutableStateFlow<String?>(null)
     private val draftTiers = MutableStateFlow<List<IncrementTierDraft>?>(null)
+    /**
+     * Null seeds from the lift's effective stops on next build (see [buildState]) and
+     * doubles as the touched flag: saves leave the micro column alone until the user
+     * edits stops, so band-only saves never silently convert inherit to explicit.
+     */
+    private val draftMicro = MutableStateFlow<List<String>?>(null)
     /** Shared proposal-prefill session (prefill bands, sample warnings, dismiss-on-save). */
     private val proposalSession = ProposalEditorSession()
     private val isSaving = MutableStateFlow(false)
@@ -83,6 +93,7 @@ class LiftIncrementsViewModel @Inject constructor(
 
     private data class DraftFlags(
         val draft: List<IncrementTierDraft>?,
+        val microDraft: List<String>?,
         val proposalInput: ProposalInput?,
         val saving: Boolean,
         val saved: Boolean,
@@ -93,8 +104,9 @@ class LiftIncrementsViewModel @Inject constructor(
         viewModelScope.launch {
             observeWeightDisplayPreferences().collect { prefs ->
                 if (displayUnit.value != prefs.displayUnit) {
-                    // Unit flip: drop dirty draft so bands re-seed converted from storage.
+                    // Unit flip: drop dirty drafts so bands and stops re-seed converted.
                     draftTiers.value = null
+                    draftMicro.value = null
                     displayUnit.value = prefs.displayUnit
                 }
             }
@@ -107,13 +119,20 @@ class LiftIncrementsViewModel @Inject constructor(
             observeLiftCatalog(),
             displayUnit,
             combine(
-                draftTiers,
+                combine(draftTiers, draftMicro) { tiers, micro -> tiers to micro },
                 proposalSession.input,
                 isSaving,
                 saveSucceeded,
                 validationOverride,
-            ) { draft, input, saving, saved, validation ->
-                DraftFlags(draft, input, saving, saved, validation)
+            ) { draftsPair, input, saving, saved, validation ->
+                DraftFlags(
+                    draftsPair.first,
+                    draftsPair.second,
+                    input,
+                    saving,
+                    saved,
+                    validation,
+                )
             },
         ) { id, catalog, unit, flags ->
             buildState(id, catalog, unit, flags)
@@ -132,8 +151,30 @@ class LiftIncrementsViewModel @Inject constructor(
         if (liftId.value == id && !inputChanged) return
         liftId.value = id
         draftTiers.value = null
+        draftMicro.value = null
         saveSucceeded.value = false
         validationOverride.value = null
+    }
+
+    fun onMicroChanged(index: Int, value: String) {
+        updateMicroDraft { stops ->
+            stops.mapIndexed { i, stop ->
+                if (i == index) IncrementTierDraftOps.filterNumeric(value) else stop
+            }
+        }
+    }
+
+    fun onAddMicro() {
+        val unit = displayUnit.value
+        updateMicroDraft { stops ->
+            stops + IncrementTierDraftOps.defaultDraft(unit).increment
+        }
+    }
+
+    fun onRemoveMicro(index: Int) {
+        updateMicroDraft { stops ->
+            if (index !in stops.indices) stops else stops.toMutableList().also { it.removeAt(index) }
+        }
     }
 
     fun onTierLowerChanged(index: Int, value: String) {
@@ -245,9 +286,17 @@ class LiftIncrementsViewModel @Inject constructor(
             }
             IncrementTiersValidationResult.Valid -> Unit
         }
+        // Untouched stops leave the micro column alone; edited stops replace the
+        // override (empty = explicitly no adder).
+        val domainMicro =
+            if (draftMicro.value == null) {
+                null
+            } else {
+                validatedDraftMicro(domainTiers, unit) ?: return
+            }
         viewModelScope.launch {
             isSaving.value = true
-            val result = setLiftIncrementTiers(LiftId(id), domainTiers)
+            val result = setLiftIncrementTiers(LiftId(id), domainTiers, domainMicro)
             isSaving.value = false
             if (result.isSuccess) {
                 // A proposal-launched save resolves the proposal even when the hand-set
@@ -260,6 +309,26 @@ class LiftIncrementsViewModel @Inject constructor(
                     ?: "Could not save increments"
             }
         }
+    }
+
+    private fun validatedDraftMicro(
+        domainTiers: List<IncrementTier>,
+        unit: Weight.WeightUnit,
+    ): List<Weight>? {
+        val micro =
+            IncrementTierDraftOps.microToDomainOrNull(uiState.value.microStops, unit)
+        if (micro == null) {
+            validationOverride.value = "Enter valid numbers for adder stops"
+            return null
+        }
+        when (val result = validateMicroIncrements(domainTiers, micro)) {
+            is MicroIncrementsValidationResult.Invalid -> {
+                validationOverride.value = IncrementTierDraftOps.toMicroUserMessage(result.errors)
+                return null
+            }
+            MicroIncrementsValidationResult.Valid -> Unit
+        }
+        return micro
     }
 
     private fun buildState(
@@ -276,11 +345,24 @@ class LiftIncrementsViewModel @Inject constructor(
                     .takeIf { it.isNotEmpty() }
                 ?: lift?.incrementTiers?.map { IncrementTierDraftOps.toDraft(it, unit) }
                 ?: listOf(IncrementTierDraftOps.defaultDraft(unit))
+        // Micro seeds from the lift's effective stops (equipment-inherited until the
+        // lift carries an override), so an override starts with the machine's knob.
+        val microStops =
+            flags.microDraft
+                ?: lift?.microIncrements?.let {
+                    IncrementTierDraftOps.toMicroDrafts(it, unit)
+                }
+                ?: emptyList()
+        val microLb =
+            IncrementTierDraftOps.microToDomainOrNull(microStops, unit)
+                ?.map { it.amount }
+                .orEmpty()
         val warnedTierIndexes =
             IncrementTierDraftOps.warnedIndexesForSamples(
                 drafts = tiers,
                 displayUnit = unit,
                 samplesLb = flags.proposalInput?.context?.samplesLb.orEmpty(),
+                microLb = microLb,
             )
         val inheriting = lift?.usesEquipmentDefaultIncrements == true && flags.draft == null
         val inheritanceBanner =
@@ -300,12 +382,16 @@ class LiftIncrementsViewModel @Inject constructor(
             liftId = id.orEmpty(),
             liftName = lift?.name.orEmpty(),
             tiers = tiers,
-            validationMessage = flags.validation ?: liveValidationMessage(tiers, unit),
+            microStops = microStops,
+            showMicroCard = true,
+            validationMessage = flags.validation ?: liveValidationMessage(tiers, microStops, unit),
             warnedTierIndexes = warnedTierIndexes,
             isSaving = flags.saving,
             saveSucceeded = flags.saved,
             inheritanceBanner = inheritanceBanner,
-            showResetToEquipment = lift != null && !lift.usesEquipmentDefaultIncrements,
+            showResetToEquipment =
+                lift != null &&
+                (!lift.usesEquipmentDefaultIncrements || !lift.usesEquipmentDefaultMicro),
             unitLabel = unit.shortLabel(),
         )
     }
@@ -314,19 +400,13 @@ class LiftIncrementsViewModel @Inject constructor(
         val id = liftId.value ?: return
         viewModelScope.launch {
             isSaving.value = true
-            // Clear the knob override first: a bands failure then leaves prior
-            // state fully intact, and a retry converges (bands-only retries would
-            // strand a stale knob). Null micro re-inherits the equipment stops.
-            val microResult = setLiftMicroOverride(LiftId(id), emptyList(), null)
-            val result =
-                if (microResult.isSuccess) {
-                    setLiftIncrementTiers(LiftId(id), emptyList())
-                } else {
-                    microResult
-                }
+            // One atomic write: bands and knob clear together, so a failure cannot
+            // leave inherited bands with a stale micro override (half-reset).
+            val result = resetLiftIncrementsToEquipment(LiftId(id))
             isSaving.value = false
             if (result.isSuccess) {
                 draftTiers.value = null
+                draftMicro.value = MicroDraft.Untouched
                 saveSucceeded.value = true
                 validationOverride.value = null
             } else {
@@ -343,15 +423,30 @@ class LiftIncrementsViewModel @Inject constructor(
         saveSucceeded.value = false
     }
 
+    private fun updateMicroDraft(transform: (List<String>) -> List<String>) {
+        val current = uiState.value.microStops
+        draftMicro.value = transform(current)
+        validationOverride.value = null
+        saveSucceeded.value = false
+    }
+
     private fun liveValidationMessage(
         tiers: List<IncrementTierDraft>,
+        microStops: List<String>,
         unit: Weight.WeightUnit,
     ): String? {
         val domain = IncrementTierDraftOps.toDomainOrNull(tiers, unit) ?: return null
-        return when (val result = validateIncrementTiers(domain)) {
+        when (val result = validateIncrementTiers(domain)) {
             is IncrementTiersValidationResult.Invalid ->
-                IncrementTierDraftOps.toUserMessage(result.errors)
-            IncrementTiersValidationResult.Valid -> null
+                return IncrementTierDraftOps.toUserMessage(result.errors)
+            IncrementTiersValidationResult.Valid -> Unit
+        }
+        val micro =
+            IncrementTierDraftOps.microToDomainOrNull(microStops, unit) ?: return null
+        return when (val result = validateMicroIncrements(domain, micro)) {
+            is MicroIncrementsValidationResult.Invalid ->
+                IncrementTierDraftOps.toMicroUserMessage(result.errors)
+            MicroIncrementsValidationResult.Valid -> null
         }
     }
 }

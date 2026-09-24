@@ -50,6 +50,7 @@ class ForkEquipmentUseCaseTest {
             ForkEquipmentUseCase(
                 equipmentRepository = equipmentRepo,
                 validate = ValidateIncrementTiersUseCase(),
+                validateMicro = ValidateMicroIncrementsUseCase(),
                 loggingPort = FakeLoggingPort(),
             )
     }
@@ -100,6 +101,90 @@ class ForkEquipmentUseCaseTest {
     fun rejectsMissingParent() = runTest {
         val result = subject(EquipmentId("missing"), "Copy")
         assertTrue(result.isFailure)
+    }
+
+    @Test
+    @DisplayName("Given parent with stops when forked without micro then the copy inherits them")
+    fun forkInheritsParentMicro() = runTest {
+        val parentId = EquipmentId("pin-parent")
+        val stops = listOf(Weight(2.5, lb), Weight(5.0, lb))
+        equipmentRepo.seed(
+            equipmentRepo.current +
+                Equipment(
+                    id = parentId,
+                    name = "Pin parent",
+                    incrementTiers = multiTier,
+                    microIncrements = stops,
+                    isCustom = true,
+                ),
+        )
+
+        val result = subject(parentId, "Pin copy")
+
+        assertTrue(result.isSuccess)
+        assertEquals(stops, equipmentRepo.getEquipment(result.getOrThrow())?.microIncrements)
+        assertEquals(stops, equipmentRepo.getEquipment(parentId)?.microIncrements)
+    }
+
+    @Test
+    @DisplayName("Given parent with stops when forked with explicit micro then the copy carries it")
+    fun forkReplacesMicroWithExplicit() = runTest {
+        val parentId = EquipmentId("pin-parent")
+        equipmentRepo.seed(
+            equipmentRepo.current +
+                Equipment(
+                    id = parentId,
+                    name = "Pin parent",
+                    incrementTiers = multiTier,
+                    microIncrements = listOf(Weight(2.5, lb), Weight(5.0, lb)),
+                    isCustom = true,
+                ),
+        )
+
+        val result = subject(parentId, "Pin copy", micro = listOf(Weight(2.5, lb)))
+
+        assertTrue(result.isSuccess)
+        val forked = equipmentRepo.getEquipment(result.getOrThrow())!!
+        assertEquals(listOf(Weight(2.5, lb)), forked.microIncrements)
+        assertEquals(
+            listOf(Weight(2.5, lb), Weight(5.0, lb)),
+            equipmentRepo.getEquipment(parentId)?.microIncrements,
+        )
+    }
+
+    @Test
+    @DisplayName("Given parent with stops when forked with empty micro then the copy has no knob")
+    fun forkExplicitEmptyDropsKnob() = runTest {
+        val parentId = EquipmentId("pin-parent")
+        equipmentRepo.seed(
+            equipmentRepo.current +
+                Equipment(
+                    id = parentId,
+                    name = "Pin parent",
+                    incrementTiers = multiTier,
+                    microIncrements = listOf(Weight(2.5, lb)),
+                    isCustom = true,
+                ),
+        )
+
+        val result = subject(parentId, "Pin copy", micro = emptyList())
+
+        assertTrue(result.isSuccess)
+        assertEquals(emptyList<Weight>(), equipmentRepo.getEquipment(result.getOrThrow())?.microIncrements)
+        assertEquals(
+            listOf(Weight(2.5, lb)),
+            equipmentRepo.getEquipment(parentId)?.microIncrements,
+        )
+    }
+
+    @Test
+    @DisplayName("Given stop above the largest band when forked then failure and no write")
+    fun forkRejectsInvalidMicro() = runTest {
+        val before = equipmentRepo.current.size
+        val result = subject(cableId, "Cable copy", micro = listOf(Weight(20.0, lb)))
+
+        assertTrue(result.isFailure)
+        assertEquals(before, equipmentRepo.current.size)
     }
 
     @Test
