@@ -51,17 +51,18 @@ default:
   interruptible: true
 
 variables:
-  # Gradle/Android homes live OUTSIDE the project dir on purpose: every job's
-  # checkout runs `git clean -ffdx`, which used to nuke these mid-pipeline (and
-  # across concurrent jobs sharing one builds dir). Sibling of the checkout, so
-  # `git clean` never touches it yet it persists on the host between pipelines.
+  # Gradle home lives INSIDE the project dir so the `cache:` stanza on
+  # .android-job can capture it: gcp jobs run on fresh VMs (one job per
+  # worker), so dependency jars persist via the GCS cache, not a warm host
+  # dir. (The old out-of-tree ../ci-home location existed for the home-server
+  # shell executor, where `git clean -ffdx` would nuke an in-tree home and
+  # jobs shared one builds dir. The runner restores the cache after checkout,
+  # so git clean no longer threatens it. ANDROID_USER_HOME stays out-of-tree:
+  # nothing in it needs to survive a job.)
   # NOTE: no $HOME here (empty in the runner's non-login shell) and no `:-`
   # defaults (GitLab expansion doesn't support them) — only predefined
-  # variables. Shared across projects on this host by design (Gradle homes are
-  # safe to share). Set the host runner to concurrent = 3 (see
-  # ~/.gitlab-runner/config.toml on the home server — host-only, not in git):
-  # each slot gets its own ci-home sibling and warms up after one pipeline.
-  GRADLE_USER_HOME: "$CI_PROJECT_DIR/../ci-home/gradle-home"
+  # variables.
+  GRADLE_USER_HOME: "$CI_PROJECT_DIR/.ci-gradle-home"
   ANDROID_USER_HOME: "$CI_PROJECT_DIR/../ci-home/android-home"
   # Daemon stays enabled: the shell executor + persistent out-of-tree home above
   # reuses it across invocations, so the ~7 cold JVM+configuration startups per
@@ -86,10 +87,29 @@ stages:
 # Shared setup for every Android job: Firebase config + SDK licenses.
 .android-job:
   image: ghcr.io/cirruslabs/android-sdk:34
-  # All jobs run on the self-hosted home-server runner (temporary shell
-  # executor on the home server): zero CI-minute quota burn. The shell
-  # executor ignores `image:` and runs on the host toolchain.
-  tags: [home-server]
+  # All Android jobs run on the GCP docker-autoscaler fleet (tag gcp): one
+  # fresh n2-standard-8 Spot VM per job, deleted afterwards. `image:` IS
+  # honored here — the container's SDK is the build toolchain (the old
+  # home-server shell executor ignored it and used the host toolchain).
+  # The home runner keeps Forge review, functions-tests, and the deploy lane.
+  tags: [gcp]
+  # Spot VMs can be preempted mid-job: retry on infra failure.
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+  # GCS-backed dependency cache (bucket stratum-runner-cache-a1a5b): every
+  # job lands on a fresh VM, so without this each job would re-download all
+  # dependencies. Restored after checkout; only jars + wrapper dists are
+  # cached (the local build cache stays ephemeral to keep the archive small).
+  cache:
+    key:
+      files:
+        - gradle/libs.versions.toml
+      prefix: gradle-deps
+    paths:
+      - .ci-gradle-home/caches/modules-2/
+      - .ci-gradle-home/wrapper/
   before_script:
     - test -n "$GOOGLE_SERVICES_JSON" || (echo "Missing GOOGLE_SERVICES_JSON file variable — see header of .gitlab-ci.yml" && exit 1)
     - cp "$GOOGLE_SERVICES_JSON" app/google-services.json
@@ -101,6 +121,9 @@ stages:
     - command -v sdkmanager || (echo "sdkmanager not found under $ANDROID_HOME" && exit 1)
     # `yes` dies with SIGPIPE (141) once sdkmanager exits; tolerate only that.
     - yes | sdkmanager --licenses > /dev/null || [ $? -eq 141 ]
+    # The job image pins SDK 34 but the app compiles against 37: ensure the
+    # platform is present (idempotent — sdkmanager skips installed packages).
+    - sdkmanager "platforms;android-37" > /dev/null
   # No cache stanza here: GitLab cache paths must live inside the project dir,
   # but GRADLE_USER_HOME above is a persistent out-of-tree home by design.
   rules:
@@ -258,6 +281,19 @@ osv-scan-image:
   stage: lint
   allow_failure: true
   needs: []
+  before_script:
+    - !reference [.android-job, before_script]
+    # The job image carries no Docker CLI; the runner mounts the host daemon
+    # socket, so install the static client (matches the host daemon version)
+    # and build/inspect against the host daemon.
+    - |
+      if ! command -v docker >/dev/null 2>&1; then
+        echo "Installing static Docker CLI"
+        curl -fsSL --retry 3 "https://download.docker.com/linux/static/stable/x86_64/docker-29.8.1.tgz" -o /tmp/docker.tgz
+        tar -xzf /tmp/docker.tgz -C /tmp docker/docker
+        install -m 0755 /tmp/docker/docker /usr/local/bin/docker
+      fi
+    - docker info
   # Docker image build + scan only matters when the solver image inputs change;
   # main still always runs. (Keeps allow_failure: true per the rollout note.)
   rules:
@@ -278,8 +314,19 @@ osv-scan-image:
     # Exit code 1 = CVEs found, matching the osv-scan failure policy.
     - OSV_SCANNER_BIN="$CI_PROJECT_DIR/.tmp/osv-scanner" ./scripts/scan-solver-image.sh stratum-solver:ci
 
-# Device tests on shared runners: no KVM, so the emulator runs unaccelerated and
-# slow. Nightly + allow_failure until green, then decide about per-MR.
+# KVM smoke test: proves /dev/kvm reaches the job container on a fresh Spot
+# worker (nested virtualization + device passthrough). Cheap lint-stage gate
+# before the nightly emulator job burns hours on a broken hypervisor path.
+kvm-smoke:
+  extends: .android-job
+  stage: lint
+  script:
+    - test -c /dev/kvm || (echo "KVM device missing in job container"; ls -la /dev/kvm* 2>/dev/null || true; exit 1)
+    - echo "KVM present:"; ls -la /dev/kvm
+
+# Emulator tests on the gcp fleet: workers expose /dev/kvm (nested virt), so
+# the emulator runs accelerated instead of slow unaccelerated.
+# Nightly + allow_failure until green, then decide about per-MR.
 # Covers AppLaunchTest (:app) and LiftDaoDeviceTest (:core:data) on real SQLite.
 emulator-tests:
   extends: .android-job
@@ -302,6 +349,9 @@ emulator-tests:
     - command -v sdkmanager || (echo "sdkmanager not found under $ANDROID_HOME" && exit 1)
     # `yes` dies with SIGPIPE (141) once sdkmanager exits; tolerate only that.
     - yes | sdkmanager --licenses > /dev/null || [ $? -eq 141 ]
+    # compileSdk/targetSdk (37) are build-time only; the job image pins SDK 34,
+    # so ensure the platform is present (idempotent).
+    - sdkmanager "platforms;android-37" > /dev/null
     # API 35 = lowest system image the host SDK carries (minSdk is 34, but
     # no android-34 image is installed or installable anymore — avdmanager
     # lists only 35/36/36.1 — so the AVD tracks the closest runtime above
@@ -372,6 +422,9 @@ solver-tests-nightly:
 # or the upload fails with a duplicate-version error.
 deploy-internal:
   extends: .android-job
+  # Stays on the home runner: needs the gcloud CLI + Play upload path the job
+  # image doesn't carry, and it's a manual lane that runs rarely.
+  tags: [home-server]
   stage: deploy
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
@@ -410,6 +463,9 @@ deploy-internal:
 # Firebase Test Lab roles in GCP IAM) and the device combo below.
 test-lab-robo:
   extends: .android-job
+  # Stays on the home runner with deploy-internal: needs gcloud + the
+  # service-account auth flow the job image doesn't carry.
+  tags: [home-server]
   stage: deploy
   needs: [deploy-internal]
   allow_failure: true
