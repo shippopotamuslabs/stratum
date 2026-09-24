@@ -180,6 +180,46 @@ class LiftRemoteApplierMatrixTest {
         assertEquals(null, database.liftDao().getById(LiftId("bench"))!!.pinnedNote)
     }
 
+    @Test
+    @DisplayName("overlay micro_options applies the override and encodes it back")
+    fun overlayMicroOptionsApplies() = runTest {
+        seedCatalog("bench")
+        val ok =
+            subject.upsertFromRemote(
+                "bench",
+                mapOf(
+                    "catalog_overlay" to true,
+                    "is_custom" to false,
+                    "micro_options" to listOf(2.5),
+                    FirestoreSyncMetadata.UPDATED_AT to 50L,
+                ),
+            )
+        assertTrue(ok)
+        val row = database.liftDao().getById(LiftId("bench"))!!
+        assertEquals("[2.5]", row.microOptionsJson)
+        assertEquals(listOf(2.5), subject.encode(row)["micro_options"])
+    }
+
+    @Test
+    @DisplayName("overlay without micro_options preserves the local override")
+    fun overlayMissingMicroPreservesLocal() = runTest {
+        seedCatalog("bench").let { row ->
+            database.liftDao().upsert(row.copy(microOptionsJson = "[2.5]"))
+        }
+        val ok =
+            subject.upsertFromRemote(
+                "bench",
+                mapOf(
+                    "catalog_overlay" to true,
+                    "is_custom" to false,
+                    "enabled" to true,
+                    FirestoreSyncMetadata.UPDATED_AT to 50L,
+                ),
+            )
+        assertTrue(ok)
+        assertEquals("[2.5]", database.liftDao().getById(LiftId("bench"))!!.microOptionsJson)
+    }
+
     private suspend fun seedCatalog(id: String): LiftEntity {
         val entity =
             LiftEntity(

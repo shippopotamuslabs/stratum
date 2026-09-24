@@ -6,6 +6,8 @@ import com.stratum.core.data.sync.FirestoreSyncMetadata
 import com.stratum.core.data.sync.SyncFlags
 import com.stratum.core.data.sync.codecs.SyncEntityDecoders
 import com.stratum.core.data.sync.codecs.SyncEntityEncoders
+import com.stratum.core.data.sync.codecs.microJsonFromWire
+import com.stratum.core.data.sync.codecs.microWireList
 import com.stratum.domain.lift.identity.LiftId
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -33,6 +35,7 @@ class LiftRemoteApplier @Inject constructor(
                 "default_rest_seconds" to entity.defaultRestSeconds,
                 "equipment_id" to entity.equipmentId?.value,
                 "pinned_note" to entity.pinnedNote.orEmpty(),
+                "micro_options" to microWireList(entity.microOptionsJson),
             )
         }
 
@@ -110,11 +113,20 @@ class LiftRemoteApplier @Inject constructor(
             } else {
                 existing.pinnedNote
             }
+        // Micro override merges like the pin: present applies (null clears to inherit),
+        // absent preserves the local override.
+        val microOptionsJson =
+            if (data.containsKey("micro_options")) {
+                microJsonFromWire(data["micro_options"], emptyJson = "[]")
+            } else {
+                existing.microOptionsJson
+            }
         return existing.copy(
             enabled = enabled,
             defaultRestSeconds = rest,
             equipmentId = equipmentId,
             pinnedNote = pinnedNote,
+            microOptionsJson = microOptionsJson,
             updatedAtEpochMillis =
                 (data[FirestoreSyncMetadata.UPDATED_AT] as? Number)?.toLong()
                     ?: existing.updatedAtEpochMillis,

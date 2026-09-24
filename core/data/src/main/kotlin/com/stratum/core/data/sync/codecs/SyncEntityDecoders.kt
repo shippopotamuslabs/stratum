@@ -134,6 +134,7 @@ class SyncEntityDecoders @Inject constructor() {
                 id = EquipmentId(id),
                 name = data["name"] as? String ?: return null,
                 isCustom = data["is_custom"] as? Boolean ?: false,
+                microOptionsJson = microJsonFromWire(data["micro_options"], emptyJson = null),
                 updatedAtEpochMillis = remoteUpdatedAt(data),
                 pendingSync = SyncFlags.CLEAN,
             )
@@ -177,6 +178,7 @@ class SyncEntityDecoders @Inject constructor() {
                 loadType = enumOrNull(data["load_type"]) ?: LoadType.Weighted,
                 defaultRestSeconds = (data["default_rest_seconds"] as? Number)?.toInt(),
                 pinnedNote = sanitizeLiftNoteBody(data["pinned_note"] as? String),
+                microOptionsJson = microJsonFromWire(data["micro_options"], emptyJson = "[]"),
                 updatedAtEpochMillis = remoteUpdatedAt(data),
                 pendingSync = SyncFlags.CLEAN,
             )
