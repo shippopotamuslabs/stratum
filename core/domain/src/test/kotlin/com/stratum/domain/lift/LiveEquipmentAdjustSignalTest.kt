@@ -23,6 +23,7 @@ class LiveEquipmentAdjustSignalTest {
     private fun lift(
         tiers: List<IncrementTier> = openFive,
         loadType: LoadType = LoadType.Weighted,
+        micro: List<Weight> = emptyList(),
     ) = Lift(
         id = LiftId("lat-pulldown"),
         name = "Lat pulldown",
@@ -31,9 +32,15 @@ class LiveEquipmentAdjustSignalTest {
         secondaryMuscles = emptySet(),
         incrementTiers = tiers,
         presetTags = emptySet(),
+        microIncrements = micro,
+        usesEquipmentDefaultMicro = false,
         enabled = true,
         loadType = loadType,
     )
+
+    private val pinTiers =
+        listOf(IncrementTier(Weight(0.0, lb), null, Weight(15.0, lb)))
+    private val pinMicro = listOf(Weight(5.0, lb), Weight(10.0, lb))
 
     private fun weights(vararg amounts: Double) = amounts.map { Weight(it, lb) }
 
@@ -169,6 +176,28 @@ class LiveEquipmentAdjustSignalTest {
             assertEquals(expected, live, "live signal for $amounts")
             assertEquals(expected, postWorkout, "post-workout signal for $amounts")
         }
+    }
+
+    @Test
+    @DisplayName("Given adder-exact logged weights when checked then the chip stays hidden")
+    fun adderExactHidesChip() {
+        assertFalse(
+            shouldShowLiveEquipmentAdjust(
+                weights(65.0, 70.0),
+                lift(tiers = pinTiers, micro = pinMicro),
+            ),
+        )
+    }
+
+    @Test
+    @DisplayName("Given true residual alongside adder use when checked then the chip shows")
+    fun trueResidualWithAdderShowsChip() {
+        assertTrue(
+            shouldShowLiveEquipmentAdjust(
+                weights(65.0, 62.0),
+                lift(tiers = pinTiers, micro = pinMicro),
+            ),
+        )
     }
 
     private fun weights(amounts: List<Double>) = amounts.map { Weight(it, lb) }

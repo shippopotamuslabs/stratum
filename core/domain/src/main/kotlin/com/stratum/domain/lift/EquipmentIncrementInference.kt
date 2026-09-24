@@ -34,6 +34,10 @@ data class InferredIncrementLattice(
  * When [currentTiers] is empty, every non-zero sample is treated as residual so a lattice
  * can be built from scratch. When non-empty, at least one sample must be off-lattice.
  * Assisted loads use absolute amounts (negative weights are valid samples).
+ *
+ * Non-empty [micro] admits `base + adder stop` points as on-lattice, so adder-exact
+ * samples are knob use — not residual signal — and never reach step inference (v1 does
+ * not propose adder changes).
  */
 fun inferIncrementLattice(
     sampleWeights: List<Weight>,
@@ -42,6 +46,7 @@ fun inferIncrementLattice(
     epsilon: Double = LATTICE_EPSILON,
     validate: (List<IncrementTier>) -> IncrementTiersValidationResult =
         { ValidateIncrementTiersUseCase()(it) },
+    micro: List<Weight> = emptyList(),
 ): InferredIncrementLattice? {
     val prepared =
         prepareIncrementInferenceSamples(
@@ -49,6 +54,7 @@ fun inferIncrementLattice(
             currentTiers = currentTiers,
             loadType = loadType,
             epsilon = epsilon,
+            micro = micro,
         ) ?: return null
 
     val step =
@@ -81,6 +87,7 @@ internal fun prepareIncrementInferenceSamples(
     currentTiers: List<IncrementTier>,
     loadType: LoadType = LoadType.Weighted,
     epsilon: Double = LATTICE_EPSILON,
+    micro: List<Weight> = emptyList(),
 ): PreparedIncrementInferenceSamples? {
     if (loadType == LoadType.Bodyweight) return null
 
@@ -102,7 +109,7 @@ internal fun prepareIncrementInferenceSamples(
         if (currentTiers.isEmpty()) {
             usable
         } else {
-            usable.filter { !currentTiers.isOnLattice(it, loadType, epsilon) }
+            usable.filter { !currentTiers.isOnLattice(it, loadType, epsilon, micro) }
         }
     if (residualWeights.isEmpty()) return null
 

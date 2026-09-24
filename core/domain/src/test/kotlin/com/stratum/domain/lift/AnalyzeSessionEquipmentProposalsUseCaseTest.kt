@@ -450,6 +450,114 @@ class AnalyzeSessionEquipmentProposalsUseCaseTest {
             assertEquals(customId, proposals.first().clusterEquipmentId)
             assertTrue(proposals.first().residualSetCount >= proposals.last().residualSetCount)
         }
+
+        @Test
+        @DisplayName("Given adder-exact session on micro equipment when analyzed then no proposals")
+        fun adderExactSessionSilent() = runTest {
+            seedPinCatalog()
+            logRepo.seedSession(WorkoutLoggingFixtures.completedLiveSession(sessionId.value))
+            logRepo.seedSet(setAt(latId, 65.0, setIndex = 0, id = "s1"))
+            logRepo.seedSet(setAt(latId, 65.0, setIndex = 1, id = "s2"))
+            logRepo.seedSet(setAt(latId, 70.0, setIndex = 2, id = "s3"))
+
+            assertTrue(subject(sessionId).isEmpty())
+        }
+
+        @Test
+        @DisplayName(
+            "Given adder-exact plus true residuals when analyzed then proposes for residuals only",
+        )
+        fun mixedAdderAndResidualProposes() = runTest {
+            seedPinCatalog()
+            logRepo.seedSession(WorkoutLoggingFixtures.completedLiveSession(sessionId.value))
+            logRepo.seedSet(setAt(latId, 65.0, setIndex = 0, id = "s1"))
+            logRepo.seedSet(setAt(latId, 62.5, setIndex = 1, id = "s2"))
+            logRepo.seedSet(setAt(latId, 62.5, setIndex = 2, id = "s3"))
+
+            val proposals = subject(sessionId)
+            assertEquals(1, proposals.size)
+            assertTrue(proposals.single().primary is EquipmentIncrementRemedy.AmendEquipmentTiers)
+            // Only the true-residual sets count — the adder-exact set is knob use.
+            assertEquals(2, proposals.single().residualSetCount)
+        }
+
+        @Test
+        @DisplayName(
+            "Given lift micro override with empty equipment tiers when analyzed then override quiets adder",
+        )
+        fun liftMicroOverrideFallbackSilent() = runTest {
+            equipmentRepo.seed(
+                listOf(
+                    Equipment(
+                        id = cableId,
+                        name = "Cables",
+                        incrementTiers = emptyList(),
+                        isCustom = false,
+                    ),
+                ),
+            )
+            liftRepo.seedLifts(
+                listOf(
+                    Lift(
+                        id = latId,
+                        name = "Lat pulldown",
+                        movementPatterns = setOf(MovementPattern.VerticalPull),
+                        primaryMuscles = setOf(MuscleGroup.Back),
+                        secondaryMuscles = emptySet(),
+                        incrementTiers = pinTiers,
+                        presetTags = emptySet(),
+                        equipmentId = cableId,
+                        equipmentName = "Cables",
+                        usesEquipmentDefaultIncrements = false,
+                        microIncrements = pinMicro,
+                        usesEquipmentDefaultMicro = false,
+                        enabled = true,
+                    ),
+                ),
+            )
+            logRepo.seedSession(WorkoutLoggingFixtures.completedLiveSession(sessionId.value))
+            logRepo.seedSet(setAt(latId, 65.0, setIndex = 0, id = "s1"))
+            logRepo.seedSet(setAt(latId, 70.0, setIndex = 1, id = "s2"))
+
+            assertTrue(subject(sessionId).isEmpty())
+        }
+
+        @Test
+        @DisplayName(
+            "Given equipment without micro but lift override micro when analyzed then lift micro applies",
+        )
+        fun equipmentWithoutMicroFallsBackToLiftMicro() = runTest {
+            liftRepo.seedLifts(
+                listOf(
+                    Lift(
+                        id = latId,
+                        name = "Lat pulldown",
+                        movementPatterns = setOf(MovementPattern.VerticalPull),
+                        primaryMuscles = setOf(MuscleGroup.Back),
+                        secondaryMuscles = emptySet(),
+                        incrementTiers = pinTiers,
+                        presetTags = emptySet(),
+                        equipmentId = cableId,
+                        equipmentName = "Cables",
+                        usesEquipmentDefaultIncrements = false,
+                        microIncrements = pinMicro,
+                        usesEquipmentDefaultMicro = false,
+                        enabled = true,
+                    ),
+                ),
+            )
+            logRepo.seedSession(WorkoutLoggingFixtures.completedLiveSession(sessionId.value))
+            logRepo.seedSet(setAt(latId, 65.0, setIndex = 0, id = "s1"))
+            logRepo.seedSet(setAt(latId, 62.5, setIndex = 1, id = "s2"))
+            logRepo.seedSet(setAt(latId, 62.5, setIndex = 2, id = "s3"))
+
+            // 65 is quiet via the lift override micro; 62.5s still propose (single
+            // override lift, so LiftOverride primary).
+            val proposals = subject(sessionId)
+            assertEquals(1, proposals.size)
+            assertTrue(proposals.single().primary is EquipmentIncrementRemedy.LiftOverride)
+            assertEquals(2, proposals.single().residualSetCount)
+        }
     }
 
     @Nested
@@ -483,6 +591,45 @@ class AnalyzeSessionEquipmentProposalsUseCaseTest {
                 )
             assertTrue(filtered.none { it.amount == 625.0 })
         }
+    }
+
+    private val pinId = EquipmentId("pin-loaded-machine")
+    private val pinTiers =
+        listOf(IncrementTier(Weight(0.0, lb), null, Weight(15.0, lb)))
+    private val pinMicro = listOf(Weight(5.0, lb), Weight(10.0, lb))
+
+    /** Custom pin stack with a 0 / 5 / 10 adder; lifts inherit its micro. */
+    private fun seedPinCatalog() {
+        equipmentRepo.seed(
+            listOf(
+                Equipment(
+                    id = pinId,
+                    name = "Pin-Loaded Machine",
+                    incrementTiers = pinTiers,
+                    microIncrements = pinMicro,
+                    isCustom = true,
+                ),
+            ),
+        )
+        liftRepo.seedLifts(
+            listOf(
+                Lift(
+                    id = latId,
+                    name = "Lat pulldown",
+                    movementPatterns = setOf(MovementPattern.VerticalPull),
+                    primaryMuscles = setOf(MuscleGroup.Back),
+                    secondaryMuscles = emptySet(),
+                    incrementTiers = pinTiers,
+                    presetTags = emptySet(),
+                    equipmentId = pinId,
+                    equipmentName = "Pin-Loaded Machine",
+                    usesEquipmentDefaultIncrements = true,
+                    microIncrements = pinMicro,
+                    usesEquipmentDefaultMicro = true,
+                    enabled = true,
+                ),
+            ),
+        )
     }
 
     private fun seedCableCatalogWithInheritors(inheritorCount: Int) {
