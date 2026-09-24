@@ -1,0 +1,13 @@
+[
+  {
+    "id": "pin-loaded-machine",
+    "name": "Pin-Loaded Machine",
+    "incrementTiers": [{ "lowerBound": 0.0, "upperBound": null, "increment": 15.0 }],
+    "microIncrements": [5.0, 10.0]
+  },
+  {
+    "id": "cable",
+    "name": "Cables",
+    "incrementTiers": [{ "lowerBound": 0.0, "upperBound": null, "increment": 5.0 }]
+  }
+]

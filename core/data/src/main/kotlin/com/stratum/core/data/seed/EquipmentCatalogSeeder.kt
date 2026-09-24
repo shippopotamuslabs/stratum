@@ -5,7 +5,9 @@ import com.stratum.core.data.db.EquipmentDao
 import com.stratum.core.data.db.EquipmentEntity
 import com.stratum.core.data.db.IncrementTierDao
 import com.stratum.core.data.db.IncrementTierEntity
+import com.stratum.core.data.mapper.toMicroJsonOrNull
 import com.stratum.core.data.sync.SyncFlags
+import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.IncrementTierId
 import com.stratum.domain.logging.LoggingPort
@@ -36,6 +38,9 @@ class EquipmentCatalogSeeder(
                     id = id,
                     name = dto.name,
                     isCustom = false,
+                    microOptionsJson = dto.microIncrements
+                        .map { Weight(it, Weight.WeightUnit.Lb) }
+                        .toMicroJsonOrNull(),
                     updatedAtEpochMillis = 0L,
                     pendingSync = SyncFlags.CLEAN,
                 ),
