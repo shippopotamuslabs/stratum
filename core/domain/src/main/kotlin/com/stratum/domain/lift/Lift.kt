@@ -19,6 +19,10 @@ import com.stratum.domain.onboarding.MuscleGroup
  *   still come from equipment or a global fallback).
  * - [inheritsFromEquipmentLattice]: true when non-empty equipment tiers supplied the effective
  *   list (false for global fallback, including empty bodyweight lattices).
+ * - [microIncrements]: **effective** adder stops after resolving a lift-scoped micro override
+ *   against the linked equipment's stops (see `resolveEffectiveIncrementTiers`). Empty means
+ *   no adder. [usesEquipmentDefaultMicro] is false only when the lift carries an explicit
+ *   micro override (including explicitly-empty).
  * - [presetTags]: which [GymPreset]s bulk-enable this lift (§2.1).
  * - [equipmentId] / [equipmentName]: optional link to shared [Equipment] for default
  *   increments and display. Narrow equipment catalog — not an availability graph.
@@ -46,6 +50,8 @@ data class Lift(
     val equipmentName: String? = null,
     val usesEquipmentDefaultIncrements: Boolean = true,
     val inheritsFromEquipmentLattice: Boolean = false,
+    val microIncrements: List<Weight> = emptyList(),
+    val usesEquipmentDefaultMicro: Boolean = true,
     val enabled: Boolean,
     val isCustom: Boolean = false,
     val description: String? = null,
