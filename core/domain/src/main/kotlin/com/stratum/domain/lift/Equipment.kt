@@ -17,4 +17,11 @@ data class Equipment(
     val name: String,
     val incrementTiers: List<IncrementTier>,
     val isCustom: Boolean = false,
+    /**
+     * Micro-adjust (adder knob) stops as storage-pound offsets, non-zero only
+     * (e.g. `[5, 10]` displays as `0 / 5 / 10` — knob-off, the bare stack load,
+     * is always legal). Empty means the machine has no adder. Legal loads are
+     * major-lattice points plus a selected stop (see IncrementLattice.kt).
+     */
+    val microIncrements: List<Weight> = emptyList(),
 )
