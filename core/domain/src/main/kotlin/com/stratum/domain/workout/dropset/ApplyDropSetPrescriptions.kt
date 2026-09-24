@@ -22,6 +22,7 @@ fun applyDropSetPrescriptions(
     estimateDropSetWeight: EstimateDropSetWeightUseCase = EstimateDropSetWeightUseCase(),
     incrementTiers: List<IncrementTier> = emptyList(),
     loadType: LoadType = LoadType.Weighted,
+    micro: List<Weight> = emptyList(),
 ): List<SlotRecommendation> {
     if (slots.size != recs.size || slots.isEmpty()) return recs
     val out = recs.toMutableList()
@@ -34,6 +35,7 @@ fun applyDropSetPrescriptions(
                 estimateDropSetWeight = estimateDropSetWeight,
                 incrementTiers = incrementTiers,
                 loadType = loadType,
+                micro = micro,
             )
             if (rewritten != null) {
                 out[i] = out[i].copy(
@@ -55,6 +57,7 @@ private fun prescribeDropFromPrior(
     estimateDropSetWeight: EstimateDropSetWeightUseCase,
     incrementTiers: List<IncrementTier>,
     loadType: LoadType,
+    micro: List<Weight> = emptyList(),
 ): DropPrescription? {
     val priorWeight = priorRec.recommendedWeight
     if (priorWeight.amount <= 0.0) return null
@@ -64,6 +67,7 @@ private fun prescribeDropFromPrior(
         precedingWeight = priorWeight,
         incrementTiers = incrementTiers,
         loadType = loadType,
+        micro = micro,
         capacityAtRir = { amountLb ->
             DropSetRepProjection.expectedRepsAtRir0(
                 priorWeight = priorWeight,

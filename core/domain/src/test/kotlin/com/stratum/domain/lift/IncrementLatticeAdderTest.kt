@@ -3,7 +3,6 @@ package com.stratum.domain.lift
 import com.stratum.core.testing.lift.PinAdderCatalogFixtures
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
-import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -116,16 +115,6 @@ class IncrementLatticeAdderTest {
     }
 
     @Test
-    @DisplayName("Given mixed-unit micro stops when rounded then fails fast")
-    fun mixedUnitMicroFailsFast() {
-        val micro = listOf(Weight(5.0, Weight.WeightUnit.Kg))
-
-        assertThrows(IllegalArgumentException::class.java) {
-            pinTiers.roundToIncrement(Weight(65.0, lb), micro = micro)
-        }
-    }
-
-    @Test
     @DisplayName("Given duplicate micro stops when rounded then adder-exact still holds")
     fun duplicateStopsNormalized() {
         val duplicated = listOf(Weight(5.0, lb), Weight(5.0, lb), Weight(10.0, lb))
@@ -135,6 +124,26 @@ class IncrementLatticeAdderTest {
             pinTiers.roundToIncrement(Weight(65.0, lb), micro = duplicated),
         )
         assertTrue(pinTiers.isOnLattice(Weight(65.0, lb), micro = duplicated))
+    }
+
+    @Test
+    @DisplayName("Given kg-denominated stops when rounded then converted to the tiers unit")
+    fun mixedUnitMicroConvertedToTiersUnit() {
+        // Numerically identical to pinMicro (5 / 10 lb) but denominated in kg: raw
+        // amounts must not leak into the Lb lattice.
+        val kgMicro =
+            listOf(
+                Weight(5.0 * WeightConversion.LB_TO_KG, Weight.WeightUnit.Kg),
+                Weight(10.0 * WeightConversion.LB_TO_KG, Weight.WeightUnit.Kg),
+            )
+        val probe = Weight(63.0, lb)
+
+        assertEquals(
+            pinTiers.roundToIncrement(probe, micro = pinMicro).amount,
+            pinTiers.roundToIncrement(probe, micro = kgMicro).amount,
+            1e-9,
+        )
+        assertTrue(pinTiers.isOnLattice(Weight(65.0, lb), micro = kgMicro))
     }
 
     @Test
