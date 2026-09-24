@@ -42,7 +42,7 @@ import androidx.room.TypeConverters
         LiftNoteEntity::class,
         WorkoutLiftNoteEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
@@ -53,6 +53,10 @@ import androidx.room.TypeConverters
         // (payload_json); pure column add, no backfill. Pre-v6 rows keep null and read
         // through the frozen flat columns; new writes are JSON-only.
         AutoMigration(from = 5, to = 6),
+        // 6 → 7 adds nullable adder-stop columns (micro_options_json) on equipment
+        // and lifts; pure column adds, no backfill. Pre-v7 rows keep null: no adder
+        // on equipment, inherit-equipment on lifts.
+        AutoMigration(from = 6, to = 7),
     ],
 )
 @TypeConverters(WeekdaySetConverter::class, IntSetConverter::class, EnumConverters::class)

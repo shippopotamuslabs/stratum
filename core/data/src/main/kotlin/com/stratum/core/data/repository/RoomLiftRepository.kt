@@ -12,6 +12,7 @@ import com.stratum.core.data.db.StratumDatabase
 import com.stratum.core.data.mapper.toBitmask
 import com.stratum.core.data.mapper.toDomain
 import com.stratum.core.data.mapper.toEntity
+import com.stratum.core.data.mapper.toMicroJson
 import com.stratum.core.data.sync.SyncCollection
 import com.stratum.core.data.sync.SyncFlags
 import com.stratum.core.data.sync.SyncTouch
@@ -278,6 +279,26 @@ class RoomLiftRepository @Inject constructor(
                     id = id,
                     equipmentId = equipmentId,
                     loadType = loadType,
+                    updatedAtEpochMillis = now,
+                )
+                // Reassigned lifts inherit the new machine's knob.
+                liftDao.setMicroOptions(
+                    id = id,
+                    microOptionsJson = null,
+                    updatedAtEpochMillis = now,
+                )
+            }
+            syncTouch.markDirty()
+        }
+    }
+
+    override suspend fun setMicroOverride(id: LiftId, micro: List<Weight>?) {
+        val now = System.currentTimeMillis()
+        syncTouch.withWriteLock {
+            database.withTransaction {
+                liftDao.setMicroOptions(
+                    id = id,
+                    microOptionsJson = micro?.toMicroJson(),
                     updatedAtEpochMillis = now,
                 )
             }

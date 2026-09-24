@@ -28,9 +28,9 @@ interface EquipmentRepository {
      * Creates custom equipment with [tiers] and assigns each lift in [liftIds] to it in one
      * atomic write (same sync lock + Room transaction in the data layer).
      *
-     * Assignment clears any lift-scoped increment override so the new equipment defaults apply.
-     * Used by fork remedies so a crash cannot leave orphan custom equipment without assignments
-     * (or assigned lifts without equipment).
+     * Assignment clears any lift-scoped increment override (bands and micro) so the new
+     * equipment defaults apply. Used by fork remedies so a crash cannot leave orphan
+     * custom equipment without assignments (or assigned lifts without equipment).
      */
     suspend fun createCustomEquipmentAndAssignLifts(
         name: String,
@@ -42,10 +42,15 @@ interface EquipmentRepository {
     suspend fun renameEquipment(id: EquipmentId, name: String)
 
     /**
-     * Replaces the full default tier list for [id] (delete + insert). Empty list clears
-     * equipment defaults so lifts without overrides fall through to global fallback.
+     * Replaces the full default tier list for [id] (delete + insert) and its adder
+     * stops. Empty list clears equipment defaults so lifts without overrides fall
+     * through to global fallback; empty [micro] means no adder.
      */
-    suspend fun setIncrementTiers(id: EquipmentId, tiers: List<IncrementTier>)
+    suspend fun setIncrementTiers(
+        id: EquipmentId,
+        tiers: List<IncrementTier>,
+        micro: List<Weight> = emptyList(),
+    )
 
     /**
      * Deletes custom equipment when no lifts reference it. Returns false when the row is

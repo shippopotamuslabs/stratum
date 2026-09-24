@@ -87,10 +87,18 @@ interface LiftRepository {
 
     /**
      * Assigns or clears [equipmentId] on a catalog or custom lift and persists [loadType]
-     * in the same write. Clears any lift-scoped increment override tiers so the lift
-     * re-inherits the new equipment defaults (or global fallback when unassigned).
+     * in the same write. Clears any lift-scoped increment override (bands and micro) so
+     * the lift re-inherits the new equipment defaults (or global fallback when unassigned).
      */
     suspend fun setLiftEquipment(id: LiftId, equipmentId: EquipmentId?, loadType: LoadType)
+
+    /**
+     * Persists a lift-scoped adder override. Null clears the override so the lift
+     * re-inherits the linked equipment's stops; empty means explicitly no adder.
+     * Independent of the band override in [setIncrementTiers]. Caller validates
+     * before invoking.
+     */
+    suspend fun setMicroOverride(id: LiftId, micro: List<Weight>?)
 
     /**
      * Updates primary/secondary muscle tags for [id]. Bitmasks are derived in the data
