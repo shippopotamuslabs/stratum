@@ -199,6 +199,7 @@ class AnalyzeSessionEquipmentProposalsUseCase @Inject constructor(
                 residualSetCount = residualSetCount,
                 distinctResidualAmounts = distinctResidualAmounts,
                 existingEquipmentNames = existingEquipmentNames,
+                micro = currentMicro,
             ),
         )
     }

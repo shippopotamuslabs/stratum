@@ -122,6 +122,50 @@ class EquipmentAdjustTrackerTest {
     }
 
     @Test
+    @DisplayName("Given micro-only save when updated then the card resolves quietly")
+    fun microOnlyChangeResolvesQuietly() {
+        val tracker = EquipmentAdjustTracker()
+        tracker.update(
+            rawIds = setOf(wl1),
+            tiersByWorkoutLiftId = mapOf(wl1 to tiersA),
+            presentIds = setOf(wl1),
+        )
+
+        val visible =
+            tracker.update(
+                rawIds = setOf(wl1),
+                tiersByWorkoutLiftId = mapOf(wl1 to tiersA),
+                presentIds = setOf(wl1),
+                microByWorkoutLiftId = mapOf(wl1 to listOf(Weight(2.5, lb))),
+            )
+
+        assertTrue(visible.isEmpty())
+    }
+
+    @Test
+    @DisplayName("Given unchanged stops when updated then the card stays visible")
+    fun unchangedMicroStaysVisible() {
+        val tracker = EquipmentAdjustTracker()
+        val micro = listOf(Weight(2.5, lb))
+        tracker.update(
+            rawIds = setOf(wl1),
+            tiersByWorkoutLiftId = mapOf(wl1 to tiersA),
+            presentIds = setOf(wl1),
+            microByWorkoutLiftId = mapOf(wl1 to micro),
+        )
+
+        val visible =
+            tracker.update(
+                rawIds = setOf(wl1),
+                tiersByWorkoutLiftId = mapOf(wl1 to tiersA),
+                presentIds = setOf(wl1),
+                microByWorkoutLiftId = mapOf(wl1 to micro),
+            )
+
+        assertEquals(setOf(wl1), visible)
+    }
+
+    @Test
     @DisplayName("Given clear when updated then consumed cards show again")
     fun clearResetsSession() {
         val tracker = EquipmentAdjustTracker()
