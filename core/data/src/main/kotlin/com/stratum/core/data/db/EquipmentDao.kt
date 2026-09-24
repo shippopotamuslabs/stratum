@@ -44,6 +44,25 @@ interface EquipmentDao {
     )
     suspend fun rename(id: EquipmentId, name: String, updatedAtEpochMillis: Long)
 
+    /**
+     * Replaces the adder stops (JSON array of storage-lb doubles, null = no adder).
+     * Marks the row dirty for cloud upload like [rename].
+     */
+    @Query(
+        """
+        UPDATE equipment
+        SET micro_options_json = :microOptionsJson,
+            pending_sync = ${SyncFlags.PENDING_UPSERT},
+            updated_at_epoch_millis = :updatedAtEpochMillis
+        WHERE id = :id
+        """,
+    )
+    suspend fun updateMicroOptions(
+        id: EquipmentId,
+        microOptionsJson: String?,
+        updatedAtEpochMillis: Long,
+    )
+
     @Query("DELETE FROM equipment WHERE id = :id AND isCustom = 1")
     suspend fun deleteCustomById(id: EquipmentId): Int
 

@@ -201,6 +201,21 @@ class FakeLiftRepository(
                     incrementTiers = emptyList(),
                     usesEquipmentDefaultIncrements = true,
                     inheritsFromEquipmentLattice = false,
+                    microIncrements = emptyList(),
+                    usesEquipmentDefaultMicro = true,
+                )
+            } else {
+                lift
+            }
+        }
+    }
+
+    override suspend fun setMicroOverride(id: LiftId, micro: List<Weight>?) {
+        lifts.value = lifts.value.map { lift ->
+            if (lift.id == id) {
+                lift.copy(
+                    microIncrements = micro.orEmpty(),
+                    usesEquipmentDefaultMicro = micro == null,
                 )
             } else {
                 lift

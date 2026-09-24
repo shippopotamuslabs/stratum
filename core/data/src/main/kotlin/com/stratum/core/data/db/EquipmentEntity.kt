@@ -18,6 +18,12 @@ data class EquipmentEntity(
     @PrimaryKey @ColumnInfo(name = "id") val id: EquipmentId,
     val name: String,
     val isCustom: Boolean,
+    /**
+     * Adder-knob stops as a JSON array of storage-lb doubles (e.g. `"[5.0,10.0]"`).
+     * Null (or missing pre-v7) means no adder. Parsed in `LiftMapper`.
+     */
+    @ColumnInfo(name = "micro_options_json")
+    val microOptionsJson: String? = null,
     @ColumnInfo(name = "updated_at_epoch_millis")
     val updatedAtEpochMillis: Long = 0L,
     @ColumnInfo(name = "pending_sync")

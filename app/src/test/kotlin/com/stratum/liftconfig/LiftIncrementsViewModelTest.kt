@@ -13,6 +13,7 @@ import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
 import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.SetLiftIncrementTiersUseCase
+import com.stratum.domain.lift.ValidateMicroIncrementsUseCase
 import com.stratum.domain.lift.ValidateIncrementTiersUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
@@ -71,6 +72,7 @@ class LiftIncrementsViewModelTest {
                     SetLiftIncrementTiersUseCase(
                         fakeLiftRepository,
                         ValidateIncrementTiersUseCase(),
+                        ValidateMicroIncrementsUseCase(),
                         FakeLoggingPort(),
                     ),
                 validateIncrementTiers = ValidateIncrementTiersUseCase(),

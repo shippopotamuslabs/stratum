@@ -8,6 +8,7 @@ import com.stratum.core.data.db.IncrementTierEntity
 import com.stratum.core.data.db.LiftDao
 import com.stratum.core.data.db.StratumDatabase
 import com.stratum.core.data.mapper.toDomain
+import com.stratum.core.data.mapper.toMicroJsonOrNull
 import com.stratum.core.data.seed.GymEquipmentToEquipmentId
 import com.stratum.core.data.sync.SyncCollection
 import com.stratum.core.data.sync.SyncFlags
@@ -86,6 +87,13 @@ class RoomEquipmentRepository @Inject constructor(
                         equipmentId = id,
                         updatedAtEpochMillis = now,
                     )
+                    // Assigned lifts inherit the new machine's knob: clear any
+                    // lift-scoped micro override alongside the band rows.
+                    liftDao.setMicroOptions(
+                        id = liftId,
+                        microOptionsJson = null,
+                        updatedAtEpochMillis = now,
+                    )
                 }
             }
             syncTouch.markDirty()
@@ -100,7 +108,11 @@ class RoomEquipmentRepository @Inject constructor(
         }
     }
 
-    override suspend fun setIncrementTiers(id: EquipmentId, tiers: List<IncrementTier>) {
+    override suspend fun setIncrementTiers(
+        id: EquipmentId,
+        tiers: List<IncrementTier>,
+        micro: List<Weight>,
+    ) {
         val now = System.currentTimeMillis()
         syncTouch.withWriteLock {
             database.withTransaction {
@@ -112,6 +124,11 @@ class RoomEquipmentRepository @Inject constructor(
                 if (tiers.isNotEmpty()) {
                     incrementTierDao.upsertAll(tiers.toEquipmentEntities(id, now))
                 }
+                equipmentDao.updateMicroOptions(
+                    id = id,
+                    microOptionsJson = micro.toMicroJsonOrNull(),
+                    updatedAtEpochMillis = now,
+                )
             }
             syncTouch.markDirty()
         }
