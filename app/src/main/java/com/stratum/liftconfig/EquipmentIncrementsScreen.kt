@@ -84,12 +84,15 @@ fun EquipmentIncrementsRoute(
         onRemoveTier = viewModel::removeTier,
         onSave = viewModel::save,
         onResetToEquipment = {},
-        showForkSaveBar = state.equipmentV2Enabled,
-        onSaveAsNew = viewModel::saveAsNew,
-        affectsBanner =
-            AffectsBannerUi(
-                message = formatAffectsBanner(state.affectedLiftCount, state.affectedLiftNames),
-                onClick = affectsClick,
+        forkUi =
+            ForkSaveUi(
+                showForkSaveBar = state.equipmentV2Enabled,
+                onSaveAsNew = viewModel::saveAsNew,
+                affectsBanner =
+                    AffectsBannerUi(
+                        message = formatAffectsBanner(state.affectedLiftCount, state.affectedLiftNames),
+                        onClick = affectsClick,
+                    ),
             ),
         modifier = Modifier,
     )

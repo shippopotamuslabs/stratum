@@ -73,6 +73,21 @@ fun LiftIncrementsRoute(
     )
 }
 
+/**
+ * Equipment-page fork extras, grouped so the shell stays under the parameter-count gate:
+ *
+ * - [showForkSaveBar]: two-button bar (Update Shared / Save As New). When false the
+ *   legacy single Save button renders (per-lift override editor).
+ * - [affectsBanner]: blast-radius banner slot. Null renders no banner;
+ *   [AffectsBannerUi.onClick] null keeps it display-only. The lift override editor
+ *   passes null.
+ */
+data class ForkSaveUi(
+    val showForkSaveBar: Boolean = false,
+    val onSaveAsNew: () -> Unit = {},
+    val affectsBanner: AffectsBannerUi? = null,
+)
+
 @Composable
 fun LiftIncrementsScreen(
     state: LiftIncrementsUiState,
@@ -85,17 +100,7 @@ fun LiftIncrementsScreen(
     onRemoveTier: (Int) -> Unit,
     onSave: () -> Unit,
     onResetToEquipment: () -> Unit = {},
-    /**
-     * Equipment-page two-button bar (Update Shared / Save As New). When false the
-     * legacy single Save button renders (per-lift override editor).
-     */
-    showForkSaveBar: Boolean = false,
-    onSaveAsNew: () -> Unit = {},
-    /**
-     * Equipment blast-radius banner slot. Null renders no banner; [AffectsBannerUi.onClick]
-     * null keeps it display-only. The lift override editor passes null.
-     */
-    affectsBanner: AffectsBannerUi? = null,
+    forkUi: ForkSaveUi = ForkSaveUi(),
     modifier: Modifier = Modifier,
 ) {
     StratumScaffold(
@@ -127,11 +132,11 @@ fun LiftIncrementsScreen(
                 item {
                     IncrementsHelpCard()
                 }
-                if (affectsBanner != null) {
+                if (forkUi.affectsBanner != null) {
                     item {
                         InheritanceBanner(
-                            message = affectsBanner.message,
-                            onClick = affectsBanner.onClick,
+                            message = forkUi.affectsBanner.message,
+                            onClick = forkUi.affectsBanner.onClick,
                         )
                     }
                 }
@@ -194,7 +199,7 @@ fun LiftIncrementsScreen(
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
-                if (showForkSaveBar) {
+                if (forkUi.showForkSaveBar) {
                     StratumButton(
                         text = stringResource(UiR.string.equipment_increments_update_shared),
                         onClick = onSave,
@@ -203,7 +208,7 @@ fun LiftIncrementsScreen(
                     )
                     StratumOutlinedButton(
                         text = stringResource(UiR.string.equipment_increments_save_as_new),
-                        onClick = onSaveAsNew,
+                        onClick = forkUi.onSaveAsNew,
                         enabled = !state.isSaving && state.validationMessage == null,
                         modifier = Modifier.padding(bottom = 20.dp).fillMaxWidth(),
                     )
