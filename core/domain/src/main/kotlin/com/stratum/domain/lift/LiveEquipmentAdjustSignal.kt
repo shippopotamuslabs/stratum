@@ -22,4 +22,5 @@ fun shouldShowLiveEquipmentAdjust(
         tiers = lift.incrementTiers,
         loadType = lift.loadType,
         epsilon = epsilon,
+        micro = lift.microIncrements,
     ).residualWeights.isNotEmpty()

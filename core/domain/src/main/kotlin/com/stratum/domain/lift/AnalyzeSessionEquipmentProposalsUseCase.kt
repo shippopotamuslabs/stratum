@@ -131,9 +131,9 @@ class AnalyzeSessionEquipmentProposalsUseCase @Inject constructor(
 
         // Current equipment defaults for inference baseline (not lift overrides).
         // Empty non-null tier lists are treated as missing so we fall back to effective tiers.
-        val currentTiers =
-            equipment?.incrementTiers?.takeIf { it.isNotEmpty() }
-                ?: first.effectiveTiers
+        // Micro mirrors the same baseline so adder-exact samples stay silent here too.
+        val currentTiers = resolveBaseline(equipment?.incrementTiers, first.effectiveTiers)
+        val currentMicro = resolveBaseline(equipment?.microIncrements, first.micro)
 
         val loadType =
             clusterAnomalies
@@ -146,6 +146,7 @@ class AnalyzeSessionEquipmentProposalsUseCase @Inject constructor(
                 sampleWeights = sampleWeights,
                 currentTiers = currentTiers,
                 loadType = loadType,
+                micro = currentMicro,
             ) ?: return null
 
         val anomalousLiftIds = clusterAnomalies.map { it.liftId }.distinct()
@@ -202,6 +203,13 @@ class AnalyzeSessionEquipmentProposalsUseCase @Inject constructor(
         )
     }
 
+    /**
+     * Empty-as-missing baseline: null or empty equipment values fall back to the
+     * lift's effective values, keeping explicit null handling at this single point.
+     */
+    private fun <T> resolveBaseline(equipmentValues: List<T>?, fallback: List<T>): List<T> =
+        equipmentValues?.takeIf { it.isNotEmpty() } ?: fallback
+
     private companion object {
         const val TAG = "AnalyzeSessionEquipmentProposals"
     }
@@ -240,6 +248,8 @@ internal data class LiftSessionAnomaly(
     val usableWeights: List<Weight>,
     val residualWeights: List<Weight>,
     val residualSetCount: Int,
+    /** The lift's effective adder stops (equipment-inherited until lift overrides exist). */
+    val micro: List<Weight> = emptyList(),
 ) {
     /** Cluster key: equipment id value, or "none" when unassigned. */
     val clusterKey: String
@@ -291,6 +301,7 @@ internal fun screenLatticeWeights(
     tiers: List<IncrementTier>,
     loadType: LoadType,
     epsilon: Double = LATTICE_EPSILON,
+    micro: List<Weight> = emptyList(),
 ): LatticeScreening {
     if (loadType == LoadType.Bodyweight || tiers.isEmpty()) {
         return LatticeScreening(emptyList(), emptyList())
@@ -303,7 +314,7 @@ internal fun screenLatticeWeights(
         usableWeights = usable,
         residualWeights =
             usable.filter { weight ->
-                !tiers.isOnLattice(weight, loadType, epsilon)
+                !tiers.isOnLattice(weight, loadType, epsilon, micro)
             },
     )
 }
@@ -325,6 +336,7 @@ internal fun anomalyForLift(
             tiers = effectiveTiers,
             loadType = lift.loadType,
             epsilon = epsilon,
+            micro = lift.microIncrements,
         )
     val usable = screening.usableWeights
     val residual = screening.residualWeights
@@ -346,6 +358,7 @@ internal fun anomalyForLift(
         usableWeights = usable,
         residualWeights = residual,
         residualSetCount = residualSetCount,
+        micro = lift.microIncrements,
     )
 }
 
