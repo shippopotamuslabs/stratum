@@ -81,6 +81,11 @@ data class WorkoutScreenActions(
      * override). No-op default until wired.
      */
     val onEditEquipmentClick: (EquipmentEditRequest) -> Unit = {},
+    /**
+     * Quiets the "Adjust Equipment" chip for one lift card ([RenderedLiftUi.workoutLiftId]).
+     * The screen calls it only from the chip's X affordance.
+     */
+    val onDismissEquipmentAdjust: (String) -> Unit = {},
     val onLinkSupersetWithPrevious: (String) -> Unit,
     val onLinkSupersetWithNext: (String) -> Unit,
     val onRemoveFromSuperset: (String) -> Unit,
@@ -336,6 +341,14 @@ fun WorkoutScreen(
                             liftSheetMode = LiftOptionsSheetMode.ManageNotes(tab)
                             liftActionsLiftId = workoutLiftId
                         },
+                        onAdjustEquipment = { workoutLiftId ->
+                            // Opening the editor leaves the chip visible: only the X
+                            // affordance or a real tier save quiets it for the session.
+                            state.lifts.firstOrNull { it.workoutLiftId == workoutLiftId }?.let { lift ->
+                                actions.onEditEquipmentClick(equipmentEditRequestFor(lift))
+                            }
+                        },
+                        onDismissEquipmentAdjust = actions.onDismissEquipmentAdjust,
                         onAddLift = actions.onAddLift,
                         onDiscardClick = { showDiscardDialog = true },
                     ),

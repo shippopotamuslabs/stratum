@@ -6,8 +6,10 @@ import com.stratum.core.ui.component.linkSupersetWithAdjacent
 import com.stratum.core.ui.component.unlinkLiftFromSuperset
 import com.stratum.domain.importing.FatigueDecay
 import com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase
+import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.LoadType
+import com.stratum.domain.lift.shouldShowLiveEquipmentAdjust
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.resolvedDefaultRestSeconds
@@ -112,6 +114,18 @@ internal class LiveWorkoutSessionRuntime(
     var lastPersistedRevision: Long = 0L
     var sessionTerminal: Boolean = false
     var abandonInFlight: Boolean = false
+    /**
+     * Lift cards whose "Adjust Equipment" chip was dismissed (X) or saved-away
+     * (effective tiers edited after the chip showed) this session.
+     */
+    var equipmentAdjustConsumed: MutableSet<WorkoutLiftId> = mutableSetOf()
+
+    /**
+     * Effective tiers snapshot taken when the chip first shows per card. A later
+     * render with different tiers means the user saved an edit — the chip resolves.
+     * Untouched editor visits leave tiers identical, so the chip stays.
+     */
+    var equipmentAdjustSeenTiers: MutableMap<WorkoutLiftId, List<IncrementTier>> = mutableMapOf()
 
     internal fun clearToNoActiveSession(retainSessionId: TrainingSessionId? = null) {
         cachedProgramId = null
@@ -129,6 +143,8 @@ internal class LiveWorkoutSessionRuntime(
         sessionPinnedNotes = SessionPinnedNoteLists()
         canSaveTemplateChanges = false
         templateSavedThisComplete = false
+        equipmentAdjustConsumed = mutableSetOf()
+        equipmentAdjustSeenTiers = mutableMapOf()
         effects.clearLiveSurfaces()
         publishNoActiveSessionIfNeeded()
     }
@@ -150,6 +166,8 @@ internal class LiveWorkoutSessionRuntime(
         sessionPinnedNotes = SessionPinnedNoteLists()
         canSaveTemplateChanges = false
         templateSavedThisComplete = false
+        equipmentAdjustConsumed = mutableSetOf()
+        equipmentAdjustSeenTiers = mutableMapOf()
         if (publishEmpty) {
             publishNoActiveSessionIfNeeded()
         }
@@ -324,6 +342,10 @@ internal class LiveWorkoutSessionRuntime(
                     hasIncrementOverride = !lift.usesEquipmentDefaultIncrements,
                 )
             }
+        // Live off-lattice signal per lift card, from sets logged so far this session.
+        // Logged weights persist in canonical Lb, matching catalog tier units.
+        // Tier edits after the chip showed resolve it; untouched editor visits keep it.
+        val adjustEquipmentWorkoutLiftIds = resolveEquipmentAdjustIds(rendered)
         val mapped =
             WorkoutUiMapper.map(
                 rendered,
@@ -335,10 +357,57 @@ internal class LiveWorkoutSessionRuntime(
                 displayUnitEpoch = effects.displayUnitEpoch(),
                 defaultRestSecondsByLiftId = defaultRestSecondsByLiftId,
                 equipmentEditTargetByLiftId = equipmentEditTargetByLiftId,
+                adjustEquipmentWorkoutLiftIds = adjustEquipmentWorkoutLiftIds,
             )
         // Active-workout notification snapshot is derived from domain session by
         // DomainActiveSessionSurfaceSync — do not dual-publish from render().
         effects.publishUi(mapped)
+    }
+
+    /**
+     * Quiets the chip for one card (X affordance). UI-state only — no overlay write,
+     * so dismissing never dirties the session or persists anything.
+     */
+    internal fun handleDismissEquipmentAdjust(workoutLiftId: WorkoutLiftId) {
+        equipmentAdjustConsumed.add(workoutLiftId)
+        equipmentAdjustSeenTiers.remove(workoutLiftId)
+        if (structure != null) render()
+    }
+
+    /**
+     * Raw off-lattice cards minus consumed ones. Cards whose effective tiers changed
+     * since the chip first showed count as saved-away and join the consumed set;
+     * cards whose tiers are untouched keep showing. Drops bookkeeping for cards
+     * that left the session.
+     */
+    internal fun resolveEquipmentAdjustIds(rendered: RenderedWorkout): Set<String> {
+        val presentIds = rendered.lifts.map { it.workoutLiftId }.toSet()
+        equipmentAdjustSeenTiers.keys.retainAll(presentIds)
+        equipmentAdjustConsumed.retainAll(presentIds)
+        val raw =
+            rendered.lifts.mapNotNull { lift ->
+                val catalog = liftsById[lift.liftId] ?: return@mapNotNull null
+                val loggedWeights = lift.sets.mapNotNull { it.loggedValue?.weight }
+                if (shouldShowLiveEquipmentAdjust(loggedWeights, catalog)) {
+                    lift.workoutLiftId
+                } else {
+                    null
+                }
+            }.toSet()
+        for (lift in rendered.lifts) {
+            if (lift.workoutLiftId !in raw || lift.workoutLiftId in equipmentAdjustConsumed) {
+                continue
+            }
+            val current = liftsById[lift.liftId]?.incrementTiers.orEmpty()
+            val seen = equipmentAdjustSeenTiers[lift.workoutLiftId]
+            if (seen == null) {
+                equipmentAdjustSeenTiers[lift.workoutLiftId] = current
+            } else if (seen != current) {
+                equipmentAdjustConsumed.add(lift.workoutLiftId)
+                equipmentAdjustSeenTiers.remove(lift.workoutLiftId)
+            }
+        }
+        return (raw - equipmentAdjustConsumed).map { it.value }.toSet()
     }
 
     internal fun resolveSlot(slotId: SetSlotId): SetSlot? =

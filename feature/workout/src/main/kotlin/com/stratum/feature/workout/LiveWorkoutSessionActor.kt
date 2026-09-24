@@ -231,6 +231,8 @@ internal class LiveWorkoutSessionActor(
                 runtime.handleSetWorkoutLiftPinnedNotes(cmd)
             SessionCommand.RefreshPinnedNotes ->
                 runtime.handleRefreshPinnedNotes()
+            is SessionCommand.DismissEquipmentAdjust ->
+                runtime.handleDismissEquipmentAdjust(cmd.workoutLiftId)
             is SessionCommand.CompleteWorkout -> runtime.handleCompleteWorkout(cmd)
         }
     }
@@ -281,6 +283,7 @@ internal fun sessionCommandFailureIsTerminal(cmd: SessionCommand): Boolean =
         is SessionCommand.SetRestSecondsForSlots,
         is SessionCommand.SetWorkoutLiftPinnedNotes,
         SessionCommand.RefreshPinnedNotes,
+        is SessionCommand.DismissEquipmentAdjust,
         SessionCommand.BeginAbandon,
         SessionCommand.CancelAbandon,
         SessionCommand.FinalizeAbandonLocal,

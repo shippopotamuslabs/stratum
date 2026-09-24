@@ -43,6 +43,8 @@ fun StratumWorkoutLogLiftPanel(
     setRowActions: (WorkoutLogSetUi) -> WorkoutLogSetRowActions,
     modifier: Modifier = Modifier,
     headerTrailing: (@Composable () -> Unit)? = null,
+    /** Optional affordance rendered under the lift title (e.g. live "Adjust Equipment" chip). */
+    headerUnderTitle: (@Composable () -> Unit)? = null,
     onAddSet: (() -> Unit)? = null,
     addSetContentDescription: String? = null,
     onWorkoutPinnedNoteClick: (() -> Unit)? = null,
@@ -66,6 +68,8 @@ fun StratumWorkoutLogLiftPanel(
             )
             headerTrailing?.invoke()
         }
+
+        headerUnderTitle?.invoke()
 
         PinnedLiftNotesSlot(
             workoutNotes = lift.workoutPinnedNotes,

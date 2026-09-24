@@ -161,6 +161,66 @@ class WorkoutUiMapperTest {
     }
 
     @Test
+    @DisplayName("adjust set maps the chip flag per workout lift")
+    fun adjustSetMapsChipFlagPerWorkoutLift() {
+        val rendered =
+            RenderedWorkout(
+                workoutId = WorkoutId("w-1"),
+                workoutName = "Lower",
+                lifts =
+                    listOf(
+                        RenderedWorkoutLift(
+                            workoutLiftId = WorkoutLiftId("wl-1"),
+                            liftId = LiftId("lift-1"),
+                            liftName = "Squat",
+                            progressionScheme = ProgressionScheme.Double,
+                            sets = emptyList(),
+                            loadType = LoadType.Weighted,
+                        ),
+                        RenderedWorkoutLift(
+                            workoutLiftId = WorkoutLiftId("wl-2"),
+                            liftId = LiftId("lift-2"),
+                            liftName = "Curl",
+                            progressionScheme = ProgressionScheme.Double,
+                            sets = emptyList(),
+                            loadType = LoadType.Weighted,
+                        ),
+                    ),
+            )
+        val mapped =
+            WorkoutUiMapper.map(
+                rendered,
+                sessionStartedAtEpochMilli = 1L,
+                adjustEquipmentWorkoutLiftIds = setOf("wl-2"),
+            )
+        assertFalse(mapped.lifts[0].showAdjustEquipmentChip)
+        assertTrue(mapped.lifts[1].showAdjustEquipmentChip)
+    }
+
+    @Test
+    @DisplayName("empty adjust set hides the chip everywhere")
+    fun emptyAdjustSetHidesChip() {
+        val rendered =
+            RenderedWorkout(
+                workoutId = WorkoutId("w-1"),
+                workoutName = "Lower",
+                lifts =
+                    listOf(
+                        RenderedWorkoutLift(
+                            workoutLiftId = WorkoutLiftId("wl-1"),
+                            liftId = LiftId("lift-1"),
+                            liftName = "Squat",
+                            progressionScheme = ProgressionScheme.Double,
+                            sets = emptyList(),
+                            loadType = LoadType.Weighted,
+                        ),
+                    ),
+            )
+        val mapped = WorkoutUiMapper.map(rendered, sessionStartedAtEpochMilli = 1L)
+        assertFalse(mapped.lifts.single().showAdjustEquipmentChip)
+    }
+
+    @Test
     @DisplayName("bodyweight and cable lifts set isPlateLoaded to false")
     fun nonPlateLiftsMapIsPlateLoadedFalse() {
         val workout = RenderedWorkout(

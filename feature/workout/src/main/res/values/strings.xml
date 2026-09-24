@@ -30,6 +30,8 @@
     <string name="workout_sheet_all_sets_done_title">All sets logged</string>
     <string name="workout_sheet_all_sets_done_message">Nice work — finish the session when you\'re ready.</string>
     <string name="workout_screen_lift_complete_cd">Lift complete</string>
+    <string name="workout_live_adjust_equipment">Adjust Equipment</string>
+    <string name="workout_live_adjust_equipment_dismiss_cd">Dismiss equipment suggestion</string>
     <string name="workout_sheet_save_changes_title">Save Changes?</string>
     <string name="workout_sheet_save_changes_message">Save the modifications you made to this workout template?</string>
     <string name="workout_sheet_update_template">Update Workout Template</string>
