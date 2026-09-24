@@ -14,8 +14,8 @@ import com.stratum.domain.lift.ObserveLiftCatalogUseCase
 import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.SetLiftIncrementTiersUseCase
 import com.stratum.domain.lift.SetLiftMicroOverrideUseCase
-import com.stratum.domain.lift.ValidateMicroIncrementsUseCase
 import com.stratum.domain.lift.ValidateIncrementTiersUseCase
+import com.stratum.domain.lift.ValidateMicroIncrementsUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
@@ -83,6 +83,7 @@ class LiftIncrementsViewModelTest {
                         FakeLoggingPort(),
                     ),
                 validateIncrementTiers = ValidateIncrementTiersUseCase(),
+                validateMicroIncrements = ValidateMicroIncrementsUseCase(),
                 dismissEquipmentProposal =
                     DismissEquipmentProposalUseCase(
                         fakeProposalPrefs,
@@ -223,6 +224,142 @@ class LiftIncrementsViewModelTest {
             )
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    @Test
+    @DisplayName("Given lift with stops when initialized then micro drafts seed from the effective stops")
+    fun microSeedsFromEffectiveStops() = runTest {
+        seedLift(
+            micro = listOf(Weight(5.0, lb), Weight(10.0, lb)),
+            usesDefaultMicro = false,
+        )
+        subject.initialize(latId.value)
+        subject.uiState.test {
+            val state = awaitItemWith { it.liftName == "Lat pulldown" && it.microStops.isNotEmpty() }
+            assertEquals(listOf("5", "10"), state.microStops)
+            assertTrue(state.showMicroCard)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Given untouched stops when saved then the stored micro is left alone")
+    fun bandOnlySaveLeavesMicroUntouched() = runTest {
+        seedLift(
+            micro = listOf(Weight(2.5, lb)),
+            usesDefaultMicro = false,
+        )
+        subject.initialize(latId.value)
+        subject.uiState.test {
+            awaitItemWith { it.liftName == "Lat pulldown" && it.tiers.isNotEmpty() }
+            subject.save()
+            assertEquals(true, awaitItemWith { it.saveSucceeded }.saveSucceeded)
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        val stored = fakeLiftRepository.getLiftsByIds(listOf(latId)).single()
+        assertEquals(listOf(Weight(2.5, lb)), stored.microIncrements)
+        assertEquals(false, stored.usesEquipmentDefaultMicro)
+    }
+
+    @Test
+    @DisplayName("Given edited stops when saved then the lift carries a micro override")
+    fun editedMicroSavesOverride() = runTest {
+        subject.initialize(latId.value)
+        subject.uiState.test {
+            awaitItemWith { it.liftName == "Lat pulldown" && it.tiers.isNotEmpty() }
+            subject.onAddMicro()
+            subject.onMicroChanged(0, "2.5")
+            subject.save()
+            assertEquals(true, awaitItemWith { it.saveSucceeded }.saveSucceeded)
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        val stored = fakeLiftRepository.getLiftsByIds(listOf(latId)).single()
+        assertEquals(listOf(Weight(2.5, lb)), stored.microIncrements)
+        assertEquals(false, stored.usesEquipmentDefaultMicro)
+    }
+
+    @Test
+    @DisplayName("Given cleared stops when saved then the lift carries an explicit no-adder override")
+    fun clearedMicroSavesExplicitNone() = runTest {
+        seedLift(
+            micro = listOf(Weight(2.5, lb)),
+            usesDefaultMicro = false,
+        )
+        subject.initialize(latId.value)
+        subject.uiState.test {
+            awaitItemWith { it.liftName == "Lat pulldown" && it.microStops.isNotEmpty() }
+            subject.onRemoveMicro(0)
+            subject.save()
+            assertEquals(true, awaitItemWith { it.saveSucceeded }.saveSucceeded)
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        val stored = fakeLiftRepository.getLiftsByIds(listOf(latId)).single()
+        assertEquals(emptyList<Weight>(), stored.microIncrements)
+        assertEquals(false, stored.usesEquipmentDefaultMicro)
+    }
+
+    @Test
+    @DisplayName("Given overrides when reset then bands and stops both re-inherit")
+    fun resetClearsBandsAndMicro() = runTest {
+        seedLift(
+            micro = listOf(Weight(2.5, lb)),
+            usesDefaultMicro = false,
+        )
+        subject.initialize(latId.value)
+        subject.uiState.test {
+            awaitItemWith { it.liftName == "Lat pulldown" && it.showResetToEquipment }
+            subject.resetToEquipmentDefaults()
+            assertEquals(true, awaitItemWith { it.saveSucceeded }.saveSucceeded)
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        val stored = fakeLiftRepository.getLiftsByIds(listOf(latId)).single()
+        assertEquals(emptyList<IncrementTier>(), stored.incrementTiers)
+        assertEquals(emptyList<Weight>(), stored.microIncrements)
+        assertTrue(stored.usesEquipmentDefaultIncrements)
+        assertTrue(stored.usesEquipmentDefaultMicro)
+    }
+
+    @Test
+    @DisplayName("Given a stop above the largest band when saved then save blocks with a message")
+    fun invalidMicroBlocksSave() = runTest {
+        subject.initialize(latId.value)
+        subject.uiState.test {
+            awaitItemWith { it.liftName == "Lat pulldown" && it.tiers.isNotEmpty() }
+            subject.onAddMicro()
+            subject.onMicroChanged(0, "20")
+            subject.save()
+            val state = awaitItemWith { it.validationMessage != null }
+            assertTrue(state.validationMessage!!.contains("largest band step"))
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        val stored = fakeLiftRepository.getLiftsByIds(listOf(latId)).single()
+        assertEquals(emptyList<Weight>(), stored.microIncrements)
+        assertTrue(stored.usesEquipmentDefaultMicro)
+    }
+
+    private fun seedLift(micro: List<Weight>, usesDefaultMicro: Boolean) {
+        fakeLiftRepository.seedLifts(
+            listOf(
+                Lift(
+                    id = latId,
+                    name = "Lat pulldown",
+                    movementPatterns = setOf(MovementPattern.VerticalPull),
+                    primaryMuscles = setOf(MuscleGroup.Back),
+                    secondaryMuscles = emptySet(),
+                    incrementTiers = catalogTiers,
+                    presetTags = emptySet(),
+                    usesEquipmentDefaultIncrements = false,
+                    microIncrements = micro,
+                    usesEquipmentDefaultMicro = usesDefaultMicro,
+                    enabled = true,
+                ),
+            ),
+        )
     }
 
     private suspend fun app.cash.turbine.ReceiveTurbine<LiftIncrementsUiState>.awaitItemWith(

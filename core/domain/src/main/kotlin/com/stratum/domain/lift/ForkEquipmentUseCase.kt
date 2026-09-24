@@ -14,15 +14,20 @@ import javax.inject.Inject
 class ForkEquipmentUseCase @Inject constructor(
     private val equipmentRepository: EquipmentRepository,
     private val validate: ValidateIncrementTiersUseCase,
+    private val validateMicro: ValidateMicroIncrementsUseCase,
     private val loggingPort: LoggingPort,
 ) {
     /**
      * Creates custom equipment named [newName] with a deep copy of [sourceEquipmentId]'s
      * current default tiers. Empty parent tiers become the repository's default single band.
+     *
+     * @param micro adder stops for the copy; null copies the parent's stops (the default —
+     * a clone starts with the same knob), non-null replaces them (empty = no knob).
      */
     suspend operator fun invoke(
         sourceEquipmentId: EquipmentId,
         newName: String,
+        micro: List<Weight>? = null,
     ): Result<EquipmentId> {
         val trimmed = newName.trim()
         if (trimmed.isEmpty()) {
@@ -39,8 +44,16 @@ class ForkEquipmentUseCase @Inject constructor(
                 IncrementTiersValidationResult.Valid -> Unit
             }
         }
+        val resolvedMicro = micro ?: parent.microIncrements
+        if (resolvedMicro.isNotEmpty()) {
+            when (val result = validateMicro(tiers, resolvedMicro)) {
+                is MicroIncrementsValidationResult.Invalid ->
+                    return Result.failure(MicroIncrementsInvalidException(result.errors))
+                MicroIncrementsValidationResult.Valid -> Unit
+            }
+        }
         return runCatchingLogged(loggingPort, TAG, "Failed to fork equipment") {
-            equipmentRepository.addCustomEquipment(trimmed, tiers)
+            equipmentRepository.addCustomEquipment(trimmed, tiers, resolvedMicro)
         }
     }
 

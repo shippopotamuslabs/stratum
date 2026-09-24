@@ -1,0 +1,62 @@
+package com.stratum.domain.lift
+
+import com.stratum.core.testing.logging.FakeLoggingPort
+import com.stratum.core.testing.onboarding.FakeEquipmentRepository
+import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.Test
+
+class AddCustomEquipmentUseCaseTest {
+
+    private val lb = Weight.WeightUnit.Lb
+    private val tiers =
+        listOf(IncrementTier(Weight(0.0, lb), null, Weight(10.0, lb)))
+
+    private lateinit var equipmentRepo: FakeEquipmentRepository
+    private lateinit var subject: AddCustomEquipmentUseCase
+
+    @BeforeEach
+    fun setup() {
+        equipmentRepo = FakeEquipmentRepository()
+        subject =
+            AddCustomEquipmentUseCase(
+                repository = equipmentRepo,
+                validate = ValidateIncrementTiersUseCase(),
+                validateMicro = ValidateMicroIncrementsUseCase(),
+                loggingPort = FakeLoggingPort(),
+            )
+    }
+
+    @Test
+    @DisplayName("Given stops when added then the custom equipment carries the knob")
+    fun addCustomCarriesMicro() = runTest {
+        val stops = listOf(Weight(2.5, lb), Weight(5.0, lb))
+
+        val result = subject("Pin stack", tiers, stops)
+
+        assertTrue(result.isSuccess)
+        assertEquals(stops, equipmentRepo.getEquipment(result.getOrThrow())?.microIncrements)
+    }
+
+    @Test
+    @DisplayName("Given no stops when added then the custom equipment has no knob")
+    fun addCustomDefaultsToNoMicro() = runTest {
+        val result = subject("Plain stack", tiers)
+
+        assertTrue(result.isSuccess)
+        assertEquals(emptyList<Weight>(), equipmentRepo.getEquipment(result.getOrThrow())?.microIncrements)
+    }
+
+    @Test
+    @DisplayName("Given stop above the largest band when added then failure and no write")
+    fun addCustomRejectsInvalidMicro() = runTest {
+        val before = equipmentRepo.current.size
+        val result = subject("Pin stack", tiers, listOf(Weight(20.0, lb)))
+
+        assertTrue(result.isFailure)
+        assertEquals(before, equipmentRepo.current.size)
+    }
+}

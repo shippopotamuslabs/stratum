@@ -69,6 +69,12 @@ fun LiftIncrementsRoute(
         onAddTier = viewModel::addTier,
         onRemoveTier = viewModel::removeTier,
         onSave = viewModel::save,
+        microActions =
+            MicroEditorActions(
+                onStopChanged = viewModel::onMicroChanged,
+                onAddStop = viewModel::onAddMicro,
+                onRemoveStop = viewModel::onRemoveMicro,
+            ),
         onResetToEquipment = viewModel::resetToEquipmentDefaults,
     )
 }

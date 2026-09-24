@@ -48,13 +48,17 @@ class RoomEquipmentRepository @Inject constructor(
         return row.toDomain(incrementTierDao.getForEquipment(id))
     }
 
-    override suspend fun addCustomEquipment(name: String, tiers: List<IncrementTier>): EquipmentId {
+    override suspend fun addCustomEquipment(
+        name: String,
+        tiers: List<IncrementTier>,
+        micro: List<Weight>,
+    ): EquipmentId {
         val id = EquipmentId(UUID.randomUUID().toString())
         val resolvedTiers = tiers.ifEmpty { defaultSingleTiers() }
         val now = System.currentTimeMillis()
         syncTouch.withWriteLock {
             database.withTransaction {
-                insertCustomEquipmentUnlocked(id, name, resolvedTiers, now)
+                insertCustomEquipmentUnlocked(id, name, resolvedTiers, micro, now)
             }
             syncTouch.markDirty()
         }
@@ -72,7 +76,7 @@ class RoomEquipmentRepository @Inject constructor(
         val distinctLiftIds = liftIds.distinct()
         syncTouch.withWriteLock {
             database.withTransaction {
-                insertCustomEquipmentUnlocked(id, name, resolvedTiers, now)
+                insertCustomEquipmentUnlocked(id, name, resolvedTiers, micro = emptyList(), nowMillis = now)
                 for (liftId in distinctLiftIds) {
                     val previousTierIds = incrementTierDao.idsForLift(liftId)
                     syncTouch.replaceIds(
@@ -163,7 +167,7 @@ class RoomEquipmentRepository @Inject constructor(
             // Double-check under the write lock to avoid duplicate custom rows.
             resolveExistingByName(trimmed)?.let { return@withWriteLock it }
             database.withTransaction {
-                insertCustomEquipmentUnlocked(id, trimmed, defaultSingleTiers(), now)
+                insertCustomEquipmentUnlocked(id, trimmed, defaultSingleTiers(), micro = emptyList(), nowMillis = now)
             }
             syncTouch.markDirty()
             id
@@ -190,7 +194,7 @@ class RoomEquipmentRepository @Inject constructor(
         resolveExistingByName(trimmed)?.let { return it }
         val id = EquipmentId(UUID.randomUUID().toString())
         val tiers = createTiers?.takeIf { it.isNotEmpty() } ?: defaultSingleTiers()
-        insertCustomEquipmentUnlocked(id, trimmed, tiers, nowMillis)
+        insertCustomEquipmentUnlocked(id, trimmed, tiers, micro = emptyList(), nowMillis = nowMillis)
         return id
     }
 
@@ -216,6 +220,7 @@ class RoomEquipmentRepository @Inject constructor(
         id: EquipmentId,
         name: String,
         tiers: List<IncrementTier>,
+        micro: List<Weight>,
         nowMillis: Long,
     ) {
         equipmentDao.upsert(
@@ -223,6 +228,7 @@ class RoomEquipmentRepository @Inject constructor(
                 id = id,
                 name = name,
                 isCustom = true,
+                microOptionsJson = micro.toMicroJsonOrNull(),
                 updatedAtEpochMillis = nowMillis,
                 pendingSync = SyncFlags.PENDING_UPSERT,
             ),

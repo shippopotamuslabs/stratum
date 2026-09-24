@@ -64,6 +64,7 @@ class ForkEquipmentWithTiersUseCaseTest {
                     ForkEquipmentUseCase(
                         equipmentRepo,
                         ValidateIncrementTiersUseCase(),
+                        ValidateMicroIncrementsUseCase(),
                         FakeLoggingPort(),
                     ),
                 setEquipmentIncrementTiers =
@@ -100,12 +101,77 @@ class ForkEquipmentWithTiersUseCaseTest {
     @Test
     @DisplayName("Given edited stops when invoked then the copy takes the stops")
     fun forkCarriesEditedMicro() = runTest {
+        // 10.0 exceeds the parent's 5.0 largest step: explicit stops validate
+        // against the destination bands, not the source tiers.
         val micro = listOf(Weight(5.0, lb), Weight(10.0, lb))
 
         val result = subject(cableId, "Cables (copy)", editedTiers, micro = micro)
 
         assertTrue(result.isSuccess)
         assertEquals(micro, equipmentRepo.getEquipment(result.getOrThrow())?.microIncrements)
+    }
+
+    @Test
+    @DisplayName("Given parent stops when invoked without micro then the copy keeps the knob")
+    fun forkWithTiersCarriesParentMicro() = runTest {
+        val stops = listOf(Weight(2.5, lb))
+        equipmentRepo.seed(
+            listOf(
+                Equipment(
+                    id = cableId,
+                    name = "Cables",
+                    incrementTiers = storedTiers,
+                    microIncrements = stops,
+                    isCustom = false,
+                ),
+            ),
+        )
+
+        val result = subject(cableId, "Cables (copy)", editedTiers)
+
+        assertTrue(result.isSuccess)
+        val copy = equipmentRepo.getEquipment(result.getOrThrow())!!
+        assertEquals(editedTiers, copy.incrementTiers)
+        assertEquals(stops, copy.microIncrements)
+        assertEquals(stops, equipmentRepo.getEquipment(cableId)?.microIncrements)
+    }
+
+    @Test
+    @DisplayName("Given parent stops when invoked with micro then the copy carries the replacement")
+    fun forkWithTiersReplacesMicro() = runTest {
+        equipmentRepo.seed(
+            listOf(
+                Equipment(
+                    id = cableId,
+                    name = "Cables",
+                    incrementTiers = storedTiers,
+                    microIncrements = listOf(Weight(2.5, lb)),
+                    isCustom = false,
+                ),
+            ),
+        )
+
+        val result =
+            subject(cableId, "Cables (copy)", editedTiers, micro = listOf(Weight(5.0, lb)))
+
+        assertTrue(result.isSuccess)
+        val copy = equipmentRepo.getEquipment(result.getOrThrow())!!
+        assertEquals(listOf(Weight(5.0, lb)), copy.microIncrements)
+        assertEquals(
+            listOf(Weight(2.5, lb)),
+            equipmentRepo.getEquipment(cableId)?.microIncrements,
+        )
+    }
+
+    @Test
+    @DisplayName("Given a missing source when invoked then failure without a copy")
+    fun forkWithTiersFailsOnMissingSource() = runTest {
+        val before = equipmentRepo.current.size
+
+        val result = subject(EquipmentId("missing"), "Ghost (copy)", editedTiers)
+
+        assertTrue(result.isFailure)
+        assertEquals(before, equipmentRepo.current.size)
     }
 
     @Test
