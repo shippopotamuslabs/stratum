@@ -98,6 +98,17 @@ class ForkEquipmentWithTiersUseCaseTest {
     }
 
     @Test
+    @DisplayName("Given edited stops when invoked then the copy takes the stops")
+    fun forkCarriesEditedMicro() = runTest {
+        val micro = listOf(Weight(5.0, lb), Weight(10.0, lb))
+
+        val result = subject(cableId, "Cables (copy)", editedTiers, micro = micro)
+
+        assertTrue(result.isSuccess)
+        assertEquals(micro, equipmentRepo.getEquipment(result.getOrThrow())?.microIncrements)
+    }
+
+    @Test
     @DisplayName("Given no lift when invoked then the copy is made and lifts are untouched")
     fun forksWithoutReassign() = runTest {
         val result = subject(cableId, "Cables (copy)", editedTiers)

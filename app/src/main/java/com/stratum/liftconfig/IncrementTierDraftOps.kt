@@ -21,11 +21,27 @@ object IncrementTierDraftOps {
     const val DEFAULT_TIER_SPLIT_SPAN_LB = 50.0
     const val DEFAULT_TIER_SPLIT_AT_LB = 100.0
     const val DEFAULT_INCREMENT_LB = 5.0
+    /**
+     * Default fresh adder-stop row, storage pounds. Owned by micro editing (not
+     * derived from tier-band defaults) so band changes can never ripple into
+     * micro behavior; matches the smallest common pin stop.
+     */
+    const val DEFAULT_MICRO_STOP_LB = 5.0
 
     /** @deprecated Prefer *_LB constants; kept for call-site compatibility. */
     const val DEFAULT_TIER_SPLIT_SPAN = DEFAULT_TIER_SPLIT_SPAN_LB
     const val DEFAULT_TIER_SPLIT_AT = DEFAULT_TIER_SPLIT_AT_LB
     const val DEFAULT_INCREMENT_TEXT = "5"
+
+    /** Default fresh adder-stop row in [displayUnit] (see [DEFAULT_MICRO_STOP_LB]). */
+    fun defaultMicroStop(displayUnit: Weight.WeightUnit = Weight.WeightUnit.Lb): String =
+        formatAmount(
+            WeightConversion.convertAmount(
+                DEFAULT_MICRO_STOP_LB,
+                Weight.WeightUnit.Lb,
+                displayUnit,
+            ),
+        )
 
     fun filterNumeric(value: String): String =
         value.filter { it.isDigit() || it == '.' || it == '-' }
