@@ -164,6 +164,22 @@ class ForkEquipmentWithTiersUseCaseTest {
     }
 
     @Test
+    @DisplayName(
+        "Given explicit stops above the parent's largest step when invoked then the " +
+            "copy carries them against the new tiers",
+    )
+    fun forkWithTiersAcceptsDestinationMicro() = runTest {
+        // Parent's largest step is 5.0; 7.5 only fits the edited 10.0 bands.
+        val result =
+            subject(cableId, "Cables (copy)", editedTiers, micro = listOf(Weight(7.5, lb)))
+
+        assertTrue(result.isSuccess)
+        val copy = equipmentRepo.getEquipment(result.getOrThrow())!!
+        assertEquals(editedTiers, copy.incrementTiers)
+        assertEquals(listOf(Weight(7.5, lb)), copy.microIncrements)
+    }
+
+    @Test
     @DisplayName("Given a missing source when invoked then failure without a copy")
     fun forkWithTiersFailsOnMissingSource() = runTest {
         val before = equipmentRepo.current.size

@@ -229,6 +229,22 @@ class FakeLiftRepository(
         }
     }
 
+    override suspend fun resetIncrementTiersToEquipment(id: LiftId) {
+        lifts.value = lifts.value.map { lift ->
+            if (lift.id == id) {
+                lift.copy(
+                    incrementTiers = emptyList(),
+                    usesEquipmentDefaultIncrements = true,
+                    inheritsFromEquipmentLattice = false,
+                    microIncrements = emptyList(),
+                    usesEquipmentDefaultMicro = true,
+                )
+            } else {
+                lift
+            }
+        }
+    }
+
     override suspend fun updateLiftMuscles(
         id: LiftId,
         primaryMuscles: Set<MuscleGroup>,

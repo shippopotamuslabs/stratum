@@ -18,6 +18,7 @@ import com.stratum.domain.lift.EquipmentNameMatching
 import com.stratum.domain.lift.EquipmentRepository
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.defaultSingleTiers
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.IncrementTierId
 import com.stratum.domain.lift.identity.LiftId
@@ -259,12 +260,4 @@ class RoomEquipmentRepository @Inject constructor(
             )
         }
 
-    private fun defaultSingleTiers(): List<IncrementTier> {
-        val lb = Weight.WeightUnit.Lb
-        return listOf(IncrementTier(Weight(0.0, lb), null, Weight(DEFAULT_INCREMENT_LB, lb)))
-    }
-
-    private companion object {
-        const val DEFAULT_INCREMENT_LB = 5.0
-    }
 }

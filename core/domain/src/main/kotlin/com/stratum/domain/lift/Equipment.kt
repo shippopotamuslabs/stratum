@@ -25,3 +25,16 @@ data class Equipment(
      */
     val microIncrements: List<Weight> = emptyList(),
 )
+
+/**
+ * The single open band repositories persist when custom equipment is created without
+ * tiers. Single source of truth for the write-default so validation (which must run
+ * against the persisted context) and every [EquipmentRepository] implementation agree.
+ */
+fun defaultSingleTiers(): List<IncrementTier> {
+    val lb = Weight.WeightUnit.Lb
+    return listOf(IncrementTier(Weight(0.0, lb), null, Weight(DEFAULT_INCREMENT_LB, lb)))
+}
+
+/** Default major step (lb) of [defaultSingleTiers]. */
+const val DEFAULT_INCREMENT_LB = 5.0
