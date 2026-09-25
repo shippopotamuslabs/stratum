@@ -16,8 +16,14 @@ import com.stratum.domain.lift.usefulAlternative
  */
 internal object EquipmentProposalUiMapper {
 
+    /**
+     * @param baselineMicro the analysis-assumed adder stops for this proposal,
+     * carried alongside (not on) the domain entity; explicitly composed here so
+     * the canonical proposal stays ranking-pure.
+     */
     fun toCard(
         proposal: EquipmentIncrementProposal,
+        baselineMicro: List<Weight>,
         isApplying: Boolean = false,
     ): EquipmentProposalCardUi {
         val alt = proposal.usefulAlternative()
@@ -26,7 +32,9 @@ internal object EquipmentProposalUiMapper {
             id = proposal.id,
             title = copy.title,
             subtitle = copy.subtitle,
-            tierSummary = formatTierSummary(proposal.proposedTiers, proposal.microIncrements),
+            tierSummary =
+                formatTierSummary(proposal.proposedTiers) +
+                    formatAdderSuffix(baselineMicro),
             liftNames =
                 proposal.liftNames
                     .filter { it.isNotBlank() }
@@ -41,10 +49,15 @@ internal object EquipmentProposalUiMapper {
 
     fun toCards(
         proposals: Collection<EquipmentIncrementProposal>,
+        baselineMicroByProposalId: Map<String, List<Weight>>,
         applyingIds: Set<String> = emptySet(),
     ): List<EquipmentProposalCardUi> =
         proposals.map { proposal ->
-            toCard(proposal, isApplying = proposal.id in applyingIds)
+            toCard(
+                proposal,
+                baselineMicro = baselineMicroByProposalId[proposal.id].orEmpty(),
+                isApplying = proposal.id in applyingIds,
+            )
         }
 
     /**
@@ -158,23 +171,27 @@ internal object EquipmentProposalUiMapper {
             is ApplyEquipmentIncrementResult.LiftOverridden -> "Updated lift steps."
         }
 
-    fun formatTierSummary(
-        tiers: List<IncrementTier>,
-        micro: List<Weight> = emptyList(),
-    ): String {
-        val base =
-            formatIncrementTierSummary(
-                tiers.map { tier ->
-                    Triple(
-                        tier.lowerBound.amount,
-                        tier.upperBound?.amount,
-                        tier.increment.amount,
-                    )
-                },
-            )
-        if (micro.isEmpty()) return base
+    /** Bands-only tier summary; adder copy composes via [formatAdderSuffix]. */
+    fun formatTierSummary(tiers: List<IncrementTier>): String =
+        formatIncrementTierSummary(
+            tiers.map { tier ->
+                Triple(
+                    tier.lowerBound.amount,
+                    tier.upperBound?.amount,
+                    tier.increment.amount,
+                )
+            },
+        )
+
+    /**
+     * Adder suffix for a tier summary; empty when there is no knob so callers
+     * compose `formatTierSummary(tiers) + formatAdderSuffix(stops)` without
+     * knowing an empty-means-bands-only contract.
+     */
+    fun formatAdderSuffix(micro: List<Weight>): String {
+        if (micro.isEmpty()) return ""
         val stops = micro.joinToString("/") { formatIncrementAmount(it.amount) }
-        return "$base + adder $stops"
+        return " + adder $stops"
     }
 
     private fun cardCopy(

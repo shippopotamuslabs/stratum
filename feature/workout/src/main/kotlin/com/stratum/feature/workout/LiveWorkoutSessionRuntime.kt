@@ -6,6 +6,7 @@ import com.stratum.core.ui.component.linkSupersetWithAdjacent
 import com.stratum.core.ui.component.unlinkLiftFromSuperset
 import com.stratum.domain.importing.FatigueDecay
 import com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase
+import com.stratum.domain.lift.EffectiveSteps
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.shouldShowLiveEquipmentAdjust
@@ -346,20 +347,22 @@ internal class LiveWorkoutSessionRuntime(
                     null
                 }
             }.toSet()
-        val tiersByWorkoutLiftId =
+        // One steps value per lift: tiers and micro share a single lookup so the
+        // tracker can never observe one facet without the other.
+        val stepsByWorkoutLiftId =
             rendered.lifts.associate { lift ->
-                lift.workoutLiftId to liftsById[lift.liftId]?.incrementTiers.orEmpty()
-            }
-        val microByWorkoutLiftId =
-            rendered.lifts.associate { lift ->
-                lift.workoutLiftId to liftsById[lift.liftId]?.microIncrements.orEmpty()
+                val catalog = liftsById[lift.liftId]
+                lift.workoutLiftId to
+                    EffectiveSteps(
+                        tiers = catalog?.incrementTiers.orEmpty(),
+                        microIncrements = catalog?.microIncrements.orEmpty(),
+                    )
             }
         val adjustEquipmentWorkoutLiftIds =
             equipmentAdjustTracker.update(
                 rawIds = rawAdjustIds,
-                tiersByWorkoutLiftId = tiersByWorkoutLiftId,
+                stepsByWorkoutLiftId = stepsByWorkoutLiftId,
                 presentIds = rendered.lifts.map { it.workoutLiftId }.toSet(),
-                microByWorkoutLiftId = microByWorkoutLiftId,
             )
         val mapped =
             WorkoutUiMapper.map(
@@ -438,14 +441,23 @@ internal class LiveWorkoutSessionRuntime(
         if (lifts.isEmpty()) return
         val programId = cachedProgramId ?: return
         val workoutId = activeWorkoutId ?: return
+        // One steps value per lift, projected into the request's parallel maps so
+        // both facets share a single iteration and missing-key handling.
+        val stepsByLiftId =
+            liftsById.mapValues { (_, lift) ->
+                EffectiveSteps(
+                    tiers = lift.incrementTiers,
+                    microIncrements = lift.microIncrements,
+                )
+            }
         generateSnapshot(
             SnapshotRequest(
                 programId = programId,
                 workoutId = workoutId,
                 lifts = lifts,
                 loadTypesById = liftsById.mapValues { it.value.loadType },
-                incrementTiersById = liftsById.mapValues { (_, lift) -> lift.incrementTiers },
-                microIncrementsById = liftsById.mapValues { (_, lift) -> lift.microIncrements },
+                incrementTiersById = stepsByLiftId.mapValues { it.value.tiers },
+                microIncrementsById = stepsByLiftId.mapValues { it.value.microIncrements },
             ),
         ).onSuccess { snapshot ->
             if (snapshot.bySlot.isNotEmpty()) {

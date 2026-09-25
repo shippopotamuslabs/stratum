@@ -18,7 +18,7 @@ class EquipmentProposalUiMapperTest {
     private val tiers =
         listOf(IncrementTier(Weight(0.0, lb), Weight(50.0, lb), Weight(5.0, lb)))
 
-    private fun proposal(micro: List<Weight> = emptyList()) =
+    private fun proposal() =
         EquipmentIncrementProposal(
             id = "proposal-1",
             clusterEquipmentId = EquipmentId("pin"),
@@ -37,7 +37,6 @@ class EquipmentProposalUiMapperTest {
             equipmentIsCustom = true,
             requiresBlastRadiusConfirmation = false,
             affectedInheritingLiftCount = 1,
-            microIncrements = micro,
         )
 
     @Test
@@ -45,7 +44,8 @@ class EquipmentProposalUiMapperTest {
     fun adderStopsRenderInSummary() {
         val card =
             EquipmentProposalUiMapper.toCard(
-                proposal(listOf(Weight(2.5, lb), Weight(5.0, lb))),
+                proposal(),
+                baselineMicro = listOf(Weight(2.5, lb), Weight(5.0, lb)),
             )
 
         assertTrue(card.tierSummary.endsWith("+ adder 2.5/5"), card.tierSummary)
@@ -54,11 +54,23 @@ class EquipmentProposalUiMapperTest {
     @Test
     @DisplayName("Given no stops when mapped then the summary is bands only")
     fun emptyMicroLeavesSummaryAlone() {
-        val card = EquipmentProposalUiMapper.toCard(proposal())
+        val card = EquipmentProposalUiMapper.toCard(proposal(), baselineMicro = emptyList())
 
         assertEquals(
             EquipmentProposalUiMapper.formatTierSummary(tiers),
             card.tierSummary,
+        )
+    }
+
+    @Test
+    @DisplayName("Given stops when suffixed then the adder fragment appends")
+    fun adderSuffixFormats() {
+        assertEquals("", EquipmentProposalUiMapper.formatAdderSuffix(emptyList()))
+        assertEquals(
+            " + adder 2.5/5",
+            EquipmentProposalUiMapper.formatAdderSuffix(
+                listOf(Weight(2.5, lb), Weight(5.0, lb)),
+            ),
         )
     }
 }
