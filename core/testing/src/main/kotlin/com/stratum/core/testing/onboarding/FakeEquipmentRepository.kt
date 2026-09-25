@@ -6,6 +6,7 @@ import com.stratum.domain.lift.EquipmentRepository
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.defaultSingleTiers
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import java.util.UUID
@@ -53,13 +54,18 @@ class FakeEquipmentRepository(
     override suspend fun getEquipment(id: EquipmentId): Equipment? =
         rows.value.firstOrNull { it.id == id }
 
-    override suspend fun addCustomEquipment(name: String, tiers: List<IncrementTier>): EquipmentId {
+    override suspend fun addCustomEquipment(
+        name: String,
+        tiers: List<IncrementTier>,
+        micro: List<Weight>,
+    ): EquipmentId {
         throwIfFailNextWrite()
         val id = EquipmentId(UUID.randomUUID().toString())
         val resolvedTiers = tiers.ifEmpty { defaultSingleTiers() }
         rows.value = rows.value + Equipment(
             id = id,
             name = name,
+            microIncrements = micro,
             incrementTiers = resolvedTiers,
             isCustom = true,
         )
@@ -143,10 +149,5 @@ class FakeEquipmentRepository(
             rows.value.firstOrNull { it.id == seedId }?.let { return it.id }
         }
         return addCustomEquipment(trimmed)
-    }
-
-    private fun defaultSingleTiers(): List<IncrementTier> {
-        val lb = Weight.WeightUnit.Lb
-        return listOf(IncrementTier(Weight(0.0, lb), null, Weight(5.0, lb)))
     }
 }

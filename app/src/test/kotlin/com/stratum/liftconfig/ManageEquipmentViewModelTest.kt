@@ -10,6 +10,7 @@ import com.stratum.domain.lift.ForkEquipmentUseCase
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.ObserveEquipmentCatalogUseCase
 import com.stratum.domain.lift.ValidateIncrementTiersUseCase
+import com.stratum.domain.lift.ValidateMicroIncrementsUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -80,12 +81,14 @@ class ManageEquipmentViewModelTest {
                     AddCustomEquipmentUseCase(
                         fakeEquipmentRepository,
                         validate,
+                        ValidateMicroIncrementsUseCase(),
                         logging,
                     ),
                 forkEquipment =
                     ForkEquipmentUseCase(
                         fakeEquipmentRepository,
                         validate,
+                        ValidateMicroIncrementsUseCase(),
                         logging,
                     ),
                 equipmentPickResult = equipmentPickResult,

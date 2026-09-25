@@ -14,7 +14,7 @@ import javax.inject.Inject
  * leaves the micro column untouched, non-null replaces it (empty = explicitly no
  * adder). An empty [tiers] list clears the band override, so pairing it with a
  * non-null [micro] is rejected — knob-only edits (including inherit-bands plus
- * override-knob) belong in [SetLiftMicroOverrideUseCase] with the effective tiers.
+ * override-knob) are out of scope for this use case.
  */
 class SetLiftIncrementTiersUseCase @Inject constructor(
     private val repository: LiftRepository,
