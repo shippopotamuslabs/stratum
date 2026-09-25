@@ -2,6 +2,7 @@ package com.stratum.feature.workout
 
 import com.stratum.domain.lift.EquipmentIncrementProposal
 import com.stratum.domain.lift.EquipmentIncrementRemedy
+import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.requiresBlastRadius
 import com.stratum.domain.lift.usefulAlternative
 import com.stratum.feature.workout.ui.BlastRadiusConfirmUi
@@ -23,13 +24,24 @@ internal class EquipmentProposalSession {
     )
 
     private var proposals: Map<String, EquipmentIncrementProposal> = emptyMap()
+    private var baselineMicroByProposalId: Map<String, List<Weight>> = emptyMap()
     private var pendingConfirmRemedy: EquipmentIncrementRemedy? = null
     private var blastRadiusConfirm: BlastRadiusConfirmUi? = null
     private val applyingIds: MutableSet<String> = linkedSetOf()
     private var userMessage: String? = null
 
-    fun load(proposals: List<EquipmentIncrementProposal>): Snapshot {
+    /**
+     * Loads analysis output plus the card-copy enrichment kept out of the domain
+     * entity: baseline adder stops per proposal id for the tier-summary suffix.
+     * Required (no silent empty default) so a missing map cannot quietly drop
+     * every card's adder suffix.
+     */
+    fun load(
+        proposals: List<EquipmentIncrementProposal>,
+        baselineMicroByProposalId: Map<String, List<Weight>>,
+    ): Snapshot {
         this.proposals = proposals.associateBy { it.id }
+        this.baselineMicroByProposalId = baselineMicroByProposalId
         pendingConfirmRemedy = null
         blastRadiusConfirm = null
         applyingIds.clear()
@@ -157,7 +169,12 @@ internal class EquipmentProposalSession {
 
     fun snapshot(): Snapshot =
         Snapshot(
-            cards = EquipmentProposalUiMapper.toCards(proposals.values, applyingIds),
+            cards =
+                EquipmentProposalUiMapper.toCards(
+                    proposals.values,
+                    baselineMicroByProposalId,
+                    applyingIds,
+                ),
             blastRadiusConfirm = blastRadiusConfirm,
             userMessage = userMessage,
         )
