@@ -1,13 +1,14 @@
 import { describe, it, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import {
+  MAX_IMAGE_BYTES,
   SCAN_IMAGE_MIME_TYPES,
   inferEquipmentIncrements,
   parseScanModelContent,
   resolveScanImageDataUri,
   resolveScanVisionConfig,
 } from "./inferEquipmentIncrements";
-import { MAX_IMAGE_BYTES } from "./scanQuota";
+import { invokeCallable } from "../testUtils/invokeCallable.test-helper";
 import {
   entitlementDocPath,
   resetEntitlementFirestoreGetter,
@@ -51,12 +52,8 @@ function installNoEntitlement(): void {
   }));
 }
 
-type RunFn = (request: unknown) => Promise<unknown>;
-
-function runCallable(): RunFn {
-  return (inferEquipmentIncrements as unknown as { run: RunFn }).run.bind(
-    inferEquipmentIncrements,
-  );
+function runCallable() {
+  return (request: unknown) => invokeCallable(inferEquipmentIncrements, request);
 }
 
 afterEach(() => {
@@ -110,6 +107,10 @@ describe("resolveScanImageDataUri", () => {
         return true;
       },
     );
+  });
+
+  it("MAX_IMAGE_BYTES is a 2 MiB server-side cap", () => {
+    assert.equal(MAX_IMAGE_BYTES, 2 * 1024 * 1024);
   });
 
   it("rejects images over MAX_IMAGE_BYTES", async () => {

@@ -13,7 +13,7 @@ import {
   parseScannedTiers,
   type ScannedTiers,
 } from "./incrementsScanSchema";
-import { admitIncrementScan, MAX_IMAGE_BYTES } from "./scanQuota";
+import { admitIncrementScan } from "./scanQuota";
 
 /**
  * Photo of a selectorized (pin-stack) weight label in, structured tiers out.
@@ -24,6 +24,12 @@ import { admitIncrementScan, MAX_IMAGE_BYTES } from "./scanQuota";
  * Deliberately no `enforceAppCheck` (mirrors the sibling LLM callables until
  * the App Check follow-up lands across all of them).
  */
+
+/**
+ * Server-side hard cap on the decoded image payload. The client downscales
+ * before upload; this is defense in depth (mirrors `programTemplateLimits`).
+ */
+export const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 
 export const SCAN_IMAGE_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 
@@ -158,7 +164,6 @@ export const inferEquipmentIncrements = onCall(
       throw new HttpsError("internal", "Scan request failed. Please try again.");
     }
 
-    const scan = parseScanModelContent(content);
-    return { unit: scan.unit, tiers: scan.tiers, microStops: scan.microStops };
+    return parseScanModelContent(content);
   },
 );

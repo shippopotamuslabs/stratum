@@ -24,12 +24,6 @@ export const MAX_SCANS_PER_MONTH = 30;
 /** Increment scans allowed per uid per UTC calendar day. */
 export const MAX_SCANS_PER_DAY = 10;
 
-/**
- * Server-side hard cap on the decoded image payload. The client downscales
- * before upload; this is defense in depth (mirrors `programTemplateLimits`).
- */
-export const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
-
 export const SCAN_QUOTA_DOC_ID = "current";
 
 export type ScanQuotaDoc = {
@@ -77,7 +71,7 @@ function nonNegInt(value: unknown): number {
 }
 
 /** Effective scan count for [monthKey]. Missing/rolled month → 0. */
-export function effectiveMonthCount(
+function effectiveMonthCount(
   doc: Partial<ScanQuotaDoc> | undefined | null,
   monthKey: string,
 ): number {
@@ -88,7 +82,7 @@ export function effectiveMonthCount(
 }
 
 /** Effective scan count for [dayKey]. Missing/rolled day → 0. */
-export function effectiveDayCount(
+function effectiveDayCount(
   doc: Partial<ScanQuotaDoc> | undefined | null,
   dayKey: string,
 ): number {
@@ -99,7 +93,7 @@ export function effectiveDayCount(
 }
 
 /** True when the user is already at the monthly scan cap for [monthKey]. */
-export function isAtMonthlyScanQuota(
+function isAtMonthlyScanQuota(
   doc: Partial<ScanQuotaDoc> | undefined | null,
   monthKey: string,
   cap: number = MAX_SCANS_PER_MONTH,
@@ -108,7 +102,7 @@ export function isAtMonthlyScanQuota(
 }
 
 /** True when the user is already at the daily scan cap for [dayKey]. */
-export function isAtDailyScanQuota(
+function isAtDailyScanQuota(
   doc: Partial<ScanQuotaDoc> | undefined | null,
   dayKey: string,
   cap: number = MAX_SCANS_PER_DAY,
@@ -117,7 +111,7 @@ export function isAtDailyScanQuota(
 }
 
 /** Next stored shape after one scan admission in [monthKey]/[dayKey]. */
-export function nextQuotaAfterScan(
+function nextQuotaAfterScan(
   doc: Partial<ScanQuotaDoc> | undefined | null,
   monthKey: string,
   dayKey: string,
