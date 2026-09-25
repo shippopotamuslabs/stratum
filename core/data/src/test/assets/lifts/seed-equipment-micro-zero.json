@@ -1,0 +1,8 @@
+[
+  {
+    "id": "pin-loaded-machine",
+    "name": "Pin-Loaded Machine",
+    "incrementTiers": [{ "lowerBound": 0.0, "upperBound": null, "increment": 15.0 }],
+    "microIncrements": [0.0, 5.0]
+  }
+]

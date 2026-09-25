@@ -58,6 +58,17 @@ class EquipmentCatalogSeederMicroTest {
     }
 
     @Test
+    @DisplayName("Given a zero stop when seeded then knob-off noise is dropped from the column")
+    fun zeroStopDropped() = runTest {
+        val seeded =
+            subject.seed(RuntimeEnvironment.getApplication(), "lifts/seed-equipment-micro-zero.json")
+
+        assertEquals(1, seeded)
+        val rows = database.equipmentDao().getAll().associateBy { it.id }
+        assertEquals("[5.0]", rows[EquipmentId("pin-loaded-machine")]!!.microOptionsJson)
+    }
+
+    @Test
     @DisplayName("Given the bundled asset when read then no seed ships micro stops")
     fun shippedSeedsHaveNoMicro() {
         val text =
