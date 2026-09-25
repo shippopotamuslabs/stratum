@@ -1,5 +1,6 @@
 package com.stratum.feature.workout
 
+import com.stratum.domain.lift.EffectiveSteps
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.program.identity.WorkoutLiftId
@@ -24,7 +25,7 @@ class EquipmentAdjustTrackerTest {
         val visible =
             tracker.update(
                 rawIds = setOf(wl1),
-                tiersByWorkoutLiftId = mapOf(wl1 to tiersA),
+                stepsByWorkoutLiftId = mapOf(wl1 to EffectiveSteps(tiersA, emptyList())),
                 presentIds = setOf(wl1),
             )
 
@@ -37,14 +38,14 @@ class EquipmentAdjustTrackerTest {
         val tracker = EquipmentAdjustTracker()
         tracker.update(
             rawIds = setOf(wl1),
-            tiersByWorkoutLiftId = mapOf(wl1 to tiersA),
+            stepsByWorkoutLiftId = mapOf(wl1 to EffectiveSteps(tiersA, emptyList())),
             presentIds = setOf(wl1),
         )
 
         val visible =
             tracker.update(
                 rawIds = setOf(wl1),
-                tiersByWorkoutLiftId = mapOf(wl1 to tiersA),
+                stepsByWorkoutLiftId = mapOf(wl1 to EffectiveSteps(tiersA, emptyList())),
                 presentIds = setOf(wl1),
             )
 
@@ -57,14 +58,14 @@ class EquipmentAdjustTrackerTest {
         val tracker = EquipmentAdjustTracker()
         tracker.update(
             rawIds = setOf(wl1),
-            tiersByWorkoutLiftId = mapOf(wl1 to tiersA),
+            stepsByWorkoutLiftId = mapOf(wl1 to EffectiveSteps(tiersA, emptyList())),
             presentIds = setOf(wl1),
         )
 
         val visible =
             tracker.update(
                 rawIds = setOf(wl1),
-                tiersByWorkoutLiftId = mapOf(wl1 to tiersB),
+                stepsByWorkoutLiftId = mapOf(wl1 to EffectiveSteps(tiersB, emptyList())),
                 presentIds = setOf(wl1),
             )
 
@@ -77,7 +78,7 @@ class EquipmentAdjustTrackerTest {
         val tracker = EquipmentAdjustTracker()
         tracker.update(
             rawIds = setOf(wl1),
-            tiersByWorkoutLiftId = mapOf(wl1 to tiersA),
+            stepsByWorkoutLiftId = mapOf(wl1 to EffectiveSteps(tiersA, emptyList())),
             presentIds = setOf(wl1),
         )
         tracker.dismiss(wl1)
@@ -85,7 +86,7 @@ class EquipmentAdjustTrackerTest {
         val visible =
             tracker.update(
                 rawIds = setOf(wl1),
-                tiersByWorkoutLiftId = mapOf(wl1 to tiersA),
+                stepsByWorkoutLiftId = mapOf(wl1 to EffectiveSteps(tiersA, emptyList())),
                 presentIds = setOf(wl1),
             )
 
@@ -98,7 +99,7 @@ class EquipmentAdjustTrackerTest {
         val tracker = EquipmentAdjustTracker()
         tracker.update(
             rawIds = setOf(wl1),
-            tiersByWorkoutLiftId = mapOf(wl1 to tiersA),
+            stepsByWorkoutLiftId = mapOf(wl1 to EffectiveSteps(tiersA, emptyList())),
             presentIds = setOf(wl1),
         )
         tracker.dismiss(wl1)
@@ -107,7 +108,7 @@ class EquipmentAdjustTrackerTest {
         val visible =
             tracker.update(
                 rawIds = emptySet(),
-                tiersByWorkoutLiftId = emptyMap(),
+                stepsByWorkoutLiftId = emptyMap(),
                 presentIds = emptySet(),
             )
 
@@ -115,10 +116,73 @@ class EquipmentAdjustTrackerTest {
         val fresh =
             tracker.update(
                 rawIds = setOf(wl1),
-                tiersByWorkoutLiftId = mapOf(wl1 to tiersA),
+                stepsByWorkoutLiftId = mapOf(wl1 to EffectiveSteps(tiersA, emptyList())),
                 presentIds = setOf(wl1),
             )
         assertEquals(setOf(wl1), fresh)
+    }
+
+    @Test
+    @DisplayName("Given micro-only save when updated then the card resolves quietly")
+    fun microOnlyChangeResolvesQuietly() {
+        val tracker = EquipmentAdjustTracker()
+        tracker.update(
+            rawIds = setOf(wl1),
+            stepsByWorkoutLiftId = mapOf(wl1 to EffectiveSteps(tiersA, emptyList())),
+            presentIds = setOf(wl1),
+        )
+
+        val visible =
+            tracker.update(
+                rawIds = setOf(wl1),
+                stepsByWorkoutLiftId =
+                    mapOf(wl1 to EffectiveSteps(tiersA, listOf(Weight(2.5, lb)))),
+                presentIds = setOf(wl1),
+            )
+
+        assertTrue(visible.isEmpty())
+    }
+
+    @Test
+    @DisplayName("Given unchanged stops when updated then the card stays visible")
+    fun unchangedMicroStaysVisible() {
+        val tracker = EquipmentAdjustTracker()
+        val micro = listOf(Weight(2.5, lb))
+        tracker.update(
+            rawIds = setOf(wl1),
+            stepsByWorkoutLiftId = mapOf(wl1 to EffectiveSteps(tiersA, micro)),
+            presentIds = setOf(wl1),
+        )
+
+        val visible =
+            tracker.update(
+                rawIds = setOf(wl1),
+                stepsByWorkoutLiftId = mapOf(wl1 to EffectiveSteps(tiersA, micro)),
+                presentIds = setOf(wl1),
+            )
+
+        assertEquals(setOf(wl1), visible)
+    }
+
+    @Test
+    @DisplayName("Given a missing steps entry when updated then the card stays visible")
+    fun missingStepsEntryStaysVisible() {
+        val tracker = EquipmentAdjustTracker()
+        tracker.update(
+            rawIds = setOf(wl1),
+            stepsByWorkoutLiftId = mapOf(wl1 to EffectiveSteps(tiersA, emptyList())),
+            presentIds = setOf(wl1),
+        )
+
+        // Unknown steps must not compare against empty and spuriously resolve.
+        val visible =
+            tracker.update(
+                rawIds = setOf(wl1),
+                stepsByWorkoutLiftId = emptyMap(),
+                presentIds = setOf(wl1),
+            )
+
+        assertEquals(setOf(wl1), visible)
     }
 
     @Test
@@ -127,7 +191,7 @@ class EquipmentAdjustTrackerTest {
         val tracker = EquipmentAdjustTracker()
         tracker.update(
             rawIds = setOf(wl1),
-            tiersByWorkoutLiftId = mapOf(wl1 to tiersA),
+            stepsByWorkoutLiftId = mapOf(wl1 to EffectiveSteps(tiersA, emptyList())),
             presentIds = setOf(wl1),
         )
         tracker.dismiss(wl1)
@@ -136,7 +200,7 @@ class EquipmentAdjustTrackerTest {
         val visible =
             tracker.update(
                 rawIds = setOf(wl1),
-                tiersByWorkoutLiftId = mapOf(wl1 to tiersA),
+                stepsByWorkoutLiftId = mapOf(wl1 to EffectiveSteps(tiersA, emptyList())),
                 presentIds = setOf(wl1),
             )
 

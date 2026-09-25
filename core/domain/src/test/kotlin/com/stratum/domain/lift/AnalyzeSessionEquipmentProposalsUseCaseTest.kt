@@ -80,7 +80,7 @@ class AnalyzeSessionEquipmentProposalsUseCaseTest {
             logRepo.seedSet(setAt(latId, 62.5, setIndex = 1, id = "s2"))
             logRepo.seedSet(setAt(latId, 67.5, setIndex = 2, id = "s3"))
 
-            val proposals = subject(sessionId)
+            val proposals = subject(sessionId).proposals
 
             assertEquals(1, proposals.size)
             val proposal = proposals.single()
@@ -99,11 +99,11 @@ class AnalyzeSessionEquipmentProposalsUseCaseTest {
             logRepo.seedSet(setAt(latId, 62.5, setIndex = 0, id = "s1"))
             logRepo.seedSet(setAt(latId, 67.5, setIndex = 1, id = "s2"))
 
-            val beforeDismiss = subject(sessionId)
+            val beforeDismiss = subject(sessionId).proposals
             assertEquals(1, beforeDismiss.size)
             prefs.dismiss(beforeDismiss.single().id)
 
-            val afterDismiss = subject(sessionId)
+            val afterDismiss = subject(sessionId).proposals
             assertTrue(afterDismiss.isEmpty())
         }
 
@@ -116,7 +116,7 @@ class AnalyzeSessionEquipmentProposalsUseCaseTest {
             logRepo.seedSet(setAt(latId, 67.5, setIndex = 1, id = "s2"))
             prefs.seedEnabled(false)
 
-            assertTrue(subject(sessionId).isEmpty())
+            assertTrue(subject(sessionId).proposals.isEmpty())
         }
 
         @Test
@@ -127,7 +127,7 @@ class AnalyzeSessionEquipmentProposalsUseCaseTest {
             logRepo.seedSet(setAt(latId, 60.0, setIndex = 0, id = "s1"))
             logRepo.seedSet(setAt(latId, 65.0, setIndex = 1, id = "s2"))
 
-            assertTrue(subject(sessionId).isEmpty())
+            assertTrue(subject(sessionId).proposals.isEmpty())
         }
 
         @Test
@@ -140,7 +140,7 @@ class AnalyzeSessionEquipmentProposalsUseCaseTest {
             logRepo.seedSet(setAt(latId, 65.0, setIndex = 1, id = "s2"))
             logRepo.seedSet(setAt(latId, 625.0, setIndex = 2, id = "s3"))
 
-            assertTrue(subject(sessionId).isEmpty())
+            assertTrue(subject(sessionId).proposals.isEmpty())
         }
 
         @Test
@@ -155,7 +155,7 @@ class AnalyzeSessionEquipmentProposalsUseCaseTest {
             logRepo.seedSet(setAt(latId, 35.0, setIndex = 1, id = "s2"))
             logRepo.seedSet(setAt(latId, 33.3, setIndex = 2, id = "s3"))
 
-            assertTrue(subject(sessionId).isEmpty())
+            assertTrue(subject(sessionId).proposals.isEmpty())
         }
 
         @Test
@@ -167,7 +167,7 @@ class AnalyzeSessionEquipmentProposalsUseCaseTest {
             logRepo.seedSession(WorkoutLoggingFixtures.completedLiveSession(sessionId.value))
             logRepo.seedSet(setAt(latId, 33.33, setIndex = 0, id = "s1"))
 
-            assertTrue(subject(sessionId).isEmpty())
+            assertTrue(subject(sessionId).proposals.isEmpty())
         }
 
         @Test
@@ -180,7 +180,7 @@ class AnalyzeSessionEquipmentProposalsUseCaseTest {
             logRepo.seedSet(setAt(latId, 62.5, setIndex = 0, id = "s1"))
             logRepo.seedSet(setAt(latId, 62.5, setIndex = 1, id = "s2"))
 
-            val proposals = subject(sessionId)
+            val proposals = subject(sessionId).proposals
             assertEquals(1, proposals.size)
             assertTrue(proposals.single().primary is EquipmentIncrementRemedy.ForkCustomEquipment)
         }
@@ -209,7 +209,7 @@ class AnalyzeSessionEquipmentProposalsUseCaseTest {
             logRepo.seedSession(WorkoutLoggingFixtures.completedLiveSession(sessionId.value))
             logRepo.seedSet(setAt(bwId, 0.0, setIndex = 0, id = "s1"))
 
-            assertTrue(subject(sessionId).isEmpty())
+            assertTrue(subject(sessionId).proposals.isEmpty())
         }
 
         @Test
@@ -221,7 +221,7 @@ class AnalyzeSessionEquipmentProposalsUseCaseTest {
             logRepo.seedSet(setAt(latId, 62.5, setIndex = 1, id = "s2"))
             logRepo.seedSet(setAt(latId, 67.5, setIndex = 2, id = "s3"))
 
-            assertTrue(subject(sessionId).isEmpty())
+            assertTrue(subject(sessionId).proposals.isEmpty())
         }
 
         @Test
@@ -232,7 +232,7 @@ class AnalyzeSessionEquipmentProposalsUseCaseTest {
             logRepo.seedSet(setAt(latId, 62.5, setIndex = 0, id = "s1"))
             logRepo.seedSet(setAt(latId, 67.5, setIndex = 1, id = "s2"))
 
-            assertTrue(subject(sessionId).isEmpty())
+            assertTrue(subject(sessionId).proposals.isEmpty())
         }
 
         @Test
@@ -247,7 +247,7 @@ class AnalyzeSessionEquipmentProposalsUseCaseTest {
             logRepo.seedSet(setAt(latId, 62.5, setIndex = 1, id = "s2"))
             logRepo.seedSet(setAt(latId, 67.5, setIndex = 2, id = "s3"))
 
-            assertEquals(1, subject(sessionId).size)
+            assertEquals(1, subject(sessionId).proposals.size)
         }
 
         @Test
@@ -292,7 +292,7 @@ class AnalyzeSessionEquipmentProposalsUseCaseTest {
             logRepo.seedSet(setAt(latId, 62.5, setIndex = 0, id = "s1"))
             logRepo.seedSet(setAt(latId, 67.5, setIndex = 1, id = "s2"))
 
-            val proposals = subject(sessionId)
+            val proposals = subject(sessionId).proposals
             assertEquals(1, proposals.size)
             assertTrue(proposals.single().primary is EquipmentIncrementRemedy.LiftOverride)
             assertFalse(
@@ -327,7 +327,7 @@ class AnalyzeSessionEquipmentProposalsUseCaseTest {
             logRepo.seedSet(setAt(latId, 62.5, setIndex = 1, id = "s2"))
             logRepo.seedSet(setAt(latId, 67.5, setIndex = 2, id = "s3"))
 
-            val proposals = subject(sessionId)
+            val proposals = subject(sessionId).proposals
             assertEquals(1, proposals.size)
             val fork = proposals.single().primary as EquipmentIncrementRemedy.ForkCustomEquipment
             assertEquals("Lat pulldown stack (2)", fork.suggestedName)
@@ -354,7 +354,7 @@ class AnalyzeSessionEquipmentProposalsUseCaseTest {
             logRepo.seedSet(setAt(latId, 62.5, setIndex = 1, id = "s2"))
             logRepo.seedSet(setAt(latId, 67.5, setIndex = 2, id = "s3"))
 
-            val proposals = subject(sessionId)
+            val proposals = subject(sessionId).proposals
             assertEquals(1, proposals.size)
             assertTrue(proposals.single().liftNames.contains("Lat pulldown"))
             assertEquals("Cables", proposals.single().equipmentName)
@@ -446,7 +446,7 @@ class AnalyzeSessionEquipmentProposalsUseCaseTest {
             logRepo.seedSet(setAt(customLiftId, 67.5, setIndex = 2, id = "m3"))
             logRepo.seedSet(setAt(customLiftId, 67.5, setIndex = 3, id = "m4"))
 
-            val proposals = subject(sessionId)
+            val proposals = subject(sessionId).proposals
             assertEquals(2, proposals.size)
             assertEquals(customId, proposals.first().clusterEquipmentId)
             assertTrue(proposals.first().residualSetCount >= proposals.last().residualSetCount)
@@ -461,7 +461,7 @@ class AnalyzeSessionEquipmentProposalsUseCaseTest {
             logRepo.seedSet(setAt(latId, 65.0, setIndex = 1, id = "s2"))
             logRepo.seedSet(setAt(latId, 70.0, setIndex = 2, id = "s3"))
 
-            assertTrue(subject(sessionId).isEmpty())
+            assertTrue(subject(sessionId).proposals.isEmpty())
         }
 
         @Test
@@ -475,11 +475,17 @@ class AnalyzeSessionEquipmentProposalsUseCaseTest {
             logRepo.seedSet(setAt(latId, 62.5, setIndex = 1, id = "s2"))
             logRepo.seedSet(setAt(latId, 62.5, setIndex = 2, id = "s3"))
 
-            val proposals = subject(sessionId)
+            val analysis = subject(sessionId)
+            val proposals = analysis.proposals
             assertEquals(1, proposals.size)
             assertTrue(proposals.single().primary is EquipmentIncrementRemedy.AmendEquipmentTiers)
             // Only the true-residual sets count — the adder-exact set is knob use.
             assertEquals(2, proposals.single().residualSetCount)
+            // The baseline stops ride alongside (not on) the proposal for card copy.
+            assertEquals(
+                pinMicro,
+                analysis.baselineMicroByProposalId[proposals.single().id],
+            )
         }
 
         @Test
@@ -520,7 +526,7 @@ class AnalyzeSessionEquipmentProposalsUseCaseTest {
             logRepo.seedSet(setAt(latId, 65.0, setIndex = 0, id = "s1"))
             logRepo.seedSet(setAt(latId, 70.0, setIndex = 1, id = "s2"))
 
-            assertTrue(subject(sessionId).isEmpty())
+            assertTrue(subject(sessionId).proposals.isEmpty())
         }
 
         @Test
@@ -554,7 +560,7 @@ class AnalyzeSessionEquipmentProposalsUseCaseTest {
 
             // 65 is quiet via the lift override micro; 62.5s still propose (single
             // override lift, so LiftOverride primary).
-            val proposals = subject(sessionId)
+            val proposals = subject(sessionId).proposals
             assertEquals(1, proposals.size)
             assertTrue(proposals.single().primary is EquipmentIncrementRemedy.LiftOverride)
             assertEquals(2, proposals.single().residualSetCount)
