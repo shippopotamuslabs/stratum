@@ -82,6 +82,26 @@ describe("parseScannedTiers", () => {
     assert.deepEqual(scan.tiers, [{ lower: 10, upper: 50, step: 10 }]);
   });
 
+  it("drops a tier row with a missing upper instead of a phantom open-ended band", () => {
+    const scan = parseScannedTiers({
+      unit: "lb",
+      tiers: [{ lower: 10, step: 10 }],
+      microStops: [],
+    });
+
+    assert.deepEqual(scan.tiers, []);
+  });
+
+  it("keeps an explicit null upper as an open-ended top band", () => {
+    const scan = parseScannedTiers({
+      unit: "lb",
+      tiers: [{ lower: 10, upper: null, step: 10 }],
+      microStops: [],
+    });
+
+    assert.deepEqual(scan.tiers, [{ lower: 10, upper: null, step: 10 }]);
+  });
+
   it("drops non-positive micro stops, dedupes, and sorts", () => {
     const scan = parseScannedTiers({
       unit: "lb",
