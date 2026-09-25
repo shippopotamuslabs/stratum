@@ -216,6 +216,52 @@ class EquipmentIncrementsViewModelTest {
     }
 
     @Test
+    @DisplayName("Given edited stops when save as new then the copy takes the stops")
+    fun saveAsNewForksEditedMicroStops() = runTest {
+        fakeFeatureFlags.setFlag(AppFeatureFlag.EQUIPMENT_MANAGEMENT_V2, true)
+        subject.initialize(cableId.value)
+        subject.uiState.test {
+            awaitItemWith { it.equipmentName == "Cables" && it.tiers.isNotEmpty() }
+            subject.onAddMicro()
+            subject.saveAsNew()
+            assertTrue(awaitItemWith { it.saveSucceeded }.saveSucceeded)
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        val copy = fakeEquipmentRepository.current.single { it.id != cableId }
+        assertEquals(listOf(Weight(5.0, lb)), copy.microIncrements)
+    }
+
+    @Test
+    @DisplayName("Given rapid stop edits when applied then no update is lost")
+    fun backToBackMicroEditsChainOnSourceFlow() = runTest {
+        subject.initialize(cableId.value)
+        subject.uiState.test {
+            awaitItemWith { it.equipmentName == "Cables" && it.tiers.isNotEmpty() }
+            subject.onAddMicro()
+            subject.onAddMicro()
+            assertEquals(
+                listOf("5", "5"),
+                awaitItemWith { it.microStops.size == 2 }.microStops,
+            )
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Given the flag on when initialized then the adder card shows")
+    fun microCardFollowsV2Flag() = runTest {
+        fakeFeatureFlags.setFlag(AppFeatureFlag.EQUIPMENT_MANAGEMENT_V2, true)
+        subject.initialize(cableId.value)
+        advanceUntilIdle()
+
+        subject.uiState.test {
+            assertTrue(awaitItemWith { it.equipmentV2Enabled }.showMicroCard)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     @DisplayName(
         "Given save as new without a source lift when saved then the copy is made " +
             "and no lift moves",

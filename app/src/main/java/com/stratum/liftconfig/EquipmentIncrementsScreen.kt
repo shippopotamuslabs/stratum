@@ -68,7 +68,7 @@ fun EquipmentIncrementsRoute(
                     },
                 tiers = state.tiers,
                 microStops = state.microStops,
-                showMicroCard = true,
+                showMicroCard = state.showMicroCard,
                 validationMessage = state.validationMessage,
                 warnedTierIndexes = state.warnedTierIndexes,
                 isSaving = state.isSaving,
