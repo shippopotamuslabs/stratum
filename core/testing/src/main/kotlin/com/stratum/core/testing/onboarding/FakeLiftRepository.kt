@@ -176,13 +176,19 @@ class FakeLiftRepository(
     /** Test hook: current historical-import flag. */
     val currentUsedHistoricalImport: Boolean get() = usedHistoricalImport.value
 
-    override suspend fun setIncrementTiers(id: LiftId, tiers: List<IncrementTier>) {
+    override suspend fun setIncrementTiers(
+        id: LiftId,
+        tiers: List<IncrementTier>,
+        micro: List<Weight>?,
+    ) {
         lifts.value = lifts.value.map { lift ->
             if (lift.id == id) {
                 lift.copy(
                     incrementTiers = tiers,
                     usesEquipmentDefaultIncrements = tiers.isEmpty(),
                     inheritsFromEquipmentLattice = false,
+                    microIncrements = micro ?: lift.microIncrements,
+                    usesEquipmentDefaultMicro = if (micro == null) lift.usesEquipmentDefaultMicro else false,
                 )
             } else {
                 lift

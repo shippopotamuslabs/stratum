@@ -10,6 +10,7 @@ import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.WeightConversion
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
@@ -302,6 +303,28 @@ class LiftMapperTest {
 
         val back = entity.toDomain(emptyList())
         assertEquals(listOf(5.0, 10.0), back.microIncrements.map { it.amount })
+    }
+
+    @Test
+    @DisplayName("Given kg-denominated stops when mapped then column stores storage-lb doubles")
+    fun kgMicroEncodesStorageLb() {
+        val kg = Weight.WeightUnit.Kg
+        val equipment = Equipment(
+            id = EquipmentId("pin-loaded-machine"),
+            name = "Pin-Loaded Machine",
+            incrementTiers = emptyList(),
+            microIncrements = listOf(
+                Weight(5.0 * WeightConversion.LB_TO_KG, kg),
+                Weight(10.0 * WeightConversion.LB_TO_KG, kg),
+            ),
+        )
+
+        val entity = equipment.toEntity()
+        assertEquals("[5.0,10.0]", entity.microOptionsJson)
+
+        val back = entity.toDomain(emptyList())
+        assertEquals(listOf(5.0, 10.0), back.microIncrements.map { it.amount })
+        assertEquals(Weight.WeightUnit.Lb, back.microIncrements.first().unit)
     }
 
     @Test

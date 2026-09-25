@@ -12,8 +12,9 @@ import javax.inject.Inject
  *
  * @param micro optional lift-scoped adder override validated against [tiers]: null
  * leaves the micro column untouched, non-null replaces it (empty = explicitly no
- * adder). Independent of the band override — a lift can override bands while
- * inheriting the equipment knob and vice versa.
+ * adder). An empty [tiers] list clears the band override, so pairing it with a
+ * non-null [micro] is rejected — knob-only edits (including inherit-bands plus
+ * override-knob) belong in [SetLiftMicroOverrideUseCase] with the effective tiers.
  */
 class SetLiftIncrementTiersUseCase @Inject constructor(
     private val repository: LiftRepository,
@@ -38,11 +39,10 @@ class SetLiftIncrementTiersUseCase @Inject constructor(
                 MicroIncrementsValidationResult.Valid -> Unit
             }
         }
+        // Single repository write: bands and the knob override persist atomically
+        // in one transaction (null micro leaves the stored override untouched).
         return runCatchingLogged(loggingPort, TAG, "Failed to set increment tiers") {
-            repository.setIncrementTiers(id, tiers)
-            if (micro != null) {
-                repository.setMicroOverride(id, micro)
-            }
+            repository.setIncrementTiers(id, tiers, micro)
         }
     }
 
