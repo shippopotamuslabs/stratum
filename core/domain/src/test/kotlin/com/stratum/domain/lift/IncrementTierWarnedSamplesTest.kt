@@ -45,4 +45,29 @@ class IncrementTierWarnedSamplesTest {
     fun nonPositiveSamplesIgnored() {
         assertTrue(twoBand.warnedIndexesForSamples(listOf(0.0, -5.0)).isEmpty())
     }
+
+    @Test
+    @DisplayName("Given adder-exact samples with micro when checked then no bands warn")
+    fun adderExactSamplesExcludedWithMicro() {
+        val micro = listOf(Weight(2.5, lb))
+
+        assertTrue(twoBand.warnedIndexesForSamples(listOf(42.5), micro).isEmpty())
+    }
+
+    @Test
+    @DisplayName("Given true residuals with micro when checked then the band still warns")
+    fun trueResidualsWarnWithMicro() {
+        val micro = listOf(Weight(2.5, lb))
+
+        assertEquals(setOf(1), twoBand.warnedIndexesForSamples(listOf(43.0), micro))
+    }
+
+    @Test
+    @DisplayName("Given empty micro when checked then plain lattice behavior holds")
+    fun emptyMicroFallsThroughToPlainLattice() {
+        assertEquals(
+            twoBand.warnedIndexesForSamples(listOf(62.5)),
+            twoBand.warnedIndexesForSamples(listOf(62.5), emptyList()),
+        )
+    }
 }

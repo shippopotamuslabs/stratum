@@ -67,6 +67,27 @@ fun List<IncrementTier>.warnedIndexesForSamples(
         .toSet()
 }
 
+/**
+ * [warnedIndexesForSamples], excluding samples that land on `base + adder stop`
+ * ([micro], storage pounds — micro converts to the tiers unit at the rounding
+ * boundary). Adder-exact samples are knob use, not band misses, so the adder
+ * never trips the warning. Empty [micro] is the plain major-lattice path.
+ */
+fun List<IncrementTier>.warnedIndexesForSamples(
+    samplesLb: List<Double>,
+    micro: List<Weight>,
+    epsilon: Double = LATTICE_EPSILON,
+): Set<Int> {
+    if (samplesLb.isEmpty() || isEmpty()) return emptySet()
+    if (micro.isEmpty()) return warnedIndexesForSamples(samplesLb, epsilon)
+    val signal =
+        samplesLb.filter { sample ->
+            !isOnLattice(Weight(sample, Weight.WeightUnit.Lb), micro = micro, epsilon = epsilon)
+        }
+    if (signal.isEmpty()) return emptySet()
+    return warnedIndexesForSamples(signal, epsilon)
+}
+
 private fun List<IncrementTier>.warnedIndexForSample(sample: Double, epsilon: Double): Int? {
     val index =
         indexOfFirst { tier ->
