@@ -125,9 +125,11 @@ stages:
     - command -v sdkmanager || (echo "sdkmanager not found under $ANDROID_HOME" && exit 1)
     # `yes` dies with SIGPIPE (141) once sdkmanager exits; tolerate only that.
     - yes | sdkmanager --licenses > /dev/null || [ $? -eq 141 ]
-    # The job image pins SDK 34 but the app compiles against 37: ensure the
-    # platform is present (idempotent — sdkmanager skips installed packages).
-    - sdkmanager "platforms;android-37" > /dev/null
+    # The job image pins SDK 34 but the app compiles against 37, which is a
+    # preview-channel platform published only as android-37.0: ensure it is
+    # present (idempotent — sdkmanager skips installed packages; `yes` covers
+    # the preview license prompt non-interactively).
+    - yes | sdkmanager --channel=3 "platforms;android-37.0" > /dev/null || [ $? -eq 141 ]
   # No cache stanza here: GitLab cache paths must live inside the project dir,
   # but GRADLE_USER_HOME above is a persistent out-of-tree home by design.
   rules:
@@ -353,9 +355,10 @@ emulator-tests:
     - command -v sdkmanager || (echo "sdkmanager not found under $ANDROID_HOME" && exit 1)
     # `yes` dies with SIGPIPE (141) once sdkmanager exits; tolerate only that.
     - yes | sdkmanager --licenses > /dev/null || [ $? -eq 141 ]
-    # compileSdk/targetSdk (37) are build-time only; the job image pins SDK 34,
-    # so ensure the platform is present (idempotent).
-    - sdkmanager "platforms;android-37" > /dev/null
+    # compileSdk/targetSdk (37) are build-time only; the job image pins SDK 34.
+    # 37 is a preview-channel platform published only as android-37.0: ensure
+    # it is present (idempotent; `yes` covers the preview license prompt).
+    - yes | sdkmanager --channel=3 "platforms;android-37.0" > /dev/null || [ $? -eq 141 ]
     # API 35 = lowest system image the host SDK carries (minSdk is 34, but
     # no android-34 image is installed or installable anymore — avdmanager
     # lists only 35/36/36.1 — so the AVD tracks the closest runtime above
