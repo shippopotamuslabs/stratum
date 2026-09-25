@@ -20,9 +20,14 @@ interface EquipmentRepository {
 
     /**
      * Creates a user-defined equipment row. When [tiers] is empty, a single open-ended default
-     * band is applied (5 lb). Returns the new id.
+     * band is applied (5 lb). [micro] seeds the adder stops (empty = no adder).
+     * Returns the new id.
      */
-    suspend fun addCustomEquipment(name: String, tiers: List<IncrementTier> = emptyList()): EquipmentId
+    suspend fun addCustomEquipment(
+        name: String,
+        tiers: List<IncrementTier> = emptyList(),
+        micro: List<Weight> = emptyList(),
+    ): EquipmentId
 
     /**
      * Creates custom equipment with [tiers] and assigns each lift in [liftIds] to it in one

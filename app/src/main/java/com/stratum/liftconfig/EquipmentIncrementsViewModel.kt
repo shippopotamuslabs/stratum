@@ -379,7 +379,14 @@ class EquipmentIncrementsViewModel @Inject constructor(
     fun save() {
         val id = equipmentId.value ?: return
         val domainTiers = validatedDraftTiers() ?: return
-        val domainMicro = validatedDraftMicro(domainTiers) ?: return
+        // Validate the draft stops (not the derived uiState list, which lags a
+        // combine cycle): back-to-back edits and save observe the same value.
+        val domainMicro =
+            validatedDraftMicro(
+                drafts.value?.microStops ?: uiState.value.microStops,
+                domainTiers,
+                displayUnit.value,
+            ) ?: return
         viewModelScope.launch {
             isSaving.value = true
             val result = setEquipmentIncrementTiers(EquipmentId(id), domainTiers, domainMicro)
@@ -405,7 +412,12 @@ class EquipmentIncrementsViewModel @Inject constructor(
         val domainTiers = validatedDraftTiers() ?: return
         // Bands and stops both validated so the copy never inherits a broken draft;
         // the edited stops ride onto the copy (never silently dropped).
-        val domainMicro = validatedDraftMicro(domainTiers) ?: return
+        val domainMicro =
+            validatedDraftMicro(
+                drafts.value?.microStops ?: uiState.value.microStops,
+                domainTiers,
+                displayUnit.value,
+            ) ?: return
         viewModelScope.launch {
             isSaving.value = true
             try {
@@ -452,21 +464,38 @@ class EquipmentIncrementsViewModel @Inject constructor(
         return domainTiers
     }
 
-    private fun validatedDraftMicro(domainTiers: List<IncrementTier>): List<Weight>? {
-        val micro =
-            IncrementTierDraftOps.microToDomainOrNull(uiState.value.microStops, displayUnit.value)
-        if (micro == null) {
-            validationOverride.value = "Enter valid numbers for adder stops"
+    private fun validatedDraftMicro(
+        stops: List<String>,
+        domainTiers: List<IncrementTier>,
+        unit: Weight.WeightUnit,
+    ): List<Weight>? {
+        val check = checkMicroStops(domainTiers, stops, unit)
+        if (check.message != null) {
+            validationOverride.value = check.message
             return null
         }
-        when (val result = validateMicroIncrements(domainTiers, micro)) {
-            is MicroIncrementsValidationResult.Invalid -> {
-                validationOverride.value = IncrementTierDraftOps.toMicroUserMessage(result.errors)
-                return null
-            }
-            MicroIncrementsValidationResult.Valid -> Unit
+        return check.micro
+    }
+
+    /**
+     * Parsed stops plus their user-facing message in one place, shared by the live hint
+     * and the save blocker so both apply the same rule. Parse failure carries the
+     * save-path message; call sites map it to live-null behavior.
+     */
+    private data class MicroCheck(val micro: List<Weight>?, val message: String?)
+
+    private fun checkMicroStops(
+        domainTiers: List<IncrementTier>,
+        microStops: List<String>,
+        unit: Weight.WeightUnit,
+    ): MicroCheck {
+        val micro = IncrementTierDraftOps.microToDomainOrNull(microStops, unit)
+            ?: return MicroCheck(null, "Enter valid numbers for adder stops")
+        return when (val result = validateMicroIncrements(domainTiers, micro)) {
+            is MicroIncrementsValidationResult.Invalid ->
+                MicroCheck(null, IncrementTierDraftOps.toMicroUserMessage(result.errors))
+            MicroIncrementsValidationResult.Valid -> MicroCheck(micro, null)
         }
-        return micro
     }
 
     private fun buildState(
@@ -565,13 +594,9 @@ class EquipmentIncrementsViewModel @Inject constructor(
                 return IncrementTierDraftOps.toUserMessage(result.errors)
             IncrementTiersValidationResult.Valid -> Unit
         }
-        val micro =
-            IncrementTierDraftOps.microToDomainOrNull(microStops, unit) ?: return null
-        return when (val result = validateMicroIncrements(domain, micro)) {
-            is MicroIncrementsValidationResult.Invalid ->
-                IncrementTierDraftOps.toMicroUserMessage(result.errors)
-            MicroIncrementsValidationResult.Valid -> null
-        }
+        val check = checkMicroStops(domain, microStops, unit)
+        if (check.micro == null) return null
+        return check.message
     }
 
     private fun emptyAffected(): EquipmentAffectedLifts =

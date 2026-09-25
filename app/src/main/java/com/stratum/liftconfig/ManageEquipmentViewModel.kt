@@ -168,10 +168,10 @@ class ManageEquipmentViewModel @Inject constructor(
             forkDraft.value = fork.copy(isForking = true)
             val result = forkEquipment(EquipmentId(sourceId), name)
             result
-                .onSuccess { id ->
+                .onSuccess { forked ->
                     forkDraft.value = ForkDraft()
                     _userMessage.value = "Created $name."
-                    _events.send(ManageEquipmentEvent.Forked(id.value))
+                    _events.send(ManageEquipmentEvent.Forked(forked.id.value))
                 }
                 .onFailure { error ->
                     forkDraft.value = forkDraft.value.copy(isForking = false)

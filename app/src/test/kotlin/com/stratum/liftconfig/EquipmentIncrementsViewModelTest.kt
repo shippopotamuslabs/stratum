@@ -96,6 +96,7 @@ class EquipmentIncrementsViewModelTest {
                         ForkEquipmentUseCase(
                             fakeEquipmentRepository,
                             ValidateIncrementTiersUseCase(),
+                            ValidateMicroIncrementsUseCase(),
                             FakeLoggingPort(),
                         ),
                         SetEquipmentIncrementTiersUseCase(
@@ -246,6 +247,27 @@ class EquipmentIncrementsViewModelTest {
             )
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    @Test
+    @DisplayName("Given back-to-back stop edits when saved then both stops persist")
+    fun backToBackMicroEditsBothPersistOnSave() = runTest {
+        subject.initialize(cableId.value)
+        subject.uiState.test {
+            awaitItemWith { it.equipmentName == "Cables" && it.tiers.isNotEmpty() }
+            // No suspension between edits: save must validate the draft stops, not
+            // the derived uiState list which lags writes by at least one emission.
+            subject.onAddMicro()
+            subject.onMicroChanged(0, "1.25")
+            subject.onAddMicro()
+            subject.onMicroChanged(1, "2.5")
+            subject.save()
+            assertTrue(awaitItemWith { it.saveSucceeded }.saveSucceeded)
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        val stored = fakeEquipmentRepository.getEquipment(cableId)!!
+        assertEquals(listOf(Weight(1.25, lb), Weight(2.5, lb)), stored.microIncrements)
     }
 
     @Test
