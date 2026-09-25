@@ -115,7 +115,11 @@ class WorkoutCompleteViewModel @Inject constructor(
                             if (generation != loadGeneration) {
                                 return@fold _uiState.value
                             }
-                            val equipmentSnap = equipmentSession.load(equipmentProposals)
+                            val equipmentSnap =
+                                equipmentSession.load(
+                                    equipmentProposals.proposals,
+                                    equipmentProposals.baselineMicroByProposalId,
+                                )
                             val repRangeSnap = repRangeSession.load(repRangeProposals)
                             pendingUserMessages.clear()
                             WorkoutCompleteUiState.Loaded(
@@ -261,10 +265,15 @@ class WorkoutCompleteViewModel @Inject constructor(
         // Guarded like loadSummary: a newer load wins over this refresh.
         val generation = loadGeneration
         viewModelScope.launch {
-            val proposals =
+            val analysis =
                 analyzeSessionEquipmentProposals(TrainingSessionId(sessionId))
             if (generation == loadGeneration) {
-                applyEquipmentSnapshot(equipmentSession.load(proposals))
+                applyEquipmentSnapshot(
+                    equipmentSession.load(
+                        analysis.proposals,
+                        analysis.baselineMicroByProposalId,
+                    ),
+                )
             }
         }
     }

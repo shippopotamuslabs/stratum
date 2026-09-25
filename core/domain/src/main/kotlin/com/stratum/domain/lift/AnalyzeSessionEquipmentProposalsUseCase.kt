@@ -40,17 +40,17 @@ class AnalyzeSessionEquipmentProposalsUseCase @Inject constructor(
     private val preferences: EquipmentProposalPreferences,
     private val loggingPort: LoggingPort,
 ) {
-    suspend operator fun invoke(sessionId: TrainingSessionId): List<EquipmentIncrementProposal> =
+    suspend operator fun invoke(sessionId: TrainingSessionId): EquipmentProposalAnalysis =
         runCatchingLogged(
             loggingPort = loggingPort,
             tag = TAG,
             message = "Failed to analyze session equipment proposals for ${sessionId.value}",
         ) {
             analyze(sessionId)
-        }.getOrElse { emptyList() }
+        }.getOrElse { EquipmentProposalAnalysis() }
 
-    private suspend fun analyze(sessionId: TrainingSessionId): List<EquipmentIncrementProposal> {
-        if (!preferences.isEnabled()) return emptyList()
+    private suspend fun analyze(sessionId: TrainingSessionId): EquipmentProposalAnalysis {
+        if (!preferences.isEnabled()) return EquipmentProposalAnalysis()
         val session = trainingLogRepository.getSession(sessionId)
         val sets =
             if (
@@ -61,7 +61,7 @@ class AnalyzeSessionEquipmentProposalsUseCase @Inject constructor(
             } else {
                 emptyList()
             }
-        if (sets.isEmpty()) return emptyList()
+        if (sets.isEmpty()) return EquipmentProposalAnalysis()
 
         val lifts = liftRepository.observeLifts().first()
         val equipment = equipmentRepository.observeEquipment().first()
@@ -70,7 +70,7 @@ class AnalyzeSessionEquipmentProposalsUseCase @Inject constructor(
         val existingEquipmentNames = equipment.map { it.name }
 
         val anomalies = collectSessionAnomalies(sets, liftsById)
-        if (anomalies.isEmpty()) return emptyList()
+        if (anomalies.isEmpty()) return EquipmentProposalAnalysis()
 
         val clusters = anomalies.groupBy { it.clusterKey }
         val built =
@@ -86,24 +86,36 @@ class AnalyzeSessionEquipmentProposalsUseCase @Inject constructor(
 
         // Rank by residual signal strength, then filter dismissals, then cap — never insertion order.
         val ranked =
-            built.sortedByDescending { proposal ->
+            built.sortedByDescending { result ->
                 scoreEquipmentIncrementProposal(
-                    residualSetCount = proposal.residualSetCount,
-                    distinctResidualAmounts = proposal.distinctResidualAmounts,
+                    residualSetCount = result.proposal.residualSetCount,
+                    distinctResidualAmounts = result.proposal.distinctResidualAmounts,
                     primaryIsFork =
-                        proposal.primary is EquipmentIncrementRemedy.ForkCustomEquipment,
-                    affectedInheritingLiftCount = proposal.affectedInheritingLiftCount,
+                        result.proposal.primary is EquipmentIncrementRemedy.ForkCustomEquipment,
+                    affectedInheritingLiftCount = result.proposal.affectedInheritingLiftCount,
                 )
             }
         val proposals = ArrayList<EquipmentIncrementProposal>(MAX_SESSION_EQUIPMENT_PROPOSALS)
-        for (proposal in ranked) {
+        val baselineMicroByProposalId = LinkedHashMap<String, List<Weight>>()
+        for (result in ranked) {
             if (proposals.size >= MAX_SESSION_EQUIPMENT_PROPOSALS) break
-            if (!preferences.isDismissed(proposal.id)) {
-                proposals.add(proposal)
+            if (!preferences.isDismissed(result.proposal.id)) {
+                proposals.add(result.proposal)
+                baselineMicroByProposalId[result.proposal.id] = result.baselineMicro
             }
         }
-        return proposals
+        return EquipmentProposalAnalysis(proposals, baselineMicroByProposalId)
     }
+
+    /**
+     * A ranked cluster proposal plus the baseline adder stops it assumed — kept
+     * out of the canonical proposal; the analysis result carries them to the
+     * UI mapping boundary keyed by proposal id.
+     */
+    private data class ClusterResult(
+        val proposal: EquipmentIncrementProposal,
+        val baselineMicro: List<Weight>,
+    )
 
     private fun buildClusterProposal(
         clusterAnomalies: List<LiftSessionAnomaly>,
@@ -111,7 +123,7 @@ class AnalyzeSessionEquipmentProposalsUseCase @Inject constructor(
         equipmentById: Map<EquipmentId, Equipment>,
         allLifts: List<Lift>,
         existingEquipmentNames: List<String>,
-    ): EquipmentIncrementProposal? {
+    ): ClusterResult? {
         val first = clusterAnomalies.first()
         val equipmentId = first.equipmentId
         val equipment = equipmentId?.let { equipmentById[it] }
@@ -183,24 +195,26 @@ class AnalyzeSessionEquipmentProposalsUseCase @Inject constructor(
         val anyAnomalousInheritsDefaults = inheritsByLift.any { it }
         val allAnomalousInheritsDefaults = inheritsByLift.isNotEmpty() && inheritsByLift.all { it }
 
-        return rankEquipmentIncrementProposal(
-            EquipmentIncrementRankInput(
-                equipmentId = equipmentId,
-                equipmentName = equipment?.name,
-                isCustom = effectiveIsCustom,
-                inheritingCount = inheritingCount,
-                anomalousLiftIds = anomalousLiftIds,
-                liftNamesById = liftNamesById,
-                sampleWeights = sampleWeights,
-                proposedTiers = inferred.tiers,
-                inferredStep = inferred.step,
-                allAnomalousInheritsDefaults = allAnomalousInheritsDefaults,
-                anyAnomalousInheritsDefaults = anyAnomalousInheritsDefaults,
-                residualSetCount = residualSetCount,
-                distinctResidualAmounts = distinctResidualAmounts,
-                existingEquipmentNames = existingEquipmentNames,
-            ),
-        )
+        val proposal =
+            rankEquipmentIncrementProposal(
+                EquipmentIncrementRankInput(
+                    equipmentId = equipmentId,
+                    equipmentName = equipment?.name,
+                    isCustom = effectiveIsCustom,
+                    inheritingCount = inheritingCount,
+                    anomalousLiftIds = anomalousLiftIds,
+                    liftNamesById = liftNamesById,
+                    sampleWeights = sampleWeights,
+                    proposedTiers = inferred.tiers,
+                    inferredStep = inferred.step,
+                    allAnomalousInheritsDefaults = allAnomalousInheritsDefaults,
+                    anyAnomalousInheritsDefaults = anyAnomalousInheritsDefaults,
+                    residualSetCount = residualSetCount,
+                    distinctResidualAmounts = distinctResidualAmounts,
+                    existingEquipmentNames = existingEquipmentNames,
+                ),
+            )
+        return ClusterResult(proposal, currentMicro)
     }
 
     /**

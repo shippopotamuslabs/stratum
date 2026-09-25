@@ -47,6 +47,20 @@ data class EquipmentIncrementProposal(
 )
 
 /**
+ * Result of post-session equipment-increment analysis: ranking-pure proposals
+ * plus the card-copy enrichment kept out of the canonical entity.
+ *
+ * [baselineMicroByProposalId] carries the baseline adder stops each proposal
+ * assumed (equipment stops, else the first anomalous lift's), keyed by proposal
+ * id. The UI mapping boundary reads it to render the card suffix; ranking
+ * never sees it.
+ */
+data class EquipmentProposalAnalysis(
+    val proposals: List<EquipmentIncrementProposal> = emptyList(),
+    val baselineMicroByProposalId: Map<String, List<Weight>> = emptyMap(),
+)
+
+/**
  * Whether applying [remedy] rewrites non-custom (seed/shared) equipment defaults that other
  * lifts inherit — UI must confirm blast radius before writing.
  */
