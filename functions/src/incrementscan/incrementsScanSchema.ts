@@ -154,8 +154,11 @@ function resolveTierRow(entry: unknown): ScannedTierRow | null {
 
 /** Returns undefined for an invalid upper so the whole row is dropped. */
 function resolveUpper(raw: unknown, lower: number): number | null | undefined {
-  if (raw === null || raw === undefined) {
+  if (raw === null) {
     return null;
+  }
+  if (raw === undefined) {
+    return undefined;
   }
   if (typeof raw !== "number" || !Number.isFinite(raw) || raw <= lower) {
     return undefined;
