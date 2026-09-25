@@ -87,6 +87,9 @@ stages:
 # Shared setup for every Android job: Firebase config + SDK licenses.
 .android-job:
   image: ghcr.io/cirruslabs/android-sdk:34
+  # The job image is pre-baked into the worker image (see gcp/bake-builder.sh):
+  # skip the re-pull on every job — faster cold starts, less egress.
+  pull_policy: if-not-present
   # All Android jobs run on the GCP docker-autoscaler fleet (tag gcp): one
   # fresh n2-standard-8 Spot VM per job, deleted afterwards. `image:` IS
   # honored here — the container's SDK is the build toolchain (the old
