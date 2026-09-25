@@ -12,6 +12,7 @@ import com.stratum.core.data.db.StratumDatabase
 import com.stratum.core.data.mapper.toBitmask
 import com.stratum.core.data.mapper.toDomain
 import com.stratum.core.data.mapper.toEntity
+import com.stratum.core.data.mapper.toMicroJson
 import com.stratum.core.data.sync.SyncCollection
 import com.stratum.core.data.sync.SyncFlags
 import com.stratum.core.data.sync.SyncTouch
@@ -238,7 +239,11 @@ class RoomLiftRepository @Inject constructor(
         return id
     }
 
-    override suspend fun setIncrementTiers(id: LiftId, tiers: List<IncrementTier>) {
+    override suspend fun setIncrementTiers(
+        id: LiftId,
+        tiers: List<IncrementTier>,
+        micro: List<Weight>?,
+    ) {
         val now = System.currentTimeMillis()
         syncTouch.withWriteLock {
             database.withTransaction {
@@ -262,6 +267,15 @@ class RoomLiftRepository @Inject constructor(
                         }
                     incrementTierDao.upsertAll(entities)
                 }
+                // Non-null micro rides the same transaction so bands and the knob
+                // can never half-persist; null leaves the stored override untouched.
+                if (micro != null) {
+                    liftDao.setMicroOptions(
+                        id = id,
+                        microOptionsJson = micro.toMicroJson(),
+                        updatedAtEpochMillis = now,
+                    )
+                }
             }
             syncTouch.markDirty()
         }
@@ -273,11 +287,26 @@ class RoomLiftRepository @Inject constructor(
             database.withTransaction {
                 val previousTierIds = incrementTierDao.idsForLift(id)
                 syncTouch.replaceIds(SyncCollection.IncrementTiers, previousTierIds, emptyList(), now)
-                incrementTierDao.deleteForLift(id)
                 liftDao.setEquipmentIdAndLoadType(
                     id = id,
                     equipmentId = equipmentId,
                     loadType = loadType,
+                    updatedAtEpochMillis = now,
+                )
+                // Reassigned lifts inherit the new machine's lattice and knob.
+                clearLiftIncrementOverrides(incrementTierDao, liftDao, id, now)
+            }
+            syncTouch.markDirty()
+        }
+    }
+
+    override suspend fun setMicroOverride(id: LiftId, micro: List<Weight>?) {
+        val now = System.currentTimeMillis()
+        syncTouch.withWriteLock {
+            database.withTransaction {
+                liftDao.setMicroOptions(
+                    id = id,
+                    microOptionsJson = micro?.toMicroJson(),
                     updatedAtEpochMillis = now,
                 )
             }

@@ -19,6 +19,7 @@ import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.ObserveEquipmentAffectedLiftsUseCase
 import com.stratum.domain.lift.ObserveEquipmentCatalogUseCase
 import com.stratum.domain.lift.SetEquipmentIncrementTiersUseCase
+import com.stratum.domain.lift.ValidateMicroIncrementsUseCase
 import com.stratum.domain.lift.SetLiftEquipmentUseCase
 import com.stratum.domain.lift.ValidateIncrementTiersUseCase
 import com.stratum.domain.lift.Weight
@@ -85,6 +86,7 @@ class EquipmentIncrementsViewModelTest {
                     SetEquipmentIncrementTiersUseCase(
                         fakeEquipmentRepository,
                         ValidateIncrementTiersUseCase(),
+                        ValidateMicroIncrementsUseCase(),
                         FakeLoggingPort(),
                     ),
                 validateIncrementTiers = ValidateIncrementTiersUseCase(),
@@ -98,6 +100,7 @@ class EquipmentIncrementsViewModelTest {
                         SetEquipmentIncrementTiersUseCase(
                             fakeEquipmentRepository,
                             ValidateIncrementTiersUseCase(),
+                            ValidateMicroIncrementsUseCase(),
                             FakeLoggingPort(),
                         ),
                         SetLiftEquipmentUseCase(fakeLiftRepository, FakeLoggingPort()),

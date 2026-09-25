@@ -13,11 +13,15 @@ import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.WeightConversion
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.IncrementTierId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.resolveEffectiveIncrementTiers
 import com.stratum.domain.onboarding.MuscleGroup
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.json.Json
 
 /**
  * Maps [LiftWithTiers] (and the [LiftEntity]/[IncrementTierEntity] it composes) to/from the
@@ -33,6 +37,8 @@ fun LiftWithTiers.toDomain(
             liftOverrideTiers = tiers.toDomainTiers(),
             equipmentTiers = equipment?.incrementTiers,
             fallbackTiers = fallbackTiers,
+            liftMicroOverride = lift.microOptionsJson.toMicroOverride(),
+            equipmentMicro = equipment?.microIncrements.orEmpty(),
         )
     return Lift(
         id = lift.id,
@@ -46,6 +52,8 @@ fun LiftWithTiers.toDomain(
         equipmentName = equipment?.name,
         usesEquipmentDefaultIncrements = effective.usesEquipmentDefaultIncrements,
         inheritsFromEquipmentLattice = effective.inheritsFromEquipmentLattice,
+        microIncrements = effective.microIncrements,
+        usesEquipmentDefaultMicro = effective.usesEquipmentDefaultMicro,
         enabled = lift.enabled,
         isCustom = lift.isCustom,
         description = lift.description,
@@ -59,7 +67,11 @@ fun LiftWithTiers.toDomain(
     )
 }
 
-/** Local user write — marks lift dirty for cloud upload. */
+/**
+ * Local user write — marks lift dirty for cloud upload. The micro column carries the
+ * lift-scoped override only ([usesEquipmentDefaultMicro] false, including explicit
+ * empty); inherited micro stays null so equipment edits keep flowing through.
+ */
 fun Lift.toEntity(
     nowMillis: Long = System.currentTimeMillis(),
 ): LiftEntity = LiftEntity(
@@ -70,6 +82,7 @@ fun Lift.toEntity(
     secondaryMusclesBitmask = secondaryMuscles.toBitmask(),
     presetTags = presetTags.toPresetCsv(),
     equipmentId = equipmentId,
+    microOptionsJson = if (usesEquipmentDefaultMicro) null else microIncrements.toMicroJson(),
     isCustom = isCustom,
     enabled = enabled,
     description = description,
@@ -113,6 +126,7 @@ fun EquipmentEntity.toDomain(tiers: List<IncrementTierEntity>): Equipment =
         name = name,
         incrementTiers = tiers.toDomainTiers(),
         isCustom = isCustom,
+        microIncrements = microOptionsJson.toMicroIncrements(),
     )
 
 fun Equipment.toEntity(
@@ -123,6 +137,7 @@ fun Equipment.toEntity(
         id = id,
         name = name,
         isCustom = isCustom,
+        microOptionsJson = microIncrements.toMicroJsonOrNull(),
         updatedAtEpochMillis = nowMillis,
         pendingSync = pendingSync,
     )
@@ -190,6 +205,52 @@ fun Set<GymPreset>.toPresetCsv(): String =
 
 private const val PRESET_DELIMITER = ","
 private val DEFAULT_LIFT_UNIT = Weight.WeightUnit.Lb
+
+private val MICRO_JSON = Json { ignoreUnknownKeys = true }
+
+/** Parses an adder-stop payload; null on corrupt input so callers can fail open. */
+private fun String.parseMicroAmounts(): List<Double>? =
+    runCatching { MICRO_JSON.decodeFromString(ListSerializer(Double.serializer()), this) }
+        .getOrNull()
+
+/**
+ * Parses an adder-stop column (`micro_options_json`) into storage-[Weight] stops.
+ * Null (pre-v7 rows) and corrupt payloads decode to empty (no adder) so old rows
+ * and forward-skewed payloads never break catalog reads.
+ */
+private fun String?.toMicroIncrements(): List<Weight> =
+    this?.parseMicroAmounts()?.map { Weight(it, DEFAULT_LIFT_UNIT) }.orEmpty()
+
+/**
+ * Parses a lift-scoped micro override column: null column (pre-v7 rows) and corrupt
+ * payloads decode to null (inherit equipment stops); `"[]"` decodes to explicit empty.
+ */
+private fun String?.toMicroOverride(): List<Weight>? =
+    this?.parseMicroAmounts()?.map { Weight(it, DEFAULT_LIFT_UNIT) }
+
+/**
+ * Encodes adder stops as a JSON array of storage-lb doubles. Empty encodes to null
+ * (no adder) so equipment rows and inherited lifts stay null-clean. Internal so
+ * repositories can write the column without round-tripping through domain mapping.
+ */
+internal fun List<Weight>.toMicroJsonOrNull(): String? {
+    if (isEmpty()) return null
+    return MICRO_JSON.encodeToString(
+        ListSerializer(Double.serializer()),
+        map { WeightConversion.convertAmount(it.amount, it.unit, Weight.WeightUnit.Lb) },
+    )
+}
+
+/**
+ * Encodes a lift-scoped micro override, preserving the null-vs-empty distinction:
+ * explicit empty (`"[]"`) means "no adder even if the equipment has one".
+ * Internal so repositories can write the column (null = clear) directly.
+ */
+internal fun List<Weight>.toMicroJson(): String =
+    MICRO_JSON.encodeToString(
+        ListSerializer(Double.serializer()),
+        map { WeightConversion.convertAmount(it.amount, it.unit, Weight.WeightUnit.Lb) },
+    )
 
 private val DEFAULT_FALLBACK_TIERS: List<IncrementTier> =
     LiftCatalogSeeder.DEFAULT_TIERS.map { t ->
