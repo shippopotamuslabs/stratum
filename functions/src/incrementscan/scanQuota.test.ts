@@ -2,16 +2,10 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import type { DocumentReference, Transaction } from "firebase-admin/firestore";
 import {
-  MAX_IMAGE_BYTES,
   MAX_SCANS_PER_DAY,
   MAX_SCANS_PER_MONTH,
   admitIncrementScan,
   assertScanQuotaAllowed,
-  effectiveDayCount,
-  effectiveMonthCount,
-  isAtDailyScanQuota,
-  isAtMonthlyScanQuota,
-  nextQuotaAfterScan,
   scanQuotaPath,
   utcDayKey,
   utcMonthKey,
@@ -42,6 +36,13 @@ function fakeQuotaFirestore(store: Map<string, Record<string, unknown>>): ScanQu
   };
 }
 
+function resourceExhausted(check: () => void | Promise<unknown>): Promise<void> {
+  return assert.rejects(async () => check(), (err: { code?: string }) => {
+    assert.equal(err.code, "resource-exhausted");
+    return true;
+  });
+}
+
 describe("utcMonthKey / utcDayKey", () => {
   it("formats UTC month and day with zero padding", () => {
     assert.equal(utcMonthKey(new Date(Date.UTC(2026, 0, 5))), "2026-01");
@@ -55,42 +56,38 @@ describe("utcMonthKey / utcDayKey", () => {
   });
 });
 
-describe("effective counts and caps", () => {
-  it("missing doc counts as zero", () => {
-    assert.equal(effectiveMonthCount(undefined, "2026-07"), 0);
-    assert.equal(effectiveDayCount(undefined, "2026-07-14"), 0);
-    assert.equal(isAtMonthlyScanQuota(undefined, "2026-07"), false);
-    assert.equal(isAtDailyScanQuota(undefined, "2026-07-14"), false);
-  });
-
+describe("quota caps and rollover (via assertScanQuotaAllowed)", () => {
   it("caps are 30/month and 10/day", () => {
     assert.equal(MAX_SCANS_PER_MONTH, 30);
     assert.equal(MAX_SCANS_PER_DAY, 10);
-    assert.equal(MAX_IMAGE_BYTES, 2 * 1024 * 1024);
   });
 
-  it("monthly cap gates at MAX_SCANS_PER_MONTH", () => {
+  it("missing doc counts as zero", () => {
+    assertScanQuotaAllowed(undefined, "2026-07", "2026-07-14");
+  });
+
+  it("monthly cap gates at MAX_SCANS_PER_MONTH", async () => {
     const atCap: ScanQuotaDoc = {
       monthKey: "2026-07",
       dayKey: "2026-07-14",
       monthCount: 30,
       dayCount: 2,
     };
-    assert.equal(isAtMonthlyScanQuota(atCap, "2026-07"), true);
+    await resourceExhausted(() => assertScanQuotaAllowed(atCap, "2026-07", "2026-07-14"));
     const under: ScanQuotaDoc = { ...atCap, monthCount: 29 };
-    assert.equal(isAtMonthlyScanQuota(under, "2026-07"), false);
+    assertScanQuotaAllowed(under, "2026-07", "2026-07-14");
   });
 
-  it("daily cap gates at MAX_SCANS_PER_DAY", () => {
+  it("daily cap gates at MAX_SCANS_PER_DAY", async () => {
     const atCap: ScanQuotaDoc = {
       monthKey: "2026-07",
       dayKey: "2026-07-14",
       monthCount: 5,
       dayCount: 10,
     };
-    assert.equal(isAtDailyScanQuota(atCap, "2026-07-14"), true);
+    await resourceExhausted(() => assertScanQuotaAllowed(atCap, "2026-07", "2026-07-14"));
     const under: ScanQuotaDoc = { ...atCap, dayCount: 9 };
-    assert.equal(isAtDailyScanQuota(under, "2026-07-14"), false);
+    assertScanQuotaAllowed(under, "2026-07", "2026-07-14");
   });
 
   it("month rollover restarts the monthly count", () => {
@@ -100,79 +97,29 @@ describe("effective counts and caps", () => {
       monthCount: 30,
       dayCount: 10,
     };
-    assert.equal(effectiveMonthCount(prev, "2026-07"), 0);
-    assert.equal(isAtMonthlyScanQuota(prev, "2026-07"), false);
-    assert.deepEqual(nextQuotaAfterScan(prev, "2026-07", "2026-07-01"), {
-      monthKey: "2026-07",
-      dayKey: "2026-07-01",
-      monthCount: 1,
-      dayCount: 1,
-    });
+    assertScanQuotaAllowed(prev, "2026-07", "2026-07-01");
   });
 
-  it("day rollover restarts the daily count but keeps the month", () => {
+  it("day rollover restarts the daily count but keeps the month", async () => {
     const prev: ScanQuotaDoc = {
       monthKey: "2026-07",
       dayKey: "2026-07-13",
       monthCount: 5,
       dayCount: 10,
     };
-    assert.equal(effectiveDayCount(prev, "2026-07-14"), 0);
-    assert.equal(isAtDailyScanQuota(prev, "2026-07-14"), false);
-    assert.deepEqual(nextQuotaAfterScan(prev, "2026-07", "2026-07-14"), {
-      monthKey: "2026-07",
-      dayKey: "2026-07-14",
-      monthCount: 6,
-      dayCount: 1,
-    });
+    assertScanQuotaAllowed(prev, "2026-07", "2026-07-14");
+    // Same-day doc at the daily cap still rejects.
+    const sameDay: ScanQuotaDoc = { ...prev, dayKey: "2026-07-14" };
+    await resourceExhausted(() => assertScanQuotaAllowed(sameDay, "2026-07", "2026-07-14"));
   });
 
   it("negative or non-numeric counters count as zero", () => {
     const dirty = { monthKey: "2026-07", dayKey: "2026-07-14", monthCount: -3, dayCount: NaN };
-    assert.equal(effectiveMonthCount(dirty, "2026-07"), 0);
-    assert.equal(effectiveDayCount(dirty, "2026-07-14"), 0);
+    assertScanQuotaAllowed(dirty, "2026-07", "2026-07-14");
   });
 
   it("scanQuotaPath is users/{uid}/incrementsScanQuota/current", () => {
     assert.equal(scanQuotaPath("uid-1"), "users/uid-1/incrementsScanQuota/current");
-  });
-});
-
-describe("assertScanQuotaAllowed", () => {
-  it("throws resource-exhausted at the monthly cap", async () => {
-    const doc: ScanQuotaDoc = {
-      monthKey: "2026-07",
-      dayKey: "2026-07-14",
-      monthCount: 30,
-      dayCount: 1,
-    };
-    await assert.rejects(
-      async () => assertScanQuotaAllowed(doc, "2026-07", "2026-07-14"),
-      (err: { code?: string }) => {
-        assert.equal(err.code, "resource-exhausted");
-        return true;
-      },
-    );
-  });
-
-  it("throws resource-exhausted at the daily cap", async () => {
-    const doc: ScanQuotaDoc = {
-      monthKey: "2026-07",
-      dayKey: "2026-07-14",
-      monthCount: 3,
-      dayCount: 10,
-    };
-    await assert.rejects(
-      async () => assertScanQuotaAllowed(doc, "2026-07", "2026-07-14"),
-      (err: { code?: string }) => {
-        assert.equal(err.code, "resource-exhausted");
-        return true;
-      },
-    );
-  });
-
-  it("allows scans under both caps", () => {
-    assertScanQuotaAllowed(undefined, "2026-07", "2026-07-14");
   });
 });
 
@@ -205,6 +152,47 @@ describe("admitIncrementScan", () => {
     const stored = store.get(scanQuotaPath("uid-1"))!;
     assert.equal(stored.monthCount, 5);
     assert.equal(stored.dayCount, 3);
+  });
+
+  it("month rollover restarts at 1/1", async () => {
+    const store = new Map<string, Record<string, unknown>>([
+      [
+        scanQuotaPath("uid-1"),
+        { monthKey: "2026-06", dayKey: "2026-06-30", monthCount: 30, dayCount: 10 },
+      ],
+    ]);
+    await admitIncrementScan("uid-1", { firestore: fakeQuotaFirestore(store), now: NOW });
+    const stored = store.get(scanQuotaPath("uid-1"))!;
+    assert.equal(stored.monthKey, "2026-07");
+    assert.equal(stored.dayKey, "2026-07-14");
+    assert.equal(stored.monthCount, 1);
+    assert.equal(stored.dayCount, 1);
+  });
+
+  it("day rollover restarts the daily count but keeps the month", async () => {
+    const store = new Map<string, Record<string, unknown>>([
+      [
+        scanQuotaPath("uid-1"),
+        { monthKey: "2026-07", dayKey: "2026-07-13", monthCount: 5, dayCount: 10 },
+      ],
+    ]);
+    await admitIncrementScan("uid-1", { firestore: fakeQuotaFirestore(store), now: NOW });
+    const stored = store.get(scanQuotaPath("uid-1"))!;
+    assert.equal(stored.monthCount, 6);
+    assert.equal(stored.dayCount, 1);
+  });
+
+  it("negative or non-numeric counters admit as 1/1", async () => {
+    const store = new Map<string, Record<string, unknown>>([
+      [
+        scanQuotaPath("uid-1"),
+        { monthKey: "2026-07", dayKey: "2026-07-14", monthCount: -3, dayCount: NaN },
+      ],
+    ]);
+    await admitIncrementScan("uid-1", { firestore: fakeQuotaFirestore(store), now: NOW });
+    const stored = store.get(scanQuotaPath("uid-1"))!;
+    assert.equal(stored.monthCount, 1);
+    assert.equal(stored.dayCount, 1);
   });
 
   it("rejects at the daily cap without incrementing", async () => {
