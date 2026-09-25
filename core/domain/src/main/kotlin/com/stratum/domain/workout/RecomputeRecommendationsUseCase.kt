@@ -94,6 +94,7 @@ class RecomputeRecommendationsUseCase @Inject constructor(
     ): Map<SetSlotId, LiveSetRecommendation> {
         val setsByPosition = lift.sets.sortedBy { it.position }
         val incrementTiers = liftsById[lift.liftId]?.incrementTiers ?: emptyList()
+        val micro = liftsById[lift.liftId]?.microIncrements.orEmpty()
         val lastPerformedSet = lift.sets
             .filter { it.loggedValue != null }
             .maxByOrNull { it.position }
@@ -119,6 +120,7 @@ class RecomputeRecommendationsUseCase @Inject constructor(
                     incrementTiers = incrementTiers,
                     loadType = lift.loadType,
                     priorResults = results,
+                    micro = micro,
                 )
             }
             return results
@@ -150,6 +152,7 @@ class RecomputeRecommendationsUseCase @Inject constructor(
                 incrementTiers = incrementTiers,
                 fatigue = fatigue,
                 priorRecommendations = priorRecommendations,
+                micro = micro,
             )
         }
 
@@ -160,12 +163,14 @@ class RecomputeRecommendationsUseCase @Inject constructor(
             incrementTiers = incrementTiers,
             loadType = lift.loadType,
             priorResults = results,
+            micro = micro,
         )
         results += myoMiniRecommendations(
             unloggedMinis = unloggedMyoMinis,
             setsByPosition = setsByPosition,
             incrementTiers = incrementTiers,
             loadType = lift.loadType,
+            micro = micro,
         )
 
         return results
@@ -184,6 +189,7 @@ class RecomputeRecommendationsUseCase @Inject constructor(
         incrementTiers: List<IncrementTier>,
         loadType: LoadType,
         priorResults: Map<SetSlotId, LiveSetRecommendation>,
+        micro: List<Weight> = emptyList(),
     ): Map<SetSlotId, LiveSetRecommendation> {
         val out = linkedMapOf<SetSlotId, LiveSetRecommendation>()
         // Merge live drop recs as we go so multi-drop chains resolve prior weight/reps.
@@ -196,6 +202,7 @@ class RecomputeRecommendationsUseCase @Inject constructor(
                 incrementTiers = incrementTiers,
                 loadType = loadType,
                 resolved = resolved,
+                micro = micro,
             ) ?: continue
             out[set.slotId] = rec
             resolved[set.slotId] = rec
@@ -210,6 +217,7 @@ class RecomputeRecommendationsUseCase @Inject constructor(
         incrementTiers: List<IncrementTier>,
         loadType: LoadType,
         resolved: Map<SetSlotId, LiveSetRecommendation>,
+        micro: List<Weight> = emptyList(),
     ): LiveSetRecommendation? {
         val prior = priorSet(setsByPosition, set) ?: return null
         val priorWeight = resolvePriorWeight(prior, resolved) ?: return null
@@ -223,6 +231,7 @@ class RecomputeRecommendationsUseCase @Inject constructor(
             precedingWeight = priorWeight,
             incrementTiers = incrementTiers,
             loadType = loadType,
+            micro = micro,
             capacityAtRir = { amountLb ->
                 DropSetRepProjection.expectedRepsAtRir0(
                     priorWeight = priorWeight,
@@ -280,6 +289,7 @@ class RecomputeRecommendationsUseCase @Inject constructor(
         setsByPosition: List<RenderedSet>,
         incrementTiers: List<IncrementTier>,
         loadType: LoadType,
+        micro: List<Weight> = emptyList(),
     ): Map<SetSlotId, LiveSetRecommendation> =
         unloggedMinis
             .mapNotNull { set ->
@@ -295,7 +305,7 @@ class RecomputeRecommendationsUseCase @Inject constructor(
                         weightSource.myoRepKind == MyoRepKind.RepMatching ||
                         clusterAnchor.myoRepKind == MyoRepKind.RepMatching
                 if (!isMatch && isActivationTooHeavy(weightLogged, weightSource)) {
-                    miniWeight = reduceOneStep(miniWeight, incrementTiers, loadType)
+                    miniWeight = reduceOneStep(miniWeight, incrementTiers, loadType, micro)
                 }
                 val priorInChain = lastLoggedMyoBefore(setsByPosition, set)
                 val priorLogged = priorInChain?.loggedValue ?: weightLogged
@@ -400,6 +410,7 @@ class RecomputeRecommendationsUseCase @Inject constructor(
         weight: Weight,
         incrementTiers: List<IncrementTier>,
         loadType: LoadType,
+        micro: List<Weight> = emptyList(),
     ): Weight {
         val step = incrementTiers.incrementFor(weight)?.amount
             ?: defaultStep(weight.unit)
@@ -407,7 +418,7 @@ class RecomputeRecommendationsUseCase @Inject constructor(
         return if (incrementTiers.isEmpty()) {
             lowered
         } else {
-            incrementTiers.roundToIncrement(lowered, loadType)
+            incrementTiers.roundToIncrement(lowered, loadType, micro)
         }
     }
 

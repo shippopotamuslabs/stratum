@@ -1,7 +1,9 @@
 package com.stratum.domain.workout
 
+import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.lift.isOnLattice
 import com.stratum.domain.program.SetType
 import com.stratum.domain.program.identity.LiftSetId
 import com.stratum.domain.program.identity.WorkoutLiftId
@@ -99,5 +101,25 @@ class Slice6DropSetTest {
         )
         assertTrue(result.amount <= 60.0 + 1e-6, "must reduce below 80 when capacity fails floor")
         assertTrue(result.amount > 0.0)
+    }
+
+    @Test
+    @DisplayName("S6-drop-set-reduce-with-micro-agrees-with-adder-lattice")
+    fun `S6-drop-set-reduce-with-micro-agrees-with-adder-lattice`() {
+        val tiers = listOf(IncrementTier(lb(0.0), null, lb(15.0)))
+        val micro = listOf(lb(5.0), lb(10.0))
+        val useCase = EstimateDropSetWeightUseCase()
+        val result = useCase.invoke(
+            precedingWeight = lb(100.0),
+            incrementTiers = tiers,
+            capacityAtRir = { amountLb -> if (amountLb <= 60.0) 6 else 3 },
+            micro = micro,
+        )
+        assertTrue(result.amount <= 80.0 + 1e-6, "must reduce below 80 when capacity fails floor")
+        assertTrue(result.amount > 0.0)
+        assertTrue(
+            tiers.isOnLattice(result, micro = micro),
+            "drop must agree with adder lattice, was ${result.amount}",
+        )
     }
 }
