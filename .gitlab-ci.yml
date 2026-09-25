@@ -4,13 +4,13 @@
 # Pinned to an immutable commit SHA. Tags like v1.0.3 are mutable and can be
 # force-moved, which would run attacker-controlled pipeline code in this
 # project's CI context (signing / google-services secrets). Human-readable
-# tag: v1.0.10. BUMP PROCESS: resolve the new tag to its peeled commit SHA
+# tag: v1.0.11. BUMP PROCESS: resolve the new tag to its peeled commit SHA
 # (git ls-remote https://gitlab.com/browntown.development-group/forge-reviewer.git,
 # take the ^{} peeled value), review the template diff,
 # then update `ref:` and FORGE_REF together.
 include:
   - project: 'browntown.development-group/forge-reviewer'
-    ref: 7ebedde51dc858a4f1a1731feb3888f1ad5309e8 # v1.0.10 — keep pinned, never a tag
+    ref: fa55fd60481c19ce9450dd0f8ad31074974256fa # v1.0.11 — keep pinned, never a tag
     file: '/templates/forge.gitlab-ci.yml'
 
 # ONE-TIME SETUP (GitLab project -> Settings -> CI/CD -> Variables):
@@ -75,7 +75,7 @@ variables:
   # scripts .forge-setup downloads at runtime — same immutable pin as the
   # include above (tag shown for readability only); keep the two in sync.
   FORGE_ENABLED: "true"
-  FORGE_REF: "7ebedde51dc858a4f1a1731feb3888f1ad5309e8" # v1.0.10 — keep pinned, never a tag
+  FORGE_REF: "fa55fd60481c19ce9450dd0f8ad31074974256fa" # v1.0.11 — keep pinned, never a tag
 
 stages:
   - lint
