@@ -227,6 +227,15 @@
     <string name="lift_increments_micro_empty">No adder</string>
     <string name="lift_increments_micro_add">Add stop</string>
     <string name="lift_increments_micro_remove">Remove stop</string>
+    <string name="lift_increments_scan_cta">Set Increments With AI</string>
+    <string name="lift_increments_scan_sheet_title">Scan stack label</string>
+    <string name="lift_increments_scan_camera">Take photo</string>
+    <string name="lift_increments_scan_gallery">Choose from gallery</string>
+    <string name="lift_increments_scan_scanning">Reading stack label…</string>
+    <string name="lift_increments_scan_failed">Couldn’t read that label. Try again or enter tiers manually.</string>
+    <string name="lift_increments_scan_retry">Try again</string>
+    <string name="lift_increments_scan_camera_blocked">Camera access is off. Allow it, choose a photo instead, or enter tiers manually.</string>
+    <string name="lift_increments_scan_unreadable">Couldn’t use that photo. Try another or enter tiers manually.</string>
     <string name="lift_increments_micro_stop">Stop (%1$s)</string>
     <string name="lift_info_title">Lift info</string>
     <string name="lift_info_tab_instructions">Instructions</string>
