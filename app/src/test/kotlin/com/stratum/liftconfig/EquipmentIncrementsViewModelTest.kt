@@ -3,12 +3,14 @@ package com.stratum.liftconfig
 import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.featureflag.FakeFeatureFlagRepository
+import com.stratum.core.testing.lift.FakeIncrementScanPort
 import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeEquipmentProposalPreferences
 import com.stratum.core.testing.onboarding.FakeEquipmentRepository
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.domain.featureflag.AppFeatureFlag
 import com.stratum.domain.featureflag.ObserveEquipmentManagementV2UseCase
+import com.stratum.domain.featureflag.ObserveIncrementsAiScanUseCase
 import com.stratum.domain.lift.DismissEquipmentProposalUseCase
 import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.ForkEquipmentUseCase
@@ -18,6 +20,7 @@ import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.ObserveEquipmentAffectedLiftsUseCase
 import com.stratum.domain.lift.ObserveEquipmentCatalogUseCase
+import com.stratum.domain.lift.ScanIncrementTiersUseCase
 import com.stratum.domain.lift.SetEquipmentIncrementTiersUseCase
 import com.stratum.domain.lift.ValidateMicroIncrementsUseCase
 import com.stratum.domain.lift.SetLiftEquipmentUseCase
@@ -120,6 +123,15 @@ class EquipmentIncrementsViewModelTest {
                     ),
                 observeEquipmentManagementV2 =
                     ObserveEquipmentManagementV2UseCase(fakeFeatureFlags),
+                scanDelegate =
+                    IncrementScanDelegate(
+                        ScanIncrementTiersUseCase(
+                            FakeIncrementScanPort(),
+                            ValidateIncrementTiersUseCase(),
+                            ValidateMicroIncrementsUseCase(),
+                        ),
+                        ObserveIncrementsAiScanUseCase(fakeFeatureFlags),
+                    ),
             )
     }
 

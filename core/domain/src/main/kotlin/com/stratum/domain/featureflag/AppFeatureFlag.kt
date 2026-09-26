@@ -24,4 +24,10 @@ enum class AppFeatureFlag(
             "(in-workout editing, shared/fork save choice, usage visibility, flexible tier starts). " +
             "When off, all existing equipment screens behave as before.",
     ),
+    INCREMENTS_AI_SCAN(
+        key = "increments_ai_scan",
+        description = "Launch flag for the AI increment scan prefill " +
+            "(photo of a stack label prefills editor drafts for review, never auto-saves). " +
+            "When off, the scan entry stays hidden and manual entry behaves as before.",
+    ),
 }
