@@ -6,4 +6,6 @@
     <cache-path name="export_images" path="exports/images/" />
     <!-- Parent path retained so older staged files remain grantable until pruned. -->
     <cache-path name="export_cache" path="exports/" />
+    <!-- Camera capture staging for the increments AI scan (cacheDir/scan, transient, never uploaded raw). -->
+    <cache-path name="scan_images" path="scan/" />
 </paths>
