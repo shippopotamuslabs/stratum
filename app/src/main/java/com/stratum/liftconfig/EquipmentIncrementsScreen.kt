@@ -11,7 +11,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -52,23 +51,6 @@ fun EquipmentIncrementsRoute(
         viewModel.swapNavRequests.collect { onChooseEquipmentForLift(it) }
     }
     var showAffectedSheet by rememberSaveable { mutableStateOf(false) }
-    var showScanDrawer by rememberSaveable { mutableStateOf(false) }
-    var drawerError by remember { mutableStateOf<String?>(null) }
-    val photoFailedMessage = stringResource(UiR.string.lift_increments_scan_unreadable)
-    val cameraDeniedMessage = stringResource(UiR.string.lift_increments_scan_camera_blocked)
-    val capture =
-        rememberScanPhotoCapture(
-            onScanPhoto = viewModel::scan,
-            onPhotoError = { drawerError = photoFailedMessage },
-            onPermissionDenied = { drawerError = cameraDeniedMessage },
-        )
-    LaunchedEffect(state.scanUi) {
-        if (state.scanUi is IncrementScanState.Scanning ||
-            state.scanUi is IncrementScanState.Scanned
-        ) {
-            showScanDrawer = false
-        }
-    }
     val affectsClick =
         if (state.equipmentV2Enabled && state.affectedLiftCount > 0) {
             { showAffectedSheet = true }
@@ -110,15 +92,7 @@ fun EquipmentIncrementsRoute(
                 onRemoveStop = viewModel::onRemoveMicro,
             ),
         onResetToEquipment = {},
-        scanEntry =
-            ScanEntryUi(
-                available = state.scanAvailable,
-                state = state.scanUi,
-                onScanClick = {
-                    drawerError = null
-                    showScanDrawer = true
-                },
-            ),
+        onScanPhoto = viewModel::scan,
         forkUi =
             ForkSaveUi(
                 showForkSaveBar = state.equipmentV2Enabled,
@@ -143,21 +117,6 @@ fun EquipmentIncrementsRoute(
                 showAffectedSheet = false
                 viewModel.requestSwapForLift(liftId)
             },
-        )
-    }
-    if (showScanDrawer) {
-        ScanSourceDrawer(
-            onDismiss = { showScanDrawer = false },
-            onCameraClick = {
-                drawerError = null
-                capture.launchCamera()
-            },
-            onGalleryClick = {
-                drawerError = null
-                capture.launchGallery()
-            },
-            error = drawerError,
-            scanning = state.scanUi is IncrementScanState.Scanning,
         )
     }
 }
