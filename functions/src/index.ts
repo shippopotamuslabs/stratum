@@ -13,6 +13,7 @@ import { startProgramSynthesis } from "./program-synthesis/startProgramSynthesis
 import { getProgramSynthesisStatus } from "./program-synthesis/getProgramSynthesisStatus";
 import { processProgramSynthesisJob } from "./program-synthesis/processProgramSynthesisJob";
 import { onSynthesisJobWritten } from "./program-synthesis/onSynthesisQuota";
+import { inferEquipmentIncrements } from "./incrementscan/inferEquipmentIncrements";
 import { syncPlayEntitlement } from "./entitlement/syncPlayEntitlement";
 
 admin.initializeApp();
@@ -32,5 +33,6 @@ export {
   getProgramSynthesisStatus,
   processProgramSynthesisJob,
   onSynthesisJobWritten,
+  inferEquipmentIncrements,
   syncPlayEntitlement,
 };
