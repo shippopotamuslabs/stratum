@@ -1,5 +1,6 @@
 package com.stratum.core.inference
 
+import com.google.firebase.functions.FirebaseFunctions
 import com.stratum.domain.auth.AccountDeletionPort
 import com.stratum.domain.featureflag.AppFeatureFlag
 import com.stratum.domain.featureflag.FeatureFlagRepository
@@ -8,6 +9,7 @@ import com.stratum.domain.importing.HistoricalImportPort
 import com.stratum.domain.importing.HistoricalImportRunnerPort
 import com.stratum.domain.importing.ImportEquipmentInferencePort
 import com.stratum.domain.importing.LiftNameEmbeddingPort
+import com.stratum.domain.lift.IncrementScanPort
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.program.generation.swap.LiftSwapPort
 import com.stratum.domain.program.generation.synthesis.FlagGatedProgramSynthesisPort
@@ -60,7 +62,19 @@ abstract class InferenceModule {
     @Singleton
     abstract fun bindLiftSwapPort(impl: FirebaseLiftSwapAdapter): LiftSwapPort
 
+    @Binds
+    @Singleton
+    abstract fun bindIncrementScanPort(impl: FirebaseIncrementScanAdapter): IncrementScanPort
+
     companion object {
+        @Provides
+        @Singleton
+        fun provideFirebaseFunctions(): FirebaseFunctions = FirebaseFunctions.getInstance()
+
+        // No provideFirebaseAuth here: AuthProvidesModule in :core:data already binds
+        // FirebaseAuth app-wide; a second binding fails the :app graph with
+        // Dagger/DuplicateBindings.
+
         /**
          * Wraps the cloud synthesis adapter in its kill-switch so flipping
          * `cloud_program_synthesis` to false fails fast without network use.
