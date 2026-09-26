@@ -1,5 +1,7 @@
 package com.stratum.core.inference
 
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.functions.FirebaseFunctions
 import com.stratum.domain.auth.AccountDeletionPort
 import com.stratum.domain.featureflag.AppFeatureFlag
 import com.stratum.domain.featureflag.FeatureFlagRepository
@@ -66,6 +68,14 @@ abstract class InferenceModule {
     abstract fun bindIncrementScanPort(impl: FirebaseIncrementScanAdapter): IncrementScanPort
 
     companion object {
+        @Provides
+        @Singleton
+        fun provideFirebaseFunctions(): FirebaseFunctions = FirebaseFunctions.getInstance()
+
+        @Provides
+        @Singleton
+        fun provideFirebaseAuth(): FirebaseAuth = FirebaseAuth.getInstance()
+
         /**
          * Wraps the cloud synthesis adapter in its kill-switch so flipping
          * `cloud_program_synthesis` to false fails fast without network use.
