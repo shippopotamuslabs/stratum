@@ -3,6 +3,7 @@ package com.stratum.liftconfig
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.domain.featureflag.ObserveEquipmentManagementV2UseCase
+import com.stratum.domain.featureflag.ObserveIncrementsAiScanUseCase
 import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.EquipmentAffectedLifts
 import com.stratum.domain.lift.ForkEquipmentWithTiersUseCase
@@ -12,6 +13,7 @@ import com.stratum.domain.lift.ObserveEquipmentAffectedLiftsUseCase
 import com.stratum.domain.lift.ObserveEquipmentCatalogUseCase
 import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.MicroIncrementsValidationResult
+import com.stratum.domain.lift.ScanPhoto
 import com.stratum.domain.lift.SetEquipmentIncrementTiersUseCase
 import com.stratum.domain.lift.SetLiftEquipmentUseCase
 import com.stratum.domain.lift.ValidateIncrementTiersUseCase
@@ -75,6 +77,15 @@ data class EquipmentIncrementsUiState(
      * call site.
      */
     val showMicroCard: Boolean = false,
+    /**
+     * Launch-flag gate for the AI scan prefill. PR-5 wires state only — no
+     * composable reads these yet, so the scan entry stays hidden.
+     */
+    val scanAvailable: Boolean = false,
+    /** True while a scan request is in flight. */
+    val isScanning: Boolean = false,
+    /** Scan failure copy; null when no failure is showing. */
+    val scanMessage: String? = null,
 )
 
 /** Presentation row for the affected-lifts sheet (domain stays out of composables). */
@@ -99,6 +110,8 @@ class EquipmentIncrementsViewModel @Inject constructor(
     private val equipmentPickResult: EquipmentPickResult,
     observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
     observeEquipmentManagementV2: ObserveEquipmentManagementV2UseCase,
+    observeIncrementsAiScan: ObserveIncrementsAiScanUseCase,
+    private val scanDelegate: IncrementScanDelegate,
 ) : ViewModel() {
 
     private val equipmentId = MutableStateFlow<String?>(null)
@@ -116,6 +129,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
     private val validationOverride = MutableStateFlow<String?>(null)
     private val displayUnit = MutableStateFlow(Weight.WeightUnit.Lb)
     private val equipmentV2Enabled = MutableStateFlow(false)
+    private val scanAvailable = MutableStateFlow(false)
 
     private data class PendingSwap(
         val liftId: String,
@@ -133,6 +147,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
             observeWeightDisplayPreferences().collect { prefs ->
                 if (displayUnit.value != prefs.displayUnit) {
                     resetDrafts()
+                    scanDelegate.reset()
                     displayUnit.value = prefs.displayUnit
                 }
             }
@@ -140,6 +155,11 @@ class EquipmentIncrementsViewModel @Inject constructor(
         viewModelScope.launch {
             observeEquipmentManagementV2().collect { enabled ->
                 equipmentV2Enabled.value = enabled
+            }
+        }
+        viewModelScope.launch {
+            observeIncrementsAiScan().collect { enabled ->
+                scanAvailable.value = enabled
             }
         }
         viewModelScope.launch {
@@ -181,6 +201,14 @@ class EquipmentIncrementsViewModel @Inject constructor(
         val saved: Boolean,
         val validation: String?,
         val equipmentV2Enabled: Boolean,
+        val scanAvailable: Boolean,
+        val scanState: IncrementScanState,
+    )
+
+    /** Paired scan flows for the flags combine (no 6-flow typed overload here). */
+    private data class ScanUi(
+        val available: Boolean,
+        val state: IncrementScanState,
     )
 
     private val affectedLifts =
@@ -199,21 +227,29 @@ class EquipmentIncrementsViewModel @Inject constructor(
             affectedLifts,
             displayUnit,
             // Five typed flows: this coroutines version has no 6-flow combine overload,
-            // so the two save flags travel paired.
+            // so the two save flags travel paired (and the scan pair rides one slot).
             combine(
                 combine(isSaving, saveSucceeded) { saving, saved -> saving to saved },
                 drafts,
                 proposalSession.input,
                 validationOverride,
-                equipmentV2Enabled,
-            ) { savingPair, editorDrafts, input, validation, equipmentV2 ->
+                combine(
+                    equipmentV2Enabled,
+                    scanAvailable,
+                    scanDelegate.scanState,
+                ) { v2, avail, scan ->
+                    v2 to ScanUi(avail, scan)
+                },
+            ) { savingPair, editorDrafts, input, validation, v2scan ->
                 Flags(
                     editorDrafts,
                     input,
                     savingPair.first,
                     savingPair.second,
                     validation,
-                    equipmentV2,
+                    v2scan.first,
+                    v2scan.second.available,
+                    v2scan.second.state,
                 )
             },
         ) { id, catalog, affected, unit, flags ->
@@ -228,6 +264,8 @@ class EquipmentIncrementsViewModel @Inject constructor(
                 saving = flags.saving,
                 saved = flags.saved,
                 validation = flags.validation,
+                scanAvailable = flags.scanAvailable,
+                scanState = flags.scanState,
             )
         }.stateIn(
             viewModelScope,
@@ -252,8 +290,32 @@ class EquipmentIncrementsViewModel @Inject constructor(
         equipmentId.value = id
         this.sourceLiftId.value = sourceLiftId
         resetDrafts()
+        scanDelegate.reset()
         saveSucceeded.value = false
         validationOverride.value = null
+    }
+
+    /**
+     * AI scan prefill: runs the photo through the scan delegate and applies the
+     * scanned drafts (bands plus adder stops) for review — never auto-saves.
+     * No-op while the launch flag is off. Failures keep the existing drafts and
+     * surface [scanMessage] instead.
+     */
+    fun scan(photo: ScanPhoto) {
+        if (!scanAvailable.value) return
+        viewModelScope.launch {
+            scanDelegate.scan(photo, displayUnit.value)
+            val scanned = scanDelegate.scanState.value as? IncrementScanState.Scanned
+                ?: return@launch
+            drafts.update { current ->
+                (current ?: EditorDrafts(null, null)).copy(
+                    tiers = scanned.tierDrafts,
+                    microStops = scanned.microStopDrafts,
+                )
+            }
+            validationOverride.value = null
+            saveSucceeded.value = false
+        }
     }
 
     /** Clears both editor sections so the next build re-seeds from stored values. */
@@ -509,6 +571,8 @@ class EquipmentIncrementsViewModel @Inject constructor(
         saving: Boolean,
         saved: Boolean,
         validation: String?,
+        scanAvailable: Boolean,
+        scanState: IncrementScanState,
     ): EquipmentIncrementsUiState {
         val equipment = catalog.firstOrNull { it.id.value == id }
         val tiers =
@@ -558,6 +622,9 @@ class EquipmentIncrementsViewModel @Inject constructor(
             unitLabel = unit.shortLabel(),
             equipmentV2Enabled = equipmentV2Enabled,
             showMicroCard = equipmentV2Enabled,
+            scanAvailable = scanAvailable,
+            isScanning = scanState is IncrementScanState.Scanning,
+            scanMessage = (scanState as? IncrementScanState.Failed)?.message,
         )
     }
 
