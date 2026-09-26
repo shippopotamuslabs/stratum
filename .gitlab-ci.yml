@@ -320,16 +320,6 @@ osv-scan-image:
     # Exit code 1 = CVEs found, matching the osv-scan failure policy.
     - OSV_SCANNER_BIN="$CI_PROJECT_DIR/.tmp/osv-scanner" ./scripts/scan-solver-image.sh stratum-solver:ci
 
-# KVM smoke test: proves /dev/kvm reaches the job container on a fresh Spot
-# worker (nested virtualization + device passthrough). Cheap lint-stage gate
-# before the nightly emulator job burns hours on a broken hypervisor path.
-kvm-smoke:
-  extends: .android-job
-  stage: lint
-  script:
-    - test -c /dev/kvm || (echo "KVM device missing in job container"; ls -la /dev/kvm* 2>/dev/null || true; exit 1)
-    - echo "KVM present:"; ls -la /dev/kvm
-
 # Emulator tests on the gcp fleet: workers expose /dev/kvm (nested virt), so
 # the emulator runs accelerated instead of slow unaccelerated.
 # Nightly + allow_failure until green, then decide about per-MR.
@@ -376,6 +366,11 @@ emulator-tests:
     - df -h "$CI_PROJECT_DIR" /opt /tmp 2>/dev/null || df -h
     - du -sh .git 2>/dev/null || true
   script:
+    # Fail fast when nested virtualization didn't reach this worker: without
+    # /dev/kvm the emulator falls back to unaccelerated boot and burns the
+    # adb wait instead of failing here (replaces the removed kvm-smoke job,
+    # which ran in MR pipelines and so never gated this scheduled job).
+    - test -c /dev/kvm || (echo "KVM device missing in job container"; ls -la /dev/kvm* 2>/dev/null || true; exit 1)
     # -partition-size 2048: the runner disk can't fit the pixel_7 default userdata
     # partition (needs ~7.4 GB, ~6.8 GB free); 2 GB is plenty for these tests.
     # Probe the emulator in the foreground for 90s: its pre-boot disk check fails
