@@ -1,6 +1,5 @@
 package com.stratum.core.inference
 
-import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.functions.FirebaseFunctions
 import com.stratum.domain.auth.AccountDeletionPort
 import com.stratum.domain.featureflag.AppFeatureFlag
@@ -72,9 +71,9 @@ abstract class InferenceModule {
         @Singleton
         fun provideFirebaseFunctions(): FirebaseFunctions = FirebaseFunctions.getInstance()
 
-        @Provides
-        @Singleton
-        fun provideFirebaseAuth(): FirebaseAuth = FirebaseAuth.getInstance()
+        // No provideFirebaseAuth here: AuthProvidesModule in :core:data already binds
+        // FirebaseAuth app-wide; a second binding fails the :app graph with
+        // Dagger/DuplicateBindings.
 
         /**
          * Wraps the cloud synthesis adapter in its kill-switch so flipping
