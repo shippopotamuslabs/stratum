@@ -39,7 +39,9 @@ import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTextButton
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.domain.lift.ScanPhoto
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.InputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -88,18 +90,21 @@ internal fun ScanEntrySection(
         if (uri == null) return
         scope.launch(Dispatchers.IO) {
             val bytes =
-                try {
-                    context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                } catch (_: Exception) {
-                    null
-                }
+                readBoundedBytes(
+                    open = {
+                        runCatching { context.contentResolver.openInputStream(uri) }.getOrNull()
+                    },
+                    capBytes = ScanPhotoProcessor.MAX_INPUT_BYTES,
+                )
             withContext(Dispatchers.Main) { processBytes(bytes) }
         }
     }
 
     val takePictureLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { saved ->
-            if (saved) processUri(pendingCameraUri)
+            val uri = pendingCameraUri
+            // A success without a URI (lost staging) must surface, never silently drop.
+            if (saved && uri != null) processUri(uri) else if (saved) photoUnreadable = true
         }
     val galleryLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
@@ -263,3 +268,36 @@ private const val SCAN_CACHE_SUBDIR = "scan"
 private const val SCAN_AUTHORITY_SUFFIX = "export"
 private const val SCAN_FILE_PREFIX = "scan_"
 private const val SCAN_FILE_SUFFIX = ".jpg"
+private const val READ_CHUNK_BYTES = 8 * 1024
+
+/**
+ * Reads [open]'s stream aborting with null once more than [capBytes] arrive, so a
+ * huge pick never materializes in memory before the size guard runs. IO failures
+ * also yield null. Pure JVM apart from the [InputStream] source — unit-tested.
+ */
+internal fun readBoundedBytes(open: () -> InputStream?, capBytes: Int): ByteArray? {
+    val stream =
+        try {
+            open()
+        } catch (_: Exception) {
+            null
+        } ?: return null
+    return try {
+        stream.use { readCapped(it, capBytes) }
+    } catch (_: Exception) {
+        null
+    }
+}
+
+private fun readCapped(stream: InputStream, capBytes: Int): ByteArray? {
+    val out = ByteArrayOutputStream()
+    val buf = ByteArray(READ_CHUNK_BYTES)
+    var total = 0
+    while (true) {
+        val read = stream.read(buf)
+        if (read < 0) return out.toByteArray()
+        total += read
+        if (total > capBytes) return null
+        out.write(buf, 0, read)
+    }
+}
