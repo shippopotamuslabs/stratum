@@ -11,6 +11,7 @@ import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.domain.featureflag.AppFeatureFlag
 import com.stratum.domain.featureflag.ObserveIncrementsAiScanUseCase
 import com.stratum.domain.lift.DismissEquipmentProposalUseCase
+import com.stratum.domain.lift.IncrementScanPort
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
@@ -27,12 +28,13 @@ import com.stratum.domain.lift.ValidateMicroIncrementsUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
-import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -41,8 +43,9 @@ import org.junit.jupiter.api.extension.ExtendWith
 
 /**
  * Scan-state coverage for the per-lift override editor: the launch flag gates the
- * affordance, a successful scan prefills bands and adder stops without saving,
- * and a failure keeps drafts with a message (UNIT_TESTING.md §1 — fakes, no MockK).
+ * affordance, a successful scan prefills bands and adder stops without saving, a
+ * failure keeps drafts with a failed state, and a mid-scan initialize drops the
+ * stale result (UNIT_TESTING.md §1 — fakes, no MockK).
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @ExtendWith(MainDispatcherRule::class)
@@ -50,6 +53,7 @@ class LiftIncrementsScanTest {
 
     private val lb = Weight.WeightUnit.Lb
     private val latId = LiftId("lat-pulldown")
+    private val rowId = LiftId("cable-row")
     private val catalogTiers =
         listOf(IncrementTier(Weight(0.0, lb), null, Weight(5.0, lb)))
     private val photo = ScanPhoto(byteArrayOf(1, 2, 3), "image/jpeg")
@@ -78,44 +82,45 @@ class LiftIncrementsScanTest {
                 ),
             ),
         )
-        subject =
-            LiftIncrementsViewModel(
-                observeLiftCatalog = ObserveLiftCatalogUseCase(fakeLiftRepository),
-                setLiftIncrementTiers =
-                    SetLiftIncrementTiersUseCase(
-                        fakeLiftRepository,
+        subject = buildSubject(fakeScanPort)
+    }
+
+    private fun buildSubject(scanPort: IncrementScanPort): LiftIncrementsViewModel =
+        LiftIncrementsViewModel(
+            observeLiftCatalog = ObserveLiftCatalogUseCase(fakeLiftRepository),
+            setLiftIncrementTiers =
+                SetLiftIncrementTiersUseCase(
+                    fakeLiftRepository,
+                    ValidateIncrementTiersUseCase(),
+                    ValidateMicroIncrementsUseCase(),
+                    FakeLoggingPort(),
+                ),
+            resetLiftIncrementsToEquipment =
+                ResetLiftIncrementsToEquipmentUseCase(
+                    fakeLiftRepository,
+                    FakeLoggingPort(),
+                ),
+            validateIncrementTiers = ValidateIncrementTiersUseCase(),
+            validateMicroIncrements = ValidateMicroIncrementsUseCase(),
+            dismissEquipmentProposal =
+                DismissEquipmentProposalUseCase(
+                    fakeProposalPrefs,
+                    FakeLoggingPort(),
+                ),
+            observeWeightDisplayPreferences =
+                ObserveWeightDisplayPreferencesUseCase(
+                    FakeWeightDisplayPreferencesRepository(),
+                ),
+            scanDelegate =
+                IncrementScanDelegate(
+                    ScanIncrementTiersUseCase(
+                        scanPort,
                         ValidateIncrementTiersUseCase(),
                         ValidateMicroIncrementsUseCase(),
-                        FakeLoggingPort(),
                     ),
-                resetLiftIncrementsToEquipment =
-                    ResetLiftIncrementsToEquipmentUseCase(
-                        fakeLiftRepository,
-                        FakeLoggingPort(),
-                    ),
-                validateIncrementTiers = ValidateIncrementTiersUseCase(),
-                validateMicroIncrements = ValidateMicroIncrementsUseCase(),
-                dismissEquipmentProposal =
-                    DismissEquipmentProposalUseCase(
-                        fakeProposalPrefs,
-                        FakeLoggingPort(),
-                    ),
-                observeWeightDisplayPreferences =
-                    ObserveWeightDisplayPreferencesUseCase(
-                        FakeWeightDisplayPreferencesRepository(),
-                    ),
-                observeIncrementsAiScan =
                     ObserveIncrementsAiScanUseCase(fakeFeatureFlags),
-                scanDelegate =
-                    IncrementScanDelegate(
-                        ScanIncrementTiersUseCase(
-                            fakeScanPort,
-                            ValidateIncrementTiersUseCase(),
-                            ValidateMicroIncrementsUseCase(),
-                        ),
-                    ),
-            )
-    }
+                ),
+        )
 
     @Test
     @DisplayName("Given the flag off when shown then no scan affordance and scan is a no-op")
@@ -127,15 +132,16 @@ class LiftIncrementsScanTest {
             val state =
                 awaitItemWith { it.liftName == "Lat pulldown" && it.tiers.isNotEmpty() }
             assertFalse(state.scanAvailable)
-            assertFalse(state.isScanning)
-            assertNull(state.scanMessage)
+            assertEquals(IncrementScanState.Idle, state.scanUi)
             subject.scan(photo)
+            runCurrent()
             // Gated scans return before touching the port, so drafts cannot move.
             assertTrue(fakeScanPort.calls.isEmpty())
             assertEquals(
                 listOf(IncrementTierDraft("0", null, "5", openEnded = true)),
-                state.tiers,
+                subject.uiState.value.tiers,
             )
+            assertEquals(IncrementScanState.Idle, subject.uiState.value.scanUi)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -161,8 +167,13 @@ class LiftIncrementsScanTest {
         subject.uiState.test {
             awaitItemWith { it.scanAvailable && it.tiers.isNotEmpty() }
             subject.scan(photo)
+            // The drafts write and the terminal scan state arrive on separate
+            // combine paths, so await the item carrying both.
             val scanned =
-                awaitItemWith { it.tiers.any { tier -> tier.increment == "2.5" } }
+                awaitItemWith {
+                    it.tiers.any { tier -> tier.increment == "2.5" } &&
+                        it.scanUi is IncrementScanState.Scanned
+                }
             assertEquals(
                 listOf(
                     IncrementTierDraft("0", "40", "2.5", openEnded = false),
@@ -171,8 +182,6 @@ class LiftIncrementsScanTest {
                 scanned.tiers,
             )
             assertEquals(listOf("2.5"), scanned.microStops)
-            assertNull(scanned.scanMessage)
-            assertFalse(scanned.isScanning)
             cancelAndIgnoreRemainingEvents()
         }
 
@@ -184,8 +193,8 @@ class LiftIncrementsScanTest {
     }
 
     @Test
-    @DisplayName("Given the flag on and a failing scan when scanned then drafts are kept with a message")
-    fun failureKeepsDraftsWithMessage() = runTest {
+    @DisplayName("Given the flag on and a failing scan when scanned then drafts are kept with a failed state")
+    fun failureKeepsDraftsWithFailedState() = runTest {
         fakeScanPort.result = Result.failure(RuntimeException("network"))
         fakeFeatureFlags.setFlag(AppFeatureFlag.INCREMENTS_AI_SCAN, true)
         subject.initialize(latId.value)
@@ -194,16 +203,78 @@ class LiftIncrementsScanTest {
         subject.uiState.test {
             awaitItemWith { it.scanAvailable && it.tiers.isNotEmpty() }
             subject.scan(photo)
-            val failed = awaitItemWith { it.scanMessage != null }
-            assertEquals(IncrementScanDelegate.SCAN_FAILURE_MESSAGE, failed.scanMessage)
+            val failed = awaitItemWith { it.scanUi is IncrementScanState.Failed }
             assertEquals(
                 listOf(IncrementTierDraft("0", null, "5", openEnded = true)),
                 failed.tiers,
             )
-            assertFalse(failed.isScanning)
             cancelAndIgnoreRemainingEvents()
         }
     }
+
+    @Test
+    @DisplayName("Given a scan in flight when initialized to another lift then the stale result is dropped")
+    fun initializeDuringScanDropsStaleResult() = runTest {
+        fakeFeatureFlags.setFlag(AppFeatureFlag.INCREMENTS_AI_SCAN, true)
+        fakeLiftRepository.seedLifts(
+            listOf(
+                lift(latId, "Lat pulldown", catalogTiers),
+                lift(
+                    rowId,
+                    "Cable row",
+                    listOf(IncrementTier(Weight(0.0, lb), null, Weight(10.0, lb))),
+                ),
+            ),
+        )
+        val gate = CompletableDeferred<Result<ScannedTiers>>()
+        val gatedPort = GatedScanPort(gate)
+        val gatedSubject = buildSubject(gatedPort)
+        gatedSubject.initialize(latId.value)
+
+        gatedSubject.uiState.test {
+            awaitItemWith { it.liftName == "Lat pulldown" && it.scanAvailable }
+            gatedSubject.scan(photo)
+            awaitItemWith { it.scanUi is IncrementScanState.Scanning }
+            // Switch lifts mid-scan: the stale completion must not prefill the new lift.
+            gatedSubject.initialize(rowId.value)
+            awaitItemWith {
+                it.liftName == "Cable row" && it.scanUi is IncrementScanState.Idle
+            }
+            gate.complete(
+                Result.success(
+                    ScannedTiers(
+                        lb,
+                        listOf(ScannedTierRow(0.0, null, 2.5)),
+                        microStops = listOf(1.25),
+                    ),
+                ),
+            )
+            runCurrent()
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        val final = gatedSubject.uiState.value
+        assertEquals(rowId.value, final.liftId)
+        assertEquals(
+            listOf(IncrementTierDraft("0", null, "10", openEnded = true)),
+            final.tiers,
+        )
+        assertEquals(emptyList<String>(), final.microStops)
+        assertEquals(IncrementScanState.Idle, final.scanUi)
+    }
+
+    private fun lift(id: LiftId, name: String, tiers: List<IncrementTier>) =
+        Lift(
+            id = id,
+            name = name,
+            movementPatterns = setOf(MovementPattern.VerticalPull),
+            primaryMuscles = setOf(MuscleGroup.Back),
+            secondaryMuscles = emptySet(),
+            incrementTiers = tiers,
+            presetTags = emptySet(),
+            usesEquipmentDefaultIncrements = false,
+            enabled = true,
+        )
 
     private suspend fun app.cash.turbine.ReceiveTurbine<LiftIncrementsUiState>.awaitItemWith(
         predicate: (LiftIncrementsUiState) -> Boolean,

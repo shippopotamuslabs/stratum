@@ -123,8 +123,6 @@ class EquipmentIncrementsViewModelTest {
                     ),
                 observeEquipmentManagementV2 =
                     ObserveEquipmentManagementV2UseCase(fakeFeatureFlags),
-                observeIncrementsAiScan =
-                    ObserveIncrementsAiScanUseCase(fakeFeatureFlags),
                 scanDelegate =
                     IncrementScanDelegate(
                         ScanIncrementTiersUseCase(
@@ -132,6 +130,7 @@ class EquipmentIncrementsViewModelTest {
                             ValidateIncrementTiersUseCase(),
                             ValidateMicroIncrementsUseCase(),
                         ),
+                        ObserveIncrementsAiScanUseCase(fakeFeatureFlags),
                     ),
             )
     }
