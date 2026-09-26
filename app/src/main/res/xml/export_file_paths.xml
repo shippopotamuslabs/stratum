@@ -4,6 +4,10 @@
     <cache-path name="export_json" path="exports/json/" />
     <!-- Image share staging (workout complete, future share surfaces). -->
     <cache-path name="export_images" path="exports/images/" />
+    <!-- AI scan camera captures (cacheDir/scan, transient, never persisted). -->
+    <cache-path name="scan_images" path="scan/" />
     <!-- Parent path retained so older staged files remain grantable until pruned. -->
     <cache-path name="export_cache" path="exports/" />
+    <!-- Camera capture staging for the increments AI scan (processed, never uploaded raw). -->
+    <cache-path name="scan_images" path="scan/" />
 </paths>

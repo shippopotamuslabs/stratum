@@ -16,12 +16,20 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
@@ -29,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stratum.core.ui.R as UiR
+import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumButton
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumNumber
@@ -59,6 +68,23 @@ fun LiftIncrementsRoute(
     LaunchedEffect(state.saveSucceeded) {
         if (state.saveSucceeded) onBackClick()
     }
+    var showScanDrawer by rememberSaveable { mutableStateOf(false) }
+    var drawerError by remember { mutableStateOf<String?>(null) }
+    val photoFailedMessage = stringResource(UiR.string.lift_increments_scan_unreadable)
+    val cameraDeniedMessage = stringResource(UiR.string.lift_increments_scan_camera_blocked)
+    val capture =
+        rememberScanPhotoCapture(
+            onScanPhoto = viewModel::scan,
+            onPhotoError = { drawerError = photoFailedMessage },
+            onPermissionDenied = { drawerError = cameraDeniedMessage },
+        )
+    LaunchedEffect(state.scanUi) {
+        if (state.scanUi is IncrementScanState.Scanning ||
+            state.scanUi is IncrementScanState.Scanned
+        ) {
+            showScanDrawer = false
+        }
+    }
     LiftIncrementsScreen(
         state = state,
         onBackClick = onBackClick,
@@ -76,7 +102,31 @@ fun LiftIncrementsRoute(
                 onRemoveStop = viewModel::onRemoveMicro,
             ),
         onResetToEquipment = viewModel::resetToEquipmentDefaults,
+        scanEntry =
+            ScanEntryUi(
+                available = state.scanAvailable,
+                state = state.scanUi,
+                onScanClick = {
+                    drawerError = null
+                    showScanDrawer = true
+                },
+            ),
     )
+    if (showScanDrawer) {
+        ScanSourceDrawer(
+            onDismiss = { showScanDrawer = false },
+            onCameraClick = {
+                drawerError = null
+                capture.launchCamera()
+            },
+            onGalleryClick = {
+                drawerError = null
+                capture.launchGallery()
+            },
+            error = drawerError,
+            scanning = state.scanUi is IncrementScanState.Scanning,
+        )
+    }
 }
 
 /**
@@ -104,6 +154,17 @@ data class ForkSaveUi(
     val affectsBanner: AffectsBannerUi? = null,
 )
 
+/**
+ * AI scan entry for the increments editor, grouped so the shell stays under the
+ * parameter-count gate. The photo drawer + launchers live at the routes; the shell
+ * only renders the entry, the scanning/error states, and retry.
+ */
+data class ScanEntryUi(
+    val available: Boolean = false,
+    val state: IncrementScanState = IncrementScanState.Idle,
+    val onScanClick: () -> Unit = {},
+)
+
 @Composable
 fun LiftIncrementsScreen(
     state: LiftIncrementsUiState,
@@ -118,6 +179,7 @@ fun LiftIncrementsScreen(
     microActions: MicroEditorActions = MicroEditorActions(),
     onResetToEquipment: () -> Unit = {},
     forkUi: ForkSaveUi = ForkSaveUi(),
+    scanEntry: ScanEntryUi = ScanEntryUi(),
     modifier: Modifier = Modifier,
 ) {
     StratumScaffold(
@@ -227,6 +289,22 @@ fun LiftIncrementsScreen(
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
+                if (scanEntry.available) {
+                    ScanEntryRow(
+                        scanning = scanEntry.state is IncrementScanState.Scanning,
+                        onClick = scanEntry.onScanClick,
+                    )
+                }
+                if (scanEntry.state is IncrementScanState.Failed) {
+                    IncrementsValidationBanner(
+                        message = stringResource(UiR.string.lift_increments_scan_failed),
+                    )
+                    StratumTextButton(
+                        text = stringResource(UiR.string.lift_increments_scan_retry),
+                        onClick = scanEntry.onScanClick,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
                 if (forkUi.showForkSaveBar) {
                     StratumButton(
                         text = stringResource(UiR.string.equipment_increments_update_shared),
@@ -258,6 +336,125 @@ data class AffectsBannerUi(
     val message: String,
     val onClick: (() -> Unit)? = null,
 )
+
+/**
+ * Bottom AI scan entry: outlined container with a leading camera icon and label.
+ * Theme roles only (no raw button chrome), matching the editor banner treatment.
+ */
+@Composable
+private fun ScanEntryRow(scanning: Boolean, onClick: () -> Unit) {
+    val colors = StratumThemeAccessor.colors
+    val shapes = StratumThemeAccessor.shapes
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(color = colors.surfaceRaised, shape = shapes.panel)
+                .border(
+                    width = shapes.borderWidth,
+                    color = colors.accent,
+                    shape = shapes.panel,
+                )
+                .clickable(enabled = !scanning, onClick = onClick)
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.PhotoCamera,
+            contentDescription = null,
+            tint = colors.accent,
+            modifier = Modifier.size(20.dp),
+        )
+        StratumText(
+            text =
+                stringResource(
+                    if (scanning) {
+                        UiR.string.lift_increments_scan_scanning
+                    } else {
+                        UiR.string.lift_increments_scan_cta
+                    },
+                ),
+            style = StratumThemeAccessor.typography.bodyLarge,
+        )
+    }
+}
+
+/**
+ * Photo-source drawer for the increments AI scan. Owned by the routes (which hold
+ * the capture launchers); [error] carries route-local photo failures (unreadable
+ * image, denied camera permission). Scan-request failures surface in the editor
+ * via the shell error banner instead.
+ */
+@Composable
+internal fun ScanSourceDrawer(
+    onDismiss: () -> Unit,
+    onCameraClick: () -> Unit,
+    onGalleryClick: () -> Unit,
+    error: String?,
+    scanning: Boolean,
+) {
+    StratumBottomSheet(
+        onDismissRequest = onDismiss,
+        title = stringResource(UiR.string.lift_increments_scan_sheet_title),
+    ) {
+        ScanSourceRow(
+            icon = Icons.Outlined.PhotoCamera,
+            label = stringResource(UiR.string.lift_increments_scan_camera),
+            enabled = !scanning,
+            onClick = onCameraClick,
+        )
+        ScanSourceRow(
+            icon = Icons.Outlined.Image,
+            label = stringResource(UiR.string.lift_increments_scan_gallery),
+            enabled = !scanning,
+            onClick = onGalleryClick,
+        )
+        if (scanning) {
+            StratumText(
+                text = stringResource(UiR.string.lift_increments_scan_scanning),
+                style = StratumThemeAccessor.typography.sectionLabel,
+                muted = true,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            )
+        }
+        if (error != null) {
+            IncrementsValidationBanner(message = error)
+        }
+    }
+}
+
+@Composable
+private fun ScanSourceRow(
+    icon: ImageVector,
+    label: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    val colors = StratumThemeAccessor.colors
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable(enabled = enabled, onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = colors.textMuted,
+            modifier = Modifier.size(24.dp),
+        )
+        StratumText(
+            text = label,
+            style = StratumThemeAccessor.typography.bodyLarge,
+            muted = !enabled,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
 
 @Composable
 private fun InheritanceBanner(
