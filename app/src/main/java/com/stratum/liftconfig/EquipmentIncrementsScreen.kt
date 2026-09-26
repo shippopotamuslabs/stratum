@@ -92,6 +92,7 @@ fun EquipmentIncrementsRoute(
                 onRemoveStop = viewModel::onRemoveMicro,
             ),
         onResetToEquipment = {},
+        onScanPhoto = viewModel::scan,
         forkUi =
             ForkSaveUi(
                 showForkSaveBar = state.equipmentV2Enabled,

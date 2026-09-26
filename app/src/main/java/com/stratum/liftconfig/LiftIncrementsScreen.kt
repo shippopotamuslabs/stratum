@@ -41,6 +41,7 @@ import com.stratum.core.ui.component.StratumTextField
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
 import com.stratum.core.ui.theme.StratumThemeAccessor
+import com.stratum.domain.lift.ScanPhoto
 import com.stratum.feature.workout.ui.ProposalEditContext
 import com.stratum.feature.workout.ui.ProposalTierArgs
 
@@ -76,6 +77,7 @@ fun LiftIncrementsRoute(
                 onRemoveStop = viewModel::onRemoveMicro,
             ),
         onResetToEquipment = viewModel::resetToEquipmentDefaults,
+        onScanPhoto = viewModel::scan,
     )
 }
 
@@ -118,6 +120,7 @@ fun LiftIncrementsScreen(
     microActions: MicroEditorActions = MicroEditorActions(),
     onResetToEquipment: () -> Unit = {},
     forkUi: ForkSaveUi = ForkSaveUi(),
+    onScanPhoto: (ScanPhoto) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     StratumScaffold(
@@ -227,6 +230,12 @@ fun LiftIncrementsScreen(
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
+                if (state.scanAvailable) {
+                    ScanEntrySection(
+                        scanUi = state.scanUi,
+                        onScanPhoto = onScanPhoto,
+                    )
+                }
                 if (forkUi.showForkSaveBar) {
                     StratumButton(
                         text = stringResource(UiR.string.equipment_increments_update_shared),
@@ -258,6 +267,8 @@ data class AffectsBannerUi(
     val message: String,
     val onClick: (() -> Unit)? = null,
 )
+
+
 
 @Composable
 private fun InheritanceBanner(
