@@ -36,4 +36,24 @@ class AppFeatureFlagTest {
 
         assertTrue(fakeFlags.isEnabled(AppFeatureFlag.EQUIPMENT_MANAGEMENT_V2))
     }
+
+    @Test
+    @DisplayName("Given the scan flag when read then its key matches the Remote Config parameter")
+    fun scanFlagKeyMatchesRemoteConfigParameter() {
+        assertEquals("increments_ai_scan", AppFeatureFlag.INCREMENTS_AI_SCAN.key)
+    }
+
+    @Test
+    @DisplayName("Given a fresh repository when the scan flag is checked then it is disabled")
+    fun scanFlagIsDisabledByDefault() {
+        assertFalse(fakeFlags.isEnabled(AppFeatureFlag.INCREMENTS_AI_SCAN))
+    }
+
+    @Test
+    @DisplayName("Given the scan flag enabled when checked then it is enabled")
+    fun scanFlagIsEnabledWhenSet() {
+        fakeFlags.setFlag(AppFeatureFlag.INCREMENTS_AI_SCAN, true)
+
+        assertTrue(fakeFlags.isEnabled(AppFeatureFlag.INCREMENTS_AI_SCAN))
+    }
 }

@@ -12,7 +12,9 @@ import com.stratum.domain.lift.ResetLiftIncrementsToEquipmentUseCase
 import com.stratum.domain.lift.SetLiftIncrementTiersUseCase
 import com.stratum.domain.lift.ValidateIncrementTiersUseCase
 import com.stratum.domain.lift.ValidateMicroIncrementsUseCase
+import com.stratum.domain.featureflag.ObserveIncrementsAiScanUseCase
 import com.stratum.domain.lift.DismissEquipmentProposalUseCase
+import com.stratum.domain.lift.ScanPhoto
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.shortLabel
@@ -63,6 +65,15 @@ data class LiftIncrementsUiState(
     val showResetToEquipment: Boolean = false,
     /** Short unit label for field chrome (`lb` / `kg`) from Settings. */
     val unitLabel: String = "lb",
+    /**
+     * Launch-flag gate for the AI scan prefill. PR-5 wires state only — no
+     * composable reads these yet, so the scan entry stays hidden.
+     */
+    val scanAvailable: Boolean = false,
+    /** True while a scan request is in flight. */
+    val isScanning: Boolean = false,
+    /** Scan failure copy; null when no failure is showing. */
+    val scanMessage: String? = null,
 )
 
 @HiltViewModel
@@ -74,6 +85,8 @@ class LiftIncrementsViewModel @Inject constructor(
     private val validateMicroIncrements: ValidateMicroIncrementsUseCase,
     private val dismissEquipmentProposal: DismissEquipmentProposalUseCase,
     observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
+    observeIncrementsAiScan: ObserveIncrementsAiScanUseCase,
+    private val scanDelegate: IncrementScanDelegate,
 ) : ViewModel() {
 
     /**
@@ -96,6 +109,7 @@ class LiftIncrementsViewModel @Inject constructor(
     private val saveSucceeded = MutableStateFlow(false)
     private val validationOverride = MutableStateFlow<String?>(null)
     private val displayUnit = MutableStateFlow(Weight.WeightUnit.Lb)
+    private val scanAvailable = MutableStateFlow(false)
 
     private data class DraftFlags(
         val draft: List<IncrementTierDraft>?,
@@ -113,8 +127,14 @@ class LiftIncrementsViewModel @Inject constructor(
                     // Unit flip: drop dirty drafts so bands and stops re-seed converted.
                     draftTiers.value = null
                     draftMicro.value = MicroDraft.Untouched
+                    scanDelegate.reset()
                     displayUnit.value = prefs.displayUnit
                 }
+            }
+        }
+        viewModelScope.launch {
+            observeIncrementsAiScan().collect { enabled ->
+                scanAvailable.value = enabled
             }
         }
     }
@@ -132,6 +152,8 @@ class LiftIncrementsViewModel @Inject constructor(
             isSaving,
             saveSucceeded,
             validationOverride,
+            scanAvailable,
+            scanDelegate.scanState,
         ) { args ->
             buildState(
                 args[0] as String?,
@@ -145,6 +167,8 @@ class LiftIncrementsViewModel @Inject constructor(
                     args[7] as Boolean,
                     args[8] as String?,
                 ),
+                args[9] as Boolean,
+                args[10] as IncrementScanState,
             )
         }.stateIn(
             viewModelScope,
@@ -162,8 +186,28 @@ class LiftIncrementsViewModel @Inject constructor(
         liftId.value = id
         draftTiers.value = null
         draftMicro.value = MicroDraft.Untouched
+        scanDelegate.reset()
         saveSucceeded.value = false
         validationOverride.value = null
+    }
+
+    /**
+     * AI scan prefill: runs the photo through the scan delegate and applies the
+     * scanned drafts (bands plus adder stops via [MicroDraft.Edited]) for review —
+     * never auto-saves. No-op while the launch flag is off. Failures keep the
+     * existing drafts and surface [scanMessage] instead.
+     */
+    fun scan(photo: ScanPhoto) {
+        if (!scanAvailable.value) return
+        viewModelScope.launch {
+            scanDelegate.scan(photo, displayUnit.value)
+            val scanned = scanDelegate.scanState.value as? IncrementScanState.Scanned
+                ?: return@launch
+            draftTiers.value = scanned.tierDrafts
+            draftMicro.value = MicroDraft.Edited(scanned.microStopDrafts)
+            validationOverride.value = null
+            saveSucceeded.value = false
+        }
     }
 
     fun onMicroChanged(index: Int, value: String) {
@@ -360,6 +404,8 @@ class LiftIncrementsViewModel @Inject constructor(
         catalog: List<Lift>,
         unit: Weight.WeightUnit,
         flags: DraftFlags,
+        scanAvailable: Boolean,
+        scanState: IncrementScanState,
     ): LiftIncrementsUiState {
         val lift = catalog.firstOrNull { it.id.value == id }
         val proposalTiers = flags.proposalInput?.initialTiersLb.orEmpty()
@@ -417,6 +463,9 @@ class LiftIncrementsViewModel @Inject constructor(
                 lift != null &&
                 (!lift.usesEquipmentDefaultIncrements || !lift.usesEquipmentDefaultMicro),
             unitLabel = unit.shortLabel(),
+            scanAvailable = scanAvailable,
+            isScanning = scanState is IncrementScanState.Scanning,
+            scanMessage = (scanState as? IncrementScanState.Failed)?.message,
         )
     }
 

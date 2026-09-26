@@ -2,10 +2,13 @@ package com.stratum.liftconfig
 
 import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
+import com.stratum.core.testing.featureflag.FakeFeatureFlagRepository
+import com.stratum.core.testing.lift.FakeIncrementScanPort
 import com.stratum.core.testing.lift.FakeWeightDisplayPreferencesRepository
 import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeEquipmentProposalPreferences
 import com.stratum.core.testing.onboarding.FakeLiftRepository
+import com.stratum.domain.featureflag.ObserveIncrementsAiScanUseCase
 import com.stratum.domain.lift.DismissEquipmentProposalUseCase
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.Lift
@@ -13,6 +16,7 @@ import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
 import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.ResetLiftIncrementsToEquipmentUseCase
+import com.stratum.domain.lift.ScanIncrementTiersUseCase
 import com.stratum.domain.lift.SetLiftIncrementTiersUseCase
 import com.stratum.domain.lift.ValidateIncrementTiersUseCase
 import com.stratum.domain.lift.ValidateMicroIncrementsUseCase
@@ -91,6 +95,16 @@ class LiftIncrementsViewModelTest {
                 observeWeightDisplayPreferences =
                     ObserveWeightDisplayPreferencesUseCase(
                         FakeWeightDisplayPreferencesRepository(),
+                    ),
+                observeIncrementsAiScan =
+                    ObserveIncrementsAiScanUseCase(FakeFeatureFlagRepository()),
+                scanDelegate =
+                    IncrementScanDelegate(
+                        ScanIncrementTiersUseCase(
+                            FakeIncrementScanPort(),
+                            ValidateIncrementTiersUseCase(),
+                            ValidateMicroIncrementsUseCase(),
+                        ),
                     ),
             )
     }
