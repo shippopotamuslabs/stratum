@@ -96,8 +96,6 @@ class LiftIncrementsViewModelTest {
                     ObserveWeightDisplayPreferencesUseCase(
                         FakeWeightDisplayPreferencesRepository(),
                     ),
-                observeIncrementsAiScan =
-                    ObserveIncrementsAiScanUseCase(FakeFeatureFlagRepository()),
                 scanDelegate =
                     IncrementScanDelegate(
                         ScanIncrementTiersUseCase(
@@ -105,6 +103,7 @@ class LiftIncrementsViewModelTest {
                             ValidateIncrementTiersUseCase(),
                             ValidateMicroIncrementsUseCase(),
                         ),
+                        ObserveIncrementsAiScanUseCase(FakeFeatureFlagRepository()),
                     ),
             )
     }
