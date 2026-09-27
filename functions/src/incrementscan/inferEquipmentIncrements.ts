@@ -21,8 +21,8 @@ import { admitIncrementScan } from "./scanQuota";
  * Transient by design: the photo is sent inline as base64 in the callable
  * payload and is never persisted server-side. Auth + membership + daily /
  * monthly quota gate every call; failures degrade client-side to manual entry.
- * Deliberately no `enforceAppCheck` (mirrors the sibling LLM callables until
- * the App Check follow-up lands across all of them).
+ * App Check is enforced (mirrors the sibling LLM callables); dev builds must
+ * register a debug token or calls will be rejected.
  */
 
 /**
@@ -117,6 +117,7 @@ export function parseScanModelContent(content: string | null | undefined): Scann
 
 export const inferEquipmentIncrements = onCall(
   {
+    enforceAppCheck: true,
     secrets: ["OPENROUTER_API_KEY", "OPENROUTER_VISION_MODEL"],
     // Single vision call with structured output; keep headroom like the siblings.
     timeoutSeconds: 120,
