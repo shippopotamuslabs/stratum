@@ -17,6 +17,7 @@ import {
 
 export const inferCustomLifts = onCall(
   {
+    enforceAppCheck: true,
     secrets: ["OPENROUTER_API_KEY", "OPENROUTER_MODEL_SMALL"],
     // Default Cloud Run timeout is 60s; keep headroom for large structured JSON batches.
     timeoutSeconds: 300,
