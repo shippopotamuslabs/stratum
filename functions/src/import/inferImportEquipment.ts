@@ -23,6 +23,7 @@ import { assertUserEntitled } from "../entitlement/assertEntitled";
  */
 export const inferImportEquipment = onCall(
   {
+    enforceAppCheck: true,
     secrets: ["OPENROUTER_API_KEY", "OPENROUTER_MODEL_SMALL"],
   },
   async (request) => {
