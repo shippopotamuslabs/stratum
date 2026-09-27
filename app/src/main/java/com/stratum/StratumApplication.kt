@@ -3,8 +3,12 @@ package com.stratum
 import android.app.Application
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
+import com.google.firebase.FirebaseApp
+import com.google.firebase.appcheck.FirebaseAppCheck
+import com.stratum.app.AppCheckInstaller
 import com.stratum.domain.di.ApplicationScope
 import com.stratum.domain.featureflag.FeatureFlagRepository
+import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.logging.ProcessErrorSafetyNet
 import com.stratum.feature.workout.notification.WorkoutNotificationCoordinator
 import com.stratum.sync.CloudSyncAuthListener
@@ -34,6 +38,9 @@ class StratumApplication : Application(), Configuration.Provider {
     lateinit var processErrorSafetyNet: ProcessErrorSafetyNet
 
     @Inject
+    lateinit var loggingPort: LoggingPort
+
+    @Inject
     lateinit var cloudSyncAuthListener: CloudSyncAuthListener
 
     @Inject
@@ -52,6 +59,9 @@ class StratumApplication : Application(), Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
         // Hilt injects members during super.onCreate(); install after so LoggingPort is ready.
+        // App Check installs first so every Firebase caller in this process — including
+        // background workers that never touch an activity — is attested from the start.
+        initFirebaseAppCheck()
         processErrorSafetyNet.installUncaughtExceptionHandler()
         workoutNotificationCoordinator.start()
         cloudSyncAuthListener.start()
@@ -66,4 +76,18 @@ class StratumApplication : Application(), Configuration.Provider {
         get() = Configuration.Builder()
             .setWorkerFactory(workerFactory)
             .build()
+
+    /**
+     * Installs the variant-specific App Check provider (`src/debug` vs `src/release`).
+     * Monitor-only: no backend enforces App Check yet, so attested tokens attach
+     * automatically without changing any existing flow. Debug uses
+     * [com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory] (debug
+     * dependency only); release uses Play Integrity. Register debug secrets in
+     * Firebase Console → App Check → Manage debug tokens when using debug builds
+     * against enforced endpoints.
+     */
+    private fun initFirebaseAppCheck() {
+        FirebaseApp.initializeApp(this)
+        AppCheckInstaller.install(FirebaseAppCheck.getInstance(), loggingPort)
+    }
 }
