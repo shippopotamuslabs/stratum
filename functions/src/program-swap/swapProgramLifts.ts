@@ -46,6 +46,7 @@ function parseSwapResponse(content: string): SwapRequestRow[] {
 
 export const swapProgramLifts = onCall(
   {
+    enforceAppCheck: true,
     secrets: ["OPENROUTER_API_KEY", "OPENROUTER_MODEL"],
     timeoutSeconds: 120,
     memory: "512MiB",
