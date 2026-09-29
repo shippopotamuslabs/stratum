@@ -18,6 +18,16 @@
   "minimumReleaseAge": "7 days",
   "packageRules": [
     {
+      "description": "Auto-merge minor, patch, pin and digest updates once CI passes; major bumps still need Sean's review",
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "pin",
+        "digest"
+      ],
+      "automerge": true
+    },
+    {
       "description": "Group AndroidX / AGP / Compose updates into one weekly MR",
       "groupName": "androidx",
       "matchUpdateTypes": [
