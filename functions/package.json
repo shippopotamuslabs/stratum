@@ -10,11 +10,11 @@
     "test": "node --test $(find lib -name '*.test.js' | sort)"
   },
   "dependencies": {
+    "exceljs-community": "^5.2.0",
     "firebase-admin": "^14.0.0",
     "firebase-functions": "^7.2.5",
     "google-auth-library": "^11.0.0",
-    "openai": "^4.77.0",
-    "exceljs-community": "^5.2.0"
+    "openai": "^7.25.0"
   },
   "devDependencies": {
     "typescript": "^7.0.0"
