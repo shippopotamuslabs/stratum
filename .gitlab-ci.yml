@@ -205,7 +205,7 @@ assemble-release:
     expire_in: 1 week
 
 functions-tests:
-  image: node:22
+  image: node:24
   tags: [home-server]
   stage: test
   needs: []
