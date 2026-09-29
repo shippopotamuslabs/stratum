@@ -17,7 +17,7 @@
     "exceljs-community": "^5.2.0"
   },
   "devDependencies": {
-    "typescript": "^5.7.0"
+    "typescript": "^7.0.0"
   },
   "overrides": {
     "qs": "6.16.0",
