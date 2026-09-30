@@ -60,21 +60,8 @@ fun EquipmentIncrementsRoute(
     // Reuse the lift increments editor shell with equipment title/save.
     LiftIncrementsScreen(
         state =
-            LiftIncrementsUiState(
-                liftId = state.equipmentId,
-                liftName =
-                    state.equipmentName.ifBlank {
-                        stringResource(UiR.string.equipment_increments_title)
-                    },
-                tiers = state.tiers,
-                microStops = state.microStops,
-                validationMessage = state.validationMessage,
-                warnedTierIndexes = state.warnedTierIndexes,
-                isSaving = state.isSaving,
-                saveSucceeded = state.saveSucceeded,
-                inheritanceBanner = null,
-                showResetToEquipment = false,
-                unitLabel = state.unitLabel,
+            state.toLiftIncrementsUiState(
+                fallbackTitle = stringResource(UiR.string.equipment_increments_title),
             ),
         onBackClick = onBackClick,
         onTierLowerChanged = viewModel::onTierLowerChanged,
@@ -118,6 +105,30 @@ fun EquipmentIncrementsRoute(
         )
     }
 }
+
+/**
+ * Maps equipment editor state onto the shared increments shell. Forwards the
+ * AI scan gate and request state so the shell's scan entry appears whenever
+ * the launch flag allows it.
+ */
+internal fun EquipmentIncrementsUiState.toLiftIncrementsUiState(
+    fallbackTitle: String,
+): LiftIncrementsUiState =
+    LiftIncrementsUiState(
+        liftId = equipmentId,
+        liftName = equipmentName.ifBlank { fallbackTitle },
+        tiers = tiers,
+        microStops = microStops,
+        validationMessage = validationMessage,
+        warnedTierIndexes = warnedTierIndexes,
+        isSaving = isSaving,
+        saveSucceeded = saveSucceeded,
+        inheritanceBanner = null,
+        showResetToEquipment = false,
+        unitLabel = unitLabel,
+        scanAvailable = scanAvailable,
+        scanUi = scanUi,
+    )
 
 @Composable
 private fun AffectedLiftsSheet(
