@@ -46,11 +46,6 @@ data class LiftIncrementsUiState(
      * editor leaves the default until it wires drafts.
      */
     val microStops: List<String> = emptyList(),
-    /**
-     * Whether the adder card renders. The equipment route drives this from its
-     * V2 flag state; the lift route leaves the default until it wires drafts.
-     */
-    val showMicroCard: Boolean = false,
     val validationMessage: String? = null,
     /**
      * Band indexes whose steps miss a proposal's logged sample weights (yellow,
@@ -436,7 +431,6 @@ class LiftIncrementsViewModel @Inject constructor(
             liftName = lift?.name.orEmpty(),
             tiers = tiers,
             microStops = microStops,
-            showMicroCard = true,
             validationMessage = save.validation ?: liveValidationMessage(tiers, microStops, unit),
             warnedTierIndexes = warnedTierIndexes,
             isSaving = save.saving,

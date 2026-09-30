@@ -9,7 +9,6 @@ import com.stratum.core.testing.onboarding.FakeEquipmentProposalPreferences
 import com.stratum.core.testing.onboarding.FakeEquipmentRepository
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.domain.featureflag.AppFeatureFlag
-import com.stratum.domain.featureflag.ObserveEquipmentManagementV2UseCase
 import com.stratum.domain.featureflag.ObserveIncrementsAiScanUseCase
 import com.stratum.domain.lift.DismissEquipmentProposalUseCase
 import com.stratum.domain.lift.Equipment
@@ -125,8 +124,6 @@ class EquipmentIncrementsScanTest {
                 ObserveWeightDisplayPreferencesUseCase(
                     com.stratum.core.testing.lift.FakeWeightDisplayPreferencesRepository(),
                 ),
-            observeEquipmentManagementV2 =
-                ObserveEquipmentManagementV2UseCase(fakeFeatureFlags),
             scanDelegate =
                 IncrementScanDelegate(
                     ScanIncrementTiersUseCase(

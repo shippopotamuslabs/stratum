@@ -52,7 +52,7 @@ fun EquipmentIncrementsRoute(
     }
     var showAffectedSheet by rememberSaveable { mutableStateOf(false) }
     val affectsClick =
-        if (state.equipmentV2Enabled && state.affectedLiftCount > 0) {
+        if (state.affectedLiftCount > 0) {
             { showAffectedSheet = true }
         } else {
             null
@@ -68,7 +68,6 @@ fun EquipmentIncrementsRoute(
                     },
                 tiers = state.tiers,
                 microStops = state.microStops,
-                showMicroCard = state.showMicroCard,
                 validationMessage = state.validationMessage,
                 warnedTierIndexes = state.warnedTierIndexes,
                 isSaving = state.isSaving,
@@ -95,7 +94,6 @@ fun EquipmentIncrementsRoute(
         onScanPhoto = viewModel::scan,
         forkUi =
             ForkSaveUi(
-                showForkSaveBar = state.equipmentV2Enabled,
                 onSaveAsNew = viewModel::saveAsNew,
                 affectsBanner =
                     AffectsBannerUi(

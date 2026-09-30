@@ -2,9 +2,6 @@ package com.stratum.feature.workout
 
 import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
-import com.stratum.core.testing.featureflag.FakeFeatureFlagRepository
-import com.stratum.domain.featureflag.AppFeatureFlag
-import com.stratum.domain.featureflag.ObserveEquipmentManagementV2UseCase
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
@@ -116,7 +113,6 @@ class WorkoutViewModelTest {
     private lateinit var workoutEditSession: WorkoutEditSession
     private lateinit var overlayStore: FakeWorkoutOverlayStore
     private lateinit var liftNotesRepository: com.stratum.core.testing.lift.FakeLiftNotesRepository
-    private val fakeFeatureFlags = FakeFeatureFlagRepository()
 
     @BeforeEach
     fun setUp() {
@@ -142,7 +138,6 @@ class WorkoutViewModelTest {
         workoutEditSession = WorkoutEditSession()
         overlayStore = FakeWorkoutOverlayStore()
         liftNotesRepository = com.stratum.core.testing.lift.FakeLiftNotesRepository()
-        fakeFeatureFlags.clear()
         seedHistoryForTopSet()
     }
 
@@ -430,7 +425,6 @@ class WorkoutViewModelTest {
                 programRepository,
                 liftRepository,
             ),
-            observeEquipmentManagementV2 = ObserveEquipmentManagementV2UseCase(fakeFeatureFlags),
         )
     }
 
@@ -519,7 +513,6 @@ class WorkoutViewModelTest {
                 programRepository,
                 liftRepository,
             ),
-            observeEquipmentManagementV2 = ObserveEquipmentManagementV2UseCase(fakeFeatureFlags),
         )
     }
 
@@ -606,7 +599,6 @@ class WorkoutViewModelTest {
                 programRepository,
                 liftRepository,
             ),
-            observeEquipmentManagementV2 = ObserveEquipmentManagementV2UseCase(fakeFeatureFlags),
         )
     }
 
@@ -1335,7 +1327,6 @@ class WorkoutViewModelTest {
                 programRepository,
                 liftRepository,
             ),
-            observeEquipmentManagementV2 = ObserveEquipmentManagementV2UseCase(fakeFeatureFlags),
         )
 
         localViewModel.startSession(workoutId)
@@ -1421,7 +1412,6 @@ class WorkoutViewModelTest {
                 programRepository,
                 liftRepository,
             ),
-            observeEquipmentManagementV2 = ObserveEquipmentManagementV2UseCase(fakeFeatureFlags),
         )
 
         localViewModel.startSession(workoutId)
@@ -3093,32 +3083,8 @@ class WorkoutViewModelTest {
     }
 
     @Test
-    @DisplayName("Given the equipment flag off when session loads then the gate is closed")
-    fun equipmentGateClosedByDefault() = runTest {
-        val viewModel = buildViewModel()
-        viewModel.startSession(workoutId)
-        viewModel.uiState.test {
-            assertFalse(awaitLoaded().equipmentManagementV2Enabled)
-            cancelAndIgnoreRemainingEvents()
-        }
-    }
-
-    @Test
-    @DisplayName("Given the equipment flag on when session loads then the gate is open")
-    fun equipmentGateOpenWhenFlagEnabled() = runTest {
-        fakeFeatureFlags.setFlag(AppFeatureFlag.EQUIPMENT_MANAGEMENT_V2, true)
-        val viewModel = buildViewModel()
-        viewModel.startSession(workoutId)
-        viewModel.uiState.test {
-            assertTrue(awaitLoaded().equipmentManagementV2Enabled)
-            cancelAndIgnoreRemainingEvents()
-        }
-    }
-
-    @Test
     @DisplayName("Given an off-lattice logged weight when rendered then the adjust chip shows until dismissed")
     fun adjustChipShowsUntilDismissed() = runTest {
-        fakeFeatureFlags.setFlag(AppFeatureFlag.EQUIPMENT_MANAGEMENT_V2, true)
         val viewModel =
             buildViewModel(
                 liftRepository =
@@ -3155,7 +3121,6 @@ class WorkoutViewModelTest {
     @Test
     @DisplayName("Given a tier save after the chip showed when rendered then the chip stays quiet")
     fun adjustChipResolvedByTierSave() = runTest {
-        fakeFeatureFlags.setFlag(AppFeatureFlag.EQUIPMENT_MANAGEMENT_V2, true)
         val liftRepository =
             FakeLiftRepository(
                 initialLifts = listOf(catalogLiftWithTiers(), catalogLift2()),
@@ -3190,7 +3155,6 @@ class WorkoutViewModelTest {
     @Test
     @DisplayName("Given an on-lattice logged weight when rendered then the adjust chip stays hidden")
     fun adjustChipHiddenForOnLatticeWeight() = runTest {
-        fakeFeatureFlags.setFlag(AppFeatureFlag.EQUIPMENT_MANAGEMENT_V2, true)
         val viewModel =
             buildViewModel(
                 liftRepository =
@@ -3210,7 +3174,6 @@ class WorkoutViewModelTest {
     @Test
     @DisplayName("Given a lift with no increment tiers when rendered then the adjust chip stays hidden")
     fun adjustChipHiddenForEmptyTiers() = runTest {
-        fakeFeatureFlags.setFlag(AppFeatureFlag.EQUIPMENT_MANAGEMENT_V2, true)
         val viewModel = buildViewModel()
         viewModel.startSession(workoutId)
         advanceUntilIdle()
@@ -3222,29 +3185,8 @@ class WorkoutViewModelTest {
     }
 
     @Test
-    @DisplayName("Given the equipment flag off when off-lattice weight logged then the adjust chip stays hidden")
-    fun adjustChipHiddenWhenFlagDisabled() = runTest {
-        val viewModel =
-            buildViewModel(
-                liftRepository =
-                    FakeLiftRepository(
-                        initialLifts = listOf(catalogLiftWithTiers(), catalogLift2()),
-                    ),
-            )
-        viewModel.startSession(workoutId)
-        advanceUntilIdle()
-
-        viewModel.logSet(slotKey = liftSetId.value, weight = lb(62.5), reps = 5, rir = 2)
-        advanceUntilIdle()
-        val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
-        assertFalse(loaded.equipmentManagementV2Enabled)
-        assertFalse(loaded.lifts.first().showAdjustEquipmentChip)
-    }
-
-    @Test
     @DisplayName("Given an off-lattice logged weight when live editor requested then seeded tiers and samples")
     fun liveEquipmentEditRequestSeeded() = runTest {
-        fakeFeatureFlags.setFlag(AppFeatureFlag.EQUIPMENT_MANAGEMENT_V2, true)
         val viewModel =
             buildViewModel(
                 liftRepository =

@@ -8,8 +8,6 @@ import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeEquipmentProposalPreferences
 import com.stratum.core.testing.onboarding.FakeEquipmentRepository
 import com.stratum.core.testing.onboarding.FakeLiftRepository
-import com.stratum.domain.featureflag.AppFeatureFlag
-import com.stratum.domain.featureflag.ObserveEquipmentManagementV2UseCase
 import com.stratum.domain.featureflag.ObserveIncrementsAiScanUseCase
 import com.stratum.domain.lift.DismissEquipmentProposalUseCase
 import com.stratum.domain.lift.Equipment
@@ -121,8 +119,6 @@ class EquipmentIncrementsViewModelTest {
                     com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase(
                         com.stratum.core.testing.lift.FakeWeightDisplayPreferencesRepository(),
                     ),
-                observeEquipmentManagementV2 =
-                    ObserveEquipmentManagementV2UseCase(fakeFeatureFlags),
                 scanDelegate =
                     IncrementScanDelegate(
                         ScanIncrementTiersUseCase(
@@ -174,37 +170,11 @@ class EquipmentIncrementsViewModelTest {
     }
 
     @Test
-    @DisplayName("Given the flag off when initialized then the v2 equipment UI is disabled")
-    fun equipmentV2DisabledByDefault() = runTest {
-        subject.initialize(cableId.value)
-        advanceUntilIdle()
-
-        subject.uiState.test {
-            assertFalse(awaitItemWith { it.tiers.isNotEmpty() }.equipmentV2Enabled)
-            cancelAndIgnoreRemainingEvents()
-        }
-    }
-
-    @Test
-    @DisplayName("Given the flag on when initialized then the v2 equipment UI is enabled")
-    fun equipmentV2EnabledWhenFlagSet() = runTest {
-        fakeFeatureFlags.setFlag(AppFeatureFlag.EQUIPMENT_MANAGEMENT_V2, true)
-        subject.initialize(cableId.value)
-        advanceUntilIdle()
-
-        subject.uiState.test {
-            assertTrue(awaitItemWith { it.equipmentV2Enabled }.equipmentV2Enabled)
-            cancelAndIgnoreRemainingEvents()
-        }
-    }
-
-    @Test
     @DisplayName(
         "Given edited tiers when save as new from a lift then the copy takes the edits, " +
             "the shared tiers are untouched, and the lift moves to the copy",
     )
     fun saveAsNewForksEditsAndReassignsSourceLift() = runTest {
-        fakeFeatureFlags.setFlag(AppFeatureFlag.EQUIPMENT_MANAGEMENT_V2, true)
         subject.initialize(cableId.value, "lat-pulldown")
         subject.uiState.test {
             awaitItemWith { it.equipmentName == "Cables" && it.tiers.isNotEmpty() }
@@ -231,7 +201,6 @@ class EquipmentIncrementsViewModelTest {
     @Test
     @DisplayName("Given edited stops when save as new then the copy takes the stops")
     fun saveAsNewForksEditedMicroStops() = runTest {
-        fakeFeatureFlags.setFlag(AppFeatureFlag.EQUIPMENT_MANAGEMENT_V2, true)
         subject.initialize(cableId.value)
         subject.uiState.test {
             awaitItemWith { it.equipmentName == "Cables" && it.tiers.isNotEmpty() }
@@ -280,19 +249,6 @@ class EquipmentIncrementsViewModelTest {
 
         val stored = fakeEquipmentRepository.getEquipment(cableId)!!
         assertEquals(listOf(Weight(1.25, lb), Weight(2.5, lb)), stored.microIncrements)
-    }
-
-    @Test
-    @DisplayName("Given the flag on when initialized then the adder card shows")
-    fun microCardFollowsV2Flag() = runTest {
-        fakeFeatureFlags.setFlag(AppFeatureFlag.EQUIPMENT_MANAGEMENT_V2, true)
-        subject.initialize(cableId.value)
-        advanceUntilIdle()
-
-        subject.uiState.test {
-            assertTrue(awaitItemWith { it.equipmentV2Enabled }.showMicroCard)
-            cancelAndIgnoreRemainingEvents()
-        }
     }
 
     @Test
