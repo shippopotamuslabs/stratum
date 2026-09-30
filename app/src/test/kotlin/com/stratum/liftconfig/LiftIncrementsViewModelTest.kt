@@ -249,7 +249,6 @@ class LiftIncrementsViewModelTest {
         subject.uiState.test {
             val state = awaitItemWith { it.liftName == "Lat pulldown" && it.microStops.isNotEmpty() }
             assertEquals(listOf("5", "10"), state.microStops)
-            assertTrue(state.showMicroCard)
             cancelAndIgnoreRemainingEvents()
         }
     }

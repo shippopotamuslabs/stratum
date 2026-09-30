@@ -64,8 +64,6 @@ data class EquipmentIncrementsUiState(
     val unitLabel: String = "lb",
     /** Lifts inheriting these defaults (id + display name + enabled for the sheet). */
     val affectedLifts: List<AffectedLiftUi> = emptyList(),
-    /** Adder card visibility; always shown in the equipment editor. */
-    val showMicroCard: Boolean = false,
     /**
      * Launch-flag gate for the AI scan prefill. PR-5 wires state only — no
      * composable reads these yet, so the scan entry stays hidden.
@@ -582,7 +580,6 @@ class EquipmentIncrementsViewModel @Inject constructor(
                     )
                 },
             unitLabel = unit.shortLabel(),
-            showMicroCard = true,
             scanAvailable = scan.available,
             scanUi = scan.state,
         )
