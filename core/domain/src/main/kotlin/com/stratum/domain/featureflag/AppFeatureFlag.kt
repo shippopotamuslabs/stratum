@@ -18,12 +18,6 @@ enum class AppFeatureFlag(
         description = "Kill-switch for the cloud CP-SAT synthesis backend. " +
             "When off, program generation fails fast without touching the network.",
     ),
-    EQUIPMENT_MANAGEMENT_V2(
-        key = "equipment_management_v2",
-        description = "Launch flag for the equipment-management rework " +
-            "(in-workout editing, shared/fork save choice, usage visibility, flexible tier starts). " +
-            "When off, all existing equipment screens behave as before.",
-    ),
     INCREMENTS_AI_SCAN(
         key = "increments_ai_scan",
         description = "Launch flag for the AI increment scan prefill " +
