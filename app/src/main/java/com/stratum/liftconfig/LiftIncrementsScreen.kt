@@ -92,16 +92,12 @@ data class MicroEditorActions(
 )
 
 /**
- * Equipment-page fork extras, grouped so the shell stays under the parameter-count gate:
- *
- * - [showForkSaveBar]: two-button bar (Update Shared / Save As New). When false the
- *   legacy single Save button renders (per-lift override editor).
- * - [affectsBanner]: blast-radius banner slot. Null renders no banner;
- *   [AffectsBannerUi.onClick] null keeps it display-only. The lift override editor
- *   passes null.
+ * Equipment-page fork extras, grouped so the shell stays under the parameter-count gate.
+ * Non-null renders the two-button bar (Update Shared / Save As New) plus the
+ * blast-radius banner slot; null renders the single Save button (per-lift
+ * override editor). [AffectsBannerUi.onClick] null keeps the banner display-only.
  */
 data class ForkSaveUi(
-    val showForkSaveBar: Boolean = false,
     val onSaveAsNew: () -> Unit = {},
     val affectsBanner: AffectsBannerUi? = null,
 )
@@ -119,10 +115,11 @@ fun LiftIncrementsScreen(
     onSave: () -> Unit,
     microActions: MicroEditorActions = MicroEditorActions(),
     onResetToEquipment: () -> Unit = {},
-    forkUi: ForkSaveUi = ForkSaveUi(),
+    forkUi: ForkSaveUi? = null,
     onScanPhoto: (ScanPhoto) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
+    val forkSave = forkUi
     StratumScaffold(
         modifier = modifier,
         topBar = {
@@ -152,11 +149,11 @@ fun LiftIncrementsScreen(
                 item {
                     IncrementsHelpCard()
                 }
-                if (forkUi.affectsBanner != null) {
+                if (forkSave?.affectsBanner != null) {
                     item {
                         InheritanceBanner(
-                            message = forkUi.affectsBanner.message,
-                            onClick = forkUi.affectsBanner.onClick,
+                            message = forkSave.affectsBanner.message,
+                            onClick = forkSave.affectsBanner.onClick,
                         )
                     }
                 }
@@ -203,16 +200,14 @@ fun LiftIncrementsScreen(
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
-                if (state.showMicroCard) {
-                    item {
-                        MicroEditorCard(
-                            stops = state.microStops,
-                            unitLabel = state.unitLabel,
-                            onStopChanged = microActions.onStopChanged,
-                            onAddStop = microActions.onAddStop,
-                            onRemoveStop = microActions.onRemoveStop,
-                        )
-                    }
+                item {
+                    MicroEditorCard(
+                        stops = state.microStops,
+                        unitLabel = state.unitLabel,
+                        onStopChanged = microActions.onStopChanged,
+                        onAddStop = microActions.onAddStop,
+                        onRemoveStop = microActions.onRemoveStop,
+                    )
                 }
             }
             Column(
@@ -236,7 +231,7 @@ fun LiftIncrementsScreen(
                         onScanPhoto = onScanPhoto,
                     )
                 }
-                if (forkUi.showForkSaveBar) {
+                if (forkSave != null) {
                     StratumButton(
                         text = stringResource(UiR.string.equipment_increments_update_shared),
                         onClick = onSave,
@@ -245,7 +240,7 @@ fun LiftIncrementsScreen(
                     )
                     StratumOutlinedButton(
                         text = stringResource(UiR.string.equipment_increments_save_as_new),
-                        onClick = forkUi.onSaveAsNew,
+                        onClick = forkSave.onSaveAsNew,
                         enabled = !state.isSaving && state.validationMessage == null,
                         modifier = Modifier.padding(bottom = 20.dp).fillMaxWidth(),
                     )

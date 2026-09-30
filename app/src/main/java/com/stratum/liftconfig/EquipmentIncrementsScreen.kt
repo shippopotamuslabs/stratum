@@ -68,7 +68,6 @@ fun EquipmentIncrementsRoute(
                     },
                 tiers = state.tiers,
                 microStops = state.microStops,
-                showMicroCard = state.showMicroCard,
                 validationMessage = state.validationMessage,
                 warnedTierIndexes = state.warnedTierIndexes,
                 isSaving = state.isSaving,
@@ -95,7 +94,6 @@ fun EquipmentIncrementsRoute(
         onScanPhoto = viewModel::scan,
         forkUi =
             ForkSaveUi(
-                showForkSaveBar = true,
                 onSaveAsNew = viewModel::saveAsNew,
                 affectsBanner =
                     AffectsBannerUi(

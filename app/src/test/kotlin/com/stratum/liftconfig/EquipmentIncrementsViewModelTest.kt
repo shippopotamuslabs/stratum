@@ -252,18 +252,6 @@ class EquipmentIncrementsViewModelTest {
     }
 
     @Test
-    @DisplayName("Given initialized when observed then the adder card shows")
-    fun microCardAlwaysShown() = runTest {
-        subject.initialize(cableId.value)
-        advanceUntilIdle()
-
-        subject.uiState.test {
-            assertTrue(awaitItemWith { it.tiers.isNotEmpty() }.showMicroCard)
-            cancelAndIgnoreRemainingEvents()
-        }
-    }
-
-    @Test
     @DisplayName(
         "Given save as new without a source lift when saved then the copy is made " +
             "and no lift moves",
