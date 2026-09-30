@@ -27,11 +27,6 @@ sealed interface WorkoutUiState {
          * (avoids reinterpreting typed magnitudes under the new unit).
          */
         val displayUnitEpoch: Int = 0,
-        /**
-         * Gates the equipment-management rework ([AppFeatureFlag.EQUIPMENT_MANAGEMENT_V2]).
-         * When false the workout shows the legacy lift-options sheet with no equipment entry.
-         */
-        val equipmentManagementV2Enabled: Boolean = false,
     ) : WorkoutUiState
 
     data class Error(val message: String) : WorkoutUiState
@@ -83,8 +78,7 @@ data class RenderedLiftUi(
     /**
      * True when a logged weight this session sits off the lift's increment lattice.
      * Drives the "Adjust Equipment" chip under the lift title. The session runtime
-     * clears it for dismissed (X) and saved-away (tier-edited) cards; the ViewModel
-     * additionally gates it on the equipment-management flag.
+     * clears it for dismissed (X) and saved-away (tier-edited) cards.
      */
     val showAdjustEquipmentChip: Boolean = false,
 ) : SupersetLinkableLift {
