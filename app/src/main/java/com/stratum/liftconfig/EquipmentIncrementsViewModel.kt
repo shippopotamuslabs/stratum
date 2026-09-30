@@ -2,7 +2,6 @@ package com.stratum.liftconfig
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.stratum.domain.featureflag.ObserveEquipmentManagementV2UseCase
 import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.EquipmentAffectedLifts
 import com.stratum.domain.lift.ForkEquipmentWithTiersUseCase
@@ -66,17 +65,6 @@ data class EquipmentIncrementsUiState(
     /** Lifts inheriting these defaults (id + display name + enabled for the sheet). */
     val affectedLifts: List<AffectedLiftUi> = emptyList(),
     /**
-     * Gates the v2 equipment UI (Update Shared / Save As New bar, tappable affects
-     * banner). One flag, read by each call site, so the surfaces cannot drift apart.
-     */
-    val equipmentV2Enabled: Boolean = false,
-    /**
-     * Adder card visibility, derived from [equipmentV2Enabled] in [buildState] so
-     * the rollout decision lives in state construction — never a literal at a
-     * call site.
-     */
-    val showMicroCard: Boolean = false,
-    /**
      * Launch-flag gate for the AI scan prefill. PR-5 wires state only — no
      * composable reads these yet, so the scan entry stays hidden.
      */
@@ -109,7 +97,6 @@ class EquipmentIncrementsViewModel @Inject constructor(
     private val dismissEquipmentProposal: DismissEquipmentProposalUseCase,
     private val equipmentPickResult: EquipmentPickResult,
     observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
-    observeEquipmentManagementV2: ObserveEquipmentManagementV2UseCase,
     private val scanDelegate: IncrementScanDelegate,
 ) : ViewModel() {
 
@@ -127,7 +114,6 @@ class EquipmentIncrementsViewModel @Inject constructor(
     private val saveSucceeded = MutableStateFlow(false)
     private val validationOverride = MutableStateFlow<String?>(null)
     private val displayUnit = MutableStateFlow(Weight.WeightUnit.Lb)
-    private val equipmentV2Enabled = MutableStateFlow(false)
 
     private data class PendingSwap(
         val liftId: String,
@@ -148,11 +134,6 @@ class EquipmentIncrementsViewModel @Inject constructor(
                     scanDelegate.onDisplayUnitChanged()
                     displayUnit.value = prefs.displayUnit
                 }
-            }
-        }
-        viewModelScope.launch {
-            observeEquipmentManagementV2().collect { enabled ->
-                equipmentV2Enabled.value = enabled
             }
         }
         viewModelScope.launch {
@@ -192,18 +173,12 @@ class EquipmentIncrementsViewModel @Inject constructor(
         val saved: Boolean,
     )
 
-    private data class RolloutInputs(
-        val equipmentV2Enabled: Boolean,
-        val scan: IncrementScanDelegate.ScanUi,
-    )
-
     private data class Flags(
         val drafts: EditorDrafts?,
         val proposalInput: ProposalInput?,
         val saving: Boolean,
         val saved: Boolean,
         val validation: String?,
-        val equipmentV2Enabled: Boolean,
         val scan: IncrementScanDelegate.ScanUi,
     )
 
@@ -222,23 +197,22 @@ class EquipmentIncrementsViewModel @Inject constructor(
             observeEquipmentCatalog(),
             affectedLifts,
             displayUnit,
-            // Typed combine stages producing named holders: the save pair and the
-            // rollout pair (v2 flag plus delegate-owned scan) ride single slots.
+            // Typed combine stages producing named holders: the save pair rides a
+            // single slot alongside the delegate-owned scan state.
             combine(
                 combine(isSaving, saveSucceeded, ::SaveInputs),
                 drafts,
                 proposalSession.input,
                 validationOverride,
-                combine(equipmentV2Enabled, scanDelegate.observeScanUi(), ::RolloutInputs),
-            ) { save, editorDrafts, input, validation, rollout ->
+                scanDelegate.observeScanUi(),
+            ) { save, editorDrafts, input, validation, scan ->
                 Flags(
                     editorDrafts,
                     input,
                     save.saving,
                     save.saved,
                     validation,
-                    rollout.equipmentV2Enabled,
-                    rollout.scan,
+                    scan,
                 )
             },
         ) { id, catalog, affected, unit, flags ->
@@ -247,7 +221,6 @@ class EquipmentIncrementsViewModel @Inject constructor(
                 catalog = catalog,
                 affected = affected,
                 unit = unit,
-                equipmentV2Enabled = flags.equipmentV2Enabled,
                 drafts = flags.drafts,
                 proposalInput = flags.proposalInput,
                 saving = flags.saving,
@@ -554,7 +527,6 @@ class EquipmentIncrementsViewModel @Inject constructor(
         catalog: List<Equipment>,
         affected: EquipmentAffectedLifts,
         unit: Weight.WeightUnit,
-        equipmentV2Enabled: Boolean,
         drafts: EditorDrafts?,
         proposalInput: ProposalInput?,
         saving: Boolean,
@@ -608,8 +580,6 @@ class EquipmentIncrementsViewModel @Inject constructor(
                     )
                 },
             unitLabel = unit.shortLabel(),
-            equipmentV2Enabled = equipmentV2Enabled,
-            showMicroCard = equipmentV2Enabled,
             scanAvailable = scan.available,
             scanUi = scan.state,
         )

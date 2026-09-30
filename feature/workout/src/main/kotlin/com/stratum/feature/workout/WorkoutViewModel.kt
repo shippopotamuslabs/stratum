@@ -3,7 +3,6 @@ package com.stratum.feature.workout
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.core.ui.component.SupersetLinkDirection
-import com.stratum.domain.featureflag.ObserveEquipmentManagementV2UseCase
 import com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase
 import com.stratum.domain.lift.CatalogNoteInput
 import com.stratum.domain.lift.GetLiftNoteListsUseCase
@@ -59,13 +58,11 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -110,7 +107,6 @@ class WorkoutViewModel @Inject constructor(
     private val getPastSessionNotesForLift: GetPastSessionNotesForLiftUseCase,
     private val getLiftNoteLists: GetLiftNoteListsUseCase,
     getSessionPinnedNoteLists: GetSessionPinnedNoteListsUseCase,
-    private val observeEquipmentManagementV2: ObserveEquipmentManagementV2UseCase,
 ) : ViewModel() {
 
     /**
@@ -120,33 +116,10 @@ class WorkoutViewModel @Inject constructor(
     private val displayUnit = MutableStateFlow(Weight.WeightUnit.Lb)
     private val displayUnitEpoch = MutableStateFlow(0)
 
-    /**
-     * Raw session frames from the runtime. The flag is injected in [uiState], never here,
-     * so renders stay flag-agnostic and there is a single copy site.
-     */
+    /** Session frames from the runtime; equipment editing is always enabled. */
     private val sessionFrames = MutableStateFlow<WorkoutUiState>(WorkoutUiState.Loading)
 
-    /** Gates the "Edit equipment" sheet row; refreshed from Remote Config on collect. */
-    private val equipmentManagementV2Enabled = MutableStateFlow(false)
-
-    val uiState: StateFlow<WorkoutUiState> =
-        combine(sessionFrames, equipmentManagementV2Enabled) { frame, flagEnabled ->
-            if (frame is WorkoutUiState.Loaded) {
-                frame.copy(
-                    equipmentManagementV2Enabled = flagEnabled,
-                    lifts = frame.lifts.map { lift ->
-                        // The runtime already clears dismissed/saved-away cards; the
-                        // ViewModel only applies the equipment-management gate.
-                        lift.copy(
-                            showAdjustEquipmentChip =
-                                lift.showAdjustEquipmentChip && flagEnabled,
-                        )
-                    },
-                )
-            } else {
-                frame
-            }
-        }.stateIn(viewModelScope, SharingStarted.Eagerly, WorkoutUiState.Loading)
+    val uiState: StateFlow<WorkoutUiState> = sessionFrames.asStateFlow()
 
     /** Transient snackbar copy; cleared via [userMessageShown] after the UI presents it. */
     private val _userMessage = MutableStateFlow<String?>(null)
@@ -233,11 +206,6 @@ class WorkoutViewModel @Inject constructor(
         )
 
     init {
-        viewModelScope.launch {
-            observeEquipmentManagementV2().collect { enabled ->
-                equipmentManagementV2Enabled.value = enabled
-            }
-        }
         viewModelScope.launch {
             observeWeightDisplayPreferences()
                 .catch {

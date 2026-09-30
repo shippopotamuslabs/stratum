@@ -18,26 +18,6 @@ class AppFeatureFlagTest {
     }
 
     @Test
-    @DisplayName("Given the equipment flag when read then its key matches the Remote Config parameter")
-    fun equipmentFlagKeyMatchesRemoteConfigParameter() {
-        assertEquals("equipment_management_v2", AppFeatureFlag.EQUIPMENT_MANAGEMENT_V2.key)
-    }
-
-    @Test
-    @DisplayName("Given a fresh repository when the equipment flag is checked then it is disabled")
-    fun equipmentFlagIsDisabledByDefault() {
-        assertFalse(fakeFlags.isEnabled(AppFeatureFlag.EQUIPMENT_MANAGEMENT_V2))
-    }
-
-    @Test
-    @DisplayName("Given the equipment flag enabled when checked then it is enabled")
-    fun equipmentFlagIsEnabledWhenSet() {
-        fakeFlags.setFlag(AppFeatureFlag.EQUIPMENT_MANAGEMENT_V2, true)
-
-        assertTrue(fakeFlags.isEnabled(AppFeatureFlag.EQUIPMENT_MANAGEMENT_V2))
-    }
-
-    @Test
     @DisplayName("Given the scan flag when read then its key matches the Remote Config parameter")
     fun scanFlagKeyMatchesRemoteConfigParameter() {
         assertEquals("increments_ai_scan", AppFeatureFlag.INCREMENTS_AI_SCAN.key)

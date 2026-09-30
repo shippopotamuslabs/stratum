@@ -32,7 +32,6 @@ object FeatureFlagProvidesModule {
         config.setDefaultsAsync(
             mapOf(
                 AppFeatureFlag.CLOUD_PROGRAM_SYNTHESIS.key to true,
-                AppFeatureFlag.EQUIPMENT_MANAGEMENT_V2.key to false,
                 AppFeatureFlag.INCREMENTS_AI_SCAN.key to false,
             ),
         )
