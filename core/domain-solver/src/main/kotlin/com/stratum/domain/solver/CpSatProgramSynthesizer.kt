@@ -14,6 +14,7 @@ import com.stratum.domain.program.generation.context.withResolvedCycleSpace
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisException
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisPort
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisResult
+import com.stratum.domain.program.generation.synthesis.SolveStats
 import com.stratum.domain.program.generation.universe.buildSlotUniverse
 import com.stratum.domain.program.generation.synthesis.buildUnifiedSessionPlans
 import com.stratum.domain.program.generation.synthesis.materializeSynthesisResult
@@ -136,7 +137,25 @@ class CpSatProgramSynthesizer(
 
         val solution = modelBuilder.readUnifiedSolution(solver, plans)
         val objective = modelBuilder.readObjective(solver)
-        return materializeSynthesisResult(universe, solution).copy(objective = objective)
+        val solveStats = SolveStats(
+            status = status.name,
+            wallTimeSeconds = solver.wallTime(),
+            objective = solver.objectiveValue(),
+            bestBound = solver.bestObjectiveBound(),
+            relativeGap = relativeGap(
+                objective = solver.objectiveValue(),
+                bound = solver.bestObjectiveBound(),
+            ),
+            incumbentCount = incumbents.count,
+            firstIncumbentAtSeconds = incumbents.first?.wallTimeSeconds,
+            lastIncumbentAtSeconds = incumbents.last?.wallTimeSeconds,
+            firstObjective = incumbents.first?.objective,
+            lastObjective = incumbents.last?.objective,
+            numBranches = solver.numBranches(),
+            numConflicts = solver.numConflicts(),
+        )
+        return materializeSynthesisResult(universe, solution)
+            .copy(objective = objective, solveStats = solveStats)
     }
 
     /**
