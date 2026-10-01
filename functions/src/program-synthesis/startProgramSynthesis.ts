@@ -4,6 +4,11 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { isSynthesisJobStale } from "./synthesisJobGuards";
 import { assertUserEntitled } from "../entitlement/assertEntitled";
 import {
+  clientStartMsToTimestamp,
+  dispatcherTraceDeletions,
+  initialTraceMap,
+} from "./synthesisTrace";
+import {
   MAX_REQUEST_BYTES,
   MAX_SYNTHESIS_PER_MONTH,
   effectiveStartCount,
@@ -63,6 +68,7 @@ export const startProgramSynthesis = onCall(async (request) => {
   const data = request.data as {
     jobId?: string;
     requestStoragePath?: string;
+    clientStartMs?: number;
   };
   if (!data.jobId || !data.requestStoragePath) {
     throw new HttpsError(
@@ -70,6 +76,8 @@ export const startProgramSynthesis = onCall(async (request) => {
       "jobId and requestStoragePath are required.",
     );
   }
+  const clientStart =
+    data.clientStartMs !== undefined ? clientStartMsToTimestamp(data.clientStartMs) : null;
   if (typeof data.jobId !== "string" || data.jobId.length === 0 || data.jobId.includes("/")) {
     throw new HttpsError("invalid-argument", "jobId is invalid.");
   }
@@ -190,6 +198,14 @@ export const startProgramSynthesis = onCall(async (request) => {
           errorMessage: FieldValue.delete(),
           resultStoragePath: FieldValue.delete(),
           quotaCounted: false,
+          // Per-job trace waterfall (STR-13): permanent, low-cost handoff timestamps.
+          // clientStart is the app's tap/upload-done epoch ms; falls back to server time.
+          // Dispatcher fields are explicitly cleared: merge:true deep-merges nested maps,
+          // so stale dispatcherTrigger/dispatcherPostSent from a reused jobId must not survive.
+          trace: {
+            ...initialTraceMap(clientStart),
+            ...dispatcherTraceDeletions(),
+          },
         },
         { merge: true },
       );
