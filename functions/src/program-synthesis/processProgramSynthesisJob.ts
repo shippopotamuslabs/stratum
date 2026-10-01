@@ -118,6 +118,29 @@ export async function dispatchSynthesisJobToSolver(opts: {
 }
 
 /**
+ * Trace field names for the per-job `trace` map (STR-13).
+ */
+export const TRACE_DISPATCHER_TRIGGER = "trace.dispatcherTrigger";
+export const TRACE_DISPATCHER_POST_SENT = "trace.dispatcherPostSent";
+
+/**
+ * Record a dispatcher handoff timestamp on the job doc. Uses dot-notation update
+ * so only the trace field is touched. Safe from trigger loops: the onDocumentWritten
+ * handler ignores writes where status was already "pending".
+ */
+export async function recordDispatcherTrace(
+  jobRef: DocumentReference,
+  field: string,
+): Promise<void> {
+  try {
+    await jobRef.update({ [field]: FieldValue.serverTimestamp() });
+  } catch (err) {
+    // Trace writes are best-effort; never fail the dispatch over them.
+    console.warn(`recordDispatcherTrace failed for ${field}: ${err}`);
+  }
+}
+
+/**
  * Mark job failed only when it is still non-terminal (`pending` or `running`).
  * Never overwrites `ready` / `failed` / `rejected` — worker owns terminal success.
  */
@@ -193,6 +216,9 @@ export const processProgramSynthesisJob = onDocumentWritten(
     const jobId = event.params.jobId as string;
     const jobRef = getFirestore().doc(`users/${uid}/synthesisJobs/${jobId}`);
 
+    // STR-13 trace: mark when the dispatcher trigger received the job.
+    await recordDispatcherTrace(jobRef, TRACE_DISPATCHER_TRIGGER);
+
     const baseUrl = resolveSolverServiceUrl();
     if (!baseUrl) {
       await markJobFailedIfStillActive(jobRef, {
@@ -204,6 +230,8 @@ export const processProgramSynthesisJob = onDocumentWritten(
     }
 
     try {
+      // STR-13 trace: mark immediately before POSTing to the solver.
+      await recordDispatcherTrace(jobRef, TRACE_DISPATCHER_POST_SENT);
       const result = await dispatchSynthesisJobToSolver({
         baseUrl,
         body: { uid, jobId },
