@@ -1,5 +1,4 @@
-import * as admin from "firebase-admin";
-import { FieldValue, type DocumentReference } from "firebase-admin/firestore";
+import { FieldValue, type DocumentReference, getFirestore } from "firebase-admin/firestore";
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import { GoogleAuth } from "google-auth-library";
 import { isFirestoreNotFound } from "../import/safeJobUpdate";
@@ -129,7 +128,7 @@ export async function markJobFailedIfStillActive(
     errorMessage: string;
   },
 ): Promise<boolean> {
-  const db = admin.firestore();
+  const db = getFirestore();
   try {
     return await db.runTransaction(async (tx) => {
       const snap = await tx.get(jobRef);
@@ -192,7 +191,7 @@ export const processProgramSynthesisJob = onDocumentWritten(
 
     const uid = event.params.uid as string;
     const jobId = event.params.jobId as string;
-    const jobRef = admin.firestore().doc(`users/${uid}/synthesisJobs/${jobId}`);
+    const jobRef = getFirestore().doc(`users/${uid}/synthesisJobs/${jobId}`);
 
     const baseUrl = resolveSolverServiceUrl();
     if (!baseUrl) {

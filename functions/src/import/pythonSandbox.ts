@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import * as admin from "firebase-admin";
+import { getStorage } from "firebase-admin/storage";
 import { writeFileSync, mkdtempSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -92,7 +92,7 @@ print(json.dumps(result))
 export async function runPythonSandbox(
   scriptStoragePath: string,
   inputStoragePath: string,
-  storage = admin.storage().bucket(),
+  storage = getStorage().bucket(),
 ): Promise<SandboxResult> {
   const [scriptBytes] = await storage.file(scriptStoragePath).download();
   const [inputBytes] = await storage.file(inputStoragePath).download();

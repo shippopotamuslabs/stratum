@@ -1,4 +1,4 @@
-import * as admin from "firebase-admin";
+import { getFirestore } from "firebase-admin/firestore";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { sanitizeClientProgressMessage } from "./schemas";
 import type { ImportProgressPhase } from "./schemas";
@@ -13,7 +13,7 @@ export const getImportJobStatus = onCall(async (request) => {
     throw new HttpsError("invalid-argument", "jobId is required.");
   }
 
-  const snap = await admin.firestore().doc(`users/${uid}/importJobs/${data.jobId}`).get();
+  const snap = await getFirestore().doc(`users/${uid}/importJobs/${data.jobId}`).get();
   if (!snap.exists) {
     throw new HttpsError("not-found", "Import job not found.");
   }

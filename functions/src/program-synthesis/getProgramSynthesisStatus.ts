@@ -1,4 +1,4 @@
-import * as admin from "firebase-admin";
+import { getFirestore } from "firebase-admin/firestore";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 
 /**
@@ -15,7 +15,7 @@ export const getProgramSynthesisStatus = onCall(async (request) => {
     throw new HttpsError("invalid-argument", "jobId is required.");
   }
 
-  const snap = await admin.firestore().doc(`users/${uid}/synthesisJobs/${data.jobId}`).get();
+  const snap = await getFirestore().doc(`users/${uid}/synthesisJobs/${data.jobId}`).get();
   if (!snap.exists) {
     throw new HttpsError("not-found", "Program synthesis job not found.");
   }

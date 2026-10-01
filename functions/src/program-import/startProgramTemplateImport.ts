@@ -1,5 +1,4 @@
-import * as admin from "firebase-admin";
-import { FieldValue } from "firebase-admin/firestore";
+import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { assertUserEntitled } from "../entitlement/assertEntitled";
 import { isProgramTemplateJobStale } from "./programTemplateJobGuards";
@@ -31,7 +30,7 @@ export const startProgramTemplateImport = onCall(async (request) => {
     );
   }
 
-  const db = admin.firestore();
+  const db = getFirestore();
   const activeQuery = await db
     .collection(`users/${uid}/programImportJobs`)
     .where("status", "in", ["pending", "running"])

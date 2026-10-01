@@ -1,5 +1,4 @@
-import * as admin from "firebase-admin";
-import { FieldValue } from "firebase-admin/firestore";
+import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { assertUserEntitled } from "../entitlement/assertEntitled";
 import { isHistoricalImportJobStale } from "./importJobGuards";
@@ -139,7 +138,7 @@ export const startImport = onCall(async (request) => {
     );
   }
 
-  const db = admin.firestore();
+  const db = getFirestore();
   const activeQuery = await db
     .collection(`users/${uid}/importJobs`)
     .where("status", "in", ["pending_agent", "agent_running"])
