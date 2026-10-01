@@ -24,6 +24,7 @@ import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.domain.logging.PARAM_ACTION
 import com.stratum.domain.logging.PARAM_SCREEN
 import com.stratum.domain.logging.USER_VISIBLE_ERROR_EVENT
+import com.stratum.domain.telemetry.SynthesisTelemetry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -47,6 +48,7 @@ internal class CreateProgramGenerateController(
     private val onProgramGenerated: (Program) -> Unit,
     private val logError: LogErrorUseCase,
     private val logAnalytics: LogAnalyticsEventUseCase,
+    private val synthesisTelemetry: SynthesisTelemetry,
 ) {
     private var generateJob: Job? = null
 
@@ -191,6 +193,11 @@ internal class CreateProgramGenerateController(
                         return@launch
                     }
                 onProgramGenerated(program)
+                // STR-13 trace: program handed to the editor for rendering.
+                // On-device generation has no server jobId; use a client session ID
+                // so the event stays joinable in the funnel.
+                val sessionId = java.util.UUID.randomUUID().toString()
+                synthesisTelemetry.synthesisRendered(sessionId)
             }
     }
 

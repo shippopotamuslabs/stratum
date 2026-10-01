@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
 import com.stratum.domain.logging.LogAnalyticsEventUseCase
 import com.stratum.domain.logging.LogErrorUseCase
+import com.stratum.domain.telemetry.SynthesisTelemetry
 import com.stratum.domain.onboarding.CompleteOnboardingUseCase
 import com.stratum.domain.onboarding.GetUserTrainingProfileUseCase
 import com.stratum.domain.onboarding.UpdateSpecializationUseCase
@@ -111,6 +112,7 @@ class CreateProgramViewModel @Inject constructor(
             },
             logError = logError,
             logAnalytics = logAnalytics,
+            synthesisTelemetry = SynthesisTelemetry(logAnalytics::invoke),
         )
 
     init {
