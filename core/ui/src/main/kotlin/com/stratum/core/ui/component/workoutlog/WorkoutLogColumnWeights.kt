@@ -20,7 +20,6 @@ data class WorkoutLogColumnWeights(
     val prev: Float,
     val weight: Float,
     val reps: Float,
-    val rir: Float,
     val trailing: Float,
 )
 
@@ -34,8 +33,7 @@ fun workoutLogColumnWeights(
                 label = 0.10f,
                 prev = 0.22f,
                 weight = 0.22f,
-                reps = 0.22f,
-                rir = 0.12f,
+                reps = 0.34f,
                 trailing = 0.12f,
             )
         showWeightColumn && !showTrailingColumn ->
@@ -43,8 +41,7 @@ fun workoutLogColumnWeights(
                 label = 0.12f,
                 prev = 0.24f,
                 weight = 0.24f,
-                reps = 0.24f,
-                rir = 0.16f,
+                reps = 0.40f,
                 trailing = 0f,
             )
         !showWeightColumn && showTrailingColumn ->
@@ -52,8 +49,7 @@ fun workoutLogColumnWeights(
                 label = 0.12f,
                 prev = 0.30f,
                 weight = 0f,
-                reps = 0.28f,
-                rir = 0.18f,
+                reps = 0.46f,
                 trailing = 0.12f,
             )
         else ->
@@ -61,8 +57,7 @@ fun workoutLogColumnWeights(
                 label = 0.14f,
                 prev = 0.34f,
                 weight = 0f,
-                reps = 0.32f,
-                rir = 0.20f,
+                reps = 0.52f,
                 trailing = 0f,
             )
     }

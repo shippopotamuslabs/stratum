@@ -213,42 +213,48 @@ fun StratumWorkoutLogSetRow(
                 )
             }
 
-            if (showSplitReps) {
-                WorkoutLogSplitRepsField(
-                    set = set,
-                    sessionHost = setSessionHost,
-                    livePartialRepsText = livePartialRepsText,
-                    liveRepsMode = liveRepsMode,
-                    repsActive = repsActive,
-                    openKeyboard = openKeyboard,
-                    modifier =
-                        Modifier
-                            .weight(weights.reps)
-                            .padding(horizontal = 2.dp),
-                )
-            } else {
-                WorkoutLogSingleRepsField(
-                    set = set,
-                    actions = actions,
-                    sessionHost = setSessionHost,
-                    repsActive = repsActive,
-                    openKeyboard = openKeyboard,
-                    modifier =
-                        Modifier
-                            .weight(weights.reps)
-                            .padding(horizontal = 2.dp),
-                )
+            val onRirBadgeClick: () -> Unit = {
+                if (set.fieldsEnabled && !keyboardOpenForSet) {
+                    showRirSheet = true
+                }
             }
-
-            Box(modifier = Modifier.weight(weights.rir), contentAlignment = Alignment.Center) {
-                RirTargetBadge(
-                    rirGoal = set.rir,
-                    onClick = {
-                        if (set.fieldsEnabled && !keyboardOpenForSet) {
-                            showRirSheet = true
-                        }
-                    },
-                )
+            if (showSplitReps) {
+                RepsCellWithRirBadge(
+                    rir = set.rir,
+                    onBadgeClick = onRirBadgeClick,
+                    modifier =
+                        Modifier
+                            .weight(weights.reps)
+                            .padding(horizontal = 2.dp),
+                ) {
+                    WorkoutLogSplitRepsField(
+                        set = set,
+                        sessionHost = setSessionHost,
+                        livePartialRepsText = livePartialRepsText,
+                        liveRepsMode = liveRepsMode,
+                        repsActive = repsActive,
+                        openKeyboard = openKeyboard,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            } else {
+                RepsCellWithRirBadge(
+                    rir = set.rir,
+                    onBadgeClick = onRirBadgeClick,
+                    modifier =
+                        Modifier
+                            .weight(weights.reps)
+                            .padding(horizontal = 2.dp),
+                ) {
+                    WorkoutLogSingleRepsField(
+                        set = set,
+                        actions = actions,
+                        sessionHost = setSessionHost,
+                        repsActive = repsActive,
+                        openKeyboard = openKeyboard,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             }
 
             if (showTrailing) {
@@ -310,6 +316,41 @@ fun StratumWorkoutLogSetRow(
         )
     }
 }
+
+/**
+ * Reps cell with the RIR corner badge pinned to its top-right (STR-17 Choice D).
+ * The badge is the existing [RirTargetBadge] at a smaller corner size; the inner
+ * top/end inset keeps the badge inside row bounds so it never clips, while still
+ * overlapping the cell corner. Works over sunken (logged) and accent-bordered
+ * (active) cells since the badge draws after [content].
+ */
+@Composable
+private fun RepsCellWithRirBadge(
+    rir: Int,
+    onBadgeClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    Box(modifier = modifier) {
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(top = RirCornerBadgeInset, end = RirCornerBadgeInset),
+        ) {
+            content()
+        }
+        RirTargetBadge(
+            rirGoal = rir,
+            onClick = onBadgeClick,
+            size = RirCornerBadgeSize,
+            modifier = Modifier.align(Alignment.TopEnd),
+        )
+    }
+}
+
+private val RirCornerBadgeSize = 22.dp
+private val RirCornerBadgeInset = 7.dp
 
 @Composable
 private fun WorkoutLogSplitRepsField(
