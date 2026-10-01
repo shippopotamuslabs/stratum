@@ -10,7 +10,6 @@ import com.google.firebase.cloud.FirestoreClient
 import com.google.firebase.cloud.StorageClient
 import com.stratum.domain.program.generation.synthesis.wire.ProgramSynthesisWire
 import com.stratum.domain.program.generation.synthesis.wire.ProgramSynthesisWireException
-import com.stratum.domain.program.generation.synthesis.SolveStats
 import com.stratum.domain.solver.CpSatProgramSynthesizer
 import java.nio.charset.StandardCharsets
 import kotlinx.coroutines.Dispatchers
@@ -41,8 +40,6 @@ class SynthesisJobWorker(
     fun process(request: ProcessRequest): Outcome {
         val jobPath = "users/${request.uid}/synthesisJobs/${request.jobId}"
         log("start uid=${request.uid} jobId=${request.jobId}")
-        // STR-13 trace: mark when the worker received the request.
-        recordTrace(request.uid, request.jobId, TRACE_WORKER_START)
 
         return try {
             val claim = claimJob(request.uid, request.jobId)
@@ -57,8 +54,6 @@ class SynthesisJobWorker(
                 }
                 is ClaimResult.Claimed -> {
                     log("claimed $jobPath requestStoragePath=${claim.requestStoragePath}")
-                    // STR-13 trace: mark when the claim completed.
-                    recordTrace(request.uid, request.jobId, TRACE_WORKER_CLAIMED)
                     claim.requestStoragePath
                 }
             }
@@ -104,8 +99,6 @@ class SynthesisJobWorker(
                 "days=${wireRequest.context.trainingDaysPerWeek} " +
                 "deadlineMs=$deadlineMillis",
         )
-        // STR-13 trace: mark when the CP-SAT solve begins.
-        recordTrace(uid, jobId, TRACE_WORKER_SOLVING)
         val synthesizer = synthesizerFactory(deadlineMillis)
         // Blocking CP-SAT on Default so we don't pin the HTTP pool thread alone.
         val result = runBlocking(Dispatchers.Default) {
@@ -128,8 +121,8 @@ class SynthesisJobWorker(
             // STR-13 trace: upload timestamp + compact solver progression.
             TRACE_WORKER_UPLOADED to FieldValue.serverTimestamp(),
         )
-        result.solveStats?.let { stats ->
-            traceFields[TRACE_SOLVER] = solveStatsMap(stats)
+        synthesizer.lastSolveStats?.let { stats ->
+            traceFields[TRACE_SOLVER] = stats.toTraceMap()
         }
         val updated = updateJobIfPresent(
             uid = uid,
@@ -188,6 +181,13 @@ class SynthesisJobWorker(
                         "progressMessage" to "Solving program…",
                         "updatedAt" to FieldValue.serverTimestamp(),
                         "progressUpdatedAt" to FieldValue.serverTimestamp(),
+                        // STR-13 trace: piggyback worker handoff timestamps on the claim write.
+                        // workerStart (request received), workerClaimed, and workerSolving are
+                        // co-timed here — the claim is the last Firestore write before the
+                        // blocking CP-SAT solve, avoiding extra round-trips on the critical path.
+                        TRACE_WORKER_START to FieldValue.serverTimestamp(),
+                        TRACE_WORKER_CLAIMED to FieldValue.serverTimestamp(),
+                        TRACE_WORKER_SOLVING to FieldValue.serverTimestamp(),
                     ),
                 )
                 ClaimResult.Claimed(requestStoragePath)
@@ -281,39 +281,6 @@ class SynthesisJobWorker(
                 "Generation request was missing or invalid. Please try again."
             else -> "Program generation failed. Please try again."
         }
-    }
-
-    /**
-     * Best-effort trace timestamp write. Never fails the job over tracing.
-     */
-    private fun recordTrace(uid: String, jobId: String, field: String) {
-        try {
-            firestore.document("users/$uid/synthesisJobs/$jobId")
-                .update(field, FieldValue.serverTimestamp())
-                .get()
-        } catch (e: Exception) {
-            log("trace write failed for $field: ${e.message}")
-        }
-    }
-
-    /**
-     * Compact solver stats map for the job doc.
-     */
-    private fun solveStatsMap(stats: SolveStats): Map<String, Any?> {
-        return mapOf(
-            "status" to stats.status,
-            "wallTimeSeconds" to stats.wallTimeSeconds,
-            "objective" to stats.objective,
-            "bestBound" to stats.bestBound,
-            "relativeGap" to stats.relativeGap,
-            "incumbentCount" to stats.incumbentCount,
-            "firstIncumbentAtSeconds" to stats.firstIncumbentAtSeconds,
-            "lastIncumbentAtSeconds" to stats.lastIncumbentAtSeconds,
-            "firstObjective" to stats.firstObjective,
-            "lastObjective" to stats.lastObjective,
-            "numBranches" to stats.numBranches,
-            "numConflicts" to stats.numConflicts,
-        )
     }
 
     private fun log(message: String) {
