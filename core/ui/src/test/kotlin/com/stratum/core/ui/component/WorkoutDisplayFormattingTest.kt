@@ -1,10 +1,11 @@
 package com.stratum.core.ui.component
 
+import com.stratum.domain.lift.Weight
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 
-@DisplayName("formatRepsWithPartials / formatSetPerformance")
+@DisplayName("formatRepsWithPartials / formatSetPerformance / formatWeightForDisplay")
 class WorkoutDisplayFormattingTest {
 
     @Test
@@ -30,5 +31,21 @@ class WorkoutDisplayFormattingTest {
     @DisplayName("bodyweight omits zero load and keeps +N")
     fun bodyweightWithPartials() {
         assertEquals("12+1", formatSetPerformance(0.0, 12, 1))
+    }
+
+    @Test
+    @DisplayName("unitless zero renders as 0, not blank")
+    fun unitlessZeroRendersZero() {
+        val zero = Weight(0.0, Weight.WeightUnit.Lb)
+        assertEquals("0", formatWeightForDisplay(zero, Weight.WeightUnit.Lb, includeUnit = false))
+        assertEquals("0 lb", formatWeightForDisplay(zero, Weight.WeightUnit.Lb, includeUnit = true))
+    }
+
+    @Test
+    @DisplayName("unitless decimal weight drops the unit")
+    fun unitlessDecimalWeight() {
+        val weight = Weight(42.5, Weight.WeightUnit.Lb)
+        assertEquals("42.5", formatWeightForDisplay(weight, Weight.WeightUnit.Lb, includeUnit = false))
+        assertEquals("42.5 lb", formatWeightForDisplay(weight, Weight.WeightUnit.Lb, includeUnit = true))
     }
 }
