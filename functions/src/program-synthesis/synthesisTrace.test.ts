@@ -1,14 +1,15 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { FieldValue } from "firebase-admin/firestore";
 import {
   clientStartMsToTimestamp,
+  dispatcherTraceDeletions,
+  initialTraceMap,
   TRACE_CLIENT_START,
-  TRACE_JOB_CREATED,
-} from "./startProgramSynthesis";
-import {
-  TRACE_DISPATCHER_TRIGGER,
   TRACE_DISPATCHER_POST_SENT,
-} from "./processProgramSynthesisJob";
+  TRACE_DISPATCHER_TRIGGER,
+  TRACE_JOB_CREATED,
+} from "./synthesisTrace";
 
 describe("synthesis trace fields (STR-13)", () => {
   it("exposes stable trace field name constants", () => {
@@ -33,5 +34,36 @@ describe("synthesis trace fields (STR-13)", () => {
     assert.equal(clientStartMsToTimestamp(Infinity), null);
     assert.equal(clientStartMsToTimestamp(0), null);
     assert.equal(clientStartMsToTimestamp(-5), null);
+  });
+
+  it("returns null for out-of-range epoch ms instead of throwing", () => {
+    // Far future: beyond Firestore Timestamp range.
+    assert.equal(clientStartMsToTimestamp(999_999_999_999_999_999), null);
+    // Far past: negative would have been caught, but huge positive is out of range.
+    assert.equal(clientStartMsToTimestamp(Number.MAX_SAFE_INTEGER), null);
+  });
+
+  it("initialTraceMap includes clientStart and jobCreated", () => {
+    const ts = clientStartMsToTimestamp(1_700_000_000_000)!;
+    const map = initialTraceMap(ts);
+    assert.equal(map["clientStart"], ts);
+    assert.ok(map["jobCreated"]);
+  });
+
+  it("initialTraceMap falls back to serverTimestamp for null clientStart", () => {
+    const map = initialTraceMap(null);
+    assert.ok(map["clientStart"]);
+    assert.ok(map["jobCreated"]);
+  });
+
+  it("dispatcherTraceDeletions clears stale dispatcher fields", () => {
+    const deletions = dispatcherTraceDeletions();
+    assert.ok(deletions[TRACE_DISPATCHER_TRIGGER]);
+    assert.ok(deletions[TRACE_DISPATCHER_POST_SENT]);
+    // Verify they are FieldValue.delete() sentinels (not timestamps).
+    assert.equal(
+      deletions[TRACE_DISPATCHER_TRIGGER]?.constructor?.name,
+      FieldValue.delete().constructor.name,
+    );
   });
 });
