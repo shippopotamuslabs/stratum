@@ -1,5 +1,4 @@
-import * as admin from "firebase-admin";
-import { FieldValue } from "firebase-admin/firestore";
+import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import { createAdminToolStorage } from "../import/toolStorage";
 import { updateJobIfPresent } from "../import/safeJobUpdate";
@@ -37,11 +36,11 @@ export const processProgramTemplateJob = onDocumentWritten(
 
     const uid = event.params.uid;
     const jobId = event.params.jobId;
-    const jobRef = admin.firestore().doc(`users/${uid}/programImportJobs/${jobId}`);
+    const jobRef = getFirestore().doc(`users/${uid}/programImportJobs/${jobId}`);
     const storage = createAdminToolStorage();
 
     // Claim promptly so a hard timeout leaves a timestamped `running` doc that start* can stale-out.
-    const claimed = await admin.firestore().runTransaction(async (tx) => {
+    const claimed = await getFirestore().runTransaction(async (tx) => {
       const snap = await tx.get(jobRef);
       if (!snap.exists || snap.data()?.status !== "pending") {
         return false;

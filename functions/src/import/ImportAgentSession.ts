@@ -4,8 +4,8 @@ import {
   createOpenRouterClient,
   importAgentSessionId,
 } from "../openrouterSession";
-import * as admin from "firebase-admin";
-import { FieldValue } from "firebase-admin/firestore";
+import { getStorage } from "firebase-admin/storage";
+import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import type { JobRef } from "./jobRef";
 import { updateJobIfPresent } from "./safeJobUpdate";
 import { dispatchTool, type ToolContext } from "./tools";
@@ -205,7 +205,7 @@ export async function runImportAgentSession(
   apiKey: string,
   model: string,
 ): Promise<SessionResult> {
-  const db = admin.firestore();
+  const db = getFirestore();
   const jobRef = db.doc(`users/${uid}/importJobs/${jobId}`);
   const sessionId = importAgentSessionId(uid, jobId);
   const client = createOpenRouterClient(apiKey, sessionId);
@@ -236,7 +236,7 @@ export async function runImportAgentSession(
       return latest?.storagePath;
     },
     async downloadSample(path) {
-      const bucket = admin.storage().bucket();
+      const bucket = getStorage().bucket();
       const [sampleBytes] = await bucket.file(path).download();
       return sampleBytes.toString("utf8");
     },

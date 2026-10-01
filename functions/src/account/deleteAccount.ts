@@ -5,7 +5,9 @@
  * Phases keep Auth alive until the client finishes local Room wipe so Settings can surface a
  * snackbar if local cleanup fails after cloud data is gone.
  */
-import * as admin from "firebase-admin";
+import { getStorage } from "firebase-admin/storage";
+import { getAuth } from "firebase-admin/auth";
+import { getFirestore } from "firebase-admin/firestore";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 
 /**
@@ -48,10 +50,10 @@ export function parseDeleteAccountPhase(raw: unknown): DeleteAccountPhase {
 
 /** Single-pass Firestore tree + Storage prefix wipe. Storage failures propagate. */
 export async function wipeUserFirestoreAndStorage(uid: string): Promise<void> {
-  const db = admin.firestore();
+  const db = getFirestore();
   await db.recursiveDelete(db.doc(userFirestorePath(uid)));
 
-  const bucket = admin.storage().bucket();
+  const bucket = getStorage().bucket();
   for (const prefix of userStoragePrefixes(uid)) {
     await bucket.deleteFiles({ prefix, force: true });
   }
@@ -69,7 +71,7 @@ export async function deleteUserOwnedCloudData(uid: string): Promise<void> {
 /** Delete Firebase Auth user; not-found is success (idempotent retry). */
 export async function deleteFirebaseAuthUser(uid: string): Promise<void> {
   try {
-    await admin.auth().deleteUser(uid);
+    await getAuth().deleteUser(uid);
   } catch (error: unknown) {
     const code =
       error && typeof error === "object" && "code" in error

@@ -10,8 +10,7 @@
  * Success counting is owned by the Firestore trigger `onSynthesisJobWritten`.
  * Start counting is owned by `startProgramSynthesis` admission transaction.
  */
-import * as admin from "firebase-admin";
-import { FieldValue } from "firebase-admin/firestore";
+import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
 
 /** Program-synthesis **starts** allowed per uid per UTC calendar month (failed or ready). */
@@ -122,7 +121,7 @@ export function nextQuotaAfterSuccess(
  */
 export async function assertUnderMonthlyQuota(uid: string): Promise<void> {
   const monthKey = utcMonthKey();
-  const snap = await admin.firestore().doc(synthesisQuotaPath(uid)).get();
+  const snap = await getFirestore().doc(synthesisQuotaPath(uid)).get();
   const data = snap.exists ? (snap.data() as Partial<SynthesisQuotaDoc>) : undefined;
   if (isAtMonthlyQuota(data, monthKey)) {
     throw new HttpsError(
@@ -141,7 +140,7 @@ export async function incrementSynthesisSuccessIfNeeded(
   uid: string,
   jobId: string,
 ): Promise<boolean> {
-  const db = admin.firestore();
+  const db = getFirestore();
   const jobRef = db.doc(`users/${uid}/synthesisJobs/${jobId}`);
   const quotaRef = db.doc(synthesisQuotaPath(uid));
   const monthKey = utcMonthKey();
