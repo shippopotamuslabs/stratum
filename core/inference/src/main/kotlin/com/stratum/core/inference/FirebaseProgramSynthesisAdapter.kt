@@ -12,6 +12,8 @@ import com.stratum.domain.program.generation.synthesis.ProgramSynthesisPort
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisResult
 import com.stratum.domain.program.generation.synthesis.wire.ProgramSynthesisWire
 import com.stratum.domain.program.generation.volume.WeeklyVolumeTargets
+import com.stratum.domain.telemetry.AnalyticsPort
+import com.stratum.domain.telemetry.SynthesisTelemetry
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -28,10 +30,12 @@ import kotlinx.coroutines.tasks.await
 @Singleton
 class FirebaseProgramSynthesisAdapter @Inject constructor(
     private val loggingPort: LoggingPort,
+    analyticsPort: AnalyticsPort,
 ) : ProgramSynthesisPort {
     private val storage: FirebaseStorage = FirebaseStorage.getInstance()
     private val functions: FirebaseFunctions = FirebaseFunctions.getInstance()
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
+    private val telemetry = SynthesisTelemetry(analyticsPort::logEvent)
 
     override suspend fun synthesize(
         weeklyTargets: WeeklyVolumeTargets,
@@ -42,9 +46,11 @@ class FirebaseProgramSynthesisAdapter @Inject constructor(
                 ?: throw ProgramSynthesisException(MESSAGE_SIGN_IN_REQUIRED)
         val jobId = UUID.randomUUID().toString()
         val requestStoragePath = buildSynthesisRequestStoragePath(uid, jobId)
+        // STR-13 trace: client-observed start, sent to the server for the job doc trace.
         val trace = FirebasePerformance.getInstance().newTrace(TRACE_PROGRAM_SYNTHESIS)
         var outcome = synthesisTraceOutcome(status = null, timedOut = false)
         trace.start()
+        val telemetryStartMs = telemetry.synthesisStarted(jobId)
 
         try {
             val requestJson = ProgramSynthesisWire.encodeRequest(weeklyTargets, context)
@@ -59,6 +65,7 @@ class FirebaseProgramSynthesisAdapter @Inject constructor(
                     mapOf(
                         "jobId" to jobId,
                         "requestStoragePath" to requestStoragePath,
+                        "clientStartMs" to telemetryStartMs,
                     ),
                 )
                 .await()
@@ -87,6 +94,8 @@ class FirebaseProgramSynthesisAdapter @Inject constructor(
                             .getBytes(MAX_DOWNLOAD_BYTES)
                             .await()
                     outcome = synthesisTraceOutcome(snapshot.status, timedOut = false)
+                    // STR-13 trace: client observed the terminal Ready state.
+                    telemetry.synthesisReadyObserved(jobId, telemetryStartMs)
                     ProgramSynthesisWire.decodeResult(bytes.decodeToString())
                 }
                 SynthesisRemoteStatus.Failed,
