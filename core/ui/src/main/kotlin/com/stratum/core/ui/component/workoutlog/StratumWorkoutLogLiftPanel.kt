@@ -239,7 +239,6 @@ private fun WorkoutLogAddSetRow(
             Spacer(modifier = Modifier.weight(weights.weight))
         }
         Spacer(modifier = Modifier.weight(weights.reps))
-        Spacer(modifier = Modifier.weight(weights.rir))
         if (showTrailingColumn) {
             Spacer(modifier = Modifier.weight(weights.trailing))
         }
