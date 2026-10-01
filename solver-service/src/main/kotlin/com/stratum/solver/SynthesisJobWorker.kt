@@ -117,6 +117,13 @@ class SynthesisJobWorker(
                 "objTotal=${result.objective.total}",
         )
 
+        val traceFields = mutableMapOf<String, Any>(
+            // STR-13 trace: upload timestamp + compact solver progression.
+            TRACE_WORKER_UPLOADED to FieldValue.serverTimestamp(),
+        )
+        synthesizer.lastSolveStats?.let { stats ->
+            traceFields[TRACE_SOLVER] = stats.toTraceMap()
+        }
         val updated = updateJobIfPresent(
             uid = uid,
             jobId = jobId,
@@ -128,7 +135,7 @@ class SynthesisJobWorker(
                 "errorMessage" to FieldValue.delete(),
                 "updatedAt" to FieldValue.serverTimestamp(),
                 "progressUpdatedAt" to FieldValue.serverTimestamp(),
-            ),
+            ) + traceFields,
         )
         if (!updated) {
             log("job missing after solve uid=$uid jobId=$jobId; result left at $resultStoragePath")
@@ -174,6 +181,13 @@ class SynthesisJobWorker(
                         "progressMessage" to "Solving program…",
                         "updatedAt" to FieldValue.serverTimestamp(),
                         "progressUpdatedAt" to FieldValue.serverTimestamp(),
+                        // STR-13 trace: piggyback worker handoff timestamps on the claim write.
+                        // workerStart (request received), workerClaimed, and workerSolving are
+                        // co-timed here — the claim is the last Firestore write before the
+                        // blocking CP-SAT solve, avoiding extra round-trips on the critical path.
+                        TRACE_WORKER_START to FieldValue.serverTimestamp(),
+                        TRACE_WORKER_CLAIMED to FieldValue.serverTimestamp(),
+                        TRACE_WORKER_SOLVING to FieldValue.serverTimestamp(),
                     ),
                 )
                 ClaimResult.Claimed(requestStoragePath)
@@ -278,6 +292,13 @@ class SynthesisJobWorker(
         const val DEFAULT_SOLVE_DEADLINE_MILLIS = 120_000L
         private const val MAX_REQUEST_BYTES = 5L * 1024L * 1024L
         private const val GRPC_NOT_FOUND = 5
+
+        /** STR-13 trace field names for the per-job `trace` map. */
+        const val TRACE_WORKER_START = "trace.workerStart"
+        const val TRACE_WORKER_CLAIMED = "trace.workerClaimed"
+        const val TRACE_WORKER_SOLVING = "trace.workerSolving"
+        const val TRACE_WORKER_UPLOADED = "trace.workerUploaded"
+        const val TRACE_SOLVER = "trace.solver"
 
         fun isValidRequestStoragePath(uid: String, jobId: String, path: String): Boolean {
             if (path.contains("..") || path.contains("//")) return false

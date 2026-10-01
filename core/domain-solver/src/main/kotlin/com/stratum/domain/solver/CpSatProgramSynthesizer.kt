@@ -52,6 +52,13 @@ class CpSatProgramSynthesizer(
     private val useWarmStart: Boolean = defaultUseWarmStart(),
 ) : ProgramSynthesisPort {
 
+    /**
+     * Stats from the most recent [synthesize] call. Null before the first solve.
+     * Read by the worker for the STR-13 trace waterfall — not part of the domain result.
+     */
+    var lastSolveStats: SolveStats? = null
+        private set
+
     override suspend fun synthesize(
         weeklyTargets: WeeklyVolumeTargets,
         context: ProgramGenerationContext,
@@ -136,7 +143,25 @@ class CpSatProgramSynthesizer(
 
         val solution = modelBuilder.readUnifiedSolution(solver, plans)
         val objective = modelBuilder.readObjective(solver)
-        return materializeSynthesisResult(universe, solution).copy(objective = objective)
+        lastSolveStats = SolveStats(
+            status = status.name,
+            wallTimeSeconds = solver.wallTime(),
+            objective = solver.objectiveValue(),
+            bestBound = solver.bestObjectiveBound(),
+            relativeGap = relativeGap(
+                objective = solver.objectiveValue(),
+                bound = solver.bestObjectiveBound(),
+            ),
+            incumbentCount = incumbents.count,
+            firstIncumbentAtSeconds = incumbents.first?.wallTimeSeconds,
+            lastIncumbentAtSeconds = incumbents.last?.wallTimeSeconds,
+            firstObjective = incumbents.first?.objective,
+            lastObjective = incumbents.last?.objective,
+            numBranches = solver.numBranches(),
+            numConflicts = solver.numConflicts(),
+        )
+        return materializeSynthesisResult(universe, solution)
+            .copy(objective = objective)
     }
 
     /**
