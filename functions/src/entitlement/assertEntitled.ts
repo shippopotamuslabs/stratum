@@ -8,7 +8,7 @@
  * Clients cannot write these docs (Firestore rules write:false). Play purchases are verified
  * via Android Publisher API then written by `syncPlayEntitlement`.
  */
-import * as admin from "firebase-admin";
+import { getFirestore } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
 
 export const OVERRIDE_ENTITLEMENT_DOC_ID = "override";
@@ -31,7 +31,7 @@ export function entitlementDocPath(uid: string, docId: string): string {
 }
 
 function defaultEntitlementFirestore(): EntitlementFirestore {
-  return admin.firestore();
+  return getFirestore();
 }
 
 let entitlementFirestoreGetter: () => EntitlementFirestore = defaultEntitlementFirestore;

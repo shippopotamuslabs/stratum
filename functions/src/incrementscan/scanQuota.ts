@@ -13,8 +13,7 @@
  * after payload validation and the fail-closed secret check, so retries and
  * misconfigured calls never double-spend or spend budget.
  */
-import * as admin from "firebase-admin";
-import { FieldValue } from "firebase-admin/firestore";
+import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import type { DocumentReference, Transaction } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
 
@@ -156,7 +155,7 @@ export async function admitIncrementScan(
   uid: string,
   deps: { firestore?: ScanQuotaFirestore; now?: Date } = {},
 ): Promise<void> {
-  const db = deps.firestore ?? admin.firestore();
+  const db = deps.firestore ?? getFirestore();
   const now = deps.now ?? new Date();
   const monthKey = utcMonthKey(now);
   const dayKey = utcDayKey(now);
