@@ -8,7 +8,7 @@
 # The image has JDK 17 + libgomp (OR-Tools OpenMP). Source is expected to be
 # bind-mounted at /workspace so edit → re-run is fast without rebuilding.
 
-FROM eclipse-temurin:17-jdk-jammy
+FROM eclipse-temurin:25-jdk-jammy
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
