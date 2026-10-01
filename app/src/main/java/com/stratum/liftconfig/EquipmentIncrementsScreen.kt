@@ -44,8 +44,8 @@ fun EquipmentIncrementsRoute(
         viewModel.initialize(equipmentId, sourceLiftId, initialTiersLb, proposalContext)
     }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    LaunchedEffect(state.saveSucceeded) {
-        if (state.saveSucceeded) onBackClick()
+    LaunchedEffect(state.editor.saveSucceeded) {
+        if (state.editor.saveSucceeded) onBackClick()
     }
     LaunchedEffect(viewModel) {
         viewModel.swapNavRequests.collect { onChooseEquipmentForLift(it) }
@@ -60,21 +60,8 @@ fun EquipmentIncrementsRoute(
     // Reuse the lift increments editor shell with equipment title/save.
     LiftIncrementsScreen(
         state =
-            LiftIncrementsUiState(
-                liftId = state.equipmentId,
-                liftName =
-                    state.equipmentName.ifBlank {
-                        stringResource(UiR.string.equipment_increments_title)
-                    },
-                tiers = state.tiers,
-                microStops = state.microStops,
-                validationMessage = state.validationMessage,
-                warnedTierIndexes = state.warnedTierIndexes,
-                isSaving = state.isSaving,
-                saveSucceeded = state.saveSucceeded,
-                inheritanceBanner = null,
-                showResetToEquipment = false,
-                unitLabel = state.unitLabel,
+            state.toLiftIncrementsUiState(
+                fallbackTitle = stringResource(UiR.string.equipment_increments_title),
             ),
         onBackClick = onBackClick,
         onTierLowerChanged = viewModel::onTierLowerChanged,
@@ -118,6 +105,23 @@ fun EquipmentIncrementsRoute(
         )
     }
 }
+
+/**
+ * Maps equipment editor state onto the shared increments shell. The shared
+ * [IncrementsEditorData] passes through untouched, so new shell fields flow
+ * without mapper edits; only equipment-specific presets (title, no lift
+ * banners) are applied here.
+ */
+internal fun EquipmentIncrementsUiState.toLiftIncrementsUiState(
+    fallbackTitle: String,
+): LiftIncrementsUiState =
+    LiftIncrementsUiState(
+        liftId = equipmentId,
+        liftName = equipmentName.ifBlank { fallbackTitle },
+        editor = editor,
+        inheritanceBanner = null,
+        showResetToEquipment = false,
+    )
 
 @Composable
 private fun AffectedLiftsSheet(

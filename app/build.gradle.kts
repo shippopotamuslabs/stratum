@@ -32,8 +32,8 @@ android {
         applicationId = "com.aether.stratum"
         minSdk = 34
         targetSdk = 37
-        versionCode = 64
-        versionName = "1.53"
+        versionCode = 65
+        versionName = "1.54"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
