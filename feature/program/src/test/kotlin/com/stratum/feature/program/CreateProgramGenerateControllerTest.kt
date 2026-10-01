@@ -14,6 +14,7 @@ import com.stratum.core.testing.telemetry.FakeAnalyticsPort
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.domain.logging.LogAnalyticsEventUseCase
 import com.stratum.domain.logging.LogErrorUseCase
+import com.stratum.domain.telemetry.SynthesisTelemetry
 import com.stratum.domain.logging.PARAM_ACTION
 import com.stratum.domain.logging.PARAM_SCREEN
 import com.stratum.domain.logging.USER_VISIBLE_ERROR_EVENT
@@ -66,6 +67,7 @@ class CreateProgramGenerateControllerTest {
                 onProgramGenerated = {},
                 logError = LogErrorUseCase(FakeLoggingPort()),
                 logAnalytics = LogAnalyticsEventUseCase(analytics),
+                synthesisTelemetry = SynthesisTelemetry(analytics::logEvent),
             )
 
         assertTrue(
