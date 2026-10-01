@@ -1,5 +1,6 @@
 package com.stratum.core.ui.component
 
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -21,6 +22,11 @@ fun StratumText(
     textAlign: TextAlign? = null,
     /** When set, overrides [muted] / primary (e.g. error copy on a keyboard). */
     color: Color? = null,
+    /**
+     * When set, the text shrinks to fit its bounds (e.g. long Prev labels in the set-log
+     * table). Font size stays at [style]'s size unless shrinking is needed.
+     */
+    autoSize: TextAutoSize? = null,
 ) {
     Text(
         text = text,
@@ -36,6 +42,7 @@ fun StratumText(
         maxLines = maxLines,
         overflow = overflow,
         textAlign = textAlign,
+        autoSize = autoSize,
     )
 }
 
