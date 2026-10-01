@@ -331,4 +331,52 @@ class WorkoutUiMapperTest {
         assertTrue(result.lifts[0].isPlateLoaded)
         assertFalse(result.lifts[0].isDoubleSided)
     }
+
+    @Test
+    @DisplayName("weighted Prev label drops the unit so decimal weights leave room for reps")
+    fun weightedPrevLabelOmitsUnit() {
+        val workout = RenderedWorkout(
+            workoutId = WorkoutId("w-1"),
+            workoutName = "Push Day",
+            lifts = listOf(
+                RenderedWorkoutLift(
+                    workoutLiftId = WorkoutLiftId("wl-1"),
+                    liftId = LiftId("l-1"),
+                    liftName = "Cable Incline Pushdown",
+                    progressionScheme = ProgressionScheme.Double,
+                    loadType = LoadType.Weighted,
+                    sets = listOf(
+                        RenderedSet(
+                            slotId = SetSlotId.Template(LiftSetId("ls-1")),
+                            workoutLiftId = WorkoutLiftId("wl-1"),
+                            liftId = LiftId("l-1"),
+                            position = 0,
+                            setType = SetType.Standard,
+                            isTopSet = true,
+                            repMin = 10,
+                            repMax = 15,
+                            rirGoal = 2,
+                            restSeconds = 90,
+                            recommendedWeight = Weight(47.5, Weight.WeightUnit.Lb),
+                            recommendedReps = 13,
+                            loggedValue = null,
+                            previousWeight = Weight(42.5, Weight.WeightUnit.Lb),
+                            previousReps = 13,
+                            previousRir = 2,
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        val result = WorkoutUiMapper.map(
+            rendered = workout,
+            sessionStartedAtEpochMilli = 1000L,
+            displayUnit = Weight.WeightUnit.Lb,
+        )
+        val set = result.lifts.single().sets.single()
+
+        assertEquals("42.5 × 13", set.previousWeightLabel)
+        assertEquals("2 RIR", set.previousRirLabel)
+    }
 }
