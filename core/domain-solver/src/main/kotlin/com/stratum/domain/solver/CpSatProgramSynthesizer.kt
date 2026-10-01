@@ -14,7 +14,6 @@ import com.stratum.domain.program.generation.context.withResolvedCycleSpace
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisException
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisPort
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisResult
-import com.stratum.domain.program.generation.synthesis.SolveStats
 import com.stratum.domain.program.generation.universe.buildSlotUniverse
 import com.stratum.domain.program.generation.synthesis.buildUnifiedSessionPlans
 import com.stratum.domain.program.generation.synthesis.materializeSynthesisResult
@@ -52,6 +51,13 @@ class CpSatProgramSynthesizer(
     private val logSearchProgress: Boolean = defaultLogSearchProgress(),
     private val useWarmStart: Boolean = defaultUseWarmStart(),
 ) : ProgramSynthesisPort {
+
+    /**
+     * Stats from the most recent [synthesize] call. Null before the first solve.
+     * Read by the worker for the STR-13 trace waterfall — not part of the domain result.
+     */
+    var lastSolveStats: SolveStats? = null
+        private set
 
     override suspend fun synthesize(
         weeklyTargets: WeeklyVolumeTargets,
@@ -137,7 +143,7 @@ class CpSatProgramSynthesizer(
 
         val solution = modelBuilder.readUnifiedSolution(solver, plans)
         val objective = modelBuilder.readObjective(solver)
-        val solveStats = SolveStats(
+        lastSolveStats = SolveStats(
             status = status.name,
             wallTimeSeconds = solver.wallTime(),
             objective = solver.objectiveValue(),
@@ -155,7 +161,7 @@ class CpSatProgramSynthesizer(
             numConflicts = solver.numConflicts(),
         )
         return materializeSynthesisResult(universe, solution)
-            .copy(objective = objective, solveStats = solveStats)
+            .copy(objective = objective)
     }
 
     /**

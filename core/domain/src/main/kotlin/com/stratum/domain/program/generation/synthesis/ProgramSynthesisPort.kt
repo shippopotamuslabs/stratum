@@ -20,32 +20,6 @@ data class ProgramSynthesisResult(
      * mapped from this list at materialize time (not structure).
      */
     val regionFilterBySession: List<SessionRegionFilter>,
-    /**
-     * CP-SAT solve statistics for trace logging (STR-13). Null when the result was not
-     * produced by a solver run (e.g. decoded from wire JSON). Not serialized to the
-     * client-facing result artifact — lives only on the Firestore job doc.
-     */
-    val solveStats: SolveStats? = null,
-)
-
-/**
- * Compact CP-SAT solve statistics for the per-job trace waterfall (STR-13).
- * Answers "did we find a good solution early and then only prove optimality?"
- * All wall times are seconds from solve start.
- */
-data class SolveStats(
-    val status: String,
-    val wallTimeSeconds: Double,
-    val objective: Double,
-    val bestBound: Double,
-    val relativeGap: Double,
-    val incumbentCount: Int,
-    val firstIncumbentAtSeconds: Double?,
-    val lastIncumbentAtSeconds: Double?,
-    val firstObjective: Double?,
-    val lastObjective: Double?,
-    val numBranches: Long,
-    val numConflicts: Long,
 )
 
 interface ProgramSynthesisPort {
