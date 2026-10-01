@@ -44,8 +44,8 @@ fun EquipmentIncrementsRoute(
         viewModel.initialize(equipmentId, sourceLiftId, initialTiersLb, proposalContext)
     }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    LaunchedEffect(state.saveSucceeded) {
-        if (state.saveSucceeded) onBackClick()
+    LaunchedEffect(state.editor.saveSucceeded) {
+        if (state.editor.saveSucceeded) onBackClick()
     }
     LaunchedEffect(viewModel) {
         viewModel.swapNavRequests.collect { onChooseEquipmentForLift(it) }
@@ -107,9 +107,10 @@ fun EquipmentIncrementsRoute(
 }
 
 /**
- * Maps equipment editor state onto the shared increments shell. Forwards the
- * AI scan gate and request state so the shell's scan entry appears whenever
- * the launch flag allows it.
+ * Maps equipment editor state onto the shared increments shell. The shared
+ * [IncrementsEditorData] passes through untouched, so new shell fields flow
+ * without mapper edits; only equipment-specific presets (title, no lift
+ * banners) are applied here.
  */
 internal fun EquipmentIncrementsUiState.toLiftIncrementsUiState(
     fallbackTitle: String,
@@ -117,17 +118,9 @@ internal fun EquipmentIncrementsUiState.toLiftIncrementsUiState(
     LiftIncrementsUiState(
         liftId = equipmentId,
         liftName = equipmentName.ifBlank { fallbackTitle },
-        tiers = tiers,
-        microStops = microStops,
-        validationMessage = validationMessage,
-        warnedTierIndexes = warnedTierIndexes,
-        isSaving = isSaving,
-        saveSucceeded = saveSucceeded,
+        editor = editor,
         inheritanceBanner = null,
         showResetToEquipment = false,
-        unitLabel = unitLabel,
-        scanAvailable = scanAvailable,
-        scanUi = scanUi,
     )
 
 @Composable
