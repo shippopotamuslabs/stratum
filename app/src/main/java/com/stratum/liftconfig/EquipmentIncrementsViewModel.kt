@@ -45,35 +45,14 @@ import kotlinx.coroutines.launch
 data class EquipmentIncrementsUiState(
     val equipmentId: String = "",
     val equipmentName: String = "",
-    val tiers: List<IncrementTierDraft> = emptyList(),
-    /** Adder stop drafts (display-unit strings); empty = no adder. */
-    val microStops: List<String> = emptyList(),
-    val validationMessage: String? = null,
-    /**
-     * Band indexes whose steps miss a proposal's logged sample weights (yellow,
-     * non-blocking — saving stays allowed). Empty for all non-proposal entry points.
-     */
-    val warnedTierIndexes: Set<Int> = emptySet(),
-    val isSaving: Boolean = false,
-    val saveSucceeded: Boolean = false,
+    /** Shared editor content; see [IncrementsEditorData]. */
+    val editor: IncrementsEditorData = IncrementsEditorData(),
     /** Lifts inheriting this equipment's defaults (includes disabled). */
     val affectedLiftCount: Int = 0,
     /** Names of affected lifts, sorted; UI shows first 3 + "+M more". */
     val affectedLiftNames: List<String> = emptyList(),
-    /** Short unit label for field chrome (`lb` / `kg`) from Settings. */
-    val unitLabel: String = "lb",
     /** Lifts inheriting these defaults (id + display name + enabled for the sheet). */
     val affectedLifts: List<AffectedLiftUi> = emptyList(),
-    /**
-     * Launch-flag gate for the AI scan prefill. PR-5 wires state only — no
-     * composable reads these yet, so the scan entry stays hidden.
-     */
-    val scanAvailable: Boolean = false,
-    /**
-     * Sealed scan request state (idle, in flight, failed, scanned). User-visible
-     * text mapping happens at the composable boundary (PR-6 owns strings.xml).
-     */
-    val scanUi: IncrementScanState = IncrementScanState.Idle,
 )
 
 /** Presentation row for the affected-lifts sheet (domain stays out of composables). */
@@ -407,7 +386,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
         // combine cycle): back-to-back edits and save observe the same value.
         val domainMicro =
             validatedDraftMicro(
-                drafts.value?.microStops ?: uiState.value.microStops,
+                drafts.value?.microStops ?: uiState.value.editor.microStops,
                 domainTiers,
                 displayUnit.value,
             ) ?: return
@@ -438,7 +417,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
         // the edited stops ride onto the copy (never silently dropped).
         val domainMicro =
             validatedDraftMicro(
-                drafts.value?.microStops ?: uiState.value.microStops,
+                drafts.value?.microStops ?: uiState.value.editor.microStops,
                 domainTiers,
                 displayUnit.value,
             ) ?: return
@@ -473,7 +452,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
 
     private fun validatedDraftTiers(): List<IncrementTier>? {
         val domainTiers =
-            IncrementTierDraftOps.toDomainOrNull(uiState.value.tiers, displayUnit.value)
+            IncrementTierDraftOps.toDomainOrNull(uiState.value.editor.tiers, displayUnit.value)
         if (domainTiers == null) {
             validationOverride.value = "Enter valid numbers for all bands"
             return null
@@ -563,12 +542,19 @@ class EquipmentIncrementsViewModel @Inject constructor(
         return EquipmentIncrementsUiState(
             equipmentId = id.orEmpty(),
             equipmentName = equipment?.name.orEmpty(),
-            tiers = tiers,
-            microStops = microStops,
-            validationMessage = validation ?: liveValidationMessage(tiers, microStops, unit),
-            warnedTierIndexes = warnedTierIndexes,
-            isSaving = saving,
-            saveSucceeded = saved,
+            editor =
+                IncrementsEditorData(
+                    tiers = tiers,
+                    microStops = microStops,
+                    validationMessage =
+                        validation ?: liveValidationMessage(tiers, microStops, unit),
+                    warnedTierIndexes = warnedTierIndexes,
+                    isSaving = saving,
+                    saveSucceeded = saved,
+                    unitLabel = unit.shortLabel(),
+                    scanAvailable = scan.available,
+                    scanUi = scan.state,
+                ),
             affectedLiftCount = affected.count,
             affectedLiftNames = affected.lifts.map { it.name },
             affectedLifts =
@@ -579,9 +565,6 @@ class EquipmentIncrementsViewModel @Inject constructor(
                         enabled = lift.enabled,
                     )
                 },
-            unitLabel = unit.shortLabel(),
-            scanAvailable = scan.available,
-            scanUi = scan.state,
         )
     }
 
@@ -589,7 +572,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
         // Read-modify-write on the source flow (not the derived uiState, which lags
         // a combine cycle): back-to-back edits can never overwrite each other.
         drafts.update { current ->
-            val tiers = transform(current?.tiers ?: uiState.value.tiers)
+            val tiers = transform(current?.tiers ?: uiState.value.editor.tiers)
             (current ?: EditorDrafts(null, null)).copy(tiers = tiers)
         }
         validationOverride.value = null
@@ -600,7 +583,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
         // Same source-flow discipline as [updateDraft]: the derived uiState list
         // lags recombine, so rapid edits must chain on drafts.value instead.
         drafts.update { current ->
-            val stops = transform(current?.microStops ?: uiState.value.microStops)
+            val stops = transform(current?.microStops ?: uiState.value.editor.microStops)
             (current ?: EditorDrafts(null, null)).copy(microStops = stops)
         }
         validationOverride.value = null

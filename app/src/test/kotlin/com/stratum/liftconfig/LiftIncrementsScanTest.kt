@@ -130,18 +130,18 @@ class LiftIncrementsScanTest {
 
         subject.uiState.test {
             val state =
-                awaitItemWith { it.liftName == "Lat pulldown" && it.tiers.isNotEmpty() }
-            assertFalse(state.scanAvailable)
-            assertEquals(IncrementScanState.Idle, state.scanUi)
+                awaitItemWith { it.liftName == "Lat pulldown" && it.editor.tiers.isNotEmpty() }
+            assertFalse(state.editor.scanAvailable)
+            assertEquals(IncrementScanState.Idle, state.editor.scanUi)
             subject.scan(photo)
             runCurrent()
             // Gated scans return before touching the port, so drafts cannot move.
             assertTrue(fakeScanPort.calls.isEmpty())
             assertEquals(
                 listOf(IncrementTierDraft("0", null, "5", openEnded = true)),
-                subject.uiState.value.tiers,
+                subject.uiState.value.editor.tiers,
             )
-            assertEquals(IncrementScanState.Idle, subject.uiState.value.scanUi)
+            assertEquals(IncrementScanState.Idle, subject.uiState.value.editor.scanUi)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -165,23 +165,23 @@ class LiftIncrementsScanTest {
         advanceUntilIdle()
 
         subject.uiState.test {
-            awaitItemWith { it.scanAvailable && it.tiers.isNotEmpty() }
+            awaitItemWith { it.editor.scanAvailable && it.editor.tiers.isNotEmpty() }
             subject.scan(photo)
             // The drafts write and the terminal scan state arrive on separate
             // combine paths, so await the item carrying both.
             val scanned =
                 awaitItemWith {
-                    it.tiers.any { tier -> tier.increment == "2.5" } &&
-                        it.scanUi is IncrementScanState.Scanned
+                    it.editor.tiers.any { tier -> tier.increment == "2.5" } &&
+                        it.editor.scanUi is IncrementScanState.Scanned
                 }
             assertEquals(
                 listOf(
                     IncrementTierDraft("0", "40", "2.5", openEnded = false),
                     IncrementTierDraft("40", null, "5", openEnded = true),
                 ),
-                scanned.tiers,
+                scanned.editor.tiers,
             )
-            assertEquals(listOf("2.5"), scanned.microStops)
+            assertEquals(listOf("2.5"), scanned.editor.microStops)
             cancelAndIgnoreRemainingEvents()
         }
 
@@ -201,12 +201,12 @@ class LiftIncrementsScanTest {
         advanceUntilIdle()
 
         subject.uiState.test {
-            awaitItemWith { it.scanAvailable && it.tiers.isNotEmpty() }
+            awaitItemWith { it.editor.scanAvailable && it.editor.tiers.isNotEmpty() }
             subject.scan(photo)
-            val failed = awaitItemWith { it.scanUi is IncrementScanState.Failed }
+            val failed = awaitItemWith { it.editor.scanUi is IncrementScanState.Failed }
             assertEquals(
                 listOf(IncrementTierDraft("0", null, "5", openEnded = true)),
-                failed.tiers,
+                failed.editor.tiers,
             )
             cancelAndIgnoreRemainingEvents()
         }
@@ -232,13 +232,13 @@ class LiftIncrementsScanTest {
         gatedSubject.initialize(latId.value)
 
         gatedSubject.uiState.test {
-            awaitItemWith { it.liftName == "Lat pulldown" && it.scanAvailable }
+            awaitItemWith { it.liftName == "Lat pulldown" && it.editor.scanAvailable }
             gatedSubject.scan(photo)
-            awaitItemWith { it.scanUi is IncrementScanState.Scanning }
+            awaitItemWith { it.editor.scanUi is IncrementScanState.Scanning }
             // Switch lifts mid-scan: the stale completion must not prefill the new lift.
             gatedSubject.initialize(rowId.value)
             awaitItemWith {
-                it.liftName == "Cable row" && it.scanUi is IncrementScanState.Idle
+                it.liftName == "Cable row" && it.editor.scanUi is IncrementScanState.Idle
             }
             gate.complete(
                 Result.success(
@@ -257,10 +257,10 @@ class LiftIncrementsScanTest {
         assertEquals(rowId.value, final.liftId)
         assertEquals(
             listOf(IncrementTierDraft("0", null, "10", openEnded = true)),
-            final.tiers,
+            final.editor.tiers,
         )
-        assertEquals(emptyList<String>(), final.microStops)
-        assertEquals(IncrementScanState.Idle, final.scanUi)
+        assertEquals(emptyList<String>(), final.editor.microStops)
+        assertEquals(IncrementScanState.Idle, final.editor.scanUi)
     }
 
     private fun lift(id: LiftId, name: String, tiers: List<IncrementTier>) =

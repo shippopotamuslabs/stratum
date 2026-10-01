@@ -147,7 +147,7 @@ class EquipmentIncrementsViewModelTest {
                 listOf("Cable crunch", "Cable row", "Lat pulldown", "Tricep pushdown"),
                 state.affectedLiftNames,
             )
-            assertTrue(state.tiers.isNotEmpty())
+            assertTrue(state.editor.tiers.isNotEmpty())
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -177,10 +177,10 @@ class EquipmentIncrementsViewModelTest {
     fun saveAsNewForksEditsAndReassignsSourceLift() = runTest {
         subject.initialize(cableId.value, "lat-pulldown")
         subject.uiState.test {
-            awaitItemWith { it.equipmentName == "Cables" && it.tiers.isNotEmpty() }
+            awaitItemWith { it.equipmentName == "Cables" && it.editor.tiers.isNotEmpty() }
             subject.onTierIncrementChanged(0, "10")
             subject.saveAsNew()
-            assertTrue(awaitItemWith { it.saveSucceeded }.saveSucceeded)
+            assertTrue(awaitItemWith { it.editor.saveSucceeded }.editor.saveSucceeded)
             cancelAndIgnoreRemainingEvents()
         }
 
@@ -203,10 +203,10 @@ class EquipmentIncrementsViewModelTest {
     fun saveAsNewForksEditedMicroStops() = runTest {
         subject.initialize(cableId.value)
         subject.uiState.test {
-            awaitItemWith { it.equipmentName == "Cables" && it.tiers.isNotEmpty() }
+            awaitItemWith { it.equipmentName == "Cables" && it.editor.tiers.isNotEmpty() }
             subject.onAddMicro()
             subject.saveAsNew()
-            assertTrue(awaitItemWith { it.saveSucceeded }.saveSucceeded)
+            assertTrue(awaitItemWith { it.editor.saveSucceeded }.editor.saveSucceeded)
             cancelAndIgnoreRemainingEvents()
         }
 
@@ -219,12 +219,12 @@ class EquipmentIncrementsViewModelTest {
     fun backToBackMicroEditsChainOnSourceFlow() = runTest {
         subject.initialize(cableId.value)
         subject.uiState.test {
-            awaitItemWith { it.equipmentName == "Cables" && it.tiers.isNotEmpty() }
+            awaitItemWith { it.equipmentName == "Cables" && it.editor.tiers.isNotEmpty() }
             subject.onAddMicro()
             subject.onAddMicro()
             assertEquals(
                 listOf("5", "5"),
-                awaitItemWith { it.microStops.size == 2 }.microStops,
+                awaitItemWith { it.editor.microStops.size == 2 }.editor.microStops,
             )
             cancelAndIgnoreRemainingEvents()
         }
@@ -235,7 +235,7 @@ class EquipmentIncrementsViewModelTest {
     fun backToBackMicroEditsBothPersistOnSave() = runTest {
         subject.initialize(cableId.value)
         subject.uiState.test {
-            awaitItemWith { it.equipmentName == "Cables" && it.tiers.isNotEmpty() }
+            awaitItemWith { it.equipmentName == "Cables" && it.editor.tiers.isNotEmpty() }
             // No suspension between edits: save must validate the draft stops, not
             // the derived uiState list which lags writes by at least one emission.
             subject.onAddMicro()
@@ -243,7 +243,7 @@ class EquipmentIncrementsViewModelTest {
             subject.onAddMicro()
             subject.onMicroChanged(1, "2.5")
             subject.save()
-            assertTrue(awaitItemWith { it.saveSucceeded }.saveSucceeded)
+            assertTrue(awaitItemWith { it.editor.saveSucceeded }.editor.saveSucceeded)
             cancelAndIgnoreRemainingEvents()
         }
 
@@ -259,9 +259,9 @@ class EquipmentIncrementsViewModelTest {
     fun saveAsNewWithoutSourceLiftLeavesLifts() = runTest {
         subject.initialize(cableId.value)
         subject.uiState.test {
-            awaitItemWith { it.equipmentName == "Cables" && it.tiers.isNotEmpty() }
+            awaitItemWith { it.equipmentName == "Cables" && it.editor.tiers.isNotEmpty() }
             subject.saveAsNew()
-            assertTrue(awaitItemWith { it.saveSucceeded }.saveSucceeded)
+            assertTrue(awaitItemWith { it.editor.saveSucceeded }.editor.saveSucceeded)
             cancelAndIgnoreRemainingEvents()
         }
 
@@ -356,23 +356,23 @@ class EquipmentIncrementsViewModelTest {
             val prefilled =
                 awaitItemWith {
                     it.equipmentName == "Cables" &&
-                        it.tiers.any { tier -> tier.increment == "2.5" }
+                        it.editor.tiers.any { tier -> tier.increment == "2.5" }
                 }
             assertEquals(
                 listOf(
                     IncrementTierDraft("0", "40", "2.5", openEnded = false),
                     IncrementTierDraft("40", null, "5", openEnded = true),
                 ),
-                prefilled.tiers,
+                prefilled.editor.tiers,
             )
-            assertEquals(null, prefilled.validationMessage)
+            assertEquals(null, prefilled.editor.validationMessage)
             // Prefill is display-only until the user saves.
             assertEquals(
                 openFive,
                 fakeEquipmentRepository.getEquipment(cableId)!!.incrementTiers,
             )
             subject.save()
-            assertTrue(awaitItemWith { it.saveSucceeded }.saveSucceeded)
+            assertTrue(awaitItemWith { it.editor.saveSucceeded }.editor.saveSucceeded)
             cancelAndIgnoreRemainingEvents()
         }
 
@@ -401,10 +401,10 @@ class EquipmentIncrementsViewModelTest {
             ),
         )
         subject.uiState.test {
-            awaitItemWith { it.tiers.any { tier -> tier.increment == "2.5" } }
+            awaitItemWith { it.editor.tiers.any { tier -> tier.increment == "2.5" } }
             assertTrue(fakeProposalPrefs.dismissedFingerprints.isEmpty())
             subject.save()
-            assertTrue(awaitItemWith { it.saveSucceeded }.saveSucceeded)
+            assertTrue(awaitItemWith { it.editor.saveSucceeded }.editor.saveSucceeded)
             cancelAndIgnoreRemainingEvents()
         }
 
@@ -427,10 +427,10 @@ class EquipmentIncrementsViewModelTest {
             // Catalog 0+ @ 5 misses 62.5 → band 0 warns; saving stays allowed.
             val state =
                 awaitItemWith {
-                    it.equipmentName == "Cables" && it.warnedTierIndexes.isNotEmpty()
+                    it.equipmentName == "Cables" && it.editor.warnedTierIndexes.isNotEmpty()
                 }
-            assertEquals(setOf(0), state.warnedTierIndexes)
-            assertEquals(null, state.validationMessage)
+            assertEquals(setOf(0), state.editor.warnedTierIndexes)
+            assertEquals(null, state.editor.validationMessage)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -441,8 +441,8 @@ class EquipmentIncrementsViewModelTest {
         subject.initialize(cableId.value)
         advanceUntilIdle()
         subject.uiState.test {
-            val state = awaitItemWith { it.tiers.isNotEmpty() }
-            assertTrue(state.warnedTierIndexes.isEmpty())
+            val state = awaitItemWith { it.editor.tiers.isNotEmpty() }
+            assertTrue(state.editor.warnedTierIndexes.isEmpty())
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -455,8 +455,8 @@ class EquipmentIncrementsViewModelTest {
         advanceUntilIdle()
 
         subject.uiState.test {
-            val state = awaitItemWith { it.equipmentName == "Pin" && it.microStops.isNotEmpty() }
-            assertEquals(listOf("5", "10"), state.microStops)
+            val state = awaitItemWith { it.equipmentName == "Pin" && it.editor.microStops.isNotEmpty() }
+            assertEquals(listOf("5", "10"), state.editor.microStops)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -467,11 +467,11 @@ class EquipmentIncrementsViewModelTest {
         seedPin()
         subject.initialize(pinId.value)
         subject.uiState.test {
-            awaitItemWith { it.equipmentName == "Pin" && it.microStops.isNotEmpty() }
+            awaitItemWith { it.equipmentName == "Pin" && it.editor.microStops.isNotEmpty() }
             subject.onMicroChanged(0, "7.5")
             subject.onRemoveMicro(1)
             subject.save()
-            assertTrue(awaitItemWith { it.saveSucceeded }.saveSucceeded)
+            assertTrue(awaitItemWith { it.editor.saveSucceeded }.editor.saveSucceeded)
             cancelAndIgnoreRemainingEvents()
         }
 
@@ -487,12 +487,12 @@ class EquipmentIncrementsViewModelTest {
         seedPin()
         subject.initialize(pinId.value)
         subject.uiState.test {
-            awaitItemWith { it.equipmentName == "Pin" && it.microStops.isNotEmpty() }
+            awaitItemWith { it.equipmentName == "Pin" && it.editor.microStops.isNotEmpty() }
             subject.onMicroChanged(0, "20")
             subject.save()
-            val state = awaitItemWith { it.validationMessage != null }
-            assertTrue(state.validationMessage!!.contains("largest band step"))
-            assertFalse(state.saveSucceeded)
+            val state = awaitItemWith { it.editor.validationMessage != null }
+            assertTrue(state.editor.validationMessage!!.contains("largest band step"))
+            assertFalse(state.editor.saveSucceeded)
             cancelAndIgnoreRemainingEvents()
         }
 
@@ -507,9 +507,9 @@ class EquipmentIncrementsViewModelTest {
     fun emptyMicroSavesAsNoAdder() = runTest {
         subject.initialize(cableId.value)
         subject.uiState.test {
-            awaitItemWith { it.equipmentName == "Cables" && it.tiers.isNotEmpty() }
+            awaitItemWith { it.equipmentName == "Cables" && it.editor.tiers.isNotEmpty() }
             subject.save()
-            assertTrue(awaitItemWith { it.saveSucceeded }.saveSucceeded)
+            assertTrue(awaitItemWith { it.editor.saveSucceeded }.editor.saveSucceeded)
             cancelAndIgnoreRemainingEvents()
         }
 
