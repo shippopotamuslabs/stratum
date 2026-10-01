@@ -164,6 +164,18 @@ program synthesis is deterministic domain logic, but the solver **runs server-si
 - Play / Firebase Android package is **`com.aether.stratum`** — keep `applicationId` and Console configs in sync when either changes.
 - Prefer local-first storage; cloud sync only when explicitly designed and requested.
 
+### 4.8 Linear Issue Tracking — Chunk-Based Trunk Workflow
+
+Single source of truth for work items is the Linear **Stratum** team (key `STR`), not GitLab issues.
+
+- **Chunk-based development:** one parent issue per feature; each chunk of work is a **sub-issue**; **one MR per sub-issue** — never batch multiple chunks into one MR.
+- **Branch naming:** copy the git branch name from the Linear sub-issue (it contains the issue ID, e.g. `str-12-short-slug`) — this auto-links the branch.
+- **Every MR description MUST contain a closing magic word + the sub-issue ID**, e.g. `Fixes STR-12`. On merge, Linear moves the sub-issue to Done; when all sub-issues are done the parent auto-moves to **Deployed**.
+- To link without auto-closing on merge, use `Refs STR-12` or `Contributes to STR-12`.
+- Commit messages and MR comments do **not** link issues — only branch name, MR title, and MR description.
+- **Deploy vs release:** `Deployed` = merged to main (trunk). `Partially Deployed` = feature flag partially rolled out. `Released` = flag at 100% / flag removed / code wired up. Rollout-state moves are manual (developer flips the flag, then updates Linear or asks the agent to) — Firebase Remote Config has no webhooks.
+- Never close the parent manually while sub-issues are open.
+
 ---
 
 ## 5. Scoped Commands
