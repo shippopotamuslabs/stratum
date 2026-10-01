@@ -9,7 +9,7 @@
 # Or via Cloud Build from a staging dir that preserves the same layout:
 #   solver-service/build/libs/solver-service-all.jar + this Dockerfile at root.
 
-FROM eclipse-temurin:17-jre-jammy
+FROM eclipse-temurin:25-jre-jammy
 
 # OR-Tools JNI uses OpenMP (libgomp).
 RUN apt-get update \
