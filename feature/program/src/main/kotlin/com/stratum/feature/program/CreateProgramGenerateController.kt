@@ -191,6 +191,11 @@ internal class CreateProgramGenerateController(
                         return@launch
                     }
                 onProgramGenerated(program)
+                // STR-13 trace: program handed to the editor for rendering.
+                logAnalytics(
+                    EVENT_SYNTHESIS_RENDERED,
+                    mapOf(PARAM_SCREEN to "create_program", PARAM_ACTION to "program_rendered"),
+                )
             }
     }
 
@@ -242,6 +247,9 @@ internal class CreateProgramGenerateController(
 
     companion object {
         private const val GENERATE_LOG_TAG = "CreateProgramGenerate"
+
+        /** STR-13 trace event: program handed to the editor for rendering. */
+        private const val EVENT_SYNTHESIS_RENDERED = "synthesis_rendered"
 
         fun muscleFromLabel(label: String): MuscleGroup? =
             MuscleGroup.entries.firstOrNull { muscle -> muscle.displayLabel == label }
