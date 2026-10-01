@@ -161,12 +161,14 @@ fun StratumWorkoutLogSetRow(
 
             Box(modifier = Modifier.weight(weights.prev), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    // Decimal weights (e.g. `42.5 × 13`) can overflow this narrow column;
+                    // shrink-to-fit keeps the rep count visible instead of clipping it.
                     StratumText(
                         text = set.previousLabel,
-                        style = StratumThemeAccessor.typography.bodyLarge,
                         muted = true,
                         textAlign = TextAlign.Center,
                         maxLines = 1,
+                        shrinkToFit = true,
                     )
                     val previousRirLabel = set.previousRirLabel
                     if (previousRirLabel != null) {

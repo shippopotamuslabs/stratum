@@ -240,7 +240,9 @@ internal object WorkoutUiMapper {
         is SetSlotId.Overlay -> slotId.instanceId.value
     }
 
-    /** Prev column: bodyweight is reps-only; weighted/assisted keep `weight × reps`. */
+    /** Prev column: bodyweight is reps-only; weighted/assisted keep `weight × reps`.
+     * The unit is dropped (Weight column shows bare numbers too) so decimal weights like
+     * `42.5` leave room for the rep count in the narrow Prev column. */
     private fun previousPerformanceLabel(
         previousWeight: Weight?,
         previousReps: Int?,
@@ -258,7 +260,7 @@ internal object WorkoutUiMapper {
                 weight = weight,
                 displayUnit = displayUnit,
                 assistMode = assistMode,
-                includeUnit = true,
+                includeUnit = false,
             )
         return "$displayWeight × $repsLabel"
     }
