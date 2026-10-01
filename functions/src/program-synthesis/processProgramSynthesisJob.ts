@@ -2,6 +2,11 @@ import { FieldValue, type DocumentReference, getFirestore } from "firebase-admin
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import { GoogleAuth } from "google-auth-library";
 import { isFirestoreNotFound } from "../import/safeJobUpdate";
+import {
+  TRACE_DISPATCHER_POST_SENT,
+  TRACE_DISPATCHER_TRIGGER,
+  type TraceField,
+} from "./synthesisTrace";
 
 /**
  * Env var: base URL of the JVM Cloud Run solver service
@@ -118,26 +123,17 @@ export async function dispatchSynthesisJobToSolver(opts: {
 }
 
 /**
- * Trace field names for the per-job `trace` map (STR-13).
- */
-export const TRACE_DISPATCHER_TRIGGER = "trace.dispatcherTrigger";
-export const TRACE_DISPATCHER_POST_SENT = "trace.dispatcherPostSent";
-
-/**
  * Record a dispatcher handoff timestamp on the job doc. Uses dot-notation update
  * so only the trace field is touched. Safe from trigger loops: the onDocumentWritten
  * handler ignores writes where status was already "pending".
+ *
+ * Fire-and-forget: returns void, never blocks the dispatch path. Failures are logged.
  */
-export async function recordDispatcherTrace(
-  jobRef: DocumentReference,
-  field: string,
-): Promise<void> {
-  try {
-    await jobRef.update({ [field]: FieldValue.serverTimestamp() });
-  } catch (err) {
+export function recordDispatcherTrace(jobRef: DocumentReference, field: TraceField): void {
+  jobRef.update({ [field]: FieldValue.serverTimestamp() }).catch((err) => {
     // Trace writes are best-effort; never fail the dispatch over them.
     console.warn(`recordDispatcherTrace failed for ${field}: ${err}`);
-  }
+  });
 }
 
 /**
@@ -217,7 +213,8 @@ export const processProgramSynthesisJob = onDocumentWritten(
     const jobRef = getFirestore().doc(`users/${uid}/synthesisJobs/${jobId}`);
 
     // STR-13 trace: mark when the dispatcher trigger received the job.
-    await recordDispatcherTrace(jobRef, TRACE_DISPATCHER_TRIGGER);
+    // Fire-and-forget: does not block the solver POST.
+    recordDispatcherTrace(jobRef, TRACE_DISPATCHER_TRIGGER);
 
     const baseUrl = resolveSolverServiceUrl();
     if (!baseUrl) {
@@ -231,7 +228,8 @@ export const processProgramSynthesisJob = onDocumentWritten(
 
     try {
       // STR-13 trace: mark immediately before POSTing to the solver.
-      await recordDispatcherTrace(jobRef, TRACE_DISPATCHER_POST_SENT);
+      // Fire-and-forget: does not add round-trips to dispatch latency.
+      recordDispatcherTrace(jobRef, TRACE_DISPATCHER_POST_SENT);
       const result = await dispatchSynthesisJobToSolver({
         baseUrl,
         body: { uid, jobId },

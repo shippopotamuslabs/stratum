@@ -1,8 +1,13 @@
 import { getStorage } from "firebase-admin/storage";
-import { FieldValue, Timestamp, getFirestore } from "firebase-admin/firestore";
+import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { isSynthesisJobStale } from "./synthesisJobGuards";
 import { assertUserEntitled } from "../entitlement/assertEntitled";
+import {
+  clientStartMsToTimestamp,
+  dispatcherTraceDeletions,
+  initialTraceMap,
+} from "./synthesisTrace";
 import {
   MAX_REQUEST_BYTES,
   MAX_SYNTHESIS_PER_MONTH,
@@ -33,26 +38,6 @@ export function isValidSynthesisRequestStoragePath(
   }
   const expected = `synthesis/${uid}/${jobId}/request.json`;
   return requestStoragePath === expected;
-}
-
-/**
- * Trace field names for the per-job `trace` map on the synthesis job doc.
- * Permanent, low-cost server timestamps marking each pipeline handoff.
- */
-export const TRACE_CLIENT_START = "trace.clientStart";
-export const TRACE_JOB_CREATED = "trace.jobCreated";
-
-/**
- * Convert a client epoch-millis timestamp to a Firestore Timestamp.
- * Returns null when the input is not a finite positive number.
- */
-export function clientStartMsToTimestamp(clientStartMs: unknown): Timestamp | null {
-  if (typeof clientStartMs !== "number" || !Number.isFinite(clientStartMs) || clientStartMs <= 0) {
-    return null;
-  }
-  const seconds = Math.floor(clientStartMs / 1000);
-  const nanos = Math.round((clientStartMs - seconds * 1000) * 1_000_000);
-  return new Timestamp(seconds, nanos);
 }
 
 class AdmissionError extends Error {
@@ -215,9 +200,11 @@ export const startProgramSynthesis = onCall(async (request) => {
           quotaCounted: false,
           // Per-job trace waterfall (STR-13): permanent, low-cost handoff timestamps.
           // clientStart is the app's tap/upload-done epoch ms; falls back to server time.
+          // Dispatcher fields are explicitly cleared: merge:true deep-merges nested maps,
+          // so stale dispatcherTrigger/dispatcherPostSent from a reused jobId must not survive.
           trace: {
-            clientStart: clientStart ?? FieldValue.serverTimestamp(),
-            jobCreated: FieldValue.serverTimestamp(),
+            ...initialTraceMap(clientStart),
+            ...dispatcherTraceDeletions(),
           },
         },
         { merge: true },
