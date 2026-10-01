@@ -87,7 +87,7 @@ stages:
 # Shared setup for every Android job: Firebase config + SDK licenses.
 .android-job:
   image:
-    name: ghcr.io/cirruslabs/android-sdk:34
+    name: ghcr.io/cirruslabs/android-sdk:36
     # The job image is pre-baked into the worker image (see gcp/bake-builder.sh):
     # skip the re-pull on every job — faster cold starts, less egress.
     pull_policy: if-not-present
