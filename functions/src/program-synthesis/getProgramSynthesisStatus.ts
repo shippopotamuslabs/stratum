@@ -27,5 +27,7 @@ export const getProgramSynthesisStatus = onCall(async (request) => {
     progressMessage: job.progressMessage ?? null,
     resultStoragePath: (job.resultStoragePath as string | undefined) ?? null,
     errorMessage: job.errorMessage ?? null,
+    // STR-13 trace waterfall: per-job handoff timestamps for latency analysis.
+    trace: (job.trace as Record<string, unknown> | undefined) ?? null,
   };
 });
