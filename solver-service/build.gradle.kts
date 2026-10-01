@@ -36,7 +36,7 @@ dependencies {
     // dependencies; the httpcomponents pins are direct version constraints.
     implementation(platform("io.netty:netty-bom:4.2.18.Final"))
     implementation(platform("com.fasterxml.jackson:jackson-bom:2.22.3"))
-    implementation(platform("io.opentelemetry:opentelemetry-bom:1.62.0"))
+    implementation(platform("io.opentelemetry:opentelemetry-bom:1.66.0"))
     constraints {
         implementation("org.apache.httpcomponents.client5:httpclient5:5.6.4")
         implementation("org.apache.httpcomponents.core5:httpcore5:5.4.4")
