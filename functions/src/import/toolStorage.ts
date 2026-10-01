@@ -1,5 +1,5 @@
 import type { Bucket } from "@google-cloud/storage";
-import * as admin from "firebase-admin";
+import { getStorage } from "firebase-admin/storage";
 
 export interface ToolStorage {
   save(path: string, content: string | Buffer, contentType?: string): Promise<void>;
@@ -8,7 +8,7 @@ export interface ToolStorage {
 }
 
 export function createAdminToolStorage(): ToolStorage {
-  const bucket = admin.storage().bucket();
+  const bucket = getStorage().bucket();
   return {
     async save(path, content, contentType) {
       await bucket.file(path).save(content, contentType ? { contentType } : undefined);

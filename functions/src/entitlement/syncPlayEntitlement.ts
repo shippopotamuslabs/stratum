@@ -4,9 +4,8 @@
  * Does not store the raw purchase token — only a SHA-256 fingerprint.
  * RTDN is future; this callable is the restore / post-purchase sync path.
  */
-import * as admin from "firebase-admin";
 import { createHash } from "node:crypto";
-import { FieldValue } from "firebase-admin/firestore";
+import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import {
   PLAY_ENTITLEMENT_DOC_ID,
@@ -95,7 +94,7 @@ export const syncPlayEntitlement = onCall(async (request) => {
   const nowMs = Date.now();
   const fields = playEntitlementWriteData(snapshot, hashPurchaseToken(purchaseToken), nowMs);
   // RTDN is future; this Admin write is the current Play snapshot (no raw purchase token).
-  await admin.firestore().doc(entitlementDocPath(uid, PLAY_ENTITLEMENT_DOC_ID)).set({
+  await getFirestore().doc(entitlementDocPath(uid, PLAY_ENTITLEMENT_DOC_ID)).set({
     ...fields,
     updatedAt: FieldValue.serverTimestamp(),
   });

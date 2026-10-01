@@ -1,5 +1,4 @@
-import * as admin from "firebase-admin";
-import { FieldValue } from "firebase-admin/firestore";
+import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import { runImportAgentSession } from "./ImportAgentSession";
 import { createAdminToolStorage } from "./toolStorage";
@@ -39,12 +38,12 @@ export const processImportJob = onDocumentWritten(
 
     const uid = event.params.uid;
     const jobId = event.params.jobId;
-    const jobRef = admin.firestore().doc(`users/${uid}/importJobs/${jobId}`);
+    const jobRef = getFirestore().doc(`users/${uid}/importJobs/${jobId}`);
     const storage = createAdminToolStorage();
 
     // Claim promptly so a hard timeout leaves a timestamped `agent_running` doc that startImport
     // can stale-out. Deterministic and agent paths both run under this in-flight status.
-    const claimed = await admin.firestore().runTransaction(async (tx) => {
+    const claimed = await getFirestore().runTransaction(async (tx) => {
       const snap = await tx.get(jobRef);
       if (!snap.exists || snap.data()?.status !== "pending_agent") {
         return false;

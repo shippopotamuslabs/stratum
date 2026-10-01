@@ -1,5 +1,5 @@
-import * as admin from "firebase-admin";
-import { FieldValue } from "firebase-admin/firestore";
+import { getStorage } from "firebase-admin/storage";
+import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { isSynthesisJobStale } from "./synthesisJobGuards";
 import { assertUserEntitled } from "../entitlement/assertEntitled";
@@ -82,7 +82,7 @@ export const startProgramSynthesis = onCall(async (request) => {
 
   // Enforce size before spending quota (Storage rules also cap; this is defense in depth).
   try {
-    const [meta] = await admin.storage().bucket().file(data.requestStoragePath).getMetadata();
+    const [meta] = await getStorage().bucket().file(data.requestStoragePath).getMetadata();
     const size = Number(meta.size ?? 0);
     if (!Number.isFinite(size) || size <= 0) {
       throw new HttpsError("invalid-argument", "Request object is missing or empty.");
@@ -104,7 +104,7 @@ export const startProgramSynthesis = onCall(async (request) => {
     );
   }
 
-  const db = admin.firestore();
+  const db = getFirestore();
   const monthKey = utcMonthKey();
   const quotaRef = db.doc(synthesisQuotaPath(uid));
   const jobRef = db.doc(`users/${uid}/synthesisJobs/${data.jobId}`);
