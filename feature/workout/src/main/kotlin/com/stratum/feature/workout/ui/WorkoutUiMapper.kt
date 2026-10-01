@@ -261,7 +261,7 @@ internal object WorkoutUiMapper {
                 displayUnit = displayUnit,
                 assistMode = assistMode,
                 includeUnit = false,
-            ).ifEmpty { "0" }
+            )
         return "$displayWeight × $repsLabel"
     }
 

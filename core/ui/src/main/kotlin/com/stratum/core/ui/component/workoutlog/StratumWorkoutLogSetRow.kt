@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -164,19 +163,12 @@ fun StratumWorkoutLogSetRow(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     // Decimal weights (e.g. `42.5 × 13`) can overflow this narrow column;
                     // shrink-to-fit keeps the rep count visible instead of clipping it.
-                    val prevStyle = StratumThemeAccessor.typography.bodyLarge
                     StratumText(
                         text = set.previousLabel,
-                        style = prevStyle,
                         muted = true,
                         textAlign = TextAlign.Center,
                         maxLines = 1,
-                        autoSize =
-                            TextAutoSize.StepBased(
-                                minFontSize = 12.sp,
-                                maxFontSize = prevStyle.fontSize,
-                                stepSize = 1.sp,
-                            ),
+                        shrinkToFit = true,
                     )
                     val previousRirLabel = set.previousRirLabel
                     if (previousRirLabel != null) {

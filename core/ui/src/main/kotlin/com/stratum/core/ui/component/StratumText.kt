@@ -9,6 +9,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
 @Composable
@@ -23,10 +24,12 @@ fun StratumText(
     /** When set, overrides [muted] / primary (e.g. error copy on a keyboard). */
     color: Color? = null,
     /**
-     * When set, the text shrinks to fit its bounds (e.g. long Prev labels in the set-log
-     * table). Font size stays at [style]'s size unless shrinking is needed.
+     * When true, the text shrinks to fit its bounds (e.g. long Prev labels in the set-log
+     * table). One canonical [TextAutoSize.StepBased] policy lives here so table cells can't
+     * invent their own min/step/max; font size stays at [style]'s size unless shrinking is
+     * needed.
      */
-    autoSize: TextAutoSize? = null,
+    shrinkToFit: Boolean = false,
 ) {
     Text(
         text = text,
@@ -42,7 +45,16 @@ fun StratumText(
         maxLines = maxLines,
         overflow = overflow,
         textAlign = textAlign,
-        autoSize = autoSize,
+        autoSize =
+            if (shrinkToFit) {
+                TextAutoSize.StepBased(
+                    minFontSize = 12.sp,
+                    maxFontSize = style.fontSize,
+                    stepSize = 1.sp,
+                )
+            } else {
+                null
+            },
     )
 }
 
