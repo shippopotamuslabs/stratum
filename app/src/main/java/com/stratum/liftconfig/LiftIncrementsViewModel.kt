@@ -39,36 +39,11 @@ data class IncrementTierDraft(
 data class LiftIncrementsUiState(
     val liftId: String = "",
     val liftName: String = "",
-    val tiers: List<IncrementTierDraft> = emptyList(),
-    /**
-     * Adder stop drafts (display-unit strings); empty = no adder. Owned by the
-     * caller: the equipment editor manages them (see its draft flow); the lift
-     * editor leaves the default until it wires drafts.
-     */
-    val microStops: List<String> = emptyList(),
-    val validationMessage: String? = null,
-    /**
-     * Band indexes whose steps miss a proposal's logged sample weights (yellow,
-     * non-blocking — saving stays allowed). Empty for all non-proposal entry points.
-     */
-    val warnedTierIndexes: Set<Int> = emptySet(),
-    val isSaving: Boolean = false,
-    val saveSucceeded: Boolean = false,
+    /** Shared editor content; see [IncrementsEditorData]. */
+    val editor: IncrementsEditorData = IncrementsEditorData(),
     /** Non-null when the lift is inheriting equipment/fallback defaults (no override rows). */
     val inheritanceBanner: String? = null,
     val showResetToEquipment: Boolean = false,
-    /** Short unit label for field chrome (`lb` / `kg`) from Settings. */
-    val unitLabel: String = "lb",
-    /**
-     * Launch-flag gate for the AI scan prefill. PR-5 wires state only — no
-     * composable reads these yet, so the scan entry stays hidden.
-     */
-    val scanAvailable: Boolean = false,
-    /**
-     * Sealed scan request state (idle, in flight, failed, scanned). User-visible
-     * text mapping happens at the composable boundary (PR-6 owns strings.xml).
-     */
-    val scanUi: IncrementScanState = IncrementScanState.Idle,
 )
 
 @HiltViewModel
@@ -306,7 +281,7 @@ class LiftIncrementsViewModel @Inject constructor(
     fun save() {
         val id = liftId.value ?: return
         val unit = displayUnit.value
-        val domainTiers = IncrementTierDraftOps.toDomainOrNull(uiState.value.tiers, unit)
+        val domainTiers = IncrementTierDraftOps.toDomainOrNull(uiState.value.editor.tiers, unit)
         if (domainTiers == null) {
             validationOverride.value = "Enter valid numbers for all bands"
             return
@@ -429,19 +404,23 @@ class LiftIncrementsViewModel @Inject constructor(
         return LiftIncrementsUiState(
             liftId = id.orEmpty(),
             liftName = lift?.name.orEmpty(),
-            tiers = tiers,
-            microStops = microStops,
-            validationMessage = save.validation ?: liveValidationMessage(tiers, microStops, unit),
-            warnedTierIndexes = warnedTierIndexes,
-            isSaving = save.saving,
-            saveSucceeded = save.saved,
+            editor =
+                IncrementsEditorData(
+                    tiers = tiers,
+                    microStops = microStops,
+                    validationMessage =
+                        save.validation ?: liveValidationMessage(tiers, microStops, unit),
+                    warnedTierIndexes = warnedTierIndexes,
+                    isSaving = save.saving,
+                    saveSucceeded = save.saved,
+                    unitLabel = unit.shortLabel(),
+                    scanAvailable = scan.available,
+                    scanUi = scan.state,
+                ),
             inheritanceBanner = inheritanceBanner,
             showResetToEquipment =
                 lift != null &&
                 (!lift.usesEquipmentDefaultIncrements || !lift.usesEquipmentDefaultMicro),
-            unitLabel = unit.shortLabel(),
-            scanAvailable = scan.available,
-            scanUi = scan.state,
         )
     }
 
@@ -466,7 +445,7 @@ class LiftIncrementsViewModel @Inject constructor(
     }
 
     private fun updateDraft(transform: (List<IncrementTierDraft>) -> List<IncrementTierDraft>) {
-        val current = uiState.value.tiers
+        val current = uiState.value.editor.tiers
         draftTiers.value = transform(current)
         validationOverride.value = null
         saveSucceeded.value = false
@@ -476,7 +455,7 @@ class LiftIncrementsViewModel @Inject constructor(
         // A first touch seeds from the effective stops; later edits build on the draft
         // directly, so back-to-back edits and save never observe a stale derived value.
         val current =
-            (draftMicro.value as? MicroDraft.Edited)?.stops ?: uiState.value.microStops
+            (draftMicro.value as? MicroDraft.Edited)?.stops ?: uiState.value.editor.microStops
         draftMicro.value = MicroDraft.Edited(transform(current))
         validationOverride.value = null
         saveSucceeded.value = false

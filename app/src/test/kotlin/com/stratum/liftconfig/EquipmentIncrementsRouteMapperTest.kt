@@ -2,61 +2,59 @@ package com.stratum.liftconfig
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
-import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 
 /**
  * The equipment editor reuses the shared increments shell. The mapper must
- * forward the AI scan gate and request state, otherwise the scan entry stays
- * hidden even with the launch flag on.
+ * pass the shared [IncrementsEditorData] through untouched (so new shell
+ * fields, e.g. the AI scan gate, flow without mapper edits) while applying
+ * equipment-specific presets.
  */
 class EquipmentIncrementsRouteMapperTest {
 
     @Test
-    @DisplayName("Given scan available when mapped then shell shows the scan entry")
-    fun forwardsScanGateAndState() {
-        val scanned =
-            IncrementScanState.Scanned(
-                tierDrafts = listOf(IncrementTierDraft("0", "40", "2.5", openEnded = false)),
-                microStopDrafts = listOf("2.5"),
+    @DisplayName("Given equipment state when mapped then the shared editor passes through")
+    fun forwardsSharedEditorUntouched() {
+        val editor =
+            IncrementsEditorData(
+                tiers = listOf(IncrementTierDraft("0", "40", "2.5", openEnded = false)),
+                microStops = listOf("2.5"),
+                unitLabel = "lb",
+                scanAvailable = true,
+                scanUi =
+                    IncrementScanState.Scanned(
+                        tierDrafts =
+                            listOf(IncrementTierDraft("0", "40", "2.5", openEnded = false)),
+                        microStopDrafts = listOf("2.5"),
+                    ),
             )
         val equipmentState =
             EquipmentIncrementsUiState(
                 equipmentId = "cable",
                 equipmentName = "Cables",
-                tiers = listOf(IncrementTierDraft("0", "40", "2.5", openEnded = false)),
-                microStops = listOf("2.5"),
-                unitLabel = "lb",
-                scanAvailable = true,
-                scanUi = scanned,
+                editor = editor,
             )
 
         val shell = equipmentState.toLiftIncrementsUiState(fallbackTitle = "Equipment")
 
-        assertTrue(shell.scanAvailable)
-        assertEquals(scanned, shell.scanUi)
+        assertSame(editor, shell.editor)
         assertEquals("cable", shell.liftId)
         assertEquals("Cables", shell.liftName)
-        assertEquals(equipmentState.tiers, shell.tiers)
-        assertEquals(equipmentState.microStops, shell.microStops)
+        assertNull(shell.inheritanceBanner)
+        assertFalse(shell.showResetToEquipment)
     }
 
     @Test
-    @DisplayName("Given scan unavailable when mapped then shell hides the scan entry")
-    fun hidesScanEntryWhenFlagOff() {
-        val equipmentState =
-            EquipmentIncrementsUiState(
-                equipmentId = "cable",
-                equipmentName = "",
-                scanAvailable = false,
-                scanUi = IncrementScanState.Idle,
-            )
+    @DisplayName("Given a blank equipment name when mapped then the fallback title applies")
+    fun fallbackTitleApplies() {
+        val shell =
+            EquipmentIncrementsUiState(equipmentId = "cable")
+                .toLiftIncrementsUiState(fallbackTitle = "Equipment")
 
-        val shell = equipmentState.toLiftIncrementsUiState(fallbackTitle = "Equipment")
-
-        assertFalse(shell.scanAvailable)
-        assertEquals(IncrementScanState.Idle, shell.scanUi)
         assertEquals("Equipment", shell.liftName)
+        assertEquals(IncrementsEditorData(), shell.editor)
     }
 }

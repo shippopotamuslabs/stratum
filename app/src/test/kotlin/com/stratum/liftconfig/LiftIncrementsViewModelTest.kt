@@ -119,20 +119,20 @@ class LiftIncrementsViewModelTest {
             val prefilled =
                 awaitItemWith {
                     it.liftName == "Lat pulldown" &&
-                        it.tiers.any { tier -> tier.increment == "2.5" }
+                        it.editor.tiers.any { tier -> tier.increment == "2.5" }
                 }
             assertEquals(
                 listOf(IncrementTierDraft("0", null, "2.5", openEnded = true)),
-                prefilled.tiers,
+                prefilled.editor.tiers,
             )
-            assertNull(prefilled.validationMessage)
+            assertNull(prefilled.editor.validationMessage)
             // Prefill is display-only until the user saves.
             assertEquals(
                 catalogTiers,
                 fakeLiftRepository.getLiftsByIds(listOf(latId)).single().incrementTiers,
             )
             subject.save()
-            assertEquals(true, awaitItemWith { it.saveSucceeded }.saveSucceeded)
+            assertEquals(true, awaitItemWith { it.editor.saveSucceeded }.editor.saveSucceeded)
             cancelAndIgnoreRemainingEvents()
         }
 
@@ -154,10 +154,10 @@ class LiftIncrementsViewModelTest {
             ),
         )
         subject.uiState.test {
-            awaitItemWith { it.tiers.any { tier -> tier.increment == "2.5" } }
+            awaitItemWith { it.editor.tiers.any { tier -> tier.increment == "2.5" } }
             assertTrue(fakeProposalPrefs.dismissedFingerprints.isEmpty())
             subject.save()
-            assertEquals(true, awaitItemWith { it.saveSucceeded }.saveSucceeded)
+            assertEquals(true, awaitItemWith { it.editor.saveSucceeded }.editor.saveSucceeded)
             cancelAndIgnoreRemainingEvents()
         }
 
@@ -188,7 +188,7 @@ class LiftIncrementsViewModelTest {
         subject.uiState.test {
             awaitItemWith { it.liftName == "Lat pulldown" && it.showResetToEquipment }
             subject.resetToEquipmentDefaults()
-            assertEquals(true, awaitItemWith { it.saveSucceeded }.saveSucceeded)
+            assertEquals(true, awaitItemWith { it.editor.saveSucceeded }.editor.saveSucceeded)
             cancelAndIgnoreRemainingEvents()
         }
 
@@ -213,10 +213,10 @@ class LiftIncrementsViewModelTest {
             // Catalog 0+ @ 5 misses 62.5 → band 0 warns; saving stays allowed.
             val state =
                 awaitItemWith {
-                    it.liftName == "Lat pulldown" && it.warnedTierIndexes.isNotEmpty()
+                    it.liftName == "Lat pulldown" && it.editor.warnedTierIndexes.isNotEmpty()
                 }
-            assertEquals(setOf(0), state.warnedTierIndexes)
-            assertNull(state.validationMessage)
+            assertEquals(setOf(0), state.editor.warnedTierIndexes)
+            assertNull(state.editor.validationMessage)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -228,11 +228,11 @@ class LiftIncrementsViewModelTest {
         subject.uiState.test {
             val state =
                 awaitItemWith {
-                    it.liftName == "Lat pulldown" && it.tiers.isNotEmpty()
+                    it.liftName == "Lat pulldown" && it.editor.tiers.isNotEmpty()
                 }
             assertEquals(
                 listOf(IncrementTierDraft("0", null, "5", openEnded = true)),
-                state.tiers,
+                state.editor.tiers,
             )
             cancelAndIgnoreRemainingEvents()
         }
@@ -247,8 +247,8 @@ class LiftIncrementsViewModelTest {
         )
         subject.initialize(latId.value)
         subject.uiState.test {
-            val state = awaitItemWith { it.liftName == "Lat pulldown" && it.microStops.isNotEmpty() }
-            assertEquals(listOf("5", "10"), state.microStops)
+            val state = awaitItemWith { it.liftName == "Lat pulldown" && it.editor.microStops.isNotEmpty() }
+            assertEquals(listOf("5", "10"), state.editor.microStops)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -262,9 +262,9 @@ class LiftIncrementsViewModelTest {
         )
         subject.initialize(latId.value)
         subject.uiState.test {
-            awaitItemWith { it.liftName == "Lat pulldown" && it.tiers.isNotEmpty() }
+            awaitItemWith { it.liftName == "Lat pulldown" && it.editor.tiers.isNotEmpty() }
             subject.save()
-            assertEquals(true, awaitItemWith { it.saveSucceeded }.saveSucceeded)
+            assertEquals(true, awaitItemWith { it.editor.saveSucceeded }.editor.saveSucceeded)
             cancelAndIgnoreRemainingEvents()
         }
 
@@ -278,11 +278,11 @@ class LiftIncrementsViewModelTest {
     fun editedMicroSavesOverride() = runTest {
         subject.initialize(latId.value)
         subject.uiState.test {
-            awaitItemWith { it.liftName == "Lat pulldown" && it.tiers.isNotEmpty() }
+            awaitItemWith { it.liftName == "Lat pulldown" && it.editor.tiers.isNotEmpty() }
             subject.onAddMicro()
             subject.onMicroChanged(0, "2.5")
             subject.save()
-            assertEquals(true, awaitItemWith { it.saveSucceeded }.saveSucceeded)
+            assertEquals(true, awaitItemWith { it.editor.saveSucceeded }.editor.saveSucceeded)
             cancelAndIgnoreRemainingEvents()
         }
 
@@ -300,10 +300,10 @@ class LiftIncrementsViewModelTest {
         )
         subject.initialize(latId.value)
         subject.uiState.test {
-            awaitItemWith { it.liftName == "Lat pulldown" && it.microStops.isNotEmpty() }
+            awaitItemWith { it.liftName == "Lat pulldown" && it.editor.microStops.isNotEmpty() }
             subject.onRemoveMicro(0)
             subject.save()
-            assertEquals(true, awaitItemWith { it.saveSucceeded }.saveSucceeded)
+            assertEquals(true, awaitItemWith { it.editor.saveSucceeded }.editor.saveSucceeded)
             cancelAndIgnoreRemainingEvents()
         }
 
@@ -317,7 +317,7 @@ class LiftIncrementsViewModelTest {
     fun backToBackMicroEditsBothPersist() = runTest {
         subject.initialize(latId.value)
         subject.uiState.test {
-            awaitItemWith { it.liftName == "Lat pulldown" && it.tiers.isNotEmpty() }
+            awaitItemWith { it.liftName == "Lat pulldown" && it.editor.tiers.isNotEmpty() }
             // No suspension between edits: each edit must build on the draft, not on
             // the derived uiState which lags writes by at least one emission.
             subject.onAddMicro()
@@ -325,7 +325,7 @@ class LiftIncrementsViewModelTest {
             subject.onAddMicro()
             subject.onMicroChanged(1, "2.5")
             subject.save()
-            assertEquals(true, awaitItemWith { it.saveSucceeded }.saveSucceeded)
+            assertEquals(true, awaitItemWith { it.editor.saveSucceeded }.editor.saveSucceeded)
             cancelAndIgnoreRemainingEvents()
         }
 
@@ -345,7 +345,7 @@ class LiftIncrementsViewModelTest {
         subject.uiState.test {
             awaitItemWith { it.liftName == "Lat pulldown" && it.showResetToEquipment }
             subject.resetToEquipmentDefaults()
-            assertEquals(true, awaitItemWith { it.saveSucceeded }.saveSucceeded)
+            assertEquals(true, awaitItemWith { it.editor.saveSucceeded }.editor.saveSucceeded)
             cancelAndIgnoreRemainingEvents()
         }
 
@@ -361,12 +361,12 @@ class LiftIncrementsViewModelTest {
     fun invalidMicroBlocksSave() = runTest {
         subject.initialize(latId.value)
         subject.uiState.test {
-            awaitItemWith { it.liftName == "Lat pulldown" && it.tiers.isNotEmpty() }
+            awaitItemWith { it.liftName == "Lat pulldown" && it.editor.tiers.isNotEmpty() }
             subject.onAddMicro()
             subject.onMicroChanged(0, "20")
             subject.save()
-            val state = awaitItemWith { it.validationMessage != null }
-            assertTrue(state.validationMessage!!.contains("largest band step"))
+            val state = awaitItemWith { it.editor.validationMessage != null }
+            assertTrue(state.editor.validationMessage!!.contains("largest band step"))
             cancelAndIgnoreRemainingEvents()
         }
 

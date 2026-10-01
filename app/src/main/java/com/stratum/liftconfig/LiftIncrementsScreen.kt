@@ -57,8 +57,8 @@ fun LiftIncrementsRoute(
         viewModel.initialize(liftId, initialTiersLb, proposalContext)
     }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    LaunchedEffect(state.saveSucceeded) {
-        if (state.saveSucceeded) onBackClick()
+    LaunchedEffect(state.editor.saveSucceeded) {
+        if (state.editor.saveSucceeded) onBackClick()
     }
     LiftIncrementsScreen(
         state = state,
@@ -120,6 +120,9 @@ fun LiftIncrementsScreen(
     modifier: Modifier = Modifier,
 ) {
     val forkSave = forkUi
+    // Shared editor content lives in [IncrementsEditorData]; screen-specific
+    // chrome (banners, reset) stays on the UiState itself.
+    val editor = state.editor
     StratumScaffold(
         modifier = modifier,
         topBar = {
@@ -168,24 +171,24 @@ fun LiftIncrementsScreen(
                         )
                     }
                 }
-                if (state.validationMessage != null) {
+                if (editor.validationMessage != null) {
                     item {
-                        IncrementsValidationBanner(message = state.validationMessage)
+                        IncrementsValidationBanner(message = editor.validationMessage)
                     }
                 }
-                if (state.warnedTierIndexes.isNotEmpty()) {
+                if (editor.warnedTierIndexes.isNotEmpty()) {
                     item {
                         SampleWarningBanner()
                     }
                 }
-                itemsIndexed(state.tiers, key = { index, _ -> index }) { index, tier ->
+                itemsIndexed(editor.tiers, key = { index, _ -> index }) { index, tier ->
                     TierEditorCard(
                         index = index,
                         tier = tier,
-                        unitLabel = state.unitLabel,
-                        isLast = index == state.tiers.lastIndex,
-                        canRemove = state.tiers.size > 1,
-                        hasWarning = index in state.warnedTierIndexes,
+                        unitLabel = editor.unitLabel,
+                        isLast = index == editor.tiers.lastIndex,
+                        canRemove = editor.tiers.size > 1,
+                        hasWarning = index in editor.warnedTierIndexes,
                         onLowerChanged = { onTierLowerChanged(index, it) },
                         onUpperChanged = { onTierUpperChanged(index, it) },
                         onIncrementChanged = { onTierIncrementChanged(index, it) },
@@ -202,8 +205,8 @@ fun LiftIncrementsScreen(
                 }
                 item {
                     MicroEditorCard(
-                        stops = state.microStops,
-                        unitLabel = state.unitLabel,
+                        stops = editor.microStops,
+                        unitLabel = editor.unitLabel,
                         onStopChanged = microActions.onStopChanged,
                         onAddStop = microActions.onAddStop,
                         onRemoveStop = microActions.onRemoveStop,
@@ -221,13 +224,13 @@ fun LiftIncrementsScreen(
                     StratumOutlinedButton(
                         text = stringResource(UiR.string.lift_increments_reset_to_equipment),
                         onClick = onResetToEquipment,
-                        enabled = !state.isSaving,
+                        enabled = !editor.isSaving,
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
-                if (state.scanAvailable) {
+                if (editor.scanAvailable) {
                     ScanEntrySection(
-                        scanUi = state.scanUi,
+                        scanUi = editor.scanUi,
                         onScanPhoto = onScanPhoto,
                     )
                 }
@@ -235,20 +238,20 @@ fun LiftIncrementsScreen(
                     StratumButton(
                         text = stringResource(UiR.string.equipment_increments_update_shared),
                         onClick = onSave,
-                        enabled = !state.isSaving && state.validationMessage == null,
+                        enabled = !editor.isSaving && editor.validationMessage == null,
                         modifier = Modifier.fillMaxWidth(),
                     )
                     StratumOutlinedButton(
                         text = stringResource(UiR.string.equipment_increments_save_as_new),
                         onClick = forkSave.onSaveAsNew,
-                        enabled = !state.isSaving && state.validationMessage == null,
+                        enabled = !editor.isSaving && editor.validationMessage == null,
                         modifier = Modifier.padding(bottom = 20.dp).fillMaxWidth(),
                     )
                 } else {
                     StratumButton(
                         text = stringResource(UiR.string.lift_increments_save),
                         onClick = onSave,
-                        enabled = !state.isSaving && state.validationMessage == null,
+                        enabled = !editor.isSaving && editor.validationMessage == null,
                         modifier = Modifier.padding(bottom = 20.dp).fillMaxWidth(),
                     )
                 }
