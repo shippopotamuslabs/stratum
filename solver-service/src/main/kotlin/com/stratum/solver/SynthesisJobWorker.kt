@@ -10,6 +10,7 @@ import com.google.firebase.cloud.FirestoreClient
 import com.google.firebase.cloud.StorageClient
 import com.stratum.domain.program.generation.synthesis.wire.ProgramSynthesisWire
 import com.stratum.domain.program.generation.synthesis.wire.ProgramSynthesisWireException
+import com.stratum.domain.program.generation.synthesis.SolveStats
 import com.stratum.domain.solver.CpSatProgramSynthesizer
 import java.nio.charset.StandardCharsets
 import kotlinx.coroutines.Dispatchers
@@ -40,6 +41,8 @@ class SynthesisJobWorker(
     fun process(request: ProcessRequest): Outcome {
         val jobPath = "users/${request.uid}/synthesisJobs/${request.jobId}"
         log("start uid=${request.uid} jobId=${request.jobId}")
+        // STR-13 trace: mark when the worker received the request.
+        recordTrace(request.uid, request.jobId, TRACE_WORKER_START)
 
         return try {
             val claim = claimJob(request.uid, request.jobId)
@@ -54,6 +57,8 @@ class SynthesisJobWorker(
                 }
                 is ClaimResult.Claimed -> {
                     log("claimed $jobPath requestStoragePath=${claim.requestStoragePath}")
+                    // STR-13 trace: mark when the claim completed.
+                    recordTrace(request.uid, request.jobId, TRACE_WORKER_CLAIMED)
                     claim.requestStoragePath
                 }
             }
@@ -99,6 +104,8 @@ class SynthesisJobWorker(
                 "days=${wireRequest.context.trainingDaysPerWeek} " +
                 "deadlineMs=$deadlineMillis",
         )
+        // STR-13 trace: mark when the CP-SAT solve begins.
+        recordTrace(uid, jobId, TRACE_WORKER_SOLVING)
         val synthesizer = synthesizerFactory(deadlineMillis)
         // Blocking CP-SAT on Default so we don't pin the HTTP pool thread alone.
         val result = runBlocking(Dispatchers.Default) {
@@ -117,6 +124,13 @@ class SynthesisJobWorker(
                 "objTotal=${result.objective.total}",
         )
 
+        val traceFields = mutableMapOf<String, Any>(
+            // STR-13 trace: upload timestamp + compact solver progression.
+            TRACE_WORKER_UPLOADED to FieldValue.serverTimestamp(),
+        )
+        result.solveStats?.let { stats ->
+            traceFields[TRACE_SOLVER] = solveStatsMap(stats)
+        }
         val updated = updateJobIfPresent(
             uid = uid,
             jobId = jobId,
@@ -128,7 +142,7 @@ class SynthesisJobWorker(
                 "errorMessage" to FieldValue.delete(),
                 "updatedAt" to FieldValue.serverTimestamp(),
                 "progressUpdatedAt" to FieldValue.serverTimestamp(),
-            ),
+            ) + traceFields,
         )
         if (!updated) {
             log("job missing after solve uid=$uid jobId=$jobId; result left at $resultStoragePath")
@@ -269,6 +283,39 @@ class SynthesisJobWorker(
         }
     }
 
+    /**
+     * Best-effort trace timestamp write. Never fails the job over tracing.
+     */
+    private fun recordTrace(uid: String, jobId: String, field: String) {
+        try {
+            firestore.document("users/$uid/synthesisJobs/$jobId")
+                .update(field, FieldValue.serverTimestamp())
+                .get()
+        } catch (e: Exception) {
+            log("trace write failed for $field: ${e.message}")
+        }
+    }
+
+    /**
+     * Compact solver stats map for the job doc.
+     */
+    private fun solveStatsMap(stats: SolveStats): Map<String, Any?> {
+        return mapOf(
+            "status" to stats.status,
+            "wallTimeSeconds" to stats.wallTimeSeconds,
+            "objective" to stats.objective,
+            "bestBound" to stats.bestBound,
+            "relativeGap" to stats.relativeGap,
+            "incumbentCount" to stats.incumbentCount,
+            "firstIncumbentAtSeconds" to stats.firstIncumbentAtSeconds,
+            "lastIncumbentAtSeconds" to stats.lastIncumbentAtSeconds,
+            "firstObjective" to stats.firstObjective,
+            "lastObjective" to stats.lastObjective,
+            "numBranches" to stats.numBranches,
+            "numConflicts" to stats.numConflicts,
+        )
+    }
+
     private fun log(message: String) {
         println("SynthesisJobWorker: $message")
     }
@@ -278,6 +325,13 @@ class SynthesisJobWorker(
         const val DEFAULT_SOLVE_DEADLINE_MILLIS = 120_000L
         private const val MAX_REQUEST_BYTES = 5L * 1024L * 1024L
         private const val GRPC_NOT_FOUND = 5
+
+        /** STR-13 trace field names for the per-job `trace` map. */
+        const val TRACE_WORKER_START = "trace.workerStart"
+        const val TRACE_WORKER_CLAIMED = "trace.workerClaimed"
+        const val TRACE_WORKER_SOLVING = "trace.workerSolving"
+        const val TRACE_WORKER_UPLOADED = "trace.workerUploaded"
+        const val TRACE_SOLVER = "trace.solver"
 
         fun isValidRequestStoragePath(uid: String, jobId: String, path: String): Boolean {
             if (path.contains("..") || path.contains("//")) return false
