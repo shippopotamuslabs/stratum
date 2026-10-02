@@ -3,33 +3,45 @@
 package com.stratum.domain.solver
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 
 /**
- * STR-21: the Cloud Run worker (stratum-solver, --cpu=8) must run CP-SAT with an explicit
- * search-worker count rather than relying on the OR-Tools default.
- * Solver construction is native-free, so these run without [com.google.ortools.Loader].
+ * STR-21: worker parallelism must be explicit where the hardware is known, while the domain
+ * default leaves the OR-Tools default untouched. [CpSatProgramSynthesizer.appliedParameters]
+ * reads the values back from a freshly built solver, so these fail if the settings stop
+ * being applied. Solver construction is native-free, so these run without
+ * [com.google.ortools.Loader].
  */
 class CpSatSolverThreadingTest {
     @Test
-    fun `default solver uses eight search workers`() {
-        val solver = CpSatProgramSynthesizer().buildSolver()
+    fun `default leaves the OR-Tools worker default untouched`() {
+        val parameters = CpSatProgramSynthesizer().appliedParameters()
 
-        assertEquals(8, solver.parameters.numSearchWorkers)
+        assertNull(parameters.numSearchWorkers)
     }
 
     @Test
-    fun `configured worker count is applied to the solver`() {
-        val solver = CpSatProgramSynthesizer(numSearchWorkers = 2).buildSolver()
+    fun `explicit worker count is applied to the solver`() {
+        val parameters = CpSatProgramSynthesizer(numSearchWorkers = 8).appliedParameters()
 
-        assertEquals(2, solver.parameters.numSearchWorkers)
+        assertEquals(8, parameters.numSearchWorkers)
+    }
+
+    @Test
+    fun `custom worker count propagates instead of a hardcoded value`() {
+        val parameters = CpSatProgramSynthesizer(numSearchWorkers = 2).appliedParameters()
+
+        assertEquals(2, parameters.numSearchWorkers)
     }
 
     @Test
     fun `solver keeps the configured deadline alongside the worker count`() {
-        val solver = CpSatProgramSynthesizer(deadlineMillis = 30_000L).buildSolver()
+        val parameters =
+            CpSatProgramSynthesizer(deadlineMillis = 30_000L, numSearchWorkers = 8)
+                .appliedParameters()
 
-        assertEquals(30.0, solver.parameters.maxTimeInSeconds)
-        assertEquals(8, solver.parameters.numSearchWorkers)
+        assertEquals(30.0, parameters.maxTimeSeconds)
+        assertEquals(8, parameters.numSearchWorkers)
     }
 }
