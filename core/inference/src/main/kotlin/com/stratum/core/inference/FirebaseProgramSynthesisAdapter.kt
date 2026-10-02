@@ -96,7 +96,24 @@ class FirebaseProgramSynthesisAdapter @Inject constructor(
                     outcome = synthesisTraceOutcome(snapshot.status, timedOut = false)
                     // STR-13 trace: client observed the terminal Ready state.
                     telemetry.synthesisReadyObserved(jobId, telemetryStartMs)
-                    ProgramSynthesisWire.decodeResult(bytes.decodeToString())
+                    // STR-19 trace: time the result decode. result.json is small
+                    // (~25KB observed), so this should be milliseconds — if it
+                    // is not, the wire decoder is the bottleneck.
+                    val decodeStartMs = System.currentTimeMillis()
+                    val decoded = ProgramSynthesisWire.decodeResult(bytes.decodeToString())
+                    loggingPort.info(
+                        TAG,
+                        "synthesis client trace: job=$jobId " +
+                            "stage=${SynthesisTelemetry.STAGE_DECODE_RESULT} " +
+                            "duration_ms=${System.currentTimeMillis() - decodeStartMs} " +
+                            "bytes=${bytes.size}",
+                    )
+                    telemetry.synthesisClientStage(
+                        jobId,
+                        SynthesisTelemetry.STAGE_DECODE_RESULT,
+                        decodeStartMs,
+                    )
+                    decoded
                 }
                 SynthesisRemoteStatus.Failed,
                 SynthesisRemoteStatus.Rejected,
