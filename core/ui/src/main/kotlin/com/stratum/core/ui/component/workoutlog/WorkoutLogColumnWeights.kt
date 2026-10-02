@@ -12,8 +12,11 @@ internal val WorkoutLogTableHorizontalPadding = 8.dp
  * Column weight fractions for one set-log row. Weight column is present for weighted + assisted
  * lifts and absent for bodyweight. Checkbox/delete column can be hidden for pure edit mode.
  *
- * When both weight and reps columns are present they use equal fractions so multi-digit rep
- * ranges (e.g. `10-12`) fit the same width as load fields.
+ * Weight and reps are close in width but deliberately not equal: reps holds at most
+ * 2 digits while weight often holds 3, so reps is slightly narrower (still fitting ranges
+ * like `10-12`). The difference widens the trailing column as a touch buffer between the
+ * RIR corner badge overhanging the reps cell and the checkbox. The removed RIR column's
+ * fraction is otherwise split evenly among the present content columns (prev, weight, reps).
  */
 data class WorkoutLogColumnWeights(
     val label: Float,
@@ -31,33 +34,33 @@ fun workoutLogColumnWeights(
         showWeightColumn && showTrailingColumn ->
             WorkoutLogColumnWeights(
                 label = 0.10f,
-                prev = 0.22f,
-                weight = 0.22f,
-                reps = 0.34f,
-                trailing = 0.12f,
+                prev = 0.26f,
+                weight = 0.26f,
+                reps = 0.22f,
+                trailing = 0.16f,
             )
         showWeightColumn && !showTrailingColumn ->
             WorkoutLogColumnWeights(
                 label = 0.12f,
-                prev = 0.24f,
-                weight = 0.24f,
-                reps = 0.40f,
+                prev = 0.30f,
+                weight = 0.29f,
+                reps = 0.29f,
                 trailing = 0f,
             )
         !showWeightColumn && showTrailingColumn ->
             WorkoutLogColumnWeights(
                 label = 0.12f,
-                prev = 0.30f,
+                prev = 0.39f,
                 weight = 0f,
-                reps = 0.46f,
-                trailing = 0.12f,
+                reps = 0.33f,
+                trailing = 0.16f,
             )
         else ->
             WorkoutLogColumnWeights(
                 label = 0.14f,
-                prev = 0.34f,
+                prev = 0.44f,
                 weight = 0f,
-                reps = 0.52f,
+                reps = 0.42f,
                 trailing = 0f,
             )
     }

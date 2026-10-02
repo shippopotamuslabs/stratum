@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
@@ -282,7 +283,8 @@ fun StratumWorkoutLogSetRow(
     }
 
     // Historical edit (and any caller that supplies [onDelete]) uses swipe-to-reveal, matching
-    // template Edit Workout. Live logging leaves onDelete null and keeps the checkbox column.
+    // template Edit Workout. Live logging also supplies it whenever more than one set exists,
+    // alongside the checkbox column — so the swipe clip is live on real screens.
     if (actions.onDelete != null) {
         val swipeBg =
             if (set.isComplete) {
@@ -295,6 +297,8 @@ fun StratumWorkoutLogSetRow(
             actionContentDescription = actions.deleteContentDescription,
             enabled = true,
             contentBackgroundColor = swipeBg,
+            // Lets the RIR corner badge overhang the row without being cut by the swipe clip.
+            topOverflow = RirCornerBadgeOverflow,
             modifier = modifier,
         ) {
             rowContent()
@@ -318,11 +322,14 @@ fun StratumWorkoutLogSetRow(
 }
 
 /**
- * Reps cell with the RIR corner badge pinned to its top-right (STR-17 Choice D).
- * The badge is the existing [RirTargetBadge] at a smaller corner size; the inner
- * top/end inset keeps the badge inside row bounds so it never clips, while still
- * overlapping the cell corner. Works over sunken (logged) and accent-bordered
- * (active) cells since the badge draws after [content].
+ * Reps cell with the RIR corner badge pinned to its top-right corner (STR-17 Choice D).
+ * The badge is the existing [RirTargetBadge] at a smaller corner size, centered on the cell
+ * corner so it stays clear of the reps digits (tap separation). It draws after [content],
+ * so it sits above sunken (logged) and accent-bordered (active) cells alike.
+ *
+ * The overhang above the cell needs [RirCornerBadgeOverflow] of unclipped room, which the
+ * row requests from [com.stratum.core.ui.component.StratumSwipeToRevealRow] — that wrapper
+ * clips to the row rectangle and would otherwise cut the badge on every row.
  */
 @Composable
 private fun RepsCellWithRirBadge(
@@ -332,25 +339,29 @@ private fun RepsCellWithRirBadge(
     content: @Composable () -> Unit,
 ) {
     Box(modifier = modifier) {
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(top = RirCornerBadgeInset, end = RirCornerBadgeInset),
-        ) {
+        Box(modifier = Modifier.fillMaxWidth()) {
             content()
         }
         RirTargetBadge(
             rirGoal = rir,
             onClick = onBadgeClick,
             size = RirCornerBadgeSize,
-            modifier = Modifier.align(Alignment.TopEnd),
+            modifier =
+                Modifier
+                    .align(Alignment.TopEnd)
+                    .offset(x = RirCornerBadgeOffset, y = -RirCornerBadgeOffset),
         )
     }
 }
 
-private val RirCornerBadgeSize = 22.dp
-private val RirCornerBadgeInset = 7.dp
+internal val RirCornerBadgeSize = 22.dp
+
+/**
+ * Unclipped room the swipe row reserves above the content; covers the badge overhang
+ * (half the badge size) plus rounding margin. Must stay >= half of [RirCornerBadgeSize].
+ */
+internal val RirCornerBadgeOverflow = 12.dp
+private val RirCornerBadgeOffset = 11.dp
 
 @Composable
 private fun WorkoutLogSplitRepsField(

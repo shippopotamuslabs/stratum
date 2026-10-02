@@ -55,7 +55,9 @@ private fun StratumWorkoutLogLiftPanelMultiNotePreview() {
                     workoutPinnedNotes = listOf("Keep elbows tucked", "Chest up"),
                     liftPinnedNotes = listOf("Belt on working sets"),
                 ),
-            setRowActions = { WorkoutLogSetRowActions() },
+            // onDelete routes rows through StratumSwipeToRevealRow (which clips to the row
+            // rectangle, like live logging) so the corner badge clip stays covered.
+            setRowActions = { WorkoutLogSetRowActions(onDelete = {}) },
         )
     }
 }

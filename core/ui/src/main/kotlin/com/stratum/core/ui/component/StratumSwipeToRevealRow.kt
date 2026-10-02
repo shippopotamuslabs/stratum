@@ -23,8 +23,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
@@ -52,8 +59,15 @@ fun StratumSwipeToRevealRow(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     contentBackgroundColor: Color = StratumThemeAccessor.colors.surfaceRaised,
+    /**
+     * Extra unclipped room above the row for content that intentionally overhangs it
+     * (e.g. a corner badge). Horizontal and bottom clipping are unchanged, so the swipe
+     * reveal still masks correctly. Defaults to 0 (exact row bounds, as before).
+     */
+    topOverflow: Dp = 0.dp,
     content: @Composable () -> Unit,
 ) {
+    val contentClip = remember(topOverflow) { rowClipWithTopOverflow(topOverflow) }
     if (!enabled) {
         Box(modifier = modifier.fillMaxWidth()) {
             content()
@@ -65,7 +79,7 @@ fun StratumSwipeToRevealRow(
         modifier =
             modifier
                 .fillMaxWidth()
-                .clip(RectangleShape),
+                .clip(contentClip),
     ) {
         val density = LocalDensity.current
         val revealWidthPx = constraints.maxWidth * SWIPE_REVEAL_FRACTION
@@ -90,7 +104,7 @@ fun StratumSwipeToRevealRow(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .clip(RectangleShape),
+                    .clip(contentClip),
         ) {
             Box(
                 modifier =
@@ -149,6 +163,27 @@ fun StratumSwipeToRevealRow(
             ) {
                 content()
             }
+        }
+    }
+}
+
+/**
+ * Row-bounds clip with extra unclipped room above ([topOverflow]) for content that
+ * intentionally overhangs the row, such as a corner badge. Zero overflow produces the
+ * exact row rectangle. Pure geometry — covered by [TopOverflowClipShapeTest].
+ */
+internal fun rowClipWithTopOverflow(topOverflow: Dp): Shape {
+    if (topOverflow <= 0.dp) return RectangleShape
+    return object : Shape {
+        override fun createOutline(
+            size: Size,
+            layoutDirection: LayoutDirection,
+            density: Density,
+        ): Outline {
+            val overflowPx = with(density) { topOverflow.toPx() }
+            return Outline.Rectangle(
+                Rect(left = 0f, top = -overflowPx, right = size.width, bottom = size.height),
+            )
         }
     }
 }
