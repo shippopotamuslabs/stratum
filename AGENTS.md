@@ -169,10 +169,7 @@ program synthesis is deterministic domain logic, but the solver **runs server-si
 Single source of truth for work items is the Linear **Stratum** team (key `STR`), not GitLab issues.
 
 - **Chunk-based development:** one parent issue per feature; each chunk of work is a **sub-issue**; **one MR per sub-issue** — never batch multiple chunks into one MR.
-- **Ticket protocol (the agent MUST follow this before starting work):**
-  1. If the user has not named a Linear ticket for the task, search Linear for an existing one (linear skill); then stop and ask the user whether one exists / which one it is. If the user already named the ticket, skip to step 3.
-  2. If the user says no ticket exists, create one (with a `type::` label) and set it to **In Progress**. If the user named the ticket, go to step 3.
-  3. Set the ticket to **In Progress** via the linear skill (`save_issue` with `state: "In Progress"`), then start working.
+- **Ticket first:** ensure you have a Linear ticket to work from (linear skill). If you do not know the name of the ticket, ask the user for one. If told it doesn't exist, create one (with a `type::` label). Once you have the ticket, put it **In Progress** (`save_issue` with `state: "In Progress"`), then start working.
 - **Branch naming:** copy the git branch name from the Linear sub-issue (it contains the issue ID, e.g. `str-12-short-slug`) — this auto-links the branch.
 - **Every MR description MUST contain a closing magic word + the sub-issue ID**, e.g. `Fixes STR-12`. Linear's MR automations move the issue to **In Review** when the MR opens (review = the user plus the AI reviewer job) and to **Merged** when the MR merges. A merge is NOT a deploy — deploy status is tracked separately (see below). `In Progress` is manual: the agent sets it when work starts (step 3 above).
 - To link an MR without triggering the automatic status moves, use `Refs STR-12` or `Contributes to STR-12` instead of a closing magic word.
