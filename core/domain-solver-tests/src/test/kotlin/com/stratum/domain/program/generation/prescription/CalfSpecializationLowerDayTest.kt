@@ -58,7 +58,6 @@ class CalfSpecializationLowerDayTest {
         val program = testProgramGenerationPipeline(programSynthesisPort = CpSatProgramSynthesizer()).generate(
             context = context,
             normalizationRequest = context.toProgramNormalizationRequest(),
-            options = PipelineOptions(skipLiftSwap = true),
         )
         val draft = program.toDraft()
         for (workout in draft.workouts) {

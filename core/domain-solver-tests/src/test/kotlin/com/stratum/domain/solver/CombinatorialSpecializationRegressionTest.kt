@@ -55,7 +55,6 @@ class CombinatorialSpecializationRegressionTest {
         val program = pipeline.generate(
             context = context,
             normalizationRequest = context.toProgramNormalizationRequest(),
-            options = PipelineOptions(skipLiftSwap = true),
         )
         val draft = program.toDraft()
 

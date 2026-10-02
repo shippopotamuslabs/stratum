@@ -6,7 +6,6 @@ import com.stratum.domain.program.generation.PlanWeeklyVolumeUseCase
 import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.domain.program.ProgramGenerationTelemetryLogger
 import com.stratum.domain.program.generation.pipeline.ProgramGenerationPipeline
-import com.stratum.domain.program.generation.swap.LiftSwapPort
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisPort
 
 /**
@@ -18,13 +17,12 @@ import com.stratum.domain.program.generation.synthesis.ProgramSynthesisPort
  * `:core:domain-solver-tests` when exercising real CP-SAT.
  */
 fun testProgramGenerationPipeline(
-    liftSwapPort: LiftSwapPort = FakeLiftSwapPort(),
     programSynthesisPort: ProgramSynthesisPort = FakeProgramSynthesisPort(),
 ): ProgramGenerationPipeline =
     ProgramGenerationPipeline(
         planWeeklyVolume = PlanWeeklyVolumeUseCase(),
         buildProgramWorkouts = BuildProgramWorkoutsUseCase(),
-        integrateAndValidate = IntegrateAndValidateProgramUseCase(liftSwapPort),
+        integrateAndValidate = IntegrateAndValidateProgramUseCase(),
         programSynthesisPort = programSynthesisPort,
         telemetryLogger = ProgramGenerationTelemetryLogger(FakeLoggingPort()),
     )

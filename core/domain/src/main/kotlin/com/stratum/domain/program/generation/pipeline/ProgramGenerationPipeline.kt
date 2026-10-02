@@ -31,7 +31,6 @@ data class PipelineProgress(
 typealias PipelineProgressCallback = suspend (PipelineProgress) -> Unit
 
 data class PipelineOptions(
-    val skipLiftSwap: Boolean = false,
     val skipFinalValidation: Boolean = false,
     val progress: PipelineProgressCallback = {},
 )
@@ -78,11 +77,9 @@ open class ProgramGenerationPipeline @Inject constructor(
             built = draft,
             weeklyTargets = weeklyTargets,
             context = context,
-            selectionsBySession = buildResult.selectionsBySession,
             normalizationRequest = normalizationRequest,
             options =
                 IntegrateAndValidateOptions(
-                    skipLiftSwap = options.skipLiftSwap,
                     skipFinalValidation = options.skipFinalValidation,
                 ),
             onPolishingProgram = {
