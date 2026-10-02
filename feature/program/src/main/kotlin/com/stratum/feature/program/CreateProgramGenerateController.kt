@@ -193,16 +193,16 @@ internal class CreateProgramGenerateController(
                             }
                         }
                     }
-                synthesisTelemetry.synthesisClientStage(
-                    sessionId,
-                    SynthesisTelemetry.STAGE_GENERATE_PROGRAM,
-                    generateStartMs,
-                )
                 val program =
                     result.getOrElse { error ->
                         publishGenerateFailure(error)
                         return@launch
                     }
+                synthesisTelemetry.synthesisClientStage(
+                    sessionId,
+                    SynthesisTelemetry.STAGE_GENERATE_PROGRAM,
+                    generateStartMs,
+                )
                 val editorStartMs = System.currentTimeMillis()
                 onProgramGenerated(program)
                 synthesisTelemetry.synthesisClientStage(
