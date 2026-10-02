@@ -32,7 +32,6 @@ fun StratumWorkoutLogTableHeader(
             HeaderCell(weightHeaderLabel, Modifier.weight(weights.weight))
         }
         HeaderCell("Reps", Modifier.weight(weights.reps))
-        HeaderCell("RIR", Modifier.weight(weights.rir))
         if (showTrailingColumn) {
             HeaderCell("", Modifier.weight(weights.trailing))
         }

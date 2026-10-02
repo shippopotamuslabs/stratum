@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
@@ -213,42 +214,38 @@ fun StratumWorkoutLogSetRow(
                 )
             }
 
-            if (showSplitReps) {
-                WorkoutLogSplitRepsField(
-                    set = set,
-                    sessionHost = setSessionHost,
-                    livePartialRepsText = livePartialRepsText,
-                    liveRepsMode = liveRepsMode,
-                    repsActive = repsActive,
-                    openKeyboard = openKeyboard,
-                    modifier =
-                        Modifier
-                            .weight(weights.reps)
-                            .padding(horizontal = 2.dp),
-                )
-            } else {
-                WorkoutLogSingleRepsField(
-                    set = set,
-                    actions = actions,
-                    sessionHost = setSessionHost,
-                    repsActive = repsActive,
-                    openKeyboard = openKeyboard,
-                    modifier =
-                        Modifier
-                            .weight(weights.reps)
-                            .padding(horizontal = 2.dp),
-                )
-            }
-
-            Box(modifier = Modifier.weight(weights.rir), contentAlignment = Alignment.Center) {
-                RirTargetBadge(
-                    rirGoal = set.rir,
-                    onClick = {
-                        if (set.fieldsEnabled && !keyboardOpenForSet) {
-                            showRirSheet = true
-                        }
-                    },
-                )
+            RepsCellWithRirBadge(
+                rir = set.rir,
+                onBadgeClick = {
+                    if (set.fieldsEnabled && !keyboardOpenForSet) {
+                        showRirSheet = true
+                    }
+                },
+                modifier =
+                    Modifier
+                        .weight(weights.reps)
+                        .padding(horizontal = 2.dp),
+            ) {
+                if (showSplitReps) {
+                    WorkoutLogSplitRepsField(
+                        set = set,
+                        sessionHost = setSessionHost,
+                        livePartialRepsText = livePartialRepsText,
+                        liveRepsMode = liveRepsMode,
+                        repsActive = repsActive,
+                        openKeyboard = openKeyboard,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                } else {
+                    WorkoutLogSingleRepsField(
+                        set = set,
+                        actions = actions,
+                        sessionHost = setSessionHost,
+                        repsActive = repsActive,
+                        openKeyboard = openKeyboard,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             }
 
             if (showTrailing) {
@@ -276,7 +273,8 @@ fun StratumWorkoutLogSetRow(
     }
 
     // Historical edit (and any caller that supplies [onDelete]) uses swipe-to-reveal, matching
-    // template Edit Workout. Live logging leaves onDelete null and keeps the checkbox column.
+    // template Edit Workout. Live logging also supplies it whenever more than one set exists,
+    // alongside the checkbox column — so the swipe clip is live on real screens.
     if (actions.onDelete != null) {
         val swipeBg =
             if (set.isComplete) {
@@ -289,6 +287,8 @@ fun StratumWorkoutLogSetRow(
             actionContentDescription = actions.deleteContentDescription,
             enabled = true,
             contentBackgroundColor = swipeBg,
+            // Lets the RIR corner badge overhang the row without being cut by the swipe clip.
+            topOverflow = RirCornerBadgeOverflow,
             modifier = modifier,
         ) {
             rowContent()
@@ -310,6 +310,48 @@ fun StratumWorkoutLogSetRow(
         )
     }
 }
+
+/**
+ * Reps cell with the RIR corner badge pinned to its top-right corner (STR-17 Choice D).
+ * The badge is the existing [RirTargetBadge] at a smaller corner size, centered on the cell
+ * corner so it stays clear of the reps digits (tap separation). It draws after [content],
+ * so it sits above sunken (logged) and accent-bordered (active) cells alike.
+ *
+ * The overhang above the cell needs [RirCornerBadgeOverflow] of unclipped room, which the
+ * row requests from [com.stratum.core.ui.component.StratumSwipeToRevealRow] — that wrapper
+ * clips to the row rectangle and would otherwise cut the badge on every row.
+ */
+@Composable
+private fun RepsCellWithRirBadge(
+    rir: Int,
+    onBadgeClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    Box(modifier = modifier) {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            content()
+        }
+        RirTargetBadge(
+            rirGoal = rir,
+            onClick = onBadgeClick,
+            size = RirCornerBadgeSize,
+            modifier =
+                Modifier
+                    .align(Alignment.TopEnd)
+                    .offset(x = RirCornerBadgeOffset, y = -RirCornerBadgeOffset),
+        )
+    }
+}
+
+internal val RirCornerBadgeSize = 22.dp
+
+/**
+ * Unclipped room the swipe row reserves above the content; covers the badge overhang
+ * (half the badge size) plus rounding margin. Must stay >= half of [RirCornerBadgeSize].
+ */
+internal val RirCornerBadgeOverflow = 12.dp
+private val RirCornerBadgeOffset = 11.dp
 
 @Composable
 private fun WorkoutLogSplitRepsField(
