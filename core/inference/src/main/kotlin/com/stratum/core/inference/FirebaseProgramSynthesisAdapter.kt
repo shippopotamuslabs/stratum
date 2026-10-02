@@ -13,6 +13,8 @@ import com.stratum.domain.program.generation.synthesis.ProgramSynthesisResult
 import com.stratum.domain.program.generation.synthesis.wire.ProgramSynthesisWire
 import com.stratum.domain.program.generation.volume.WeeklyVolumeTargets
 import com.stratum.domain.telemetry.AnalyticsPort
+import com.stratum.domain.telemetry.ClientStage
+import com.stratum.domain.telemetry.ClientStageCorrelation
 import com.stratum.domain.telemetry.SynthesisTelemetry
 import java.util.UUID
 import javax.inject.Inject
@@ -96,7 +98,24 @@ class FirebaseProgramSynthesisAdapter @Inject constructor(
                     outcome = synthesisTraceOutcome(snapshot.status, timedOut = false)
                     // STR-13 trace: client observed the terminal Ready state.
                     telemetry.synthesisReadyObserved(jobId, telemetryStartMs)
-                    ProgramSynthesisWire.decodeResult(bytes.decodeToString())
+                    // STR-19 trace: time the result decode. result.json is small
+                    // (~25KB observed), so this should be milliseconds — if it
+                    // is not, the wire decoder is the bottleneck.
+                    val decodeTimer =
+                        telemetry.startStage(
+                            ClientStageCorrelation.Job(jobId),
+                            ClientStage.DECODE_RESULT,
+                        )
+                    val decoded = ProgramSynthesisWire.decodeResult(bytes.decodeToString())
+                    val decodeMs = decodeTimer.stop()
+                    loggingPort.info(
+                        TAG,
+                        "synthesis client trace: job=$jobId " +
+                            "stage=${ClientStage.DECODE_RESULT.wireName} " +
+                            "duration_ms=$decodeMs " +
+                            "bytes=${bytes.size}",
+                    )
+                    decoded
                 }
                 SynthesisRemoteStatus.Failed,
                 SynthesisRemoteStatus.Rejected,
