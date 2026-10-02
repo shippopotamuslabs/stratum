@@ -169,11 +169,12 @@ program synthesis is deterministic domain logic, but the solver **runs server-si
 Single source of truth for work items is the Linear **Stratum** team (key `STR`), not GitLab issues.
 
 - **Chunk-based development:** one parent issue per feature; each chunk of work is a **sub-issue**; **one MR per sub-issue** — never batch multiple chunks into one MR.
+- **Ticket first:** ensure you have a Linear ticket to work from (linear skill). If you do not know the name of the ticket, ask the user for one. If told it doesn't exist, create one (with a `type::` label). Once you have the ticket, put it **In Progress** (`save_issue` with `state: "In Progress"`), then start working.
 - **Branch naming:** copy the git branch name from the Linear sub-issue (it contains the issue ID, e.g. `str-12-short-slug`) — this auto-links the branch.
-- **Every MR description MUST contain a closing magic word + the sub-issue ID**, e.g. `Fixes STR-12`. On merge, Linear moves the sub-issue to Done; when all sub-issues are done the parent auto-moves to **Deployed**.
-- To link without auto-closing on merge, use `Refs STR-12` or `Contributes to STR-12`.
+- **Every MR description MUST contain a closing magic word + the sub-issue ID**, e.g. `Fixes STR-12`. Linear's MR automations move the issue to **In Review** when the MR opens (review = the user plus the AI reviewer job) and to **Merged** when the MR merges. A merge is NOT a deploy — deploy status is tracked separately (see below). `In Progress` is manual: the agent sets it when work starts (step 3 above).
+- To link an MR without triggering the automatic status moves, use `Refs STR-12` or `Contributes to STR-12` instead of a closing magic word.
 - Commit messages and MR comments do **not** link issues — only branch name, MR title, and MR description.
-- **Deploy vs release:** `Deployed` = merged to main (trunk). `Partially Deployed` = feature flag partially rolled out. `Released` = flag at 100% / flag removed / code wired up. Rollout-state moves are manual (developer flips the flag, then updates Linear or asks the agent to) — Firebase Remote Config has no webhooks.
+- **Merge vs deploy vs release:** `Merged` = merged to main (trunk). `Deployed` = shipped through the deploy pipeline. `Partially Deployed` = feature flag partially rolled out. `Released` = flag at 100% / flag removed / code wired up. Sub-issues stop at `Merged`; deploy and release states live on the **parent issue only**, and all of those moves are manual (developer deploys / flips the flag, then updates Linear or asks the agent to) — the deploy pipeline and Firebase Remote Config have no webhooks into Linear, and Linear cannot tell a partial rollout from the final chunk.
 - Never close the parent manually while sub-issues are open.
 
 ---
