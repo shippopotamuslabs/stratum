@@ -170,6 +170,12 @@ internal class CreateProgramGenerateController(
         generateJob =
             scope.launch {
                 flushPreferencesForGeneration()
+                // STR-19 trace: per-stage client timings for the post-ready window.
+                // On-device generation has no server jobId here, so stages are
+                // correlated by this client session ID (same convention as
+                // synthesisRendered below).
+                val sessionId = java.util.UUID.randomUUID().toString()
+                val generateStartMs = System.currentTimeMillis()
                 val result =
                     generateProgram(
                         restSlotIndices = schedule.restSlotIndices,
@@ -187,16 +193,24 @@ internal class CreateProgramGenerateController(
                             }
                         }
                     }
+                synthesisTelemetry.synthesisClientStage(
+                    sessionId,
+                    SynthesisTelemetry.STAGE_GENERATE_PROGRAM,
+                    generateStartMs,
+                )
                 val program =
                     result.getOrElse { error ->
                         publishGenerateFailure(error)
                         return@launch
                     }
+                val editorStartMs = System.currentTimeMillis()
                 onProgramGenerated(program)
+                synthesisTelemetry.synthesisClientStage(
+                    sessionId,
+                    SynthesisTelemetry.STAGE_LOAD_PROGRAM_INTO_EDITOR,
+                    editorStartMs,
+                )
                 // STR-13 trace: program handed to the editor for rendering.
-                // On-device generation has no server jobId; use a client session ID
-                // so the event stays joinable in the funnel.
-                val sessionId = java.util.UUID.randomUUID().toString()
                 synthesisTelemetry.synthesisRendered(sessionId)
             }
     }

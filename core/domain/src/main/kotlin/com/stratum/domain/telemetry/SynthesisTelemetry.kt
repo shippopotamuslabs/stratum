@@ -48,12 +48,40 @@ class SynthesisTelemetry(
         )
     }
 
+    /**
+     * Client-side processing stage timing (STR-19). Emitted for the post-ready
+     * client window (result decode, program assembly, editor load) that the
+     * server trace cannot see.
+     *
+     * Correlation follows the caller's convention: the synthesis adapter passes
+     * the real jobId; the generate controller passes its client session ID
+     * (it does not have the jobId — same convention as [synthesisRendered]).
+     */
+    fun synthesisClientStage(correlationId: String, stage: String, startMs: Long) {
+        val durationMs = clock() - startMs
+        logEvent(
+            EVENT_SYNTHESIS_CLIENT_STAGE,
+            mapOf(
+                PARAM_JOB_ID to correlationId,
+                PARAM_STAGE to stage,
+                PARAM_DURATION_MS to durationMs.toString(),
+            ),
+        )
+    }
+
     companion object {
         const val EVENT_SYNTHESIS_STARTED = "synthesis_started"
         const val EVENT_SYNTHESIS_READY_OBSERVED = "synthesis_ready_observed"
         const val EVENT_SYNTHESIS_RENDERED = "synthesis_rendered"
+        const val EVENT_SYNTHESIS_CLIENT_STAGE = "synthesis_client_stage"
 
         const val PARAM_JOB_ID = "job_id"
         const val PARAM_DURATION_MS = "duration_ms"
+        const val PARAM_STAGE = "stage"
+
+        /** Stage names for [EVENT_SYNTHESIS_CLIENT_STAGE]. */
+        const val STAGE_DECODE_RESULT = "decode_result"
+        const val STAGE_GENERATE_PROGRAM = "generate_program"
+        const val STAGE_LOAD_PROGRAM_INTO_EDITOR = "load_program_into_editor"
     }
 }
