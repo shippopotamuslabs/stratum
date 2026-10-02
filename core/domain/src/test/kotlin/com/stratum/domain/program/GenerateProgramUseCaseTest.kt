@@ -2,7 +2,6 @@ package com.stratum.domain.program
 
 import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
-import com.stratum.core.testing.program.FakeLiftSwapPort
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.program.FakeProgramSynthesisPort
 import com.stratum.core.testing.program.FixedProgramGenerationContextLoader
@@ -293,10 +292,7 @@ private class FixedNormalizedProgramPipeline(
 ) : ProgramGenerationPipeline(
     planWeeklyVolume = PlanWeeklyVolumeUseCase(),
     buildProgramWorkouts = BuildProgramWorkoutsUseCase(),
-    integrateAndValidate =
-        IntegrateAndValidateProgramUseCase(
-            liftSwapPort = FakeLiftSwapPort(),
-        ),
+    integrateAndValidate = IntegrateAndValidateProgramUseCase(),
     programSynthesisPort = FakeProgramSynthesisPort(),
     telemetryLogger = ProgramGenerationTelemetryLogger(FakeLoggingPort()),
 ) {

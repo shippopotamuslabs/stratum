@@ -51,7 +51,6 @@ class FiveDayArmCalfMtwfsRecoveryTest {
             pipeline.generate(
                 context = context,
                 normalizationRequest = context.toProgramNormalizationRequest(),
-                options = PipelineOptions(skipLiftSwap = true),
             )
         val draft = normalized.toDraft()
         val exposuresByName =
