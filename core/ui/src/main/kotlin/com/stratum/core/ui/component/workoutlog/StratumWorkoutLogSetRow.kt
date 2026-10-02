@@ -214,20 +214,19 @@ fun StratumWorkoutLogSetRow(
                 )
             }
 
-            val onRirBadgeClick: () -> Unit = {
-                if (set.fieldsEnabled && !keyboardOpenForSet) {
-                    showRirSheet = true
-                }
-            }
-            if (showSplitReps) {
-                RepsCellWithRirBadge(
-                    rir = set.rir,
-                    onBadgeClick = onRirBadgeClick,
-                    modifier =
-                        Modifier
-                            .weight(weights.reps)
-                            .padding(horizontal = 2.dp),
-                ) {
+            RepsCellWithRirBadge(
+                rir = set.rir,
+                onBadgeClick = {
+                    if (set.fieldsEnabled && !keyboardOpenForSet) {
+                        showRirSheet = true
+                    }
+                },
+                modifier =
+                    Modifier
+                        .weight(weights.reps)
+                        .padding(horizontal = 2.dp),
+            ) {
+                if (showSplitReps) {
                     WorkoutLogSplitRepsField(
                         set = set,
                         sessionHost = setSessionHost,
@@ -237,16 +236,7 @@ fun StratumWorkoutLogSetRow(
                         openKeyboard = openKeyboard,
                         modifier = Modifier.fillMaxWidth(),
                     )
-                }
-            } else {
-                RepsCellWithRirBadge(
-                    rir = set.rir,
-                    onBadgeClick = onRirBadgeClick,
-                    modifier =
-                        Modifier
-                            .weight(weights.reps)
-                            .padding(horizontal = 2.dp),
-                ) {
+                } else {
                     WorkoutLogSingleRepsField(
                         set = set,
                         actions = actions,
