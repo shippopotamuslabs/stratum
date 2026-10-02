@@ -37,34 +37,31 @@ fun alternativesForLift(
     currentLiftId: String,
     seedCandidateIds: List<String>,
 ): List<String> {
-    val current = context.liftsById[currentLiftId] ?: return seedCandidateIds.distinct()
-    val primaryMuscles = current.primaryMuscles.toSet()
-    val pattern = current.movementPattern
-
-    val ranked = context.liftsById.values
-        .asSequence()
-        .filter { it.id in context.enabledLiftIds }
-        .filter { it.id != currentLiftId }
-        .filter { matchesPattern(it, pattern) }
-        .filter { lift -> lift.primaryMuscles.any { it in primaryMuscles } }
-        .sortedWith { a, b ->
-            val scoreDiff = alternativeScore(b, context) - alternativeScore(a, context)
-            if (scoreDiff != 0.0) scoreDiff.compareTo(0.0)
-            else compareLiftCandidates(liftContextToCandidate(a, context), liftContextToCandidate(b, context))
+    val current = context.liftsById[currentLiftId]
+    val ranked: List<String> =
+        if (current == null) {
+            emptyList()
+        } else {
+            val primaryMuscles = current.primaryMuscles.toSet()
+            val pattern = current.movementPattern
+            context.liftsById.values
+                .asSequence()
+                .filter { it.id in context.enabledLiftIds }
+                .filter { it.id != currentLiftId }
+                .filter { matchesPattern(it, pattern) }
+                .filter { lift -> lift.primaryMuscles.any { it in primaryMuscles } }
+                .map { it.id }
+                .toList()
         }
-        .map { it.id }
-        .toList()
-
-    val merged = mutableListOf<String>()
-    val seen = mutableSetOf<String>()
-    for (id in seedCandidateIds + ranked + currentLiftId) {
-        if (id in seen || id !in context.enabledLiftIds) continue
-        seen += id
-        merged += id
-    }
-    return merged
-        .sortedByDescending { id ->
-            context.liftsById[id]?.let { alternativeScore(it, context) } ?: 0.0
+    return (seedCandidateIds + ranked + currentLiftId)
+        .distinct()
+        .filter { it in context.enabledLiftIds }
+        .mapNotNull { id -> context.liftsById[id]?.let { lift -> id to liftContextToCandidate(lift, context) } }
+        .sortedWith { a, b ->
+            val scoreDiff = b.second.priority - a.second.priority
+            if (scoreDiff != 0.0) scoreDiff.compareTo(0.0)
+            else compareLiftCandidates(a.second, b.second)
         }
         .take(LIFT_ALTERNATIVES_PER_LIFT)
+        .map { it.first }
 }
