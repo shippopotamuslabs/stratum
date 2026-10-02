@@ -13,6 +13,8 @@ import com.stratum.domain.program.generation.synthesis.ProgramSynthesisResult
 import com.stratum.domain.program.generation.synthesis.wire.ProgramSynthesisWire
 import com.stratum.domain.program.generation.volume.WeeklyVolumeTargets
 import com.stratum.domain.telemetry.AnalyticsPort
+import com.stratum.domain.telemetry.ClientStage
+import com.stratum.domain.telemetry.ClientStageCorrelation
 import com.stratum.domain.telemetry.SynthesisTelemetry
 import java.util.UUID
 import javax.inject.Inject
@@ -99,19 +101,19 @@ class FirebaseProgramSynthesisAdapter @Inject constructor(
                     // STR-19 trace: time the result decode. result.json is small
                     // (~25KB observed), so this should be milliseconds — if it
                     // is not, the wire decoder is the bottleneck.
-                    val decodeStartMs = System.currentTimeMillis()
+                    val decodeTimer =
+                        telemetry.startStage(
+                            ClientStageCorrelation.Job(jobId),
+                            ClientStage.DECODE_RESULT,
+                        )
                     val decoded = ProgramSynthesisWire.decodeResult(bytes.decodeToString())
+                    val decodeMs = decodeTimer.stop()
                     loggingPort.info(
                         TAG,
                         "synthesis client trace: job=$jobId " +
-                            "stage=${SynthesisTelemetry.STAGE_DECODE_RESULT} " +
-                            "duration_ms=${System.currentTimeMillis() - decodeStartMs} " +
+                            "stage=${ClientStage.DECODE_RESULT.wireName} " +
+                            "duration_ms=$decodeMs " +
                             "bytes=${bytes.size}",
-                    )
-                    telemetry.synthesisClientStage(
-                        jobId,
-                        SynthesisTelemetry.STAGE_DECODE_RESULT,
-                        decodeStartMs,
                     )
                     decoded
                 }
