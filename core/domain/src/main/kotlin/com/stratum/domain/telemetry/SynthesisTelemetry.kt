@@ -1,6 +1,32 @@
 package com.stratum.domain.telemetry
 
 /**
+ * Correlation identity for a client stage event (STR-19).
+ *
+ * A stage belongs to exactly one namespace: either a server synthesis job
+ * or a client-generated session (on-device generation has no server job).
+ * The namespaces are never mixed in a single param, so funnel queries can
+ * join on correlation_id without silent mis-joins.
+ */
+sealed interface ClientStageCorrelation {
+    val id: String
+
+    data class Job(override val id: String) : ClientStageCorrelation
+
+    data class Session(override val id: String) : ClientStageCorrelation
+}
+
+/**
+ * Typed client processing stages (STR-19). Wire names are the stable funnel
+ * strings; add entries here instead of passing raw stage strings.
+ */
+enum class ClientStage(val wireName: String) {
+    DECODE_RESULT("decode_result"),
+    GENERATE_PROGRAM("generate_program"),
+    LOAD_PROGRAM_INTO_EDITOR("load_program_into_editor"),
+}
+
+/**
  * Centralized STR-13 synthesis waterfall telemetry contract.
  *
  * Single owner for the synthesis funnel event names, param keys, and timing.
@@ -49,24 +75,46 @@ class SynthesisTelemetry(
     }
 
     /**
-     * Client-side processing stage timing (STR-19). Emitted for the post-ready
-     * client window (result decode, program assembly, editor load) that the
-     * server trace cannot see.
+     * Starts a client-side processing stage timer (STR-19). Covers the
+     * post-ready client window (result decode, program assembly, editor load)
+     * that the server trace cannot see.
      *
-     * Correlation follows the caller's convention: the synthesis adapter passes
-     * the real jobId; the generate controller passes its client session ID
-     * (it does not have the jobId — same convention as [synthesisRendered]).
+     * Timing is owned by this helper and uses the injectable [clock] for both
+     * the start and stop timestamps, so durations stay deterministic under
+     * fakes and call sites carry no timestamp boilerplate. Call [StageTimer.stop]
+     * once the stage completes; if the stage fails, simply do not stop the
+     * timer and no event is emitted.
      */
-    fun synthesisClientStage(correlationId: String, stage: String, startMs: Long) {
-        val durationMs = clock() - startMs
-        logEvent(
-            EVENT_SYNTHESIS_CLIENT_STAGE,
-            mapOf(
-                PARAM_JOB_ID to correlationId,
-                PARAM_STAGE to stage,
-                PARAM_DURATION_MS to durationMs.toString(),
-            ),
-        )
+    fun startStage(
+        correlation: ClientStageCorrelation,
+        stage: ClientStage,
+    ): StageTimer = StageTimer(clock(), correlation, stage)
+
+    /** Running stage timer. See [startStage]. */
+    inner class StageTimer(
+        private val startMs: Long,
+        private val correlation: ClientStageCorrelation,
+        private val stage: ClientStage,
+    ) {
+        /**
+         * Stops the timer and emits the stage event. Returns the measured
+         * duration in milliseconds.
+         */
+        fun stop(): Long {
+            val durationMs = clock() - startMs
+            val params =
+                buildMap {
+                    put(PARAM_CORRELATION_ID, correlation.id)
+                    when (correlation) {
+                        is ClientStageCorrelation.Job -> put(PARAM_JOB_ID, correlation.id)
+                        is ClientStageCorrelation.Session -> put(PARAM_SESSION_ID, correlation.id)
+                    }
+                    put(PARAM_STAGE, stage.wireName)
+                    put(PARAM_DURATION_MS, durationMs.toString())
+                }
+            logEvent(EVENT_SYNTHESIS_CLIENT_STAGE, params)
+            return durationMs
+        }
     }
 
     companion object {
@@ -76,12 +124,9 @@ class SynthesisTelemetry(
         const val EVENT_SYNTHESIS_CLIENT_STAGE = "synthesis_client_stage"
 
         const val PARAM_JOB_ID = "job_id"
+        const val PARAM_CORRELATION_ID = "correlation_id"
+        const val PARAM_SESSION_ID = "session_id"
         const val PARAM_DURATION_MS = "duration_ms"
         const val PARAM_STAGE = "stage"
-
-        /** Stage names for [EVENT_SYNTHESIS_CLIENT_STAGE]. */
-        const val STAGE_DECODE_RESULT = "decode_result"
-        const val STAGE_GENERATE_PROGRAM = "generate_program"
-        const val STAGE_LOAD_PROGRAM_INTO_EDITOR = "load_program_into_editor"
     }
 }

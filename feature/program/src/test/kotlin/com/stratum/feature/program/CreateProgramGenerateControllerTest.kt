@@ -19,13 +19,12 @@ import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.logging.LogAnalyticsEventUseCase
 import com.stratum.domain.logging.LogErrorUseCase
+import com.stratum.domain.telemetry.ClientStage
 import com.stratum.domain.telemetry.SynthesisTelemetry
 import com.stratum.domain.telemetry.SynthesisTelemetry.Companion.EVENT_SYNTHESIS_CLIENT_STAGE
 import com.stratum.domain.telemetry.SynthesisTelemetry.Companion.EVENT_SYNTHESIS_RENDERED
 import com.stratum.domain.telemetry.SynthesisTelemetry.Companion.PARAM_DURATION_MS
 import com.stratum.domain.telemetry.SynthesisTelemetry.Companion.PARAM_STAGE
-import com.stratum.domain.telemetry.SynthesisTelemetry.Companion.STAGE_GENERATE_PROGRAM
-import com.stratum.domain.telemetry.SynthesisTelemetry.Companion.STAGE_LOAD_PROGRAM_INTO_EDITOR
 import com.stratum.domain.logging.PARAM_ACTION
 import com.stratum.domain.logging.PARAM_SCREEN
 import com.stratum.domain.logging.USER_VISIBLE_ERROR_EVENT
@@ -160,7 +159,10 @@ class CreateProgramGenerateControllerTest {
         val byName = analytics.events.groupBy { it.name }
         val stages = byName[EVENT_SYNTHESIS_CLIENT_STAGE].orEmpty()
         assertEquals(
-            setOf(STAGE_GENERATE_PROGRAM, STAGE_LOAD_PROGRAM_INTO_EDITOR),
+            setOf(
+                ClientStage.GENERATE_PROGRAM.wireName,
+                ClientStage.LOAD_PROGRAM_INTO_EDITOR.wireName,
+            ),
             stages.map { it.params[PARAM_STAGE] }.toSet(),
         )
         stages.forEach { event ->

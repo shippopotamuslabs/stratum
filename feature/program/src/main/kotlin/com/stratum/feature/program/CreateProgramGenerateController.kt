@@ -24,6 +24,8 @@ import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.domain.logging.PARAM_ACTION
 import com.stratum.domain.logging.PARAM_SCREEN
 import com.stratum.domain.logging.USER_VISIBLE_ERROR_EVENT
+import com.stratum.domain.telemetry.ClientStage
+import com.stratum.domain.telemetry.ClientStageCorrelation
 import com.stratum.domain.telemetry.SynthesisTelemetry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -174,8 +176,10 @@ internal class CreateProgramGenerateController(
                 // On-device generation has no server jobId here, so stages are
                 // correlated by this client session ID (same convention as
                 // synthesisRendered below).
-                val sessionId = java.util.UUID.randomUUID().toString()
-                val generateStartMs = System.currentTimeMillis()
+                val session =
+                    ClientStageCorrelation.Session(java.util.UUID.randomUUID().toString())
+                val generateTimer =
+                    synthesisTelemetry.startStage(session, ClientStage.GENERATE_PROGRAM)
                 val result =
                     generateProgram(
                         restSlotIndices = schedule.restSlotIndices,
@@ -198,20 +202,13 @@ internal class CreateProgramGenerateController(
                         publishGenerateFailure(error)
                         return@launch
                     }
-                synthesisTelemetry.synthesisClientStage(
-                    sessionId,
-                    SynthesisTelemetry.STAGE_GENERATE_PROGRAM,
-                    generateStartMs,
-                )
-                val editorStartMs = System.currentTimeMillis()
+                generateTimer.stop()
+                val editorTimer =
+                    synthesisTelemetry.startStage(session, ClientStage.LOAD_PROGRAM_INTO_EDITOR)
                 onProgramGenerated(program)
-                synthesisTelemetry.synthesisClientStage(
-                    sessionId,
-                    SynthesisTelemetry.STAGE_LOAD_PROGRAM_INTO_EDITOR,
-                    editorStartMs,
-                )
+                editorTimer.stop()
                 // STR-13 trace: program handed to the editor for rendering.
-                synthesisTelemetry.synthesisRendered(sessionId)
+                synthesisTelemetry.synthesisRendered(session.id)
             }
     }
 
