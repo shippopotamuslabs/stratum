@@ -73,16 +73,22 @@ class FirebaseProgramSynthesisAdapter @Inject constructor(
                 .await()
 
             // STR-22: transient getProgramSynthesisStatus failures (INTERNAL, UNAVAILABLE,
-            // DEADLINE_EXCEEDED) must not kill a minutes-long generation; they are absorbed
-            // inside pollStatus and polling continues. The 5-minute ceiling still bounds
-            // total wait, and the budget below fails fast on a sustained outage.
-            val transientBudget = TransientFailureBudget(MAX_CONSECUTIVE_TRANSIENT_STATUS_FAILURES)
+            // DEADLINE_EXCEEDED) must not kill a minutes-long generation; they are
+            // retried inside pollStatusWithTransientRetry and polling continues. The
+            // 5-minute ceiling still bounds total wait, and the consecutive-failure
+            // cap fails fast on a sustained outage.
             val snapshot =
                 try {
                     pollUntil(
                         timeoutMs = POLL_TIMEOUT_MS,
                         isTerminal = { it.status.isTerminal() },
-                        poll = { pollStatus(jobId, transientBudget, NON_TERMINAL_STATUS_FALLBACK) },
+                        poll = {
+                            pollStatusWithTransientRetry(
+                                fetch = { fetchStatusSnapshot(jobId) },
+                                loggingPort = loggingPort,
+                                jobId = jobId,
+                            )
+                        },
                     )
                 } catch (_: IllegalStateException) {
                     outcome = synthesisTraceOutcome(status = null, timedOut = true)
@@ -158,70 +164,39 @@ class FirebaseProgramSynthesisAdapter @Inject constructor(
         }
     }
 
-    private suspend fun pollStatus(
-        jobId: String,
-        transientBudget: TransientFailureBudget,
-        fallback: SynthesisJobSnapshot,
-    ): SynthesisJobSnapshot =
-        fetchStatusWithTransientRetry(
-            fetch = {
-                val result =
-                    functions
-                        .getHttpsCallable(STATUS_CALLABLE)
-                        .call(mapOf("jobId" to jobId))
-                        .await()
-                val snapshot = parseSynthesisStatusResponse(result.data)
-                snapshot.progressPhase?.let { phase ->
-                    loggingPort.info(
-                        TAG,
-                        "synthesis job=$jobId phase=$phase message=${snapshot.progressMessage}",
-                    )
-                }
-                snapshot
-            },
-            budget = transientBudget,
-            fallback = fallback,
-            onTransientFailure = { error ->
-                // warning(), not FirebaseCallableErrorLogger: a transient blip must not
-                // become a Crashlytics non-fatal (see STR-25).
-                loggingPort.warning(
-                    TAG,
-                    "$STATUS_CALLABLE transient failure (${error.code.name}); " +
-                        "continuing to poll job=$jobId",
-                )
-            },
-            onPermanentFailure = { error ->
-                FirebaseCallableErrorLogger.logFailure(loggingPort, TAG, STATUS_CALLABLE, error)
-            },
-        )
+    private suspend fun fetchStatusSnapshot(jobId: String): SynthesisJobSnapshot {
+        val result =
+            functions
+                .getHttpsCallable(STATUS_CALLABLE)
+                .call(mapOf("jobId" to jobId))
+                .await()
+        val snapshot = parseSynthesisStatusResponse(result.data)
+        snapshot.progressPhase?.let { phase ->
+            loggingPort.info(
+                TAG,
+                "synthesis job=$jobId phase=$phase message=${snapshot.progressMessage}",
+            )
+        }
+        return snapshot
+    }
 
     private companion object {
-        const val TAG = "ProgramSynthesis"
         const val START_CALLABLE = "startProgramSynthesis"
-        const val STATUS_CALLABLE = "getProgramSynthesisStatus"
         const val MAX_DOWNLOAD_BYTES = 10L * 1024L * 1024L
         /** Must stay ≤ server SYNTHESIS_STALE_JOB_MS (6 min). */
         const val POLL_TIMEOUT_MS = 5 * 60 * 1000L
-
-        /**
-         * Consecutive transient getProgramSynthesisStatus failures tolerated before failing
-         * the generation. A single blip (the STR-22 incident: one INTERNAL mid-poll) is
-         * absorbed; a sustained outage fails fast instead of polling pointlessly until
-         * [POLL_TIMEOUT_MS].
-         */
-        const val MAX_CONSECUTIVE_TRANSIENT_STATUS_FAILURES = 10
-
-        /** Non-terminal stand-in returned while a transient failure is being absorbed. */
-        val NON_TERMINAL_STATUS_FALLBACK =
-            SynthesisJobSnapshot(
-                status = SynthesisRemoteStatus.Pending,
-                progressPhase = null,
-                progressMessage = null,
-                resultStoragePath = null,
-                errorMessage = null,
-            )
     }
 }
+
+internal const val TAG = "ProgramSynthesis"
+internal const val STATUS_CALLABLE = "getProgramSynthesisStatus"
+/**
+ * Consecutive transient getProgramSynthesisStatus failures tolerated before failing
+ * the generation. A single blip (the STR-22 incident: one INTERNAL mid-poll) is
+ * retried; a sustained outage fails fast instead of polling pointlessly until
+ * the 5-minute ceiling.
+ */
+internal const val MAX_CONSECUTIVE_TRANSIENT_STATUS_FAILURES = 10
 
 internal enum class SynthesisRemoteStatus {
     Pending,
@@ -340,53 +315,43 @@ internal fun FirebaseFunctionsException.Code.isTransientStatusCode(): Boolean =
     }
 
 /**
- * Caps consecutive transient failures so a hard outage fails fast instead of being masked
- * by endless retries. Reset on every successful poll.
+ * Fetches one status snapshot, retrying transient [FirebaseFunctionsException]s
+ * ([isTransientStatusCode]) inline so the poll loop survives blips without a fake
+ * non-terminal stand-in: a transient failure logs a warning and retries immediately,
+ * a permanent failure throws [ProgramSynthesisException] at once, and more than
+ * [MAX_CONSECUTIVE_TRANSIENT_STATUS_FAILURES] consecutive transient failures fail
+ * the generation instead of retrying forever.
+ *
+ * Transient failures use `warning()`, not [FirebaseCallableErrorLogger]: a blip must
+ * not become a Crashlytics non-fatal (see STR-25).
  */
-internal class TransientFailureBudget(private val maxConsecutive: Int) {
-    private var consecutiveFailures = 0
-
-    /** Records one transient failure; throws [ProgramSynthesisException] when exhausted. */
-    fun record() {
-        consecutiveFailures++
-        if (consecutiveFailures > maxConsecutive) {
-            throw ProgramSynthesisException(MESSAGE_GENERATION_FAILED)
-        }
-    }
-
-    fun reset() {
-        consecutiveFailures = 0
-    }
-}
-
-/**
- * Fetches one status snapshot, absorbing transient [FirebaseFunctionsException]s so the
- * poll loop survives blips. Transient codes ([isTransientStatusCode]) are reported via
- * [onTransientFailure] and yield [fallback] (non-terminal, so polling continues);
- * [budget] caps consecutive transient failures. Permanent codes are reported via
- * [onPermanentFailure] and throw [ProgramSynthesisException] immediately.
- */
-internal suspend fun fetchStatusWithTransientRetry(
+internal suspend fun pollStatusWithTransientRetry(
     fetch: suspend () -> SynthesisJobSnapshot,
-    budget: TransientFailureBudget,
-    fallback: SynthesisJobSnapshot,
-    onTransientFailure: (FirebaseFunctionsException) -> Unit,
-    onPermanentFailure: (FirebaseFunctionsException) -> Unit,
+    loggingPort: LoggingPort,
+    jobId: String,
+    maxConsecutiveTransients: Int = MAX_CONSECUTIVE_TRANSIENT_STATUS_FAILURES,
 ): SynthesisJobSnapshot {
-    return try {
-        val snapshot = fetch()
-        budget.reset()
-        snapshot
-    } catch (error: FirebaseFunctionsException) {
-        if (!error.code.isTransientStatusCode()) {
-            onPermanentFailure(error)
-            throw ProgramSynthesisException(
-                message = mapFunctionsExceptionToUserMessage(error.code.name),
-                cause = error,
+    var consecutiveTransients = 0
+    while (true) {
+        try {
+            return fetch()
+        } catch (error: FirebaseFunctionsException) {
+            if (!error.code.isTransientStatusCode()) {
+                FirebaseCallableErrorLogger.logFailure(loggingPort, TAG, STATUS_CALLABLE, error)
+                throw ProgramSynthesisException(
+                    message = mapFunctionsExceptionToUserMessage(error.code.name),
+                    cause = error,
+                )
+            }
+            consecutiveTransients++
+            if (consecutiveTransients > maxConsecutiveTransients) {
+                throw ProgramSynthesisException(MESSAGE_GENERATION_FAILED)
+            }
+            loggingPort.warning(
+                TAG,
+                "$STATUS_CALLABLE transient failure (${error.code.name}); " +
+                    "continuing to poll job=$jobId",
             )
         }
-        budget.record()
-        onTransientFailure(error)
-        fallback
     }
 }

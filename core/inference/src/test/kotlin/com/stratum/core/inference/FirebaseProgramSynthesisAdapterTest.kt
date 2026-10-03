@@ -1,6 +1,7 @@
 package com.stratum.core.inference
 
 import com.google.firebase.functions.FirebaseFunctionsException
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisException
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -223,40 +224,10 @@ class FirebaseProgramSynthesisAdapterTest {
     }
 
     @Nested
-    @DisplayName("TransientFailureBudget")
-    inner class FailureBudget {
-        @Test
-        @DisplayName("allows up to max consecutive failures")
-        fun allowsUpToMax() {
-            val budget = TransientFailureBudget(maxConsecutive = 2)
-            budget.record()
-            budget.record()
-        }
-
-        @Test
-        @DisplayName("throws once the budget is exhausted")
-        fun throwsWhenExhausted() {
-            val budget = TransientFailureBudget(maxConsecutive = 1)
-            budget.record()
-            assertThrows(ProgramSynthesisException::class.java) {
-                budget.record()
-            }
-        }
-
-        @Test
-        @DisplayName("reset restores the budget")
-        fun resetRestoresBudget() {
-            val budget = TransientFailureBudget(maxConsecutive = 1)
-            budget.record()
-            budget.reset()
-            budget.record()
-        }
-    }
-
     @Nested
-    @DisplayName("fetchStatusWithTransientRetry")
+    @DisplayName("pollStatusWithTransientRetry")
     inner class StatusRetry {
-        private val fallback =
+        private val pending =
             SynthesisJobSnapshot(
                 status = SynthesisRemoteStatus.Pending,
                 progressPhase = null,
@@ -307,67 +278,79 @@ class FirebaseProgramSynthesisAdapterTest {
         }
 
         @Test
-        @DisplayName("transient failure yields fallback and reports via onTransientFailure")
-        fun transientYieldsFallback() =
+        @DisplayName("transient failure is retried; warning logged without a non-fatal")
+        fun transientIsRetriedWithWarning() =
             runTest {
-                var transientCalls = 0
-                var permanentCalls = 0
+                val loggingPort = FakeLoggingPort()
+                var calls = 0
                 val result =
-                    fetchStatusWithTransientRetry(
-                        fetch = { throw transientError() },
-                        budget = TransientFailureBudget(maxConsecutive = 3),
-                        fallback = fallback,
-                        onTransientFailure = { transientCalls++ },
-                        onPermanentFailure = { permanentCalls++ },
+                    pollStatusWithTransientRetry(
+                        fetch = {
+                            calls++
+                            if (calls == 1) throw transientError()
+                            ready
+                        },
+                        loggingPort = loggingPort,
+                        jobId = "job-1",
                     )
-                assertEquals(fallback, result)
-                assertEquals(1, transientCalls)
-                assertEquals(0, permanentCalls)
+                assertEquals(ready, result)
+                assertEquals(2, calls)
+                assertEquals(1, loggingPort.warnings.size)
+                assertTrue(loggingPort.warnings.single().message.contains("INTERNAL"))
+                assertTrue(loggingPort.errors.isEmpty())
             }
 
         @Test
-        @DisplayName("permanent failure throws ProgramSynthesisException via onPermanentFailure")
-        fun permanentThrows() =
+        @DisplayName("permanent failure throws ProgramSynthesisException immediately")
+        fun permanentThrowsImmediately() =
             runTest {
-                var permanentCalls = 0
+                val loggingPort = FakeLoggingPort()
+                var calls = 0
                 var thrown: Throwable? = null
                 try {
-                    fetchStatusWithTransientRetry(
-                        fetch = { throw permanentError() },
-                        budget = TransientFailureBudget(maxConsecutive = 3),
-                        fallback = fallback,
-                        onTransientFailure = { },
-                        onPermanentFailure = { permanentCalls++ },
+                    pollStatusWithTransientRetry(
+                        fetch = {
+                            calls++
+                            throw permanentError()
+                        },
+                        loggingPort = loggingPort,
+                        jobId = "job-1",
                     )
                 } catch (e: ProgramSynthesisException) {
                     thrown = e
                 }
                 assertTrue(thrown is ProgramSynthesisException)
-                assertEquals(1, permanentCalls)
+                assertEquals(MESSAGE_GENERATION_FAILED, thrown?.message)
+                assertEquals(1, calls)
+                // Permanent failures go through FirebaseCallableErrorLogger → error().
+                assertEquals(1, loggingPort.errors.size)
+                assertTrue(loggingPort.warnings.isEmpty())
             }
 
         @Test
-        @DisplayName("sustained transient failures exhaust the budget and fail the poll")
-        fun sustainedTransientsExhaustBudget() =
+        @DisplayName("sustained transient failures throw after the consecutive cap")
+        fun sustainedTransientsThrowAfterCap() =
             runTest {
-                val budget = TransientFailureBudget(maxConsecutive = 2)
-                suspend fun attempt() =
-                    fetchStatusWithTransientRetry(
-                        fetch = { throw transientError() },
-                        budget = budget,
-                        fallback = fallback,
-                        onTransientFailure = { },
-                        onPermanentFailure = { },
-                    )
-                attempt()
-                attempt()
+                val loggingPort = FakeLoggingPort()
+                var calls = 0
                 var thrown: Throwable? = null
                 try {
-                    attempt()
+                    pollStatusWithTransientRetry(
+                        fetch = {
+                            calls++
+                            throw transientError()
+                        },
+                        loggingPort = loggingPort,
+                        jobId = "job-1",
+                        maxConsecutiveTransients = 2,
+                    )
                 } catch (e: ProgramSynthesisException) {
                     thrown = e
                 }
                 assertTrue(thrown is ProgramSynthesisException)
+                // 1 initial fetch + 2 retries; the 3rd consecutive failure throws.
+                assertEquals(3, calls)
+                assertEquals(2, loggingPort.warnings.size)
             }
 
         @Test
@@ -391,7 +374,7 @@ class FirebaseProgramSynthesisAdapterTest {
                         backoffAfterMs = 60_000L,
                         isTerminal = { it.status.isTerminal() },
                         poll = {
-                            fetchStatusWithTransientRetry(
+                            pollStatusWithTransientRetry(
                                 fetch = {
                                     calls++
                                     when (calls) {
@@ -400,10 +383,8 @@ class FirebaseProgramSynthesisAdapterTest {
                                         else -> ready
                                     }
                                 },
-                                budget = TransientFailureBudget(maxConsecutive = 10),
-                                fallback = fallback,
-                                onTransientFailure = { },
-                                onPermanentFailure = { },
+                                loggingPort = FakeLoggingPort(),
+                                jobId = "job-1",
                             )
                         },
                     )
@@ -423,7 +404,7 @@ class FirebaseProgramSynthesisAdapterTest {
                         slowIntervalMs = 10L,
                         backoffAfterMs = 60_000L,
                         isTerminal = { it.status.isTerminal() },
-                        poll = { fallback },
+                        poll = { pending },
                     )
                 } catch (e: IllegalStateException) {
                     thrown = e
