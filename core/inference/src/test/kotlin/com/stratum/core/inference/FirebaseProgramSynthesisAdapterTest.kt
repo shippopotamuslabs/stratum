@@ -224,7 +224,6 @@ class FirebaseProgramSynthesisAdapterTest {
     }
 
     @Nested
-    @Nested
     @DisplayName("pollStatusWithTransientRetry")
     inner class StatusRetry {
         private val pending =
