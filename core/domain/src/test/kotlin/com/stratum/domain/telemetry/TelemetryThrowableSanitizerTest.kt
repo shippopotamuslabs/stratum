@@ -1,6 +1,7 @@
 package com.stratum.domain.telemetry
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotSame
 import org.junit.jupiter.api.Assertions.assertNull
@@ -106,7 +107,88 @@ class TelemetryThrowableSanitizerTest {
         assertTrue(sanitized.message!!.contains(TelemetryPiiScrubber.REDACTED_EMAIL))
     }
 
+    @Test
+    fun `fallback exposes original class name for display and filtering`() {
+        val original = IntCodeException(42)
+
+        val result = TelemetryThrowableSanitizer.sanitizeWithNames(original)
+
+        val fallback = assertInstanceOf(SanitizedTelemetryException::class.java, result.sanitized)
+        assertEquals(IntCodeException::class.java.name, fallback.originalClassName)
+        assertEquals(
+            listOf(IntCodeException::class.java.name),
+            result.originalClassNames,
+        )
+    }
+
+    @Test
+    fun `sanitize delegates to sanitizeWithNames without changing the result`() {
+        val original = IntCodeException(42)
+
+        val sanitized = TelemetryThrowableSanitizer.sanitize(original)
+        val result = TelemetryThrowableSanitizer.sanitizeWithNames(IntCodeException(42))
+
+        assertInstanceOf(SanitizedTelemetryException::class.java, sanitized)
+        assertEquals(result.originalClassNames, listOf(IntCodeException::class.java.name))
+    }
+
+    @Test
+    fun `sanitizeWithNames is empty when every node keeps its class`() {
+        val cause = IllegalStateException("token=secret123")
+        val original = RuntimeException("wrapper", cause)
+
+        val result = TelemetryThrowableSanitizer.sanitizeWithNames(original)
+
+        assertEquals(RuntimeException::class.java, result.sanitized.javaClass)
+        assertEquals(
+            emptyList<String>(),
+            result.originalClassNames,
+        )
+    }
+
+    @Test
+    fun `sanitizeWithNames collects fallbacks across cause and suppressed without duplicates`() {
+        val original = RuntimeException("wrapper", IntCodeException(1))
+        original.addSuppressed(IntCodeException(2))
+        original.addSuppressed(PairCodeException(7, "user@example.com"))
+
+        val result = TelemetryThrowableSanitizer.sanitizeWithNames(original)
+
+        assertEquals(
+            listOf(IntCodeException::class.java.name, PairCodeException::class.java.name),
+            result.originalClassNames,
+        )
+    }
+
+    @Test
+    fun `sanitizeWithNames terminates on cause cycles`() {
+        val first = RuntimeException("failed for user@example.com")
+        val second = RuntimeException("clean wrapper", first)
+        first.initCause(second)
+
+        val result = TelemetryThrowableSanitizer.sanitizeWithNames(first)
+
+        assertEquals(RuntimeException::class.java, result.sanitized.javaClass)
+        assertEquals(
+            emptyList<String>(),
+            result.originalClassNames,
+        )
+    }
+
+    @Test
+    fun `sanitizeWithNames returns original instance with empty names when no PII is present`() {
+        val original = IllegalStateException("Clean failure")
+
+        val result = TelemetryThrowableSanitizer.sanitizeWithNames(original)
+
+        assertSame(original, result.sanitized)
+        assertEquals(emptyList<String>(), result.originalClassNames)
+    }
+
     private class IntCodeException(val code: Int) : RuntimeException("failed for user@example.com ($code)")
+
+    private class PairCodeException(val code: Int, val reason: String) :
+        RuntimeException("failed $code for $reason")
 
     private class PrefedCause(message: String) : RuntimeException(message, RuntimeException("token=secret123"))
 
