@@ -1,6 +1,7 @@
 package com.stratum.domain.lift
 
 import com.stratum.core.testing.lift.FakeIncrementScanPort
+import com.stratum.core.testing.logging.FakeLoggingPort
 import java.io.IOException
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -13,11 +14,15 @@ class ScanIncrementTiersUseCaseTest {
 
     private val photo = ScanPhoto(byteArrayOf(1, 2, 3), "image/jpeg")
 
-    private fun subject(port: FakeIncrementScanPort): ScanIncrementTiersUseCase =
+    private fun subject(
+        port: FakeIncrementScanPort,
+        loggingPort: FakeLoggingPort = FakeLoggingPort(),
+    ): ScanIncrementTiersUseCase =
         ScanIncrementTiersUseCase(
             port,
             ValidateIncrementTiersUseCase(),
             ValidateMicroIncrementsUseCase(),
+            loggingPort,
         )
 
     @Test
@@ -105,6 +110,33 @@ class ScanIncrementTiersUseCaseTest {
     }
 
     @Test
+    @DisplayName("Given no usable rows when invoked then an empty breadcrumb is logged with photo context")
+    fun emptyScanLogsWarningBreadcrumb() = runTest {
+        val port =
+            FakeIncrementScanPort(
+                Result.success(
+                    ScannedTiers(
+                        unit = Weight.WeightUnit.Lb,
+                        tiers = listOf(ScannedTierRow(0.0, 40.0, 0.0)),
+                    ),
+                ),
+            )
+        val loggingPort = FakeLoggingPort()
+
+        val result = subject(port, loggingPort).invoke(photo)
+
+        assertTrue(result.isFailure)
+        assertEquals(1, loggingPort.warnings.size)
+        val warning = loggingPort.warnings.single()
+        assertEquals("StratumIncrementScan", warning.tag)
+        assertTrue(warning.message.contains("incrementScanEmpty"))
+        assertTrue(warning.message.contains("photoBytes=3"))
+        assertTrue(warning.message.contains("scannedRows=1"))
+        assertTrue(warning.message.contains("droppedRows=1"))
+        assertTrue(loggingPort.errors.isEmpty())
+    }
+
+    @Test
     @DisplayName("Given gapped tiers when invoked then invalid failure is returned")
     fun gappedTiersFail() = runTest {
         val port =
@@ -124,6 +156,50 @@ class ScanIncrementTiersUseCaseTest {
 
         assertTrue(result.isFailure)
         assertTrue(result.exceptionOrNull() is IncrementTiersInvalidException)
+    }
+
+    @Test
+    @DisplayName("Given gapped tiers when invoked then an invalid breadcrumb is logged with validation errors")
+    fun invalidScanLogsWarningBreadcrumb() = runTest {
+        val port =
+            FakeIncrementScanPort(
+                Result.success(
+                    ScannedTiers(
+                        unit = Weight.WeightUnit.Lb,
+                        tiers =
+                            listOf(
+                                ScannedTierRow(0.0, 40.0, 5.0),
+                                ScannedTierRow(50.0, null, 10.0),
+                            ),
+                    ),
+                ),
+            )
+        val loggingPort = FakeLoggingPort()
+
+        val result = subject(port, loggingPort).invoke(photo)
+
+        assertTrue(result.isFailure)
+        assertEquals(1, loggingPort.warnings.size)
+        val warning = loggingPort.warnings.single()
+        assertEquals("StratumIncrementScan", warning.tag)
+        assertTrue(warning.message.contains("incrementScanInvalid"))
+        assertTrue(warning.message.contains("photoBytes=3"))
+        assertTrue(warning.message.contains("tierCount=2"))
+        assertTrue(warning.message.contains("NotContiguous"))
+        assertTrue(loggingPort.errors.isEmpty())
+    }
+
+    @Test
+    @DisplayName("Given valid rows when invoked then no breadcrumb is logged")
+    fun successLogsNothing() = runTest {
+        val port = FakeIncrementScanPort(Result.success(scannedLb()))
+        val loggingPort = FakeLoggingPort()
+
+        val result = subject(port, loggingPort).invoke(photo)
+
+        assertTrue(result.isSuccess)
+        assertTrue(loggingPort.warnings.isEmpty())
+        assertTrue(loggingPort.errors.isEmpty())
     }
 
     @Test
@@ -178,6 +254,19 @@ class ScanIncrementTiersUseCaseTest {
 
         assertTrue(result.isFailure)
         assertSame(failure, result.exceptionOrNull())
+    }
+
+    @Test
+    @DisplayName("Given port failure when invoked then the use case logs nothing (adapter owns callable logging)")
+    fun portFailureLogsNothing() = runTest {
+        val port = FakeIncrementScanPort(Result.failure(IOException("network down")))
+        val loggingPort = FakeLoggingPort()
+
+        val result = subject(port, loggingPort).invoke(photo)
+
+        assertTrue(result.isFailure)
+        assertTrue(loggingPort.warnings.isEmpty())
+        assertTrue(loggingPort.errors.isEmpty())
     }
 
     private fun scannedLb(): ScannedTiers =
