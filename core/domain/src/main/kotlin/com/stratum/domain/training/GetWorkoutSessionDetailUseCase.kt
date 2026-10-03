@@ -17,19 +17,30 @@ class GetWorkoutSessionDetailUseCase @Inject constructor(
     private val computeLoggedSessionMuscleVolume: ComputeLoggedSessionMuscleVolumeUseCase,
     private val loggingPort: LoggingPort,
 ) {
-    suspend operator fun invoke(sessionId: TrainingSessionId): Result<WorkoutSessionDetail> =
-        runCatchingLogged(loggingPort, TAG, "Failed to load workout session detail") {
-            val session = trainingLogRepository.getSession(sessionId)
-                ?: error("Training session ${sessionId.value} not found")
-            require(session.status == TrainingSessionStatus.COMPLETED) {
-                "Training session ${sessionId.value} is not completed"
-            }
-            val loggedSets = trainingLogRepository.getSetsForSession(sessionId)
-                .sortedWith(compareBy({ it.setIndex }, { it.completedAt }))
-            require(loggedSets.isNotEmpty()) {
-                "Training session ${sessionId.value} has no logged sets"
-            }
-
+    suspend operator fun invoke(sessionId: TrainingSessionId): Result<WorkoutSessionDetail> {
+        // Not-found / wrong-status / empty outcomes are expected (stale deep links, mid-edit
+        // reads), not operational faults: validate outside the logged block so they leave a
+        // breadcrumb only and never become Crashlytics non-fatals.
+        val loaded = runCatchingLogged(loggingPort, TAG, "Failed to load workout session detail") {
+            Pair(
+                trainingLogRepository.getSession(sessionId),
+                trainingLogRepository.getSetsForSession(sessionId),
+            )
+        }.getOrElse { return Result.failure(it) }
+        val session = loaded.first
+            ?: return expectedFailure(IllegalStateException("Training session ${sessionId.value} not found"))
+        if (session.status != TrainingSessionStatus.COMPLETED) {
+            return expectedFailure(
+                IllegalArgumentException("Training session ${sessionId.value} is not completed"),
+            )
+        }
+        val loggedSets = loaded.second.sortedWith(compareBy({ it.setIndex }, { it.completedAt }))
+        if (loggedSets.isEmpty()) {
+            return expectedFailure(
+                IllegalArgumentException("Training session ${sessionId.value} has no logged sets"),
+            )
+        }
+        return runCatchingLogged(loggingPort, TAG, "Failed to load workout session detail") {
             val completedAt = session.endedAt ?: session.startedAt
             val durationMillis =
                 (completedAt.toEpochMilli() - session.startedAt.toEpochMilli()).coerceAtLeast(0)
@@ -94,6 +105,12 @@ class GetWorkoutSessionDetailUseCase @Inject constructor(
                 lifts = lifts,
             )
         }
+    }
+
+    private fun expectedFailure(throwable: Throwable): Result<WorkoutSessionDetail> {
+        loggingPort.warning(TAG, throwable.message ?: "Expected session load failure")
+        return Result.failure(throwable)
+    }
 
     private companion object {
         const val TAG = "GetWorkoutSessionDetail"

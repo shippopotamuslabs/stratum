@@ -49,20 +49,31 @@ class ApplyEquipmentIncrementProposalUseCase @Inject constructor(
                 return Result.failure(IncrementTiersInvalidException(result.errors))
             IncrementTiersValidationResult.Valid -> Unit
         }
+        // Fail clearly when the clustered equipment was deleted between propose and accept
+        // (setIncrementTiers alone may no-op on a missing row). A missing row is an expected
+        // race, not an operational fault: breadcrumb only, never a Crashlytics non-fatal.
+        if (remedy is EquipmentIncrementRemedy.AmendEquipmentTiers) {
+            val existing =
+                runCatchingLogged(loggingPort, TAG, "Failed to read equipment for increment remedy") {
+                    equipmentRepository.getEquipment(remedy.equipmentId)
+                }.getOrElse { return Result.failure(it) }
+            if (existing == null) {
+                loggingPort.warning(TAG, "Equipment ${remedy.equipmentId.value} not found for increment remedy")
+                return Result.failure(IllegalArgumentException("Equipment not found"))
+            }
+        }
+        if (remedy is EquipmentIncrementRemedy.ForkCustomEquipment && remedy.suggestedName.isBlank()) {
+            loggingPort.warning(TAG, "Equipment name is required for increment remedy")
+            return Result.failure(IllegalArgumentException("Equipment name is required"))
+        }
         return runCatchingLogged(loggingPort, TAG, "Failed to apply equipment increment remedy") {
             when (remedy) {
                 is EquipmentIncrementRemedy.AmendEquipmentTiers -> {
-                    // Fail clearly when the clustered equipment was deleted between propose
-                    // and accept — setIncrementTiers alone may no-op on a missing row.
-                    requireNotNull(equipmentRepository.getEquipment(remedy.equipmentId)) {
-                        "Equipment not found"
-                    }
                     equipmentRepository.setIncrementTiers(remedy.equipmentId, remedy.tiers)
                     ApplyEquipmentIncrementResult.Amended(remedy.equipmentId)
                 }
                 is EquipmentIncrementRemedy.ForkCustomEquipment -> {
                     val name = remedy.suggestedName.trim()
-                    require(name.isNotEmpty()) { "Equipment name is required" }
                     val id =
                         equipmentRepository.createCustomEquipmentAndAssignLifts(
                             name = name,

@@ -15,14 +15,21 @@ class UpdateExistingProgramUseCase @Inject constructor(
     private val programRepository: ProgramRepository,
     private val loggingPort: LoggingPort,
 ) {
-    suspend operator fun invoke(program: Program): Result<Unit> =
-        runCatchingLogged(loggingPort, TAG, "Failed to update program") {
-            require(program.workouts.isNotEmpty()) { "Program must have at least one workout" }
-            require(program.workouts.any { workout -> workout.workoutLifts.isNotEmpty() }) {
-                "Program must have at least one exercise"
-            }
+    suspend operator fun invoke(program: Program): Result<Unit> {
+        // Validation failures are expected caller outcomes, not operational faults: reject
+        // before the logged persistence block so they never become Crashlytics non-fatals.
+        if (program.workouts.isEmpty()) {
+            loggingPort.warning(TAG, "Program must have at least one workout")
+            return Result.failure(IllegalArgumentException("Program must have at least one workout"))
+        }
+        if (program.workouts.none { workout -> workout.workoutLifts.isNotEmpty() }) {
+            loggingPort.warning(TAG, "Program must have at least one exercise")
+            return Result.failure(IllegalArgumentException("Program must have at least one exercise"))
+        }
+        return runCatchingLogged(loggingPort, TAG, "Failed to update program") {
             programRepository.saveProgram(program)
         }
+    }
 
     private companion object {
         const val TAG = "UpdateExistingProgram"

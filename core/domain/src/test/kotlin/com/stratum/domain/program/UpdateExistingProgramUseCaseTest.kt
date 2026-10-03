@@ -41,6 +41,37 @@ class UpdateExistingProgramUseCaseTest {
         )
     }
 
+    @Test
+    @DisplayName("Given program without workouts when invoked then failure without non-fatal")
+    fun emptyProgramFailsWithoutNonFatal() = runTest {
+        val program = programWithLifts().copy(workouts = emptyList())
+        val logging = FakeLoggingPort()
+        val useCase = UpdateExistingProgramUseCase(FakeProgramRepository(program), logging)
+
+        val result = useCase(program)
+
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull() is IllegalArgumentException)
+        assertEquals(0, logging.errors.size)
+        assertEquals(1, logging.warnings.size)
+    }
+
+    @Test
+    @DisplayName("Given program without exercises when invoked then failure without non-fatal")
+    fun exerciselessProgramFailsWithoutNonFatal() = runTest {
+        val base = programWithLifts()
+        val program = base.copy(workouts = base.workouts.map { it.copy(workoutLifts = emptyList()) })
+        val logging = FakeLoggingPort()
+        val useCase = UpdateExistingProgramUseCase(FakeProgramRepository(program), logging)
+
+        val result = useCase(program)
+
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull() is IllegalArgumentException)
+        assertEquals(0, logging.errors.size)
+        assertEquals(1, logging.warnings.size)
+    }
+
     private fun programWithLifts(): Program {
         val base = WorkoutLoggingFixtures.twoWorkoutProgram()
         return base.copy(
