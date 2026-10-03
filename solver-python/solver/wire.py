@@ -80,7 +80,8 @@ def parse_model_version(value) -> tuple[int, str]:
         raise WireError(f"Unrecognized modelVersion {value!r}")
     major = int(m.group(1))
     if major != 1:
-        raise WireError(f"Unsupported modelVersion major: {value!r} (server supports v1)")
+        # Message text is pinned by the contract suite (match="unsupported major").
+        raise WireError(f"unsupported major in modelVersion {value!r} (server supports v1)")
     return (major, value)
 
 
