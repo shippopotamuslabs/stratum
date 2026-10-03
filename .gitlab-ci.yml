@@ -198,10 +198,12 @@ assemble-release:
   stage: test
   needs: []
   script:
+    - !reference [.keystore-bootstrap-optional, script]
     - ./gradlew :app:assembleRelease
   artifacts:
     paths:
       - app/build/outputs/apk/release/*.apk
+      - .keystore-signed-flag
     expire_in: 1 week
 
 functions-tests:
@@ -424,19 +426,35 @@ solver-tests-nightly:
 # or the upload fails with a duplicate-version error.
 
 # Shared keystore bootstrap for deploy jobs (STR-50 reviewer feedback).
+# Single conditional script defined once as a YAML anchor. Both hidden jobs
+# below reference it; the strict variant adds a flag check to fail fast.
+# KEYSTORE_BASE64 is a File variable: a path to a file holding base64 text.
+.keystore-setup: &keystore-setup
+  - |
+    if [ -n "$KEYSTORE_BASE64" ] && [ -n "$STORE_PASSWORD" ] && [ -n "$KEY_ALIAS" ] && [ -n "$KEY_PASSWORD" ]; then
+      mkdir -p .keystore
+      base64 -d "$KEYSTORE_BASE64" > .keystore/stratum_keystore.jks
+      printf 'storeFile=.keystore/stratum_keystore.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
+        "$STORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > keystore.properties
+      echo "SIGNED=true" > .keystore-signed-flag
+      echo "Keystore configured — building signed APK"
+    else
+      echo "Keystore secrets not available — building unsigned APK"
+      rm -f .keystore-signed-flag
+    fi
+
+# Fails if secrets are missing — for jobs that MUST be signed.
 # Referenced via `!reference [.keystore-bootstrap, script]`.
 .keystore-bootstrap:
   script:
-    - test -n "$KEYSTORE_BASE64" || (echo "Missing KEYSTORE_BASE64 file variable — see header of .gitlab-ci.yml" && exit 1)
-    - test -n "$STORE_PASSWORD" || (echo "Missing STORE_PASSWORD variable — see header of .gitlab-ci.yml" && exit 1)
-    - test -n "$KEY_ALIAS" || (echo "Missing KEY_ALIAS variable — see header of .gitlab-ci.yml" && exit 1)
-    - test -n "$KEY_PASSWORD" || (echo "Missing KEY_PASSWORD variable — see header of .gitlab-ci.yml" && exit 1)
-    # KEYSTORE_BASE64 is a File variable: a path to a file holding base64 text.
-    - mkdir -p .keystore
-    - base64 -d "$KEYSTORE_BASE64" > .keystore/stratum_keystore.jks
-    - |
-      printf 'storeFile=.keystore/stratum_keystore.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
-        "$STORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > keystore.properties
+    - *keystore-setup
+    - test -f .keystore-signed-flag || (echo "Missing keystore secrets — see header of .gitlab-ci.yml" && exit 1)
+
+# Optional keystore bootstrap: signs if secrets are available, builds unsigned
+# otherwise. For jobs like assemble-release that run on MRs without secrets.
+.keystore-bootstrap-optional:
+  script:
+    - *keystore-setup
 
 deploy-internal:
   extends: .android-job
@@ -475,11 +493,25 @@ distribute-internal:
   stage: deploy
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  needs: [assemble-release]
   script:
-    - !reference [.keystore-bootstrap, script]
     - test -n "$FIREBASE_SERVICE_ACCOUNT_JSON" || (echo "Missing FIREBASE_SERVICE_ACCOUNT_JSON file variable" && exit 1)
     - export GOOGLE_APPLICATION_CREDENTIALS="$FIREBASE_SERVICE_ACCOUNT_JSON"
-    - ./gradlew :app:assembleRelease :app:appDistributionUploadRelease
+    # Explicit contract: assemble-release must have produced a SIGNED APK.
+    # The .keystore-signed-flag artifact proves secrets were available.
+    - test -f .keystore-signed-flag || (echo "APK was not signed — keystore secrets missing in assemble-release" && exit 1)
+    # Upload the already-built signed APK via Firebase CLI — no Gradle rebuild.
+    - |
+      shopt -s nullglob
+      APK_FILES=(app/build/outputs/apk/release/*.apk)
+      shopt -u nullglob
+      if [ ${#APK_FILES[@]} -eq 0 ]; then echo "No APK found" && exit 1; fi
+      if [ ${#APK_FILES[@]} -gt 1 ]; then echo "Multiple APKs found: ${APK_FILES[*]}" && exit 1; fi
+      npx firebase-tools appdistribution:distribute "${APK_FILES[0]}" \
+        --app 1:531671963823:android:8d383c6410df9ce894dc5a \
+        --groups "Internal" \
+        --release-notes "Build ${CI_COMMIT_SHORT_SHA} from main" \
+        --non-interactive
   artifacts:
     paths:
       - app/build/outputs/apk/release/*.apk
