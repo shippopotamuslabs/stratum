@@ -274,12 +274,17 @@ class FirebaseProgramSynthesisAdapterTest {
             )
 
         private fun transientError() =
-            FirebaseFunctionsException(FirebaseFunctionsException.Code.INTERNAL, "INTERNAL")
+            FirebaseFunctionsException(
+                "INTERNAL",
+                FirebaseFunctionsException.Code.INTERNAL,
+                null,
+            )
 
         private fun permanentError() =
             FirebaseFunctionsException(
-                FirebaseFunctionsException.Code.PERMISSION_DENIED,
                 "Missing or insufficient permissions.",
+                FirebaseFunctionsException.Code.PERMISSION_DENIED,
+                null,
             )
 
         @Test
