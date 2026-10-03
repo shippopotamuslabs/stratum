@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "STR-13 canonical stale-trace field list. Dotted Firestore paths cleared from the per-job `trace` map when a jobId is reused (retry). Single source of truth: functions `synthesisTrace.ts` derives its TRACE_* constants and staleTraceDeletions() from this file, and `SynthesisJobTraceFieldsTest.kt` (solver-service) parses it to pin the worker's TRACE_* constants. Keep `trace.clientStart` / `trace.jobCreated` OUT of this list — they are fresh-written on every attempt by initialTraceMap().",
+  "staleTraceFields": [
+    "trace.dispatcherTrigger",
+    "trace.dispatcherPostSent",
+    "trace.workerStart",
+    "trace.workerClaimed",
+    "trace.workerSolving",
+    "trace.workerUploaded",
+    "trace.solver"
+  ]
+}

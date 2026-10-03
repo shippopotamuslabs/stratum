@@ -3,11 +3,7 @@ import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { isSynthesisJobStale } from "./synthesisJobGuards";
 import { assertUserEntitled } from "../entitlement/assertEntitled";
-import {
-  clientStartMsToTimestamp,
-  staleTraceDeletions,
-  initialTraceMap,
-} from "./synthesisTrace";
+import { clientStartMsToTimestamp, buildJobResetTrace } from "./synthesisTrace";
 import {
   MAX_REQUEST_BYTES,
   MAX_SYNTHESIS_PER_MONTH,
@@ -200,13 +196,11 @@ export const startProgramSynthesis = onCall(async (request) => {
           quotaCounted: false,
           // Per-job trace waterfall (STR-13): permanent, low-cost handoff timestamps.
           // clientStart is the app's tap/upload-done epoch ms; falls back to server time.
-          // Stale dispatcher/worker/solver fields are explicitly cleared: merge:true
-          // deep-merges nested maps, so a retried jobId must not show the previous
-          // attempt's handoff timestamps.
-          trace: {
-            ...initialTraceMap(clientStart),
-            ...staleTraceDeletions(),
-          },
+          // Stale dispatcher/worker/solver fields are explicitly cleared with SHORT
+          // keys nested under trace (merge:true deep-merges nested maps, so dotted
+          // paths here would become literal keys instead of deletions): a retried
+          // jobId must not show the previous attempt's handoff timestamps.
+          trace: buildJobResetTrace(clientStart),
         },
         { merge: true },
       );

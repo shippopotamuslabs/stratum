@@ -24,6 +24,8 @@ import com.stratum.domain.telemetry.SynthesisTelemetry
 import com.stratum.domain.telemetry.SynthesisTelemetry.Companion.EVENT_SYNTHESIS_CLIENT_STAGE
 import com.stratum.domain.telemetry.SynthesisTelemetry.Companion.EVENT_SYNTHESIS_RENDERED
 import com.stratum.domain.telemetry.SynthesisTelemetry.Companion.PARAM_DURATION_MS
+import com.stratum.domain.telemetry.SynthesisTelemetry.Companion.PARAM_JOB_ID
+import com.stratum.domain.telemetry.SynthesisTelemetry.Companion.PARAM_SESSION_ID
 import com.stratum.domain.telemetry.SynthesisTelemetry.Companion.PARAM_STAGE
 import com.stratum.domain.logging.PARAM_ACTION
 import com.stratum.domain.logging.PARAM_SCREEN
@@ -38,6 +40,7 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
@@ -171,10 +174,15 @@ class CreateProgramGenerateControllerTest {
         }
         val rendered = byName[EVENT_SYNTHESIS_RENDERED].orEmpty()
         assertEquals(1, rendered.size)
-        val renderedDurationMs = rendered.single().params[PARAM_DURATION_MS]?.toLongOrNull()
+        val renderedParams = rendered.single().params
+        val renderedDurationMs = renderedParams[PARAM_DURATION_MS]?.toLongOrNull()
         assertTrue(
             renderedDurationMs != null && renderedDurationMs >= 0,
             "rendered duration must be present",
         )
+        // Rendered is session-keyed: the cloud jobId is invisible through
+        // GenerateProgramUseCase, so job_id must be omitted, never overloaded.
+        assertTrue(!renderedParams[PARAM_SESSION_ID].isNullOrBlank(), "session_id must be present")
+        assertNull(renderedParams[PARAM_JOB_ID], "job_id must not carry a session id")
     }
 }
