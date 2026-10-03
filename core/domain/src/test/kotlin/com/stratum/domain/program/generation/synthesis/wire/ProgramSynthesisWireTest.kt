@@ -128,6 +128,83 @@ class ProgramSynthesisWireTest {
     }
 
     @Test
+    fun `encodeRequest emits modelVersion v1`() {
+        val encoded = ProgramSynthesisWire.encodeRequest(emptyMap(), minimalContext())
+        assertTrue(
+            encoded.contains("\"modelVersion\":\"v1\""),
+            "request JSON must carry modelVersion v1, got: $encoded".take(200),
+        )
+    }
+
+    @Test
+    fun `decodeRequest tolerates missing modelVersion as v1`() {
+        val encoded = ProgramSynthesisWire.encodeRequest(emptyMap(), minimalContext())
+        val legacy = encoded.replace("\"modelVersion\":\"v1\",", "")
+        assertFalse(legacy.contains("modelVersion"), "precondition: version stripped")
+
+        val decoded = ProgramSynthesisWire.decodeRequest(legacy)
+
+        assertEquals(emptyMap<String, WeeklyVolumeTarget>(), decoded.weeklyTargets)
+        assertEquals(minimalContext(), decoded.context)
+    }
+
+    @Test
+    fun `decodeRequest accepts v1 minor versions`() {
+        val encoded = ProgramSynthesisWire.encodeRequest(emptyMap(), minimalContext())
+        val minor = encoded.replace("\"modelVersion\":\"v1\"", "\"modelVersion\":\"v1.4\"")
+
+        val decoded = ProgramSynthesisWire.decodeRequest(minor)
+
+        assertEquals(minimalContext(), decoded.context)
+    }
+
+    @Test
+    fun `decodeRequest rejects unknown major modelVersion`() {
+        val encoded = ProgramSynthesisWire.encodeRequest(emptyMap(), minimalContext())
+        val v2 = encoded.replace("\"modelVersion\":\"v1\"", "\"modelVersion\":\"v2\"")
+
+        val ex =
+            assertThrows(ProgramSynthesisWireException::class.java) {
+                ProgramSynthesisWire.decodeRequest(v2)
+            }
+        assertTrue(ex.message!!.contains("modelVersion"), "message must name the field: ${ex.message}")
+    }
+
+    @Test
+    fun `decodeResult tolerates missing modelVersion as v1`() {
+        val result = minimalResult()
+        val encoded = ProgramSynthesisWire.encodeResult(result)
+        assertFalse(encoded.contains("modelVersion"), "precondition: encoder emits no version")
+
+        val decoded = ProgramSynthesisWire.decodeResult(encoded)
+
+        assertEquals(result.sessions, decoded.sessions)
+        assertEquals(result.objective, decoded.objective)
+    }
+
+    @Test
+    fun `decodeResult accepts v1 minor versions`() {
+        val encoded = ProgramSynthesisWire.encodeResult(minimalResult())
+        val minor = encoded.replaceFirst("{", "{\"modelVersion\":\"v1.2\",")
+
+        val decoded = ProgramSynthesisWire.decodeResult(minor)
+
+        assertEquals(minimalResult().sessions, decoded.sessions)
+    }
+
+    @Test
+    fun `decodeResult rejects unknown major modelVersion`() {
+        val encoded = ProgramSynthesisWire.encodeResult(minimalResult())
+        val v2 = encoded.replaceFirst("{", "{\"modelVersion\":\"v2\",")
+
+        val ex =
+            assertThrows(ProgramSynthesisWireException::class.java) {
+                ProgramSynthesisWire.decodeResult(v2)
+            }
+        assertTrue(ex.message!!.contains("modelVersion"), "message must name the field: ${ex.message}")
+    }
+
+    @Test
     fun `invalid request JSON throws ProgramSynthesisWireException`() {
         val ex =
             assertThrows(ProgramSynthesisWireException::class.java) {
