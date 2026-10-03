@@ -115,7 +115,8 @@ class _Handler(BaseHTTPRequestHandler):
         if path == "/solve/v1":
             url_major = 1
         elif path.startswith("/solve/v"):
-            self._send_json(400, {"error": f"Unsupported solver major: {path}"})
+            # Message text is pinned by the contract suite (match="unsupported major").
+            self._send_json(400, {"error": f"unsupported major in path: {path} (server supports v1)"})
             return
         else:
             self._send_json(404, {"error": f"Not found: {path}"})
