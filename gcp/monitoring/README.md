@@ -34,8 +34,15 @@ Validate without touching GCP:
 
 ```bash
 node --test gcp/monitoring/monitoring.test.mjs
-bash -n gcp/monitoring/apply.sh
+bash -n gcp/monitoring/apply.sh gcp/monitoring/enable-firestore-audit-logs.sh
 ```
+
+Alert policies are generated from a single shared envelope by
+`gcp/monitoring/build-alert-policies.py` — edit the builder (thresholds,
+filters, docs), re-run it, and commit the regenerated JSON. The test fails
+if the checked-in files drift from the builder output. All other JSON
+templating at apply time goes through `gcp/monitoring/json_render.py`
+(no sed).
 
 ## Manual steps (need IAM admin / console clicks — NOT attempted by automation)
 
@@ -43,29 +50,11 @@ bash -n gcp/monitoring/apply.sh
 
 Data-access audit logs are off by default, which is why the STR-23 denials were
 invisible in Cloud Logging. Requires `resourcemanager.projects.setIamPolicy`
-(e.g. Project IAM Admin or Owner). Read the current policy, add the
-`auditConfigs` block, write it back:
+(e.g. Project IAM Admin or Owner). Run the checked-in script (idempotent —
+safe to re-run):
 
 ```bash
-PROJECT=stratum-a1a5b
-gcloud projects get-iam-policy "$PROJECT" --format=json > /tmp/iam.json
-python3 - "$PROJECT" <<'PY'
-import json, sys
-project = sys.argv[1]
-p = json.load(open("/tmp/iam.json"))
-audits = p.setdefault("auditConfigs", [])
-firestore = next((a for a in audits if a.get("service") == "firestore.googleapis.com"), None)
-if firestore is None:
-    audits.append({"service": "firestore.googleapis.com", "auditLogConfigs": []})
-    firestore = audits[-1]
-have = {(c.get("logType"), c.get("exemptedMembers", None) and tuple(c["exemptedMembers"]) or ()) for c in firestore.get("auditLogConfigs", [])}
-for log_type in ("DATA_READ", "DATA_WRITE"):
-    if not any(h[0] == log_type for h in have):
-        firestore.setdefault("auditLogConfigs", []).append({"logType": log_type})
-json.dump(p, open("/tmp/iam-patched.json", "w"), indent=2)
-print("wrote /tmp/iam-patched.json")
-PY
-gcloud projects set-iam-policy "$PROJECT" /tmp/iam-patched.json
+PROJECT=stratum-a1a5b ./gcp/monitoring/enable-firestore-audit-logs.sh
 ```
 
 Notes:

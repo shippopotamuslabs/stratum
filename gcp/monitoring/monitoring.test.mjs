@@ -5,7 +5,9 @@
 // GCP JSON/gcloud config, so node:test is the fitting analog.
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { readFileSync, readdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join, basename, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -89,6 +91,18 @@ describe("alert policies", () => {
     assert.match(c.filter, /stratum-solver/);
     assert.equal(c.aggregations[0].perSeriesAligner, "ALIGN_PERCENTILE_99");
   });
+
+  it("latency policy threshold is in milliseconds, not seconds", () => {
+    const p = load(join(DIR, "alert-policies", "solver-latency-p99.json"));
+    const c = p.conditions[0].conditionThreshold;
+    // run.googleapis.com/request_latencies is a DISTRIBUTION measured in ms;
+    // a seconds-scale value would fire on normal traffic (alert fatigue).
+    assert.ok(
+      c.thresholdValue >= 10000,
+      `thresholdValue ${c.thresholdValue} looks like seconds, not milliseconds`,
+    );
+    assert.match(p.documentation.content, /millisecond/i, "doc notes the ms unit");
+  });
 });
 
 describe("notification channel template", () => {
@@ -99,22 +113,95 @@ describe("notification channel template", () => {
   });
 });
 
-describe("apply.sh drift guard", () => {
-  const script = readFileSync(join(DIR, "apply.sh"), "utf8");
+describe("render pipeline contract", () => {
+  // Behavior tests for json_render.py, the single JSON helper apply.sh uses.
+  // These assert inputs/outputs, not script source text, so behavior-preserving
+  // refactors keep passing.
+  const render = (...args) =>
+    execFileSync("python3", [join(DIR, "json_render.py"), ...args], {
+      encoding: "utf8",
+    }).trim();
 
-  it("iterates all config files instead of hardcoding names", () => {
-    assert.match(script, /log-metrics\/\*\.json/);
-    assert.match(script, /alert-policies\/\*\.json/);
+  it("substitute replaces placeholders without shell escaping", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "render-"));
+    const template = join(tmp, "template.json");
+    writeFileSync(template, JSON.stringify({ labels: { email_address: "{{ALERT_EMAIL}}" } }));
+    const out = join(tmp, "out.json");
+    // '&', '|', '\' are sed-special; the helper must pass them through verbatim.
+    render("substitute", template, out, "ALERT_EMAIL=a&b|c\\d@example.com");
+    assert.deepEqual(load(out), { labels: { email_address: "a&b|c\\d@example.com" } });
   });
 
-  it("is idempotent (describe-before-create, reuse channel, update policies)", () => {
-    assert.match(script, /metrics describe/);
-    assert.match(script, /metrics update/);
-    assert.match(script, /policies update/);
+  it("set-channel injects the resolved channel into a policy", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "render-"));
+    const out = join(tmp, "policy.json");
+    const src = join(DIR, "alert-policies", "solver-5xx.json");
+    render("set-channel", src, out, "projects/p/notificationChannels/123");
+    const policy = load(out);
+    assert.deepEqual(policy.notificationChannels, ["projects/p/notificationChannels/123"]);
+    assert.equal(policy.displayName, "Stratum: solver 5xx spike");
   });
 
-  it("wires the created channel into policies without hardcoding it", () => {
-    assert.match(script, /notificationChannels/);
-    assert.ok(!script.includes("{{CHANNEL}}"), "placeholder lives in policy files, not the script");
+  it("display-name and find-policy round-trip for idempotent updates", () => {
+    const src = join(DIR, "alert-policies", "solver-5xx.json");
+    const display = render("display-name", src);
+    assert.equal(display, "Stratum: solver 5xx spike");
+    const tmp = mkdtempSync(join(tmpdir(), "render-"));
+    const listed = join(tmp, "listed.json");
+    writeFileSync(
+      listed,
+      JSON.stringify([
+        { name: "projects/p/alertPolicies/1", displayName: "Stratum: solver 5xx spike" },
+        { name: "projects/p/alertPolicies/2", displayName: "Something else" },
+      ]),
+    );
+    assert.equal(render("find-policy", listed, display), "projects/p/alertPolicies/1");
+    assert.equal(render("find-policy", listed, "Stratum: missing"), "");
+  });
+
+  it("find-channel locates the email channel by address", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "render-"));
+    const listed = join(tmp, "channels.json");
+    writeFileSync(
+      listed,
+      JSON.stringify([
+        {
+          name: "projects/p/notificationChannels/9",
+          type: "email",
+          labels: { email_address: "alerts@example.com" },
+        },
+        { name: "projects/p/notificationChannels/7", type: "webhook", labels: {} },
+      ]),
+    );
+    assert.equal(
+      render("find-channel", listed, "alerts@example.com"),
+      "projects/p/notificationChannels/9",
+    );
+    assert.equal(render("find-channel", listed, "nobody@example.com"), "");
+  });
+
+  it("every checked-in policy renders through the pipeline", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "render-"));
+    for (const f of policyFiles) {
+      const out = join(tmp, f);
+      render("set-channel", join(DIR, "alert-policies", f), out, "projects/p/notificationChannels/1");
+      const policy = load(out); // throws on invalid JSON
+      assert.deepEqual(policy.notificationChannels, ["projects/p/notificationChannels/1"]);
+      assert.ok(
+        render("display-name", join(DIR, "alert-policies", f)).startsWith("Stratum: "),
+      );
+    }
+  });
+});
+
+describe("alert-policy builder", () => {
+  it("checked-in policies match the builder output", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "builder-"));
+    execFileSync("python3", [join(DIR, "build-alert-policies.py"), tmp], { encoding: "utf8" });
+    for (const f of policyFiles) {
+      const expected = readFileSync(join(tmp, f), "utf8");
+      const actual = readFileSync(join(DIR, "alert-policies", f), "utf8");
+      assert.equal(actual, expected, `${f} drifted from build-alert-policies.py output`);
+    }
   });
 });
