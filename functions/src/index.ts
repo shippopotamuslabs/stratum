@@ -14,6 +14,7 @@ import { processProgramSynthesisJob } from "./program-synthesis/processProgramSy
 import { onSynthesisJobWritten } from "./program-synthesis/onSynthesisQuota";
 import { inferEquipmentIncrements } from "./incrementscan/inferEquipmentIncrements";
 import { syncPlayEntitlement } from "./entitlement/syncPlayEntitlement";
+import { ingestClientLogs } from "./telemetry/ingestClientLogs";
 
 admin.initializeApp();
 
@@ -33,4 +34,5 @@ export {
   onSynthesisJobWritten,
   inferEquipmentIncrements,
   syncPlayEntitlement,
+  ingestClientLogs,
 };
