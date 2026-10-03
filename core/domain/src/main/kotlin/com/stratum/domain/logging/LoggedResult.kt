@@ -24,3 +24,18 @@ suspend inline fun <T> runCatchingLogged(
         loggingPort.error(tag, "$message: ${error.message}", error)
         Result.failure(error)
     }
+
+/**
+ * Returns [Result.failure] for an expected domain outcome (missing row, stale id, invalid
+ * input) that must leave a warning breadcrumb only — never an error / Crashlytics non-fatal.
+ * Use for validation outside [runCatchingLogged] blocks. Pass [message] only when the
+ * breadcrumb must differ from the throwable message.
+ */
+internal fun LoggingPort.expectedFailure(
+    tag: String,
+    throwable: Throwable,
+    message: String = throwable.message ?: "Expected failure",
+): Result<Nothing> {
+    warning(tag, message)
+    return Result.failure(throwable)
+}

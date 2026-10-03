@@ -38,6 +38,32 @@ class LoggedResultTest {
     }
 
     @Test
+    fun `expectedFailure logs warning breadcrumb and returns failure without error`() {
+        val failure = IllegalStateException("Training session 1 not found")
+        val result: Result<String> = fakeLogging.expectedFailure("UseCase", failure)
+
+        assertTrue(result.isFailure)
+        assertSame(failure, result.exceptionOrNull())
+        assertTrue(fakeLogging.errors.isEmpty())
+        assertEquals(1, fakeLogging.warnings.size)
+        val entry = fakeLogging.warnings.single()
+        assertEquals("UseCase", entry.tag)
+        assertEquals("Training session 1 not found", entry.message)
+    }
+
+    @Test
+    fun `expectedFailure supports distinct breadcrumb message`() {
+        val failure = IllegalArgumentException("Equipment not found")
+        val result: Result<String> =
+            fakeLogging.expectedFailure("UseCase", failure, "Equipment e1 not found for remedy")
+
+        assertTrue(result.isFailure)
+        assertSame(failure, result.exceptionOrNull())
+        assertTrue(fakeLogging.errors.isEmpty())
+        assertEquals("Equipment e1 not found for remedy", fakeLogging.warnings.single().message)
+    }
+
+    @Test
     fun `runCatchingLogged rethrows CancellationException without logging`() = runTest {
         org.junit.jupiter.api.assertThrows<kotlinx.coroutines.CancellationException> {
             runCatchingLogged(fakeLogging, "Repo", "Fetch failed") {
