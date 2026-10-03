@@ -198,6 +198,7 @@ assemble-release:
   stage: test
   needs: []
   script:
+    - !reference [.keystore-bootstrap, script]
     - ./gradlew :app:assembleRelease
   artifacts:
     paths:
@@ -475,11 +476,15 @@ distribute-internal:
   stage: deploy
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  needs: [assemble-release]
   script:
-    - !reference [.keystore-bootstrap, script]
     - test -n "$FIREBASE_SERVICE_ACCOUNT_JSON" || (echo "Missing FIREBASE_SERVICE_ACCOUNT_JSON file variable" && exit 1)
     - export GOOGLE_APPLICATION_CREDENTIALS="$FIREBASE_SERVICE_ACCOUNT_JSON"
-    - ./gradlew :app:assembleRelease :app:appDistributionUploadRelease
+    # Upload the already-built signed APK via Firebase CLI — no Gradle rebuild.
+    - npx firebase-tools appdistribution:distribute "app/build/outputs/apk/release/*.apk"
+      --app 1:531671963823:android:8d383c6410df9ce894dc5a
+      --groups "Internal"
+      --release-notes "Build ${CI_COMMIT_SHORT_SHA} from main"
   artifacts:
     paths:
       - app/build/outputs/apk/release/*.apk
