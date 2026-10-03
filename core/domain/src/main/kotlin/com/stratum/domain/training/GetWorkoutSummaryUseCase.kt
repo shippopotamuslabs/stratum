@@ -1,10 +1,13 @@
 package com.stratum.domain.training
 
+import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.toStorageLb
 import com.stratum.domain.logging.LoggingPort
+import com.stratum.domain.logging.expectedFailure
 import com.stratum.domain.logging.runCatchingLogged
+import com.stratum.domain.program.Program
 import com.stratum.domain.program.ProgramRepository
 import com.stratum.domain.program.Workout
 import com.stratum.domain.training.identity.TrainingSessionId
@@ -23,40 +26,61 @@ class GetWorkoutSummaryUseCase @Inject constructor(
     private val observeLiftCatalog: ObserveLiftCatalogUseCase,
     private val loggingPort: LoggingPort,
 ) {
-    suspend operator fun invoke(sessionId: TrainingSessionId): Result<WorkoutSummary> =
-        runCatchingLogged(loggingPort, TAG, "Failed to load workout summary") {
-        val session = trainingLogRepository.getSession(sessionId)
-            ?: error("Training session ${sessionId.value} not found")
-        val loggedSets = trainingLogRepository.getSetsForSession(sessionId)
-        val lifts = observeLiftCatalog().first()
-        val liftNamesById = lifts.associate { it.id to it.name }
-
-        val program = programRepository.getProgram()
-        val liftFallback =
-            loggedSets.firstOrNull()?.liftContext?.liftName?.takeIf { it.isNotBlank() }
-                ?: loggedSets.firstOrNull()?.exerciseNameRaw
-        val workoutName =
-            TrainingSessionDisplayName.resolve(
-                session = session,
-                program = program,
-                liftOrExerciseFallback = liftFallback,
+    suspend operator fun invoke(sessionId: TrainingSessionId): Result<WorkoutSummary> {
+        // A missing session is expected (stale deep link), not an operational fault: load all
+        // reads in one logged block, then validate outside it so the miss leaves a breadcrumb
+        // only, never a Crashlytics non-fatal.
+        val reads =
+            runCatchingLogged(loggingPort, TAG, "Failed to load workout summary") {
+                SummaryReads(
+                    session = trainingLogRepository.getSession(sessionId),
+                    sets = trainingLogRepository.getSetsForSession(sessionId),
+                    lifts = observeLiftCatalog().first(),
+                    program = programRepository.getProgram(),
+                )
+            }.getOrElse { return Result.failure(it) }
+        val session = reads.session
+            ?: return loggingPort.expectedFailure(
+                TAG,
+                IllegalStateException("Training session ${sessionId.value} not found"),
             )
+        val loggedSets = reads.sets
+        val liftNamesById = reads.lifts.associate { it.id to it.name }
+        val program = reads.program
+        return runCatchingLogged(loggingPort, TAG, "Failed to load workout summary") {
+            val liftFallback =
+                loggedSets.firstOrNull()?.liftContext?.liftName?.takeIf { it.isNotBlank() }
+                    ?: loggedSets.firstOrNull()?.exerciseNameRaw
+            val workoutName =
+                TrainingSessionDisplayName.resolve(
+                    session = session,
+                    program = program,
+                    liftOrExerciseFallback = liftFallback,
+                )
 
-        val durationMillis = run {
-            val end = session.endedAt ?: java.time.Instant.now()
-            end.toEpochMilli() - session.startedAt.toEpochMilli()
-        }
+            val durationMillis = run {
+                val end = session.endedAt ?: java.time.Instant.now()
+                end.toEpochMilli() - session.startedAt.toEpochMilli()
+            }
 
-        val workout = session.workoutId?.let { workoutId ->
-            program?.workouts?.firstOrNull { it.id == workoutId }
-        }
+            val workout = session.workoutId?.let { workoutId ->
+                program?.workouts?.firstOrNull { it.id == workoutId }
+            }
 
-        WorkoutSummary(
-            workoutName = workoutName,
-            durationMillis = durationMillis.coerceAtLeast(0),
-            bestSets = bestSetsInWorkoutOrder(loggedSets, workout, liftNamesById),
-        )
+            WorkoutSummary(
+                workoutName = workoutName,
+                durationMillis = durationMillis.coerceAtLeast(0),
+                bestSets = bestSetsInWorkoutOrder(loggedSets, workout, liftNamesById),
+            )
         }
+    }
+
+    private data class SummaryReads(
+        val session: TrainingSession?,
+        val sets: List<LoggedSet>,
+        val lifts: List<Lift>,
+        val program: Program?,
+    )
 
     /**
      * Emit best-set rows in program workout-lift order, then any orphans (no matching

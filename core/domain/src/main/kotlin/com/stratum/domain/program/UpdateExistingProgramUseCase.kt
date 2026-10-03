@@ -1,6 +1,7 @@
 package com.stratum.domain.program
 
 import com.stratum.domain.logging.LoggingPort
+import com.stratum.domain.logging.expectedFailure
 import com.stratum.domain.logging.runCatchingLogged
 import javax.inject.Inject
 
@@ -15,14 +16,25 @@ class UpdateExistingProgramUseCase @Inject constructor(
     private val programRepository: ProgramRepository,
     private val loggingPort: LoggingPort,
 ) {
-    suspend operator fun invoke(program: Program): Result<Unit> =
-        runCatchingLogged(loggingPort, TAG, "Failed to update program") {
-            require(program.workouts.isNotEmpty()) { "Program must have at least one workout" }
-            require(program.workouts.any { workout -> workout.workoutLifts.isNotEmpty() }) {
-                "Program must have at least one exercise"
-            }
+    suspend operator fun invoke(program: Program): Result<Unit> {
+        // Validation failures are expected caller outcomes, not operational faults: reject
+        // before the logged persistence block so they never become Crashlytics non-fatals.
+        if (program.workouts.isEmpty()) {
+            return loggingPort.expectedFailure(
+                TAG,
+                IllegalArgumentException("Program must have at least one workout"),
+            )
+        }
+        if (program.workouts.none { workout -> workout.workoutLifts.isNotEmpty() }) {
+            return loggingPort.expectedFailure(
+                TAG,
+                IllegalArgumentException("Program must have at least one exercise"),
+            )
+        }
+        return runCatchingLogged(loggingPort, TAG, "Failed to update program") {
             programRepository.saveProgram(program)
         }
+    }
 
     private companion object {
         const val TAG = "UpdateExistingProgram"

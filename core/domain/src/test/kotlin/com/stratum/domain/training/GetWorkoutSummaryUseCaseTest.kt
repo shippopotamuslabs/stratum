@@ -46,6 +46,23 @@ class GetWorkoutSummaryUseCaseTest {
     }
 
     @Test
+    @DisplayName("Missing session fails without non-fatal")
+    fun missingSessionFailsWithoutNonFatal() = runTest {
+        val programRepo = FakeProgramRepository(WorkoutLoggingFixtures.twoWorkoutProgram())
+        val logRepo = FakeTrainingLogRepository(programRepository = programRepo)
+        val liftRepo = FakeLiftRepository(initialLifts = listOf(benchLift()))
+        val logging = FakeLoggingPort()
+        val useCase = GetWorkoutSummaryUseCase(logRepo, programRepo, ObserveLiftCatalogUseCase(liftRepo), logging)
+
+        val result = useCase(TrainingSessionId("missing"))
+
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull() is IllegalStateException)
+        assertEquals(0, logging.errors.size)
+        assertEquals(1, logging.warnings.size)
+    }
+
+    @Test
     @DisplayName("Duration is computed from startedAt and endedAt")
     fun durationComputed() = runTest {
         val programRepo = FakeProgramRepository(WorkoutLoggingFixtures.twoWorkoutProgram())

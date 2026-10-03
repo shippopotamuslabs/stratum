@@ -6,6 +6,7 @@ import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.isDoubleSidedPlateLoad
 import com.stratum.domain.lift.isPlateLoaded
 import com.stratum.domain.logging.LoggingPort
+import com.stratum.domain.logging.expectedFailure
 import com.stratum.domain.logging.runCatchingLogged
 import com.stratum.domain.program.ProgramRepository
 import com.stratum.domain.training.identity.TrainingSessionId
@@ -23,20 +24,36 @@ class GetCompletedSessionForEditUseCase @Inject constructor(
     private val liftRepository: LiftRepository,
     private val loggingPort: LoggingPort,
 ) {
-    suspend operator fun invoke(sessionId: TrainingSessionId): Result<CompletedSessionEditSnapshot> =
-        runCatchingLogged(loggingPort, TAG, "Failed to load session for edit") {
-            val session =
-                trainingLogRepository.getSession(sessionId)
-                    ?: error("Training session ${sessionId.value} not found")
-            require(session.status == TrainingSessionStatus.COMPLETED) {
-                "Training session ${sessionId.value} is not completed"
-            }
-            val sets =
-                trainingLogRepository.getSetsForSession(sessionId)
-                    .sortedWith(compareBy({ it.setIndex }, { it.completedAt }))
-            require(sets.isNotEmpty()) {
-                "Training session ${sessionId.value} has no logged sets"
-            }
+    suspend operator fun invoke(sessionId: TrainingSessionId): Result<CompletedSessionEditSnapshot> {
+        // Not-found / wrong-status / empty outcomes are expected (stale deep links, mid-edit
+        // reads), not operational faults: validate outside the logged block so they leave a
+        // breadcrumb only and never become Crashlytics non-fatals.
+        val loaded =
+            runCatchingLogged(loggingPort, TAG, "Failed to load session for edit") {
+                Pair(
+                    trainingLogRepository.getSession(sessionId),
+                    trainingLogRepository.getSetsForSession(sessionId),
+                )
+            }.getOrElse { return Result.failure(it) }
+        val session = loaded.first
+            ?: return loggingPort.expectedFailure(
+                TAG,
+                IllegalStateException("Training session ${sessionId.value} not found"),
+            )
+        if (session.status != TrainingSessionStatus.COMPLETED) {
+            return loggingPort.expectedFailure(
+                TAG,
+                IllegalArgumentException("Training session ${sessionId.value} is not completed"),
+            )
+        }
+        val sets = loaded.second.sortedWith(compareBy({ it.setIndex }, { it.completedAt }))
+        if (sets.isEmpty()) {
+            return loggingPort.expectedFailure(
+                TAG,
+                IllegalArgumentException("Training session ${sessionId.value} has no logged sets"),
+            )
+        }
+        return runCatchingLogged(loggingPort, TAG, "Failed to load session for edit") {
             val program = programRepository.getProgram()
             val liftFallback =
                 sets.firstOrNull()?.liftContext?.liftName?.takeIf { it.isNotBlank() }
@@ -73,6 +90,7 @@ class GetCompletedSessionForEditUseCase @Inject constructor(
                 isDoubleSidedByLiftId = isDoubleSidedByLiftId,
             )
         }
+    }
 
     private companion object {
         const val TAG = "GetCompletedSessionForEdit"
