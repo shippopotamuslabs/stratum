@@ -29,6 +29,7 @@ import com.stratum.domain.program.generation.structure.SessionRegionFilter
 import com.stratum.domain.program.generation.volume.WeeklyVolumeTarget
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
@@ -202,6 +203,46 @@ class ProgramSynthesisWireTest {
                 ProgramSynthesisWire.decodeResult(v2)
             }
         assertTrue(ex.message!!.contains("modelVersion"), "message must name the field: ${ex.message}")
+    }
+
+    @Test
+    fun `stampModelVersionV1 leaves versioned payloads byte-identical`() {
+        val encoded = ProgramSynthesisWire.encodeRequest(emptyMap(), minimalContext())
+
+        assertSame(encoded, ProgramSynthesisWire.stampModelVersionV1(encoded))
+    }
+
+    @Test
+    fun `stampModelVersionV1 splices v1 onto legacy payloads without touching other bytes`() {
+        val encoded = ProgramSynthesisWire.encodeRequest(emptyMap(), minimalContext())
+        val legacy = encoded.replace("\"modelVersion\":\"v1\",", "")
+        assertFalse(legacy.contains("modelVersion"), "precondition: version stripped")
+
+        val stamped = ProgramSynthesisWire.stampModelVersionV1(legacy)
+
+        val brace = legacy.indexOf('{')
+        assertEquals(
+            legacy.substring(0, brace + 1) + "\"modelVersion\":\"v1\"," + legacy.substring(brace + 1),
+            stamped,
+        )
+        // The stamped payload validates as v1.
+        val decoded = ProgramSynthesisWire.decodeRequest(stamped)
+        assertEquals(minimalContext(), decoded.context)
+    }
+
+    @Test
+    fun `stampModelVersionV1 keeps explicit minor versions untouched`() {
+        val encoded = ProgramSynthesisWire.encodeRequest(emptyMap(), minimalContext())
+        val minor = encoded.replace("\"modelVersion\":\"v1\"", "\"modelVersion\":\"v1.4\"")
+
+        assertEquals(minor, ProgramSynthesisWire.stampModelVersionV1(minor))
+    }
+
+    @Test
+    fun `stampModelVersionV1 rejects non-object JSON`() {
+        assertThrows(ProgramSynthesisWireException::class.java) {
+            ProgramSynthesisWire.stampModelVersionV1("{not-json")
+        }
     }
 
     @Test

@@ -1,34 +1,35 @@
 package com.stratum.solver
 
 import com.google.cloud.firestore.FieldValue
-import com.google.cloud.firestore.Firestore
-import com.google.cloud.firestore.FirestoreException
-import com.google.cloud.storage.BlobId
-import com.google.cloud.storage.BlobInfo
-import com.google.cloud.storage.Storage
-import com.google.firebase.cloud.FirestoreClient
-import com.google.firebase.cloud.StorageClient
 import com.stratum.domain.program.generation.synthesis.wire.ProgramSynthesisWire
 import com.stratum.domain.program.generation.synthesis.wire.ProgramSynthesisWireException
-import com.stratum.domain.solver.CpSatProgramSynthesizer
+import java.io.IOException
 import java.nio.charset.StandardCharsets
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
 
 /**
- * Claims a Firestore synthesis job, runs CP-SAT, uploads result JSON, updates status.
+ * Claims a Firestore synthesis job, proxies the stored request to the Python
+ * solver over HTTP, uploads the raw result JSON, updates status.
+ *
+ * Version-normalizing proxy (STR-52): the stored `request.json` is validated
+ * with [ProgramSynthesisWire.decodeRequest] (unknown majors fail the job
+ * before any HTTP call — never guessed), stamped with `modelVersion: v1`
+ * when the field is absent (missing means v1), and POSTed byte-preserving to
+ * `$STRATUM_SOLVER_URL/solve/v1`. The Python response body is validated with
+ * `decodeResult`, then uploaded verbatim as `result.json` — never re-encoded
+ * through domain models.
  *
  * Job path: `users/{uid}/synthesisJobs/{jobId}`
  * Result path: `synthesis/{uid}/{jobId}/result.json`
+ *
+ * The request path holds zero OR-Tools references: CP-SAT runs in the Python
+ * service. (`:core:domain-solver` stays a dependency for Phase 3 / STR-46.)
  */
 class SynthesisJobWorker(
-    private val firestore: Firestore = FirestoreClient.getFirestore(),
-    private val storage: Storage = StorageClient.getInstance().bucket().storage,
-    private val bucketName: String = StorageClient.getInstance().bucket().name,
+    private val jobs: SynthesisJobStore = FirestoreSynthesisJobStore(),
+    private val blobs: SynthesisBlobStore = StorageSynthesisBlobStore(),
+    private val solverBaseUrl: String = resolveSolverBaseUrl(),
     private val deadlineMillis: Long = DEFAULT_SOLVE_DEADLINE_MILLIS,
-    private val synthesizerFactory: (Long) -> CpSatProgramSynthesizer = { deadline ->
-        CpSatProgramSynthesizer(deadlineMillis = deadline, numSearchWorkers = SOLVER_SEARCH_WORKERS)
-    },
+    private val httpClient: SolverHttpClient = JdkSolverHttpClient(solverBaseUrl, deadlineMillis),
     private val logger: StructuredLogger = StructuredLogger(StructuredLog.SERVICE_NAME),
 ) {
     sealed class Outcome {
@@ -43,9 +44,9 @@ class SynthesisJobWorker(
         logger.info("job started", uid = request.uid, jobId = request.jobId)
 
         return try {
-            val claim = claimJob(request.uid, request.jobId)
+            val claim = jobs.claim(request.uid, request.jobId)
             val requestStoragePath = when (claim) {
-                is ClaimResult.Missing -> {
+                is SynthesisJobStore.Claim.Missing -> {
                     logger.info(
                         "job missing; no-op",
                         uid = request.uid,
@@ -54,7 +55,7 @@ class SynthesisJobWorker(
                     )
                     return Outcome.JobMissing
                 }
-                is ClaimResult.NotClaimable -> {
+                is SynthesisJobStore.Claim.NotClaimable -> {
                     logger.info(
                         "skip claim",
                         uid = request.uid,
@@ -63,7 +64,7 @@ class SynthesisJobWorker(
                     )
                     return Outcome.Skipped("status=${claim.status}")
                 }
-                is ClaimResult.Claimed -> {
+                is SynthesisJobStore.Claim.Claimed -> {
                     logger.info(
                         "job claimed",
                         uid = request.uid,
@@ -73,7 +74,7 @@ class SynthesisJobWorker(
                     claim.requestStoragePath
                 }
             }
-            runSolveAndPublish(
+            runProxyAndPublish(
                 uid = request.uid,
                 jobId = request.jobId,
                 requestStoragePath = requestStoragePath,
@@ -82,7 +83,7 @@ class SynthesisJobWorker(
             // Full type + stack go to Error Reporting; the job doc keeps the user-safe message.
             logger.reportError("job failed", t, uid = request.uid, jobId = request.jobId)
             val message = sanitizeError(t)
-            updateJobIfPresent(
+            val updated = jobs.updateIfPresent(
                 uid = request.uid,
                 jobId = request.jobId,
                 fields = mapOf(
@@ -94,25 +95,33 @@ class SynthesisJobWorker(
                     "progressUpdatedAt" to FieldValue.serverTimestamp(),
                 ),
             )
+            if (!updated) {
+                logger.info("job missing; skipping status update", uid = request.uid, jobId = request.jobId)
+            }
             Outcome.Failed(message)
         }
     }
 
-    private fun runSolveAndPublish(
+    private fun runProxyAndPublish(
         uid: String,
         jobId: String,
         requestStoragePath: String,
     ): Outcome {
-        val requestBytes = downloadBytes(requestStoragePath)
+        val requestBytes = blobs.download(requestStoragePath)
         val requestJson = String(requestBytes, StandardCharsets.UTF_8)
+        // Validate before any HTTP call: an unknown major fails here (the
+        // fake HTTP client in tests asserts it is never reached for v2).
         val wireRequest = try {
             ProgramSynthesisWire.decodeRequest(requestJson)
         } catch (e: ProgramSynthesisWireException) {
             throw IllegalArgumentException("Invalid synthesis request JSON: ${e.message}", e)
         }
+        // Missing means v1: splice the authoritative version signal onto the
+        // stored bytes without touching anything else.
+        val stamped = ProgramSynthesisWire.stampModelVersionV1(requestJson)
 
         logger.info(
-            "solving",
+            "proxying solve",
             uid = uid,
             jobId = jobId,
             extra = listOf(
@@ -121,18 +130,11 @@ class SynthesisJobWorker(
             ),
         )
         val solveStartMs = System.currentTimeMillis()
-        val synthesizer = synthesizerFactory(deadlineMillis)
-        // Blocking CP-SAT on Default so we don't pin the HTTP pool thread alone.
-        val result = runBlocking(Dispatchers.Default) {
-            synthesizer.synthesize(
-                weeklyTargets = wireRequest.weeklyTargets,
-                context = wireRequest.context,
-            )
-        }
-
-        val resultJson = ProgramSynthesisWire.encodeResult(result)
+        // Forward the raw Python body: the stored result is byte-identical to
+        // what the solver emitted, never re-encoded through domain models.
+        val resultBody = postToSolver(stamped)
         val resultStoragePath = "synthesis/$uid/$jobId/result.json"
-        uploadJson(resultStoragePath, resultJson)
+        blobs.uploadJson(resultStoragePath, resultBody)
         logger.info(
             "uploaded result",
             uid = uid,
@@ -140,20 +142,11 @@ class SynthesisJobWorker(
             durationMs = System.currentTimeMillis() - solveStartMs,
             extra = listOf(
                 "resultStoragePath" to resultStoragePath,
-                "bytes" to resultJson.length,
-                "sessions" to result.sessions.size,
-                "objectiveTotal" to result.objective.total,
+                "bytes" to resultBody.length,
             ),
         )
 
-        val traceFields = mutableMapOf<String, Any>(
-            // STR-13 trace: upload timestamp + compact solver progression.
-            TRACE_WORKER_UPLOADED to FieldValue.serverTimestamp(),
-        )
-        synthesizer.lastSolveStats?.let { stats ->
-            traceFields[TRACE_SOLVER] = stats.toTraceMap()
-        }
-        val updated = updateJobIfPresent(
+        val updated = jobs.updateIfPresent(
             uid = uid,
             jobId = jobId,
             fields = mapOf(
@@ -164,7 +157,12 @@ class SynthesisJobWorker(
                 "errorMessage" to FieldValue.delete(),
                 "updatedAt" to FieldValue.serverTimestamp(),
                 "progressUpdatedAt" to FieldValue.serverTimestamp(),
-            ) + traceFields,
+                // STR-13 trace: upload timestamp on the ready write.
+                TRACE_WORKER_UPLOADED to FieldValue.serverTimestamp(),
+                // Proxy mode runs no local solver: clear any pre-migration
+                // solver stats so a reused jobId never shows stale values.
+                TRACE_SOLVER to FieldValue.delete(),
+            ),
         )
         if (!updated) {
             logger.info(
@@ -178,121 +176,33 @@ class SynthesisJobWorker(
         return Outcome.Ready(resultStoragePath)
     }
 
-    private sealed class ClaimResult {
-        data object Missing : ClaimResult()
-        data class NotClaimable(val status: String?) : ClaimResult()
-        data class Claimed(val requestStoragePath: String) : ClaimResult()
-    }
-
-    private fun claimJob(uid: String, jobId: String): ClaimResult {
-        val jobRef = firestore.document("users/$uid/synthesisJobs/$jobId")
-        // Prefer a simple get+update over a multi-retry transaction when possible: claim races are
-        // rare (one dispatcher, concurrency 1). Fall back to transaction for correctness.
-        return try {
-            firestore.runTransaction { transaction ->
-                val snap = transaction.get(jobRef).get()
-                if (!snap.exists()) {
-                    return@runTransaction ClaimResult.Missing
-                }
-                val status = snap.getString("status")
-                if (status != CLAIMABLE_STATUS) {
-                    return@runTransaction ClaimResult.NotClaimable(status)
-                }
-                val requestStoragePath = snap.getString("requestStoragePath")
-                    ?.trim()
-                    .orEmpty()
-                require(requestStoragePath.isNotEmpty()) {
-                    "Job $uid/$jobId is missing requestStoragePath"
-                }
-                require(isValidRequestStoragePath(uid, jobId, requestStoragePath)) {
-                    "requestStoragePath must be synthesis/$uid/$jobId/request.json"
-                }
-                transaction.update(
-                    jobRef,
-                    mapOf(
-                        "status" to "running",
-                        "progressPhase" to "solving",
-                        "progressMessage" to "Solving program…",
-                        "updatedAt" to FieldValue.serverTimestamp(),
-                        "progressUpdatedAt" to FieldValue.serverTimestamp(),
-                        // STR-13 trace: piggyback worker handoff timestamps on the claim write.
-                        // workerStart (request received), workerClaimed, and workerSolving are
-                        // co-timed here — the claim is the last Firestore write before the
-                        // blocking CP-SAT solve, avoiding extra round-trips on the critical path.
-                        TRACE_WORKER_START to FieldValue.serverTimestamp(),
-                        TRACE_WORKER_CLAIMED to FieldValue.serverTimestamp(),
-                        TRACE_WORKER_SOLVING to FieldValue.serverTimestamp(),
-                    ),
-                )
-                ClaimResult.Claimed(requestStoragePath)
-            }.get()
-        } catch (e: Exception) {
-            // Surface gRPC / packaging failures as process() catch → job failed (HTTP 200 body),
-            // not an uncaught 500 that the Node dispatcher rewrites with a generic message.
-            throw IllegalStateException(
-                "Failed to claim synthesis job $uid/$jobId: ${e.message}",
-                e,
-            )
-        }
-    }
-
-    private fun downloadBytes(storagePath: String): ByteArray {
-        val blob = storage.get(BlobId.of(bucketName, storagePath))
-            ?: error("Request object not found in Storage")
-        val size = blob.size
-        require(size > 0) { "Request object is empty" }
-        require(size <= MAX_REQUEST_BYTES) {
-            "Request object exceeds max size ($MAX_REQUEST_BYTES bytes)"
-        }
-        val content = blob.getContent()
-        require(content.isNotEmpty()) { "Request object is empty" }
-        return content
-    }
-
-    private fun uploadJson(storagePath: String, json: String) {
-        val blobInfo = BlobInfo.newBuilder(BlobId.of(bucketName, storagePath))
-            .setContentType("application/json; charset=utf-8")
-            .build()
-        storage.create(blobInfo, json.toByteArray(StandardCharsets.UTF_8))
-    }
-
     /**
-     * Job status update that no-ops when the doc was cascade-deleted (account deletion).
+     * POSTs the stamped request and returns the validated raw result body.
+     * 4xx means the solver rejected our request (client-shape failure); any
+     * other non-2xx, an empty body, or an undecodable body is a solver-side
+     * failure. All failures surface as IllegalArgument/IllegalState so
+     * [sanitizeError] maps them to the right user-safe message.
      */
-    private fun updateJobIfPresent(
-        uid: String,
-        jobId: String,
-        fields: Map<String, Any>,
-    ): Boolean {
-        val jobRef = firestore.document("users/$uid/synthesisJobs/$jobId")
-        return try {
-            jobRef.update(fields).get()
-            true
-        } catch (e: Exception) {
-            if (isNotFound(e)) {
-                logger.info("job missing; skipping status update", uid = uid, jobId = jobId)
-                false
-            } else {
-                throw e
-            }
+    private fun postToSolver(stamped: String): String {
+        val response = try {
+            httpClient.postSolveV1(stamped)
+        } catch (e: IOException) {
+            throw IllegalStateException("Solver service call failed: ${e.message}", e)
         }
-    }
-
-    private fun isNotFound(error: Throwable): Boolean {
-        var current: Throwable? = error
-        while (current != null) {
-            if (isNotFoundSignal(current)) return true
-            current = current.cause
+        require(response.statusCode !in HTTP_CLIENT_ERROR_MIN..HTTP_CLIENT_ERROR_MAX) {
+            "Invalid synthesis request: solver rejected it (HTTP ${response.statusCode})"
         }
-        return false
-    }
-
-    private fun isNotFoundSignal(error: Throwable): Boolean {
-        val message = error.message.orEmpty()
-        if (message.contains("NOT_FOUND", ignoreCase = true)) return true
-        if (message.contains("No document to update", ignoreCase = true)) return true
-        // FirestoreException.code is the gRPC numeric code (5 = NOT_FOUND).
-        return error is FirestoreException && error.code == GRPC_NOT_FOUND
+        check(response.statusCode in HTTP_SUCCESS_MIN..HTTP_SUCCESS_MAX) {
+            "Solver service returned HTTP ${response.statusCode}"
+        }
+        val body = response.body
+        check(body.isNotBlank()) { "Solver service returned empty body" }
+        try {
+            ProgramSynthesisWire.decodeResult(body)
+        } catch (e: ProgramSynthesisWireException) {
+            throw IllegalStateException("Invalid solver response: ${e.message}", e)
+        }
+        return body
     }
 
     /**
@@ -306,9 +216,6 @@ class SynthesisJobWorker(
                 t is ProgramSynthesisWireException ||
                 t is IllegalArgumentException ->
                 "Invalid generation request. Please try again."
-            msg.contains("INFEASIBLE", ignoreCase = true) ||
-                msg.contains("CP-SAT synthesis returned", ignoreCase = true) ->
-                "Could not build a feasible program for this profile. Try relaxing specialization or adding a training day."
             msg.contains("requestStoragePath", ignoreCase = true) ||
                 msg.contains("Request object", ignoreCase = true) ->
                 "Generation request was missing or invalid. Please try again."
@@ -318,16 +225,20 @@ class SynthesisJobWorker(
 
     companion object {
         const val CLAIMABLE_STATUS = "pending"
-        const val DEFAULT_SOLVE_DEADLINE_MILLIS = 120_000L
+
+        /** Python solver base URL, e.g. `https://stratum-solver-xyz.run.app` (no path). */
+        const val SOLVER_BASE_URL_ENV = "STRATUM_SOLVER_URL"
+
         /**
-         * CP-SAT search workers, matching this service's `--cpu=8` Cloud Run provisioning
-         * (see docs/cloud-program-synthesis-deploy.md §3). Deployment topology lives here at
-         * the composition root: `:core:domain-solver` leaves the OR-Tools default untouched
-         * unless told otherwise (STR-21).
+         * Worker deadline, applied as the solver HTTP connect+request timeout
+         * so a hung solver fails the job instead of pinning a request thread.
          */
-        const val SOLVER_SEARCH_WORKERS = 8
-        private const val MAX_REQUEST_BYTES = 5L * 1024L * 1024L
-        private const val GRPC_NOT_FOUND = 5
+        const val DEFAULT_SOLVE_DEADLINE_MILLIS = 120_000L
+
+        private const val HTTP_CLIENT_ERROR_MIN = 400
+        private const val HTTP_CLIENT_ERROR_MAX = 499
+        private const val HTTP_SUCCESS_MIN = 200
+        private const val HTTP_SUCCESS_MAX = 299
 
         /** STR-13 trace field names for the per-job `trace` map. */
         const val TRACE_WORKER_START = "trace.workerStart"
@@ -335,6 +246,15 @@ class SynthesisJobWorker(
         const val TRACE_WORKER_SOLVING = "trace.workerSolving"
         const val TRACE_WORKER_UPLOADED = "trace.workerUploaded"
         const val TRACE_SOLVER = "trace.solver"
+
+        /** Resolves the Python solver base URL from the environment (testable seam). */
+        fun resolveSolverBaseUrl(env: Map<String, String> = System.getenv()): String {
+            val raw = env[SOLVER_BASE_URL_ENV].orEmpty().trim().trimEnd('/')
+            require(raw.isNotEmpty()) {
+                "Missing $SOLVER_BASE_URL_ENV environment variable (Python solver base URL)"
+            }
+            return raw
+        }
 
         fun isValidRequestStoragePath(uid: String, jobId: String, path: String): Boolean {
             if (path.contains("..") || path.contains("//")) return false
