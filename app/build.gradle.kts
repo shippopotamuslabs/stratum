@@ -1,5 +1,6 @@
 import java.util.Properties
 import com.google.firebase.crashlytics.buildtools.gradle.CrashlyticsExtension
+import com.google.firebase.appdistribution.gradle.firebaseAppDistribution
 
 plugins {
     alias(libs.plugins.android.application)
@@ -10,6 +11,7 @@ plugins {
     alias(libs.plugins.google.services)
     alias(libs.plugins.firebase.crashlytics)
     alias(libs.plugins.firebase.perf)
+    alias(libs.plugins.firebase.appdist)
 }
 
 // Release signing: gitignored root `keystore.properties` (see keystore.properties.example).
@@ -142,4 +144,13 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
+}
+// Firebase App Distribution: internal builds (STR-50).
+// Upload via: ./gradlew :app:assembleRelease :app:appDistributionUploadRelease
+// Testers are managed in the Firebase console.
+firebaseAppDistribution {
+    // Service account credentials via GOOGLE_APPLICATION_CREDENTIALS env var in CI,
+    // or `firebase login` locally.
+    releaseNotes = "Internal build from ${System.getenv("CI_COMMIT_SHORT_SHA") ?: "local"}"
+    groups = "Internal"
 }
