@@ -1,5 +1,11 @@
 # Program synthesis architecture
 
+> Migration note (2026-10, STR-45/STR-46): the CP-SAT solver moved from Kotlin
+> (`:core:domain-solver`, deleted) to Python (`solver-python/`, OR-Tools Python
+> API). The layer map and domain semantics below still hold; the Kotlin file
+> paths under `core/domain-solver/` are historical — see `solver-python/` and
+> `solver-contract/` for the current implementation and JSON boundary.
+
 Stratum builds weekly training programs with a unified CP-SAT model (structure + volume +
 calendar in one solve). This document is the map of layers, the meaning of
 `SessionRegionFilter`, and the critical-path files.

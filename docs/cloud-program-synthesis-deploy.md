@@ -87,10 +87,11 @@ solver-service/build/libs/solver-service-all.jar
 
 The Shadow task patches gRPC `META-INF/services` after package (required for Firestore Admin). Do not strip that post-step.
 
-Host unit tests for the real solver (optional, slow):
+Python solver + contract suites (fast, no Gradle):
 
 ```bash
-./gradlew :core:domain-solver-tests:test -PrunSolverTests=true
+pip install -r solver-python/requirements.txt -r solver-contract/tests/requirements.txt
+PYTHONPATH=solver-python SOLVER_MODULE=solver python -m pytest solver-python/tests/ solver-contract/tests/ -q
 ```
 
 ---
@@ -152,6 +153,47 @@ gcloud run deploy stratum-solver \
   --image=${IMAGE_URI} \
   --region=${REGION} \
   --project=${PROJECT} \
+  --cpu=2 \
+  --memory=1Gi \
+  --timeout=180 \
+  --concurrency=4 \
+  --min-instances=0 \
+  --max-instances=20 \
+  --no-allow-unauthenticated \
+  --set-env-vars=GOOGLE_CLOUD_PROJECT=${PROJECT},FIREBASE_STORAGE_BUCKET=stratum-a1a5b.firebasestorage.app,STRATUM_SOLVER_URL=https://stratum-solver-py-XXXX.run.app \
+  --port=8080
+```
+
+Notes:
+
+- The Kotlin worker is a proxy now (STR-52): it needs little CPU/RAM of its own —
+  2 vCPU / 1 GiB with concurrency 4 is plenty. The 8 vCPU shape moved to the
+  Python solver service below.
+- **timeout=180s** covers the 120s Python-side solve deadline + proxy I/O.
+- **STRATUM_SOLVER_URL is required**: base URL of the Python solver service
+  (no trailing slash). The worker POSTs `$STRATUM_SOLVER_URL/solve/v1`.
+
+### 3b. Deploy the Python solver service
+
+Build from `solver-python/Dockerfile` (see `solver-python/README.md`):
+
+```bash
+PY_IMAGE_URI=${REGION}-docker.pkg.dev/${PROJECT}/stratum/stratum-solver-py:latest
+gcloud builds submit solver-python \
+  --config=- \
+  --project=${PROJECT} \
+  --timeout=20m <<EOF
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ['build', '-f', 'Dockerfile', '-t', '${PY_IMAGE_URI}', '.']
+images:
+  - '${PY_IMAGE_URI}'
+EOF
+
+gcloud run deploy stratum-solver-py \
+  --image=${PY_IMAGE_URI} \
+  --region=${REGION} \
+  --project=${PROJECT} \
   --cpu=8 \
   --memory=4Gi \
   --timeout=180 \
@@ -160,7 +202,7 @@ gcloud run deploy stratum-solver \
   --max-instances=20 \
   --no-allow-unauthenticated \
   --cpu-boost \
-  --set-env-vars=GOOGLE_CLOUD_PROJECT=${PROJECT},FIREBASE_STORAGE_BUCKET=stratum-a1a5b.firebasestorage.app \
+  --set-env-vars=SOLVER_MAX_TIME_SECONDS=120 \
   --port=8080
 ```
 
@@ -168,7 +210,12 @@ Notes:
 
 - **4 GiB** is the Cloud Run minimum memory for **8 vCPU** (2 GiB is rejected).
 - **concurrency=1** so one solve owns the CPUs.
-- **timeout=180s** covers 120s CP-SAT deadline + load/I/O.
+- **SOLVER_MAX_TIME_SECONDS=120** is the CP-SAT deadline (keep in sync with the
+  worker timeout above and the operational constants below).
+- Grant the Kotlin worker's runtime SA `roles/run.invoker` on
+  `stratum-solver-py` (same pattern as §IAM below), then set the service URL as
+  the worker's `STRATUM_SOLVER_URL` and redeploy the worker.
+- Deploy order: Python solver first, then the worker pointing at it.
 
 Capture the service URL:
 
@@ -292,7 +339,7 @@ Health (requires invoker identity; user ADC may 401 — Functions SA is the real
 
 | Constant | Value | Where |
 |----------|--------|--------|
-| CP-SAT deadline | 120s | `CpSatProgramSynthesizer` / worker |
+| CP-SAT deadline | 120s | `solver-python` (`SOLVER_MAX_TIME_SECONDS`) |
 | Cloud Run request timeout | 180s | `gcloud run deploy` |
 | Node dispatcher timeout | 540s | `processProgramSynthesisJob` |
 | Client poll ceiling | 5 min | `FirebaseProgramSynthesisAdapter` |
@@ -306,11 +353,12 @@ Health (requires invoker identity; user ADC may 401 — Functions SA is the real
 
 ```bash
 # 1. Code + tests
+PYTHONPATH=solver-python SOLVER_MODULE=solver python -m pytest solver-python/tests/ solver-contract/tests/ -q
 ./gradlew :solver-service:test :solver-service:shadowJar
 cd functions && npm test && npm run build && cd ..
 
-# 2. Image + Cloud Run (Cloud Build path above)
-# 3. Env already set unless URL changed
+# 2. Images + Cloud Run, Python solver FIRST then the worker (§3/§3b above)
+# 3. Env already set unless a URL changed (worker needs STRATUM_SOLVER_URL)
 # 4. Functions/rules if Node or rules changed
 firebase deploy --only functions,storage --project stratum-a1a5b
 

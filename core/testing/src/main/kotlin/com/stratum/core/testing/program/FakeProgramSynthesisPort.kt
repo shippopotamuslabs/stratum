@@ -21,8 +21,8 @@ import com.stratum.domain.program.generation.volume.WeeklyVolumeTargets
  * Deterministic, native-free [ProgramSynthesisPort] for JVM unit tests.
  *
  * Builds a valid slot universe and greedily activates slots that have catalog candidates.
- * Real CP-SAT synthesis lives behind [com.stratum.domain.solver.CpSatProgramSynthesizer]
- * and is exercised only in `:core:domain-solver-tests` (host JVM OR-Tools natives).
+ * Real CP-SAT synthesis runs in the Python solver service (`solver-python/`, STR-45);
+ * there is no Kotlin solver anymore (STR-46).
  */
 class FakeProgramSynthesisPort(
     private val setsPerSlot: Int = DEFAULT_SETS,
