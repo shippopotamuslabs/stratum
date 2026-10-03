@@ -12,6 +12,22 @@ internal fun JsonValue.requireAsObject(label: String): JsonObject =
     asObjectOrNull() ?: error("Expected object for $label")
 
 /**
+ * Accepts a missing `modelVersion` as v1 and any `v1.x` minor; rejects unknown
+ * majors or malformed values (`solver-contract/VERSIONING.md` §1–§2). Unknown
+ * majors are never guessed — the caller fails the job instead.
+ */
+internal fun requireSupportedModelVersion(root: JsonObject, kind: String) {
+    val version = root.optionalString("modelVersion") ?: return
+    if (!MODEL_VERSION_PATTERN.matches(version)) {
+        throw ProgramSynthesisWireException(
+            "Unsupported program synthesis $kind modelVersion '$version' (supported: v1)",
+        )
+    }
+}
+
+private val MODEL_VERSION_PATTERN = Regex("""^v1(\.\d+)?$""")
+
+/**
  * Runs [block] and rethrows parse failures as [ProgramSynthesisWireException].
  * Already-typed wire exceptions pass through unchanged.
  */
