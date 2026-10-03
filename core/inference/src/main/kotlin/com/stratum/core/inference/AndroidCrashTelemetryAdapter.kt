@@ -52,12 +52,12 @@ class AndroidCrashTelemetryAdapter @Inject constructor() : CrashTelemetryPort {
     }
 
     override fun recordNonFatal(throwable: Throwable) {
-        val targetThrowable = TelemetryThrowableSanitizer.sanitize(throwable)
-        setSanitizedOriginalClassKeys(targetThrowable)
+        val result = TelemetryThrowableSanitizer.sanitizeWithNames(throwable)
+        setSanitizedOriginalClassKeys(result.originalClassNames)
         runCatching {
-            FirebaseCrashlytics.getInstance().recordException(targetThrowable)
+            FirebaseCrashlytics.getInstance().recordException(result.sanitized)
         }.onFailure { error ->
-            Log.e(TAG, "Crashlytics recordNonFatal failed: ${targetThrowable.message}", error)
+            Log.e(TAG, "Crashlytics recordNonFatal failed: ${result.sanitized.message}", error)
         }
     }
 
@@ -67,17 +67,23 @@ class AndroidCrashTelemetryAdapter @Inject constructor() : CrashTelemetryPort {
      * Keys do not affect issue grouping (grouping uses the preserved stack trace). All slots are
      * always written so a previous non-fatal's class never leaks onto an unrelated report.
      */
-    private fun setSanitizedOriginalClassKeys(throwable: Throwable) {
-        val originalClasses = TelemetryThrowableSanitizer.sanitizedOriginalClassNames(throwable)
-        for (index in 0 until MAX_ORIGINAL_CLASS_KEYS) {
-            val key = if (index == 0) {
-                KEY_SANITIZED_ORIGINAL_CLASS
-            } else {
-                "${KEY_SANITIZED_ORIGINAL_CLASS}_${index + 1}"
-            }
-            setScrubbedKey(key, originalClasses.getOrElse(index) { "" }, "recordNonFatal")
+    private fun setSanitizedOriginalClassKeys(originalClassNames: List<String>) {
+        for ((key, value) in toKeyMap(originalClassNames)) {
+            setScrubbedKey(key, value, "recordNonFatal")
         }
     }
+
+    private fun keyForIndex(index: Int): String =
+        if (index == 0) {
+            KEY_SANITIZED_ORIGINAL_CLASS
+        } else {
+            "${KEY_SANITIZED_ORIGINAL_CLASS}_${index + 1}"
+        }
+
+    private fun toKeyMap(originalClassNames: List<String>): Map<String, String> =
+        (0 until MAX_ORIGINAL_CLASS_KEYS).associate { index ->
+            keyForIndex(index) to originalClassNames.getOrElse(index) { "" }
+        }
 
     private fun setScrubbedKey(key: String, value: String, operation: String) {
         val scrubbed = TelemetryPiiScrubber.scrub(value).orEmpty()
@@ -95,6 +101,12 @@ class AndroidCrashTelemetryAdapter @Inject constructor() : CrashTelemetryPort {
         const val KEY_ACTIVE_WORKOUT_ID = "active_workout_id"
         const val KEY_SUBSCRIPTION_TIER = "subscription_tier"
         const val KEY_SANITIZED_ORIGINAL_CLASS = "sanitized_original_class"
+
+        /**
+         * Number of Crashlytics custom keys reserved for fallback original class names. Only
+         * the first [MAX_ORIGINAL_CLASS_KEYS] distinct names are forwarded (extras are dropped);
+         * missing slots are written as empty strings so stale values never leak across reports.
+         */
         const val MAX_ORIGINAL_CLASS_KEYS = 3
     }
 }
