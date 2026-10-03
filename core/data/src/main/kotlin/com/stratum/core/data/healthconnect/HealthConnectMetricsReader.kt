@@ -164,14 +164,36 @@ class HealthConnectMetricsReader @Inject constructor(
     private suspend fun readHrv(
         client: HealthConnectClient,
         request: HealthMetricsRequest,
-    ): List<HrvSample> = catchHealthConnect(emptyList(), "readHrv") {
-        readAll(client, HeartRateVariabilityRmssdRecord::class, instantFilter(request)).map { record ->
-            HrvSample(time = record.time, rmssdMillis = record.heartRateVariabilityMillis)
+    ): List<HrvSample> {
+        // Re-verify the HRV grant immediately before reading: the snapshot-level
+        // grantedReadTypes() check can go stale when the user revokes the permission
+        // in Health Connect settings (grants are selective per data type).
+        val grantedNow = currentGrantedPermissions("grantedReadTypesBeforeHrv")
+        if (HealthConnectRequestedPermissions.readHrv !in grantedNow) {
+            loggingPort.warning(
+                HEALTH_CONNECT_METRICS_TAG,
+                "Skipping HRV read: HRV read permission not granted (granted=$grantedNow)",
+            )
+            return emptyList()
+        }
+        return catchHealthConnect(emptyList(), "readHrv") {
+            readAll(client, HeartRateVariabilityRmssdRecord::class, instantFilter(request)).map { record ->
+                HrvSample(time = record.time, rmssdMillis = record.heartRateVariabilityMillis)
+            }
         }
     }
 
     private fun instantFilter(request: HealthMetricsRequest): TimeRangeFilter =
         TimeRangeFilter.between(request.windowStart, request.windowEnd)
+
+    private suspend fun currentGrantedPermissions(label: String): Set<String> {
+        if (!isAvailable()) return emptySet()
+        return catchHealthConnect(emptySet(), label) {
+            HealthConnectClient.getOrCreate(context)
+                .permissionController
+                .getGrantedPermissions()
+        }
+    }
 
     private suspend fun <T : Record> readAll(
         client: HealthConnectClient,
@@ -203,6 +225,15 @@ class HealthConnectMetricsReader @Inject constructor(
             block()
         } catch (e: CancellationException) {
             throw e
+        } catch (e: SecurityException) {
+            // Permission-state failure (e.g. the user revoked a Health Connect grant
+            // in system settings after our last check). Expected user-driven state,
+            // not a code bug: warn instead of recording a Crashlytics non-fatal.
+            loggingPort.warning(
+                HEALTH_CONNECT_METRICS_TAG,
+                "Health Connect $label denied (SecurityException): ${e.message}",
+            )
+            default
         } catch (error: Throwable) {
             loggingPort.error(HEALTH_CONNECT_METRICS_TAG, "Health Connect $label failed", error)
             default
