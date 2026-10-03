@@ -15,6 +15,7 @@ import java.nio.charset.StandardCharsets
  */
 class ProcessHandler(
     private val worker: SynthesisJobWorker = SynthesisJobWorker(),
+    private val logger: StructuredLogger = StructuredLogger(SynthesisJobWorker.SERVICE_NAME),
 ) : HttpHandler {
     override fun handle(exchange: HttpExchange) {
         try {
@@ -30,7 +31,11 @@ class ProcessHandler(
             val request = try {
                 ProcessRequestParser.parse(body)
             } catch (e: IllegalArgumentException) {
-                log("bad request: ${e.message}")
+                // Client-shape error, no exception to report: WARNING, not Error Reporting.
+                logger.warn(
+                    "bad process request",
+                    extra = listOf("detail" to jsonString(e.message.orEmpty())),
+                )
                 respond(exchange, HTTP_BAD_REQUEST, jsonError("Invalid body"))
                 return
             }
@@ -49,7 +54,7 @@ class ProcessHandler(
             }
             respond(exchange, code, payload)
         } catch (t: Throwable) {
-            log("unhandled: ${t::class.java.simpleName}: ${t.message}")
+            logger.reportError("unhandled process failure", t)
             try {
                 respond(exchange, HTTP_INTERNAL_ERROR, jsonError("Internal solver error"))
             } catch (_: IOException) {
@@ -71,10 +76,6 @@ class ProcessHandler(
 
     private fun jsonError(message: String): String =
         """{"error":${jsonString(message)}}"""
-
-    private fun log(message: String) {
-        println("ProcessHandler: $message")
-    }
 
     private companion object {
         const val HTTP_OK = 200
