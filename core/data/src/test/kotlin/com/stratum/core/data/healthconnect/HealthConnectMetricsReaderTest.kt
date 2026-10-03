@@ -5,11 +5,14 @@ package com.stratum.core.data.healthconnect
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord
+import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.metadata.Device
 import androidx.health.connect.client.records.metadata.Metadata
+import androidx.health.connect.client.request.AggregateGroupByPeriodRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.response.ReadRecordsResponse
 import com.stratum.core.testing.logging.FakeLoggingPort
+import com.stratum.domain.healthconnect.HealthMetricType
 import com.stratum.domain.healthconnect.HealthMetricsRequest
 import io.mockk.coEvery
 import io.mockk.every
@@ -88,6 +91,7 @@ class HealthConnectMetricsReaderTest {
         assertEquals(1, snapshot.hrvSamples.size)
         assertEquals(42.5, snapshot.hrvSamples.single().rmssdMillis)
         assertTrue(fakeLogging.errors.isEmpty())
+        assertTrue(HealthMetricType.HeartRateVariability in snapshot.grantedTypes)
     }
 
     @Test
@@ -105,6 +109,10 @@ class HealthConnectMetricsReaderTest {
             "SecurityException from a revoked grant must not become a Crashlytics non-fatal",
         )
         assertTrue(fakeLogging.warnings.any { it.message.contains("readHrv") })
+        assertTrue(
+            HealthMetricType.HeartRateVariability !in snapshot.grantedTypes,
+            "a read denied with SecurityException self-corrects grantedTypes",
+        )
     }
 
     @Test
@@ -120,6 +128,29 @@ class HealthConnectMetricsReaderTest {
         assertTrue(snapshot.hrvSamples.isEmpty())
         assertTrue(fakeLogging.errors.isEmpty())
         assertTrue(fakeLogging.warnings.any { it.message.contains("Skipping HRV read") })
+        assertTrue(
+            HealthMetricType.HeartRateVariability !in snapshot.grantedTypes,
+            "a grant revoked before the read self-corrects grantedTypes",
+        )
+    }
+
+    @Test
+    @DisplayName("Given HRV revoked but steps granted when snapshot read then grantedTypes drops only HRV")
+    fun hrvRevokedKeepsOtherGrantedTypes() = runTest {
+        coEvery { permissionController.getGrantedPermissions() } returnsMany listOf(
+            setOf(hrvGrant, HealthConnectRequestedPermissions.readSteps), // snapshot-level check
+            setOf(HealthConnectRequestedPermissions.readSteps), // HRV revoked before the HRV read
+        )
+        coEvery { client.aggregateGroupByPeriod(any<AggregateGroupByPeriodRequest>()) } returns
+            emptyList()
+        coEvery { client.readRecords(any<ReadRecordsRequest<StepsRecord>>()) } returns
+            ReadRecordsResponse(emptyList(), null)
+
+        val snapshot = reader.readSnapshot(request())
+
+        assertEquals(setOf(HealthMetricType.Steps), snapshot.grantedTypes)
+        assertTrue(snapshot.hrvSamples.isEmpty())
+        assertTrue(fakeLogging.errors.isEmpty())
     }
 
     @Test
@@ -134,5 +165,9 @@ class HealthConnectMetricsReaderTest {
         assertTrue(snapshot.hrvSamples.isEmpty())
         assertEquals(1, fakeLogging.errors.size)
         assertTrue(fakeLogging.warnings.isEmpty())
+        assertTrue(
+            HealthMetricType.HeartRateVariability in snapshot.grantedTypes,
+            "an unexpected read failure is not a revocation: grantedTypes stays intact",
+        )
     }
 }
