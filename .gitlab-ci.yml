@@ -228,6 +228,24 @@ functions-tests:
         - functions/**/*
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
+# Solver JSON-boundary contract tests (STR-47): fixture validity, solver
+# round-trip, leniency rows, version matrix (see solver-contract/tests/).
+# No Android toolchain — lightweight python job on the home runner, same shape
+# as functions-tests. No `changes:` gate and no allow_failure: any contract
+# violation fails the pipeline.
+solver-contract-tests:
+  image: python:3.12-slim
+  tags: [home-server]
+  stage: test
+  needs: []
+  script:
+    # Ephemeral venv in a job-private dir: the runner Python is externally
+    # managed (PEP 668), and /tmp is host-shared (see osv-scan), so neither
+    # system site nor /tmp is used for the test env.
+    - python3 -m venv $CI_PROJECT_DIR/.tmp/contract-env
+    - $CI_PROJECT_DIR/.tmp/contract-env/bin/pip install --quiet -r solver-contract/tests/requirements.txt
+    - $CI_PROJECT_DIR/.tmp/contract-env/bin/python -m pytest solver-contract/tests/ -q
+
 # OSV vulnerability scanning: builds CycloneDX SBOMs from the resolved :app
 # release runtime classpath and the :solver-service: runtime classpath (the
 # Cloud Run fat JAR ships its own JVM dependency graph and is not a dependency
