@@ -17,7 +17,6 @@ import com.stratum.domain.program.generation.reference.LiftStressClass
 import com.stratum.domain.program.generation.reference.MuscleSessionStress
 import com.stratum.domain.program.generation.context.resolveTrainingTimeline
 import com.stratum.domain.program.generation.reference.muscleRecoveryGapViolated
-import com.stratum.domain.program.generation.swap.alternativesForLift
 import com.stratum.domain.program.generation.volume.TrainingDomain
 import com.stratum.domain.program.generation.volume.muscleTrainingDomain
 import com.stratum.domain.program.identity.WorkoutId

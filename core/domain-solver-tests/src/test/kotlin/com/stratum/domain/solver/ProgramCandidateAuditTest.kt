@@ -347,7 +347,6 @@ class ProgramCandidateAuditTest {
         val normalized = pipeline.generate(
             context = context,
             normalizationRequest = context.toProgramNormalizationRequest(),
-            options = PipelineOptions(skipLiftSwap = true),
         )
         return normalized.toDraft()
     }

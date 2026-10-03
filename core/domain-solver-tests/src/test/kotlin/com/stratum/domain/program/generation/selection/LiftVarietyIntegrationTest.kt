@@ -26,7 +26,6 @@ class LiftVarietyIntegrationTest {
             testProgramGenerationPipeline(programSynthesisPort = CpSatProgramSynthesizer()).generate(
                 context = context,
                 normalizationRequest = context.toProgramNormalizationRequest(),
-                options = PipelineOptions(skipLiftSwap = true),
             )
         val draft = program.toDraft()
         val lowerLiftIds =

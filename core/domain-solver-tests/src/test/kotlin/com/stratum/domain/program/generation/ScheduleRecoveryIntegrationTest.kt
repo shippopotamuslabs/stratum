@@ -38,7 +38,6 @@ class ScheduleRecoveryIntegrationTest {
         val normalized = pipeline.generate(
             context = context,
             normalizationRequest = context.toProgramNormalizationRequest(),
-            options = PipelineOptions(skipLiftSwap = true),
         )
         val draft = normalized.toDraft()
         val exposuresByName =
@@ -83,7 +82,6 @@ class ScheduleRecoveryIntegrationTest {
         val normalized = pipeline.generate(
             context = context,
             normalizationRequest = context.toProgramNormalizationRequest(),
-            options = PipelineOptions(skipLiftSwap = true),
         )
         val draft = normalized.toDraft()
         val exposuresByName =
