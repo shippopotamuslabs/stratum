@@ -31,7 +31,6 @@ googleid = "1.2.1"
 googleServices = "4.5.0"
 firebaseCrashlyticsPlugin = "3.0.8"
 firebasePerfPlugin = "2.0.2"
-firebaseAppDistPlugin = "5.3.0"
 coil = "3.6.3"
 androidxDataStore = "1.2.1"
 vico = "3.3.1"
@@ -129,6 +128,5 @@ hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }
 firebase-crashlytics = { id = "com.google.firebase.crashlytics", version.ref = "firebaseCrashlyticsPlugin" }
 firebase-perf = { id = "com.google.firebase.firebase-perf", version.ref = "firebasePerfPlugin" }
-firebase-appdist = { id = "com.google.firebase.appdistribution", version.ref = "firebaseAppDistPlugin" }
 shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }
 
