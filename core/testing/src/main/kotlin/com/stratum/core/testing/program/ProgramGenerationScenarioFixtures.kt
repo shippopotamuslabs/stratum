@@ -142,13 +142,14 @@ val WEEKDAY_LAYOUT_SCENARIOS: List<ScenarioConfig> = listOf(
 )
 
 /**
- * Scenario matrix for parameterized CP-SAT harnesses.
+ * Scenario matrix for parameterized solver harnesses (pure context builders;
+ * the Kotlin CP-SAT suite that consumed these is gone — see `solver-python/`
+ * and `solver-contract/fixtures/` for the current solver regression net).
  *
  * - default / `core` → [CORE_SOLVER_SCENARIOS] (~10 solves per method)
  * - `full` → [GENERATION_SCENARIOS] (28 sequential combos; use for nightly)
  *
- * System property: `stratum.solver.scenarios=core|full`  
- * Gradle: `-PfullSolverScenarios=true` maps to `full` in domain-solver-tests.
+ * System property: `stratum.solver.scenarios=core|full`
  */
 fun activeSolverScenarios(): List<ScenarioConfig> {
     val mode =

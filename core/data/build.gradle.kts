@@ -71,7 +71,7 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
     // Firestore requires protobuf-javalite + protolite. Do not exclude them (VerifyError on
-    // WriteResponse). OR-Tools full protobuf is relocated in :core:ortools-shaded.
+    // WriteResponse).
     implementation(libs.firebase.firestore)
     implementation(libs.firebase.config)
     implementation(libs.androidx.credentials)

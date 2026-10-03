@@ -14,7 +14,7 @@ plugins {
 
 subprojects {
     // Pure JVM packaging / rules modules — skip Android-oriented detekt wiring.
-    val excludedModules = setOf(":detekt-rules", ":core:ortools-shaded")
+    val excludedModules = setOf(":detekt-rules")
     if (path in excludedModules) {
         return@subprojects
     }

@@ -36,10 +36,9 @@ include:
 # - "Pipelines must succeed" + "All threads must be resolved" before merge.
 #
 # DELIBERATE NON-GOALS:
-# - :core:domain-solver-tests never runs in merge jobs: the suite is slow by
-#   design (OR-Tools natives, minutes per class) and its `test` task is
-#   `enabled = runSolverTests`, so bare `./gradlew build`/`check` skips it
-#   safely. Nightly coverage comes from `solver-tests-nightly` below.
+# - The Python solver suites are fast enough to gate MRs directly
+#   (`solver-contract-tests` below); `solver-tests-nightly` exists only as a
+#   schedule-based dependency-drift signal.
 
 workflow:
   rules:
@@ -233,17 +232,23 @@ functions-tests:
 # No Android toolchain — lightweight python job on the home runner, same shape
 # as functions-tests. No `changes:` gate and no allow_failure: any contract
 # violation fails the pipeline.
+# Round-trips against the REAL Python solver (STR-45): SOLVER_MODULE=solver
+# with solver-python on PYTHONPATH. The stub_solver default is for solver-less
+# local runs only — CI must never silently test the stub.
 solver-contract-tests:
   image: python:3.12-slim
   tags: [home-server]
   stage: test
   needs: []
+  variables:
+    SOLVER_MODULE: solver
+    PYTHONPATH: $CI_PROJECT_DIR/solver-python
   script:
     # Ephemeral venv in a job-private dir: the runner Python is externally
     # managed (PEP 668), and /tmp is host-shared (see osv-scan), so neither
     # system site nor /tmp is used for the test env.
     - python3 -m venv $CI_PROJECT_DIR/.tmp/contract-env
-    - $CI_PROJECT_DIR/.tmp/contract-env/bin/pip install --quiet -r solver-contract/tests/requirements.txt
+    - $CI_PROJECT_DIR/.tmp/contract-env/bin/pip install --quiet -r solver-contract/tests/requirements.txt -r solver-python/requirements.txt
     - $CI_PROJECT_DIR/.tmp/contract-env/bin/python -m pytest solver-contract/tests/ -q
 
 # OSV vulnerability scanning: builds CycloneDX SBOMs from the resolved :app
@@ -407,26 +412,33 @@ emulator-tests:
       junit: '**/build/outputs/androidTest-results/connected/*.xml'
     expire_in: 2 weeks
 
-# Slow solver suite (OR-Tools natives): core matrix via -PrunSolverTests=true.
-# Full cartesian / benchmark variants stay manual (-PfullSolverScenarios,
-# -PincludeBenchmark — see core/domain-solver-tests/build.gradle.kts).
+# Nightly solver signal (STR-46): the Kotlin :core:domain-solver-tests suite is
+# gone with the Kotlin solver; the Python solver suite + contract suite (real
+# solver) are the regression net now. Fast (~1 min); kept on a schedule (not
+# per-MR — solver-contract-tests already gates MRs) to catch dependency drift
+# (e.g. ortools bumps via Renovate) independent of MR traffic.
 # allow_failure until the first scheduled run proves the whole suite green;
 # then tighten it — a permanently-red nightly teaches everyone to ignore it.
+# (STR-8 originally tracked tightening for the Kotlin suite; premise changed.)
 solver-tests-nightly:
-  extends: .android-job
+  image: python:3.12-slim
+  tags: [home-server]
   stage: nightly
-  timeout: 3h
+  timeout: 30m
   allow_failure: true
   rules:
     - if: $CI_PIPELINE_SOURCE == 'schedule'
+  variables:
+    SOLVER_MODULE: solver
+    PYTHONPATH: $CI_PROJECT_DIR/solver-python
   script:
-    - ./gradlew :core:domain-solver-tests:test -PrunSolverTests=true
+    - python3 -m venv $CI_PROJECT_DIR/.tmp/solver-env
+    - $CI_PROJECT_DIR/.tmp/solver-env/bin/pip install --quiet -r solver-contract/tests/requirements.txt -r solver-python/requirements.txt
+    - $CI_PROJECT_DIR/.tmp/solver-env/bin/python -m pytest solver-python/tests/ solver-contract/tests/ -q --junitxml=$CI_PROJECT_DIR/.tmp/solver-nightly-junit.xml
   artifacts:
     when: always
-    paths:
-      - core/domain-solver-tests/build/reports/tests/
     reports:
-      junit: 'core/domain-solver-tests/build/test-results/test/TEST-*.xml'
+      junit: '.tmp/solver-nightly-junit.xml'
     expire_in: 2 weeks
 
 # PRE-LAUNCH ADDITIONS (not now):

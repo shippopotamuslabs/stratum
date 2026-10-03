@@ -26,7 +26,6 @@ application {
 
 dependencies {
     implementation(project(":core:domain"))
-    implementation(project(":core:domain-solver"))
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.firebase.admin)
 
@@ -54,7 +53,7 @@ tasks.withType<Test>().configureEach {
 
 tasks.named<ShadowJar>("shadowJar") {
     group = "build"
-    description = "Fat jar for Cloud Run (OR-Tools natives + Firebase Admin + domain)"
+    description = "Fat jar for Cloud Run (Firebase Admin + domain; CP-SAT runs in the Python service)"
     archiveBaseName.set("solver-service")
     archiveClassifier.set("all")
     archiveVersion.set("")
