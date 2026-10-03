@@ -1,6 +1,7 @@
 package com.stratum.domain.training
 
 import com.stratum.domain.logging.LoggingPort
+import com.stratum.domain.logging.expectedFailure
 import com.stratum.domain.logging.runCatchingLogged
 import com.stratum.domain.program.ProgramRepository
 import com.stratum.domain.training.identity.TrainingSessionId
@@ -28,15 +29,20 @@ class GetWorkoutSessionDetailUseCase @Inject constructor(
             )
         }.getOrElse { return Result.failure(it) }
         val session = loaded.first
-            ?: return expectedFailure(IllegalStateException("Training session ${sessionId.value} not found"))
+            ?: return loggingPort.expectedFailure(
+                TAG,
+                IllegalStateException("Training session ${sessionId.value} not found"),
+            )
         if (session.status != TrainingSessionStatus.COMPLETED) {
-            return expectedFailure(
+            return loggingPort.expectedFailure(
+                TAG,
                 IllegalArgumentException("Training session ${sessionId.value} is not completed"),
             )
         }
         val loggedSets = loaded.second.sortedWith(compareBy({ it.setIndex }, { it.completedAt }))
         if (loggedSets.isEmpty()) {
-            return expectedFailure(
+            return loggingPort.expectedFailure(
+                TAG,
                 IllegalArgumentException("Training session ${sessionId.value} has no logged sets"),
             )
         }
@@ -105,11 +111,6 @@ class GetWorkoutSessionDetailUseCase @Inject constructor(
                 lifts = lifts,
             )
         }
-    }
-
-    private fun expectedFailure(throwable: Throwable): Result<WorkoutSessionDetail> {
-        loggingPort.warning(TAG, throwable.message ?: "Expected session load failure")
-        return Result.failure(throwable)
     }
 
     private companion object {
