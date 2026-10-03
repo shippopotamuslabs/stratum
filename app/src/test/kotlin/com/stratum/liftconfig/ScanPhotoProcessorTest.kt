@@ -12,14 +12,14 @@ class ScanPhotoProcessorTest {
         size: Pair<Int, Int>? = 2000 to 1000,
         encoded: ByteArray? = ByteArray(100),
         seenSample: MutableList<Int> = mutableListOf(),
-        seenDegrees: MutableList<Int> = mutableListOf(),
+        seenRotations: MutableList<Rotation> = mutableListOf(),
     ): PhotoCodec =
         object : PhotoCodec {
             override fun probeSize(bytes: ByteArray): Pair<Int, Int>? = size
 
-            override fun downscale(bytes: ByteArray, sampleSize: Int, rotationDegrees: Int): ByteArray? {
+            override fun downscale(bytes: ByteArray, sampleSize: Int, rotation: Rotation): ByteArray? {
                 seenSample += sampleSize
-                seenDegrees += rotationDegrees
+                seenRotations += rotation
                 return encoded
             }
         }
@@ -63,7 +63,7 @@ class ScanPhotoProcessorTest {
                     return 100 to 100
                 }
 
-                override fun downscale(bytes: ByteArray, sampleSize: Int, rotationDegrees: Int): ByteArray? =
+                override fun downscale(bytes: ByteArray, sampleSize: Int, rotation: Rotation): ByteArray? =
                     ByteArray(10)
             }
 
@@ -105,35 +105,35 @@ class ScanPhotoProcessorTest {
     @Test
     @DisplayName("Given a portrait EXIF capture when processed then the codec normalizes it upright")
     fun portraitCaptureIsNormalizedUpright() {
-        val seenDegrees = mutableListOf<Int>()
+        val seenRotations = mutableListOf<Rotation>()
         val input = soi() + PIL_PORTRAIT_APP1 + eoi()
 
         val photo =
             ScanPhotoProcessor.process(
                 input,
-                codec(seenSample = mutableListOf(), seenDegrees = seenDegrees),
+                codec(seenSample = mutableListOf(), seenRotations = seenRotations),
             )
 
         assertTrue(photo != null)
-        assertEquals(listOf(90), seenDegrees)
+        assertEquals(listOf(Rotation.R90), seenRotations)
     }
 
     @Test
-    @DisplayName("Given EXIF orientations when read then clockwise degrees are returned")
-    fun exifOrientationsMapToDegrees() {
-        assertEquals(0, ScanPhotoProcessor.rotationDegreesFor(exifJpeg(orientation = 1)))
-        assertEquals(180, ScanPhotoProcessor.rotationDegreesFor(exifJpeg(orientation = 3)))
-        assertEquals(90, ScanPhotoProcessor.rotationDegreesFor(exifJpeg(orientation = 6)))
-        assertEquals(270, ScanPhotoProcessor.rotationDegreesFor(exifJpeg(orientation = 8)))
-        assertEquals(90, ScanPhotoProcessor.rotationDegreesFor(exifJpeg(orientation = 6, littleEndian = false)))
+    @DisplayName("Given EXIF orientations when read then the matching rotation is returned")
+    fun exifOrientationsMapToRotation() {
+        assertEquals(Rotation.NONE, ExifOrientationReader.rotationFor(exifJpeg(orientation = 1)))
+        assertEquals(Rotation.R180, ExifOrientationReader.rotationFor(exifJpeg(orientation = 3)))
+        assertEquals(Rotation.R90, ExifOrientationReader.rotationFor(exifJpeg(orientation = 6)))
+        assertEquals(Rotation.R270, ExifOrientationReader.rotationFor(exifJpeg(orientation = 8)))
+        assertEquals(Rotation.R90, ExifOrientationReader.rotationFor(exifJpeg(orientation = 6, littleEndian = false)))
     }
 
     @Test
     @DisplayName("Given mirrored or unknown orientations when read then no rotation is applied")
-    fun mirroredOrientationsYieldZero() {
-        assertEquals(0, ScanPhotoProcessor.rotationDegreesFor(exifJpeg(orientation = 2)))
-        assertEquals(0, ScanPhotoProcessor.rotationDegreesFor(exifJpeg(orientation = 5)))
-        assertEquals(0, ScanPhotoProcessor.rotationDegreesFor(exifJpeg(orientation = 9)))
+    fun mirroredOrientationsYieldNone() {
+        assertEquals(Rotation.NONE, ExifOrientationReader.rotationFor(exifJpeg(orientation = 2)))
+        assertEquals(Rotation.NONE, ExifOrientationReader.rotationFor(exifJpeg(orientation = 5)))
+        assertEquals(Rotation.NONE, ExifOrientationReader.rotationFor(exifJpeg(orientation = 9)))
     }
 
     @Test
@@ -141,26 +141,26 @@ class ScanPhotoProcessorTest {
     fun xmpBeforeExifIsSkipped() {
         val input = exifJpeg(orientation = 6, leadingSegments = listOf(app1Segment(XMP_PAYLOAD)))
 
-        assertEquals(90, ScanPhotoProcessor.rotationDegreesFor(input))
+        assertEquals(Rotation.R90, ExifOrientationReader.rotationFor(input))
     }
 
     @Test
     @DisplayName("Given no EXIF data when read then no rotation is applied")
-    fun missingExifYieldsZero() {
-        assertEquals(0, ScanPhotoProcessor.rotationDegreesFor(soi() + eoi()))
-        assertEquals(0, ScanPhotoProcessor.rotationDegreesFor(PNG_MAGIC))
-        assertEquals(0, ScanPhotoProcessor.rotationDegreesFor(ByteArray(0)))
-        assertEquals(0, ScanPhotoProcessor.rotationDegreesFor(exifJpeg(orientation = 6).copyOf(10)))
+    fun missingExifYieldsNone() {
+        assertEquals(Rotation.NONE, ExifOrientationReader.rotationFor(soi() + eoi()))
+        assertEquals(Rotation.NONE, ExifOrientationReader.rotationFor(PNG_MAGIC))
+        assertEquals(Rotation.NONE, ExifOrientationReader.rotationFor(ByteArray(0)))
+        assertEquals(Rotation.NONE, ExifOrientationReader.rotationFor(exifJpeg(orientation = 6).copyOf(10)))
     }
 
     @Test
-    @DisplayName("Given an EXIF-less photo when processed then the codec receives zero degrees")
-    fun exifLessPhotoKeepsZeroDegrees() {
-        val seenDegrees = mutableListOf<Int>()
+    @DisplayName("Given an EXIF-less photo when processed then the codec receives no rotation")
+    fun exifLessPhotoKeepsNoRotation() {
+        val seenRotations = mutableListOf<Rotation>()
 
-        ScanPhotoProcessor.process(soi() + eoi(), codec(seenDegrees = seenDegrees))
+        ScanPhotoProcessor.process(soi() + eoi(), codec(seenRotations = seenRotations))
 
-        assertEquals(listOf(0), seenDegrees)
+        assertEquals(listOf(Rotation.NONE), seenRotations)
     }
 
     private fun soi(): ByteArray = byteArrayOf(0xFF.toByte(), 0xD8.toByte())
