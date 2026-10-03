@@ -198,7 +198,7 @@ assemble-release:
   stage: test
   needs: []
   script:
-    - !reference [.keystore-bootstrap, script]
+    - !reference [.keystore-bootstrap-optional, script]
     - ./gradlew :app:assembleRelease
   artifacts:
     paths:
@@ -426,6 +426,7 @@ solver-tests-nightly:
 
 # Shared keystore bootstrap for deploy jobs (STR-50 reviewer feedback).
 # Referenced via `!reference [.keystore-bootstrap, script]`.
+# Fails if secrets are missing — for jobs that MUST be signed.
 .keystore-bootstrap:
   script:
     - test -n "$KEYSTORE_BASE64" || (echo "Missing KEYSTORE_BASE64 file variable — see header of .gitlab-ci.yml" && exit 1)
@@ -438,6 +439,21 @@ solver-tests-nightly:
     - |
       printf 'storeFile=.keystore/stratum_keystore.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
         "$STORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > keystore.properties
+
+# Optional keystore bootstrap: signs if secrets are available, builds unsigned
+# otherwise. For jobs like assemble-release that run on MRs without secrets.
+.keystore-bootstrap-optional:
+  script:
+    - |
+      if [ -n "$KEYSTORE_BASE64" ] && [ -n "$STORE_PASSWORD" ] && [ -n "$KEY_ALIAS" ] && [ -n "$KEY_PASSWORD" ]; then
+        mkdir -p .keystore
+        base64 -d "$KEYSTORE_BASE64" > .keystore/stratum_keystore.jks
+        printf 'storeFile=.keystore/stratum_keystore.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
+          "$STORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > keystore.properties
+        echo "Keystore configured — building signed APK"
+      else
+        echo "Keystore secrets not available — building unsigned APK"
+      fi
 
 deploy-internal:
   extends: .android-job
@@ -481,10 +497,16 @@ distribute-internal:
     - test -n "$FIREBASE_SERVICE_ACCOUNT_JSON" || (echo "Missing FIREBASE_SERVICE_ACCOUNT_JSON file variable" && exit 1)
     - export GOOGLE_APPLICATION_CREDENTIALS="$FIREBASE_SERVICE_ACCOUNT_JSON"
     # Upload the already-built signed APK via Firebase CLI — no Gradle rebuild.
-    - npx firebase-tools appdistribution:distribute "app/build/outputs/apk/release/*.apk"
-      --app 1:531671963823:android:8d383c6410df9ce894dc5a
-      --groups "Internal"
-      --release-notes "Build ${CI_COMMIT_SHORT_SHA} from main"
+    # Resolve the glob explicitly and fail if zero or multiple APKs match.
+    - |
+      APK_FILES=(app/build/outputs/apk/release/*.apk)
+      if [ ${#APK_FILES[@]} -eq 0 ]; then echo "No APK found" && exit 1; fi
+      if [ ${#APK_FILES[@]} -gt 1 ]; then echo "Multiple APKs found: ${APK_FILES[*]}" && exit 1; fi
+      npx firebase-tools appdistribution:distribute "${APK_FILES[0]}"
+        --app 1:531671963823:android:8d383c6410df9ce894dc5a
+        --groups "Internal"
+        --release-notes "Build ${CI_COMMIT_SHORT_SHA} from main"
+        --non-interactive
   artifacts:
     paths:
       - app/build/outputs/apk/release/*.apk
