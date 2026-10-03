@@ -117,6 +117,7 @@ class LiftIncrementsScanTest {
                         scanPort,
                         ValidateIncrementTiersUseCase(),
                         ValidateMicroIncrementsUseCase(),
+                        FakeLoggingPort(),
                     ),
                     ObserveIncrementsAiScanUseCase(fakeFeatureFlags),
                 ),
