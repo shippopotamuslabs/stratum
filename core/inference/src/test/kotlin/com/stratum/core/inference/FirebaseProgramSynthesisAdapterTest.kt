@@ -274,18 +274,37 @@ class FirebaseProgramSynthesisAdapterTest {
             )
 
         private fun transientError() =
-            FirebaseFunctionsException(
-                "INTERNAL",
-                FirebaseFunctionsException.Code.INTERNAL,
-                null,
+            functionsException(
+                code = FirebaseFunctionsException.Code.INTERNAL,
+                message = "INTERNAL",
             )
 
         private fun permanentError() =
-            FirebaseFunctionsException(
-                "Missing or insufficient permissions.",
-                FirebaseFunctionsException.Code.PERMISSION_DENIED,
-                null,
+            functionsException(
+                code = FirebaseFunctionsException.Code.PERMISSION_DENIED,
+                message = "Missing or insufficient permissions.",
             )
+
+        /**
+         * The SDK's constructors are `internal` (firebase-functions 22.1.1 ships them
+         * as Kotlin-internal despite public bytecode), so tests reach the
+         * `(message, code, details)` constructor via reflection. This yields a genuine
+         * [FirebaseFunctionsException] — `is` checks, `code`, and `message` all behave
+         * exactly as in production.
+         */
+        private fun functionsException(
+            code: FirebaseFunctionsException.Code,
+            message: String,
+        ): FirebaseFunctionsException {
+            val ctor =
+                FirebaseFunctionsException::class.java.getDeclaredConstructor(
+                    String::class.java,
+                    FirebaseFunctionsException.Code::class.java,
+                    Any::class.java,
+                )
+            ctor.isAccessible = true
+            return ctor.newInstance(message, code, null)
+        }
 
         @Test
         @DisplayName("transient failure yields fallback and reports via onTransientFailure")
