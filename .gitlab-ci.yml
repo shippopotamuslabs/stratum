@@ -422,6 +422,22 @@ solver-tests-nightly:
 # exactly like a local release build. Every upload needs a versionCode Play has
 # not seen before — bump versionCode in app/build.gradle.kts before re-running,
 # or the upload fails with a duplicate-version error.
+
+# Shared keystore bootstrap for deploy jobs (STR-50 reviewer feedback).
+# Referenced via `!reference [.keystore-bootstrap, script]`.
+.keystore-bootstrap:
+  script:
+    - test -n "$KEYSTORE_BASE64" || (echo "Missing KEYSTORE_BASE64 file variable — see header of .gitlab-ci.yml" && exit 1)
+    - test -n "$STORE_PASSWORD" || (echo "Missing STORE_PASSWORD variable — see header of .gitlab-ci.yml" && exit 1)
+    - test -n "$KEY_ALIAS" || (echo "Missing KEY_ALIAS variable — see header of .gitlab-ci.yml" && exit 1)
+    - test -n "$KEY_PASSWORD" || (echo "Missing KEY_PASSWORD variable — see header of .gitlab-ci.yml" && exit 1)
+    # KEYSTORE_BASE64 is a File variable: a path to a file holding base64 text.
+    - mkdir -p .keystore
+    - base64 -d "$KEYSTORE_BASE64" > .keystore/stratum_keystore.jks
+    - |
+      printf 'storeFile=.keystore/stratum_keystore.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
+        "$STORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > keystore.properties
+
 deploy-internal:
   extends: .android-job
   # Stays on the home runner: needs the gcloud CLI + Play upload path the job
@@ -432,17 +448,8 @@ deploy-internal:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       when: manual
   script:
-    - test -n "$KEYSTORE_BASE64" || (echo "Missing KEYSTORE_BASE64 file variable — see header of .gitlab-ci.yml" && exit 1)
-    - test -n "$STORE_PASSWORD" || (echo "Missing STORE_PASSWORD variable — see header of .gitlab-ci.yml" && exit 1)
-    - test -n "$KEY_ALIAS" || (echo "Missing KEY_ALIAS variable — see header of .gitlab-ci.yml" && exit 1)
-    - test -n "$KEY_PASSWORD" || (echo "Missing KEY_PASSWORD variable — see header of .gitlab-ci.yml" && exit 1)
+    - !reference [.keystore-bootstrap, script]
     - test -n "$PLAY_PUBLISHER_JSON" || (echo "Missing PLAY_PUBLISHER_JSON file variable — see header of .gitlab-ci.yml" && exit 1)
-    # KEYSTORE_BASE64 is a File variable: a path to a file holding base64 text.
-    - mkdir -p .keystore
-    - base64 -d "$KEYSTORE_BASE64" > .keystore/stratum_keystore.jks
-    - |
-      printf 'storeFile=.keystore/stratum_keystore.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
-        "$STORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > keystore.properties
     # Signed AAB for Play + signed APK for the Test Lab robo job below.
     - ./gradlew :app:bundleRelease :app:assembleRelease
     # PEP 668: the runner Python is externally managed, so installer deps go
@@ -458,6 +465,25 @@ deploy-internal:
       - app/build/outputs/bundle/release/*.aab
       - app/build/outputs/apk/release/*.apk
     expire_in: 2 weeks
+
+# Firebase App Distribution: internal release builds for rapid iteration (STR-50).
+# No version bump required — upload as often as needed. Targets the "Internal"
+# tester group (Sean + Kelsey). Auto-runs on every main merge.
+distribute-internal:
+  extends: .android-job
+  tags: [home-server]
+  stage: deploy
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  script:
+    - !reference [.keystore-bootstrap, script]
+    - test -n "$FIREBASE_SERVICE_ACCOUNT_JSON" || (echo "Missing FIREBASE_SERVICE_ACCOUNT_JSON file variable" && exit 1)
+    - export GOOGLE_APPLICATION_CREDENTIALS="$FIREBASE_SERVICE_ACCOUNT_JSON"
+    - ./gradlew :app:assembleRelease :app:appDistributionUploadRelease
+  artifacts:
+    paths:
+      - app/build/outputs/apk/release/*.apk
+    expire_in: 1 week
 
 # Firebase Test Lab robo test on the signed release APK from deploy-internal.
 # allow_failure until the first green run proves the service-account IAM (Play
