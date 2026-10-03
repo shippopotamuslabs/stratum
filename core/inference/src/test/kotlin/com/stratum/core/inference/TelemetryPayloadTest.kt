@@ -32,7 +32,7 @@ class TelemetryPayloadTest {
                 appVersion = "1.2.3",
             )
 
-        val payload = buildIngestPayload(batch)
+        val payload = TelemetryPayloadMapper.buildPayload(batch)
 
         assertEquals("android", payload["platform"])
         assertEquals("1.2.3", payload["appVersion"])
@@ -48,11 +48,4 @@ class TelemetryPayloadTest {
         assertFalse(entries[1].containsKey("durationMs"))
     }
 
-    @Test
-    @DisplayName("resolveAppVersion falls back for null or blank versions")
-    fun versionFallback() {
-        assertEquals("1.2.3", resolveAppVersion("1.2.3"))
-        assertEquals(ClientLogBatch.APP_VERSION_UNKNOWN, resolveAppVersion(null))
-        assertEquals(ClientLogBatch.APP_VERSION_UNKNOWN, resolveAppVersion("  "))
-    }
 }

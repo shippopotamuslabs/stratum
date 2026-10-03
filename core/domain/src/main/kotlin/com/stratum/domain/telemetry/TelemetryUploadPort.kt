@@ -17,4 +17,13 @@ interface PendingClientLogStore {
     suspend fun loadPending(): List<ClientLogEntry>
 
     suspend fun savePending(entries: List<ClientLogEntry>)
+
+    companion object {
+        /**
+         * Single newest-N cap for the offline queue. [ClientLogBuffer] caps what
+         * it hands over and the DataStore implementation caps again as defense
+         * in depth — both read this constant so they can never drift apart.
+         */
+        const val MAX_PERSISTED_ENTRIES = 200
+    }
 }
