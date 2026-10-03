@@ -2,7 +2,7 @@
   "displayName": "Stratum: solver p99 latency high",
   "documentation": {
     "mimeType": "text/markdown",
-    "content": "Cloud Run `stratum-solver` p99 request latency exceeded 120s over 10 min (built-in metric `run.googleapis.com/request_latencies`). 120s is the CP-SAT deadline; sustained p99 above it means solves are timing out against the 180s request timeout. Triage: Cloud Run logs for the service, check CPU throttling and cold starts (min-instances=0). Context: STR-24, `docs/cloud-program-synthesis-deploy.md` operational constants."
+    "content": "Cloud Run `stratum-solver` p99 request latency exceeded 120s over 10 min (built-in metric `run.googleapis.com/request_latencies`, a DISTRIBUTION measured in **milliseconds** -- `thresholdValue` below is `120000`, i.e. 120s). 120s is the CP-SAT deadline; sustained p99 above it means solves are timing out against the 180s request timeout. Triage: Cloud Run logs for the service, check CPU throttling and cold starts (min-instances=0). Context: STR-24, `docs/cloud-program-synthesis-deploy.md` operational constants."
   },
   "combiner": "OR",
   "conditions": [
@@ -11,7 +11,7 @@
       "conditionThreshold": {
         "filter": "metric.type=\"run.googleapis.com/request_latencies\" AND resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"stratum-solver\"",
         "comparison": "COMPARISON_GT",
-        "thresholdValue": 120,
+        "thresholdValue": 120000,
         "duration": "600s",
         "aggregations": [
           {
