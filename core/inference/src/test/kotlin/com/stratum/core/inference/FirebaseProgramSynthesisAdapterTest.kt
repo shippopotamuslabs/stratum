@@ -11,11 +11,19 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
+import org.robolectric.annotation.Config
+import tech.apter.junit.jupiter.robolectric.RobolectricExtension
 
 /**
  * Pure helpers for [FirebaseProgramSynthesisAdapter] (path build, status parse, error mapping).
  * Full Firebase upload/poll/download requires instrumented or integration coverage.
+ *
+ * Runs under Robolectric: [FirebaseFunctionsException] class initialization touches
+ * `android.util.SparseArray`, which is a stub on the plain JVM.
  */
+@ExtendWith(RobolectricExtension::class)
+@Config(sdk = [34])
 class FirebaseProgramSynthesisAdapterTest {
     @Nested
     @DisplayName("buildSynthesisRequestStoragePath")
