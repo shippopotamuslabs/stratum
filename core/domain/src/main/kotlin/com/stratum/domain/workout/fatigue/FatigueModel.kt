@@ -36,7 +36,7 @@ fun projectReps(
     perLiftIntercept: Double?,
 ): Int {
     if (baselineOneRm <= 0.0 || targetWeight.amount <= 0.0) return 1
-    val baselineReps = EstimatedOneRm.repsForWeight(baselineOneRm, targetWeight.amount)
+    val baselineReps = EstimatedOneRm.repsForWeight(baselineOneRm, targetWeight.amount).toDouble()
     return applyFatigueDecay(
         baselineReps = baselineReps,
         setIndex = nextSetIndex,
