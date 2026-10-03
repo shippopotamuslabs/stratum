@@ -31,6 +31,7 @@ Deliberate divergences from Kotlin (all FLAGGED in the final report):
 from __future__ import annotations
 
 import math
+import time
 
 from ortools.sat.python import cp_model
 
@@ -41,7 +42,16 @@ STATUS_OK = (cp_model.OPTIMAL, cp_model.FEASIBLE)
 
 
 class SolverInfeasibleError(RuntimeError):
-    """CP-SAT returned neither OPTIMAL nor FEASIBLE (user-safe message)."""
+    """CP-SAT returned neither OPTIMAL nor FEASIBLE (user-safe message).
+
+    Carries the raw CP-SAT status: the fallback ladder (STR-54) retries only
+    on a proven INFEASIBLE, never on timeouts or solver errors.
+    """
+
+    def __init__(self, message: str, *, status=None, status_name: str = ""):
+        super().__init__(message)
+        self.status = status
+        self.status_name = status_name
 
 
 class SolverConfigError(ValueError):
@@ -136,9 +146,15 @@ _ALWAYS_AIM_ORDER = (
 class SynthesisModel:
     """Joint CP-SAT model: per-slot set counts, session calendar, tiered objective."""
 
-    def __init__(self, weekly_targets: dict, context: dict):
+    def __init__(self, weekly_targets: dict, context: dict, relaxation: int = 0):
+        if relaxation not in (0, 1):
+            raise ValueError(f"unknown relaxation level: {relaxation!r} (want 0 or 1)")
         self.weekly_targets = weekly_targets
         self.context = context
+        # Fallback ladder (STR-54): 0 = full model; 1 = structural floors
+        # softened to heavy-slack penalties. Recovery forbids stay hard at
+        # every level.
+        self.relaxation = relaxation
         self.coeff = _Coefficients(context)
         # withResolvedCycleSpace: resolve ring first, then share it everywhere.
         length, rests = D.materialize_cycle_space(
@@ -262,7 +278,9 @@ class SynthesisModel:
         if status not in STATUS_OK:
             raise SolverInfeasibleError(
                 f"CP-SAT synthesis returned {solver.StatusName(status)} — try "
-                "relaxing specialization or adding a training day."
+                "relaxing specialization or adding a training day.",
+                status=status,
+                status_name=solver.StatusName(status),
             )
         return self._read_solution(solver, status)
 
@@ -454,7 +472,28 @@ class SynthesisModel:
             actives = [sv["active"] for sv in by_plan.get(plan["position"], [])]
             if len(actives) < D.MIN_ACTIVE_LIFTS_PER_SESSION:
                 continue
-            model.Add(sum(actives) >= D.MIN_ACTIVE_LIFTS_PER_SESSION)
+            if self.relaxation >= 1:
+                # L1 (STR-54): soften the floor to a heavy-slack penalty.
+                # This is the only unconditional hard structural floor, so L1
+                # provably terminates: near-zero volume satisfies every
+                # remaining hard constraint (caps, structure) and every
+                # recovery forbid vacuously. NOTE: the slack penalty feeds
+                # the true objective (`total`) but has no v1 breakdown field;
+                # engagement is server-logged (a v1.1 `fallbackLevel` field
+                # can expose it to clients).
+                short = self._track_slack(
+                    model,
+                    f"l1LiftShort_{plan['position']}",
+                    D.MIN_ACTIVE_LIFTS_PER_SESSION,
+                )
+                model.Add(
+                    sum(actives) + short >= D.MIN_ACTIVE_LIFTS_PER_SESSION
+                )
+                self._weighted_terms.append(
+                    (short, D.W_L1_ACTIVE_LIFTS_SHORTFALL)
+                )
+            else:
+                model.Add(sum(actives) >= D.MIN_ACTIVE_LIFTS_PER_SESSION)
 
     # -- recovery forbids ------------------------------------------------
 
@@ -1611,9 +1650,12 @@ def solve_request(
     decoded: dict,
     max_time_seconds: float = 120.0,
     num_search_workers: int | None = None,
+    relaxation: int = 0,
 ) -> dict:
     """Solve an already-decoded v1 request; returns a wire-ready solution dict."""
-    model = SynthesisModel(decoded["weeklyTargets"], decoded["context"])
+    model = SynthesisModel(
+        decoded["weeklyTargets"], decoded["context"], relaxation=relaxation
+    )
     return model.solve(
         max_time_seconds=max_time_seconds, num_search_workers=num_search_workers
     )
@@ -1624,11 +1666,38 @@ def solve_payload(
     max_time_seconds: float = 120.0,
     num_search_workers: int | None = None,
 ) -> dict:
-    """Decode a raw v1 request payload, solve, and encode the v1 response."""
+    """Decode a raw v1 request payload, solve, and encode the v1 response.
+
+    Fallback ladder (STR-54): try L0 (full model); on a proven INFEASIBLE
+    only, retry once at L1 (structural floors softened, recovery still hard).
+    Timeouts and solver errors are NOT retried — L1 cannot fix those, and a
+    second full-deadline attempt would just double latency.
+    """
     decoded = W.decode_request(payload)
-    solution = solve_request(
-        decoded,
-        max_time_seconds=max_time_seconds,
-        num_search_workers=num_search_workers,
-    )
+    started = time.time()
+    try:
+        solution = solve_request(
+            decoded,
+            max_time_seconds=max_time_seconds,
+            num_search_workers=num_search_workers,
+            relaxation=0,
+        )
+    except SolverInfeasibleError as exc:
+        if exc.status != cp_model.INFEASIBLE:
+            raise
+        proof_seconds = time.time() - started
+        print(
+            f"solver: L0 infeasible ({exc.status_name}, proved in "
+            f"{proof_seconds:.2f}s); retrying at L1"
+        )
+        solution = solve_request(
+            decoded,
+            max_time_seconds=max_time_seconds,
+            num_search_workers=num_search_workers,
+            relaxation=1,
+        )
+        print(
+            f"solver: L1 solved in {time.time() - started:.2f}s "
+            f"(fallback engaged; total may exceed term breakdown)"
+        )
     return W.encode_response(solution)
