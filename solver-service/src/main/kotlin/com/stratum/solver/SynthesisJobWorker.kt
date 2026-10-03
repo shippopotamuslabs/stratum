@@ -8,7 +8,6 @@ import com.google.cloud.storage.BlobInfo
 import com.google.cloud.storage.Storage
 import com.google.firebase.cloud.FirestoreClient
 import com.google.firebase.cloud.StorageClient
-import com.stratum.domain.json.jsonString
 import com.stratum.domain.program.generation.synthesis.wire.ProgramSynthesisWire
 import com.stratum.domain.program.generation.synthesis.wire.ProgramSynthesisWireException
 import com.stratum.domain.solver.CpSatProgramSynthesizer
@@ -30,7 +29,7 @@ class SynthesisJobWorker(
     private val synthesizerFactory: (Long) -> CpSatProgramSynthesizer = { deadline ->
         CpSatProgramSynthesizer(deadlineMillis = deadline, numSearchWorkers = SOLVER_SEARCH_WORKERS)
     },
-    private val logger: StructuredLogger = StructuredLogger(SERVICE_NAME),
+    private val logger: StructuredLogger = StructuredLogger(StructuredLog.SERVICE_NAME),
 ) {
     sealed class Outcome {
         data object JobMissing : Outcome()
@@ -51,7 +50,7 @@ class SynthesisJobWorker(
                         "job missing; no-op",
                         uid = request.uid,
                         jobId = request.jobId,
-                        extra = listOf("jobPath" to jsonString(jobPath)),
+                        extra = listOf("jobPath" to jobPath),
                     )
                     return Outcome.JobMissing
                 }
@@ -60,7 +59,7 @@ class SynthesisJobWorker(
                         "skip claim",
                         uid = request.uid,
                         jobId = request.jobId,
-                        extra = listOf("status" to jsonString(claim.status.orEmpty())),
+                        extra = listOf("status" to claim.status.orEmpty()),
                     )
                     return Outcome.Skipped("status=${claim.status}")
                 }
@@ -69,7 +68,7 @@ class SynthesisJobWorker(
                         "job claimed",
                         uid = request.uid,
                         jobId = request.jobId,
-                        extra = listOf("requestStoragePath" to jsonString(claim.requestStoragePath)),
+                        extra = listOf("requestStoragePath" to claim.requestStoragePath),
                     )
                     claim.requestStoragePath
                 }
@@ -117,8 +116,8 @@ class SynthesisJobWorker(
             uid = uid,
             jobId = jobId,
             extra = listOf(
-                "trainingDaysPerWeek" to wireRequest.context.trainingDaysPerWeek.toString(),
-                "deadlineMs" to deadlineMillis.toString(),
+                "trainingDaysPerWeek" to wireRequest.context.trainingDaysPerWeek,
+                "deadlineMs" to deadlineMillis,
             ),
         )
         val solveStartMs = System.currentTimeMillis()
@@ -140,10 +139,10 @@ class SynthesisJobWorker(
             jobId = jobId,
             durationMs = System.currentTimeMillis() - solveStartMs,
             extra = listOf(
-                "resultStoragePath" to jsonString(resultStoragePath),
-                "bytes" to resultJson.length.toString(),
-                "sessions" to result.sessions.size.toString(),
-                "objectiveTotal" to result.objective.total.toString(),
+                "resultStoragePath" to resultStoragePath,
+                "bytes" to resultJson.length,
+                "sessions" to result.sessions.size,
+                "objectiveTotal" to result.objective.total,
             ),
         )
 
@@ -172,7 +171,7 @@ class SynthesisJobWorker(
                 "job missing after solve; result left in storage",
                 uid = uid,
                 jobId = jobId,
-                extra = listOf("resultStoragePath" to jsonString(resultStoragePath)),
+                extra = listOf("resultStoragePath" to resultStoragePath),
             )
             return Outcome.JobMissing
         }
@@ -318,8 +317,6 @@ class SynthesisJobWorker(
     }
 
     companion object {
-        /** Cloud Run service name; also the Error Reporting serviceContext. */
-        const val SERVICE_NAME = "stratum-solver"
         const val CLAIMABLE_STATUS = "pending"
         const val DEFAULT_SOLVE_DEADLINE_MILLIS = 120_000L
         /**

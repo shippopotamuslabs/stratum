@@ -15,7 +15,7 @@ import java.nio.charset.StandardCharsets
  */
 class ProcessHandler(
     private val worker: SynthesisJobWorker = SynthesisJobWorker(),
-    private val logger: StructuredLogger = StructuredLogger(SynthesisJobWorker.SERVICE_NAME),
+    private val logger: StructuredLogger = StructuredLogger(StructuredLog.SERVICE_NAME),
 ) : HttpHandler {
     override fun handle(exchange: HttpExchange) {
         try {
@@ -34,7 +34,7 @@ class ProcessHandler(
                 // Client-shape error, no exception to report: WARNING, not Error Reporting.
                 logger.warn(
                     "bad process request",
-                    extra = listOf("detail" to jsonString(e.message.orEmpty())),
+                    extra = listOf("detail" to e.message.orEmpty()),
                 )
                 respond(exchange, HTTP_BAD_REQUEST, jsonError("Invalid body"))
                 return

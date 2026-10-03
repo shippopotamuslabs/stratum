@@ -59,6 +59,44 @@ class StructuredLogTest {
     }
 
     @Test
+    fun `record encodes typed extras centrally`() {
+        val line = StructuredLog.record(
+            severity = LogSeverity.INFO,
+            service = "stratum-solver",
+            message = "solved",
+            extra = listOf(
+                "detail" to "a\"b",
+                "port" to 8080,
+                "bytes" to 12345678901L,
+                "ok" to true,
+                "missing" to null,
+                "ratio" to 0.5,
+            ),
+        )
+        // Strings are escaped, never raw: the old pre-encoded contract would
+        // emit invalid JSON here if the caller forgot jsonString().
+        assertTrue("\"detail\":\"a\\\"b\"" in line, line)
+        // Numbers and booleans are unquoted; null is a literal.
+        assertTrue("\"port\":8080" in line, line)
+        assertTrue("\"bytes\":12345678901" in line, line)
+        assertTrue("\"ok\":true" in line, line)
+        assertTrue("\"missing\":null" in line, line)
+        assertTrue("\"ratio\":0.5" in line, line)
+    }
+
+    @Test
+    fun `errorReport accepts extras`() {
+        val line = StructuredLog.errorReport(
+            service = "stratum-solver",
+            message = "job failed",
+            error = IllegalStateException("boom"),
+            extra = listOf("attempt" to 3),
+        )
+        assertTrue("\"attempt\":3" in line, line)
+        assertTrue("\"@type\":\"${StructuredLog.ERROR_REPORT_TYPE}\"" in line, line)
+    }
+
+    @Test
     fun `logger routes info to stdout and warnings errors to stderr`() {
         val sink = FakeSink()
         val logger = StructuredLogger("stratum-solver", sink)
