@@ -12,9 +12,9 @@ import kotlinx.coroutines.flow.first
  * [PendingClientLogStore] on DataStore (STR-27 offline queue).
  *
  * Malformed entries fail closed (dropped on load) so one bad row cannot wedge
- * telemetry. Writes are capped to [MAX_PERSISTED_ENTRIES_NEWEST] newest
- * entries; [com.stratum.domain.telemetry.ClientLogBuffer] already caps what
- * it hands over, this is defense in depth.
+ * telemetry. Writes are capped to [PendingClientLogStore.MAX_PERSISTED_ENTRIES]
+ * newest entries; [com.stratum.domain.telemetry.ClientLogBuffer] already caps
+ * what it hands over, this is defense in depth.
  */
 @Singleton
 class DataStorePendingClientLogStore @Inject constructor(
@@ -25,11 +25,9 @@ class DataStorePendingClientLogStore @Inject constructor(
 
     override suspend fun savePending(entries: List<ClientLogEntry>) {
         context.pendingClientLogDataStore.updateData {
-            PendingClientLogRecord(entries.takeLast(MAX_PERSISTED_ENTRIES_NEWEST).map { it.toRecord() })
+            PendingClientLogRecord(
+                entries.takeLast(PendingClientLogStore.MAX_PERSISTED_ENTRIES).map { it.toRecord() },
+            )
         }
-    }
-
-    companion object {
-        const val MAX_PERSISTED_ENTRIES_NEWEST = 200
     }
 }

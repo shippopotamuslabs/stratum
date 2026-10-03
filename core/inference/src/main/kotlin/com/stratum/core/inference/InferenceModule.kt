@@ -12,9 +12,9 @@ import com.stratum.domain.importing.ImportEquipmentInferencePort
 import com.stratum.domain.importing.LiftNameEmbeddingPort
 import com.stratum.domain.lift.IncrementScanPort
 import com.stratum.domain.logging.LoggingPort
-import com.stratum.domain.telemetry.ClientLogBatch
 import com.stratum.domain.telemetry.ClientLogBuffer
 import com.stratum.domain.telemetry.PendingClientLogStore
+import com.stratum.domain.telemetry.resolveAppVersion
 import com.stratum.domain.telemetry.TelemetryUploadPort
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineExceptionHandler
@@ -166,11 +166,3 @@ abstract class InferenceModule {
     @Singleton
     abstract fun bindAnalyticsPort(impl: AndroidAnalyticsAdapter): AnalyticsPort
 }
-
-/**
- * Normalizes the user-visible version for the tier-2 upload envelope. The
- * PackageManager lookup happens at the call site inside runCatching so
- * telemetry metadata can never crash app start.
- */
-internal fun resolveAppVersion(versionName: String?): String =
-    versionName?.takeIf { it.isNotBlank() } ?: ClientLogBatch.APP_VERSION_UNKNOWN

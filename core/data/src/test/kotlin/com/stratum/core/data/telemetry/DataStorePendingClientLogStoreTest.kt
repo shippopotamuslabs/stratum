@@ -2,6 +2,7 @@ package com.stratum.core.data.telemetry
 
 import com.stratum.domain.telemetry.ClientLogEntry
 import com.stratum.domain.telemetry.ClientLogSeverity
+import com.stratum.domain.telemetry.PendingClientLogStore
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
@@ -67,7 +68,7 @@ class DataStorePendingClientLogStoreTest {
             store.savePending(entries)
 
             val loaded = store.loadPending()
-            assertEquals(DataStorePendingClientLogStore.MAX_PERSISTED_ENTRIES_NEWEST, loaded.size)
+            assertEquals(PendingClientLogStore.MAX_PERSISTED_ENTRIES, loaded.size)
             assertEquals("warn 50", loaded.first().message)
             assertEquals("warn 249", loaded.last().message)
         }

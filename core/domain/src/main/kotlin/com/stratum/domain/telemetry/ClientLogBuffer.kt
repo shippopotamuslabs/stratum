@@ -20,7 +20,7 @@ data class ClientLogUploadPolicy(
     val flushIntervalMs: Long = 60_000L,
     val maxUploadsPerHour: Int = 10,
     val maxBufferedEntries: Int = 500,
-    val maxPersistedEntries: Int = 200,
+    val maxPersistedEntries: Int = PendingClientLogStore.MAX_PERSISTED_ENTRIES,
     val maxMessageLength: Int = 4000,
     val maxTagLength: Int = 64,
     val minRetryIntervalMs: Long = 30_000L,
@@ -58,11 +58,19 @@ class ClientLogBuffer(
         message: String,
         durationMs: Long? = null,
     ) {
+        val truncatedTag = tag.take(policy.maxTagLength)
+        val truncatedMessage = message.take(policy.maxMessageLength)
+        if (truncatedTag.isBlank() || truncatedMessage.isBlank()) {
+            // The server rejects the whole batch on one empty tag/message, so a
+            // blank (or fully-scrubbed) entry would poison every retry. Drop it
+            // here; the caller already logged it locally before recording.
+            return
+        }
         val entry =
             ClientLogEntry(
                 severity = severity,
-                tag = tag.take(policy.maxTagLength),
-                message = message.take(policy.maxMessageLength),
+                tag = truncatedTag,
+                message = truncatedMessage,
                 clientTimestampMs = clock(),
                 sessionId = sessionId,
                 durationMs = durationMs?.coerceAtLeast(0L),
@@ -136,19 +144,31 @@ class ClientLogBuffer(
             return
         }
         val batchEntries = snapshot.take(policy.maxBatchSize)
-        val dropped = synchronized(lock) { droppedEntryCount }
+        val droppedAtStart = synchronized(lock) { droppedEntryCount }
         val result =
             upload.upload(
                 ClientLogBatch(
                     entries = batchEntries,
-                    droppedEntryCount = dropped,
+                    droppedEntryCount = droppedAtStart,
                     appVersion = appVersion,
                 ),
             )
         if (result.isSuccess) {
             synchronized(lock) {
-                repeat(batchEntries.size) { if (buffer.isNotEmpty()) buffer.removeFirst() }
-                droppedEntryCount = 0
+                // A concurrent record() may have overflowed and dropped from the
+                // same front during upload, so only remove entries that were
+                // actually uploaded: fast path when the prefix still matches,
+                // per-entry removal when it shifted underneath the snapshot.
+                if (buffer.size >= batchEntries.size &&
+                    batchEntries.indices.all { buffer[it] == batchEntries[it] }
+                ) {
+                    repeat(batchEntries.size) { buffer.removeFirst() }
+                } else {
+                    batchEntries.forEach { buffer.remove(it) }
+                }
+                // Preserve overflows that happened during the upload; only the
+                // count already reported in this batch is cleared.
+                droppedEntryCount = (droppedEntryCount - droppedAtStart).coerceAtLeast(0)
             }
             flushTimesMs.addLast(nowMs)
             persist(synchronized(lock) { buffer.toList() })

@@ -104,6 +104,22 @@ class ForwardingLoggingAdapterTest {
         }
 
     @Test
+    @DisplayName("blank tag or message is logged locally but never enqueued for upload")
+    fun blankEntriesSkippedButLoggedLocally() =
+        runTest {
+            val (forwarding, buffer) = fixture(this)
+            forwarding.warning("", "has message")
+            forwarding.warning("Tag", "")
+            forwarding.warning("Tag", "   ")
+
+            assertEquals(3, telemetry.breadcrumbs.size)
+
+            buffer.flush()
+
+            assertTrue(upload.uploadedBatches.isEmpty())
+        }
+
+    @Test
     @DisplayName("enqueued entries scrub PII")
     fun enqueuedEntriesScrubPii() =
         runTest {

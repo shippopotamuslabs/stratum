@@ -2,6 +2,8 @@ package com.stratum.domain.telemetry
 
 import com.stratum.core.testing.telemetry.FakePendingClientLogStore
 import com.stratum.core.testing.telemetry.FakeTelemetryUploadPort
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -290,6 +292,94 @@ class ClientLogBufferTest {
                 buffer.flush()
 
                 assertEquals(1, upload.uploadedBatches.size)
+            }
+    }
+
+    @Nested
+    @DisplayName("blank guard")
+    inner class BlankGuard {
+        @Test
+        @DisplayName("blank tags and messages are dropped before enqueue and never uploaded")
+        fun blankEntriesNeverReachUpload() =
+            runTest {
+                val buffer =
+                    ClientLogBuffer(
+                        scope = this,
+                        upload = upload,
+                        pendingStore = store,
+                        policy = policy(),
+                        clock = { nowMs },
+                        appVersion = APP_VERSION,
+                    )
+                buffer.record(ClientLogSeverity.WARNING, "", "has message")
+                buffer.record(ClientLogSeverity.WARNING, "   ", "whitespace tag")
+                buffer.record(ClientLogSeverity.WARNING, "Tag", "")
+                buffer.record(ClientLogSeverity.WARNING, "Tag", "   ")
+
+                buffer.flush()
+
+                assertTrue(upload.uploadedBatches.isEmpty())
+
+                buffer.record(ClientLogSeverity.WARNING, "Tag", "valid")
+                buffer.flush()
+
+                assertEquals(
+                    listOf("valid"),
+                    upload.uploadedBatches.single().entries.map { it.message },
+                )
+            }
+    }
+
+    @Nested
+    @DisplayName("concurrent record during upload")
+    inner class ConcurrentFlush {
+        @Test
+        @DisplayName("racing overflow removes only uploaded entries and preserves the drop count")
+        fun racingOverflowKeepsNewEntriesAndDropCount() =
+            runTest {
+                val started = CompletableDeferred<Unit>()
+                val release = CompletableDeferred<Unit>()
+                val uploaded = mutableListOf<ClientLogBatch>()
+                val racingUpload =
+                    object : TelemetryUploadPort {
+                        override suspend fun upload(batch: ClientLogBatch): Result<Unit> {
+                            uploaded += batch
+                            started.complete(Unit)
+                            release.await()
+                            return Result.success(Unit)
+                        }
+                    }
+                val buffer =
+                    ClientLogBuffer(
+                        scope = this,
+                        upload = racingUpload,
+                        pendingStore = store,
+                        policy = policy().copy(maxBatchSize = 100),
+                        clock = { nowMs },
+                        appVersion = APP_VERSION,
+                    )
+                repeat(5) { buffer.record(ClientLogSeverity.WARNING, "Tag", "m$it") }
+
+                val flushJob = launch { buffer.flush() }
+                started.await()
+                // Overflow while the upload is in flight: drops m0-m2, keeps m3-m4.
+                repeat(3) { buffer.record(ClientLogSeverity.WARNING, "Tag", "n$it") }
+                release.complete(Unit)
+                flushJob.join()
+
+                assertEquals(
+                    listOf("m0", "m1", "m2", "m3", "m4"),
+                    uploaded.single().entries.map { it.message },
+                )
+
+                buffer.flush()
+
+                // m3-m4 were uploaded (removed once); n0-n2 were never uploaded
+                // (kept); the 3 overflow drops during the first upload are still
+                // reported instead of reset to zero.
+                assertEquals(2, uploaded.size)
+                assertEquals(listOf("n0", "n1", "n2"), uploaded[1].entries.map { it.message })
+                assertEquals(3, uploaded[1].droppedEntryCount)
             }
     }
 
