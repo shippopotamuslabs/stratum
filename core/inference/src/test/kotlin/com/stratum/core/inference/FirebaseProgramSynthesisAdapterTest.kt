@@ -1,5 +1,8 @@
 package com.stratum.core.inference
 
+import com.google.firebase.functions.FirebaseFunctionsException
+import com.stratum.domain.program.generation.synthesis.ProgramSynthesisException
+import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertThrows
@@ -195,5 +198,213 @@ class FirebaseProgramSynthesisAdapterTest {
             assertFalse("gs://bucket/path failed".isUserSafeErrorMessage())
             assertFalse("java.lang.IllegalStateException: boom".isUserSafeErrorMessage())
         }
+    }
+
+    @Nested
+    @DisplayName("isTransientStatusCode")
+    inner class TransientCodes {
+        @Test
+        @DisplayName("INTERNAL, UNAVAILABLE and DEADLINE_EXCEEDED are transient")
+        fun transientCodesAreTransient() {
+            assertTrue(FirebaseFunctionsException.Code.INTERNAL.isTransientStatusCode())
+            assertTrue(FirebaseFunctionsException.Code.UNAVAILABLE.isTransientStatusCode())
+            assertTrue(FirebaseFunctionsException.Code.DEADLINE_EXCEEDED.isTransientStatusCode())
+        }
+
+        @Test
+        @DisplayName("permanent codes fail fast")
+        fun permanentCodesAreNotTransient() {
+            assertFalse(FirebaseFunctionsException.Code.NOT_FOUND.isTransientStatusCode())
+            assertFalse(FirebaseFunctionsException.Code.PERMISSION_DENIED.isTransientStatusCode())
+            assertFalse(FirebaseFunctionsException.Code.UNAUTHENTICATED.isTransientStatusCode())
+            assertFalse(FirebaseFunctionsException.Code.RESOURCE_EXHAUSTED.isTransientStatusCode())
+            assertFalse(FirebaseFunctionsException.Code.INVALID_ARGUMENT.isTransientStatusCode())
+        }
+    }
+
+    @Nested
+    @DisplayName("TransientFailureBudget")
+    inner class FailureBudget {
+        @Test
+        @DisplayName("allows up to max consecutive failures")
+        fun allowsUpToMax() {
+            val budget = TransientFailureBudget(maxConsecutive = 2)
+            budget.record()
+            budget.record()
+        }
+
+        @Test
+        @DisplayName("throws once the budget is exhausted")
+        fun throwsWhenExhausted() {
+            val budget = TransientFailureBudget(maxConsecutive = 1)
+            budget.record()
+            assertThrows(ProgramSynthesisException::class.java) {
+                budget.record()
+            }
+        }
+
+        @Test
+        @DisplayName("reset restores the budget")
+        fun resetRestoresBudget() {
+            val budget = TransientFailureBudget(maxConsecutive = 1)
+            budget.record()
+            budget.reset()
+            budget.record()
+        }
+    }
+
+    @Nested
+    @DisplayName("fetchStatusWithTransientRetry")
+    inner class StatusRetry {
+        private val fallback =
+            SynthesisJobSnapshot(
+                status = SynthesisRemoteStatus.Pending,
+                progressPhase = null,
+                progressMessage = null,
+                resultStoragePath = null,
+                errorMessage = null,
+            )
+        private val ready =
+            SynthesisJobSnapshot(
+                status = SynthesisRemoteStatus.Ready,
+                progressPhase = null,
+                progressMessage = null,
+                resultStoragePath = "synthesis/u/j/result.json",
+                errorMessage = null,
+            )
+
+        private fun transientError() =
+            FirebaseFunctionsException(FirebaseFunctionsException.Code.INTERNAL, "INTERNAL")
+
+        private fun permanentError() =
+            FirebaseFunctionsException(
+                FirebaseFunctionsException.Code.PERMISSION_DENIED,
+                "Missing or insufficient permissions.",
+            )
+
+        @Test
+        @DisplayName("transient failure yields fallback and reports via onTransientFailure")
+        fun transientYieldsFallback() =
+            runTest {
+                var transientCalls = 0
+                var permanentCalls = 0
+                val result =
+                    fetchStatusWithTransientRetry(
+                        fetch = { throw transientError() },
+                        budget = TransientFailureBudget(maxConsecutive = 3),
+                        fallback = fallback,
+                        onTransientFailure = { transientCalls++ },
+                        onPermanentFailure = { permanentCalls++ },
+                    )
+                assertEquals(fallback, result)
+                assertEquals(1, transientCalls)
+                assertEquals(0, permanentCalls)
+            }
+
+        @Test
+        @DisplayName("permanent failure throws ProgramSynthesisException via onPermanentFailure")
+        fun permanentThrows() =
+            runTest {
+                var permanentCalls = 0
+                var thrown: Throwable? = null
+                try {
+                    fetchStatusWithTransientRetry(
+                        fetch = { throw permanentError() },
+                        budget = TransientFailureBudget(maxConsecutive = 3),
+                        fallback = fallback,
+                        onTransientFailure = { },
+                        onPermanentFailure = { permanentCalls++ },
+                    )
+                } catch (e: ProgramSynthesisException) {
+                    thrown = e
+                }
+                assertTrue(thrown is ProgramSynthesisException)
+                assertEquals(1, permanentCalls)
+            }
+
+        @Test
+        @DisplayName("sustained transient failures exhaust the budget and fail the poll")
+        fun sustainedTransientsExhaustBudget() =
+            runTest {
+                val budget = TransientFailureBudget(maxConsecutive = 2)
+                suspend fun attempt() =
+                    fetchStatusWithTransientRetry(
+                        fetch = { throw transientError() },
+                        budget = budget,
+                        fallback = fallback,
+                        onTransientFailure = { },
+                        onPermanentFailure = { },
+                    )
+                attempt()
+                attempt()
+                var thrown: Throwable? = null
+                try {
+                    attempt()
+                } catch (e: ProgramSynthesisException) {
+                    thrown = e
+                }
+                assertTrue(thrown is ProgramSynthesisException)
+            }
+
+        @Test
+        @DisplayName("poll loop survives transient blips and returns the terminal snapshot")
+        fun pollLoopSurvivesTransientBlips() =
+            runTest {
+                val running =
+                    SynthesisJobSnapshot(
+                        status = SynthesisRemoteStatus.Running,
+                        progressPhase = "solving",
+                        progressMessage = null,
+                        resultStoragePath = null,
+                        errorMessage = null,
+                    )
+                var calls = 0
+                val result =
+                    pollUntil(
+                        timeoutMs = 5_000L,
+                        initialIntervalMs = 10L,
+                        slowIntervalMs = 10L,
+                        backoffAfterMs = 60_000L,
+                        isTerminal = { it.status.isTerminal() },
+                        poll = {
+                            fetchStatusWithTransientRetry(
+                                fetch = {
+                                    calls++
+                                    when (calls) {
+                                        1, 2 -> throw transientError()
+                                        3 -> running
+                                        else -> ready
+                                    }
+                                },
+                                budget = TransientFailureBudget(maxConsecutive = 10),
+                                fallback = fallback,
+                                onTransientFailure = { },
+                                onPermanentFailure = { },
+                            )
+                        },
+                    )
+                assertEquals(SynthesisRemoteStatus.Ready, result.status)
+                assertEquals("synthesis/u/j/result.json", result.resultStoragePath)
+            }
+
+        @Test
+        @DisplayName("poll loop still times out when the job never reaches terminal")
+        fun pollLoopStillTimesOut() =
+            runTest {
+                var thrown: Throwable? = null
+                try {
+                    pollUntil(
+                        timeoutMs = 200L,
+                        initialIntervalMs = 10L,
+                        slowIntervalMs = 10L,
+                        backoffAfterMs = 60_000L,
+                        isTerminal = { it.status.isTerminal() },
+                        poll = { fallback },
+                    )
+                } catch (e: IllegalStateException) {
+                    thrown = e
+                }
+                assertTrue(thrown is IllegalStateException)
+            }
     }
 }
