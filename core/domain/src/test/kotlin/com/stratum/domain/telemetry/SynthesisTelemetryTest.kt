@@ -99,7 +99,7 @@ class SynthesisTelemetryTest {
     }
 
     @Test
-    fun `synthesisRendered logs tap-to-rendered duration`() {
+    fun `synthesisRendered logs tap-to-rendered duration under session namespace`() {
         val events = mutableListOf<Pair<String, Map<String, String>>>()
         var now = 10_000L
         val telemetry =
@@ -110,11 +110,37 @@ class SynthesisTelemetryTest {
 
         val tapMs = telemetry.nowMs()
         now = 200_000L
-        telemetry.synthesisRendered("job-123", tapMs)
+        telemetry.synthesisRendered(sessionId = "session-abc", startMs = tapMs)
 
         val (name, params) = events.single()
         assertEquals(EVENT_SYNTHESIS_RENDERED, name)
+        assertEquals("session-abc", params[PARAM_SESSION_ID])
+        assertEquals("session-abc", params[PARAM_CORRELATION_ID])
+        // job_id must never carry a session id: omitted when the cloud jobId
+        // is unreachable at the call site.
+        assertNull(params[PARAM_JOB_ID])
+        assertEquals("190000", params[PARAM_DURATION_MS])
+    }
+
+    @Test
+    fun `synthesisRendered logs both ids when the cloud jobId is known`() {
+        val events = mutableListOf<Pair<String, Map<String, String>>>()
+        var now = 10_000L
+        val telemetry =
+            SynthesisTelemetry(
+                logEvent = { name, params -> events.add(name to params) },
+                clock = { now },
+            )
+
+        val tapMs = telemetry.nowMs()
+        now = 200_000L
+        telemetry.synthesisRendered(sessionId = "session-abc", startMs = tapMs, jobId = "job-123")
+
+        val (name, params) = events.single()
+        assertEquals(EVENT_SYNTHESIS_RENDERED, name)
+        assertEquals("session-abc", params[PARAM_SESSION_ID])
         assertEquals("job-123", params[PARAM_JOB_ID])
+        assertEquals("job-123", params[PARAM_CORRELATION_ID])
         assertEquals("190000", params[PARAM_DURATION_MS])
     }
 }

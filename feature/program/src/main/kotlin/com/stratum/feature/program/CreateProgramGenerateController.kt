@@ -170,8 +170,12 @@ internal class CreateProgramGenerateController(
         }
         generateJob?.cancel()
         // STR-13 trace: tap time anchors the tap-to-rendered duration. The cloud
-        // jobId is owned by the synthesis adapter (unseen through GenerateProgramUseCase),
-        // so this leg stays session-correlated per STR-19 and joins by time window.
+        // jobId is created inside FirebaseProgramSynthesisAdapter.synthesize and
+        // ProgramSynthesisPort/GenerateProgramUseCase expose only Result<Program>
+        // (no job identity), so it cannot reach this layer without leaking
+        // inference identity through domain. This leg stays session-keyed per
+        // STR-19 (job_id omitted, never overloaded); join to server legs via
+        // session_id where present, else the client time window.
         val tapMs = synthesisTelemetry.nowMs()
         generateJob =
             scope.launch {
@@ -212,7 +216,7 @@ internal class CreateProgramGenerateController(
                 onProgramGenerated(program)
                 editorTimer.stop()
                 // STR-13 trace: program handed to the editor for rendering.
-                synthesisTelemetry.synthesisRendered(session.id, tapMs)
+                synthesisTelemetry.synthesisRendered(sessionId = session.id, startMs = tapMs)
             }
     }
 
