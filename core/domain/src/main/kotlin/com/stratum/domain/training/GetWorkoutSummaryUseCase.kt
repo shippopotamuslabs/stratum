@@ -23,15 +23,24 @@ class GetWorkoutSummaryUseCase @Inject constructor(
     private val observeLiftCatalog: ObserveLiftCatalogUseCase,
     private val loggingPort: LoggingPort,
 ) {
-    suspend operator fun invoke(sessionId: TrainingSessionId): Result<WorkoutSummary> =
-        runCatchingLogged(loggingPort, TAG, "Failed to load workout summary") {
-        val session = trainingLogRepository.getSession(sessionId)
-            ?: error("Training session ${sessionId.value} not found")
-        val loggedSets = trainingLogRepository.getSetsForSession(sessionId)
-        val lifts = observeLiftCatalog().first()
-        val liftNamesById = lifts.associate { it.id to it.name }
-
-        val program = programRepository.getProgram()
+    suspend operator fun invoke(sessionId: TrainingSessionId): Result<WorkoutSummary> {
+        // A missing session is expected (stale deep link), not an operational fault: validate
+        // outside the logged block so it leaves a breadcrumb only, never a Crashlytics non-fatal.
+        val session = runCatchingLogged(loggingPort, TAG, "Failed to load workout summary") {
+            trainingLogRepository.getSession(sessionId)
+        }.getOrElse { return Result.failure(it) }
+            ?: return expectedFailure(IllegalStateException("Training session ${sessionId.value} not found"))
+        val reads = runCatchingLogged(loggingPort, TAG, "Failed to load workout summary") {
+            Triple(
+                trainingLogRepository.getSetsForSession(sessionId),
+                observeLiftCatalog().first(),
+                programRepository.getProgram(),
+            )
+        }.getOrElse { return Result.failure(it) }
+        val loggedSets = reads.first
+        val liftNamesById = reads.second.associate { it.id to it.name }
+        val program = reads.third
+        return runCatchingLogged(loggingPort, TAG, "Failed to load workout summary") {
         val liftFallback =
             loggedSets.firstOrNull()?.liftContext?.liftName?.takeIf { it.isNotBlank() }
                 ?: loggedSets.firstOrNull()?.exerciseNameRaw
@@ -57,6 +66,12 @@ class GetWorkoutSummaryUseCase @Inject constructor(
             bestSets = bestSetsInWorkoutOrder(loggedSets, workout, liftNamesById),
         )
         }
+    }
+
+    private fun expectedFailure(throwable: Throwable): Result<WorkoutSummary> {
+        loggingPort.warning(TAG, throwable.message ?: "Expected workout summary failure")
+        return Result.failure(throwable)
+    }
 
     /**
      * Emit best-set rows in program workout-lift order, then any orphans (no matching

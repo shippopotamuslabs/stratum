@@ -35,9 +35,10 @@ class SwapWorkoutLiftUseCase @Inject constructor(
             }
 
         if (program == null) {
-            val error = IllegalStateException("No active program found to swap lift")
-            loggingPort.error(TAG, "Failed to swap workout lift: ${error.message}", error)
-            return Result.failure(error)
+            // Expected domain state (no active program), not an operational fault: breadcrumb
+            // only, so this never becomes a Crashlytics non-fatal.
+            loggingPort.warning(TAG, "Failed to swap workout lift: no active program")
+            return Result.failure(IllegalStateException("No active program found to swap lift"))
         }
 
         var found = false
@@ -56,9 +57,11 @@ class SwapWorkoutLiftUseCase @Inject constructor(
         }
 
         if (!found) {
-            val error = IllegalArgumentException("Workout lift with ID $workoutLiftId not found in the program")
-            loggingPort.error(TAG, "Failed to swap workout lift: ${error.message}", error)
-            return Result.failure(error)
+            // Expected stale-id outcome, not an operational fault: breadcrumb only.
+            loggingPort.warning(TAG, "Failed to swap workout lift: workout lift $workoutLiftId not found")
+            return Result.failure(
+                IllegalArgumentException("Workout lift with ID $workoutLiftId not found in the program"),
+            )
         }
 
         val updatedProgram = program.copy(workouts = updatedWorkouts)
