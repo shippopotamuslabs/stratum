@@ -50,6 +50,7 @@ class CpSatProgramSynthesizer(
     private val deadlineMillis: Long = DEFAULT_DEADLINE_MILLIS,
     private val logSearchProgress: Boolean = defaultLogSearchProgress(),
     private val useWarmStart: Boolean = defaultUseWarmStart(),
+    private val numSearchWorkers: Int = NUM_SEARCH_WORKERS,
 ) : ProgramSynthesisPort {
 
     /**
@@ -111,25 +112,15 @@ class CpSatProgramSynthesizer(
                     allowed.joinToString(",") { it.name }
                 } +
                 " slotVars=${plans.sumOf { it.filledSlots.size }} " +
-                "deadlineMs=$deadlineMillis logSearch=$logSearchProgress warmStart=$useWarmStart",
+                "deadlineMs=$deadlineMillis logSearch=$logSearchProgress warmStart=$useWarmStart " +
+                "workers=$numSearchWorkers",
         )
         // Multi-line model size dump from OR-Tools (vars / constraints / domains).
         runCatching { model.modelStats() }.getOrNull()?.lineSequence()?.forEach { line ->
             if (line.isNotBlank()) logInfo("model $line")
         }
 
-        val solver = CpSolver().apply {
-            getParameters().setMaxTimeInSeconds(deadlineMillis / MILLISECONDS_PER_SECOND)
-            if (logSearchProgress) {
-                getParameters().setLogSearchProgress(true)
-                // Route through our logger so device logcat / test stdout both see progress.
-                getParameters().setLogToStdout(false)
-                // Named Consumer class — not a Kotlin lambda (see class KDoc).
-                setLogCallback(OrToolsLogConsumer())
-            }
-            // Intentionally no setBestBoundCallback: final bound is logged after solve via
-            // bestObjectiveBound(). Mid-search bound streaming is not required for gap decisions.
-        }
+        val solver = buildSolver()
 
         val incumbents = IncumbentLog()
         val status = solver.solve(model, incumbents)
@@ -162,6 +153,30 @@ class CpSatProgramSynthesizer(
         )
         return materializeSynthesisResult(universe, solution)
             .copy(objective = objective)
+    }
+
+    /**
+     * Builds the OR-Tools solver with Stratum's time + parallelism settings.
+     * Public so the Cloud Run worker wiring and regression tests can observe the applied
+     * parameters without running a full solve (solver construction is native-free).
+     */
+    fun buildSolver(): CpSolver {
+        return CpSolver().apply {
+            getParameters().setMaxTimeInSeconds(deadlineMillis / MILLISECONDS_PER_SECOND)
+            // STR-21: match Cloud Run stratum-solver's 8 vCPUs. Set explicitly even though the
+            // OR-Tools default (0 = all cores) would likely resolve the same, so the parallelism
+            // is deliberate and visible rather than incidental.
+            getParameters().setNumSearchWorkers(numSearchWorkers)
+            if (logSearchProgress) {
+                getParameters().setLogSearchProgress(true)
+                // Route through our logger so device logcat / test stdout both see progress.
+                getParameters().setLogToStdout(false)
+                // Named Consumer class — not a Kotlin lambda (see class KDoc).
+                setLogCallback(OrToolsLogConsumer())
+            }
+            // Intentionally no setBestBoundCallback: final bound is logged after solve via
+            // bestObjectiveBound(). Mid-search bound streaming is not required for gap decisions.
+        }
     }
 
     /**
@@ -278,6 +293,12 @@ class CpSatProgramSynthesizer(
     private companion object {
         const val DEFAULT_DEADLINE_MILLIS = 120_000L
         const val MILLISECONDS_PER_SECOND = 1000.0
+        /**
+         * CP-SAT search workers, matching Cloud Run stratum-solver's `--cpu=8`
+         * (see docs/cloud-program-synthesis-deploy.md §3). Kept as a named constant so the
+         * match between hardware and solver parallelism is explicit (STR-21).
+         */
+        const val NUM_SEARCH_WORKERS = 8
         const val LOG_TAG = "CpSatProgramSynthesizer"
         const val LOG_SEARCH_PROPERTY = "stratum.solver.log_search"
         const val WARM_START_PROPERTY = "stratum.solver.warm_start"
