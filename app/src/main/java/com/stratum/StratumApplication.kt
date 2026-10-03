@@ -10,6 +10,7 @@ import com.stratum.domain.di.ApplicationScope
 import com.stratum.domain.featureflag.FeatureFlagRepository
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.logging.ProcessErrorSafetyNet
+import com.stratum.domain.telemetry.ClientLogBuffer
 import com.stratum.feature.workout.notification.WorkoutNotificationCoordinator
 import com.stratum.sync.CloudSyncAuthListener
 import com.stratum.telemetry.TelemetryAuthListener
@@ -41,6 +42,9 @@ class StratumApplication : Application(), Configuration.Provider {
     lateinit var loggingPort: LoggingPort
 
     @Inject
+    lateinit var clientLogBuffer: ClientLogBuffer
+
+    @Inject
     lateinit var cloudSyncAuthListener: CloudSyncAuthListener
 
     @Inject
@@ -63,6 +67,9 @@ class StratumApplication : Application(), Configuration.Provider {
         // background workers that never touch an activity — is attested from the start.
         initFirebaseAppCheck()
         processErrorSafetyNet.installUncaughtExceptionHandler()
+        // Tier-2 telemetry (STR-27): restore the offline queue and start periodic
+        // upload of warning()/errorSkippingNonFatal() entries.
+        clientLogBuffer.start()
         workoutNotificationCoordinator.start()
         cloudSyncAuthListener.start()
         telemetryAuthListener.start()
