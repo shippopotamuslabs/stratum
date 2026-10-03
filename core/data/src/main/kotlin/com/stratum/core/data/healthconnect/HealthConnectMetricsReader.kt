@@ -55,8 +55,21 @@ class HealthConnectMetricsReader @Inject constructor(
             return HealthMetricsSnapshot(grantedTypes = granted)
         }
         val client = HealthConnectClient.getOrCreate(context)
+        // The HRV read re-verifies its grant immediately before reading. If the grant
+        // disappeared since the snapshot-level check, self-correct grantedTypes so the
+        // snapshot never claims HRV granted with empty samples.
+        val hrvRead = if (HealthMetricType.HeartRateVariability in granted) {
+            readHrv(client, request)
+        } else {
+            HrvReadResult(emptyList(), grantGoneAtRead = false)
+        }
+        val correctedGranted = if (hrvRead.grantGoneAtRead) {
+            granted - HealthMetricType.HeartRateVariability
+        } else {
+            granted
+        }
         return HealthMetricsSnapshot(
-            grantedTypes = granted,
+            grantedTypes = correctedGranted,
             dailySteps = if (HealthMetricType.Steps in granted) {
                 readDailySteps(client, request)
             } else {
@@ -77,11 +90,7 @@ class HealthConnectMetricsReader @Inject constructor(
             } else {
                 emptyList()
             },
-            hrvSamples = if (HealthMetricType.HeartRateVariability in granted) {
-                readHrv(client, request)
-            } else {
-                emptyList()
-            },
+            hrvSamples = hrvRead.samples,
         )
     }
 
@@ -161,17 +170,54 @@ class HealthConnectMetricsReader @Inject constructor(
         }
     }
 
+    /**
+     * Result of an HRV read that re-verifies its grant immediately before reading.
+     * [grantGoneAtRead] is true when the HRV grant was missing at re-verification time
+     * or the read itself was denied with a SecurityException.
+     */
+    private data class HrvReadResult(
+        val samples: List<HrvSample>,
+        val grantGoneAtRead: Boolean,
+    )
+
     private suspend fun readHrv(
         client: HealthConnectClient,
         request: HealthMetricsRequest,
-    ): List<HrvSample> = catchHealthConnect(emptyList(), "readHrv") {
-        readAll(client, HeartRateVariabilityRmssdRecord::class, instantFilter(request)).map { record ->
-            HrvSample(time = record.time, rmssdMillis = record.heartRateVariabilityMillis)
+    ): HrvReadResult {
+        // Re-verify the HRV grant immediately before reading: the snapshot-level
+        // grantedReadTypes() check can go stale when the user revokes the permission
+        // in Health Connect settings (grants are selective per data type).
+        val grantedNow = currentGrantedPermissions(client, "grantedReadTypesBeforeHrv")
+        if (HealthConnectRequestedPermissions.readHrv !in grantedNow) {
+            loggingPort.warning(
+                HEALTH_CONNECT_METRICS_TAG,
+                "Skipping HRV read: HRV read permission not granted (granted=$grantedNow)",
+            )
+            return HrvReadResult(emptyList(), grantGoneAtRead = true)
         }
+        var deniedAtRead = false
+        val samples = catchHealthConnect(
+            default = emptyList(),
+            label = "readHrv",
+            onPermissionDenied = { deniedAtRead = true },
+        ) {
+            readAll(client, HeartRateVariabilityRmssdRecord::class, instantFilter(request)).map { record ->
+                HrvSample(time = record.time, rmssdMillis = record.heartRateVariabilityMillis)
+            }
+        }
+        return HrvReadResult(samples, grantGoneAtRead = deniedAtRead)
     }
 
     private fun instantFilter(request: HealthMetricsRequest): TimeRangeFilter =
         TimeRangeFilter.between(request.windowStart, request.windowEnd)
+
+    private suspend fun currentGrantedPermissions(
+        client: HealthConnectClient,
+        label: String,
+    ): Set<String> =
+        catchHealthConnect(emptySet(), label) {
+            client.permissionController.getGrantedPermissions()
+        }
 
     private suspend fun <T : Record> readAll(
         client: HealthConnectClient,
@@ -194,15 +240,36 @@ class HealthConnectMetricsReader @Inject constructor(
         return out
     }
 
+    /**
+     * Runs a Health Connect operation, mapping failures to [default].
+     *
+     * Exception policy, uniform across all Health Connect reads: a [SecurityException]
+     * means the user revoked a grant in system settings (expected user-driven state),
+     * so it logs a warning and never records a Crashlytics non-fatal; any other
+     * [Throwable] logs an error (which records a non-fatal). [onPermissionDenied]
+     * lets callers observe the denial path, e.g. to self-correct a snapshot's
+     * granted set.
+     */
     private suspend inline fun <T> catchHealthConnect(
         default: T,
         label: String,
+        onPermissionDenied: () -> Unit = {},
         block: suspend () -> T,
     ): T =
         try {
             block()
         } catch (e: CancellationException) {
             throw e
+        } catch (e: SecurityException) {
+            // Permission-state failure (e.g. the user revoked a Health Connect grant
+            // in system settings after our last check). Expected user-driven state,
+            // not a code bug: warn instead of recording a Crashlytics non-fatal.
+            loggingPort.warning(
+                HEALTH_CONNECT_METRICS_TAG,
+                "Health Connect $label denied (SecurityException): ${e.message}",
+            )
+            onPermissionDenied()
+            default
         } catch (error: Throwable) {
             loggingPort.error(HEALTH_CONNECT_METRICS_TAG, "Health Connect $label failed", error)
             default
