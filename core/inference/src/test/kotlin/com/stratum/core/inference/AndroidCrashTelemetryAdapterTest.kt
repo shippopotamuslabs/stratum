@@ -4,6 +4,7 @@ package com.stratum.core.inference
 
 import android.util.Log
 import com.google.firebase.crashlytics.FirebaseCrashlytics
+import com.stratum.domain.telemetry.SanitizedTelemetryException
 import com.stratum.domain.telemetry.TelemetryPiiScrubber
 import io.mockk.every
 import io.mockk.mockk
@@ -126,6 +127,61 @@ class AndroidCrashTelemetryAdapterTest {
     }
 
     @Test
+    fun `recordNonFatal sets original-class key when sanitizer falls back`() {
+        val throwable = UnreconstructibleException(42)
+        adapter.recordNonFatal(throwable)
+
+        verify {
+            crashlytics.setCustomKey(
+                "sanitized_original_class",
+                UnreconstructibleException::class.java.name,
+            )
+        }
+        verify {
+            crashlytics.recordException(
+                match { exception ->
+                    exception is SanitizedTelemetryException &&
+                        exception.originalClassName == UnreconstructibleException::class.java.name &&
+                        exception.message?.contains(TelemetryPiiScrubber.REDACTED_EMAIL) == true &&
+                        exception.message?.contains("user@example.com") == false
+                },
+            )
+        }
+    }
+
+    @Test
+    fun `recordNonFatal clears original-class keys when exception type is preserved`() {
+        val throwable = RuntimeException("Failed processing user@example.com")
+        adapter.recordNonFatal(throwable)
+
+        verify { crashlytics.setCustomKey("sanitized_original_class", "") }
+        verify { crashlytics.setCustomKey("sanitized_original_class_2", "") }
+        verify { crashlytics.setCustomKey("sanitized_original_class_3", "") }
+        verify {
+            crashlytics.recordException(
+                match { exception ->
+                    exception.javaClass == RuntimeException::class.java
+                },
+            )
+        }
+    }
+
+    @Test
+    fun `recordNonFatal forwards only the first three original-class names`() {
+        val throwable = RuntimeException("wrapper user@example.com")
+        throwable.addSuppressed(UnreconstructibleA())
+        throwable.addSuppressed(UnreconstructibleB())
+        throwable.addSuppressed(UnreconstructibleC())
+        throwable.addSuppressed(UnreconstructibleD())
+        adapter.recordNonFatal(throwable)
+
+        verify { crashlytics.setCustomKey("sanitized_original_class", UnreconstructibleA::class.java.name) }
+        verify { crashlytics.setCustomKey("sanitized_original_class_2", UnreconstructibleB::class.java.name) }
+        verify { crashlytics.setCustomKey("sanitized_original_class_3", UnreconstructibleC::class.java.name) }
+        verify(exactly = 0) { crashlytics.setCustomKey("sanitized_original_class_4", any<String>()) }
+    }
+
+    @Test
     fun `handles Crashlytics failure gracefully`() {
         every { FirebaseCrashlytics.getInstance() } throws RuntimeException("Firebase not initialized")
 
@@ -138,4 +194,15 @@ class AndroidCrashTelemetryAdapterTest {
             Log.e("CrashTelemetry", any(), any<Throwable>())
         }
     }
+
+    private class UnreconstructibleException(val code: Int) :
+        RuntimeException("failed for user@example.com ($code)")
+
+    private class UnreconstructibleA : RuntimeException("failed for user@example.com (a)")
+
+    private class UnreconstructibleB : RuntimeException("failed for user@example.com (b)")
+
+    private class UnreconstructibleC : RuntimeException("failed for user@example.com (c)")
+
+    private class UnreconstructibleD : RuntimeException("failed for user@example.com (d)")
 }
