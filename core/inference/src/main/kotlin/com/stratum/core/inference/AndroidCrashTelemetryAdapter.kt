@@ -53,10 +53,29 @@ class AndroidCrashTelemetryAdapter @Inject constructor() : CrashTelemetryPort {
 
     override fun recordNonFatal(throwable: Throwable) {
         val targetThrowable = TelemetryThrowableSanitizer.sanitize(throwable)
+        setSanitizedOriginalClassKeys(targetThrowable)
         runCatching {
             FirebaseCrashlytics.getInstance().recordException(targetThrowable)
         }.onFailure { error ->
             Log.e(TAG, "Crashlytics recordNonFatal failed: ${targetThrowable.message}", error)
+        }
+    }
+
+    /**
+     * Preserves exception types lost to [TelemetryThrowableSanitizer] fallback copies as custom
+     * keys so the Crashlytics dashboard can display and filter by the original class name.
+     * Keys do not affect issue grouping (grouping uses the preserved stack trace). All slots are
+     * always written so a previous non-fatal's class never leaks onto an unrelated report.
+     */
+    private fun setSanitizedOriginalClassKeys(throwable: Throwable) {
+        val originalClasses = TelemetryThrowableSanitizer.sanitizedOriginalClassNames(throwable)
+        for (index in 0 until MAX_ORIGINAL_CLASS_KEYS) {
+            val key = if (index == 0) {
+                KEY_SANITIZED_ORIGINAL_CLASS
+            } else {
+                "${KEY_SANITIZED_ORIGINAL_CLASS}_${index + 1}"
+            }
+            setScrubbedKey(key, originalClasses.getOrElse(index) { "" }, "recordNonFatal")
         }
     }
 
@@ -75,5 +94,7 @@ class AndroidCrashTelemetryAdapter @Inject constructor() : CrashTelemetryPort {
         const val KEY_CURRENT_SCREEN = "current_screen"
         const val KEY_ACTIVE_WORKOUT_ID = "active_workout_id"
         const val KEY_SUBSCRIPTION_TIER = "subscription_tier"
+        const val KEY_SANITIZED_ORIGINAL_CLASS = "sanitized_original_class"
+        const val MAX_ORIGINAL_CLASS_KEYS = 3
     }
 }

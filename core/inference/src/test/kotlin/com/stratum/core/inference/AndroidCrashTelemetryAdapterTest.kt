@@ -4,6 +4,7 @@ package com.stratum.core.inference
 
 import android.util.Log
 import com.google.firebase.crashlytics.FirebaseCrashlytics
+import com.stratum.domain.telemetry.SanitizedTelemetryException
 import com.stratum.domain.telemetry.TelemetryPiiScrubber
 import io.mockk.every
 import io.mockk.mockk
@@ -126,6 +127,46 @@ class AndroidCrashTelemetryAdapterTest {
     }
 
     @Test
+    fun `recordNonFatal sets original-class key when sanitizer falls back`() {
+        val throwable = UnreconstructibleException(42)
+        adapter.recordNonFatal(throwable)
+
+        verify {
+            crashlytics.setCustomKey(
+                "sanitized_original_class",
+                UnreconstructibleException::class.java.name,
+            )
+        }
+        verify {
+            crashlytics.recordException(
+                match { exception ->
+                    exception is SanitizedTelemetryException &&
+                        exception.originalClassName == UnreconstructibleException::class.java.name &&
+                        exception.message?.contains(TelemetryPiiScrubber.REDACTED_EMAIL) == true &&
+                        exception.message?.contains("user@example.com") == false
+                },
+            )
+        }
+    }
+
+    @Test
+    fun `recordNonFatal clears original-class keys when exception type is preserved`() {
+        val throwable = RuntimeException("Failed processing user@example.com")
+        adapter.recordNonFatal(throwable)
+
+        verify { crashlytics.setCustomKey("sanitized_original_class", "") }
+        verify { crashlytics.setCustomKey("sanitized_original_class_2", "") }
+        verify { crashlytics.setCustomKey("sanitized_original_class_3", "") }
+        verify {
+            crashlytics.recordException(
+                match { exception ->
+                    exception.javaClass == RuntimeException::class.java
+                },
+            )
+        }
+    }
+
+    @Test
     fun `handles Crashlytics failure gracefully`() {
         every { FirebaseCrashlytics.getInstance() } throws RuntimeException("Firebase not initialized")
 
@@ -138,4 +179,7 @@ class AndroidCrashTelemetryAdapterTest {
             Log.e("CrashTelemetry", any(), any<Throwable>())
         }
     }
+
+    private class UnreconstructibleException(val code: Int) :
+        RuntimeException("failed for user@example.com ($code)")
 }
