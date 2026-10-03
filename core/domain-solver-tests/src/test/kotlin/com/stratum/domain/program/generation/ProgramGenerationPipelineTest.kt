@@ -198,7 +198,6 @@ class ProgramGenerationPipelineTest {
     val program = pipeline.generate(
       context = context,
       normalizationRequest = context.toProgramNormalizationRequest(),
-      options = PipelineOptions(skipLiftSwap = true),
     )
     val report = validateProgramMetrics(program.toDraft(), context)
     val budget = sessionDurationBudgetMinutes(30).toDouble()
@@ -226,7 +225,6 @@ class ProgramGenerationPipelineTest {
     val program = pipeline.generate(
       context = context,
       normalizationRequest = context.toProgramNormalizationRequest(),
-      options = PipelineOptions(skipLiftSwap = true),
     )
     return program to context
   }

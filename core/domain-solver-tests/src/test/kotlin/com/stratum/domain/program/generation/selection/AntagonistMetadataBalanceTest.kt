@@ -133,7 +133,6 @@ class AntagonistMetadataBalanceTest {
             pipeline.generate(
                 context = context,
                 normalizationRequest = context.toProgramNormalizationRequest(),
-                options = PipelineOptions(skipLiftSwap = true),
             )
         val draft = normalized.toDraft()
         val weekly = weeklyMetadataVolume(draft, context)
