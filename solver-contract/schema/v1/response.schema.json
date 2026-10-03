@@ -1,0 +1,339 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Stratum program-synthesis solver response (v1)",
+  "description": "Output of the program-synthesis solver: the solved program as session/slot plans with set counts, calendar assignment, objective breakdown, and per-session structure. Produced by the solver (ProgramSynthesisWire.encodeResult shape), consumed by the Kotlin client. See solver-contract/VERSIONING.md for modelVersion semantics.",
+  "type": "object",
+  "required": [
+    "modelVersion",
+    "sessions",
+    "plans",
+    "cycleSlotIndexByPosition",
+    "objective",
+    "activeSlotIdsBySession",
+    "regionFilterBySession"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "modelVersion": {
+      "description": "Contract major version. The solver MUST emit it. Clients MUST tolerate a missing value (pre-versioned Kotlin solver results during rollout).",
+      "type": "string",
+      "pattern": "^v1(\\.\\d+)?$"
+    },
+    "sessions": {
+      "description": "Resolved session plans, one per session position, in position order.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/resolvedSessionPlan" }
+    },
+    "plans": {
+      "description": "Session slot plans with solver-assigned set counts, one per session position, in position order. Parallel to sessions.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/sessionSlotPlan" }
+    },
+    "cycleSlotIndexByPosition": {
+      "description": "Assigned cycle slot per session position, in position order.",
+      "type": "array",
+      "items": { "type": "integer" }
+    },
+    "objective": { "$ref": "#/$defs/objectiveBreakdown" },
+    "activeSlotIdsBySession": {
+      "description": "Universe slot ids (e.g. \"h-press\") activated per session position, in position order. These are bare universe ids, NOT session-prefixed slot ids.",
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": { "type": "string", "minLength": 1 }
+      }
+    },
+    "regionFilterBySession": {
+      "description": "Solver-chosen SessionRegionFilter per session position, in position order. This is the source of truth for session region structure; sessionType on sessions/plans is a legacy display label. Producers MUST emit it; decoders infer it from sessionType labels when missing (pre-field solvers).",
+      "type": "array",
+      "items": { "$ref": "#/$defs/sessionRegionFilter" }
+    }
+  },
+  "$defs": {
+    "muscleGroup": {
+      "title": "MuscleGroup",
+      "type": "string",
+      "enum": [
+        "Chest",
+        "Back",
+        "Quad",
+        "Hamstring",
+        "Glute",
+        "PosteriorDeltoid",
+        "LateralDeltoid",
+        "AnteriorDeltoid",
+        "Tricep",
+        "Bicep",
+        "Trap",
+        "Calf",
+        "Forearm",
+        "Ab",
+        "LowerBack",
+        "Abductor",
+        "Adductor"
+      ]
+    },
+    "movementPattern": {
+      "title": "MovementPattern",
+      "type": "string",
+      "enum": [
+        "SquatPattern",
+        "HipHinge",
+        "KneeExtension",
+        "KneeFlexion",
+        "PlantarFlexion",
+        "HorizontalPress",
+        "VerticalPull",
+        "HorizontalPull",
+        "ShoulderAdduction",
+        "ElbowExtension",
+        "ElbowFlexion",
+        "ShoulderAbduction",
+        "ShoulderHorizontalAbduction",
+        "ShoulderFlexion",
+        "HipExtension",
+        "WristFlexionExtension",
+        "ScapularElevation",
+        "SpinalFlexion",
+        "InclinePress",
+        "VerticalPress",
+        "HipAbduction",
+        "HipAdduction"
+      ]
+    },
+    "fatigueProfile": {
+      "title": "FatigueProfile",
+      "type": "string",
+      "enum": ["High", "Medium", "Low"]
+    },
+    "slotRole": {
+      "title": "SlotRole",
+      "description": "Canonical v1 roles. Decoders ALSO accept the legacy wire alias \"Isolation\" (maps to Accessory); producers MUST emit canonical names only.",
+      "type": "string",
+      "enum": ["Anchor", "SecondaryCompound", "Accessory", "Optional"]
+    },
+    "repProfile": {
+      "title": "RpRepProfile",
+      "type": "string",
+      "enum": [
+        "LowerFreeWeightCompound",
+        "LowerMachineOrUpperPress",
+        "UpperMachineOrPull",
+        "Isolation"
+      ]
+    },
+    "lengthBiasPreference": {
+      "title": "MuscleLengthBiasPreference",
+      "type": "string",
+      "enum": ["Lengthened", "Shortened", "MidRange", "Any"]
+    },
+    "siblingVariant": {
+      "title": "SiblingVariant",
+      "type": "string",
+      "enum": ["A", "B", "Any"]
+    },
+    "sessionTypeId": {
+      "title": "SessionTypeId",
+      "description": "Legacy display label for the session. Structure truth is regionFilterBySession.",
+      "type": "string",
+      "enum": [
+        "Lower",
+        "Upper",
+        "UpperPush",
+        "UpperPull",
+        "FullBody",
+        "FullPush",
+        "FullPull",
+        "Chest",
+        "Back",
+        "Shoulders",
+        "Arms",
+        "QuadsCalves",
+        "GlutesHams",
+        "ChestTris",
+        "BackBis",
+        "CompoundPair",
+        "AuxPair",
+        "SingleAnchor"
+      ]
+    },
+    "sessionComposition": {
+      "title": "SessionComposition",
+      "type": "string",
+      "enum": [
+        "UpperBalanced",
+        "UpperSpecFocused",
+        "UpperVolumeFinisher",
+        "LowerPrimary",
+        "LowerWithUpperTouch"
+      ]
+    },
+    "sessionRegionFilter": {
+      "title": "SessionRegionFilter",
+      "type": "string",
+      "enum": ["UpperOnly", "LowerOnly", "Unrestricted"]
+    },
+    "sessionSlotId": {
+      "title": "SessionSlotId",
+      "description": "Session-prefixed slot id: s{sessionIndex}_{universeId}, e.g. \"s0_h-press\".",
+      "type": "string",
+      "pattern": "^s\\d+_.+$"
+    },
+    "workoutSlotTemplate": {
+      "title": "WorkoutSlotTemplate",
+      "type": "object",
+      "required": [
+        "slotId",
+        "role",
+        "pattern",
+        "primaryMuscle",
+        "repProfile",
+        "lengthBiasPreference",
+        "siblingVariant",
+        "isCrossDomainTouch",
+        "allowedFatigueProfiles"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "slotId": { "$ref": "#/$defs/sessionSlotId" },
+        "role": { "$ref": "#/$defs/slotRole" },
+        "pattern": { "$ref": "#/$defs/movementPattern" },
+        "primaryMuscle": { "$ref": "#/$defs/muscleGroup" },
+        "repProfile": { "$ref": "#/$defs/repProfile" },
+        "lengthBiasPreference": {
+          "type": ["string", "null"],
+          "enum": ["Lengthened", "Shortened", "MidRange", "Any", null]
+        },
+        "siblingVariant": {
+          "type": ["string", "null"],
+          "enum": ["A", "B", "Any", null]
+        },
+        "isCrossDomainTouch": { "type": "boolean" },
+        "allowedFatigueProfiles": {
+          "description": "Fatigue allow-list for pattern-OR matching, or null for pattern match only. Decoders drop unknown names and treat an empty array as null; producers MUST emit null or a non-empty canonical array.",
+          "type": ["array", "null"],
+          "items": { "$ref": "#/$defs/fatigueProfile" }
+        }
+      }
+    },
+    "filledSlot": {
+      "title": "FilledSlot",
+      "type": "object",
+      "required": [
+        "slotId",
+        "role",
+        "pattern",
+        "primaryMuscle",
+        "repProfile",
+        "lengthBiasPreference",
+        "siblingVariant",
+        "isCrossDomainTouch",
+        "allowedFatigueProfiles",
+        "setCount"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "slotId": { "$ref": "#/$defs/sessionSlotId" },
+        "role": { "$ref": "#/$defs/slotRole" },
+        "pattern": { "$ref": "#/$defs/movementPattern" },
+        "primaryMuscle": { "$ref": "#/$defs/muscleGroup" },
+        "repProfile": { "$ref": "#/$defs/repProfile" },
+        "lengthBiasPreference": {
+          "type": ["string", "null"],
+          "enum": ["Lengthened", "Shortened", "MidRange", "Any", null]
+        },
+        "siblingVariant": {
+          "type": ["string", "null"],
+          "enum": ["A", "B", "Any", null]
+        },
+        "isCrossDomainTouch": { "type": "boolean" },
+        "allowedFatigueProfiles": {
+          "description": "Fatigue allow-list for pattern-OR matching, or null for pattern match only. Decoders drop unknown names and treat an empty array as null; producers MUST emit null or a non-empty canonical array.",
+          "type": ["array", "null"],
+          "items": { "$ref": "#/$defs/fatigueProfile" }
+        },
+        "setCount": {
+          "description": "Solver-assigned working sets for this slot.",
+          "type": "integer"
+        }
+      }
+    },
+    "resolvedSessionPlan": {
+      "title": "ResolvedSessionPlan",
+      "type": "object",
+      "required": ["sessionType", "name", "slots", "siblingIndex", "position", "composition"],
+      "additionalProperties": false,
+      "properties": {
+        "sessionType": { "$ref": "#/$defs/sessionTypeId" },
+        "name": { "type": "string" },
+        "slots": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/workoutSlotTemplate" }
+        },
+        "siblingIndex": { "type": "integer" },
+        "position": { "type": "integer" },
+        "composition": {
+          "type": ["string", "null"],
+          "enum": [
+            "UpperBalanced",
+            "UpperSpecFocused",
+            "UpperVolumeFinisher",
+            "LowerPrimary",
+            "LowerWithUpperTouch",
+            null
+          ]
+        }
+      }
+    },
+    "sessionSlotPlan": {
+      "title": "SessionSlotPlan",
+      "type": "object",
+      "required": ["sessionType", "name", "slots", "siblingIndex", "position", "filledSlots"],
+      "additionalProperties": false,
+      "properties": {
+        "sessionType": { "$ref": "#/$defs/sessionTypeId" },
+        "name": { "type": "string" },
+        "slots": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/workoutSlotTemplate" }
+        },
+        "siblingIndex": { "type": "integer" },
+        "position": { "type": "integer" },
+        "filledSlots": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/filledSlot" }
+        }
+      }
+    },
+    "objectiveBreakdown": {
+      "title": "SynthesisObjectiveBreakdown",
+      "description": "Solver objective value plus per-term penalties. All values are int64 solver units (weighted, scaled credits) — opaque to the client except for diagnostics.",
+      "type": "object",
+      "required": [
+        "total",
+        "recoveryPenalty",
+        "specializedMevShortfall",
+        "coSpecializationImbalance",
+        "specializeAimDeviation",
+        "maintenanceAimDeviation",
+        "minimumVolumeAimDeviation",
+        "roleMinimumShortfall",
+        "pushPullImbalance",
+        "sessionFillShortfall"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "total": { "type": "integer" },
+        "recoveryPenalty": { "type": "integer" },
+        "specializedMevShortfall": { "type": "integer" },
+        "coSpecializationImbalance": { "type": "integer" },
+        "specializeAimDeviation": { "type": "integer" },
+        "maintenanceAimDeviation": { "type": "integer" },
+        "minimumVolumeAimDeviation": { "type": "integer" },
+        "roleMinimumShortfall": { "type": "integer" },
+        "pushPullImbalance": { "type": "integer" },
+        "sessionFillShortfall": { "type": "integer" }
+      }
+    }
+  }
+}

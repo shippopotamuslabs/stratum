@@ -1,0 +1,756 @@
+{
+  "modelVersion": "v1",
+  "weeklyTargets": {
+    "Chest": {
+      "min": 4.0,
+      "aim": 13.0,
+      "max": 16.5
+    },
+    "Back": {
+      "min": 4.0,
+      "aim": 13.0,
+      "max": 16.5
+    },
+    "Bicep": {
+      "min": 4.0,
+      "aim": 4.0,
+      "max": 16.5
+    },
+    "Tricep": {
+      "min": 4.0,
+      "aim": 12.0,
+      "max": 16.5
+    },
+    "LateralDeltoid": {
+      "min": 4.0,
+      "aim": 13.0,
+      "max": 16.5
+    },
+    "Quad": {
+      "min": 4.0,
+      "aim": 13.0,
+      "max": 16.5
+    },
+    "Hamstring": {
+      "min": 4.0,
+      "aim": 13.0,
+      "max": 16.5
+    }
+  },
+  "context": {
+    "trainingAge": "Advanced",
+    "lastTrained": null,
+    "sessionLengthMinutes": 60,
+    "trainingDaysPerWeek": 3,
+    "specialization": {},
+    "liftsById": {
+      "bench": {
+        "id": "bench",
+        "name": "Bench Press",
+        "movementPattern": "HorizontalPress",
+        "movementPatterns": [
+          "HorizontalPress"
+        ],
+        "primaryMuscles": [
+          "Chest"
+        ],
+        "secondaryMuscles": [
+          "Tricep",
+          "AnteriorDeltoid"
+        ],
+        "mainstream": null,
+        "progressTrend": null,
+        "proven": true,
+        "sessionCount": null,
+        "effectivenessRank": null,
+        "effectivenessEvidence": null,
+        "fatigueDecaySlope": null,
+        "fatigueDecayIntercept": null,
+        "muscleLengthBias": null,
+        "equipment": null,
+        "fatigueProfile": "Low",
+        "incrementTiers": [],
+        "estimatedOneRm": null
+      },
+      "db-press": {
+        "id": "db-press",
+        "name": "Dumbbell Press",
+        "movementPattern": "HorizontalPress",
+        "movementPatterns": [
+          "HorizontalPress"
+        ],
+        "primaryMuscles": [
+          "Chest"
+        ],
+        "secondaryMuscles": [
+          "Tricep"
+        ],
+        "mainstream": null,
+        "progressTrend": null,
+        "proven": true,
+        "sessionCount": null,
+        "effectivenessRank": null,
+        "effectivenessEvidence": null,
+        "fatigueDecaySlope": null,
+        "fatigueDecayIntercept": null,
+        "muscleLengthBias": null,
+        "equipment": null,
+        "fatigueProfile": "Low",
+        "incrementTiers": [],
+        "estimatedOneRm": null
+      },
+      "inc-press": {
+        "id": "inc-press",
+        "name": "Incline Press",
+        "movementPattern": "InclinePress",
+        "movementPatterns": [
+          "InclinePress"
+        ],
+        "primaryMuscles": [
+          "Chest"
+        ],
+        "secondaryMuscles": [
+          "AnteriorDeltoid"
+        ],
+        "mainstream": null,
+        "progressTrend": null,
+        "proven": true,
+        "sessionCount": null,
+        "effectivenessRank": null,
+        "effectivenessEvidence": null,
+        "fatigueDecaySlope": null,
+        "fatigueDecayIntercept": null,
+        "muscleLengthBias": null,
+        "equipment": null,
+        "fatigueProfile": "Low",
+        "incrementTiers": [],
+        "estimatedOneRm": null
+      },
+      "row": {
+        "id": "row",
+        "name": "Barbell Row",
+        "movementPattern": "HorizontalPull",
+        "movementPatterns": [
+          "HorizontalPull"
+        ],
+        "primaryMuscles": [
+          "Back"
+        ],
+        "secondaryMuscles": [
+          "Bicep",
+          "PosteriorDeltoid"
+        ],
+        "mainstream": null,
+        "progressTrend": null,
+        "proven": true,
+        "sessionCount": null,
+        "effectivenessRank": null,
+        "effectivenessEvidence": null,
+        "fatigueDecaySlope": null,
+        "fatigueDecayIntercept": null,
+        "muscleLengthBias": null,
+        "equipment": null,
+        "fatigueProfile": "Low",
+        "incrementTiers": [],
+        "estimatedOneRm": null
+      },
+      "seated-row": {
+        "id": "seated-row",
+        "name": "Seated Row",
+        "movementPattern": "HorizontalPull",
+        "movementPatterns": [
+          "HorizontalPull"
+        ],
+        "primaryMuscles": [
+          "Back"
+        ],
+        "secondaryMuscles": [
+          "Bicep"
+        ],
+        "mainstream": null,
+        "progressTrend": null,
+        "proven": true,
+        "sessionCount": null,
+        "effectivenessRank": null,
+        "effectivenessEvidence": null,
+        "fatigueDecaySlope": null,
+        "fatigueDecayIntercept": null,
+        "muscleLengthBias": null,
+        "equipment": null,
+        "fatigueProfile": "Low",
+        "incrementTiers": [],
+        "estimatedOneRm": null
+      },
+      "pullup": {
+        "id": "pullup",
+        "name": "Pullup",
+        "movementPattern": "VerticalPull",
+        "movementPatterns": [
+          "VerticalPull"
+        ],
+        "primaryMuscles": [
+          "Back"
+        ],
+        "secondaryMuscles": [
+          "Bicep"
+        ],
+        "mainstream": null,
+        "progressTrend": null,
+        "proven": true,
+        "sessionCount": null,
+        "effectivenessRank": null,
+        "effectivenessEvidence": null,
+        "fatigueDecaySlope": null,
+        "fatigueDecayIntercept": null,
+        "muscleLengthBias": null,
+        "equipment": null,
+        "fatigueProfile": "Low",
+        "incrementTiers": [],
+        "estimatedOneRm": null
+      },
+      "squat": {
+        "id": "squat",
+        "name": "Squat",
+        "movementPattern": "SquatPattern",
+        "movementPatterns": [
+          "SquatPattern"
+        ],
+        "primaryMuscles": [
+          "Quad"
+        ],
+        "secondaryMuscles": [
+          "Glute"
+        ],
+        "mainstream": null,
+        "progressTrend": null,
+        "proven": true,
+        "sessionCount": null,
+        "effectivenessRank": null,
+        "effectivenessEvidence": null,
+        "fatigueDecaySlope": null,
+        "fatigueDecayIntercept": null,
+        "muscleLengthBias": null,
+        "equipment": null,
+        "fatigueProfile": "Low",
+        "incrementTiers": [],
+        "estimatedOneRm": null
+      },
+      "front-squat": {
+        "id": "front-squat",
+        "name": "Front Squat",
+        "movementPattern": "SquatPattern",
+        "movementPatterns": [
+          "SquatPattern"
+        ],
+        "primaryMuscles": [
+          "Quad"
+        ],
+        "secondaryMuscles": [
+          "Glute"
+        ],
+        "mainstream": null,
+        "progressTrend": null,
+        "proven": true,
+        "sessionCount": null,
+        "effectivenessRank": null,
+        "effectivenessEvidence": null,
+        "fatigueDecaySlope": null,
+        "fatigueDecayIntercept": null,
+        "muscleLengthBias": null,
+        "equipment": null,
+        "fatigueProfile": "Low",
+        "incrementTiers": [],
+        "estimatedOneRm": null
+      },
+      "leg-ext": {
+        "id": "leg-ext",
+        "name": "Leg Extension",
+        "movementPattern": "KneeExtension",
+        "movementPatterns": [
+          "KneeExtension"
+        ],
+        "primaryMuscles": [
+          "Quad"
+        ],
+        "secondaryMuscles": [],
+        "mainstream": null,
+        "progressTrend": null,
+        "proven": true,
+        "sessionCount": null,
+        "effectivenessRank": null,
+        "effectivenessEvidence": null,
+        "fatigueDecaySlope": null,
+        "fatigueDecayIntercept": null,
+        "muscleLengthBias": null,
+        "equipment": null,
+        "fatigueProfile": "Low",
+        "incrementTiers": [],
+        "estimatedOneRm": null
+      },
+      "rdl": {
+        "id": "rdl",
+        "name": "RDL",
+        "movementPattern": "HipHinge",
+        "movementPatterns": [
+          "HipHinge"
+        ],
+        "primaryMuscles": [
+          "Hamstring"
+        ],
+        "secondaryMuscles": [
+          "Glute",
+          "LowerBack"
+        ],
+        "mainstream": null,
+        "progressTrend": null,
+        "proven": true,
+        "sessionCount": null,
+        "effectivenessRank": null,
+        "effectivenessEvidence": null,
+        "fatigueDecaySlope": null,
+        "fatigueDecayIntercept": null,
+        "muscleLengthBias": null,
+        "equipment": null,
+        "fatigueProfile": "Low",
+        "incrementTiers": [],
+        "estimatedOneRm": null
+      },
+      "gm": {
+        "id": "gm",
+        "name": "Good Morning",
+        "movementPattern": "HipHinge",
+        "movementPatterns": [
+          "HipHinge"
+        ],
+        "primaryMuscles": [
+          "Hamstring"
+        ],
+        "secondaryMuscles": [
+          "LowerBack"
+        ],
+        "mainstream": null,
+        "progressTrend": null,
+        "proven": true,
+        "sessionCount": null,
+        "effectivenessRank": null,
+        "effectivenessEvidence": null,
+        "fatigueDecaySlope": null,
+        "fatigueDecayIntercept": null,
+        "muscleLengthBias": null,
+        "equipment": null,
+        "fatigueProfile": "Low",
+        "incrementTiers": [],
+        "estimatedOneRm": null
+      },
+      "leg-curl": {
+        "id": "leg-curl",
+        "name": "Leg Curl",
+        "movementPattern": "KneeFlexion",
+        "movementPatterns": [
+          "KneeFlexion"
+        ],
+        "primaryMuscles": [
+          "Hamstring"
+        ],
+        "secondaryMuscles": [],
+        "mainstream": null,
+        "progressTrend": null,
+        "proven": true,
+        "sessionCount": null,
+        "effectivenessRank": null,
+        "effectivenessEvidence": null,
+        "fatigueDecaySlope": null,
+        "fatigueDecayIntercept": null,
+        "muscleLengthBias": null,
+        "equipment": null,
+        "fatigueProfile": "Low",
+        "incrementTiers": [],
+        "estimatedOneRm": null
+      },
+      "calf-raise": {
+        "id": "calf-raise",
+        "name": "Calf Raise",
+        "movementPattern": "PlantarFlexion",
+        "movementPatterns": [
+          "PlantarFlexion"
+        ],
+        "primaryMuscles": [
+          "Calf"
+        ],
+        "secondaryMuscles": [],
+        "mainstream": null,
+        "progressTrend": null,
+        "proven": true,
+        "sessionCount": null,
+        "effectivenessRank": null,
+        "effectivenessEvidence": null,
+        "fatigueDecaySlope": null,
+        "fatigueDecayIntercept": null,
+        "muscleLengthBias": null,
+        "equipment": null,
+        "fatigueProfile": "Low",
+        "incrementTiers": [],
+        "estimatedOneRm": null
+      },
+      "seated-calf": {
+        "id": "seated-calf",
+        "name": "Seated Calf Raise",
+        "movementPattern": "PlantarFlexion",
+        "movementPatterns": [
+          "PlantarFlexion"
+        ],
+        "primaryMuscles": [
+          "Calf"
+        ],
+        "secondaryMuscles": [],
+        "mainstream": null,
+        "progressTrend": null,
+        "proven": true,
+        "sessionCount": null,
+        "effectivenessRank": null,
+        "effectivenessEvidence": null,
+        "fatigueDecaySlope": null,
+        "fatigueDecayIntercept": null,
+        "muscleLengthBias": null,
+        "equipment": null,
+        "fatigueProfile": "Low",
+        "incrementTiers": [],
+        "estimatedOneRm": null
+      },
+      "lat-raise": {
+        "id": "lat-raise",
+        "name": "Lateral Raise",
+        "movementPattern": "ShoulderAbduction",
+        "movementPatterns": [
+          "ShoulderAbduction"
+        ],
+        "primaryMuscles": [
+          "LateralDeltoid"
+        ],
+        "secondaryMuscles": [],
+        "mainstream": null,
+        "progressTrend": null,
+        "proven": true,
+        "sessionCount": null,
+        "effectivenessRank": null,
+        "effectivenessEvidence": null,
+        "fatigueDecaySlope": null,
+        "fatigueDecayIntercept": null,
+        "muscleLengthBias": null,
+        "equipment": null,
+        "fatigueProfile": "Low",
+        "incrementTiers": [],
+        "estimatedOneRm": null
+      },
+      "rear-delt-fly": {
+        "id": "rear-delt-fly",
+        "name": "Rear Delt Fly",
+        "movementPattern": "ShoulderHorizontalAbduction",
+        "movementPatterns": [
+          "ShoulderHorizontalAbduction"
+        ],
+        "primaryMuscles": [
+          "PosteriorDeltoid"
+        ],
+        "secondaryMuscles": [],
+        "mainstream": null,
+        "progressTrend": null,
+        "proven": true,
+        "sessionCount": null,
+        "effectivenessRank": null,
+        "effectivenessEvidence": null,
+        "fatigueDecaySlope": null,
+        "fatigueDecayIntercept": null,
+        "muscleLengthBias": null,
+        "equipment": null,
+        "fatigueProfile": "Low",
+        "incrementTiers": [],
+        "estimatedOneRm": null
+      },
+      "ohp": {
+        "id": "ohp",
+        "name": "Overhead Press",
+        "movementPattern": "VerticalPress",
+        "movementPatterns": [
+          "VerticalPress"
+        ],
+        "primaryMuscles": [
+          "AnteriorDeltoid"
+        ],
+        "secondaryMuscles": [
+          "Tricep"
+        ],
+        "mainstream": null,
+        "progressTrend": null,
+        "proven": true,
+        "sessionCount": null,
+        "effectivenessRank": null,
+        "effectivenessEvidence": null,
+        "fatigueDecaySlope": null,
+        "fatigueDecayIntercept": null,
+        "muscleLengthBias": null,
+        "equipment": null,
+        "fatigueProfile": "Low",
+        "incrementTiers": [],
+        "estimatedOneRm": null
+      },
+      "curl": {
+        "id": "curl",
+        "name": "Curl",
+        "movementPattern": "ElbowFlexion",
+        "movementPatterns": [
+          "ElbowFlexion"
+        ],
+        "primaryMuscles": [
+          "Bicep"
+        ],
+        "secondaryMuscles": [],
+        "mainstream": null,
+        "progressTrend": null,
+        "proven": true,
+        "sessionCount": null,
+        "effectivenessRank": null,
+        "effectivenessEvidence": null,
+        "fatigueDecaySlope": null,
+        "fatigueDecayIntercept": null,
+        "muscleLengthBias": null,
+        "equipment": null,
+        "fatigueProfile": "Low",
+        "incrementTiers": [],
+        "estimatedOneRm": null
+      },
+      "tricep-ext": {
+        "id": "tricep-ext",
+        "name": "Tricep Extension",
+        "movementPattern": "ElbowExtension",
+        "movementPatterns": [
+          "ElbowExtension"
+        ],
+        "primaryMuscles": [
+          "Tricep"
+        ],
+        "secondaryMuscles": [],
+        "mainstream": null,
+        "progressTrend": null,
+        "proven": true,
+        "sessionCount": null,
+        "effectivenessRank": null,
+        "effectivenessEvidence": null,
+        "fatigueDecaySlope": null,
+        "fatigueDecayIntercept": null,
+        "muscleLengthBias": null,
+        "equipment": null,
+        "fatigueProfile": "Low",
+        "incrementTiers": [],
+        "estimatedOneRm": null
+      },
+      "hip-thrust": {
+        "id": "hip-thrust",
+        "name": "Hip Thrust",
+        "movementPattern": "HipExtension",
+        "movementPatterns": [
+          "HipExtension"
+        ],
+        "primaryMuscles": [
+          "Glute"
+        ],
+        "secondaryMuscles": [
+          "Hamstring"
+        ],
+        "mainstream": null,
+        "progressTrend": null,
+        "proven": true,
+        "sessionCount": null,
+        "effectivenessRank": null,
+        "effectivenessEvidence": null,
+        "fatigueDecaySlope": null,
+        "fatigueDecayIntercept": null,
+        "muscleLengthBias": null,
+        "equipment": null,
+        "fatigueProfile": "Low",
+        "incrementTiers": [],
+        "estimatedOneRm": null
+      }
+    },
+    "muscleVolumeSnapshotsByMuscle": {
+      "Chest": {
+        "muscle": "Chest",
+        "retentionFloorMv": 4.0,
+        "paretoVolumePv": 13.0,
+        "recoverabilityCeilingRc": 20.0,
+        "growthEntryFloor": 6.0,
+        "maintenanceCeiling": 16.5,
+        "posture": null,
+        "observedDoseMax": null,
+        "observedDoseMedian": null,
+        "source": "Literature"
+      },
+      "Back": {
+        "muscle": "Back",
+        "retentionFloorMv": 4.0,
+        "paretoVolumePv": 13.0,
+        "recoverabilityCeilingRc": 20.0,
+        "growthEntryFloor": 6.0,
+        "maintenanceCeiling": 16.5,
+        "posture": null,
+        "observedDoseMax": null,
+        "observedDoseMedian": null,
+        "source": "Literature"
+      },
+      "Quad": {
+        "muscle": "Quad",
+        "retentionFloorMv": 4.0,
+        "paretoVolumePv": 13.0,
+        "recoverabilityCeilingRc": 20.0,
+        "growthEntryFloor": 6.0,
+        "maintenanceCeiling": 16.5,
+        "posture": null,
+        "observedDoseMax": null,
+        "observedDoseMedian": null,
+        "source": "Literature"
+      },
+      "Hamstring": {
+        "muscle": "Hamstring",
+        "retentionFloorMv": 4.0,
+        "paretoVolumePv": 13.0,
+        "recoverabilityCeilingRc": 20.0,
+        "growthEntryFloor": 6.0,
+        "maintenanceCeiling": 16.5,
+        "posture": null,
+        "observedDoseMax": null,
+        "observedDoseMedian": null,
+        "source": "Literature"
+      },
+      "Glute": {
+        "muscle": "Glute",
+        "retentionFloorMv": 4.0,
+        "paretoVolumePv": 13.0,
+        "recoverabilityCeilingRc": 20.0,
+        "growthEntryFloor": 6.0,
+        "maintenanceCeiling": 16.5,
+        "posture": null,
+        "observedDoseMax": null,
+        "observedDoseMedian": null,
+        "source": "Literature"
+      },
+      "PosteriorDeltoid": {
+        "muscle": "PosteriorDeltoid",
+        "retentionFloorMv": 4.0,
+        "paretoVolumePv": 13.0,
+        "recoverabilityCeilingRc": 20.0,
+        "growthEntryFloor": 6.0,
+        "maintenanceCeiling": 16.5,
+        "posture": null,
+        "observedDoseMax": null,
+        "observedDoseMedian": null,
+        "source": "Literature"
+      },
+      "LateralDeltoid": {
+        "muscle": "LateralDeltoid",
+        "retentionFloorMv": 4.0,
+        "paretoVolumePv": 13.0,
+        "recoverabilityCeilingRc": 20.0,
+        "growthEntryFloor": 6.0,
+        "maintenanceCeiling": 16.5,
+        "posture": null,
+        "observedDoseMax": null,
+        "observedDoseMedian": null,
+        "source": "Literature"
+      },
+      "AnteriorDeltoid": {
+        "muscle": "AnteriorDeltoid",
+        "retentionFloorMv": 4.0,
+        "paretoVolumePv": 13.0,
+        "recoverabilityCeilingRc": 20.0,
+        "growthEntryFloor": 6.0,
+        "maintenanceCeiling": 16.5,
+        "posture": null,
+        "observedDoseMax": null,
+        "observedDoseMedian": null,
+        "source": "Literature"
+      },
+      "Tricep": {
+        "muscle": "Tricep",
+        "retentionFloorMv": 4.0,
+        "paretoVolumePv": 13.0,
+        "recoverabilityCeilingRc": 20.0,
+        "growthEntryFloor": 6.0,
+        "maintenanceCeiling": 16.5,
+        "posture": null,
+        "observedDoseMax": null,
+        "observedDoseMedian": null,
+        "source": "Literature"
+      },
+      "Bicep": {
+        "muscle": "Bicep",
+        "retentionFloorMv": 4.0,
+        "paretoVolumePv": 13.0,
+        "recoverabilityCeilingRc": 20.0,
+        "growthEntryFloor": 6.0,
+        "maintenanceCeiling": 16.5,
+        "posture": null,
+        "observedDoseMax": null,
+        "observedDoseMedian": null,
+        "source": "Literature"
+      },
+      "Calf": {
+        "muscle": "Calf",
+        "retentionFloorMv": 4.0,
+        "paretoVolumePv": 13.0,
+        "recoverabilityCeilingRc": 20.0,
+        "growthEntryFloor": 6.0,
+        "maintenanceCeiling": 16.5,
+        "posture": null,
+        "observedDoseMax": null,
+        "observedDoseMedian": null,
+        "source": "Literature"
+      }
+    },
+    "volumeCorrelationsByMuscle": {},
+    "enabledLiftIds": [
+      "bench",
+      "db-press",
+      "inc-press",
+      "row",
+      "seated-row",
+      "pullup",
+      "squat",
+      "front-squat",
+      "leg-ext",
+      "rdl",
+      "gm",
+      "leg-curl",
+      "calf-raise",
+      "seated-calf",
+      "lat-raise",
+      "rear-delt-fly",
+      "ohp",
+      "curl",
+      "tricep-ext",
+      "hip-thrust"
+    ],
+    "movementPatternByLiftId": {
+      "bench": "HorizontalPress",
+      "db-press": "HorizontalPress",
+      "inc-press": "InclinePress",
+      "row": "HorizontalPull",
+      "seated-row": "HorizontalPull",
+      "pullup": "VerticalPull",
+      "squat": "SquatPattern",
+      "front-squat": "SquatPattern",
+      "leg-ext": "KneeExtension",
+      "rdl": "HipHinge",
+      "gm": "HipHinge",
+      "leg-curl": "KneeFlexion",
+      "calf-raise": "PlantarFlexion",
+      "seated-calf": "PlantarFlexion",
+      "lat-raise": "ShoulderAbduction",
+      "rear-delt-fly": "ShoulderHorizontalAbduction",
+      "ohp": "VerticalPress",
+      "curl": "ElbowFlexion",
+      "tricep-ext": "ElbowExtension",
+      "hip-thrust": "HipExtension"
+    },
+    "liftEffectivenessByLiftId": {}
+  }
+}
