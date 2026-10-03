@@ -7,6 +7,7 @@ import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.WeightConversion
 import com.stratum.domain.program.SetType
 import com.stratum.domain.training.EstimatedOneRm
+import com.stratum.domain.workout.bodyweight.BodyweightRepProjection
 import com.stratum.domain.workout.fatigue.FatigueModel
 import javax.inject.Inject
 
@@ -430,6 +431,140 @@ class StraightSetRecommendationPolicy @Inject constructor(
      * [remainingCount] and [fatigueSetIndex] both use ordinals so open minis/drops
      * between activation and the last standard count the same way.
      */
+    /**
+     * Bodyweight straight-set rep projections (STR-29). Weight is always zero for
+     * bodyweight (suppressed) — only reps are projected, via the load-free
+     * [BodyweightRepProjection] anchored on performed reps+RIR.
+     *
+     * Rep geometry mirrors the weighted path: an exact-prescription log keeps stable
+     * block geometry (no rep jumping); anything else re-anchors on the just-performed
+     * set. There is no Hold/Reduce weight machinery — [RecommendationEngine] is
+     * bypassed entirely (it returns null for bodyweight by contract).
+     */
+    fun recommendBodyweight(
+        lastPerformedSet: RenderedSet,
+        lastPerformed: LoggedSetValue,
+        setsByPosition: List<RenderedSet>,
+        anchorOrdinal: Int,
+        straightUpcoming: List<RenderedSet>,
+        fatigue: FatigueDecay,
+        priorRecommendations: Map<SetSlotId, LiveSetRecommendation>,
+    ): Map<SetSlotId, LiveSetRecommendation> {
+        val block =
+            resolveStraightBlock(
+                setsByPosition = setsByPosition,
+                lastPerformedSet = lastPerformedSet,
+                lastPerformed = lastPerformed,
+                anchorOrdinal = anchorOrdinal,
+                straightUpcoming = straightUpcoming,
+            ) ?: return emptyMap()
+        val geometry =
+            if (isExactBodyweightPrescription(lastPerformedSet, lastPerformed, priorRecommendations)) {
+                stableBlockGeometry(setsByPosition)
+                    ?: FatigueGeometry(block.performanceLogged, block.performanceOrdinal)
+            } else {
+                FatigueGeometry(block.performanceLogged, block.performanceOrdinal)
+            }
+        return projectStraightUpcomingBodyweight(
+            straightUpcoming = straightUpcoming,
+            setsByPosition = setsByPosition,
+            zeroWeight = Weight(0.0, lastPerformed.weight.unit),
+            geometry = geometry,
+            fatigue = fatigue,
+        )
+    }
+
+    /**
+     * Cold-open bodyweight rep projections (STR-29): straight sets after the first get
+     * fatigue rep projections from the first set's snapshot prescription (weight stays
+     * zero). Mirrors [coldOpenReps] without the load anchor.
+     */
+    fun coldOpenBodyweightReps(
+        setsByPosition: List<RenderedSet>,
+        fatigue: FatigueDecay,
+    ): Map<SetSlotId, LiveSetRecommendation> {
+        val straights = setsByPosition.filter { isStraightWorking(it) && it.loggedValue == null }
+        if (straights.size <= 1) return emptyMap()
+        val first = straights.first()
+        val anchorReps = first.recommendedReps.takeIf { it > 0 } ?: return emptyMap()
+        val firstOrdinal = setsByPosition.indexOfFirst { it.slotId == first.slotId }
+        val zeroWeight = Weight(0.0, first.recommendedWeight.unit)
+        return straights.drop(1).associate { set ->
+            val targetOrdinal = setsByPosition.indexOfFirst { it.slotId == set.slotId }
+            val projected =
+                BodyweightRepProjection.expectedReps(
+                    performedReps = anchorReps,
+                    performedRir = first.rirGoal.coerceAtLeast(0),
+                    setIndex =
+                        fatigueSetIndex(
+                            performanceOrdinal = firstOrdinal,
+                            targetOrdinal = targetOrdinal,
+                        ),
+                    perLiftSlope = fatigue.slope,
+                    perLiftIntercept = fatigue.intercept,
+                    rirGoal = set.rirGoal,
+                )
+            val capped =
+                if (set.repMax > 0) projected.coerceAtMost(set.repMax.coerceAtLeast(1)) else projected
+            set.slotId to LiveSetRecommendation(weight = zeroWeight, reps = capped)
+        }
+    }
+
+    /** Exact-prescription check for bodyweight: reps + RIR, no weight machinery. */
+    private fun isExactBodyweightPrescription(
+        lastPerformedSet: RenderedSet,
+        lastPerformed: LoggedSetValue,
+        priorRecommendations: Map<SetSlotId, LiveSetRecommendation>,
+    ): Boolean {
+        val priorForLogged = priorRecommendations[lastPerformedSet.slotId]
+        // Primary: logged exactly what the live overlay showed (reps + RIR).
+        if (priorForLogged != null && priorForLogged.reps > 0 &&
+            lastPerformed.reps == priorForLogged.reps &&
+            lastPerformed.rir != null &&
+            lastPerformed.rir == lastPerformedSet.rirGoal
+        ) {
+            return true
+        }
+        // Fallback: no prior live row (e.g. first set) — match the shown prescription.
+        if (priorForLogged == null) {
+            return matchesShownPrescription(
+                set = lastPerformedSet,
+                logged = lastPerformed,
+                priorRecommendations = priorRecommendations,
+            )
+        }
+        return false
+    }
+
+    private fun projectStraightUpcomingBodyweight(
+        straightUpcoming: List<RenderedSet>,
+        setsByPosition: List<RenderedSet>,
+        zeroWeight: Weight,
+        geometry: FatigueGeometry,
+        fatigue: FatigueDecay,
+    ): Map<SetSlotId, LiveSetRecommendation> =
+        straightUpcoming.associate { set ->
+            val targetOrdinal = setsByPosition.indexOfFirst { it.slotId == set.slotId }
+            val projected =
+                BodyweightRepProjection.expectedReps(
+                    performedReps = geometry.capacityLogged.reps,
+                    performedRir = geometry.capacityLogged.rir,
+                    setIndex =
+                        fatigueSetIndex(
+                            performanceOrdinal = geometry.indexOriginOrdinal,
+                            targetOrdinal = targetOrdinal,
+                        ),
+                    perLiftSlope = fatigue.slope,
+                    perLiftIntercept = fatigue.intercept,
+                    rirGoal = set.rirGoal,
+                )
+            // Bodyweight has no load to reduce, so the floor is honest capacity
+            // (MIN_REPS from the projector) rather than BACKOFF_REP_FLOOR.
+            val capped =
+                if (set.repMax > 0) projected.coerceAtMost(set.repMax.coerceAtLeast(1)) else projected
+            set.slotId to LiveSetRecommendation(weight = zeroWeight, reps = capped)
+        }
+
     private data class StraightBlock(
         val performanceAnchor: RenderedSet,
         val performanceLogged: LoggedSetValue,
