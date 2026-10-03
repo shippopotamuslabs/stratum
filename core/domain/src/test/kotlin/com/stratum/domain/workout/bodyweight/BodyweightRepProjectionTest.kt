@@ -47,13 +47,11 @@ class BodyweightRepProjectionTest {
     }
 
     @Test
-    @DisplayName("Flat per-lift slope falls back to the population slope (design call default)")
-    fun `flat per-lift slope falls back to population slope`() {
-        // A ~0 measured slope would project identical reps for every set; the
-        // USE_POPULATION_SLOPE_WHEN_PER_LIFT_SLOPE_FLAT default (true) recovers the
-        // population decay instead.
-        assertEquals(11, BodyweightRepProjection.expectedRepsAtRir0(12, 1, 2, -0.2, 0.0))
-        assertEquals(9, BodyweightRepProjection.expectedRepsAtRir0(12, 1, 3, -0.2, 0.0))
+    @DisplayName("Small per-lift slopes are honored as given (upstream nulls noise)")
+    fun `small per-lift slope is honored as given`() {
+        // The insights pipeline nulls |slope| < 0.5 upstream, so a small slope here
+        // is a genuine measurement and is applied directly: 13 - 0.2 -> 13.
+        assertEquals(13, BodyweightRepProjection.expectedRepsAtRir0(12, 1, 2, -0.2, 0.0))
     }
 
     @Test

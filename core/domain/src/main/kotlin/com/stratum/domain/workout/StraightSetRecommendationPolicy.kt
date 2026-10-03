@@ -465,12 +465,14 @@ class StraightSetRecommendationPolicy @Inject constructor(
             } else {
                 FatigueGeometry(block.performanceLogged, block.performanceOrdinal)
             }
-        return projectStraightUpcomingBodyweight(
-            straightUpcoming = straightUpcoming,
+        return projectBodyweightSets(
+            targets = straightUpcoming,
             setsByPosition = setsByPosition,
-            zeroWeight = Weight(0.0, lastPerformed.weight.unit),
-            geometry = geometry,
+            baselineReps = geometry.capacityLogged.reps,
+            baselineRir = geometry.capacityLogged.rir,
+            originOrdinal = geometry.indexOriginOrdinal,
             fatigue = fatigue,
+            zeroWeight = Weight(0.0, lastPerformed.weight.unit),
         )
     }
 
@@ -488,26 +490,15 @@ class StraightSetRecommendationPolicy @Inject constructor(
         val first = straights.first()
         val anchorReps = first.recommendedReps.takeIf { it > 0 } ?: return emptyMap()
         val firstOrdinal = setsByPosition.indexOfFirst { it.slotId == first.slotId }
-        val zeroWeight = Weight(0.0, first.recommendedWeight.unit)
-        return straights.drop(1).associate { set ->
-            val targetOrdinal = setsByPosition.indexOfFirst { it.slotId == set.slotId }
-            val projected =
-                BodyweightRepProjection.expectedReps(
-                    performedReps = anchorReps,
-                    performedRir = first.rirGoal.coerceAtLeast(0),
-                    setIndex =
-                        fatigueSetIndex(
-                            performanceOrdinal = firstOrdinal,
-                            targetOrdinal = targetOrdinal,
-                        ),
-                    perLiftSlope = fatigue.slope,
-                    perLiftIntercept = fatigue.intercept,
-                    rirGoal = set.rirGoal,
-                )
-            val capped =
-                if (set.repMax > 0) projected.coerceAtMost(set.repMax.coerceAtLeast(1)) else projected
-            set.slotId to LiveSetRecommendation(weight = zeroWeight, reps = capped)
-        }
+        return projectBodyweightSets(
+            targets = straights.drop(1),
+            setsByPosition = setsByPosition,
+            baselineReps = anchorReps,
+            baselineRir = first.rirGoal.coerceAtLeast(0),
+            originOrdinal = firstOrdinal,
+            fatigue = fatigue,
+            zeroWeight = Weight(0.0, first.recommendedWeight.unit),
+        )
     }
 
     /** Exact-prescription check for bodyweight: reps + RIR, no weight machinery. */
@@ -540,22 +531,30 @@ class StraightSetRecommendationPolicy @Inject constructor(
         return rir == lastPerformedSet.rirGoal
     }
 
-    private fun projectStraightUpcomingBodyweight(
-        straightUpcoming: List<RenderedSet>,
+    /**
+     * Shared bodyweight projection loop: for each target set, projects reps from the
+     * failure-rep baseline via [BodyweightRepProjection], applies the repMax cap, and
+     * wraps in a zero-weight [LiveSetRecommendation]. Callers differ only in where the
+     * baseline comes from (snapshot prescription vs. performed set).
+     */
+    private fun projectBodyweightSets(
+        targets: List<RenderedSet>,
         setsByPosition: List<RenderedSet>,
-        zeroWeight: Weight,
-        geometry: FatigueGeometry,
+        baselineReps: Int,
+        baselineRir: Int?,
+        originOrdinal: Int,
         fatigue: FatigueDecay,
+        zeroWeight: Weight,
     ): Map<SetSlotId, LiveSetRecommendation> =
-        straightUpcoming.associate { set ->
+        targets.associate { set ->
             val targetOrdinal = setsByPosition.indexOfFirst { it.slotId == set.slotId }
             val projected =
                 BodyweightRepProjection.expectedReps(
-                    performedReps = geometry.capacityLogged.reps,
-                    performedRir = geometry.capacityLogged.rir,
+                    performedReps = baselineReps,
+                    performedRir = baselineRir,
                     setIndex =
                         fatigueSetIndex(
-                            performanceOrdinal = geometry.indexOriginOrdinal,
+                            performanceOrdinal = originOrdinal,
                             targetOrdinal = targetOrdinal,
                         ),
                     perLiftSlope = fatigue.slope,
