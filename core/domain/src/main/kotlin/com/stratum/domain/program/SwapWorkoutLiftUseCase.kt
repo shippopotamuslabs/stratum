@@ -2,6 +2,7 @@ package com.stratum.domain.program
 
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.logging.LoggingPort
+import com.stratum.domain.logging.expectedFailure
 import com.stratum.domain.logging.runCatchingLogged
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.training.ProgramChangeEvent
@@ -35,9 +36,13 @@ class SwapWorkoutLiftUseCase @Inject constructor(
             }
 
         if (program == null) {
-            val error = IllegalStateException("No active program found to swap lift")
-            loggingPort.error(TAG, "Failed to swap workout lift: ${error.message}", error)
-            return Result.failure(error)
+            // Expected domain state (no active program), not an operational fault: breadcrumb
+            // only, so this never becomes a Crashlytics non-fatal.
+            return loggingPort.expectedFailure(
+                TAG,
+                IllegalStateException("No active program found to swap lift"),
+                "Failed to swap workout lift: no active program",
+            )
         }
 
         var found = false
@@ -56,9 +61,12 @@ class SwapWorkoutLiftUseCase @Inject constructor(
         }
 
         if (!found) {
-            val error = IllegalArgumentException("Workout lift with ID $workoutLiftId not found in the program")
-            loggingPort.error(TAG, "Failed to swap workout lift: ${error.message}", error)
-            return Result.failure(error)
+            // Expected stale-id outcome, not an operational fault: breadcrumb only.
+            return loggingPort.expectedFailure(
+                TAG,
+                IllegalArgumentException("Workout lift with ID $workoutLiftId not found in the program"),
+                "Failed to swap workout lift: workout lift $workoutLiftId not found",
+            )
         }
 
         val updatedProgram = program.copy(workouts = updatedWorkouts)

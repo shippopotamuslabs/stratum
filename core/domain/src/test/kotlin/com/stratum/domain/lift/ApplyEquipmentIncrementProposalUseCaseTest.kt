@@ -29,6 +29,7 @@ class ApplyEquipmentIncrementProposalUseCaseTest {
 
     private lateinit var liftRepo: FakeLiftRepository
     private lateinit var equipmentRepo: FakeEquipmentRepository
+    private lateinit var logging: FakeLoggingPort
     private lateinit var subject: ApplyEquipmentIncrementProposalUseCase
 
     @BeforeEach
@@ -59,12 +60,13 @@ class ApplyEquipmentIncrementProposalUseCaseTest {
                 sampleLift(rowId, "Cable row", cableId),
             ),
         )
+        logging = FakeLoggingPort()
         subject =
             ApplyEquipmentIncrementProposalUseCase(
                 equipmentRepository = equipmentRepo,
                 liftRepository = liftRepo,
                 validate = ValidateIncrementTiersUseCase(),
-                loggingPort = FakeLoggingPort(),
+                loggingPort = logging,
             )
     }
 
@@ -129,6 +131,8 @@ class ApplyEquipmentIncrementProposalUseCaseTest {
             assertTrue(
                 error?.message?.contains("Equipment not found", ignoreCase = true) == true,
             )
+            assertEquals(0, logging.errors.size)
+            assertEquals(1, logging.warnings.size)
         }
     }
 
@@ -159,7 +163,7 @@ class ApplyEquipmentIncrementProposalUseCaseTest {
         }
 
         @Test
-        @DisplayName("Given blank fork name when applied then failure")
+        @DisplayName("Given blank fork name when applied then failure without non-fatal")
         fun blankNameFails() = runTest {
             val result =
                 subject(
@@ -170,6 +174,9 @@ class ApplyEquipmentIncrementProposalUseCaseTest {
                     ),
                 )
             assertTrue(result.isFailure)
+            assertTrue(result.exceptionOrNull() is IllegalArgumentException)
+            assertEquals(0, logging.errors.size)
+            assertEquals(1, logging.warnings.size)
         }
     }
 

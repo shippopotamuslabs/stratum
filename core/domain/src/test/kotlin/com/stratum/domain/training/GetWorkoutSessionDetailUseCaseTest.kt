@@ -108,8 +108,10 @@ class GetWorkoutSessionDetailUseCaseTest {
     fun missingSessionFails() = runTest {
         val programRepo = FakeProgramRepository(WorkoutLoggingFixtures.twoWorkoutProgram())
         val logRepo = FakeTrainingLogRepository(programRepository = programRepo)
-        val useCase = detailUseCase(logRepo, programRepo)
+        val logging = FakeLoggingPort()
+        val useCase = detailUseCase(logRepo, programRepo, logging)
         assertTrue(useCase(TrainingSessionId("missing")).isFailure)
+        assertExpectedFailureLogged(logging)
     }
 
     @Test
@@ -122,8 +124,10 @@ class GetWorkoutSessionDetailUseCaseTest {
                 initialSessions = listOf(session),
                 programRepository = programRepo,
             )
-        val useCase = detailUseCase(logRepo, programRepo)
+        val logging = FakeLoggingPort()
+        val useCase = detailUseCase(logRepo, programRepo, logging)
         assertTrue(useCase(TrainingSessionId("ts-skip")).isFailure)
+        assertExpectedFailureLogged(logging)
     }
 
     @Test
@@ -151,17 +155,26 @@ class GetWorkoutSessionDetailUseCaseTest {
                     ),
                 programRepository = programRepo,
             )
-        val useCase = detailUseCase(logRepo, programRepo)
+        val logging = FakeLoggingPort()
+        val useCase = detailUseCase(logRepo, programRepo, logging)
         assertTrue(useCase(TrainingSessionId("ts-ip")).isFailure)
+        assertExpectedFailureLogged(logging)
     }
 
     private fun detailUseCase(
         logRepo: FakeTrainingLogRepository,
         programRepo: FakeProgramRepository,
+        logging: FakeLoggingPort = FakeLoggingPort(),
     ) = GetWorkoutSessionDetailUseCase(
         trainingLogRepository = logRepo,
         programRepository = programRepo,
         computeLoggedSessionMuscleVolume = ComputeLoggedSessionMuscleVolumeUseCase(),
-        loggingPort = FakeLoggingPort(),
+        loggingPort = logging,
     )
+
+    private fun assertExpectedFailureLogged(logging: FakeLoggingPort) {
+        // Expected business outcomes must leave a breadcrumb only — never a Crashlytics non-fatal.
+        assertEquals(0, logging.errors.size)
+        assertEquals(1, logging.warnings.size)
+    }
 }
