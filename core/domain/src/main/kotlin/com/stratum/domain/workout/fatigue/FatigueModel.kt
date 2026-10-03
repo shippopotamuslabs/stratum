@@ -36,12 +36,34 @@ fun projectReps(
     perLiftIntercept: Double?,
 ): Int {
     if (baselineOneRm <= 0.0 || targetWeight.amount <= 0.0) return 1
+    val baselineReps = EstimatedOneRm.repsForWeight(baselineOneRm, targetWeight.amount).toDouble()
+    return applyFatigueDecay(
+        baselineReps = baselineReps,
+        setIndex = nextSetIndex,
+        perLiftSlope = perLiftSlope,
+        perLiftIntercept = perLiftIntercept,
+    )
+}
+
+/**
+ * Shared linear-decay core for rep projections: resolves slope/intercept (per-lift
+ * values override the population defaults when present), applies
+ * `slope * (setIndex - 1) + intercept` to [baselineReps], floors at [minReps], and
+ * rounds to whole reps. Slope and intercept are clamped non-positive so decay never
+ * increases reps above the baseline.
+ */
+internal fun applyFatigueDecay(
+    baselineReps: Double,
+    setIndex: Int,
+    perLiftSlope: Double?,
+    perLiftIntercept: Double?,
+    minReps: Double = 1.0,
+): Int {
     val slope = (perLiftSlope ?: POPULATION_FATIGUE_DECAY_SLOPE).coerceAtMost(0.0)
     val intercept = (perLiftIntercept ?: POPULATION_FATIGUE_DECAY_INTERCEPT).coerceAtMost(0.0)
-    val baselineReps = EstimatedOneRm.repsForWeight(baselineOneRm, targetWeight.amount)
-    val decay = slope * (nextSetIndex - 1) + intercept
+    val decay = slope * (setIndex - 1) + intercept
     val projected = baselineReps + decay.coerceAtMost(0.0)
-    return projected.coerceAtLeast(1.0).roundToInt()
+    return projected.coerceAtLeast(minReps).roundToInt()
 }
 
 /** Default population-gradient implementation (Q2). */
