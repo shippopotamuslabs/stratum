@@ -3,6 +3,7 @@ package com.stratum.domain.workout
 import com.stratum.core.testing.workout.FakeFatigueModel
 import com.stratum.domain.importing.FatigueDecay
 import com.stratum.domain.lift.Lift
+import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
