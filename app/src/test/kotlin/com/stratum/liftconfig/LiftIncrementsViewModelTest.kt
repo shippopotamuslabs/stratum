@@ -102,6 +102,7 @@ class LiftIncrementsViewModelTest {
                             FakeIncrementScanPort(),
                             ValidateIncrementTiersUseCase(),
                             ValidateMicroIncrementsUseCase(),
+                            FakeLoggingPort(),
                         ),
                         ObserveIncrementsAiScanUseCase(FakeFeatureFlagRepository()),
                     ),
