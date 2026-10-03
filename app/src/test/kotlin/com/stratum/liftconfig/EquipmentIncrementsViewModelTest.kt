@@ -125,6 +125,7 @@ class EquipmentIncrementsViewModelTest {
                             FakeIncrementScanPort(),
                             ValidateIncrementTiersUseCase(),
                             ValidateMicroIncrementsUseCase(),
+                            FakeLoggingPort(),
                         ),
                         ObserveIncrementsAiScanUseCase(fakeFeatureFlags),
                     ),
