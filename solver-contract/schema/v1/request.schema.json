@@ -1,9 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Stratum program-synthesis solver request (v1)",
-  "description": "Input to the program-synthesis solver: weekly volume targets plus the lifter/program-generation context. Produced by the Kotlin request producer (ProgramSynthesisWire.encodeRequest), consumed by the Python solver. See solver-contract/VERSIONING.md for modelVersion semantics.",
+  "description": "Input to the program-synthesis solver: weekly volume targets plus the lifter/program-generation context. Produced by the Kotlin request producer (ProgramSynthesisWire.encodeRequest), consumed by the Python solver. See solver-contract/VERSIONING.md for modelVersion semantics. This schema is the producer contract: CI validates producer output against it strictly. Decoders implement the separate lenient mode in VERSIONING.md §2 and MUST NOT validate inbound payloads against this raw schema.",
   "type": "object",
-  "required": ["weeklyTargets", "context"],
+  "required": ["modelVersion", "weeklyTargets", "context"],
   "additionalProperties": false,
   "properties": {
     "modelVersion": {
@@ -76,6 +76,14 @@
         "HipAdduction"
       ]
     },
+    "nullableMovementPattern": {
+      "title": "NullableMovementPattern",
+      "description": "Movement pattern that may be null when unclassified or without override.",
+      "anyOf": [
+        { "$ref": "#/$defs/movementPattern" },
+        { "type": "null" }
+      ]
+    },
     "fatigueProfile": {
       "title": "FatigueProfile",
       "description": "Loading/recovery cost band. High = spine-loaded free-weight compounds, Medium = other multi-joint compounds, Low = lighter accessories.",
@@ -96,6 +104,14 @@
         "amount": { "type": "number" },
         "unit": { "$ref": "#/$defs/weightUnit" }
       }
+    },
+    "nullableWeight": {
+      "title": "NullableWeight",
+      "description": "Weight that may be null (open-ended tier bound, unknown 1RM).",
+      "anyOf": [
+        { "$ref": "#/$defs/weight" },
+        { "type": "null" }
+      ]
     },
     "weeklyVolumeTarget": {
       "title": "WeeklyVolumeTarget",
@@ -181,34 +197,7 @@
         "movementPatternByLiftId": {
           "description": "Resolved movement pattern per lift id; null when the lift has no pattern override.",
           "type": "object",
-          "additionalProperties": {
-            "type": ["string", "null"],
-            "enum": [
-              "SquatPattern",
-              "HipHinge",
-              "KneeExtension",
-              "KneeFlexion",
-              "PlantarFlexion",
-              "HorizontalPress",
-              "VerticalPull",
-              "HorizontalPull",
-              "ShoulderAdduction",
-              "ElbowExtension",
-              "ElbowFlexion",
-              "ShoulderAbduction",
-              "ShoulderHorizontalAbduction",
-              "ShoulderFlexion",
-              "HipExtension",
-              "WristFlexionExtension",
-              "ScapularElevation",
-              "SpinalFlexion",
-              "InclinePress",
-              "VerticalPress",
-              "HipAbduction",
-              "HipAdduction",
-              null
-            ]
-          }
+          "additionalProperties": { "$ref": "#/$defs/nullableMovementPattern" }
         },
         "liftEffectivenessByLiftId": {
           "description": "Per-lift effectiveness rank/evidence keyed by lift id.",
@@ -257,32 +246,7 @@
         "name": { "type": "string" },
         "movementPattern": {
           "description": "Primary movement pattern, or null when unclassified.",
-          "type": ["string", "null"],
-          "enum": [
-            "SquatPattern",
-            "HipHinge",
-            "KneeExtension",
-            "KneeFlexion",
-            "PlantarFlexion",
-            "HorizontalPress",
-            "VerticalPull",
-            "HorizontalPull",
-            "ShoulderAdduction",
-            "ElbowExtension",
-            "ElbowFlexion",
-            "ShoulderAbduction",
-            "ShoulderHorizontalAbduction",
-            "ShoulderFlexion",
-            "HipExtension",
-            "WristFlexionExtension",
-            "ScapularElevation",
-            "SpinalFlexion",
-            "InclinePress",
-            "VerticalPress",
-            "HipAbduction",
-            "HipAdduction",
-            null
-          ]
+          "$ref": "#/$defs/nullableMovementPattern"
         },
         "movementPatterns": {
           "type": "array",
@@ -349,12 +313,7 @@
         },
         "estimatedOneRm": {
           "description": "Estimated one-rep max from training insights, or null when no proven history exists.",
-          "type": ["object", "null"],
-          "required": ["amount", "unit"],
-          "properties": {
-            "amount": { "type": "number" },
-            "unit": { "$ref": "#/$defs/weightUnit" }
-          }
+          "$ref": "#/$defs/nullableWeight"
         }
       }
     },
@@ -367,12 +326,7 @@
         "lowerBound": { "$ref": "#/$defs/weight" },
         "upperBound": {
           "description": "Upper bound of the tier, or null for the open-ended top tier.",
-          "type": ["object", "null"],
-          "required": ["amount", "unit"],
-          "properties": {
-            "amount": { "type": "number" },
-            "unit": { "$ref": "#/$defs/weightUnit" }
-          }
+          "$ref": "#/$defs/nullableWeight"
         },
         "increment": { "$ref": "#/$defs/weight" }
       }

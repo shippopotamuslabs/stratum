@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Stratum program-synthesis solver response (v1)",
-  "description": "Output of the program-synthesis solver: the solved program as session/slot plans with set counts, calendar assignment, objective breakdown, and per-session structure. Produced by the solver (ProgramSynthesisWire.encodeResult shape), consumed by the Kotlin client. See solver-contract/VERSIONING.md for modelVersion semantics.",
+  "description": "Output of the program-synthesis solver: the solved program as session/slot plans with set counts, calendar assignment, objective breakdown, and per-session structure. Produced by the solver (ProgramSynthesisWire.encodeResult shape), consumed by the Kotlin client. See solver-contract/VERSIONING.md for modelVersion semantics. This schema is the producer contract: CI validates solver output against it strictly. Decoders implement the separate lenient mode in VERSIONING.md §2 and MUST NOT validate inbound payloads against this raw schema.",
   "type": "object",
   "required": [
     "modelVersion",
@@ -168,6 +168,14 @@
         "LowerWithUpperTouch"
       ]
     },
+    "nullableSessionComposition": {
+      "title": "NullableSessionComposition",
+      "description": "Session composition that may be null when unclassified.",
+      "anyOf": [
+        { "$ref": "#/$defs/sessionComposition" },
+        { "type": "null" }
+      ]
+    },
     "sessionRegionFilter": {
       "title": "SessionRegionFilter",
       "type": "string",
@@ -179,8 +187,9 @@
       "type": "string",
       "pattern": "^s\\d+_.+$"
     },
-    "workoutSlotTemplate": {
-      "title": "WorkoutSlotTemplate",
+    "slotTemplateBase": {
+      "title": "SlotTemplateBase",
+      "description": "Internal base: the 9 slot properties shared by workoutSlotTemplate and filledSlot. Intentionally open (no unevaluatedProperties) — always reference via the strict workoutSlotTemplate / filledSlot wrappers.",
       "type": "object",
       "required": [
         "slotId",
@@ -193,7 +202,6 @@
         "isCrossDomainTouch",
         "allowedFatigueProfiles"
       ],
-      "additionalProperties": false,
       "properties": {
         "slotId": { "$ref": "#/$defs/sessionSlotId" },
         "role": { "$ref": "#/$defs/slotRole" },
@@ -216,94 +224,76 @@
         }
       }
     },
+    "workoutSlotTemplate": {
+      "title": "WorkoutSlotTemplate",
+      "description": "Strict slot template: slotTemplateBase closed to additional properties.",
+      "allOf": [{ "$ref": "#/$defs/slotTemplateBase" }],
+      "unevaluatedProperties": false
+    },
     "filledSlot": {
       "title": "FilledSlot",
-      "type": "object",
-      "required": [
-        "slotId",
-        "role",
-        "pattern",
-        "primaryMuscle",
-        "repProfile",
-        "lengthBiasPreference",
-        "siblingVariant",
-        "isCrossDomainTouch",
-        "allowedFatigueProfiles",
-        "setCount"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "slotId": { "$ref": "#/$defs/sessionSlotId" },
-        "role": { "$ref": "#/$defs/slotRole" },
-        "pattern": { "$ref": "#/$defs/movementPattern" },
-        "primaryMuscle": { "$ref": "#/$defs/muscleGroup" },
-        "repProfile": { "$ref": "#/$defs/repProfile" },
-        "lengthBiasPreference": {
-          "type": ["string", "null"],
-          "enum": ["Lengthened", "Shortened", "MidRange", "Any", null]
-        },
-        "siblingVariant": {
-          "type": ["string", "null"],
-          "enum": ["A", "B", "Any", null]
-        },
-        "isCrossDomainTouch": { "type": "boolean" },
-        "allowedFatigueProfiles": {
-          "description": "Fatigue allow-list for pattern-OR matching, or null for pattern match only. Decoders drop unknown names and treat an empty array as null; producers MUST emit null or a non-empty canonical array.",
-          "type": ["array", "null"],
-          "items": { "$ref": "#/$defs/fatigueProfile" }
-        },
-        "setCount": {
-          "description": "Solver-assigned working sets for this slot.",
-          "type": "integer"
+      "description": "Slot template with the solver-assigned set count.",
+      "allOf": [
+        { "$ref": "#/$defs/slotTemplateBase" },
+        {
+          "type": "object",
+          "required": ["setCount"],
+          "properties": {
+            "setCount": {
+              "description": "Solver-assigned working sets for this slot.",
+              "type": "integer"
+            }
+          }
         }
+      ],
+      "unevaluatedProperties": false
+    },
+    "sessionPlanBase": {
+      "title": "SessionPlanBase",
+      "description": "Internal base: sessionType/name/slots/siblingIndex/position shared by resolvedSessionPlan and sessionSlotPlan. Intentionally open — always reference via the strict wrappers.",
+      "type": "object",
+      "required": ["sessionType", "name", "slots", "siblingIndex", "position"],
+      "properties": {
+        "sessionType": { "$ref": "#/$defs/sessionTypeId" },
+        "name": { "type": "string" },
+        "slots": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/workoutSlotTemplate" }
+        },
+        "siblingIndex": { "type": "integer" },
+        "position": { "type": "integer" }
       }
     },
     "resolvedSessionPlan": {
       "title": "ResolvedSessionPlan",
-      "type": "object",
-      "required": ["sessionType", "name", "slots", "siblingIndex", "position", "composition"],
-      "additionalProperties": false,
-      "properties": {
-        "sessionType": { "$ref": "#/$defs/sessionTypeId" },
-        "name": { "type": "string" },
-        "slots": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/workoutSlotTemplate" }
-        },
-        "siblingIndex": { "type": "integer" },
-        "position": { "type": "integer" },
-        "composition": {
-          "type": ["string", "null"],
-          "enum": [
-            "UpperBalanced",
-            "UpperSpecFocused",
-            "UpperVolumeFinisher",
-            "LowerPrimary",
-            "LowerWithUpperTouch",
-            null
-          ]
+      "allOf": [
+        { "$ref": "#/$defs/sessionPlanBase" },
+        {
+          "type": "object",
+          "required": ["composition"],
+          "properties": {
+            "composition": { "$ref": "#/$defs/nullableSessionComposition" }
+          }
         }
-      }
+      ],
+      "unevaluatedProperties": false
     },
     "sessionSlotPlan": {
       "title": "SessionSlotPlan",
-      "type": "object",
-      "required": ["sessionType", "name", "slots", "siblingIndex", "position", "filledSlots"],
-      "additionalProperties": false,
-      "properties": {
-        "sessionType": { "$ref": "#/$defs/sessionTypeId" },
-        "name": { "type": "string" },
-        "slots": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/workoutSlotTemplate" }
-        },
-        "siblingIndex": { "type": "integer" },
-        "position": { "type": "integer" },
-        "filledSlots": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/filledSlot" }
+      "allOf": [
+        { "$ref": "#/$defs/sessionPlanBase" },
+        {
+          "type": "object",
+          "required": ["filledSlots"],
+          "properties": {
+            "filledSlots": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/filledSlot" }
+            }
+          }
         }
-      }
+      ],
+      "unevaluatedProperties": false
     },
     "objectiveBreakdown": {
       "title": "SynthesisObjectiveBreakdown",

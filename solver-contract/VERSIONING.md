@@ -28,8 +28,22 @@ reimplemented in any language as long as it honors the schemas and this policy.
 
 ## 2. Decoder leniency (v1)
 
-Schemas are strict (`additionalProperties: false`) so CI catches drift, but **decoders
-MUST be lenient** so minor additions and rollout skew never break the other side:
+The schemas are the **producer contract**: they describe exactly what a conforming
+producer emits, and CI validates producer output against them strictly
+(`additionalProperties: false`, every `required` field present — including
+`modelVersion`, which producers MUST emit on both requests and responses per §1).
+A missing `required` field or an unknown field in *producer output* is a contract
+bug, and CI fails it (§6).
+
+**Decoders MUST NOT validate inbound payloads against the raw schemas.** Decoders
+implement a separate **lenient mode**: accept the schema-valid shape, then apply
+every row below. Strictness in CI catches producer drift; leniency in decoders keeps
+old readers alive across minor additions and rollout skew. The two never mix: a
+decoder that rejects a payload a leniency row says to accept is itself in breach
+of contract, and a producer that omits a `required` field fails CI even if
+decoders would tolerate it.
+
+In lenient mode:
 
 | Situation | Required behavior |
 |---|---|
