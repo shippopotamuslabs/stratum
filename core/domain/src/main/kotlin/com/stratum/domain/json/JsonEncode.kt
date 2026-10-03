@@ -43,6 +43,21 @@ fun jsonBoolean(value: Boolean): String = if (value) "true" else "false"
 fun jsonBooleanOrNull(value: Boolean?): String =
     if (value == null) "null" else jsonBoolean(value)
 
+/**
+ * Central JSON encoding for a typed extra value (STR-28): callers pass raw
+ * values and this picks the encoding, so a missed `jsonString()` can never
+ * emit invalid JSON and a number is never accidentally quoted. Unknown types
+ * fall back to their `toString()` as a JSON string — never raw.
+ */
+fun jsonValue(value: Any?): String =
+    when (value) {
+        null -> "null"
+        is String -> jsonString(value)
+        is Boolean -> jsonBoolean(value)
+        is Number -> jsonNumber(value)
+        else -> jsonString(value.toString())
+    }
+
 fun jsonArray(items: Iterable<String>): String =
     items.joinToString(prefix = "[", postfix = "]", separator = ",")
 

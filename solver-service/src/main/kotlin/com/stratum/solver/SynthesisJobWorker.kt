@@ -29,6 +29,7 @@ class SynthesisJobWorker(
     private val synthesizerFactory: (Long) -> CpSatProgramSynthesizer = { deadline ->
         CpSatProgramSynthesizer(deadlineMillis = deadline, numSearchWorkers = SOLVER_SEARCH_WORKERS)
     },
+    private val logger: StructuredLogger = StructuredLogger(StructuredLog.SERVICE_NAME),
 ) {
     sealed class Outcome {
         data object JobMissing : Outcome()
@@ -39,21 +40,36 @@ class SynthesisJobWorker(
 
     fun process(request: ProcessRequest): Outcome {
         val jobPath = "users/${request.uid}/synthesisJobs/${request.jobId}"
-        log("start uid=${request.uid} jobId=${request.jobId}")
+        logger.info("job started", uid = request.uid, jobId = request.jobId)
 
         return try {
             val claim = claimJob(request.uid, request.jobId)
             val requestStoragePath = when (claim) {
                 is ClaimResult.Missing -> {
-                    log("job missing at $jobPath (account deleted?); no-op")
+                    logger.info(
+                        "job missing; no-op",
+                        uid = request.uid,
+                        jobId = request.jobId,
+                        extra = listOf("jobPath" to jobPath),
+                    )
                     return Outcome.JobMissing
                 }
                 is ClaimResult.NotClaimable -> {
-                    log("skip claim at $jobPath status=${claim.status}")
+                    logger.info(
+                        "skip claim",
+                        uid = request.uid,
+                        jobId = request.jobId,
+                        extra = listOf("status" to claim.status.orEmpty()),
+                    )
                     return Outcome.Skipped("status=${claim.status}")
                 }
                 is ClaimResult.Claimed -> {
-                    log("claimed $jobPath requestStoragePath=${claim.requestStoragePath}")
+                    logger.info(
+                        "job claimed",
+                        uid = request.uid,
+                        jobId = request.jobId,
+                        extra = listOf("requestStoragePath" to claim.requestStoragePath),
+                    )
                     claim.requestStoragePath
                 }
             }
@@ -63,8 +79,9 @@ class SynthesisJobWorker(
                 requestStoragePath = requestStoragePath,
             )
         } catch (t: Throwable) {
+            // Full type + stack go to Error Reporting; the job doc keeps the user-safe message.
+            logger.reportError("job failed", t, uid = request.uid, jobId = request.jobId)
             val message = sanitizeError(t)
-            log("error uid=${request.uid} jobId=${request.jobId}: $message")
             updateJobIfPresent(
                 uid = request.uid,
                 jobId = request.jobId,
@@ -94,11 +111,16 @@ class SynthesisJobWorker(
             throw IllegalArgumentException("Invalid synthesis request JSON: ${e.message}", e)
         }
 
-        log(
-            "solving uid=$uid jobId=$jobId " +
-                "days=${wireRequest.context.trainingDaysPerWeek} " +
-                "deadlineMs=$deadlineMillis",
+        logger.info(
+            "solving",
+            uid = uid,
+            jobId = jobId,
+            extra = listOf(
+                "trainingDaysPerWeek" to wireRequest.context.trainingDaysPerWeek,
+                "deadlineMs" to deadlineMillis,
+            ),
         )
+        val solveStartMs = System.currentTimeMillis()
         val synthesizer = synthesizerFactory(deadlineMillis)
         // Blocking CP-SAT on Default so we don't pin the HTTP pool thread alone.
         val result = runBlocking(Dispatchers.Default) {
@@ -111,10 +133,17 @@ class SynthesisJobWorker(
         val resultJson = ProgramSynthesisWire.encodeResult(result)
         val resultStoragePath = "synthesis/$uid/$jobId/result.json"
         uploadJson(resultStoragePath, resultJson)
-        log(
-            "uploaded result path=$resultStoragePath bytes=${resultJson.length} " +
-                "sessions=${result.sessions.size} " +
-                "objTotal=${result.objective.total}",
+        logger.info(
+            "uploaded result",
+            uid = uid,
+            jobId = jobId,
+            durationMs = System.currentTimeMillis() - solveStartMs,
+            extra = listOf(
+                "resultStoragePath" to resultStoragePath,
+                "bytes" to resultJson.length,
+                "sessions" to result.sessions.size,
+                "objectiveTotal" to result.objective.total,
+            ),
         )
 
         val traceFields = mutableMapOf<String, Any>(
@@ -138,7 +167,12 @@ class SynthesisJobWorker(
             ) + traceFields,
         )
         if (!updated) {
-            log("job missing after solve uid=$uid jobId=$jobId; result left at $resultStoragePath")
+            logger.info(
+                "job missing after solve; result left in storage",
+                uid = uid,
+                jobId = jobId,
+                extra = listOf("resultStoragePath" to resultStoragePath),
+            )
             return Outcome.JobMissing
         }
         return Outcome.Ready(resultStoragePath)
@@ -236,7 +270,7 @@ class SynthesisJobWorker(
             true
         } catch (e: Exception) {
             if (isNotFound(e)) {
-                log("job users/$uid/synthesisJobs/$jobId missing; skipping status update")
+                logger.info("job missing; skipping status update", uid = uid, jobId = jobId)
                 false
             } else {
                 throw e
@@ -265,7 +299,6 @@ class SynthesisJobWorker(
      * User-safe error for the job doc / client. Full detail goes only to Cloud Run logs.
      */
     private fun sanitizeError(t: Throwable): String {
-        log("failure detail: ${t::class.java.name}: ${t.message}")
         val root = generateSequence(t) { it.cause }.last()
         val msg = (root.message ?: t.message).orEmpty()
         return when {
@@ -281,10 +314,6 @@ class SynthesisJobWorker(
                 "Generation request was missing or invalid. Please try again."
             else -> "Program generation failed. Please try again."
         }
-    }
-
-    private fun log(message: String) {
-        println("SynthesisJobWorker: $message")
     }
 
     companion object {
