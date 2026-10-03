@@ -79,6 +79,22 @@ object ProgramSynthesisWire {
             "context" to encodeContext(context),
         )
 
+    /**
+     * Byte-preserving version normalization for the proxy path: returns [json]
+     * unchanged when its root object already carries a non-null `modelVersion`;
+     * otherwise splices `"modelVersion":"v1"` directly after the root `{`
+     * (missing means v1, `solver-contract/VERSIONING.md` §1). The payload is
+     * never re-serialized, so every other byte reaches the solver untouched.
+     */
+    fun stampModelVersionV1(json: String): String {
+        val root = wrapParse("request") { JsonReader(json).readRootObject() }
+        val existing = root["modelVersion"]
+        if (existing != null && !existing.isNull()) return json
+        val brace = json.indexOf('{')
+        if (brace < 0) throw ProgramSynthesisWireException("Invalid program synthesis request JSON: no root object")
+        return json.substring(0, brace + 1) + "\"modelVersion\":\"v1\"," + json.substring(brace + 1)
+    }
+
     fun decodeRequest(json: String): ProgramSynthesisWireRequest =
         wrapParse("request") {
             val root = JsonReader(json).readRootObject()
