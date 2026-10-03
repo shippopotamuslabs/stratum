@@ -1,5 +1,8 @@
 package com.stratum.domain.telemetry
 
+import com.stratum.domain.telemetry.SynthesisTelemetry.Companion.EVENT_SYNTHESIS_READY_OBSERVED
+import com.stratum.domain.telemetry.SynthesisTelemetry.Companion.EVENT_SYNTHESIS_RENDERED
+import com.stratum.domain.telemetry.SynthesisTelemetry.Companion.EVENT_SYNTHESIS_STARTED
 import com.stratum.domain.telemetry.SynthesisTelemetry.Companion.EVENT_SYNTHESIS_CLIENT_STAGE
 import com.stratum.domain.telemetry.SynthesisTelemetry.Companion.PARAM_CORRELATION_ID
 import com.stratum.domain.telemetry.SynthesisTelemetry.Companion.PARAM_DURATION_MS
@@ -71,5 +74,47 @@ class SynthesisTelemetryTest {
         )
 
         assertEquals(0, events.size)
+    }
+
+    @Test
+    fun `synthesisReadyObserved logs tap-to-ready duration`() {
+        val events = mutableListOf<Pair<String, Map<String, String>>>()
+        var now = 10_000L
+        val telemetry =
+            SynthesisTelemetry(
+                logEvent = { name, params -> events.add(name to params) },
+                clock = { now },
+            )
+
+        val startMs = telemetry.synthesisStarted("job-123")
+        now = 190_000L
+        telemetry.synthesisReadyObserved("job-123", startMs)
+
+        assertEquals(EVENT_SYNTHESIS_STARTED, events[0].first)
+        assertEquals("job-123", events[0].second[PARAM_JOB_ID])
+        val (_, params) = events[1]
+        assertEquals(EVENT_SYNTHESIS_READY_OBSERVED, events[1].first)
+        assertEquals("job-123", params[PARAM_JOB_ID])
+        assertEquals("180000", params[PARAM_DURATION_MS])
+    }
+
+    @Test
+    fun `synthesisRendered logs tap-to-rendered duration`() {
+        val events = mutableListOf<Pair<String, Map<String, String>>>()
+        var now = 10_000L
+        val telemetry =
+            SynthesisTelemetry(
+                logEvent = { name, params -> events.add(name to params) },
+                clock = { now },
+            )
+
+        val tapMs = telemetry.nowMs()
+        now = 200_000L
+        telemetry.synthesisRendered("job-123", tapMs)
+
+        val (name, params) = events.single()
+        assertEquals(EVENT_SYNTHESIS_RENDERED, name)
+        assertEquals("job-123", params[PARAM_JOB_ID])
+        assertEquals("190000", params[PARAM_DURATION_MS])
     }
 }

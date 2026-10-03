@@ -169,6 +169,12 @@ class CreateProgramGenerateControllerTest {
             val durationMs = event.params[PARAM_DURATION_MS]?.toLongOrNull()
             assertTrue(durationMs != null && durationMs >= 0, "stage duration must be present")
         }
-        assertEquals(1, byName[EVENT_SYNTHESIS_RENDERED].orEmpty().size)
+        val rendered = byName[EVENT_SYNTHESIS_RENDERED].orEmpty()
+        assertEquals(1, rendered.size)
+        val renderedDurationMs = rendered.single().params[PARAM_DURATION_MS]?.toLongOrNull()
+        assertTrue(
+            renderedDurationMs != null && renderedDurationMs >= 0,
+            "rendered duration must be present",
+        )
     }
 }

@@ -14,13 +14,28 @@ export const TRACE_CLIENT_START = "trace.clientStart";
 export const TRACE_JOB_CREATED = "trace.jobCreated";
 export const TRACE_DISPATCHER_TRIGGER = "trace.dispatcherTrigger";
 export const TRACE_DISPATCHER_POST_SENT = "trace.dispatcherPostSent";
+/**
+ * Worker trace fields, written by the JVM Cloud Run worker
+ * (`SynthesisJobWorker`). Mirrored here so job resets can clear them —
+ * keep in sync with the worker's `TRACE_*` constants.
+ */
+export const TRACE_WORKER_START = "trace.workerStart";
+export const TRACE_WORKER_CLAIMED = "trace.workerClaimed";
+export const TRACE_WORKER_SOLVING = "trace.workerSolving";
+export const TRACE_WORKER_UPLOADED = "trace.workerUploaded";
+export const TRACE_SOLVER = "trace.solver";
 
 /** Known trace fields for typed record helpers. */
 export type TraceField =
   | typeof TRACE_CLIENT_START
   | typeof TRACE_JOB_CREATED
   | typeof TRACE_DISPATCHER_TRIGGER
-  | typeof TRACE_DISPATCHER_POST_SENT;
+  | typeof TRACE_DISPATCHER_POST_SENT
+  | typeof TRACE_WORKER_START
+  | typeof TRACE_WORKER_CLAIMED
+  | typeof TRACE_WORKER_SOLVING
+  | typeof TRACE_WORKER_UPLOADED
+  | typeof TRACE_SOLVER;
 
 /**
  * Convert a client epoch-millis timestamp to a Firestore Timestamp.
@@ -52,14 +67,20 @@ export function initialTraceMap(clientStart: Timestamp | null): Record<string, u
 }
 
 /**
- * Field deletions to clear stale dispatcher trace on job reset.
+ * Field deletions to clear stale trace on job reset (retry with a reused jobId).
  * With merge:true, Firestore deep-merges nested maps, so prior
- * dispatcherTrigger/dispatcherPostSent from a reused jobId would survive.
- * Explicitly delete them to keep the waterfall accurate.
+ * dispatcher/worker/solver fields from the previous attempt would survive.
+ * Explicitly delete them to keep the waterfall accurate. A new pending job that
+ * has not solved yet must not show the previous attempt's workerUploaded/solver.
  */
-export function dispatcherTraceDeletions(): Record<string, unknown> {
+export function staleTraceDeletions(): Record<string, unknown> {
   return {
     [TRACE_DISPATCHER_TRIGGER]: FieldValue.delete(),
     [TRACE_DISPATCHER_POST_SENT]: FieldValue.delete(),
+    [TRACE_WORKER_START]: FieldValue.delete(),
+    [TRACE_WORKER_CLAIMED]: FieldValue.delete(),
+    [TRACE_WORKER_SOLVING]: FieldValue.delete(),
+    [TRACE_WORKER_UPLOADED]: FieldValue.delete(),
+    [TRACE_SOLVER]: FieldValue.delete(),
   };
 }

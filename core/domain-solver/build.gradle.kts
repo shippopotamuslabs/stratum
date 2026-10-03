@@ -20,4 +20,12 @@ dependencies {
     // Note: arm64 jniLibs under src/main/jniLibs and CMake under src/main/cpp are leftover from
     // the Android packaging era and are not consumed by this JVM module.
     implementation(libs.ortools.java)
+
+    testImplementation(libs.junit.jupiter)
+    testImplementation(libs.kotlin.test.junit5)
+    testRuntimeOnly(libs.junit.platform.launcher)
+}
+
+tasks.withType<Test>().configureEach {
+    useJUnitPlatform()
 }
