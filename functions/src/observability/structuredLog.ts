@@ -68,7 +68,11 @@ export function buildLogRecord(
   message: string,
   context: LogContext = {},
 ): Record<string, unknown> {
-  return { severity, message, ...context };
+  // severity/message are explicit arguments: strip them from the spread so a
+  // context key can never silently clobber them. `service` still flows from
+  // context (createLogger's withService pins it to opts.service last).
+  const { severity: _ignoredSeverity, message: _ignoredMessage, ...rest } = context;
+  return { severity, message, ...rest };
 }
 
 /**
@@ -82,12 +86,16 @@ export function buildErrorReport(
   context: LogContext = {},
 ): Record<string, unknown> {
   const details = formatError(error);
+  // severity/message are fixed by this builder; service has one source below.
+  const { severity: _ignoredSeverity, message: _ignoredMessage, service, ...rest } = context;
+  const serviceName = service ?? "unknown";
   return {
     "@type": ERROR_REPORT_TYPE,
     severity: "ERROR" satisfies LogSeverity,
     message: `${message}: ${details.errorType}: ${details.errorMessage}\n${details.stackTrace}`,
-    serviceContext: { service: context.service ?? "unknown" },
-    ...context,
+    serviceContext: { service: serviceName },
+    service: serviceName,
+    ...rest,
     errorType: details.errorType,
     errorMessage: details.errorMessage,
     stackTrace: details.stackTrace,
@@ -114,8 +122,10 @@ export function createLogger(opts: { service: string; write?: LogWriter }) {
     write(JSON.stringify(record), toStderr);
   };
   const withService = (context: LogContext = {}): LogContext => ({
-    service: opts.service,
     ...context,
+    // The logger's service is the contract: it always wins over a
+    // caller-supplied context.service, which can no longer clobber it.
+    service: opts.service,
   });
   return {
     debug(message: string, context: LogContext = {}): void {

@@ -39,6 +39,15 @@ describe("buildLogRecord", () => {
     assert.equal(record["jobId"], "j1");
     assert.equal(record["durationMs"], 42);
   });
+
+  it("ignores severity/message keys in context instead of clobbering", () => {
+    const record = buildLogRecord("INFO", "real message", {
+      severity: "ERROR",
+      message: "spoofed",
+    } as unknown as Record<string, unknown>);
+    assert.equal(record["severity"], "INFO");
+    assert.equal(record["message"], "real message");
+  });
 });
 
 describe("buildErrorReport", () => {
@@ -58,6 +67,23 @@ describe("buildErrorReport", () => {
     assert.match(String(record["message"]), /solve failed: Error: boom/);
     assert.match(String(record["message"]), /at /);
   });
+
+  it("derives service and serviceContext.service from one source", () => {
+    const record = buildErrorReport("solve failed", new Error("boom"), {
+      service: "solver",
+    });
+    assert.equal(record["service"], "solver");
+    assert.deepEqual(record["serviceContext"], { service: "solver" });
+  });
+
+  it("ignores severity/message keys in context instead of clobbering", () => {
+    const record = buildErrorReport("real message", new Error("boom"), {
+      severity: "INFO",
+      message: "spoofed",
+    } as unknown as Record<string, unknown>);
+    assert.equal(record["severity"], "ERROR");
+    assert.match(String(record["message"]), /real message: Error: boom/);
+  });
 });
 
 describe("createLogger", () => {
@@ -76,8 +102,7 @@ describe("createLogger", () => {
     assert.equal(parsed["jobId"], "j1");
   });
 
-  it("routes warnings and errors to stderr, info to stdout", () => {
-    const lines: Array<{ line: string; toStderr: boolean }> = [];
+  it("routes warnings and errors to stderr, info to stdout", () => {    const lines: Array<{ line: string; toStderr: boolean }> = [];
     const log = createLogger({
       service: "s",
       write: (line, toStderr) => lines.push({ line, toStderr }),
@@ -91,5 +116,16 @@ describe("createLogger", () => {
     );
     const reported = JSON.parse(lines[2].line) as Record<string, unknown>;
     assert.equal(reported["@type"], ERROR_REPORT_TYPE);
+  });
+
+  it("pins the logger service so context cannot override it", () => {
+    const lines: Array<{ line: string; toStderr: boolean }> = [];
+    const log = createLogger({
+      service: "processProgramSynthesisJob",
+      write: (line, toStderr) => lines.push({ line, toStderr }),
+    });
+    log.info("trigger received", { service: "spoofed" });
+    const parsed = JSON.parse(lines[0].line) as Record<string, unknown>;
+    assert.equal(parsed["service"], "processProgramSynthesisJob");
   });
 });

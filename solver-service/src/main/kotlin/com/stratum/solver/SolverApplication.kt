@@ -5,7 +5,6 @@ import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpHandler
-import com.stratum.domain.json.jsonString
 import com.sun.net.httpserver.HttpServer
 import java.net.InetSocketAddress
 import java.util.concurrent.Executors
@@ -40,7 +39,7 @@ fun main() {
     server.start()
     appLog.info(
         "solver listening",
-        extra = listOf("port" to port.toString()),
+        extra = listOf("port" to port),
     )
 }
 
@@ -61,7 +60,7 @@ private fun initializeFirebase() {
         builder.setProjectId(projectId)
         appLog.info(
             "Firebase project resolved",
-            extra = listOf("projectId" to jsonString(projectId)),
+            extra = listOf("projectId" to projectId),
         )
     } else {
         appLog.warn("projectId unset (ADC may still resolve)")
@@ -70,7 +69,7 @@ private fun initializeFirebase() {
         builder.setStorageBucket(storageBucket)
         appLog.info(
             "storage bucket resolved",
-            extra = listOf("storageBucket" to jsonString(storageBucket)),
+            extra = listOf("storageBucket" to storageBucket),
         )
     }
     FirebaseApp.initializeApp(builder.build())
@@ -87,7 +86,7 @@ private class HealthHandler : HttpHandler {
     }
 }
 
-private val appLog = StructuredLogger(SynthesisJobWorker.SERVICE_NAME)
+private val appLog = StructuredLogger(StructuredLog.SERVICE_NAME)
 
 private const val DEFAULT_PORT = 8080
 private const val HTTP_POOL_SIZE = 2
