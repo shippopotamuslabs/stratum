@@ -30,8 +30,12 @@ enum class ClientStage(val wireName: String) {
  * Centralized STR-13 synthesis waterfall telemetry contract.
  *
  * Single owner for the synthesis funnel event names, param keys, and timing.
- * All three events carry the job_id so the waterfall can be joined from
- * client tap through server trace to rendered program.
+ * Started/ready-observed carry the cloud job_id (logged where the cloud jobId
+ * is visible, i.e. the synthesis adapter). Rendered always carries the client
+ * session_id and carries job_id only when the call site knows the cloud
+ * jobId, so the waterfall joins deterministically without time-window
+ * heuristics whenever both legs exist. job_id is never overloaded with a
+ * session id: the two namespaces stay in separate params (STR-19).
  *
  * Takes a logEvent lambda (instead of AnalyticsPort directly) so it can be
  * used from both @Inject singletons and manually-constructed controllers.
@@ -43,6 +47,14 @@ class SynthesisTelemetry(
     private val logEvent: (name: String, params: Map<String, String>) -> Unit,
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
+    /**
+     * Current millis on the telemetry clock. Anchors tap-time for
+     * [synthesisReadyObserved]/[synthesisRendered] when the start event and
+     * the end event are logged by different layers (e.g. tap in UI, ready in
+     * the synthesis adapter).
+     */
+    fun nowMs(): Long = clock()
+
     /**
      * Start a timed synthesis session. Returns the start timestamp for
      * [synthesisReadyObserved].
@@ -67,10 +79,26 @@ class SynthesisTelemetry(
         )
     }
 
-    fun synthesisRendered(jobId: String) {
+    /**
+     * Logs the tap-to-rendered leg. [sessionId] is always the client session;
+     * [jobId] is the cloud synthesis jobId when the call site can see it (the
+     * synthesis adapter legs) and null otherwise. job_id is omitted — never
+     * filled with a session id — so funnel queries join on one ID namespace
+     * per param: job_id for cloud legs, session_id for client legs, and
+     * correlation_id for whichever identifies the generation end to end.
+     */
+    fun synthesisRendered(sessionId: String, startMs: Long, jobId: String? = null) {
+        val durationMs = clock() - startMs
         logEvent(
             EVENT_SYNTHESIS_RENDERED,
-            mapOf(PARAM_JOB_ID to jobId),
+            buildMap {
+                put(PARAM_CORRELATION_ID, jobId ?: sessionId)
+                put(PARAM_SESSION_ID, sessionId)
+                if (jobId != null) {
+                    put(PARAM_JOB_ID, jobId)
+                }
+                put(PARAM_DURATION_MS, durationMs.toString())
+            },
         )
     }
 
