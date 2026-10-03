@@ -5,6 +5,13 @@ import java.util.IdentityHashMap
 /**
  * Copies throwables for Crashlytics so PII is scrubbed from messages without changing the
  * reported exception class or attaching the original (unscrubbed) cause chain.
+ *
+ * Types without a `(String)` or `(String, Throwable)` constructor cannot be reconstructed, so
+ * those nodes fall back to [SanitizedTelemetryException]. The fallback keeps the original class
+ * name in [SanitizedTelemetryException.originalClassName] (and in the message prefix); telemetry
+ * adapters should forward [sanitizedOriginalClassNames] as Crashlytics custom keys so the
+ * original type stays visible for display and filtering. Stack traces are always preserved, so
+ * Crashlytics grouping is unaffected.
  */
 object TelemetryThrowableSanitizer {
     fun sanitize(throwable: Throwable): Throwable {
@@ -12,6 +19,40 @@ object TelemetryThrowableSanitizer {
             return throwable
         }
         return copySanitized(throwable, IdentityHashMap())
+    }
+
+    /**
+     * Original class names of every [SanitizedTelemetryException] fallback node in the chain
+     * (top-level, causes, suppressed), in encounter order without duplicates. Empty when every
+     * node kept its original class. Class names never contain PII and are safe for telemetry keys.
+     */
+    fun sanitizedOriginalClassNames(throwable: Throwable): List<String> {
+        val names = LinkedHashSet<String>()
+        collectFallbackNames(throwable, IdentityHashMap(), names)
+        return names.toList()
+    }
+
+    private fun collectFallbackNames(
+        throwable: Throwable,
+        visited: IdentityHashMap<Throwable, Boolean>,
+        names: LinkedHashSet<String>,
+    ) {
+        if (visited.put(throwable, true) != null) {
+            return
+        }
+        if (throwable is SanitizedTelemetryException) {
+            names += throwable.originalClassName
+        }
+        throwable.cause?.let { cause ->
+            if (cause !== throwable) {
+                collectFallbackNames(cause, visited, names)
+            }
+        }
+        throwable.suppressed.forEach { suppressed ->
+            if (suppressed !== throwable) {
+                collectFallbackNames(suppressed, visited, names)
+            }
+        }
     }
 
     private fun containsPii(
@@ -73,7 +114,13 @@ object TelemetryThrowableSanitizer {
     }
 }
 
-internal class SanitizedTelemetryException(
-    originalClassName: String,
+/**
+ * Fallback carrier for exception types that cannot be reconstructed with a scrubbed message
+ * (no `(String)` or `(String, Throwable)` constructor). The Crashlytics dashboard shows this
+ * class name, so [originalClassName] preserves the lost type for display and filtering via
+ * [TelemetryThrowableSanitizer.sanitizedOriginalClassNames].
+ */
+class SanitizedTelemetryException(
+    val originalClassName: String,
     message: String,
 ) : RuntimeException("$originalClassName: $message")
