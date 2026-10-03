@@ -46,10 +46,22 @@ import kotlin.math.max
  * looks up `accept` via GetMethodID and aborts (`jarg2_method_id != nullptr`) when the lambda
  * shape is not what it expects.
  */
+
+/**
+ * Immutable snapshot of the solver settings [CpSatProgramSynthesizer] applies. Null
+ * [numSearchWorkers] means the OR-Tools worker default was left untouched.
+ */
+data class SolverParameters(
+    val maxTimeSeconds: Double,
+    val numSearchWorkers: Int?,
+)
 class CpSatProgramSynthesizer(
     private val deadlineMillis: Long = DEFAULT_DEADLINE_MILLIS,
     private val logSearchProgress: Boolean = defaultLogSearchProgress(),
     private val useWarmStart: Boolean = defaultUseWarmStart(),
+    // Null leaves the OR-Tools worker default untouched. Callers that run on known hardware
+    // (e.g. the Cloud Run worker) pass an explicit count; the domain default stays generic.
+    private val numSearchWorkers: Int? = null,
 ) : ProgramSynthesisPort {
 
     /**
@@ -111,25 +123,15 @@ class CpSatProgramSynthesizer(
                     allowed.joinToString(",") { it.name }
                 } +
                 " slotVars=${plans.sumOf { it.filledSlots.size }} " +
-                "deadlineMs=$deadlineMillis logSearch=$logSearchProgress warmStart=$useWarmStart",
+                "deadlineMs=$deadlineMillis logSearch=$logSearchProgress warmStart=$useWarmStart " +
+                "workers=$numSearchWorkers",
         )
         // Multi-line model size dump from OR-Tools (vars / constraints / domains).
         runCatching { model.modelStats() }.getOrNull()?.lineSequence()?.forEach { line ->
             if (line.isNotBlank()) logInfo("model $line")
         }
 
-        val solver = CpSolver().apply {
-            getParameters().setMaxTimeInSeconds(deadlineMillis / MILLISECONDS_PER_SECOND)
-            if (logSearchProgress) {
-                getParameters().setLogSearchProgress(true)
-                // Route through our logger so device logcat / test stdout both see progress.
-                getParameters().setLogToStdout(false)
-                // Named Consumer class — not a Kotlin lambda (see class KDoc).
-                setLogCallback(OrToolsLogConsumer())
-            }
-            // Intentionally no setBestBoundCallback: final bound is logged after solve via
-            // bestObjectiveBound(). Mid-search bound streaming is not required for gap decisions.
-        }
+        val solver = buildSolver()
 
         val incumbents = IncumbentLog()
         val status = solver.solve(model, incumbents)
@@ -162,6 +164,38 @@ class CpSatProgramSynthesizer(
         )
         return materializeSynthesisResult(universe, solution)
             .copy(objective = objective)
+    }
+
+    /**
+     * Effective solver settings, read back from a freshly built solver. Public so wiring and
+     * regression tests can observe the applied parameters without running a full solve and
+     * without touching the mutable OR-Tools solver. Null [SolverParameters.numSearchWorkers]
+     * means the OR-Tools default was left untouched.
+     */
+    fun appliedParameters(): SolverParameters {
+        val parameters = buildSolver().getParameters()
+        return SolverParameters(
+            maxTimeSeconds = parameters.maxTimeInSeconds,
+            numSearchWorkers = parameters.numSearchWorkers.takeIf { parameters.hasNumSearchWorkers() },
+        )
+    }
+
+    private fun buildSolver(): CpSolver {
+        return CpSolver().apply {
+            getParameters().setMaxTimeInSeconds(deadlineMillis / MILLISECONDS_PER_SECOND)
+            // Explicit only when the caller runs on known hardware; otherwise the OR-Tools
+            // default (0 = all cores) applies.
+            numSearchWorkers?.let { getParameters().setNumSearchWorkers(it) }
+            if (logSearchProgress) {
+                getParameters().setLogSearchProgress(true)
+                // Route through our logger so device logcat / test stdout both see progress.
+                getParameters().setLogToStdout(false)
+                // Named Consumer class — not a Kotlin lambda (see class KDoc).
+                setLogCallback(OrToolsLogConsumer())
+            }
+            // Intentionally no setBestBoundCallback: final bound is logged after solve via
+            // bestObjectiveBound(). Mid-search bound streaming is not required for gap decisions.
+        }
     }
 
     /**

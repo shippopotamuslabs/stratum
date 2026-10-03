@@ -27,7 +27,7 @@ class SynthesisJobWorker(
     private val bucketName: String = StorageClient.getInstance().bucket().name,
     private val deadlineMillis: Long = DEFAULT_SOLVE_DEADLINE_MILLIS,
     private val synthesizerFactory: (Long) -> CpSatProgramSynthesizer = { deadline ->
-        CpSatProgramSynthesizer(deadlineMillis = deadline)
+        CpSatProgramSynthesizer(deadlineMillis = deadline, numSearchWorkers = SOLVER_SEARCH_WORKERS)
     },
 ) {
     sealed class Outcome {
@@ -290,6 +290,13 @@ class SynthesisJobWorker(
     companion object {
         const val CLAIMABLE_STATUS = "pending"
         const val DEFAULT_SOLVE_DEADLINE_MILLIS = 120_000L
+        /**
+         * CP-SAT search workers, matching this service's `--cpu=8` Cloud Run provisioning
+         * (see docs/cloud-program-synthesis-deploy.md §3). Deployment topology lives here at
+         * the composition root: `:core:domain-solver` leaves the OR-Tools default untouched
+         * unless told otherwise (STR-21).
+         */
+        const val SOLVER_SEARCH_WORKERS = 8
         private const val MAX_REQUEST_BYTES = 5L * 1024L * 1024L
         private const val GRPC_NOT_FOUND = 5
 
