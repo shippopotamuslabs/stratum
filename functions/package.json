@@ -6,7 +6,7 @@
   },
   "main": "lib/index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && cp src/program-synthesis/traceFields.json lib/program-synthesis/traceFields.json",
     "test": "node --test $(find lib -name '*.test.js' | sort)"
   },
   "dependencies": {
