@@ -106,8 +106,11 @@ class RecomputeRecommendationsUseCase @Inject constructor(
         if (lastPerformedSet == null || lastPerformed == null) {
             val fatigue = fatigueByLiftId[lift.liftId] ?: FatigueDecay(null, null)
             val results = linkedMapOf<SetSlotId, LiveSetRecommendation>()
-            if (lift.loadType == LoadType.Weighted) {
-                results += straightSetPolicy.coldOpenReps(setsByPosition, fatigue)
+            when (lift.loadType) {
+                LoadType.Weighted -> results += straightSetPolicy.coldOpenReps(setsByPosition, fatigue)
+                LoadType.Bodyweight ->
+                    results += straightSetPolicy.coldOpenBodyweightReps(setsByPosition, fatigue)
+                LoadType.Assisted -> Unit // unchanged: no live straight-set recs (out of scope for STR-29)
             }
             val unloggedDrops = setsByPosition.filter {
                 it.loggedValue == null && it.setType == SetType.DropSet
@@ -141,19 +144,35 @@ class RecomputeRecommendationsUseCase @Inject constructor(
         val results = linkedMapOf<SetSlotId, LiveSetRecommendation>()
 
         val straightUpcoming = postAnchorUpcoming.filter { straightSetPolicy.isStraightWorking(it) }
-        if (straightUpcoming.isNotEmpty() && lift.loadType == LoadType.Weighted) {
-            results += straightSetPolicy.recommend(
-                lift = lift,
-                lastPerformedSet = lastPerformedSet,
-                lastPerformed = lastPerformed,
-                setsByPosition = setsByPosition,
-                anchorOrdinal = anchorOrdinal,
-                straightUpcoming = straightUpcoming,
-                incrementTiers = incrementTiers,
-                fatigue = fatigue,
-                priorRecommendations = priorRecommendations,
-                micro = micro,
-            )
+        if (straightUpcoming.isNotEmpty()) {
+            when (lift.loadType) {
+                LoadType.Weighted ->
+                    results +=
+                        straightSetPolicy.recommend(
+                            lift = lift,
+                            lastPerformedSet = lastPerformedSet,
+                            lastPerformed = lastPerformed,
+                            setsByPosition = setsByPosition,
+                            anchorOrdinal = anchorOrdinal,
+                            straightUpcoming = straightUpcoming,
+                            incrementTiers = incrementTiers,
+                            fatigue = fatigue,
+                            priorRecommendations = priorRecommendations,
+                            micro = micro,
+                        )
+                LoadType.Bodyweight ->
+                    results +=
+                        straightSetPolicy.recommendBodyweight(
+                            lastPerformedSet = lastPerformedSet,
+                            lastPerformed = lastPerformed,
+                            setsByPosition = setsByPosition,
+                            anchorOrdinal = anchorOrdinal,
+                            straightUpcoming = straightUpcoming,
+                            fatigue = fatigue,
+                            priorRecommendations = priorRecommendations,
+                        )
+                LoadType.Assisted -> Unit // unchanged: no live straight-set recs (out of scope for STR-29)
+            }
         }
 
         results += dropRecommendations(
