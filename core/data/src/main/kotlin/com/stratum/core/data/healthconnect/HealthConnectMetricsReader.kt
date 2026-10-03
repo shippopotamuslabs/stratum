@@ -187,7 +187,7 @@ class HealthConnectMetricsReader @Inject constructor(
         // Re-verify the HRV grant immediately before reading: the snapshot-level
         // grantedReadTypes() check can go stale when the user revokes the permission
         // in Health Connect settings (grants are selective per data type).
-        val grantedNow = currentGrantedPermissions("grantedReadTypesBeforeHrv")
+        val grantedNow = currentGrantedPermissions(client, "grantedReadTypesBeforeHrv")
         if (HealthConnectRequestedPermissions.readHrv !in grantedNow) {
             loggingPort.warning(
                 HEALTH_CONNECT_METRICS_TAG,
@@ -211,14 +211,13 @@ class HealthConnectMetricsReader @Inject constructor(
     private fun instantFilter(request: HealthMetricsRequest): TimeRangeFilter =
         TimeRangeFilter.between(request.windowStart, request.windowEnd)
 
-    private suspend fun currentGrantedPermissions(label: String): Set<String> {
-        if (!isAvailable()) return emptySet()
-        return catchHealthConnect(emptySet(), label) {
-            HealthConnectClient.getOrCreate(context)
-                .permissionController
-                .getGrantedPermissions()
+    private suspend fun currentGrantedPermissions(
+        client: HealthConnectClient,
+        label: String,
+    ): Set<String> =
+        catchHealthConnect(emptySet(), label) {
+            client.permissionController.getGrantedPermissions()
         }
-    }
 
     private suspend fun <T : Record> readAll(
         client: HealthConnectClient,
@@ -241,6 +240,16 @@ class HealthConnectMetricsReader @Inject constructor(
         return out
     }
 
+    /**
+     * Runs a Health Connect operation, mapping failures to [default].
+     *
+     * Exception policy, uniform across all Health Connect reads: a [SecurityException]
+     * means the user revoked a grant in system settings (expected user-driven state),
+     * so it logs a warning and never records a Crashlytics non-fatal; any other
+     * [Throwable] logs an error (which records a non-fatal). [onPermissionDenied]
+     * lets callers observe the denial path, e.g. to self-correct a snapshot's
+     * granted set.
+     */
     private suspend inline fun <T> catchHealthConnect(
         default: T,
         label: String,
