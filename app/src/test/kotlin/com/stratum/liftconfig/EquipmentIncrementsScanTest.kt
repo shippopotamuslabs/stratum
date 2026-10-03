@@ -130,6 +130,7 @@ class EquipmentIncrementsScanTest {
                         scanPort,
                         ValidateIncrementTiersUseCase(),
                         ValidateMicroIncrementsUseCase(),
+                        FakeLoggingPort(),
                     ),
                     ObserveIncrementsAiScanUseCase(fakeFeatureFlags),
                 ),
