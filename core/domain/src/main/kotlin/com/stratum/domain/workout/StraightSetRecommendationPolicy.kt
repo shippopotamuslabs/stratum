@@ -517,23 +517,27 @@ class StraightSetRecommendationPolicy @Inject constructor(
         priorRecommendations: Map<SetSlotId, LiveSetRecommendation>,
     ): Boolean {
         val priorForLogged = priorRecommendations[lastPerformedSet.slotId]
-        // Primary: logged exactly what the live overlay showed (reps + RIR).
-        if (priorForLogged != null && priorForLogged.reps > 0 &&
-            lastPerformed.reps == priorForLogged.reps &&
-            lastPerformed.rir != null &&
-            lastPerformed.rir == lastPerformedSet.rirGoal
-        ) {
-            return true
+        if (priorForLogged != null) {
+            // Primary: logged exactly what the live overlay showed (reps + RIR).
+            return matchesLiveOverlay(priorForLogged, lastPerformed, lastPerformedSet)
         }
         // Fallback: no prior live row (e.g. first set) — match the shown prescription.
-        if (priorForLogged == null) {
-            return matchesShownPrescription(
-                set = lastPerformedSet,
-                logged = lastPerformed,
-                priorRecommendations = priorRecommendations,
-            )
-        }
-        return false
+        return matchesShownPrescription(
+            set = lastPerformedSet,
+            logged = lastPerformed,
+            priorRecommendations = priorRecommendations,
+        )
+    }
+
+    private fun matchesLiveOverlay(
+        prior: LiveSetRecommendation,
+        lastPerformed: LoggedSetValue,
+        lastPerformedSet: RenderedSet,
+    ): Boolean {
+        if (prior.reps <= 0) return false
+        if (lastPerformed.reps != prior.reps) return false
+        val rir = lastPerformed.rir ?: return false
+        return rir == lastPerformedSet.rirGoal
     }
 
     private fun projectStraightUpcomingBodyweight(
