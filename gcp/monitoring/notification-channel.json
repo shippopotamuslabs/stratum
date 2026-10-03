@@ -1,0 +1,6 @@
+{
+  "displayName": "Stratum backend alerts",
+  "description": "Phase-1 email alerts for Stratum backend failures (STR-24). Alerts fire to this channel from all Stratum alert policies.",
+  "type": "email",
+  "labels": { "email_address": "{{ALERT_EMAIL}}" }
+}

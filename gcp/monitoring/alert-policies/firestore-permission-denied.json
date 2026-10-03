@@ -1,0 +1,28 @@
+{
+  "displayName": "Stratum: Firestore PERMISSION_DENIED spike",
+  "documentation": {
+    "mimeType": "text/markdown",
+    "content": "Firestore denied N>=1 requests in 5 min (audit-log metric `firestore_permission_denied_count`). Triage: Cloud Logging filter `protoPayload.serviceName=\"firestore.googleapis.com\" protoPayload.status.code=7`, check the failing document path against `firestore.rules`. Context: STR-23/STR-24, deploy runbook `docs/cloud-program-synthesis-deploy.md`."
+  },
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "Any Firestore PERMISSION_DENIED in 5 min",
+      "conditionThreshold": {
+        "filter": "metric.type=\"logging.googleapis.com/user/firestore_permission_denied_count\"",
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 0,
+        "duration": "60s",
+        "aggregations": [
+          {
+            "alignmentPeriod": "300s",
+            "perSeriesAligner": "ALIGN_SUM"
+          }
+        ],
+        "trigger": { "count": 1 }
+      }
+    }
+  ],
+  "notificationChannels": ["{{CHANNEL}}"],
+  "userLabels": { "stratum": "phase1", "ticket": "str-24" }
+}

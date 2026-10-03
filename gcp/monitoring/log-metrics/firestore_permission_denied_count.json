@@ -1,0 +1,10 @@
+{
+  "description": "Firestore PERMISSION_DENIED audit-log entries (STR-24). Requires Firestore data-access audit logs enabled (see ../README.md manual step 1); without them this metric stays at zero.",
+  "filter": "logName:\"cloudaudit.googleapis.com%2Fdata_access\" AND protoPayload.serviceName=\"firestore.googleapis.com\" AND protoPayload.status.code=7",
+  "metricDescriptor": {
+    "metricKind": "DELTA",
+    "valueType": "INT64",
+    "unit": "1",
+    "displayName": "Firestore permission-denied count"
+  }
+}
