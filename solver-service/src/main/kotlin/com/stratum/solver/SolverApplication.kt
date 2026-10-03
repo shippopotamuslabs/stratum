@@ -5,6 +5,7 @@ import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpHandler
+import com.stratum.domain.json.jsonString
 import com.sun.net.httpserver.HttpServer
 import java.net.InetSocketAddress
 import java.util.concurrent.Executors
@@ -37,12 +38,15 @@ fun main() {
         },
     )
     server.start()
-    println("SolverApplication: listening on :$port (health=/health process=/process)")
+    appLog.info(
+        "solver listening",
+        extra = listOf("port" to port.toString()),
+    )
 }
 
 private fun initializeFirebase() {
     if (FirebaseApp.getApps().isNotEmpty()) {
-        println("SolverApplication: Firebase already initialized")
+        appLog.info("Firebase already initialized")
         return
     }
     val projectId = System.getenv("GOOGLE_CLOUD_PROJECT")
@@ -55,16 +59,22 @@ private fun initializeFirebase() {
         .setCredentials(GoogleCredentials.getApplicationDefault())
     if (!projectId.isNullOrBlank()) {
         builder.setProjectId(projectId)
-        println("SolverApplication: projectId=$projectId")
+        appLog.info(
+            "Firebase project resolved",
+            extra = listOf("projectId" to jsonString(projectId)),
+        )
     } else {
-        println("SolverApplication: projectId unset (ADC may still resolve)")
+        appLog.warn("projectId unset (ADC may still resolve)")
     }
     if (!storageBucket.isNullOrBlank()) {
         builder.setStorageBucket(storageBucket)
-        println("SolverApplication: storageBucket=$storageBucket")
+        appLog.info(
+            "storage bucket resolved",
+            extra = listOf("storageBucket" to jsonString(storageBucket)),
+        )
     }
     FirebaseApp.initializeApp(builder.build())
-    println("SolverApplication: FirebaseApp initialized")
+    appLog.info("FirebaseApp initialized")
 }
 
 private class HealthHandler : HttpHandler {
@@ -76,6 +86,8 @@ private class HealthHandler : HttpHandler {
         exchange.responseBody.use { it.write(bytes) }
     }
 }
+
+private val appLog = StructuredLogger(SynthesisJobWorker.SERVICE_NAME)
 
 private const val DEFAULT_PORT = 8080
 private const val HTTP_POOL_SIZE = 2

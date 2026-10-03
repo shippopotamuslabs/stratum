@@ -1,6 +1,7 @@
 import { FieldValue, type DocumentReference, getFirestore } from "firebase-admin/firestore";
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import { GoogleAuth } from "google-auth-library";
+import { createLogger } from "../observability/structuredLog";
 import { isFirestoreNotFound } from "../import/safeJobUpdate";
 import {
   TRACE_DISPATCHER_POST_SENT,
@@ -14,6 +15,9 @@ import {
  * When unset (local/dev without a solver), the job is marked failed with a clear message.
  */
 export const SOLVER_SERVICE_URL_ENV = "SOLVER_SERVICE_URL";
+
+/** STR-28 structured logger: JSON lines with severity + uid/jobId correlation. */
+const log = createLogger({ service: "processProgramSynthesisJob" });
 
 /**
  * When `"true"`, allow unauthenticated fetch to the solver after OIDC failure.
@@ -100,18 +104,22 @@ export async function dispatchSynthesisJobToSolver(opts: {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     if (!allowUnauthSolverDispatch(env)) {
-      console.error(
-        `Cloud Run ID-token request failed (${message}); unauth fallback disabled`,
-      );
+      log.error("Cloud Run ID-token request failed; unauth fallback disabled", {
+        uid: opts.body.uid,
+        jobId: opts.body.jobId,
+        detail: message,
+      });
       return {
         ok: false,
         status: 0,
         bodyText: `OIDC failed: ${message}`,
       };
     }
-    console.warn(
-      `Cloud Run ID-token request failed (${message}); ALLOW_UNAUTH_SOLVER_DISPATCH=true, retrying without auth`,
-    );
+    log.warn("Cloud Run ID-token request failed; retrying without auth", {
+      uid: opts.body.uid,
+      jobId: opts.body.jobId,
+      detail: message,
+    });
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -132,7 +140,7 @@ export async function dispatchSynthesisJobToSolver(opts: {
 export function recordDispatcherTrace(jobRef: DocumentReference, field: TraceField): void {
   jobRef.update({ [field]: FieldValue.serverTimestamp() }).catch((err) => {
     // Trace writes are best-effort; never fail the dispatch over them.
-    console.warn(`recordDispatcherTrace failed for ${field}: ${err}`);
+    log.warn("recordDispatcherTrace failed", { field, detail: String(err) });
   });
 }
 
@@ -222,7 +230,10 @@ export const processProgramSynthesisJob = onDocumentWritten(
         progressMessage: "Solver unavailable",
         errorMessage: "Program generation is temporarily unavailable. Please try again later.",
       });
-      console.error("SOLVER_SERVICE_URL unset; cannot dispatch synthesis job");
+      log.error("SOLVER_SERVICE_URL unset; cannot dispatch synthesis job", {
+        uid,
+        jobId,
+      });
       return;
     }
 
@@ -230,23 +241,31 @@ export const processProgramSynthesisJob = onDocumentWritten(
       // STR-13 trace: mark immediately before POSTing to the solver.
       // Fire-and-forget: does not add round-trips to dispatch latency.
       recordDispatcherTrace(jobRef, TRACE_DISPATCHER_POST_SENT);
+      const dispatchStartMs = Date.now();
       const result = await dispatchSynthesisJobToSolver({
         baseUrl,
         body: { uid, jobId },
       });
+      const durationMs = Date.now() - dispatchStartMs;
       if (!result.ok) {
         const detail = result.bodyText.slice(0, 500);
-        console.warn(
-          `Solver dispatch non-OK for ${uid}/${jobId}: status=${result.status} body=${detail}`,
-        );
+        log.warn("Solver dispatch non-OK", {
+          uid,
+          jobId,
+          durationMs,
+          status: result.status,
+          body: detail,
+        });
         await markJobFailedIfStillActive(jobRef, {
           progressMessage: "Failed to start solver",
           errorMessage: "Program generation failed. Please try again.",
         });
+      } else {
+        log.info("Solver dispatch succeeded", { uid, jobId, durationMs });
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.warn(`Solver dispatch threw for ${uid}/${jobId}: ${message}`);
+      // Unexpected throw (network/OIDC): report with stack for Error Reporting.
+      log.reportError("Solver dispatch threw", err, { uid, jobId });
       await markJobFailedIfStillActive(jobRef, {
         progressMessage: "Failed to start solver",
         errorMessage: "Program generation failed. Please try again.",
