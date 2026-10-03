@@ -1,0 +1,10 @@
+{
+  "description": "Cloud Run stratum-solver HTTP 5xx responses (STR-24). Catches CP-SAT worker crashes and timeouts visible at the HTTP layer.",
+  "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"stratum-solver\" AND httpRequest.status>=500",
+  "metricDescriptor": {
+    "metricKind": "DELTA",
+    "valueType": "INT64",
+    "unit": "1",
+    "displayName": "Solver 5xx count"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "displayName": "Stratum: solver 5xx spike",
+  "documentation": {
+    "mimeType": "text/markdown",
+    "content": "Cloud Run `stratum-solver` returned N>=1 HTTP 5xx in 5 min. Triage: `gcloud run services logs read stratum-solver --region=us-central1 --project=stratum-a1a5b --limit=50`, check OOM/timeout (CP-SAT deadline 120s, timeout 180s). Context: STR-24, `docs/cloud-program-synthesis-deploy.md` section 7."
+  },
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "Any solver 5xx in 5 min",
+      "conditionThreshold": {
+        "filter": "metric.type=\"logging.googleapis.com/user/solver_5xx_count\"",
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 0,
+        "duration": "60s",
+        "aggregations": [
+          {
+            "alignmentPeriod": "300s",
+            "perSeriesAligner": "ALIGN_SUM"
+          }
+        ],
+        "trigger": { "count": 1 }
+      }
+    }
+  ],
+  "notificationChannels": ["{{CHANNEL}}"],
+  "userLabels": { "stratum": "phase1", "ticket": "str-24" }
+}

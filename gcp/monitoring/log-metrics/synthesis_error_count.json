@@ -1,0 +1,10 @@
+{
+  "description": "ERROR-or-worse log entries from the program-synthesis Functions (startProgramSynthesis, getProgramSynthesisStatus, processProgramSynthesisJob). Gen2 functions log under cloud_run_revision with lowercase service names. Note: expected client errors (quota, invalid args) also log here, so the alert thresholds N>=2 (see alert policy).",
+  "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=~\"startprogramsynthesis|getprogramsynthesisstatus|processprogramsynthesisjob\" AND severity>=ERROR",
+  "metricDescriptor": {
+    "metricKind": "DELTA",
+    "valueType": "INT64",
+    "unit": "1",
+    "displayName": "Synthesis function error count"
+  }
+}
