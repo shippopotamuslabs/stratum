@@ -3,12 +3,17 @@ import assert from "node:assert/strict";
 import { FieldValue } from "firebase-admin/firestore";
 import {
   clientStartMsToTimestamp,
-  dispatcherTraceDeletions,
+  staleTraceDeletions,
   initialTraceMap,
   TRACE_CLIENT_START,
   TRACE_DISPATCHER_POST_SENT,
   TRACE_DISPATCHER_TRIGGER,
   TRACE_JOB_CREATED,
+  TRACE_SOLVER,
+  TRACE_WORKER_CLAIMED,
+  TRACE_WORKER_SOLVING,
+  TRACE_WORKER_START,
+  TRACE_WORKER_UPLOADED,
 } from "./synthesisTrace";
 
 describe("synthesis trace fields (STR-13)", () => {
@@ -56,8 +61,8 @@ describe("synthesis trace fields (STR-13)", () => {
     assert.ok(map["jobCreated"]);
   });
 
-  it("dispatcherTraceDeletions clears stale dispatcher fields", () => {
-    const deletions = dispatcherTraceDeletions();
+  it("staleTraceDeletions clears dispatcher fields on retry", () => {
+    const deletions = staleTraceDeletions();
     assert.ok(deletions[TRACE_DISPATCHER_TRIGGER]);
     assert.ok(deletions[TRACE_DISPATCHER_POST_SENT]);
     // Verify they are FieldValue.delete() sentinels (not timestamps).
@@ -65,5 +70,21 @@ describe("synthesis trace fields (STR-13)", () => {
       deletions[TRACE_DISPATCHER_TRIGGER]?.constructor?.name,
       FieldValue.delete().constructor.name,
     );
+  });
+
+  it("staleTraceDeletions clears worker fields so retries show no stale solve", () => {
+    const deletions = staleTraceDeletions();
+    for (const field of [
+      TRACE_WORKER_START,
+      TRACE_WORKER_CLAIMED,
+      TRACE_WORKER_SOLVING,
+      TRACE_WORKER_UPLOADED,
+      TRACE_SOLVER,
+    ]) {
+      assert.ok(deletions[field], `expected deletion for ${field}`);
+    }
+    // Deletions must not wipe the fresh clientStart/jobCreated written alongside.
+    assert.equal(deletions["clientStart"], undefined);
+    assert.equal(deletions["jobCreated"], undefined);
   });
 });

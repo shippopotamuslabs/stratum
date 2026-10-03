@@ -169,6 +169,10 @@ internal class CreateProgramGenerateController(
             )
         }
         generateJob?.cancel()
+        // STR-13 trace: tap time anchors the tap-to-rendered duration. The cloud
+        // jobId is owned by the synthesis adapter (unseen through GenerateProgramUseCase),
+        // so this leg stays session-correlated per STR-19 and joins by time window.
+        val tapMs = synthesisTelemetry.nowMs()
         generateJob =
             scope.launch {
                 flushPreferencesForGeneration()
@@ -208,7 +212,7 @@ internal class CreateProgramGenerateController(
                 onProgramGenerated(program)
                 editorTimer.stop()
                 // STR-13 trace: program handed to the editor for rendering.
-                synthesisTelemetry.synthesisRendered(session.id)
+                synthesisTelemetry.synthesisRendered(session.id, tapMs)
             }
     }
 

@@ -5,7 +5,7 @@ import { isSynthesisJobStale } from "./synthesisJobGuards";
 import { assertUserEntitled } from "../entitlement/assertEntitled";
 import {
   clientStartMsToTimestamp,
-  dispatcherTraceDeletions,
+  staleTraceDeletions,
   initialTraceMap,
 } from "./synthesisTrace";
 import {
@@ -200,11 +200,12 @@ export const startProgramSynthesis = onCall(async (request) => {
           quotaCounted: false,
           // Per-job trace waterfall (STR-13): permanent, low-cost handoff timestamps.
           // clientStart is the app's tap/upload-done epoch ms; falls back to server time.
-          // Dispatcher fields are explicitly cleared: merge:true deep-merges nested maps,
-          // so stale dispatcherTrigger/dispatcherPostSent from a reused jobId must not survive.
+          // Stale dispatcher/worker/solver fields are explicitly cleared: merge:true
+          // deep-merges nested maps, so a retried jobId must not show the previous
+          // attempt's handoff timestamps.
           trace: {
             ...initialTraceMap(clientStart),
-            ...dispatcherTraceDeletions(),
+            ...staleTraceDeletions(),
           },
         },
         { merge: true },

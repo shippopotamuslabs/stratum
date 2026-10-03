@@ -44,6 +44,14 @@ class SynthesisTelemetry(
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
     /**
+     * Current millis on the telemetry clock. Anchors tap-time for
+     * [synthesisReadyObserved]/[synthesisRendered] when the start event and
+     * the end event are logged by different layers (e.g. tap in UI, ready in
+     * the synthesis adapter).
+     */
+    fun nowMs(): Long = clock()
+
+    /**
      * Start a timed synthesis session. Returns the start timestamp for
      * [synthesisReadyObserved].
      */
@@ -67,10 +75,14 @@ class SynthesisTelemetry(
         )
     }
 
-    fun synthesisRendered(jobId: String) {
+    fun synthesisRendered(jobId: String, startMs: Long) {
+        val durationMs = clock() - startMs
         logEvent(
             EVENT_SYNTHESIS_RENDERED,
-            mapOf(PARAM_JOB_ID to jobId),
+            mapOf(
+                PARAM_JOB_ID to jobId,
+                PARAM_DURATION_MS to durationMs.toString(),
+            ),
         )
     }
 
