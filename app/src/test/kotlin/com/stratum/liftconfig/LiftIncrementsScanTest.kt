@@ -5,8 +5,10 @@ import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.featureflag.FakeFeatureFlagRepository
 import com.stratum.core.testing.lift.FakeIncrementScanPort
 import com.stratum.core.testing.lift.FakeWeightDisplayPreferencesRepository
+import com.stratum.core.testing.lift.testForkEquipmentWithTiers
 import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeEquipmentProposalPreferences
+import com.stratum.core.testing.onboarding.FakeEquipmentRepository
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.domain.featureflag.AppFeatureFlag
 import com.stratum.domain.featureflag.ObserveIncrementsAiScanUseCase
@@ -59,6 +61,7 @@ class LiftIncrementsScanTest {
     private val photo = ScanPhoto(byteArrayOf(1, 2, 3), "image/jpeg")
 
     private val fakeLiftRepository = FakeLiftRepository()
+    private val fakeEquipmentRepository = FakeEquipmentRepository()
     private val fakeProposalPrefs = FakeEquipmentProposalPreferences()
     private val fakeFeatureFlags = FakeFeatureFlagRepository()
     private val fakeScanPort = FakeIncrementScanPort()
@@ -107,6 +110,8 @@ class LiftIncrementsScanTest {
                     fakeProposalPrefs,
                     FakeLoggingPort(),
                 ),
+            forkEquipmentWithTiers =
+                testForkEquipmentWithTiers(fakeEquipmentRepository, fakeLiftRepository),
             observeWeightDisplayPreferences =
                 ObserveWeightDisplayPreferencesUseCase(
                     FakeWeightDisplayPreferencesRepository(),

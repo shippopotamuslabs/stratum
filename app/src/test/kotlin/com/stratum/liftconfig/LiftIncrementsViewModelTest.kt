@@ -5,11 +5,14 @@ import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.featureflag.FakeFeatureFlagRepository
 import com.stratum.core.testing.lift.FakeIncrementScanPort
 import com.stratum.core.testing.lift.FakeWeightDisplayPreferencesRepository
+import com.stratum.core.testing.lift.testForkEquipmentWithTiers
 import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeEquipmentProposalPreferences
+import com.stratum.core.testing.onboarding.FakeEquipmentRepository
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.domain.featureflag.ObserveIncrementsAiScanUseCase
 import com.stratum.domain.lift.DismissEquipmentProposalUseCase
+import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
@@ -21,6 +24,7 @@ import com.stratum.domain.lift.SetLiftIncrementTiersUseCase
 import com.stratum.domain.lift.ValidateIncrementTiersUseCase
 import com.stratum.domain.lift.ValidateMicroIncrementsUseCase
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.feature.workout.ui.ProposalEditContext
@@ -50,6 +54,7 @@ class LiftIncrementsViewModelTest {
         listOf(IncrementTier(Weight(0.0, lb), null, Weight(5.0, lb)))
 
     private val fakeLiftRepository = FakeLiftRepository()
+    private val fakeEquipmentRepository = FakeEquipmentRepository()
     private val fakeProposalPrefs = FakeEquipmentProposalPreferences()
     private lateinit var subject: LiftIncrementsViewModel
 
@@ -92,6 +97,8 @@ class LiftIncrementsViewModelTest {
                         fakeProposalPrefs,
                         FakeLoggingPort(),
                     ),
+                forkEquipmentWithTiers =
+                    testForkEquipmentWithTiers(fakeEquipmentRepository, fakeLiftRepository),
                 observeWeightDisplayPreferences =
                     ObserveWeightDisplayPreferencesUseCase(
                         FakeWeightDisplayPreferencesRepository(),
@@ -374,6 +381,97 @@ class LiftIncrementsViewModelTest {
         val stored = fakeLiftRepository.getLiftsByIds(listOf(latId)).single()
         assertEquals(emptyList<Weight>(), stored.microIncrements)
         assertTrue(stored.usesEquipmentDefaultMicro)
+    }
+
+    @Test
+    @DisplayName("Given a band end edit when applied then the neighbor re-tiles with no gap")
+    fun bandEndEditRetilesNeighbor() = runTest {
+        subject.initialize(latId.value)
+        subject.uiState.test {
+            awaitItemWith { it.liftName == "Lat pulldown" && it.editor.tiers.isNotEmpty() }
+            subject.addTier()
+            awaitItemWith { it.editor.tiers.size == 2 }
+            subject.onBandEndChanged(0, "100")
+            val retiled = awaitItemWith { it.editor.tiers[0].upperBound == "100" }
+            assertEquals("0", retiled.editor.tiers[0].lowerBound)
+            assertEquals("100", retiled.editor.tiers[1].lowerBound)
+            assertTrue(retiled.editor.tiers[1].openEnded)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName(
+        "Given an equipment-backed lift when save as new with a name then the copy takes " +
+            "the edits and the lift moves to the copy",
+    )
+    fun saveAsNewForksAndReassignsLift() = runTest {
+        val cableId = EquipmentId("cable")
+        fakeEquipmentRepository.seed(
+            listOf(
+                Equipment(
+                    id = cableId,
+                    name = "Cables",
+                    incrementTiers = catalogTiers,
+                    isCustom = false,
+                ),
+            ),
+        )
+        fakeLiftRepository.seedLifts(
+            listOf(
+                Lift(
+                    id = latId,
+                    name = "Lat pulldown",
+                    movementPatterns = setOf(MovementPattern.VerticalPull),
+                    primaryMuscles = setOf(MuscleGroup.Back),
+                    secondaryMuscles = emptySet(),
+                    incrementTiers = catalogTiers,
+                    presetTags = emptySet(),
+                    usesEquipmentDefaultIncrements = false,
+                    equipmentId = cableId,
+                    equipmentName = "Cables",
+                    enabled = true,
+                ),
+            ),
+        )
+        subject.initialize(latId.value)
+        subject.uiState.test {
+            val ready =
+                awaitItemWith {
+                    it.liftName == "Lat pulldown" && it.forkSourceId == cableId.value
+                }
+            assertEquals("Cables (copy)", ready.forkSuggestion)
+            subject.onTierIncrementChanged(0, "10")
+            subject.saveAsNew("Lat stack")
+            assertEquals(true, awaitItemWith { it.editor.saveSucceeded }.editor.saveSucceeded)
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        val copy = fakeEquipmentRepository.current.single { it.id != cableId }
+        assertEquals("Lat stack", copy.name)
+        assertEquals(
+            listOf(IncrementTier(Weight(0.0, lb), null, Weight(10.0, lb))),
+            copy.incrementTiers,
+        )
+        val moved = fakeLiftRepository.getLiftsByIds(listOf(latId)).single()
+        assertEquals(copy.id, moved.equipmentId)
+    }
+
+    @Test
+    @DisplayName("Given fallback bands with no equipment when shown then the fork entry stays hidden")
+    fun fallbackHidesFork() = runTest {
+        subject.initialize(latId.value)
+        subject.uiState.test {
+            val state =
+                awaitItemWith {
+                    it.liftName == "Lat pulldown" && it.editor.tiers.isNotEmpty()
+                }
+            assertNull(state.forkSourceId)
+            subject.saveAsNew("Lat stack")
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        assertTrue(fakeEquipmentRepository.current.isEmpty())
     }
 
     private fun seedLift(micro: List<Weight>, usesDefaultMicro: Boolean) {
