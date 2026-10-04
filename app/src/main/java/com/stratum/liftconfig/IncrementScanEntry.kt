@@ -40,7 +40,6 @@ import androidx.core.content.FileProvider
 import com.stratum.core.ui.R as UiR
 import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumIconButton
-import com.stratum.core.ui.component.StratumOutlinedButton
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTextButton
 import com.stratum.core.ui.theme.StratumThemeAccessor
@@ -302,37 +301,11 @@ internal fun ScanStatusLines(
 }
 
 /**
- * Self-contained AI scan entry for the shared increments editor shell: the bottom
- * entry button plus [ScanStatusLines] and the photo-source drawer.
- */
-@Composable
-internal fun ScanEntrySection(
-    scanUi: IncrementScanState,
-    onScanPhoto: (ScanPhoto) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val picker = rememberScanPickerState(scanUi = scanUi, onScanPhoto = onScanPhoto)
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        StratumOutlinedButton(
-            text = stringResource(UiR.string.lift_increments_scan_cta),
-            onClick = { picker.state.openPicker() },
-            enabled = scanUi !is IncrementScanState.Scanning,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        ScanStatusLines(scanUi = scanUi, picker = picker)
-    }
-    ScanPickerSheet(picker = picker, scanUi = scanUi)
-}
-
-/**
- * Compact AI scan entry for the equipment band-strip editor (STR-58): a sparkle
- * action for the top app bar driving the same picker flow as [ScanEntrySection].
- * The caller owns [picker] via [rememberScanPickerState] and renders both this
- * action and [ScanStatusLines] in the body so scanning/errors stay visible below
- * the bands. The photo-source drawer is rendered here.
+ * Compact AI scan entry for the band-strip editors (STR-58, STR-61): a sparkle
+ * action for the top app bar. The caller owns [picker] via
+ * [rememberScanPickerState] and renders both this action and [ScanStatusLines]
+ * in the body so scanning/errors stay visible below the bands. The
+ * photo-source drawer is rendered here.
  */
 @Composable
 internal fun ScanIconEntry(

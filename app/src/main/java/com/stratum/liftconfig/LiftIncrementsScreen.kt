@@ -1,50 +1,44 @@
 package com.stratum.liftconfig
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Icon
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stratum.core.ui.R as UiR
 import com.stratum.core.ui.component.StratumButton
-import com.stratum.core.ui.component.StratumIconButton
-import com.stratum.core.ui.component.StratumNumber
 import com.stratum.core.ui.component.StratumOutlinedButton
 import com.stratum.core.ui.component.StratumScaffold
-import com.stratum.core.ui.component.StratumSwitch
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTextButton
-import com.stratum.core.ui.component.StratumTextField
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
 import com.stratum.core.ui.theme.StratumThemeAccessor
-import com.stratum.domain.lift.ScanPhoto
 import com.stratum.feature.workout.ui.ProposalEditContext
 import com.stratum.feature.workout.ui.ProposalTierArgs
 
+/**
+ * Per-lift override increments editor (STR-61 slice 3).
+ *
+ * Same shared band-strip editor as the equipment route (see
+ * [IncrementsBandEditor.kt]); only the chrome differs for override
+ * semantics: an inheritance context row, reset-to-equipment, a direct Save
+ * (one lift affected — no blast-radius confirm), and Save-as-new only when
+ * the lift has equipment to fork from.
+ */
 @Composable
 fun LiftIncrementsRoute(
     liftId: String,
@@ -60,79 +54,102 @@ fun LiftIncrementsRoute(
     LaunchedEffect(state.editor.saveSucceeded) {
         if (state.editor.saveSucceeded) onBackClick()
     }
-    LiftIncrementsScreen(
+    val scanPicker =
+        rememberScanPickerState(
+            scanUi = state.editor.scanUi,
+            onScanPhoto = viewModel::scan,
+        )
+    // Null = band editor sheet closed; non-null opens it for that band.
+    var selectedBand by rememberSaveable { mutableStateOf<Int?>(null) }
+    var showForkSheet by rememberSaveable { mutableStateOf(false) }
+    var showStopsSheet by rememberSaveable { mutableStateOf(false) }
+    val tiers = state.editor.tiers
+    val selection = selectedBand?.coerceIn(0, (tiers.size - 1).coerceAtLeast(0))
+
+    LiftBandEditorScreen(
         state = state,
+        title =
+            state.liftName.ifBlank {
+                stringResource(UiR.string.lift_increments_title)
+            },
+        selection = selection,
+        scanPicker = scanPicker,
+        onBandClick = { selectedBand = it },
+        onAddBand = {
+            // Appends one open band; the sheet opens on the new last band.
+            selectedBand = tiers.size
+            viewModel.addTier()
+        },
+        onBandSheetDismiss = { selectedBand = null },
+        onBandEndChanged = viewModel::onBandEndChanged,
+        onBandStepChanged = viewModel::onTierIncrementChanged,
+        onDeleteBand = {
+            selectedBand = null
+            viewModel.removeTier(it)
+        },
+        onStopsClick = { showStopsSheet = true },
+        onSaveAsNewClick = { showForkSheet = true },
         onBackClick = onBackClick,
-        onTierLowerChanged = viewModel::onTierLowerChanged,
-        onTierUpperChanged = viewModel::onTierUpperChanged,
-        onTierIncrementChanged = viewModel::onTierIncrementChanged,
-        onOpenEndedToggled = viewModel::onOpenEndedToggled,
-        onAddTier = viewModel::addTier,
-        onRemoveTier = viewModel::removeTier,
         onSave = viewModel::save,
-        microActions =
-            MicroEditorActions(
-                onStopChanged = viewModel::onMicroChanged,
-                onAddStop = viewModel::onAddMicro,
-                onRemoveStop = viewModel::onRemoveMicro,
-            ),
         onResetToEquipment = viewModel::resetToEquipmentDefaults,
-        onScanPhoto = viewModel::scan,
+        onStopChanged = viewModel::onMicroChanged,
+        onAddStop = viewModel::onAddMicro,
+        onRemoveStop = viewModel::onRemoveMicro,
+        onForkCreate = { name ->
+            showForkSheet = false
+            viewModel.saveAsNew(name)
+        },
+        onForkDismiss = { showForkSheet = false },
+        onStopsDismiss = { showStopsSheet = false },
+        showForkSheet = showForkSheet,
+        showStopsSheet = showStopsSheet,
     )
 }
 
-/**
- * Adder-card callbacks, grouped so the screen stays under the parameter-count gate.
- * The equipment editor wires live handlers; other callers use the no-op defaults.
- */
-data class MicroEditorActions(
-    val onStopChanged: (Int, String) -> Unit = { _, _ -> },
-    val onAddStop: () -> Unit = {},
-    val onRemoveStop: (Int) -> Unit = {},
-)
-
-/**
- * Equipment-page fork extras, grouped so the shell stays under the parameter-count gate.
- * Non-null renders the two-button bar (Update Shared / Save As New) plus the
- * blast-radius banner slot; null renders the single Save button (per-lift
- * override editor). [AffectsBannerUi.onClick] null keeps the banner display-only.
- */
-data class ForkSaveUi(
-    val onSaveAsNew: () -> Unit = {},
-    val affectsBanner: AffectsBannerUi? = null,
-)
-
+@Suppress("LongParameterList")
 @Composable
-fun LiftIncrementsScreen(
+internal fun LiftBandEditorScreen(
     state: LiftIncrementsUiState,
+    title: String,
+    selection: Int?,
+    scanPicker: ScanPicker,
+    onBandClick: (Int) -> Unit,
+    onAddBand: () -> Unit,
+    onBandSheetDismiss: () -> Unit,
+    onBandEndChanged: (Int, String) -> Unit,
+    onBandStepChanged: (Int, String) -> Unit,
+    onDeleteBand: (Int) -> Unit,
+    onStopsClick: () -> Unit,
+    onSaveAsNewClick: () -> Unit,
     onBackClick: () -> Unit,
-    onTierLowerChanged: (Int, String) -> Unit,
-    onTierUpperChanged: (Int, String) -> Unit,
-    onTierIncrementChanged: (Int, String) -> Unit,
-    onOpenEndedToggled: (Int, Boolean) -> Unit,
-    onAddTier: () -> Unit,
-    onRemoveTier: (Int) -> Unit,
     onSave: () -> Unit,
-    microActions: MicroEditorActions = MicroEditorActions(),
-    onResetToEquipment: () -> Unit = {},
-    forkUi: ForkSaveUi? = null,
-    onScanPhoto: (ScanPhoto) -> Unit = {},
+    onResetToEquipment: () -> Unit,
+    onStopChanged: (Int, String) -> Unit,
+    onAddStop: () -> Unit,
+    onRemoveStop: (Int) -> Unit,
+    onForkCreate: (String) -> Unit,
+    onForkDismiss: () -> Unit,
+    onStopsDismiss: () -> Unit,
+    showForkSheet: Boolean,
+    showStopsSheet: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val forkSave = forkUi
-    // Shared editor content lives in [IncrementsEditorData]; screen-specific
-    // chrome (banners, reset) stays on the UiState itself.
     val editor = state.editor
     StratumScaffold(
         modifier = modifier,
         topBar = {
             StratumTopBar(
-                title = state.liftName.ifBlank { stringResource(UiR.string.lift_increments_title) },
+                title = title,
                 navigationIcon = {
                     StratumTopBarBackButton(
                         onClick = onBackClick,
                         contentDescription = stringResource(UiR.string.lift_config_navigate_back),
                     )
+                },
+                actions = {
+                    if (editor.scanAvailable) {
+                        ScanIconEntry(picker = scanPicker, scanUi = editor.scanUi)
+                    }
                 },
             )
         },
@@ -142,83 +159,80 @@ fun LiftIncrementsScreen(
                 Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(horizontal = 16.dp),
+                    .padding(horizontal = 16.dp)
+                    .verticalScroll(rememberScrollState()),
         ) {
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(top = 4.dp, bottom = 16.dp),
-            ) {
-                item {
-                    IncrementsHelpCard()
-                }
-                if (forkSave?.affectsBanner != null) {
-                    item {
-                        InheritanceBanner(
-                            message = forkSave.affectsBanner.message,
-                            onClick = forkSave.affectsBanner.onClick,
-                        )
-                    }
-                }
-                if (state.inheritanceBanner != null) {
-                    item {
-                        InheritanceBanner(message = state.inheritanceBanner)
-                    }
-                } else if (state.showResetToEquipment) {
-                    item {
-                        InheritanceBanner(
-                            message = stringResource(UiR.string.lift_increments_override_banner),
-                        )
-                    }
-                }
-                if (editor.validationMessage != null) {
-                    item {
-                        IncrementsValidationBanner(message = editor.validationMessage)
-                    }
-                }
-                if (editor.warnedTierIndexes.isNotEmpty()) {
-                    item {
-                        SampleWarningBanner()
-                    }
-                }
-                itemsIndexed(editor.tiers, key = { index, _ -> index }) { index, tier ->
-                    TierEditorCard(
-                        index = index,
-                        tier = tier,
-                        unitLabel = editor.unitLabel,
-                        isLast = index == editor.tiers.lastIndex,
-                        canRemove = editor.tiers.size > 1,
-                        hasWarning = index in editor.warnedTierIndexes,
-                        onLowerChanged = { onTierLowerChanged(index, it) },
-                        onUpperChanged = { onTierUpperChanged(index, it) },
-                        onIncrementChanged = { onTierIncrementChanged(index, it) },
-                        onOpenEndedToggled = { onOpenEndedToggled(index, it) },
-                        onRemove = { onRemoveTier(index) },
-                    )
-                }
-                item {
-                    StratumTextButton(
-                        text = stringResource(UiR.string.lift_increments_add_tier),
-                        onClick = onAddTier,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-                item {
-                    MicroEditorCard(
-                        stops = editor.microStops,
-                        unitLabel = editor.unitLabel,
-                        onStopChanged = microActions.onStopChanged,
-                        onAddStop = microActions.onAddStop,
-                        onRemoveStop = microActions.onRemoveStop,
-                    )
-                }
+            EditorContextRow(
+                text =
+                    state.inheritanceBanner
+                        ?: stringResource(UiR.string.lift_increments_override_banner),
+                onClick = null,
+            )
+            StratumText(
+                text = stringResource(UiR.string.equipment_band_section),
+                style = StratumThemeAccessor.typography.sectionLabel,
+                muted = true,
+                modifier = Modifier.padding(start = 2.dp, bottom = 8.dp),
+            )
+            StratumText(
+                text = stringResource(UiR.string.equipment_band_hint),
+                style = StratumThemeAccessor.typography.sectionLabel,
+                muted = true,
+                modifier = Modifier.padding(start = 2.dp, bottom = 10.dp),
+            )
+            BandStrip(
+                tiers = editor.tiers,
+                unitLabel = editor.unitLabel,
+                selection = selection,
+                onBandClick = onBandClick,
+                onAddBand = onAddBand,
+            )
+            if (selection != null && editor.tiers.indices.contains(selection)) {
+                BandCaption(
+                    tiers = editor.tiers,
+                    selection = selection,
+                    unitLabel = editor.unitLabel,
+                    modifier = Modifier.padding(start = 2.dp, top = 6.dp),
+                )
             }
+            if (editor.scanAvailable) {
+                ScanStatusLines(
+                    scanUi = editor.scanUi,
+                    picker = scanPicker,
+                    modifier = Modifier.padding(top = 12.dp),
+                )
+            }
+            if (editor.validationMessage != null) {
+                EditorErrorBanner(
+                    message = editor.validationMessage,
+                    modifier = Modifier.padding(top = 12.dp),
+                )
+            }
+            if (editor.warnedTierIndexes.isNotEmpty()) {
+                StratumText(
+                    text = stringResource(UiR.string.lift_increments_sample_warning),
+                    style = StratumThemeAccessor.typography.sectionLabel,
+                    muted = true,
+                    modifier = Modifier.padding(start = 2.dp, top = 12.dp),
+                )
+            }
+            StratumText(
+                text = stringResource(UiR.string.lift_increments_micro_title),
+                style = StratumThemeAccessor.typography.sectionLabel,
+                muted = true,
+                modifier = Modifier.padding(start = 2.dp, top = 14.dp, bottom = 8.dp),
+            )
+            MicroStopsRow(
+                stops = editor.microStops,
+                unitLabel = editor.unitLabel,
+                onClick = onStopsClick,
+            )
             Column(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .padding(top = 8.dp, bottom = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                        .padding(top = 16.dp, bottom = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 if (state.showResetToEquipment) {
                     StratumOutlinedButton(
@@ -228,373 +242,53 @@ fun LiftIncrementsScreen(
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
-                if (editor.scanAvailable) {
-                    ScanEntrySection(
-                        scanUi = editor.scanUi,
-                        onScanPhoto = onScanPhoto,
-                    )
-                }
-                if (forkSave != null) {
-                    StratumButton(
-                        text = stringResource(UiR.string.equipment_increments_update_shared),
-                        onClick = onSave,
+                StratumButton(
+                    text = stringResource(UiR.string.lift_increments_save),
+                    onClick = onSave,
+                    enabled = !editor.isSaving && editor.validationMessage == null,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (state.forkSourceId != null) {
+                    StratumTextButton(
+                        text = stringResource(UiR.string.equipment_increments_save_as_new),
+                        onClick = onSaveAsNewClick,
                         enabled = !editor.isSaving && editor.validationMessage == null,
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    StratumOutlinedButton(
-                        text = stringResource(UiR.string.equipment_increments_save_as_new),
-                        onClick = forkSave.onSaveAsNew,
-                        enabled = !editor.isSaving && editor.validationMessage == null,
-                        modifier = Modifier.padding(bottom = 20.dp).fillMaxWidth(),
-                    )
-                } else {
-                    StratumButton(
-                        text = stringResource(UiR.string.lift_increments_save),
-                        onClick = onSave,
-                        enabled = !editor.isSaving && editor.validationMessage == null,
-                        modifier = Modifier.padding(bottom = 20.dp).fillMaxWidth(),
-                    )
                 }
             }
         }
     }
-}
-
-/** Blast-radius banner for the equipment editor (message plus optional sheet entry). */
-data class AffectsBannerUi(
-    val message: String,
-    val onClick: (() -> Unit)? = null,
-)
-
-
-
-@Composable
-private fun InheritanceBanner(
-    message: String,
-    onClick: (() -> Unit)? = null,
-) {
-    val colors = StratumThemeAccessor.colors
-    val shapes = StratumThemeAccessor.shapes
-    var modifier =
-        Modifier
-            .fillMaxWidth()
-            .background(color = colors.surfaceRaised, shape = shapes.panel)
-            .border(
-                width = shapes.borderWidth,
-                color = colors.accent,
-                shape = shapes.panel,
-            )
-    if (onClick != null) {
-        modifier = modifier.clickable(onClick = onClick)
-    }
-    StratumText(
-        text = message,
-        style = StratumThemeAccessor.typography.sectionLabel,
-        muted = true,
-        modifier = modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-    )
-}
-
-@Composable
-private fun IncrementsHelpCard() {
-    val colors = StratumThemeAccessor.colors
-    val shapes = StratumThemeAccessor.shapes
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .background(color = colors.surfaceRaised, shape = shapes.panel)
-                .border(
-                    width = shapes.borderWidth,
-                    color = colors.borderSubtle,
-                    shape = shapes.panel,
-                )
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.Top,
-    ) {
-        Icon(
-            painter = painterResource(UiR.drawable.ic_info),
-            contentDescription = null,
-            tint = colors.textMuted,
-            modifier = Modifier.size(18.dp),
-        )
-        StratumText(
-            text = stringResource(UiR.string.lift_increments_help),
-            style = StratumThemeAccessor.typography.sectionLabel,
-            muted = true,
-            modifier = Modifier.weight(1f),
+    if (selection != null && editor.tiers.indices.contains(selection)) {
+        BandEditorSheet(
+            index = selection,
+            tier = editor.tiers[selection],
+            start = IncrementBandTiling.startAt(editor.tiers, selection),
+            isLast = selection == editor.tiers.lastIndex,
+            canDelete = editor.tiers.size > 1,
+            unitLabel = editor.unitLabel,
+            onEndChanged = { onBandEndChanged(selection, it) },
+            onStepChanged = { onBandStepChanged(selection, it) },
+            onDelete = { onDeleteBand(selection) },
+            onDone = onBandSheetDismiss,
+            onDismiss = onBandSheetDismiss,
         )
     }
-}
-
-@Composable
-private fun IncrementsValidationBanner(message: String) {
-    val colors = StratumThemeAccessor.colors
-    val shapes = StratumThemeAccessor.shapes
-    StratumText(
-        text = message,
-        style =
-            StratumThemeAccessor.typography.bodyLarge.copy(
-                color = colors.error,
-            ),
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .background(color = colors.surfaceRaised, shape = shapes.panel)
-                .border(
-                    width = shapes.borderWidth,
-                    color = colors.error,
-                    shape = shapes.panel,
-                )
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-    )
-}
-
-@Composable
-private fun SampleWarningBanner() {
-    val colors = StratumThemeAccessor.colors
-    val shapes = StratumThemeAccessor.shapes
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .background(color = colors.surfaceRaised, shape = shapes.panel)
-                .border(
-                    width = shapes.borderWidth,
-                    color = colors.warning,
-                    shape = shapes.panel,
-                )
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.Top,
-    ) {
-        Icon(
-            painter = painterResource(UiR.drawable.ic_info),
-            contentDescription = null,
-            tint = colors.warning,
-            modifier = Modifier.size(18.dp),
-        )
-        StratumText(
-            text = stringResource(UiR.string.lift_increments_sample_warning),
-            style = StratumThemeAccessor.typography.sectionLabel,
-            modifier = Modifier.weight(1f),
+    if (showForkSheet && state.forkSourceId != null) {
+        ForkNameSheet(
+            suggestion = state.forkSuggestion,
+            onCreate = onForkCreate,
+            onDismiss = onForkDismiss,
         )
     }
-}
-
-@Composable
-private fun TierEditorCard(
-    index: Int,
-    tier: IncrementTierDraft,
-    unitLabel: String,
-    isLast: Boolean,
-    canRemove: Boolean,
-    onLowerChanged: (String) -> Unit,
-    onUpperChanged: (String) -> Unit,
-    onIncrementChanged: (String) -> Unit,
-    onOpenEndedToggled: (Boolean) -> Unit,
-    onRemove: () -> Unit,
-    /** True when this band's step misses a proposal's logged weight (yellow, non-blocking). */
-    hasWarning: Boolean = false,
-) {
-    val colors = StratumThemeAccessor.colors
-    val shapes = StratumThemeAccessor.shapes
-    val summary = tierSummaryText(tier, unitLabel)
-
-    Column(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .background(color = colors.surfaceRaised, shape = shapes.panel)
-                .border(
-                    width = shapes.borderWidth,
-                    color = if (hasWarning) colors.warning else colors.borderSubtle,
-                    shape = shapes.panel,
-                )
-                .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                StratumText(
-                    text = stringResource(UiR.string.lift_increments_tier_label, index + 1),
-                    style = StratumThemeAccessor.typography.titleMedium,
-                )
-                if (summary != null) {
-                    StratumNumber(
-                        text = summary,
-                        style = StratumThemeAccessor.typography.sectionLabel,
-                    )
-                }
-            }
-            if (canRemove) {
-                StratumIconButton(onClick = onRemove) {
-                    Icon(
-                        painter = painterResource(UiR.drawable.ic_close),
-                        contentDescription = stringResource(UiR.string.lift_increments_remove_tier),
-                        tint = colors.textMuted,
-                    )
-                }
-            }
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            StratumTextField(
-                value = tier.lowerBound,
-                onValueChange = onLowerChanged,
-                label = "${stringResource(UiR.string.lift_increments_lower)} ($unitLabel)",
-                modifier = Modifier.weight(1f),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            )
-            if (!tier.openEnded) {
-                StratumTextField(
-                    value = tier.upperBound.orEmpty(),
-                    onValueChange = onUpperChanged,
-                    label = "${stringResource(UiR.string.lift_increments_upper)} ($unitLabel)",
-                    modifier = Modifier.weight(1f),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                )
-            } else {
-                StratumTextField(
-                    value = stringResource(UiR.string.lift_increments_upper_open),
-                    onValueChange = {},
-                    label = "${stringResource(UiR.string.lift_increments_upper)} ($unitLabel)",
-                    modifier = Modifier.weight(1f),
-                    enabled = false,
-                )
-            }
-            StratumTextField(
-                value = tier.increment,
-                onValueChange = onIncrementChanged,
-                label = "${stringResource(UiR.string.lift_increments_step)} ($unitLabel)",
-                modifier = Modifier.weight(1f),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            )
-        }
-
-        if (isLast) {
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .height(shapes.borderWidth)
-                        .background(colors.borderSubtle),
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                StratumText(
-                    text = stringResource(UiR.string.lift_increments_open_ended),
-                    style = StratumThemeAccessor.typography.sectionLabel,
-                    muted = true,
-                )
-                StratumSwitch(
-                    checked = tier.openEnded,
-                    onCheckedChange = onOpenEndedToggled,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun MicroEditorCard(
-    stops: List<String>,
-    unitLabel: String,
-    onStopChanged: (Int, String) -> Unit,
-    onAddStop: () -> Unit,
-    onRemoveStop: (Int) -> Unit,
-) {
-    val colors = StratumThemeAccessor.colors
-    val shapes = StratumThemeAccessor.shapes
-    val summary =
-        if (stops.isEmpty()) {
-            stringResource(UiR.string.lift_increments_micro_empty)
-        } else {
-            "0 / ${stops.joinToString(separator = " / ")} $unitLabel"
-        }
-
-    Column(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .background(color = colors.surfaceRaised, shape = shapes.panel)
-                .border(
-                    width = shapes.borderWidth,
-                    color = colors.borderSubtle,
-                    shape = shapes.panel,
-                )
-                .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        StratumText(
-            text = stringResource(UiR.string.lift_increments_micro_title),
-            style = StratumThemeAccessor.typography.titleMedium,
-        )
-        StratumNumber(
-            text = summary,
-            style = StratumThemeAccessor.typography.sectionLabel,
-        )
-        StratumText(
-            text = stringResource(UiR.string.lift_increments_micro_help),
-            style = StratumThemeAccessor.typography.sectionLabel,
-            muted = true,
-        )
-        stops.forEachIndexed { index, stop ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                StratumTextField(
-                    value = stop,
-                    onValueChange = { onStopChanged(index, it) },
-                    label = stringResource(UiR.string.lift_increments_micro_stop, unitLabel),
-                    modifier = Modifier.weight(1f),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                )
-                StratumIconButton(onClick = { onRemoveStop(index) }) {
-                    Icon(
-                        painter = painterResource(UiR.drawable.ic_close),
-                        contentDescription = stringResource(UiR.string.lift_increments_micro_remove),
-                        tint = colors.textMuted,
-                    )
-                }
-            }
-        }
-        StratumTextButton(
-            text = stringResource(UiR.string.lift_increments_micro_add),
-            onClick = onAddStop,
-            modifier = Modifier.fillMaxWidth(),
+    if (showStopsSheet) {
+        StopsSheet(
+            stops = editor.microStops,
+            unitLabel = editor.unitLabel,
+            onStopChanged = onStopChanged,
+            onAddStop = onAddStop,
+            onRemoveStop = onRemoveStop,
+            onDismiss = onStopsDismiss,
         )
     }
-}
-
-@Composable
-private fun tierSummaryText(tier: IncrementTierDraft, unitLabel: String): String? {
-    val lower = tier.lowerBound.trim()
-    val step = tier.increment.trim()
-    if (lower.isEmpty() || step.isEmpty()) return null
-    val body =
-        if (tier.openEnded) {
-            stringResource(UiR.string.lift_increments_summary_open, lower, step)
-        } else {
-            val upper = tier.upperBound?.trim().orEmpty()
-            if (upper.isEmpty()) return null
-            stringResource(UiR.string.lift_increments_summary_closed, lower, upper, step)
-        }
-    return "$body $unitLabel"
 }
