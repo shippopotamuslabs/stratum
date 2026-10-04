@@ -428,6 +428,41 @@ internal fun EditorErrorBanner(
     }
 }
 
+/** Caption under the strip: `Band N of M · starts at X lb` (`· open-ended` for last). */
+@Composable
+internal fun BandCaption(
+    tiers: List<IncrementTierDraft>,
+    selection: Int,
+    unitLabel: String,
+    modifier: Modifier = Modifier,
+) {
+    val start = IncrementBandTiling.startAt(tiers, selection)
+    val isOpen = selection == tiers.lastIndex
+    StratumText(
+        text =
+            if (isOpen) {
+                stringResource(
+                    UiR.string.equipment_band_caption_open,
+                    selection + 1,
+                    tiers.size,
+                    start,
+                    unitLabel,
+                )
+            } else {
+                stringResource(
+                    UiR.string.equipment_band_caption,
+                    selection + 1,
+                    tiers.size,
+                    start,
+                    unitLabel,
+                )
+            },
+        style = StratumThemeAccessor.typography.sectionLabel,
+        muted = true,
+        modifier = modifier,
+    )
+}
+
 private const val OPEN_BAND_WEIGHT = 4f
 private const val MIN_BAND_WEIGHT = 2f
 private const val BAND_WEIGHT_SPAN = 25f
