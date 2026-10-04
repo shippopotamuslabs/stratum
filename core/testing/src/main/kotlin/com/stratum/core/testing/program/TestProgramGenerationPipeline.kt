@@ -12,9 +12,8 @@ import com.stratum.domain.program.generation.synthesis.ProgramSynthesisPort
  * Full program-generation pipeline for tests.
  *
  * Defaults to [FakeProgramSynthesisPort] so JVM unit tests (`:core:domain`, feature modules)
- * do not require OR-Tools native libraries. Pass
- * [com.stratum.domain.solver.CpSatProgramSynthesizer] explicitly from
- * `:core:domain-solver-tests` when exercising real CP-SAT.
+ * stay native-free. Real CP-SAT runs in the Python solver service (`solver-python/`,
+ * STR-45); there is no Kotlin solver anymore (STR-46).
  */
 fun testProgramGenerationPipeline(
     programSynthesisPort: ProgramSynthesisPort = FakeProgramSynthesisPort(),

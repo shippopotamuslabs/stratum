@@ -70,26 +70,6 @@ val SCENARIO_SNAPSHOTS: List<MuscleVolumeSnapshotContext> =
         .filter { literature -> literature.muscle.name in SCENARIO_MUSCLE_NAMES }
         .map { literature -> literature.toScenarioSnapshot() }
 
-val SPECIALIZATION_PRESETS: Map<String, Map<String, String>> = mapOf(
-    "maintenance" to emptyMap(),
-    "arms" to mapOf("Bicep" to "Specialize", "Tricep" to "Specialize"),
-    "chest" to mapOf("Chest" to "Specialize"),
-    "back" to mapOf("Back" to "Specialize"),
-    "glutes" to mapOf("Glute" to "Specialize"),
-    "shoulders" to mapOf("LateralDeltoid" to "Specialize", "AnteriorDeltoid" to "Specialize"),
-    "legs" to mapOf("Quad" to "Specialize", "Glute" to "Specialize"),
-)
-
-data class ScenarioConfig(
-    val days: Int,
-    val preset: String,
-    val label: String,
-    /** Key into [WEEKDAY_LAYOUTS]. Default sequential dense week. */
-    val weekdayLayout: String = "sequential",
-) {
-    override fun toString(): String = label
-}
-
 val WEEKDAY_LAYOUTS: Map<String, List<String>> = mapOf(
     "sequential" to listOf("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"),
     "mwf" to listOf("Monday", "Wednesday", "Friday"),
@@ -98,76 +78,6 @@ val WEEKDAY_LAYOUTS: Map<String, List<String>> = mapOf(
     "sean5" to listOf("Sunday", "Monday", "Wednesday", "Thursday", "Friday"),
     "weird4" to listOf("Monday", "Tuesday", "Wednesday", "Friday"),
 )
-
-/**
- * Full cartesian matrix (3/4/5/6-day × every specialization preset). Expensive — **nightly /
- * full regression only**. Prefer [CORE_SOLVER_SCENARIOS] for PR/local runs.
- */
-val GENERATION_SCENARIOS: List<ScenarioConfig> = buildList {
-    for (days in listOf(3, 4, 5, 6)) {
-        for (preset in SPECIALIZATION_PRESETS.keys) {
-            add(ScenarioConfig(days = days, preset = preset, label = "$days-day $preset"))
-        }
-    }
-}
-
-/**
- * High-signal smoke/core matrix (~10 scenarios). Covers:
- * - sparse rest-sandwiched (mwf), dense sequential, mixed (mtwfs/sean5/weird4/spread5)
- * - maintenance / multi-spec arms / lower / single large upper / shoulders / glute
- *
- * Select via [activeSolverScenarios] (default) or `-Dstratum.solver.scenarios=full`.
- */
-val CORE_SOLVER_SCENARIOS: List<ScenarioConfig> = listOf(
-    ScenarioConfig(3, "maintenance", "3-day mwf maintenance", "mwf"),
-    ScenarioConfig(4, "maintenance", "4-day sequential maintenance", "sequential"),
-    ScenarioConfig(6, "maintenance", "6-day sequential maintenance", "sequential"),
-    ScenarioConfig(4, "arms", "4-day sequential arms", "sequential"),
-    ScenarioConfig(5, "arms", "5-day mtwfs arms", "mtwfs"),
-    ScenarioConfig(5, "legs", "5-day sequential legs", "sequential"),
-    ScenarioConfig(5, "legs", "5-day sean5 legs", "sean5"),
-    ScenarioConfig(4, "chest", "4-day spread5 chest", "spread5"),
-    ScenarioConfig(4, "glutes", "4-day weird4 glutes", "weird4"),
-    ScenarioConfig(5, "shoulders", "5-day sequential shoulders", "sequential"),
-)
-
-/**
- * Layout-only checks kept for property tests that only assert weekday assignment.
- * Subset of [CORE_SOLVER_SCENARIOS] layouts with arm/chest load.
- */
-val WEEKDAY_LAYOUT_SCENARIOS: List<ScenarioConfig> = listOf(
-    ScenarioConfig(3, "arms", "3-day mwf arms", "mwf"),
-    ScenarioConfig(5, "arms", "5-day mtwfs arms", "mtwfs"),
-    ScenarioConfig(4, "chest", "4-day spread5 chest", "spread5"),
-)
-
-/**
- * Scenario matrix for parameterized CP-SAT harnesses.
- *
- * - default / `core` → [CORE_SOLVER_SCENARIOS] (~10 solves per method)
- * - `full` → [GENERATION_SCENARIOS] (28 sequential combos; use for nightly)
- *
- * System property: `stratum.solver.scenarios=core|full`  
- * Gradle: `-PfullSolverScenarios=true` maps to `full` in domain-solver-tests.
- */
-fun activeSolverScenarios(): List<ScenarioConfig> {
-    val mode =
-        System.getProperty("stratum.solver.scenarios")
-            ?.trim()
-            ?.lowercase()
-            .orEmpty()
-    return when (mode) {
-        "full", "all", "cartesian" -> GENERATION_SCENARIOS
-        else -> CORE_SOLVER_SCENARIOS
-    }
-}
-
-/** Presets that specialize 2+ muscles (co-spec balance tests). */
-fun multiSpecializePresets(): Set<String> =
-    SPECIALIZATION_PRESETS
-        .filterValues { levels -> levels.values.count { it == "Specialize" } >= 2 }
-        .keys
-
 
 fun scenarioContext(days: Int, specialization: Map<String, String>): ProgramGenerationContext =
     parseScenarioContext(scenarioPayload(days, specialization))
