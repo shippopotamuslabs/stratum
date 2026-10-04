@@ -78,14 +78,10 @@ fun EquipmentIncrementsRoute(
         chrome =
             IncrementEditorChrome(
                 contextText =
-                    if (affectedCount > 0) {
-                        stringResource(
-                            UiR.string.equipment_shared_by,
-                            affectedCount,
-                        )
-                    } else {
-                        stringResource(UiR.string.equipment_increments_affects_none)
-                    },
+                    stringResource(
+                        UiR.string.equipment_shared_by,
+                        affectedCount,
+                    ),
                 onContextClick = if (affectedCount > 0) ({ showAffectedSheet = true }) else null,
                 saveText = stringResource(UiR.string.equipment_save_changes),
                 saveConfirm =
