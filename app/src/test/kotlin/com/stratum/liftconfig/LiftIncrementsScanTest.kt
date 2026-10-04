@@ -7,10 +7,13 @@ import com.stratum.core.testing.lift.FakeIncrementScanPort
 import com.stratum.core.testing.lift.FakeWeightDisplayPreferencesRepository
 import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeEquipmentProposalPreferences
+import com.stratum.core.testing.onboarding.FakeEquipmentRepository
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.domain.featureflag.AppFeatureFlag
 import com.stratum.domain.featureflag.ObserveIncrementsAiScanUseCase
 import com.stratum.domain.lift.DismissEquipmentProposalUseCase
+import com.stratum.domain.lift.ForkEquipmentUseCase
+import com.stratum.domain.lift.ForkEquipmentWithTiersUseCase
 import com.stratum.domain.lift.IncrementScanPort
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.Lift
@@ -22,6 +25,8 @@ import com.stratum.domain.lift.ScanIncrementTiersUseCase
 import com.stratum.domain.lift.ScanPhoto
 import com.stratum.domain.lift.ScannedTierRow
 import com.stratum.domain.lift.ScannedTiers
+import com.stratum.domain.lift.SetEquipmentIncrementTiersUseCase
+import com.stratum.domain.lift.SetLiftEquipmentUseCase
 import com.stratum.domain.lift.SetLiftIncrementTiersUseCase
 import com.stratum.domain.lift.ValidateIncrementTiersUseCase
 import com.stratum.domain.lift.ValidateMicroIncrementsUseCase
@@ -59,6 +64,7 @@ class LiftIncrementsScanTest {
     private val photo = ScanPhoto(byteArrayOf(1, 2, 3), "image/jpeg")
 
     private val fakeLiftRepository = FakeLiftRepository()
+    private val fakeEquipmentRepository = FakeEquipmentRepository()
     private val fakeProposalPrefs = FakeEquipmentProposalPreferences()
     private val fakeFeatureFlags = FakeFeatureFlagRepository()
     private val fakeScanPort = FakeIncrementScanPort()
@@ -106,6 +112,22 @@ class LiftIncrementsScanTest {
                 DismissEquipmentProposalUseCase(
                     fakeProposalPrefs,
                     FakeLoggingPort(),
+                ),
+            forkEquipmentWithTiers =
+                ForkEquipmentWithTiersUseCase(
+                    ForkEquipmentUseCase(
+                        fakeEquipmentRepository,
+                        ValidateIncrementTiersUseCase(),
+                        ValidateMicroIncrementsUseCase(),
+                        FakeLoggingPort(),
+                    ),
+                    SetEquipmentIncrementTiersUseCase(
+                        fakeEquipmentRepository,
+                        ValidateIncrementTiersUseCase(),
+                        ValidateMicroIncrementsUseCase(),
+                        FakeLoggingPort(),
+                    ),
+                    SetLiftEquipmentUseCase(fakeLiftRepository, FakeLoggingPort()),
                 ),
             observeWeightDisplayPreferences =
                 ObserveWeightDisplayPreferencesUseCase(
