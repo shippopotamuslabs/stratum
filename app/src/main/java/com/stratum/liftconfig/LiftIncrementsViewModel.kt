@@ -298,41 +298,12 @@ class LiftIncrementsViewModel @Inject constructor(
 
     fun save() {
         val id = liftId.value ?: return
-        val unit = displayUnit.value
-        val domainTiers = IncrementTierDraftOps.toDomainOrNull(uiState.value.editor.tiers, unit)
-        if (domainTiers == null) {
-            validationOverride.value = "Enter valid numbers for all bands"
-            return
-        }
-        when (val result = validateIncrementTiers(domainTiers)) {
-            is IncrementTiersValidationResult.Invalid -> {
-                validationOverride.value = IncrementTierDraftOps.toUserMessage(result.errors)
-                return
-            }
-            IncrementTiersValidationResult.Valid -> Unit
-        }
-        // Untouched stops leave the micro column alone; edited stops replace the
-        // override (empty = explicitly no adder).
-        val domainMicro =
-            when (val microDraft = draftMicro.value) {
-                MicroDraft.Untouched -> null
-                is MicroDraft.Edited ->
-                    validatedDraftMicro(microDraft.stops, domainTiers, unit) ?: return
-            }
+        val edits = resolveValidatedEdits() ?: return
         viewModelScope.launch {
-            isSaving.value = true
-            val result = setLiftIncrementTiers(LiftId(id), domainTiers, domainMicro)
-            isSaving.value = false
-            if (result.isSuccess) {
-                // A proposal-launched save resolves the proposal even when the hand-set
-                // tiers still miss logged weights — the user took ownership.
-                proposalSession.dismissIfPresent(dismissEquipmentProposal)
-                saveSucceeded.value = true
-                validationOverride.value = null
-            } else {
-                validationOverride.value = result.exceptionOrNull()?.message
-                    ?: "Could not save increments"
-            }
+            runSaving(
+                persist = { setLiftIncrementTiers(LiftId(id), edits.tiers, edits.micro) },
+                failureMessage = "Could not save increments",
+            )
         }
     }
 
@@ -349,16 +320,48 @@ class LiftIncrementsViewModel @Inject constructor(
     fun saveAsNew(copyName: String = "") {
         val id = liftId.value ?: return
         val sourceId = uiState.value.forkSourceId?.let(::EquipmentId) ?: return
+        val edits = resolveValidatedEdits() ?: return
+        val resolvedName = copyName.trim().ifBlank { forkNameSuggestion() }
+        viewModelScope.launch {
+            runSaving(
+                persist = {
+                    forkEquipmentWithTiers(
+                        sourceId,
+                        resolvedName,
+                        edits.tiers,
+                        LiftId(id),
+                        edits.micro,
+                    )
+                },
+                failureMessage = "Could not copy equipment",
+            )
+        }
+    }
+
+    /** Validated bands plus stops; micro null means "leave the column alone". */
+    private data class ValidatedEdits(
+        val tiers: List<IncrementTier>,
+        val micro: List<Weight>?,
+    )
+
+    /**
+     * Shared edit-to-domain pipeline for [save] and [saveAsNew]: draft
+     * mapping, tier validation, and stop validation, setting
+     * [validationOverride] on failure. Untouched stops yield null (the column
+     * is left alone / the fork inherits the parent's knob); edited stops
+     * replace the override (empty = explicitly no adder).
+     */
+    private fun resolveValidatedEdits(): ValidatedEdits? {
         val unit = displayUnit.value
         val domainTiers = IncrementTierDraftOps.toDomainOrNull(uiState.value.editor.tiers, unit)
         if (domainTiers == null) {
             validationOverride.value = "Enter valid numbers for all bands"
-            return
+            return null
         }
         when (val result = validateIncrementTiers(domainTiers)) {
             is IncrementTiersValidationResult.Invalid -> {
                 validationOverride.value = IncrementTierDraftOps.toUserMessage(result.errors)
-                return
+                return null
             }
             IncrementTiersValidationResult.Valid -> Unit
         }
@@ -366,31 +369,30 @@ class LiftIncrementsViewModel @Inject constructor(
             when (val microDraft = draftMicro.value) {
                 MicroDraft.Untouched -> null
                 is MicroDraft.Edited ->
-                    validatedDraftMicro(microDraft.stops, domainTiers, unit) ?: return
+                    validatedDraftMicro(microDraft.stops, domainTiers, unit) ?: return null
             }
-        viewModelScope.launch {
-            isSaving.value = true
-            try {
-                val resolvedName = copyName.trim().ifBlank { forkNameSuggestion() }
-                val result =
-                    forkEquipmentWithTiers(
-                        sourceId,
-                        resolvedName,
-                        domainTiers,
-                        LiftId(id),
-                        domainMicro,
-                    )
-                if (result.isSuccess) {
-                    proposalSession.dismissIfPresent(dismissEquipmentProposal)
-                    saveSucceeded.value = true
-                    validationOverride.value = null
-                } else {
-                    validationOverride.value = result.exceptionOrNull()?.message
-                        ?: "Could not copy equipment"
-                }
-            } finally {
-                isSaving.value = false
+        return ValidatedEdits(domainTiers, domainMicro)
+    }
+
+    /** Shared save bookkeeping: flags, proposal dismissal, success/error paths. */
+    private suspend fun runSaving(
+        persist: suspend () -> Result<*>,
+        failureMessage: String,
+    ) {
+        isSaving.value = true
+        try {
+            val result = persist()
+            if (result.isSuccess) {
+                // A proposal-launched save resolves the proposal even when the hand-set
+                // tiers still miss logged weights — the user took ownership.
+                proposalSession.dismissIfPresent(dismissEquipmentProposal)
+                saveSucceeded.value = true
+                validationOverride.value = null
+            } else {
+                validationOverride.value = result.exceptionOrNull()?.message ?: failureMessage
             }
+        } finally {
+            isSaving.value = false
         }
     }
 
