@@ -9,7 +9,7 @@
     {
       "displayName": "Any solver 5xx in 5 min",
       "conditionThreshold": {
-        "filter": "metric.type=\"logging.googleapis.com/user/solver_5xx_count\"",
+        "filter": "metric.type=\"logging.googleapis.com/user/solver_5xx_count\" AND resource.type=\"cloud_run_revision\"",
         "comparison": "COMPARISON_GT",
         "thresholdValue": 0,
         "duration": "60s",
