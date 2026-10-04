@@ -74,6 +74,10 @@ class FirestoreSynthesisJobStore(
                 )
                 SynthesisJobStore.Claim.Claimed(requestStoragePath)
             })
+        } catch (e: InterruptedException) {
+            // Already re-interrupted by getPreservingInterrupt: propagate unwrapped
+            // so cancellation/shutdown is never misclassified as a job failure.
+            throw e
         } catch (e: Exception) {
             // Surface gRPC / packaging failures as process() catch → job failed (HTTP 200 body),
             // not an uncaught 500 that the Node dispatcher rewrites with a generic message.
