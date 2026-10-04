@@ -109,8 +109,12 @@ class SynthesisJobWorker(
     ): Outcome {
         val requestBytes = blobs.download(requestStoragePath)
         val requestJson = String(requestBytes, StandardCharsets.UTF_8)
-        // Validate before any HTTP call: an unknown major fails here (the
-        // fake HTTP client in tests asserts it is never reached for v2).
+        // Full validation first (unknown majors/shapes fail before any HTTP
+        // call — the fake HTTP client in tests asserts it is never reached
+        // for v2), then a byte-preserving splice below: the payload is never
+        // re-encoded, so these two steps cannot collapse into one
+        // decode-then-encode helper without breaking the byte-identical
+        // proxy guarantee. wireRequest also feeds the proxy log line.
         val wireRequest = try {
             ProgramSynthesisWire.decodeRequest(requestJson)
         } catch (e: ProgramSynthesisWireException) {
@@ -158,10 +162,10 @@ class SynthesisJobWorker(
                 "updatedAt" to FieldValue.serverTimestamp(),
                 "progressUpdatedAt" to FieldValue.serverTimestamp(),
                 // STR-13 trace: upload timestamp on the ready write.
-                TRACE_WORKER_UPLOADED to FieldValue.serverTimestamp(),
+                SynthesisJobs.TRACE_WORKER_UPLOADED to FieldValue.serverTimestamp(),
                 // Proxy mode runs no local solver: clear any pre-migration
                 // solver stats so a reused jobId never shows stale values.
-                TRACE_SOLVER to FieldValue.delete(),
+                SynthesisJobs.TRACE_SOLVER to FieldValue.delete(),
             ),
         )
         if (!updated) {
@@ -224,8 +228,6 @@ class SynthesisJobWorker(
     }
 
     companion object {
-        const val CLAIMABLE_STATUS = "pending"
-
         /** Python solver base URL, e.g. `https://stratum-solver-xyz.run.app` (no path). */
         const val SOLVER_BASE_URL_ENV = "STRATUM_SOLVER_URL"
 
@@ -240,13 +242,6 @@ class SynthesisJobWorker(
         private const val HTTP_SUCCESS_MIN = 200
         private const val HTTP_SUCCESS_MAX = 299
 
-        /** STR-13 trace field names for the per-job `trace` map. */
-        const val TRACE_WORKER_START = "trace.workerStart"
-        const val TRACE_WORKER_CLAIMED = "trace.workerClaimed"
-        const val TRACE_WORKER_SOLVING = "trace.workerSolving"
-        const val TRACE_WORKER_UPLOADED = "trace.workerUploaded"
-        const val TRACE_SOLVER = "trace.solver"
-
         /** Resolves the Python solver base URL from the environment (testable seam). */
         fun resolveSolverBaseUrl(env: Map<String, String> = System.getenv()): String {
             val raw = env[SOLVER_BASE_URL_ENV].orEmpty().trim().trimEnd('/')
@@ -256,10 +251,5 @@ class SynthesisJobWorker(
             return raw
         }
 
-        fun isValidRequestStoragePath(uid: String, jobId: String, path: String): Boolean {
-            if (path.contains("..") || path.contains("//")) return false
-            if (path.startsWith("/") || path.contains("\\")) return false
-            return path == "synthesis/$uid/$jobId/request.json"
-        }
     }
 }
