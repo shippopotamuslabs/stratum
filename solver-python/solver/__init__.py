@@ -11,7 +11,7 @@ from __future__ import annotations
 def solve(request: dict) -> dict:
     """In-process v1 entrypoint: raw request dict -> v1 response dict.
 
-    Uses production solve defaults (120 s deadline, OR-Tools worker default).
+    Uses production solve defaults (30 s deadline, OR-Tools worker default).
     Raises ValueError (via WireError) on malformed/unsupported payloads.
     """
     from .model import solve_payload
