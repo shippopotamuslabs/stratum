@@ -353,7 +353,7 @@ internal suspend fun pollStatusWithTransientRetry(
                 )
             }
             val now = nowMs()
-            if (lastFailureMs != 0L && now - lastFailureMs > SUSPENSION_GAP_THRESHOLD_MS) {
+            if (lastFailureMs != 0L && isSuspensionGap(lastFailureMs, now)) {
                 consecutiveTransients = 0
             }
             lastFailureMs = now
