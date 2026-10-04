@@ -106,7 +106,7 @@ fun EquipmentIncrementsRoute(
         },
         onBandSheetDismiss = { selectedBand = null },
         onBandEndChanged = viewModel::onBandEndChanged,
-        onBandStepChanged = viewModel::onBandStepChanged,
+        onBandStepChanged = viewModel::onTierIncrementChanged,
         onDeleteBand = {
             selectedBand = null
             viewModel.removeTier(it)
@@ -156,7 +156,7 @@ internal fun EquipmentBandEditorScreen(
     state: EquipmentIncrementsUiState,
     title: String,
     selection: Int?,
-    scanPicker: ScanPickerState,
+    scanPicker: ScanPicker,
     showAffected: Boolean,
     onBandClick: (Int) -> Unit,
     onAddBand: () -> Unit,
@@ -234,7 +234,7 @@ internal fun EquipmentBandEditorScreen(
                 onAddBand = onAddBand,
             )
             if (selection != null && editor.tiers.indices.contains(selection)) {
-                val start = IncrementTierDraftOps.bandStartAt(editor.tiers, selection)
+                val start = IncrementBandTiling.startAt(editor.tiers, selection)
                 val isOpen = selection == editor.tiers.lastIndex
                 StratumText(
                     text =
@@ -318,7 +318,7 @@ internal fun EquipmentBandEditorScreen(
         BandEditorSheet(
             index = selection,
             tier = editor.tiers[selection],
-            start = IncrementTierDraftOps.bandStartAt(editor.tiers, selection),
+            start = IncrementBandTiling.startAt(editor.tiers, selection),
             isLast = selection == editor.tiers.lastIndex,
             canDelete = editor.tiers.size > 1,
             unitLabel = editor.unitLabel,

@@ -17,7 +17,6 @@ import com.stratum.feature.workout.ui.ProposalTierArgs
  * **pounds**. Domain [Weight] is tagged [Weight.WeightUnit.Lb] at the mapper boundary.
  * [displayUnit] only affects draft strings shown in the editor; save always re-encodes Lb.
  */
-@Suppress("TooManyFunctions") // Single home for all band draft math, including band-strip tiling.
 object IncrementTierDraftOps {
     const val DEFAULT_TIER_SPLIT_SPAN_LB = 50.0
     const val DEFAULT_TIER_SPLIT_AT_LB = 100.0
@@ -207,61 +206,6 @@ object IncrementTierDraftOps {
 
     fun toUserMessage(errors: Set<IncrementTiersValidationError>): String =
         IncrementValidationMessages.join(errors.map(IncrementValidationMessages::tierMessage))
-
-    /**
-     * Derived start of band [index]: `"0"` for the first band, otherwise the
-     * previous band's end. Bands tile without gaps, so starts are never edited
-     * directly (band-strip editor, STR-58). Empty when the previous end is blank.
-     */
-    fun bandStartAt(tiers: List<IncrementTierDraft>, index: Int): String {
-        if (index <= 0) return "0"
-        return tiers.getOrNull(index - 1)?.upperBound.orEmpty()
-    }
-
-    /**
-     * Replaces band [index]'s end with [newEnd] and re-tiles: every later band's
-     * lower follows its predecessor's end, and the last band stays open-ended.
-     * Edits to the last band's end are ignored (it has no end). Blank [newEnd]
-     * keeps the current end so a cleared field never silently collapses a band.
-     */
-    fun retileAfterEndEdit(
-        tiers: List<IncrementTierDraft>,
-        index: Int,
-        newEnd: String,
-    ): List<IncrementTierDraft> {
-        if (index !in tiers.indices) return tiers
-        val filtered = filterNumeric(newEnd)
-        val withEnd =
-            tiers.mapIndexed { i, tier ->
-                if (i == index && i != tiers.lastIndex && filtered.isNotBlank()) {
-                    tier.copy(upperBound = filtered)
-                } else {
-                    tier
-                }
-            }
-        return retiled(withEnd)
-    }
-
-    /**
-     * Re-derives every lower bound from its predecessor's end (first band starts
-     * at 0) and forces the last band open-ended. Bands with a blank predecessor
-     * end keep their current lower so a half-typed edit never wipes a field;
-     * validation still flags the resulting gap.
-     */
-    fun retiled(tiers: List<IncrementTierDraft>): List<IncrementTierDraft> =
-        tiers.mapIndexed { i, tier ->
-            val lower =
-                if (i == 0) {
-                    "0"
-                } else {
-                    tiers[i - 1].upperBound?.takeIf { it.isNotBlank() } ?: tier.lowerBound
-                }
-            if (i == tiers.lastIndex) {
-                tier.copy(lowerBound = lower, openEnded = true, upperBound = null)
-            } else {
-                tier.copy(lowerBound = lower)
-            }
-        }
 
     /** Formats a split-point amount that was computed in display units. */
     fun formatDisplayAmount(amount: Double): String = formatAmount(amount)
