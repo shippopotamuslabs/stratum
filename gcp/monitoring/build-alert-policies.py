@@ -36,7 +36,7 @@ POLICIES = [
             "Context: STR-23/STR-24, deploy runbook `docs/cloud-program-synthesis-deploy.md`."
         ),
         "conditionName": "Any Firestore PERMISSION_DENIED in 5 min",
-        "filter": 'metric.type="logging.googleapis.com/user/firestore_permission_denied_count"',
+        "filter": 'metric.type="logging.googleapis.com/user/firestore_permission_denied_count" AND resource.type="audited_resource"',
         "thresholdValue": 0,
         "durationSecs": 60,
         "alignmentSecs": 300,
@@ -53,7 +53,7 @@ POLICIES = [
             "`docs/cloud-program-synthesis-deploy.md` section 7."
         ),
         "conditionName": "Any solver 5xx in 5 min",
-        "filter": 'metric.type="logging.googleapis.com/user/solver_5xx_count"',
+        "filter": 'metric.type="logging.googleapis.com/user/solver_5xx_count" AND resource.type="cloud_run_revision"',
         "thresholdValue": 0,
         "durationSecs": 60,
         "alignmentSecs": 300,
@@ -96,7 +96,7 @@ POLICIES = [
             "`docs/cloud-program-synthesis-deploy.md` section 7. Context: STR-24."
         ),
         "conditionName": "Synthesis errors >= 2 in 5 min",
-        "filter": 'metric.type="logging.googleapis.com/user/synthesis_error_count"',
+        "filter": 'metric.type="logging.googleapis.com/user/synthesis_error_count" AND resource.type="cloud_run_revision"',
         "thresholdValue": 1,
         "durationSecs": 60,
         "alignmentSecs": 300,
