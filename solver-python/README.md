@@ -38,7 +38,7 @@ curl -s localhost:8080/health
 
 Knobs (environment):
 
-- `SOLVER_MAX_TIME_SECONDS` (default `120`, matches the Kotlin
+- `SOLVER_MAX_TIME_SECONDS` (default `30`, matches the Kotlin
   `CpSatProgramSynthesizer` deadline),
 - `SOLVER_NUM_SEARCH_WORKERS` (unset = OR-Tools default),
 - `PORT` / `SOLVER_PORT` / `SOLVER_HOST`.
@@ -72,7 +72,7 @@ Build and deploy are separate, maintainer-run steps:
 gcloud builds submit --tag gcr.io/PROJECT/solver-python .
 gcloud run deploy stratum-solver --image gcr.io/PROJECT/solver-python \
   --platform managed --region REGION --no-allow-unauthenticated \
-  --set-env-vars SOLVER_MAX_TIME_SECONDS=120 --min-instances 0 --max-instances 4
+  --set-env-vars SOLVER_MAX_TIME_SECONDS=30 --min-instances 0 --max-instances 4
 ```
 
 The production transport is job-based (`synthesis/{uid}/{jobId}/request.json`

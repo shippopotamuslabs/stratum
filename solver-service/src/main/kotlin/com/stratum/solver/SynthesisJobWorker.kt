@@ -115,14 +115,15 @@ class SynthesisJobWorker(
         // re-encoded, so these two steps cannot collapse into one
         // decode-then-encode helper without breaking the byte-identical
         // proxy guarantee. wireRequest also feeds the proxy log line.
+        // Missing means v1: splice the authoritative version signal onto the
+        // stored bytes without touching anything else. Stamp BEFORE validation
+        // because the v1 schema requires modelVersion.
+        val stamped = ProgramSynthesisWire.stampModelVersionV1(requestJson)
         val wireRequest = try {
-            ProgramSynthesisWire.decodeRequest(requestJson)
+            ProgramSynthesisWire.decodeRequest(stamped)
         } catch (e: ProgramSynthesisWireException) {
             throw IllegalArgumentException("Invalid synthesis request JSON: ${e.message}", e)
         }
-        // Missing means v1: splice the authoritative version signal onto the
-        // stored bytes without touching anything else.
-        val stamped = ProgramSynthesisWire.stampModelVersionV1(requestJson)
 
         logger.info(
             "proxying solve",

@@ -27,7 +27,7 @@ from .wire import MODEL_VERSION_V1, decode_request, encode_response, parse_model
 from .wire import WireError
 
 SUPPORTED_MAJOR = 1
-DEFAULT_MAX_TIME_SECONDS = 120.0
+DEFAULT_MAX_TIME_SECONDS = 30.0
 MAX_BODY_BYTES = 8 * 1024 * 1024
 
 

@@ -274,7 +274,7 @@ class SynthesisModel:
 
     def solve(
         self,
-        max_time_seconds: float = 120.0,
+        max_time_seconds: float = 30.0,
         num_search_workers: int | None = None,
     ) -> dict:
         """Build, solve, and return a wire.encode_response-ready solution dict."""
@@ -1661,7 +1661,7 @@ def _parse_session_slot_id(slot_id: str):
 
 def solve_request(
     decoded: dict,
-    max_time_seconds: float = 120.0,
+    max_time_seconds: float = 30.0,
     num_search_workers: int | None = None,
     relaxation: int = L0_FULL,
 ) -> dict:
@@ -1718,7 +1718,7 @@ def _solve_with_fallback(
 
 def solve_payload(
     payload: dict,
-    max_time_seconds: float = 120.0,
+    max_time_seconds: float = 30.0,
     num_search_workers: int | None = None,
 ) -> dict:
     """Decode a raw v1 request payload, solve via the fallback ladder (STR-54),
