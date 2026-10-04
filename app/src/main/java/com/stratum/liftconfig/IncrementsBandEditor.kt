@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -18,6 +19,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
@@ -43,12 +45,17 @@ import com.stratum.core.ui.theme.StratumThemeAccessor
  * only — no domain types (ARCHITECTURE.md §4.3), `Stratum*` primitives only.
  */
 
-/** Tappable context row; display-only when [onClick] is null (no chevron). */
+/**
+ * Single home for the bordered panel-row shell (background, border, padding,
+ * optional chevron) shared by the context, stops, and error rows, so theme
+ * changes land in one place.
+ */
 @Composable
-internal fun EditorContextRow(
-    text: String,
+private fun PanelRow(
     onClick: (() -> Unit)?,
+    borderColor: Color,
     modifier: Modifier = Modifier,
+    content: @Composable RowScope.() -> Unit,
 ) {
     val colors = StratumThemeAccessor.colors
     val shapes = StratumThemeAccessor.shapes
@@ -58,7 +65,7 @@ internal fun EditorContextRow(
             .background(color = colors.surfaceRaised, shape = shapes.panel)
             .border(
                 width = shapes.borderWidth,
-                color = colors.borderSubtle,
+                color = borderColor,
                 shape = shapes.panel,
             )
     if (onClick != null) {
@@ -69,12 +76,7 @@ internal fun EditorContextRow(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        StratumText(
-            text = text,
-            style = StratumThemeAccessor.typography.bodyLarge,
-            muted = true,
-            modifier = Modifier.weight(1f),
-        )
+        content()
         if (onClick != null) {
             Icon(
                 painter = painterResource(UiR.drawable.ic_chevron_right),
@@ -83,6 +85,27 @@ internal fun EditorContextRow(
                 modifier = Modifier.size(24.dp),
             )
         }
+    }
+}
+
+/** Tappable context row; display-only when [onClick] is null (no chevron). */
+@Composable
+internal fun EditorContextRow(
+    text: String,
+    onClick: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
+    PanelRow(
+        onClick = onClick,
+        borderColor = StratumThemeAccessor.colors.borderSubtle,
+        modifier = modifier,
+    ) {
+        StratumText(
+            text = text,
+            style = StratumThemeAccessor.typography.bodyLarge,
+            muted = true,
+            modifier = Modifier.weight(1f),
+        )
     }
 }
 
@@ -271,21 +294,10 @@ internal fun MicroStopsRow(
     modifier: Modifier = Modifier,
 ) {
     val colors = StratumThemeAccessor.colors
-    val shapes = StratumThemeAccessor.shapes
-    Row(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .background(color = colors.surfaceRaised, shape = shapes.panel)
-                .border(
-                    width = shapes.borderWidth,
-                    color = colors.borderSubtle,
-                    shape = shapes.panel,
-                )
-                .clickable(onClick = onClick)
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
+    PanelRow(
+        onClick = onClick,
+        borderColor = colors.borderSubtle,
+        modifier = modifier,
     ) {
         StratumText(
             text = stringResource(UiR.string.equipment_micro_row),
@@ -301,12 +313,6 @@ internal fun MicroStopsRow(
                 },
             style = StratumThemeAccessor.typography.bodyLarge,
             color = colors.accent,
-        )
-        Icon(
-            painter = painterResource(UiR.drawable.ic_chevron_right),
-            contentDescription = null,
-            tint = colors.textMuted,
-            modifier = Modifier.size(24.dp),
         )
     }
 }
@@ -406,24 +412,20 @@ internal fun EditorErrorBanner(
     modifier: Modifier = Modifier,
 ) {
     val colors = StratumThemeAccessor.colors
-    val shapes = StratumThemeAccessor.shapes
-    StratumText(
-        text = message,
-        style =
-            StratumThemeAccessor.typography.bodyLarge.copy(
-                color = colors.error,
-            ),
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .background(color = colors.surfaceRaised, shape = shapes.panel)
-                .border(
-                    width = shapes.borderWidth,
+    PanelRow(
+        onClick = null,
+        borderColor = colors.error,
+        modifier = modifier,
+    ) {
+        StratumText(
+            text = message,
+            style =
+                StratumThemeAccessor.typography.bodyLarge.copy(
                     color = colors.error,
-                    shape = shapes.panel,
-                )
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-    )
+                ),
+            modifier = Modifier.weight(1f),
+        )
+    }
 }
 
 private const val OPEN_BAND_WEIGHT = 4f
