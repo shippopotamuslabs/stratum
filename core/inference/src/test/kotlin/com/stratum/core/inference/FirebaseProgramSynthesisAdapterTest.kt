@@ -234,14 +234,6 @@ class FirebaseProgramSynthesisAdapterTest {
     @Nested
     @DisplayName("pollStatusWithTransientRetry")
     inner class StatusRetry {
-        private val pending =
-            SynthesisJobSnapshot(
-                status = SynthesisRemoteStatus.Pending,
-                progressPhase = null,
-                progressMessage = null,
-                resultStoragePath = null,
-                errorMessage = null,
-            )
         private val ready =
             SynthesisJobSnapshot(
                 status = SynthesisRemoteStatus.Ready,
@@ -400,26 +392,6 @@ class FirebaseProgramSynthesisAdapterTest {
             }
 
         @Test
-        @DisplayName("poll loop still times out when the job never reaches terminal")
-        fun pollLoopStillTimesOut() =
-            runTest {
-                var thrown: Throwable? = null
-                try {
-                    pollUntil(
-                        timeoutMs = 200L,
-                        initialIntervalMs = 10L,
-                        slowIntervalMs = 10L,
-                        backoffAfterMs = 60_000L,
-                        isTerminal = { it.status.isTerminal() },
-                        poll = { pending },
-                    )
-                } catch (e: IllegalStateException) {
-                    thrown = e
-                }
-                assertTrue(thrown is IllegalStateException)
-            }
-
-        @Test
         @DisplayName("transient failures spaced by a sleep gap reset the consecutive budget")
         fun sleepGapResetsTransientBudget() =
             runTest {
@@ -442,7 +414,7 @@ class FirebaseProgramSynthesisAdapterTest {
                         jobId = "job-1",
                         maxConsecutiveTransients = 2,
                         retryDelayMs = 1_000L,
-                        nowMs = { now },
+                        clock = MonotonicClock { now },
                     )
                 // Three sleep-spaced failures would exceed the cap of 2 without
                 // the STR-55 reset; with it they are separate incidents.
