@@ -1,5 +1,6 @@
 package com.stratum.solver
 
+import com.google.api.core.ApiFuture
 import com.google.cloud.firestore.FieldValue
 import com.google.cloud.firestore.Firestore
 import com.google.cloud.firestore.FirestoreException
@@ -36,13 +37,13 @@ class FirestoreSynthesisJobStore(
         // Prefer a simple get+update over a multi-retry transaction when possible: claim races are
         // rare (one dispatcher, concurrency 1). Fall back to transaction for correctness.
         return try {
-            firestore.runTransaction { transaction ->
+            getPreservingInterrupt(firestore.runTransaction { transaction ->
                 val snap = transaction.get(jobRef).get()
                 if (!snap.exists()) {
                     return@runTransaction SynthesisJobStore.Claim.Missing
                 }
                 val status = snap.getString("status")
-                if (status != SynthesisJobWorker.CLAIMABLE_STATUS) {
+                if (status != SynthesisJobs.CLAIMABLE_STATUS) {
                     return@runTransaction SynthesisJobStore.Claim.NotClaimable(status)
                 }
                 val requestStoragePath = snap.getString("requestStoragePath")
@@ -51,7 +52,7 @@ class FirestoreSynthesisJobStore(
                 require(requestStoragePath.isNotEmpty()) {
                     "Job $uid/$jobId is missing requestStoragePath"
                 }
-                require(SynthesisJobWorker.isValidRequestStoragePath(uid, jobId, requestStoragePath)) {
+                require(SynthesisJobs.isValidRequestStoragePath(uid, jobId, requestStoragePath)) {
                     "requestStoragePath must be synthesis/$uid/$jobId/request.json"
                 }
                 transaction.update(
@@ -66,13 +67,13 @@ class FirestoreSynthesisJobStore(
                         // workerStart (request received), workerClaimed, and workerSolving are
                         // co-timed here — the claim is the last Firestore write before the
                         // blocking solver call, avoiding extra round-trips on the critical path.
-                        SynthesisJobWorker.TRACE_WORKER_START to FieldValue.serverTimestamp(),
-                        SynthesisJobWorker.TRACE_WORKER_CLAIMED to FieldValue.serverTimestamp(),
-                        SynthesisJobWorker.TRACE_WORKER_SOLVING to FieldValue.serverTimestamp(),
+                        SynthesisJobs.TRACE_WORKER_START to FieldValue.serverTimestamp(),
+                        SynthesisJobs.TRACE_WORKER_CLAIMED to FieldValue.serverTimestamp(),
+                        SynthesisJobs.TRACE_WORKER_SOLVING to FieldValue.serverTimestamp(),
                     ),
                 )
                 SynthesisJobStore.Claim.Claimed(requestStoragePath)
-            }.get()
+            })
         } catch (e: Exception) {
             // Surface gRPC / packaging failures as process() catch → job failed (HTTP 200 body),
             // not an uncaught 500 that the Node dispatcher rewrites with a generic message.
@@ -86,7 +87,7 @@ class FirestoreSynthesisJobStore(
     override fun updateIfPresent(uid: String, jobId: String, fields: Map<String, Any>): Boolean {
         val jobRef = firestore.document("users/$uid/synthesisJobs/$jobId")
         return try {
-            jobRef.update(fields).get()
+            getPreservingInterrupt(jobRef.update(fields))
             true
         } catch (e: Exception) {
             if (isNotFound(e)) {
@@ -116,5 +117,20 @@ class FirestoreSynthesisJobStore(
 
     private companion object {
         const val GRPC_NOT_FOUND = 5
+    }
+}
+
+/**
+ * Blocks on a Firestore future, restoring the interrupt flag and
+ * propagating [InterruptedException] unwrapped so cancellation/shutdown is
+ * never misclassified as a job failure. Other failures propagate to the
+ * caller's handler unchanged.
+ */
+internal fun <T> getPreservingInterrupt(future: ApiFuture<T>): T {
+    try {
+        return future.get()
+    } catch (e: InterruptedException) {
+        Thread.currentThread().interrupt()
+        throw e
     }
 }

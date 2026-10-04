@@ -50,7 +50,7 @@ class SynthesisJobWorkerProxyTest {
         val update = jobs.updates.single()
         assertEquals("ready", update.fields["status"])
         assertEquals("synthesis/u1/j1/result.json", update.fields["resultStoragePath"])
-        assertTrue(update.fields.containsKey(SynthesisJobWorker.TRACE_WORKER_UPLOADED))
+        assertTrue(update.fields.containsKey(SynthesisJobs.TRACE_WORKER_UPLOADED))
     }
 
     @Test

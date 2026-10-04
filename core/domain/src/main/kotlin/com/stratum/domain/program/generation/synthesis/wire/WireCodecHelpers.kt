@@ -20,12 +20,14 @@ internal fun requireSupportedModelVersion(root: JsonObject, kind: String) {
     val version = root.optionalString("modelVersion") ?: return
     if (!MODEL_VERSION_PATTERN.matches(version)) {
         throw ProgramSynthesisWireException(
-            "Unsupported program synthesis $kind modelVersion '$version' (supported: v1)",
+            "Unsupported program synthesis $kind modelVersion '$version' " +
+                "(supported: ${ProgramSynthesisWire.MODEL_VERSION})",
         )
     }
 }
 
-private val MODEL_VERSION_PATTERN = Regex("""^v1(\.\d+)?$""")
+private val MODEL_VERSION_PATTERN =
+    Regex("^" + Regex.escape(ProgramSynthesisWire.MODEL_VERSION) + """(\.\d+)?$""")
 
 /**
  * Runs [block] and rethrows parse failures as [ProgramSynthesisWireException].
