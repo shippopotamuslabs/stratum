@@ -29,6 +29,7 @@ import com.stratum.domain.program.generation.structure.SessionRegionFilter
 import com.stratum.domain.program.generation.volume.WeeklyVolumeTarget
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
@@ -125,6 +126,123 @@ class ProgramSynthesisWireTest {
             SessionRegionFilter.Unrestricted,
             sessionTypeIdToRegionFilter(SessionTypeId.FullBody),
         )
+    }
+
+    @Test
+    fun `encodeRequest emits modelVersion v1`() {
+        val encoded = ProgramSynthesisWire.encodeRequest(emptyMap(), minimalContext())
+        assertTrue(
+            encoded.contains("\"modelVersion\":\"v1\""),
+            "request JSON must carry modelVersion v1, got: $encoded".take(200),
+        )
+    }
+
+    @Test
+    fun `decodeRequest tolerates missing modelVersion as v1`() {
+        val encoded = ProgramSynthesisWire.encodeRequest(emptyMap(), minimalContext())
+        val legacy = encoded.replace("\"modelVersion\":\"v1\",", "")
+        assertFalse(legacy.contains("modelVersion"), "precondition: version stripped")
+
+        val decoded = ProgramSynthesisWire.decodeRequest(legacy)
+
+        assertEquals(emptyMap<String, WeeklyVolumeTarget>(), decoded.weeklyTargets)
+        assertEquals(minimalContext(), decoded.context)
+    }
+
+    @Test
+    fun `decodeRequest accepts v1 minor versions`() {
+        val encoded = ProgramSynthesisWire.encodeRequest(emptyMap(), minimalContext())
+        val minor = encoded.replace("\"modelVersion\":\"v1\"", "\"modelVersion\":\"v1.4\"")
+
+        val decoded = ProgramSynthesisWire.decodeRequest(minor)
+
+        assertEquals(minimalContext(), decoded.context)
+    }
+
+    @Test
+    fun `decodeRequest rejects unknown major modelVersion`() {
+        val encoded = ProgramSynthesisWire.encodeRequest(emptyMap(), minimalContext())
+        val v2 = encoded.replace("\"modelVersion\":\"v1\"", "\"modelVersion\":\"v2\"")
+
+        val ex =
+            assertThrows(ProgramSynthesisWireException::class.java) {
+                ProgramSynthesisWire.decodeRequest(v2)
+            }
+        assertTrue(ex.message!!.contains("modelVersion"), "message must name the field: ${ex.message}")
+    }
+
+    @Test
+    fun `decodeResult tolerates missing modelVersion as v1`() {
+        val result = minimalResult()
+        val encoded = ProgramSynthesisWire.encodeResult(result)
+        assertFalse(encoded.contains("modelVersion"), "precondition: encoder emits no version")
+
+        val decoded = ProgramSynthesisWire.decodeResult(encoded)
+
+        assertEquals(result.sessions, decoded.sessions)
+        assertEquals(result.objective, decoded.objective)
+    }
+
+    @Test
+    fun `decodeResult accepts v1 minor versions`() {
+        val encoded = ProgramSynthesisWire.encodeResult(minimalResult())
+        val minor = encoded.replaceFirst("{", "{\"modelVersion\":\"v1.2\",")
+
+        val decoded = ProgramSynthesisWire.decodeResult(minor)
+
+        assertEquals(minimalResult().sessions, decoded.sessions)
+    }
+
+    @Test
+    fun `decodeResult rejects unknown major modelVersion`() {
+        val encoded = ProgramSynthesisWire.encodeResult(minimalResult())
+        val v2 = encoded.replaceFirst("{", "{\"modelVersion\":\"v2\",")
+
+        val ex =
+            assertThrows(ProgramSynthesisWireException::class.java) {
+                ProgramSynthesisWire.decodeResult(v2)
+            }
+        assertTrue(ex.message!!.contains("modelVersion"), "message must name the field: ${ex.message}")
+    }
+
+    @Test
+    fun `stampModelVersionV1 leaves versioned payloads byte-identical`() {
+        val encoded = ProgramSynthesisWire.encodeRequest(emptyMap(), minimalContext())
+
+        assertSame(encoded, ProgramSynthesisWire.stampModelVersionV1(encoded))
+    }
+
+    @Test
+    fun `stampModelVersionV1 splices v1 onto legacy payloads without touching other bytes`() {
+        val encoded = ProgramSynthesisWire.encodeRequest(emptyMap(), minimalContext())
+        val legacy = encoded.replace("\"modelVersion\":\"v1\",", "")
+        assertFalse(legacy.contains("modelVersion"), "precondition: version stripped")
+
+        val stamped = ProgramSynthesisWire.stampModelVersionV1(legacy)
+
+        val brace = legacy.indexOf('{')
+        assertEquals(
+            legacy.substring(0, brace + 1) + "\"modelVersion\":\"v1\"," + legacy.substring(brace + 1),
+            stamped,
+        )
+        // The stamped payload validates as v1.
+        val decoded = ProgramSynthesisWire.decodeRequest(stamped)
+        assertEquals(minimalContext(), decoded.context)
+    }
+
+    @Test
+    fun `stampModelVersionV1 keeps explicit minor versions untouched`() {
+        val encoded = ProgramSynthesisWire.encodeRequest(emptyMap(), minimalContext())
+        val minor = encoded.replace("\"modelVersion\":\"v1\"", "\"modelVersion\":\"v1.4\"")
+
+        assertEquals(minor, ProgramSynthesisWire.stampModelVersionV1(minor))
+    }
+
+    @Test
+    fun `stampModelVersionV1 rejects non-object JSON`() {
+        assertThrows(ProgramSynthesisWireException::class.java) {
+            ProgramSynthesisWire.stampModelVersionV1("{not-json")
+        }
     }
 
     @Test
