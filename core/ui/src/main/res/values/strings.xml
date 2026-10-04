@@ -47,6 +47,33 @@
     <string name="equipment_increments_affects_none">No lifts use these defaults yet</string>
     <string name="equipment_increments_update_shared">Update shared</string>
     <string name="equipment_increments_save_as_new">Save as new</string>
+    <string name="equipment_band_section">Weight bands</string>
+    <string name="equipment_band_hint">Tap a band to edit. Bands tile automatically.</string>
+    <!-- Band N of M · starts at X lb -->
+    <string name="equipment_band_caption">Band %1$d of %2$d · starts at %3$s %4$s</string>
+    <!-- Band N of M · starts at X lb · open-ended -->
+    <string name="equipment_band_caption_open">Band %1$d of %2$d · starts at %3$s %4$s · open-ended</string>
+    <!-- Band N -->
+    <string name="equipment_band_editor_title">Band %1$d</string>
+    <string name="equipment_band_editor_sub">Edit this band. Neighbors re-tile automatically.</string>
+    <!-- Starts at X lb (previous band's end) -->
+    <string name="equipment_band_starts_at">Starts at %1$s %2$s (previous band\u2019s end)</string>
+    <string name="equipment_band_ends_at">Ends at (%1$s)</string>
+    <string name="equipment_band_step">Step (%1$s)</string>
+    <string name="equipment_band_done">Done</string>
+    <string name="equipment_band_delete">Delete band</string>
+    <string name="equipment_band_add">Add band</string>
+    <string name="equipment_shared_by">Shared by %1$d lift(s)</string>
+    <string name="equipment_save_changes">Save changes</string>
+    <string name="equipment_save_title">Save changes?</string>
+    <string name="equipment_save_body">This updates the shared profile used by %1$d lift(s). To keep the old version for some lifts, use \"Save as new\" instead.</string>
+    <string name="equipment_save_confirm">Update %1$d lifts</string>
+    <string name="equipment_fork_title">Name the new profile</string>
+    <string name="equipment_fork_body">Forks these bands into a separate profile. The shared one stays untouched.</string>
+    <string name="equipment_fork_name_label">Profile name</string>
+    <string name="equipment_dialog_cancel">Cancel</string>
+    <string name="equipment_micro_row">Micro stops</string>
+    <string name="equipment_micro_none">none</string>
     <string name="equipment_affected_sheet_title">Affected lifts</string>
     <string name="equipment_affected_disabled">Disabled</string>
     <string name="equipment_affected_swap">Change equipment</string>
