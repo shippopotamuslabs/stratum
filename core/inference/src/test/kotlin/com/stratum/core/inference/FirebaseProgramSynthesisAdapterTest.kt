@@ -418,5 +418,88 @@ class FirebaseProgramSynthesisAdapterTest {
                 }
                 assertTrue(thrown is IllegalStateException)
             }
+
+        @Test
+        @DisplayName("transient failures spaced by a sleep gap reset the consecutive budget")
+        fun sleepGapResetsTransientBudget() =
+            runTest {
+                val loggingPort = FakeLoggingPort()
+                var now = 1_000L
+                var calls = 0
+                val result =
+                    pollStatusWithTransientRetry(
+                        fetch = {
+                            calls++
+                            if (calls <= 3) {
+                                // Models Doze deferring the spaced retry: the next
+                                // failure surfaces a minute later, not milliseconds.
+                                now += 60_000L
+                                throw transientError()
+                            }
+                            ready
+                        },
+                        loggingPort = loggingPort,
+                        jobId = "job-1",
+                        maxConsecutiveTransients = 2,
+                        retryDelayMs = 1_000L,
+                        nowMs = { now },
+                    )
+                // Three sleep-spaced failures would exceed the cap of 2 without
+                // the STR-55 reset; with it they are separate incidents.
+                assertEquals(ready, result)
+                assertEquals(4, calls)
+                assertEquals(3, loggingPort.warnings.size)
+            }
+
+        @Test
+        @DisplayName("poll loop excludes a sleep gap from the timeout budget")
+        fun pollLoopExcludesSleepGap() =
+            runTest {
+                var now = 1_000L
+                var polls = 0
+                val result =
+                    pollUntil(
+                        timeoutMs = 5_000L,
+                        initialIntervalMs = 10L,
+                        slowIntervalMs = 10L,
+                        backoffAfterMs = 60_000L,
+                        isTerminal = { it.status.isTerminal() },
+                        poll = {
+                            polls++
+                            // Models the device sleeping for two minutes mid-poll:
+                            // without STR-55 the 5s wall-clock budget is blown on wake.
+                            if (polls == 2) now += 120_000L
+                            if (polls < 3) pending else ready
+                        },
+                        nowMs = { now },
+                    )
+                assertEquals(SynthesisRemoteStatus.Ready, result.status)
+                assertEquals(3, polls)
+            }
+
+        @Test
+        @DisplayName("poll loop still enforces the active polling budget")
+        fun pollLoopEnforcesActiveBudget() =
+            runTest {
+                var now = 1_000L
+                var thrown: Throwable? = null
+                try {
+                    pollUntil(
+                        timeoutMs = 100L,
+                        initialIntervalMs = 10L,
+                        slowIntervalMs = 10L,
+                        backoffAfterMs = 60_000L,
+                        isTerminal = { it.status.isTerminal() },
+                        poll = {
+                            now += 10L
+                            pending
+                        },
+                        nowMs = { now },
+                    )
+                } catch (e: IllegalStateException) {
+                    thrown = e
+                }
+                assertTrue(thrown is IllegalStateException)
+            }
     }
 }

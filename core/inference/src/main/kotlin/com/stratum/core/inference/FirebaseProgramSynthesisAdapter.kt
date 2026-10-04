@@ -19,6 +19,7 @@ import com.stratum.domain.telemetry.SynthesisTelemetry
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.tasks.await
 
 /**
@@ -317,10 +318,15 @@ internal fun FirebaseFunctionsException.Code.isTransientStatusCode(): Boolean =
 /**
  * Fetches one status snapshot, retrying transient [FirebaseFunctionsException]s
  * ([isTransientStatusCode]) inline so the poll loop survives blips without a fake
- * non-terminal stand-in: a transient failure logs a warning and retries immediately,
- * a permanent failure throws [ProgramSynthesisException] at once, and more than
- * [MAX_CONSECUTIVE_TRANSIENT_STATUS_FAILURES] consecutive transient failures fail
+ * non-terminal stand-in: a transient failure logs a warning and retries after
+ * [retryDelayMs], a permanent failure throws [ProgramSynthesisException] at once,
+ * and more than [maxConsecutiveTransients] consecutive transient failures fail
  * the generation instead of retrying forever.
+ *
+ * STR-55: retries are spaced (never a hot loop) so Doze simply defers them, and
+ * failures separated by a device-sleep gap reset the consecutive budget — a night
+ * of deferred retries is not one sustained outage. Tightly-spaced failures still
+ * fail fast exactly as before.
  *
  * Transient failures use `warning()`, not [FirebaseCallableErrorLogger]: a blip must
  * not become a Crashlytics non-fatal (see STR-25).
@@ -330,8 +336,11 @@ internal suspend fun pollStatusWithTransientRetry(
     loggingPort: LoggingPort,
     jobId: String,
     maxConsecutiveTransients: Int = MAX_CONSECUTIVE_TRANSIENT_STATUS_FAILURES,
+    retryDelayMs: Long = TRANSIENT_RETRY_DELAY_MS,
+    nowMs: () -> Long = System::currentTimeMillis,
 ): SynthesisJobSnapshot {
     var consecutiveTransients = 0
+    var lastFailureMs = 0L
     while (true) {
         try {
             return fetch()
@@ -343,6 +352,11 @@ internal suspend fun pollStatusWithTransientRetry(
                     cause = error,
                 )
             }
+            val now = nowMs()
+            if (lastFailureMs != 0L && now - lastFailureMs > SUSPENSION_GAP_THRESHOLD_MS) {
+                consecutiveTransients = 0
+            }
+            lastFailureMs = now
             consecutiveTransients++
             if (consecutiveTransients > maxConsecutiveTransients) {
                 throw ProgramSynthesisException(MESSAGE_GENERATION_FAILED)
@@ -352,6 +366,7 @@ internal suspend fun pollStatusWithTransientRetry(
                 "$STATUS_CALLABLE transient failure (${error.code.name}); " +
                     "continuing to poll job=$jobId",
             )
+            delay(retryDelayMs)
         }
     }
 }
