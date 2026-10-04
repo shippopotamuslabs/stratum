@@ -291,7 +291,7 @@
 
     <!-- Shared program generation progress timeline (onboarding + create program) -->
     <string name="program_generate_loading">Building your program…</string>
-    <string name="program_generate_loading_duration">Program generation takes 2–3 minutes.</string>
+    <string name="program_generate_loading_duration">Program generation takes a minute or two. You can minimize the app while it runs.</string>
     <string name="program_generate_timeline_checkmark">✓</string>
     <string name="program_generate_phase_preparing">Preparing your profile</string>
     <string name="program_generate_phase_reviewing">Reviewing your training profile</string>
