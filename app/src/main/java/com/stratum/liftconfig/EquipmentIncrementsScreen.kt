@@ -234,29 +234,10 @@ internal fun EquipmentBandEditorScreen(
                 onAddBand = onAddBand,
             )
             if (selection != null && editor.tiers.indices.contains(selection)) {
-                val start = IncrementBandTiling.startAt(editor.tiers, selection)
-                val isOpen = selection == editor.tiers.lastIndex
-                StratumText(
-                    text =
-                        if (isOpen) {
-                            stringResource(
-                                UiR.string.equipment_band_caption_open,
-                                selection + 1,
-                                editor.tiers.size,
-                                start,
-                                editor.unitLabel,
-                            )
-                        } else {
-                            stringResource(
-                                UiR.string.equipment_band_caption,
-                                selection + 1,
-                                editor.tiers.size,
-                                start,
-                                editor.unitLabel,
-                            )
-                        },
-                    style = StratumThemeAccessor.typography.sectionLabel,
-                    muted = true,
+                BandCaption(
+                    tiers = editor.tiers,
+                    selection = selection,
+                    unitLabel = editor.unitLabel,
                     modifier = Modifier.padding(start = 2.dp, top = 6.dp),
                 )
             }
