@@ -12,10 +12,14 @@ import pytest
 from jsonschema import Draft202012Validator
 from ortools.sat.python import cp_model
 
+from solver import domain as D
 from solver import wire as W
 from solver.model import (
+    L0_FULL,
+    L1_SOFT_FLOORS,
     SolverInfeasibleError,
     SynthesisModel,
+    _solve_with_fallback,
     solve_payload,
 )
 
@@ -82,7 +86,7 @@ def _tiny_narrow(days):
 def _l0_solve(payload, **kwargs):
     decoded = W.decode_request(payload)
     model = SynthesisModel(
-        decoded["weeklyTargets"], decoded["context"], relaxation=0
+        decoded["weeklyTargets"], decoded["context"], relaxation=L0_FULL
     )
     return model.solve(**kwargs)
 
@@ -94,9 +98,10 @@ def _validate(response):
 
 def _assert_l1_engaged(response):
     """L1 output must violate the L0-only floor (else L0 was feasible)."""
+    floor = D.MIN_ACTIVE_LIFTS_PER_SESSION
     assert any(
-        len(plan["filledSlots"]) < 3 for plan in response["plans"]
-    ), "expected a sub-3-lift session: L1 relaxation visibly engaged"
+        len(plan["filledSlots"]) < floor for plan in response["plans"]
+    ), f"expected a sub-{floor}-lift session: L1 relaxation visibly engaged"
 
 
 @pytest.mark.slow
@@ -143,7 +148,7 @@ def test_ladder_returns_l0_solution_on_fixtures(name):
     )
     decoded = W.decode_request(payload)
     direct = SynthesisModel(
-        decoded["weeklyTargets"], decoded["context"], relaxation=0
+        decoded["weeklyTargets"], decoded["context"], relaxation=L0_FULL
     ).solve(max_time_seconds=fixture_deadline(), num_search_workers=1)
     assert via_ladder["objective"] == W.encode_response(direct)["objective"]
 
@@ -171,3 +176,25 @@ def test_invalid_relaxation_level_rejected():
     decoded = W.decode_request(payload)
     with pytest.raises(ValueError):
         SynthesisModel(decoded["weeklyTargets"], decoded["context"], relaxation=2)
+
+
+@pytest.mark.slow
+def test_solve_with_fallback_reports_engaged_level():
+    """The ladder returns its engaged level (no stdout parsing needed)."""
+    narrow = W.decode_request(_tiny_narrow(2))
+    _, narrow_level = _solve_with_fallback(
+        narrow,
+        max_time_seconds=fixture_deadline(),
+        num_search_workers=None,
+    )
+    assert narrow_level == L1_SOFT_FLOORS
+
+    feasible = W.decode_request(
+        json.loads((FIXTURES_DIR / "3day-fullbody-maint.request.json").read_text())
+    )
+    _, feasible_level = _solve_with_fallback(
+        feasible,
+        max_time_seconds=fixture_deadline(),
+        num_search_workers=None,
+    )
+    assert feasible_level == L0_FULL

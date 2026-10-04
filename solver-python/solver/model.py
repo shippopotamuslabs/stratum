@@ -142,18 +142,28 @@ _ALWAYS_AIM_ORDER = (
     "Hamstring",
 )
 
+#: Fallback-ladder relaxation levels (STR-54): L0 is the full model; L1
+#: softens the min-active-lifts floor to a heavy-slack penalty.
+L0_FULL = 0
+L1_SOFT_FLOORS = 1
+
+#: Objective-slack name prefix for L1 lift shortfalls.
+_L1_LIFT_SHORT_PREFIX = "l1LiftShort_"
+
 
 class SynthesisModel:
     """Joint CP-SAT model: per-slot set counts, session calendar, tiered objective."""
 
-    def __init__(self, weekly_targets: dict, context: dict, relaxation: int = 0):
-        if relaxation not in (0, 1):
+    def __init__(
+        self, weekly_targets: dict, context: dict, relaxation: int = L0_FULL
+    ):
+        if relaxation not in (L0_FULL, L1_SOFT_FLOORS):
             raise ValueError(f"unknown relaxation level: {relaxation!r} (want 0 or 1)")
         self.weekly_targets = weekly_targets
         self.context = context
-        # Fallback ladder (STR-54): 0 = full model; 1 = structural floors
-        # softened to heavy-slack penalties. Recovery forbids stay hard at
-        # every level.
+        # Fallback ladder (STR-54): L0_FULL = full model; L1_SOFT_FLOORS =
+        # structural floors softened to heavy-slack penalties. Recovery
+        # forbids stay hard at every level.
         self.relaxation = relaxation
         self.coeff = _Coefficients(context)
         # withResolvedCycleSpace: resolve ring first, then share it everywhere.
@@ -472,28 +482,31 @@ class SynthesisModel:
             actives = [sv["active"] for sv in by_plan.get(plan["position"], [])]
             if len(actives) < D.MIN_ACTIVE_LIFTS_PER_SESSION:
                 continue
-            if self.relaxation >= 1:
-                # L1 (STR-54): soften the floor to a heavy-slack penalty.
-                # This is the only unconditional hard structural floor, so L1
-                # provably terminates: near-zero volume satisfies every
-                # remaining hard constraint (caps, structure) and every
-                # recovery forbid vacuously. NOTE: the slack penalty feeds
-                # the true objective (`total`) but has no v1 breakdown field;
-                # engagement is server-logged (a v1.1 `fallbackLevel` field
-                # can expose it to clients).
-                short = self._track_slack(
-                    model,
-                    f"l1LiftShort_{plan['position']}",
-                    D.MIN_ACTIVE_LIFTS_PER_SESSION,
-                )
-                model.Add(
-                    sum(actives) + short >= D.MIN_ACTIVE_LIFTS_PER_SESSION
-                )
-                self._weighted_terms.append(
-                    (short, D.W_L1_ACTIVE_LIFTS_SHORTFALL)
-                )
-            else:
-                model.Add(sum(actives) >= D.MIN_ACTIVE_LIFTS_PER_SESSION)
+            self._apply_min_active_lifts_floor(model, actives, plan["position"])
+
+    def _apply_min_active_lifts_floor(
+        self, model: cp_model.CpModel, actives: list, position: int
+    ) -> None:
+        """Hard floor at L0; heavy-slack penalty at L1 (STR-54).
+
+        This is the only unconditional hard structural floor, so L1
+        provably terminates: near-zero volume satisfies every remaining
+        hard constraint (caps, structure) and every recovery forbid
+        vacuously. The slack penalty feeds the true objective (`total`)
+        like every other weighted term — the 10 breakdown terms are
+        unweighted explanatory slacks, never a partition of `total`
+        (a v1.1 `fallbackLevel` field can expose engagement to clients).
+        """
+        if self.relaxation >= L1_SOFT_FLOORS:
+            short = self._track_slack(
+                model,
+                f"{_L1_LIFT_SHORT_PREFIX}{position}",
+                D.MIN_ACTIVE_LIFTS_PER_SESSION,
+            )
+            model.Add(sum(actives) + short >= D.MIN_ACTIVE_LIFTS_PER_SESSION)
+            self._weighted_terms.append((short, D.W_L1_ACTIVE_LIFTS_SHORTFALL))
+        else:
+            model.Add(sum(actives) >= D.MIN_ACTIVE_LIFTS_PER_SESSION)
 
     # -- recovery forbids ------------------------------------------------
 
@@ -1650,7 +1663,7 @@ def solve_request(
     decoded: dict,
     max_time_seconds: float = 120.0,
     num_search_workers: int | None = None,
-    relaxation: int = 0,
+    relaxation: int = L0_FULL,
 ) -> dict:
     """Solve an already-decoded v1 request; returns a wire-ready solution dict."""
     model = SynthesisModel(
@@ -1661,26 +1674,25 @@ def solve_request(
     )
 
 
-def solve_payload(
-    payload: dict,
-    max_time_seconds: float = 120.0,
-    num_search_workers: int | None = None,
-) -> dict:
-    """Decode a raw v1 request payload, solve, and encode the v1 response.
+def _solve_with_fallback(
+    decoded: dict,
+    max_time_seconds: float,
+    num_search_workers: int | None,
+) -> tuple[dict, int]:
+    """Run the L0-then-L1 fallback ladder; returns (solution, level engaged).
 
-    Fallback ladder (STR-54): try L0 (full model); on a proven INFEASIBLE
-    only, retry once at L1 (structural floors softened, recovery still hard).
-    Timeouts and solver errors are NOT retried — L1 cannot fix those, and a
-    second full-deadline attempt would just double latency.
+    Retries once at L1 on a proven INFEASIBLE only — timeouts and solver
+    errors propagate (L1 cannot fix those, and a second full-deadline
+    attempt would just double latency). The engaged level is returned (not
+    just logged) so tests pin engagement without parsing stdout.
     """
-    decoded = W.decode_request(payload)
     started = time.time()
     try:
         solution = solve_request(
             decoded,
             max_time_seconds=max_time_seconds,
             num_search_workers=num_search_workers,
-            relaxation=0,
+            relaxation=L0_FULL,
         )
     except SolverInfeasibleError as exc:
         if exc.status != cp_model.INFEASIBLE:
@@ -1694,10 +1706,27 @@ def solve_payload(
             decoded,
             max_time_seconds=max_time_seconds,
             num_search_workers=num_search_workers,
-            relaxation=1,
+            relaxation=L1_SOFT_FLOORS,
         )
         print(
             f"solver: L1 solved in {time.time() - started:.2f}s "
-            f"(fallback engaged; total may exceed term breakdown)"
+            "(fallback engaged)"
         )
+        return solution, L1_SOFT_FLOORS
+    return solution, L0_FULL
+
+
+def solve_payload(
+    payload: dict,
+    max_time_seconds: float = 120.0,
+    num_search_workers: int | None = None,
+) -> dict:
+    """Decode a raw v1 request payload, solve via the fallback ladder (STR-54),
+    and encode the v1 response."""
+    decoded = W.decode_request(payload)
+    solution, _level = _solve_with_fallback(
+        decoded,
+        max_time_seconds=max_time_seconds,
+        num_search_workers=num_search_workers,
+    )
     return W.encode_response(solution)

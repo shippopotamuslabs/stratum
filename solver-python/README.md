@@ -59,8 +59,10 @@ at L1, which softens the min-active-lifts floor to a heavy-slack penalty
 (`W_L1_ACTIVE_LIFTS_SHORTFALL`). Recovery forbids stay hard at every level, so
 L1 output is safe-but-thin (fewer lifts per session; volume preserved where
 possible). Engagement is logged to stdout (`solver: L0 infeasible ... retrying
-at L1`). Server-internal: no contract change; the L1 penalty feeds `total` but
-has no v1 breakdown field (a v1.1 `fallbackLevel` field can expose it).
+at L1`). Server-internal: no contract change. Note the L1 penalty feeds
+`total` like every other weighted term — the 10 breakdown terms are
+unweighted explanatory slacks, never a partition of `total` at any level
+(a v1.1 `fallbackLevel` field can expose engagement to clients).
 
 ## Cloud Run notes (do NOT deploy from here)
 
