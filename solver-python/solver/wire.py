@@ -59,7 +59,7 @@ _REGION_FILTER_TO_SESSION_TYPE = {
     "Unrestricted": "FullBody",
 }
 
-_VALID_FATIGUE_PROFILES = ("High", "Medium", "Low")
+_VALID_FATIGUE_PROFILES = frozenset({"High", "Medium", "Low"})
 
 
 class WireError(ValueError):
@@ -95,6 +95,12 @@ def canonical_role(name: str) -> str:
 def _require_object(value, what: str) -> dict:
     if not isinstance(value, dict):
         raise WireError(f"Expected object for {what}")
+    return value
+
+
+def _require_list(value, what: str) -> list:
+    if not isinstance(value, list):
+        raise WireError(f"Expected array for {what}")
     return value
 
 
@@ -258,7 +264,7 @@ def _decode_context(obj: dict) -> dict:
         # Resolved movement pattern per lift id; null allowed. Unknown names
         # (v1.minor additions) map to None rather than failing.
         "movementPatternByLiftId": {
-            lift_id: v if isinstance(v, str) and _known_pattern(v) else None
+            lift_id: _decode_pattern_or_none(v)
             for lift_id, v in _require_object(
                 obj["movementPatternByLiftId"], "movementPatternByLiftId"
             ).items()
@@ -277,8 +283,8 @@ def _decode_context(obj: dict) -> dict:
     }
 
 
-def _known_pattern(name: str) -> bool:
-    return name in (
+_KNOWN_PATTERNS = frozenset(
+    {
         "SquatPattern",
         "HipHinge",
         "KneeExtension",
@@ -301,7 +307,17 @@ def _known_pattern(name: str) -> bool:
         "VerticalPress",
         "HipAbduction",
         "HipAdduction",
-    )
+    }
+)
+
+
+def _known_pattern(name: str) -> bool:
+    return name in _KNOWN_PATTERNS
+
+
+def _decode_pattern_or_none(value):
+    """Known movement-pattern name, else None (unknown names tolerated)."""
+    return value if isinstance(value, str) and _known_pattern(value) else None
 
 
 def _decode_specialization_level(value) -> str:
@@ -316,9 +332,7 @@ def _decode_lift(obj: dict) -> dict:
         if key not in obj:
             raise WireError(f"Missing required lift field: {key}")
     raw_pattern = obj.get("movementPattern")
-    movement_pattern = (
-        raw_pattern if isinstance(raw_pattern, str) and _known_pattern(raw_pattern) else None
-    )
+    movement_pattern = _decode_pattern_or_none(raw_pattern)
     raw_bias = obj.get("muscleLengthBias")
     muscle_bias = (
         raw_bias
@@ -337,10 +351,20 @@ def _decode_lift(obj: dict) -> dict:
         "name": _require_string(obj["name"], "lift.name"),
         "movementPattern": movement_pattern,
         "movementPatterns": [
-            p for p in obj["movementPatterns"] if isinstance(p, str) and _known_pattern(p)
+            p
+            for p in _require_list(obj["movementPatterns"], "lift.movementPatterns")
+            if isinstance(p, str) and _known_pattern(p)
         ],
-        "primaryMuscles": [m for m in obj["primaryMuscles"] if isinstance(m, str)],
-        "secondaryMuscles": [m for m in obj["secondaryMuscles"] if isinstance(m, str)],
+        "primaryMuscles": [
+            m
+            for m in _require_list(obj["primaryMuscles"], "lift.primaryMuscles")
+            if isinstance(m, str)
+        ],
+        "secondaryMuscles": [
+            m
+            for m in _require_list(obj["secondaryMuscles"], "lift.secondaryMuscles")
+            if isinstance(m, str)
+        ],
         "mainstream": obj.get("mainstream"),
         "progressTrend": obj.get("progressTrend"),
         "proven": obj.get("proven"),
@@ -364,7 +388,13 @@ def _decode_weight_or_null(value):
         return None
     amount = value.get("amount")
     unit = value.get("unit")
-    if not isinstance(amount, (int, float)) or unit not in ("Lb", "Kg"):
+    # Mirror _require_number: bool and NaN/Inf amounts are absent, not valid.
+    if (
+        not isinstance(amount, (int, float))
+        or isinstance(amount, bool)
+        or (isinstance(amount, float) and (math.isnan(amount) or math.isinf(amount)))
+        or unit not in ("Lb", "Kg")
+    ):
         return None
     return {"amount": amount, "unit": unit}
 
@@ -401,7 +431,7 @@ def _decode_effectiveness(obj: dict, lift_id: str) -> dict:
     raw_pattern = obj.get("pattern")
     return {
         "liftId": obj.get("liftId", lift_id),
-        "pattern": raw_pattern if isinstance(raw_pattern, str) and _known_pattern(raw_pattern) else None,
+        "pattern": _decode_pattern_or_none(raw_pattern),
         "rank": obj.get("rank"),
         "effectivenessScore": obj.get("effectivenessScore"),
         # Free-form evidence label; tolerated.
@@ -423,12 +453,22 @@ def _decode_rest_slots(value):
 
 
 def session_type_for_region_filter(region_filter: str) -> str:
-    return _REGION_FILTER_TO_SESSION_TYPE[region_filter]
+    try:
+        return _REGION_FILTER_TO_SESSION_TYPE[region_filter]
+    except KeyError:
+        raise WireError(f"Unknown region filter {region_filter!r}") from None
 
 
 def region_filter_for_session_type(session_type: str) -> str:
     """Legacy inference when regionFilterBySession is missing."""
     return _SESSION_TYPE_TO_REGION_FILTER.get(session_type, "UpperOnly")
+
+
+def _encode_allowed_fatigue(fatigue):
+    if fatigue is None:
+        return None
+    kept = [f for f in fatigue if f in _VALID_FATIGUE_PROFILES]
+    return kept or None
 
 
 def _encode_slot_template(slot: dict, session_index: int) -> dict:
@@ -442,11 +482,19 @@ def _encode_slot_template(slot: dict, session_index: int) -> dict:
         "lengthBiasPreference": slot.get("lengthBiasPreference"),
         "siblingVariant": slot.get("siblingVariant"),
         "isCrossDomainTouch": bool(slot.get("isCrossDomainTouch", False)),
-        "allowedFatigueProfiles": (
-            [f for f in fatigue if f in _VALID_FATIGUE_PROFILES] or None
-            if fatigue is not None
-            else None
-        ),
+        "allowedFatigueProfiles": _encode_allowed_fatigue(fatigue),
+    }
+
+
+def _base_session(index: int, session_type: str, name: str, templates: list) -> dict:
+    """Envelope shared by the session and plan variants (they differ only by
+    ``composition`` vs ``filledSlots``)."""
+    return {
+        "sessionType": session_type,
+        "name": name,
+        "slots": templates,
+        "siblingIndex": 0,
+        "position": index,
     }
 
 
@@ -454,7 +502,7 @@ def encode_response(solution: dict) -> dict:
     """Encode a solved program to the canonical v1 response shape.
 
     ``solution`` keys: universe (list of SynthesisSlot dicts in universe order),
-    activeIdsBySession (list of ordered id lists), setCounts (map
+    activeSlotIdsBySession (list of ordered id lists), setCounts (map
     (sessionIndex, universeId) -> sets), cycleSlotIndexByPosition (list),
     regionFilterBySession (list), objective (10-key breakdown dict).
     """
@@ -479,26 +527,9 @@ def encode_response(solution: dict) -> dict:
             filled.append(
                 dict(template, setCount=solution["setCounts"][(i, uid)])
             )
-        sessions.append(
-            {
-                "sessionType": session_type,
-                "name": name,
-                "slots": templates,
-                "siblingIndex": 0,
-                "position": i,
-                "composition": None,
-            }
-        )
-        plans.append(
-            {
-                "sessionType": session_type,
-                "name": name,
-                "slots": templates,
-                "siblingIndex": 0,
-                "position": i,
-                "filledSlots": filled,
-            }
-        )
+        base = _base_session(i, session_type, name, templates)
+        sessions.append(dict(base, composition=None))
+        plans.append(dict(base, filledSlots=filled))
     objective = solution["objective"]
     return {
         "modelVersion": MODEL_VERSION_V1,

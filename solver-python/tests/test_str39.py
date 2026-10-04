@@ -15,7 +15,6 @@ import json
 
 import pytest
 
-from solver import domain as D
 from solver.model import SynthesisModel
 from solver.wire import decode_request, encode_response
 
@@ -56,18 +55,12 @@ def _solve_variant(model_cls, payload, deadline):
 
 
 def _low_tier_small_isolation_days(request_payload, response):
-    """Independent scan: {muscle: sorted days} with isolation credit in [1,3]."""
-    from .support import session_muscle_exposure
+    """{muscle: sorted days} with isolation credit in [1,3] (defect demo)."""
+    from .support import low_tier_small_isolation_days, session_muscle_exposure
 
     days = response["cycleSlotIndexByPosition"]
     exposure = session_muscle_exposure(request_payload, response)
-    out = {}
-    for pos, per in exposure.items():
-        for muscle, (credit, cls) in per.items():
-            if D.is_large_compound_muscle(muscle) or cls != "Isolation":
-                continue
-            if 1.0 <= credit <= 3.0:
-                out.setdefault(muscle, []).append(days[pos])
+    out = low_tier_small_isolation_days(exposure, days)
     return {m: sorted(ds) for m, ds in out.items()}
 
 
