@@ -1,8 +1,10 @@
-"""Shared builders and independent output-property checkers for solver tests.
+"""Shared builders and output-property checkers for solver tests.
 
-The back-to-back checker below is an INDEPENDENT reimplementation of the
-STR-39 output property (reads the response JSON + request JSON only; never
-touches the model's internal literals), so it verifies behavior, not mechanism.
+The back-to-back checker below verifies the STR-39 output property from the
+response JSON (not from the constraint encoding): it reuses the coefficient
+math (``_Coefficients``) and ``decode_request`` to compute exposure, but never
+touches the model's reified literals or tier gates, so it verifies behavior,
+not mechanism.
 """
 
 from __future__ import annotations
@@ -135,8 +137,10 @@ def tiny_request(
 def session_muscle_exposure(request_payload, response):
     """Per (position -> {muscle: (credit_float, dominant_class)}).
 
-    Independent of the model's literals: credits from set counts and scaled
-    coefficients; dominant class from primary-mover contributions >= 1.0.
+    Credits from set counts and scaled coefficients; dominant class from
+    primary-mover contributions >= 1.0. Independent of the constraint
+    encoding (reified literals, tier gates), which is what the checker
+    verifies.
     """
     from solver.wire import decode_request
 
@@ -185,6 +189,23 @@ def session_muscle_exposure(request_payload, response):
     return out
 
 
+def low_tier_small_isolation_days(exposure, days):
+    """{muscle: [calendar days]} with isolation-dominant credit in [1.0, 3.0].
+
+    Shared scan for the assert helper and the pre-fix defect demonstration.
+    """
+    low_days: dict[str, list[int]] = {}
+    for pos, per in exposure.items():
+        for muscle, (credit, cls) in per.items():
+            if D.is_large_compound_muscle(muscle):
+                continue
+            if cls != "Isolation":
+                continue
+            if 1.0 <= credit <= 3.0:
+                low_days.setdefault(muscle, []).append(days[pos])
+    return low_days
+
+
 def assert_no_back_to_back_low_tier_small_isolation(request_payload, response):
     """STR-39 output property: no small muscle may carry isolation-dominant
     credit in [1.0, 3.0] on two calendar-adjacent training days."""
@@ -198,15 +219,7 @@ def assert_no_back_to_back_low_tier_small_isolation(request_payload, response):
     cycle = length
     days = response["cycleSlotIndexByPosition"]
     exposure = session_muscle_exposure(request_payload, response)
-    low_days: dict[str, list[int]] = {}
-    for pos, per in exposure.items():
-        for muscle, (credit, cls) in per.items():
-            if D.is_large_compound_muscle(muscle):
-                continue
-            if cls != "Isolation":
-                continue
-            if 1.0 <= credit <= 3.0:
-                low_days.setdefault(muscle, []).append(days[pos])
+    low_days = low_tier_small_isolation_days(exposure, days)
     violations = []
     for muscle, ds in low_days.items():
         for a in ds:

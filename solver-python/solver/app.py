@@ -73,9 +73,7 @@ def handle_solve(url_major: int, payload: dict) -> tuple[int, dict]:
             max_time_seconds=_max_time_seconds(),
             num_search_workers=_num_search_workers(),
         )
-    except SolverConfigError as e:
-        return _error(422, str(e))
-    except SolverInfeasibleError as e:
+    except (SolverConfigError, SolverInfeasibleError) as e:
         return _error(422, str(e))
     except Exception as e:  # defensive: never leak a traceback to clients
         return _error(500, f"Solver failed: {e}")
@@ -112,11 +110,14 @@ class _Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):  # noqa: N802
         path = urlparse(self.path).path
-        if path == "/solve/v1":
-            url_major = 1
+        if path == f"/solve/v{SUPPORTED_MAJOR}":
+            url_major = SUPPORTED_MAJOR
         elif path.startswith("/solve/v"):
             # Message text is pinned by the contract suite (match="unsupported major").
-            self._send_json(400, {"error": f"unsupported major in path: {path} (server supports v1)"})
+            self._send_json(
+                400,
+                {"error": f"unsupported major in path: {path} (server supports v{SUPPORTED_MAJOR})"},
+            )
             return
         else:
             self._send_json(404, {"error": f"Not found: {path}"})
