@@ -1,0 +1,1144 @@
+{
+  "modelVersion": "v1",
+  "sessions": [
+    {
+      "sessionType": "FullBody",
+      "name": "Session 1",
+      "slots": [
+        {
+          "slotId": "s0_ShoulderAbduction|LateralDeltoid|Accessory|false|Any",
+          "role": "Accessory",
+          "pattern": "ShoulderAbduction",
+          "primaryMuscle": "LateralDeltoid",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null
+        },
+        {
+          "slotId": "s0_SquatPattern|Quad|Anchor|false|Any",
+          "role": "Anchor",
+          "pattern": "SquatPattern",
+          "primaryMuscle": "Quad",
+          "repProfile": "LowerFreeWeightCompound",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null
+        },
+        {
+          "slotId": "s0_KneeExtension|Quad|Accessory|false|Any",
+          "role": "Accessory",
+          "pattern": "KneeExtension",
+          "primaryMuscle": "Quad",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": [
+            "Low",
+            "Medium"
+          ]
+        },
+        {
+          "slotId": "s0_InclinePress|Chest|SecondaryCompound|false|Any",
+          "role": "SecondaryCompound",
+          "pattern": "InclinePress",
+          "primaryMuscle": "Chest",
+          "repProfile": "LowerMachineOrUpperPress",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null
+        },
+        {
+          "slotId": "s0_HorizontalPull|Back|Accessory|true|Any",
+          "role": "Accessory",
+          "pattern": "HorizontalPull",
+          "primaryMuscle": "Back",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": true,
+          "allowedFatigueProfiles": null
+        }
+      ],
+      "siblingIndex": 0,
+      "position": 0,
+      "composition": null
+    },
+    {
+      "sessionType": "FullBody",
+      "name": "Session 2",
+      "slots": [
+        {
+          "slotId": "s1_ShoulderAbduction|LateralDeltoid|Accessory|false|Any",
+          "role": "Accessory",
+          "pattern": "ShoulderAbduction",
+          "primaryMuscle": "LateralDeltoid",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null
+        },
+        {
+          "slotId": "s1_ElbowFlexion|Bicep|Accessory|false|Any",
+          "role": "Accessory",
+          "pattern": "ElbowFlexion",
+          "primaryMuscle": "Bicep",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null
+        },
+        {
+          "slotId": "s1_ElbowExtension|Tricep|Accessory|false|Any",
+          "role": "Accessory",
+          "pattern": "ElbowExtension",
+          "primaryMuscle": "Tricep",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null
+        },
+        {
+          "slotId": "s1_HipHinge|Hamstring|Anchor|false|Any",
+          "role": "Anchor",
+          "pattern": "HipHinge",
+          "primaryMuscle": "Hamstring",
+          "repProfile": "LowerFreeWeightCompound",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null
+        },
+        {
+          "slotId": "s1_KneeFlexion|Hamstring|Accessory|false|Any",
+          "role": "Accessory",
+          "pattern": "KneeFlexion",
+          "primaryMuscle": "Hamstring",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": [
+            "Low",
+            "Medium"
+          ]
+        }
+      ],
+      "siblingIndex": 0,
+      "position": 1,
+      "composition": null
+    },
+    {
+      "sessionType": "FullBody",
+      "name": "Session 3",
+      "slots": [
+        {
+          "slotId": "s2_VerticalPull|Back|SecondaryCompound|false|A",
+          "role": "SecondaryCompound",
+          "pattern": "VerticalPull",
+          "primaryMuscle": "Back",
+          "repProfile": "UpperMachineOrPull",
+          "lengthBiasPreference": null,
+          "siblingVariant": "A",
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null
+        },
+        {
+          "slotId": "s2_InclinePress|Chest|SecondaryCompound|false|B",
+          "role": "SecondaryCompound",
+          "pattern": "InclinePress",
+          "primaryMuscle": "Chest",
+          "repProfile": "LowerMachineOrUpperPress",
+          "lengthBiasPreference": null,
+          "siblingVariant": "B",
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null
+        },
+        {
+          "slotId": "s2_HorizontalPull|Back|Accessory|true|Any",
+          "role": "Accessory",
+          "pattern": "HorizontalPull",
+          "primaryMuscle": "Back",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": true,
+          "allowedFatigueProfiles": null
+        },
+        {
+          "slotId": "s2_HorizontalPress|Chest|Accessory|true|Any",
+          "role": "Accessory",
+          "pattern": "HorizontalPress",
+          "primaryMuscle": "Chest",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": true,
+          "allowedFatigueProfiles": null
+        }
+      ],
+      "siblingIndex": 0,
+      "position": 2,
+      "composition": null
+    },
+    {
+      "sessionType": "FullBody",
+      "name": "Session 4",
+      "slots": [
+        {
+          "slotId": "s3_ShoulderAbduction|LateralDeltoid|Accessory|false|Any",
+          "role": "Accessory",
+          "pattern": "ShoulderAbduction",
+          "primaryMuscle": "LateralDeltoid",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null
+        },
+        {
+          "slotId": "s3_ElbowExtension|Tricep|Accessory|false|Any",
+          "role": "Accessory",
+          "pattern": "ElbowExtension",
+          "primaryMuscle": "Tricep",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null
+        },
+        {
+          "slotId": "s3_SquatPattern|Quad|Anchor|false|Any",
+          "role": "Anchor",
+          "pattern": "SquatPattern",
+          "primaryMuscle": "Quad",
+          "repProfile": "LowerFreeWeightCompound",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null
+        },
+        {
+          "slotId": "s3_KneeExtension|Quad|Accessory|false|Any",
+          "role": "Accessory",
+          "pattern": "KneeExtension",
+          "primaryMuscle": "Quad",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": [
+            "Low",
+            "Medium"
+          ]
+        }
+      ],
+      "siblingIndex": 0,
+      "position": 3,
+      "composition": null
+    },
+    {
+      "sessionType": "FullBody",
+      "name": "Session 5",
+      "slots": [
+        {
+          "slotId": "s4_ShoulderAbduction|LateralDeltoid|Accessory|false|Any",
+          "role": "Accessory",
+          "pattern": "ShoulderAbduction",
+          "primaryMuscle": "LateralDeltoid",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null
+        },
+        {
+          "slotId": "s4_ElbowFlexion|Bicep|Accessory|false|Any",
+          "role": "Accessory",
+          "pattern": "ElbowFlexion",
+          "primaryMuscle": "Bicep",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null
+        },
+        {
+          "slotId": "s4_HipHinge|Hamstring|Anchor|false|Any",
+          "role": "Anchor",
+          "pattern": "HipHinge",
+          "primaryMuscle": "Hamstring",
+          "repProfile": "LowerFreeWeightCompound",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null
+        },
+        {
+          "slotId": "s4_KneeFlexion|Hamstring|Accessory|false|Any",
+          "role": "Accessory",
+          "pattern": "KneeFlexion",
+          "primaryMuscle": "Hamstring",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": [
+            "Low",
+            "Medium"
+          ]
+        }
+      ],
+      "siblingIndex": 0,
+      "position": 4,
+      "composition": null
+    },
+    {
+      "sessionType": "FullBody",
+      "name": "Session 6",
+      "slots": [
+        {
+          "slotId": "s5_VerticalPull|Back|SecondaryCompound|false|A",
+          "role": "SecondaryCompound",
+          "pattern": "VerticalPull",
+          "primaryMuscle": "Back",
+          "repProfile": "UpperMachineOrPull",
+          "lengthBiasPreference": null,
+          "siblingVariant": "A",
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null
+        },
+        {
+          "slotId": "s5_ElbowExtension|Tricep|Accessory|false|Any",
+          "role": "Accessory",
+          "pattern": "ElbowExtension",
+          "primaryMuscle": "Tricep",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null
+        },
+        {
+          "slotId": "s5_InclinePress|Chest|SecondaryCompound|false|Any",
+          "role": "SecondaryCompound",
+          "pattern": "InclinePress",
+          "primaryMuscle": "Chest",
+          "repProfile": "LowerMachineOrUpperPress",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null
+        },
+        {
+          "slotId": "s5_HorizontalPull|Back|Accessory|true|Any",
+          "role": "Accessory",
+          "pattern": "HorizontalPull",
+          "primaryMuscle": "Back",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": true,
+          "allowedFatigueProfiles": null
+        },
+        {
+          "slotId": "s5_HorizontalPress|Chest|Accessory|true|Any",
+          "role": "Accessory",
+          "pattern": "HorizontalPress",
+          "primaryMuscle": "Chest",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": true,
+          "allowedFatigueProfiles": null
+        }
+      ],
+      "siblingIndex": 0,
+      "position": 5,
+      "composition": null
+    }
+  ],
+  "plans": [
+    {
+      "sessionType": "FullBody",
+      "name": "Session 1",
+      "slots": [
+        {
+          "slotId": "s0_ShoulderAbduction|LateralDeltoid|Accessory|false|Any",
+          "role": "Accessory",
+          "pattern": "ShoulderAbduction",
+          "primaryMuscle": "LateralDeltoid",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null
+        },
+        {
+          "slotId": "s0_SquatPattern|Quad|Anchor|false|Any",
+          "role": "Anchor",
+          "pattern": "SquatPattern",
+          "primaryMuscle": "Quad",
+          "repProfile": "LowerFreeWeightCompound",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null
+        },
+        {
+          "slotId": "s0_KneeExtension|Quad|Accessory|false|Any",
+          "role": "Accessory",
+          "pattern": "KneeExtension",
+          "primaryMuscle": "Quad",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": [
+            "Low",
+            "Medium"
+          ]
+        },
+        {
+          "slotId": "s0_InclinePress|Chest|SecondaryCompound|false|Any",
+          "role": "SecondaryCompound",
+          "pattern": "InclinePress",
+          "primaryMuscle": "Chest",
+          "repProfile": "LowerMachineOrUpperPress",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null
+        },
+        {
+          "slotId": "s0_HorizontalPull|Back|Accessory|true|Any",
+          "role": "Accessory",
+          "pattern": "HorizontalPull",
+          "primaryMuscle": "Back",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": true,
+          "allowedFatigueProfiles": null
+        }
+      ],
+      "siblingIndex": 0,
+      "position": 0,
+      "filledSlots": [
+        {
+          "slotId": "s0_ShoulderAbduction|LateralDeltoid|Accessory|false|Any",
+          "role": "Accessory",
+          "pattern": "ShoulderAbduction",
+          "primaryMuscle": "LateralDeltoid",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null,
+          "setCount": 3
+        },
+        {
+          "slotId": "s0_SquatPattern|Quad|Anchor|false|Any",
+          "role": "Anchor",
+          "pattern": "SquatPattern",
+          "primaryMuscle": "Quad",
+          "repProfile": "LowerFreeWeightCompound",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null,
+          "setCount": 2
+        },
+        {
+          "slotId": "s0_KneeExtension|Quad|Accessory|false|Any",
+          "role": "Accessory",
+          "pattern": "KneeExtension",
+          "primaryMuscle": "Quad",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": [
+            "Low",
+            "Medium"
+          ],
+          "setCount": 5
+        },
+        {
+          "slotId": "s0_InclinePress|Chest|SecondaryCompound|false|Any",
+          "role": "SecondaryCompound",
+          "pattern": "InclinePress",
+          "primaryMuscle": "Chest",
+          "repProfile": "LowerMachineOrUpperPress",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null,
+          "setCount": 3
+        },
+        {
+          "slotId": "s0_HorizontalPull|Back|Accessory|true|Any",
+          "role": "Accessory",
+          "pattern": "HorizontalPull",
+          "primaryMuscle": "Back",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": true,
+          "allowedFatigueProfiles": null,
+          "setCount": 5
+        }
+      ]
+    },
+    {
+      "sessionType": "FullBody",
+      "name": "Session 2",
+      "slots": [
+        {
+          "slotId": "s1_ShoulderAbduction|LateralDeltoid|Accessory|false|Any",
+          "role": "Accessory",
+          "pattern": "ShoulderAbduction",
+          "primaryMuscle": "LateralDeltoid",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null
+        },
+        {
+          "slotId": "s1_ElbowFlexion|Bicep|Accessory|false|Any",
+          "role": "Accessory",
+          "pattern": "ElbowFlexion",
+          "primaryMuscle": "Bicep",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null
+        },
+        {
+          "slotId": "s1_ElbowExtension|Tricep|Accessory|false|Any",
+          "role": "Accessory",
+          "pattern": "ElbowExtension",
+          "primaryMuscle": "Tricep",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null
+        },
+        {
+          "slotId": "s1_HipHinge|Hamstring|Anchor|false|Any",
+          "role": "Anchor",
+          "pattern": "HipHinge",
+          "primaryMuscle": "Hamstring",
+          "repProfile": "LowerFreeWeightCompound",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null
+        },
+        {
+          "slotId": "s1_KneeFlexion|Hamstring|Accessory|false|Any",
+          "role": "Accessory",
+          "pattern": "KneeFlexion",
+          "primaryMuscle": "Hamstring",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": [
+            "Low",
+            "Medium"
+          ]
+        }
+      ],
+      "siblingIndex": 0,
+      "position": 1,
+      "filledSlots": [
+        {
+          "slotId": "s1_ShoulderAbduction|LateralDeltoid|Accessory|false|Any",
+          "role": "Accessory",
+          "pattern": "ShoulderAbduction",
+          "primaryMuscle": "LateralDeltoid",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null,
+          "setCount": 5
+        },
+        {
+          "slotId": "s1_ElbowFlexion|Bicep|Accessory|false|Any",
+          "role": "Accessory",
+          "pattern": "ElbowFlexion",
+          "primaryMuscle": "Bicep",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null,
+          "setCount": 3
+        },
+        {
+          "slotId": "s1_ElbowExtension|Tricep|Accessory|false|Any",
+          "role": "Accessory",
+          "pattern": "ElbowExtension",
+          "primaryMuscle": "Tricep",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null,
+          "setCount": 3
+        },
+        {
+          "slotId": "s1_HipHinge|Hamstring|Anchor|false|Any",
+          "role": "Anchor",
+          "pattern": "HipHinge",
+          "primaryMuscle": "Hamstring",
+          "repProfile": "LowerFreeWeightCompound",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null,
+          "setCount": 4
+        },
+        {
+          "slotId": "s1_KneeFlexion|Hamstring|Accessory|false|Any",
+          "role": "Accessory",
+          "pattern": "KneeFlexion",
+          "primaryMuscle": "Hamstring",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": [
+            "Low",
+            "Medium"
+          ],
+          "setCount": 3
+        }
+      ]
+    },
+    {
+      "sessionType": "FullBody",
+      "name": "Session 3",
+      "slots": [
+        {
+          "slotId": "s2_VerticalPull|Back|SecondaryCompound|false|A",
+          "role": "SecondaryCompound",
+          "pattern": "VerticalPull",
+          "primaryMuscle": "Back",
+          "repProfile": "UpperMachineOrPull",
+          "lengthBiasPreference": null,
+          "siblingVariant": "A",
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null
+        },
+        {
+          "slotId": "s2_InclinePress|Chest|SecondaryCompound|false|B",
+          "role": "SecondaryCompound",
+          "pattern": "InclinePress",
+          "primaryMuscle": "Chest",
+          "repProfile": "LowerMachineOrUpperPress",
+          "lengthBiasPreference": null,
+          "siblingVariant": "B",
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null
+        },
+        {
+          "slotId": "s2_HorizontalPull|Back|Accessory|true|Any",
+          "role": "Accessory",
+          "pattern": "HorizontalPull",
+          "primaryMuscle": "Back",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": true,
+          "allowedFatigueProfiles": null
+        },
+        {
+          "slotId": "s2_HorizontalPress|Chest|Accessory|true|Any",
+          "role": "Accessory",
+          "pattern": "HorizontalPress",
+          "primaryMuscle": "Chest",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": true,
+          "allowedFatigueProfiles": null
+        }
+      ],
+      "siblingIndex": 0,
+      "position": 2,
+      "filledSlots": [
+        {
+          "slotId": "s2_VerticalPull|Back|SecondaryCompound|false|A",
+          "role": "SecondaryCompound",
+          "pattern": "VerticalPull",
+          "primaryMuscle": "Back",
+          "repProfile": "UpperMachineOrPull",
+          "lengthBiasPreference": null,
+          "siblingVariant": "A",
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null,
+          "setCount": 4
+        },
+        {
+          "slotId": "s2_InclinePress|Chest|SecondaryCompound|false|B",
+          "role": "SecondaryCompound",
+          "pattern": "InclinePress",
+          "primaryMuscle": "Chest",
+          "repProfile": "LowerMachineOrUpperPress",
+          "lengthBiasPreference": null,
+          "siblingVariant": "B",
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null,
+          "setCount": 4
+        },
+        {
+          "slotId": "s2_HorizontalPull|Back|Accessory|true|Any",
+          "role": "Accessory",
+          "pattern": "HorizontalPull",
+          "primaryMuscle": "Back",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": true,
+          "allowedFatigueProfiles": null,
+          "setCount": 5
+        },
+        {
+          "slotId": "s2_HorizontalPress|Chest|Accessory|true|Any",
+          "role": "Accessory",
+          "pattern": "HorizontalPress",
+          "primaryMuscle": "Chest",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": true,
+          "allowedFatigueProfiles": null,
+          "setCount": 5
+        }
+      ]
+    },
+    {
+      "sessionType": "FullBody",
+      "name": "Session 4",
+      "slots": [
+        {
+          "slotId": "s3_ShoulderAbduction|LateralDeltoid|Accessory|false|Any",
+          "role": "Accessory",
+          "pattern": "ShoulderAbduction",
+          "primaryMuscle": "LateralDeltoid",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null
+        },
+        {
+          "slotId": "s3_ElbowExtension|Tricep|Accessory|false|Any",
+          "role": "Accessory",
+          "pattern": "ElbowExtension",
+          "primaryMuscle": "Tricep",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null
+        },
+        {
+          "slotId": "s3_SquatPattern|Quad|Anchor|false|Any",
+          "role": "Anchor",
+          "pattern": "SquatPattern",
+          "primaryMuscle": "Quad",
+          "repProfile": "LowerFreeWeightCompound",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null
+        },
+        {
+          "slotId": "s3_KneeExtension|Quad|Accessory|false|Any",
+          "role": "Accessory",
+          "pattern": "KneeExtension",
+          "primaryMuscle": "Quad",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": [
+            "Low",
+            "Medium"
+          ]
+        }
+      ],
+      "siblingIndex": 0,
+      "position": 3,
+      "filledSlots": [
+        {
+          "slotId": "s3_ShoulderAbduction|LateralDeltoid|Accessory|false|Any",
+          "role": "Accessory",
+          "pattern": "ShoulderAbduction",
+          "primaryMuscle": "LateralDeltoid",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null,
+          "setCount": 3
+        },
+        {
+          "slotId": "s3_ElbowExtension|Tricep|Accessory|false|Any",
+          "role": "Accessory",
+          "pattern": "ElbowExtension",
+          "primaryMuscle": "Tricep",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null,
+          "setCount": 5
+        },
+        {
+          "slotId": "s3_SquatPattern|Quad|Anchor|false|Any",
+          "role": "Anchor",
+          "pattern": "SquatPattern",
+          "primaryMuscle": "Quad",
+          "repProfile": "LowerFreeWeightCompound",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null,
+          "setCount": 4
+        },
+        {
+          "slotId": "s3_KneeExtension|Quad|Accessory|false|Any",
+          "role": "Accessory",
+          "pattern": "KneeExtension",
+          "primaryMuscle": "Quad",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": [
+            "Low",
+            "Medium"
+          ],
+          "setCount": 5
+        }
+      ]
+    },
+    {
+      "sessionType": "FullBody",
+      "name": "Session 5",
+      "slots": [
+        {
+          "slotId": "s4_ShoulderAbduction|LateralDeltoid|Accessory|false|Any",
+          "role": "Accessory",
+          "pattern": "ShoulderAbduction",
+          "primaryMuscle": "LateralDeltoid",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null
+        },
+        {
+          "slotId": "s4_ElbowFlexion|Bicep|Accessory|false|Any",
+          "role": "Accessory",
+          "pattern": "ElbowFlexion",
+          "primaryMuscle": "Bicep",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null
+        },
+        {
+          "slotId": "s4_HipHinge|Hamstring|Anchor|false|Any",
+          "role": "Anchor",
+          "pattern": "HipHinge",
+          "primaryMuscle": "Hamstring",
+          "repProfile": "LowerFreeWeightCompound",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null
+        },
+        {
+          "slotId": "s4_KneeFlexion|Hamstring|Accessory|false|Any",
+          "role": "Accessory",
+          "pattern": "KneeFlexion",
+          "primaryMuscle": "Hamstring",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": [
+            "Low",
+            "Medium"
+          ]
+        }
+      ],
+      "siblingIndex": 0,
+      "position": 4,
+      "filledSlots": [
+        {
+          "slotId": "s4_ShoulderAbduction|LateralDeltoid|Accessory|false|Any",
+          "role": "Accessory",
+          "pattern": "ShoulderAbduction",
+          "primaryMuscle": "LateralDeltoid",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null,
+          "setCount": 5
+        },
+        {
+          "slotId": "s4_ElbowFlexion|Bicep|Accessory|false|Any",
+          "role": "Accessory",
+          "pattern": "ElbowFlexion",
+          "primaryMuscle": "Bicep",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null,
+          "setCount": 3
+        },
+        {
+          "slotId": "s4_HipHinge|Hamstring|Anchor|false|Any",
+          "role": "Anchor",
+          "pattern": "HipHinge",
+          "primaryMuscle": "Hamstring",
+          "repProfile": "LowerFreeWeightCompound",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null,
+          "setCount": 4
+        },
+        {
+          "slotId": "s4_KneeFlexion|Hamstring|Accessory|false|Any",
+          "role": "Accessory",
+          "pattern": "KneeFlexion",
+          "primaryMuscle": "Hamstring",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": [
+            "Low",
+            "Medium"
+          ],
+          "setCount": 5
+        }
+      ]
+    },
+    {
+      "sessionType": "FullBody",
+      "name": "Session 6",
+      "slots": [
+        {
+          "slotId": "s5_VerticalPull|Back|SecondaryCompound|false|A",
+          "role": "SecondaryCompound",
+          "pattern": "VerticalPull",
+          "primaryMuscle": "Back",
+          "repProfile": "UpperMachineOrPull",
+          "lengthBiasPreference": null,
+          "siblingVariant": "A",
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null
+        },
+        {
+          "slotId": "s5_ElbowExtension|Tricep|Accessory|false|Any",
+          "role": "Accessory",
+          "pattern": "ElbowExtension",
+          "primaryMuscle": "Tricep",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null
+        },
+        {
+          "slotId": "s5_InclinePress|Chest|SecondaryCompound|false|Any",
+          "role": "SecondaryCompound",
+          "pattern": "InclinePress",
+          "primaryMuscle": "Chest",
+          "repProfile": "LowerMachineOrUpperPress",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null
+        },
+        {
+          "slotId": "s5_HorizontalPull|Back|Accessory|true|Any",
+          "role": "Accessory",
+          "pattern": "HorizontalPull",
+          "primaryMuscle": "Back",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": true,
+          "allowedFatigueProfiles": null
+        },
+        {
+          "slotId": "s5_HorizontalPress|Chest|Accessory|true|Any",
+          "role": "Accessory",
+          "pattern": "HorizontalPress",
+          "primaryMuscle": "Chest",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": true,
+          "allowedFatigueProfiles": null
+        }
+      ],
+      "siblingIndex": 0,
+      "position": 5,
+      "filledSlots": [
+        {
+          "slotId": "s5_VerticalPull|Back|SecondaryCompound|false|A",
+          "role": "SecondaryCompound",
+          "pattern": "VerticalPull",
+          "primaryMuscle": "Back",
+          "repProfile": "UpperMachineOrPull",
+          "lengthBiasPreference": null,
+          "siblingVariant": "A",
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null,
+          "setCount": 2
+        },
+        {
+          "slotId": "s5_ElbowExtension|Tricep|Accessory|false|Any",
+          "role": "Accessory",
+          "pattern": "ElbowExtension",
+          "primaryMuscle": "Tricep",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null,
+          "setCount": 4
+        },
+        {
+          "slotId": "s5_InclinePress|Chest|SecondaryCompound|false|Any",
+          "role": "SecondaryCompound",
+          "pattern": "InclinePress",
+          "primaryMuscle": "Chest",
+          "repProfile": "LowerMachineOrUpperPress",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": false,
+          "allowedFatigueProfiles": null,
+          "setCount": 4
+        },
+        {
+          "slotId": "s5_HorizontalPull|Back|Accessory|true|Any",
+          "role": "Accessory",
+          "pattern": "HorizontalPull",
+          "primaryMuscle": "Back",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": true,
+          "allowedFatigueProfiles": null,
+          "setCount": 4
+        },
+        {
+          "slotId": "s5_HorizontalPress|Chest|Accessory|true|Any",
+          "role": "Accessory",
+          "pattern": "HorizontalPress",
+          "primaryMuscle": "Chest",
+          "repProfile": "Isolation",
+          "lengthBiasPreference": null,
+          "siblingVariant": null,
+          "isCrossDomainTouch": true,
+          "allowedFatigueProfiles": null,
+          "setCount": 4
+        }
+      ]
+    }
+  ],
+  "cycleSlotIndexByPosition": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "objective": {
+    "total": 55905000,
+    "recoveryPenalty": 0,
+    "specializedMevShortfall": 0,
+    "coSpecializationImbalance": 0,
+    "specializeAimDeviation": 0,
+    "maintenanceAimDeviation": 1550,
+    "minimumVolumeAimDeviation": 0,
+    "roleMinimumShortfall": 0,
+    "pushPullImbalance": 0,
+    "sessionFillShortfall": 74
+  },
+  "activeSlotIdsBySession": [
+    [
+      "ShoulderAbduction|LateralDeltoid|Accessory|false|Any",
+      "SquatPattern|Quad|Anchor|false|Any",
+      "KneeExtension|Quad|Accessory|false|Any",
+      "InclinePress|Chest|SecondaryCompound|false|Any",
+      "HorizontalPull|Back|Accessory|true|Any"
+    ],
+    [
+      "ShoulderAbduction|LateralDeltoid|Accessory|false|Any",
+      "ElbowFlexion|Bicep|Accessory|false|Any",
+      "ElbowExtension|Tricep|Accessory|false|Any",
+      "HipHinge|Hamstring|Anchor|false|Any",
+      "KneeFlexion|Hamstring|Accessory|false|Any"
+    ],
+    [
+      "VerticalPull|Back|SecondaryCompound|false|A",
+      "InclinePress|Chest|SecondaryCompound|false|B",
+      "HorizontalPull|Back|Accessory|true|Any",
+      "HorizontalPress|Chest|Accessory|true|Any"
+    ],
+    [
+      "ShoulderAbduction|LateralDeltoid|Accessory|false|Any",
+      "ElbowExtension|Tricep|Accessory|false|Any",
+      "SquatPattern|Quad|Anchor|false|Any",
+      "KneeExtension|Quad|Accessory|false|Any"
+    ],
+    [
+      "ShoulderAbduction|LateralDeltoid|Accessory|false|Any",
+      "ElbowFlexion|Bicep|Accessory|false|Any",
+      "HipHinge|Hamstring|Anchor|false|Any",
+      "KneeFlexion|Hamstring|Accessory|false|Any"
+    ],
+    [
+      "VerticalPull|Back|SecondaryCompound|false|A",
+      "ElbowExtension|Tricep|Accessory|false|Any",
+      "InclinePress|Chest|SecondaryCompound|false|Any",
+      "HorizontalPull|Back|Accessory|true|Any",
+      "HorizontalPress|Chest|Accessory|true|Any"
+    ]
+  ],
+  "regionFilterBySession": [
+    "Unrestricted",
+    "Unrestricted",
+    "Unrestricted",
+    "Unrestricted",
+    "Unrestricted",
+    "Unrestricted"
+  ]
+}
