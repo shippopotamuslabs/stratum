@@ -16,6 +16,14 @@ internal const val SUSPENSION_GAP_THRESHOLD_MS = 30_000L
 internal const val TRANSIENT_RETRY_DELAY_MS = 3_000L
 
 /**
+ * Single ownership of the STR-55 suspension policy: a gap between two timestamps
+ * counts as device sleep (Doze) only when it dwarfs normal poll spacing. Both poll
+ * loops consult this so threshold or Doze-semantics changes land in one place.
+ */
+internal fun isSuspensionGap(previousMs: Long, nowMs: Long): Boolean =
+    nowMs - previousMs > SUSPENSION_GAP_THRESHOLD_MS
+
+/**
  * Shared backoff poll loop used by cloud job adapters (import, synthesis, …).
  *
  * Defaults match historical import: 1.5s initially, then 3s after [backoffAfterMs].
@@ -44,9 +52,8 @@ suspend fun <T> pollUntil(
     var nextPollDueAt = nowMs()
     while (true) {
         val now = nowMs()
-        val overshoot = now - nextPollDueAt
-        if (overshoot > SUSPENSION_GAP_THRESHOLD_MS) {
-            deadline += overshoot
+        if (isSuspensionGap(nextPollDueAt, now)) {
+            deadline += now - nextPollDueAt
         }
         if (now >= deadline) break
         nextPollDueAt = now + interval
