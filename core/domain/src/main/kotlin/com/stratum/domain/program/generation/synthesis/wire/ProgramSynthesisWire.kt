@@ -66,15 +66,39 @@ data class ProgramSynthesisWireRequest(
  * (`ContextWireCodec`, `ResultWireCodec`, `WireCodecHelpers`).
  */
 object ProgramSynthesisWire {
+    /**
+     * Contract major emitted on every request (`solver-contract/VERSIONING.md` §1).
+     * Dispatch is on the major: `v1` and `v1.x` share the v1 handler.
+     */
+    const val MODEL_VERSION = "v1"
+
     fun encodeRequest(weeklyTargets: WeeklyVolumeTargets, context: ProgramGenerationContext): String =
         jsonObject(
+            "modelVersion" to jsonString(MODEL_VERSION),
             "weeklyTargets" to encodeWeeklyTargets(weeklyTargets),
             "context" to encodeContext(context),
         )
 
+    /**
+     * Byte-preserving version normalization for the proxy path: returns [json]
+     * unchanged when its root object already carries a non-null `modelVersion`;
+     * otherwise splices `"modelVersion":"<MODEL_VERSION>"` directly after the root `{`
+     * (missing means v1, `solver-contract/VERSIONING.md` §1). The payload is
+     * never re-serialized, so every other byte reaches the solver untouched.
+     */
+    fun stampModelVersionV1(json: String): String {
+        val root = wrapParse("request") { JsonReader(json).readRootObject() }
+        val existing = root["modelVersion"]
+        if (existing != null && !existing.isNull()) return json
+        val brace = json.indexOf('{')
+        if (brace < 0) throw ProgramSynthesisWireException("Invalid program synthesis request JSON: no root object")
+        return json.substring(0, brace + 1) + "\"modelVersion\":\"$MODEL_VERSION\"," + json.substring(brace + 1)
+    }
+
     fun decodeRequest(json: String): ProgramSynthesisWireRequest =
         wrapParse("request") {
             val root = JsonReader(json).readRootObject()
+            requireSupportedModelVersion(root, "request")
             ProgramSynthesisWireRequest(
                 weeklyTargets = decodeWeeklyTargets(root.requireObject("weeklyTargets")),
                 context = decodeContext(root.requireObject("context")),
@@ -100,6 +124,7 @@ object ProgramSynthesisWire {
     fun decodeResult(json: String): ProgramSynthesisResult =
         wrapParse("result") {
             val root = JsonReader(json).readRootObject()
+            requireSupportedModelVersion(root, "result")
             val sessions =
                 root.requireArray("sessions").values.map {
                     decodeResolvedSession(it.requireAsObject("sessions[]"))

@@ -28,11 +28,11 @@ class SynthesisJobTraceFieldsTest {
         )
         val workerConstants =
             setOf(
-                SynthesisJobWorker.TRACE_WORKER_START,
-                SynthesisJobWorker.TRACE_WORKER_CLAIMED,
-                SynthesisJobWorker.TRACE_WORKER_SOLVING,
-                SynthesisJobWorker.TRACE_WORKER_UPLOADED,
-                SynthesisJobWorker.TRACE_SOLVER,
+                SynthesisJobs.TRACE_WORKER_START,
+                SynthesisJobs.TRACE_WORKER_CLAIMED,
+                SynthesisJobs.TRACE_WORKER_SOLVING,
+                SynthesisJobs.TRACE_WORKER_UPLOADED,
+                SynthesisJobs.TRACE_SOLVER,
             )
         // Every worker-written field must be cleared when a jobId is reused,
         // or a retried job shows the previous attempt's solve timestamps.
@@ -46,7 +46,7 @@ class SynthesisJobTraceFieldsTest {
         // writes: an unknown entry would delete nothing and hide the drift.
         val schemaWorkerFields =
             schemaFields
-                .filter { it.startsWith("trace.worker") || it == SynthesisJobWorker.TRACE_SOLVER }
+                .filter { it.startsWith("trace.worker") || it == SynthesisJobs.TRACE_SOLVER }
                 .toSet()
         assertEquals(workerConstants, schemaWorkerFields)
     }
