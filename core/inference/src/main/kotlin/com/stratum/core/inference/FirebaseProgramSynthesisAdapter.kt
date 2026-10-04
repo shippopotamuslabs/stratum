@@ -337,7 +337,7 @@ internal suspend fun pollStatusWithTransientRetry(
     jobId: String,
     maxConsecutiveTransients: Int = MAX_CONSECUTIVE_TRANSIENT_STATUS_FAILURES,
     retryDelayMs: Long = TRANSIENT_RETRY_DELAY_MS,
-    nowMs: () -> Long = System::currentTimeMillis,
+    clock: MonotonicClock = systemMonotonicClock,
 ): SynthesisJobSnapshot {
     var consecutiveTransients = 0
     var lastFailureMs = 0L
@@ -352,7 +352,7 @@ internal suspend fun pollStatusWithTransientRetry(
                     cause = error,
                 )
             }
-            val now = nowMs()
+            val now = clock.nowMs()
             if (lastFailureMs != 0L && isSuspensionGap(lastFailureMs, now)) {
                 consecutiveTransients = 0
             }
