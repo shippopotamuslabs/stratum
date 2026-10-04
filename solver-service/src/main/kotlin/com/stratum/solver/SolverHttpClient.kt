@@ -38,6 +38,11 @@ class JdkSolverHttpClient(
     baseUrl: String,
     timeoutMillis: Long,
 ) : SolverHttpClient {
+    private companion object {
+        const val HTTP_OK = 200
+        const val METADATA_TIMEOUT_SECONDS = 5L
+    }
+
     private val endpoint: URI = URI.create("${baseUrl.trimEnd('/')}/solve/v1")
     private val audience: String = baseUrl.trimEnd('/')
     private val timeout: Duration = Duration.ofMillis(timeoutMillis)
@@ -71,13 +76,13 @@ class JdkSolverHttpClient(
             "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/identity?audience=$audience"
         )
         val request = HttpRequest.newBuilder(metadataUrl)
-            .timeout(Duration.ofSeconds(5))
+            .timeout(Duration.ofSeconds(METADATA_TIMEOUT_SECONDS))
             .header("Metadata-Flavor", "Google")
             .GET()
             .build()
         try {
             val response = client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8))
-            if (response.statusCode() != 200) {
+            if (response.statusCode() != HTTP_OK) {
                 throw IOException("Metadata server returned HTTP ${response.statusCode()}")
             }
             return response.body().trim()
