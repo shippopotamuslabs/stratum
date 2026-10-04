@@ -17,7 +17,7 @@ Two transports, selected by environment (see README.md):
      ``schema/v<major>/response.schema.json`` with the request's major;
    * raise ``ValueError`` mentioning "unsupported major" for unknown majors.
 
-2. HTTP: when ``$SOLVER_URL`` is set, ``POST $SOLVER_URL/solve/<major>``
+2. HTTP: when ``$SOLVER_URL`` is set, ``POST $SOLVER_URL/solve/v<major>``
    with the request as the JSON body, where ``<major>`` is the request's
    dispatch major (missing ``modelVersion`` counts as v1, per §3 it matches
    ``/solve/v1`` only). Servers MUST reject a body whose ``modelVersion``
@@ -32,10 +32,8 @@ from __future__ import annotations
 import importlib
 import json
 import os
-import sys
 import urllib.error
 import urllib.request
-from pathlib import Path
 
 from contract import major_of
 
@@ -44,15 +42,13 @@ SOLVER_URL_ENV = "SOLVER_URL"
 DEFAULT_SOLVER_MODULE = "stub_solver"
 
 
-def _ensure_tests_dir_on_path() -> None:
-    tests_dir = str(Path(__file__).resolve().parent)
-    if tests_dir not in sys.path:
-        sys.path.insert(0, tests_dir)
-
-
 def load_solver_module(name: str | None = None):
-    """Import and return the configured in-process solver module."""
-    _ensure_tests_dir_on_path()
+    """Import and return the configured in-process solver module.
+
+    The tests directory is on ``sys.path`` via pytest's rootdir handling
+    (see README.md); overrides like ``SOLVER_MODULE=solver`` resolve through
+    the caller's ``PYTHONPATH``.
+    """
     module_name = name or os.environ.get(SOLVER_MODULE_ENV, DEFAULT_SOLVER_MODULE)
     return importlib.import_module(module_name)
 
@@ -69,10 +65,10 @@ def solve_in_process(request: dict, module_name: str | None = None) -> dict:
 
 
 def solve_over_http(request: dict, base_url: str | None = None) -> dict:
-    """POST the request to ``<base>/solve/<major>`` and return the JSON body."""
+    """POST the request to ``<base>/solve/v<major>`` and return the JSON body."""
     base = (base_url or os.environ[SOLVER_URL_ENV]).rstrip("/")
     major = major_of(request)
-    url = f"{base}/solve/{major}"
+    url = f"{base}/solve/v{major}"
     body = json.dumps(request).encode("utf-8")
     http_request = urllib.request.Request(
         url, data=body, headers={"Content-Type": "application/json"}, method="POST"

@@ -17,6 +17,7 @@ No `__init__.py` here on purpose: tests import siblings (`contract`,
 | File | Role |
 |---|---|
 | `contract.py` | Discovery (`schema/v<N>/` → majors), schema loading, `modelVersion` parsing. Majors are **never** listed in test code. |
+| `assertions.py` | Shared response assertions (schema validity + structure) so test modules stay leaves with no test-to-test imports. |
 | `solver_client.py` | The solver entrypoint (used by every test that solves). |
 | `stub_solver.py` | Canned dev solver: contract-valid v1 response shaped by the request's day count. NOT a real solve. |
 | `test_fixture_validity.py` | §6.1 — every fixture validates against its major's schema. |
@@ -46,7 +47,7 @@ Tests reach the solver through `solver_client.solve_request(request_dict)`:
      (a subclass is fine — tests match `ValueError` + message).
    - expose no other required API (a `SUPPORTED_MAJORS` list is optional).
 2. **HTTP.** When `$SOLVER_URL` is set (it wins over `$SOLVER_MODULE`),
-   `POST $SOLVER_URL/solve/<major>` with the request as JSON body, where
+   `POST $SOLVER_URL/solve/v<major>` with the request as JSON body, where
    `<major>` is the request's dispatch major (missing counts as v1 → only
    `/solve/v1`). Servers MUST reject a body whose major differs from the URL
    major and MUST use **4xx** for unsupported majors (client surfaces 4xx as
@@ -62,7 +63,7 @@ must stay green against either — that is the integration gate.
    `response.schema.json` (contract change lands alone, per VERSIONING.md §7).
 2. Add `solver-contract/fixtures/v2/*.request.json` (+ `*.result.json`).
    Without these the matrix guard fails loudly — that is intentional.
-3. Give the solver a v2 handler (stub: `HANDLERS[2]`; real: same entrypoint).
+3. Give the solver a v2 handler (stub: add `2: solve_v2` to `HANDLERS`; real: same entrypoint).
    Without it the per-major solve check fails loudly.
 4. Run the suite: every parametrized test extends to v2 by discovery.
 

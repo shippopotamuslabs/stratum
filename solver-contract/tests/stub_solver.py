@@ -14,9 +14,6 @@ from __future__ import annotations
 
 from contract import major_of
 
-HANDLERS = {}
-SUPPORTED_MAJORS: list[int] = []
-
 
 def _slot_template(session_index: int) -> dict:
     return {
@@ -36,30 +33,20 @@ def _filled_slot(session_index: int) -> dict:
     return {**_slot_template(session_index), "setCount": 3}
 
 
+def _base_session(session_index: int) -> dict:
+    return {
+        "sessionType": "FullBody",
+        "name": f"Session {session_index + 1}",
+        "slots": [_slot_template(session_index)],
+        "siblingIndex": 0,
+        "position": session_index,
+    }
+
+
 def solve_v1(request: dict) -> dict:
     days = request["context"]["trainingDaysPerWeek"]
-    sessions = [
-        {
-            "sessionType": "FullBody",
-            "name": f"Session {i + 1}",
-            "slots": [_slot_template(i)],
-            "siblingIndex": 0,
-            "position": i,
-            "composition": None,
-        }
-        for i in range(days)
-    ]
-    plans = [
-        {
-            "sessionType": "FullBody",
-            "name": f"Session {i + 1}",
-            "slots": [_slot_template(i)],
-            "siblingIndex": 0,
-            "position": i,
-            "filledSlots": [_filled_slot(i)],
-        }
-        for i in range(days)
-    ]
+    sessions = [{**_base_session(i), "composition": None} for i in range(days)]
+    plans = [{**_base_session(i), "filledSlots": [_filled_slot(i)]} for i in range(days)]
     return {
         "modelVersion": "v1",
         "sessions": sessions,
@@ -82,8 +69,8 @@ def solve_v1(request: dict) -> dict:
     }
 
 
-HANDLERS[1] = solve_v1
-SUPPORTED_MAJORS = sorted(HANDLERS)
+HANDLERS = {1: solve_v1}
+SUPPORTED_MAJORS: list[int] = sorted(HANDLERS)
 
 
 def solve(request: dict) -> dict:
