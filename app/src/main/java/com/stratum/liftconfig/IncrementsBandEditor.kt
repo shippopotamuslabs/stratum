@@ -76,13 +76,12 @@ data class IncrementSaveConfirm(
 )
 
 data class IncrementEditorChrome(
-    val contextText: String,
+    /** Null hides the context row (e.g. a lift carrying its own overrides). */
+    val contextText: String?,
     val onContextClick: (() -> Unit)?,
     val saveText: String,
     /** Non-null for shared-defaults entries (blast-radius confirm); null saves directly. */
     val saveConfirm: IncrementSaveConfirm?,
-    /** Null = no reset affordance (shared-defaults entries). Removed entirely by STR-72. */
-    val resetAction: (() -> Unit)?,
     /** Null = no save-as-new and no fork sheet (nothing to fork from). */
     val forkSuggestion: String?,
 )
@@ -163,10 +162,12 @@ internal fun IncrementEditorScreen(
                     .padding(horizontal = 16.dp)
                     .verticalScroll(rememberScrollState()),
         ) {
-            EditorContextRow(
-                text = chrome.contextText,
-                onClick = chrome.onContextClick,
-            )
+            if (chrome.contextText != null) {
+                EditorContextRow(
+                    text = chrome.contextText,
+                    onClick = chrome.onContextClick,
+                )
+            }
             StratumText(
                 text = stringResource(UiR.string.equipment_band_section),
                 style = StratumThemeAccessor.typography.sectionLabel,
@@ -233,14 +234,6 @@ internal fun IncrementEditorScreen(
                         .padding(top = 16.dp, bottom = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                if (chrome.resetAction != null) {
-                    StratumOutlinedButton(
-                        text = stringResource(UiR.string.lift_increments_reset_to_equipment),
-                        onClick = chrome.resetAction,
-                        enabled = !editor.isSaving,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
                 StratumButton(
                     text = chrome.saveText,
                     onClick = saveActions.onSaveClick,

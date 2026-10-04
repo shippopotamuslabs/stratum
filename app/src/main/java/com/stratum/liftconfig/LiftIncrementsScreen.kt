@@ -52,18 +52,10 @@ fun LiftIncrementsRoute(
         editor = state.editor,
         chrome =
             IncrementEditorChrome(
-                contextText =
-                    state.inheritanceBanner
-                        ?: stringResource(UiR.string.lift_increments_override_banner),
+                contextText = state.inheritanceBanner,
                 onContextClick = null,
                 saveText = stringResource(UiR.string.lift_increments_save),
                 saveConfirm = null,
-                resetAction =
-                    if (state.showResetToEquipment) {
-                        viewModel::resetToEquipmentDefaults
-                    } else {
-                        null
-                    },
                 forkSuggestion = state.forkSourceId?.let { state.forkSuggestion },
             ),
         title =

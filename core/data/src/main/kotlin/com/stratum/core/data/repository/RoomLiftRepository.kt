@@ -314,25 +314,6 @@ class RoomLiftRepository @Inject constructor(
         }
     }
 
-    override suspend fun resetIncrementTiersToEquipment(id: LiftId) {
-        val now = System.currentTimeMillis()
-        syncTouch.withWriteLock {
-            database.withTransaction {
-                val previousTierIds = incrementTierDao.idsForLift(id)
-                syncTouch.replaceIds(SyncCollection.IncrementTiers, previousTierIds, emptyList(), now)
-                incrementTierDao.deleteForLift(id)
-                // Cleared alongside the band rows in the same transaction so a failure
-                // cannot leave inherited bands with a stale knob override (half-reset).
-                liftDao.setMicroOptions(
-                    id = id,
-                    microOptionsJson = null,
-                    updatedAtEpochMillis = now,
-                )
-            }
-            syncTouch.markDirty()
-        }
-    }
-
     override suspend fun updateLiftMuscles(
         id: LiftId,
         primaryMuscles: Set<com.stratum.domain.onboarding.MuscleGroup>,

@@ -101,7 +101,6 @@ fun EquipmentIncrementsRoute(
                         },
                         onDismiss = { showSaveConfirm = false },
                     ),
-                resetAction = null,
                 forkSuggestion = "${state.equipmentName.ifBlank { "Equipment" }} (copy)",
             ),
         title =
