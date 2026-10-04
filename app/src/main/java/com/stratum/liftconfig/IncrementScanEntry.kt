@@ -1,3 +1,5 @@
+@file:Suppress("MatchingDeclarationName")
+
 package com.stratum.liftconfig
 
 import android.Manifest
@@ -20,20 +22,24 @@ import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import com.stratum.core.ui.R as UiR
 import com.stratum.core.ui.component.StratumBottomSheet
+import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumOutlinedButton
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTextButton
@@ -47,39 +53,99 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * Self-contained AI scan entry for the shared increments editor shell: the bottom
- * entry button, the Camera/Gallery photo-source drawer, the capture launchers,
- * and the scanning / error / retry states. The caller only gates on
- * `scanAvailable` and supplies [onScanPhoto]; a successful scan dismisses the
- * drawer and the prefilled drafts arrive through editor state (explicit save
- * still required). Permission denial and photo failures leave manual entry
- * untouched.
+ * Saveable photo-picker flags for the AI scan prefill: the photo-source drawer
+ * and the transient denied/unreadable states. Restored across rotation and
+ * process recreation via [saver]; launchers stay outside the saveable payload
+ * and are bound by [rememberScanPickerState] instead.
  */
+@Stable
+internal class ScanPickerState internal constructor(
+    showSheet: Boolean = false,
+    cameraBlocked: Boolean = false,
+    photoUnreadable: Boolean = false,
+) {
+    var showSheet by mutableStateOf(showSheet)
+        private set
+    var cameraBlocked by mutableStateOf(cameraBlocked)
+        private set
+    var photoUnreadable by mutableStateOf(photoUnreadable)
+        private set
+
+    fun openPicker() {
+        showSheet = true
+    }
+
+    fun dismissPicker() {
+        showSheet = false
+    }
+
+    internal fun markCameraBlocked() {
+        cameraBlocked = true
+    }
+
+    internal fun clearCameraBlocked() {
+        cameraBlocked = false
+    }
+
+    internal fun markPhotoUnreadable() {
+        photoUnreadable = true
+    }
+
+    internal fun clearPhotoUnreadable() {
+        photoUnreadable = false
+    }
+
+    companion object {
+        fun saver(): Saver<ScanPickerState, Any> =
+            listSaver(
+                save = { state ->
+                    listOf(state.showSheet, state.cameraBlocked, state.photoUnreadable)
+                },
+                restore = { (sheet, blocked, unreadable) ->
+                    ScanPickerState(
+                        showSheet = sheet,
+                        cameraBlocked = blocked,
+                        photoUnreadable = unreadable,
+                    )
+                },
+            )
+    }
+}
+
+/**
+ * Picker wiring plus the launchers driving it. The flags instance is saveable
+ * and stable across recompositions; this holder is rebuilt each composition
+ * with fresh launcher-bound lambdas, so nothing is written during composition
+ * and no callback slot can go stale.
+ */
+internal class ScanPicker(
+    val state: ScanPickerState,
+    val onPickCamera: () -> Unit,
+    val onPickGallery: () -> Unit,
+)
+
 @Composable
-internal fun ScanEntrySection(
+internal fun rememberScanPickerState(
     scanUi: IncrementScanState,
     onScanPhoto: (ScanPhoto) -> Unit,
-    modifier: Modifier = Modifier,
-) {
+): ScanPicker {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var showSheet by rememberSaveable { mutableStateOf(false) }
-    var cameraBlocked by rememberSaveable { mutableStateOf(false) }
-    var photoUnreadable by remember { mutableStateOf(false) }
+    val state = rememberSaveable(saver = ScanPickerState.saver()) { ScanPickerState() }
     var pendingCameraUri: Uri? by rememberSaveable { mutableStateOf(null) }
 
     fun processBytes(bytes: ByteArray?) {
         if (bytes == null) {
-            photoUnreadable = true
+            state.markPhotoUnreadable()
             return
         }
         scope.launch(Dispatchers.IO) {
             val photo = ScanPhotoProcessor.process(bytes)
             withContext(Dispatchers.Main) {
                 if (photo == null) {
-                    photoUnreadable = true
+                    state.markPhotoUnreadable()
                 } else {
-                    photoUnreadable = false
+                    state.clearPhotoUnreadable()
                     onScanPhoto(photo)
                 }
             }
@@ -104,25 +170,29 @@ internal fun ScanEntrySection(
         rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { saved ->
             val uri = pendingCameraUri
             // A success without a URI (lost staging) must surface, never silently drop.
-            if (saved && uri != null) processUri(uri) else if (saved) photoUnreadable = true
+            if (saved && uri != null) {
+                processUri(uri)
+            } else if (saved) {
+                state.markPhotoUnreadable()
+            }
         }
     val galleryLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
             if (uri != null) {
-                showSheet = false
+                state.dismissPicker()
                 processUri(uri)
             }
         }
 
     fun launchCamera() {
-        cameraBlocked = false
+        state.clearCameraBlocked()
         val uri = newScanCaptureUri(context)
         if (uri == null) {
-            photoUnreadable = true
+            state.markPhotoUnreadable()
             return
         }
         pendingCameraUri = uri
-        showSheet = false
+        state.dismissPicker()
         takePictureLauncher.launch(uri)
     }
 
@@ -131,28 +201,68 @@ internal fun ScanEntrySection(
             if (granted) {
                 launchCamera()
             } else {
-                showSheet = false
-                cameraBlocked = true
+                state.dismissPicker()
+                state.markCameraBlocked()
             }
         }
 
     // Success prefills drafts through editor state — the drawer has served its purpose.
     LaunchedEffect(scanUi) {
-        if (scanUi is IncrementScanState.Scanned) showSheet = false
+        if (scanUi is IncrementScanState.Scanned) state.dismissPicker()
     }
 
+    return ScanPicker(
+        state = state,
+        onPickCamera = { permissionLauncher.launch(Manifest.permission.CAMERA) },
+        onPickGallery = {
+            galleryLauncher.launch(
+                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+            )
+        },
+    )
+}
+
+@Composable
+private fun ScanPickerSheet(
+    picker: ScanPicker,
+    scanUi: IncrementScanState,
+) {
+    if (!picker.state.showSheet) return
     val scanning = scanUi is IncrementScanState.Scanning
+    StratumBottomSheet(
+        onDismissRequest = { picker.state.dismissPicker() },
+        title = stringResource(UiR.string.lift_increments_scan_sheet_title),
+    ) {
+        ScanSourceRow(
+            icon = Icons.Outlined.PhotoCamera,
+            label = stringResource(UiR.string.lift_increments_scan_camera),
+            enabled = !scanning,
+            onClick = { picker.onPickCamera() },
+        )
+        ScanSourceRow(
+            icon = Icons.Outlined.Image,
+            label = stringResource(UiR.string.lift_increments_scan_gallery),
+            enabled = !scanning,
+            onClick = { picker.onPickGallery() },
+        )
+    }
+}
+
+/**
+ * Inline scanning / error / retry states shared by both entry surfaces. The
+ * caller only gates on `scanAvailable` and supplies [onScanPhoto].
+ */
+@Composable
+internal fun ScanStatusLines(
+    scanUi: IncrementScanState,
+    picker: ScanPicker,
+    modifier: Modifier = Modifier,
+) {
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        StratumOutlinedButton(
-            text = stringResource(UiR.string.lift_increments_scan_cta),
-            onClick = { showSheet = true },
-            enabled = !scanning,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        if (scanning) {
+        if (scanUi is IncrementScanState.Scanning) {
             StratumText(
                 text = stringResource(UiR.string.lift_increments_scan_scanning),
                 style = StratumThemeAccessor.typography.sectionLabel,
@@ -168,11 +278,11 @@ internal fun ScanEntrySection(
             )
             StratumTextButton(
                 text = stringResource(UiR.string.lift_increments_scan_retry),
-                onClick = { showSheet = true },
+                onClick = { picker.state.openPicker() },
                 modifier = Modifier.fillMaxWidth(),
             )
         }
-        if (photoUnreadable) {
+        if (picker.state.photoUnreadable) {
             StratumText(
                 text = stringResource(UiR.string.lift_increments_scan_unreadable),
                 style = StratumThemeAccessor.typography.sectionLabel,
@@ -180,7 +290,7 @@ internal fun ScanEntrySection(
                 modifier = Modifier.fillMaxWidth(),
             )
         }
-        if (cameraBlocked) {
+        if (picker.state.cameraBlocked) {
             StratumText(
                 text = stringResource(UiR.string.lift_increments_scan_camera_blocked),
                 style = StratumThemeAccessor.typography.sectionLabel,
@@ -189,30 +299,59 @@ internal fun ScanEntrySection(
             )
         }
     }
+}
 
-    if (showSheet) {
-        StratumBottomSheet(
-            onDismissRequest = { showSheet = false },
-            title = stringResource(UiR.string.lift_increments_scan_sheet_title),
-        ) {
-            ScanSourceRow(
-                icon = Icons.Outlined.PhotoCamera,
-                label = stringResource(UiR.string.lift_increments_scan_camera),
-                enabled = !scanning,
-                onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) },
-            )
-            ScanSourceRow(
-                icon = Icons.Outlined.Image,
-                label = stringResource(UiR.string.lift_increments_scan_gallery),
-                enabled = !scanning,
-                onClick = {
-                    galleryLauncher.launch(
-                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
-                    )
-                },
-            )
-        }
+/**
+ * Self-contained AI scan entry for the shared increments editor shell: the bottom
+ * entry button plus [ScanStatusLines] and the photo-source drawer.
+ */
+@Composable
+internal fun ScanEntrySection(
+    scanUi: IncrementScanState,
+    onScanPhoto: (ScanPhoto) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val picker = rememberScanPickerState(scanUi = scanUi, onScanPhoto = onScanPhoto)
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        StratumOutlinedButton(
+            text = stringResource(UiR.string.lift_increments_scan_cta),
+            onClick = { picker.state.openPicker() },
+            enabled = scanUi !is IncrementScanState.Scanning,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        ScanStatusLines(scanUi = scanUi, picker = picker)
     }
+    ScanPickerSheet(picker = picker, scanUi = scanUi)
+}
+
+/**
+ * Compact AI scan entry for the equipment band-strip editor (STR-58): a sparkle
+ * action for the top app bar driving the same picker flow as [ScanEntrySection].
+ * The caller owns [picker] via [rememberScanPickerState] and renders both this
+ * action and [ScanStatusLines] in the body so scanning/errors stay visible below
+ * the bands. The photo-source drawer is rendered here.
+ */
+@Composable
+internal fun ScanIconEntry(
+    picker: ScanPicker,
+    scanUi: IncrementScanState,
+    modifier: Modifier = Modifier,
+) {
+    StratumIconButton(
+        onClick = { picker.state.openPicker() },
+        enabled = scanUi !is IncrementScanState.Scanning,
+        modifier = modifier,
+    ) {
+        Icon(
+            painter = painterResource(UiR.drawable.ic_auto_awesome),
+            contentDescription = stringResource(UiR.string.lift_increments_scan_cta),
+            modifier = Modifier.size(24.dp),
+        )
+    }
+    ScanPickerSheet(picker = picker, scanUi = scanUi)
 }
 
 @Composable

@@ -321,6 +321,16 @@ class EquipmentIncrementsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Band-strip end edit (STR-58): replaces the band's end and re-tiles
+     * neighbors so bands never gap or overlap. Starts are derived, never typed.
+     */
+    fun onBandEndChanged(index: Int, value: String) {
+        updateDraft { tiers ->
+            IncrementBandTiling.retileAfterEndEdit(tiers, index, value)
+        }
+    }
+
     fun onOpenEndedToggled(index: Int, openEnded: Boolean) {
         updateDraft { tiers ->
             if (index != tiers.lastIndex) return@updateDraft tiers
@@ -373,9 +383,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
         updateDraft { tiers ->
             if (tiers.size <= 1) return@updateDraft tiers
             val remaining = tiers.toMutableList().also { it.removeAt(index) }
-            remaining[remaining.lastIndex] =
-                remaining.last().copy(openEnded = true, upperBound = null)
-            remaining
+            IncrementBandTiling.retiled(remaining)
         }
     }
 
@@ -405,12 +413,17 @@ class EquipmentIncrementsViewModel @Inject constructor(
         }
     }
 
+    /** Name prefill for the save-as-new sheet: `"<name> (copy)"`. */
+    fun forkNameSuggestion(): String =
+        "${uiState.value.equipmentName.ifBlank { "Equipment" }} (copy)"
+
     /**
-     * Forks the equipment under `"<name> (copy)"` with the on-screen tiers, leaving the
-     * shared defaults untouched. When launched from a lift ([sourceLiftId]), that lift is
-     * reassigned to the copy so it inherits the edited bands.
+     * Forks the equipment under [copyName] (blank falls back to [forkNameSuggestion])
+     * with the on-screen tiers, leaving the shared defaults untouched. When launched
+     * from a lift ([sourceLiftId]), that lift is reassigned to the copy so it
+     * inherits the edited bands.
      */
-    fun saveAsNew() {
+    fun saveAsNew(copyName: String = "") {
         val id = equipmentId.value ?: return
         val domainTiers = validatedDraftTiers() ?: return
         // Bands and stops both validated so the copy never inherits a broken draft;
@@ -424,10 +437,17 @@ class EquipmentIncrementsViewModel @Inject constructor(
         viewModelScope.launch {
             isSaving.value = true
             try {
-                val copyName = "${uiState.value.equipmentName.ifBlank { "Equipment" }} (copy)"
+                val trimmed = copyName.trim()
+                val resolvedName = trimmed.ifBlank { forkNameSuggestion() }
                 val liftId = sourceLiftId.value?.let(::LiftId)
                 val result =
-                    forkEquipmentWithTiers(EquipmentId(id), copyName, domainTiers, liftId, domainMicro)
+                    forkEquipmentWithTiers(
+                        EquipmentId(id),
+                        resolvedName,
+                        domainTiers,
+                        liftId,
+                        domainMicro,
+                    )
                 if (result.isSuccess) {
                     dismissProposalContext()
                     saveSucceeded.value = true
