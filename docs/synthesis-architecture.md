@@ -1,5 +1,11 @@
 # Program synthesis architecture
 
+> Migration note (2026-10, STR-45/STR-46): the CP-SAT solver moved from Kotlin
+> (`:core:domain-solver`, deleted) to Python (`solver-python/`, OR-Tools Python
+> API). The layer map and domain semantics below still hold; the Kotlin file
+> paths under `core/domain-solver/` are historical — see `solver-python/` and
+> `solver-contract/` for the current implementation and JSON boundary.
+
 Stratum builds weekly training programs with a unified CP-SAT model (structure + volume +
 calendar in one solve). This document is the map of layers, the meaning of
 `SessionRegionFilter`, and the critical-path files.
@@ -186,23 +192,20 @@ one lower anchor.
 
 ## Solver test matrix (speed)
 
-Default CP-SAT harnesses use **[CORE_SOLVER_SCENARIOS]** (~10 high-signal cases: sparse/dense
-layouts, maintenance, arms, legs, chest, glutes, shoulders). Full 28-scenario cartesian
-(`[GENERATION_SCENARIOS]`) and the ~56-case Optuna benchmark are opt-in.
+The Kotlin CP-SAT harnesses (`CORE_SOLVER_SCENARIOS`, `GENERATION_SCENARIOS`,
+`:core:domain-solver-tests`, the Optuna benchmark) were deleted with the solver
+migration (STR-45/STR-46). The regression net is now the Python suites, which
+run their full matrix unconditionally:
 
 ```bash
-# PR / local (default core matrix, 15s deadline, no benchmark)
-./gradlew :core:domain-solver-tests:test -PrunSolverTests=true
+# Solver unit + ladder + contract tests (same as CI)
+python3 -m pytest solver-python/tests/ solver-contract/tests/ -q
 
-# Nightly cartesian
-./gradlew :core:domain-solver-tests:test -PrunSolverTests=true -PfullSolverScenarios=true
-
-# Weight tuning only
-./gradlew :core:domain-solver-tests:test -PrunSolverTests=true -PincludeBenchmark=true \
-  --tests '*benchmarkTuningSuite*'
+# Contract suite only
+python3 -m pytest solver-contract/tests/ -q
 ```
 
-Property: `stratum.solver.scenarios=core|full` (Gradle maps `-PfullSolverScenarios` → `full`).
+`stratum.solver.scenarios` / `-PfullSolverScenarios` no longer exist.
 
 ## Explicit non-goals (this architecture pass)
 

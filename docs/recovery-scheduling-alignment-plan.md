@@ -1,7 +1,9 @@
 # Recovery-Scheduling Literature Alignment — Research & Plan
 
 Status: **planning only** — no code changes proposed for direct merge from this document.
-Scope: program-generation recovery scheduling in `:core:domain` and `:core:domain-solver`.
+Scope: program-generation recovery scheduling in `:core:domain` and the solver
+(`:core:domain-solver` at write time; migrated to `solver-python/` in STR-45/STR-46 —
+recovery semantics preserved, Kotlin file paths historical).
 Source-of-truth framework: additive recovery model (24h baseline + volume + lift-type + failure modifiers).
 
 ---

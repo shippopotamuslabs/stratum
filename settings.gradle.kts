@@ -28,9 +28,6 @@ rootProject.name = "Stratum"
 
 include(":app")
 include(":core:domain")
-include(":core:ortools-shaded")
-include(":core:domain-solver")
-include(":core:domain-solver-tests")
 include(":core:data")
 include(":core:ui")
 include(":core:testing")
