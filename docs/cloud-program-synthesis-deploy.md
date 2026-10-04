@@ -169,7 +169,7 @@ Notes:
 - The Kotlin worker is a proxy now (STR-52): it needs little CPU/RAM of its own —
   2 vCPU / 1 GiB with concurrency 4 is plenty. The 8 vCPU shape moved to the
   Python solver service below.
-- **timeout=180s** covers the 120s Python-side solve deadline + proxy I/O.
+- **timeout=180s** covers the 30s Python-side solve deadline + proxy I/O.
 - **STRATUM_SOLVER_URL is required**: base URL of the Python solver service
   (no trailing slash). The worker POSTs `$STRATUM_SOLVER_URL/solve/v1`.
 
@@ -202,7 +202,7 @@ gcloud run deploy stratum-solver-py \
   --max-instances=20 \
   --no-allow-unauthenticated \
   --cpu-boost \
-  --set-env-vars=SOLVER_MAX_TIME_SECONDS=120 \
+  --set-env-vars=SOLVER_MAX_TIME_SECONDS=30 \
   --port=8080
 ```
 
@@ -210,7 +210,7 @@ Notes:
 
 - **4 GiB** is the Cloud Run minimum memory for **8 vCPU** (2 GiB is rejected).
 - **concurrency=1** so one solve owns the CPUs.
-- **SOLVER_MAX_TIME_SECONDS=120** is the CP-SAT deadline (keep in sync with the
+- **SOLVER_MAX_TIME_SECONDS=30** is the CP-SAT deadline (keep in sync with the
   worker timeout above and the operational constants below).
 - Grant the Kotlin worker's runtime SA `roles/run.invoker` on
   `stratum-solver-py` (same pattern as §IAM below), then set the service URL as
@@ -339,7 +339,7 @@ Health (requires invoker identity; user ADC may 401 — Functions SA is the real
 
 | Constant | Value | Where |
 |----------|--------|--------|
-| CP-SAT deadline | 120s | `solver-python` (`SOLVER_MAX_TIME_SECONDS`) |
+| CP-SAT deadline | 30s | `solver-python` (`SOLVER_MAX_TIME_SECONDS`) |
 | Cloud Run request timeout | 180s | `gcloud run deploy` |
 | Node dispatcher timeout | 540s | `processProgramSynthesisJob` |
 | Client poll ceiling | 5 min | `FirebaseProgramSynthesisAdapter` |

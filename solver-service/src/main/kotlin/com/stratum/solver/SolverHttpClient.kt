@@ -38,16 +38,24 @@ class JdkSolverHttpClient(
     baseUrl: String,
     timeoutMillis: Long,
 ) : SolverHttpClient {
+    private companion object {
+        const val HTTP_OK = 200
+        const val METADATA_TIMEOUT_SECONDS = 5L
+    }
+
     private val endpoint: URI = URI.create("${baseUrl.trimEnd('/')}/solve/v1")
+    private val audience: String = baseUrl.trimEnd('/')
     private val timeout: Duration = Duration.ofMillis(timeoutMillis)
     private val client: HttpClient = HttpClient.newBuilder()
         .connectTimeout(timeout)
         .build()
 
     override fun postSolveV1(requestJson: String): SolverHttpClient.SolveResponse {
+        val idToken = fetchIdToken()
         val request = HttpRequest.newBuilder(endpoint)
             .timeout(timeout)
             .header("Content-Type", "application/json")
+            .header("Authorization", "Bearer $idToken")
             .POST(HttpRequest.BodyPublishers.ofString(requestJson, StandardCharsets.UTF_8))
             .build()
         try {
@@ -56,6 +64,31 @@ class JdkSolverHttpClient(
         } catch (e: InterruptedException) {
             Thread.currentThread().interrupt()
             throw IOException("Solver request interrupted: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Fetches an OIDC ID token for the solver audience from the GCE metadata
+     * server. Works on Cloud Run (and GCE/GKE); throws IOException otherwise.
+     */
+    private fun fetchIdToken(): String {
+        val metadataUrl = URI.create(
+            "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/identity?audience=$audience"
+        )
+        val request = HttpRequest.newBuilder(metadataUrl)
+            .timeout(Duration.ofSeconds(METADATA_TIMEOUT_SECONDS))
+            .header("Metadata-Flavor", "Google")
+            .GET()
+            .build()
+        try {
+            val response = client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8))
+            if (response.statusCode() != HTTP_OK) {
+                throw IOException("Metadata server returned HTTP ${response.statusCode()}")
+            }
+            return response.body().trim()
+        } catch (e: InterruptedException) {
+            Thread.currentThread().interrupt()
+            throw IOException("ID token fetch interrupted: ${e.message}", e)
         }
     }
 }
