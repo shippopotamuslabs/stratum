@@ -1,0 +1,409 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Stratum program-synthesis solver request (v1)",
+  "description": "Input to the program-synthesis solver: weekly volume targets plus the lifter/program-generation context. Produced by the Kotlin request producer (ProgramSynthesisWire.encodeRequest), consumed by the Python solver. See solver-contract/VERSIONING.md for modelVersion semantics. This schema is the producer contract: CI validates producer output against it strictly. Decoders implement the separate lenient mode in VERSIONING.md §2 and MUST NOT validate inbound payloads against this raw schema.",
+  "type": "object",
+  "required": ["modelVersion", "weeklyTargets", "context"],
+  "additionalProperties": false,
+  "properties": {
+    "modelVersion": {
+      "description": "Contract major version. Producers MUST emit it. Servers MUST treat a missing value as \"v1\" (pre-versioned Kotlin wire payloads) and MUST reject unknown majors. Minor suffix (v1.1) is backward compatible; dispatch is on the major.",
+      "type": "string",
+      "pattern": "^v1(\\.\\d+)?$"
+    },
+    "weeklyTargets": {
+      "description": "Weekly volume targets keyed by MuscleGroup name. From planWeeklyVolume: min = MEV floor, aim = weekly aim, max = weekly ceiling, in hard-set credits.",
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/muscleGroup" },
+      "additionalProperties": { "$ref": "#/$defs/weeklyVolumeTarget" }
+    },
+    "context": { "$ref": "#/$defs/programGenerationContext" }
+  },
+  "$defs": {
+    "muscleGroup": {
+      "title": "MuscleGroup",
+      "type": "string",
+      "enum": [
+        "Chest",
+        "Back",
+        "Quad",
+        "Hamstring",
+        "Glute",
+        "PosteriorDeltoid",
+        "LateralDeltoid",
+        "AnteriorDeltoid",
+        "Tricep",
+        "Bicep",
+        "Trap",
+        "Calf",
+        "Forearm",
+        "Ab",
+        "LowerBack",
+        "Abductor",
+        "Adductor"
+      ]
+    },
+    "specializationLevel": {
+      "title": "SpecializationLevel",
+      "type": "string",
+      "enum": ["Specialize", "Maintenance", "MinimumVolume", "Omit"]
+    },
+    "movementPattern": {
+      "title": "MovementPattern",
+      "type": "string",
+      "enum": [
+        "SquatPattern",
+        "HipHinge",
+        "KneeExtension",
+        "KneeFlexion",
+        "PlantarFlexion",
+        "HorizontalPress",
+        "VerticalPull",
+        "HorizontalPull",
+        "ShoulderAdduction",
+        "ElbowExtension",
+        "ElbowFlexion",
+        "ShoulderAbduction",
+        "ShoulderHorizontalAbduction",
+        "ShoulderFlexion",
+        "HipExtension",
+        "WristFlexionExtension",
+        "ScapularElevation",
+        "SpinalFlexion",
+        "InclinePress",
+        "VerticalPress",
+        "HipAbduction",
+        "HipAdduction"
+      ]
+    },
+    "nullableMovementPattern": {
+      "title": "NullableMovementPattern",
+      "description": "Movement pattern that may be null when unclassified or without override.",
+      "anyOf": [
+        { "$ref": "#/$defs/movementPattern" },
+        { "type": "null" }
+      ]
+    },
+    "fatigueProfile": {
+      "title": "FatigueProfile",
+      "description": "Loading/recovery cost band. High = spine-loaded free-weight compounds, Medium = other multi-joint compounds, Low = lighter accessories.",
+      "type": "string",
+      "enum": ["High", "Medium", "Low"]
+    },
+    "weightUnit": {
+      "title": "WeightUnit",
+      "type": "string",
+      "enum": ["Lb", "Kg"]
+    },
+    "weight": {
+      "title": "Weight",
+      "type": "object",
+      "required": ["amount", "unit"],
+      "additionalProperties": false,
+      "properties": {
+        "amount": { "type": "number" },
+        "unit": { "$ref": "#/$defs/weightUnit" }
+      }
+    },
+    "nullableWeight": {
+      "title": "NullableWeight",
+      "description": "Weight that may be null (open-ended tier bound, unknown 1RM).",
+      "anyOf": [
+        { "$ref": "#/$defs/weight" },
+        { "type": "null" }
+      ]
+    },
+    "weeklyVolumeTarget": {
+      "title": "WeeklyVolumeTarget",
+      "type": "object",
+      "required": ["min", "aim", "max"],
+      "additionalProperties": false,
+      "properties": {
+        "min": {
+          "description": "MEV floor in hard-set credits. 0 when the muscle has no minimum.",
+          "type": "number"
+        },
+        "aim": {
+          "description": "Weekly aim in hard-set credits.",
+          "type": "number"
+        },
+        "max": {
+          "description": "Weekly ceiling in hard-set credits.",
+          "type": "number"
+        }
+      }
+    },
+    "programGenerationContext": {
+      "title": "ProgramGenerationContext",
+      "type": "object",
+      "required": [
+        "trainingAge",
+        "lastTrained",
+        "sessionLengthMinutes",
+        "trainingDaysPerWeek",
+        "specialization",
+        "liftsById",
+        "muscleVolumeSnapshotsByMuscle",
+        "volumeCorrelationsByMuscle",
+        "enabledLiftIds",
+        "movementPatternByLiftId",
+        "liftEffectivenessByLiftId"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "trainingAge": {
+          "description": "Self-reported training age, TrainingAge enum name (Beginner, EarlyIntermediate, Intermediate, LateIntermediate, Advanced) or \"\" when unknown. Free-form string on the wire; unknown values MUST be tolerated.",
+          "type": "string"
+        },
+        "lastTrained": {
+          "description": "LastTrainedBucket enum name (WithinLastThreeMonths, MoreThanThreeMonthsAgo, Never), or null when unknown. Free-form string on the wire; unknown values MUST be tolerated.",
+          "type": ["string", "null"]
+        },
+        "sessionLengthMinutes": {
+          "description": "Target session length in minutes, or null when unset (no session time cap).",
+          "type": ["integer", "null"]
+        },
+        "trainingDaysPerWeek": {
+          "description": "Training session count for this generation (N). MUST be >= 1.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "specialization": {
+          "description": "Per-muscle specialization level. Muscles absent from this map default to Maintenance.",
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/muscleGroup" },
+          "additionalProperties": { "$ref": "#/$defs/specializationLevel" }
+        },
+        "liftsById": {
+          "description": "Lift catalog entries keyed by lift id.",
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/liftContext" }
+        },
+        "muscleVolumeSnapshotsByMuscle": {
+          "description": "Per-muscle MV/PV/RC snapshots keyed by MuscleGroup name.",
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/muscleVolumeSnapshot" }
+        },
+        "volumeCorrelationsByMuscle": {
+          "description": "Per-muscle dose/response correlations keyed by MuscleGroup name.",
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/volumeCorrelation" }
+        },
+        "enabledLiftIds": {
+          "description": "Lift ids the user enabled for this program.",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "movementPatternByLiftId": {
+          "description": "Resolved movement pattern per lift id; null when the lift has no pattern override.",
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/nullableMovementPattern" }
+        },
+        "liftEffectivenessByLiftId": {
+          "description": "Per-lift effectiveness rank/evidence keyed by lift id.",
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/liftEffectivenessEntry" }
+        },
+        "restSlotIndices": {
+          "description": "Optional cycle-space rest pattern: indices in [0, cycleLength). Omitted when unset (server applies defaults).",
+          "type": "array",
+          "items": { "type": "integer", "minimum": 0 }
+        },
+        "cycleLength": {
+          "description": "Optional full cycle length (train + rest slots). Omitted when unset (server applies defaults).",
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "liftContext": {
+      "title": "LiftContext",
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "movementPattern",
+        "movementPatterns",
+        "primaryMuscles",
+        "secondaryMuscles",
+        "mainstream",
+        "progressTrend",
+        "proven",
+        "sessionCount",
+        "effectivenessRank",
+        "effectivenessEvidence",
+        "fatigueDecaySlope",
+        "fatigueDecayIntercept",
+        "muscleLengthBias",
+        "equipment",
+        "fatigueProfile",
+        "incrementTiers",
+        "estimatedOneRm"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "movementPattern": {
+          "description": "Primary movement pattern, or null when unclassified.",
+          "$ref": "#/$defs/nullableMovementPattern"
+        },
+        "movementPatterns": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/movementPattern" }
+        },
+        "primaryMuscles": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/muscleGroup" }
+        },
+        "secondaryMuscles": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/muscleGroup" }
+        },
+        "mainstream": {
+          "description": "Whether the lift is mainstream, or null when unknown.",
+          "type": ["boolean", "null"]
+        },
+        "progressTrend": {
+          "description": "Free-form progress trend label (e.g. \"up\"), or null when unknown.",
+          "type": ["string", "null"]
+        },
+        "proven": {
+          "description": "Whether the lift is in the proven tier (matched from logged history), or null when unknown.",
+          "type": ["boolean", "null"]
+        },
+        "sessionCount": {
+          "description": "Number of logged sessions for this lift, or null/0 when no insights.",
+          "type": ["integer", "null"]
+        },
+        "effectivenessRank": {
+          "description": "Within-pattern effectiveness rank (1 = best), or null when undefined.",
+          "type": ["integer", "null"]
+        },
+        "effectivenessEvidence": {
+          "description": "Effectiveness evidence tier label, or null when unknown.",
+          "type": ["string", "null"]
+        },
+        "fatigueDecaySlope": {
+          "description": "Within-session fatigue decay slope, or null when unknown.",
+          "type": ["number", "null"]
+        },
+        "fatigueDecayIntercept": {
+          "description": "Within-session fatigue decay intercept, or null when unknown.",
+          "type": ["number", "null"]
+        },
+        "muscleLengthBias": {
+          "description": "MuscleLengthBias enum name (Lengthened, Shortened, MidRange), or null when unknown.",
+          "type": ["string", "null"],
+          "enum": ["Lengthened", "Shortened", "MidRange", null]
+        },
+        "equipment": {
+          "description": "Free-form equipment label (e.g. \"barbell\"), or null when unknown.",
+          "type": ["string", "null"]
+        },
+        "fatigueProfile": {
+          "description": "Loading/recovery cost band. Decoders default a missing value to Low; producers MUST emit it.",
+          "type": "string",
+          "enum": ["High", "Medium", "Low"]
+        },
+        "incrementTiers": {
+          "description": "Weight-banded increment steps. Empty when the lift has no tier data. Decoders default a missing array to empty; producers MUST emit it.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/incrementTier" }
+        },
+        "estimatedOneRm": {
+          "description": "Estimated one-rep max from training insights, or null when no proven history exists.",
+          "$ref": "#/$defs/nullableWeight"
+        }
+      }
+    },
+    "incrementTier": {
+      "title": "IncrementTier",
+      "type": "object",
+      "required": ["lowerBound", "upperBound", "increment"],
+      "additionalProperties": false,
+      "properties": {
+        "lowerBound": { "$ref": "#/$defs/weight" },
+        "upperBound": {
+          "description": "Upper bound of the tier, or null for the open-ended top tier.",
+          "$ref": "#/$defs/nullableWeight"
+        },
+        "increment": { "$ref": "#/$defs/weight" }
+      }
+    },
+    "muscleVolumeSnapshot": {
+      "title": "MuscleVolumeSnapshotContext",
+      "type": "object",
+      "required": [
+        "muscle",
+        "retentionFloorMv",
+        "paretoVolumePv",
+        "recoverabilityCeilingRc",
+        "growthEntryFloor",
+        "maintenanceCeiling",
+        "posture",
+        "observedDoseMax",
+        "observedDoseMedian",
+        "source"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "muscle": {
+          "description": "MuscleGroup name. Free-form string on the wire (mirrors the map key).",
+          "type": "string"
+        },
+        "retentionFloorMv": { "type": "number" },
+        "paretoVolumePv": { "type": "number" },
+        "recoverabilityCeilingRc": { "type": "number" },
+        "growthEntryFloor": { "type": "number" },
+        "maintenanceCeiling": { "type": "number" },
+        "posture": {
+          "description": "Free-form volume posture label (e.g. \"Productive\"), or null when unknown.",
+          "type": ["string", "null"]
+        },
+        "observedDoseMax": { "type": ["number", "null"] },
+        "observedDoseMedian": { "type": ["number", "null"] },
+        "source": {
+          "type": "string",
+          "enum": ["Personal", "Literature"]
+        }
+      }
+    },
+    "volumeCorrelation": {
+      "title": "VolumeCorrelationContext",
+      "type": "object",
+      "required": ["muscle", "correlationSlope", "evidence"],
+      "additionalProperties": false,
+      "properties": {
+        "muscle": {
+          "description": "MuscleGroup name. Free-form string on the wire (mirrors the map key).",
+          "type": "string"
+        },
+        "correlationSlope": { "type": "number" },
+        "evidence": {
+          "description": "Free-form evidence label (e.g. \"moderate\").",
+          "type": "string"
+        }
+      }
+    },
+    "liftEffectivenessEntry": {
+      "title": "LiftEffectivenessEntry",
+      "type": "object",
+      "required": ["liftId", "pattern", "rank", "effectivenessScore", "evidence"],
+      "additionalProperties": false,
+      "properties": {
+        "liftId": { "type": "string" },
+        "pattern": { "$ref": "#/$defs/movementPattern" },
+        "rank": {
+          "description": "Within-pattern effectiveness rank (1 = best).",
+          "type": "integer"
+        },
+        "effectivenessScore": { "type": ["number", "null"] },
+        "evidence": {
+          "description": "Free-form evidence label (e.g. \"personal\").",
+          "type": "string"
+        }
+      }
+    }
+  }
+}
