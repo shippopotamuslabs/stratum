@@ -9,7 +9,7 @@
     {
       "displayName": "Any Firestore PERMISSION_DENIED in 5 min",
       "conditionThreshold": {
-        "filter": "metric.type=\"logging.googleapis.com/user/firestore_permission_denied_count\"",
+        "filter": "metric.type=\"logging.googleapis.com/user/firestore_permission_denied_count\" AND resource.type=\"audited_resource\"",
         "comparison": "COMPARISON_GT",
         "thresholdValue": 0,
         "duration": "60s",
