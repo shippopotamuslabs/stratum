@@ -327,13 +327,8 @@ class EquipmentIncrementsViewModel @Inject constructor(
      */
     fun onBandEndChanged(index: Int, value: String) {
         updateDraft { tiers ->
-            IncrementTierDraftOps.retileAfterEndEdit(tiers, index, value)
+            IncrementBandTiling.retileAfterEndEdit(tiers, index, value)
         }
-    }
-
-    /** Band-strip step edit: step only, tiling untouched. */
-    fun onBandStepChanged(index: Int, value: String) {
-        onTierIncrementChanged(index, value)
     }
 
     fun onOpenEndedToggled(index: Int, openEnded: Boolean) {
@@ -388,7 +383,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
         updateDraft { tiers ->
             if (tiers.size <= 1) return@updateDraft tiers
             val remaining = tiers.toMutableList().also { it.removeAt(index) }
-            IncrementTierDraftOps.retiled(remaining)
+            IncrementBandTiling.retiled(remaining)
         }
     }
 
