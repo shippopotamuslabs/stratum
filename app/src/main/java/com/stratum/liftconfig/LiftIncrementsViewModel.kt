@@ -13,8 +13,10 @@ import com.stratum.domain.lift.SetLiftIncrementTiersUseCase
 import com.stratum.domain.lift.ValidateIncrementTiersUseCase
 import com.stratum.domain.lift.ValidateMicroIncrementsUseCase
 import com.stratum.domain.lift.DismissEquipmentProposalUseCase
+import com.stratum.domain.lift.ForkEquipmentWithTiersUseCase
 import com.stratum.domain.lift.ScanPhoto
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.shortLabel
 import com.stratum.feature.workout.ui.ProposalEditContext
@@ -44,6 +46,13 @@ data class LiftIncrementsUiState(
     /** Non-null when the lift is inheriting equipment/fallback defaults (no override rows). */
     val inheritanceBanner: String? = null,
     val showResetToEquipment: Boolean = false,
+    /**
+     * Equipment id backing a save-as-new fork (null = fallback bands with
+     * nothing to fork from; the fork entry stays hidden).
+     */
+    val forkSourceId: String? = null,
+    /** Name prefill for the save-as-new sheet: `"<equipment-or-lift> (copy)"`. */
+    val forkSuggestion: String = "",
 )
 
 @HiltViewModel
@@ -54,6 +63,7 @@ class LiftIncrementsViewModel @Inject constructor(
     private val validateIncrementTiers: ValidateIncrementTiersUseCase,
     private val validateMicroIncrements: ValidateMicroIncrementsUseCase,
     private val dismissEquipmentProposal: DismissEquipmentProposalUseCase,
+    private val forkEquipmentWithTiers: ForkEquipmentWithTiersUseCase,
     observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
     private val scanDelegate: IncrementScanDelegate,
 ) : ViewModel() {
@@ -272,39 +282,106 @@ class LiftIncrementsViewModel @Inject constructor(
         updateDraft { tiers ->
             if (tiers.size <= 1) return@updateDraft tiers
             val remaining = tiers.toMutableList().also { it.removeAt(index) }
-            remaining[remaining.lastIndex] =
-                remaining.last().copy(openEnded = true, upperBound = null)
-            remaining
+            IncrementBandTiling.retiled(remaining)
+        }
+    }
+
+    /**
+     * Band-strip end edit (STR-61): replaces the band's end and re-tiles
+     * neighbors so bands never gap or overlap. Starts are derived, never typed.
+     */
+    fun onBandEndChanged(index: Int, value: String) {
+        updateDraft { tiers ->
+            IncrementBandTiling.retileAfterEndEdit(tiers, index, value)
         }
     }
 
     fun save() {
         val id = liftId.value ?: return
+        val edits = resolveValidatedEdits() ?: return
+        viewModelScope.launch {
+            runSaving(
+                persist = { setLiftIncrementTiers(LiftId(id), edits.tiers, edits.micro) },
+                failureMessage = "Could not save increments",
+            )
+        }
+    }
+
+    /** Name prefill for the save-as-new sheet, preferring the equipment name. */
+    fun forkNameSuggestion(): String = uiState.value.forkSuggestion.ifBlank { "Equipment (copy)" }
+
+    /**
+     * Forks the lift's equipment under [copyName] (blank falls back to
+     * [forkNameSuggestion]) carrying the on-screen bands, and reassigns this
+     * lift to the copy so the shared defaults stay untouched. Untouched adder
+     * stops inherit the parent's knob; edited stops ride onto the copy.
+     * No-op when the lift has no equipment (fallback bands).
+     */
+    fun saveAsNew(copyName: String = "") {
+        val id = liftId.value ?: return
+        val sourceId = uiState.value.forkSourceId?.let(::EquipmentId) ?: return
+        val edits = resolveValidatedEdits() ?: return
+        val resolvedName = copyName.trim().ifBlank { forkNameSuggestion() }
+        viewModelScope.launch {
+            runSaving(
+                persist = {
+                    forkEquipmentWithTiers(
+                        sourceId,
+                        resolvedName,
+                        edits.tiers,
+                        LiftId(id),
+                        edits.micro,
+                    )
+                },
+                failureMessage = "Could not copy equipment",
+            )
+        }
+    }
+
+    /** Validated bands plus stops; micro null means "leave the column alone". */
+    private data class ValidatedEdits(
+        val tiers: List<IncrementTier>,
+        val micro: List<Weight>?,
+    )
+
+    /**
+     * Shared edit-to-domain pipeline for [save] and [saveAsNew]: draft
+     * mapping, tier validation, and stop validation, setting
+     * [validationOverride] on failure. Untouched stops yield null (the column
+     * is left alone / the fork inherits the parent's knob); edited stops
+     * replace the override (empty = explicitly no adder).
+     */
+    private fun resolveValidatedEdits(): ValidatedEdits? {
         val unit = displayUnit.value
         val domainTiers = IncrementTierDraftOps.toDomainOrNull(uiState.value.editor.tiers, unit)
         if (domainTiers == null) {
             validationOverride.value = "Enter valid numbers for all bands"
-            return
+            return null
         }
         when (val result = validateIncrementTiers(domainTiers)) {
             is IncrementTiersValidationResult.Invalid -> {
                 validationOverride.value = IncrementTierDraftOps.toUserMessage(result.errors)
-                return
+                return null
             }
             IncrementTiersValidationResult.Valid -> Unit
         }
-        // Untouched stops leave the micro column alone; edited stops replace the
-        // override (empty = explicitly no adder).
         val domainMicro =
             when (val microDraft = draftMicro.value) {
                 MicroDraft.Untouched -> null
                 is MicroDraft.Edited ->
-                    validatedDraftMicro(microDraft.stops, domainTiers, unit) ?: return
+                    validatedDraftMicro(microDraft.stops, domainTiers, unit) ?: return null
             }
-        viewModelScope.launch {
-            isSaving.value = true
-            val result = setLiftIncrementTiers(LiftId(id), domainTiers, domainMicro)
-            isSaving.value = false
+        return ValidatedEdits(domainTiers, domainMicro)
+    }
+
+    /** Shared save bookkeeping: flags, proposal dismissal, success/error paths. */
+    private suspend fun runSaving(
+        persist: suspend () -> Result<*>,
+        failureMessage: String,
+    ) {
+        isSaving.value = true
+        try {
+            val result = persist()
             if (result.isSuccess) {
                 // A proposal-launched save resolves the proposal even when the hand-set
                 // tiers still miss logged weights — the user took ownership.
@@ -312,9 +389,10 @@ class LiftIncrementsViewModel @Inject constructor(
                 saveSucceeded.value = true
                 validationOverride.value = null
             } else {
-                validationOverride.value = result.exceptionOrNull()?.message
-                    ?: "Could not save increments"
+                validationOverride.value = result.exceptionOrNull()?.message ?: failureMessage
             }
+        } finally {
+            isSaving.value = false
         }
     }
 
@@ -421,6 +499,9 @@ class LiftIncrementsViewModel @Inject constructor(
             showResetToEquipment =
                 lift != null &&
                 (!lift.usesEquipmentDefaultIncrements || !lift.usesEquipmentDefaultMicro),
+            forkSourceId = lift?.equipmentId?.value,
+            forkSuggestion =
+                "${(lift?.equipmentName ?: lift?.name)?.takeIf { it.isNotBlank() } ?: "Equipment"} (copy)",
         )
     }
 
