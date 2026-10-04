@@ -200,6 +200,60 @@ class EquipmentIncrementsViewModelTest {
     }
 
     @Test
+    @DisplayName("Given a band end edit when applied then the neighbor re-tiles with no gap")
+    fun bandEndEditRetilesNeighbor() = runTest {
+        subject.initialize(cableId.value)
+        subject.uiState.test {
+            awaitItemWith { it.equipmentName == "Cables" && it.editor.tiers.isNotEmpty() }
+            subject.addTier()
+            awaitItemWith { it.editor.tiers.size == 2 }
+            subject.onBandEndChanged(0, "100")
+            val retiled = awaitItemWith { it.editor.tiers[0].upperBound == "100" }
+            assertEquals("0", retiled.editor.tiers[0].lowerBound)
+            assertEquals("100", retiled.editor.tiers[1].lowerBound)
+            assertTrue(retiled.editor.tiers[1].openEnded)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Given bands when a middle band is removed then lowers re-derive and last stays open")
+    fun removeMiddleBandRetiles() = runTest {
+        subject.initialize(cableId.value)
+        subject.uiState.test {
+            awaitItemWith { it.equipmentName == "Cables" && it.editor.tiers.isNotEmpty() }
+            subject.addTier()
+            awaitItemWith { it.editor.tiers.size == 2 }
+            subject.onBandEndChanged(0, "100")
+            awaitItemWith { it.editor.tiers[0].upperBound == "100" }
+            subject.addTier()
+            awaitItemWith { it.editor.tiers.size == 3 }
+            subject.removeTier(1)
+            val retiled = awaitItemWith { it.editor.tiers.size == 2 }
+            assertEquals("0", retiled.editor.tiers[0].lowerBound)
+            assertEquals("100", retiled.editor.tiers[0].upperBound)
+            assertEquals("100", retiled.editor.tiers[1].lowerBound)
+            assertTrue(retiled.editor.tiers[1].openEnded)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Given a fork name when save as new then the copy uses the entered name")
+    fun saveAsNewUsesEnteredName() = runTest {
+        subject.initialize(cableId.value)
+        subject.uiState.test {
+            awaitItemWith { it.equipmentName == "Cables" && it.editor.tiers.isNotEmpty() }
+            subject.saveAsNew("Lat stack")
+            assertTrue(awaitItemWith { it.editor.saveSucceeded }.editor.saveSucceeded)
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        val copy = fakeEquipmentRepository.current.single { it.id != cableId }
+        assertEquals("Lat stack", copy.name)
+    }
+
+    @Test
     @DisplayName("Given edited stops when save as new then the copy takes the stops")
     fun saveAsNewForksEditedMicroStops() = runTest {
         subject.initialize(cableId.value)
