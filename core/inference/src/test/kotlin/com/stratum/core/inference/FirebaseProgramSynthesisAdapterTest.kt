@@ -234,14 +234,6 @@ class FirebaseProgramSynthesisAdapterTest {
     @Nested
     @DisplayName("pollStatusWithTransientRetry")
     inner class StatusRetry {
-        private val pending =
-            SynthesisJobSnapshot(
-                status = SynthesisRemoteStatus.Pending,
-                progressPhase = null,
-                progressMessage = null,
-                resultStoragePath = null,
-                errorMessage = null,
-            )
         private val ready =
             SynthesisJobSnapshot(
                 status = SynthesisRemoteStatus.Ready,
@@ -400,23 +392,35 @@ class FirebaseProgramSynthesisAdapterTest {
             }
 
         @Test
-        @DisplayName("poll loop still times out when the job never reaches terminal")
-        fun pollLoopStillTimesOut() =
+        @DisplayName("transient failures spaced by a sleep gap reset the consecutive budget")
+        fun sleepGapResetsTransientBudget() =
             runTest {
-                var thrown: Throwable? = null
-                try {
-                    pollUntil(
-                        timeoutMs = 200L,
-                        initialIntervalMs = 10L,
-                        slowIntervalMs = 10L,
-                        backoffAfterMs = 60_000L,
-                        isTerminal = { it.status.isTerminal() },
-                        poll = { pending },
+                val loggingPort = FakeLoggingPort()
+                var now = 1_000L
+                var calls = 0
+                val result =
+                    pollStatusWithTransientRetry(
+                        fetch = {
+                            calls++
+                            if (calls <= 3) {
+                                // Models Doze deferring the spaced retry: the next
+                                // failure surfaces a minute later, not milliseconds.
+                                now += 60_000L
+                                throw transientError()
+                            }
+                            ready
+                        },
+                        loggingPort = loggingPort,
+                        jobId = "job-1",
+                        maxConsecutiveTransients = 2,
+                        retryDelayMs = 1_000L,
+                        clock = MonotonicClock { now },
                     )
-                } catch (e: IllegalStateException) {
-                    thrown = e
-                }
-                assertTrue(thrown is IllegalStateException)
+                // Three sleep-spaced failures would exceed the cap of 2 without
+                // the STR-55 reset; with it they are separate incidents.
+                assertEquals(ready, result)
+                assertEquals(4, calls)
+                assertEquals(3, loggingPort.warnings.size)
             }
     }
 }
