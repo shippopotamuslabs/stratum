@@ -2,7 +2,7 @@
 
 Covers the transport half of the entrypoint documented in solver_client.py:
 default module, module override, missing solve(), HTTP URL routing
-(POST /solve/<major>), HTTP rejection mapping, and SOLVER_URL precedence.
+(POST /solve/v<major>), HTTP rejection mapping, and SOLVER_URL precedence.
 """
 
 import copy
@@ -12,7 +12,8 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
 
-import solver_client
+import stub_solver
+from contract import discover_majors, major_of
 from solver_client import (
     DEFAULT_SOLVER_MODULE,
     load_solver_module,
@@ -66,19 +67,24 @@ class _FakeSolverHandler(BaseHTTPRequestHandler):
         type(self).last_path = self.path
         length = int(self.headers.get("Content-Length", 0))
         payload = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
-        version = payload.get("modelVersion", "v1")
-        major = version.lstrip("v").split(".")[0] if isinstance(version, str) else "?"
-        expected_path = f"/solve/{major}"
-        if self.path != expected_path:
-            self._send(400, {"error": f"URL major {self.path} != body {version}"})
+        try:
+            major = major_of(payload)  # missing -> v1; malformed -> ValueError
+        except ValueError as e:
+            self._send(400, {"error": str(e)})
             return
-        if major not in ("1",):
+        expected_path = f"/solve/v{major}"
+        if self.path != expected_path:
+            self._send(400, {"error": f"URL path {self.path} != body v{major}"})
+            return
+        if major not in discover_majors():
             self._send(422, {"error": f"unsupported major v{major}"})
             return
-        import stub_solver
-
-        # Reuse the stub's canned builder: validates the HTTP path end to end.
-        self._send(200, stub_solver.solve_v1(copy.deepcopy(payload)))
+        # Thin transport wrapper: reuse the same dispatch as in-process so the
+        # fake stays green as majors are added by discovery.
+        try:
+            self._send(200, stub_solver.solve(copy.deepcopy(payload)))
+        except ValueError as e:
+            self._send(422, {"error": str(e)})
 
     def _send(self, status, obj):
         body = json.dumps(obj).encode("utf-8")
@@ -104,7 +110,7 @@ def fake_solver_url():
 def test_http_posts_to_versioned_url(monkeypatch, fake_solver_url, request_v1):
     monkeypatch.setenv("SOLVER_URL", fake_solver_url)
     response = solve_request(request_v1)
-    assert _FakeSolverHandler.last_path == "/solve/1"
+    assert _FakeSolverHandler.last_path == "/solve/v1"
     assert response["modelVersion"] == "v1"
 
 
@@ -112,7 +118,7 @@ def test_http_missing_version_routes_to_solve_v1(monkeypatch, fake_solver_url, r
     request_v1.pop("modelVersion", None)
     monkeypatch.setenv("SOLVER_URL", fake_solver_url)
     solve_request(request_v1)
-    assert _FakeSolverHandler.last_path == "/solve/1"
+    assert _FakeSolverHandler.last_path == "/solve/v1"
 
 
 def test_http_unknown_major_rejected(monkeypatch, fake_solver_url, request_v1):
@@ -126,7 +132,7 @@ def test_solver_url_wins_over_module(monkeypatch, fake_solver_url, request_v1):
     monkeypatch.setenv("SOLVER_URL", fake_solver_url)
     monkeypatch.setenv("SOLVER_MODULE", "stub_solver")
     solve_request(request_v1)
-    assert _FakeSolverHandler.last_path == "/solve/1"
+    assert _FakeSolverHandler.last_path == "/solve/v1"
 
 
 def test_http_unreachable_server_errors(monkeypatch, request_v1):

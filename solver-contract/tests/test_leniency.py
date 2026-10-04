@@ -19,6 +19,7 @@ import json
 
 import pytest
 
+from assertions import assert_response_structure, assert_response_validates
 from contract import (
     DEFAULT_CONTRACT_ROOT,
     discover_majors,
@@ -29,7 +30,6 @@ from contract import (
     validator_for,
 )
 from solver_client import solve_request
-from test_roundtrip import assert_response_structure
 
 
 def _first_request() -> dict:
@@ -39,15 +39,6 @@ def _first_request() -> dict:
         return json.load(f)
 
 
-def _validate_response(response: dict) -> int:
-    """Assert the response validates; return its day-aligned session count."""
-    major = major_of(response)
-    schema = load_schema(DEFAULT_CONTRACT_ROOT, major, "response")
-    errors = list(validator_for(schema).iter_errors(response))
-    assert not errors, f"response invalid: {[e.message for e in errors]}"
-    return major
-
-
 def test_missing_model_version_dispatches_as_v1():
     request = _first_request()
     del request["modelVersion"]
@@ -55,7 +46,7 @@ def test_missing_model_version_dispatches_as_v1():
 
     response = solve_request(request)
 
-    major = _validate_response(response)
+    major = assert_response_validates(response)
     assert major == 1
     assert_response_structure(response, request["context"]["trainingDaysPerWeek"])
 
@@ -68,7 +59,7 @@ def test_unknown_minor_accepted_as_v1(version):
 
     response = solve_request(request)
 
-    _validate_response(response)
+    assert_response_validates(response)
     assert_response_structure(response, request["context"]["trainingDaysPerWeek"])
 
 
@@ -101,7 +92,7 @@ def test_unknown_fields_tolerated():
 
     # ... but the solver ignores them and still produces a valid response.
     response = solve_request(request)
-    _validate_response(response)
+    assert_response_validates(response)
     assert_response_structure(response, request["context"]["trainingDaysPerWeek"])
 
 
@@ -130,5 +121,5 @@ def test_request_side_defaults_tolerated():
 
     for name, request in variants.items():
         response = solve_request(request)
-        _validate_response(response)
+        assert_response_validates(response)
         assert_response_structure(response, request["context"]["trainingDaysPerWeek"]), name
