@@ -8,7 +8,6 @@ import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MicroIncrementsValidationResult
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
 import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
-import com.stratum.domain.lift.ResetLiftIncrementsToEquipmentUseCase
 import com.stratum.domain.lift.SetLiftIncrementTiersUseCase
 import com.stratum.domain.lift.ValidateIncrementTiersUseCase
 import com.stratum.domain.lift.ValidateMicroIncrementsUseCase
@@ -45,7 +44,6 @@ data class LiftIncrementsUiState(
     val editor: IncrementsEditorData = IncrementsEditorData(),
     /** Non-null when the lift is inheriting equipment/fallback defaults (no override rows). */
     val inheritanceBanner: String? = null,
-    val showResetToEquipment: Boolean = false,
     /**
      * Equipment id backing a save-as-new fork (null = fallback bands with
      * nothing to fork from; the fork entry stays hidden).
@@ -59,7 +57,6 @@ data class LiftIncrementsUiState(
 class LiftIncrementsViewModel @Inject constructor(
     private val observeLiftCatalog: ObserveLiftCatalogUseCase,
     private val setLiftIncrementTiers: SetLiftIncrementTiersUseCase,
-    private val resetLiftIncrementsToEquipment: ResetLiftIncrementsToEquipmentUseCase,
     private val validateIncrementTiers: ValidateIncrementTiersUseCase,
     private val validateMicroIncrements: ValidateMicroIncrementsUseCase,
     private val dismissEquipmentProposal: DismissEquipmentProposalUseCase,
@@ -469,7 +466,7 @@ class LiftIncrementsViewModel @Inject constructor(
         val inheritanceBanner =
             when {
                 !inheriting && lift != null && !lift.usesEquipmentDefaultIncrements ->
-                    null // overridden — banner handled via showReset
+                    null // overridden — no banner; the editor simply shows the lift's own bands
                 // Only claim "from {equipment}" when non-empty equipment tiers actually applied
                 // (empty lattices e.g. bodyweight fall through to global fallback).
                 inheriting && lift.inheritsFromEquipmentLattice && !lift.equipmentName.isNullOrBlank() ->
@@ -496,33 +493,10 @@ class LiftIncrementsViewModel @Inject constructor(
                     scanUi = scan.state,
                 ),
             inheritanceBanner = inheritanceBanner,
-            showResetToEquipment =
-                lift != null &&
-                (!lift.usesEquipmentDefaultIncrements || !lift.usesEquipmentDefaultMicro),
             forkSourceId = lift?.equipmentId?.value,
             forkSuggestion =
                 "${(lift?.equipmentName ?: lift?.name)?.takeIf { it.isNotBlank() } ?: "Equipment"} (copy)",
         )
-    }
-
-    fun resetToEquipmentDefaults() {
-        val id = liftId.value ?: return
-        viewModelScope.launch {
-            isSaving.value = true
-            // One atomic write: bands and knob clear together, so a failure cannot
-            // leave inherited bands with a stale micro override (half-reset).
-            val result = resetLiftIncrementsToEquipment(LiftId(id))
-            isSaving.value = false
-            if (result.isSuccess) {
-                draftTiers.value = null
-                draftMicro.value = MicroDraft.Untouched
-                saveSucceeded.value = true
-                validationOverride.value = null
-            } else {
-                validationOverride.value = result.exceptionOrNull()?.message
-                    ?: "Could not reset increments"
-            }
-        }
     }
 
     private fun updateDraft(transform: (List<IncrementTierDraft>) -> List<IncrementTierDraft>) {

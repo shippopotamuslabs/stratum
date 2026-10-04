@@ -19,7 +19,6 @@ import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
 import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
-import com.stratum.domain.lift.ResetLiftIncrementsToEquipmentUseCase
 import com.stratum.domain.lift.ScanIncrementTiersUseCase
 import com.stratum.domain.lift.ScanPhoto
 import com.stratum.domain.lift.ScannedTierRow
@@ -96,11 +95,6 @@ class LiftIncrementsScanTest {
                     fakeLiftRepository,
                     ValidateIncrementTiersUseCase(),
                     ValidateMicroIncrementsUseCase(),
-                    FakeLoggingPort(),
-                ),
-            resetLiftIncrementsToEquipment =
-                ResetLiftIncrementsToEquipmentUseCase(
-                    fakeLiftRepository,
                     FakeLoggingPort(),
                 ),
             validateIncrementTiers = ValidateIncrementTiersUseCase(),
