@@ -171,6 +171,21 @@ W_MAINTENANCE_POSTERIOR_AIM_DEVIATION = 500
 
 
 # --------------------------------------------------------------------------
+# Fallback ladder (STR-54). NOT part of the frozen Kotlin weights: L1 exists
+# only in the Python solver and engages solely after a proven L0 INFEASIBLE.
+# --------------------------------------------------------------------------
+
+# Per-missing-lift penalty when the min-active-lifts floor is softened at L1.
+# Ordering: one missing lift (~11 sets ~ 1100 scaled credits of volume, worth
+# ~5M in volume-shortfall terms, or up to tens of millions against 72h-spacing
+# soft costs) must lose to keeping the lift, while recovery forbids (hard)
+# still dominate everything. 100M/lift sits ~20x above the volume-equivalent
+# and above plausible per-lift spacing-soft totals, so L1 deviates minimally
+# from L0: same program shape, minus only what feasibility forces out.
+W_L1_ACTIVE_LIFTS_SHORTFALL = 100_000_000
+
+
+# --------------------------------------------------------------------------
 # Static secondary credits (PATTERN_SECONDARY_MUSCLE_CREDITS)
 # --------------------------------------------------------------------------
 
