@@ -7,10 +7,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -27,12 +30,16 @@ import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R as UiR
 import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumButton
+import com.stratum.core.ui.component.StratumConfirmDialog
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumNumber
 import com.stratum.core.ui.component.StratumOutlinedButton
+import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTextButton
 import com.stratum.core.ui.component.StratumTextField
+import com.stratum.core.ui.component.StratumTopBar
+import com.stratum.core.ui.component.StratumTopBarBackButton
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
 /**
@@ -43,7 +50,254 @@ import com.stratum.core.ui.theme.StratumThemeAccessor
  * chrome (titles, context rows, save bars, confirms) stays on the owning
  * route; only the band/strip/sheet building blocks live here. Presentation
  * only — no domain types (ARCHITECTURE.md §4.3), `Stratum*` primitives only.
+ *
+ * STR-73: the full editor screen also lives here as [IncrementEditorScreen].
+ * Every increments entry renders that one screen; routes only map their
+ * UiState to [IncrementEditorChrome] plus callbacks.
  */
+
+/**
+ * Per-entry chrome for the unified band-strip editor screen (STR-73).
+ *
+ * Everything else (bands, stops, scan, validation) renders identically for
+ * every entry — only these values differ. Plain data: routes resolve strings
+ * and pass them in, so the screen stays dumb.
+ */
+data class IncrementSaveConfirm(
+    val title: String,
+    val body: String,
+    val confirmLabel: String,
+    val dismissLabel: String,
+    val onConfirm: () -> Unit,
+    val onDismiss: () -> Unit,
+)
+
+data class IncrementEditorChrome(
+    val contextText: String,
+    val onContextClick: (() -> Unit)?,
+    val saveText: String,
+    /** Non-null for shared-defaults entries (blast-radius confirm); null saves directly. */
+    val saveConfirm: IncrementSaveConfirm?,
+    /** Null = no reset affordance (shared-defaults entries). Removed entirely by STR-72. */
+    val resetAction: (() -> Unit)?,
+    /** Null = no save-as-new and no fork sheet (nothing to fork from). */
+    val forkSuggestion: String?,
+)
+
+/** Band-strip callbacks, grouped so the screen signature stays lean. */
+data class IncrementEditorBandActions(
+    val onBandClick: (Int) -> Unit,
+    val onAddBand: () -> Unit,
+    val onBandSheetDismiss: () -> Unit,
+    val onBandEndChanged: (Int, String) -> Unit,
+    val onBandStepChanged: (Int, String) -> Unit,
+    val onDeleteBand: (Int) -> Unit,
+)
+
+/** Adder-stop callbacks, grouped so the screen signature stays lean. */
+data class IncrementEditorStopActions(
+    val onStopsClick: () -> Unit,
+    val onStopChanged: (Int, String) -> Unit,
+    val onAddStop: () -> Unit,
+    val onRemoveStop: (Int) -> Unit,
+    val onStopsDismiss: () -> Unit,
+)
+
+/** Save/fork callbacks, grouped so the screen signature stays lean. */
+data class IncrementEditorSaveActions(
+    val onSaveClick: () -> Unit,
+    val onSaveAsNewClick: () -> Unit,
+    val onForkCreate: (String) -> Unit,
+    val onForkDismiss: () -> Unit,
+)
+
+/**
+ * The single band-strip increments editor screen (STR-73).
+ *
+ * Verbatim unification of the former equipment and lift screens: same strip,
+ * same bottom-sheet band editor, same stops sheet, same AI scan entry.
+ */
+@Composable
+internal fun IncrementEditorScreen(
+    editor: IncrementsEditorData,
+    chrome: IncrementEditorChrome,
+    title: String,
+    selection: Int?,
+    scanPicker: ScanPicker,
+    bandActions: IncrementEditorBandActions,
+    stopActions: IncrementEditorStopActions,
+    saveActions: IncrementEditorSaveActions,
+    onBackClick: () -> Unit,
+    showSaveConfirm: Boolean,
+    showForkSheet: Boolean,
+    showStopsSheet: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    StratumScaffold(
+        modifier = modifier,
+        topBar = {
+            StratumTopBar(
+                title = title,
+                navigationIcon = {
+                    StratumTopBarBackButton(
+                        onClick = onBackClick,
+                        contentDescription = stringResource(UiR.string.lift_config_navigate_back),
+                    )
+                },
+                actions = {
+                    if (editor.scanAvailable) {
+                        ScanIconEntry(picker = scanPicker, scanUi = editor.scanUi)
+                    }
+                },
+            )
+        },
+    ) { padding ->
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(horizontal = 16.dp)
+                    .verticalScroll(rememberScrollState()),
+        ) {
+            EditorContextRow(
+                text = chrome.contextText,
+                onClick = chrome.onContextClick,
+            )
+            StratumText(
+                text = stringResource(UiR.string.equipment_band_section),
+                style = StratumThemeAccessor.typography.sectionLabel,
+                muted = true,
+                modifier = Modifier.padding(start = 2.dp, bottom = 8.dp),
+            )
+            StratumText(
+                text = stringResource(UiR.string.equipment_band_hint),
+                style = StratumThemeAccessor.typography.sectionLabel,
+                muted = true,
+                modifier = Modifier.padding(start = 2.dp, bottom = 10.dp),
+            )
+            BandStrip(
+                tiers = editor.tiers,
+                unitLabel = editor.unitLabel,
+                selection = selection,
+                onBandClick = bandActions.onBandClick,
+                onAddBand = bandActions.onAddBand,
+            )
+            if (selection != null && editor.tiers.indices.contains(selection)) {
+                BandCaption(
+                    tiers = editor.tiers,
+                    selection = selection,
+                    unitLabel = editor.unitLabel,
+                    modifier = Modifier.padding(start = 2.dp, top = 6.dp),
+                )
+            }
+            if (editor.scanAvailable) {
+                ScanStatusLines(
+                    scanUi = editor.scanUi,
+                    picker = scanPicker,
+                    modifier = Modifier.padding(top = 12.dp),
+                )
+            }
+            if (editor.validationMessage != null) {
+                EditorErrorBanner(
+                    message = editor.validationMessage,
+                    modifier = Modifier.padding(top = 12.dp),
+                )
+            }
+            if (editor.warnedTierIndexes.isNotEmpty()) {
+                StratumText(
+                    text = stringResource(UiR.string.lift_increments_sample_warning),
+                    style = StratumThemeAccessor.typography.sectionLabel,
+                    muted = true,
+                    modifier = Modifier.padding(start = 2.dp, top = 12.dp),
+                )
+            }
+            StratumText(
+                text = stringResource(UiR.string.lift_increments_micro_title),
+                style = StratumThemeAccessor.typography.sectionLabel,
+                muted = true,
+                modifier = Modifier.padding(start = 2.dp, top = 14.dp, bottom = 8.dp),
+            )
+            MicroStopsRow(
+                stops = editor.microStops,
+                unitLabel = editor.unitLabel,
+                onClick = stopActions.onStopsClick,
+            )
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp, bottom = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                if (chrome.resetAction != null) {
+                    StratumOutlinedButton(
+                        text = stringResource(UiR.string.lift_increments_reset_to_equipment),
+                        onClick = chrome.resetAction,
+                        enabled = !editor.isSaving,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                StratumButton(
+                    text = chrome.saveText,
+                    onClick = saveActions.onSaveClick,
+                    enabled = !editor.isSaving && editor.validationMessage == null,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (chrome.forkSuggestion != null) {
+                    StratumTextButton(
+                        text = stringResource(UiR.string.equipment_increments_save_as_new),
+                        onClick = saveActions.onSaveAsNewClick,
+                        enabled = !editor.isSaving && editor.validationMessage == null,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+        }
+    }
+    if (selection != null && editor.tiers.indices.contains(selection)) {
+        BandEditorSheet(
+            index = selection,
+            tier = editor.tiers[selection],
+            start = IncrementBandTiling.startAt(editor.tiers, selection),
+            isLast = selection == editor.tiers.lastIndex,
+            canDelete = editor.tiers.size > 1,
+            unitLabel = editor.unitLabel,
+            onEndChanged = { bandActions.onBandEndChanged(selection, it) },
+            onStepChanged = { bandActions.onBandStepChanged(selection, it) },
+            onDelete = { bandActions.onDeleteBand(selection) },
+            onDone = bandActions.onBandSheetDismiss,
+            onDismiss = bandActions.onBandSheetDismiss,
+        )
+    }
+    if (showForkSheet && chrome.forkSuggestion != null) {
+        ForkNameSheet(
+            suggestion = chrome.forkSuggestion,
+            onCreate = saveActions.onForkCreate,
+            onDismiss = saveActions.onForkDismiss,
+        )
+    }
+    if (showStopsSheet) {
+        StopsSheet(
+            stops = editor.microStops,
+            unitLabel = editor.unitLabel,
+            onStopChanged = stopActions.onStopChanged,
+            onAddStop = stopActions.onAddStop,
+            onRemoveStop = stopActions.onRemoveStop,
+            onDismiss = stopActions.onStopsDismiss,
+        )
+    }
+    if (showSaveConfirm && chrome.saveConfirm != null) {
+        StratumConfirmDialog(
+            title = chrome.saveConfirm.title,
+            body = chrome.saveConfirm.body,
+            confirmLabel = chrome.saveConfirm.confirmLabel,
+            dismissLabel = chrome.saveConfirm.dismissLabel,
+            onConfirm = chrome.saveConfirm.onConfirm,
+            onDismiss = chrome.saveConfirm.onDismiss,
+        )
+    }
+}
 
 /**
  * Single home for the bordered panel-row shell (background, border, padding,
