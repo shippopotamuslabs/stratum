@@ -320,7 +320,8 @@ class WorkoutCompleteViewModelTest {
             harness.viewModel.onEditProposal(id)
 
             val event = awaitItem() as WorkoutCompleteEvent.OpenEquipmentEditor
-            // Fork primary on seed Cables → per-lift override for the anomalous lift.
+            // Fork primary on seed Cables → edit request anchored on the anomalous lift
+            // (STR-86 reroutes this to the shared equipment editor).
             assertEquals("lat-pulldown", event.request.liftId)
             assertEquals("cable", event.request.target.equipmentId)
             assertTrue(event.request.target.hasIncrementOverride)
@@ -349,9 +350,13 @@ class WorkoutCompleteViewModelTest {
         val before = harness.viewModel.uiState.value as WorkoutCompleteUiState.Loaded
         assertEquals(1, before.equipmentProposals.size)
         // Simulate the editor save: 62.5 / 67.5 now sit on a 2.5-lb lattice.
-        harness.liftRepo.setIncrementTiers(
-            latId,
-            listOf(IncrementTier(Weight(0.0, lb), null, Weight(2.5, lb))),
+        // (Per-lift tier writes are gone in STR-84; the fake lift is re-seeded with
+        // the fixed lattice the shared-equipment save would now produce.)
+        val fixed = listOf(IncrementTier(Weight(0.0, lb), null, Weight(2.5, lb)))
+        harness.liftRepo.seedLifts(
+            harness.liftRepo.currentLifts.map { lift ->
+                if (lift.id == latId) lift.copy(incrementTiers = fixed) else lift
+            },
         )
         harness.viewModel.refreshEquipmentProposals(harness.sessionId)
         advanceUntilIdle()

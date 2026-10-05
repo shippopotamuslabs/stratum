@@ -3,20 +3,17 @@ package com.stratum.core.data.mapper
 import com.stratum.core.data.db.EquipmentEntity
 import com.stratum.core.data.db.IncrementTierEntity
 import com.stratum.core.data.db.LiftEntity
-import com.stratum.core.data.db.LiftWithTiers
 import com.stratum.core.data.seed.LiftCatalogSeeder
 import com.stratum.core.data.sync.SyncFlags
 import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.Lift
-import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.WeightConversion
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.IncrementTierId
-import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.resolveEffectiveIncrementTiers
 import com.stratum.domain.onboarding.MuscleGroup
 import kotlinx.serialization.builtins.ListSerializer
@@ -24,46 +21,46 @@ import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 
 /**
- * Maps [LiftWithTiers] (and the [LiftEntity]/[IncrementTierEntity] it composes) to/from the
- * domain [Lift], resolving effective increment tiers from lift overrides + equipment defaults.
+ * Maps [LiftEntity] to the domain [Lift], resolving effective increment tiers from the
+ * linked equipment's defaults (per-lift overrides were removed in STR-82/84).
  */
-fun LiftWithTiers.toDomain(
+fun LiftEntity.toDomain(
     equipmentById: Map<EquipmentId, Equipment> = emptyMap(),
     fallbackTiers: List<IncrementTier> = DEFAULT_FALLBACK_TIERS,
 ): Lift {
-    val equipment = lift.equipmentId?.let { equipmentById[it] }
+    val equipment = equipmentId?.let { equipmentById[it] }
     val effective =
         resolveEffectiveIncrementTiers(
-            liftOverrideTiers = tiers.toDomainTiers(),
+            liftOverrideTiers = emptyList(),
             equipmentTiers = equipment?.incrementTiers,
             fallbackTiers = fallbackTiers,
-            liftMicroOverride = lift.microOptionsJson.toMicroOverride(),
+            liftMicroOverride = microOptionsJson.toMicroOverride(),
             equipmentMicro = equipment?.microIncrements.orEmpty(),
         )
     return Lift(
-        id = lift.id,
-        name = lift.name,
-        movementPatterns = lift.movementPatternsBitmask.toMovementPatternSet(),
-        primaryMuscles = lift.primaryMusclesBitmask.toMuscleSet(),
-        secondaryMuscles = lift.secondaryMusclesBitmask.toMuscleSet(),
+        id = id,
+        name = name,
+        movementPatterns = movementPatternsBitmask.toMovementPatternSet(),
+        primaryMuscles = primaryMusclesBitmask.toMuscleSet(),
+        secondaryMuscles = secondaryMusclesBitmask.toMuscleSet(),
         incrementTiers = effective.tiers,
-        presetTags = lift.presetTags.toPresetSet(),
-        equipmentId = lift.equipmentId,
+        presetTags = presetTags.toPresetSet(),
+        equipmentId = equipmentId,
         equipmentName = equipment?.name,
         usesEquipmentDefaultIncrements = effective.usesEquipmentDefaultIncrements,
         inheritsFromEquipmentLattice = effective.inheritsFromEquipmentLattice,
         microIncrements = effective.microIncrements,
         usesEquipmentDefaultMicro = effective.usesEquipmentDefaultMicro,
-        enabled = lift.enabled,
-        isCustom = lift.isCustom,
-        description = lift.description,
-        imageUris = lift.imageUrisCsv?.split(",")?.filter { it.isNotBlank() } ?: emptyList(),
-        muscleLengthBias = lift.muscleLengthBias,
-        mainstream = lift.mainstream,
-        fatigueProfile = lift.fatigueProfile,
-        loadType = lift.loadType,
-        defaultRestSeconds = lift.defaultRestSeconds,
-        pinnedNote = lift.pinnedNote,
+        enabled = enabled,
+        isCustom = isCustom,
+        description = description,
+        imageUris = imageUrisCsv?.split(",")?.filter { it.isNotBlank() } ?: emptyList(),
+        muscleLengthBias = muscleLengthBias,
+        mainstream = mainstream,
+        fatigueProfile = fatigueProfile,
+        loadType = loadType,
+        defaultRestSeconds = defaultRestSeconds,
+        pinnedNote = pinnedNote,
     )
 }
 
@@ -97,29 +94,6 @@ fun Lift.toEntity(
     pendingSync = SyncFlags.PENDING_UPSERT,
 )
 
-/**
- * Lift-scoped **override** tier entities only. Callers must not write equipment defaults as
- * lift rows when [Lift.usesEquipmentDefaultIncrements] is true.
- */
-fun Lift.toLiftOverrideTiers(
-    nowMillis: Long = System.currentTimeMillis(),
-    pendingSync: Int = SyncFlags.PENDING_UPSERT,
-): List<IncrementTierEntity> {
-    if (usesEquipmentDefaultIncrements) return emptyList()
-    return incrementTiers.map { tier ->
-        IncrementTierEntity(
-            id = IncrementTierId.forBand(id, tier.lowerBound.amount),
-            liftId = id,
-            equipmentId = null,
-            lowerBound = tier.lowerBound.amount,
-            upperBound = tier.upperBound?.amount,
-            increment = tier.increment.amount,
-            updatedAtEpochMillis = nowMillis,
-            pendingSync = pendingSync,
-        )
-    }
-}
-
 fun EquipmentEntity.toDomain(tiers: List<IncrementTierEntity>): Equipment =
     Equipment(
         id = id,
@@ -149,7 +123,6 @@ fun Equipment.toTierEntities(
     incrementTiers.map { tier ->
         IncrementTierEntity(
             id = IncrementTierId.forEquipmentBand(id, tier.lowerBound.amount),
-            liftId = null,
             equipmentId = id,
             lowerBound = tier.lowerBound.amount,
             upperBound = tier.upperBound?.amount,

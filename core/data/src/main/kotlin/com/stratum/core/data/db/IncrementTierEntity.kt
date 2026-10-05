@@ -8,26 +8,18 @@ import androidx.room.PrimaryKey
 import com.stratum.core.data.sync.SyncFlags
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.IncrementTierId
-import com.stratum.domain.lift.identity.LiftId
 
 /**
- * One weight-banded increment tier for either a lift override or equipment defaults.
+ * One weight-banded increment tier of an equipment's defaults.
  *
- * Exactly one of [liftId] / [equipmentId] must be non-null (enforced in the repository layer).
- * Lift-owned rows are per-lift overrides; equipment-owned rows are shared defaults.
+ * Every row is equipment-scoped ([equipmentId] non-null). Per-lift overrides were removed
+ * (STR-82/84): lifts that need their own bands get a "<lift name> Stack" equipment clone.
  *
- * [id] is deterministic: [IncrementTierId.forBand] for lifts,
- * [IncrementTierId.forEquipmentBand] for equipment.
+ * [id] is deterministic: [IncrementTierId.forEquipmentBand].
  */
 @Entity(
     tableName = "increment_tiers",
     foreignKeys = [
-        ForeignKey(
-            entity = LiftEntity::class,
-            parentColumns = ["id"],
-            childColumns = ["liftId"],
-            onDelete = ForeignKey.CASCADE,
-        ),
         ForeignKey(
             entity = EquipmentEntity::class,
             parentColumns = ["id"],
@@ -36,15 +28,12 @@ import com.stratum.domain.lift.identity.LiftId
         ),
     ],
     indices = [
-        Index("liftId"),
         Index("equipmentId"),
-        Index(value = ["liftId", "lowerBound"], unique = true),
         Index(value = ["equipmentId", "lowerBound"], unique = true),
     ],
 )
 data class IncrementTierEntity(
     @PrimaryKey val id: IncrementTierId,
-    @ColumnInfo(name = "liftId") val liftId: LiftId? = null,
     @ColumnInfo(name = "equipmentId") val equipmentId: EquipmentId? = null,
     val lowerBound: Double,
     val upperBound: Double?,

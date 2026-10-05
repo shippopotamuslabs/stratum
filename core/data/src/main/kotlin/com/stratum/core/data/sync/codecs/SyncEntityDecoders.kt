@@ -37,7 +37,6 @@ import com.stratum.domain.lift.identity.LiftSessionNoteId
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.onboarding.LastTrainedBucket
 import com.stratum.domain.onboarding.MuscleGroup
-import com.stratum.domain.onboarding.OnboardingPath
 import com.stratum.domain.onboarding.OnboardingStep
 import com.stratum.domain.onboarding.SpecializationLevel
 import com.stratum.domain.onboarding.TrainingAge
@@ -186,15 +185,12 @@ class SyncEntityDecoders @Inject constructor() {
 
     fun incrementTier(id: String, data: Map<String, Any?>): IncrementTierEntity? =
         runCatching {
-            val liftIdRaw = data["lift_id"] as? String
-            val equipmentIdRaw = data["equipment_id"] as? String
-            // XOR: exactly one of lift_id / equipment_id must be set.
-            if (liftIdRaw == null && equipmentIdRaw == null) return null
-            if (liftIdRaw != null && equipmentIdRaw != null) return null
+            // Per-lift overrides were removed (STR-82/84): every tier row is equipment-scoped.
+            // Stale lift-scoped docs (with lift_id) are skipped by the applier before decode.
+            val equipmentIdRaw = data["equipment_id"] as? String ?: return null
             IncrementTierEntity(
                 id = IncrementTierId(id),
-                liftId = liftIdRaw?.let { LiftId(it) },
-                equipmentId = equipmentIdRaw?.let { EquipmentId(it) },
+                equipmentId = EquipmentId(equipmentIdRaw),
                 lowerBound = (data["lower_bound"] as? Number)?.toDouble() ?: return null,
                 upperBound = (data["upper_bound"] as? Number)?.toDouble(),
                 increment = (data["increment"] as? Number)?.toDouble() ?: return null,

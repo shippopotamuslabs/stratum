@@ -6,8 +6,6 @@ import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.logging.runCatchingLogged
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.TrainingLogRepository
-import com.stratum.domain.training.TrainingSessionOrigin
-import com.stratum.domain.training.TrainingSessionStatus
 import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.domain.training.isEligibleCompletedLiveSession
 import javax.inject.Inject
@@ -192,7 +190,6 @@ class AnalyzeSessionEquipmentProposalsUseCase @Inject constructor(
             anomalousLiftIds.map { id ->
                 liftsById[id]?.usesEquipmentDefaultIncrements == true
             }
-        val anyAnomalousInheritsDefaults = inheritsByLift.any { it }
         val allAnomalousInheritsDefaults = inheritsByLift.isNotEmpty() && inheritsByLift.all { it }
 
         val proposal =
@@ -208,7 +205,6 @@ class AnalyzeSessionEquipmentProposalsUseCase @Inject constructor(
                     proposedTiers = inferred.tiers,
                     inferredStep = inferred.step,
                     allAnomalousInheritsDefaults = allAnomalousInheritsDefaults,
-                    anyAnomalousInheritsDefaults = anyAnomalousInheritsDefaults,
                     residualSetCount = residualSetCount,
                     distinctResidualAmounts = distinctResidualAmounts,
                     existingEquipmentNames = existingEquipmentNames,

@@ -23,7 +23,6 @@ import com.stratum.domain.lift.ScanIncrementTiersUseCase
 import com.stratum.domain.lift.ScanPhoto
 import com.stratum.domain.lift.ScannedTierRow
 import com.stratum.domain.lift.ScannedTiers
-import com.stratum.domain.lift.SetLiftIncrementTiersUseCase
 import com.stratum.domain.lift.ValidateIncrementTiersUseCase
 import com.stratum.domain.lift.ValidateMicroIncrementsUseCase
 import com.stratum.domain.lift.Weight
@@ -90,13 +89,6 @@ class LiftIncrementsScanTest {
     private fun buildSubject(scanPort: IncrementScanPort): LiftIncrementsViewModel =
         LiftIncrementsViewModel(
             observeLiftCatalog = ObserveLiftCatalogUseCase(fakeLiftRepository),
-            setLiftIncrementTiers =
-                SetLiftIncrementTiersUseCase(
-                    fakeLiftRepository,
-                    ValidateIncrementTiersUseCase(),
-                    ValidateMicroIncrementsUseCase(),
-                    FakeLoggingPort(),
-                ),
             validateIncrementTiers = ValidateIncrementTiersUseCase(),
             validateMicroIncrements = ValidateMicroIncrementsUseCase(),
             dismissEquipmentProposal =

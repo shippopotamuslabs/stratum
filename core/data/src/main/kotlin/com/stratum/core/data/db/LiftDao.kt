@@ -2,7 +2,6 @@ package com.stratum.core.data.db
 
 import androidx.room.Dao
 import androidx.room.Query
-import androidx.room.Transaction
 import androidx.room.Upsert
 import com.stratum.core.data.sync.SyncFlags
 import com.stratum.domain.lift.FatigueProfile
@@ -14,26 +13,22 @@ import kotlinx.coroutines.flow.Flow
 
 /**
  * DAO for the catalog + this user's availability. Mirrors the read/write shape of
- * [SpecializationPreferenceDao]: `@Transaction` relation queries for atomic parent+child
- * reads, `@Upsert` for upserts, typed [LiftId] params throughout.
+ * [SpecializationPreferenceDao]: `@Upsert` for upserts, typed [LiftId] params throughout.
  */
 @Dao
 @Suppress("TooManyFunctions")
 interface LiftDao {
-    /** Atomic read of every lift with its increment tiers, as a hot stream. */
-    @Transaction
+    /** Every lift as a hot stream. */
     @Query("SELECT * FROM lifts ORDER BY name")
-    fun observeLiftsWithTiers(): Flow<List<LiftWithTiers>>
+    fun observeLifts(): Flow<List<LiftEntity>>
 
     /** Enabled lifts only — the §5 SQL-predicate read backing [LiftRepository.observeEnabledLifts]. */
-    @Transaction
     @Query("SELECT * FROM lifts WHERE enabled = 1 ORDER BY name")
-    fun observeEnabledLiftsWithTiers(): Flow<List<LiftWithTiers>>
+    fun observeEnabledLifts(): Flow<List<LiftEntity>>
 
     /** Lifts filtered by `isCustom` — the §5 SQL-predicate read backing [LiftRepository.observeLifts(isCustom)]. */
-    @Transaction
     @Query("SELECT * FROM lifts WHERE isCustom = :isCustom ORDER BY name")
-    fun observeLiftsWithTiersByCustom(isCustom: Boolean): Flow<List<LiftWithTiers>>
+    fun observeLiftsByCustom(isCustom: Boolean): Flow<List<LiftEntity>>
 
     /**
      * Lifts whose movement-pattern set includes the pattern encoded in [bit]. The column is a
@@ -44,23 +39,20 @@ interface LiftDao {
      * `observeLifts().map { it.filter { l -> pattern in l.movementPatterns } }` but executed by
      * the database (DATA_LAYER_RULES.md §5).
      */
-    @Transaction
     @Query("SELECT * FROM lifts WHERE movementPatternsBitmask & :bit != 0 ORDER BY name")
-    fun observeLiftsWithTiersByPattern(bit: Int): Flow<List<LiftWithTiers>>
+    fun observeLiftsByPattern(bit: Int): Flow<List<LiftEntity>>
 
-    /** Snapshot of every lift with tiers (non-streaming). */
-    @Transaction
+    /** Snapshot of every lift (non-streaming). */
     @Query("SELECT * FROM lifts ORDER BY name")
-    suspend fun getLiftsWithTiers(): List<LiftWithTiers>
+    suspend fun getLifts(): List<LiftEntity>
 
     /**
      * Snapshot of lifts with tiers for the given ids only — backs
      * [com.stratum.domain.lift.LiftRepository.getLiftsByIds]. Room expands empty [ids] poorly;
      * the repository short-circuits empty collections.
      */
-    @Transaction
     @Query("SELECT * FROM lifts WHERE id IN (:ids)")
-    suspend fun getLiftsWithTiersByIds(ids: List<LiftId>): List<LiftWithTiers>
+    suspend fun getLiftsByIds(ids: List<LiftId>): List<LiftEntity>
 
     /**
      * Ids of lifts tagged for a preset, for bulk enable. The column is a delimiter-bounded CSV
@@ -208,25 +200,6 @@ interface LiftDao {
         """,
     )
     suspend fun setDefaultRestSeconds(id: LiftId, restSeconds: Int?, updatedAtEpochMillis: Long)
-
-    /**
-     * Lift-scoped adder override (JSON array of storage-lb doubles). Null clears the
-     * override so the lift re-inherits equipment stops; `"[]"` means explicitly no adder.
-     */
-    @Query(
-        """
-        UPDATE lifts
-        SET micro_options_json = :microOptionsJson,
-            pending_sync = ${SyncFlags.PENDING_UPSERT},
-            updated_at_epoch_millis = :updatedAtEpochMillis
-        WHERE id = :id
-        """,
-    )
-    suspend fun setMicroOptions(
-        id: LiftId,
-        microOptionsJson: String?,
-        updatedAtEpochMillis: Long,
-    )
 
     /**
      * User-authored pin note for catalog and custom lifts. Null clears the note.

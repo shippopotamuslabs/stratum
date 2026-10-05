@@ -105,6 +105,56 @@ val MIGRATION_4_5: Migration =
     }
 
 /**
+ * v8 → v9: per-lift increment overrides were removed (STR-82/84), so the now-unused
+ * `liftId` column — plus its foreign key to `lifts` and its two indexes — is dropped
+ * from `increment_tiers` via table rebuild.
+ *
+ * STR-85's 7→8 migration already converted every override into a "<lift name> Stack"
+ * equipment clone, so no lift-scoped rows should remain; the copy filters defensively
+ * on `liftId IS NULL` rather than resurrecting them as parentless rows.
+ */
+val MIGRATION_8_9: Migration =
+    object : Migration(8, 9) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE increment_tiers_new (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    equipmentId TEXT,
+                    lowerBound REAL NOT NULL,
+                    upperBound REAL,
+                    increment REAL NOT NULL,
+                    updated_at_epoch_millis INTEGER NOT NULL,
+                    pending_sync INTEGER NOT NULL,
+                    FOREIGN KEY(equipmentId) REFERENCES equipment(id)
+                        ON UPDATE NO ACTION ON DELETE CASCADE
+                )
+                """.trimIndent(),
+            )
+            db.execSQL(
+                """
+                INSERT INTO increment_tiers_new
+                    (id, equipmentId, lowerBound, upperBound, increment,
+                     updated_at_epoch_millis, pending_sync)
+                SELECT id, equipmentId, lowerBound, upperBound, increment,
+                       updated_at_epoch_millis, pending_sync
+                FROM increment_tiers
+                WHERE liftId IS NULL
+                """.trimIndent(),
+            )
+            db.execSQL("DROP TABLE increment_tiers")
+            db.execSQL("ALTER TABLE increment_tiers_new RENAME TO increment_tiers")
+            db.execSQL(
+                "CREATE INDEX index_increment_tiers_equipmentId " +
+                    "ON increment_tiers(equipmentId)",
+            )
+            db.execSQL(
+                "CREATE UNIQUE INDEX index_increment_tiers_equipmentId_lowerBound " +
+                    "ON increment_tiers(equipmentId, lowerBound)",
+            )
+        }
+    }
+/**
  * v7 → v8: per-lift increment overrides become equipment clones (STR-85).
  *
  * For every lift with lift-scoped tier rows (`increment_tiers.liftId` set) and/or a

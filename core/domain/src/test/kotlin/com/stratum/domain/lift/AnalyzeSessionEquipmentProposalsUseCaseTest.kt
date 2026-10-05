@@ -252,9 +252,10 @@ class AnalyzeSessionEquipmentProposalsUseCaseTest {
 
         @Test
         @DisplayName(
-            "Given single anomalous lift with override tiers when analyzed then LiftOverride primary",
+            "Given single anomalous lift not inheriting defaults when analyzed then Fork primary " +
+                "(override remedy removed, STR-84)",
         )
-        fun allOverrideLiftsPreferLiftOverride() = runTest {
+        fun nonInheritingLiftForks() = runTest {
             val overrideTiers =
                 listOf(IncrementTier(Weight(0.0, lb), null, Weight(5.0, lb)))
             liftRepo.seedLifts(
@@ -294,7 +295,7 @@ class AnalyzeSessionEquipmentProposalsUseCaseTest {
 
             val proposals = subject(sessionId).proposals
             assertEquals(1, proposals.size)
-            assertTrue(proposals.single().primary is EquipmentIncrementRemedy.LiftOverride)
+            assertTrue(proposals.single().primary is EquipmentIncrementRemedy.ForkCustomEquipment)
             assertFalse(
                 proposals.single().primary is EquipmentIncrementRemedy.AmendEquipmentTiers,
             )
@@ -559,10 +560,10 @@ class AnalyzeSessionEquipmentProposalsUseCaseTest {
             logRepo.seedSet(setAt(latId, 62.5, setIndex = 2, id = "s3"))
 
             // 65 is quiet via the lift override micro; 62.5s still propose (single
-            // override lift, so LiftOverride primary).
+            // non-inheriting lift, so Fork primary).
             val proposals = subject(sessionId).proposals
             assertEquals(1, proposals.size)
-            assertTrue(proposals.single().primary is EquipmentIncrementRemedy.LiftOverride)
+            assertTrue(proposals.single().primary is EquipmentIncrementRemedy.ForkCustomEquipment)
             assertEquals(2, proposals.single().residualSetCount)
         }
     }

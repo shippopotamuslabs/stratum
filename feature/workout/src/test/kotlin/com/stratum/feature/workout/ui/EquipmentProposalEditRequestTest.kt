@@ -107,27 +107,6 @@ class EquipmentProposalEditRequestTest {
     }
 
     @Test
-    @DisplayName("Given lift-override primary when mapped then that lift override with proposed tiers")
-    fun liftOverrideMapsToRemedyLift() {
-        val proposal =
-            proposal(
-                primary =
-                    EquipmentIncrementRemedy.LiftOverride(
-                        liftId = latId,
-                        tiers = proposed,
-                    ),
-            )
-
-        val request = EquipmentProposalUiMapper.toEditRequest(proposal)
-
-        assertEquals(latId.value, request.liftId)
-        assertEquals(true, request.target.hasIncrementOverride)
-        assertEquals(expectedArgs, request.initialTiersLb)
-        val destination = resolveEquipmentEditorDestination(request)
-        assertEquals(EquipmentEditorDestination.LiftOverride(latId.value), destination)
-    }
-
-    @Test
     @DisplayName("Given fork with no lifts anywhere when mapped then shared equipment editor")
     fun forkWithoutAnyLiftFallsBackToSharedEquipment() {
         val proposal =

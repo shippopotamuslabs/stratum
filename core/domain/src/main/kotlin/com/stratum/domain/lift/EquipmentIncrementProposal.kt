@@ -71,7 +71,6 @@ fun EquipmentIncrementProposal.requiresBlastRadius(
 
 /**
  * Useful secondary action for the card: Amend when primary is Fork, Fork when primary is Amend.
- * LiftOverride primaries have no secondary.
  */
 fun EquipmentIncrementProposal.usefulAlternative(): EquipmentIncrementRemedy? =
     when (primary) {
@@ -83,7 +82,6 @@ fun EquipmentIncrementProposal.usefulAlternative(): EquipmentIncrementRemedy? =
             alternatives
                 .filterIsInstance<EquipmentIncrementRemedy.ForkCustomEquipment>()
                 .firstOrNull()
-        is EquipmentIncrementRemedy.LiftOverride -> null
     }
 
 /**
@@ -102,11 +100,6 @@ sealed interface EquipmentIncrementRemedy {
         val tiers: List<IncrementTier>,
         val assignLiftIds: List<LiftId>,
     ) : EquipmentIncrementRemedy
-
-    data class LiftOverride(
-        val liftId: LiftId,
-        val tiers: List<IncrementTier>,
-    ) : EquipmentIncrementRemedy
 }
 
 /**
@@ -115,8 +108,6 @@ sealed interface EquipmentIncrementRemedy {
  * @param allAnomalousInheritsDefaults true when **every** anomalous lift uses equipment default
  *   increments. Amend only rewrites equipment defaults, so mixed inherit+override clusters prefer
  *   Fork so Accept remediates every anomalous lift.
- * @param anyAnomalousInheritsDefaults true when at least one anomalous lift inherits defaults.
- *   When false, every anomalous lift has a lift-scoped override → LiftOverride (single) or Fork.
  * @param existingEquipmentNames catalog names used to unique-ify [ForkCustomEquipment]
  *   suggested names via [uniqueifyForkEquipmentName] / [EquipmentNameMatching.normalizeKey].
  */
@@ -131,7 +122,6 @@ data class EquipmentIncrementRankInput(
     val proposedTiers: List<IncrementTier>,
     val inferredStep: Double,
     val allAnomalousInheritsDefaults: Boolean = true,
-    val anyAnomalousInheritsDefaults: Boolean = true,
     val residualSetCount: Int = 0,
     val distinctResidualAmounts: Int = 0,
     val existingEquipmentNames: Collection<String> = emptyList(),
@@ -230,12 +220,10 @@ fun scoreEquipmentIncrementProposal(
  * Deterministic remedy ranking for one anomaly cluster.
  *
  * - **Amend primary** when **every** anomalous lift inherits defaults **and** equipment is
- *   custom, or seed with `inheritingCount ≤ K`. Mixed inherit+override clusters prefer Fork so
- *   Accept remediates all anomalous lifts (Amend only rewrites equipment defaults).
- * - **LiftOverride primary** when every anomalous lift has a lift-scoped override and exactly
- *   one lift is anomalous (Amend would not fix override lattices).
- * - **Fork primary** when seed with `inheritingCount > K`, no equipment id, multi-lift all-
- *   override clusters, mixed inherit/override, or other non-amend cases.
+ *   custom, or seed with `inheritingCount ≤ K`.
+ * - **Fork primary** when seed with `inheritingCount > K`, no equipment id, or other
+ *   non-amend cases. Per-lift overrides were removed (STR-82/84): clusters that would
+ *   previously prefer a lift override now fork.
  * - Blast radius: use [requiresBlastRadius] for any remedy (primary or alternative).
  * - Fork names are unique-ified against [EquipmentIncrementRankInput.existingEquipmentNames].
  */
@@ -270,50 +258,24 @@ fun rankEquipmentIncrementProposal(input: EquipmentIncrementRankInput): Equipmen
                 tiers = input.proposedTiers,
             )
         }
-    val liftOverride: EquipmentIncrementRemedy.LiftOverride? =
-        liftIds.singleOrNull()?.let { id ->
-            EquipmentIncrementRemedy.LiftOverride(
-                liftId = id,
-                tiers = input.proposedTiers,
-            )
-        }
-
     // Amend only remediates lifts that inherit equipment defaults — require all anomalous.
     val preferAmend =
         amend != null &&
             input.allAnomalousInheritsDefaults &&
             (input.isCustom || input.inheritingCount <= EQUIPMENT_INCREMENT_FORK_THRESHOLD_K)
 
-    // All anomalous lifts already have overrides → LiftOverride (single) or Fork (multi).
-    val preferLiftOverride =
-        !input.anyAnomalousInheritsDefaults && liftOverride != null
-
     val primary: EquipmentIncrementRemedy
     val alternatives: List<EquipmentIncrementRemedy>
     when {
         preferAmend -> {
             primary = checkNotNull(amend)
-            alternatives =
-                buildList {
-                    add(fork)
-                    if (liftOverride != null) add(liftOverride)
-                }
-        }
-        preferLiftOverride -> {
-            primary = checkNotNull(liftOverride)
-            alternatives =
-                buildList {
-                    add(fork)
-                    if (amend != null) add(amend)
-                }
+            alternatives = listOf(fork)
         }
         else -> {
             primary = fork
-            alternatives =
-                buildList {
-                    if (amend != null) add(amend)
-                    if (liftOverride != null) add(liftOverride)
-                }
+            alternatives = buildList {
+                if (amend != null) add(amend)
+            }
         }
     }
 
