@@ -87,7 +87,6 @@ class SyncHandlersProvider @Inject constructor(
     private val incrementTierRemoteApplier =
         IncrementTierRemoteApplier(
             incrementTierDao = incrementTierDao,
-            liftDao = liftDao,
             equipmentDao = equipmentDao,
             decoders = decoders,
         )

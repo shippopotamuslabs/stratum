@@ -147,9 +147,10 @@ object DatabaseModule {
         loggingPort: LoggingPort,
     ): StratumDatabase {
         // v5 moves pins to note-list tables via MIGRATION_4_5 (backfill + index rebuild).
+        // v8 converts per-lift increment overrides into "<lift name> Stack" equipment clones.
         // Destructive fallback remains for unrecoverable paths (missing migration, identity skew).
         val database = Room.databaseBuilder(context, StratumDatabase::class.java, StratumDatabase.DATABASE_NAME)
-            .addMigrations(com.stratum.core.data.db.MIGRATION_4_5)
+            .addMigrations(com.stratum.core.data.db.MIGRATION_4_5, com.stratum.core.data.db.MIGRATION_7_8)
             .fallbackToDestructiveMigration(dropAllTables = true)
             .build()
         // Never call DAOs from RoomDatabase.Callback.onCreate — Room holds the DB lock during

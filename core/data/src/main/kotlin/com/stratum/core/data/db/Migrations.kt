@@ -2,6 +2,7 @@ package com.stratum.core.data.db
 
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import java.util.UUID
 
 /**
  * v4 → v5: multi-note storage.
@@ -100,5 +101,114 @@ val MIGRATION_4_5: Migration =
                 WHERE `pinned_note` IS NOT NULL AND `pinned_note` != ''
                 """.trimIndent(),
             )
+        }
+    }
+
+/**
+ * v7 → v8: per-lift increment overrides become equipment clones (STR-85).
+ *
+ * For every lift with lift-scoped tier rows (`increment_tiers.liftId` set) and/or a
+ * lift-scoped micro override (`lifts.micro_options_json` non-null):
+ * - creates equipment "<lift name> Stack" (name deduped) carrying the override bands and
+ *   micro stops,
+ * - reassigns the lift to the clone and clears its micro override,
+ * - deletes the lift-scoped tier rows.
+ *
+ * Sync parity: new/changed rows are stamped `pending_sync = PENDING_UPSERT` so the upload
+ * engine pushes them; deleted lift-scoped tier doc ids are enqueued in
+ * `pending_cloud_deletes` so the stale cloud docs are tombstoned.
+ *
+ * New tier ids match `IncrementTierId.forEquipmentBand` by reusing the bound suffix of the
+ * old id: 'e_' || newEquipmentId || '_' || substr(old_id, length(liftId)+2).
+ * The `liftId` column itself is kept in this version; STR-84 drops it.
+ */
+val MIGRATION_7_8: Migration =
+    object : Migration(7, 8) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            val now = System.currentTimeMillis()
+            db.query(
+                """
+                SELECT l.id, l.name, l.micro_options_json
+                FROM lifts l
+                WHERE EXISTS (SELECT 1 FROM increment_tiers t WHERE t.liftId = l.id)
+                   OR l.micro_options_json IS NOT NULL
+                """.trimIndent(),
+            ).use { cursor ->
+                val idIdx = cursor.getColumnIndexOrThrow("id")
+                val nameIdx = cursor.getColumnIndexOrThrow("name")
+                val microIdx = cursor.getColumnIndexOrThrow("micro_options_json")
+                while (cursor.moveToNext()) {
+                    val liftId = cursor.getString(idIdx)
+                    val liftName = cursor.getString(nameIdx)
+                    val microJson = if (cursor.isNull(microIdx)) null else cursor.getString(microIdx)
+                    migrateLiftOverride(db, liftId, liftName, microJson, now)
+                }
+            }
+        }
+
+        private fun migrateLiftOverride(
+            db: SupportSQLiteDatabase,
+            liftId: String,
+            liftName: String,
+            microJson: String?,
+            now: Long,
+        ) {
+            val equipmentId = UUID.randomUUID().toString()
+            val cloneName = uniqueCloneName(db, "$liftName Stack")
+            db.execSQL(
+                """
+                INSERT INTO equipment
+                  (id, name, isCustom, micro_options_json, updated_at_epoch_millis, pending_sync)
+                VALUES (?, ?, 1, ?, ?, 1)
+                """.trimIndent(),
+                arrayOf<Any?>(equipmentId, cloneName, microJson, now),
+            )
+            db.execSQL(
+                """
+                INSERT INTO increment_tiers
+                  (id, equipmentId, lowerBound, upperBound, increment,
+                   updated_at_epoch_millis, pending_sync)
+                SELECT 'e_' || ? || '_' || substr(id, length(?) + 2), ?,
+                       lowerBound, upperBound, increment, ?, 1
+                FROM increment_tiers
+                WHERE liftId = ?
+                """.trimIndent(),
+                arrayOf<Any?>(equipmentId, liftId, equipmentId, now, liftId),
+            )
+            db.execSQL(
+                """
+                INSERT OR REPLACE INTO pending_cloud_deletes
+                  (row_id, collection_path, entity_id, enqueued_at_epoch_millis)
+                SELECT 'increment_tiers/' || id, 'increment_tiers', id, ?
+                FROM increment_tiers
+                WHERE liftId = ?
+                """.trimIndent(),
+                arrayOf<Any?>(now, liftId),
+            )
+            db.execSQL("DELETE FROM increment_tiers WHERE liftId = ?", arrayOf<Any?>(liftId))
+            db.execSQL(
+                """
+                UPDATE lifts
+                SET equipmentId = ?, micro_options_json = NULL,
+                    updated_at_epoch_millis = ?, pending_sync = 1
+                WHERE id = ?
+                """.trimIndent(),
+                arrayOf<Any?>(equipmentId, now, liftId),
+            )
+        }
+
+        private fun uniqueCloneName(db: SupportSQLiteDatabase, base: String): String {
+            var name = base
+            var suffix = 2
+            while (
+                db.query(
+                    "SELECT 1 FROM equipment WHERE name = ? LIMIT 1",
+                    arrayOf<Any?>(name),
+                ).use { it.count > 0 }
+            ) {
+                name = "$base $suffix"
+                suffix++
+            }
+            return name
         }
     }
