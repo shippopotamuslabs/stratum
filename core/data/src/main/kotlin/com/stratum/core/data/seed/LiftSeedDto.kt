@@ -27,9 +27,9 @@ import kotlinx.serialization.Serializable
  * only papers over genuinely-unknown names, which surface as unexpected default values.
  *
  * The id is a stable slug (e.g. `"barbell-full-squat"`) so seeding is deterministic across
- * installs and tests can assert against a known catalog. [incrementTiers] are optional per entry;
- * when absent the lift inherits equipment default tiers via [equipmentId] (or tag mapping).
- * Tiers use the lift's unit (lb for seed).
+ * installs and tests can assert against a known catalog. Lifts always inherit equipment
+ * default tiers via [equipmentId] (or tag mapping); per-lift seed tiers were removed in
+ * STR-82/84 (no bundled entry used them). Tiers use the lift's unit (lb for seed).
  *
  * [imageSlug] (OS-4b) carries the source dataset's directory id (e.g. `"Barbell_Full_Squat"`)
  * so a future image-display slice can construct lazy-load URLs against the Cloudflare R2
@@ -46,7 +46,6 @@ data class LiftSeedDto(
     val movementPatterns: List<MovementPattern> = emptyList(),
     val primaryMuscles: List<MuscleGroup> = emptyList(),
     val secondaryMuscles: List<MuscleGroup> = emptyList(),
-    val incrementTiers: List<IncrementTierSeedDto>? = null,
     val presetTags: List<String> = emptyList(),
     val equipmentId: String? = null,
     val imageSlug: String? = null,

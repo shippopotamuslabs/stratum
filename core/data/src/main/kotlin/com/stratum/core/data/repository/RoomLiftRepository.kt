@@ -231,6 +231,9 @@ class RoomLiftRepository @Inject constructor(
                     loadType = loadType,
                     updatedAtEpochMillis = now,
                 )
+                // Reassigned lifts re-inherit the new equipment's adder stops; a stale
+                // lift-scoped micro override must not survive the move (STR-84).
+                liftDao.clearMicroOptions(id = id, updatedAtEpochMillis = now)
             }
             syncTouch.markDirty()
         }

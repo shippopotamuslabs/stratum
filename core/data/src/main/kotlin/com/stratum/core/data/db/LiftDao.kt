@@ -187,6 +187,25 @@ interface LiftDao {
     )
 
     /**
+     * Clears a lift's stale adder (micro) override so it re-inherits its equipment's stops.
+     * Per-lift micro overrides were removed (STR-82/84): no code writes this column anymore;
+     * it is only cleared on equipment reassignment and by the 8→9 migration.
+     */
+    @Query(
+        """
+        UPDATE lifts
+        SET micro_options_json = NULL,
+            pending_sync = ${SyncFlags.PENDING_UPSERT},
+            updated_at_epoch_millis = :updatedAtEpochMillis
+        WHERE id = :id
+        """,
+    )
+    suspend fun clearMicroOptions(
+        id: LiftId,
+        updatedAtEpochMillis: Long,
+    )
+
+    /**
      * Per-lift default rest override for catalog and custom lifts. Null clears the override.
      * Does not rewrite existing workout set rest values.
      */
