@@ -683,6 +683,7 @@ class WorkoutCompleteViewModelTest {
                         trainingLogRepository = seededLog,
                         programRepository = programRepo,
                         liftTrainingInsightsRepository = insightsRepo,
+                        liftRepository = liftRepo,
                         preferences = repRangePrefs,
                         extractTrainingInsights =
                             ExtractTrainingInsightsUseCase(
@@ -798,6 +799,7 @@ class WorkoutCompleteViewModelTest {
                         trainingLogRepository = logRepo,
                         programRepository = programRepo,
                         liftTrainingInsightsRepository = insightsRepo,
+                        liftRepository = liftRepo,
                         preferences = repRangePrefs,
                         extractTrainingInsights =
                             ExtractTrainingInsightsUseCase(
@@ -913,6 +915,7 @@ class WorkoutCompleteViewModelTest {
                     trainingLogRepository = logRepo,
                     programRepository = programRepo,
                     liftTrainingInsightsRepository = insightsRepo,
+                    liftRepository = liftRepo,
                     preferences = repRangePrefs,
                     extractTrainingInsights =
                         ExtractTrainingInsightsUseCase(
