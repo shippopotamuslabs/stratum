@@ -29,6 +29,7 @@ import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.feature.workout.ui.ProposalEditContext
 import com.stratum.feature.workout.ui.ProposalTierArgs
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -559,40 +560,43 @@ class EquipmentIncrementsViewModelTest {
     @Test
     @DisplayName("Given no equipment when initialized then seeded tiers show")
     fun nullEquipmentSeedsFromProposalArgs() = runTest {
-        subject.uiState.test {
-            subject.initialize(
-                id = null,
-                initialTiersLb =
-                    listOf(
-                        ProposalTierArgs(lowerBoundLb = 0.0, upperBoundLb = null, incrementLb = 2.5),
-                    ),
-            )
-            // Wait for the seeded bands (increment 2.5), not the default draft (increment 5).
-            val state =
-                awaitItemWith { it.editor.tiers.any { tier -> tier.increment == "2.5" } }
-            assertEquals("", state.equipmentId)
-            assertEquals(listOf("0"), state.editor.tiers.map { it.lowerBound })
-            assertEquals(listOf("2.5"), state.editor.tiers.map { it.increment })
-            cancelAndIgnoreRemainingEvents()
-        }
+        val collectJob = launch { subject.uiState.collect() }
+        subject.initialize(
+            id = null,
+            initialTiersLb =
+                listOf(
+                    ProposalTierArgs(lowerBoundLb = 0.0, upperBoundLb = null, incrementLb = 2.5),
+                ),
+        )
+        advanceUntilIdle()
+        val state = subject.uiState.value
+        // The seeded bands must reach the editor even with no equipment to save to.
+        assertEquals("", state.equipmentId)
+        assertEquals(listOf("0"), state.editor.tiers.map { it.lowerBound })
+        assertEquals(listOf("2.5"), state.editor.tiers.map { it.increment })
+        collectJob.cancel()
     }
 
     @Test
     @DisplayName("Given no equipment when saved then a message surfaces and nothing is written")
     fun nullEquipmentSaveSurfacesMessage() = runTest {
-        subject.uiState.test {
-            subject.initialize(id = null)
-            // Drain the initial emission so the save-triggered one is observed fresh.
-            awaitItem()
-            subject.save()
-            val state = awaitItemWith { it.editor.validationMessage != null }
-            assertEquals(
-                "Nothing to save: no equipment is being edited.",
-                state.editor.validationMessage,
-            )
-            assertFalse(state.editor.saveSucceeded)
-            cancelAndIgnoreRemainingEvents()
-        }
+        val collectJob = launch { subject.uiState.collect() }
+        subject.initialize(id = null)
+        advanceUntilIdle()
+        // Sanity: the sharing must be active (default tiers present).
+        assertTrue(
+            subject.uiState.value.editor.tiers.isNotEmpty(),
+            "uiState did not emit; sharing may be stalled",
+        )
+        subject.save()
+        advanceUntilIdle()
+        val state = subject.uiState.value
+        assertEquals(
+            "Nothing to save: no equipment is being edited.",
+            state.editor.validationMessage,
+        )
+        assertFalse(state.editor.saveSucceeded)
+        collectJob.cancel()
 
         assertEquals(listOf("Cables"), fakeEquipmentRepository.current.map { it.name })
     }
@@ -600,19 +604,23 @@ class EquipmentIncrementsViewModelTest {
     @Test
     @DisplayName("Given no equipment when save as new then a message surfaces and nothing forks")
     fun nullEquipmentSaveAsNewSurfacesMessage() = runTest {
-        subject.uiState.test {
-            subject.initialize(id = null)
-            // Drain the initial emission so the save-triggered one is observed fresh.
-            awaitItem()
-            subject.saveAsNew("Copy")
-            val state = awaitItemWith { it.editor.validationMessage != null }
-            assertEquals(
-                "Nothing to fork: no equipment is being edited.",
-                state.editor.validationMessage,
-            )
-            assertFalse(state.editor.saveSucceeded)
-            cancelAndIgnoreRemainingEvents()
-        }
+        val collectJob = launch { subject.uiState.collect() }
+        subject.initialize(id = null)
+        advanceUntilIdle()
+        // Sanity: the sharing must be active (default tiers present).
+        assertTrue(
+            subject.uiState.value.editor.tiers.isNotEmpty(),
+            "uiState did not emit; sharing may be stalled",
+        )
+        subject.saveAsNew("Copy")
+        advanceUntilIdle()
+        val state = subject.uiState.value
+        assertEquals(
+            "Nothing to fork: no equipment is being edited.",
+            state.editor.validationMessage,
+        )
+        assertFalse(state.editor.saveSucceeded)
+        collectJob.cancel()
 
         assertEquals(listOf("Cables"), fakeEquipmentRepository.current.map { it.name })
     }
