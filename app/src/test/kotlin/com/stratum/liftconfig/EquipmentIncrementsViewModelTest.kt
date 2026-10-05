@@ -560,7 +560,7 @@ class EquipmentIncrementsViewModelTest {
     @Test
     @DisplayName("Given no equipment when initialized then seeded tiers show")
     fun nullEquipmentSeedsFromProposalArgs() = runTest {
-        val collectJob = launch { subject.uiState.collect() }
+        val collectJob = launch { subject.uiState.collect { } }
         subject.initialize(
             id = null,
             initialTiersLb =
@@ -580,7 +580,7 @@ class EquipmentIncrementsViewModelTest {
     @Test
     @DisplayName("Given no equipment when saved then a message surfaces and nothing is written")
     fun nullEquipmentSaveSurfacesMessage() = runTest {
-        val collectJob = launch { subject.uiState.collect() }
+        val collectJob = launch { subject.uiState.collect { } }
         subject.initialize(id = null)
         advanceUntilIdle()
         // Sanity: the sharing must be active (default tiers present).
@@ -604,7 +604,7 @@ class EquipmentIncrementsViewModelTest {
     @Test
     @DisplayName("Given no equipment when save as new then a message surfaces and nothing forks")
     fun nullEquipmentSaveAsNewSurfacesMessage() = runTest {
-        val collectJob = launch { subject.uiState.collect() }
+        val collectJob = launch { subject.uiState.collect { } }
         subject.initialize(id = null)
         advanceUntilIdle()
         // Sanity: the sharing must be active (default tiers present).
