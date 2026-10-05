@@ -146,7 +146,7 @@ static-analysis:
   # waiting for earlier stages. Same pattern on all independent lint/test jobs.
   needs: []
   script:
-    - ./gradlew detekt lintDebug
+    - ./gradlew detekt lintDebug --continue
   artifacts:
     when: always
     paths:
@@ -519,7 +519,9 @@ distribute-internal:
   stage: deploy
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-  needs: [assemble-release]
+  # Wait for release build AND tests: needs: opts out of stage gating, so
+  # list the test jobs explicitly to prevent distributing an untested build.
+  needs: [assemble-release, unit-tests, static-analysis]
   script:
     - test -n "$FIREBASE_SERVICE_ACCOUNT_JSON" || (echo "Missing FIREBASE_SERVICE_ACCOUNT_JSON file variable" && exit 1)
     - export GOOGLE_APPLICATION_CREDENTIALS="$FIREBASE_SERVICE_ACCOUNT_JSON"
