@@ -567,9 +567,8 @@ class EquipmentIncrementsViewModelTest {
                         ProposalTierArgs(lowerBoundLb = 0.0, upperBoundLb = null, incrementLb = 2.5),
                     ),
             )
-            val state =
-                awaitItemWith { it.editor.tiers.any { tier -> tier.increment == "2.5" } }
-            assertEquals("", state.equipmentId)
+            // The seeded bands must reach the editor even with no equipment to save to.
+            val state = awaitItemWith { it.equipmentId == "" && it.editor.tiers.isNotEmpty() }
             assertEquals(listOf("0"), state.editor.tiers.map { it.lowerBound })
             assertEquals(listOf("2.5"), state.editor.tiers.map { it.increment })
             cancelAndIgnoreRemainingEvents()
@@ -580,14 +579,9 @@ class EquipmentIncrementsViewModelTest {
     @DisplayName("Given no equipment when saved then a message surfaces and nothing is written")
     fun nullEquipmentSaveSurfacesMessage() = runTest {
         subject.uiState.test {
-            subject.initialize(
-                id = null,
-                initialTiersLb =
-                    listOf(
-                        ProposalTierArgs(lowerBoundLb = 0.0, upperBoundLb = null, incrementLb = 2.5),
-                    ),
-            )
-            awaitItemWith { it.editor.tiers.any { tier -> tier.increment == "2.5" } }
+            subject.initialize(id = null)
+            // Drain the initial emission so the save-triggered one is observed fresh.
+            awaitItem()
             subject.save()
             val state = awaitItemWith { it.editor.validationMessage != null }
             assertEquals(
@@ -605,14 +599,9 @@ class EquipmentIncrementsViewModelTest {
     @DisplayName("Given no equipment when save as new then a message surfaces and nothing forks")
     fun nullEquipmentSaveAsNewSurfacesMessage() = runTest {
         subject.uiState.test {
-            subject.initialize(
-                id = null,
-                initialTiersLb =
-                    listOf(
-                        ProposalTierArgs(lowerBoundLb = 0.0, upperBoundLb = null, incrementLb = 2.5),
-                    ),
-            )
-            awaitItemWith { it.editor.tiers.any { tier -> tier.increment == "2.5" } }
+            subject.initialize(id = null)
+            // Drain the initial emission so the save-triggered one is observed fresh.
+            awaitItem()
             subject.saveAsNew("Copy")
             val state = awaitItemWith { it.editor.validationMessage != null }
             assertEquals(
