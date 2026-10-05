@@ -112,6 +112,40 @@ class IncrementScanResponseParserTest {
     }
 
     @Test
+    @DisplayName("parseResponse ignores the _meta version block (STR-48 forward compat)")
+    fun ignoresMetaVersionBlock() {
+        val data =
+            mapOf(
+                "unit" to "lb",
+                "tiers" to
+                    listOf(
+                        mapOf("lower" to 10.0, "upper" to 50.0, "step" to 10.0),
+                        mapOf("lower" to 50.0, "upper" to null, "step" to 5.0),
+                    ),
+                "microStops" to listOf(2.5),
+                "_meta" to
+                    mapOf(
+                        "version" to 1,
+                        "deprecation" to
+                            mapOf(
+                                "sunsetDate" to "2027-03-01",
+                                "message" to "Superseded by inferEquipmentIncrements_v2.",
+                            ),
+                    ),
+            )
+        val parsed = IncrementScanResponseParser.parseResponse(data)
+        assertEquals(Weight.WeightUnit.Lb, parsed.unit)
+        assertEquals(
+            listOf(
+                ScannedTierRow(lower = 10.0, upper = 50.0, step = 10.0),
+                ScannedTierRow(lower = 50.0, upper = null, step = 5.0),
+            ),
+            parsed.tiers,
+        )
+        assertEquals(listOf(2.5), parsed.microStops)
+    }
+
+    @Test
     @DisplayName("parseResponse fails on structurally malformed payloads")
     fun malformedPayloadsThrow() {
         assertThrows(IllegalStateException::class.java) {
