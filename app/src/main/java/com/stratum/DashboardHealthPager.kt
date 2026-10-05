@@ -197,6 +197,32 @@ internal fun DashboardHealthDisabledPrompt(
     }
 }
 
+/**
+ * Single hero-band entry point: pager when Health Connect is enabled, Settings prompt when
+ * disabled. Both the status-column and loaded-grid paths render through here so band content
+ * can't drift between call sites.
+ */
+@Composable
+internal fun DashboardHeroBand(
+    health: DashboardHealthUiState,
+    pagerState: PagerState,
+    onNavigateToSettings: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (health.visible) {
+        DashboardHealthPager(
+            state = health,
+            pagerState = pagerState,
+            modifier = modifier,
+        )
+    } else {
+        DashboardHealthDisabledPrompt(
+            onNavigateToSettings = onNavigateToSettings,
+            modifier = modifier,
+        )
+    }
+}
+
 @Composable
 private fun HealthPagerPill(
     label: String,

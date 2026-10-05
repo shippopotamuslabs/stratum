@@ -111,11 +111,6 @@ internal fun DashboardScreen(
     onOpenMuscleDailyVolumeGraph: (String) -> Unit = {},
     onRetry: () -> Unit = {},
 ) {
-    val boardTabLabels = listOf(
-        stringResource(R.string.dashboard_tab_muscles),
-        stringResource(R.string.dashboard_tab_seven_day),
-        stringResource(R.string.dashboard_tab_lifts),
-    )
     val healthPagerState = rememberPagerState(
         initialPage = health.selectedPage.coerceIn(0, HEALTH_PAGER_PAGE_COUNT - 1),
         pageCount = { HEALTH_PAGER_PAGE_COUNT },
@@ -129,9 +124,10 @@ internal fun DashboardScreen(
             )
         }
     }
-    // The hero band shows whenever there is board content to anchor it: the pager when
-    // Health Connect is enabled, the Settings prompt when disabled. Error has no band.
-    val heroVisible = health.visible || state != DashboardUiState.Error
+    // The hero band (pager when Health Connect is enabled, Settings prompt when disabled)
+    // shows for every board state except Error, which renders only the error fallback. The
+    // top bar stays shaded exactly when the band is shown so they read as one slab.
+    val heroVisible = state != DashboardUiState.Error
     DashboardHealthScaffold(
         heroVisible = heroVisible,
         settingsAction = settingsAction,
@@ -156,7 +152,6 @@ internal fun DashboardScreen(
                 tab = selectedTab,
                 health = health,
                 pagerState = healthPagerState,
-                boardTabLabels = boardTabLabels,
                 onSelectedTabChange = onSelectedTabChange,
                 onNavigateToSettings = onNavigateToSettings,
                 onOpenLiftGraph = onOpenLiftGraph,
@@ -234,18 +229,12 @@ private fun ColumnScope.DashboardStatusColumn(
             .fillMaxWidth()
             .verticalScroll(rememberScrollState()),
     ) {
-        if (health.visible) {
-            DashboardHealthPager(
-                state = health,
-                pagerState = pagerState,
-                modifier = Modifier.padding(bottom = HealthChromeSpacing),
-            )
-        } else {
-            DashboardHealthDisabledPrompt(
-                onNavigateToSettings = onNavigateToSettings,
-                modifier = Modifier.padding(bottom = HealthChromeSpacing),
-            )
-        }
+        DashboardHeroBand(
+            health = health,
+            pagerState = pagerState,
+            onNavigateToSettings = onNavigateToSettings,
+            modifier = Modifier.padding(bottom = HealthChromeSpacing),
+        )
         content()
     }
 }
@@ -256,7 +245,6 @@ private fun ColumnScope.LoadedContent(
     tab: DashboardBoardTabUi,
     health: DashboardHealthUiState,
     pagerState: PagerState,
-    boardTabLabels: List<String>,
     onSelectedTabChange: (DashboardBoardTabUi) -> Unit,
     onNavigateToSettings: () -> Unit,
     onOpenLiftGraph: (String) -> Unit,
@@ -287,53 +275,27 @@ private fun ColumnScope.LoadedContent(
             bottom = 16.dp,
         ),
     ) {
-        if (health.visible) {
-            item(
-                key = "health-pager",
-                span = { GridItemSpan(maxLineSpan) },
-            ) {
-                DashboardHealthPager(
-                    state = health,
-                    pagerState = pagerState,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .breakoutHorizontal(BOARD_HORIZONTAL_PADDING_DP.dp),
-                )
-            }
-        } else {
-            item(
-                key = "health-disabled-prompt",
-                span = { GridItemSpan(maxLineSpan) },
-            ) {
-                DashboardHealthDisabledPrompt(
-                    onNavigateToSettings = onNavigateToSettings,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .breakoutHorizontal(BOARD_HORIZONTAL_PADDING_DP.dp),
-                )
-            }
+        item(
+            key = "hero-band",
+            span = { GridItemSpan(maxLineSpan) },
+        ) {
+            DashboardHeroBand(
+                health = health,
+                pagerState = pagerState,
+                onNavigateToSettings = onNavigateToSettings,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .breakoutHorizontal(BOARD_HORIZONTAL_PADDING_DP.dp),
+            )
         }
-        // Board switch glued to the cards it drives. Always rendered while loaded so the
-        // selector stays usable even when the selected tab is empty.
         item(
             key = "lift-metrics-selector",
             span = { GridItemSpan(maxLineSpan) },
         ) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                StratumText(
-                    text = stringResource(R.string.dashboard_lift_metrics_label),
-                    style = StratumThemeAccessor.typography.sectionLabel,
-                    muted = true,
-                )
-                StratumSegmentedControl(
-                    segments = boardTabLabels,
-                    selectedIndex = tab.index,
-                    onSelectedIndexChange = { onSelectedTabChange(DashboardBoardTabUi.fromIndex(it)) },
-                )
-            }
+            DashboardBoardSelector(
+                selectedTab = tab,
+                onSelectedTabChange = onSelectedTabChange,
+            )
         }
         if (hasItems) {
             item(
@@ -389,6 +351,39 @@ private fun ColumnScope.LoadedContent(
                 }
             }
         }
+    }
+}
+
+/**
+ * Board switch glued to the cards it drives: "Lift Metrics" eyebrow plus segmented control.
+ * Always rendered while loaded so the selector stays usable even when the selected tab
+ * is empty.
+ */
+@Composable
+private fun DashboardBoardSelector(
+    selectedTab: DashboardBoardTabUi,
+    onSelectedTabChange: (DashboardBoardTabUi) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val labels = listOf(
+        stringResource(R.string.dashboard_tab_muscles),
+        stringResource(R.string.dashboard_tab_seven_day),
+        stringResource(R.string.dashboard_tab_lifts),
+    )
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        StratumText(
+            text = stringResource(R.string.dashboard_lift_metrics_label),
+            style = StratumThemeAccessor.typography.sectionLabel,
+            muted = true,
+        )
+        StratumSegmentedControl(
+            segments = labels,
+            selectedIndex = selectedTab.index,
+            onSelectedIndexChange = { onSelectedTabChange(DashboardBoardTabUi.fromIndex(it)) },
+        )
     }
 }
 
