@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -153,6 +154,32 @@ internal fun IncrementEditorScreen(
                 },
             )
         },
+        bottomBar = {
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(StratumThemeAccessor.colors.surfaceBase)
+                        .navigationBarsPadding()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                StratumButton(
+                    text = chrome.saveText,
+                    onClick = saveActions.onSaveClick,
+                    enabled = !editor.isSaving && editor.validationMessage == null,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (chrome.forkSuggestion != null) {
+                    StratumOutlinedButton(
+                        text = stringResource(UiR.string.equipment_increments_save_as_new),
+                        onClick = saveActions.onSaveAsNewClick,
+                        enabled = !editor.isSaving && editor.validationMessage == null,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+        },
     ) { padding ->
         Column(
             modifier =
@@ -160,6 +187,7 @@ internal fun IncrementEditorScreen(
                     .fillMaxSize()
                     .padding(padding)
                     .padding(horizontal = 16.dp)
+                    .padding(bottom = 8.dp)
                     .verticalScroll(rememberScrollState()),
         ) {
             if (chrome.contextText != null) {
@@ -227,28 +255,6 @@ internal fun IncrementEditorScreen(
                 unitLabel = editor.unitLabel,
                 onClick = stopActions.onStopsClick,
             )
-            Column(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(top = 16.dp, bottom = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                StratumButton(
-                    text = chrome.saveText,
-                    onClick = saveActions.onSaveClick,
-                    enabled = !editor.isSaving && editor.validationMessage == null,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                if (chrome.forkSuggestion != null) {
-                    StratumOutlinedButton(
-                        text = stringResource(UiR.string.equipment_increments_save_as_new),
-                        onClick = saveActions.onSaveAsNewClick,
-                        enabled = !editor.isSaving && editor.validationMessage == null,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            }
         }
     }
     if (selection != null && editor.tiers.indices.contains(selection)) {
