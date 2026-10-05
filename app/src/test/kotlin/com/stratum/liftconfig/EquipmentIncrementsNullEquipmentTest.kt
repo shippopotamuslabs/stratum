@@ -23,6 +23,7 @@ import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.feature.workout.ui.ProposalTierArgs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
