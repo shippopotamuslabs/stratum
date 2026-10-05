@@ -37,6 +37,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import com.stratum.core.ui.component.CompactChartValueFormat
@@ -64,14 +65,15 @@ private const val AWAKE_BLEND_TOWARD_SURFACE = 0.28f
 internal val HealthChromeSpacing = 12.dp
 
 /**
- * Dashboard shell: plain "Dashboard" title in the top bar (board tabs removed in STR-68;
- * board switching returns with the Lift Metrics selector in STR-69). Health Connect, when
- * visible, is a full-bleed header inside the board list so it scrolls away with the charts.
- * The top bar uses the same raised surface as the pager so they read as one slab.
+ * Dashboard shell: plain "Dashboard" title in the top bar; board switching lives with the
+ * cards in the Lift Metrics selector (STR-69). The Health Connect hero band — pager when
+ * enabled, centered Settings prompt when disabled — is a full-bleed header inside the board
+ * list so it scrolls away with the charts. The top bar uses the same raised surface as the
+ * hero band so they read as one slab.
  */
 @Composable
 internal fun DashboardHealthScaffold(
-    healthVisible: Boolean,
+    heroVisible: Boolean,
     settingsAction: @Composable RowScope.() -> Unit,
     modifier: Modifier = Modifier,
     isRefreshing: Boolean = false,
@@ -86,7 +88,7 @@ internal fun DashboardHealthScaffold(
             StratumTopBar(
                 title = stringResource(R.string.dashboard_title),
                 actions = settingsAction,
-                containerColor = if (healthVisible) colors.surfaceRaised else colors.surfaceBase,
+                containerColor = if (heroVisible) colors.surfaceRaised else colors.surfaceBase,
             )
         },
     ) {
@@ -168,6 +170,30 @@ private fun HealthPagerPills(pagerState: PagerState) {
                 onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
             )
         }
+    }
+}
+
+/**
+ * Hero-band replacement when Health Connect is disabled: same full-bleed shaded slab as the
+ * pager ([drawEdgeBands] off so it merges with the top bar), with a centered prompt that
+ * opens Settings.
+ */
+@Composable
+internal fun DashboardHealthDisabledPrompt(
+    onNavigateToSettings: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    StratumEdgeToEdgeCard(
+        modifier = modifier.clickable(role = Role.Button, onClick = onNavigateToSettings),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 20.dp),
+        drawEdgeBands = false,
+    ) {
+        StratumText(
+            text = stringResource(R.string.dashboard_health_disabled_prompt),
+            muted = true,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }
 
