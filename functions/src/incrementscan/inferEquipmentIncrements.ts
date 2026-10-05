@@ -7,11 +7,7 @@ import {
 } from "../openrouterSession";
 import { assertUserEntitled } from "../entitlement/assertEntitled";
 import { createLogger } from "../observability/structuredLog";
-import {
-  buildResultMeta,
-  logCallableVersion,
-  type CallableResultMeta,
-} from "../versioning/callableVersioning";
+import { buildVersionedResult, logCallableVersion } from "../versioning/callableVersioning";
 import {
   INCREMENT_SCAN_SYSTEM_PROMPT,
   INCREMENT_SCAN_USER_PROMPT,
@@ -35,7 +31,10 @@ import { admitIncrementScan } from "./scanQuota";
  * old app versions parse the versioned result identically.
  */
 
-const log = createLogger({ service: "inferEquipmentIncrements" });
+const CALLABLE_NAME = "inferEquipmentIncrements";
+const CALLABLE_VERSION = 1;
+
+const log = createLogger({ service: CALLABLE_NAME });
 
 /**
  * Server-side hard cap on the decoded image payload. The client downscales
@@ -127,17 +126,6 @@ export function parseScanModelContent(content: string | null | undefined): Scann
   return parseScannedTiers(parsed);
 }
 
-export type VersionedScanResult = ScannedTiers & { _meta: CallableResultMeta };
-
-/**
- * Attach the `_meta` version baseline to a sanitized scan. Pure — the
- * callable handler is the only caller; unit tests assert the wire shape here
- * because the handler's success path needs live quota + model calls.
- */
-export function buildScanResult(scan: ScannedTiers): VersionedScanResult {
-  return { ...scan, _meta: buildResultMeta(1) };
-}
-
 export const inferEquipmentIncrements = onCall(
   {
     enforceAppCheck: true,
@@ -184,12 +172,12 @@ export const inferEquipmentIncrements = onCall(
       if (err instanceof HttpsError) {
         throw err;
       }
-      console.error(`inferEquipmentIncrements model call failed for ${uid}:`, err);
+      console.error(`${CALLABLE_NAME} model call failed for ${uid}:`, err);
       throw new HttpsError("internal", "Scan request failed. Please try again.");
     }
 
     const scan = parseScanModelContent(content);
-    logCallableVersion(log, "inferEquipmentIncrements", 1, { uid });
-    return buildScanResult(scan);
+    logCallableVersion(log, CALLABLE_NAME, CALLABLE_VERSION, { uid });
+    return buildVersionedResult(scan, CALLABLE_VERSION);
   },
 );

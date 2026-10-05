@@ -1,6 +1,10 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { buildResultMeta, logCallableVersion } from "./callableVersioning";
+import {
+  buildResultMeta,
+  buildVersionedResult,
+  logCallableVersion,
+} from "./callableVersioning";
 import { createLogger } from "../observability/structuredLog";
 
 describe("buildResultMeta", () => {
@@ -46,6 +50,34 @@ describe("buildResultMeta", () => {
       () => buildResultMeta(1, { sunsetDate: "2027-03-01", message: "" }),
       /non-empty/,
     );
+  });
+});
+
+describe("buildVersionedResult", () => {
+  it("spreads the payload with a _meta v1 baseline and no deprecation", () => {
+    const payload = { unit: "lb", tiers: [{ lower: 10, upper: 50, step: 10 }] };
+    assert.deepEqual(buildVersionedResult(payload, 1), {
+      unit: "lb",
+      tiers: [{ lower: 10, upper: 50, step: 10 }],
+      _meta: { version: 1 },
+    });
+  });
+
+  it("passes a deprecation through to the _meta block", () => {
+    const result = buildVersionedResult({ ok: true }, 1, {
+      sunsetDate: "2027-03-01",
+      message: "Superseded.",
+    });
+    assert.deepEqual(result._meta, {
+      version: 1,
+      deprecation: { sunsetDate: "2027-03-01", message: "Superseded." },
+    });
+  });
+
+  it("does not mutate the input payload", () => {
+    const payload = { ok: true };
+    buildVersionedResult(payload, 1);
+    assert.deepEqual(payload, { ok: true });
   });
 });
 

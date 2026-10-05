@@ -24,6 +24,9 @@ export interface CallableResultMeta {
   deprecation?: CallableDeprecation;
 }
 
+/** Any callable result payload with the `_meta` version block attached. */
+export type VersionedResult<T> = T & { _meta: CallableResultMeta };
+
 const SUNSET_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
@@ -50,6 +53,19 @@ export function buildResultMeta(
     throw new Error("deprecation.message must be non-empty.");
   }
   return { version, deprecation: { ...deprecation } };
+}
+
+/**
+ * Attach the `_meta` version block to a callable result payload. Handlers
+ * call this directly — no per-callable wrapper — so the version wire shape
+ * has exactly one definition. Pure — safe to unit test.
+ */
+export function buildVersionedResult<T extends object>(
+  payload: T,
+  version: number,
+  deprecation?: CallableDeprecation,
+): VersionedResult<T> {
+  return { ...payload, _meta: buildResultMeta(version, deprecation) };
 }
 
 /**
