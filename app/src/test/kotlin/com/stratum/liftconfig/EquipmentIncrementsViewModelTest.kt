@@ -556,6 +556,71 @@ class EquipmentIncrementsViewModelTest {
         assertTrue(fakeEquipmentRepository.current.single().microIncrements.isEmpty())
     }
 
+    @Test
+    @DisplayName("Given no equipment when initialized then seeded tiers show")
+    fun nullEquipmentSeedsFromProposalArgs() = runTest {
+        subject.initialize(
+            id = null,
+            initialTiersLb =
+                listOf(ProposalTierArgs(lowerBoundLb = 0.0, upperBoundLb = null, incrementLb = 5.0)),
+        )
+        advanceUntilIdle()
+
+        subject.uiState.test {
+            val state = awaitItemWith { it.editor.tiers.isNotEmpty() }
+            assertEquals("", state.equipmentId)
+            assertEquals(listOf("0"), state.editor.tiers.map { it.lowerBound })
+            assertEquals(listOf("5"), state.editor.tiers.map { it.increment })
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Given no equipment when saved then a message surfaces and nothing is written")
+    fun nullEquipmentSaveSurfacesMessage() = runTest {
+        subject.initialize(
+            id = null,
+            initialTiersLb =
+                listOf(ProposalTierArgs(lowerBoundLb = 0.0, upperBoundLb = null, incrementLb = 5.0)),
+        )
+        subject.uiState.test {
+            awaitItemWith { it.editor.tiers.isNotEmpty() }
+            subject.save()
+            val state = awaitItemWith { it.editor.validationMessage != null }
+            assertEquals(
+                "Nothing to save: no equipment is being edited.",
+                state.editor.validationMessage,
+            )
+            assertFalse(state.editor.saveSucceeded)
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        assertEquals(listOf("Cables"), fakeEquipmentRepository.current.map { it.name })
+    }
+
+    @Test
+    @DisplayName("Given no equipment when save as new then a message surfaces and nothing forks")
+    fun nullEquipmentSaveAsNewSurfacesMessage() = runTest {
+        subject.initialize(
+            id = null,
+            initialTiersLb =
+                listOf(ProposalTierArgs(lowerBoundLb = 0.0, upperBoundLb = null, incrementLb = 5.0)),
+        )
+        subject.uiState.test {
+            awaitItemWith { it.editor.tiers.isNotEmpty() }
+            subject.saveAsNew("Copy")
+            val state = awaitItemWith { it.editor.validationMessage != null }
+            assertEquals(
+                "Nothing to fork: no equipment is being edited.",
+                state.editor.validationMessage,
+            )
+            assertFalse(state.editor.saveSucceeded)
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        assertEquals(listOf("Cables"), fakeEquipmentRepository.current.map { it.name })
+    }
+
     private val pinId = EquipmentId("pin-loaded-machine")
 
     private fun seedPin() {
