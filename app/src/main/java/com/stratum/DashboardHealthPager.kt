@@ -1,6 +1,9 @@
 package com.stratum
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,16 +24,21 @@ import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import com.stratum.core.ui.component.CompactChartValueFormat
 import com.stratum.core.ui.component.DetailYScale
 import com.stratum.core.ui.component.DonutSliceUi
@@ -47,7 +55,6 @@ import com.stratum.core.ui.theme.StratumThemeAccessor
 
 private val PagerHeight = 268.dp
 private val EmptyPagerHeight = 108.dp
-private val DotSize = 6.dp
 private val LegendDotSize = 6.dp
 private val DONUT_SIZE = 112.dp
 private const val DONUT_COLUMN_WEIGHT = 0.42f
@@ -57,15 +64,15 @@ private const val AWAKE_BLEND_TOWARD_SURFACE = 0.28f
 internal val HealthChromeSpacing = 12.dp
 
 /**
- * Dashboard shell: Muscles | 7-Day | Lifts stay in the top bar. Health Connect, when visible,
- * is a full-bleed header inside the board list so it scrolls away with the charts. The top bar
- * uses the same raised surface as the pager so they read as one slab.
+ * Dashboard shell: plain "Dashboard" title in the top bar (board tabs removed in STR-68;
+ * board switching returns with the Lift Metrics selector in STR-69). Health Connect, when
+ * visible, is a full-bleed header inside the board list so it scrolls away with the charts.
+ * The top bar uses the same raised surface as the pager so they read as one slab.
  */
 @Composable
 internal fun DashboardHealthScaffold(
     healthVisible: Boolean,
     settingsAction: @Composable RowScope.() -> Unit,
-    boardTabs: @Composable () -> Unit,
     modifier: Modifier = Modifier,
     isRefreshing: Boolean = false,
     onRefresh: (() -> Unit)? = null,
@@ -77,7 +84,7 @@ internal fun DashboardHealthScaffold(
         horizontalPadding = 0.dp,
         topBar = {
             StratumTopBar(
-                titleContent = boardTabs,
+                title = stringResource(R.string.dashboard_title),
                 actions = settingsAction,
                 containerColor = if (healthVisible) colors.surfaceRaised else colors.surfaceBase,
             )
@@ -133,11 +140,67 @@ internal fun DashboardHealthPager(
                 else -> RecoveryHealthPage(state.recovery, expandChart = hasChart)
             }
         }
-        PageDots(
-            selectedIndex = pagerState.currentPage,
-            count = HEALTH_PAGER_PAGE_COUNT,
-        )
+        HealthPagerPills(pagerState = pagerState)
     }
+}
+
+// One-off pager indicator (UI_DESIGN.md §7.2 step 4): labeled pills used only here, so they
+// live in this feature file instead of becoming a shared Stratum* component. Semantic colors
+// only, mirroring the selected/unselected roles of StratumFilterChip.
+@Composable
+private fun HealthPagerPills(pagerState: PagerState) {
+    val labels =
+        listOf(
+            stringResource(R.string.dashboard_health_activity),
+            stringResource(R.string.dashboard_health_weight),
+            stringResource(R.string.dashboard_health_recovery),
+        )
+    val scope = rememberCoroutineScope()
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        labels.forEachIndexed { index, label ->
+            HealthPagerPill(
+                label = label,
+                selected = index == pagerState.currentPage,
+                onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
+            )
+        }
+    }
+}
+
+@Composable
+private fun HealthPagerPill(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    val colors = StratumThemeAccessor.colors
+    val shape = StratumThemeAccessor.shapes.chip
+    StratumText(
+        text = label,
+        style = StratumThemeAccessor.typography.sectionLabel,
+        color = if (selected) colors.onAccent else colors.textMuted,
+        maxLines = 1,
+        modifier = Modifier
+            .clip(shape)
+            .background(if (selected) colors.accent else colors.surfaceSunken)
+            .border(
+                width = StratumThemeAccessor.shapes.borderWidth,
+                color = if (selected) colors.accent else colors.borderSubtle,
+                shape = shape,
+            )
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                role = Role.Tab,
+                onClick = onClick,
+            )
+            .semantics { this.selected = selected }
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+    )
 }
 
 @Composable
@@ -542,28 +605,4 @@ private fun HealthPageColumn(
     }
 }
 
-@Composable
-private fun PageDots(selectedIndex: Int, count: Int) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        repeat(count) { index ->
-            val selected = index == selectedIndex
-            Box(
-                modifier = Modifier
-                    .padding(horizontal = 3.dp)
-                    .size(DotSize)
-                    .clip(CircleShape)
-                    .background(
-                        if (selected) {
-                            StratumThemeAccessor.colors.accent
-                        } else {
-                            StratumThemeAccessor.colors.borderSubtle
-                        },
-                    ),
-            )
-        }
-    }
-}
+
