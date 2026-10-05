@@ -52,7 +52,6 @@ class ForkEquipmentWithTiersUseCaseTest {
                     incrementTiers = emptyList(),
                     presetTags = emptySet(),
                     equipmentId = cableId,
-                    usesEquipmentDefaultIncrements = true,
                     enabled = true,
                     loadType = LoadType.Weighted,
                 ),

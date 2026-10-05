@@ -21,8 +21,8 @@ data class AffectedLift(
 /**
  * Blast-radius snapshot for editing equipment default increments.
  *
- * [count] / [lifts] include disabled lifts that inherit defaults; lifts with override tiers
- * are excluded (they ignore equipment defaults for progression).
+ * [count] / [lifts] include disabled lifts that inherit defaults. Per-lift overrides were
+ * removed (STR-82/84), so every lift linked to the equipment inherits its defaults.
  */
 data class EquipmentAffectedLifts(
     val equipmentId: EquipmentId,
@@ -34,11 +34,11 @@ data class EquipmentAffectedLifts(
  * Pure filter of the lift catalog for equipment increment blast radius.
  *
  * ```
- * affected(equipmentId) =
- *   lifts where equipmentId == this AND usesEquipmentDefaultIncrements == true
+ * affected(equipmentId) = lifts where equipmentId == this
  * ```
  *
- * Includes disabled lifts. Sorted by name (case-insensitive) for stable UI previews.
+ * Per-lift overrides were removed (STR-82/84): every linked lift inherits the equipment's
+ * defaults. Includes disabled lifts. Sorted by name (case-insensitive) for stable UI previews.
  */
 fun filterEquipmentAffectedLifts(
     equipmentId: EquipmentId,
@@ -47,7 +47,7 @@ fun filterEquipmentAffectedLifts(
     val affected =
         lifts
             .asSequence()
-            .filter { it.equipmentId == equipmentId && it.usesEquipmentDefaultIncrements }
+            .filter { it.equipmentId == equipmentId }
             .sortedBy { it.name.lowercase() }
             .map { lift ->
                 AffectedLift(

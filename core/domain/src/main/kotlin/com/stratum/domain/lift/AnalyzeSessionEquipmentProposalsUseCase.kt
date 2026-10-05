@@ -186,11 +186,6 @@ class AnalyzeSessionEquipmentProposalsUseCase @Inject constructor(
 
         val liftNamesById =
             anomalousLiftIds.associateWith { id -> liftsById[id]?.name.orEmpty() }
-        val inheritsByLift =
-            anomalousLiftIds.map { id ->
-                liftsById[id]?.usesEquipmentDefaultIncrements == true
-            }
-        val allAnomalousInheritsDefaults = inheritsByLift.isNotEmpty() && inheritsByLift.all { it }
 
         val proposal =
             rankEquipmentIncrementProposal(
@@ -204,7 +199,6 @@ class AnalyzeSessionEquipmentProposalsUseCase @Inject constructor(
                     sampleWeights = sampleWeights,
                     proposedTiers = inferred.tiers,
                     inferredStep = inferred.step,
-                    allAnomalousInheritsDefaults = allAnomalousInheritsDefaults,
                     residualSetCount = residualSetCount,
                     distinctResidualAmounts = distinctResidualAmounts,
                     existingEquipmentNames = existingEquipmentNames,
