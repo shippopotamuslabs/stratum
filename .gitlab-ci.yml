@@ -91,8 +91,9 @@ stages:
     # skip the re-pull on every job — faster cold starts, less egress.
     pull_policy: if-not-present
   # All Android jobs run on the GCP docker-autoscaler fleet: one fresh Spot
-  # VM per job, deleted afterwards. Default tag gcp-small (n2-standard-2, no
-  # nested virt) covers lint/test/scan/build jobs; jobs needing muscle or KVM
+  # VM per job, deleted afterwards. Default tag gcp-small (n2-standard-4, no
+  # nested virt) covers lint/test/scan/build jobs; n2-standard-2 proved too
+  # small (Gradle + Kotlin + parallel Robolectric forks OOMed the 8 GB workers, jobs needing muscle or KVM
   # (assemble-release, emulator-tests) override to gcp-big (n2-standard-8,
   # nested virt). `image:` IS honored here — the container's SDK is the build
   # toolchain (the old home-server shell executor ignored it and used the
