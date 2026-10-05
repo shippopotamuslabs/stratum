@@ -267,7 +267,6 @@ class RoomLiftRepositoryTest {
             val custom = firstLifts().single { it.id == id }
             assertEquals(cableId, custom.equipmentId)
             assertEquals("Cables", custom.equipmentName)
-            assertTrue(custom.usesEquipmentDefaultIncrements)
             // Must not mint a second equipment row for the free-text label.
             assertEquals(1, database.equipmentDao().getAll().size)
         }
@@ -321,7 +320,6 @@ class RoomLiftRepositoryTest {
             val custom = firstLifts().single { it.id == id }
             assertEquals(platesId, custom.equipmentId)
             assertEquals("Double Weight Plates", custom.equipmentName)
-            assertTrue(custom.usesEquipmentDefaultIncrements)
             assertEquals(1, database.equipmentDao().getAll().size)
         }
 
@@ -345,7 +343,6 @@ class RoomLiftRepositoryTest {
             assertEquals(12.5, tiers.single().increment)
             assertEquals(0.0, tiers.single().lowerBound)
             assertEquals(null, tiers.single().upperBound)
-            assertTrue(custom.usesEquipmentDefaultIncrements)
         }
 
         @Test

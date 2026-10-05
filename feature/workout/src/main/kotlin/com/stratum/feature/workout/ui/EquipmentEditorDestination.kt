@@ -107,7 +107,6 @@ fun equipmentEditRequestFor(lift: RenderedLiftUi): EquipmentEditRequest =
         target =
             EquipmentEditTarget(
                 equipmentId = lift.equipmentId,
-                hasIncrementOverride = lift.hasIncrementOverride,
             ),
     )
 
@@ -154,8 +153,7 @@ fun liveEquipmentEditRequestFor(
 
 /**
  * Every "Edit equipment" request resolves to the shared equipment editor (STR-86):
- * per-lift override editors no longer exist. [EquipmentEditTarget.hasIncrementOverride]
- * is ignored — it is kept on the request for STR-83's domain/test cleanup.
+ * per-lift override editors no longer exist.
  */
 fun resolveEquipmentEditorDestination(request: EquipmentEditRequest): EquipmentEditorDestination =
     EquipmentEditorDestination.SharedEquipment(

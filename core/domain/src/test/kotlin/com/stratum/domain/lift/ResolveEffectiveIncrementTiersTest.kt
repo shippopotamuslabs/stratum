@@ -24,12 +24,11 @@ class ResolveEffectiveIncrementTiersTest {
                 fallbackTiers = fallbackTiers,
             )
         assertEquals(equipmentTiers, result.tiers)
-        assertTrue(result.usesEquipmentDefaultIncrements)
         assertTrue(result.inheritsFromEquipmentLattice)
     }
 
     @Test
-    @DisplayName("Given no override and no equipment when resolved then fallback applies")
+    @DisplayName("Given no equipment when resolved then fallback applies")
     fun fallbackApplies() {
         val result =
             resolveEffectiveIncrementTiers(
@@ -37,7 +36,6 @@ class ResolveEffectiveIncrementTiersTest {
                 fallbackTiers = fallbackTiers,
             )
         assertEquals(fallbackTiers, result.tiers)
-        assertTrue(result.usesEquipmentDefaultIncrements)
         assertFalse(result.inheritsFromEquipmentLattice)
     }
 
@@ -50,12 +48,11 @@ class ResolveEffectiveIncrementTiersTest {
                 fallbackTiers = fallbackTiers,
             )
         assertEquals(fallbackTiers, result.tiers)
-        assertTrue(result.usesEquipmentDefaultIncrements)
         assertFalse(result.inheritsFromEquipmentLattice)
     }
 
     @Test
-    @DisplayName("Given equipment micro and no lift override when resolved then micro is inherited")
+    @DisplayName("Given equipment micro when resolved then micro is inherited")
     fun equipmentMicroInherited() {
         val result =
             resolveEffectiveIncrementTiers(
@@ -64,40 +61,10 @@ class ResolveEffectiveIncrementTiersTest {
                 equipmentMicro = adderStops,
             )
         assertEquals(adderStops, result.microIncrements)
-        assertTrue(result.usesEquipmentDefaultMicro)
     }
 
     @Test
-    @DisplayName("Given lift micro override when resolved then it wins over equipment micro")
-    fun liftMicroOverrideWins() {
-        val liftMicro = listOf(Weight(2.5, lb))
-        val result =
-            resolveEffectiveIncrementTiers(
-                equipmentTiers = equipmentTiers,
-                fallbackTiers = fallbackTiers,
-                liftMicroOverride = liftMicro,
-                equipmentMicro = adderStops,
-            )
-        assertEquals(liftMicro, result.microIncrements)
-        assertFalse(result.usesEquipmentDefaultMicro)
-    }
-
-    @Test
-    @DisplayName("Given explicit empty lift micro override when resolved then adder is cleared")
-    fun explicitEmptyLiftMicroClears() {
-        val result =
-            resolveEffectiveIncrementTiers(
-                equipmentTiers = equipmentTiers,
-                fallbackTiers = fallbackTiers,
-                liftMicroOverride = emptyList(),
-                equipmentMicro = adderStops,
-            )
-        assertEquals(emptyList<Weight>(), result.microIncrements)
-        assertFalse(result.usesEquipmentDefaultMicro)
-    }
-
-    @Test
-    @DisplayName("Given no micro anywhere when resolved then micro is empty and inherited")
+    @DisplayName("Given no micro anywhere when resolved then micro is empty")
     fun noMicroAnywhere() {
         val result =
             resolveEffectiveIncrementTiers(
@@ -105,6 +72,5 @@ class ResolveEffectiveIncrementTiersTest {
                 fallbackTiers = fallbackTiers,
             )
         assertEquals(emptyList<Weight>(), result.microIncrements)
-        assertTrue(result.usesEquipmentDefaultMicro)
     }
 }

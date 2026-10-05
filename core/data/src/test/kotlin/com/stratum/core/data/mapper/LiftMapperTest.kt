@@ -134,7 +134,6 @@ class LiftMapperTest {
             )
         assertEquals(equipmentId, back.equipmentId)
         assertEquals("Pin-Loaded Machine", back.equipmentName)
-        assertTrue(back.usesEquipmentDefaultIncrements)
         // Empty equipment lattice falls through to global fallback — not "from equipment".
         assertFalse(back.inheritsFromEquipmentLattice)
     }
@@ -338,33 +337,18 @@ class LiftMapperTest {
         )
 
         assertEquals(listOf(5.0, 10.0), back.microIncrements.map { it.amount })
-        assertTrue(back.usesEquipmentDefaultMicro)
     }
 
     @Test
-    @DisplayName("Given explicit lift micro when mapped then override wins over equipment")
-    fun explicitLiftMicroWins() {
-        val entity = liftEntity(microOptionsJson = "[2.5]")
+    @DisplayName("Given stale lift micro column when mapped then it is ignored for equipment stops")
+    fun staleLiftMicroColumnIgnored() {
+        val equipment = pinEquipment()
+        val back =
+            liftEntity(microOptionsJson = "[2.5]").toDomain(
+                equipmentById = mapOf(equipment.id to equipment),
+            )
 
-        val back = entity.toDomain(
-            equipmentById = mapOf(pinEquipment().id to pinEquipment()),
-        )
-
-        assertEquals(listOf(2.5), back.microIncrements.map { it.amount })
-        assertEquals(false, back.usesEquipmentDefaultMicro)
-    }
-
-    @Test
-    @DisplayName("Given explicit empty lift micro when mapped then adder is cleared")
-    fun explicitEmptyLiftMicroClears() {
-        val entity = liftEntity(microOptionsJson = "[]")
-
-        val back = entity.toDomain(
-            equipmentById = mapOf(pinEquipment().id to pinEquipment()),
-        )
-
-        assertEquals(emptyList<Weight>(), back.microIncrements)
-        assertEquals(false, back.usesEquipmentDefaultMicro)
+        assertEquals(listOf(5.0, 10.0), back.microIncrements.map { it.amount })
     }
 
     @Test
@@ -373,12 +357,11 @@ class LiftMapperTest {
         val back = liftEntity(microOptionsJson = "nope").toDomain()
 
         assertEquals(emptyList<Weight>(), back.microIncrements)
-        assertEquals(true, back.usesEquipmentDefaultMicro)
     }
 
     @Test
-    @DisplayName("Given explicit lift micro when written then override column round-trips")
-    fun liftMicroOverrideRoundTrips() {
+    @DisplayName("Given a lift when written then the vestigial micro column stays null")
+    fun liftMicroColumnStaysNull() {
         val lb = Weight.WeightUnit.Lb
         val lift = Lift(
             id = LiftId("lat-pulldown"),
@@ -389,12 +372,11 @@ class LiftMapperTest {
             incrementTiers = emptyList(),
             presetTags = emptySet(),
             microIncrements = listOf(Weight(2.5, lb)),
-            usesEquipmentDefaultMicro = false,
             enabled = true,
         )
 
         val entity = lift.toEntity()
-        assertEquals("[2.5]", entity.microOptionsJson)
+        assertNull(entity.microOptionsJson)
     }
 
     private fun liftEntity(microOptionsJson: String?): LiftEntity =

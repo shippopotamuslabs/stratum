@@ -49,7 +49,6 @@ class EquipmentProposalEditRequestTest {
         val request = EquipmentProposalUiMapper.toEditRequest(proposal)
 
         assertEquals(cableId.value, request.target.equipmentId)
-        assertEquals(false, request.target.hasIncrementOverride)
         assertEquals(expectedArgs, request.initialTiersLb)
         val context = checkNotNull(request.proposalContext as? ProposalEditContext.PostWorkout)
         assertEquals("test-proposal", context.proposalId)
@@ -79,7 +78,6 @@ class EquipmentProposalEditRequestTest {
 
         assertEquals(latId.value, request.liftId)
         assertEquals(cableId.value, request.target.equipmentId)
-        assertEquals(false, request.target.hasIncrementOverride)
         assertEquals(expectedArgs, request.initialTiersLb)
         val destination = resolveEquipmentEditorDestination(request)
         assertTrue(destination is EquipmentEditorDestination.SharedEquipment)

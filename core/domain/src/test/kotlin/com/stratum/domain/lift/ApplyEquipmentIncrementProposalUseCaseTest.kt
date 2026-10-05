@@ -194,7 +194,6 @@ class ApplyEquipmentIncrementProposalUseCaseTest {
             presetTags = emptySet(),
             equipmentId = equipmentId,
             equipmentName = "Cables",
-            usesEquipmentDefaultIncrements = true,
             enabled = true,
         )
 }

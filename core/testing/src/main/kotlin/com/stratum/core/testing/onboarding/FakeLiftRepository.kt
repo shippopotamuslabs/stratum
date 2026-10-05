@@ -138,7 +138,6 @@ class FakeLiftRepository(
                 presetTags = emptySet(),
                 equipmentId = equipmentId,
                 equipmentName = equipmentName,
-                usesEquipmentDefaultIncrements = definition.increment == null,
                 // Fake has no equipment catalog tiers; bodyweight/null behave as fallback.
                 inheritsFromEquipmentLattice = false,
                 enabled = true,
@@ -185,10 +184,8 @@ class FakeLiftRepository(
                     loadType = loadType,
                     // Changing equipment re-inherits the new defaults.
                     incrementTiers = emptyList(),
-                    usesEquipmentDefaultIncrements = true,
                     inheritsFromEquipmentLattice = false,
                     microIncrements = emptyList(),
-                    usesEquipmentDefaultMicro = true,
                 )
             } else {
                 lift

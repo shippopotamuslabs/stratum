@@ -57,7 +57,6 @@ import com.stratum.domain.workout.StructuralMutation
 import com.stratum.domain.workout.WorkoutOverlay
 import com.stratum.domain.workout.WorkoutStructureProjection
 import com.stratum.domain.workout.intensifier.RestDefaultForTransition
-import com.stratum.feature.workout.ui.EquipmentEditTarget
 import com.stratum.feature.workout.ui.WorkoutUiEvent
 import com.stratum.feature.workout.ui.WorkoutUiMapper
 import java.time.Instant
@@ -327,12 +326,9 @@ internal class LiveWorkoutSessionRuntime(
             liftsById.mapKeys { (id, _) -> id.value }.mapValues { (_, lift) ->
                 lift.resolvedDefaultRestSeconds()
             }
-        val equipmentEditTargetByLiftId =
+        val equipmentIdByLiftId =
             liftsById.mapKeys { (id, _) -> id.value }.mapValues { (_, lift) ->
-                EquipmentEditTarget(
-                    equipmentId = lift.equipmentId?.value,
-                    hasIncrementOverride = !lift.usesEquipmentDefaultIncrements,
-                )
+                lift.equipmentId?.value
             }
         // Live off-lattice signal per lift card, from sets logged so far this session.
         // Logged weights persist in canonical Lb, matching catalog tier units.
@@ -374,7 +370,7 @@ internal class LiveWorkoutSessionRuntime(
                 displayUnit = effects.displayUnit(),
                 displayUnitEpoch = effects.displayUnitEpoch(),
                 defaultRestSecondsByLiftId = defaultRestSecondsByLiftId,
-                equipmentEditTargetByLiftId = equipmentEditTargetByLiftId,
+                equipmentIdByLiftId = equipmentIdByLiftId,
                 adjustEquipmentWorkoutLiftIds = adjustEquipmentWorkoutLiftIds,
             )
         // Active-workout notification snapshot is derived from domain session by

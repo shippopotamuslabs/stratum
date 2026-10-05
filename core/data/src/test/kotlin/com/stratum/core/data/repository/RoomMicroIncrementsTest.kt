@@ -125,7 +125,6 @@ class RoomMicroIncrementsTest {
         val read = liftRepository.getLiftsByIds(listOf(liftId)).single()
 
         assertEquals(listOf(5.0, 10.0), read.microIncrements.map { it.amount })
-        assertEquals(true, read.usesEquipmentDefaultMicro)
     }
 
     @Test
@@ -146,7 +145,6 @@ class RoomMicroIncrementsTest {
 
         val read = liftRepository.getLiftsByIds(listOf(liftId)).single()
         assertEquals(emptyList<Weight>(), read.microIncrements)
-        assertEquals(true, read.usesEquipmentDefaultMicro)
     }
 
     private suspend fun seedEquipment(id: EquipmentId) {
