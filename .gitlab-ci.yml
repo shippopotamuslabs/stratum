@@ -135,7 +135,10 @@ stages:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
-detekt:
+# Static analysis in one job (STR-76): detekt and Android lint both compile the
+# app, so running them as separate jobs paid for two full compilations plus
+# two VM boots per pipeline. A single Gradle invocation shares the compile.
+static-analysis:
   extends: .android-job
   stage: lint
   # needs: [] opts out of stage gating: this job is independent of every other
@@ -143,22 +146,11 @@ detekt:
   # waiting for earlier stages. Same pattern on all independent lint/test jobs.
   needs: []
   script:
-    - ./gradlew detekt
+    - ./gradlew detekt lintDebug --continue
   artifacts:
     when: always
     paths:
       - '**/build/reports/detekt/'
-    expire_in: 1 week
-
-lint:
-  extends: .android-job
-  stage: lint
-  needs: []
-  script:
-    - ./gradlew lintDebug
-  artifacts:
-    when: always
-    paths:
       - '**/build/reports/lint-results-debug.html'
     expire_in: 1 week
 
@@ -501,14 +493,18 @@ deploy-internal:
   # image doesn't carry, and it's a manual lane that runs rarely.
   tags: [home-server]
   stage: deploy
+  # Reuses assemble-release's signed APK artifact (STR-76) instead of
+  # rebuilding it — only the AAB (which no other job produces) is built here.
+  needs: [assemble-release]
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       when: manual
   script:
     - !reference [.keystore-bootstrap, script]
     - test -n "$PLAY_PUBLISHER_JSON" || (echo "Missing PLAY_PUBLISHER_JSON file variable — see header of .gitlab-ci.yml" && exit 1)
-    # Signed AAB for Play + signed APK for the Test Lab robo job below.
-    - ./gradlew :app:bundleRelease :app:assembleRelease
+    # Signed APK arrives via the assemble-release artifact (needs: above);
+    # build only the signed AAB for Play here.
+    - ./gradlew :app:bundleRelease
     # PEP 668: the runner Python is externally managed, so installer deps go
     # in an ephemeral venv rather than --user / system site.
     - python3 -m venv /tmp/play-env
@@ -532,7 +528,9 @@ distribute-internal:
   stage: deploy
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-  needs: [assemble-release]
+  # Wait for release build AND tests: needs: opts out of stage gating, so
+  # list the test jobs explicitly to prevent distributing an untested build.
+  needs: [assemble-release, unit-tests, static-analysis]
   script:
     - test -n "$FIREBASE_SERVICE_ACCOUNT_JSON" || (echo "Missing FIREBASE_SERVICE_ACCOUNT_JSON file variable" && exit 1)
     - export GOOGLE_APPLICATION_CREDENTIALS="$FIREBASE_SERVICE_ACCOUNT_JSON"
