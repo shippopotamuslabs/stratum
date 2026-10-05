@@ -6,6 +6,12 @@ import {
   sanitizeOpenRouterSessionId,
 } from "../openrouterSession";
 import { assertUserEntitled } from "../entitlement/assertEntitled";
+import { createLogger } from "../observability/structuredLog";
+import {
+  buildResultMeta,
+  logCallableVersion,
+  type CallableResultMeta,
+} from "../versioning/callableVersioning";
 import {
   INCREMENT_SCAN_SYSTEM_PROMPT,
   INCREMENT_SCAN_USER_PROMPT,
@@ -23,7 +29,13 @@ import { admitIncrementScan } from "./scanQuota";
  * monthly quota gate every call; failures degrade client-side to manual entry.
  * App Check is enforced (mirrors the sibling LLM callables); dev builds must
  * register a debug token or calls will be rejected.
+ *
+ * Versioning reference (STR-48): this callable is implicit v1 and spreads an
+ * `_meta` block into its result. Clients ignore unknown top-level fields, so
+ * old app versions parse the versioned result identically.
  */
+
+const log = createLogger({ service: "inferEquipmentIncrements" });
 
 /**
  * Server-side hard cap on the decoded image payload. The client downscales
@@ -115,6 +127,17 @@ export function parseScanModelContent(content: string | null | undefined): Scann
   return parseScannedTiers(parsed);
 }
 
+export type VersionedScanResult = ScannedTiers & { _meta: CallableResultMeta };
+
+/**
+ * Attach the `_meta` version baseline to a sanitized scan. Pure — the
+ * callable handler is the only caller; unit tests assert the wire shape here
+ * because the handler's success path needs live quota + model calls.
+ */
+export function buildScanResult(scan: ScannedTiers): VersionedScanResult {
+  return { ...scan, _meta: buildResultMeta(1) };
+}
+
 export const inferEquipmentIncrements = onCall(
   {
     enforceAppCheck: true,
@@ -165,6 +188,8 @@ export const inferEquipmentIncrements = onCall(
       throw new HttpsError("internal", "Scan request failed. Please try again.");
     }
 
-    return parseScanModelContent(content);
+    const scan = parseScanModelContent(content);
+    logCallableVersion(log, "inferEquipmentIncrements", 1, { uid });
+    return buildScanResult(scan);
   },
 );
