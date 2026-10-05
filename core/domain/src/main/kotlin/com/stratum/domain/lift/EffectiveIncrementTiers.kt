@@ -4,20 +4,24 @@ package com.stratum.domain.lift
  * Resolves the increment tiers a lift should use for progression and UI.
  *
  * Precedence:
- * 1. Non-empty [liftOverrideTiers] — explicit per-lift override
- * 2. Non-empty [equipmentTiers] — defaults from the lift's equipment
- * 3. [fallbackTiers] — last-resort catalog defaults (may be empty)
+ * 1. Non-empty [equipmentTiers] — defaults from the lift's equipment
+ * 2. [fallbackTiers] — last-resort catalog defaults (may be empty)
  *
- * [usesEquipmentDefaultIncrements] is true only when no lift override rows are present
- * (equipment or fallback may still supply the effective list).
+ * Per-lift tier overrides were removed (STR-82/84): every lift inherits its equipment's
+ * lattice or the global fallback.
+ *
+ * [usesEquipmentDefaultIncrements] is true when the equipment (or fallback) supplied the
+ * effective list.
  *
  * [inheritsFromEquipmentLattice] is true only when non-empty equipment tiers supplied the
  * list. Empty lattices (e.g. seed bodyweight) fall through to global fallback and must **not**
  * be presented as "Using defaults from {equipment name}".
  *
- * Micro (adder) resolution is **independent** of the tier override: the knob is physical, so a
- * lift with band overrides still inherits the linked equipment's stops unless it carries an
- * explicit lift micro override (null = inherit, non-null including empty = lift-scoped value).
+ * Micro (adder) resolution: the knob is physical, so a lift inherits the linked equipment's
+ * stops unless it carries an explicit lift micro override (null = inherit, non-null
+ * including empty = lift-scoped value). Per-lift micro overrides were removed in STR-82/84
+ * (no writers remain; the 8→9 migration clears stale values), so the override path is
+ * legacy-only.
  *
  * Sentinel-note: tier and micro overrides intentionally use different sentinels. Tier
  * overrides are a plain list where empty doubles as "cleared, re-inherit" (an empty tier
@@ -37,7 +41,6 @@ data class EffectiveIncrementTiers(
 )
 
 fun resolveEffectiveIncrementTiers(
-    liftOverrideTiers: List<IncrementTier>,
     equipmentTiers: List<IncrementTier>?,
     fallbackTiers: List<IncrementTier> = emptyList(),
     liftMicroOverride: List<Weight>? = null,
@@ -46,21 +49,15 @@ fun resolveEffectiveIncrementTiers(
     val resolvedTiers: List<IncrementTier>
     val usesEquipmentDefaultIncrements: Boolean
     val inheritsFromEquipmentLattice: Boolean
-    if (liftOverrideTiers.isNotEmpty()) {
-        resolvedTiers = liftOverrideTiers
-        usesEquipmentDefaultIncrements = false
-        inheritsFromEquipmentLattice = false
+    val fromEquipment = equipmentTiers.orEmpty()
+    if (fromEquipment.isNotEmpty()) {
+        resolvedTiers = fromEquipment
+        usesEquipmentDefaultIncrements = true
+        inheritsFromEquipmentLattice = true
     } else {
-        val fromEquipment = equipmentTiers.orEmpty()
-        if (fromEquipment.isNotEmpty()) {
-            resolvedTiers = fromEquipment
-            usesEquipmentDefaultIncrements = true
-            inheritsFromEquipmentLattice = true
-        } else {
-            resolvedTiers = fallbackTiers
-            usesEquipmentDefaultIncrements = true
-            inheritsFromEquipmentLattice = false
-        }
+        resolvedTiers = fallbackTiers
+        usesEquipmentDefaultIncrements = true
+        inheritsFromEquipmentLattice = false
     }
 
     val resolvedMicro: List<Weight> = liftMicroOverride ?: equipmentMicro

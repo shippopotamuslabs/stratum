@@ -68,11 +68,11 @@ class LiftCatalogSeederTest {
         val written = database.liftDao().countSeedLifts()
 
         assertTrue(written > 10, "Expected a sizeable seed catalog, got $written")
-        val lifts = database.liftDao().observeLiftsWithTiers().first()
+        val lifts = database.liftDao().observeLifts().first()
         assertEquals(written, lifts.size)
         // Seed lifts start disabled — the user opts in via preset/toggle.
-        assertTrue(lifts.all { !it.lift.enabled })
-        assertTrue(lifts.all { !it.lift.isCustom })
+        assertTrue(lifts.all { !it.enabled })
+        assertTrue(lifts.all { !it.isCustom })
     }
 
     @Test
@@ -80,8 +80,8 @@ class LiftCatalogSeederTest {
     fun seedDecodesMusclesAndTags() = runTest {
         seedAll()
 
-        val lifts = database.liftDao().observeLiftsWithTiers().first()
-        val curl = lifts.first { it.lift.id.value == "barbell-curl" }.lift
+        val lifts = database.liftDao().observeLifts().first()
+        val curl = lifts.first { it.id.value == "barbell-curl" }
         assertEquals(MuscleGroup.Bicep.ordinal.let { 1 shl it }, curl.primaryMusclesBitmask)
 
         val commercialCount = database.liftDao().idsForPresetTag("%,${GymPreset.CommercialGym.name},%").size
@@ -93,32 +93,31 @@ class LiftCatalogSeederTest {
     fun seedInheritsEquipmentTiers() = runTest {
         seedAll()
 
-        val lifts = database.liftDao().observeLiftsWithTiers().first()
-        val curl = lifts.first { it.lift.id.value == "barbell-curl" }
-        assertTrue(curl.tiers.isEmpty(), "seed lifts should not write override tiers when inheriting")
-        assertEquals(EquipmentId("double-weight-plates"), curl.lift.equipmentId)
+        val lifts = database.liftDao().observeLifts().first()
+        val curl = lifts.first { it.id.value == "barbell-curl" }
+        assertEquals(EquipmentId("double-weight-plates"), curl.equipmentId)
 
         val equipmentTiers =
             database.incrementTierDao().getForEquipment(EquipmentId("double-weight-plates"))
         assertTrue(equipmentTiers.isNotEmpty())
         assertEquals(5.0, equipmentTiers.single().increment)
 
-        val bentRow = lifts.first { it.lift.id.value == "bent-over-barbell-row" }.lift
+        val bentRow = lifts.first { it.id.value == "bent-over-barbell-row" }
         assertEquals(EquipmentId("double-weight-plates"), bentRow.equipmentId)
 
-        val reverseGrip = lifts.first { it.lift.id.value == "reverse-grip-bent-over-rows" }.lift
+        val reverseGrip = lifts.first { it.id.value == "reverse-grip-bent-over-rows" }
         assertEquals(EquipmentId("double-weight-plates"), reverseGrip.equipmentId)
 
-        val tBar = lifts.first { it.lift.id.value == "t-bar-row-with-handle" }.lift
+        val tBar = lifts.first { it.id.value == "t-bar-row-with-handle" }
         assertEquals(EquipmentId("single-weight-plate"), tBar.equipmentId)
 
         // Generic / sled / plate-loaded leg press → dual-horn plates; machine variant → pin stack.
-        val sledLegPress = lifts.first { it.lift.id.value == "sled-leg-press" }.lift
+        val sledLegPress = lifts.first { it.id.value == "sled-leg-press" }
         assertEquals(EquipmentId("double-weight-plates"), sledLegPress.equipmentId)
         val plateLoadedLegPress =
-            lifts.first { it.lift.id.value == "plate-loaded-single-leg-press" }.lift
+            lifts.first { it.id.value == "plate-loaded-single-leg-press" }
         assertEquals(EquipmentId("double-weight-plates"), plateLoadedLegPress.equipmentId)
-        val machineLegPress = lifts.first { it.lift.id.value == "machine-single-leg-press" }.lift
+        val machineLegPress = lifts.first { it.id.value == "machine-single-leg-press" }
         assertEquals(EquipmentId("pin-loaded-machine"), machineLegPress.equipmentId)
     }
 
@@ -128,15 +127,15 @@ class LiftCatalogSeederTest {
         seedAll()
 
         val bandPattern = Regex("(^|[-\\s])band($|[-\\s])", RegexOption.IGNORE_CASE)
-        val lifts = database.liftDao().observeLiftsWithTiers().first()
+        val lifts = database.liftDao().observeLifts().first()
         for (entry in lifts) {
             assertFalse(
-                bandPattern.containsMatchIn(entry.lift.id.value),
-                "seed catalog must not include band variant id ${entry.lift.id.value}",
+                bandPattern.containsMatchIn(entry.id.value),
+                "seed catalog must not include band variant id ${entry.id.value}",
             )
             assertFalse(
-                bandPattern.containsMatchIn(entry.lift.name),
-                "seed catalog must not include band variant name ${entry.lift.name}",
+                bandPattern.containsMatchIn(entry.name),
+                "seed catalog must not include band variant name ${entry.name}",
             )
         }
     }
@@ -150,7 +149,7 @@ class LiftCatalogSeederTest {
         val second = database.liftDao().countSeedLifts()
 
         assertEquals(first, second)
-        val lifts = database.liftDao().observeLiftsWithTiers().first()
+        val lifts = database.liftDao().observeLifts().first()
         assertEquals(first, lifts.size)
     }
 
@@ -159,15 +158,15 @@ class LiftCatalogSeederTest {
     fun seedParsesLoadType() = runTest {
         seedAll()
 
-        val lifts = database.liftDao().observeLiftsWithTiers().first()
-        val pullUp = lifts.first { it.lift.id.value == "pull-up" }.lift
+        val lifts = database.liftDao().observeLifts().first()
+        val pullUp = lifts.first { it.id.value == "pull-up" }
         assertEquals(LoadType.Bodyweight, pullUp.loadType)
 
-        val assisted = lifts.first { it.lift.id.value == "assisted-pull-up" }.lift
+        val assisted = lifts.first { it.id.value == "assisted-pull-up" }
         assertEquals(LoadType.Assisted, assisted.loadType)
 
         // Entries that omit loadType in the asset default to Weighted.
-        val bench = lifts.first { it.lift.id.value == "barbell-back-squat" }.lift
+        val bench = lifts.first { it.id.value == "barbell-back-squat" }
         assertEquals(LoadType.Weighted, bench.loadType)
         assertNotNull(bench.equipmentId)
     }

@@ -292,12 +292,13 @@ class LiftIncrementsViewModel @Inject constructor(
     }
 
     /**
-     * Per-lift overrides were removed (STR-82/84): there is nothing left for the old
-     * "Save" to persist. The per-lift editor is deleted in STR-86 (edits land on the
-     * shared equipment editor or a fork); this stays a no-op until then.
+     * Per-lift overrides were removed (STR-82/84): the per-lift Save has no write path
+     * anymore. Surface guidance instead of silently dropping edits; the per-lift editor
+     * is deleted in STR-86 (edits land on the shared equipment editor or a fork).
      */
-    @Suppress("EmptyFunctionBlock")
     fun save() {
+        validationOverride.value =
+            "Per-lift step overrides were removed — use “Save as new” to fork the equipment."
     }
 
     /** Name prefill for the save-as-new sheet, preferring the equipment name. */

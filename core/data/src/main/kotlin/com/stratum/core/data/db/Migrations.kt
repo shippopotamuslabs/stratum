@@ -120,7 +120,7 @@ val MIGRATION_8_9: Migration =
                 """
                 CREATE TABLE increment_tiers_new (
                     id TEXT NOT NULL PRIMARY KEY,
-                    equipmentId TEXT,
+                    equipmentId TEXT NOT NULL,
                     lowerBound REAL NOT NULL,
                     upperBound REAL,
                     increment REAL NOT NULL,
@@ -151,6 +151,15 @@ val MIGRATION_8_9: Migration =
             db.execSQL(
                 "CREATE UNIQUE INDEX index_increment_tiers_equipmentId_lowerBound " +
                     "ON increment_tiers(equipmentId, lowerBound)",
+            )
+            // Per-lift micro overrides were removed (STR-82/84): no code writes
+            // lifts.micro_options_json anymore. Clear any stale values so lifts
+            // re-inherit their equipment's adder stops, and mark them dirty so
+            // the clear syncs.
+            db.execSQL(
+                "UPDATE lifts SET micro_options_json = NULL, pending_sync = 1, " +
+                    "updated_at_epoch_millis = ${System.currentTimeMillis()} " +
+                    "WHERE micro_options_json IS NOT NULL",
             )
         }
     }

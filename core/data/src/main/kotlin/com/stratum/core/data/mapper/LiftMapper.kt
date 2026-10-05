@@ -31,7 +31,6 @@ fun LiftEntity.toDomain(
     val equipment = equipmentId?.let { equipmentById[it] }
     val effective =
         resolveEffectiveIncrementTiers(
-            liftOverrideTiers = emptyList(),
             equipmentTiers = equipment?.incrementTiers,
             fallbackTiers = fallbackTiers,
             liftMicroOverride = microOptionsJson.toMicroOverride(),

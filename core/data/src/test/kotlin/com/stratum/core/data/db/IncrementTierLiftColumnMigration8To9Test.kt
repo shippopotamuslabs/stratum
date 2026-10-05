@@ -45,6 +45,17 @@ class IncrementTierLiftColumnMigration8To9Test {
             )
             db.execSQL(
                 """
+                INSERT INTO lifts
+                  (id, name, movementPatternsBitmask, primaryMusclesBitmask,
+                   secondaryMusclesBitmask, presetTags, equipmentId, isCustom, enabled,
+                   micro_options_json, updated_at_epoch_millis, pending_sync)
+                VALUES
+                  ('lift-stale-micro', 'Stale Micro', 0, 0, 0, '', 'eq-1', 0, 1,
+                   '[2.5]', 100, 0)
+                """.trimIndent(),
+            )
+            db.execSQL(
+                """
                 INSERT INTO increment_tiers
                   (id, equipmentId, lowerBound, upperBound, increment,
                    updated_at_epoch_millis, pending_sync, liftId)
@@ -102,6 +113,14 @@ class IncrementTierLiftColumnMigration8To9Test {
             // The equipment FK survived the rebuild.
             val fkList = rows(migrated, "PRAGMA foreign_key_list(increment_tiers)")
             assertTrue(fkList.any { it[2] == "equipment" && it[3] == "equipmentId" })
+            // Stale lift-scoped micro overrides are cleared and marked dirty.
+            assertEquals(
+                listOf(listOf(null, 1L)),
+                rows(
+                    migrated,
+                    "SELECT micro_options_json, pending_sync FROM lifts WHERE id = 'lift-stale-micro'",
+                ),
+            )
         }
     }
 

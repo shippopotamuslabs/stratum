@@ -17,6 +17,7 @@ import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.EquipmentNameMatching
 import com.stratum.domain.lift.EquipmentRepository
 import com.stratum.domain.lift.IncrementTier
+import com.stratum.domain.lift.uniqueifyForkEquipmentName
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.defaultSingleTiers
 import com.stratum.domain.lift.identity.EquipmentId
@@ -84,6 +85,9 @@ class RoomEquipmentRepository @Inject constructor(
                         equipmentId = id,
                         updatedAtEpochMillis = now,
                     )
+                    // Assigned lifts inherit the new machine's adder stops; a stale
+                    // lift-scoped micro override must not survive the move (STR-84).
+                    liftDao.clearMicroOptions(id = liftId, updatedAtEpochMillis = now)
                 }
             }
             syncTouch.markDirty()
@@ -193,8 +197,9 @@ class RoomEquipmentRepository @Inject constructor(
     /**
      * Mints a "<baseName> Stack" equipment clone carrying [tiers]. Per-lift overrides were
      * removed (STR-82/84): a lift that needs its own bands gets a visible clone instead of an
-     * invisible override. The name is deduped ("<base> Stack 2", ...) so repeated imports
-     * never collide. Caller must already hold the write lock and a Room transaction.
+     * invisible override. The name is deduped with the shared [uniqueifyForkEquipmentName]
+     * policy so repeated imports never collide. Caller must already hold the write lock
+     * and a Room transaction.
      */
     suspend fun createStackCloneUnlocked(
         baseName: String,
@@ -202,12 +207,8 @@ class RoomEquipmentRepository @Inject constructor(
         nowMillis: Long,
     ): EquipmentId {
         val id = EquipmentId(UUID.randomUUID().toString())
-        var cloneName = "$baseName Stack"
-        var suffix = 2
-        while (equipmentDao.findByNameIgnoreCase(cloneName) != null) {
-            cloneName = "$baseName Stack $suffix"
-            suffix++
-        }
+        val existingNames = equipmentDao.getAll().map { it.name }
+        val cloneName = uniqueifyForkEquipmentName("$baseName Stack", existingNames)
         insertCustomEquipmentUnlocked(id, cloneName, tiers, micro = emptyList(), nowMillis = nowMillis)
         return id
     }

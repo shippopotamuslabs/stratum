@@ -128,6 +128,27 @@ class RoomMicroIncrementsTest {
         assertEquals(true, read.usesEquipmentDefaultMicro)
     }
 
+    @Test
+    @DisplayName("Given stale lift micro when equipment reassigned then micro clears and lift re-inherits")
+    fun reassignClearsStaleMicro() = runTest {
+        val fromId = EquipmentId("pin-loaded-machine")
+        val toId = EquipmentId("cable")
+        val liftId = LiftId("lat-pulldown")
+        seedEquipment(fromId)
+        seedEquipment(toId)
+        seedLift(liftId, fromId)
+        // No repository write path remains (STR-84); seed stale pre-migration data directly.
+        database.openHelper.writableDatabase.execSQL(
+            "UPDATE lifts SET micro_options_json = '[2.5]' WHERE id = '${liftId.value}'",
+        )
+
+        liftRepository.setLiftEquipment(liftId, toId, LoadType.Weighted)
+
+        val read = liftRepository.getLiftsByIds(listOf(liftId)).single()
+        assertEquals(emptyList<Weight>(), read.microIncrements)
+        assertEquals(true, read.usesEquipmentDefaultMicro)
+    }
+
     private suspend fun seedEquipment(id: EquipmentId) {
         database.equipmentDao().upsert(
             EquipmentEntity(

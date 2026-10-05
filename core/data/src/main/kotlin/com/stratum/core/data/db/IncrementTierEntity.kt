@@ -34,7 +34,7 @@ import com.stratum.domain.lift.identity.IncrementTierId
 )
 data class IncrementTierEntity(
     @PrimaryKey val id: IncrementTierId,
-    @ColumnInfo(name = "equipmentId") val equipmentId: EquipmentId? = null,
+    @ColumnInfo(name = "equipmentId") val equipmentId: EquipmentId,
     val lowerBound: Double,
     val upperBound: Double?,
     val increment: Double,

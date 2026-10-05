@@ -9,8 +9,6 @@ import org.junit.jupiter.api.Test
 class ResolveEffectiveIncrementTiersTest {
 
     private val lb = Weight.WeightUnit.Lb
-    private val overrideTiers =
-        listOf(IncrementTier(Weight(0.0, lb), null, Weight(2.5, lb)))
     private val equipmentTiers =
         listOf(IncrementTier(Weight(0.0, lb), null, Weight(5.0, lb)))
     private val fallbackTiers =
@@ -18,25 +16,10 @@ class ResolveEffectiveIncrementTiersTest {
     private val adderStops = listOf(Weight(5.0, lb), Weight(10.0, lb))
 
     @Test
-    @DisplayName("Given lift override tiers when resolved then override wins")
-    fun overrideWins() {
-        val result =
-            resolveEffectiveIncrementTiers(
-                liftOverrideTiers = overrideTiers,
-                equipmentTiers = equipmentTiers,
-                fallbackTiers = fallbackTiers,
-            )
-        assertEquals(overrideTiers, result.tiers)
-        assertFalse(result.usesEquipmentDefaultIncrements)
-        assertFalse(result.inheritsFromEquipmentLattice)
-    }
-
-    @Test
-    @DisplayName("Given empty lift overrides when resolved then equipment defaults apply")
+    @DisplayName("Given equipment tiers when resolved then equipment defaults apply")
     fun equipmentDefaults() {
         val result =
             resolveEffectiveIncrementTiers(
-                liftOverrideTiers = emptyList(),
                 equipmentTiers = equipmentTiers,
                 fallbackTiers = fallbackTiers,
             )
@@ -50,7 +33,6 @@ class ResolveEffectiveIncrementTiersTest {
     fun fallbackApplies() {
         val result =
             resolveEffectiveIncrementTiers(
-                liftOverrideTiers = emptyList(),
                 equipmentTiers = null,
                 fallbackTiers = fallbackTiers,
             )
@@ -64,7 +46,6 @@ class ResolveEffectiveIncrementTiersTest {
     fun emptyEquipmentFallsBack() {
         val result =
             resolveEffectiveIncrementTiers(
-                liftOverrideTiers = emptyList(),
                 equipmentTiers = emptyList(),
                 fallbackTiers = fallbackTiers,
             )
@@ -78,27 +59,10 @@ class ResolveEffectiveIncrementTiersTest {
     fun equipmentMicroInherited() {
         val result =
             resolveEffectiveIncrementTiers(
-                liftOverrideTiers = emptyList(),
                 equipmentTiers = equipmentTiers,
                 fallbackTiers = fallbackTiers,
                 equipmentMicro = adderStops,
             )
-        assertEquals(adderStops, result.microIncrements)
-        assertTrue(result.usesEquipmentDefaultMicro)
-    }
-
-    @Test
-    @DisplayName("Given lift tier override when resolved then equipment micro is still inherited")
-    fun tierOverrideKeepsEquipmentMicro() {
-        val result =
-            resolveEffectiveIncrementTiers(
-                liftOverrideTiers = overrideTiers,
-                equipmentTiers = equipmentTiers,
-                fallbackTiers = fallbackTiers,
-                equipmentMicro = adderStops,
-            )
-        assertEquals(overrideTiers, result.tiers)
-        assertFalse(result.usesEquipmentDefaultIncrements)
         assertEquals(adderStops, result.microIncrements)
         assertTrue(result.usesEquipmentDefaultMicro)
     }
@@ -109,7 +73,6 @@ class ResolveEffectiveIncrementTiersTest {
         val liftMicro = listOf(Weight(2.5, lb))
         val result =
             resolveEffectiveIncrementTiers(
-                liftOverrideTiers = emptyList(),
                 equipmentTiers = equipmentTiers,
                 fallbackTiers = fallbackTiers,
                 liftMicroOverride = liftMicro,
@@ -124,7 +87,6 @@ class ResolveEffectiveIncrementTiersTest {
     fun explicitEmptyLiftMicroClears() {
         val result =
             resolveEffectiveIncrementTiers(
-                liftOverrideTiers = emptyList(),
                 equipmentTiers = equipmentTiers,
                 fallbackTiers = fallbackTiers,
                 liftMicroOverride = emptyList(),
@@ -139,7 +101,6 @@ class ResolveEffectiveIncrementTiersTest {
     fun noMicroAnywhere() {
         val result =
             resolveEffectiveIncrementTiers(
-                liftOverrideTiers = emptyList(),
                 equipmentTiers = equipmentTiers,
                 fallbackTiers = fallbackTiers,
             )
