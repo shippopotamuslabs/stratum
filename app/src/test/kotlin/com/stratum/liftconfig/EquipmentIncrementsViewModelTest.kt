@@ -571,7 +571,7 @@ class EquipmentIncrementsViewModelTest {
                     "equipmentId='${first.equipmentId}'",
             )
             val second = withTimeoutOrNull(3000) { awaitItem() }
-            println("DEBUG-INIT second emission: tiers=${second?.editor.tiers}")
+            println("DEBUG-INIT second emission: tiers=${second?.editor?.tiers}")
             cancelAndIgnoreRemainingEvents()
         }
     }
