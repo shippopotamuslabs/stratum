@@ -1,20 +1,18 @@
 package com.stratum.liftconfig
 
 /**
- * Shared increments-editor content rendered by [LiftIncrementsScreen].
+ * Shared increments-editor content rendered by [EquipmentIncrementsRoute].
  *
- * Both the per-lift editor ([LiftIncrementsUiState]) and the shared-equipment
- * editor ([EquipmentIncrementsUiState]) embed this instead of duplicating the
- * fields, so new shell fields flow to the equipment route without mapper
- * edits. Screen-specific chrome (owner id/name, banners, affected lifts)
+ * The shared-equipment editor ([EquipmentIncrementsUiState]) embeds this instead of
+ * duplicating the fields, so new shell fields flow to the equipment route without
+ * mapper edits. Screen-specific chrome (owner id/name, banners, affected lifts)
  * stays on the owning UiState.
  */
 data class IncrementsEditorData(
     val tiers: List<IncrementTierDraft> = emptyList(),
     /**
      * Adder stop drafts (display-unit strings); empty = no adder. Owned by the
-     * caller: the equipment editor manages them (see its draft flow); the lift
-     * editor leaves the default until it wires drafts.
+     * caller: the equipment editor manages them (see its draft flow).
      */
     val microStops: List<String> = emptyList(),
     val validationMessage: String? = null,

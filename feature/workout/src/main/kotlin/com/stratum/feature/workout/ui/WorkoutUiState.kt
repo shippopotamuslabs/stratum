@@ -70,7 +70,7 @@ data class RenderedLiftUi(
     val unitLabel: String = "lb",
     /**
      * Catalog equipment backing this lift, if assigned. Drives "Edit equipment" routing
-     * together with [hasIncrementOverride] (see `resolveEquipmentEditorDestination`).
+     * (see `resolveEquipmentEditorDestination`).
      */
     val equipmentId: String? = null,
     /** True when the lift carries its own per-lift override tiers (not equipment defaults). */

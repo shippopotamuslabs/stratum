@@ -83,15 +83,15 @@ data class ProposalTierArgs(
 /**
  * Which increments editor an "Edit equipment" request resolves to.
  *
- * A lift carrying its own per-lift override tiers edits the override; a lift inheriting
- * shared equipment defaults edits the shared equipment; a lift with neither (global
- * fallback bands) edits the per-lift override screen. Pure decision — navigation keys
- * are pushed by `:app` from this result.
+ * Per-lift increment overrides were removed (STR-82/84/85): every "Edit equipment"
+ * request now resolves to the shared equipment editor. A lift carrying its own
+ * equipment clone (e.g. "<lift name> Stack" from the migration) simply edits that
+ * shared equipment; a lift with no equipment resolves with a null [equipmentId]
+ * and the editor degrades to a seeded, non-saving state.
  */
 sealed interface EquipmentEditorDestination {
-    data class LiftOverride(val liftId: String) : EquipmentEditorDestination
     data class SharedEquipment(
-        val equipmentId: String,
+        val equipmentId: String?,
         /** Catalog lift to reassign on Save As New (null when not launched from a lift). */
         val sourceLiftId: String? = null,
     ) : EquipmentEditorDestination
@@ -152,12 +152,13 @@ fun liveEquipmentEditRequestFor(
     )
 }
 
+/**
+ * Every "Edit equipment" request resolves to the shared equipment editor (STR-86):
+ * per-lift override editors no longer exist. [EquipmentEditTarget.hasIncrementOverride]
+ * is ignored — it is kept on the request for STR-83's domain/test cleanup.
+ */
 fun resolveEquipmentEditorDestination(request: EquipmentEditRequest): EquipmentEditorDestination =
-    if (request.target.hasIncrementOverride || request.target.equipmentId == null) {
-        EquipmentEditorDestination.LiftOverride(request.liftId)
-    } else {
-        EquipmentEditorDestination.SharedEquipment(
-            equipmentId = request.target.equipmentId,
-            sourceLiftId = request.liftId,
-        )
-    }
+    EquipmentEditorDestination.SharedEquipment(
+        equipmentId = request.target.equipmentId,
+        sourceLiftId = request.liftId,
+    )

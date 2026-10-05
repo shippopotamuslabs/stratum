@@ -38,7 +38,7 @@ import com.stratum.feature.workout.ui.ProposalTierArgs
  */
 @Composable
 fun EquipmentIncrementsRoute(
-    equipmentId: String,
+    equipmentId: String?,
     onBackClick: () -> Unit,
     viewModel: EquipmentIncrementsViewModel = hiltViewModel(),
     /** Catalog lift that opened this editor (Save As New reassigns it to the copy). */

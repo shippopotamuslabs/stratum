@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-/** Proposal launch input shared by the lift and equipment increments editors. */
+/** Proposal launch input shared by increments editor launches. */
 data class ProposalInput(
     /** Prefill bands in storage pounds; empty means "edit current catalog tiers". */
     val initialTiersLb: List<ProposalTierArgs>,
@@ -20,9 +20,9 @@ data class ProposalInput(
 )
 
 /**
- * Shared proposal-prefill session for the lift and equipment increments editors, so the
- * prefill fallback, sample-warning input, and dismiss-on-save behave identically in both
- * (one implementation, two ViewModels). Plain holder — no Android dependencies.
+ * Shared proposal-prefill session for the equipment increments editor, so the
+ * prefill fallback, sample-warning input, and dismiss-on-save behave identically
+ * across launch sites (one implementation). Plain holder — no Android dependencies.
  */
 class ProposalEditorSession {
     private val _input = MutableStateFlow<ProposalInput?>(null)
