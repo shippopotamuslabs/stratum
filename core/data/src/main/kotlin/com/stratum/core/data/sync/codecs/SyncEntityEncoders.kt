@@ -92,7 +92,6 @@ class SyncEntityEncoders @Inject constructor() {
 
     fun incrementTier(e: IncrementTierEntity): Map<String, Any?> =
         mapOf(
-            "lift_id" to e.liftId?.value,
             "equipment_id" to e.equipmentId?.value,
             "lower_bound" to e.lowerBound,
             "upper_bound" to e.upperBound,

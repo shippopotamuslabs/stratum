@@ -78,7 +78,7 @@ class FatigueProfileSeedAssetTest {
         assertNotNull(mapped)
         assertEquals(
             FatigueProfile.Low,
-            mapped!!.lift.fatigueProfile,
+            mapped!!.fatigueProfile,
             "LiftCatalogSeeder.mapSeedDto must map missing fatigueProfile to Low",
         )
     }

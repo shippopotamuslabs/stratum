@@ -148,9 +148,14 @@ object DatabaseModule {
     ): StratumDatabase {
         // v5 moves pins to note-list tables via MIGRATION_4_5 (backfill + index rebuild).
         // v8 converts per-lift increment overrides into "<lift name> Stack" equipment clones.
+        // v9 drops the now-unused increment_tiers.liftId column (STR-84).
         // Destructive fallback remains for unrecoverable paths (missing migration, identity skew).
         val database = Room.databaseBuilder(context, StratumDatabase::class.java, StratumDatabase.DATABASE_NAME)
-            .addMigrations(com.stratum.core.data.db.MIGRATION_4_5, com.stratum.core.data.db.MIGRATION_7_8)
+            .addMigrations(
+                com.stratum.core.data.db.MIGRATION_4_5,
+                com.stratum.core.data.db.MIGRATION_7_8,
+                com.stratum.core.data.db.MIGRATION_8_9,
+            )
             .fallbackToDestructiveMigration(dropAllTables = true)
             .build()
         // Never call DAOs from RoomDatabase.Callback.onCreate — Room holds the DB lock during
@@ -175,7 +180,6 @@ object DatabaseModule {
                     val tags = AssetLiftEquipmentCatalog(context, loggingPort = loggingPort).all()
                     LiftCatalogSeeder(
                         liftDao = liftDao,
-                        incrementTierDao = database.incrementTierDao(),
                         equipmentTagsByLiftId = tags,
                         loggingPort = loggingPort,
                     ).seed(context)
@@ -221,13 +225,11 @@ object DatabaseModule {
     @Singleton
     fun provideLiftCatalogSeeder(
         liftDao: LiftDao,
-        incrementTierDao: IncrementTierDao,
         @ApplicationContext context: Context,
         loggingPort: LoggingPort,
     ): LiftCatalogSeeder =
         LiftCatalogSeeder(
             liftDao = liftDao,
-            incrementTierDao = incrementTierDao,
             equipmentTagsByLiftId = AssetLiftEquipmentCatalog(context, loggingPort = loggingPort).all(),
             loggingPort = loggingPort,
         )
