@@ -47,6 +47,7 @@ import com.stratum.core.ui.R as UiR
 import com.stratum.core.ui.component.StratumFeatureErrorFallback
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumIndexVolumeChart
+import com.stratum.core.ui.component.StratumSegmentedControl
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTrendChart
 import com.stratum.core.ui.component.StratumVolumeBarChart
@@ -77,6 +78,7 @@ fun DashboardScreen(
         health = health,
         isRefreshing = isRefreshing,
         onRefresh = if (health.visible) viewModel::refresh else null,
+        onSelectedTabChange = viewModel::selectTab,
         onNavigateToSettings = onNavigateToSettings,
         onOpenLiftGraph = viewModel::openLiftGraph,
         onOpenMuscleGraph = viewModel::openMuscleGraph,
@@ -103,11 +105,17 @@ internal fun DashboardScreen(
     health: DashboardHealthUiState = DashboardHealthUiState(),
     isRefreshing: Boolean = false,
     onRefresh: (() -> Unit)? = null,
+    onSelectedTabChange: (DashboardBoardTabUi) -> Unit = {},
     onOpenLiftGraph: (String) -> Unit = {},
     onOpenMuscleGraph: (String) -> Unit = {},
     onOpenMuscleDailyVolumeGraph: (String) -> Unit = {},
     onRetry: () -> Unit = {},
 ) {
+    val boardTabLabels = listOf(
+        stringResource(R.string.dashboard_tab_muscles),
+        stringResource(R.string.dashboard_tab_seven_day),
+        stringResource(R.string.dashboard_tab_lifts),
+    )
     val healthPagerState = rememberPagerState(
         initialPage = health.selectedPage.coerceIn(0, HEALTH_PAGER_PAGE_COUNT - 1),
         pageCount = { HEALTH_PAGER_PAGE_COUNT },
@@ -121,8 +129,11 @@ internal fun DashboardScreen(
             )
         }
     }
+    // The hero band shows whenever there is board content to anchor it: the pager when
+    // Health Connect is enabled, the Settings prompt when disabled. Error has no band.
+    val heroVisible = health.visible || state != DashboardUiState.Error
     DashboardHealthScaffold(
-        healthVisible = health.visible,
+        heroVisible = heroVisible,
         settingsAction = settingsAction,
         isRefreshing = isRefreshing,
         onRefresh = onRefresh,
@@ -132,10 +143,12 @@ internal fun DashboardScreen(
             DashboardUiState.Loading -> LoadingState(
                 health = health,
                 pagerState = healthPagerState,
+                onNavigateToSettings = onNavigateToSettings,
             )
             DashboardUiState.Empty -> EmptyState(
                 health = health,
                 pagerState = healthPagerState,
+                onNavigateToSettings = onNavigateToSettings,
             )
             DashboardUiState.Error -> StratumFeatureErrorFallback(onRetry = onRetry)
             is DashboardUiState.Loaded -> LoadedContent(
@@ -143,6 +156,9 @@ internal fun DashboardScreen(
                 tab = selectedTab,
                 health = health,
                 pagerState = healthPagerState,
+                boardTabLabels = boardTabLabels,
+                onSelectedTabChange = onSelectedTabChange,
+                onNavigateToSettings = onNavigateToSettings,
                 onOpenLiftGraph = onOpenLiftGraph,
                 onOpenMuscleGraph = onOpenMuscleGraph,
                 onOpenMuscleDailyVolumeGraph = onOpenMuscleDailyVolumeGraph,
@@ -155,8 +171,13 @@ internal fun DashboardScreen(
 private fun ColumnScope.LoadingState(
     health: DashboardHealthUiState,
     pagerState: PagerState,
+    onNavigateToSettings: () -> Unit,
 ) {
-    DashboardStatusColumn(health = health, pagerState = pagerState) {
+    DashboardStatusColumn(
+        health = health,
+        pagerState = pagerState,
+        onNavigateToSettings = onNavigateToSettings,
+    ) {
         StratumText(
             text = stringResource(R.string.dashboard_loading),
             muted = true,
@@ -172,8 +193,13 @@ private fun ColumnScope.LoadingState(
 private fun ColumnScope.EmptyState(
     health: DashboardHealthUiState,
     pagerState: PagerState,
+    onNavigateToSettings: () -> Unit,
 ) {
-    DashboardStatusColumn(health = health, pagerState = pagerState) {
+    DashboardStatusColumn(
+        health = health,
+        pagerState = pagerState,
+        onNavigateToSettings = onNavigateToSettings,
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -199,23 +225,27 @@ private fun ColumnScope.EmptyState(
 private fun ColumnScope.DashboardStatusColumn(
     health: DashboardHealthUiState,
     pagerState: PagerState,
+    onNavigateToSettings: () -> Unit,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    if (health.visible) {
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState()),
-        ) {
+    Column(
+        modifier = Modifier
+            .weight(1f)
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState()),
+    ) {
+        if (health.visible) {
             DashboardHealthPager(
                 state = health,
                 pagerState = pagerState,
                 modifier = Modifier.padding(bottom = HealthChromeSpacing),
             )
-            content()
+        } else {
+            DashboardHealthDisabledPrompt(
+                onNavigateToSettings = onNavigateToSettings,
+                modifier = Modifier.padding(bottom = HealthChromeSpacing),
+            )
         }
-    } else {
         content()
     }
 }
@@ -226,6 +256,9 @@ private fun ColumnScope.LoadedContent(
     tab: DashboardBoardTabUi,
     health: DashboardHealthUiState,
     pagerState: PagerState,
+    boardTabLabels: List<String>,
+    onSelectedTabChange: (DashboardBoardTabUi) -> Unit,
+    onNavigateToSettings: () -> Unit,
     onOpenLiftGraph: (String) -> Unit,
     onOpenMuscleGraph: (String) -> Unit,
     onOpenMuscleDailyVolumeGraph: (String) -> Unit,
@@ -265,6 +298,40 @@ private fun ColumnScope.LoadedContent(
                     modifier = Modifier
                         .fillMaxWidth()
                         .breakoutHorizontal(BOARD_HORIZONTAL_PADDING_DP.dp),
+                )
+            }
+        } else {
+            item(
+                key = "health-disabled-prompt",
+                span = { GridItemSpan(maxLineSpan) },
+            ) {
+                DashboardHealthDisabledPrompt(
+                    onNavigateToSettings = onNavigateToSettings,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .breakoutHorizontal(BOARD_HORIZONTAL_PADDING_DP.dp),
+                )
+            }
+        }
+        // Board switch glued to the cards it drives. Always rendered while loaded so the
+        // selector stays usable even when the selected tab is empty.
+        item(
+            key = "lift-metrics-selector",
+            span = { GridItemSpan(maxLineSpan) },
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                StratumText(
+                    text = stringResource(R.string.dashboard_lift_metrics_label),
+                    style = StratumThemeAccessor.typography.sectionLabel,
+                    muted = true,
+                )
+                StratumSegmentedControl(
+                    segments = boardTabLabels,
+                    selectedIndex = tab.index,
+                    onSelectedIndexChange = { onSelectedTabChange(DashboardBoardTabUi.fromIndex(it)) },
                 )
             }
         }
