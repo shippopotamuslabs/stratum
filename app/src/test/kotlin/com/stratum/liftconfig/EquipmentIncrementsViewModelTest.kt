@@ -567,8 +567,10 @@ class EquipmentIncrementsViewModelTest {
                         ProposalTierArgs(lowerBoundLb = 0.0, upperBoundLb = null, incrementLb = 2.5),
                     ),
             )
-            // The seeded bands must reach the editor even with no equipment to save to.
-            val state = awaitItemWith { it.equipmentId == "" && it.editor.tiers.isNotEmpty() }
+            // Wait for the seeded bands (increment 2.5), not the default draft (increment 5).
+            val state =
+                awaitItemWith { it.editor.tiers.any { tier -> tier.increment == "2.5" } }
+            assertEquals("", state.equipmentId)
             assertEquals(listOf("0"), state.editor.tiers.map { it.lowerBound })
             assertEquals(listOf("2.5"), state.editor.tiers.map { it.increment })
             cancelAndIgnoreRemainingEvents()
