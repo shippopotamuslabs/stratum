@@ -666,6 +666,7 @@ class WorkoutCompleteViewModelTest {
                 analyzeSessionEquipmentProposals =
                     AnalyzeSessionEquipmentProposalsUseCase(
                         trainingLogRepository = seededLog,
+                        liftRepository = liftRepo,
                         equipmentRepository = equipmentRepo,
                         preferences = equipPrefs,
                         loggingPort = logging,
@@ -780,6 +781,7 @@ class WorkoutCompleteViewModelTest {
                 analyzeSessionEquipmentProposals =
                     AnalyzeSessionEquipmentProposalsUseCase(
                         trainingLogRepository = logRepo,
+                        liftRepository = liftRepo,
                         equipmentRepository = equipmentRepo,
                         preferences = prefs,
                         loggingPort = logging,
@@ -894,6 +896,7 @@ class WorkoutCompleteViewModelTest {
             analyzeSessionEquipmentProposals =
                 AnalyzeSessionEquipmentProposalsUseCase(
                     trainingLogRepository = logRepo,
+                    liftRepository = liftRepo,
                     equipmentRepository = equipmentRepo,
                     preferences = prefs,
                     loggingPort = logging,
