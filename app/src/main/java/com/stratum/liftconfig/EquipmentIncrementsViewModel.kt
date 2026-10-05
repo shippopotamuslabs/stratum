@@ -91,7 +91,8 @@ class EquipmentIncrementsViewModel @Inject constructor(
     private val proposalSession = ProposalEditorSession()
     private val isSaving = MutableStateFlow(false)
     private val saveSucceeded = MutableStateFlow(false)
-    private val validationOverride = MutableStateFlow<String?>(null)
+    /** Test-visible: the save-guard message channel (surfaced via [EquipmentIncrementsUiState]). */
+    internal val validationOverride = MutableStateFlow<String?>(null)
     private val displayUnit = MutableStateFlow(Weight.WeightUnit.Lb)
 
     private data class PendingSwap(
