@@ -59,7 +59,7 @@ import com.stratum.liftconfig.MergeTargetBottomSheet
 fun GymScreen(
     onCreateNewLift: () -> Unit,
     onManageEquipment: () -> Unit = {},
-    onNavigateToIncrements: (liftId: String) -> Unit = {},
+    onNavigateToIncrements: (liftId: String, equipmentId: String?) -> Unit = { _, _ -> },
     onNavigateToInformation: (liftId: String) -> Unit = {},
     onMergeModeChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
@@ -300,9 +300,9 @@ fun GymScreen(
             enabled = liveOption.enabled,
             onEnabledChange = { enabled -> onLiftEnabledChange(liveOption.id, enabled) },
             onIncrementsClick = {
-                val id = liveOption.id
+                val option = liveOption
                 selectedLift = null
-                onNavigateToIncrements(id)
+                onNavigateToIncrements(option.id, option.equipmentId)
             },
             onInformationClick = {
                 val id = liveOption.id
@@ -469,7 +469,7 @@ data class GymScreenCallbacks(
     val onSearchQueryChanged: (String) -> Unit,
     val onFilterIntent: (LiftSwapFilterIntent) -> Unit,
     val onLiftEnabledChange: (String, Boolean) -> Unit,
-    val onNavigateToIncrements: (String) -> Unit,
+    val onNavigateToIncrements: (liftId: String, equipmentId: String?) -> Unit,
     val onNavigateToInformation: (String) -> Unit,
     val onCreateNewLift: () -> Unit,
     val onManageEquipment: () -> Unit = {},

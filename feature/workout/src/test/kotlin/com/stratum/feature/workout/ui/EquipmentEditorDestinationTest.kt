@@ -1,16 +1,22 @@
 package com.stratum.feature.workout.ui
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 
+/**
+ * STR-86: per-lift override destinations are gone — every "Edit equipment" request
+ * resolves to the shared equipment editor, regardless of the (now ignored)
+ * [EquipmentEditTarget.hasIncrementOverride] flag or a missing equipment id.
+ */
 class EquipmentEditorDestinationTest {
 
     @Test
-    @DisplayName("Given a per-lift override when resolved then the lift override editor wins over equipment")
-    fun overrideBeatsSharedEquipment() {
+    @DisplayName("Given a request for a lift with an override flag when resolved then the shared equipment editor opens")
+    fun overrideFlagStillRoutesToSharedEquipment() {
         assertEquals(
-            EquipmentEditorDestination.LiftOverride("lift-1"),
+            EquipmentEditorDestination.SharedEquipment("eq-1", "lift-1"),
             resolveEquipmentEditorDestination(
                 EquipmentEditRequest(
                     liftId = "lift-1",
@@ -35,17 +41,17 @@ class EquipmentEditorDestinationTest {
     }
 
     @Test
-    @DisplayName("Given no equipment and no override when resolved then the lift override editor opens")
-    fun unassignedLiftRoutesToLiftOverride() {
-        assertEquals(
-            EquipmentEditorDestination.LiftOverride("lift-1"),
+    @DisplayName("Given no equipment when resolved then the shared destination carries a null equipment id")
+    fun unassignedLiftRoutesToSharedEquipmentWithNullId() {
+        val destination =
             resolveEquipmentEditorDestination(
                 EquipmentEditRequest(
                     liftId = "lift-1",
                     target = EquipmentEditTarget(equipmentId = null, hasIncrementOverride = false),
                 ),
-            ),
-        )
+            ) as EquipmentEditorDestination.SharedEquipment
+        assertNull(destination.equipmentId)
+        assertEquals("lift-1", destination.sourceLiftId)
     }
 
     @Test
@@ -69,8 +75,8 @@ class EquipmentEditorDestinationTest {
     }
 
     @Test
-    @DisplayName("Given a rendered lift with an override when requested then the override editor opens")
-    fun renderedLiftOverrideRequestRoutesToLiftOverride() {
+    @DisplayName("Given a rendered lift with an override flag when requested then the shared editor opens")
+    fun renderedLiftOverrideRequestRoutesToSharedEquipment() {
         val request =
             equipmentEditRequestFor(
                 RenderedLiftUi(
@@ -83,7 +89,7 @@ class EquipmentEditorDestinationTest {
                 ),
             )
         assertEquals(
-            EquipmentEditorDestination.LiftOverride("lift-1"),
+            EquipmentEditorDestination.SharedEquipment("eq-1", "lift-1"),
             resolveEquipmentEditorDestination(request),
         )
     }

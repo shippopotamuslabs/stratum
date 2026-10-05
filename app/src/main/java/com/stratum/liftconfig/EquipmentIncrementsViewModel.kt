@@ -214,7 +214,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
         )
 
     fun initialize(
-        id: String,
+        id: String?,
         sourceLiftId: String? = null,
         initialTiersLb: List<ProposalTierArgs> = emptyList(),
         proposalContext: ProposalEditContext? = null,

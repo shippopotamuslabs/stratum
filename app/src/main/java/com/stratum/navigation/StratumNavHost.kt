@@ -77,12 +77,10 @@ import com.stratum.feature.workout.ui.EquipmentEditorDestination
 import com.stratum.feature.workout.ui.resolveEquipmentEditorDestination
 import com.stratum.liftconfig.CreateLiftKey
 import com.stratum.liftconfig.EquipmentIncrementsKey
-import com.stratum.liftconfig.LiftIncrementsKey
 import com.stratum.liftconfig.LiftInformationKey
 import com.stratum.liftconfig.ManageEquipmentKey
 import com.stratum.liftconfig.createLiftEntry
 import com.stratum.liftconfig.equipmentIncrementsEntry
-import com.stratum.liftconfig.liftIncrementsEntry
 import com.stratum.liftconfig.liftInformationEntry
 import com.stratum.liftconfig.manageEquipmentEntry
 
@@ -237,8 +235,13 @@ fun StratumNavHost(
                             onManageEquipment = {
                                 backStack.add(ManageEquipmentKey(selectionMode = false))
                             },
-                            onNavigateToLiftIncrements = { liftId ->
-                                backStack.add(LiftIncrementsKey(liftId))
+                            onNavigateToEquipmentIncrements = { liftId, equipmentId ->
+                                backStack.add(
+                                    EquipmentIncrementsKey(
+                                        equipmentId = equipmentId,
+                                        sourceLiftId = liftId,
+                                    ),
+                                )
                             },
                             onNavigateToLiftInformation = { liftId ->
                                 backStack.add(LiftInformationKey(liftId))
@@ -259,7 +262,6 @@ fun StratumNavHost(
                     onScreenChanged = onScreenChanged,
                 )
             }
-            liftIncrementsEntry(onBackClick = onNavigateBack)
             liftInformationEntry(
                 onBackClick = onNavigateBack,
                 onChooseEquipment = {
@@ -459,12 +461,6 @@ private fun pushEquipmentEditor(
  */
 private fun equipmentEditorKey(request: EquipmentEditRequest): NavKey =
     when (val destination = resolveEquipmentEditorDestination(request)) {
-        is EquipmentEditorDestination.LiftOverride ->
-            LiftIncrementsKey(
-                liftId = destination.liftId,
-                initialTiersLb = request.initialTiersLb,
-                proposalContext = request.proposalContext,
-            )
         is EquipmentEditorDestination.SharedEquipment ->
             EquipmentIncrementsKey(
                 equipmentId = destination.equipmentId,

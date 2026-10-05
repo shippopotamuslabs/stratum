@@ -320,13 +320,13 @@ class WorkoutCompleteViewModelTest {
             harness.viewModel.onEditProposal(id)
 
             val event = awaitItem() as WorkoutCompleteEvent.OpenEquipmentEditor
-            // Fork primary on seed Cables → edit request anchored on the anomalous lift
-            // (STR-86 reroutes this to the shared equipment editor).
+            // Fork primary on seed Cables → shared equipment editor anchored on the
+            // anomalous lift (STR-86).
             assertEquals("lat-pulldown", event.request.liftId)
             assertEquals("cable", event.request.target.equipmentId)
-            assertTrue(event.request.target.hasIncrementOverride)
+            assertFalse(event.request.target.hasIncrementOverride)
             assertEquals(
-                EquipmentEditorDestination.LiftOverride("lat-pulldown"),
+                EquipmentEditorDestination.SharedEquipment("cable", "lat-pulldown"),
                 resolveEquipmentEditorDestination(event.request),
             )
             assertTrue(event.request.initialTiersLb.isNotEmpty())

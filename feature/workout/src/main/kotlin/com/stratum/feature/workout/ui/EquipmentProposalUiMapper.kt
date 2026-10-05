@@ -66,9 +66,11 @@ internal object EquipmentProposalUiMapper {
      * corrects the inference guess instead of accepting or ignoring it.
      *
      * - Amend → shared equipment editor (same write Accept would perform).
-     * - Fork → per-lift editor anchored on the first affected lift (the fork target does
-     *   not exist yet, so manual correction lands on the lift; STR-86 reroutes this to
-     *   the shared equipment editor).
+     * - Fork → shared equipment editor for the cluster equipment, seeded with the
+     *   proposed tiers and anchored on the first affected lift: Save As New then
+     *   creates the fork and reassigns the lift (the per-lift editor is gone, STR-86).
+     *   With no cluster equipment there is no shared stack to correct, so the request
+     *   carries a null equipment id and the editor opens seeded but non-saving.
      */
     fun toEditRequest(proposal: EquipmentIncrementProposal): EquipmentEditRequest {
         val initialTiers =
@@ -104,7 +106,7 @@ internal object EquipmentProposalUiMapper {
                     )?.value
                 val clusterEquipmentId = proposal.clusterEquipmentId
                 if (liftId == null && clusterEquipmentId != null) {
-                    // No lift to anchor an override editor: correct the shared stack
+                    // No lift to anchor a fork on: correct the shared stack
                     // instead (blank liftId normalizes to a null source downstream).
                     EquipmentEditRequest(
                         liftId = "",
@@ -117,12 +119,16 @@ internal object EquipmentProposalUiMapper {
                         proposalContext = context,
                     )
                 } else {
+                    // Fork: correct the shared cluster stack seeded with the proposed
+                    // tiers; Save As New creates the fork and reassigns the lift.
+                    // hasIncrementOverride is always false now (STR-82/84 removed
+                    // per-lift overrides); it stays on the request for STR-83 cleanup.
                     EquipmentEditRequest(
                         liftId = liftId.orEmpty(),
                         target =
                             EquipmentEditTarget(
                                 equipmentId = proposal.clusterEquipmentId?.value,
-                                hasIncrementOverride = true,
+                                hasIncrementOverride = false,
                             ),
                         initialTiersLb = initialTiers,
                         proposalContext = context,

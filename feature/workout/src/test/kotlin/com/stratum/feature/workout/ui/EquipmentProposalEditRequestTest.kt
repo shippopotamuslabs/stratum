@@ -63,8 +63,8 @@ class EquipmentProposalEditRequestTest {
     }
 
     @Test
-    @DisplayName("Given fork primary when mapped then first assigned lift override with proposed tiers")
-    fun forkMapsToFirstAssignedLiftOverride() {
+    @DisplayName("Given fork primary when mapped then shared equipment editor anchored on first assigned lift")
+    fun forkMapsToSharedEquipmentAnchoredOnFirstAssignedLift() {
         val proposal =
             proposal(
                 primary =
@@ -78,14 +78,14 @@ class EquipmentProposalEditRequestTest {
         val request = EquipmentProposalUiMapper.toEditRequest(proposal)
 
         assertEquals(latId.value, request.liftId)
-        assertEquals(true, request.target.hasIncrementOverride)
+        assertEquals(cableId.value, request.target.equipmentId)
+        assertEquals(false, request.target.hasIncrementOverride)
         assertEquals(expectedArgs, request.initialTiersLb)
         val destination = resolveEquipmentEditorDestination(request)
-        assertTrue(destination is EquipmentEditorDestination.LiftOverride)
-        assertEquals(
-            latId.value,
-            (destination as EquipmentEditorDestination.LiftOverride).liftId,
-        )
+        assertTrue(destination is EquipmentEditorDestination.SharedEquipment)
+        val shared = destination as EquipmentEditorDestination.SharedEquipment
+        assertEquals(cableId.value, shared.equipmentId)
+        assertEquals(latId.value, shared.sourceLiftId)
     }
 
     @Test
@@ -149,9 +149,10 @@ class EquipmentProposalEditRequestTest {
         val request = EquipmentProposalUiMapper.toEditRequest(proposal)
 
         assertNull(request.target.equipmentId)
-        assertTrue(
-            resolveEquipmentEditorDestination(request) is EquipmentEditorDestination.LiftOverride,
-        )
+        val destination =
+            resolveEquipmentEditorDestination(request) as EquipmentEditorDestination.SharedEquipment
+        assertNull(destination.equipmentId)
+        assertEquals(latId.value, destination.sourceLiftId)
     }
 
     private fun proposal(
