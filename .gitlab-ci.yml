@@ -354,6 +354,11 @@ emulator-tests:
   stage: nightly
   timeout: 2h
   allow_failure: true
+  # Nightly survival (STR-77): needs:[] opts out of stage gating so an
+  # unrelated lint-stage failure can't skip this job; interruptible:false
+  # keeps auto-cancel from killing the scheduled pipeline on main pushes.
+  needs: []
+  interruptible: false
   variables:
     # This cmdline-tools' avdmanager ignores ANDROID_AVD_HOME and writes the AVD
     # to $ANDROID_USER_HOME/avd, while the emulator searches ANDROID_AVD_HOME.
@@ -428,6 +433,10 @@ solver-tests-nightly:
   stage: nightly
   timeout: 30m
   allow_failure: true
+  # Nightly survival (STR-77): same as emulator-tests — needs:[] opts out of
+  # stage gating, interruptible:false defeats auto-cancel on main pushes.
+  needs: []
+  interruptible: false
   rules:
     - if: $CI_PIPELINE_SOURCE == 'schedule'
   variables:
