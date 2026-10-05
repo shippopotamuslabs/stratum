@@ -666,7 +666,6 @@ class WorkoutCompleteViewModelTest {
                 analyzeSessionEquipmentProposals =
                     AnalyzeSessionEquipmentProposalsUseCase(
                         trainingLogRepository = seededLog,
-                        liftRepository = liftRepo,
                         equipmentRepository = equipmentRepo,
                         preferences = equipPrefs,
                         loggingPort = logging,
@@ -674,7 +673,6 @@ class WorkoutCompleteViewModelTest {
                 applyEquipmentIncrementProposal =
                     ApplyEquipmentIncrementProposalUseCase(
                         equipmentRepository = equipmentRepo,
-                        liftRepository = liftRepo,
                         validate = ValidateIncrementTiersUseCase(),
                         loggingPort = logging,
                     ),
@@ -684,7 +682,6 @@ class WorkoutCompleteViewModelTest {
                         trainingLogRepository = seededLog,
                         programRepository = programRepo,
                         liftTrainingInsightsRepository = insightsRepo,
-                        liftRepository = liftRepo,
                         preferences = repRangePrefs,
                         extractTrainingInsights =
                             ExtractTrainingInsightsUseCase(
@@ -695,7 +692,6 @@ class WorkoutCompleteViewModelTest {
                                     FakeMuscleVolumeBaselineRepository(),
                                 importAnalysisMetadataRepository =
                                     FakeImportAnalysisMetadataRepository(),
-                                liftRepository = liftRepo,
                             ),
                         loggingPort = logging,
                     ),
@@ -784,7 +780,6 @@ class WorkoutCompleteViewModelTest {
                 analyzeSessionEquipmentProposals =
                     AnalyzeSessionEquipmentProposalsUseCase(
                         trainingLogRepository = logRepo,
-                        liftRepository = liftRepo,
                         equipmentRepository = equipmentRepo,
                         preferences = prefs,
                         loggingPort = logging,
@@ -792,7 +787,6 @@ class WorkoutCompleteViewModelTest {
                 applyEquipmentIncrementProposal =
                     ApplyEquipmentIncrementProposalUseCase(
                         equipmentRepository = equipmentRepo,
-                        liftRepository = liftRepo,
                         validate = ValidateIncrementTiersUseCase(),
                         loggingPort = logging,
                     ),
@@ -802,7 +796,6 @@ class WorkoutCompleteViewModelTest {
                         trainingLogRepository = logRepo,
                         programRepository = programRepo,
                         liftTrainingInsightsRepository = insightsRepo,
-                        liftRepository = liftRepo,
                         preferences = repRangePrefs,
                         extractTrainingInsights =
                             ExtractTrainingInsightsUseCase(
@@ -813,7 +806,6 @@ class WorkoutCompleteViewModelTest {
                                     FakeMuscleVolumeBaselineRepository(),
                                 importAnalysisMetadataRepository =
                                     FakeImportAnalysisMetadataRepository(),
-                                liftRepository = liftRepo,
                             ),
                         loggingPort = logging,
                     ),
@@ -902,7 +894,6 @@ class WorkoutCompleteViewModelTest {
             analyzeSessionEquipmentProposals =
                 AnalyzeSessionEquipmentProposalsUseCase(
                     trainingLogRepository = logRepo,
-                    liftRepository = liftRepo,
                     equipmentRepository = equipmentRepo,
                     preferences = prefs,
                     loggingPort = logging,
@@ -910,7 +901,6 @@ class WorkoutCompleteViewModelTest {
             applyEquipmentIncrementProposal =
                 ApplyEquipmentIncrementProposalUseCase(
                     equipmentRepository = equipmentRepo,
-                    liftRepository = liftRepo,
                     validate = ValidateIncrementTiersUseCase(),
                     loggingPort = logging,
                 ),
@@ -920,7 +910,6 @@ class WorkoutCompleteViewModelTest {
                     trainingLogRepository = logRepo,
                     programRepository = programRepo,
                     liftTrainingInsightsRepository = insightsRepo,
-                    liftRepository = liftRepo,
                     preferences = repRangePrefs,
                     extractTrainingInsights =
                         ExtractTrainingInsightsUseCase(
@@ -930,7 +919,6 @@ class WorkoutCompleteViewModelTest {
                             muscleVolumeBaselineRepository = FakeMuscleVolumeBaselineRepository(),
                             importAnalysisMetadataRepository =
                                 FakeImportAnalysisMetadataRepository(),
-                            liftRepository = liftRepo,
                         ),
                     loggingPort = logging,
                 ),

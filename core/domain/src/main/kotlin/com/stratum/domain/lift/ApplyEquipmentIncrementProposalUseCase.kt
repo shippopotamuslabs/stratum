@@ -26,7 +26,6 @@ sealed interface ApplyEquipmentIncrementResult {
  */
 class ApplyEquipmentIncrementProposalUseCase @Inject constructor(
     private val equipmentRepository: EquipmentRepository,
-    private val liftRepository: LiftRepository,
     private val validate: ValidateIncrementTiersUseCase,
     private val loggingPort: LoggingPort,
 ) {
