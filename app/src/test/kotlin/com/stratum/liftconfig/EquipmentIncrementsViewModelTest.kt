@@ -31,7 +31,6 @@ import com.stratum.feature.workout.ui.ProposalTierArgs
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -558,39 +557,21 @@ class EquipmentIncrementsViewModelTest {
     }
 
     @Test
-    @DisplayName("DEBUG null init diagnostics")
-    fun debugNullInit() = runTest {
-        subject.initialize(
-            id = null,
-            initialTiersLb = listOf(ProposalTierArgs(0.0, null, 5.0)),
-        )
-        subject.uiState.test {
-            val first = awaitItem()
-            println(
-                "DEBUG-INIT first emission: tiers=${first.editor.tiers} " +
-                    "equipmentId='${first.equipmentId}'",
-            )
-            val second = withTimeoutOrNull(3000) { awaitItem() }
-            println("DEBUG-INIT second emission: tiers=${second?.editor?.tiers}")
-            cancelAndIgnoreRemainingEvents()
-        }
-    }
-
-    @Test
     @DisplayName("Given no equipment when initialized then seeded tiers show")
     fun nullEquipmentSeedsFromProposalArgs() = runTest {
-        subject.initialize(
-            id = null,
-            initialTiersLb =
-                listOf(ProposalTierArgs(lowerBoundLb = 0.0, upperBoundLb = null, incrementLb = 5.0)),
-        )
-        advanceUntilIdle()
-
         subject.uiState.test {
-            val state = awaitItemWith { it.editor.tiers.isNotEmpty() }
+            subject.initialize(
+                id = null,
+                initialTiersLb =
+                    listOf(
+                        ProposalTierArgs(lowerBoundLb = 0.0, upperBoundLb = null, incrementLb = 2.5),
+                    ),
+            )
+            val state =
+                awaitItemWith { it.editor.tiers.any { tier -> tier.increment == "2.5" } }
             assertEquals("", state.equipmentId)
             assertEquals(listOf("0"), state.editor.tiers.map { it.lowerBound })
-            assertEquals(listOf("5"), state.editor.tiers.map { it.increment })
+            assertEquals(listOf("2.5"), state.editor.tiers.map { it.increment })
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -598,13 +579,15 @@ class EquipmentIncrementsViewModelTest {
     @Test
     @DisplayName("Given no equipment when saved then a message surfaces and nothing is written")
     fun nullEquipmentSaveSurfacesMessage() = runTest {
-        subject.initialize(
-            id = null,
-            initialTiersLb =
-                listOf(ProposalTierArgs(lowerBoundLb = 0.0, upperBoundLb = null, incrementLb = 5.0)),
-        )
         subject.uiState.test {
-            awaitItemWith { it.editor.tiers.isNotEmpty() }
+            subject.initialize(
+                id = null,
+                initialTiersLb =
+                    listOf(
+                        ProposalTierArgs(lowerBoundLb = 0.0, upperBoundLb = null, incrementLb = 2.5),
+                    ),
+            )
+            awaitItemWith { it.editor.tiers.any { tier -> tier.increment == "2.5" } }
             subject.save()
             val state = awaitItemWith { it.editor.validationMessage != null }
             assertEquals(
@@ -621,13 +604,15 @@ class EquipmentIncrementsViewModelTest {
     @Test
     @DisplayName("Given no equipment when save as new then a message surfaces and nothing forks")
     fun nullEquipmentSaveAsNewSurfacesMessage() = runTest {
-        subject.initialize(
-            id = null,
-            initialTiersLb =
-                listOf(ProposalTierArgs(lowerBoundLb = 0.0, upperBoundLb = null, incrementLb = 5.0)),
-        )
         subject.uiState.test {
-            awaitItemWith { it.editor.tiers.isNotEmpty() }
+            subject.initialize(
+                id = null,
+                initialTiersLb =
+                    listOf(
+                        ProposalTierArgs(lowerBoundLb = 0.0, upperBoundLb = null, incrementLb = 2.5),
+                    ),
+            )
+            awaitItemWith { it.editor.tiers.any { tier -> tier.increment == "2.5" } }
             subject.saveAsNew("Copy")
             val state = awaitItemWith { it.editor.validationMessage != null }
             assertEquals(
