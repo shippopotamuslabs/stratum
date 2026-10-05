@@ -181,8 +181,8 @@ class LiftRemoteApplierMatrixTest {
     }
 
     @Test
-    @DisplayName("overlay micro_options applies the override and encodes it back")
-    fun overlayMicroOptionsApplies() = runTest {
+    @DisplayName("overlay micro_options is ignored (per-lift overrides removed, STR-83)")
+    fun overlayMicroOptionsIgnored() = runTest {
         seedCatalog("bench")
         val ok =
             subject.upsertFromRemote(
@@ -196,13 +196,13 @@ class LiftRemoteApplierMatrixTest {
             )
         assertTrue(ok)
         val row = database.liftDao().getById(LiftId("bench"))!!
-        assertEquals("[2.5]", row.microOptionsJson)
-        assertEquals(listOf(2.5), subject.encode(row)["micro_options"])
+        assertEquals(null, row.microOptionsJson)
+        assertEquals(null, subject.encode(row)["micro_options"])
     }
 
     @Test
-    @DisplayName("overlay without micro_options preserves the local override")
-    fun overlayMissingMicroPreservesLocal() = runTest {
+    @DisplayName("overlay without micro_options leaves the column untouched")
+    fun overlayMissingMicroOptionsLeavesColumnUntouched() = runTest {
         seedCatalog("bench").let { row ->
             database.liftDao().upsert(row.copy(microOptionsJson = "[2.5]"))
         }
