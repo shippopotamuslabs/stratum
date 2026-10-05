@@ -42,10 +42,11 @@ class IncrementTierLiftColumnMigration8To9Test {
                 INSERT INTO lifts
                   (id, name, movementPatternsBitmask, primaryMusclesBitmask,
                    secondaryMusclesBitmask, presetTags, equipmentId, isCustom, enabled,
+                   muscleLengthBias, mainstream, fatigueProfile, loadType,
                    micro_options_json, updated_at_epoch_millis, pending_sync)
                 VALUES
                   ('lift-stale-micro', 'Stale Micro', 0, 0, 0, '', 'eq-1', 0, 1,
-                   '[2.5]', 100, 0)
+                   'MID', 1, 'STANDARD', 'BARBELL', '[2.5]', 100, 0)
                 """.trimIndent(),
             )
             db.execSQL(
