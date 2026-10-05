@@ -31,6 +31,7 @@ import com.stratum.feature.workout.ui.ProposalTierArgs
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -554,6 +555,25 @@ class EquipmentIncrementsViewModelTest {
         }
 
         assertTrue(fakeEquipmentRepository.current.single().microIncrements.isEmpty())
+    }
+
+    @Test
+    @DisplayName("DEBUG null init diagnostics")
+    fun debugNullInit() = runTest {
+        subject.initialize(
+            id = null,
+            initialTiersLb = listOf(ProposalTierArgs(0.0, null, 5.0)),
+        )
+        subject.uiState.test {
+            val first = awaitItem()
+            println(
+                "DEBUG-INIT first emission: tiers=${first.editor.tiers} " +
+                    "equipmentId='${first.equipmentId}'",
+            )
+            val second = withTimeoutOrNull(3000) { awaitItem() }
+            println("DEBUG-INIT second emission: tiers=${second?.editor.tiers}")
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     @Test
