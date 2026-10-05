@@ -1,7 +1,6 @@
 package com.stratum.domain.lift
 
 import com.stratum.domain.lift.identity.EquipmentId
-import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.logging.expectedFailure
 import com.stratum.domain.logging.runCatchingLogged
@@ -14,8 +13,6 @@ sealed interface ApplyEquipmentIncrementResult {
     data class Amended(val equipmentId: EquipmentId) : ApplyEquipmentIncrementResult
 
     data class Forked(val equipmentId: EquipmentId) : ApplyEquipmentIncrementResult
-
-    data class LiftOverridden(val liftId: LiftId) : ApplyEquipmentIncrementResult
 }
 
 /**
@@ -24,7 +21,8 @@ sealed interface ApplyEquipmentIncrementResult {
  *
  * - [EquipmentIncrementRemedy.AmendEquipmentTiers] → equipment default tiers
  * - [EquipmentIncrementRemedy.ForkCustomEquipment] → transactional create + assign signal lifts
- * - [EquipmentIncrementRemedy.LiftOverride] → lift-scoped override tiers
+ *
+ * Per-lift overrides were removed (STR-82/84): there is no lift-override remedy anymore.
  */
 class ApplyEquipmentIncrementProposalUseCase @Inject constructor(
     private val equipmentRepository: EquipmentRepository,
@@ -61,10 +59,6 @@ class ApplyEquipmentIncrementProposalUseCase @Inject constructor(
                         )
                     ApplyEquipmentIncrementResult.Forked(id)
                 }
-                is EquipmentIncrementRemedy.LiftOverride -> {
-                    liftRepository.setIncrementTiers(remedy.liftId, remedy.tiers)
-                    ApplyEquipmentIncrementResult.LiftOverridden(remedy.liftId)
-                }
             }
         }
     }
@@ -73,7 +67,6 @@ class ApplyEquipmentIncrementProposalUseCase @Inject constructor(
         when (this) {
             is EquipmentIncrementRemedy.AmendEquipmentTiers -> tiers
             is EquipmentIncrementRemedy.ForkCustomEquipment -> tiers
-            is EquipmentIncrementRemedy.LiftOverride -> tiers
         }
 
     /**

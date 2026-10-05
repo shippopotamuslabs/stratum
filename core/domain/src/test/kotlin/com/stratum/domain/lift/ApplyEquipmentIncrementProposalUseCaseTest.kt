@@ -180,27 +180,6 @@ class ApplyEquipmentIncrementProposalUseCaseTest {
         }
     }
 
-    @Nested
-    @DisplayName("LiftOverride")
-    inner class Override {
-        @Test
-        @DisplayName("Given lift override when applied then lift has override tiers")
-        fun appliesLiftOverride() = runTest {
-            val remedy =
-                EquipmentIncrementRemedy.LiftOverride(
-                    liftId = latId,
-                    tiers = proposed,
-                )
-
-            val result = subject(remedy)
-
-            assertTrue(result.isSuccess)
-            val lift = liftRepo.currentLifts.first { it.id == latId }
-            assertEquals(proposed, lift.incrementTiers)
-            assertEquals(false, lift.usesEquipmentDefaultIncrements)
-        }
-    }
-
     private fun sampleLift(
         id: LiftId,
         name: String,

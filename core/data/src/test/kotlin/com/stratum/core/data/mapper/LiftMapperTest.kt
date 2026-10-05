@@ -1,9 +1,6 @@
 package com.stratum.core.data.mapper
 
-import com.stratum.core.data.db.EquipmentEntity
-import com.stratum.core.data.db.IncrementTierEntity
 import com.stratum.core.data.db.LiftEntity
-import com.stratum.core.data.db.LiftWithTiers
 import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.Lift
@@ -39,7 +36,7 @@ class LiftMapperTest {
         )
 
         val entity = lift.toEntity()
-        val back = LiftWithTiers(entity, emptyList()).toDomain()
+        val back = entity.toDomain()
 
         assertEquals(lift.copy(incrementTiers = back.incrementTiers), back)
         assertEquals(setOf(MuscleGroup.Chest), back.primaryMuscles)
@@ -48,37 +45,27 @@ class LiftMapperTest {
     }
 
     @Test
-    @DisplayName("Given tiers when mapped to entities and back then they round-trip sorted")
+    @DisplayName("Given equipment tiers when mapped to entities and back then they round-trip sorted")
     fun roundTripsTiers() {
         val lb = Weight.WeightUnit.Lb
-        val lift = Lift(
-            id = LiftId("squat"),
-            name = "Back Squat",
-            movementPatterns = setOf(MovementPattern.SquatPattern),
-            primaryMuscles = setOf(MuscleGroup.Quad),
-            secondaryMuscles = emptySet(),
-            incrementTiers = listOf(
-                com.stratum.domain.lift.IncrementTier(Weight(0.0, lb), Weight(40.0, lb), Weight(2.5, lb)),
-                com.stratum.domain.lift.IncrementTier(Weight(40.0, lb), Weight(100.0, lb), Weight(5.0, lb)),
-                com.stratum.domain.lift.IncrementTier(Weight(100.0, lb), null, Weight(10.0, lb)),
-            ),
-            presetTags = emptySet(),
-            enabled = false,
-            isCustom = false,
-        )
+        val equipment =
+            com.stratum.domain.lift.Equipment(
+                id = com.stratum.domain.lift.identity.EquipmentId("stack"),
+                name = "Stack",
+                incrementTiers = listOf(
+                    com.stratum.domain.lift.IncrementTier(Weight(0.0, lb), Weight(40.0, lb), Weight(2.5, lb)),
+                    com.stratum.domain.lift.IncrementTier(Weight(40.0, lb), Weight(100.0, lb), Weight(5.0, lb)),
+                    com.stratum.domain.lift.IncrementTier(Weight(100.0, lb), null, Weight(10.0, lb)),
+                ),
+            )
 
-        val overrideLift = lift.copy(usesEquipmentDefaultIncrements = false)
-        val entities = overrideLift.toLiftOverrideTiers()
+        val entities = equipment.toTierEntities()
         // Persist out-of-order to prove the decoder sorts by lowerBound.
         val shuffled = listOf(entities[2], entities[0], entities[1])
-        val back = LiftWithTiers(
-            lift = overrideLift.toEntity(),
-            tiers = shuffled,
-        ).toDomain()
+        val back = shuffled.toDomainTiers()
 
-        assertEquals(listOf(0.0, 40.0, 100.0), back.incrementTiers.map { it.lowerBound.amount })
-        assertEquals(null, back.incrementTiers.last().upperBound?.amount)
-        assertFalse(back.usesEquipmentDefaultIncrements)
+        assertEquals(listOf(0.0, 40.0, 100.0), back.map { it.lowerBound.amount })
+        assertEquals(null, back.last().upperBound?.amount)
     }
 
     @Test
@@ -97,7 +84,7 @@ class LiftMapperTest {
         )
         val entity = lift.toEntity()
         assertEquals(LiftId("leg-press"), entity.id)
-        assertEquals(LiftId("leg-press"), LiftWithTiers(entity, emptyList()).toDomain().id)
+        assertEquals(LiftId("leg-press"), entity.toDomain().id)
     }
 
     @Test
@@ -142,7 +129,7 @@ class LiftMapperTest {
                 incrementTiers = emptyList(),
             )
         val back =
-            LiftWithTiers(entity, emptyList()).toDomain(
+            entity.toDomain(
                 equipmentById = mapOf(equipmentId to equipment),
             )
         assertEquals(equipmentId, back.equipmentId)
@@ -168,7 +155,7 @@ class LiftMapperTest {
         )
 
         assertNull(lift.toEntity().equipmentId)
-        val back = LiftWithTiers(lift.toEntity(), emptyList()).toDomain()
+        val back = lift.toEntity().toDomain()
         assertNull(back.equipmentId)
     }
 
@@ -200,7 +187,7 @@ class LiftMapperTest {
             enabled = false,
             isCustom = false,
         )
-        val back = LiftWithTiers(lift.toEntity(), emptyList()).toDomain()
+        val back = lift.toEntity().toDomain()
         assertEquals(lift.movementPatterns, back.movementPatterns)
     }
 
@@ -227,7 +214,7 @@ class LiftMapperTest {
         )
         val entity = lift.toEntity()
         assertEquals(LoadType.Assisted, entity.loadType)
-        val back = LiftWithTiers(entity, emptyList()).toDomain()
+        val back = entity.toDomain()
         assertEquals(LoadType.Assisted, back.loadType)
     }
 
@@ -246,7 +233,7 @@ class LiftMapperTest {
             isCustom = false,
             loadType = LoadType.Bodyweight,
         )
-        val back = LiftWithTiers(lift.toEntity(), emptyList()).toDomain()
+        val back = lift.toEntity().toDomain()
         assertEquals(LoadType.Bodyweight, back.loadType)
     }
 
@@ -283,7 +270,7 @@ class LiftMapperTest {
         )
         val entity = lift.toEntity()
         assertEquals("Belt on working sets", entity.pinnedNote)
-        val back = LiftWithTiers(entity, emptyList()).toDomain()
+        val back = entity.toDomain()
         assertEquals("Belt on working sets", back.pinnedNote)
     }
 
@@ -346,7 +333,7 @@ class LiftMapperTest {
         val entity = liftEntity(microOptionsJson = null)
         val equipment = pinEquipment()
 
-        val back = LiftWithTiers(entity, emptyList()).toDomain(
+        val back = entity.toDomain(
             equipmentById = mapOf(equipment.id to equipment),
         )
 
@@ -359,7 +346,7 @@ class LiftMapperTest {
     fun explicitLiftMicroWins() {
         val entity = liftEntity(microOptionsJson = "[2.5]")
 
-        val back = LiftWithTiers(entity, emptyList()).toDomain(
+        val back = entity.toDomain(
             equipmentById = mapOf(pinEquipment().id to pinEquipment()),
         )
 
@@ -372,7 +359,7 @@ class LiftMapperTest {
     fun explicitEmptyLiftMicroClears() {
         val entity = liftEntity(microOptionsJson = "[]")
 
-        val back = LiftWithTiers(entity, emptyList()).toDomain(
+        val back = entity.toDomain(
             equipmentById = mapOf(pinEquipment().id to pinEquipment()),
         )
 
@@ -383,7 +370,7 @@ class LiftMapperTest {
     @Test
     @DisplayName("Given corrupt lift micro when mapped then it reads empty without failing")
     fun corruptMicroReadsEmpty() {
-        val back = LiftWithTiers(liftEntity(microOptionsJson = "nope"), emptyList()).toDomain()
+        val back = liftEntity(microOptionsJson = "nope").toDomain()
 
         assertEquals(emptyList<Weight>(), back.microIncrements)
         assertEquals(true, back.usesEquipmentDefaultMicro)

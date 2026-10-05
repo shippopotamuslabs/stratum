@@ -5,14 +5,12 @@ import com.stratum.core.data.db.EquipmentDao
 import com.stratum.core.data.db.GymPreferenceDao
 import com.stratum.core.data.db.GymPreferenceEntity
 import com.stratum.core.data.db.IncrementTierDao
-import com.stratum.core.data.db.IncrementTierEntity
 import com.stratum.core.data.db.LiftDao
 import com.stratum.core.data.db.LiftNoteEntity
 import com.stratum.core.data.db.StratumDatabase
 import com.stratum.core.data.mapper.toBitmask
 import com.stratum.core.data.mapper.toDomain
 import com.stratum.core.data.mapper.toEntity
-import com.stratum.core.data.mapper.toMicroJson
 import com.stratum.core.data.sync.SyncCollection
 import com.stratum.core.data.sync.SyncFlags
 import com.stratum.core.data.sync.SyncTouch
@@ -29,7 +27,6 @@ import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId
-import com.stratum.domain.lift.identity.IncrementTierId
 import com.stratum.domain.lift.identity.LiftCatalogNoteId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.sanitizeLiftNoteBody
@@ -42,7 +39,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 
 /**
- * Room implementation of [LiftRepository]. Reads compose lift + override tiers with the
+ * Room implementation of [LiftRepository]. Reads compose lift rows with the
  * equipment catalog to resolve **effective** [Lift.incrementTiers].
  */
 class RoomLiftRepository @Inject constructor(
@@ -57,7 +54,7 @@ class RoomLiftRepository @Inject constructor(
 
     override fun observeLifts(): Flow<List<Lift>> =
         combine(
-            liftDao.observeLiftsWithTiers(),
+            liftDao.observeLifts(),
             observeEquipmentById(),
         ) { rows, equipmentById ->
             rows.map { it.toDomain(equipmentById) }
@@ -66,7 +63,7 @@ class RoomLiftRepository @Inject constructor(
     override suspend fun getLiftsByIds(ids: Collection<LiftId>): List<Lift> {
         if (ids.isEmpty()) return emptyList()
         val distinctIds = ids.distinct()
-        val rows = liftDao.getLiftsWithTiersByIds(distinctIds)
+        val rows = liftDao.getLiftsByIds(distinctIds)
         if (rows.isEmpty()) return emptyList()
         val equipmentById = equipmentSnapshotById()
         return rows.map { it.toDomain(equipmentById) }
@@ -74,7 +71,7 @@ class RoomLiftRepository @Inject constructor(
 
     override fun observeEnabledLifts(): Flow<List<Lift>> =
         combine(
-            liftDao.observeEnabledLiftsWithTiers(),
+            liftDao.observeEnabledLifts(),
             observeEquipmentById(),
         ) { rows, equipmentById ->
             rows.map { it.toDomain(equipmentById) }
@@ -82,7 +79,7 @@ class RoomLiftRepository @Inject constructor(
 
     override fun observeLifts(isCustom: Boolean): Flow<List<Lift>> =
         combine(
-            liftDao.observeLiftsWithTiersByCustom(isCustom),
+            liftDao.observeLiftsByCustom(isCustom),
             observeEquipmentById(),
         ) { rows, equipmentById ->
             rows.map { it.toDomain(equipmentById) }
@@ -90,7 +87,7 @@ class RoomLiftRepository @Inject constructor(
 
     override fun observeLiftsContainingPattern(pattern: MovementPattern): Flow<List<Lift>> =
         combine(
-            liftDao.observeLiftsWithTiersByPattern(1 shl pattern.ordinal),
+            liftDao.observeLiftsByPattern(1 shl pattern.ordinal),
             observeEquipmentById(),
         ) { rows, equipmentById ->
             rows.map { it.toDomain(equipmentById) }
@@ -164,9 +161,6 @@ class RoomLiftRepository @Inject constructor(
 
     override suspend fun addCustomLift(definition: CustomLiftDefinition): LiftId {
         val id = LiftId(UUID.randomUUID().toString())
-        val hasExplicitIncrement = definition.increment != null
-        val overrideTiers =
-            definition.increment?.let { listOf(singleOpenTier(it)) }.orEmpty()
         val now = System.currentTimeMillis()
         // One write lock + one Room transaction: free-text equipment create and lift insert
         // must not leave an orphan equipment row if we crash mid-way. Public
@@ -192,6 +186,15 @@ class RoomLiftRepository @Inject constructor(
                                     createTiers = createTiers,
                                 )
                             }
+                        ?: definition.increment?.let { inc ->
+                            // STR-82/84: per-lift overrides are gone. A stub lift that needs
+                            // its own bands gets a visible "<name> Stack" equipment clone.
+                            equipmentRepository.createStackCloneUnlocked(
+                                baseName = definition.name,
+                                tiers = listOf(singleOpenTier(inc)),
+                                nowMillis = now,
+                            )
+                        }
                 val lift =
                     Lift(
                         id = id,
@@ -199,10 +202,10 @@ class RoomLiftRepository @Inject constructor(
                         movementPatterns = definition.movementPatterns,
                         primaryMuscles = definition.primaryMuscles,
                         secondaryMuscles = definition.secondaryMuscles,
-                        incrementTiers = overrideTiers,
+                        incrementTiers = emptyList(),
                         presetTags = emptySet(),
                         equipmentId = equipmentId,
-                        usesEquipmentDefaultIncrements = !hasExplicitIncrement,
+                        usesEquipmentDefaultIncrements = true,
                         enabled = true,
                         isCustom = true,
                         muscleLengthBias = definition.muscleLengthBias,
@@ -212,101 +215,20 @@ class RoomLiftRepository @Inject constructor(
                     )
                 syncTouch.cancelDelete(SyncCollection.Lifts, id.value)
                 liftDao.upsert(lift.toEntity(now))
-                incrementTierDao.deleteForLift(id)
-                if (overrideTiers.isNotEmpty()) {
-                    val tierEntities =
-                        overrideTiers.map { tier ->
-                            IncrementTierEntity(
-                                id = IncrementTierId.forBand(id, tier.lowerBound.amount),
-                                liftId = id,
-                                equipmentId = null,
-                                lowerBound = tier.lowerBound.amount,
-                                upperBound = tier.upperBound?.amount,
-                                increment = tier.increment.amount,
-                                updatedAtEpochMillis = now,
-                                pendingSync = SyncFlags.PENDING_UPSERT,
-                            )
-                        }
-                    syncTouch.cancelDelete(
-                        SyncCollection.IncrementTiers,
-                        tierEntities.map { it.id.value },
-                    )
-                    incrementTierDao.upsertAll(tierEntities)
-                }
             }
             syncTouch.markDirty()
         }
         return id
     }
 
-    override suspend fun setIncrementTiers(
-        id: LiftId,
-        tiers: List<IncrementTier>,
-        micro: List<Weight>?,
-    ) {
-        val now = System.currentTimeMillis()
-        syncTouch.withWriteLock {
-            database.withTransaction {
-                val nextIds = tiers.map { IncrementTierId.forBand(id, it.lowerBound.amount).value }
-                val previousIds = incrementTierDao.idsForLift(id)
-                syncTouch.replaceIds(SyncCollection.IncrementTiers, previousIds, nextIds, now)
-                incrementTierDao.deleteForLift(id)
-                if (tiers.isNotEmpty()) {
-                    val entities =
-                        tiers.map { tier ->
-                            IncrementTierEntity(
-                                id = IncrementTierId.forBand(id, tier.lowerBound.amount),
-                                liftId = id,
-                                equipmentId = null,
-                                lowerBound = tier.lowerBound.amount,
-                                upperBound = tier.upperBound?.amount,
-                                increment = tier.increment.amount,
-                                updatedAtEpochMillis = now,
-                                pendingSync = SyncFlags.PENDING_UPSERT,
-                            )
-                        }
-                    incrementTierDao.upsertAll(entities)
-                }
-                // Non-null micro rides the same transaction so bands and the knob
-                // can never half-persist; null leaves the stored override untouched.
-                if (micro != null) {
-                    liftDao.setMicroOptions(
-                        id = id,
-                        microOptionsJson = micro.toMicroJson(),
-                        updatedAtEpochMillis = now,
-                    )
-                }
-            }
-            syncTouch.markDirty()
-        }
-    }
-
     override suspend fun setLiftEquipment(id: LiftId, equipmentId: EquipmentId?, loadType: LoadType) {
         val now = System.currentTimeMillis()
         syncTouch.withWriteLock {
             database.withTransaction {
-                val previousTierIds = incrementTierDao.idsForLift(id)
-                syncTouch.replaceIds(SyncCollection.IncrementTiers, previousTierIds, emptyList(), now)
                 liftDao.setEquipmentIdAndLoadType(
                     id = id,
                     equipmentId = equipmentId,
                     loadType = loadType,
-                    updatedAtEpochMillis = now,
-                )
-                // Reassigned lifts inherit the new machine's lattice and knob.
-                clearLiftIncrementOverrides(incrementTierDao, liftDao, id, now)
-            }
-            syncTouch.markDirty()
-        }
-    }
-
-    override suspend fun setMicroOverride(id: LiftId, micro: List<Weight>?) {
-        val now = System.currentTimeMillis()
-        syncTouch.withWriteLock {
-            database.withTransaction {
-                liftDao.setMicroOptions(
-                    id = id,
-                    microOptionsJson = micro?.toMicroJson(),
                     updatedAtEpochMillis = now,
                 )
             }

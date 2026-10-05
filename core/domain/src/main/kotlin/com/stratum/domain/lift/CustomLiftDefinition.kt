@@ -13,7 +13,10 @@ import com.stratum.domain.onboarding.MuscleGroup
  * Prefer [equipmentId] when known (seed loading methods from import). [equipmentName] is
  * free-text for custom / manual paths; the repository finds or creates equipment by name when
  * id is null. [equipmentCreateIncrement] is used only when minting new equipment from
- * [equipmentName] (single open band) — it is not a lift-scoped override ([increment] is).
+ * [equipmentName] (single open band). [increment] is used only when neither equipment id nor
+ * name resolves: the repository mints a visible "<name> Stack" equipment clone carrying the
+ * single open band (STR-82: per-lift overrides were removed, so a lift that needs its own
+ * bands gets a clone instead of an invisible override).
  */
 data class CustomLiftDefinition(
     val name: String,

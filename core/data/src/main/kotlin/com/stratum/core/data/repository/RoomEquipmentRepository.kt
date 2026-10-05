@@ -79,20 +79,11 @@ class RoomEquipmentRepository @Inject constructor(
             database.withTransaction {
                 insertCustomEquipmentUnlocked(id, name, resolvedTiers, micro = emptyList(), nowMillis = now)
                 for (liftId in distinctLiftIds) {
-                    val previousTierIds = incrementTierDao.idsForLift(liftId)
-                    syncTouch.replaceIds(
-                        SyncCollection.IncrementTiers,
-                        previousTierIds,
-                        emptyList(),
-                        now,
-                    )
                     liftDao.setEquipmentId(
                         id = liftId,
                         equipmentId = id,
                         updatedAtEpochMillis = now,
                     )
-                    // Assigned lifts inherit the new machine's lattice and knob.
-                    clearLiftIncrementOverrides(incrementTierDao, liftDao, liftId, now)
                 }
             }
             syncTouch.markDirty()
@@ -199,6 +190,28 @@ class RoomEquipmentRepository @Inject constructor(
         return id
     }
 
+    /**
+     * Mints a "<baseName> Stack" equipment clone carrying [tiers]. Per-lift overrides were
+     * removed (STR-82/84): a lift that needs its own bands gets a visible clone instead of an
+     * invisible override. The name is deduped ("<base> Stack 2", ...) so repeated imports
+     * never collide. Caller must already hold the write lock and a Room transaction.
+     */
+    suspend fun createStackCloneUnlocked(
+        baseName: String,
+        tiers: List<IncrementTier>,
+        nowMillis: Long,
+    ): EquipmentId {
+        val id = EquipmentId(UUID.randomUUID().toString())
+        var cloneName = "$baseName Stack"
+        var suffix = 2
+        while (equipmentDao.findByNameIgnoreCase(cloneName) != null) {
+            cloneName = "$baseName Stack $suffix"
+            suffix++
+        }
+        insertCustomEquipmentUnlocked(id, cloneName, tiers, micro = emptyList(), nowMillis = nowMillis)
+        return id
+    }
+
     private suspend fun resolveExistingByName(trimmed: String): EquipmentId? {
         if (trimmed.isEmpty()) return null
         // 1) Exact case-insensitive display-name match.
@@ -250,7 +263,6 @@ class RoomEquipmentRepository @Inject constructor(
         map { tier ->
             IncrementTierEntity(
                 id = IncrementTierId.forEquipmentBand(equipmentId, tier.lowerBound.amount),
-                liftId = null,
                 equipmentId = equipmentId,
                 lowerBound = tier.lowerBound.amount,
                 upperBound = tier.upperBound?.amount,

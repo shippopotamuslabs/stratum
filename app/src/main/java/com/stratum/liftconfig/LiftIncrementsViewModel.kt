@@ -8,7 +8,6 @@ import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MicroIncrementsValidationResult
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
 import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
-import com.stratum.domain.lift.SetLiftIncrementTiersUseCase
 import com.stratum.domain.lift.ValidateIncrementTiersUseCase
 import com.stratum.domain.lift.ValidateMicroIncrementsUseCase
 import com.stratum.domain.lift.DismissEquipmentProposalUseCase
@@ -56,7 +55,6 @@ data class LiftIncrementsUiState(
 @HiltViewModel
 class LiftIncrementsViewModel @Inject constructor(
     private val observeLiftCatalog: ObserveLiftCatalogUseCase,
-    private val setLiftIncrementTiers: SetLiftIncrementTiersUseCase,
     private val validateIncrementTiers: ValidateIncrementTiersUseCase,
     private val validateMicroIncrements: ValidateMicroIncrementsUseCase,
     private val dismissEquipmentProposal: DismissEquipmentProposalUseCase,
@@ -293,15 +291,13 @@ class LiftIncrementsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Per-lift overrides were removed (STR-82/84): there is nothing left for the old
+     * "Save" to persist. The per-lift editor is deleted in STR-86 (edits land on the
+     * shared equipment editor or a fork); this stays a no-op until then.
+     */
+    @Suppress("EmptyFunctionBlock")
     fun save() {
-        val id = liftId.value ?: return
-        val edits = resolveValidatedEdits() ?: return
-        viewModelScope.launch {
-            runSaving(
-                persist = { setLiftIncrementTiers(LiftId(id), edits.tiers, edits.micro) },
-                failureMessage = "Could not save increments",
-            )
-        }
     }
 
     /** Name prefill for the save-as-new sheet, preferring the equipment name. */

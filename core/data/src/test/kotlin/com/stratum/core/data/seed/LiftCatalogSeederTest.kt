@@ -46,7 +46,6 @@ class LiftCatalogSeederTest {
             ).all()
         subject = LiftCatalogSeeder(
             liftDao = database.liftDao(),
-            incrementTierDao = database.incrementTierDao(),
             equipmentTagsByLiftId = tags,
             loggingPort = FakeLoggingPort(),
         )

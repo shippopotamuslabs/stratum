@@ -20,7 +20,6 @@ import com.stratum.domain.onboarding.MuscleGroup
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -112,79 +111,6 @@ class RoomMicroIncrementsTest {
         equipmentRepository.setIncrementTiers(id, pinTiers)
 
         assertEquals(listOf(5.0, 10.0), equipmentRepository.getEquipment(id)!!.microIncrements.map { it.amount })
-    }
-
-    @Test
-    @DisplayName("Given bands plus micro when set together then both persist atomically")
-    fun liftBandsAndMicroPersistTogether() = runTest {
-        val equipmentId = EquipmentId("pin-loaded-machine")
-        val liftId = LiftId("lat-pulldown")
-        seedEquipment(equipmentId)
-        seedLift(liftId, equipmentId)
-
-        liftRepository.setIncrementTiers(liftId, pinTiers, pinMicro)
-
-        val read = liftRepository.getLiftsByIds(listOf(liftId)).single()
-        assertEquals(listOf(0.0), read.incrementTiers.map { it.lowerBound.amount })
-        assertEquals(listOf(5.0, 10.0), read.microIncrements.map { it.amount })
-        assertEquals(false, read.usesEquipmentDefaultMicro)
-    }
-
-    @Test
-    @DisplayName("Given override when set then lift reads effective micro until cleared")
-    fun liftMicroOverrideSetAndCleared() = runTest {
-        val equipmentId = EquipmentId("pin-loaded-machine")
-        val liftId = LiftId("lat-pulldown")
-        seedEquipment(equipmentId)
-        seedLift(liftId, equipmentId)
-
-        liftRepository.setMicroOverride(liftId, pinMicro)
-        val overridden = liftRepository.getLiftsByIds(listOf(liftId)).single()
-        assertEquals(listOf(5.0, 10.0), overridden.microIncrements.map { it.amount })
-        assertEquals(false, overridden.usesEquipmentDefaultMicro)
-
-        liftRepository.setMicroOverride(liftId, null)
-        val cleared = liftRepository.getLiftsByIds(listOf(liftId)).single()
-        assertEquals(emptyList<Weight>(), cleared.microIncrements)
-        assertEquals(true, cleared.usesEquipmentDefaultMicro)
-    }
-
-    @Test
-    @DisplayName("Given lift micro override when equipment reassigned then override clears")
-    fun reassignClearsLiftMicro() = runTest {
-        val fromId = EquipmentId("pin-loaded-machine")
-        val toId = EquipmentId("cable")
-        val liftId = LiftId("lat-pulldown")
-        seedEquipment(fromId)
-        seedEquipment(toId)
-        seedLift(liftId, fromId)
-        liftRepository.setMicroOverride(liftId, pinMicro)
-
-        liftRepository.setLiftEquipment(liftId, toId, LoadType.Weighted)
-
-        val read = liftRepository.getLiftsByIds(listOf(liftId)).single()
-        assertEquals(emptyList<Weight>(), read.microIncrements)
-        assertEquals(true, read.usesEquipmentDefaultMicro)
-    }
-
-    @Test
-    @DisplayName("Given lift micro override when fork assigns then override clears")
-    fun forkAssignClearsLiftMicro() = runTest {
-        val fromId = EquipmentId("pin-loaded-machine")
-        val liftId = LiftId("lat-pulldown")
-        seedEquipment(fromId)
-        seedLift(liftId, fromId)
-        liftRepository.setMicroOverride(liftId, pinMicro)
-
-        equipmentRepository.createCustomEquipmentAndAssignLifts(
-            name = "Custom stack",
-            tiers = pinTiers,
-            liftIds = listOf(liftId),
-        )
-
-        val read = liftRepository.getLiftsByIds(listOf(liftId)).single()
-        assertEquals(emptyList<Weight>(), read.microIncrements)
-        assertEquals(true, read.usesEquipmentDefaultMicro)
     }
 
     @Test

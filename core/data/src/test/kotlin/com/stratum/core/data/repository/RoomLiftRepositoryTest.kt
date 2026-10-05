@@ -187,6 +187,15 @@ class RoomLiftRepositoryTest {
             assertEquals(FatigueProfile.Medium, custom.fatigueProfile)
             assertEquals(LoadType.Weighted, custom.loadType)
             assertEquals(150, custom.defaultRestSeconds)
+            // STR-84: a per-lift increment mints a "<name> Stack" equipment clone instead
+            // of a lift-scoped override; the lift is assigned to the clone.
+            val stack = database.equipmentDao().findByNameIgnoreCase("Landmine Press Stack")
+            assertNotNull(stack)
+            assertEquals(stack!!.id, custom.equipmentId)
+            assertEquals("Landmine Press Stack", custom.equipmentName)
+            val stackTiers = database.incrementTierDao().getForEquipment(stack.id)
+            assertTrue(stackTiers.isNotEmpty())
+            assertTrue(stackTiers.all { it.increment == 5.0 })
         }
 
         @Test

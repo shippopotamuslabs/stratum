@@ -19,7 +19,6 @@ import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
 import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.ScanIncrementTiersUseCase
-import com.stratum.domain.lift.SetLiftIncrementTiersUseCase
 import com.stratum.domain.lift.ValidateIncrementTiersUseCase
 import com.stratum.domain.lift.ValidateMicroIncrementsUseCase
 import com.stratum.domain.lift.Weight
@@ -27,7 +26,6 @@ import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.feature.workout.ui.ProposalEditContext
-import com.stratum.feature.workout.ui.ProposalTierArgs
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -77,13 +75,6 @@ class LiftIncrementsViewModelTest {
         subject =
             LiftIncrementsViewModel(
                 observeLiftCatalog = ObserveLiftCatalogUseCase(fakeLiftRepository),
-                setLiftIncrementTiers =
-                    SetLiftIncrementTiersUseCase(
-                        fakeLiftRepository,
-                        ValidateIncrementTiersUseCase(),
-                        ValidateMicroIncrementsUseCase(),
-                        FakeLoggingPort(),
-                    ),
                 validateIncrementTiers = ValidateIncrementTiersUseCase(),
                 validateMicroIncrements = ValidateMicroIncrementsUseCase(),
                 dismissEquipmentProposal =
@@ -108,62 +99,6 @@ class LiftIncrementsViewModelTest {
                         ObserveIncrementsAiScanUseCase(FakeFeatureFlagRepository()),
                     ),
             )
-    }
-
-    @Test
-    @DisplayName("Given proposal tiers when initialized then drafts show the proposal and save persists them")
-    fun proposalPrefillSeedsDraftsAndSaves() = runTest {
-        subject.initialize(
-            latId.value,
-            listOf(ProposalTierArgs(0.0, null, 2.5)),
-        )
-        subject.uiState.test {
-            val prefilled =
-                awaitItemWith {
-                    it.liftName == "Lat pulldown" &&
-                        it.editor.tiers.any { tier -> tier.increment == "2.5" }
-                }
-            assertEquals(
-                listOf(IncrementTierDraft("0", null, "2.5", openEnded = true)),
-                prefilled.editor.tiers,
-            )
-            assertNull(prefilled.editor.validationMessage)
-            // Prefill is display-only until the user saves.
-            assertEquals(
-                catalogTiers,
-                fakeLiftRepository.getLiftsByIds(listOf(latId)).single().incrementTiers,
-            )
-            subject.save()
-            assertEquals(true, awaitItemWith { it.editor.saveSucceeded }.editor.saveSucceeded)
-            cancelAndIgnoreRemainingEvents()
-        }
-
-        assertEquals(
-            listOf(IncrementTier(Weight(0.0, lb), null, Weight(2.5, lb))),
-            fakeLiftRepository.getLiftsByIds(listOf(latId)).single().incrementTiers,
-        )
-    }
-
-    @Test
-    @DisplayName("Given proposal context when saved then the proposal fingerprint is dismissed")
-    fun proposalSaveDismissesFingerprint() = runTest {
-        subject.initialize(
-            latId.value,
-            listOf(ProposalTierArgs(0.0, null, 2.5)),
-            ProposalEditContext.PostWorkout(
-                proposalId = "proposal-9",
-                sampleWeightsLb = listOf(62.5),
-            ),
-        )
-        subject.uiState.test {
-            awaitItemWith { it.editor.tiers.any { tier -> tier.increment == "2.5" } }
-            assertTrue(fakeProposalPrefs.dismissedFingerprints.isEmpty())
-            subject.save()
-            assertEquals(true, awaitItemWith { it.editor.saveSucceeded }.editor.saveSucceeded)
-            cancelAndIgnoreRemainingEvents()
-        }
-
-        assertEquals(setOf("proposal-9"), fakeProposalPrefs.dismissedFingerprints)
     }
 
     @Test
@@ -219,106 +154,6 @@ class LiftIncrementsViewModelTest {
             assertEquals(listOf("5", "10"), state.editor.microStops)
             cancelAndIgnoreRemainingEvents()
         }
-    }
-
-    @Test
-    @DisplayName("Given untouched stops when saved then the stored micro is left alone")
-    fun bandOnlySaveLeavesMicroUntouched() = runTest {
-        seedLift(
-            micro = listOf(Weight(2.5, lb)),
-            usesDefaultMicro = false,
-        )
-        subject.initialize(latId.value)
-        subject.uiState.test {
-            awaitItemWith { it.liftName == "Lat pulldown" && it.editor.tiers.isNotEmpty() }
-            subject.save()
-            assertEquals(true, awaitItemWith { it.editor.saveSucceeded }.editor.saveSucceeded)
-            cancelAndIgnoreRemainingEvents()
-        }
-
-        val stored = fakeLiftRepository.getLiftsByIds(listOf(latId)).single()
-        assertEquals(listOf(Weight(2.5, lb)), stored.microIncrements)
-        assertEquals(false, stored.usesEquipmentDefaultMicro)
-    }
-
-    @Test
-    @DisplayName("Given edited stops when saved then the lift carries a micro override")
-    fun editedMicroSavesOverride() = runTest {
-        subject.initialize(latId.value)
-        subject.uiState.test {
-            awaitItemWith { it.liftName == "Lat pulldown" && it.editor.tiers.isNotEmpty() }
-            subject.onAddMicro()
-            subject.onMicroChanged(0, "2.5")
-            subject.save()
-            assertEquals(true, awaitItemWith { it.editor.saveSucceeded }.editor.saveSucceeded)
-            cancelAndIgnoreRemainingEvents()
-        }
-
-        val stored = fakeLiftRepository.getLiftsByIds(listOf(latId)).single()
-        assertEquals(listOf(Weight(2.5, lb)), stored.microIncrements)
-        assertEquals(false, stored.usesEquipmentDefaultMicro)
-    }
-
-    @Test
-    @DisplayName("Given cleared stops when saved then the lift carries an explicit no-adder override")
-    fun clearedMicroSavesExplicitNone() = runTest {
-        seedLift(
-            micro = listOf(Weight(2.5, lb)),
-            usesDefaultMicro = false,
-        )
-        subject.initialize(latId.value)
-        subject.uiState.test {
-            awaitItemWith { it.liftName == "Lat pulldown" && it.editor.microStops.isNotEmpty() }
-            subject.onRemoveMicro(0)
-            subject.save()
-            assertEquals(true, awaitItemWith { it.editor.saveSucceeded }.editor.saveSucceeded)
-            cancelAndIgnoreRemainingEvents()
-        }
-
-        val stored = fakeLiftRepository.getLiftsByIds(listOf(latId)).single()
-        assertEquals(emptyList<Weight>(), stored.microIncrements)
-        assertEquals(false, stored.usesEquipmentDefaultMicro)
-    }
-
-    @Test
-    @DisplayName("Given back-to-back stop edits when saved then both stops persist")
-    fun backToBackMicroEditsBothPersist() = runTest {
-        subject.initialize(latId.value)
-        subject.uiState.test {
-            awaitItemWith { it.liftName == "Lat pulldown" && it.editor.tiers.isNotEmpty() }
-            // No suspension between edits: each edit must build on the draft, not on
-            // the derived uiState which lags writes by at least one emission.
-            subject.onAddMicro()
-            subject.onMicroChanged(0, "1.25")
-            subject.onAddMicro()
-            subject.onMicroChanged(1, "2.5")
-            subject.save()
-            assertEquals(true, awaitItemWith { it.editor.saveSucceeded }.editor.saveSucceeded)
-            cancelAndIgnoreRemainingEvents()
-        }
-
-        val stored = fakeLiftRepository.getLiftsByIds(listOf(latId)).single()
-        assertEquals(listOf(Weight(1.25, lb), Weight(2.5, lb)), stored.microIncrements)
-        assertEquals(false, stored.usesEquipmentDefaultMicro)
-    }
-
-    @Test
-    @DisplayName("Given a stop above the largest band when saved then save blocks with a message")
-    fun invalidMicroBlocksSave() = runTest {
-        subject.initialize(latId.value)
-        subject.uiState.test {
-            awaitItemWith { it.liftName == "Lat pulldown" && it.editor.tiers.isNotEmpty() }
-            subject.onAddMicro()
-            subject.onMicroChanged(0, "20")
-            subject.save()
-            val state = awaitItemWith { it.editor.validationMessage != null }
-            assertTrue(state.editor.validationMessage!!.contains("largest band step"))
-            cancelAndIgnoreRemainingEvents()
-        }
-
-        val stored = fakeLiftRepository.getLiftsByIds(listOf(latId)).single()
-        assertEquals(emptyList<Weight>(), stored.microIncrements)
-        assertTrue(stored.usesEquipmentDefaultMicro)
     }
 
     @Test

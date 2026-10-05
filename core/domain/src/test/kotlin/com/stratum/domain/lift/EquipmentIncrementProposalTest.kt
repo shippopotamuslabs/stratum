@@ -50,7 +50,6 @@ class EquipmentIncrementProposalTest {
         sampleWeights: List<Weight> = listOf(Weight(62.5, lb), Weight(67.5, lb)),
         inferredStep: Double = 2.5,
         allAnomalousInheritsDefaults: Boolean = true,
-        anyAnomalousInheritsDefaults: Boolean = true,
         residualSetCount: Int = 2,
         distinctResidualAmounts: Int = 2,
         existingEquipmentNames: Collection<String> = emptyList(),
@@ -66,7 +65,6 @@ class EquipmentIncrementProposalTest {
             proposedTiers = proposedTiers,
             inferredStep = inferredStep,
             allAnomalousInheritsDefaults = allAnomalousInheritsDefaults,
-            anyAnomalousInheritsDefaults = anyAnomalousInheritsDefaults,
             residualSetCount = residualSetCount,
             distinctResidualAmounts = distinctResidualAmounts,
             existingEquipmentNames = existingEquipmentNames,
@@ -91,7 +89,6 @@ class EquipmentIncrementProposalTest {
             assertTrue(
                 proposal.alternatives.any { it is EquipmentIncrementRemedy.AmendEquipmentTiers },
             )
-            assertTrue(proposal.alternatives.any { it is EquipmentIncrementRemedy.LiftOverride })
             // Seed equipment: not custom. Primary is Fork → one-tap Accept needs no confirm.
             assertFalse(proposal.equipmentIsCustom)
             assertFalse(proposal.requiresBlastRadiusConfirmation)
@@ -173,9 +170,6 @@ class EquipmentIncrementProposalTest {
             val fork = proposal.primary as EquipmentIncrementRemedy.ForkCustomEquipment
             assertEquals("Cables (gym)", fork.suggestedName)
             assertEquals(2, fork.assignLiftIds.size)
-            assertTrue(
-                proposal.alternatives.none { it is EquipmentIncrementRemedy.LiftOverride },
-            )
         }
 
         @Test
@@ -195,7 +189,6 @@ class EquipmentIncrementProposalTest {
             assertTrue(
                 proposal.alternatives.none { it is EquipmentIncrementRemedy.AmendEquipmentTiers },
             )
-            assertTrue(proposal.alternatives.any { it is EquipmentIncrementRemedy.LiftOverride })
             // No equipment id → custom-ish (no seed amend); primary is Fork → no blast confirm.
             assertTrue(proposal.equipmentIsCustom)
             assertFalse(proposal.requiresBlastRadiusConfirmation)
@@ -211,22 +204,19 @@ class EquipmentIncrementProposalTest {
 
         @Test
         @DisplayName(
-            "Given all anomalous lifts use overrides when ranked then LiftOverride primary",
+            "Given no anomalous lift inherits defaults when ranked then Fork primary " +
+                "(per-lift override remedy removed, STR-84)",
         )
-        fun allOverridesPreferLiftOverride() {
+        fun noInheritorsForkPrimary() {
             val proposal =
                 rankEquipmentIncrementProposal(
                     baseInput(
                         isCustom = true,
                         inheritingCount = 5,
                         allAnomalousInheritsDefaults = false,
-                        anyAnomalousInheritsDefaults = false,
                     ),
                 )
-            assertTrue(proposal.primary is EquipmentIncrementRemedy.LiftOverride)
-            assertTrue(
-                proposal.alternatives.any { it is EquipmentIncrementRemedy.ForkCustomEquipment },
-            )
+            assertTrue(proposal.primary is EquipmentIncrementRemedy.ForkCustomEquipment)
             assertTrue(
                 proposal.alternatives.any { it is EquipmentIncrementRemedy.AmendEquipmentTiers },
             )
@@ -244,15 +234,11 @@ class EquipmentIncrementProposalTest {
                         inheritingCount = 5,
                         anomalousLiftIds = listOf(latPulldown, cableRow),
                         allAnomalousInheritsDefaults = false,
-                        anyAnomalousInheritsDefaults = false,
                     ),
                 )
             assertTrue(proposal.primary is EquipmentIncrementRemedy.ForkCustomEquipment)
             assertTrue(
                 proposal.alternatives.any { it is EquipmentIncrementRemedy.AmendEquipmentTiers },
-            )
-            assertTrue(
-                proposal.alternatives.none { it is EquipmentIncrementRemedy.LiftOverride },
             )
         }
 
@@ -269,7 +255,6 @@ class EquipmentIncrementProposalTest {
                         inheritingCount = 5,
                         anomalousLiftIds = listOf(latPulldown, cableRow),
                         allAnomalousInheritsDefaults = false,
-                        anyAnomalousInheritsDefaults = true,
                     ),
                 )
             assertTrue(proposal.primary is EquipmentIncrementRemedy.ForkCustomEquipment)
