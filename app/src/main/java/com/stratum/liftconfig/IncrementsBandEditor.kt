@@ -3,7 +3,9 @@ package com.stratum.liftconfig
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -11,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -27,6 +30,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.stratum.core.ui.R as UiR
 import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumButton
@@ -73,13 +77,12 @@ data class IncrementSaveConfirm(
 )
 
 data class IncrementEditorChrome(
-    val contextText: String,
+    /** Null hides the context row (e.g. a lift carrying its own overrides). */
+    val contextText: String?,
     val onContextClick: (() -> Unit)?,
     val saveText: String,
     /** Non-null for shared-defaults entries (blast-radius confirm); null saves directly. */
     val saveConfirm: IncrementSaveConfirm?,
-    /** Null = no reset affordance (shared-defaults entries). Removed entirely by STR-72. */
-    val resetAction: (() -> Unit)?,
     /** Null = no save-as-new and no fork sheet (nothing to fork from). */
     val forkSuggestion: String?,
 )
@@ -151,6 +154,32 @@ internal fun IncrementEditorScreen(
                 },
             )
         },
+        bottomBar = {
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(StratumThemeAccessor.colors.surfaceBase)
+                        .navigationBarsPadding()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                StratumButton(
+                    text = chrome.saveText,
+                    onClick = saveActions.onSaveClick,
+                    enabled = !editor.isSaving && editor.validationMessage == null,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (chrome.forkSuggestion != null) {
+                    StratumOutlinedButton(
+                        text = stringResource(UiR.string.equipment_increments_save_as_new),
+                        onClick = saveActions.onSaveAsNewClick,
+                        enabled = !editor.isSaving && editor.validationMessage == null,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+        },
     ) { padding ->
         Column(
             modifier =
@@ -158,21 +187,24 @@ internal fun IncrementEditorScreen(
                     .fillMaxSize()
                     .padding(padding)
                     .padding(horizontal = 16.dp)
+                    .padding(bottom = 8.dp)
                     .verticalScroll(rememberScrollState()),
         ) {
-            EditorContextRow(
-                text = chrome.contextText,
-                onClick = chrome.onContextClick,
-            )
+            if (chrome.contextText != null) {
+                EditorContextRow(
+                    text = chrome.contextText,
+                    onClick = chrome.onContextClick,
+                )
+            }
             StratumText(
                 text = stringResource(UiR.string.equipment_band_section),
                 style = StratumThemeAccessor.typography.sectionLabel,
                 muted = true,
-                modifier = Modifier.padding(start = 2.dp, bottom = 8.dp),
+                modifier = Modifier.padding(start = 2.dp, top = 12.dp, bottom = 8.dp),
             )
             StratumText(
                 text = stringResource(UiR.string.equipment_band_hint),
-                style = StratumThemeAccessor.typography.sectionLabel,
+                style = StratumThemeAccessor.typography.sectionLabel.copy(fontSize = 12.sp),
                 muted = true,
                 modifier = Modifier.padding(start = 2.dp, bottom = 10.dp),
             )
@@ -223,36 +255,6 @@ internal fun IncrementEditorScreen(
                 unitLabel = editor.unitLabel,
                 onClick = stopActions.onStopsClick,
             )
-            Column(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(top = 16.dp, bottom = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                if (chrome.resetAction != null) {
-                    StratumOutlinedButton(
-                        text = stringResource(UiR.string.lift_increments_reset_to_equipment),
-                        onClick = chrome.resetAction,
-                        enabled = !editor.isSaving,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-                StratumButton(
-                    text = chrome.saveText,
-                    onClick = saveActions.onSaveClick,
-                    enabled = !editor.isSaving && editor.validationMessage == null,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                if (chrome.forkSuggestion != null) {
-                    StratumTextButton(
-                        text = stringResource(UiR.string.equipment_increments_save_as_new),
-                        onClick = saveActions.onSaveAsNewClick,
-                        enabled = !editor.isSaving && editor.validationMessage == null,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            }
         }
     }
     if (selection != null && editor.tiers.indices.contains(selection)) {
@@ -375,18 +377,27 @@ internal fun BandStrip(
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        tiers.forEachIndexed { index, tier ->
-            val isOpen = index == tiers.lastIndex
-            val selected = selection == index
-            BandCell(
-                rangeText = bandRangeText(tier, index == 0),
-                stepText = "+${tier.increment.ifBlank { "–" }} $unitLabel",
-                selected = selected,
-                openEnded = isOpen,
-                onClick = { onBandClick(index) },
-                modifier = Modifier.weight(bandWeight(tiers, index)),
-            )
+        Row(
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            tiers.forEachIndexed { index, tier ->
+                val isOpen = index == tiers.lastIndex
+                val selected = selection == index
+                BandCell(
+                    rangeText = bandRangeText(tier, index == 0),
+                    stepText = "+${tier.increment.ifBlank { "–" }} $unitLabel",
+                    selected = selected,
+                    openEnded = isOpen,
+                    onClick = { onBandClick(index) },
+                    modifier = Modifier.width(BAND_CELL_WIDTH),
+                )
+            }
         }
         BandAddCell(onClick = onAddBand)
     }
@@ -396,14 +407,6 @@ private fun bandRangeText(tier: IncrementTierDraft, isFirst: Boolean): String {
     val start = if (isFirst) "0" else tier.lowerBound.ifBlank { "?" }
     val end = tier.upperBound?.ifBlank { null }
     return if (end == null) "$start+" else "$start–$end"
-}
-
-private fun bandWeight(tiers: List<IncrementTierDraft>, index: Int): Float {
-    if (index == tiers.lastIndex) return OPEN_BAND_WEIGHT
-    val start = tiers[index].lowerBound.toDoubleOrNull()
-    val end = tiers[index].upperBound?.toDoubleOrNull()
-    if (start == null || end == null) return MIN_BAND_WEIGHT
-    return ((end - start).toFloat() / BAND_WEIGHT_SPAN).coerceAtLeast(MIN_BAND_WEIGHT)
 }
 
 @Composable
@@ -717,6 +720,5 @@ internal fun BandCaption(
     )
 }
 
-private const val OPEN_BAND_WEIGHT = 4f
-private const val MIN_BAND_WEIGHT = 2f
-private const val BAND_WEIGHT_SPAN = 25f
+/** Fixed cell width so every band stays legible; overflow scrolls instead of shrinking. */
+private val BAND_CELL_WIDTH = 96.dp

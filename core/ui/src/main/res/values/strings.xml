@@ -44,7 +44,6 @@
     <string name="equipment_increments_affects_with_names">Affects %1$d lift(s): %2$s</string>
     <!-- Affects N lifts: Name1, Name2, Name3 +M more -->
     <string name="equipment_increments_affects_with_more">Affects %1$d lift(s): %2$s +%3$d more</string>
-    <string name="equipment_increments_affects_none">No lifts use these defaults yet</string>
     <string name="equipment_increments_update_shared">Update shared</string>
     <string name="equipment_increments_save_as_new">Save as new</string>
     <string name="equipment_band_section">Weight bands</string>
@@ -77,8 +76,6 @@
     <string name="equipment_affected_sheet_title">Affected lifts</string>
     <string name="equipment_affected_disabled">Disabled</string>
     <string name="equipment_affected_swap">Change equipment</string>
-    <string name="lift_increments_override_banner">Custom override for this lift</string>
-    <string name="lift_increments_reset_to_equipment">Reset to equipment defaults</string>
     <string name="lift_swap_reset_filters_content_description">Clear all filters</string>
     <string name="lift_swap_filter_bias">Bias</string>
     <string name="lift_swap_filter_lift_type">Lift Type</string>
