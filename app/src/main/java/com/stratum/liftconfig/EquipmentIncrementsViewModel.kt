@@ -91,7 +91,8 @@ class EquipmentIncrementsViewModel @Inject constructor(
     private val proposalSession = ProposalEditorSession()
     private val isSaving = MutableStateFlow(false)
     private val saveSucceeded = MutableStateFlow(false)
-    private val validationOverride = MutableStateFlow<String?>(null)
+    /** Test-visible: the save-guard message channel (surfaced via [EquipmentIncrementsUiState]). */
+    internal val validationOverride = MutableStateFlow<String?>(null)
     private val displayUnit = MutableStateFlow(Weight.WeightUnit.Lb)
 
     private data class PendingSwap(
@@ -214,7 +215,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
         )
 
     fun initialize(
-        id: String,
+        id: String?,
         sourceLiftId: String? = null,
         initialTiersLb: List<ProposalTierArgs> = emptyList(),
         proposalContext: ProposalEditContext? = null,
@@ -387,8 +388,22 @@ class EquipmentIncrementsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Returns the edited equipment id, or null after surfacing a validation message when
+     * the launch has no equipment (equipment-less lift, fork proposal with no cluster
+     * equipment) — the editor degrades to a seeded, non-saving state instead of no-op.
+     */
+    private fun requireEquipmentId(action: String): String? {
+        val id = equipmentId.value
+        if (id.isNullOrBlank()) {
+            validationOverride.value = "Nothing to $action: no equipment is being edited."
+            return null
+        }
+        return id
+    }
+
     fun save() {
-        val id = equipmentId.value ?: return
+        val id = requireEquipmentId("save") ?: return
         val domainTiers = validatedDraftTiers() ?: return
         // Validate the draft stops (not the derived uiState list, which lags a
         // combine cycle): back-to-back edits and save observe the same value.
@@ -424,7 +439,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
      * inherits the edited bands.
      */
     fun saveAsNew(copyName: String = "") {
-        val id = equipmentId.value ?: return
+        val id = requireEquipmentId("fork") ?: return
         val domainTiers = validatedDraftTiers() ?: return
         // Bands and stops both validated so the copy never inherits a broken draft;
         // the edited stops ride onto the copy (never silently dropped).

@@ -11,12 +11,13 @@ import com.stratum.domain.lift.warnedIndexesForSamples
 import com.stratum.feature.workout.ui.ProposalTierArgs
 
 /**
- * Shared draft ↔ domain helpers for lift and equipment increment editors.
+ * Shared draft ↔ domain helpers for the equipment increment editor.
  *
  * **Storage convention:** Room `increment_tiers` has no unit column — magnitudes are always
  * **pounds**. Domain [Weight] is tagged [Weight.WeightUnit.Lb] at the mapper boundary.
  * [displayUnit] only affects draft strings shown in the editor; save always re-encodes Lb.
  */
+
 object IncrementTierDraftOps {
     const val DEFAULT_TIER_SPLIT_SPAN_LB = 50.0
     const val DEFAULT_TIER_SPLIT_AT_LB = 100.0

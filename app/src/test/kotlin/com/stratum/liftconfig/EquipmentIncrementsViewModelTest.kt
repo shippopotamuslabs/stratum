@@ -556,6 +556,34 @@ class EquipmentIncrementsViewModelTest {
         assertTrue(fakeEquipmentRepository.current.single().microIncrements.isEmpty())
     }
 
+    @Test
+    @DisplayName("Given no equipment when saved then a message surfaces and nothing is written")
+    fun nullEquipmentSaveSurfacesMessage() = runTest {
+        subject.initialize(id = null)
+        subject.save()
+        // The guard surfaces synchronously on validationOverride; the editor degrades to a
+        // seeded, non-saving state instead of silently no-op.
+        assertEquals(
+            "Nothing to save: no equipment is being edited.",
+            subject.validationOverride.value,
+        )
+        assertEquals(listOf("Cables"), fakeEquipmentRepository.current.map { it.name })
+    }
+
+    @Test
+    @DisplayName("Given no equipment when save as new then a message surfaces and nothing forks")
+    fun nullEquipmentSaveAsNewSurfacesMessage() = runTest {
+        subject.initialize(id = null)
+        subject.saveAsNew("Copy")
+        // The guard surfaces synchronously on validationOverride; the editor degrades to a
+        // seeded, non-saving state instead of silently no-op.
+        assertEquals(
+            "Nothing to fork: no equipment is being edited.",
+            subject.validationOverride.value,
+        )
+        assertEquals(listOf("Cables"), fakeEquipmentRepository.current.map { it.name })
+    }
+
     private val pinId = EquipmentId("pin-loaded-machine")
 
     private fun seedPin() {
