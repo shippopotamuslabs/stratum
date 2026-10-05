@@ -388,7 +388,13 @@ class EquipmentIncrementsViewModel @Inject constructor(
     }
 
     fun save() {
-        val id = equipmentId.value ?: return
+        val id = equipmentId.value
+        if (id.isNullOrBlank()) {
+            // STR-86: reachable when the launch has no equipment (equipment-less lift,
+            // fork proposal with no cluster equipment) — surface it instead of no-op.
+            validationOverride.value = "Nothing to save: no equipment is being edited."
+            return
+        }
         val domainTiers = validatedDraftTiers() ?: return
         // Validate the draft stops (not the derived uiState list, which lags a
         // combine cycle): back-to-back edits and save observe the same value.
@@ -424,7 +430,13 @@ class EquipmentIncrementsViewModel @Inject constructor(
      * inherits the edited bands.
      */
     fun saveAsNew(copyName: String = "") {
-        val id = equipmentId.value ?: return
+        val id = equipmentId.value
+        if (id.isNullOrBlank()) {
+            // STR-86: reachable when the launch has no equipment — surface it instead
+            // of no-op (see save()).
+            validationOverride.value = "Nothing to fork: no equipment is being edited."
+            return
+        }
         val domainTiers = validatedDraftTiers() ?: return
         // Bands and stops both validated so the copy never inherits a broken draft;
         // the edited stops ride onto the copy (never silently dropped).
