@@ -582,6 +582,21 @@ class EquipmentIncrementsViewModelTest {
     }
 
     @Test
+    @DisplayName("DEBUG minimal null switch")
+    fun debugNullSwitch() = runTest {
+        subject.uiState.test {
+            subject.initialize(cableId.value)
+            val s1 = awaitItemWith { it.equipmentName == "Cables" && it.editor.tiers.isNotEmpty() }
+            assertEquals("cable", s1.equipmentId)
+            subject.initialize(id = null)
+            // If this times out, the null switch does not emit.
+            val s2 = awaitItemWith { it.equipmentId == "" }
+            assertEquals("", s2.equipmentName)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     @DisplayName("Given no equipment when saved then a message surfaces and nothing is written")
     fun nullEquipmentSaveSurfacesMessage() = runTest {
         subject.uiState.test {
