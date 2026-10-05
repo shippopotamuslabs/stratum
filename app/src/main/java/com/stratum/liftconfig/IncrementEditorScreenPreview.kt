@@ -29,17 +29,15 @@ private val PREVIEW_EQUIPMENT_CHROME =
                 onConfirm = {},
                 onDismiss = {},
             ),
-        resetAction = null,
         forkSuggestion = "Cables (copy)",
     )
 
 private val PREVIEW_OVERRIDE_CHROME =
     IncrementEditorChrome(
-        contextText = "Custom override for this lift",
+        contextText = "Using defaults from Cables. Save to override for this lift only.",
         onContextClick = null,
         saveText = "Save",
         saveConfirm = null,
-        resetAction = {},
         forkSuggestion = "Cables (copy)",
     )
 

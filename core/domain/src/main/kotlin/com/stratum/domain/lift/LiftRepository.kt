@@ -108,14 +108,6 @@ interface LiftRepository {
     suspend fun setMicroOverride(id: LiftId, micro: List<Weight>?)
 
     /**
-     * Clears both lift-scoped increment overrides — band rows and the micro override —
-     * in a single atomic write so the lift fully re-inherits equipment defaults (or
-     * global fallback when unassigned). A failure leaves both overrides untouched; no
-     * half-reset with inherited bands but a stale knob override.
-     */
-    suspend fun resetIncrementTiersToEquipment(id: LiftId)
-
-    /**
      * Updates primary/secondary muscle tags for [id]. Bitmasks are derived in the data
      * mapper; no schema change. No-op when the lift is missing or not custom — catalog
      * lifts are immutable from the Details tab.
