@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -24,26 +23,19 @@ import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.layout
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -55,12 +47,10 @@ import com.stratum.core.ui.R as UiR
 import com.stratum.core.ui.component.StratumFeatureErrorFallback
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumIndexVolumeChart
-import com.stratum.core.ui.component.StratumSegmentedControl
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTrendChart
 import com.stratum.core.ui.component.StratumVolumeBarChart
 import com.stratum.core.ui.theme.StratumThemeAccessor
-import com.stratum.core.ui.theme.stratumButtonHardShadow
 
 @Composable
 fun DashboardScreen(
@@ -87,7 +77,6 @@ fun DashboardScreen(
         health = health,
         isRefreshing = isRefreshing,
         onRefresh = if (health.visible) viewModel::refresh else null,
-        onSelectedTabChange = viewModel::selectTab,
         onNavigateToSettings = onNavigateToSettings,
         onOpenLiftGraph = viewModel::openLiftGraph,
         onOpenMuscleGraph = viewModel::openMuscleGraph,
@@ -114,17 +103,11 @@ internal fun DashboardScreen(
     health: DashboardHealthUiState = DashboardHealthUiState(),
     isRefreshing: Boolean = false,
     onRefresh: (() -> Unit)? = null,
-    onSelectedTabChange: (DashboardBoardTabUi) -> Unit = {},
     onOpenLiftGraph: (String) -> Unit = {},
     onOpenMuscleGraph: (String) -> Unit = {},
     onOpenMuscleDailyVolumeGraph: (String) -> Unit = {},
     onRetry: () -> Unit = {},
 ) {
-    val boardTabLabels = listOf(
-        stringResource(R.string.dashboard_tab_muscles),
-        stringResource(R.string.dashboard_tab_seven_day),
-        stringResource(R.string.dashboard_tab_lifts),
-    )
     val healthPagerState = rememberPagerState(
         initialPage = health.selectedPage.coerceIn(0, HEALTH_PAGER_PAGE_COUNT - 1),
         pageCount = { HEALTH_PAGER_PAGE_COUNT },
@@ -141,13 +124,6 @@ internal fun DashboardScreen(
     DashboardHealthScaffold(
         healthVisible = health.visible,
         settingsAction = settingsAction,
-        boardTabs = {
-            DashboardTabToggle(
-                labels = boardTabLabels,
-                selectedIndex = selectedTab.index,
-                onSelectedIndexChange = { onSelectedTabChange(DashboardBoardTabUi.fromIndex(it)) },
-            )
-        },
         isRefreshing = isRefreshing,
         onRefresh = onRefresh,
         modifier = modifier,
@@ -653,113 +629,6 @@ private const val CARD_DOT_ICON_SIZE_DP = 14
 private const val VOLUME_GHOST_ALPHA = 0.5f
 private const val SECTION_HEADER_TOP_PADDING_DP = 4
 private const val SECTION_HEADER_BOTTOM_PADDING_DP = 0
-
-/**
- * Muscles | 7-Day | Lifts board switch in the dashboard top bar.
- *
- * - **Tonal:** large underlined text tabs (dashboard-specific chrome per UI_DESIGN.md §7.2).
- * - **Neo:** [StratumSegmentedControl] with hard-offset shadow from elevations — same control
- *   language as Settings/theme pickers; no feature branching on [com.stratum.core.ui.theme.StratumThemeId].
- */
-@Composable
-private fun DashboardTabToggle(
-    labels: List<String>,
-    selectedIndex: Int,
-    onSelectedIndexChange: (Int) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val elevations = StratumThemeAccessor.elevations
-    if (elevations.useHardShadow) {
-        val chipShape = RoundedCornerShape(StratumThemeAccessor.shapes.chipCorner)
-        StratumSegmentedControl(
-            modifier =
-                modifier.stratumButtonHardShadow(
-                    enabled = true,
-                    shape = chipShape,
-                    // Top bar is tight; let shadow paint into surrounding chrome.
-                    reserveSpace = false,
-                ),
-            segments = labels,
-            selectedIndex = selectedIndex,
-            onSelectedIndexChange = onSelectedIndexChange,
-        )
-        return
-    }
-
-    Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(TAB_TOGGLE_SPACING),
-    ) {
-        labels.forEachIndexed { index, label ->
-            TabToggleLabel(
-                label = label,
-                selected = index == selectedIndex,
-                onClick = { onSelectedIndexChange(index) },
-            )
-        }
-    }
-}
-
-@Composable
-private fun TabToggleLabel(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val colors = StratumThemeAccessor.colors
-    val typography = StratumThemeAccessor.typography
-    val labelColor = if (selected) colors.textPrimary else colors.textMuted
-    val style = remember(selected, typography, labelColor) {
-        typography.titleLarge.copy(color = labelColor)
-    }
-    // Measure the rendered word so the underline can be ~50% of its width, centered.
-    var textWidthPx by remember { mutableStateOf(0f) }
-    val density = LocalDensity.current
-    val underlineWidth = remember(textWidthPx, density) {
-        with(density) { (textWidthPx * TAB_TOGGLE_UNDERLINE_RATIO).toDp() }
-    }
-
-    Column(
-        modifier = modifier
-            .clickable(
-                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
-                indication = null,
-                role = Role.Tab,
-                onClick = onClick,
-            )
-            .semantics { this.selected = selected }
-            .padding(vertical = TAB_TOGGLE_LABEL_VERTICAL_PADDING),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        BasicText(
-            text = label,
-            style = style,
-            onTextLayout = { result -> textWidthPx = result.size.width.toFloat() },
-        )
-        Spacer(modifier = Modifier.height(TAB_TOGGLE_UNDERLINE_GAP))
-        Box(
-            modifier = Modifier.width(underlineWidth),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (selected) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(TAB_TOGGLE_UNDERLINE_HEIGHT)
-                        .clip(CircleShape)
-                        .background(colors.textPrimary),
-                )
-            }
-        }
-    }
-}
-
-private val TAB_TOGGLE_SPACING = 24.dp
-private val TAB_TOGGLE_LABEL_VERTICAL_PADDING = 6.dp
-private val TAB_TOGGLE_UNDERLINE_GAP = 4.dp
-private val TAB_TOGGLE_UNDERLINE_HEIGHT = 5.dp
-private const val TAB_TOGGLE_UNDERLINE_RATIO = 0.5f
 
 private val LEGEND_SPACING = 16.dp
 private val LEGEND_SWATCH_WIDTH = 16.dp
