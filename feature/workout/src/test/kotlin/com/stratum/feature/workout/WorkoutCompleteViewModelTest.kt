@@ -692,6 +692,7 @@ class WorkoutCompleteViewModelTest {
                                 supersetAffinityRepository = FakeSupersetAffinityRepository(),
                                 muscleVolumeBaselineRepository =
                                     FakeMuscleVolumeBaselineRepository(),
+                                liftRepository = liftRepo,
                                 importAnalysisMetadataRepository =
                                     FakeImportAnalysisMetadataRepository(),
                             ),
@@ -808,6 +809,7 @@ class WorkoutCompleteViewModelTest {
                                 supersetAffinityRepository = FakeSupersetAffinityRepository(),
                                 muscleVolumeBaselineRepository =
                                     FakeMuscleVolumeBaselineRepository(),
+                                liftRepository = liftRepo,
                                 importAnalysisMetadataRepository =
                                     FakeImportAnalysisMetadataRepository(),
                             ),
@@ -923,6 +925,7 @@ class WorkoutCompleteViewModelTest {
                             liftTrainingInsightsRepository = insightsRepo,
                             supersetAffinityRepository = FakeSupersetAffinityRepository(),
                             muscleVolumeBaselineRepository = FakeMuscleVolumeBaselineRepository(),
+                            liftRepository = liftRepo,
                             importAnalysisMetadataRepository =
                                 FakeImportAnalysisMetadataRepository(),
                         ),
