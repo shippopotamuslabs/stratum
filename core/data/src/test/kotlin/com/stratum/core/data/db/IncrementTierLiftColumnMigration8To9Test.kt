@@ -28,14 +28,8 @@ class IncrementTierLiftColumnMigration8To9Test {
             )
         val dbName = "stratum-increment-tiers-8-9"
         helper.createDatabase(dbName, 8).use { db ->
-            // createDatabase builds the CURRENT (v9) DDL, so reshape increment_tiers
-            // back to its v8 shape: re-add the liftId column and its two indexes.
-            db.execSQL("ALTER TABLE increment_tiers ADD COLUMN liftId TEXT")
-            db.execSQL("CREATE INDEX index_increment_tiers_liftId ON increment_tiers(liftId)")
-            db.execSQL(
-                "CREATE UNIQUE INDEX index_increment_tiers_liftId_lowerBound " +
-                    "ON increment_tiers(liftId, lowerBound)",
-            )
+            // createDatabase builds the v8 schema from the exported 8.json, so
+            // increment_tiers already has the liftId column, its FK, and indexes.
             db.execSQL(
                 """
                 INSERT INTO equipment
