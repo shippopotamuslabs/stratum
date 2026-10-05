@@ -93,6 +93,12 @@ data class LiftSwapOptionState(
     val isCustom: Boolean,
     val imageUrl: String? = null,
     val enabled: Boolean = true,
+    /**
+     * Catalog equipment backing the lift, when assigned. Populated by the Gym catalog
+     * mapping so "Increments" can route straight to the shared equipment editor;
+     * null for lift-swap rows that never need it.
+     */
+    val equipmentId: String? = null,
 )
 
 /**

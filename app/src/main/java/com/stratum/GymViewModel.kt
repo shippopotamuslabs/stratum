@@ -289,6 +289,7 @@ private fun Lift.toOptionState(): LiftSwapOptionState =
         isCustom = isCustom,
         imageUrl = imageUris.firstOrNull(),
         enabled = enabled,
+        equipmentId = equipmentId?.value,
     )
 
 private fun MuscleLengthBias.toDisplayLabel(): String =

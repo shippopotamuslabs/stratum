@@ -6,24 +6,6 @@ import com.stratum.feature.workout.ui.ProposalEditContext
 import com.stratum.feature.workout.ui.ProposalTierArgs
 import kotlinx.serialization.Serializable
 
-/**
- * Increments editor for one lift's override tiers.
- *
- * [initialTiersLb] seeds the editor with proposed bands (storage pounds) instead of the
- * current catalog tiers — set when launched from a post-workout equipment proposal's
- * "Edit steps" action or the live "Adjust Equipment" pill. Empty preserves the legacy
- * edit-current-tiers behavior.
- * [proposalContext] is the post-workout fingerprint (dismissed on save) or the live
- * warnings-only sample weights for non-blocking step warnings. Null outside
- * "Edit steps" / live-pill launches.
- */
-@Serializable
-data class LiftIncrementsKey(
-    val liftId: String,
-    val initialTiersLb: List<ProposalTierArgs> = emptyList(),
-    val proposalContext: ProposalEditContext? = null,
-) : NavKey
-
 @Serializable
 data class LiftInformationKey(val liftId: String) : NavKey
 
@@ -40,22 +22,16 @@ data class ManageEquipmentKey(val selectionMode: Boolean = false) : NavKey
 
 @Serializable
 data class EquipmentIncrementsKey(
-    val equipmentId: String,
+    /**
+     * Equipment to edit. Null when the launch has no equipment (e.g. an equipment-less
+     * lift or a fork proposal with no cluster equipment): the editor opens seeded
+     * from [initialTiersLb] but cannot save.
+     */
+    val equipmentId: String?,
     val sourceLiftId: String? = null,
     val initialTiersLb: List<ProposalTierArgs> = emptyList(),
     val proposalContext: ProposalEditContext? = null,
 ) : NavKey
-
-fun EntryProviderScope<NavKey>.liftIncrementsEntry(onBackClick: () -> Unit) {
-    entry<LiftIncrementsKey> { key ->
-        LiftIncrementsRoute(
-            liftId = key.liftId,
-            onBackClick = onBackClick,
-            initialTiersLb = key.initialTiersLb,
-            proposalContext = key.proposalContext,
-        )
-    }
-}
 
 fun EntryProviderScope<NavKey>.liftInformationEntry(
     onBackClick: () -> Unit,
