@@ -17,6 +17,20 @@ import com.stratum.feature.workout.ui.ProposalTierArgs
  * **pounds**. Domain [Weight] is tagged [Weight.WeightUnit.Lb] at the mapper boundary.
  * [displayUnit] only affects draft strings shown in the editor; save always re-encodes Lb.
  */
+
+/**
+ * Editable tier row in the increment editors. Raw strings; [IncrementTierDraftOps] converts
+ * to domain [IncrementTier] on save. (Moved here from the deleted per-lift
+ * `LiftIncrementsViewModel` — STR-86 collapsed the per-lift editor into the shared equipment
+ * editor, but this draft model is package-wide.)
+ */
+data class IncrementTierDraft(
+    val lowerBound: String,
+    val upperBound: String?,
+    val increment: String,
+    val openEnded: Boolean,
+)
+
 object IncrementTierDraftOps {
     const val DEFAULT_TIER_SPLIT_SPAN_LB = 50.0
     const val DEFAULT_TIER_SPLIT_AT_LB = 100.0
