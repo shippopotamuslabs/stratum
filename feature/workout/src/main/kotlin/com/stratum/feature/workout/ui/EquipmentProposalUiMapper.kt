@@ -223,7 +223,7 @@ internal object EquipmentProposalUiMapper {
                             null
                         },
                 )
-
+        }
 
     const val MSG_APPLY_FAILED = "Couldn't apply equipment update."
 

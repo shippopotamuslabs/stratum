@@ -53,7 +53,6 @@ class EquipmentCatalogSeeder(
                 dto.incrementTiers.map { t ->
                     IncrementTierEntity(
                         id = IncrementTierId.forEquipmentBand(id, t.lowerBound),
-                        liftId = null,
                         equipmentId = id,
                         lowerBound = t.lowerBound,
                         upperBound = t.upperBound,
