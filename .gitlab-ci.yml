@@ -90,12 +90,16 @@ stages:
     # The job image is pre-baked into the worker image (see gcp/bake-builder.sh):
     # skip the re-pull on every job — faster cold starts, less egress.
     pull_policy: if-not-present
-  # All Android jobs run on the GCP docker-autoscaler fleet (tag gcp): one
-  # fresh n2-standard-8 Spot VM per job, deleted afterwards. `image:` IS
-  # honored here — the container's SDK is the build toolchain (the old
-  # home-server shell executor ignored it and used the host toolchain).
-  # The home runner keeps Forge review, functions-tests, and the deploy lane.
-  tags: [gcp]
+  # All Android jobs run on the GCP docker-autoscaler fleet: one fresh Spot
+  # VM per job, deleted afterwards. Default tag gcp-small (n2-standard-4, no
+  # nested virt) covers lint/test/scan/build jobs; n2-standard-2 proved too
+  # small (Gradle + Kotlin + parallel Robolectric forks OOMed the 8 GB workers, jobs needing muscle or KVM
+  # (assemble-release, emulator-tests) override to gcp-big (n2-standard-8,
+  # nested virt). `image:` IS honored here — the container's SDK is the build
+  # toolchain (the old home-server shell executor ignored it and used the
+  # host toolchain). The home runner keeps Forge review, functions-tests,
+  # and the deploy lane.
+  tags: [gcp-small]
   # Spot VMs can be preempted mid-job: retry on infra failure.
   retry:
     max: 2
@@ -186,6 +190,9 @@ assemble-debug:
 # validates minification, not ship-readiness.
 assemble-release:
   extends: .android-job
+  # Release builds stay on the big tier: R8 full-mode shrinking is the most
+  # CPU-hungry step and this is the last gate before shipping (STR-75).
+  tags: [gcp-big]
   stage: test
   needs: []
   script:
@@ -337,12 +344,13 @@ osv-scan-image:
     # Exit code 1 = CVEs found, matching the osv-scan failure policy.
     - OSV_SCANNER_BIN="$CI_PROJECT_DIR/.tmp/osv-scanner" ./scripts/scan-solver-image.sh stratum-solver:ci
 
-# Emulator tests on the gcp fleet: workers expose /dev/kvm (nested virt), so
+# Emulator tests on the gcp-big fleet: workers expose /dev/kvm (nested virt), so
 # the emulator runs accelerated instead of slow unaccelerated.
 # Nightly + allow_failure until green, then decide about per-MR.
 # Covers AppLaunchTest (:app) and LiftDaoDeviceTest (:core:data) on real SQLite.
 emulator-tests:
   extends: .android-job
+  tags: [gcp-big]
   stage: nightly
   timeout: 2h
   allow_failure: true
