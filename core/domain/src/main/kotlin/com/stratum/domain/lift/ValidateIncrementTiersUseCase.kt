@@ -122,3 +122,11 @@ sealed interface IncrementTiersValidationResult {
     data object Valid : IncrementTiersValidationResult
     data class Invalid(val errors: Set<IncrementTiersValidationError>) : IncrementTiersValidationResult
 }
+
+/**
+ * Thrown by equipment/lift increment write use cases when the tier lattice fails
+ * [ValidateIncrementTiersUseCase].
+ */
+class IncrementTiersInvalidException(
+    val errors: Set<IncrementTiersValidationError>,
+) : IllegalArgumentException("Invalid increment tiers: $errors")

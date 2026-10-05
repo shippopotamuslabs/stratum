@@ -64,7 +64,6 @@ class ApplyEquipmentIncrementProposalUseCaseTest {
         subject =
             ApplyEquipmentIncrementProposalUseCase(
                 equipmentRepository = equipmentRepo,
-                liftRepository = liftRepo,
                 validate = ValidateIncrementTiersUseCase(),
                 loggingPort = logging,
             )
@@ -177,27 +176,6 @@ class ApplyEquipmentIncrementProposalUseCaseTest {
             assertTrue(result.exceptionOrNull() is IllegalArgumentException)
             assertEquals(0, logging.errors.size)
             assertEquals(1, logging.warnings.size)
-        }
-    }
-
-    @Nested
-    @DisplayName("LiftOverride")
-    inner class Override {
-        @Test
-        @DisplayName("Given lift override when applied then lift has override tiers")
-        fun appliesLiftOverride() = runTest {
-            val remedy =
-                EquipmentIncrementRemedy.LiftOverride(
-                    liftId = latId,
-                    tiers = proposed,
-                )
-
-            val result = subject(remedy)
-
-            assertTrue(result.isSuccess)
-            val lift = liftRepo.currentLifts.first { it.id == latId }
-            assertEquals(proposed, lift.incrementTiers)
-            assertEquals(false, lift.usesEquipmentDefaultIncrements)
         }
     }
 

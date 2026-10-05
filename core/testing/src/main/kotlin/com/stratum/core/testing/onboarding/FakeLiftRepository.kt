@@ -176,26 +176,6 @@ class FakeLiftRepository(
     /** Test hook: current historical-import flag. */
     val currentUsedHistoricalImport: Boolean get() = usedHistoricalImport.value
 
-    override suspend fun setIncrementTiers(
-        id: LiftId,
-        tiers: List<IncrementTier>,
-        micro: List<Weight>?,
-    ) {
-        lifts.value = lifts.value.map { lift ->
-            if (lift.id == id) {
-                lift.copy(
-                    incrementTiers = tiers,
-                    usesEquipmentDefaultIncrements = tiers.isEmpty(),
-                    inheritsFromEquipmentLattice = false,
-                    microIncrements = micro ?: lift.microIncrements,
-                    usesEquipmentDefaultMicro = if (micro == null) lift.usesEquipmentDefaultMicro else false,
-                )
-            } else {
-                lift
-            }
-        }
-    }
-
     override suspend fun setLiftEquipment(id: LiftId, equipmentId: EquipmentId?, loadType: LoadType) {
         lifts.value = lifts.value.map { lift ->
             if (lift.id == id) {
@@ -203,25 +183,12 @@ class FakeLiftRepository(
                     equipmentId = equipmentId,
                     equipmentName = equipmentId?.let { equipmentNamesById[it] },
                     loadType = loadType,
-                    // Changing equipment clears lift-scoped overrides so new defaults apply.
+                    // Changing equipment re-inherits the new defaults.
                     incrementTiers = emptyList(),
                     usesEquipmentDefaultIncrements = true,
                     inheritsFromEquipmentLattice = false,
                     microIncrements = emptyList(),
                     usesEquipmentDefaultMicro = true,
-                )
-            } else {
-                lift
-            }
-        }
-    }
-
-    override suspend fun setMicroOverride(id: LiftId, micro: List<Weight>?) {
-        lifts.value = lifts.value.map { lift ->
-            if (lift.id == id) {
-                lift.copy(
-                    microIncrements = micro.orEmpty(),
-                    usesEquipmentDefaultMicro = micro == null,
                 )
             } else {
                 lift

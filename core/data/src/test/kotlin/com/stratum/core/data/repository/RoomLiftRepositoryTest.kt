@@ -187,6 +187,43 @@ class RoomLiftRepositoryTest {
             assertEquals(FatigueProfile.Medium, custom.fatigueProfile)
             assertEquals(LoadType.Weighted, custom.loadType)
             assertEquals(150, custom.defaultRestSeconds)
+            // STR-84: a per-lift increment mints a "<name> Stack" equipment clone instead
+            // of a lift-scoped override; the lift is assigned to the clone.
+            val stack = database.equipmentDao().findByNameIgnoreCase("Landmine Press Stack")
+            assertNotNull(stack)
+            assertEquals(stack!!.id, custom.equipmentId)
+            assertEquals("Landmine Press Stack", custom.equipmentName)
+            val stackTiers = database.incrementTierDao().getForEquipment(stack.id)
+            assertTrue(stackTiers.isNotEmpty())
+            assertTrue(stackTiers.all { it.increment == 5.0 })
+        }
+
+        @Test
+        @DisplayName("Given a colliding Stack name when a custom lift is added then the clone name is unique-ified")
+        fun stackCloneNameDedupes() = runTest {
+            database.equipmentDao().upsert(
+                EquipmentEntity(
+                    id = EquipmentId("existing-stack"),
+                    name = "Landmine Press Stack",
+                    isCustom = true,
+                ),
+            )
+            val id = subject.addCustomLift(
+                CustomLiftDefinition(
+                    name = "Landmine Press",
+                    movementPatterns = setOf(MovementPattern.HorizontalPress),
+                    primaryMuscles = setOf(MuscleGroup.Chest),
+                    increment = Weight(5.0, Weight.WeightUnit.Lb),
+                    muscleLengthBias = MuscleLengthBias.Lengthened,
+                    fatigueProfile = FatigueProfile.Medium,
+                    loadType = LoadType.Weighted,
+                    defaultRestSeconds = 150,
+                ),
+            )
+
+            val custom = firstLifts().single { it.id == id }
+            // Shared uniqueifyForkEquipmentName policy: " (<n>)" suffix.
+            assertEquals("Landmine Press Stack (2)", custom.equipmentName)
         }
 
         @Test

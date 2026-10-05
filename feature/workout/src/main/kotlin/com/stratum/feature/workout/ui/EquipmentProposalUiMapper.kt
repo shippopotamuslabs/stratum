@@ -66,8 +66,9 @@ internal object EquipmentProposalUiMapper {
      * corrects the inference guess instead of accepting or ignoring it.
      *
      * - Amend → shared equipment editor (same write Accept would perform).
-     * - Fork / LiftOverride → per-lift override editor (the fork target does not exist yet,
-     *   so manual correction lands on the first affected lift's override).
+     * - Fork → per-lift editor anchored on the first affected lift (the fork target does
+     *   not exist yet, so manual correction lands on the lift; STR-86 reroutes this to
+     *   the shared equipment editor).
      */
     fun toEditRequest(proposal: EquipmentIncrementProposal): EquipmentEditRequest {
         val initialTiers =
@@ -128,17 +129,6 @@ internal object EquipmentProposalUiMapper {
                     )
                 }
             }
-            is EquipmentIncrementRemedy.LiftOverride ->
-                EquipmentEditRequest(
-                    liftId = remedy.liftId.value,
-                    target =
-                        EquipmentEditTarget(
-                            equipmentId = proposal.clusterEquipmentId?.value,
-                            hasIncrementOverride = true,
-                        ),
-                    initialTiersLb = initialTiers,
-                    proposalContext = context,
-                )
         }
     }
 
@@ -168,7 +158,6 @@ internal object EquipmentProposalUiMapper {
                 if (name.isNotEmpty()) "Created $name." else "Created custom equipment."
             }
             is ApplyEquipmentIncrementResult.Amended -> "Updated equipment steps."
-            is ApplyEquipmentIncrementResult.LiftOverridden -> "Updated lift steps."
         }
 
     /** Bands-only tier summary; adder copy composes via [formatAdderSuffix]. */
@@ -233,13 +222,6 @@ internal object EquipmentProposalUiMapper {
                         } else {
                             null
                         },
-                )
-            is EquipmentIncrementRemedy.LiftOverride ->
-                CardCopy(
-                    title = "Adjust steps for one lift",
-                    subtitle = "Apply matching steps only to this lift.",
-                    primaryLabel = MSG_ACCEPT,
-                    altLabel = null,
                 )
         }
 

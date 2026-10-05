@@ -6,22 +6,15 @@ import androidx.room.Upsert
 import com.stratum.core.data.sync.SyncFlags
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.IncrementTierId
-import com.stratum.domain.lift.identity.LiftId
 
 /**
- * DAO for lift-override and equipment-default increment tiers. Writes replace the whole set
- * per parent (delete + insert in a transaction at the repository layer).
+ * DAO for equipment-default increment tiers. Writes replace the whole set
+ * per equipment (delete + insert in a transaction at the repository layer).
  */
 @Dao
 interface IncrementTierDao {
     @Upsert
     suspend fun upsertAll(tiers: List<IncrementTierEntity>)
-
-    @Query("SELECT id FROM increment_tiers WHERE liftId = :liftId")
-    suspend fun idsForLift(liftId: LiftId): List<String>
-
-    @Query("DELETE FROM increment_tiers WHERE liftId = :liftId")
-    suspend fun deleteForLift(liftId: LiftId)
 
     @Query("SELECT id FROM increment_tiers WHERE equipmentId = :equipmentId")
     suspend fun idsForEquipment(equipmentId: EquipmentId): List<String>

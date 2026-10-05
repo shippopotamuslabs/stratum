@@ -1,6 +1,7 @@
 package com.stratum.core.data.sync
 
 import androidx.room.Room
+import com.stratum.core.data.db.EquipmentEntity
 import com.stratum.core.data.db.IncrementTierEntity
 import com.stratum.core.data.db.LiftEntity
 import com.stratum.core.data.db.StratumDatabase
@@ -9,6 +10,7 @@ import com.stratum.core.data.seed.EquipmentCatalogSeeder
 import com.stratum.core.data.seed.LiftCatalogSeeder
 import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.IncrementTierId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
@@ -50,7 +52,6 @@ class UserOwnedDataClearerTest {
                 liftCatalogSeeder =
                     LiftCatalogSeeder(
                         liftDao = database.liftDao(),
-                        incrementTierDao = database.incrementTierDao(),
                         equipmentTagsByLiftId =
                             AssetLiftEquipmentCatalog(
                                 context,
@@ -71,7 +72,8 @@ class UserOwnedDataClearerTest {
     fun wipeRemovesCustomRowsAndReseeds() = runTest {
         subject.clearUserOwnedData()
         val customId = LiftId("4be8acc5-4d83-4ccb-9477-2b8a61c15ec1")
-        val tierId = IncrementTierId.forBand(customId, 0.0)
+        val equipmentId = EquipmentId("custom-stack-1")
+        val tierId = IncrementTierId.forEquipmentBand(equipmentId, 0.0)
         database.liftDao().upsert(
             LiftEntity(
                 id = customId,
@@ -84,12 +86,18 @@ class UserOwnedDataClearerTest {
                 enabled = true,
             ),
         )
+        database.equipmentDao().upsert(
+            EquipmentEntity(
+                id = equipmentId,
+                name = "Custom Press Stack",
+                isCustom = true,
+            ),
+        )
         database.incrementTierDao().upsertAll(
             listOf(
                 IncrementTierEntity(
                     id = tierId,
-                    liftId = customId,
-                    equipmentId = null,
+                    equipmentId = equipmentId,
                     lowerBound = 0.0,
                     upperBound = null,
                     increment = 5.0,

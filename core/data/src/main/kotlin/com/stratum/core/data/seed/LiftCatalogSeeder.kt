@@ -1,8 +1,6 @@
 package com.stratum.core.data.seed
 
 import android.content.Context
-import com.stratum.core.data.db.IncrementTierDao
-import com.stratum.core.data.db.IncrementTierEntity
 import com.stratum.core.data.db.LiftDao
 import com.stratum.core.data.db.LiftEntity
 import com.stratum.core.data.mapper.toBitmask
@@ -12,13 +10,10 @@ import com.stratum.domain.importing.GymEquipment
 import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.LoadType
-import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.lift.identity.EquipmentId
-import com.stratum.domain.lift.identity.IncrementTierId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.logging.LoggingPort
-import com.stratum.domain.onboarding.MuscleGroup
 import kotlinx.serialization.json.Json
 
 /**
@@ -27,13 +22,10 @@ import kotlinx.serialization.json.Json
  * [EquipmentCatalogSeeder] has run.
  *
  * **Idempotent:** upserts by stable slug id. Never clears user-created (`isCustom`) rows.
- *
- * Seed lifts inherit equipment default increments via [LiftEntity.equipmentId] unless the
- * seed DTO supplies explicit [LiftSeedDto.incrementTiers] (lift-scoped override rows).
+ * Seed lifts inherit equipment default increments via [LiftEntity.equipmentId].
  */
 class LiftCatalogSeeder(
     private val liftDao: LiftDao,
-    private val incrementTierDao: IncrementTierDao,
     private val equipmentTagsByLiftId: Map<LiftId, Set<GymEquipment>> = emptyMap(),
     private val loggingPort: LoggingPort,
 ) {
@@ -51,16 +43,12 @@ class LiftCatalogSeeder(
         val dtos = decode(context, assetPath) ?: return 0
         if (dtos.isEmpty()) return 0
 
-        val mappedLifts =
+        val lifts =
             dtos
                 .filterNot { dto -> isBandVariantLift(dto.id, dto.name) }
                 .mapNotNull(::mapDto)
-        for (mapped in mappedLifts) {
-            liftDao.upsert(mapped.lift)
-            incrementTierDao.deleteForLift(mapped.lift.id)
-            if (mapped.overrideTiers.isNotEmpty()) {
-                incrementTierDao.upsertAll(mapped.overrideTiers)
-            }
+        for (lift in lifts) {
+            liftDao.upsert(lift)
         }
         return dtos.size
     }
@@ -81,7 +69,7 @@ class LiftCatalogSeeder(
         return pattern.containsMatchIn(id) || pattern.containsMatchIn(name)
     }
 
-    private fun mapDto(dto: LiftSeedDto): MappedLift? =
+    private fun mapDto(dto: LiftSeedDto): LiftEntity? =
         mapSeedDto(dto, equipmentTagsByLiftId)
 
     companion object {
@@ -95,7 +83,7 @@ class LiftCatalogSeeder(
         internal fun mapSeedDto(
             dto: LiftSeedDto,
             equipmentTagsByLiftId: Map<LiftId, Set<GymEquipment>> = emptyMap(),
-        ): MappedLift? {
+        ): LiftEntity? {
             val patterns = dto.movementPatterns.toSet()
             if (patterns.isEmpty()) return null
             val primary = dto.primaryMuscles.toSet()
@@ -131,20 +119,7 @@ class LiftCatalogSeeder(
                     updatedAtEpochMillis = 0L,
                     pendingSync = SyncFlags.CLEAN,
                 )
-            val overrideTiers =
-                dto.incrementTiers?.map { t ->
-                    IncrementTierEntity(
-                        id = IncrementTierId.forBand(id, t.lowerBound),
-                        liftId = id,
-                        equipmentId = null,
-                        lowerBound = t.lowerBound,
-                        upperBound = t.upperBound,
-                        increment = t.increment,
-                        updatedAtEpochMillis = 0L,
-                        pendingSync = SyncFlags.CLEAN,
-                    )
-                }.orEmpty()
-            return MappedLift(lift, overrideTiers)
+            return lift
         }
 
         /**
@@ -162,9 +137,4 @@ class LiftCatalogSeeder(
         private inline fun <reified T : Enum<T>> enumValueOfOrNull(name: String): T? =
             runCatching { enumValueOf<T>(name) }.getOrNull()
     }
-
-    internal data class MappedLift(
-        val lift: LiftEntity,
-        val overrideTiers: List<IncrementTierEntity>,
-    )
 }
