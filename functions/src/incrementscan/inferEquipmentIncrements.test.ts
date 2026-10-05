@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import {
   MAX_IMAGE_BYTES,
   SCAN_IMAGE_MIME_TYPES,
-  buildScanResult,
   inferEquipmentIncrements,
   parseScanModelContent,
   resolveScanImageDataUri,
@@ -216,28 +215,6 @@ describe("parseScanModelContent", () => {
       }),
     );
     assert.deepEqual(scan, { unit: "lb", tiers: [], microStops: [] });
-  });
-});
-
-describe("buildScanResult", () => {
-  it("spreads the scan with a _meta v1 baseline and no deprecation", () => {
-    const scan = {
-      unit: "lb" as const,
-      tiers: [{ lower: 10, upper: 50, step: 10 }],
-      microStops: [2.5],
-    };
-    assert.deepEqual(buildScanResult(scan), {
-      unit: "lb",
-      tiers: [{ lower: 10, upper: 50, step: 10 }],
-      microStops: [2.5],
-      _meta: { version: 1 },
-    });
-  });
-
-  it("does not mutate the input scan", () => {
-    const scan = { unit: "kg" as const, tiers: [], microStops: [] };
-    buildScanResult(scan);
-    assert.deepEqual(scan, { unit: "kg", tiers: [], microStops: [] });
   });
 });
 

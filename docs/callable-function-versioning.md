@@ -99,10 +99,12 @@ Rules for `_meta`:
 - Out-of-band channels (Play release notes, staged rollout) announce the
   migration; `_meta` is the machine-readable backstop, not the announcement.
 
-Build the block with `buildResultMeta()` from
-`functions/src/versioning/callableVersioning.ts` — never hand-roll the shape.
-Log served versions with `logCallableVersion()` so Cloud Logging shows which
-majors still receive traffic before a sunset deletion.
+Attach the block with `buildVersionedResult(payload, version, deprecation?)`
+from `functions/src/versioning/callableVersioning.ts` — never hand-roll the
+shape or add a per-callable wrapper. Keep the callable's name and major in
+`CALLABLE_NAME` / `CALLABLE_VERSION` constants so a version flip is a
+single-line change. Log served versions with `logCallableVersion()` so Cloud
+Logging shows which majors still receive traffic before a sunset deletion.
 
 ## 5. Worked example: deprecating `inferEquipmentIncrements` v1
 
@@ -115,7 +117,7 @@ parses. The first breaking change then follows this script:
    `functions/src/incrementscan/` (new file; v1 file untouched) and export
    both from `index.ts`. Deploy — both versions serve.
 2. Add `_meta.deprecation` (`sunsetDate`, `message`) to the v1 result via
-   `buildResultMeta(1, { sunsetDate, message })`.
+   `buildVersionedResult(scan, CALLABLE_VERSION, { sunsetDate, message })`.
 3. Ship the app version flipping `CALLABLE_NAME` to
    `inferEquipmentIncrements_v2`; roll out on Play.
 4. Watch `logCallableVersion` output until v1 traffic is negligible and the
