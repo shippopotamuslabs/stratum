@@ -22,6 +22,7 @@
   "overrides": {
     "qs": "6.16.0",
     "uuid": "14.0.2",
-    "@grpc/grpc-js": "1.14.5"
+    "@grpc/grpc-js": "1.14.5",
+    "proxy-addr": "2.0.8"
   }
 }
