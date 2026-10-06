@@ -16,6 +16,7 @@ Every task maps to binding contracts in `/contracts/`. Read the relevant contrac
 | Kotlin style, Compose conventions, testing | `CODE_STYLE_RULES.md` (when added) |
 | Unit tests, fakes, Robolectric, golden examples | `UNIT_TESTING.md` |
 | Room, repositories, schema | `DATA_LAYER_RULES.md` |
+| Cloud Functions, callables, `functions/` TS, API versioning | `docs/callable-function-versioning.md` |
 
 Never modify files in `/contracts/` without an explicit **"Contract Waiver"** from the user.
 

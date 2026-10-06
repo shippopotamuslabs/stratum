@@ -6,6 +6,8 @@ import {
   sanitizeOpenRouterSessionId,
 } from "../openrouterSession";
 import { assertUserEntitled } from "../entitlement/assertEntitled";
+import { createLogger } from "../observability/structuredLog";
+import { buildVersionedResult, logCallableVersion } from "../versioning/callableVersioning";
 import {
   INCREMENT_SCAN_SYSTEM_PROMPT,
   INCREMENT_SCAN_USER_PROMPT,
@@ -23,7 +25,16 @@ import { admitIncrementScan } from "./scanQuota";
  * monthly quota gate every call; failures degrade client-side to manual entry.
  * App Check is enforced (mirrors the sibling LLM callables); dev builds must
  * register a debug token or calls will be rejected.
+ *
+ * Versioning reference (STR-48): this callable is implicit v1 and spreads an
+ * `_meta` block into its result. Clients ignore unknown top-level fields, so
+ * old app versions parse the versioned result identically.
  */
+
+const CALLABLE_NAME = "inferEquipmentIncrements";
+const CALLABLE_VERSION = 1;
+
+const log = createLogger({ service: CALLABLE_NAME });
 
 /**
  * Server-side hard cap on the decoded image payload. The client downscales
@@ -161,10 +172,12 @@ export const inferEquipmentIncrements = onCall(
       if (err instanceof HttpsError) {
         throw err;
       }
-      console.error(`inferEquipmentIncrements model call failed for ${uid}:`, err);
+      console.error(`${CALLABLE_NAME} model call failed for ${uid}:`, err);
       throw new HttpsError("internal", "Scan request failed. Please try again.");
     }
 
-    return parseScanModelContent(content);
+    const scan = parseScanModelContent(content);
+    logCallableVersion(log, CALLABLE_NAME, CALLABLE_VERSION, { uid });
+    return buildVersionedResult(scan, CALLABLE_VERSION);
   },
 );
