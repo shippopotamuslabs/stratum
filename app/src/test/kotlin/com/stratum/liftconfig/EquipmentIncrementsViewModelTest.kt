@@ -119,18 +119,19 @@ class EquipmentIncrementsViewModelTest {
 
     @Test
     @DisplayName(
-        "Given inheritors including disabled when initialized then count and names exclude overrides",
+        "Given inheritors including disabled when initialized then count and names include all linked lifts",
     )
-    fun affectedCountIncludesDisabledExcludesOverrides() = runTest {
+    fun affectedCountIncludesDisabledAndAllLinked() = runTest {
         subject.initialize(cableId.value)
         advanceUntilIdle()
 
         subject.uiState.test {
             val state = awaitItemWith { it.equipmentName == "Cables" && it.affectedLiftCount > 0 }
-            // lat, cable-row (disabled), tricep, cable-crunch — face-pull has override
-            assertEquals(4, state.affectedLiftCount)
+            // lat, cable-row (disabled), face-pull, tricep, cable-crunch — every linked
+            // lift inherits equipment defaults (STR-82/83 removed per-lift overrides).
+            assertEquals(5, state.affectedLiftCount)
             assertEquals(
-                listOf("Cable crunch", "Cable row", "Lat pulldown", "Tricep pushdown"),
+                listOf("Cable crunch", "Cable row", "Face pull", "Lat pulldown", "Tricep pushdown"),
                 state.affectedLiftNames,
             )
             assertTrue(state.editor.tiers.isNotEmpty())
