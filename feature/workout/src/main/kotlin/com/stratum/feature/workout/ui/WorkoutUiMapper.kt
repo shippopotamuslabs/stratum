@@ -45,7 +45,7 @@ internal object WorkoutUiMapper {
         /** Lift id → catalog/default inter-set rest (seconds) for myo cluster exit. */
         defaultRestSecondsByLiftId: Map<String, Int> = emptyMap(),
         /** Lift id → catalog equipment backing the lift (for "Edit equipment" routing). */
-        equipmentEditTargetByLiftId: Map<String, EquipmentEditTarget> = emptyMap(),
+        equipmentIdByLiftId: Map<String, String?> = emptyMap(),
         /**
          * Workout lifts whose logged weights sit off the effective increment lattice.
          * Computed by the session runtime (which joins catalog tiers); the mapper only
@@ -86,9 +86,7 @@ internal object WorkoutUiMapper {
                 isPlateLoaded = isPlateLoaded,
                 isDoubleSided = isDoubleSided,
                 unitLabel = unitLabel,
-                equipmentId = equipmentEditTargetByLiftId[lift.liftId.value]?.equipmentId,
-                hasIncrementOverride =
-                    equipmentEditTargetByLiftId[lift.liftId.value]?.hasIncrementOverride == true,
+                equipmentId = equipmentIdByLiftId[lift.liftId.value],
                 showAdjustEquipmentChip = lift.workoutLiftId in adjustEquipmentWorkoutLiftIds,
                 sets = lift.sets.mapIndexed { setIndex, set ->
                     val prevLabel =

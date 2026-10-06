@@ -451,8 +451,6 @@ private fun LiftActionsAndRestConfigSheets(
                                         target =
                                             EquipmentEditTarget(
                                                 equipmentId = lift.equipmentId,
-                                                hasIncrementOverride =
-                                                    lift.hasIncrementOverride,
                                             ),
                                     ),
                                 )

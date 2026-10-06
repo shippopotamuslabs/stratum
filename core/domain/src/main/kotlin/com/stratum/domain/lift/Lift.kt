@@ -13,16 +13,12 @@ import com.stratum.domain.onboarding.MuscleGroup
  *   Up to 4 secondary muscles are supported so compound lifts can credit multiple co-movers
  *   (e.g. triceps + front delts on a press); [CustomLiftMusclePolicy] derives sensible
  *   pattern-based secondary defaults so credit stays accurate even if tags were omitted.
- * - [incrementTiers]: **effective** weight jumps per load band (§2.2) after resolving
- *   lift-scoped overrides against equipment defaults (see [resolveEffectiveIncrementTiers]).
- * - [usesEquipmentDefaultIncrements]: true when no lift-scoped override rows exist (tiers may
- *   still come from equipment or a global fallback).
+ * - [incrementTiers]: **effective** weight jumps per load band (§2.2) — the linked
+ *   equipment's defaults, or a global fallback (see [resolveEffectiveIncrementTiers]).
  * - [inheritsFromEquipmentLattice]: true when non-empty equipment tiers supplied the effective
  *   list (false for global fallback, including empty bodyweight lattices).
- * - [microIncrements]: **effective** adder stops after resolving a lift-scoped micro override
- *   against the linked equipment's stops (see `resolveEffectiveIncrementTiers`). Empty means
- *   no adder. [usesEquipmentDefaultMicro] is false only when the lift carries an explicit
- *   micro override (including explicitly-empty).
+ * - [microIncrements]: **effective** adder stops — always the linked equipment's stops
+ *   (see `resolveEffectiveIncrementTiers`). Empty means no adder.
  * - [presetTags]: which [GymPreset]s bulk-enable this lift (§2.1).
  * - [equipmentId] / [equipmentName]: optional link to shared [Equipment] for default
  *   increments and display. Narrow equipment catalog — not an availability graph.
@@ -48,10 +44,8 @@ data class Lift(
     val presetTags: Set<GymPreset>,
     val equipmentId: EquipmentId? = null,
     val equipmentName: String? = null,
-    val usesEquipmentDefaultIncrements: Boolean = true,
     val inheritsFromEquipmentLattice: Boolean = false,
     val microIncrements: List<Weight> = emptyList(),
-    val usesEquipmentDefaultMicro: Boolean = true,
     val enabled: Boolean,
     val isCustom: Boolean = false,
     val description: String? = null,

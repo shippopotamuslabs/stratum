@@ -73,8 +73,6 @@ data class RenderedLiftUi(
      * (see `resolveEquipmentEditorDestination`).
      */
     val equipmentId: String? = null,
-    /** True when the lift carries its own per-lift override tiers (not equipment defaults). */
-    val hasIncrementOverride: Boolean = false,
     /**
      * True when a logged weight this session sits off the lift's increment lattice.
      * Drives the "Adjust Equipment" chip under the lift title. The session runtime
@@ -91,7 +89,6 @@ data class RenderedLiftUi(
  */
 data class EquipmentEditTarget(
     val equipmentId: String?,
-    val hasIncrementOverride: Boolean,
 )
 
 /**

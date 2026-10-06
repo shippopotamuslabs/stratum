@@ -67,10 +67,10 @@ data class InferredCustomLiftMetadata(
      * Maps inferred metadata to a [CustomLiftDefinition].
      *
      * Lift-level [CustomLiftDefinition.increment] is left null so the lift inherits equipment
-     * default tiers via [com.stratum.domain.lift.Lift.usesEquipmentDefaultIncrements]. Seed
-     * loading sets [CustomLiftDefinition.equipmentId] directly; custom loading sets free-text
-     * [CustomLiftDefinition.equipmentName] plus [CustomLiftDefinition.equipmentCreateIncrement]
-     * for find-or-create (reuse by name/alias, or mint with that open band).
+     * default tiers. Seed loading sets [CustomLiftDefinition.equipmentId] directly; custom
+     * loading sets free-text [CustomLiftDefinition.equipmentName] plus
+     * [CustomLiftDefinition.equipmentCreateIncrement] for find-or-create (reuse by name/alias,
+     * or mint with that open band).
      */
     fun toCustomLiftDefinition(): CustomLiftDefinition {
         // Muscles are always derived from movementPattern — never trust free-form tags.

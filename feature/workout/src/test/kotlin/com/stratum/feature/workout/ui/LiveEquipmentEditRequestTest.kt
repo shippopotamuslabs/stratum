@@ -34,7 +34,7 @@ class LiveEquipmentEditRequestTest {
     private fun base() =
         EquipmentEditRequest(
             liftId = "lift-1",
-            target = EquipmentEditTarget(equipmentId = "eq-1", hasIncrementOverride = false),
+            target = EquipmentEditTarget(equipmentId = "eq-1"),
         )
 
     private fun domainTiersOf(request: EquipmentEditRequest): List<IncrementTier> =

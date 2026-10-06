@@ -70,11 +70,11 @@ class EquipmentIncrementsViewModelTest {
         )
         fakeLiftRepository.seedLifts(
             listOf(
-                lift("lat-pulldown", "Lat pulldown", usesDefaults = true, enabled = true),
-                lift("cable-row", "Cable row", usesDefaults = true, enabled = false),
-                lift("face-pull", "Face pull", usesDefaults = false, enabled = true),
-                lift("tricep-pushdown", "Tricep pushdown", usesDefaults = true, enabled = true),
-                lift("cable-crunch", "Cable crunch", usesDefaults = true, enabled = true),
+                lift("lat-pulldown", "Lat pulldown", enabled = true),
+                lift("cable-row", "Cable row", enabled = false),
+                lift("face-pull", "Face pull", enabled = true),
+                lift("tricep-pushdown", "Tricep pushdown", enabled = true),
+                lift("cable-crunch", "Cable crunch", enabled = true),
             ),
         )
         subject =
@@ -119,18 +119,19 @@ class EquipmentIncrementsViewModelTest {
 
     @Test
     @DisplayName(
-        "Given inheritors including disabled when initialized then count and names exclude overrides",
+        "Given inheritors including disabled when initialized then count and names include all linked lifts",
     )
-    fun affectedCountIncludesDisabledExcludesOverrides() = runTest {
+    fun affectedCountIncludesDisabledAndAllLinked() = runTest {
         subject.initialize(cableId.value)
         advanceUntilIdle()
 
         subject.uiState.test {
             val state = awaitItemWith { it.equipmentName == "Cables" && it.affectedLiftCount > 0 }
-            // lat, cable-row (disabled), tricep, cable-crunch — face-pull has override
-            assertEquals(4, state.affectedLiftCount)
+            // lat, cable-row (disabled), face-pull, tricep, cable-crunch — every linked
+            // lift inherits equipment defaults (STR-82/83 removed per-lift overrides).
+            assertEquals(5, state.affectedLiftCount)
             assertEquals(
-                listOf("Cable crunch", "Cable row", "Lat pulldown", "Tricep pushdown"),
+                listOf("Cable crunch", "Cable row", "Face pull", "Lat pulldown", "Tricep pushdown"),
                 state.affectedLiftNames,
             )
             assertTrue(state.editor.tiers.isNotEmpty())
@@ -144,11 +145,11 @@ class EquipmentIncrementsViewModelTest {
         subject.initialize(cableId.value)
         advanceUntilIdle()
         subject.uiState.test {
-            val state = awaitItemWith { it.affectedLiftCount == 4 }
-            assertEquals(4, state.affectedLiftNames.size)
-            // First 3 alphabetical for "+1 more" UI path
+            val state = awaitItemWith { it.affectedLiftCount == 5 }
+            assertEquals(5, state.affectedLiftNames.size)
+            // First 3 alphabetical for "+2 more" UI path
             assertEquals(
-                listOf("Cable crunch", "Cable row", "Lat pulldown"),
+                listOf("Cable crunch", "Cable row", "Face pull"),
                 state.affectedLiftNames.take(3),
             )
             cancelAndIgnoreRemainingEvents()
@@ -322,9 +323,9 @@ class EquipmentIncrementsViewModelTest {
         advanceUntilIdle()
 
         subject.uiState.test {
-            val state = awaitItemWith { it.affectedLiftCount == 4 }
+            val state = awaitItemWith { it.affectedLiftCount == 5 }
             assertEquals(
-                listOf("cable-crunch", "cable-row", "lat-pulldown", "tricep-pushdown"),
+                listOf("cable-crunch", "cable-row", "face-pull", "lat-pulldown", "tricep-pushdown"),
                 state.affectedLifts.map { it.id }.sorted(),
             )
             val disabled = state.affectedLifts.single { it.id == "cable-row" }
@@ -613,7 +614,6 @@ class EquipmentIncrementsViewModelTest {
     private fun lift(
         id: String,
         name: String,
-        usesDefaults: Boolean,
         enabled: Boolean,
     ): Lift =
         Lift(
@@ -626,7 +626,6 @@ class EquipmentIncrementsViewModelTest {
             presetTags = emptySet(),
             equipmentId = cableId,
             equipmentName = "Cables",
-            usesEquipmentDefaultIncrements = usesDefaults,
             enabled = enabled,
         )
 }

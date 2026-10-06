@@ -98,19 +98,14 @@ class WorkoutUiMapperTest {
             WorkoutUiMapper.map(
                 rendered,
                 sessionStartedAtEpochMilli = 1L,
-                equipmentEditTargetByLiftId =
+                equipmentIdByLiftId =
                     mapOf(
-                        "lift-1" to EquipmentEditTarget(
-                            equipmentId = "eq-1",
-                            hasIncrementOverride = false,
-                        ),
+                        "lift-1" to "eq-1",
                     ),
             )
         val (inheriting, unjoined) = mapped.lifts
         assertEquals("eq-1", inheriting.equipmentId)
-        assertFalse(inheriting.hasIncrementOverride)
         assertEquals(null, unjoined.equipmentId)
-        assertFalse(unjoined.hasIncrementOverride)
     }
 
     @Test
