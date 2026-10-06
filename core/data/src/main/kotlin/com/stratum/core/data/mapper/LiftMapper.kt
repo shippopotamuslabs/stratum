@@ -33,7 +33,6 @@ fun LiftEntity.toDomain(
         resolveEffectiveIncrementTiers(
             equipmentTiers = equipment?.incrementTiers,
             fallbackTiers = fallbackTiers,
-            liftMicroOverride = microOptionsJson.toMicroOverride(),
             equipmentMicro = equipment?.microIncrements.orEmpty(),
         )
     return Lift(
@@ -46,10 +45,8 @@ fun LiftEntity.toDomain(
         presetTags = presetTags.toPresetSet(),
         equipmentId = equipmentId,
         equipmentName = equipment?.name,
-        usesEquipmentDefaultIncrements = effective.usesEquipmentDefaultIncrements,
         inheritsFromEquipmentLattice = effective.inheritsFromEquipmentLattice,
         microIncrements = effective.microIncrements,
-        usesEquipmentDefaultMicro = effective.usesEquipmentDefaultMicro,
         enabled = enabled,
         isCustom = isCustom,
         description = description,
@@ -64,9 +61,9 @@ fun LiftEntity.toDomain(
 }
 
 /**
- * Local user write — marks lift dirty for cloud upload. The micro column carries the
- * lift-scoped override only ([usesEquipmentDefaultMicro] false, including explicit
- * empty); inherited micro stays null so equipment edits keep flowing through.
+ * Local user write — marks lift dirty for cloud upload. The lift `micro_options_json`
+ * column is vestigial (per-lift micro overrides were removed in STR-82/84): it is always
+ * written null; the effective adder stops come from the linked equipment.
  */
 fun Lift.toEntity(
     nowMillis: Long = System.currentTimeMillis(),
@@ -78,7 +75,7 @@ fun Lift.toEntity(
     secondaryMusclesBitmask = secondaryMuscles.toBitmask(),
     presetTags = presetTags.toPresetCsv(),
     equipmentId = equipmentId,
-    microOptionsJson = if (usesEquipmentDefaultMicro) null else microIncrements.toMicroJson(),
+    microOptionsJson = null,
     isCustom = isCustom,
     enabled = enabled,
     description = description,
@@ -197,13 +194,6 @@ private fun String?.toMicroIncrements(): List<Weight> =
     this?.parseMicroJson()?.map { Weight(it, DEFAULT_LIFT_UNIT) }.orEmpty()
 
 /**
- * Parses a lift-scoped micro override column: null column (pre-v7 rows) and corrupt
- * payloads decode to null (inherit equipment stops); `"[]"` decodes to explicit empty.
- */
-private fun String?.toMicroOverride(): List<Weight>? =
-    this?.parseMicroJson()?.map { Weight(it, DEFAULT_LIFT_UNIT) }
-
-/**
  * Encodes raw storage-lb doubles as the canonical `micro_options_json` array grammar.
  * Plain-doubles entry point so callers without domain weights (seed, sync) share the
  * one grammar instead of hand-rolling brackets. No empty handling here — callers own
@@ -214,23 +204,14 @@ internal fun List<Double>.toMicroJsonArray(): String =
 
 /**
  * Encodes adder stops as a JSON array of storage-lb doubles. Empty encodes to null
- * (no adder) so equipment rows and inherited lifts stay null-clean. Internal so
- * repositories can write the column without round-tripping through domain mapping.
+ * (no adder) so equipment rows stay null-clean. Internal so repositories can write
+ * the column without round-tripping through domain mapping.
  */
 internal fun List<Weight>.toMicroJsonOrNull(): String? {
     if (isEmpty()) return null
     return map { WeightConversion.convertAmount(it.amount, it.unit, Weight.WeightUnit.Lb) }
         .toMicroJsonArray()
 }
-
-/**
- * Encodes a lift-scoped micro override, preserving the null-vs-empty distinction:
- * explicit empty (`"[]"`) means "no adder even if the equipment has one".
- * Internal so repositories can write the column (null = clear) directly.
- */
-internal fun List<Weight>.toMicroJson(): String =
-    map { WeightConversion.convertAmount(it.amount, it.unit, Weight.WeightUnit.Lb) }
-        .toMicroJsonArray()
 
 private val DEFAULT_FALLBACK_TIERS: List<IncrementTier> =
     LiftCatalogSeeder.DEFAULT_TIERS.map { t ->

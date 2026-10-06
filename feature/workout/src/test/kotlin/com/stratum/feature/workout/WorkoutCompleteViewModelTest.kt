@@ -324,7 +324,6 @@ class WorkoutCompleteViewModelTest {
             // anomalous lift (STR-86).
             assertEquals("lat-pulldown", event.request.liftId)
             assertEquals("cable", event.request.target.equipmentId)
-            assertFalse(event.request.target.hasIncrementOverride)
             assertEquals(
                 EquipmentEditorDestination.SharedEquipment("cable", "lat-pulldown"),
                 resolveEquipmentEditorDestination(event.request),

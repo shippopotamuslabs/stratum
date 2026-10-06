@@ -105,9 +105,6 @@ sealed interface EquipmentIncrementRemedy {
 /**
  * Inputs for pure remedy ranking (no I/O). Session analysis assembles this per equipment cluster.
  *
- * @param allAnomalousInheritsDefaults true when **every** anomalous lift uses equipment default
- *   increments. Amend only rewrites equipment defaults, so mixed inherit+override clusters prefer
- *   Fork so Accept remediates every anomalous lift.
  * @param existingEquipmentNames catalog names used to unique-ify [ForkCustomEquipment]
  *   suggested names via [uniqueifyForkEquipmentName] / [EquipmentNameMatching.normalizeKey].
  */
@@ -121,7 +118,6 @@ data class EquipmentIncrementRankInput(
     val sampleWeights: List<Weight>,
     val proposedTiers: List<IncrementTier>,
     val inferredStep: Double,
-    val allAnomalousInheritsDefaults: Boolean = true,
     val residualSetCount: Int = 0,
     val distinctResidualAmounts: Int = 0,
     val existingEquipmentNames: Collection<String> = emptyList(),
@@ -258,10 +254,10 @@ fun rankEquipmentIncrementProposal(input: EquipmentIncrementRankInput): Equipmen
                 tiers = input.proposedTiers,
             )
         }
-    // Amend only remediates lifts that inherit equipment defaults — require all anomalous.
+    // Amend rewrites equipment defaults, which every lift inherits (STR-82/83 removed
+    // per-lift overrides) — so Amend remediates the whole anomalous cluster.
     val preferAmend =
         amend != null &&
-            input.allAnomalousInheritsDefaults &&
             (input.isCustom || input.inheritingCount <= EQUIPMENT_INCREMENT_FORK_THRESHOLD_K)
 
     val primary: EquipmentIncrementRemedy

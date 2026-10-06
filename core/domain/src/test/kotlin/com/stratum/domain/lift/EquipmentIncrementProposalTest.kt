@@ -49,7 +49,6 @@ class EquipmentIncrementProposalTest {
             ),
         sampleWeights: List<Weight> = listOf(Weight(62.5, lb), Weight(67.5, lb)),
         inferredStep: Double = 2.5,
-        allAnomalousInheritsDefaults: Boolean = true,
         residualSetCount: Int = 2,
         distinctResidualAmounts: Int = 2,
         existingEquipmentNames: Collection<String> = emptyList(),
@@ -64,7 +63,6 @@ class EquipmentIncrementProposalTest {
             sampleWeights = sampleWeights,
             proposedTiers = proposedTiers,
             inferredStep = inferredStep,
-            allAnomalousInheritsDefaults = allAnomalousInheritsDefaults,
             residualSetCount = residualSetCount,
             distinctResidualAmounts = distinctResidualAmounts,
             existingEquipmentNames = existingEquipmentNames,
@@ -200,67 +198,6 @@ class EquipmentIncrementProposalTest {
             assertThrows<IllegalArgumentException> {
                 rankEquipmentIncrementProposal(baseInput(anomalousLiftIds = emptyList()))
             }
-        }
-
-        @Test
-        @DisplayName(
-            "Given no anomalous lift inherits defaults when ranked then Fork primary " +
-                "(per-lift override remedy removed, STR-84)",
-        )
-        fun noInheritorsForkPrimary() {
-            val proposal =
-                rankEquipmentIncrementProposal(
-                    baseInput(
-                        isCustom = true,
-                        inheritingCount = 5,
-                        allAnomalousInheritsDefaults = false,
-                    ),
-                )
-            assertTrue(proposal.primary is EquipmentIncrementRemedy.ForkCustomEquipment)
-            assertTrue(
-                proposal.alternatives.any { it is EquipmentIncrementRemedy.AmendEquipmentTiers },
-            )
-        }
-
-        @Test
-        @DisplayName(
-            "Given multi-lift all overrides when ranked then Fork primary not Amend",
-        )
-        fun multiLiftAllOverridesFork() {
-            val proposal =
-                rankEquipmentIncrementProposal(
-                    baseInput(
-                        isCustom = true,
-                        inheritingCount = 5,
-                        anomalousLiftIds = listOf(latPulldown, cableRow),
-                        allAnomalousInheritsDefaults = false,
-                    ),
-                )
-            assertTrue(proposal.primary is EquipmentIncrementRemedy.ForkCustomEquipment)
-            assertTrue(
-                proposal.alternatives.any { it is EquipmentIncrementRemedy.AmendEquipmentTiers },
-            )
-        }
-
-        @Test
-        @DisplayName(
-            "Given mixed inherit + override anomalous lifts when ranked then Fork primary " +
-                "(Amend would only fix inheritors)",
-        )
-        fun mixedInheritOverridePrefersFork() {
-            val proposal =
-                rankEquipmentIncrementProposal(
-                    baseInput(
-                        isCustom = true,
-                        inheritingCount = 5,
-                        anomalousLiftIds = listOf(latPulldown, cableRow),
-                        allAnomalousInheritsDefaults = false,
-                    ),
-                )
-            assertTrue(proposal.primary is EquipmentIncrementRemedy.ForkCustomEquipment)
-            assertTrue(
-                proposal.alternatives.any { it is EquipmentIncrementRemedy.AmendEquipmentTiers },
-            )
         }
 
         @Test

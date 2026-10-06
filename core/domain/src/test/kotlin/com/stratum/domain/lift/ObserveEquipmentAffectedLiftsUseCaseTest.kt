@@ -33,36 +33,32 @@ class ObserveEquipmentAffectedLiftsUseCaseTest {
     @DisplayName("filterEquipmentAffectedLifts")
     inner class PureFilter {
         @Test
-        @DisplayName("Given mix of override/inherit/disabled when filtered then only inheritors count")
-        fun filtersInheritorsIncludingDisabled() {
+        @DisplayName("Given linked, unlinked and disabled lifts when filtered then all linked count")
+        fun filtersLinkedLiftsIncludingDisabled() {
             val lifts =
                 listOf(
                     sampleLift(
                         id = "lat-pulldown",
                         name = "Lat pulldown",
                         equipmentId = cableId,
-                        usesDefaults = true,
                         enabled = true,
                     ),
                     sampleLift(
                         id = "cable-row",
                         name = "Cable row",
                         equipmentId = cableId,
-                        usesDefaults = true,
                         enabled = false, // still counted
-                    ),
-                    sampleLift(
-                        id = "face-pull",
-                        name = "Face pull",
-                        equipmentId = cableId,
-                        usesDefaults = false, // override — excluded
-                        enabled = true,
                     ),
                     sampleLift(
                         id = "db-press",
                         name = "DB press",
                         equipmentId = dumbbellId,
-                        usesDefaults = true,
+                        enabled = true,
+                    ),
+                    sampleLift(
+                        id = "unassigned",
+                        name = "Unassigned",
+                        equipmentId = null,
                         enabled = true,
                     ),
                 )
@@ -86,7 +82,6 @@ class ObserveEquipmentAffectedLiftsUseCaseTest {
                         id = "db-press",
                         name = "DB press",
                         equipmentId = dumbbellId,
-                        usesDefaults = true,
                     ),
                 )
             val result = filterEquipmentAffectedLifts(cableId, lifts)
@@ -99,7 +94,7 @@ class ObserveEquipmentAffectedLiftsUseCaseTest {
     @DisplayName("ObserveEquipmentAffectedLiftsUseCase")
     inner class UseCase {
         @Test
-        @DisplayName("Given seeded catalog when observed then emits inheriting lifts for id")
+        @DisplayName("Given seeded catalog when observed then emits linked lifts for id")
         fun observesAffected() = runTest {
             fakeLiftRepository.seedLifts(
                 listOf(
@@ -107,19 +102,16 @@ class ObserveEquipmentAffectedLiftsUseCaseTest {
                         id = "lat-pulldown",
                         name = "Lat pulldown",
                         equipmentId = cableId,
-                        usesDefaults = true,
                     ),
                     sampleLift(
                         id = "face-pull",
                         name = "Face pull",
                         equipmentId = cableId,
-                        usesDefaults = false,
                     ),
                     sampleLift(
                         id = "disabled-cable",
                         name = "Disabled cable fly",
                         equipmentId = cableId,
-                        usesDefaults = true,
                         enabled = false,
                     ),
                 ),
@@ -127,9 +119,9 @@ class ObserveEquipmentAffectedLiftsUseCaseTest {
 
             subject(cableId).test {
                 val emitted = awaitItem()
-                assertEquals(2, emitted.count)
+                assertEquals(3, emitted.count)
                 assertEquals(
-                    listOf("Disabled cable fly", "Lat pulldown"),
+                    listOf("Disabled cable fly", "Face pull", "Lat pulldown"),
                     emitted.lifts.map { it.name },
                 )
                 cancelAndIgnoreRemainingEvents()
@@ -141,7 +133,6 @@ class ObserveEquipmentAffectedLiftsUseCaseTest {
         id: String,
         name: String,
         equipmentId: EquipmentId?,
-        usesDefaults: Boolean,
         enabled: Boolean = true,
     ): Lift =
         Lift(
@@ -154,7 +145,6 @@ class ObserveEquipmentAffectedLiftsUseCaseTest {
             presetTags = emptySet(),
             equipmentId = equipmentId,
             equipmentName = equipmentId?.value,
-            usesEquipmentDefaultIncrements = usesDefaults,
             enabled = enabled,
         )
 }

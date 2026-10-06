@@ -34,7 +34,6 @@ class LiveEquipmentAdjustSignalTest {
         incrementTiers = tiers,
         presetTags = emptySet(),
         microIncrements = micro,
-        usesEquipmentDefaultMicro = false,
         enabled = true,
         loadType = loadType,
     )

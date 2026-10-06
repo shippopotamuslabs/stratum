@@ -117,7 +117,6 @@ class RoomEquipmentRepositoryBatchTest {
         val lifts = liftRepository.observeLifts().first()
         assertEquals(newId, lifts.first { it.id == latId }.equipmentId)
         assertEquals(seedCable, lifts.first { it.id == rowId }.equipmentId)
-        assertTrue(lifts.first { it.id == latId }.usesEquipmentDefaultIncrements)
     }
 
     private suspend fun seedLift(

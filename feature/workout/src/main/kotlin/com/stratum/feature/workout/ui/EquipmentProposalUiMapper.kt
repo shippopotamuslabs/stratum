@@ -93,7 +93,6 @@ internal object EquipmentProposalUiMapper {
                     target =
                         EquipmentEditTarget(
                             equipmentId = remedy.equipmentId.value,
-                            hasIncrementOverride = false,
                         ),
                     initialTiersLb = initialTiers,
                     proposalContext = context,
@@ -113,7 +112,6 @@ internal object EquipmentProposalUiMapper {
                         target =
                             EquipmentEditTarget(
                                 equipmentId = clusterEquipmentId.value,
-                                hasIncrementOverride = false,
                             ),
                         initialTiersLb = initialTiers,
                         proposalContext = context,
@@ -121,14 +119,11 @@ internal object EquipmentProposalUiMapper {
                 } else {
                     // Fork: correct the shared cluster stack seeded with the proposed
                     // tiers; Save As New creates the fork and reassigns the lift.
-                    // hasIncrementOverride is always false now (STR-82/84 removed
-                    // per-lift overrides); it stays on the request for STR-83 cleanup.
                     EquipmentEditRequest(
                         liftId = liftId.orEmpty(),
                         target =
                             EquipmentEditTarget(
                                 equipmentId = proposal.clusterEquipmentId?.value,
-                                hasIncrementOverride = false,
                             ),
                         initialTiersLb = initialTiers,
                         proposalContext = context,

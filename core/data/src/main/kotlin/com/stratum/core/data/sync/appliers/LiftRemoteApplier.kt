@@ -6,7 +6,6 @@ import com.stratum.core.data.sync.FirestoreSyncMetadata
 import com.stratum.core.data.sync.SyncFlags
 import com.stratum.core.data.sync.codecs.SyncEntityDecoders
 import com.stratum.core.data.sync.codecs.SyncEntityEncoders
-import com.stratum.core.data.sync.codecs.liftMicroJsonFromWire
 import com.stratum.core.data.sync.codecs.microWireList
 import com.stratum.domain.lift.identity.LiftId
 import javax.inject.Inject
@@ -122,18 +121,15 @@ class LiftRemoteApplier @Inject constructor(
             overlayValue(data, "pinned_note", existing.pinnedNote) {
                 com.stratum.domain.lift.sanitizeLiftNoteBody(it as? String)
             }
-        // Micro override merges like the pin: present applies (null clears to inherit),
-        // absent preserves the local override.
-        val microOptionsJson =
-            overlayValue(data, "micro_options", existing.microOptionsJson) {
-                liftMicroJsonFromWire(it)
-            }
+        // Per-lift micro overrides were removed (STR-82/84): the lift micro column is
+        // never read, so a stale device's `micro_options` must not repopulate it as a
+        // zombie override. The key is deliberately not overlaid (mirrors the tier
+        // applier's lift_id skip); local uploads always carry null, cleaning the cloud.
         return existing.copy(
             enabled = enabled,
             defaultRestSeconds = rest,
             equipmentId = equipmentId,
             pinnedNote = pinnedNote,
-            microOptionsJson = microOptionsJson,
             updatedAtEpochMillis =
                 (data[FirestoreSyncMetadata.UPDATED_AT] as? Number)?.toLong()
                     ?: existing.updatedAtEpochMillis,

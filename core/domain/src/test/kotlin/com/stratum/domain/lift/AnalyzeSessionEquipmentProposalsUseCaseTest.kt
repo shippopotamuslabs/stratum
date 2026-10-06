@@ -200,7 +200,6 @@ class AnalyzeSessionEquipmentProposalsUseCaseTest {
                         incrementTiers = emptyList(),
                         presetTags = emptySet(),
                         equipmentId = EquipmentId("bodyweight"),
-                        usesEquipmentDefaultIncrements = true,
                         enabled = true,
                         loadType = LoadType.Bodyweight,
                     ),
@@ -248,57 +247,6 @@ class AnalyzeSessionEquipmentProposalsUseCaseTest {
             logRepo.seedSet(setAt(latId, 67.5, setIndex = 2, id = "s3"))
 
             assertEquals(1, subject(sessionId).proposals.size)
-        }
-
-        @Test
-        @DisplayName(
-            "Given single anomalous lift not inheriting defaults when analyzed then Fork primary " +
-                "(override remedy removed, STR-84)",
-        )
-        fun nonInheritingLiftForks() = runTest {
-            val overrideTiers =
-                listOf(IncrementTier(Weight(0.0, lb), null, Weight(5.0, lb)))
-            liftRepo.seedLifts(
-                listOf(
-                    Lift(
-                        id = latId,
-                        name = "Lat pulldown",
-                        movementPatterns = setOf(MovementPattern.VerticalPull),
-                        primaryMuscles = setOf(MuscleGroup.Back),
-                        secondaryMuscles = emptySet(),
-                        incrementTiers = overrideTiers,
-                        presetTags = emptySet(),
-                        equipmentId = cableId,
-                        equipmentName = "Cables",
-                        usesEquipmentDefaultIncrements = false,
-                        enabled = true,
-                    ),
-                    // Other inheritor keeps seed blast radius > 0 without affecting signal.
-                    Lift(
-                        id = LiftId("other-cable"),
-                        name = "Other cable",
-                        movementPatterns = setOf(MovementPattern.VerticalPull),
-                        primaryMuscles = setOf(MuscleGroup.Back),
-                        secondaryMuscles = emptySet(),
-                        incrementTiers = openFive,
-                        presetTags = emptySet(),
-                        equipmentId = cableId,
-                        equipmentName = "Cables",
-                        usesEquipmentDefaultIncrements = true,
-                        enabled = true,
-                    ),
-                ),
-            )
-            logRepo.seedSession(WorkoutLoggingFixtures.completedLiveSession(sessionId.value))
-            logRepo.seedSet(setAt(latId, 62.5, setIndex = 0, id = "s1"))
-            logRepo.seedSet(setAt(latId, 67.5, setIndex = 1, id = "s2"))
-
-            val proposals = subject(sessionId).proposals
-            assertEquals(1, proposals.size)
-            assertTrue(proposals.single().primary is EquipmentIncrementRemedy.ForkCustomEquipment)
-            assertFalse(
-                proposals.single().primary is EquipmentIncrementRemedy.AmendEquipmentTiers,
-            )
         }
 
         @Test
@@ -399,7 +347,6 @@ class AnalyzeSessionEquipmentProposalsUseCaseTest {
                             presetTags = emptySet(),
                             equipmentId = cableId,
                             equipmentName = "Cables",
-                            usesEquipmentDefaultIncrements = true,
                             enabled = true,
                         ),
                     )
@@ -415,7 +362,6 @@ class AnalyzeSessionEquipmentProposalsUseCaseTest {
                                 presetTags = emptySet(),
                                 equipmentId = cableId,
                                 equipmentName = "Cables",
-                                usesEquipmentDefaultIncrements = true,
                                 enabled = true,
                             ),
                         )
@@ -431,7 +377,6 @@ class AnalyzeSessionEquipmentProposalsUseCaseTest {
                             presetTags = emptySet(),
                             equipmentId = customId,
                             equipmentName = "Custom stack",
-                            usesEquipmentDefaultIncrements = true,
                             enabled = true,
                         ),
                     )
@@ -487,84 +432,6 @@ class AnalyzeSessionEquipmentProposalsUseCaseTest {
                 pinMicro,
                 analysis.baselineMicroByProposalId[proposals.single().id],
             )
-        }
-
-        @Test
-        @DisplayName(
-            "Given lift micro override with empty equipment tiers when analyzed then override quiets adder",
-        )
-        fun liftMicroOverrideFallbackSilent() = runTest {
-            equipmentRepo.seed(
-                listOf(
-                    Equipment(
-                        id = cableId,
-                        name = "Cables",
-                        incrementTiers = emptyList(),
-                        isCustom = false,
-                    ),
-                ),
-            )
-            liftRepo.seedLifts(
-                listOf(
-                    Lift(
-                        id = latId,
-                        name = "Lat pulldown",
-                        movementPatterns = setOf(MovementPattern.VerticalPull),
-                        primaryMuscles = setOf(MuscleGroup.Back),
-                        secondaryMuscles = emptySet(),
-                        incrementTiers = pinTiers,
-                        presetTags = emptySet(),
-                        equipmentId = cableId,
-                        equipmentName = "Cables",
-                        usesEquipmentDefaultIncrements = false,
-                        microIncrements = pinMicro,
-                        usesEquipmentDefaultMicro = false,
-                        enabled = true,
-                    ),
-                ),
-            )
-            logRepo.seedSession(WorkoutLoggingFixtures.completedLiveSession(sessionId.value))
-            logRepo.seedSet(setAt(latId, 65.0, setIndex = 0, id = "s1"))
-            logRepo.seedSet(setAt(latId, 70.0, setIndex = 1, id = "s2"))
-
-            assertTrue(subject(sessionId).proposals.isEmpty())
-        }
-
-        @Test
-        @DisplayName(
-            "Given equipment without micro but lift override micro when analyzed then lift micro applies",
-        )
-        fun equipmentWithoutMicroFallsBackToLiftMicro() = runTest {
-            liftRepo.seedLifts(
-                listOf(
-                    Lift(
-                        id = latId,
-                        name = "Lat pulldown",
-                        movementPatterns = setOf(MovementPattern.VerticalPull),
-                        primaryMuscles = setOf(MuscleGroup.Back),
-                        secondaryMuscles = emptySet(),
-                        incrementTiers = pinTiers,
-                        presetTags = emptySet(),
-                        equipmentId = cableId,
-                        equipmentName = "Cables",
-                        usesEquipmentDefaultIncrements = false,
-                        microIncrements = pinMicro,
-                        usesEquipmentDefaultMicro = false,
-                        enabled = true,
-                    ),
-                ),
-            )
-            logRepo.seedSession(WorkoutLoggingFixtures.completedLiveSession(sessionId.value))
-            logRepo.seedSet(setAt(latId, 65.0, setIndex = 0, id = "s1"))
-            logRepo.seedSet(setAt(latId, 62.5, setIndex = 1, id = "s2"))
-            logRepo.seedSet(setAt(latId, 62.5, setIndex = 2, id = "s3"))
-
-            // 65 is quiet via the lift override micro; 62.5s still propose (single
-            // non-inheriting lift, so Fork primary).
-            val proposals = subject(sessionId).proposals
-            assertEquals(1, proposals.size)
-            assertTrue(proposals.single().primary is EquipmentIncrementRemedy.ForkCustomEquipment)
-            assertEquals(2, proposals.single().residualSetCount)
         }
     }
 
@@ -630,9 +497,7 @@ class AnalyzeSessionEquipmentProposalsUseCaseTest {
                     presetTags = emptySet(),
                     equipmentId = pinId,
                     equipmentName = "Pin-Loaded Machine",
-                    usesEquipmentDefaultIncrements = true,
                     microIncrements = pinMicro,
-                    usesEquipmentDefaultMicro = true,
                     enabled = true,
                 ),
             ),
@@ -653,7 +518,6 @@ class AnalyzeSessionEquipmentProposalsUseCaseTest {
                         presetTags = emptySet(),
                         equipmentId = cableId,
                         equipmentName = "Cables",
-                        usesEquipmentDefaultIncrements = true,
                         enabled = true,
                     ),
                 )
@@ -669,7 +533,6 @@ class AnalyzeSessionEquipmentProposalsUseCaseTest {
                             presetTags = emptySet(),
                             equipmentId = cableId,
                             equipmentName = "Cables",
-                            usesEquipmentDefaultIncrements = true,
                             enabled = true,
                         ),
                     )

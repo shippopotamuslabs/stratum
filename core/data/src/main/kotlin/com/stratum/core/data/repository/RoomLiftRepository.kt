@@ -205,7 +205,6 @@ class RoomLiftRepository @Inject constructor(
                         incrementTiers = emptyList(),
                         presetTags = emptySet(),
                         equipmentId = equipmentId,
-                        usesEquipmentDefaultIncrements = true,
                         enabled = true,
                         isCustom = true,
                         muscleLengthBias = definition.muscleLengthBias,
