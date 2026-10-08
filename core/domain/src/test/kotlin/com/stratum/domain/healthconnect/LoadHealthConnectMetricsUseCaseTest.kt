@@ -568,8 +568,10 @@ class LoadHealthConnectMetricsUseCaseTest {
 
         assertNull(pages.recovery.restingHeartRateBpm)
         assertNull(pages.recovery.hrvRmssdMillis)
-        assertTrue(pages.recovery.restingHeartRateDaily.isEmpty())
-        assertTrue(pages.recovery.hrvDaily.isEmpty())
+        assertEquals(7, pages.recovery.restingHeartRateDaily.size)
+        assertTrue(pages.recovery.restingHeartRateDaily.all { it.value == 0.0 })
+        assertEquals(7, pages.recovery.hrvDaily.size)
+        assertTrue(pages.recovery.hrvDaily.all { it.value == 0.0 })
     }
 
     @Test
