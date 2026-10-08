@@ -136,6 +136,78 @@ class DashboardHealthUiTest {
     }
 
     @Test
+    @DisplayName("STR-96: missing last night with window history never shows the no-sleep copy")
+    fun missingLastNightWithHistoryHidesSleepEmptyText() {
+        val zone = ZoneOffset.UTC
+        val pages = HealthMetricsPages(
+            visible = true,
+            recovery = RecoveryMetrics(
+                lastNight = null,
+                nightlyDurations = listOf(
+                    NightlySleepDuration(
+                        dayStart = Instant.parse("2026-08-11T00:00:00Z"),
+                        duration = Duration.ofHours(6).plusMinutes(48),
+                        zones = null,
+                    ),
+                    NightlySleepDuration(
+                        dayStart = Instant.parse("2026-08-12T00:00:00Z"),
+                        duration = Duration.ofHours(7).plusMinutes(5),
+                        zones = null,
+                    ),
+                ),
+            ),
+        )
+
+        val ui = pages.toHealthUi(Weight.WeightUnit.Lb, zone)
+
+        assertEquals(null, ui.recovery.lastNightDurationText)
+        assertTrue(ui.recovery.stageSlices.isEmpty())
+        assertTrue(ui.recovery.hasChart())
+        assertFalse(ui.recovery.showSleepEmptyText())
+    }
+
+    @Test
+    @DisplayName("STR-96: window with no sleep data at all shows the no-sleep copy")
+    fun emptyWindowShowsSleepEmptyText() {
+        val zone = ZoneOffset.UTC
+        val pages = HealthMetricsPages(
+            visible = true,
+            recovery = RecoveryMetrics(
+                lastNight = null,
+                nightlyDurations = emptyList(),
+            ),
+        )
+
+        val ui = pages.toHealthUi(Weight.WeightUnit.Lb, zone)
+
+        assertEquals(null, ui.recovery.lastNightDurationText)
+        assertFalse(ui.recovery.hasChart())
+        assertTrue(ui.recovery.showSleepEmptyText())
+    }
+
+    @Test
+    @DisplayName("STR-96: last-night hero suppresses the no-sleep copy")
+    fun lastNightHeroHidesSleepEmptyText() {
+        assertFalse(
+            RecoveryHealthPageUi(
+                lastNightDurationText = "7h 12m",
+            ).showSleepEmptyText(),
+        )
+        assertFalse(
+            RecoveryHealthPageUi(
+                lastNightDurationText = null,
+                nightlyPoints = listOf(TrendPointUi(0, 0f), TrendPointUi(1, 7.2f)),
+            ).showSleepEmptyText(),
+        )
+        assertTrue(
+            RecoveryHealthPageUi(
+                lastNightDurationText = null,
+                nightlyPoints = listOf(TrendPointUi(0, 0f), TrendPointUi(1, 0f)),
+            ).showSleepEmptyText(),
+        )
+    }
+
+    @Test
     @DisplayName("weight UI maps sample weekdays for the trend axis")
     fun weightMapsDayLabelsFromSampleTimes() {
         val zone = ZoneOffset.UTC

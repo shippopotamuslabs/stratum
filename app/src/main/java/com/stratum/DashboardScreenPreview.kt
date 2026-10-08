@@ -1,3 +1,7 @@
+// Preview catalog: one function per light/dark state by design, so the file
+// legitimately exceeds the production function-count threshold.
+@file:Suppress("TooManyFunctions")
+
 package com.stratum
 
 import androidx.compose.foundation.layout.Box
@@ -208,6 +212,42 @@ private fun HealthPagerCardFilledRecoveryLightPreview() {
 @Composable
 private fun HealthPagerCardFilledRecoveryDarkPreview() {
     HealthPagerCardPreview(health = previewHealthState(selectedPage = 2), dark = true)
+}
+
+@Preview(name = "Health pager card — sleep without stages", showBackground = true, widthDp = 412, heightDp = 280)
+@Composable
+private fun HealthPagerCardStagelessSleepLightPreview() {
+    HealthPagerCardPreview(health = previewStagelessSleepState(includeLastNight = true))
+}
+
+@Preview(
+    name = "Health pager card — sleep without stages dark",
+    showBackground = true,
+    backgroundColor = 0xFF121212,
+    widthDp = 412,
+    heightDp = 280,
+)
+@Composable
+private fun HealthPagerCardStagelessSleepDarkPreview() {
+    HealthPagerCardPreview(health = previewStagelessSleepState(includeLastNight = true), dark = true)
+}
+
+@Preview(name = "Health pager card — sleep history without last night", showBackground = true, widthDp = 412, heightDp = 280)
+@Composable
+private fun HealthPagerCardSleepHistoryNoLastNightLightPreview() {
+    HealthPagerCardPreview(health = previewStagelessSleepState(includeLastNight = false))
+}
+
+@Preview(
+    name = "Health pager card — sleep history without last night dark",
+    showBackground = true,
+    backgroundColor = 0xFF121212,
+    widthDp = 412,
+    heightDp = 280,
+)
+@Composable
+private fun HealthPagerCardSleepHistoryNoLastNightDarkPreview() {
+    HealthPagerCardPreview(health = previewStagelessSleepState(includeLastNight = false), dark = true)
 }
 
 @Preview(name = "Health pager card — empty activity", showBackground = true, widthDp = 412, heightDp = 128)
@@ -438,6 +478,24 @@ private fun previewHealthState(selectedPage: Int = 0): DashboardHealthUiState =
             remNightlyPoints = listOf(1.6f, 1.7f, 1.3f, 1.8f, 1.6f, 2.0f, 1.7f)
                 .mapIndexed { index, value -> TrendPointUi(index, value) },
             awakeNightlyPoints = listOf(0.7f, 0.4f, 0.9f, 0.5f, 0.6f, 0.3f, 0.7f)
+                .mapIndexed { index, value -> TrendPointUi(index, value) },
+            dayLabels = PREVIEW_DAY_LABELS,
+        ),
+    )
+
+/**
+ * Stage-less sleep week: duration bars without the stage donut/lines, as Health Connect
+ * returns sessions without stages (e.g. no Fitbit Premium). With [includeLastNight] false
+ * this is the STR-96 state: window history renders bars with no hero and no empty copy.
+ */
+private fun previewStagelessSleepState(includeLastNight: Boolean): DashboardHealthUiState =
+    previewHealthState(selectedPage = 2).copy(
+        recovery = RecoveryHealthPageUi(
+            lastNightDurationText = if (includeLastNight) "7h 12m" else null,
+            restingHrText = "52 bpm",
+            restingHrAverageText = "54 bpm",
+            hrvText = "48 ms",
+            nightlyPoints = listOf(6.8f, 7.1f, 5.9f, 7.4f, 7.0f, 8.1f, 7.2f)
                 .mapIndexed { index, value -> TrendPointUi(index, value) },
             dayLabels = PREVIEW_DAY_LABELS,
         ),
