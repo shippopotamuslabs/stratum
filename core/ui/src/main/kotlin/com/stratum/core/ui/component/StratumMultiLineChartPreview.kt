@@ -14,29 +14,33 @@ import com.stratum.core.ui.theme.StratumThemeId
 @Preview(name = "Multi-line light", showBackground = true)
 @Composable
 private fun StratumMultiLineChartLightPreview() {
-    StratumTheme {
-        PreviewMultiLine()
-    }
+    MultiLineChartPreviewContent(family = StratumThemeId.Tonal)
 }
 
 @Preview(name = "Multi-line dark", showBackground = true, backgroundColor = 0xFF121212)
 @Composable
 private fun StratumMultiLineChartDarkPreview() {
-    StratumTheme(darkTheme = true) {
-        PreviewMultiLine()
-    }
+    MultiLineChartPreviewContent(family = StratumThemeId.Tonal, darkTheme = true)
 }
 
 @Preview(name = "Multi-line neo dark", showBackground = true, backgroundColor = 0xFF1A1A1A)
 @Composable
 private fun StratumMultiLineChartNeoDarkPreview() {
-    StratumTheme(themeId = StratumThemeId.NeoBrutalist, darkTheme = true) {
-        PreviewMultiLine()
+    MultiLineChartPreviewContent(family = StratumThemeId.NeoBrutalist, darkTheme = true)
+}
+
+@Composable
+internal fun MultiLineChartPreviewContent(
+    family: StratumThemeId,
+    darkTheme: Boolean? = null,
+) {
+    StratumTheme(themeId = family, darkTheme = darkTheme) {
+        MultiLineChartPreviewBody()
     }
 }
 
 @Composable
-internal fun PreviewMultiLine() {
+private fun MultiLineChartPreviewBody() {
     val colors = StratumThemeAccessor.colors
     StratumMultiLineChart(
         primarySeries = previewHours(3.2f, 3.0f, 2.4f, 3.4f, 3.1f, 3.6f, 3.2f),

@@ -12,28 +12,32 @@ import com.stratum.core.ui.theme.StratumThemeId
 @PreviewLightDark
 @Composable
 private fun StratumProgramLibraryCardExpandedPreview() {
-    ProgramLibraryCardPreviewContent(family = StratumThemeId.Tonal, expanded = true)
+    ProgramLibraryCardPreviewContent(
+        family = StratumThemeId.Tonal,
+        state = previewProgramLibraryCardActiveState,
+        expanded = true,
+    )
 }
 
 @PreviewLightDark
 @Composable
 private fun StratumProgramLibraryCardCollapsedPreview() {
-    ProgramLibraryCardPreviewContent(family = StratumThemeId.Tonal, expanded = false)
+    ProgramLibraryCardPreviewContent(
+        family = StratumThemeId.Tonal,
+        state = previewProgramLibraryCardInactiveState,
+        expanded = false,
+    )
 }
 
 @Composable
 internal fun ProgramLibraryCardPreviewContent(
     family: StratumThemeId,
+    state: ProgramLibraryCardState,
     expanded: Boolean,
 ) {
     StratumTheme(themeId = family) {
         StratumProgramLibraryCard(
-            state =
-                if (expanded) {
-                    previewProgramLibraryCardState
-                } else {
-                    previewProgramLibraryCardState.copy(isActive = false)
-                },
+            state = state,
             expanded = expanded,
             activeLabel = "Active",
             workoutCountLabel = "5 workouts",
@@ -51,7 +55,7 @@ internal fun ProgramLibraryCardPreviewContent(
     }
 }
 
-internal val previewProgramLibraryCardState =
+internal val previewProgramLibraryCardActiveState =
     ProgramLibraryCardState(
         programId = "preview-program",
         name = "Generated Program",
@@ -84,3 +88,6 @@ internal val previewProgramLibraryCardState =
                 ),
             ),
     )
+
+internal val previewProgramLibraryCardInactiveState =
+    previewProgramLibraryCardActiveState.copy(isActive = false)

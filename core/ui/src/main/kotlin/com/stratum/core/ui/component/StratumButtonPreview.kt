@@ -14,29 +14,33 @@ import com.stratum.core.ui.theme.StratumThemeId
 @PreviewLightDark
 @Composable
 private fun StratumButtonTonalPreview() {
-    StratumTheme(themeId = StratumThemeId.Tonal, darkTheme = true) {
-        ButtonPreviewColumn()
-    }
+    ButtonPreviewContent(family = StratumThemeId.Tonal, darkTheme = true)
 }
 
 @PreviewLightDark
 @Composable
 private fun StratumButtonNeoPreview() {
-    StratumTheme(themeId = StratumThemeId.NeoBrutalist, darkTheme = true) {
-        ButtonPreviewColumn()
-    }
+    ButtonPreviewContent(family = StratumThemeId.NeoBrutalist, darkTheme = true)
 }
 
 @PreviewLightDark
 @Composable
 private fun StratumButtonNeoLightPreview() {
-    StratumTheme(themeId = StratumThemeId.NeoBrutalist, darkTheme = false) {
-        ButtonPreviewColumn()
+    ButtonPreviewContent(family = StratumThemeId.NeoBrutalist, darkTheme = false)
+}
+
+@Composable
+internal fun ButtonPreviewContent(
+    family: StratumThemeId,
+    darkTheme: Boolean? = null,
+) {
+    StratumTheme(themeId = family, darkTheme = darkTheme) {
+        ButtonPreviewBody()
     }
 }
 
 @Composable
-internal fun ButtonPreviewColumn() {
+private fun ButtonPreviewBody() {
     Column(
         modifier = Modifier.padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
