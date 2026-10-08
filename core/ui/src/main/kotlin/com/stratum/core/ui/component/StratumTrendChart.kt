@@ -17,6 +17,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
+import com.patrykandpatrick.vico.compose.cartesian.data.CartesianChartModel
 import com.patrykandpatrick.vico.compose.cartesian.data.CartesianChartModelProducer
 import com.patrykandpatrick.vico.compose.cartesian.data.lineModel
 import com.patrykandpatrick.vico.compose.cartesian.layer.LineCartesianLayer
@@ -93,6 +94,25 @@ fun StratumTrendChart(
             }
         }
     }
+    val inspectionModel =
+        rememberInspectionChartModel(key = listOf(primarySeries, secondaryValues)) {
+            CartesianChartModel(
+                models =
+                    listOf(
+                        syncLineLayerModel(
+                            ys =
+                                buildList {
+                                    if (hasPrimary) {
+                                        add(normalizeSparklineSeries(primarySeries.map { it.value }))
+                                    }
+                                    if (hasSecondary) {
+                                        add(normalizeSparklineSeries(secondaryValues))
+                                    }
+                                },
+                        ),
+                    ),
+            )
+        }
 
     val chart =
         rememberCartesianChart(
@@ -125,15 +145,24 @@ fun StratumTrendChart(
             // an axis-less, grid-less, marker-less sparkline.
         )
 
-    CartesianChartHost(
-        chart = chart,
-        modelProducer = modelProducer,
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .height(CHART_HEIGHT_DP.dp)
-                .semantics { this.contentDescription = contentDescription },
-    )
+    val hostModifier =
+        modifier
+            .fillMaxWidth()
+            .height(CHART_HEIGHT_DP.dp)
+            .semantics { this.contentDescription = contentDescription }
+    if (inspectionModel != null) {
+        CartesianChartHost(
+            chart = chart,
+            model = inspectionModel,
+            modifier = hostModifier,
+        )
+    } else {
+        CartesianChartHost(
+            chart = chart,
+            modelProducer = modelProducer,
+            modifier = hostModifier,
+        )
+    }
 }
 
 /** Draws only the faint baseline — used when there is too little data to plot a line. */

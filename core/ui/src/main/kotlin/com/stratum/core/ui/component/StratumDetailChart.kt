@@ -32,6 +32,7 @@ import com.patrykandpatrick.vico.compose.cartesian.axis.rememberAxisGuidelineCom
 import com.patrykandpatrick.vico.compose.cartesian.axis.rememberAxisLabelComponent
 import com.patrykandpatrick.vico.compose.cartesian.axis.rememberAxisLineComponent
 import com.patrykandpatrick.vico.compose.cartesian.axis.rememberAxisTickComponent
+import com.patrykandpatrick.vico.compose.cartesian.data.CartesianChartModel
 import com.patrykandpatrick.vico.compose.cartesian.data.CartesianChartModelProducer
 import com.patrykandpatrick.vico.compose.cartesian.data.CartesianLayerRangeProvider
 import com.patrykandpatrick.vico.compose.cartesian.data.CartesianValueFormatter
@@ -204,6 +205,37 @@ private fun DetailChartContent(
             }
         }
     }
+    val inspectionModel =
+        rememberInspectionChartModel(key = listOf(primarySeries, secondaryValues, primaryAsBars)) {
+            CartesianChartModel(
+                models =
+                    buildList {
+                        if (primaryAsBars) {
+                            add(
+                                syncColumnLayerModel(
+                                    x = primarySeries.map { it.xEpochDay.toDouble() },
+                                    y = primarySeries.map { it.value },
+                                ),
+                            )
+                        } else {
+                            add(
+                                syncLineLayerModel(
+                                    ys = listOf(primarySeries.map { it.value }),
+                                    xs = listOf(primarySeries.map { it.xEpochDay.toDouble() }),
+                                ),
+                            )
+                        }
+                        if (dualMode) {
+                            add(
+                                syncLineLayerModel(
+                                    ys = listOf(secondaryValues.map { it.value }),
+                                    xs = listOf(secondaryValues.map { it.xEpochDay.toDouble() }),
+                                ),
+                            )
+                        }
+                    },
+            )
+        }
 
     val labelStyle = TextStyle(
         color = colors.textMuted,
@@ -400,13 +432,23 @@ private fun DetailChartContent(
         )
     }
 
-    CartesianChartHost(
-        chart = chart,
-        modelProducer = modelProducer,
-        modifier = modifier
+    val hostModifier =
+        modifier
             .fillMaxSize()
-            .semantics { this.contentDescription = contentDescription },
-    )
+            .semantics { this.contentDescription = contentDescription }
+    if (inspectionModel != null) {
+        CartesianChartHost(
+            chart = chart,
+            model = inspectionModel,
+            modifier = hostModifier,
+        )
+    } else {
+        CartesianChartHost(
+            chart = chart,
+            modelProducer = modelProducer,
+            modifier = hostModifier,
+        )
+    }
 }
 
 /** Value domain for Y-axis label formatting, range policy, and mark type. */

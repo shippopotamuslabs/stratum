@@ -3,6 +3,7 @@ package com.stratum.liftconfig
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.stratum.core.ui.theme.StratumTheme
+import com.stratum.core.ui.theme.StratumThemeId
 
 private val PREVIEW_EDITOR =
     IncrementsEditorData(
@@ -15,7 +16,7 @@ private val PREVIEW_EDITOR =
         unitLabel = "lb",
     )
 
-private val PREVIEW_EQUIPMENT_CHROME =
+internal val PREVIEW_EQUIPMENT_CHROME =
     IncrementEditorChrome(
         contextText = "Shared by 3 lift(s)",
         onContextClick = {},
@@ -71,13 +72,14 @@ private val previewSaveActions =
     )
 
 @Composable
-private fun IncrementEditorPreview(
+internal fun IncrementEditorPreview(
     chrome: IncrementEditorChrome,
     title: String,
-    selection: Int,
-    darkTheme: Boolean,
+    selection: Int?,
+    darkTheme: Boolean? = null,
+    family: StratumThemeId = StratumThemeId.Tonal,
 ) {
-    StratumTheme(darkTheme = darkTheme) {
+    StratumTheme(themeId = family, darkTheme = darkTheme) {
         IncrementEditorScreen(
             editor = PREVIEW_EDITOR,
             chrome = chrome,

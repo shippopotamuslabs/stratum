@@ -3,9 +3,10 @@
 JVM golden coverage for high-traction screens via the official Compose Preview
 Screenshot Testing plugin (`com.android.compose.screenshot`). No emulator needed.
 
-Covered today: `:feature:workout` (`WorkoutScreen` + route states) and
-`:feature:program` (`EditWorkoutScreen`). Follow-up: `:core:ui` theme families +
-key `Stratum*` components, then `:app` (dashboard).
+Covered today: `:feature:workout` (`WorkoutScreen` + route states),
+`:feature:program` (program, check-in, create, reorder/swap screens), and `:app`
+(dashboard, gym, sign-in, liftconfig). Follow-up: `:core:ui` theme families +
+key `Stratum*` components.
 
 ## Layout
 
@@ -21,10 +22,10 @@ key `Stratum*` components, then `:app` (dashboard).
 
 ```sh
 # Re-record goldens after an intentional UI change (then review every PNG diff).
-./gradlew :feature:workout:updateDebugScreenshotTest :feature:program:updateDebugScreenshotTest
+./gradlew :feature:workout:updateDebugScreenshotTest :feature:program:updateDebugScreenshotTest :app:updateDebugScreenshotTest
 
 # Verify against goldens (what CI runs).
-./gradlew :feature:workout:validateDebugScreenshotTest :feature:program:validateDebugScreenshotTest
+./gradlew :feature:workout:validateDebugScreenshotTest :feature:program:validateDebugScreenshotTest :app:validateDebugScreenshotTest
 ```
 
 Diff reports land in `{module}/build/reports/screenshotTest/preview/debug/index.html`.
@@ -61,6 +62,12 @@ Diff reports land in `{module}/build/reports/screenshotTest/preview/debug/index.
   render their loading state in goldens. Give such screens an optional `initialLists`-style
   preview seam (production default preserves behavior) and pass the same fakes the loader
   returns (STR-90: `ManageNotesScreen`, `ManageNotesSummaryContent`).
+- Vico charts are the same caveat one layer down: the model transaction runs in
+  `LaunchedEffect`, so the host renders blank in goldens (and Studio previews). The
+  `Stratum*` chart components build the model synchronously via
+  `rememberInspectionChartModel` (direct-model `CartesianChartHost` overload) when
+  `LocalInspectionMode` is true — production keeps the async producer path untouched
+  (STR-93).
 - No network in preview paths (no Coil URLs — use the initials fallback).
 
 ## Known caveats
