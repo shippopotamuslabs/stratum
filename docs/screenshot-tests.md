@@ -43,9 +43,11 @@ Diff reports land in `{module}/build/reports/screenshotTest/preview/debug/index.
    in main sources (see `WorkoutScreenPreview.kt`).
 2. Add `@PreviewTest` wrappers in `src/screenshotTest/` calling that builder.
 3. Record, review, commit. No CI change needed until a new *module* is covered —
-   then add its `validate...` task to the `screenshot-tests` job and wire the
-   plugin in that module's `build.gradle.kts` (copy the `screenshot` plugin +
-   `screenshotTestImplementation` block).
+   then add its `validate...` task to the `screenshot-tests` job and add the
+   one-line `alias(libs.plugins.screenshot)` to that module's `plugins` block.
+   The experimental flag, `screenshotTest` dependencies, and JUnit4 runner
+   exception are centralized in the root `build.gradle.kts` — never copied
+   per module.
 
 ## Rules that keep goldens stable
 
