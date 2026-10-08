@@ -323,18 +323,23 @@ class EquipmentIncrementsViewModel @Inject constructor(
     }
 
     /**
-     * First-band start edit (STR-101): only band 0's start is user-editable —
-     * it has no predecessor to tile from. Every later band's start stays
-     * derived from the previous band's end ([IncrementBandTiling]), so edits
-     * targeting other bands are ignored.
+     * Band start edit (STR-101, STR-102): band 0's start is stored state — it
+     * has no predecessor to tile from. Editing a later band's start moves the
+     * previous band's end to match via [IncrementBandTiling.retileAfterEndEdit],
+     * and re-tiling derives the band's own start from that end — the whole new
+     * band is set up in the sheet without closing it, and bands never gap or
+     * overlap.
      */
     fun onBandStartChanged(index: Int, value: String) {
         updateDraft { tiers ->
-            // Only band 0's start is stored state; later bands tile from their
-            // predecessor, so start edits there are an intentional no-op.
-            if (index != 0 || tiers.isEmpty()) return@updateDraft tiers
-            tiers.toMutableList().also { updated ->
-                updated[0] = updated[0].copy(lowerBound = IncrementTierDraftOps.filterNumeric(value))
+            if (index !in tiers.indices) return@updateDraft tiers
+            if (index == 0) {
+                tiers.toMutableList().also { updated ->
+                    updated[0] =
+                        updated[0].copy(lowerBound = IncrementTierDraftOps.filterNumeric(value))
+                }
+            } else {
+                IncrementBandTiling.retileAfterEndEdit(tiers, index - 1, value)
             }
         }
     }
@@ -355,8 +360,10 @@ class EquipmentIncrementsViewModel @Inject constructor(
 
     /**
      * Band-strip end edit (STR-58): replaces the band's end and re-tiles
-     * neighbors so bands never gap or overlap. Starts of bands after the
-     * first are derived, never typed.
+     * neighbors so bands never gap or overlap. Editing a later band's start
+     * routes here too ([onBandStartChanged] moves the previous band's end),
+     * so a band's start is never typed as free state — it tiles from the
+     * predecessor's end.
      */
     fun onBandEndChanged(index: Int, value: String) {
         updateDraft { tiers ->

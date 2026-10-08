@@ -55,9 +55,7 @@
     <!-- Band N -->
     <string name="equipment_band_editor_title">Band %1$d</string>
     <string name="equipment_band_editor_sub">Edit this band. Neighbors re-tile automatically.</string>
-    <!-- Starts at X lb (previous band's end) -->
-    <string name="equipment_band_starts_at">Starts at %1$s %2$s (previous band\u2019s end)</string>
-    <!-- Editable start label for the first band (no previous band) -->
+    <!-- Editable start label: band 0 stores its own start; later bands tile from the prior band's end -->
     <string name="equipment_band_starts_at_label">Starts at (%1$s)</string>
     <string name="equipment_band_ends_at">Ends at (%1$s)</string>
     <string name="equipment_band_step">Step (%1$s)</string>
