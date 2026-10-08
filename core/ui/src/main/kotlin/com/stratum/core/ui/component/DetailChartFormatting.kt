@@ -59,6 +59,21 @@ fun formatHoursAsDuration(hours: Double): String {
 }
 
 /**
+ * Compact step-count labels for the hero Steps y-axis ("0", "500", "5k", "10k").
+ * Sub-1k ticks render exact; 1k+ render with a "k" suffix trimmed of ".0".
+ */
+fun formatStepAxisLabel(value: Double): String {
+    if (abs(value) < ZERO_EPSILON) return "0"
+    val rounded = round(value).toLong()
+    if (rounded == 0L) return "0"
+    if (abs(rounded) < STEPS_COMPACT_THRESHOLD) return rounded.toString()
+    val thousands = rounded / STEPS_COMPACT_THRESHOLD.toDouble()
+    return trimTrailingZeros(String.format(Locale.US, "%.1f", thousands)) + "k"
+}
+
+private const val STEPS_COMPACT_THRESHOLD = 1000L
+
+/**
  * Formats a week-start [Instant] (stored as Monday 00:00 UTC) for display without local-timezone
  * day-shift (e.g. Sunday evening in US zones).
  */

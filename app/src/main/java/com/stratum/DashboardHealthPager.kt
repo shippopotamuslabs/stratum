@@ -276,6 +276,7 @@ private fun ActivityHealthPage(
                 contentDescription = stringResource(R.string.dashboard_health_steps_chart_cd),
                 modifier = healthChartModifier(expandChart),
                 fillHeight = expandChart,
+                showYAxis = true,
             )
         }
     }
@@ -310,6 +311,7 @@ private fun WeightHealthPage(
                 yScale = DetailYScale.Weight,
                 contentDescription = stringResource(R.string.dashboard_health_weight_chart_cd),
                 modifier = healthChartModifier(expandChart),
+                showYAxis = true,
             )
         }
     }
