@@ -20,6 +20,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
 import com.patrykandpatrick.vico.compose.cartesian.axis.Axis
+import com.patrykandpatrick.vico.compose.cartesian.data.CartesianChartModel
 import com.patrykandpatrick.vico.compose.cartesian.data.CartesianChartModelProducer
 import com.patrykandpatrick.vico.compose.cartesian.data.ColumnCartesianLayerModel
 import com.patrykandpatrick.vico.compose.cartesian.data.columnModel
@@ -141,6 +142,30 @@ fun StratumIndexVolumeChart(
             }
         }
     }
+    val inspectionModel =
+        rememberInspectionChartModel(key = listOf(indexSeries, volumeSeries)) {
+            CartesianChartModel(
+                models =
+                    buildList {
+                        if (hasIndex) {
+                            add(
+                                syncColumnLayerModel(
+                                    x = indexSeries.map { it.weekIndex.toDouble() },
+                                    y = indexSeries.map { it.value },
+                                ),
+                            )
+                        }
+                        if (hasVolume) {
+                            add(
+                                syncLineLayerModel(
+                                    ys = listOf(volumeSeries.map { it.value }),
+                                    xs = listOf(volumeSeries.map { it.weekIndex.toDouble() }),
+                                ),
+                            )
+                        }
+                    },
+            )
+        }
 
     val decorations = remember(zeroLine, hasIndex) {
         if (hasIndex) {
@@ -179,13 +204,12 @@ fun StratumIndexVolumeChart(
         decorations = decorations,
     )
 
-    CartesianChartHost(
+    StratumCartesianChartHost(
         chart = chart,
         modelProducer = modelProducer,
-        modifier = modifier
-            .fillMaxWidth()
-            .height(CHART_HEIGHT_DP.dp)
-            .semantics { this.contentDescription = contentDescription },
+        inspectionModel = inspectionModel,
+        modifier = modifier.fillMaxWidth().height(CHART_HEIGHT_DP.dp),
+        contentDescription = contentDescription,
     )
 }
 

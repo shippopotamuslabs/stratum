@@ -23,6 +23,7 @@ import com.patrykandpatrick.vico.compose.cartesian.axis.HorizontalAxis
 import com.patrykandpatrick.vico.compose.cartesian.axis.rememberAxisLabelComponent
 import com.patrykandpatrick.vico.compose.cartesian.axis.rememberAxisLineComponent
 import com.patrykandpatrick.vico.compose.cartesian.axis.rememberAxisTickComponent
+import com.patrykandpatrick.vico.compose.cartesian.data.CartesianChartModel
 import com.patrykandpatrick.vico.compose.cartesian.data.CartesianChartModelProducer
 import com.patrykandpatrick.vico.compose.cartesian.data.CartesianLayerRangeProvider
 import com.patrykandpatrick.vico.compose.cartesian.data.CartesianValueFormatter
@@ -103,6 +104,18 @@ fun StratumVolumeBarChart(
             }
         }
     }
+    val inspectionModel =
+        rememberInspectionChartModel(key = series) {
+            CartesianChartModel(
+                models =
+                    listOf(
+                        syncColumnLayerModel(
+                            x = series.map { it.weekIndex.toDouble() },
+                            y = series.map { it.value },
+                        ),
+                    ),
+            )
+        }
 
     val labelStyle = TextStyle(
         color = colors.textMuted,
@@ -180,11 +193,13 @@ fun StratumVolumeBarChart(
                 },
             )
     }
-    CartesianChartHost(
+    StratumCartesianChartHost(
         chart = chart,
         modelProducer = modelProducer,
+        inspectionModel = inspectionModel,
+        modifier = sizedModifier,
+        contentDescription = contentDescription,
         scrollState = rememberStratumChartScrollState(),
-        modifier = sizedModifier.semantics { this.contentDescription = contentDescription },
     )
 }
 

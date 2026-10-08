@@ -24,6 +24,7 @@ import com.patrykandpatrick.vico.compose.cartesian.axis.HorizontalAxis
 import com.patrykandpatrick.vico.compose.cartesian.axis.rememberAxisLabelComponent
 import com.patrykandpatrick.vico.compose.cartesian.axis.rememberAxisLineComponent
 import com.patrykandpatrick.vico.compose.cartesian.axis.rememberAxisTickComponent
+import com.patrykandpatrick.vico.compose.cartesian.data.CartesianChartModel
 import com.patrykandpatrick.vico.compose.cartesian.data.CartesianChartModelProducer
 import com.patrykandpatrick.vico.compose.cartesian.data.CartesianValueFormatter
 import com.patrykandpatrick.vico.compose.cartesian.data.lineModel
@@ -129,6 +130,34 @@ fun StratumMultiLineChart(
             }
         }
     }
+    val inspectionModel =
+        rememberInspectionChartModel(
+            key = listOf(primaryValues, secondaryValues, tertiaryValues, quaternaryValues),
+        ) {
+            CartesianChartModel(
+                models =
+                    listOf(
+                        syncLineLayerModel(
+                            ys =
+                                buildList {
+                                    if (hasPrimary) add(primaryValues)
+                                    if (hasSecondary) add(secondaryValues)
+                                    if (hasTertiary) add(tertiaryValues)
+                                    if (hasQuaternary) add(quaternaryValues)
+                                },
+                            xs =
+                                buildList {
+                                    if (hasPrimary) add(primarySeries.map { it.weekIndex.toDouble() })
+                                    if (hasSecondary) add(secondarySeries.map { it.weekIndex.toDouble() })
+                                    if (hasTertiary) add(tertiarySeries.map { it.weekIndex.toDouble() })
+                                    if (hasQuaternary) {
+                                        add(quaternarySeries.map { it.weekIndex.toDouble() })
+                                    }
+                                },
+                        ),
+                    ),
+            )
+        }
 
     val primaryLine = rememberLineStyle(resolvedPrimary)
     val secondaryLine = rememberLineStyle(resolvedSecondary)
@@ -204,13 +233,13 @@ fun StratumMultiLineChart(
         markerController = rememberStratumChartMarkerController(),
     )
 
-    CartesianChartHost(
+    StratumCartesianChartHost(
         chart = chart,
         modelProducer = modelProducer,
+        inspectionModel = inspectionModel,
+        modifier = modifier.fillMaxWidth(),
+        contentDescription = contentDescription,
         scrollState = rememberStratumChartScrollState(),
-        modifier = modifier
-            .fillMaxWidth()
-            .semantics { this.contentDescription = contentDescription },
     )
 }
 

@@ -301,7 +301,7 @@ private fun HealthPagerCardPreview(
 }
 
 @Composable
-private fun DashboardScreenPreviewContent(
+internal fun DashboardScreenPreviewContent(
     health: DashboardHealthUiState = DashboardHealthUiState(),
 ) {
     DashboardScreen(
@@ -438,7 +438,7 @@ private fun sevenDayVolumeSeries(peakDay: Int): List<TrendPointUi> =
 /** Sample rolling week ending Sunday for previews. */
 private val PREVIEW_DAY_LABELS = listOf("M", "T", "W", "R", "F", "Sa", "Su")
 
-private fun previewHealthState(selectedPage: Int = 0): DashboardHealthUiState =
+internal fun previewHealthState(selectedPage: Int = 0): DashboardHealthUiState =
     DashboardHealthUiState(
         visible = true,
         selectedPage = selectedPage,
@@ -502,7 +502,7 @@ private fun previewStagelessSleepState(includeLastNight: Boolean): DashboardHeal
     )
 
 /** Empty Health Connect week: axis labels with no samples — matches the live emulator with no Toolbox data. */
-private fun previewEmptyHealthState(selectedPage: Int = 0): DashboardHealthUiState {
+internal fun previewEmptyHealthState(selectedPage: Int = 0): DashboardHealthUiState {
     val zeroWeek = PREVIEW_DAY_LABELS.mapIndexed { index, _ -> TrendPointUi(index, 0f) }
     return DashboardHealthUiState(
         visible = true,
