@@ -87,13 +87,24 @@ data class IncrementEditorChrome(
     val forkSuggestion: String?,
 )
 
+/** Which draft field of a band the user edited; one entry point for all band field edits. */
+enum class BandField {
+    START,
+    END,
+    STEP,
+}
+
 /** Band-strip callbacks, grouped so the screen signature stays lean. */
 data class IncrementEditorBandActions(
     val onBandClick: (Int) -> Unit,
     val onAddBand: () -> Unit,
     val onBandSheetDismiss: () -> Unit,
-    val onBandEndChanged: (Int, String) -> Unit,
-    val onBandStepChanged: (Int, String) -> Unit,
+    /**
+     * Single entry point for band draft-field edits. Was three parallel
+     * (Int, String) -> Unit callbacks (start/end/step) that differed only by
+     * field; the enum keeps the boundary from growing with every new field.
+     */
+    val onBandFieldChanged: (Int, BandField, String) -> Unit,
     val onDeleteBand: (Int) -> Unit,
 )
 
@@ -261,12 +272,18 @@ internal fun IncrementEditorScreen(
         BandEditorSheet(
             index = selection,
             tier = editor.tiers[selection],
-            start = IncrementBandTiling.startAt(editor.tiers, selection),
+            start =
+                if (selection == 0) {
+                    IncrementBandTiling.firstBandStartOrZero(editor.tiers)
+                } else {
+                    IncrementBandTiling.startAt(editor.tiers, selection)
+                },
             isLast = selection == editor.tiers.lastIndex,
             canDelete = editor.tiers.size > 1,
             unitLabel = editor.unitLabel,
-            onEndChanged = { bandActions.onBandEndChanged(selection, it) },
-            onStepChanged = { bandActions.onBandStepChanged(selection, it) },
+            onStartChanged = { bandActions.onBandFieldChanged(selection, BandField.START, it) },
+            onEndChanged = { bandActions.onBandFieldChanged(selection, BandField.END, it) },
+            onStepChanged = { bandActions.onBandFieldChanged(selection, BandField.STEP, it) },
             onDelete = { bandActions.onDeleteBand(selection) },
             onDone = bandActions.onBandSheetDismiss,
             onDismiss = bandActions.onBandSheetDismiss,
@@ -404,7 +421,7 @@ internal fun BandStrip(
 }
 
 private fun bandRangeText(tier: IncrementTierDraft, isFirst: Boolean): String {
-    val start = if (isFirst) "0" else tier.lowerBound.ifBlank { "?" }
+    val start = if (isFirst) tier.lowerBound.ifBlank { "0" } else tier.lowerBound.ifBlank { "?" }
     val end = tier.upperBound?.ifBlank { null }
     return if (end == null) "$start+" else "$start–$end"
 }
@@ -470,7 +487,8 @@ private fun BandAddCell(
     }
 }
 
-/** Band editor sheet: derived start context plus exactly Ends-at and Step. */
+/** Band editor sheet: the first band's start is editable (STR-101); every
+ * later band shows its derived start plus exactly Ends-at and Step. */
 @Composable
 internal fun BandEditorSheet(
     index: Int,
@@ -479,6 +497,7 @@ internal fun BandEditorSheet(
     isLast: Boolean,
     canDelete: Boolean,
     unitLabel: String,
+    onStartChanged: (String) -> Unit,
     onEndChanged: (String) -> Unit,
     onStepChanged: (String) -> Unit,
     onDelete: () -> Unit,
@@ -486,6 +505,7 @@ internal fun BandEditorSheet(
     onDismiss: () -> Unit,
 ) {
     val colors = StratumThemeAccessor.colors
+    val isFirst = index == 0
     StratumBottomSheet(
         onDismissRequest = onDismiss,
         title = stringResource(UiR.string.equipment_band_editor_title, index + 1),
@@ -495,24 +515,34 @@ internal fun BandEditorSheet(
             style = StratumThemeAccessor.typography.sectionLabel,
             muted = true,
         )
-        StratumText(
-            text =
-                stringResource(
-                    UiR.string.equipment_band_starts_at,
-                    start,
-                    unitLabel,
-                ),
-            style = StratumThemeAccessor.typography.bodyLarge,
-            muted = true,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .background(
-                        color = colors.surfaceSunken,
-                        shape = StratumThemeAccessor.shapes.panel,
-                    )
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
-        )
+        if (isFirst) {
+            StratumTextField(
+                value = tier.lowerBound,
+                onValueChange = onStartChanged,
+                label = stringResource(UiR.string.equipment_band_starts_at_label, unitLabel),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        } else {
+            StratumText(
+                text =
+                    stringResource(
+                        UiR.string.equipment_band_starts_at,
+                        start,
+                        unitLabel,
+                    ),
+                style = StratumThemeAccessor.typography.bodyLarge,
+                muted = true,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(
+                            color = colors.surfaceSunken,
+                            shape = StratumThemeAccessor.shapes.panel,
+                        )
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+            )
+        }
         StratumTextField(
             value = tier.upperBound.orEmpty(),
             onValueChange = onEndChanged,
@@ -693,7 +723,12 @@ internal fun BandCaption(
     unitLabel: String,
     modifier: Modifier = Modifier,
 ) {
-    val start = IncrementBandTiling.startAt(tiers, selection)
+    val start =
+        if (selection == 0) {
+            IncrementBandTiling.firstBandStartOrZero(tiers)
+        } else {
+            IncrementBandTiling.startAt(tiers, selection)
+        }
     val isOpen = selection == tiers.lastIndex
     StratumText(
         text =
