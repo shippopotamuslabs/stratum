@@ -1,129 +1,69 @@
 package com.stratum.feature.program.ui
 
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.tooling.preview.PreviewLightDark
 import com.stratum.core.ui.theme.StratumTheme
 import com.stratum.core.ui.theme.StratumThemeId
 import com.stratum.feature.program.R
 
-@Preview(name = "Check-in subjective light")
+@PreviewLightDark
 @Composable
-fun CheckInSubjectivePreview() {
+private fun CheckInSubjectiveTonalPreview() {
     CheckInPreviewContent(family = StratumThemeId.Tonal, state = subjectiveBaseState())
 }
 
-@Preview(name = "Check-in subjective dark")
-@Composable
-fun CheckInSubjectiveDarkPreview() {
-    CheckInPreviewContent(family = StratumThemeId.Tonal, darkTheme = true, state = subjectiveBaseState())
-}
-
-@Preview(name = "Check-in subjective light neo")
+@PreviewLightDark
 @Composable
 private fun CheckInSubjectiveNeoPreview() {
     CheckInPreviewContent(family = StratumThemeId.NeoBrutalist, state = subjectiveBaseState())
 }
 
-@Preview(name = "Check-in subjective dark neo")
+@PreviewLightDark
 @Composable
-private fun CheckInSubjectiveDarkNeoPreview() {
-    CheckInPreviewContent(family = StratumThemeId.NeoBrutalist, darkTheme = true, state = subjectiveBaseState())
-}
-
-@Preview(name = "Check-in localized muscles light")
-@Composable
-fun CheckInLocalizedMusclesPreview() {
+private fun CheckInLocalizedMusclesTonalPreview() {
     CheckInPreviewContent(family = StratumThemeId.Tonal, state = subjectiveLocalizedState())
 }
 
-@Preview(name = "Check-in localized muscles dark")
-@Composable
-fun CheckInLocalizedMusclesDarkPreview() {
-    CheckInPreviewContent(family = StratumThemeId.Tonal, darkTheme = true, state = subjectiveLocalizedState())
-}
-
-@Preview(name = "Check-in localized muscles light neo")
+@PreviewLightDark
 @Composable
 private fun CheckInLocalizedMusclesNeoPreview() {
     CheckInPreviewContent(family = StratumThemeId.NeoBrutalist, state = subjectiveLocalizedState())
 }
 
-@Preview(name = "Check-in localized muscles dark neo")
+@PreviewLightDark
 @Composable
-private fun CheckInLocalizedMusclesDarkNeoPreview() {
-    CheckInPreviewContent(family = StratumThemeId.NeoBrutalist, darkTheme = true, state = subjectiveLocalizedState())
-}
-
-@Preview(name = "Check-in recommendations light")
-@Composable
-fun CheckInRecommendationsPreview() {
+private fun CheckInRecommendationsTonalPreview() {
     CheckInPreviewContent(family = StratumThemeId.Tonal, state = recommendationsMixedState())
 }
 
-@Preview(name = "Check-in recommendations dark")
-@Composable
-fun CheckInRecommendationsDarkPreview() {
-    CheckInPreviewContent(family = StratumThemeId.Tonal, darkTheme = true, state = recommendationsMixedState())
-}
-
-@Preview(name = "Check-in recommendations light neo")
+@PreviewLightDark
 @Composable
 private fun CheckInRecommendationsNeoPreview() {
     CheckInPreviewContent(family = StratumThemeId.NeoBrutalist, state = recommendationsMixedState())
 }
 
-@Preview(name = "Check-in recommendations dark neo")
+@PreviewLightDark
 @Composable
-private fun CheckInRecommendationsDarkNeoPreview() {
-    CheckInPreviewContent(family = StratumThemeId.NeoBrutalist, darkTheme = true, state = recommendationsMixedState())
-}
-
-@Preview(name = "Check-in recommendations empty light")
-@Composable
-fun CheckInRecommendationsEmptyPreview() {
+private fun CheckInRecommendationsEmptyTonalPreview() {
     CheckInPreviewContent(family = StratumThemeId.Tonal, state = recommendationsEmptyState())
 }
 
-@Preview(name = "Check-in recommendations empty dark")
-@Composable
-fun CheckInRecommendationsEmptyDarkPreview() {
-    CheckInPreviewContent(family = StratumThemeId.Tonal, darkTheme = true, state = recommendationsEmptyState())
-}
-
-@Preview(name = "Check-in recommendations empty light neo")
+@PreviewLightDark
 @Composable
 private fun CheckInRecommendationsEmptyNeoPreview() {
     CheckInPreviewContent(family = StratumThemeId.NeoBrutalist, state = recommendationsEmptyState())
 }
 
-@Preview(name = "Check-in recommendations empty dark neo")
+@PreviewLightDark
 @Composable
-private fun CheckInRecommendationsEmptyDarkNeoPreview() {
-    CheckInPreviewContent(family = StratumThemeId.NeoBrutalist, darkTheme = true, state = recommendationsEmptyState())
-}
-
-@Preview(name = "Check-in swap picker light")
-@Composable
-private fun CheckInSwapPickerPreview() {
+private fun CheckInSwapPickerTonalPreview() {
     CheckInSwapPickerPreviewContent(family = StratumThemeId.Tonal)
 }
 
-@Preview(name = "Check-in swap picker dark")
-@Composable
-fun CheckInSwapPickerDarkPreview() {
-    CheckInSwapPickerPreviewContent(family = StratumThemeId.Tonal, darkTheme = true)
-}
-
-@Preview(name = "Check-in swap picker light neo")
+@PreviewLightDark
 @Composable
 private fun CheckInSwapPickerNeoPreview() {
     CheckInSwapPickerPreviewContent(family = StratumThemeId.NeoBrutalist)
-}
-
-@Preview(name = "Check-in swap picker dark neo")
-@Composable
-private fun CheckInSwapPickerDarkNeoPreview() {
-    CheckInSwapPickerPreviewContent(family = StratumThemeId.NeoBrutalist, darkTheme = true)
 }
 
 @Composable
