@@ -40,6 +40,17 @@ fun formatChartNumber(value: Double, scale: DetailYScale): String {
             }
             if (raw.contains('e', ignoreCase = true)) raw else trimTrailingZeros(raw)
         }
+        DetailYScale.Steps -> {
+            val rounded = round(value).toLong()
+            if (rounded == 0L) {
+                "0"
+            } else if (abs(rounded) < STEPS_COMPACT_THRESHOLD) {
+                rounded.toString()
+            } else {
+                val thousands = rounded / STEPS_COMPACT_THRESHOLD.toDouble()
+                trimTrailingZeros(String.format(Locale.US, "%.1f", thousands)) + "k"
+            }
+        }
     }
 }
 
@@ -57,6 +68,8 @@ fun formatHoursAsDuration(hours: Double): String {
         "${minutes}m"
     }
 }
+
+private const val STEPS_COMPACT_THRESHOLD = 1000L
 
 /**
  * Formats a week-start [Instant] (stored as Monday 00:00 UTC) for display without local-timezone

@@ -54,8 +54,11 @@ import com.stratum.core.ui.theme.StratumThemeAccessor
 import java.time.Instant
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import kotlin.math.floor
+import kotlin.math.log10
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.pow
 
 /**
  * Fullscreen detail chart with real Y values and date X labels.
@@ -412,6 +415,8 @@ enum class DetailYScale {
     Volume,
     /** Baseline-relative log index — rendered as signed bars about zero. */
     Progress,
+    /** Hero step counts — floored at 0 with a nice ceiling and compact "k" labels. */
+    Steps,
 }
 
 /**
@@ -454,6 +459,16 @@ internal fun rangeProviderFor(scale: DetailYScale): CartesianLayerRangeProvider 
     DetailYScale.Weight -> WeightRangeProvider
     DetailYScale.Volume -> VolumeRangeProvider
     DetailYScale.Progress -> ProgressBaselineRangeProvider
+    DetailYScale.Steps -> StepsRangeProvider
+}
+
+/**
+ * Compact-axis tick count per scale. Steps ceilings are 2× a nice step, so 3 evenly-spaced ticks
+ * always land round ("0 / 5k / 10k"); other fitted scales use 4.
+ */
+internal fun yTickCountFor(scale: DetailYScale): Int = when (scale) {
+    DetailYScale.Steps -> COMPACT_STEPS_LABEL_COUNT
+    DetailYScale.Weight, DetailYScale.Volume, DetailYScale.Progress -> COMPACT_LABEL_COUNT
 }
 
 internal object ProgressBaselineRangeProvider : CartesianLayerRangeProvider {
@@ -478,6 +493,14 @@ internal object VolumeRangeProvider : CartesianLayerRangeProvider {
 
     override fun getMaxY(minY: Double, maxY: Double, extraStore: ExtraStore): Double =
         volumeYRange(minY, maxY).second
+}
+
+internal object StepsRangeProvider : CartesianLayerRangeProvider {
+    override fun getMinY(minY: Double, maxY: Double, extraStore: ExtraStore): Double =
+        stepsYRange(minY, maxY).first
+
+    override fun getMaxY(minY: Double, maxY: Double, extraStore: ExtraStore): Double =
+        stepsYRange(minY, maxY).second
 }
 
 /**
@@ -525,6 +548,28 @@ internal fun volumeYRange(dataMin: Double, dataMax: Double): Pair<Double, Double
     val ceiling = max(hi, VOLUME_MIN_SPAN)
     val pad = max(ceiling * VOLUME_PAD_FRACTION, VOLUME_MIN_SPAN * VOLUME_PAD_FRACTION)
     return 0.0 to (ceiling + pad)
+}
+
+/**
+ * Hero Steps bars. Floor at 0; ceiling is twice the smallest nice tick step covering half the
+ * peak, so the 3 evenly-spaced axis ticks always land on round labels ("0 / 5k / 10k").
+ * Guarantees positive length for all-zero / flat / non-finite input.
+ */
+internal fun stepsYRange(dataMin: Double, dataMax: Double): Pair<Double, Double> {
+    val (_, hi) = finiteDataBounds(dataMin, dataMax, fallbackSpan = STEPS_MIN_SPAN)
+    val peak = max(hi, 0.0)
+    val step = niceStepsTickStep(max(peak / 2.0, STEPS_MIN_TICK_STEP))
+    return 0.0 to (step * 2.0)
+}
+
+/** Smallest 1/2/2.5/5 × 10ⁿ step at or above [value] ([value] must be positive). */
+internal fun niceStepsTickStep(value: Double): Double {
+    val base = 10.0.pow(floor(log10(value)))
+    for (multiple in NICE_STEP_MULTIPLES) {
+        val candidate = multiple * base
+        if (candidate >= value) return candidate
+    }
+    return 10.0 * base
 }
 
 /** Coerce raw model min/max to a finite ordered pair with at least [fallbackSpan] width. */
@@ -582,5 +627,13 @@ private const val WEIGHT_MIN_SPAN = 5.0
 private const val WEIGHT_PAD_FRACTION = 0.08
 /** Minimum hard-set axis span so all-zero volume (rest week) still draws ticks. */
 private const val VOLUME_MIN_SPAN = 1.0
+/** Minimum step-data span for finite bounds; the tick floor below dominates the ceiling. */
+private const val STEPS_MIN_SPAN = 1.0
+/** Compact-axis labels for Steps (0 / step / 2×step) vs other scales. */
+private const val COMPACT_STEPS_LABEL_COUNT = 3
+private const val COMPACT_LABEL_COUNT = 4
+/** Smallest half-range tick step, so all-zero / tiny step weeks still draw ticks (0/50/100). */
+private const val STEPS_MIN_TICK_STEP = 50.0
+private val NICE_STEP_MULTIPLES = doubleArrayOf(1.0, 2.0, 2.5, 5.0, 10.0)
 private const val VOLUME_PAD_FRACTION = 0.08
 private const val INDEX_NEGATIVE_LIGHTEN_FRACTION = 0.55f
