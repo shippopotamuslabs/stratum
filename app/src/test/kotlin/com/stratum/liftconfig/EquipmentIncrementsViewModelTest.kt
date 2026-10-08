@@ -203,6 +203,75 @@ class EquipmentIncrementsViewModelTest {
     }
 
     @Test
+    @DisplayName("Given an unedited config when initialized then the first band still starts at 0")
+    fun existingConfigsDefaultFirstStartToZero() = runTest {
+        subject.initialize(cableId.value)
+        subject.uiState.test {
+            val state =
+                awaitItemWith { it.equipmentName == "Cables" && it.editor.tiers.isNotEmpty() }
+            assertEquals("0", state.editor.tiers[0].lowerBound)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Given a first-band start edit when applied then the start changes and neighbors still tile")
+    fun firstBandStartIsEditable() = runTest {
+        subject.initialize(cableId.value)
+        subject.uiState.test {
+            awaitItemWith { it.equipmentName == "Cables" && it.editor.tiers.isNotEmpty() }
+            subject.addTier()
+            awaitItemWith { it.editor.tiers.size == 2 }
+            subject.onBandEndChanged(0, "50")
+            awaitItemWith { it.editor.tiers[0].upperBound == "50" }
+            subject.onBandStartChanged(0, "10")
+            val edited = awaitItemWith { it.editor.tiers[0].lowerBound == "10" }
+            assertEquals("10", edited.editor.tiers[0].lowerBound)
+            assertEquals("50", edited.editor.tiers[0].upperBound)
+            assertEquals("50", edited.editor.tiers[1].lowerBound)
+            assertTrue(edited.editor.tiers[1].openEnded)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Given a start edit on a later band when applied then it is ignored")
+    fun laterBandStartEditIsIgnored() = runTest {
+        subject.initialize(cableId.value)
+        subject.uiState.test {
+            awaitItemWith { it.equipmentName == "Cables" && it.editor.tiers.isNotEmpty() }
+            subject.addTier()
+            awaitItemWith { it.editor.tiers.size == 2 }
+            subject.onBandEndChanged(0, "50")
+            awaitItemWith { it.editor.tiers[0].upperBound == "50" }
+            subject.onBandStartChanged(1, "99")
+            // Ignored edits emit no new state; the derived start still tiles from band 0's end.
+            assertEquals("50", subject.uiState.value.editor.tiers[1].lowerBound)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Given a first-band start of 10 when saved then the stored tiers keep it")
+    fun savePersistsCustomFirstBandStart() = runTest {
+        subject.initialize(cableId.value)
+        subject.uiState.test {
+            awaitItemWith { it.equipmentName == "Cables" && it.editor.tiers.isNotEmpty() }
+            subject.onBandStartChanged(0, "10")
+            awaitItemWith { it.editor.tiers[0].lowerBound == "10" }
+            subject.save()
+            assertTrue(awaitItemWith { it.editor.saveSucceeded }.editor.saveSucceeded)
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        val stored = fakeEquipmentRepository.current.single { it.id == cableId }
+        assertEquals(
+            listOf(IncrementTier(Weight(10.0, lb), null, Weight(5.0, lb))),
+            stored.incrementTiers,
+        )
+    }
+
+    @Test
     @DisplayName("Given bands when a middle band is removed then lowers re-derive and last stays open")
     fun removeMiddleBandRetiles() = runTest {
         subject.initialize(cableId.value)

@@ -92,6 +92,8 @@ data class IncrementEditorBandActions(
     val onBandClick: (Int) -> Unit,
     val onAddBand: () -> Unit,
     val onBandSheetDismiss: () -> Unit,
+    /** First-band start only (STR-101); later bands' starts stay derived. */
+    val onBandStartChanged: (Int, String) -> Unit,
     val onBandEndChanged: (Int, String) -> Unit,
     val onBandStepChanged: (Int, String) -> Unit,
     val onDeleteBand: (Int) -> Unit,
@@ -265,6 +267,7 @@ internal fun IncrementEditorScreen(
             isLast = selection == editor.tiers.lastIndex,
             canDelete = editor.tiers.size > 1,
             unitLabel = editor.unitLabel,
+            onStartChanged = { bandActions.onBandStartChanged(selection, it) },
             onEndChanged = { bandActions.onBandEndChanged(selection, it) },
             onStepChanged = { bandActions.onBandStepChanged(selection, it) },
             onDelete = { bandActions.onDeleteBand(selection) },
@@ -404,7 +407,7 @@ internal fun BandStrip(
 }
 
 private fun bandRangeText(tier: IncrementTierDraft, isFirst: Boolean): String {
-    val start = if (isFirst) "0" else tier.lowerBound.ifBlank { "?" }
+    val start = if (isFirst) tier.lowerBound.ifBlank { "0" } else tier.lowerBound.ifBlank { "?" }
     val end = tier.upperBound?.ifBlank { null }
     return if (end == null) "$start+" else "$start–$end"
 }
@@ -470,7 +473,8 @@ private fun BandAddCell(
     }
 }
 
-/** Band editor sheet: derived start context plus exactly Ends-at and Step. */
+/** Band editor sheet: the first band's start is editable (STR-101); every
+ * later band shows its derived start plus exactly Ends-at and Step. */
 @Composable
 internal fun BandEditorSheet(
     index: Int,
@@ -479,6 +483,7 @@ internal fun BandEditorSheet(
     isLast: Boolean,
     canDelete: Boolean,
     unitLabel: String,
+    onStartChanged: (String) -> Unit,
     onEndChanged: (String) -> Unit,
     onStepChanged: (String) -> Unit,
     onDelete: () -> Unit,
@@ -486,6 +491,7 @@ internal fun BandEditorSheet(
     onDismiss: () -> Unit,
 ) {
     val colors = StratumThemeAccessor.colors
+    val isFirst = index == 0
     StratumBottomSheet(
         onDismissRequest = onDismiss,
         title = stringResource(UiR.string.equipment_band_editor_title, index + 1),
@@ -495,24 +501,34 @@ internal fun BandEditorSheet(
             style = StratumThemeAccessor.typography.sectionLabel,
             muted = true,
         )
-        StratumText(
-            text =
-                stringResource(
-                    UiR.string.equipment_band_starts_at,
-                    start,
-                    unitLabel,
-                ),
-            style = StratumThemeAccessor.typography.bodyLarge,
-            muted = true,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .background(
-                        color = colors.surfaceSunken,
-                        shape = StratumThemeAccessor.shapes.panel,
-                    )
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
-        )
+        if (isFirst) {
+            StratumTextField(
+                value = tier.lowerBound,
+                onValueChange = onStartChanged,
+                label = stringResource(UiR.string.equipment_band_starts_at_label, unitLabel),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        } else {
+            StratumText(
+                text =
+                    stringResource(
+                        UiR.string.equipment_band_starts_at,
+                        start,
+                        unitLabel,
+                    ),
+                style = StratumThemeAccessor.typography.bodyLarge,
+                muted = true,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(
+                            color = colors.surfaceSunken,
+                            shape = StratumThemeAccessor.shapes.panel,
+                        )
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+            )
+        }
         StratumTextField(
             value = tier.upperBound.orEmpty(),
             onValueChange = onEndChanged,

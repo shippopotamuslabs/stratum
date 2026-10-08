@@ -323,8 +323,28 @@ class EquipmentIncrementsViewModel @Inject constructor(
     }
 
     /**
+     * First-band start edit (STR-101): only band 0's start is user-editable —
+     * it has no predecessor to tile from. Every later band's start stays
+     * derived from the previous band's end ([IncrementBandTiling]), so edits
+     * targeting other bands are ignored.
+     */
+    fun onBandStartChanged(index: Int, value: String) {
+        updateDraft { tiers ->
+            if (index != 0 || index !in tiers.indices) return@updateDraft tiers
+            tiers.mapIndexed { i, tier ->
+                if (i == 0) {
+                    tier.copy(lowerBound = IncrementTierDraftOps.filterNumeric(value))
+                } else {
+                    tier
+                }
+            }
+        }
+    }
+
+    /**
      * Band-strip end edit (STR-58): replaces the band's end and re-tiles
-     * neighbors so bands never gap or overlap. Starts are derived, never typed.
+     * neighbors so bands never gap or overlap. Starts of bands after the
+     * first are derived, never typed.
      */
     fun onBandEndChanged(index: Int, value: String) {
         updateDraft { tiers ->
