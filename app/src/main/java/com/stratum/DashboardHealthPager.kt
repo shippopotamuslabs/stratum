@@ -51,8 +51,8 @@ import com.stratum.core.ui.component.StratumEdgeToEdgeCard
 import com.stratum.core.ui.component.StratumMultiLineChart
 import com.stratum.core.ui.component.StratumNumber
 import com.stratum.core.ui.component.StratumPullToRefresh
-import com.stratum.core.ui.component.StratumStackedBarChart
 import com.stratum.core.ui.component.StackedSegment
+import com.stratum.core.ui.component.StratumStackedBarChart
 import com.stratum.core.ui.component.StratumTabScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
@@ -492,10 +492,10 @@ private fun ColumnScope.RecoverySleepTrend(
     if (hasStages) {
         StratumStackedBarChart(
             segments = listOf(
-                StackedSegment(page.lightNightlyPoints, SleepStageUi.Light.color()),
-                StackedSegment(page.deepNightlyPoints, SleepStageUi.Deep.color()),
-                StackedSegment(page.remNightlyPoints, SleepStageUi.Rem.color()),
-                StackedSegment(page.awakeNightlyPoints, SleepStageUi.Awake.color()),
+                StackedSegment(points = page.lightNightlyPoints, color = SleepStageUi.Light.color()),
+                StackedSegment(points = page.deepNightlyPoints, color = SleepStageUi.Deep.color()),
+                StackedSegment(points = page.remNightlyPoints, color = SleepStageUi.Rem.color()),
+                StackedSegment(points = page.awakeNightlyPoints, color = SleepStageUi.Awake.color()),
             ),
             contentDescription = stringResource(R.string.dashboard_health_sleep_chart_cd),
             dayLabels = page.dayLabels,

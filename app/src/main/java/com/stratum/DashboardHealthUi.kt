@@ -57,7 +57,7 @@ data class RecoveryHealthPageUi(
     val deepNightlyPoints: List<TrendPointUi> = emptyList(),
     val remNightlyPoints: List<TrendPointUi> = emptyList(),
     val awakeNightlyPoints: List<TrendPointUi> = emptyList(),
-    /** Sparse per-day vitals; only days with samples are present (0.0 = no data, dropped). */
+    /** Sparse per-day vitals; only days with samples are present (null = no data, dropped). */
     val restingHrDailyPoints: List<TrendPointUi> = emptyList(),
     val hrvDailyPoints: List<TrendPointUi> = emptyList(),
     val dayLabels: List<String> = emptyList(),
@@ -176,8 +176,7 @@ private fun RecoveryMetrics.toUi(zone: ZoneId): RecoveryHealthPageUi {
             "${it.toLong()} bpm"
         },
         hrvText = hrvRmssdMillis?.let { String.format(Locale.US, "%.0f ms", it) },
-        hrvAverageText = hrvDaily.map { it.value }
-            .filter { it > 0.0 }
+        hrvAverageText = hrvDaily.mapNotNull { it.value }
             .takeIf { it.isNotEmpty() }
             ?.let { String.format(Locale.US, "%.0f ms", it.average()) },
         nightlyPoints = points.ifEmpty { zeroWeekPoints() },
@@ -192,13 +191,12 @@ private fun RecoveryMetrics.toUi(zone: ZoneId): RecoveryHealthPageUi {
 }
 
 /**
- * Sparse trend points: days without samples are dropped (a 0 bpm / 0 ms reading is
- * never legitimate data). [weekIndex] keeps the surviving points aligned with the
- * 7-day labels.
+ * Sparse trend points: days with a null mean (no samples that day) are dropped.
+ * [weekIndex] keeps the surviving points aligned with the 7-day labels.
  */
 private fun List<DailyVitalSample>.toVitalPoints(): List<TrendPointUi> =
     mapIndexedNotNull { index, sample ->
-        if (sample.value > 0.0) TrendPointUi(weekIndex = index, value = sample.value.toFloat()) else null
+        sample.value?.let { TrendPointUi(weekIndex = index, value = it.toFloat()) }
     }
 
 private fun List<NightlySleepDuration>.toStagePoints(
