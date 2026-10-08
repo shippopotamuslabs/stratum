@@ -24,7 +24,7 @@ private fun StratumChoiceGroupNeoPreview() {
 }
 
 @Composable
-private fun ChoiceGroupPreviewGrid(family: StratumThemeId) {
+internal fun ChoiceGroupPreviewGrid(family: StratumThemeId) {
     StratumTheme(themeId = family) {
         Column(
             modifier = Modifier.fillMaxWidth(),

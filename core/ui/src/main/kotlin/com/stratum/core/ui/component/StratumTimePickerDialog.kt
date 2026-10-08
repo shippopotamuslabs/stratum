@@ -42,6 +42,43 @@ fun StratumTimePickerDialog(
     confirmLabel: String = stringResource(R.string.stratum_time_picker_confirm),
     dismissLabel: String = stringResource(R.string.stratum_time_picker_dismiss),
 ) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        StratumTimePickerDialogContent(
+            initialTime = initialTime,
+            onTimeSelected = onTimeSelected,
+            onDismiss = onDismiss,
+            modifier = modifier,
+            title = title,
+            is24Hour = is24Hour,
+            confirmLabel = confirmLabel,
+            dismissLabel = dismissLabel,
+        )
+    }
+}
+
+/**
+ * Inline dialog body (STR-94): dialog windows are uncapturable in screenshot goldens, so
+ * previews and `@PreviewTest` wrappers pin this content directly. Pixel-identical to the
+ * dialog body above.
+ *
+ * All arguments are explicit (no defaults): defaults live only on [StratumTimePickerDialog]
+ * so pixel-identity never depends on duplicated expressions.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun StratumTimePickerDialogContent(
+    initialTime: LocalTime,
+    onTimeSelected: (LocalTime) -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier,
+    title: String?,
+    is24Hour: Boolean,
+    confirmLabel: String,
+    dismissLabel: String,
+) {
     val colors = StratumThemeAccessor.colors
     val shapes = StratumThemeAccessor.shapes
     val state =
@@ -50,12 +87,7 @@ fun StratumTimePickerDialog(
             initialMinute = initialTime.minute,
             is24Hour = is24Hour,
         )
-
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-    ) {
-        Column(
+    Column(
             modifier =
                 modifier
                     .padding(horizontal = 24.dp)
@@ -117,5 +149,4 @@ fun StratumTimePickerDialog(
                 )
             }
         }
-    }
 }

@@ -17,35 +17,69 @@ import com.stratum.domain.lift.PlateCalculator
 @PreviewLightDark
 @Composable
 private fun StratumPlateBarbellDiagramLoadedPreview() {
-    val plateLoad = computePlateLoadUi(
-        targetWeight = 225.0,
-        barWeight = 45.0,
-        availablePlates = PlateCalculator.DEFAULT_PLATES_LB,
-        unitLabel = "lb",
-    )
-    StratumTheme(themeId = StratumThemeId.Tonal) {
-        Column(
-            modifier = Modifier
-                .background(StratumThemeAccessor.colors.surfaceBase)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            StratumPlateBarbellDiagram(
-                platesPerSide = plateLoad.platesPerSide,
-                isMini = false,
-            )
-            StratumPlateBarbellDiagram(
-                platesPerSide = plateLoad.platesPerSide,
-                isMini = true,
-            )
-        }
-    }
+    PlateDiagramLoadedPreviewContent(family = StratumThemeId.Tonal, targetWeight = 225.0)
 }
 
 @PreviewLightDark
 @Composable
 private fun StratumPlateBarbellDiagramEmptyPreview() {
-    StratumTheme(themeId = StratumThemeId.Tonal) {
+    PlateDiagramEmptyPreviewContent(family = StratumThemeId.Tonal)
+}
+
+@PreviewLightDark
+@Composable
+private fun StratumPlateCalculatorMiniDrawerPreview() {
+    PlateMiniDrawerPreviewContent(family = StratumThemeId.Tonal, targetWeight = 225.0)
+}
+
+@PreviewLightDark
+@Composable
+private fun StratumPlateCalculatorMiniDrawerMismatchPreview() {
+    PlateMiniDrawerPreviewContent(family = StratumThemeId.Tonal, targetWeight = 153.0)
+}
+
+@PreviewLightDark
+@Composable
+private fun StratumPlateCalculatorSheetPreview() {
+    PlateSheetPreviewContent(family = StratumThemeId.Tonal)
+}
+
+private const val PREVIEW_BAR_WEIGHT = 45.0
+private const val PREVIEW_UNIT_LABEL = "lb"
+private val previewAvailablePlates = PlateCalculator.DEFAULT_PLATES_LB
+
+private fun previewPlateLoad(targetWeight: Double) =
+    computePlateLoadUi(
+        targetWeight = targetWeight,
+        barWeight = PREVIEW_BAR_WEIGHT,
+        availablePlates = previewAvailablePlates,
+        unitLabel = PREVIEW_UNIT_LABEL,
+    )
+
+/** Loaded barbell diagram (full + mini) for an achievable target weight. */
+@Composable
+internal fun PlateDiagramLoadedPreviewContent(
+    family: StratumThemeId,
+    targetWeight: Double,
+) {
+    PlateDiagramPreviewContent(
+        family = family,
+        platesPerSide = previewPlateLoad(targetWeight).platesPerSide,
+    )
+}
+
+/** Barbell diagram (full + mini) with no plates loaded. */
+@Composable
+internal fun PlateDiagramEmptyPreviewContent(family: StratumThemeId) {
+    PlateDiagramPreviewContent(family = family, platesPerSide = emptyList())
+}
+
+@Composable
+internal fun PlateDiagramPreviewContent(
+    family: StratumThemeId,
+    platesPerSide: List<PlateItemUi>,
+) {
+    StratumTheme(themeId = family) {
         Column(
             modifier = Modifier
                 .background(StratumThemeAccessor.colors.surfaceBase)
@@ -53,27 +87,24 @@ private fun StratumPlateBarbellDiagramEmptyPreview() {
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             StratumPlateBarbellDiagram(
-                platesPerSide = emptyList(),
+                platesPerSide = platesPerSide,
                 isMini = false,
             )
             StratumPlateBarbellDiagram(
-                platesPerSide = emptyList(),
+                platesPerSide = platesPerSide,
                 isMini = true,
             )
         }
     }
 }
 
-@PreviewLightDark
 @Composable
-private fun StratumPlateCalculatorMiniDrawerPreview() {
-    val plateLoad = computePlateLoadUi(
-        targetWeight = 225.0,
-        barWeight = 45.0,
-        availablePlates = PlateCalculator.DEFAULT_PLATES_LB,
-        unitLabel = "lb",
-    )
-    StratumTheme(themeId = StratumThemeId.Tonal) {
+internal fun PlateMiniDrawerPreviewContent(
+    family: StratumThemeId,
+    targetWeight: Double,
+) {
+    val plateLoad = previewPlateLoad(targetWeight)
+    StratumTheme(themeId = family) {
         Box(
             modifier = Modifier
                 .background(StratumThemeAccessor.colors.surfaceBase)
@@ -88,35 +119,14 @@ private fun StratumPlateCalculatorMiniDrawerPreview() {
     }
 }
 
-@PreviewLightDark
+/**
+ * Pins the sheet body inline: dialog windows are uncapturable in screenshot goldens
+ * (STR-89 pattern).
+ */
 @Composable
-private fun StratumPlateCalculatorMiniDrawerMismatchPreview() {
-    val plateLoad = computePlateLoadUi(
-        targetWeight = 153.0,
-        barWeight = 45.0,
-        availablePlates = PlateCalculator.DEFAULT_PLATES_LB,
-        unitLabel = "lb",
-    )
-    StratumTheme(themeId = StratumThemeId.Tonal) {
-        Box(
-            modifier = Modifier
-                .background(StratumThemeAccessor.colors.surfaceBase)
-                .padding(12.dp),
-        ) {
-            StratumPlateCalculatorMiniDrawer(
-                plateLoad = plateLoad,
-                onExpandClick = {},
-                onCloseClick = {},
-            )
-        }
-    }
-}
-
-@PreviewLightDark
-@Composable
-private fun StratumPlateCalculatorSheetPreview() {
-    StratumTheme(themeId = StratumThemeId.Tonal) {
-        StratumPlateCalculatorSheet(
+internal fun PlateSheetPreviewContent(family: StratumThemeId) {
+    StratumTheme(themeId = family) {
+        StratumPlateCalculatorSheetContent(
             initialTargetWeight = 225.0,
             unitLabel = "lb",
             onDismissRequest = {},

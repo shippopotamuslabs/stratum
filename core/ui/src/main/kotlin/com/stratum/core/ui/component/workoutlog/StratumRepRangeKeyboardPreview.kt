@@ -16,32 +16,27 @@ import com.stratum.core.ui.theme.StratumThemeId
 @PreviewLightDark
 @Composable
 private fun StratumRepRangeKeyboardMinPreview() {
-    StratumTheme(themeId = StratumThemeId.Tonal) {
-        Box(
-            modifier =
-                Modifier
-                    .background(StratumThemeAccessor.colors.surfaceBase)
-                    .padding(8.dp),
-        ) {
-            StratumRepRangeKeyboardContent(
-                activeField = RepRangeKeyboardField.Min,
-                onDigit = {},
-                onBackspace = {},
-                onOver = {},
-                onDismiss = {},
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .height(280.dp),
-            )
-        }
-    }
+    RepRangeKeyboardPreviewContent(
+        family = StratumThemeId.Tonal,
+        activeField = RepRangeKeyboardField.Min,
+    )
 }
 
 @PreviewLightDark
 @Composable
 private fun StratumRepRangeKeyboardMaxPreview() {
-    StratumTheme(themeId = StratumThemeId.Tonal) {
+    RepRangeKeyboardPreviewContent(
+        family = StratumThemeId.Tonal,
+        activeField = RepRangeKeyboardField.Max,
+    )
+}
+
+@Composable
+internal fun RepRangeKeyboardPreviewContent(
+    family: StratumThemeId,
+    activeField: RepRangeKeyboardField,
+) {
+    StratumTheme(themeId = family) {
         Box(
             modifier =
                 Modifier
@@ -49,7 +44,7 @@ private fun StratumRepRangeKeyboardMaxPreview() {
                     .padding(8.dp),
         ) {
             StratumRepRangeKeyboardContent(
-                activeField = RepRangeKeyboardField.Max,
+                activeField = activeField,
                 onDigit = {},
                 onBackspace = {},
                 onOver = {},

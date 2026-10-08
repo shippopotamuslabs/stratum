@@ -25,7 +25,7 @@ private fun StratumSegmentedControlNeoPreview() {
 }
 
 @Composable
-private fun SegmentedControlPreviewGrid(family: StratumThemeId) {
+internal fun SegmentedControlPreviewGrid(family: StratumThemeId) {
     StratumTheme(themeId = family) {
         Column(
             modifier = Modifier.fillMaxWidth(),

@@ -12,33 +12,33 @@ import com.stratum.core.ui.theme.StratumThemeId
 @PreviewLightDark
 @Composable
 private fun StratumProgramLibraryCardExpandedPreview() {
-    StratumTheme(themeId = StratumThemeId.Tonal) {
-        StratumProgramLibraryCard(
-            state = previewProgramLibraryCardState,
-            expanded = true,
-            activeLabel = "Active",
-            workoutCountLabel = "5 workouts",
-            onExpandedChange = {},
-            onProgramClick = {},
-            onActivateClick = {},
-            onWorkoutClick = {},
-            expandContentDescription = "Expand",
-            collapseContentDescription = "Collapse",
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(12.dp),
-        )
-    }
+    ProgramLibraryCardPreviewContent(
+        family = StratumThemeId.Tonal,
+        state = previewProgramLibraryCardActiveState,
+        expanded = true,
+    )
 }
 
 @PreviewLightDark
 @Composable
 private fun StratumProgramLibraryCardCollapsedPreview() {
-    StratumTheme(themeId = StratumThemeId.Tonal) {
+    ProgramLibraryCardPreviewContent(
+        family = StratumThemeId.Tonal,
+        state = previewProgramLibraryCardInactiveState,
+        expanded = false,
+    )
+}
+
+@Composable
+internal fun ProgramLibraryCardPreviewContent(
+    family: StratumThemeId,
+    state: ProgramLibraryCardState,
+    expanded: Boolean,
+) {
+    StratumTheme(themeId = family) {
         StratumProgramLibraryCard(
-            state = previewProgramLibraryCardState.copy(isActive = false),
-            expanded = false,
+            state = state,
+            expanded = expanded,
             activeLabel = "Active",
             workoutCountLabel = "5 workouts",
             onExpandedChange = {},
@@ -55,7 +55,7 @@ private fun StratumProgramLibraryCardCollapsedPreview() {
     }
 }
 
-private val previewProgramLibraryCardState =
+internal val previewProgramLibraryCardActiveState =
     ProgramLibraryCardState(
         programId = "preview-program",
         name = "Generated Program",
@@ -88,3 +88,6 @@ private val previewProgramLibraryCardState =
                 ),
             ),
     )
+
+internal val previewProgramLibraryCardInactiveState =
+    previewProgramLibraryCardActiveState.copy(isActive = false)
