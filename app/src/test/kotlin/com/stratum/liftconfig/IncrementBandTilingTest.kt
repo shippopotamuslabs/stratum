@@ -99,65 +99,60 @@ class IncrementBandTilingTest {
     }
 
     @Test
-    @DisplayName("Given a cleared end when draft-edited then the draft holds the blank for typing")
-    fun draftEndEditAppliesBlank() {
-        val retiled =
-            IncrementBandTiling.retileAfterEndDraftEdit(
-                tiers = twoBand,
-                index = 0,
-                newEnd = "",
-            )
+    @DisplayName("Given a blank end edit when applied then the old end is kept and neighbors stay tiled")
+    fun endEditIgnoresBlank() {
+        val retiled = IncrementBandTiling.retileAfterEndEdit(twoBand, 0, "")
 
-        assertEquals("", retiled[0].upperBound)
-        // The later lower stays put on a blank predecessor end — the half-typed
-        // edit never wipes a field; validation flags the gap.
+        assertEquals("40", retiled[0].upperBound)
         assertEquals("40", retiled[1].lowerBound)
         assertTrue(retiled[1].openEnded)
     }
 
     @Test
-    @DisplayName("Given a draft end edit on the last band when applied then the bands are unchanged")
-    fun draftEndEditOnLastBandIgnored() {
-        val retiled =
-            IncrementBandTiling.retileAfterEndDraftEdit(
-                tiers = twoBand,
-                index = 1,
-                newEnd = "",
-            )
+    @DisplayName("Given an end edit on the last band when applied then the bands are unchanged")
+    fun endEditOnLastBandIgnored() {
+        val retiled = IncrementBandTiling.retileAfterEndEdit(twoBand, 1, "100")
 
         assertEquals(twoBand, retiled)
     }
 
     @Test
-    @DisplayName("Given a blank commit end edit when applied then the old end is kept")
-    fun commitEndEditKeepsOldEndOnBlank() {
-        val retiled = IncrementBandTiling.retileAfterEndEdit(twoBand, 0, "")
-
-        assertEquals("40", retiled[0].upperBound)
-        assertEquals("40", retiled[1].lowerBound)
-    }
-
-    @Test
     @DisplayName("Given a blank or non-numeric end when checked then it is invalid")
     fun blankOrNonNumericEndIsInvalid() {
-        assertTrue(IncrementBandTiling.isEndInvalid("", isLastBand = false))
-        assertTrue(IncrementBandTiling.isEndInvalid(null, isLastBand = false))
-        assertTrue(IncrementBandTiling.isEndInvalid("-", isLastBand = false))
-        assertTrue(IncrementBandTiling.isEndInvalid("abc", isLastBand = false))
+        with(IncrementBandTiling) {
+            assertTrue(twoBand.isEndInvalid(0, ""))
+            assertTrue(twoBand.isEndInvalid(0, null))
+            assertTrue(twoBand.isEndInvalid(0, "-"))
+            assertTrue(twoBand.isEndInvalid(0, "abc"))
+        }
     }
 
     @Test
     @DisplayName("Given a numeric end when checked then it is valid")
     fun numericEndIsValid() {
-        assertFalse(IncrementBandTiling.isEndInvalid("50", isLastBand = false))
-        assertFalse(IncrementBandTiling.isEndInvalid("2.5", isLastBand = false))
+        with(IncrementBandTiling) {
+            assertFalse(twoBand.isEndInvalid(0, "50"))
+            assertFalse(twoBand.isEndInvalid(0, "2.5"))
+        }
     }
 
     @Test
     @DisplayName("Given the last band when checked then its missing end is never invalid")
     fun lastBandEndNeverInvalid() {
-        assertFalse(IncrementBandTiling.isEndInvalid(null, isLastBand = true))
-        assertFalse(IncrementBandTiling.isEndInvalid("", isLastBand = true))
+        with(IncrementBandTiling) {
+            assertFalse(twoBand.isEndInvalid(1, null))
+            assertFalse(twoBand.isEndInvalid(1, ""))
+            assertFalse(twoBand.isEndInvalid(1, "-"))
+        }
+    }
+
+    @Test
+    @DisplayName("Given an out-of-bounds index when checked then it is never invalid")
+    fun outOfBoundsIndexNeverInvalid() {
+        with(IncrementBandTiling) {
+            assertFalse(twoBand.isEndInvalid(-1, ""))
+            assertFalse(twoBand.isEndInvalid(7, ""))
+        }
     }
 
     @Test

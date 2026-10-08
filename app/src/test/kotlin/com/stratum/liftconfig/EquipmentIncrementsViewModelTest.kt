@@ -299,78 +299,24 @@ class EquipmentIncrementsViewModelTest {
     }
 
     @Test
-    @DisplayName("Given a cleared end field when edited then the draft holds the blank while typing")
-    fun endEditCanBeClearedWhileTyping() = runTest {
+    @DisplayName("Given a blank end edit when applied then the old end is kept and neighbors stay tiled")
+    fun endEditIgnoresBlankEnd() = runTest {
         subject.initialize(cableId.value)
         subject.uiState.test {
             awaitItemWith { it.equipmentName == "Cables" && it.editor.tiers.isNotEmpty() }
             subject.addTier()
             awaitItemWith { it.editor.tiers.size == 2 }
             subject.onBandEndChanged(0, "60")
-            awaitItemWith { it.editor.tiers[0].upperBound == "60" }
+            val edited = awaitItemWith { it.editor.tiers[0].upperBound == "60" }
+            assertEquals("60", edited.editor.tiers[1].lowerBound)
+            // STR-103: a cleared field never reaches the draft — the blank edit
+            // is ignored and emits nothing, so Done on an invalid value keeps
+            // the old end by construction.
             subject.onBandFieldChanged(0, BandField.END, "")
-            val cleared = awaitItemWith { it.editor.tiers[0].upperBound == "" }
-            // The half-typed edit never wipes the neighbor's start.
-            assertEquals("60", cleared.editor.tiers[1].lowerBound)
-            assertTrue(cleared.editor.tiers[1].openEnded)
-            cancelAndIgnoreRemainingEvents()
-        }
-    }
-
-    @Test
-    @DisplayName("Given an invalid end when the sheet is dismissed then the pre-edit end is kept")
-    fun sheetDismissOnInvalidEndRevertsToPreEditValue() = runTest {
-        subject.initialize(cableId.value)
-        subject.uiState.test {
-            awaitItemWith { it.equipmentName == "Cables" && it.editor.tiers.isNotEmpty() }
-            subject.addTier()
-            awaitItemWith { it.editor.tiers.size == 2 }
-            subject.onBandEndChanged(0, "60")
-            awaitItemWith { it.editor.tiers[0].upperBound == "60" }
-            subject.onBandSheetOpened(0)
-            subject.onBandFieldChanged(0, BandField.END, "")
-            awaitItemWith { it.editor.tiers[0].upperBound == "" }
-            subject.onBandSheetDismissed(0)
-            val reverted = awaitItemWith { it.editor.tiers[0].upperBound == "60" }
-            assertEquals("60", reverted.editor.tiers[1].lowerBound)
-            cancelAndIgnoreRemainingEvents()
-        }
-    }
-
-    @Test
-    @DisplayName("Given a valid end when the sheet is dismissed then the edit is kept")
-    fun sheetDismissOnValidEndKeepsEdit() = runTest {
-        subject.initialize(cableId.value)
-        subject.uiState.test {
-            awaitItemWith { it.equipmentName == "Cables" && it.editor.tiers.isNotEmpty() }
-            subject.addTier()
-            awaitItemWith { it.editor.tiers.size == 2 }
-            subject.onBandEndChanged(0, "60")
-            awaitItemWith { it.editor.tiers[0].upperBound == "60" }
-            subject.onBandSheetOpened(0)
-            subject.onBandFieldChanged(0, BandField.END, "70")
-            awaitItemWith { it.editor.tiers[0].upperBound == "70" }
-            subject.onBandSheetDismissed(0)
-            // No revert emission: the valid edit is already in the draft.
             expectNoEvents()
             val kept = subject.uiState.value
-            assertEquals("70", kept.editor.tiers[0].upperBound)
-            assertEquals("70", kept.editor.tiers[1].lowerBound)
-            cancelAndIgnoreRemainingEvents()
-        }
-    }
-
-    @Test
-    @DisplayName("Given no open sheet when dismissed then the drafts are untouched")
-    fun sheetDismissWithoutSessionIsNoOp() = runTest {
-        subject.initialize(cableId.value)
-        subject.uiState.test {
-            awaitItemWith { it.equipmentName == "Cables" && it.editor.tiers.isNotEmpty() }
-            subject.addTier()
-            val before = awaitItemWith { it.editor.tiers.size == 2 }
-            subject.onBandSheetDismissed(0)
-            expectNoEvents()
-            assertEquals(before.editor.tiers, subject.uiState.value.editor.tiers)
+            assertEquals("60", kept.editor.tiers[0].upperBound)
+            assertEquals("60", kept.editor.tiers[1].lowerBound)
             cancelAndIgnoreRemainingEvents()
         }
     }

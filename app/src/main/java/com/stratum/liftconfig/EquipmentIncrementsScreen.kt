@@ -111,23 +111,13 @@ fun EquipmentIncrementsRoute(
         scanPicker = scanPicker,
         bandActions =
             IncrementEditorBandActions(
-                onBandClick = {
-                    selectedBand = it
-                    viewModel.onBandSheetOpened(it)
-                },
+                onBandClick = { selectedBand = it },
                 onAddBand = {
                     // Appends one open band; the sheet opens on the new last band.
-                    // The new band is last (its end field is disabled), so no open
-                    // snapshot is needed — dismissing is a safe no-op.
                     selectedBand = tiers.size
                     viewModel.addTier()
                 },
-                onBandSheetDismiss = {
-                    // STR-103: Done on an invalid Ends-at reverts to the pre-edit
-                    // end instead of committing the bad value.
-                    selection?.let(viewModel::onBandSheetDismissed)
-                    selectedBand = null
-                },
+                onBandSheetDismiss = { selectedBand = null },
                 onBandFieldChanged = viewModel::onBandFieldChanged,
                 onDeleteBand = {
                     selectedBand = null

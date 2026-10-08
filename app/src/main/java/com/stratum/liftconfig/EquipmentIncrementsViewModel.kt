@@ -359,48 +359,15 @@ class EquipmentIncrementsViewModel @Inject constructor(
     }
 
     /**
-     * Band-strip end edit (STR-58, STR-103): replaces the band's end with
-     * live-draft semantics — a cleared field applies the blank so the input
-     * shows exactly what was typed ([IncrementBandTiling.retileAfterEndDraftEdit]).
-     * Re-tiling keeps later lowers stable on a blank end; closing the sheet on
-     * an invalid end reverts it ([onBandSheetDismissed]).
+     * Band-strip end edit (STR-58): replaces the band's end and re-tiles
+     * neighbors so bands never gap or overlap. Blank edits are ignored — the
+     * sheet (STR-103) holds half-typed text locally and only commits valid
+     * numeric ends here, so a cleared field never collapses a band and an
+     * invalid value never reaches the draft.
      */
     fun onBandEndChanged(index: Int, value: String) {
         updateDraft { tiers ->
-            IncrementBandTiling.retileAfterEndDraftEdit(tiers, index, value)
-        }
-    }
-
-    /**
-     * Band-sheet session (STR-103): the end the open sheet started from, so a
-     * sheet closed on an invalid end reverts to it instead of keeping the bad
-     * edit. Set on open, consumed on dismiss — never persisted.
-     */
-    private data class BandSheetSession(val index: Int, val endAtOpen: String?)
-
-    private var bandSheetSession: BandSheetSession? = null
-
-    /** Snapshots band [index]'s end when its editor sheet opens (STR-103). */
-    fun onBandSheetOpened(index: Int) {
-        val tiers = drafts.value?.tiers ?: uiState.value.editor.tiers
-        bandSheetSession = BandSheetSession(index, tiers.getOrNull(index)?.upperBound)
-    }
-
-    /**
-     * Sheet dismiss (STR-103): a blank or non-numeric Ends-at reverts to the end
-     * the sheet opened with — Done never commits a bad value, and it never
-     * blocks dismissal. A valid end needs no revert; it is already in the draft.
-     */
-    fun onBandSheetDismissed(index: Int) {
-        val session = bandSheetSession
-        bandSheetSession = null
-        if (session == null || session.index != index) return
-        val tiers = drafts.value?.tiers ?: uiState.value.editor.tiers
-        if (index !in tiers.indices) return
-        if (IncrementBandTiling.isEndInvalid(tiers[index].upperBound, index == tiers.lastIndex)) {
-            updateDraft { current ->
-                IncrementBandTiling.retileAfterEndEdit(current, index, session.endAtOpen.orEmpty())
-            }
+            IncrementBandTiling.retileAfterEndEdit(tiers, index, value)
         }
     }
 
