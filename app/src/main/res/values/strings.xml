@@ -85,6 +85,12 @@
     <string name="dashboard_health_vital_hrv">HRV</string>
     <string name="dashboard_health_vital_avg">AVG</string>
     <string name="dashboard_health_vital_separator">·</string>
+    <string name="dashboard_health_stat_sleep">Sleep</string>
+    <string name="dashboard_health_stat_average">avg %1$s</string>
+    <string name="dashboard_health_rhr_empty">No resting heart rate in the last 7 days</string>
+    <string name="dashboard_health_hrv_empty">No heart rate variability in the last 7 days</string>
+    <string name="dashboard_health_rhr_trend_chart_cd">Resting heart rate trend for the last 7 days</string>
+    <string name="dashboard_health_hrv_trend_chart_cd">Heart rate variability trend for the last 7 days</string>
     <string name="dashboard_health_steps_chart_cd">Steps for the last 7 days</string>
     <string name="dashboard_health_weight_chart_cd">Body weight trend</string>
     <string name="dashboard_health_sleep_chart_cd">Sleep duration for the last 7 nights</string>
