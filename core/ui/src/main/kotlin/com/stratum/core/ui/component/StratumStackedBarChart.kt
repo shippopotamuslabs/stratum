@@ -35,15 +35,24 @@ import com.patrykandpatrick.vico.compose.common.component.rememberLineComponent
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
 /**
- * Stacked column chart: each x position renders its segment series stacked into one bar
+ * One stack segment of [StratumStackedBarChart]: its point series plus its fill color.
+ * Keeping points and color together makes the series/color alignment structural
+ * instead of a runtime-checked parallel-list contract.
+ */
+data class StackedSegment(
+    val points: List<TrendPointUi>,
+    val color: Color,
+)
+
+/**
+ * Stacked column chart: each x position renders its segments stacked into one bar
  * (e.g. sleep stages per night on the dashboard recovery page). Tapping a bar shows a
  * color-coded marker with each segment's value.
  *
  * Horizontal pan is disabled so a parent pager can fling.
  *
- * @param series one point list per stack segment, index-aligned by [TrendPointUi.weekIndex]
- * (e.g. light/deep/REM/awake nightly hours). [segmentColors] must match in size and order.
- * @param segmentColors fill per segment series; index-aligned with [series].
+ * @param segments one entry per stack segment, index-aligned by [TrendPointUi.weekIndex]
+ * (e.g. light/deep/REM/awake nightly hours).
  * @param contentDescription accessibility description.
  * @param dayLabels short weekday labels per x position; empty omits the bottom axis.
  * @param fillHeight when true, skip the compact intrinsic height and fill incoming constraints.
@@ -52,8 +61,7 @@ import com.stratum.core.ui.theme.StratumThemeAccessor
  */
 @Composable
 fun StratumStackedBarChart(
-    series: List<List<TrendPointUi>>,
-    segmentColors: List<Color>,
+    segments: List<StackedSegment>,
     contentDescription: String,
     modifier: Modifier = Modifier,
     dayLabels: List<String> = emptyList(),
@@ -61,14 +69,11 @@ fun StratumStackedBarChart(
     yScale: DetailYScale? = null,
 ) {
     val colors = StratumThemeAccessor.colors
-    require(series.size == segmentColors.size) {
-        "StratumStackedBarChart: series (${series.size}) and segmentColors (${segmentColors.size}) must match"
-    }
-    val hasData = series.any { points -> points.any { it.value > 0f } }
+    val hasData = segments.any { segment -> segment.points.any { it.value > 0f } }
 
-    val segmentColumns = segmentColors.map { color ->
+    val segmentColumns = segments.map { segment ->
         rememberLineComponent(
-            fill = Fill(color),
+            fill = Fill(segment.color),
             thickness = STACKED_COLUMN_WIDTH_DP.dp,
         )
     }
@@ -78,7 +83,7 @@ fun StratumStackedBarChart(
 
     val modelProducer = remember { CartesianChartModelProducer() }
     val reporter = LocalUiRenderErrorReporter.current
-    var modelFailed by remember(series) { mutableStateOf(false) }
+    var modelFailed by remember(segments) { mutableStateOf(false) }
     if (modelFailed || !hasData) {
         StackedBarBaselineOnly(
             modifier = modifier.semantics { this.contentDescription = contentDescription },
@@ -86,14 +91,14 @@ fun StratumStackedBarChart(
         )
         return
     }
-    LaunchedEffect(series) {
+    LaunchedEffect(segments) {
         runCatchingChartModel(reporter, onFailure = { modelFailed = true }) {
             modelProducer.runTransaction {
                 columnModel {
-                    series.forEach { points ->
+                    segments.forEach { segment ->
                         series(
-                            x = points.map { it.weekIndex },
-                            y = points.map { it.value },
+                            x = segment.points.map { it.weekIndex },
+                            y = segment.points.map { it.value },
                         )
                     }
                 }
@@ -101,11 +106,11 @@ fun StratumStackedBarChart(
         }
     }
     val inspectionModel =
-        rememberInspectionChartModel(key = series) {
+        rememberInspectionChartModel(key = segments) {
             CartesianChartModel(
                 models =
                     listOf(
-                        syncStackedColumnLayerModel(series = series),
+                        syncStackedColumnLayerModel(series = segments.map { it.points }),
                     ),
             )
         }
