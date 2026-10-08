@@ -24,7 +24,7 @@ import com.stratum.core.ui.theme.StratumThemeId
  * remaining/total pair (no ticking clock, no in-flight animation). `darkTheme` is left
  * null so `@PreviewLightDark` genuinely varies light/dark.
  *
- * Sheet goldens pin content inline ([RestSheetContentPreview]): dialog windows are not
+ * Sheet goldens pin content inline ([SheetContentPreview]): dialog windows are not
  * capturable (an open sheet blanks the golden) — see docs/screenshot-tests.md.
  */
 @PreviewLightDark
@@ -106,7 +106,7 @@ internal fun WorkoutRestTimerActivePreviewContent(family: StratumThemeId) {
 /** Rest bottom sheet body (view state: fresh countdown). */
 @Composable
 internal fun WorkoutRestSheetPreviewContent(family: StratumThemeId) {
-    RestSheetContentPreview(family = family) {
+    SheetContentPreview(family = family) {
         restTimerSheetBody(remainingSeconds = 75)
     }
 }
@@ -114,7 +114,7 @@ internal fun WorkoutRestSheetPreviewContent(family: StratumThemeId) {
 /** Rest bottom sheet body after a −10s adjustment (edited countdown). */
 @Composable
 internal fun WorkoutRestSheetEditedPreviewContent(family: StratumThemeId) {
-    RestSheetContentPreview(family = family) {
+    SheetContentPreview(family = family) {
         restTimerSheetBody(remainingSeconds = 65)
     }
 }
@@ -139,7 +139,7 @@ internal fun WorkoutConfigureRestPreviewContent(family: StratumThemeId) {
     val lift = previewConfigureRestLift()
     val baseline = remember(lift) { lift.sets.associate { it.slotKey to it.restSeconds } }
     val pending = remember(lift) { mutableStateMapOf<String, Int>().apply { putAll(baseline) } }
-    RestSheetContentPreview(family = family) {
+    SheetContentPreview(family = family) {
         ConfigureRestTimesSheetContent(
             lift = lift,
             baseline = baseline,
@@ -152,7 +152,7 @@ internal fun WorkoutConfigureRestPreviewContent(family: StratumThemeId) {
 /** Rest-config discard dialog body. */
 @Composable
 internal fun WorkoutRestConfigDiscardPreviewContent(family: StratumThemeId) {
-    RestSheetContentPreview(family = family) {
+    SheetContentPreview(family = family) {
         RestConfigDiscardSheetContent(
             onConfirmDiscard = {},
             onDismiss = {},
@@ -172,7 +172,7 @@ internal fun WorkoutRestConfigDiscardPreviewContent(family: StratumThemeId) {
  * duplicated here with this pointer instead.
  */
 @Composable
-private fun RestSheetContentPreview(
+internal fun SheetContentPreview(
     family: StratumThemeId,
     content: @Composable ColumnScope.() -> Unit,
 ) {

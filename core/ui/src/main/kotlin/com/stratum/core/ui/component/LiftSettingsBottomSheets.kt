@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.theme.StratumSupersetGroupColors
@@ -470,21 +471,49 @@ fun SupersetLinkBottomSheet(
 ) {
     StratumBottomSheet(
         onDismissRequest = onDismiss,
-        title = stringResource(CoreUiR.string.edit_workout_create_superset),
     ) {
-        options.forEach { option ->
-            SupersetLinkSheetRow(
-                label = stringResource(option.labelRes),
-                trailingIconRes = option.trailingIconRes,
-                onClick = { onOptionSelected(option.direction) },
-            )
-        }
-        if (showRestBetweenLiftsToggle) {
-            SupersetRestBetweenLiftsRow(
-                checked = useRestTimerBetweenLifts,
-                onCheckedChange = onUseRestTimerBetweenLiftsChange,
-            )
-        }
+        SupersetLinkSheetContent(
+            options = options,
+            showRestBetweenLiftsToggle = showRestBetweenLiftsToggle,
+            useRestTimerBetweenLifts = useRestTimerBetweenLifts,
+            onUseRestTimerBetweenLiftsChange = onUseRestTimerBetweenLiftsChange,
+            onOptionSelected = onOptionSelected,
+        )
+    }
+}
+
+/**
+ * Superset-link sheet body without the dialog window. Screenshot tests cannot capture
+ * dialog windows (an open sheet blanks the golden), so goldens pin this content inline
+ * (see docs/screenshot-tests.md). The title lives here (not the sheet wrapper) so the
+ * golden covers it; production pixels are unchanged (same text, style, and position).
+ */
+@Composable
+fun SupersetLinkSheetContent(
+    options: List<SupersetLinkSheetOption>,
+    showRestBetweenLiftsToggle: Boolean,
+    useRestTimerBetweenLifts: Boolean,
+    onUseRestTimerBetweenLiftsChange: (Boolean) -> Unit,
+    onOptionSelected: (SupersetLinkDirection) -> Unit,
+) {
+    StratumText(
+        text = stringResource(CoreUiR.string.edit_workout_create_superset),
+        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+        style = StratumThemeAccessor.typography.titleLarge,
+        textAlign = TextAlign.Center,
+    )
+    options.forEach { option ->
+        SupersetLinkSheetRow(
+            label = stringResource(option.labelRes),
+            trailingIconRes = option.trailingIconRes,
+            onClick = { onOptionSelected(option.direction) },
+        )
+    }
+    if (showRestBetweenLiftsToggle) {
+        SupersetRestBetweenLiftsRow(
+            checked = useRestTimerBetweenLifts,
+            onCheckedChange = onUseRestTimerBetweenLiftsChange,
+        )
     }
 }
 
