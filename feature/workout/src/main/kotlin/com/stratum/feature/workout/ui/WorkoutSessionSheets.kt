@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -30,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.stratum.core.ui.R as CoreUiR
@@ -195,7 +197,6 @@ internal fun WorkoutSessionOverlays(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun RestTimerBottomSheet(
     isTimerActive: Boolean,
@@ -210,122 +211,149 @@ private fun RestTimerBottomSheet(
     StratumBottomSheet(
         onDismissRequest = onDismiss,
     ) {
+        RestTimerSheetContent(
+            isTimerActive = isTimerActive,
+            remainingSeconds = remainingSeconds,
+            totalSeconds = totalSeconds,
+            onAdd10s = onAdd10s,
+            onSubtract10s = onSubtract10s,
+            onSkip = onSkip,
+            onStartPreset = onStartPreset,
+        )
+    }
+}
+
+/**
+ * Rest-timer sheet body without the dialog window. Screenshot tests cannot capture
+ * dialog windows (an open sheet blanks the golden), so goldens pin this content inline
+ * (see docs/screenshot-tests.md).
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun ColumnScope.RestTimerSheetContent(
+    isTimerActive: Boolean,
+    remainingSeconds: Int,
+    totalSeconds: Int,
+    onAdd10s: () -> Unit,
+    onSubtract10s: () -> Unit,
+    onSkip: () -> Unit,
+    onStartPreset: (Int) -> Unit,
+) {
+    StratumText(
+        text = "Rest Timer",
+        style = StratumThemeAccessor.typography.titleLarge,
+        modifier = Modifier
+            .align(Alignment.CenterHorizontally)
+            .padding(bottom = 8.dp)
+    )
+
+    val progress = if (totalSeconds > 0) remainingSeconds.toFloat() / totalSeconds else 0f
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(5.dp)
+            .background(StratumThemeAccessor.colors.surfaceSunken)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .fillMaxWidth(progress)
+                .background(StratumThemeAccessor.colors.accent)
+        )
+    }
+
+    Spacer(modifier = Modifier.height(12.dp))
+
+    if (isTimerActive) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            StratumIconButton(onClick = onSubtract10s) {
+                Icon(
+                    painter = painterResource(R.drawable.back_10),
+                    contentDescription = "Reduce 10 seconds",
+                    tint = StratumThemeAccessor.colors.textPrimary
+                )
+            }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Timer,
+                    contentDescription = null,
+                    tint = StratumThemeAccessor.colors.textPrimary,
+                    modifier = Modifier.size(32.dp)
+                )
+                StratumText(
+                    text = formatRestDisplay(remainingSeconds),
+                    style = StratumThemeAccessor.typography.titleLarge.copy(
+                        fontSize = StratumThemeAccessor.typography.titleLarge.fontSize * 1.5
+                    )
+                )
+            }
+
+            StratumIconButton(onClick = onAdd10s) {
+                Icon(
+                    painter = painterResource(R.drawable.forward_10),
+                    contentDescription = "Add 10 seconds",
+                    tint = StratumThemeAccessor.colors.textPrimary
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        StratumButton(
+            text = "Skip",
+            onClick = onSkip,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+        )
+    } else {
         StratumText(
-            text = "Rest Timer",
-            style = StratumThemeAccessor.typography.titleLarge,
+            text = "Choose Rest Time to Start Timer:",
+            style = StratumThemeAccessor.typography.bodyLarge,
+            muted = true,
             modifier = Modifier
                 .align(Alignment.CenterHorizontally)
                 .padding(bottom = 8.dp)
         )
 
-        val progress = if (totalSeconds > 0) remainingSeconds.toFloat() / totalSeconds else 0f
-        Box(
+        FlowRow(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(5.dp)
-                .background(StratumThemeAccessor.colors.surfaceSunken)
+                .padding(horizontal = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .fillMaxWidth(progress)
-                    .background(StratumThemeAccessor.colors.accent)
-            )
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        if (isTimerActive) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                StratumIconButton(onClick = onSubtract10s) {
-                    Icon(
-                        painter = painterResource(R.drawable.back_10),
-                        contentDescription = "Reduce 10 seconds",
-                        tint = StratumThemeAccessor.colors.textPrimary
-                    )
-                }
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+            val presets = (30..RestTimerDefaults.MAX_REST_SECONDS step 30).toList()
+            presets.forEach { seconds ->
+                val min = seconds / 60
+                val sec = seconds % 60
+                val label = if (sec == 0) "$min:00" else "$min:$sec"
+                Box(
+                    modifier = Modifier
+                        .clip(StratumThemeAccessor.shapes.chip)
+                        .background(StratumThemeAccessor.colors.surfaceInset)
+                        .border(
+                            width = StratumThemeAccessor.shapes.borderWidth,
+                            color = StratumThemeAccessor.colors.borderSubtle,
+                            shape = StratumThemeAccessor.shapes.chip
+                        )
+                        .clickable { onStartPreset(seconds) }
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Timer,
-                        contentDescription = null,
-                        tint = StratumThemeAccessor.colors.textPrimary,
-                        modifier = Modifier.size(32.dp)
-                    )
                     StratumText(
-                        text = formatRestDisplay(remainingSeconds),
-                        style = StratumThemeAccessor.typography.titleLarge.copy(
-                            fontSize = StratumThemeAccessor.typography.titleLarge.fontSize * 1.5
-                        )
+                        text = label,
+                        style = StratumThemeAccessor.typography.bodyLarge,
                     )
-                }
-
-                StratumIconButton(onClick = onAdd10s) {
-                    Icon(
-                        painter = painterResource(R.drawable.forward_10),
-                        contentDescription = "Add 10 seconds",
-                        tint = StratumThemeAccessor.colors.textPrimary
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            StratumButton(
-                text = "Skip",
-                onClick = onSkip,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-            )
-        } else {
-            StratumText(
-                text = "Choose Rest Time to Start Timer:",
-                style = StratumThemeAccessor.typography.bodyLarge,
-                muted = true,
-                modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .padding(bottom = 8.dp)
-            )
-
-            FlowRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                val presets = (30..RestTimerDefaults.MAX_REST_SECONDS step 30).toList()
-                presets.forEach { seconds ->
-                    val min = seconds / 60
-                    val sec = seconds % 60
-                    val label = if (sec == 0) "$min:00" else "$min:$sec"
-                    Box(
-                        modifier = Modifier
-                            .clip(StratumThemeAccessor.shapes.chip)
-                            .background(StratumThemeAccessor.colors.surfaceInset)
-                            .border(
-                                width = StratumThemeAccessor.shapes.borderWidth,
-                                color = StratumThemeAccessor.colors.borderSubtle,
-                                shape = StratumThemeAccessor.shapes.chip
-                            )
-                            .clickable { onStartPreset(seconds) }
-                            .padding(horizontal = 12.dp, vertical = 8.dp)
-                    ) {
-                        StratumText(
-                            text = label,
-                            style = StratumThemeAccessor.typography.bodyLarge,
-                        )
-                    }
                 }
             }
         }
@@ -392,6 +420,22 @@ internal fun hasUnsavedRestChanges(
 ): Boolean =
     pending.size != baseline.size ||
         pending.any { (key, value) -> baseline[key] != value }
+
+/**
+ * Sheet title matching [StratumBottomSheet]'s built-in title styling. Sheet bodies render
+ * their own title so screenshot goldens pin it inline (dialog windows are not capturable —
+ * see docs/screenshot-tests.md); production wrappers pass `title = null`. Keep the style
+ * in sync with [StratumBottomSheet].
+ */
+@Composable
+internal fun SheetContentTitle(text: String) {
+    StratumText(
+        text = text,
+        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+        style = StratumThemeAccessor.typography.titleLarge,
+        textAlign = TextAlign.Center,
+    )
+}
 
 
 /**
@@ -558,88 +602,109 @@ private fun ConfigureRestTimesBottomSheet(
     val pending = remember(lift.workoutLiftId) {
         mutableStateMapOf<String, Int>().apply { putAll(baseline) }
     }
-    var expandedSlotKey by remember(lift.workoutLiftId) { mutableStateOf<String?>(null) }
     val hasUnsaved = hasUnsavedRestChanges(baseline = baseline, pending = pending)
 
     StratumBottomSheet(
         onDismissRequest = { onRequestDismiss(hasUnsaved) },
-        title = stringResource(CoreUiR.string.edit_workout_configure_rest_times),
     ) {
-        lift.sets.forEach { set ->
-            val restSeconds = pending[set.slotKey] ?: set.restSeconds
-            val isExpanded = expandedSlotKey == set.slotKey
-            Column(
+        ConfigureRestTimesSheetContent(
+            lift = lift,
+            baseline = baseline,
+            pending = pending,
+            onConfirm = onConfirm,
+        )
+    }
+}
+
+/**
+ * Configure-rest sheet body without the dialog window. Screenshot tests cannot capture
+ * dialog windows (an open sheet blanks the golden), so goldens pin this content inline
+ * (see docs/screenshot-tests.md). The title lives here (not the sheet wrapper) so the
+ * golden covers it; production pixels are unchanged (same text, style, and position).
+ */
+@Composable
+internal fun ConfigureRestTimesSheetContent(
+    lift: RenderedLiftUi,
+    baseline: Map<String, Int>,
+    pending: MutableMap<String, Int>,
+    onConfirm: (Map<String, Int>) -> Unit,
+) {
+    var expandedSlotKey by remember(lift.workoutLiftId) { mutableStateOf<String?>(null) }
+    SheetContentTitle(text = stringResource(CoreUiR.string.edit_workout_configure_rest_times))
+    lift.sets.forEach { set ->
+        val restSeconds = pending[set.slotKey] ?: set.restSeconds
+        val isExpanded = expandedSlotKey == set.slotKey
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .background(
+                        color = StratumThemeAccessor.colors.surfaceRaised,
+                        shape = StratumThemeAccessor.shapes.panel,
+                    )
+                    .border(
+                        width = StratumThemeAccessor.shapes.borderWidth,
+                        color = StratumThemeAccessor.colors.borderSubtle,
+                        shape = StratumThemeAccessor.shapes.panel,
+                    )
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .background(
-                            color = StratumThemeAccessor.colors.surfaceRaised,
-                            shape = StratumThemeAccessor.shapes.panel,
-                        )
-                        .border(
-                            width = StratumThemeAccessor.shapes.borderWidth,
-                            color = StratumThemeAccessor.colors.borderSubtle,
-                            shape = StratumThemeAccessor.shapes.panel,
-                        )
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                        .clickable {
+                            expandedSlotKey = if (isExpanded) null else set.slotKey
+                        },
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Row(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                expandedSlotKey = if (isExpanded) null else set.slotKey
-                            },
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    StratumText(
-                        text = stringResource(
-                            if (set.setKind.isMyoRepKind()) {
-                                CoreUiR.string.edit_workout_rest_mini_set_label
-                            } else {
-                                CoreUiR.string.edit_workout_rest_set_label
-                            },
-                            set.positionLabel.toIntOrNull() ?: (lift.sets.indexOf(set) + 1),
-                        ),
-                        style = StratumThemeAccessor.typography.bodyLarge,
-                    )
-                    StratumText(
-                        text = formatRestDisplay(restSeconds),
-                        style = StratumThemeAccessor.typography.titleMedium,
-                    )
-                }
-                if (isExpanded) {
-                    StratumDurationStepper(
-                        totalMinutes = restSeconds,
-                        onTotalMinutesChange = { pending[set.slotKey] = it },
-                        minMinutes = MIN_CONFIGURE_REST_SECONDS,
-                        maxMinutes = MAX_CONFIGURE_REST_SECONDS,
-                        minutesStep = CONFIGURE_REST_SECONDS_STEP,
-                        hoursLabel = stringResource(CoreUiR.string.edit_workout_rest_minutes_label),
-                        minutesLabel = stringResource(CoreUiR.string.edit_workout_rest_seconds_label),
-                        incrementContentDescription =
-                            stringResource(CoreUiR.string.edit_workout_rest_increment),
-                        decrementContentDescription =
-                            stringResource(CoreUiR.string.edit_workout_rest_decrement),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
+                StratumText(
+                    text = stringResource(
+                        if (set.setKind.isMyoRepKind()) {
+                            CoreUiR.string.edit_workout_rest_mini_set_label
+                        } else {
+                            CoreUiR.string.edit_workout_rest_set_label
+                        },
+                        set.positionLabel.toIntOrNull() ?: (lift.sets.indexOf(set) + 1),
+                    ),
+                    style = StratumThemeAccessor.typography.bodyLarge,
+                )
+                StratumText(
+                    text = formatRestDisplay(restSeconds),
+                    style = StratumThemeAccessor.typography.titleMedium,
+                )
+            }
+            if (isExpanded) {
+                StratumDurationStepper(
+                    totalMinutes = restSeconds,
+                    onTotalMinutesChange = { pending[set.slotKey] = it },
+                    minMinutes = MIN_CONFIGURE_REST_SECONDS,
+                    maxMinutes = MAX_CONFIGURE_REST_SECONDS,
+                    minutesStep = CONFIGURE_REST_SECONDS_STEP,
+                    hoursLabel = stringResource(CoreUiR.string.edit_workout_rest_minutes_label),
+                    minutesLabel = stringResource(CoreUiR.string.edit_workout_rest_seconds_label),
+                    incrementContentDescription =
+                        stringResource(CoreUiR.string.edit_workout_rest_increment),
+                    decrementContentDescription =
+                        stringResource(CoreUiR.string.edit_workout_rest_decrement),
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         }
-        StratumButton(
-            text = stringResource(CoreUiR.string.edit_workout_rest_confirm),
-            onClick = {
-                val updates =
-                    pending
-                        .filter { (key, value) -> baseline[key] != value }
-                        .toMap()
-                onConfirm(updates)
-            },
-            modifier = Modifier.fillMaxWidth(),
-        )
     }
+    StratumButton(
+        text = stringResource(CoreUiR.string.edit_workout_rest_confirm),
+        onClick = {
+            val updates =
+                pending
+                    .filter { (key, value) -> baseline[key] != value }
+                    .toMap()
+            onConfirm(updates)
+        },
+        modifier = Modifier.fillMaxWidth(),
+    )
 }
 
 @Composable
@@ -649,23 +714,40 @@ private fun RestConfigDiscardBottomSheet(
 ) {
     StratumBottomSheet(
         onDismissRequest = onDismiss,
-        title = stringResource(CoreUiR.string.edit_workout_rest_discard_title),
     ) {
-        StratumText(
-            text = stringResource(CoreUiR.string.edit_workout_rest_discard_message),
-            style = StratumThemeAccessor.typography.bodyLarge,
-        )
-        StratumButton(
-            text = stringResource(CoreUiR.string.edit_workout_rest_discard_confirm),
-            onClick = onConfirmDiscard,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        StratumOutlinedButton(
-            text = stringResource(CoreUiR.string.edit_workout_rest_discard_cancel),
-            onClick = onDismiss,
-            modifier = Modifier.fillMaxWidth(),
+        RestConfigDiscardSheetContent(
+            onConfirmDiscard = onConfirmDiscard,
+            onDismiss = onDismiss,
         )
     }
+}
+
+/**
+ * Rest-config discard body without the dialog window. Screenshot tests cannot capture
+ * dialog windows (an open sheet blanks the golden), so goldens pin this content inline
+ * (see docs/screenshot-tests.md). The title lives here (not the sheet wrapper) so the
+ * golden covers it; production pixels are unchanged (same text, style, and position).
+ */
+@Composable
+internal fun RestConfigDiscardSheetContent(
+    onConfirmDiscard: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    SheetContentTitle(text = stringResource(CoreUiR.string.edit_workout_rest_discard_title))
+    StratumText(
+        text = stringResource(CoreUiR.string.edit_workout_rest_discard_message),
+        style = StratumThemeAccessor.typography.bodyLarge,
+    )
+    StratumButton(
+        text = stringResource(CoreUiR.string.edit_workout_rest_discard_confirm),
+        onClick = onConfirmDiscard,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    StratumOutlinedButton(
+        text = stringResource(CoreUiR.string.edit_workout_rest_discard_cancel),
+        onClick = onDismiss,
+        modifier = Modifier.fillMaxWidth(),
+    )
 }
 
 enum class CompleteSheetPhase { Incomplete, SaveChanges, AllSetsLogged }

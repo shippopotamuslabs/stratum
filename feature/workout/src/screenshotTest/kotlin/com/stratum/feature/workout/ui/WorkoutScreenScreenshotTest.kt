@@ -51,3 +51,73 @@ fun workoutScreenErrorTonal() {
 fun workoutScreenLoadingTonal() {
     WorkoutLoadingPreviewContent(family = StratumThemeId.Tonal)
 }
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun workoutScreenRestTimerActiveTonal() {
+    WorkoutRestTimerActivePreviewContent(family = StratumThemeId.Tonal)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun workoutScreenRestTimerActiveNeo() {
+    WorkoutRestTimerActivePreviewContent(family = StratumThemeId.NeoBrutalist)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun workoutScreenRestSheetTonal() {
+    WorkoutRestSheetPreviewContent(family = StratumThemeId.Tonal)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun workoutScreenRestSheetNeo() {
+    WorkoutRestSheetPreviewContent(family = StratumThemeId.NeoBrutalist)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun workoutScreenRestSheetEditedTonal() {
+    WorkoutRestSheetEditedPreviewContent(family = StratumThemeId.Tonal)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun workoutScreenRestSheetEditedNeo() {
+    WorkoutRestSheetEditedPreviewContent(family = StratumThemeId.NeoBrutalist)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun workoutScreenConfigureRestTonal() {
+    WorkoutConfigureRestPreviewContent(family = StratumThemeId.Tonal)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun workoutScreenConfigureRestNeo() {
+    WorkoutConfigureRestPreviewContent(family = StratumThemeId.NeoBrutalist)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun workoutScreenRestConfigDiscardTonal() {
+    WorkoutRestConfigDiscardPreviewContent(family = StratumThemeId.Tonal)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun workoutScreenRestConfigDiscardNeo() {
+    WorkoutRestConfigDiscardPreviewContent(family = StratumThemeId.NeoBrutalist)
+}

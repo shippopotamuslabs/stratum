@@ -83,36 +83,44 @@ internal fun WorkoutScreenPreviewContent(family: StratumThemeId) {
     StratumTheme(themeId = family) {
         WorkoutScreen(
             state = previewWorkoutLoadedState(),
-            restTimer =
-                RestTimerChrome(
-                    isActive = false,
-                    remainingSeconds = 0,
-                    totalSeconds = 0,
-                    onStart = {},
-                    onAdd10s = {},
-                    onSubtract10s = {},
-                    onSkip = {},
-                ),
-            actions =
-                WorkoutScreenActions(
-                    onNavigateBack = {},
-                    onCompleteWorkout = {},
-                    onAbandon = {},
-                    onLogSet = { _, _, _, _, _ -> },
-                    onUnlogSet = {},
-                    onSwapLiftClick = { _, _, _, _ -> },
-                    onLinkSupersetWithPrevious = {},
-                    onLinkSupersetWithNext = {},
-                    onRemoveFromSuperset = {},
-                    onSetUseRestTimerBetweenLifts = { _, _ -> },
-                    onRemoveLift = {},
-                    onReorderLiftsClick = {},
-                ),
+            restTimer = previewRestTimerChrome(),
+            actions = previewWorkoutScreenActions(),
         )
     }
 }
 
-private fun previewWorkoutLoadedState(): WorkoutUiState.Loaded =
+internal fun previewRestTimerChrome(
+    isActive: Boolean = false,
+    remainingSeconds: Int = 0,
+    totalSeconds: Int = 0,
+): RestTimerChrome =
+    RestTimerChrome(
+        isActive = isActive,
+        remainingSeconds = remainingSeconds,
+        totalSeconds = totalSeconds,
+        onStart = {},
+        onAdd10s = {},
+        onSubtract10s = {},
+        onSkip = {},
+    )
+
+internal fun previewWorkoutScreenActions(): WorkoutScreenActions =
+    WorkoutScreenActions(
+        onNavigateBack = {},
+        onCompleteWorkout = {},
+        onAbandon = {},
+        onLogSet = { _, _, _, _, _ -> },
+        onUnlogSet = {},
+        onSwapLiftClick = { _, _, _, _ -> },
+        onLinkSupersetWithPrevious = {},
+        onLinkSupersetWithNext = {},
+        onRemoveFromSuperset = {},
+        onSetUseRestTimerBetweenLifts = { _, _ -> },
+        onRemoveLift = {},
+        onReorderLiftsClick = {},
+    )
+
+internal fun previewWorkoutLoadedState(): WorkoutUiState.Loaded =
     WorkoutUiState.Loaded(
         workoutId = "w-1",
         workoutName = "Lower A",
