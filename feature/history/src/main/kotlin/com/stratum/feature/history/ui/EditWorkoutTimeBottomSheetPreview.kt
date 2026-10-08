@@ -10,27 +10,42 @@ import java.time.LocalTime
 @PreviewLightDark
 @Composable
 private fun EditWorkoutTimeBottomSheetTonalPreview() {
-    StratumTheme(themeId = StratumThemeId.Tonal, darkTheme = true) {
-        EditWorkoutTimeBottomSheet(
-            initialStartDate = LocalDate.of(2025, 8, 10),
-            initialStartTime = LocalTime.of(20, 53),
-            initialFinishDate = LocalDate.of(2025, 8, 10),
-            initialFinishTime = LocalTime.of(21, 38),
-            onConfirm = { _, _, _, _ -> },
-            onDismiss = {},
-        )
-    }
+    EditWorkoutTimePreviewContent(
+        family = StratumThemeId.Tonal,
+        initialStartTime = LocalTime.of(20, 53),
+        initialFinishDate = LocalDate.of(2025, 8, 10),
+        initialFinishTime = LocalTime.of(21, 38),
+    )
 }
 
 @PreviewLightDark
 @Composable
 private fun EditWorkoutTimeBottomSheetNeoPreview() {
-    StratumTheme(themeId = StratumThemeId.NeoBrutalist, darkTheme = true) {
-        EditWorkoutTimeBottomSheet(
+    EditWorkoutTimePreviewContent(
+        family = StratumThemeId.NeoBrutalist,
+        initialStartTime = LocalTime.of(22, 0),
+        initialFinishDate = LocalDate.of(2025, 8, 11),
+        initialFinishTime = LocalTime.of(0, 30),
+    )
+}
+
+/**
+ * Pins the sheet body inline: dialog windows are uncapturable in screenshot goldens
+ * (STR-89 pattern).
+ */
+@Composable
+internal fun EditWorkoutTimePreviewContent(
+    family: StratumThemeId,
+    initialStartTime: LocalTime,
+    initialFinishDate: LocalDate,
+    initialFinishTime: LocalTime,
+) {
+    StratumTheme(themeId = family) {
+        EditWorkoutTimeSheetContent(
             initialStartDate = LocalDate.of(2025, 8, 10),
-            initialStartTime = LocalTime.of(22, 0),
-            initialFinishDate = LocalDate.of(2025, 8, 11),
-            initialFinishTime = LocalTime.of(0, 30),
+            initialStartTime = initialStartTime,
+            initialFinishDate = initialFinishDate,
+            initialFinishTime = initialFinishTime,
             onConfirm = { _, _, _, _ -> },
             onDismiss = {},
         )
