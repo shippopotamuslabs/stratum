@@ -107,15 +107,7 @@ internal fun WorkoutRestTimerActivePreviewContent(family: StratumThemeId) {
 @Composable
 internal fun WorkoutRestSheetPreviewContent(family: StratumThemeId) {
     RestSheetContentPreview(family = family) {
-        RestTimerSheetContent(
-            isTimerActive = true,
-            remainingSeconds = 75,
-            totalSeconds = 90,
-            onAdd10s = {},
-            onSubtract10s = {},
-            onSkip = {},
-            onStartPreset = {},
-        )
+        restTimerSheetBody(remainingSeconds = 75)
     }
 }
 
@@ -123,16 +115,22 @@ internal fun WorkoutRestSheetPreviewContent(family: StratumThemeId) {
 @Composable
 internal fun WorkoutRestSheetEditedPreviewContent(family: StratumThemeId) {
     RestSheetContentPreview(family = family) {
-        RestTimerSheetContent(
-            isTimerActive = true,
-            remainingSeconds = 65,
-            totalSeconds = 90,
-            onAdd10s = {},
-            onSubtract10s = {},
-            onSkip = {},
-            onStartPreset = {},
-        )
+        restTimerSheetBody(remainingSeconds = 65)
     }
+}
+
+/** Shared rest-timer sheet body so view/edited previews differ only in countdown. */
+@Composable
+private fun ColumnScope.restTimerSheetBody(remainingSeconds: Int, totalSeconds: Int = 90) {
+    RestTimerSheetContent(
+        isTimerActive = true,
+        remainingSeconds = remainingSeconds,
+        totalSeconds = totalSeconds,
+        onAdd10s = {},
+        onSubtract10s = {},
+        onSkip = {},
+        onStartPreset = {},
+    )
 }
 
 /** Configure Rest Times sheet body for the first lift (baseline per-set rows). */
@@ -166,6 +164,12 @@ internal fun WorkoutRestConfigDiscardPreviewContent(family: StratumThemeId) {
  * Inline stand-in for the StratumBottomSheet inner container: same background, padding,
  * and spacing the sheet body is designed for. Sheet chrome itself (scrim, drag handle,
  * window) is framework-owned and uncoverable by screenshot tests.
+ *
+ * Deliberately mirrors [com.stratum.core.ui.component.StratumBottomSheet]'s inner
+ * Column — keep the background, paddings, and arrangement in sync with it. Sharing
+ * the container with production would mean refactoring the ModalBottomSheet wrapper;
+ * that production change is out of scope for screenshot wiring, so the values are
+ * duplicated here with this pointer instead.
  */
 @Composable
 private fun RestSheetContentPreview(
