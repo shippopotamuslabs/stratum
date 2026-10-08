@@ -593,6 +593,7 @@ private fun SleepStageUi.labelRes(): Int = when (this) {
     SleepStageUi.Awake -> R.string.dashboard_health_sleep_stage_awake
 }
 
+@Composable
 private fun HealthPageColumn(
     title: String,
     hero: String?,
