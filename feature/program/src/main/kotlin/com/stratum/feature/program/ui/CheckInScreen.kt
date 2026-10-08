@@ -144,22 +144,39 @@ fun CheckInScreen(
     if (state.swapPickerRecommendationId != null) {
         StratumBottomSheet(
             onDismissRequest = onDismissSwapPicker,
-            title = stringResource(R.string.checkin_swap_picker_title),
         ) {
-            Column(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                state.swapCandidates.forEach { candidate ->
-                    SwapCandidateRow(
-                        candidate = candidate,
-                        onClick = { onSelectSwapCandidate(candidate.liftId, candidate.name) },
-                    )
-                }
-            }
+            CheckInSwapPickerContent(
+                swapCandidates = state.swapCandidates,
+                onSelectSwapCandidate = onSelectSwapCandidate,
+            )
+        }
+    }
+}
+
+/**
+ * Check-in swap-picker body without the dialog window. Screenshot tests cannot capture
+ * dialog windows (an open sheet blanks the golden), so goldens pin this content inline
+ * (see docs/screenshot-tests.md). The title lives here (not the sheet wrapper) so the
+ * golden covers it; production pixels are unchanged (same text, style, and position).
+ */
+@Composable
+internal fun CheckInSwapPickerContent(
+    swapCandidates: List<CheckInSwapCandidateUi>,
+    onSelectSwapCandidate: (liftId: String, name: String) -> Unit,
+) {
+    SheetContentTitle(text = stringResource(R.string.checkin_swap_picker_title))
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        swapCandidates.forEach { candidate ->
+            SwapCandidateRow(
+                candidate = candidate,
+                onClick = { onSelectSwapCandidate(candidate.liftId, candidate.name) },
+            )
         }
     }
 }
