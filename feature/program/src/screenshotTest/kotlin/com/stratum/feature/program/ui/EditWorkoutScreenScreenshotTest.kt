@@ -37,3 +37,129 @@ fun editWorkoutScreenLoadingTonal() {
 fun editWorkoutScreenNotFoundTonal() {
     EditWorkoutNotFoundPreviewContent(family = StratumThemeId.Tonal)
 }
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun editWorkoutScreenRirSheetTonal() {
+    EditWorkoutRirSheetPreviewContent(family = StratumThemeId.Tonal)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun editWorkoutScreenRirSheetNeo() {
+    EditWorkoutRirSheetPreviewContent(family = StratumThemeId.NeoBrutalist)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun editWorkoutScreenSupersetSheetTonal() {
+    EditWorkoutSupersetSheetPreviewContent(family = StratumThemeId.Tonal)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun editWorkoutScreenSupersetSheetNeo() {
+    EditWorkoutSupersetSheetPreviewContent(family = StratumThemeId.NeoBrutalist)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun editWorkoutScreenLiftActionsTonal() {
+    EditWorkoutLiftActionsPreviewContent(family = StratumThemeId.Tonal)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun editWorkoutScreenLiftActionsNeo() {
+    EditWorkoutLiftActionsPreviewContent(family = StratumThemeId.NeoBrutalist)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun editWorkoutScreenDiscardSheetTonal() {
+    EditWorkoutDiscardSheetPreviewContent(family = StratumThemeId.Tonal)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun editWorkoutScreenDiscardSheetNeo() {
+    EditWorkoutDiscardSheetPreviewContent(family = StratumThemeId.NeoBrutalist)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun editWorkoutScreenProgressionExplainerTonal() {
+    EditWorkoutProgressionExplainerPreviewContent(family = StratumThemeId.Tonal)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun editWorkoutScreenProgressionExplainerNeo() {
+    EditWorkoutProgressionExplainerPreviewContent(family = StratumThemeId.NeoBrutalist)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun editWorkoutScreenDirtyStartDialogTonal() {
+    EditWorkoutDirtyStartDialogPreviewContent(family = StratumThemeId.Tonal)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun editWorkoutScreenDirtyStartDialogNeo() {
+    EditWorkoutDirtyStartDialogPreviewContent(family = StratumThemeId.NeoBrutalist)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun editWorkoutScreenActiveSessionDiscardTonal() {
+    EditWorkoutActiveSessionDiscardPreviewContent(family = StratumThemeId.Tonal)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun editWorkoutScreenActiveSessionDiscardNeo() {
+    EditWorkoutActiveSessionDiscardPreviewContent(family = StratumThemeId.NeoBrutalist)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun editWorkoutScreenDirtyTopBarTonal() {
+    EditWorkoutDirtyTopBarPreviewContent(family = StratumThemeId.Tonal)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun editWorkoutScreenDirtyTopBarNeo() {
+    EditWorkoutDirtyTopBarPreviewContent(family = StratumThemeId.NeoBrutalist)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun editWorkoutScreenSavingTonal() {
+    EditWorkoutSavingPreviewContent(family = StratumThemeId.Tonal)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun editWorkoutScreenSavingNeo() {
+    EditWorkoutSavingPreviewContent(family = StratumThemeId.NeoBrutalist)
+}
