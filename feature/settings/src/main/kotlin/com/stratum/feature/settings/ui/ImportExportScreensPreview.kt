@@ -50,7 +50,10 @@ private fun ExportLogsScreenCustomPreview() {
 @PreviewLightDark
 @Composable
 private fun ExportProgramsScreenPreview() {
-    ExportProgramsPreviewContent(family = StratumThemeId.Tonal)
+    ExportProgramsPreviewContent(
+        family = StratumThemeId.Tonal,
+        uiState = previewExportProgramsSelection(),
+    )
 }
 
 @PreviewLightDark
@@ -137,19 +140,13 @@ internal fun ExportLogsPreviewContent(
 }
 
 @Composable
-internal fun ExportProgramsPreviewContent(family: StratumThemeId) {
+internal fun ExportProgramsPreviewContent(
+    family: StratumThemeId,
+    uiState: ExportProgramsUiState,
+) {
     StratumTheme(themeId = family) {
         ExportProgramsScreen(
-            uiState =
-                ExportProgramsUiState(
-                    programs =
-                        listOf(
-                            ExportProgramRowUi("1", "Strength Block A", isActive = true),
-                            ExportProgramRowUi("2", "Hypertrophy Bridge", isActive = false),
-                            ExportProgramRowUi("3", "Deload Week", isActive = false),
-                        ),
-                    selectedIds = setOf("1", "2"),
-                ),
+            uiState = uiState,
             onBackClick = {},
             onToggleProgram = {},
             onSelectAll = {},
@@ -158,6 +155,17 @@ internal fun ExportProgramsPreviewContent(family: StratumThemeId) {
         )
     }
 }
+
+internal fun previewExportProgramsSelection(): ExportProgramsUiState =
+    ExportProgramsUiState(
+        programs =
+            listOf(
+                ExportProgramRowUi("1", "Strength Block A", isActive = true),
+                ExportProgramRowUi("2", "Hypertrophy Bridge", isActive = false),
+                ExportProgramRowUi("3", "Deload Week", isActive = false),
+            ),
+        selectedIds = setOf("1", "2"),
+    )
 
 @Composable
 internal fun ImportLogsPreviewContent(

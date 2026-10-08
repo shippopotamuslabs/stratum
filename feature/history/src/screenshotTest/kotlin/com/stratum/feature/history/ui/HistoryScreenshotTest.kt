@@ -197,6 +197,7 @@ fun editHistoricalErrorNeo() {
 fun editWorkoutTimeTonal() {
     EditWorkoutTimePreviewContent(
         family = StratumThemeId.Tonal,
+        initialStartDate = LocalDate.of(2025, 8, 10),
         initialStartTime = LocalTime.of(20, 53),
         initialFinishDate = LocalDate.of(2025, 8, 10),
         initialFinishTime = LocalTime.of(21, 38),
@@ -209,6 +210,7 @@ fun editWorkoutTimeTonal() {
 fun editWorkoutTimeNeo() {
     EditWorkoutTimePreviewContent(
         family = StratumThemeId.NeoBrutalist,
+        initialStartDate = LocalDate.of(2025, 8, 10),
         initialStartTime = LocalTime.of(22, 0),
         initialFinishDate = LocalDate.of(2025, 8, 11),
         initialFinishTime = LocalTime.of(0, 30),

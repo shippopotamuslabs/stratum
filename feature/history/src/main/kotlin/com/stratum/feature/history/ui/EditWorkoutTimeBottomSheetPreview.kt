@@ -12,6 +12,7 @@ import java.time.LocalTime
 private fun EditWorkoutTimeBottomSheetTonalPreview() {
     EditWorkoutTimePreviewContent(
         family = StratumThemeId.Tonal,
+        initialStartDate = LocalDate.of(2025, 8, 10),
         initialStartTime = LocalTime.of(20, 53),
         initialFinishDate = LocalDate.of(2025, 8, 10),
         initialFinishTime = LocalTime.of(21, 38),
@@ -23,6 +24,7 @@ private fun EditWorkoutTimeBottomSheetTonalPreview() {
 private fun EditWorkoutTimeBottomSheetNeoPreview() {
     EditWorkoutTimePreviewContent(
         family = StratumThemeId.NeoBrutalist,
+        initialStartDate = LocalDate.of(2025, 8, 10),
         initialStartTime = LocalTime.of(22, 0),
         initialFinishDate = LocalDate.of(2025, 8, 11),
         initialFinishTime = LocalTime.of(0, 30),
@@ -36,13 +38,14 @@ private fun EditWorkoutTimeBottomSheetNeoPreview() {
 @Composable
 internal fun EditWorkoutTimePreviewContent(
     family: StratumThemeId,
+    initialStartDate: LocalDate,
     initialStartTime: LocalTime,
     initialFinishDate: LocalDate,
     initialFinishTime: LocalTime,
 ) {
     StratumTheme(themeId = family) {
         EditWorkoutTimeSheetContent(
-            initialStartDate = LocalDate.of(2025, 8, 10),
+            initialStartDate = initialStartDate,
             initialStartTime = initialStartTime,
             initialFinishDate = initialFinishDate,
             initialFinishTime = initialFinishTime,

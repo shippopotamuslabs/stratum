@@ -155,14 +155,20 @@ fun exportLogsCustomNeo() {
 @PreviewLightDark
 @Composable
 fun exportProgramsTonal() {
-    ExportProgramsPreviewContent(family = StratumThemeId.Tonal)
+    ExportProgramsPreviewContent(
+        family = StratumThemeId.Tonal,
+        uiState = previewExportProgramsSelection(),
+    )
 }
 
 @PreviewTest
 @PreviewLightDark
 @Composable
 fun exportProgramsNeo() {
-    ExportProgramsPreviewContent(family = StratumThemeId.NeoBrutalist)
+    ExportProgramsPreviewContent(
+        family = StratumThemeId.NeoBrutalist,
+        uiState = previewExportProgramsSelection(),
+    )
 }
 
 @PreviewTest
