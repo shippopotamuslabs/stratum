@@ -34,17 +34,51 @@ object IncrementBandTiling {
      * lower follows its predecessor's end, and the last band stays open-ended.
      * Edits to the last band's end are ignored (it has no end). Blank [newEnd]
      * keeps the current end so a cleared field never silently collapses a band.
+     * (STR-102: a later band's start edit routes here — the start is a derived
+     * value, so a cleared start snaps back by design; the Ends-at field uses
+     * [retileAfterEndDraftEdit] instead.)
      */
     fun retileAfterEndEdit(
         tiers: List<IncrementTierDraft>,
         index: Int,
         newEnd: String,
+    ): List<IncrementTierDraft> = applyEndEdit(tiers, index, newEnd, skipBlank = true)
+
+    /**
+     * Live-draft end edit (STR-103): like [retileAfterEndEdit] but applies blank
+     * values too, so the Ends-at field can be cleared mid-typing — the draft
+     * holds the empty string and the field shows exactly what was typed.
+     * Re-tiling keeps later lowers stable on a blank predecessor end, and
+     * validation flags the gap. Callers revert to the pre-edit end when the
+     * sheet closes on an invalid value.
+     */
+    fun retileAfterEndDraftEdit(
+        tiers: List<IncrementTierDraft>,
+        index: Int,
+        newEnd: String,
+    ): List<IncrementTierDraft> = applyEndEdit(tiers, index, newEnd, skipBlank = false)
+
+    /**
+     * Field-level validity for the sheet's Ends-at input (STR-103): a blank or
+     * non-numeric end is invalid and renders the red error border. The last band
+     * has no end (its field is disabled), so it is never invalid.
+     */
+    fun isEndInvalid(upperBound: String?, isLastBand: Boolean): Boolean {
+        if (isLastBand) return false
+        return upperBound.isNullOrBlank() || upperBound.toDoubleOrNull() == null
+    }
+
+    private fun applyEndEdit(
+        tiers: List<IncrementTierDraft>,
+        index: Int,
+        newEnd: String,
+        skipBlank: Boolean,
     ): List<IncrementTierDraft> {
         if (index !in tiers.indices) return tiers
         val filtered = IncrementTierDraftOps.filterNumeric(newEnd)
         val withEnd =
             tiers.mapIndexed { i, tier ->
-                if (i == index && i != tiers.lastIndex && filtered.isNotBlank()) {
+                if (i == index && i != tiers.lastIndex && (!skipBlank || filtered.isNotBlank())) {
                     tier.copy(upperBound = filtered)
                 } else {
                     tier
