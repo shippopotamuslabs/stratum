@@ -794,7 +794,7 @@ private fun CompleteWorkoutSheet(
  * (see docs/screenshot-tests.md).
  */
 @Composable
-internal fun ColumnScope.CompleteSheetContent(
+internal fun CompleteSheetContent(
     phase: CompleteSheetPhase,
     onContinueWorkout: () -> Unit,
     onCompleteWorkout: () -> Unit,
@@ -806,7 +806,8 @@ internal fun ColumnScope.CompleteSheetContent(
             StratumText(
                 text = stringResource(R.string.workout_sheet_incomplete_title),
                 style = StratumThemeAccessor.typography.titleLarge,
-                modifier = Modifier.align(Alignment.CenterHorizontally),
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center,
             )
             StratumText(
                 text = stringResource(R.string.workout_sheet_incomplete_message),
@@ -829,7 +830,8 @@ internal fun ColumnScope.CompleteSheetContent(
             StratumText(
                 text = stringResource(R.string.workout_sheet_all_sets_done_title),
                 style = StratumThemeAccessor.typography.titleLarge,
-                modifier = Modifier.align(Alignment.CenterHorizontally),
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center,
             )
             StratumText(
                 text = stringResource(R.string.workout_sheet_all_sets_done_message),
@@ -850,7 +852,8 @@ internal fun ColumnScope.CompleteSheetContent(
             StratumText(
                 text = stringResource(R.string.workout_sheet_save_changes_title),
                 style = StratumThemeAccessor.typography.titleLarge,
-                modifier = Modifier.align(Alignment.CenterHorizontally),
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center,
             )
             StratumText(
                 text = stringResource(R.string.workout_sheet_save_changes_message),
