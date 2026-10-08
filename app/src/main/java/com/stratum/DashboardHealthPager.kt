@@ -1,10 +1,5 @@
 package com.stratum
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -64,7 +59,6 @@ private val PagerHeight = 268.dp
 private val EmptyPagerHeight = 108.dp
 private const val PAGER_SNAP_THRESHOLD = 0.14f
 private const val AWAKE_BLEND_TOWARD_SURFACE = 0.28f
-private const val RECOVERY_TREND_CROSSFADE_MILLIS = 150
 internal val HealthChromeSpacing = 12.dp
 
 /**
@@ -378,34 +372,25 @@ private fun RecoveryHealthPage(
                 modifier = Modifier.weight(1f),
             )
         }
-        AnimatedContent(
-            targetState = selection,
-            transitionSpec = {
-                fadeIn(animationSpec = tween(RECOVERY_TREND_CROSSFADE_MILLIS)) togetherWith
-                    fadeOut(animationSpec = tween(RECOVERY_TREND_CROSSFADE_MILLIS))
-            },
-            label = "recoveryTrend",
-        ) { target ->
-            when (target) {
-                RecoveryTrendSelection.Sleep -> RecoverySleepTrend(
-                    page = page,
-                    expandChart = expandChart,
-                )
-                RecoveryTrendSelection.RestingHr -> RecoveryVitalTrend(
-                    points = page.restingHrDailyPoints,
-                    dayLabels = page.dayLabels,
-                    contentDescription = stringResource(R.string.dashboard_health_rhr_trend_chart_cd),
-                    emptyText = stringResource(R.string.dashboard_health_rhr_empty),
-                    expandChart = expandChart,
-                )
-                RecoveryTrendSelection.Hrv -> RecoveryVitalTrend(
-                    points = page.hrvDailyPoints,
-                    dayLabels = page.dayLabels,
-                    contentDescription = stringResource(R.string.dashboard_health_hrv_trend_chart_cd),
-                    emptyText = stringResource(R.string.dashboard_health_hrv_empty),
-                    expandChart = expandChart,
-                )
-            }
+        when (selection) {
+            RecoveryTrendSelection.Sleep -> RecoverySleepTrend(
+                page = page,
+                expandChart = expandChart,
+            )
+            RecoveryTrendSelection.RestingHr -> RecoveryVitalTrend(
+                points = page.restingHrDailyPoints,
+                dayLabels = page.dayLabels,
+                contentDescription = stringResource(R.string.dashboard_health_rhr_trend_chart_cd),
+                emptyText = stringResource(R.string.dashboard_health_rhr_empty),
+                expandChart = expandChart,
+            )
+            RecoveryTrendSelection.Hrv -> RecoveryVitalTrend(
+                points = page.hrvDailyPoints,
+                dayLabels = page.dayLabels,
+                contentDescription = stringResource(R.string.dashboard_health_hrv_trend_chart_cd),
+                emptyText = stringResource(R.string.dashboard_health_hrv_empty),
+                expandChart = expandChart,
+            )
         }
     }
 }
