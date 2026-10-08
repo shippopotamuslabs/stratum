@@ -3,7 +3,6 @@ package com.stratum.feature.program.ui
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import com.android.tools.screenshot.PreviewTest
-import com.stratum.core.ui.theme.StratumTheme
 import com.stratum.core.ui.theme.StratumThemeId
 
 /**
@@ -29,24 +28,12 @@ fun editWorkoutScreenLoadedNeo() {
 @PreviewLightDark
 @Composable
 fun editWorkoutScreenLoadingTonal() {
-    StratumTheme(themeId = StratumThemeId.Tonal) {
-        EditWorkoutScreen(
-            state = EditWorkoutUiState.Loading,
-            onLeave = {},
-            callbacks = EditWorkoutScreenCallbacks(),
-        )
-    }
+    EditWorkoutLoadingPreviewContent(family = StratumThemeId.Tonal)
 }
 
 @PreviewTest
 @PreviewLightDark
 @Composable
 fun editWorkoutScreenNotFoundTonal() {
-    StratumTheme(themeId = StratumThemeId.Tonal) {
-        EditWorkoutScreen(
-            state = EditWorkoutUiState.NotFound,
-            onLeave = {},
-            callbacks = EditWorkoutScreenCallbacks(),
-        )
-    }
+    EditWorkoutNotFoundPreviewContent(family = StratumThemeId.Tonal)
 }

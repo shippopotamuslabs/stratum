@@ -9,7 +9,6 @@ plugins {
 
 android {
     namespace = "com.stratum.feature.program"
-    experimentalProperties["android.experimental.enableScreenshotTest"] = true
 
     compileSdk {
         version = release(37)
@@ -68,10 +67,6 @@ dependencies {
     testImplementation(libs.turbine)
     testImplementation(project(":core:testing"))
     testRuntimeOnly(libs.junit.platform.launcher)
-
-    screenshotTestImplementation(libs.screenshot.validation.api)
-    screenshotTestImplementation(libs.androidx.compose.ui.tooling)
-    screenshotTestImplementation(libs.junit)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
 }

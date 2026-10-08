@@ -29,18 +29,30 @@ private fun WorkoutScreenNeoPreview() {
 @PreviewLightDark
 @Composable
 private fun WorkoutScreenNoActiveSessionTonalPreview() {
-    StratumTheme(themeId = StratumThemeId.Tonal) {
-        NoActiveSessionContent(
-            onNavigateBack = {},
-            snackbarHostState = remember { SnackbarHostState() },
-        )
-    }
+    WorkoutNoActiveSessionPreviewContent(family = StratumThemeId.Tonal)
 }
 
 @PreviewLightDark
 @Composable
 private fun WorkoutScreenNoActiveSessionNeoPreview() {
-    StratumTheme(themeId = StratumThemeId.NeoBrutalist) {
+    WorkoutNoActiveSessionPreviewContent(family = StratumThemeId.NeoBrutalist)
+}
+
+@PreviewLightDark
+@Composable
+private fun WorkoutScreenErrorTonalPreview() {
+    WorkoutErrorPreviewContent(family = StratumThemeId.Tonal)
+}
+
+@PreviewLightDark
+@Composable
+private fun WorkoutScreenLoadingTonalPreview() {
+    WorkoutLoadingPreviewContent(family = StratumThemeId.Tonal)
+}
+
+@Composable
+internal fun WorkoutNoActiveSessionPreviewContent(family: StratumThemeId) {
+    StratumTheme(themeId = family) {
         NoActiveSessionContent(
             onNavigateBack = {},
             snackbarHostState = remember { SnackbarHostState() },
@@ -48,10 +60,9 @@ private fun WorkoutScreenNoActiveSessionNeoPreview() {
     }
 }
 
-@PreviewLightDark
 @Composable
-private fun WorkoutScreenErrorTonalPreview() {
-    StratumTheme(themeId = StratumThemeId.Tonal) {
+internal fun WorkoutErrorPreviewContent(family: StratumThemeId) {
+    StratumTheme(themeId = family) {
         ErrorContent(
             message = "Session failed to load",
             onNavigateBack = {},
@@ -60,10 +71,9 @@ private fun WorkoutScreenErrorTonalPreview() {
     }
 }
 
-@PreviewLightDark
 @Composable
-private fun WorkoutScreenLoadingTonalPreview() {
-    StratumTheme(themeId = StratumThemeId.Tonal) {
+internal fun WorkoutLoadingPreviewContent(family: StratumThemeId) {
+    StratumTheme(themeId = family) {
         LoadingContent(snackbarHostState = remember { SnackbarHostState() })
     }
 }

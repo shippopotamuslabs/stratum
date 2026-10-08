@@ -28,7 +28,18 @@ private fun EditWorkoutScreenLoadedNeoPreview() {
 @PreviewLightDark
 @Composable
 private fun EditWorkoutScreenLoadingTonalPreview() {
-    StratumTheme(themeId = StratumThemeId.Tonal) {
+    EditWorkoutLoadingPreviewContent(family = StratumThemeId.Tonal)
+}
+
+@PreviewLightDark
+@Composable
+private fun EditWorkoutScreenNotFoundTonalPreview() {
+    EditWorkoutNotFoundPreviewContent(family = StratumThemeId.Tonal)
+}
+
+@Composable
+internal fun EditWorkoutLoadingPreviewContent(family: StratumThemeId) {
+    StratumTheme(themeId = family) {
         EditWorkoutScreen(
             state = EditWorkoutUiState.Loading,
             onLeave = {},
@@ -37,10 +48,9 @@ private fun EditWorkoutScreenLoadingTonalPreview() {
     }
 }
 
-@PreviewLightDark
 @Composable
-private fun EditWorkoutScreenNotFoundTonalPreview() {
-    StratumTheme(themeId = StratumThemeId.Tonal) {
+internal fun EditWorkoutNotFoundPreviewContent(family: StratumThemeId) {
+    StratumTheme(themeId = family) {
         EditWorkoutScreen(
             state = EditWorkoutUiState.NotFound,
             onLeave = {},
