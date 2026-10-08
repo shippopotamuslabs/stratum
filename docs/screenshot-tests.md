@@ -61,6 +61,11 @@ Diff reports land in `{module}/build/reports/screenshotTest/preview/debug/index.
 
 ## Known caveats
 
+- Dialog windows (`ModalBottomSheet`, `Dialog`) are not capturable: an open sheet or
+  dialog blanks the whole golden. Sheet/dialog goldens pin extracted `*SheetContent`
+  bodies inline in a container mirroring the sheet's inner Column instead (STR-89
+  pattern: `RestTimerSheetContent` + `RestSheetContentPreview`). Production wrappers
+  keep the dialog window; only the body is shared.
 - The root build keeps screenshot `Test` tasks on the JUnit4 runner (the plugin's
   generated tests are JUnit4); everything else stays on the JUnit Platform.
 - Standalone-plugin setup is the documented path at AGP 9.4.1. Google recommends
