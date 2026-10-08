@@ -1,6 +1,7 @@
 package com.stratum.liftconfig
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
@@ -95,6 +96,63 @@ class IncrementBandTilingTest {
         assertEquals("60", retiled[0].upperBound)
         assertEquals("60", retiled[1].lowerBound)
         assertTrue(retiled[1].openEnded)
+    }
+
+    @Test
+    @DisplayName("Given a blank end edit when applied then the old end is kept and neighbors stay tiled")
+    fun endEditIgnoresBlank() {
+        val retiled = IncrementBandTiling.retileAfterEndEdit(twoBand, 0, "")
+
+        assertEquals("40", retiled[0].upperBound)
+        assertEquals("40", retiled[1].lowerBound)
+        assertTrue(retiled[1].openEnded)
+    }
+
+    @Test
+    @DisplayName("Given an end edit on the last band when applied then the bands are unchanged")
+    fun endEditOnLastBandIgnored() {
+        val retiled = IncrementBandTiling.retileAfterEndEdit(twoBand, 1, "100")
+
+        assertEquals(twoBand, retiled)
+    }
+
+    @Test
+    @DisplayName("Given a blank or non-numeric end when checked then it is invalid")
+    fun blankOrNonNumericEndIsInvalid() {
+        with(IncrementBandTiling) {
+            assertTrue(twoBand.isEndInvalid(0, ""))
+            assertTrue(twoBand.isEndInvalid(0, null))
+            assertTrue(twoBand.isEndInvalid(0, "-"))
+            assertTrue(twoBand.isEndInvalid(0, "abc"))
+        }
+    }
+
+    @Test
+    @DisplayName("Given a numeric end when checked then it is valid")
+    fun numericEndIsValid() {
+        with(IncrementBandTiling) {
+            assertFalse(twoBand.isEndInvalid(0, "50"))
+            assertFalse(twoBand.isEndInvalid(0, "2.5"))
+        }
+    }
+
+    @Test
+    @DisplayName("Given the last band when checked then its missing end is never invalid")
+    fun lastBandEndNeverInvalid() {
+        with(IncrementBandTiling) {
+            assertFalse(twoBand.isEndInvalid(1, null))
+            assertFalse(twoBand.isEndInvalid(1, ""))
+            assertFalse(twoBand.isEndInvalid(1, "-"))
+        }
+    }
+
+    @Test
+    @DisplayName("Given an out-of-bounds index when checked then it is never invalid")
+    fun outOfBoundsIndexNeverInvalid() {
+        with(IncrementBandTiling) {
+            assertFalse(twoBand.isEndInvalid(-1, ""))
+            assertFalse(twoBand.isEndInvalid(7, ""))
+        }
     }
 
     @Test

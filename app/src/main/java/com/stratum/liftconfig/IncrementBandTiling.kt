@@ -34,6 +34,10 @@ object IncrementBandTiling {
      * lower follows its predecessor's end, and the last band stays open-ended.
      * Edits to the last band's end are ignored (it has no end). Blank [newEnd]
      * keeps the current end so a cleared field never silently collapses a band.
+     * (STR-102: a later band's start edit routes here — the start is a derived
+     * value, so a cleared start snaps back by design.)
+     * (STR-103: the sheet holds half-typed text locally and only commits valid
+     * ends here, so the draft never sees a blank or non-numeric end.)
      */
     fun retileAfterEndEdit(
         tiers: List<IncrementTierDraft>,
@@ -54,11 +58,24 @@ object IncrementBandTiling {
     }
 
     /**
+     * Field-level validity for the sheet's Ends-at candidate (STR-103): a blank
+     * or non-numeric end is invalid and renders the red error border. The last
+     * band has no end (its field is disabled), so any candidate there is valid;
+     * an out-of-bounds index is never invalid. The open-ended-last-band rule
+     * lives here so callers never recompute it.
+     */
+    fun List<IncrementTierDraft>.isEndInvalid(index: Int, end: String?): Boolean {
+        if (index !in indices || index == lastIndex) return false
+        return end.isNullOrBlank() || end.toDoubleOrNull() == null
+    }
+
+    /**
      * Re-derives lower bounds: the first band keeps its own start; every
      * later band follows its predecessor's end. Forces the last band
-     * open-ended. Bands with a blank predecessor end keep their current lower
-     * so a half-typed edit never wipes a field; validation still flags the
-     * resulting gap.
+     * open-ended. A band with a blank predecessor end keeps its current lower
+     * as a defensive fallback (edits can never introduce a blank end —
+     * [retileAfterEndEdit] ignores them — but stored drafts predate the
+     * invariant).
      */
     fun retiled(tiers: List<IncrementTierDraft>): List<IncrementTierDraft> =
         tiers.mapIndexed { i, tier ->
