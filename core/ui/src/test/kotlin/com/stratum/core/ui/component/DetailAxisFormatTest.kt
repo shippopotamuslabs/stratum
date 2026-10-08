@@ -161,4 +161,79 @@ class DetailAxisFormatTest {
         val flat = finiteDataBounds(5.0, 5.0, fallbackSpan = 2.0)
         assertEquals(2.0, flat.second - flat.first, 1e-9)
     }
+
+    @Test
+    @DisplayName("steps scale labels stay exact below 1k and compact above")
+    fun stepsScaleLabels() {
+        assertEquals("0", formatChartNumber(0.0, DetailYScale.Steps))
+        assertEquals("500", formatChartNumber(500.0, DetailYScale.Steps))
+        assertEquals("999", formatChartNumber(999.4, DetailYScale.Steps))
+        assertEquals("1k", formatChartNumber(999.6, DetailYScale.Steps))
+        assertEquals("1k", formatChartNumber(1000.0, DetailYScale.Steps))
+        assertEquals("2.5k", formatChartNumber(2500.0, DetailYScale.Steps))
+        assertEquals("5k", formatChartNumber(5000.0, DetailYScale.Steps))
+        assertEquals("10k", formatChartNumber(10000.0, DetailYScale.Steps))
+        assertEquals("12.5k", formatChartNumber(12500.0, DetailYScale.Steps))
+    }
+
+    @Test
+    @DisplayName("stepsYRange floors at 0 with a nice ceiling above the peak")
+    fun stepsRangeNiceCeiling() {
+        val (minY, maxY) = stepsYRange(dataMin = 4800.0, dataMax = 9000.0)
+        assertEquals(0.0, minY, 0.0)
+        assertEquals(10000.0, maxY, 0.0)
+    }
+
+    @Test
+    @DisplayName("stepsYRange plus labels yield 0/5k/10k for a typical week")
+    fun stepsRangeTypicalWeekTicks() {
+        // Peak 8,432 (preview week) → ceiling 10k, mid tick 5k.
+        val (minY, maxY) = stepsYRange(dataMin = 4800.0, dataMax = 8432.0)
+        assertEquals(0.0, minY, 0.0)
+        assertEquals(10000.0, maxY, 0.0)
+        assertEquals("0", formatChartNumber(minY, DetailYScale.Steps))
+        assertEquals("5k", formatChartNumber((minY + maxY) / 2.0, DetailYScale.Steps))
+        assertEquals("10k", formatChartNumber(maxY, DetailYScale.Steps))
+    }
+
+    @Test
+    @DisplayName("stepsYRange keeps positive length for all-zero, flat, and non-finite weeks")
+    fun stepsRangeDegenerate() {
+        val zeros = stepsYRange(dataMin = 0.0, dataMax = 0.0)
+        assertEquals(0.0, zeros.first, 0.0)
+        assertTrue(zeros.second > 0.0, "all-zero week still needs positive ceiling")
+
+        val flat = stepsYRange(dataMin = 4.0, dataMax = 4.0)
+        assertEquals(0.0, flat.first, 0.0)
+        assertTrue(flat.second > 4.0, "pad above tiny peaks: max=${flat.second}")
+
+        val nan = stepsYRange(dataMin = Double.NaN, dataMax = Double.NaN)
+        assertTrue(nan.first.isFinite() && nan.second.isFinite())
+        assertTrue(nan.second - nan.first > 0.0)
+    }
+
+    @Test
+    @DisplayName("body-weight values format as whole units on the weight axis")
+    fun weightAxisBodyWeight() {
+        assertEquals("176", formatChartNumber(176.4, DetailYScale.Weight))
+        assertEquals("80.2", formatChartNumber(80.2, DetailYScale.Weight))
+    }
+
+    @Test
+    @DisplayName("weightYRange fits body-weight weeks without forcing zero")
+    fun weightRangeBodyWeightFitted() {
+        val (minY, maxY) = weightYRange(dataMin = 176.4, dataMax = 178.2)
+        assertTrue(minY > 100.0, "floor stays near the data, not at zero: minY=$minY")
+        assertTrue(maxY < 200.0, "ceiling stays near the data: maxY=$maxY")
+        assertTrue(minY <= 176.4 && maxY >= 178.2)
+    }
+
+    @Test
+    @DisplayName("compact tick counts pair 3 labels with steps and 4 with other scales")
+    fun compactTickCounts() {
+        assertEquals(3, yTickCountFor(DetailYScale.Steps))
+        assertEquals(4, yTickCountFor(DetailYScale.Weight))
+        assertEquals(4, yTickCountFor(DetailYScale.Volume))
+        assertEquals(4, yTickCountFor(DetailYScale.Progress))
+    }
 }

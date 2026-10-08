@@ -24,6 +24,7 @@ import com.patrykandpatrick.vico.compose.cartesian.axis.rememberAxisLabelCompone
 import com.patrykandpatrick.vico.compose.cartesian.axis.rememberAxisLineComponent
 import com.patrykandpatrick.vico.compose.cartesian.axis.rememberAxisTickComponent
 import com.patrykandpatrick.vico.compose.cartesian.data.CartesianChartModelProducer
+import com.patrykandpatrick.vico.compose.cartesian.data.CartesianLayerRangeProvider
 import com.patrykandpatrick.vico.compose.cartesian.data.CartesianValueFormatter
 import com.patrykandpatrick.vico.compose.cartesian.data.ColumnCartesianLayerModel
 import com.patrykandpatrick.vico.compose.cartesian.data.columnModel
@@ -46,6 +47,8 @@ import com.stratum.core.ui.theme.StratumThemeAccessor
  * @param barColor fill for all bars (defaults to theme accent).
  * @param fillHeight when true, skip the compact intrinsic height and fill the incoming constraints
  * (health pager). Cards keep the default sparkline height.
+ * @param yScale when non-null, draw a quiet start axis labeled via [formatChartNumber] and range
+ * the bars via [rangeProviderFor]. Null (default) keeps Vico's auto range with no axis.
  * @param contentDescription accessibility description.
  */
 @Composable
@@ -56,6 +59,7 @@ fun StratumVolumeBarChart(
     dayLabels: List<String> = emptyList(),
     barColor: Color = Color.Unspecified,
     fillHeight: Boolean = false,
+    yScale: DetailYScale? = null,
 ) {
     val colors = StratumThemeAccessor.colors
     val resolvedBar =
@@ -132,14 +136,33 @@ fun StratumVolumeBarChart(
     } else {
         null
     }
+    val startAxis = if (yScale != null) {
+        rememberQuietStartAxis(
+            label = axisLabel,
+            line = invisibleLine,
+            tick = invisibleTick,
+            valueFormatter = remember(yScale) {
+                CartesianValueFormatter { _, value, _ -> formatChartNumber(value, yScale) }
+            },
+            labelCount = yTickCountFor(yScale),
+        )
+    } else {
+        null
+    }
+    // A shown axis owns the Y range via the scale; otherwise keep Vico's auto.
+    val columnRangeProvider = remember(yScale) {
+        yScale?.let(::rangeProviderFor) ?: CartesianLayerRangeProvider.auto()
+    }
 
     val marker = rememberStratumChartMarker(decimalCount = 0)
     val chart = rememberCartesianChart(
         rememberColumnCartesianLayer(
             columnProvider = columnProvider,
             columnCollectionSpacing = COLUMN_SPACING_DP.dp,
+            rangeProvider = columnRangeProvider,
         ),
         bottomAxis = bottomAxis,
+        startAxis = startAxis,
         marker = marker,
         markerController = rememberStratumChartMarkerController(),
     )

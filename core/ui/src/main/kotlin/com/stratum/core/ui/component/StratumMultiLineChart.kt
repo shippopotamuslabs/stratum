@@ -41,6 +41,9 @@ import com.stratum.core.ui.theme.StratumThemeAccessor
  * of Light vs Deep vs REM vs Awake sleep, or a body-weight trend). Optional [dayLabels] render as a
  * quiet X-axis. Points are tappable so a parent pager can show the value at that day.
  * Use [valueFormat] [CompactChartValueFormat.HoursMinutes] when Y is stored as hours.
+ *
+ * @param showYAxis when true, draw a quiet start axis labeled with [yScale] formatting. The line
+ * layer already ranges via [yScale], so the axis only reveals the existing scale.
  */
 @Composable
 fun StratumMultiLineChart(
@@ -57,6 +60,7 @@ fun StratumMultiLineChart(
     dayLabels: List<String> = emptyList(),
     yScale: DetailYScale = DetailYScale.Volume,
     valueFormat: CompactChartValueFormat = CompactChartValueFormat.Number,
+    showYAxis: Boolean = false,
 ) {
     val colors = StratumThemeAccessor.colors
     val resolvedPrimary = if (primaryColor == Color.Unspecified) colors.textMuted else primaryColor
@@ -168,6 +172,20 @@ fun StratumMultiLineChart(
     } else {
         null
     }
+    val yFormatter = remember(yScale) {
+        CartesianValueFormatter { _, value, _ -> formatChartNumber(value, yScale) }
+    }
+    val startAxis = if (showYAxis) {
+        rememberQuietStartAxis(
+            label = axisLabel,
+            line = invisibleLine,
+            tick = invisibleTick,
+            valueFormatter = yFormatter,
+            labelCount = yTickCountFor(yScale),
+        )
+    } else {
+        null
+    }
 
     val lineProvider = LineCartesianLayer.LineProvider.series(lineStyles)
     val marker = rememberStratumChartMarker(
@@ -181,6 +199,7 @@ fun StratumMultiLineChart(
             rangeProvider = rangeProviderFor(yScale),
         ),
         bottomAxis = bottomAxis,
+        startAxis = startAxis,
         marker = marker,
         markerController = rememberStratumChartMarkerController(),
     )
