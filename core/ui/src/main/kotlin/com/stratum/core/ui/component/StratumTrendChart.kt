@@ -145,24 +145,13 @@ fun StratumTrendChart(
             // an axis-less, grid-less, marker-less sparkline.
         )
 
-    val hostModifier =
-        modifier
-            .fillMaxWidth()
-            .height(CHART_HEIGHT_DP.dp)
-            .semantics { this.contentDescription = contentDescription }
-    if (inspectionModel != null) {
-        CartesianChartHost(
-            chart = chart,
-            model = inspectionModel,
-            modifier = hostModifier,
-        )
-    } else {
-        CartesianChartHost(
-            chart = chart,
-            modelProducer = modelProducer,
-            modifier = hostModifier,
-        )
-    }
+    StratumCartesianChartHost(
+        chart = chart,
+        modelProducer = modelProducer,
+        inspectionModel = inspectionModel,
+        modifier = modifier.fillMaxWidth().height(CHART_HEIGHT_DP.dp),
+        contentDescription = contentDescription,
+    )
 }
 
 /** Draws only the faint baseline — used when there is too little data to plot a line. */
