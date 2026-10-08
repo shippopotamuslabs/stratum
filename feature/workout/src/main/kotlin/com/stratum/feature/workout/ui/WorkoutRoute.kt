@@ -248,8 +248,9 @@ private fun WorkoutSetKind.toLiveSetKind(): LiveSetKind =
         WorkoutSetKind.DropSet -> LiveSetKind.DropSet
     }
 
+// Internal (not private) so screenshot previews render the real route states (STR-11).
 @Composable
-private fun LoadingContent(snackbarHostState: SnackbarHostState) {
+internal fun LoadingContent(snackbarHostState: SnackbarHostState) {
     StratumScaffold(snackbarHostState = snackbarHostState) {
         Column(
             modifier = Modifier.fillMaxSize(),
@@ -262,7 +263,7 @@ private fun LoadingContent(snackbarHostState: SnackbarHostState) {
 }
 
 @Composable
-private fun NoActiveSessionContent(
+internal fun NoActiveSessionContent(
     onNavigateBack: () -> Unit,
     snackbarHostState: SnackbarHostState,
 ) {
@@ -280,7 +281,7 @@ private fun NoActiveSessionContent(
 }
 
 @Composable
-private fun ErrorContent(
+internal fun ErrorContent(
     message: String,
     onNavigateBack: () -> Unit,
     snackbarHostState: SnackbarHostState,

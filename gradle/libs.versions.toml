@@ -39,6 +39,7 @@ shadow = "9.6.1"
 firebaseAdmin = "9.10.0"
 healthConnect = "1.2.0-alpha06"
 billing = "9.1.0"
+screenshot = "0.0.1-alpha16"
 
 [libraries]
 play-billing = { group = "com.android.billingclient", name = "billing-ktx", version.ref = "billing" }
@@ -112,6 +113,7 @@ androidx-datastore = { group = "androidx.datastore", name = "datastore", version
 vico-compose = { group = "com.patrykandpatrick.vico", name = "compose", version.ref = "vico" }
 vico-compose-m3 = { group = "com.patrykandpatrick.vico", name = "compose-m3", version.ref = "vico" }
 androidx-health-connect-client = { group = "androidx.health.connect", name = "connect-client", version.ref = "healthConnect" }
+screenshot-validation-api = { group = "com.android.tools.screenshot", name = "screenshot-validation-api", version.ref = "screenshot" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
@@ -127,4 +129,5 @@ google-services = { id = "com.google.gms.google-services", version.ref = "google
 firebase-crashlytics = { id = "com.google.firebase.crashlytics", version.ref = "firebaseCrashlyticsPlugin" }
 firebase-perf = { id = "com.google.firebase.firebase-perf", version.ref = "firebasePerfPlugin" }
 shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }
+screenshot = { id = "com.android.compose.screenshot", version.ref = "screenshot" }
 
