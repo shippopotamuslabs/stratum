@@ -25,7 +25,7 @@ private fun StratumFilterChipNeoPreview() {
 }
 
 @Composable
-private fun FilterChipPreviewGrid(family: StratumThemeId) {
+internal fun FilterChipPreviewGrid(family: StratumThemeId) {
     StratumTheme(themeId = family) {
         Column(
             modifier = Modifier.fillMaxWidth(),

@@ -26,36 +26,36 @@ private val PreviewPadActions =
 @PreviewLightDark
 @Composable
 private fun StratumSetLogKeyboardWeightPreview() {
-    StratumTheme(themeId = StratumThemeId.Tonal) {
-        Box(
-            modifier =
-                Modifier
-                    .background(StratumThemeAccessor.colors.surfaceBase)
-                    .padding(8.dp),
-        ) {
-            StratumSetLogKeyboardContent(
-                state =
-                    SetLogKeyboardPadState(
-                        activeField = SetLogKeyboardField.Weight,
-                        selectedRir = 2,
-                        showWeightInput = true,
-                        allowDecimal = true,
-                        canComplete = false,
-                    ),
-                actions = PreviewPadActions,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .height(280.dp),
-            )
-        }
-    }
+    SetLogKeyboardPreviewContent(
+        family = StratumThemeId.Tonal,
+        state = previewSetLogKeyboardWeight(),
+    )
 }
 
 @PreviewLightDark
 @Composable
 private fun StratumSetLogKeyboardRepsPreview() {
-    StratumTheme(themeId = StratumThemeId.Tonal) {
+    SetLogKeyboardPreviewContent(
+        family = StratumThemeId.Tonal,
+        state = previewSetLogKeyboardReps(),
+    )
+}
+
+@PreviewLightDark
+@Composable
+private fun StratumSetLogKeyboardBodyweightPreview() {
+    SetLogKeyboardPreviewContent(
+        family = StratumThemeId.Tonal,
+        state = previewSetLogKeyboardBodyweight(),
+    )
+}
+
+@Composable
+internal fun SetLogKeyboardPreviewContent(
+    family: StratumThemeId,
+    state: SetLogKeyboardPadState,
+) {
+    StratumTheme(themeId = family) {
         Box(
             modifier =
                 Modifier
@@ -63,14 +63,7 @@ private fun StratumSetLogKeyboardRepsPreview() {
                     .padding(8.dp),
         ) {
             StratumSetLogKeyboardContent(
-                state =
-                    SetLogKeyboardPadState(
-                        activeField = SetLogKeyboardField.Reps,
-                        selectedRir = 1,
-                        showWeightInput = true,
-                        allowDecimal = false,
-                        canComplete = true,
-                    ),
+                state = state,
                 actions = PreviewPadActions,
                 modifier =
                     Modifier
@@ -81,31 +74,29 @@ private fun StratumSetLogKeyboardRepsPreview() {
     }
 }
 
-@PreviewLightDark
-@Composable
-private fun StratumSetLogKeyboardBodyweightPreview() {
-    StratumTheme(themeId = StratumThemeId.Tonal) {
-        Box(
-            modifier =
-                Modifier
-                    .background(StratumThemeAccessor.colors.surfaceBase)
-                    .padding(8.dp),
-        ) {
-            StratumSetLogKeyboardContent(
-                state =
-                    SetLogKeyboardPadState(
-                        activeField = SetLogKeyboardField.Reps,
-                        selectedRir = 1,
-                        showWeightInput = false,
-                        allowDecimal = false,
-                        canComplete = false,
-                    ),
-                actions = PreviewPadActions,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .height(280.dp),
-            )
-        }
-    }
-}
+internal fun previewSetLogKeyboardWeight(): SetLogKeyboardPadState =
+    SetLogKeyboardPadState(
+        activeField = SetLogKeyboardField.Weight,
+        selectedRir = 2,
+        showWeightInput = true,
+        allowDecimal = true,
+        canComplete = false,
+    )
+
+internal fun previewSetLogKeyboardReps(): SetLogKeyboardPadState =
+    SetLogKeyboardPadState(
+        activeField = SetLogKeyboardField.Reps,
+        selectedRir = 1,
+        showWeightInput = true,
+        allowDecimal = false,
+        canComplete = true,
+    )
+
+internal fun previewSetLogKeyboardBodyweight(): SetLogKeyboardPadState =
+    SetLogKeyboardPadState(
+        activeField = SetLogKeyboardField.Reps,
+        selectedRir = 1,
+        showWeightInput = false,
+        allowDecimal = false,
+        canComplete = false,
+    )

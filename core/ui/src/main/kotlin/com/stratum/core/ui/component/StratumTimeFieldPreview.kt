@@ -14,21 +14,27 @@ import java.time.LocalTime
 @PreviewLightDark
 @Composable
 private fun StratumTimeFieldTonalPreview() {
-    StratumTheme(themeId = StratumThemeId.Tonal, darkTheme = true) {
-        TimeFieldPreviewColumn()
-    }
+    TimeFieldPreviewContent(family = StratumThemeId.Tonal, darkTheme = true)
 }
 
 @PreviewLightDark
 @Composable
 private fun StratumTimeFieldNeoPreview() {
-    StratumTheme(themeId = StratumThemeId.NeoBrutalist, darkTheme = true) {
-        TimeFieldPreviewColumn()
+    TimeFieldPreviewContent(family = StratumThemeId.NeoBrutalist, darkTheme = true)
+}
+
+@Composable
+internal fun TimeFieldPreviewContent(
+    family: StratumThemeId,
+    darkTheme: Boolean? = null,
+) {
+    StratumTheme(themeId = family, darkTheme = darkTheme) {
+        TimeFieldPreviewBody()
     }
 }
 
 @Composable
-private fun TimeFieldPreviewColumn() {
+private fun TimeFieldPreviewBody() {
     Column(
         modifier = Modifier.padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),

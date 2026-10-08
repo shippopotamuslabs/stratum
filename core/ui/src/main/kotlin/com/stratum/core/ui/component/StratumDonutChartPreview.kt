@@ -13,29 +13,33 @@ import com.stratum.core.ui.theme.StratumThemeId
 @Preview(name = "Donut light", showBackground = true)
 @Composable
 private fun StratumDonutChartLightPreview() {
-    StratumTheme {
-        PreviewDonut()
-    }
+    DonutChartPreviewContent(family = StratumThemeId.Tonal)
 }
 
 @Preview(name = "Donut dark", showBackground = true, backgroundColor = 0xFF121212)
 @Composable
 private fun StratumDonutChartDarkPreview() {
-    StratumTheme(darkTheme = true) {
-        PreviewDonut()
-    }
+    DonutChartPreviewContent(family = StratumThemeId.Tonal, darkTheme = true)
 }
 
 @Preview(name = "Donut neo dark", showBackground = true, backgroundColor = 0xFF1A1A1A)
 @Composable
 private fun StratumDonutChartNeoDarkPreview() {
-    StratumTheme(themeId = StratumThemeId.NeoBrutalist, darkTheme = true) {
-        PreviewDonut()
+    DonutChartPreviewContent(family = StratumThemeId.NeoBrutalist, darkTheme = true)
+}
+
+@Composable
+internal fun DonutChartPreviewContent(
+    family: StratumThemeId,
+    darkTheme: Boolean? = null,
+) {
+    StratumTheme(themeId = family, darkTheme = darkTheme) {
+        DonutChartPreviewBody()
     }
 }
 
 @Composable
-private fun PreviewDonut() {
+private fun DonutChartPreviewBody() {
     val colors = StratumThemeAccessor.colors
     StratumDonutChart(
         slices = listOf(

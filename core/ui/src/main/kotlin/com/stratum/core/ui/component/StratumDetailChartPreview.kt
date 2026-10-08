@@ -9,20 +9,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.theme.StratumTheme
+import com.stratum.core.ui.theme.StratumThemeId
 
 @Preview(name = "Detail chart light", showBackground = true)
 @Composable
 private fun StratumDetailChartLightPreview() {
-    StratumTheme {
-        StratumDetailChart(
-            primarySeries = sampleStrengthSeries(),
-            contentDescription = "Sample e1RM chart",
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(280.dp)
-                .padding(16.dp),
-        )
-    }
+    DetailChartPreviewContent(
+        family = StratumThemeId.Tonal,
+        primarySeries = sampleStrengthSeries(),
+        contentDescription = "Sample e1RM chart",
+    )
 }
 
 @Preview(
@@ -33,17 +29,12 @@ private fun StratumDetailChartLightPreview() {
 )
 @Composable
 private fun StratumDetailChartDarkDualPreview() {
-    StratumTheme(darkTheme = true) {
-        StratumDetailChart(
-            primarySeries = sampleStrengthSeries(),
-            secondarySeries = sampleVolumeSeries(),
-            contentDescription = "Sample dual chart",
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(280.dp)
-                .padding(16.dp),
-        )
-    }
+    DetailChartPreviewContent(
+        family = StratumThemeId.Tonal,
+        primarySeries = sampleStrengthSeries(),
+        secondarySeries = sampleVolumeSeries(),
+        contentDescription = "Sample dual chart",
+    )
 }
 
 @Preview(
@@ -54,17 +45,12 @@ private fun StratumDetailChartDarkDualPreview() {
 )
 @Composable
 private fun StratumDetailChartProgressBarsPreview() {
-    StratumTheme(darkTheme = true) {
-        StratumDetailChart(
-            primarySeries = sampleProgressSeries(),
-            primaryYScale = DetailYScale.Progress,
-            contentDescription = "Sample progress bars",
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(280.dp)
-                .padding(16.dp),
-        )
-    }
+    DetailChartPreviewContent(
+        family = StratumThemeId.Tonal,
+        primarySeries = sampleProgressSeries(),
+        primaryYScale = DetailYScale.Progress,
+        contentDescription = "Sample progress bars",
+    )
 }
 
 @Preview(
@@ -75,13 +61,32 @@ private fun StratumDetailChartProgressBarsPreview() {
 )
 @Composable
 private fun StratumDetailChartProgressVolumePreview() {
-    StratumTheme(darkTheme = true) {
+    DetailChartPreviewContent(
+        family = StratumThemeId.Tonal,
+        primarySeries = sampleProgressSeries(),
+        secondarySeries = sampleVolumeSeries(),
+        primaryYScale = DetailYScale.Progress,
+        secondaryYScale = DetailYScale.Volume,
+        contentDescription = "Sample progress bars + volume",
+    )
+}
+
+@Composable
+internal fun DetailChartPreviewContent(
+    family: StratumThemeId,
+    primarySeries: List<DetailChartPoint>,
+    contentDescription: String,
+    secondarySeries: List<DetailChartPoint>? = null,
+    primaryYScale: DetailYScale = DetailYScale.Weight,
+    secondaryYScale: DetailYScale = DetailYScale.Volume,
+) {
+    StratumTheme(themeId = family) {
         StratumDetailChart(
-            primarySeries = sampleProgressSeries(),
-            secondarySeries = sampleVolumeSeries(),
-            primaryYScale = DetailYScale.Progress,
-            secondaryYScale = DetailYScale.Volume,
-            contentDescription = "Sample progress bars + volume",
+            primarySeries = primarySeries,
+            secondarySeries = secondarySeries,
+            primaryYScale = primaryYScale,
+            secondaryYScale = secondaryYScale,
+            contentDescription = contentDescription,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(280.dp)
@@ -90,7 +95,7 @@ private fun StratumDetailChartProgressVolumePreview() {
     }
 }
 
-private fun sampleStrengthSeries(): List<DetailChartPoint> {
+internal fun sampleStrengthSeries(): List<DetailChartPoint> {
     val baseDay = 20_000L
     return listOf(
         DetailChartPoint(baseDay, 210f),
@@ -102,7 +107,7 @@ private fun sampleStrengthSeries(): List<DetailChartPoint> {
     )
 }
 
-private fun sampleVolumeSeries(): List<DetailChartPoint> {
+internal fun sampleVolumeSeries(): List<DetailChartPoint> {
     val baseDay = 20_000L
     return listOf(
         DetailChartPoint(baseDay, 8f),
@@ -115,7 +120,7 @@ private fun sampleVolumeSeries(): List<DetailChartPoint> {
 }
 
 /** Baseline-relative index: dips below 0 then recovers (matches dashboard bar language). */
-private fun sampleProgressSeries(): List<DetailChartPoint> {
+internal fun sampleProgressSeries(): List<DetailChartPoint> {
     val baseDay = 20_000L
     return listOf(
         DetailChartPoint(baseDay, -0.04f),
