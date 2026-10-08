@@ -12,6 +12,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.patrykandpatrick.vico.compose.cartesian.CartesianDrawingContext
 import com.patrykandpatrick.vico.compose.cartesian.VicoScrollState
+import com.patrykandpatrick.vico.compose.cartesian.axis.Axis
+import com.patrykandpatrick.vico.compose.cartesian.axis.VerticalAxis
+import com.patrykandpatrick.vico.compose.cartesian.data.CartesianValueFormatter
 import com.patrykandpatrick.vico.compose.cartesian.marker.CartesianMarker
 import com.patrykandpatrick.vico.compose.cartesian.marker.CartesianMarkerController
 import com.patrykandpatrick.vico.compose.cartesian.marker.ColumnCartesianLayerMarkerTarget
@@ -21,6 +24,8 @@ import com.patrykandpatrick.vico.compose.cartesian.marker.rememberDefaultCartesi
 import com.patrykandpatrick.vico.compose.cartesian.rememberVicoScrollState
 import com.patrykandpatrick.vico.compose.common.Fill
 import com.patrykandpatrick.vico.compose.common.Insets
+import com.patrykandpatrick.vico.compose.common.component.LineComponent
+import com.patrykandpatrick.vico.compose.common.component.TextComponent
 import com.patrykandpatrick.vico.compose.common.component.rememberLineComponent
 import com.patrykandpatrick.vico.compose.common.component.rememberShapeComponent
 import com.patrykandpatrick.vico.compose.common.component.rememberTextComponent
@@ -91,6 +96,32 @@ internal fun rememberStratumChartMarker(
         label = label,
         valueFormatter = formatter,
         guideline = guideline,
+    )
+}
+
+/**
+ * Quiet start y-axis shared by compact charts: labels only, no chrome or guidelines, matching the
+ * compact x-axis. Callers pass their shared [label]/[line]/[tick] components plus an
+ * already-remembered [valueFormatter] and the tick [labelCount] for their [DetailYScale].
+ */
+@Composable
+internal fun rememberQuietStartAxis(
+    label: TextComponent,
+    line: LineComponent,
+    tick: LineComponent,
+    valueFormatter: CartesianValueFormatter,
+    labelCount: Int,
+): VerticalAxis<Axis.Position.Vertical.Start> {
+    val itemPlacer = remember(labelCount) {
+        VerticalAxis.ItemPlacer.count(count = { labelCount })
+    }
+    return VerticalAxis.rememberStart(
+        line = line,
+        label = label,
+        tick = tick,
+        guideline = null,
+        valueFormatter = valueFormatter,
+        itemPlacer = itemPlacer,
     )
 }
 

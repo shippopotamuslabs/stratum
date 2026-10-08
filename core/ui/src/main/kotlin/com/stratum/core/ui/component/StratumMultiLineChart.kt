@@ -21,7 +21,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
 import com.patrykandpatrick.vico.compose.cartesian.axis.HorizontalAxis
-import com.patrykandpatrick.vico.compose.cartesian.axis.VerticalAxis
 import com.patrykandpatrick.vico.compose.cartesian.axis.rememberAxisLabelComponent
 import com.patrykandpatrick.vico.compose.cartesian.axis.rememberAxisLineComponent
 import com.patrykandpatrick.vico.compose.cartesian.axis.rememberAxisTickComponent
@@ -176,17 +175,13 @@ fun StratumMultiLineChart(
     val yFormatter = remember(yScale) {
         CartesianValueFormatter { _, value, _ -> formatChartNumber(value, yScale) }
     }
-    val yItemPlacer = remember {
-        VerticalAxis.ItemPlacer.count(count = { Y_AXIS_LABEL_COUNT })
-    }
     val startAxis = if (showYAxis) {
-        VerticalAxis.rememberStart(
-            line = invisibleLine,
+        rememberQuietStartAxis(
             label = axisLabel,
+            line = invisibleLine,
             tick = invisibleTick,
-            guideline = null,
             valueFormatter = yFormatter,
-            itemPlacer = yItemPlacer,
+            labelCount = yTickCountFor(yScale),
         )
     } else {
         null
@@ -256,7 +251,6 @@ private fun MultiLineBaselineOnly(modifier: Modifier, color: Color) {
 private const val LINE_STROKE_WIDTH_DP = 2
 private const val POINT_SIZE_DP = 6
 private const val AXIS_LABEL_SP = 9
-private const val Y_AXIS_LABEL_COUNT = 4
 private const val EMPTY_HEIGHT_DP = 48
 private const val STROKE_PADDING_PX = 4f
 private const val MIN_POINTS_FOR_LINE = 2

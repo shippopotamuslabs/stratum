@@ -415,6 +415,8 @@ enum class DetailYScale {
     Volume,
     /** Baseline-relative log index — rendered as signed bars about zero. */
     Progress,
+    /** Hero step counts — floored at 0 with a nice ceiling and compact "k" labels. */
+    Steps,
 }
 
 /**
@@ -457,6 +459,16 @@ internal fun rangeProviderFor(scale: DetailYScale): CartesianLayerRangeProvider 
     DetailYScale.Weight -> WeightRangeProvider
     DetailYScale.Volume -> VolumeRangeProvider
     DetailYScale.Progress -> ProgressBaselineRangeProvider
+    DetailYScale.Steps -> StepsRangeProvider
+}
+
+/**
+ * Compact-axis tick count per scale. Steps ceilings are 2× a nice step, so 3 evenly-spaced ticks
+ * always land round ("0 / 5k / 10k"); other fitted scales use 4.
+ */
+internal fun yTickCountFor(scale: DetailYScale): Int = when (scale) {
+    DetailYScale.Steps -> COMPACT_STEPS_LABEL_COUNT
+    DetailYScale.Weight, DetailYScale.Volume, DetailYScale.Progress -> COMPACT_LABEL_COUNT
 }
 
 internal object ProgressBaselineRangeProvider : CartesianLayerRangeProvider {
@@ -617,6 +629,9 @@ private const val WEIGHT_PAD_FRACTION = 0.08
 private const val VOLUME_MIN_SPAN = 1.0
 /** Minimum step-data span for finite bounds; the tick floor below dominates the ceiling. */
 private const val STEPS_MIN_SPAN = 1.0
+/** Compact-axis labels for Steps (0 / step / 2×step) vs other scales. */
+private const val COMPACT_STEPS_LABEL_COUNT = 3
+private const val COMPACT_LABEL_COUNT = 4
 /** Smallest half-range tick step, so all-zero / tiny step weeks still draw ticks (0/50/100). */
 private const val STEPS_MIN_TICK_STEP = 50.0
 private val NICE_STEP_MULTIPLES = doubleArrayOf(1.0, 2.0, 2.5, 5.0, 10.0)

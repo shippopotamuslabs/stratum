@@ -276,7 +276,7 @@ private fun ActivityHealthPage(
                 contentDescription = stringResource(R.string.dashboard_health_steps_chart_cd),
                 modifier = healthChartModifier(expandChart),
                 fillHeight = expandChart,
-                showYAxis = true,
+                yScale = DetailYScale.Steps,
             )
         }
     }
