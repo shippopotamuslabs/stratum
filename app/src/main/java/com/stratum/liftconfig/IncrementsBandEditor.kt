@@ -489,17 +489,48 @@ private fun BandAddCell(
     }
 }
 
+/**
+ * Half-typed decimal field (STR-103, STR-104): owns its in-progress text so
+ * the field can always be cleared mid-typing. Only valid numeric input is
+ * committed via [onCommitValid]; anything else stays local, flags the error
+ * border, and is dropped on dismiss. [initial] re-syncs the field whenever
+ * [key] or the committed value changes (e.g. a committed edit re-tiles).
+ */
+@Composable
+private fun ValidatedDecimalField(
+    key: Any,
+    initial: String,
+    isInvalid: (String) -> Boolean,
+    onCommitValid: (String) -> Unit,
+    label: String,
+    enabled: Boolean = true,
+    modifier: Modifier = Modifier,
+) {
+    var text by remember(key, initial) { mutableStateOf(initial) }
+    StratumTextField(
+        value = text,
+        onValueChange = { raw ->
+            val filtered = IncrementTierDraftOps.filterNumeric(raw)
+            text = filtered
+            if (!isInvalid(filtered)) onCommitValid(filtered)
+        },
+        label = label,
+        enabled = enabled,
+        isError = isInvalid(text),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+        modifier = modifier,
+    )
+}
+
 /** Band editor sheet (STR-101, STR-102): every band's start is editable.
  * The first band stores its own start; editing a later band's start moves the
  * previous band's end to match via re-tiling, so the new band is fully set up
- * in one place. Then Ends-at and Step. (STR-103: Ends-at is half-typed UI-local
- * state — the field can be cleared mid-typing and shows exactly what was
- * typed; only a valid numeric end is committed to the draft, so a blank or
- * non-numeric value shows the error border and Done simply keeps the old end.)
- * (STR-104: Starts-at on bands after the first is half-typed UI-local state
- * too — only a valid numeric start is committed, which moves the previous
- * band's end via re-tiling; a blank or non-numeric value shows the error
- * border and Done simply keeps the derived start.) */
+ * in one place. Then Ends-at and Step. (STR-103, STR-104: Ends-at and later
+ * bands' Starts-at are [ValidatedDecimalField]s — half-typed UI-local state,
+ * so a field can be cleared mid-typing and shows exactly what was typed;
+ * only a valid numeric value is committed to the draft, so a blank or
+ * non-numeric value shows the error border and Done simply keeps the old
+ * value.) */
 @Composable
 internal fun BandEditorSheet(
     index: Int,
@@ -517,23 +548,6 @@ internal fun BandEditorSheet(
     onDismiss: () -> Unit,
 ) {
     val isFirst = index == 0
-    // STR-104: the in-progress Starts-at text for bands after the first lives
-    // here, mirroring the Ends-at field (STR-103) — clearing the field is
-    // always possible, and only valid starts are pushed to onStartChanged
-    // (which moves the previous band's end via re-tiling). Keyed on the
-    // derived start so committed edits re-sync the field. Band 0 keeps its
-    // stored start (STR-101) and never uses this state.
-    var startText by remember(index, start) { mutableStateOf(start) }
-    val startInvalid =
-        !isFirst && with(IncrementBandTiling) { tiers.isStartInvalid(index, startText) }
-    // STR-103: the in-progress Ends-at text lives here, not in the draft —
-    // clearing the field is always possible, and only valid ends are pushed
-    // to onEndChanged. Keyed on the band so reopening re-reads the draft.
-    var endText by remember(index, tier.upperBound) {
-        mutableStateOf(tier.upperBound.orEmpty())
-    }
-    val endInvalid =
-        with(IncrementBandTiling) { tiers.isEndInvalid(index, endText) }
     StratumBottomSheet(
         onDismissRequest = onDismiss,
         title = stringResource(UiR.string.equipment_band_editor_title, index + 1),
@@ -543,44 +557,44 @@ internal fun BandEditorSheet(
             style = StratumThemeAccessor.typography.sectionLabel,
             muted = true,
         )
-        StratumTextField(
-            value = if (isFirst) tier.lowerBound else startText,
-            onValueChange = { raw ->
-                if (isFirst) {
-                    // STR-101: the first band's start is stored state and
-                    // commits every keystroke (blank reads as zero).
-                    onStartChanged(raw)
-                } else {
-                    val filtered = IncrementTierDraftOps.filterNumeric(raw)
-                    startText = filtered
-                    // Only valid starts reach the draft: an invalid value
-                    // stays local, flags the error border, and is dropped on
-                    // Done — the derived start is never touched.
-                    if (!with(IncrementBandTiling) { tiers.isStartInvalid(index, filtered) }) {
-                        onStartChanged(filtered)
-                    }
-                }
+        if (isFirst) {
+            // STR-101: the first band's start is stored state and commits
+            // every keystroke (blank reads as zero).
+            StratumTextField(
+                value = tier.lowerBound,
+                onValueChange = onStartChanged,
+                label = stringResource(UiR.string.equipment_band_starts_at_label, unitLabel),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        } else {
+            // STR-104: a later band's start is half-typed local state — only
+            // a valid numeric start is committed, moving the previous band's
+            // end via re-tiling; anything else flags the error border and is
+            // dropped on Done, leaving the derived start untouched.
+            ValidatedDecimalField(
+                key = index,
+                initial = start,
+                isInvalid = { candidate ->
+                    IncrementBandTiling.isStartInvalid(tiers, index, candidate)
+                },
+                onCommitValid = onStartChanged,
+                label = stringResource(UiR.string.equipment_band_starts_at_label, unitLabel),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        // STR-103: Ends-at is half-typed local state too — only a valid
+        // numeric end is committed; anything else flags the error border
+        // and is dropped on Done, keeping the old end.
+        ValidatedDecimalField(
+            key = index,
+            initial = tier.upperBound.orEmpty(),
+            isInvalid = { candidate ->
+                IncrementBandTiling.isEndInvalid(tiers, index, candidate)
             },
-            label = stringResource(UiR.string.equipment_band_starts_at_label, unitLabel),
-            isError = startInvalid,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            modifier = Modifier.fillMaxWidth(),
-        )
-        StratumTextField(
-            value = endText,
-            onValueChange = { raw ->
-                val filtered = IncrementTierDraftOps.filterNumeric(raw)
-                endText = filtered
-                // Only valid ends reach the draft: an invalid value stays
-                // local, flags the error border, and is dropped on Done.
-                if (!with(IncrementBandTiling) { tiers.isEndInvalid(index, filtered) }) {
-                    onEndChanged(filtered)
-                }
-            },
+            onCommitValid = onEndChanged,
             label = stringResource(UiR.string.equipment_band_ends_at, unitLabel),
             enabled = !isLast,
-            isError = endInvalid,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             modifier = Modifier.fillMaxWidth(),
         )
         StratumTextField(

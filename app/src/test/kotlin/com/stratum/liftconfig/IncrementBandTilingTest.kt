@@ -119,81 +119,65 @@ class IncrementBandTilingTest {
     @Test
     @DisplayName("Given a blank or non-numeric end when checked then it is invalid")
     fun blankOrNonNumericEndIsInvalid() {
-        with(IncrementBandTiling) {
-            assertTrue(twoBand.isEndInvalid(0, ""))
-            assertTrue(twoBand.isEndInvalid(0, null))
-            assertTrue(twoBand.isEndInvalid(0, "-"))
-            assertTrue(twoBand.isEndInvalid(0, "abc"))
-        }
+        assertTrue(IncrementBandTiling.isEndInvalid(twoBand, 0, ""))
+        assertTrue(IncrementBandTiling.isEndInvalid(twoBand, 0, null))
+        assertTrue(IncrementBandTiling.isEndInvalid(twoBand, 0, "-"))
+        assertTrue(IncrementBandTiling.isEndInvalid(twoBand, 0, "abc"))
     }
 
     @Test
     @DisplayName("Given a numeric end when checked then it is valid")
     fun numericEndIsValid() {
-        with(IncrementBandTiling) {
-            assertFalse(twoBand.isEndInvalid(0, "50"))
-            assertFalse(twoBand.isEndInvalid(0, "2.5"))
-        }
+        assertFalse(IncrementBandTiling.isEndInvalid(twoBand, 0, "50"))
+        assertFalse(IncrementBandTiling.isEndInvalid(twoBand, 0, "2.5"))
     }
 
     @Test
     @DisplayName("Given the last band when checked then its missing end is never invalid")
     fun lastBandEndNeverInvalid() {
-        with(IncrementBandTiling) {
-            assertFalse(twoBand.isEndInvalid(1, null))
-            assertFalse(twoBand.isEndInvalid(1, ""))
-            assertFalse(twoBand.isEndInvalid(1, "-"))
-        }
+        assertFalse(IncrementBandTiling.isEndInvalid(twoBand, 1, null))
+        assertFalse(IncrementBandTiling.isEndInvalid(twoBand, 1, ""))
+        assertFalse(IncrementBandTiling.isEndInvalid(twoBand, 1, "-"))
     }
 
     @Test
     @DisplayName("Given an out-of-bounds index when checked then it is never invalid")
     fun outOfBoundsIndexNeverInvalid() {
-        with(IncrementBandTiling) {
-            assertFalse(twoBand.isEndInvalid(-1, ""))
-            assertFalse(twoBand.isEndInvalid(7, ""))
-        }
+        assertFalse(IncrementBandTiling.isEndInvalid(twoBand, -1, ""))
+        assertFalse(IncrementBandTiling.isEndInvalid(twoBand, 7, ""))
     }
 
     @Test
     @DisplayName("Given a blank or non-numeric start on a later band when checked then it is invalid")
     fun blankOrNonNumericStartIsInvalid() {
-        with(IncrementBandTiling) {
-            assertTrue(twoBand.isStartInvalid(1, ""))
-            assertTrue(twoBand.isStartInvalid(1, null))
-            assertTrue(twoBand.isStartInvalid(1, "-"))
-            assertTrue(twoBand.isStartInvalid(1, "abc"))
-        }
+        assertTrue(IncrementBandTiling.isStartInvalid(twoBand, 1, ""))
+        assertTrue(IncrementBandTiling.isStartInvalid(twoBand, 1, null))
+        assertTrue(IncrementBandTiling.isStartInvalid(twoBand, 1, "-"))
+        assertTrue(IncrementBandTiling.isStartInvalid(twoBand, 1, "abc"))
     }
 
     @Test
     @DisplayName("Given a numeric start on a later band when checked then it is valid")
     fun numericStartIsValid() {
-        with(IncrementBandTiling) {
-            assertFalse(twoBand.isStartInvalid(1, "50"))
-            assertFalse(twoBand.isStartInvalid(1, "2.5"))
-        }
+        assertFalse(IncrementBandTiling.isStartInvalid(twoBand, 1, "50"))
+        assertFalse(IncrementBandTiling.isStartInvalid(twoBand, 1, "2.5"))
     }
 
     @Test
     @DisplayName("Given band zero when checked then its start is never invalid here")
     fun bandZeroStartNeverInvalid() {
-        with(IncrementBandTiling) {
-            // Band 0's start is stored state (blank reads as zero) and never
-            // routes through the sheet-local start gate.
-            assertFalse(twoBand.isStartInvalid(0, ""))
-            assertFalse(twoBand.isStartInvalid(0, null))
-            assertFalse(twoBand.isStartInvalid(0, "abc"))
-        }
+        // Band 0's start is stored state (blank reads as zero) and never
+        // routes through the sheet-local start gate.
+        assertFalse(IncrementBandTiling.isStartInvalid(twoBand, 0, ""))
+        assertFalse(IncrementBandTiling.isStartInvalid(twoBand, 0, null))
+        assertFalse(IncrementBandTiling.isStartInvalid(twoBand, 0, "abc"))
     }
 
     @Test
     @DisplayName("Given an out-of-bounds index when checked then the start is never invalid")
     fun outOfBoundsStartIndexNeverInvalid() {
-        with(IncrementBandTiling) {
-            assertFalse(twoBand.isStartInvalid(-1, ""))
-            assertFalse(twoBand.isStartInvalid(7, ""))
-        }
+        assertFalse(IncrementBandTiling.isStartInvalid(twoBand, -1, ""))
+        assertFalse(IncrementBandTiling.isStartInvalid(twoBand, 7, ""))
     }
 
     @Test
