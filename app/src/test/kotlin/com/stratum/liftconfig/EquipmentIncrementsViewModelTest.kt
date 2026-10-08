@@ -222,13 +222,13 @@ class EquipmentIncrementsViewModelTest {
             awaitItemWith { it.equipmentName == "Cables" && it.editor.tiers.isNotEmpty() }
             subject.addTier()
             awaitItemWith { it.editor.tiers.size == 2 }
-            subject.onBandEndChanged(0, "50")
-            awaitItemWith { it.editor.tiers[0].upperBound == "50" }
+            subject.onBandEndChanged(0, "60")
+            awaitItemWith { it.editor.tiers[0].upperBound == "60" }
             subject.onBandStartChanged(0, "10")
             val edited = awaitItemWith { it.editor.tiers[0].lowerBound == "10" }
             assertEquals("10", edited.editor.tiers[0].lowerBound)
-            assertEquals("50", edited.editor.tiers[0].upperBound)
-            assertEquals("50", edited.editor.tiers[1].lowerBound)
+            assertEquals("60", edited.editor.tiers[0].upperBound)
+            assertEquals("60", edited.editor.tiers[1].lowerBound)
             assertTrue(edited.editor.tiers[1].openEnded)
             cancelAndIgnoreRemainingEvents()
         }
@@ -242,11 +242,11 @@ class EquipmentIncrementsViewModelTest {
             awaitItemWith { it.equipmentName == "Cables" && it.editor.tiers.isNotEmpty() }
             subject.addTier()
             awaitItemWith { it.editor.tiers.size == 2 }
-            subject.onBandEndChanged(0, "50")
-            awaitItemWith { it.editor.tiers[0].upperBound == "50" }
+            subject.onBandEndChanged(0, "60")
+            awaitItemWith { it.editor.tiers[0].upperBound == "60" }
             subject.onBandStartChanged(1, "99")
             // Ignored edits emit no new state; the derived start still tiles from band 0's end.
-            assertEquals("50", subject.uiState.value.editor.tiers[1].lowerBound)
+            assertEquals("60", subject.uiState.value.editor.tiers[1].lowerBound)
             cancelAndIgnoreRemainingEvents()
         }
     }
