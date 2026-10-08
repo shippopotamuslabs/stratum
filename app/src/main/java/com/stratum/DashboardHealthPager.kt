@@ -345,7 +345,7 @@ private fun RecoveryHealthPage(
             val hero = page.lastNightDurationText
             if (hero != null) {
                 StratumNumber(text = hero)
-            } else {
+            } else if (page.showSleepEmptyText()) {
                 StratumText(
                     text = stringResource(R.string.dashboard_health_sleep_empty),
                     muted = true,

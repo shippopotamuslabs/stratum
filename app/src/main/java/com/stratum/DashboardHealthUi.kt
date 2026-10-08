@@ -83,6 +83,15 @@ internal fun RecoveryHealthPageUi.hasChart(): Boolean =
         awakeNightlyPoints.any { it.value > 0f } ||
         stageSlices.isNotEmpty()
 
+/**
+ * STR-96: the "no sleep" empty copy must only show when the window truly has no
+ * sleep data — never above a non-empty chart. [lastNightDurationText] is null
+ * whenever the most recent night is missing, but older nights in the window can
+ * still carry durations (non-zero bars below the copy).
+ */
+internal fun RecoveryHealthPageUi.showSleepEmptyText(): Boolean =
+    lastNightDurationText == null && !hasChart()
+
 internal fun DashboardHealthUiState.hasChart(): Boolean =
     activity.hasChart() || weight.hasChart() || recovery.hasChart()
 
