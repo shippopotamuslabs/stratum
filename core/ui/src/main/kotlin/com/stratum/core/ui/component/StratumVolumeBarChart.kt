@@ -193,22 +193,14 @@ fun StratumVolumeBarChart(
                 },
             )
     }
-    val hostModifier = sizedModifier.semantics { this.contentDescription = contentDescription }
-    if (inspectionModel != null) {
-        CartesianChartHost(
-            chart = chart,
-            model = inspectionModel,
-            scrollState = rememberStratumChartScrollState(),
-            modifier = hostModifier,
-        )
-    } else {
-        CartesianChartHost(
-            chart = chart,
-            modelProducer = modelProducer,
-            scrollState = rememberStratumChartScrollState(),
-            modifier = hostModifier,
-        )
-    }
+    StratumCartesianChartHost(
+        chart = chart,
+        modelProducer = modelProducer,
+        inspectionModel = inspectionModel,
+        modifier = sizedModifier,
+        contentDescription = contentDescription,
+        scrollState = rememberStratumChartScrollState(),
+    )
 }
 
 @Immutable

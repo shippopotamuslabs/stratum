@@ -432,23 +432,13 @@ private fun DetailChartContent(
         )
     }
 
-    val hostModifier =
-        modifier
-            .fillMaxSize()
-            .semantics { this.contentDescription = contentDescription }
-    if (inspectionModel != null) {
-        CartesianChartHost(
-            chart = chart,
-            model = inspectionModel,
-            modifier = hostModifier,
-        )
-    } else {
-        CartesianChartHost(
-            chart = chart,
-            modelProducer = modelProducer,
-            modifier = hostModifier,
-        )
-    }
+    StratumCartesianChartHost(
+        chart = chart,
+        modelProducer = modelProducer,
+        inspectionModel = inspectionModel,
+        modifier = modifier.fillMaxSize(),
+        contentDescription = contentDescription,
+    )
 }
 
 /** Value domain for Y-axis label formatting, range policy, and mark type. */

@@ -233,25 +233,14 @@ fun StratumMultiLineChart(
         markerController = rememberStratumChartMarkerController(),
     )
 
-    val hostModifier =
-        modifier
-            .fillMaxWidth()
-            .semantics { this.contentDescription = contentDescription }
-    if (inspectionModel != null) {
-        CartesianChartHost(
-            chart = chart,
-            model = inspectionModel,
-            scrollState = rememberStratumChartScrollState(),
-            modifier = hostModifier,
-        )
-    } else {
-        CartesianChartHost(
-            chart = chart,
-            modelProducer = modelProducer,
-            scrollState = rememberStratumChartScrollState(),
-            modifier = hostModifier,
-        )
-    }
+    StratumCartesianChartHost(
+        chart = chart,
+        modelProducer = modelProducer,
+        inspectionModel = inspectionModel,
+        modifier = modifier.fillMaxWidth(),
+        contentDescription = contentDescription,
+        scrollState = rememberStratumChartScrollState(),
+    )
 }
 
 @Composable

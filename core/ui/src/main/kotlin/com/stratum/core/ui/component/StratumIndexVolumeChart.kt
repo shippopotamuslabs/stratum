@@ -204,24 +204,13 @@ fun StratumIndexVolumeChart(
         decorations = decorations,
     )
 
-    val hostModifier =
-        modifier
-            .fillMaxWidth()
-            .height(CHART_HEIGHT_DP.dp)
-            .semantics { this.contentDescription = contentDescription }
-    if (inspectionModel != null) {
-        CartesianChartHost(
-            chart = chart,
-            model = inspectionModel,
-            modifier = hostModifier,
-        )
-    } else {
-        CartesianChartHost(
-            chart = chart,
-            modelProducer = modelProducer,
-            modifier = hostModifier,
-        )
-    }
+    StratumCartesianChartHost(
+        chart = chart,
+        modelProducer = modelProducer,
+        inspectionModel = inspectionModel,
+        modifier = modifier.fillMaxWidth().height(CHART_HEIGHT_DP.dp),
+        contentDescription = contentDescription,
+    )
 }
 
 /** Positive index bars use [positive]; below-baseline bars use [negative]. */
