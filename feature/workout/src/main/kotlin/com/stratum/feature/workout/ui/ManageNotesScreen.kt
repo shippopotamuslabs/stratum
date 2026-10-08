@@ -82,19 +82,24 @@ fun ManageNotesScreen(
     liftNotes: WorkoutLiftNotesActions,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
+    /**
+     * Preview-only initial lists (screenshot tests capture before `LaunchedEffect` loads
+     * complete). Production callers leave this null; the load effect still refreshes.
+     */
+    initialLists: NoteListsUi? = null,
 ) {
     var loaded by remember(target.workoutLiftId, target.liftId) {
-        mutableStateOf<NoteListsUi?>(null)
+        mutableStateOf(initialLists)
     }
     var selectedTab by remember(target) { mutableStateOf(target.tab) }
     var sessionDrafts by remember(target.workoutLiftId) {
-        mutableStateOf(emptyList<EditableNote>())
+        mutableStateOf(initialLists?.session?.let(::editableFromLoaded).orEmpty())
     }
     var workoutDrafts by remember(target.workoutLiftId) {
-        mutableStateOf(emptyList<EditableNote>())
+        mutableStateOf(initialLists?.workout?.let(::editableFromLoaded).orEmpty())
     }
     var liftDrafts by remember(target.workoutLiftId) {
-        mutableStateOf(emptyList<EditableNote>())
+        mutableStateOf(initialLists?.lift?.let(::editableFromLoaded).orEmpty())
     }
     /** Key of the note added via "Add Note" awaiting initial focus + keyboard. */
     var pendingFocusKey by remember(target.workoutLiftId) {

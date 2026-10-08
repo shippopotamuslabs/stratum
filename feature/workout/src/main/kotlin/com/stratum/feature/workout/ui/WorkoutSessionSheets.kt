@@ -366,43 +366,59 @@ private fun DiscardWorkoutDialog(
     onConfirm: () -> Unit,
 ) {
     Dialog(onDismissRequest = onDismiss) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    color = StratumThemeAccessor.colors.surfaceRaised,
-                    shape = StratumThemeAccessor.shapes.panel
-                )
-                .border(
-                    width = StratumThemeAccessor.shapes.borderWidth,
-                    color = StratumThemeAccessor.colors.borderStrong,
-                    shape = StratumThemeAccessor.shapes.panel
-                )
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+        DiscardWorkoutDialogContent(
+            onDismiss = onDismiss,
+            onConfirm = onConfirm,
+        )
+    }
+}
+
+/**
+ * Discard-workout dialog body without the dialog window. Screenshot tests cannot capture
+ * dialog windows (an open dialog blanks the golden), so goldens pin this content inline
+ * (see docs/screenshot-tests.md).
+ */
+@Composable
+internal fun DiscardWorkoutDialogContent(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                color = StratumThemeAccessor.colors.surfaceRaised,
+                shape = StratumThemeAccessor.shapes.panel
+            )
+            .border(
+                width = StratumThemeAccessor.shapes.borderWidth,
+                color = StratumThemeAccessor.colors.borderStrong,
+                shape = StratumThemeAccessor.shapes.panel
+            )
+            .padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        StratumText(
+            text = stringResource(R.string.workout_screen_discard_workout),
+            style = StratumThemeAccessor.typography.titleLarge
+        )
+        StratumText(
+            text = stringResource(R.string.workout_screen_discard_confirm_body),
+            style = StratumThemeAccessor.typography.bodyLarge,
+            muted = true
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End)
         ) {
-            StratumText(
-                text = stringResource(R.string.workout_screen_discard_workout),
-                style = StratumThemeAccessor.typography.titleLarge
+            StratumOutlinedButton(
+                text = stringResource(R.string.workout_screen_cancel_discard),
+                onClick = onDismiss,
             )
-            StratumText(
-                text = stringResource(R.string.workout_screen_discard_confirm_body),
-                style = StratumThemeAccessor.typography.bodyLarge,
-                muted = true
+            StratumButton(
+                text = stringResource(R.string.workout_screen_confirm_discard),
+                onClick = onConfirm,
             )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End)
-            ) {
-                StratumOutlinedButton(
-                    text = stringResource(R.string.workout_screen_cancel_discard),
-                    onClick = onDismiss,
-                )
-                StratumButton(
-                    text = stringResource(R.string.workout_screen_confirm_discard),
-                    onClick = onConfirm,
-                )
-            }
         }
     }
 }
@@ -762,74 +778,96 @@ private fun CompleteWorkoutSheet(
     onDismiss: () -> Unit,
 ) {
     StratumBottomSheet(onDismissRequest = onDismiss) {
-        when (phase) {
-            CompleteSheetPhase.Incomplete -> {
-                StratumText(
-                    text = stringResource(R.string.workout_sheet_incomplete_title),
-                    style = StratumThemeAccessor.typography.titleLarge,
-                    modifier = Modifier.align(Alignment.CenterHorizontally),
-                )
-                StratumText(
-                    text = stringResource(R.string.workout_sheet_incomplete_message),
-                    style = StratumThemeAccessor.typography.bodyLarge,
-                    muted = true,
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                StratumButton(
-                    text = stringResource(R.string.workout_sheet_continue_workout),
-                    onClick = onContinueWorkout,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                StratumOutlinedButton(
-                    text = stringResource(R.string.workout_sheet_complete_workout),
-                    onClick = onCompleteWorkout,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-            CompleteSheetPhase.AllSetsLogged -> {
-                StratumText(
-                    text = stringResource(R.string.workout_sheet_all_sets_done_title),
-                    style = StratumThemeAccessor.typography.titleLarge,
-                    modifier = Modifier.align(Alignment.CenterHorizontally),
-                )
-                StratumText(
-                    text = stringResource(R.string.workout_sheet_all_sets_done_message),
-                    style = StratumThemeAccessor.typography.bodyLarge,
-                    muted = true,
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                // Primary filled CTA spanning sheet content width (sheet already pads 12.dp).
-                StratumButton(
-                    text = stringResource(R.string.workout_sheet_complete_workout),
-                    onClick = onCompleteWorkout,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 4.dp),
-                )
-            }
-            CompleteSheetPhase.SaveChanges -> {
-                StratumText(
-                    text = stringResource(R.string.workout_sheet_save_changes_title),
-                    style = StratumThemeAccessor.typography.titleLarge,
-                    modifier = Modifier.align(Alignment.CenterHorizontally),
-                )
-                StratumText(
-                    text = stringResource(R.string.workout_sheet_save_changes_message),
-                    style = StratumThemeAccessor.typography.bodyLarge,
-                    muted = true,
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                StratumButton(
-                    text = stringResource(R.string.workout_sheet_update_template),
-                    onClick = onUpdateTemplate,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                StratumOutlinedButton(
-                    text = stringResource(R.string.workout_sheet_discard_changes),
-                    onClick = onDiscardChanges,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
+        CompleteSheetContent(
+            phase = phase,
+            onContinueWorkout = onContinueWorkout,
+            onCompleteWorkout = onCompleteWorkout,
+            onUpdateTemplate = onUpdateTemplate,
+            onDiscardChanges = onDiscardChanges,
+        )
+    }
+}
+
+/**
+ * Complete-workout sheet body without the dialog window. Screenshot tests cannot capture
+ * dialog windows (an open sheet blanks the golden), so goldens pin this content inline
+ * (see docs/screenshot-tests.md).
+ */
+@Composable
+internal fun ColumnScope.CompleteSheetContent(
+    phase: CompleteSheetPhase,
+    onContinueWorkout: () -> Unit,
+    onCompleteWorkout: () -> Unit,
+    onUpdateTemplate: () -> Unit,
+    onDiscardChanges: () -> Unit,
+) {
+    when (phase) {
+        CompleteSheetPhase.Incomplete -> {
+            StratumText(
+                text = stringResource(R.string.workout_sheet_incomplete_title),
+                style = StratumThemeAccessor.typography.titleLarge,
+                modifier = Modifier.align(Alignment.CenterHorizontally),
+            )
+            StratumText(
+                text = stringResource(R.string.workout_sheet_incomplete_message),
+                style = StratumThemeAccessor.typography.bodyLarge,
+                muted = true,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            StratumButton(
+                text = stringResource(R.string.workout_sheet_continue_workout),
+                onClick = onContinueWorkout,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            StratumOutlinedButton(
+                text = stringResource(R.string.workout_sheet_complete_workout),
+                onClick = onCompleteWorkout,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        CompleteSheetPhase.AllSetsLogged -> {
+            StratumText(
+                text = stringResource(R.string.workout_sheet_all_sets_done_title),
+                style = StratumThemeAccessor.typography.titleLarge,
+                modifier = Modifier.align(Alignment.CenterHorizontally),
+            )
+            StratumText(
+                text = stringResource(R.string.workout_sheet_all_sets_done_message),
+                style = StratumThemeAccessor.typography.bodyLarge,
+                muted = true,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            // Primary filled CTA spanning sheet content width (sheet already pads 12.dp).
+            StratumButton(
+                text = stringResource(R.string.workout_sheet_complete_workout),
+                onClick = onCompleteWorkout,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp),
+            )
+        }
+        CompleteSheetPhase.SaveChanges -> {
+            StratumText(
+                text = stringResource(R.string.workout_sheet_save_changes_title),
+                style = StratumThemeAccessor.typography.titleLarge,
+                modifier = Modifier.align(Alignment.CenterHorizontally),
+            )
+            StratumText(
+                text = stringResource(R.string.workout_sheet_save_changes_message),
+                style = StratumThemeAccessor.typography.bodyLarge,
+                muted = true,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            StratumButton(
+                text = stringResource(R.string.workout_sheet_update_template),
+                onClick = onUpdateTemplate,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            StratumOutlinedButton(
+                text = stringResource(R.string.workout_sheet_discard_changes),
+                onClick = onDiscardChanges,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
     }
 }
