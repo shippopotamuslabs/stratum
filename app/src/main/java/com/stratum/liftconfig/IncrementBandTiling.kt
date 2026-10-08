@@ -35,50 +35,20 @@ object IncrementBandTiling {
      * Edits to the last band's end are ignored (it has no end). Blank [newEnd]
      * keeps the current end so a cleared field never silently collapses a band.
      * (STR-102: a later band's start edit routes here — the start is a derived
-     * value, so a cleared start snaps back by design; the Ends-at field uses
-     * [retileAfterEndDraftEdit] instead.)
+     * value, so a cleared start snaps back by design.)
+     * (STR-103: the sheet holds half-typed text locally and only commits valid
+     * ends here, so the draft never sees a blank or non-numeric end.)
      */
     fun retileAfterEndEdit(
         tiers: List<IncrementTierDraft>,
         index: Int,
         newEnd: String,
-    ): List<IncrementTierDraft> = applyEndEdit(tiers, index, newEnd, skipBlank = true)
-
-    /**
-     * Live-draft end edit (STR-103): like [retileAfterEndEdit] but applies blank
-     * values too, so the Ends-at field can be cleared mid-typing — the draft
-     * holds the empty string and the field shows exactly what was typed.
-     * Re-tiling keeps later lowers stable on a blank predecessor end, and
-     * validation flags the gap. Callers revert to the pre-edit end when the
-     * sheet closes on an invalid value.
-     */
-    fun retileAfterEndDraftEdit(
-        tiers: List<IncrementTierDraft>,
-        index: Int,
-        newEnd: String,
-    ): List<IncrementTierDraft> = applyEndEdit(tiers, index, newEnd, skipBlank = false)
-
-    /**
-     * Field-level validity for the sheet's Ends-at input (STR-103): a blank or
-     * non-numeric end is invalid and renders the red error border. The last band
-     * has no end (its field is disabled), so it is never invalid.
-     */
-    fun isEndInvalid(upperBound: String?, isLastBand: Boolean): Boolean {
-        if (isLastBand) return false
-        return upperBound.isNullOrBlank() || upperBound.toDoubleOrNull() == null
-    }
-
-    private fun applyEndEdit(
-        tiers: List<IncrementTierDraft>,
-        index: Int,
-        newEnd: String,
-        skipBlank: Boolean,
     ): List<IncrementTierDraft> {
         if (index !in tiers.indices) return tiers
         val filtered = IncrementTierDraftOps.filterNumeric(newEnd)
         val withEnd =
             tiers.mapIndexed { i, tier ->
-                if (i == index && i != tiers.lastIndex && (!skipBlank || filtered.isNotBlank())) {
+                if (i == index && i != tiers.lastIndex && filtered.isNotBlank()) {
                     tier.copy(upperBound = filtered)
                 } else {
                     tier
@@ -88,11 +58,24 @@ object IncrementBandTiling {
     }
 
     /**
+     * Field-level validity for the sheet's Ends-at candidate (STR-103): a blank
+     * or non-numeric end is invalid and renders the red error border. The last
+     * band has no end (its field is disabled), so any candidate there is valid;
+     * an out-of-bounds index is never invalid. The open-ended-last-band rule
+     * lives here so callers never recompute it.
+     */
+    fun List<IncrementTierDraft>.isEndInvalid(index: Int, end: String?): Boolean {
+        if (index !in indices || index == lastIndex) return false
+        return end.isNullOrBlank() || end.toDoubleOrNull() == null
+    }
+
+    /**
      * Re-derives lower bounds: the first band keeps its own start; every
      * later band follows its predecessor's end. Forces the last band
-     * open-ended. Bands with a blank predecessor end keep their current lower
-     * so a half-typed edit never wipes a field; validation still flags the
-     * resulting gap.
+     * open-ended. A band with a blank predecessor end keeps its current lower
+     * as a defensive fallback (edits can never introduce a blank end —
+     * [retileAfterEndEdit] ignores them — but stored drafts predate the
+     * invariant).
      */
     fun retiled(tiers: List<IncrementTierDraft>): List<IncrementTierDraft> =
         tiers.mapIndexed { i, tier ->
