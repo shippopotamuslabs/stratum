@@ -24,7 +24,7 @@ private fun StratumMusclePickerNeoPreview() {
 }
 
 @Composable
-private fun MusclePickerPreviewGrid(family: StratumThemeId) {
+internal fun MusclePickerPreviewGrid(family: StratumThemeId) {
     StratumTheme(themeId = family) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(16.dp),

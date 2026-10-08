@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.theme.StratumTheme
+import com.stratum.core.ui.theme.StratumThemeId
 import com.stratum.domain.importing.LandmarkConfidenceTier
 import com.stratum.domain.importing.UserEffectivenessTier
 
@@ -16,7 +17,12 @@ import com.stratum.domain.importing.UserEffectivenessTier
 @Preview(name = "Confidence bars — light")
 @Composable
 private fun StratumConfidenceBarsPreview() {
-    StratumTheme {
+    ConfidenceBarsPreviewContent(family = StratumThemeId.Tonal)
+}
+
+@Composable
+internal fun ConfidenceBarsPreviewContent(family: StratumThemeId) {
+    StratumTheme(themeId = family) {
         Row(
             modifier = Modifier.padding(16.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),

@@ -28,7 +28,7 @@ private fun StratumTimeFieldNeoPreview() {
 }
 
 @Composable
-private fun TimeFieldPreviewColumn() {
+internal fun TimeFieldPreviewColumn() {
     Column(
         modifier = Modifier.padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),

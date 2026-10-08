@@ -26,7 +26,7 @@ private fun StratumTextFieldNeoPreview() {
 }
 
 @Composable
-private fun TextFieldPreviewGrid(family: StratumThemeId) {
+internal fun TextFieldPreviewGrid(family: StratumThemeId) {
     StratumTheme(themeId = family) {
         Column(
             modifier = Modifier.fillMaxWidth(),

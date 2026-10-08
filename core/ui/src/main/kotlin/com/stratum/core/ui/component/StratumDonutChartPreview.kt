@@ -35,7 +35,7 @@ private fun StratumDonutChartNeoDarkPreview() {
 }
 
 @Composable
-private fun PreviewDonut() {
+internal fun PreviewDonut() {
     val colors = StratumThemeAccessor.colors
     StratumDonutChart(
         slices = listOf(

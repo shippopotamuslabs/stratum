@@ -4,9 +4,9 @@ JVM golden coverage for high-traction screens via the official Compose Preview
 Screenshot Testing plugin (`com.android.compose.screenshot`). No emulator needed.
 
 Covered today: `:feature:workout` (`WorkoutScreen` + route states),
-`:feature:program` (program, check-in, create, reorder/swap screens), and `:app`
-(dashboard, gym, sign-in, liftconfig). Follow-up: `:core:ui` theme families +
-key `Stratum*` components.
+`:feature:program` (program, check-in, create, reorder/swap screens), `:app`
+(dashboard, gym, sign-in, liftconfig), and `:core:ui` (theme families + key
+`Stratum*` components).
 
 ## Layout
 
@@ -22,10 +22,10 @@ key `Stratum*` components.
 
 ```sh
 # Re-record goldens after an intentional UI change (then review every PNG diff).
-./gradlew :feature:workout:updateDebugScreenshotTest :feature:program:updateDebugScreenshotTest :app:updateDebugScreenshotTest
+./gradlew :feature:workout:updateDebugScreenshotTest :feature:program:updateDebugScreenshotTest :app:updateDebugScreenshotTest :core:ui:updateDebugScreenshotTest
 
 # Verify against goldens (what CI runs).
-./gradlew :feature:workout:validateDebugScreenshotTest :feature:program:validateDebugScreenshotTest :app:validateDebugScreenshotTest
+./gradlew :feature:workout:validateDebugScreenshotTest :feature:program:validateDebugScreenshotTest :app:validateDebugScreenshotTest :core:ui:validateDebugScreenshotTest
 ```
 
 Diff reports land in `{module}/build/reports/screenshotTest/preview/debug/index.html`.

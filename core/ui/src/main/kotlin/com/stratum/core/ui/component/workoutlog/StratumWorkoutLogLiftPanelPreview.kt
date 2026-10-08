@@ -8,7 +8,12 @@ import com.stratum.core.ui.theme.StratumThemeId
 @PreviewLightDark
 @Composable
 private fun StratumWorkoutLogLiftPanelMultiNotePreview() {
-    StratumTheme(themeId = StratumThemeId.Tonal) {
+    WorkoutLogLiftPanelPreviewContent(family = StratumThemeId.Tonal)
+}
+
+@Composable
+internal fun WorkoutLogLiftPanelPreviewContent(family: StratumThemeId) {
+    StratumTheme(themeId = family) {
         StratumWorkoutLogLiftPanel(
             lift =
                 WorkoutLogLiftUi(

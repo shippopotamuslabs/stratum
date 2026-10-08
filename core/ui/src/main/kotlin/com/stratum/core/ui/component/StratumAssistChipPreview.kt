@@ -23,7 +23,7 @@ private fun StratumAssistChipNeoPreview() {
 }
 
 @Composable
-private fun AssistChipPreviewGrid(family: StratumThemeId) {
+internal fun AssistChipPreviewGrid(family: StratumThemeId) {
     StratumTheme(themeId = family) {
         Column(
             modifier = Modifier.fillMaxWidth(),

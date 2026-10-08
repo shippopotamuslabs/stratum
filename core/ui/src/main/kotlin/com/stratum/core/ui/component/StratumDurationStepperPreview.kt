@@ -28,7 +28,7 @@ private fun StratumDurationStepperNeoPreview() {
 }
 
 @Composable
-private fun DurationStepperPreviewGrid(family: StratumThemeId) {
+internal fun DurationStepperPreviewGrid(family: StratumThemeId) {
     StratumTheme(themeId = family) {
         var minutes by remember { mutableIntStateOf(90) }
         Column(

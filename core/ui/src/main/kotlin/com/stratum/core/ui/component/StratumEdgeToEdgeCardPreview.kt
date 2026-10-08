@@ -26,7 +26,7 @@ private fun StratumEdgeToEdgeCardNeoPreview() {
 }
 
 @Composable
-private fun EdgeToEdgeCardPreview(family: StratumThemeId) {
+internal fun EdgeToEdgeCardPreview(family: StratumThemeId) {
     StratumTheme(themeId = family) {
         Column(
             modifier =
