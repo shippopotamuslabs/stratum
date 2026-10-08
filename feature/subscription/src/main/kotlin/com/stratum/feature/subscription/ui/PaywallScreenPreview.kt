@@ -3,6 +3,7 @@ package com.stratum.feature.subscription.ui
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import com.stratum.core.ui.theme.StratumTheme
+import com.stratum.core.ui.theme.StratumThemeId
 import com.stratum.feature.subscription.PaywallCopy
 import com.stratum.feature.subscription.PaywallProductUi
 import com.stratum.feature.subscription.PaywallUiState
@@ -10,26 +11,38 @@ import com.stratum.feature.subscription.PaywallUiState
 @PreviewLightDark
 @Composable
 private fun PaywallScreenPreview() {
-    StratumTheme {
-        PaywallScreen(
-            uiState = PaywallUiState.Content(
-                products = previewProducts(),
-                selectedProductId = "stratum_membership_annual",
-            ),
-            onPurchaseClick = {},
-            onRestorePurchasesClick = {},
-            onSelectProduct = {},
-            onCloseClick = {},
-        )
-    }
+    PaywallPreviewContent(
+        family = StratumThemeId.Tonal,
+        uiState = previewPaywallContent(),
+    )
 }
 
 @PreviewLightDark
 @Composable
 private fun PaywallScreenErrorPreview() {
-    StratumTheme {
+    PaywallPreviewContent(
+        family = StratumThemeId.Tonal,
+        uiState = previewPaywallError(),
+    )
+}
+
+@PreviewLightDark
+@Composable
+private fun PaywallScreenEntitledPreview() {
+    PaywallPreviewContent(
+        family = StratumThemeId.Tonal,
+        uiState = previewPaywallEntitled(),
+    )
+}
+
+@Composable
+internal fun PaywallPreviewContent(
+    family: StratumThemeId,
+    uiState: PaywallUiState,
+) {
+    StratumTheme(themeId = family) {
         PaywallScreen(
-            uiState = PaywallUiState.Error(message = PaywallCopy.LOAD_ERROR),
+            uiState = uiState,
             onPurchaseClick = {},
             onRestorePurchasesClick = {},
             onSelectProduct = {},
@@ -39,25 +52,23 @@ private fun PaywallScreenErrorPreview() {
     }
 }
 
-@PreviewLightDark
-@Composable
-private fun PaywallScreenEntitledPreview() {
-    StratumTheme {
-        PaywallScreen(
-            uiState = PaywallUiState.Content(
-                products = previewProducts(),
-                selectedProductId = "stratum_membership_annual",
-                isEntitled = true,
-            ),
-            onPurchaseClick = {},
-            onRestorePurchasesClick = {},
-            onSelectProduct = {},
-            onCloseClick = {},
-        )
-    }
-}
+internal fun previewPaywallContent(): PaywallUiState =
+    PaywallUiState.Content(
+        products = previewProducts(),
+        selectedProductId = "stratum_membership_annual",
+    )
 
-private fun previewProducts() = listOf(
+internal fun previewPaywallError(): PaywallUiState =
+    PaywallUiState.Error(message = PaywallCopy.LOAD_ERROR)
+
+internal fun previewPaywallEntitled(): PaywallUiState =
+    PaywallUiState.Content(
+        products = previewProducts(),
+        selectedProductId = "stratum_membership_annual",
+        isEntitled = true,
+    )
+
+internal fun previewProducts() = listOf(
     PaywallProductUi(
         productId = "stratum_membership_annual",
         formattedPrice = "$49.99",

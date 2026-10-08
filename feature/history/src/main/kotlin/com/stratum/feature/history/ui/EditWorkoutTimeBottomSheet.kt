@@ -45,6 +45,43 @@ fun EditWorkoutTimeBottomSheet(
     modifier: Modifier = Modifier,
     zoneId: ZoneId = ZoneId.systemDefault(),
 ) {
+    StratumBottomSheet(
+        onDismissRequest = onDismiss,
+        modifier = modifier,
+        title = stringResource(R.string.history_edit_time_sheet_title),
+    ) {
+        EditWorkoutTimeSheetContent(
+            initialStartDate = initialStartDate,
+            initialStartTime = initialStartTime,
+            initialFinishDate = initialFinishDate,
+            initialFinishTime = initialFinishTime,
+            onConfirm = onConfirm,
+            onDismiss = onDismiss,
+            zoneId = zoneId,
+        )
+    }
+}
+
+/**
+ * Inline sheet body (STR-95): dialog windows are uncapturable in screenshot goldens, so
+ * previews and `@PreviewTest` wrappers pin this content directly. Pixel-identical to the
+ * sheet body above.
+ */
+@Composable
+internal fun EditWorkoutTimeSheetContent(
+    initialStartDate: LocalDate,
+    initialStartTime: LocalTime,
+    initialFinishDate: LocalDate,
+    initialFinishTime: LocalTime,
+    onConfirm: (
+        startDate: LocalDate,
+        startTime: LocalTime,
+        finishDate: LocalDate,
+        finishTime: LocalTime,
+    ) -> Unit,
+    onDismiss: () -> Unit,
+    zoneId: ZoneId = ZoneId.systemDefault(),
+) {
     var selectedStartDate by remember { mutableStateOf(initialStartDate) }
     var selectedStartTime by remember {
         mutableStateOf(initialStartTime.truncatedTo(ChronoUnit.MINUTES))
@@ -68,105 +105,99 @@ fun EditWorkoutTimeBottomSheet(
             if (isOrderError) 0L else Duration.between(startInstant, finishInstant).toMillis()
         }
 
-    StratumBottomSheet(
-        onDismissRequest = onDismiss,
-        modifier = modifier,
-        title = stringResource(R.string.history_edit_time_sheet_title),
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Column(
+        Row(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            StratumDateField(
+                label = stringResource(R.string.history_edit_time_start_date_label),
+                date = selectedStartDate,
+                onDateChange = { newStartDate ->
+                    val dayDiff = ChronoUnit.DAYS.between(selectedStartDate, selectedFinishDate)
+                    selectedStartDate = newStartDate
+                    selectedFinishDate = newStartDate.plusDays(dayDiff.coerceAtLeast(0))
+                },
+                modifier = Modifier.weight(1f),
+            )
+            StratumTimeField(
+                label = stringResource(R.string.history_edit_time_start_time_label),
+                time = selectedStartTime,
+                onTimeChange = { selectedStartTime = it },
+                modifier = Modifier.weight(1f),
+            )
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            StratumDateField(
+                label = stringResource(R.string.history_edit_time_finish_date_label),
+                date = selectedFinishDate,
+                onDateChange = { selectedFinishDate = it },
+                modifier = Modifier.weight(1f),
+                isError = isOrderError,
+            )
+            StratumTimeField(
+                label = stringResource(R.string.history_edit_time_finish_time_label),
+                time = selectedFinishTime,
+                onTimeChange = { selectedFinishTime = it },
+                modifier = Modifier.weight(1f),
+                isError = isOrderError,
+            )
+        }
+
+        if (isOrderError) {
+            StratumText(
+                text = stringResource(R.string.history_edit_time_error_order),
+                style = StratumThemeAccessor.typography.sectionLabel,
+                color = StratumThemeAccessor.colors.error,
+            )
+        } else {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                StratumDateField(
-                    label = stringResource(R.string.history_edit_time_start_date_label),
-                    date = selectedStartDate,
-                    onDateChange = { newStartDate ->
-                        val dayDiff = ChronoUnit.DAYS.between(selectedStartDate, selectedFinishDate)
-                        selectedStartDate = newStartDate
-                        selectedFinishDate = newStartDate.plusDays(dayDiff.coerceAtLeast(0))
-                    },
-                    modifier = Modifier.weight(1f),
-                )
-                StratumTimeField(
-                    label = stringResource(R.string.history_edit_time_start_time_label),
-                    time = selectedStartTime,
-                    onTimeChange = { selectedStartTime = it },
-                    modifier = Modifier.weight(1f),
-                )
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                StratumDateField(
-                    label = stringResource(R.string.history_edit_time_finish_date_label),
-                    date = selectedFinishDate,
-                    onDateChange = { selectedFinishDate = it },
-                    modifier = Modifier.weight(1f),
-                    isError = isOrderError,
-                )
-                StratumTimeField(
-                    label = stringResource(R.string.history_edit_time_finish_time_label),
-                    time = selectedFinishTime,
-                    onTimeChange = { selectedFinishTime = it },
-                    modifier = Modifier.weight(1f),
-                    isError = isOrderError,
-                )
-            }
-
-            if (isOrderError) {
                 StratumText(
-                    text = stringResource(R.string.history_edit_time_error_order),
-                    style = StratumThemeAccessor.typography.sectionLabel,
-                    color = StratumThemeAccessor.colors.error,
+                    text =
+                        stringResource(
+                            R.string.history_edit_time_duration_label,
+                            formatWorkoutDuration(durationMillis),
+                        ),
+                    style = StratumThemeAccessor.typography.titleMedium,
                 )
-            } else {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    StratumText(
-                        text =
-                            stringResource(
-                                R.string.history_edit_time_duration_label,
-                                formatWorkoutDuration(durationMillis),
-                            ),
-                        style = StratumThemeAccessor.typography.titleMedium,
-                    )
-                }
             }
+        }
 
-            Column(
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                StratumButton(
-                    text = stringResource(R.string.history_edit_time_save),
-                    onClick = {
-                        if (!isOrderError) {
-                            onConfirm(
-                                selectedStartDate,
-                                selectedStartTime,
-                                selectedFinishDate,
-                                selectedFinishTime,
-                            )
-                        }
-                    },
-                    enabled = !isOrderError,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                StratumOutlinedButton(
-                    text = stringResource(R.string.history_edit_time_cancel),
-                    onClick = onDismiss,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            StratumButton(
+                text = stringResource(R.string.history_edit_time_save),
+                onClick = {
+                    if (!isOrderError) {
+                        onConfirm(
+                            selectedStartDate,
+                            selectedStartTime,
+                            selectedFinishDate,
+                            selectedFinishTime,
+                        )
+                    }
+                },
+                enabled = !isOrderError,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            StratumOutlinedButton(
+                text = stringResource(R.string.history_edit_time_cancel),
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
     }
 }
