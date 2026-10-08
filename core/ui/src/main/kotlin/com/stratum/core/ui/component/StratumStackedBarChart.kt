@@ -193,6 +193,7 @@ fun StratumStackedBarChart(
         modelProducer = modelProducer,
         inspectionModel = inspectionModel,
         modifier = sizedModifier,
+        contentDescription = contentDescription,
     )
 }
 
