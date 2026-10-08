@@ -48,9 +48,7 @@ private val previewBandActions =
         onBandClick = {},
         onAddBand = {},
         onBandSheetDismiss = {},
-        onBandStartChanged = { _, _ -> },
-        onBandEndChanged = { _, _ -> },
-        onBandStepChanged = { _, _ -> },
+        onBandFieldChanged = { _, _, _ -> },
         onDeleteBand = {},
     )
 

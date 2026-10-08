@@ -252,6 +252,28 @@ class EquipmentIncrementsViewModelTest {
     }
 
     @Test
+    @DisplayName("Given the unified field callback when each field is edited then it dispatches per field")
+    fun bandFieldChangedDispatchesPerField() = runTest {
+        subject.initialize(cableId.value)
+        subject.uiState.test {
+            awaitItemWith { it.equipmentName == "Cables" && it.editor.tiers.isNotEmpty() }
+            subject.onBandFieldChanged(0, BandField.START, "10")
+            val started = awaitItemWith { it.editor.tiers[0].lowerBound == "10" }
+            assertEquals("10", started.editor.tiers[0].lowerBound)
+            subject.onBandFieldChanged(0, BandField.STEP, "2.5")
+            val stepped = awaitItemWith { it.editor.tiers[0].increment == "2.5" }
+            assertEquals("2.5", stepped.editor.tiers[0].increment)
+            subject.addTier()
+            awaitItemWith { it.editor.tiers.size == 2 }
+            subject.onBandFieldChanged(0, BandField.END, "50")
+            val ended = awaitItemWith { it.editor.tiers[0].upperBound == "50" }
+            assertEquals("50", ended.editor.tiers[0].upperBound)
+            assertEquals("50", ended.editor.tiers[1].lowerBound)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     @DisplayName("Given a first-band start of 10 when saved then the stored tiers keep it")
     fun savePersistsCustomFirstBandStart() = runTest {
         subject.initialize(cableId.value)

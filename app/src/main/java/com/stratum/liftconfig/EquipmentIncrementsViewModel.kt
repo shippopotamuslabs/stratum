@@ -330,14 +330,26 @@ class EquipmentIncrementsViewModel @Inject constructor(
      */
     fun onBandStartChanged(index: Int, value: String) {
         updateDraft { tiers ->
-            if (index != 0 || index !in tiers.indices) return@updateDraft tiers
-            tiers.mapIndexed { i, tier ->
-                if (i == 0) {
-                    tier.copy(lowerBound = IncrementTierDraftOps.filterNumeric(value))
-                } else {
-                    tier
-                }
+            // Only band 0's start is stored state; later bands tile from their
+            // predecessor, so start edits there are an intentional no-op.
+            if (index != 0 || tiers.isEmpty()) return@updateDraft tiers
+            tiers.toMutableList().also { updated ->
+                updated[0] = updated[0].copy(lowerBound = IncrementTierDraftOps.filterNumeric(value))
             }
+        }
+    }
+
+    /**
+     * Single entry point for band draft-field edits (one callback in
+     * [IncrementEditorBandActions] instead of three parallel ones); dispatches
+     * to the per-field handlers above. Thin adapters kept because call sites
+     * (and tests) address fields individually.
+     */
+    fun onBandFieldChanged(index: Int, field: BandField, value: String) {
+        when (field) {
+            BandField.START -> onBandStartChanged(index, value)
+            BandField.END -> onBandEndChanged(index, value)
+            BandField.STEP -> onTierIncrementChanged(index, value)
         }
     }
 
