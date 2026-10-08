@@ -455,6 +455,15 @@ private fun RecoveryStatCard(
     }
 }
 
+private fun ColumnScope.healthChartModifier(expandChart: Boolean): Modifier =
+    if (expandChart) {
+        Modifier
+            .weight(1f)
+            .fillMaxWidth()
+    } else {
+        Modifier.fillMaxWidth()
+    }
+
 @Composable
 private fun ColumnScope.RecoverySleepTrend(
     page: RecoveryHealthPageUi,
