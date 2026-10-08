@@ -60,15 +60,22 @@ object IncrementBandTiling {
     }
 
     /**
+     * Shared pure predicate (STR-103, STR-104): blank or non-numeric
+     * candidate text is invalid for a sheet field.
+     */
+    private fun isBlankOrNonNumeric(text: String?): Boolean =
+        text.isNullOrBlank() || text.toDoubleOrNull() == null
+
+    /**
      * Field-level validity for the sheet's Ends-at candidate (STR-103): a blank
      * or non-numeric end is invalid and renders the red error border. The last
      * band has no end (its field is disabled), so any candidate there is valid;
      * an out-of-bounds index is never invalid. The open-ended-last-band rule
      * lives here so callers never recompute it.
      */
-    fun List<IncrementTierDraft>.isEndInvalid(index: Int, end: String?): Boolean {
-        if (index !in indices || index == lastIndex) return false
-        return end.isNullOrBlank() || end.toDoubleOrNull() == null
+    fun isEndInvalid(tiers: List<IncrementTierDraft>, index: Int, end: String?): Boolean {
+        if (index !in tiers.indices || index == tiers.lastIndex) return false
+        return isBlankOrNonNumeric(end)
     }
 
     /**
@@ -80,9 +87,9 @@ object IncrementBandTiling {
      * and never routes through the sheet-local gate, so index 0 (and
      * out-of-bounds indexes) are never invalid here.
      */
-    fun List<IncrementTierDraft>.isStartInvalid(index: Int, start: String?): Boolean {
-        if (index !in indices || index == 0) return false
-        return start.isNullOrBlank() || start.toDoubleOrNull() == null
+    fun isStartInvalid(tiers: List<IncrementTierDraft>, index: Int, start: String?): Boolean {
+        if (index !in tiers.indices || index == 0) return false
+        return isBlankOrNonNumeric(start)
     }
 
     /**
