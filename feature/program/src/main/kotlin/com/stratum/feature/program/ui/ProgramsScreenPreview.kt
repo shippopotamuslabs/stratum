@@ -2,6 +2,7 @@ package com.stratum.feature.program.ui
 
 import com.stratum.core.ui.component.StratumMuscleVolumeCardState
 import com.stratum.core.ui.theme.StratumTheme
+import com.stratum.core.ui.theme.StratumThemeId
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.feature.program.ui.ScheduleItemState.RestDay
 import com.stratum.feature.program.ui.ScheduleItemState.Workout
@@ -16,37 +17,41 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 
-@Preview(name = "Programs loaded light")
+@PreviewLightDark
 @Composable
-fun ProgramsScreenLoadedPreview() {
-    StratumTheme {
-        LoadedProgramsScreen()
-    }
+private fun ProgramsScreenLoadedTonalPreview() {
+    ProgramsLoadedPreviewContent(family = StratumThemeId.Tonal)
 }
 
-@Preview(name = "Programs loaded dark")
+@PreviewLightDark
 @Composable
-fun ProgramsScreenLoadedDarkPreview() {
-    StratumTheme(darkTheme = true) {
-        LoadedProgramsScreen()
-    }
+private fun ProgramsScreenLoadedNeoPreview() {
+    ProgramsLoadedPreviewContent(family = StratumThemeId.NeoBrutalist)
 }
 
-@Preview(name = "Programs preview loaded light")
+@PreviewLightDark
 @Composable
-fun ProgramsScreenPreviewLoadedPreview() {
-    StratumTheme {
-        LoadedProgramsScreen(isPreviewMode = true)
-    }
+private fun ProgramsScreenPreviewLoadedTonalPreview() {
+    ProgramsLoadedPreviewContent(family = StratumThemeId.Tonal, isPreviewMode = true)
 }
 
-@Preview(name = "Programs preview loaded dark")
+@PreviewLightDark
 @Composable
-fun ProgramsScreenPreviewLoadedDarkPreview() {
-    StratumTheme(darkTheme = true) {
-        LoadedProgramsScreen(isPreviewMode = true)
+private fun ProgramsScreenPreviewLoadedNeoPreview() {
+    ProgramsLoadedPreviewContent(family = StratumThemeId.NeoBrutalist, isPreviewMode = true)
+}
+
+@Composable
+internal fun ProgramsLoadedPreviewContent(
+    family: StratumThemeId,
+    darkTheme: Boolean? = null,
+    isPreviewMode: Boolean = false,
+) {
+    StratumTheme(themeId = family, darkTheme = darkTheme) {
+        LoadedProgramsScreen(isPreviewMode = isPreviewMode)
     }
 }
 
@@ -129,10 +134,24 @@ private fun LoadedProgramsScreen(isPreviewMode: Boolean = false) {
     )
 }
 
-@Preview(name = "Programs empty dark")
+@PreviewLightDark
 @Composable
-fun ProgramsScreenEmptyPreview() {
-    StratumTheme(darkTheme = true) {
+private fun ProgramsScreenEmptyTonalPreview() {
+    ProgramsEmptyPreviewContent(family = StratumThemeId.Tonal)
+}
+
+@PreviewLightDark
+@Composable
+private fun ProgramsScreenEmptyNeoPreview() {
+    ProgramsEmptyPreviewContent(family = StratumThemeId.NeoBrutalist)
+}
+
+@Composable
+internal fun ProgramsEmptyPreviewContent(
+    family: StratumThemeId,
+    darkTheme: Boolean? = null,
+) {
+    StratumTheme(themeId = family, darkTheme = darkTheme) {
         ProgramsScreen(
             state = ProgramsUiState.Empty,
             callbacks = ProgramsScreenCallbacks(),
@@ -143,7 +162,7 @@ fun ProgramsScreenEmptyPreview() {
 
 @Preview(name = "Workout card light", showBackground = true)
 @Composable
-fun WorkoutCardPreview() {
+private fun WorkoutCardPreview() {
     StratumTheme {
         WorkoutCardPreviewContent()
     }
@@ -151,7 +170,7 @@ fun WorkoutCardPreview() {
 
 @Preview(name = "Workout card dark", showBackground = true, backgroundColor = 0xFF121212)
 @Composable
-fun WorkoutCardDarkPreview() {
+private fun WorkoutCardDarkPreview() {
     StratumTheme(darkTheme = true) {
         WorkoutCardPreviewContent()
     }
@@ -159,7 +178,7 @@ fun WorkoutCardDarkPreview() {
 
 @Preview(name = "Workout card expanded dark", showBackground = true, backgroundColor = 0xFF121212)
 @Composable
-fun WorkoutCardExpandedDarkPreview() {
+private fun WorkoutCardExpandedDarkPreview() {
     StratumTheme(darkTheme = true) {
         WorkoutCardPreviewContent(initiallyExpanded = true)
     }

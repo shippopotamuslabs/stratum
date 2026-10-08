@@ -1,23 +1,14 @@
 package com.stratum.feature.program.ui
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.PreviewLightDark
-import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.LiftActionsSheetContent
 import com.stratum.core.ui.component.RirTargetSheetContent
 import com.stratum.core.ui.component.SupersetLinkSheetContent
 import com.stratum.core.ui.component.supersetLinkSheetOptions
 import com.stratum.core.ui.theme.StratumTheme
-import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.core.ui.theme.StratumThemeId
 
 /**
@@ -241,29 +232,6 @@ internal fun EditWorkoutSavingPreviewContent(family: StratumThemeId) {
             state = previewEditWorkoutLoadedState().copy(isSaving = true),
             onLeave = {},
             callbacks = EditWorkoutScreenCallbacks(),
-        )
-    }
-}
-
-/**
- * Inline stand-in for the StratumBottomSheet inner container: same background, padding,
- * and spacing the sheet body is designed for. Sheet chrome itself (scrim, drag handle,
- * window) is framework-owned and uncoverable by screenshot tests.
- */
-@Composable
-internal fun SheetContentPreview(
-    family: StratumThemeId,
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    StratumTheme(themeId = family) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(StratumThemeAccessor.colors.surfaceRaised)
-                .padding(horizontal = 12.dp)
-                .padding(top = 4.dp, bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            content = content,
         )
     }
 }

@@ -1,100 +1,112 @@
 package com.stratum.feature.program.ui
 
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.tooling.preview.PreviewLightDark
 import com.stratum.core.ui.theme.StratumTheme
+import com.stratum.core.ui.theme.StratumThemeId
 import com.stratum.feature.program.R
 
-@Preview(name = "Check-in subjective light")
+@PreviewLightDark
 @Composable
-fun CheckInSubjectivePreview() {
-    StratumTheme {
-        PreviewCheckIn(subjectiveBaseState())
+private fun CheckInSubjectiveTonalPreview() {
+    CheckInPreviewContent(family = StratumThemeId.Tonal, state = subjectiveBaseState())
+}
+
+@PreviewLightDark
+@Composable
+private fun CheckInSubjectiveNeoPreview() {
+    CheckInPreviewContent(family = StratumThemeId.NeoBrutalist, state = subjectiveBaseState())
+}
+
+@PreviewLightDark
+@Composable
+private fun CheckInLocalizedMusclesTonalPreview() {
+    CheckInPreviewContent(family = StratumThemeId.Tonal, state = subjectiveLocalizedState())
+}
+
+@PreviewLightDark
+@Composable
+private fun CheckInLocalizedMusclesNeoPreview() {
+    CheckInPreviewContent(family = StratumThemeId.NeoBrutalist, state = subjectiveLocalizedState())
+}
+
+@PreviewLightDark
+@Composable
+private fun CheckInRecommendationsTonalPreview() {
+    CheckInPreviewContent(family = StratumThemeId.Tonal, state = recommendationsMixedState())
+}
+
+@PreviewLightDark
+@Composable
+private fun CheckInRecommendationsNeoPreview() {
+    CheckInPreviewContent(family = StratumThemeId.NeoBrutalist, state = recommendationsMixedState())
+}
+
+@PreviewLightDark
+@Composable
+private fun CheckInRecommendationsEmptyTonalPreview() {
+    CheckInPreviewContent(family = StratumThemeId.Tonal, state = recommendationsEmptyState())
+}
+
+@PreviewLightDark
+@Composable
+private fun CheckInRecommendationsEmptyNeoPreview() {
+    CheckInPreviewContent(family = StratumThemeId.NeoBrutalist, state = recommendationsEmptyState())
+}
+
+@PreviewLightDark
+@Composable
+private fun CheckInSwapPickerTonalPreview() {
+    CheckInSwapPickerPreviewContent(family = StratumThemeId.Tonal)
+}
+
+@PreviewLightDark
+@Composable
+private fun CheckInSwapPickerNeoPreview() {
+    CheckInSwapPickerPreviewContent(family = StratumThemeId.NeoBrutalist)
+}
+
+@Composable
+internal fun CheckInPreviewContent(
+    family: StratumThemeId,
+    state: CheckInUiState,
+    darkTheme: Boolean? = null,
+) {
+    StratumTheme(themeId = family, darkTheme = darkTheme) {
+        CheckInScreen(
+            state = state,
+            onBack = {},
+            onOverallRecoverySelected = {},
+            onHasLocalizedIssuesSelected = {},
+            onToggleFlaggedMuscle = {},
+            onMuscleSignalSelected = { _, _ -> },
+            onNext = {},
+            onToggleAccepted = { _, _ -> },
+            onOpenSwapPicker = {},
+            onSelectSwapCandidate = { _, _ -> },
+            onDismissSwapPicker = {},
+        )
     }
 }
 
-@Preview(name = "Check-in subjective dark")
+/**
+ * Swap-picker body pinned inline: dialog windows are not capturable (an open sheet blanks
+ * the golden) — see docs/screenshot-tests.md.
+ */
 @Composable
-fun CheckInSubjectiveDarkPreview() {
-    StratumTheme(darkTheme = true) {
-        PreviewCheckIn(subjectiveBaseState())
+internal fun CheckInSwapPickerPreviewContent(
+    family: StratumThemeId,
+    darkTheme: Boolean? = null,
+) {
+    SheetContentPreview(family = family, darkTheme = darkTheme) {
+        CheckInSwapPickerContent(
+            swapCandidates = recommendationsWithSwapPickerState().swapCandidates,
+            onSelectSwapCandidate = { _, _ -> },
+        )
     }
 }
 
-@Preview(name = "Check-in localized muscles light")
-@Composable
-fun CheckInLocalizedMusclesPreview() {
-    StratumTheme {
-        PreviewCheckIn(subjectiveLocalizedState())
-    }
-}
-
-@Preview(name = "Check-in localized muscles dark")
-@Composable
-fun CheckInLocalizedMusclesDarkPreview() {
-    StratumTheme(darkTheme = true) {
-        PreviewCheckIn(subjectiveLocalizedState())
-    }
-}
-
-@Preview(name = "Check-in recommendations light")
-@Composable
-fun CheckInRecommendationsPreview() {
-    StratumTheme {
-        PreviewCheckIn(recommendationsMixedState())
-    }
-}
-
-@Preview(name = "Check-in recommendations dark")
-@Composable
-fun CheckInRecommendationsDarkPreview() {
-    StratumTheme(darkTheme = true) {
-        PreviewCheckIn(recommendationsMixedState())
-    }
-}
-
-@Preview(name = "Check-in recommendations empty light")
-@Composable
-fun CheckInRecommendationsEmptyPreview() {
-    StratumTheme {
-        PreviewCheckIn(recommendationsEmptyState())
-    }
-}
-
-@Preview(name = "Check-in recommendations empty dark")
-@Composable
-fun CheckInRecommendationsEmptyDarkPreview() {
-    StratumTheme(darkTheme = true) {
-        PreviewCheckIn(recommendationsEmptyState())
-    }
-}
-
-@Preview(name = "Check-in swap picker dark")
-@Composable
-fun CheckInSwapPickerDarkPreview() {
-    StratumTheme(darkTheme = true) {
-        PreviewCheckIn(recommendationsWithSwapPickerState())
-    }
-}
-
-@Composable
-private fun PreviewCheckIn(state: CheckInUiState) {
-    CheckInScreen(
-        state = state,
-        onBack = {},
-        onOverallRecoverySelected = {},
-        onHasLocalizedIssuesSelected = {},
-        onToggleFlaggedMuscle = {},
-        onMuscleSignalSelected = { _, _ -> },
-        onNext = {},
-        onToggleAccepted = { _, _ -> },
-        onOpenSwapPicker = {},
-        onSelectSwapCandidate = { _, _ -> },
-        onDismissSwapPicker = {},
-    )
-}
-
-private fun subjectiveBaseState(): CheckInUiState =
+internal fun subjectiveBaseState(): CheckInUiState =
     CheckInUiState(
         isOpen = true,
         phase = CheckInPhase.Subjective,
@@ -103,7 +115,7 @@ private fun subjectiveBaseState(): CheckInUiState =
         availableMuscles = previewMuscles(),
     )
 
-private fun subjectiveLocalizedState(): CheckInUiState =
+internal fun subjectiveLocalizedState(): CheckInUiState =
     CheckInUiState(
         isOpen = true,
         phase = CheckInPhase.Subjective,
@@ -126,7 +138,7 @@ private fun subjectiveLocalizedState(): CheckInUiState =
             ),
     )
 
-private fun recommendationsMixedState(): CheckInUiState =
+internal fun recommendationsMixedState(): CheckInUiState =
     CheckInUiState(
         isOpen = true,
         phase = CheckInPhase.Recommendations,
@@ -174,7 +186,7 @@ private fun recommendationsMixedState(): CheckInUiState =
             ),
     )
 
-private fun recommendationsEmptyState(): CheckInUiState =
+internal fun recommendationsEmptyState(): CheckInUiState =
     CheckInUiState(
         isOpen = true,
         phase = CheckInPhase.Recommendations,
