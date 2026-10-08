@@ -490,7 +490,9 @@ private fun BandAddCell(
 /** Band editor sheet (STR-101, STR-102): every band's start is editable.
  * The first band stores its own start; editing a later band's start moves the
  * previous band's end to match via re-tiling, so the new band is fully set up
- * in one place. Then Ends-at and Step. */
+ * in one place. Then Ends-at and Step. (STR-103: Ends-at can be cleared
+ * mid-typing — a blank/non-numeric value shows the error border, and Done on
+ * an invalid value reverts to the pre-edit end.) */
 @Composable
 internal fun BandEditorSheet(
     index: Int,
@@ -528,6 +530,7 @@ internal fun BandEditorSheet(
             onValueChange = onEndChanged,
             label = stringResource(UiR.string.equipment_band_ends_at, unitLabel),
             enabled = !isLast,
+            isError = IncrementBandTiling.isEndInvalid(tier.upperBound, isLast),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             modifier = Modifier.fillMaxWidth(),
         )
