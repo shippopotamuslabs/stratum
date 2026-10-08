@@ -182,7 +182,7 @@ screenshot-tests:
   stage: test
   needs: []
   script:
-    - ./gradlew :feature:workout:validateDebugScreenshotTest :feature:program:validateDebugScreenshotTest
+    - ./gradlew :feature:workout:validateDebugScreenshotTest :feature:program:validateDebugScreenshotTest :app:validateDebugScreenshotTest
   artifacts:
     when: always
     paths:

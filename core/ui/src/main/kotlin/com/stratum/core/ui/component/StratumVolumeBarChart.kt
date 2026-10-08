@@ -23,6 +23,7 @@ import com.patrykandpatrick.vico.compose.cartesian.axis.HorizontalAxis
 import com.patrykandpatrick.vico.compose.cartesian.axis.rememberAxisLabelComponent
 import com.patrykandpatrick.vico.compose.cartesian.axis.rememberAxisLineComponent
 import com.patrykandpatrick.vico.compose.cartesian.axis.rememberAxisTickComponent
+import com.patrykandpatrick.vico.compose.cartesian.data.CartesianChartModel
 import com.patrykandpatrick.vico.compose.cartesian.data.CartesianChartModelProducer
 import com.patrykandpatrick.vico.compose.cartesian.data.CartesianLayerRangeProvider
 import com.patrykandpatrick.vico.compose.cartesian.data.CartesianValueFormatter
@@ -103,6 +104,18 @@ fun StratumVolumeBarChart(
             }
         }
     }
+    val inspectionModel =
+        rememberInspectionChartModel(key = series) {
+            CartesianChartModel(
+                models =
+                    listOf(
+                        syncColumnLayerModel(
+                            x = series.map { it.weekIndex.toDouble() },
+                            y = series.map { it.value },
+                        ),
+                    ),
+            )
+        }
 
     val labelStyle = TextStyle(
         color = colors.textMuted,
@@ -180,12 +193,22 @@ fun StratumVolumeBarChart(
                 },
             )
     }
-    CartesianChartHost(
-        chart = chart,
-        modelProducer = modelProducer,
-        scrollState = rememberStratumChartScrollState(),
-        modifier = sizedModifier.semantics { this.contentDescription = contentDescription },
-    )
+    val hostModifier = sizedModifier.semantics { this.contentDescription = contentDescription }
+    if (inspectionModel != null) {
+        CartesianChartHost(
+            chart = chart,
+            model = inspectionModel,
+            scrollState = rememberStratumChartScrollState(),
+            modifier = hostModifier,
+        )
+    } else {
+        CartesianChartHost(
+            chart = chart,
+            modelProducer = modelProducer,
+            scrollState = rememberStratumChartScrollState(),
+            modifier = hostModifier,
+        )
+    }
 }
 
 @Immutable
