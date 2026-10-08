@@ -49,10 +49,15 @@ internal fun ManageNotesSummaryContent(
     loadNoteLists: suspend (workoutLiftId: String, liftId: String) -> NoteListsUi,
     onEditNotes: (LiftNoteTab) -> Unit,
     onDismiss: () -> Unit,
+    /**
+     * Preview-only initial lists (screenshot tests capture before `LaunchedEffect` loads
+     * complete). Production callers leave this null; the load effect still refreshes.
+     */
+    initialLists: NoteListsUi? = null,
 ) {
     var selectedTab by remember(lift.workoutLiftId, initialTab) { mutableStateOf(initialTab) }
     var lists by remember(lift.workoutLiftId, lift.liftId) {
-        mutableStateOf<NoteListsUi?>(null)
+        mutableStateOf(initialLists)
     }
 
     LaunchedEffect(lift.workoutLiftId, lift.liftId) {

@@ -1,19 +1,11 @@
 package com.stratum.feature.workout.ui
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.PreviewLightDark
-import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.theme.StratumTheme
-import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.core.ui.theme.StratumThemeId
 
 /**
@@ -24,7 +16,7 @@ import com.stratum.core.ui.theme.StratumThemeId
  * remaining/total pair (no ticking clock, no in-flight animation). `darkTheme` is left
  * null so `@PreviewLightDark` genuinely varies light/dark.
  *
- * Sheet goldens pin content inline ([RestSheetContentPreview]): dialog windows are not
+ * Sheet goldens pin content inline ([SheetContentPreview]): dialog windows are not
  * capturable (an open sheet blanks the golden) — see docs/screenshot-tests.md.
  */
 @PreviewLightDark
@@ -106,7 +98,7 @@ internal fun WorkoutRestTimerActivePreviewContent(family: StratumThemeId) {
 /** Rest bottom sheet body (view state: fresh countdown). */
 @Composable
 internal fun WorkoutRestSheetPreviewContent(family: StratumThemeId) {
-    RestSheetContentPreview(family = family) {
+    SheetContentPreview(family = family) {
         restTimerSheetBody(remainingSeconds = 75)
     }
 }
@@ -114,7 +106,7 @@ internal fun WorkoutRestSheetPreviewContent(family: StratumThemeId) {
 /** Rest bottom sheet body after a −10s adjustment (edited countdown). */
 @Composable
 internal fun WorkoutRestSheetEditedPreviewContent(family: StratumThemeId) {
-    RestSheetContentPreview(family = family) {
+    SheetContentPreview(family = family) {
         restTimerSheetBody(remainingSeconds = 65)
     }
 }
@@ -139,7 +131,7 @@ internal fun WorkoutConfigureRestPreviewContent(family: StratumThemeId) {
     val lift = previewConfigureRestLift()
     val baseline = remember(lift) { lift.sets.associate { it.slotKey to it.restSeconds } }
     val pending = remember(lift) { mutableStateMapOf<String, Int>().apply { putAll(baseline) } }
-    RestSheetContentPreview(family = family) {
+    SheetContentPreview(family = family) {
         ConfigureRestTimesSheetContent(
             lift = lift,
             baseline = baseline,
@@ -152,39 +144,10 @@ internal fun WorkoutConfigureRestPreviewContent(family: StratumThemeId) {
 /** Rest-config discard dialog body. */
 @Composable
 internal fun WorkoutRestConfigDiscardPreviewContent(family: StratumThemeId) {
-    RestSheetContentPreview(family = family) {
+    SheetContentPreview(family = family) {
         RestConfigDiscardSheetContent(
             onConfirmDiscard = {},
             onDismiss = {},
-        )
-    }
-}
-
-/**
- * Inline stand-in for the StratumBottomSheet inner container: same background, padding,
- * and spacing the sheet body is designed for. Sheet chrome itself (scrim, drag handle,
- * window) is framework-owned and uncoverable by screenshot tests.
- *
- * Deliberately mirrors [com.stratum.core.ui.component.StratumBottomSheet]'s inner
- * Column — keep the background, paddings, and arrangement in sync with it. Sharing
- * the container with production would mean refactoring the ModalBottomSheet wrapper;
- * that production change is out of scope for screenshot wiring, so the values are
- * duplicated here with this pointer instead.
- */
-@Composable
-private fun RestSheetContentPreview(
-    family: StratumThemeId,
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    StratumTheme(themeId = family) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(StratumThemeAccessor.colors.surfaceRaised)
-                .padding(horizontal = 12.dp)
-                .padding(top = 4.dp, bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            content = content,
         )
     }
 }

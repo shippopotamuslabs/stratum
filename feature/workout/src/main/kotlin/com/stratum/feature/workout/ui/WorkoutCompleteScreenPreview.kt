@@ -8,44 +8,31 @@ import com.stratum.core.ui.theme.StratumThemeId
 @Preview(name = "Workout complete light", showBackground = true)
 @Composable
 private fun WorkoutCompleteScreenLightPreview() {
-    StratumTheme {
-        WorkoutCompleteScreenPreviewContent()
-    }
+    WorkoutCompleteBasePreviewContent(family = StratumThemeId.Tonal)
 }
 
 @Preview(name = "Workout complete dark", showBackground = true, backgroundColor = 0xFF121212)
 @Composable
 private fun WorkoutCompleteScreenDarkPreview() {
-    StratumTheme(darkTheme = true) {
-        WorkoutCompleteScreenPreviewContent()
-    }
+    WorkoutCompleteBasePreviewContent(family = StratumThemeId.Tonal, darkTheme = true)
 }
 
 @Preview(name = "Workout complete light", showBackground = true)
 @Composable
 private fun WorkoutCompleteScreenLightPreviewNeo() {
-    StratumTheme(themeId = StratumThemeId.NeoBrutalist) {
-        WorkoutCompleteScreenPreviewContent()
-    }
+    WorkoutCompleteBasePreviewContent(family = StratumThemeId.NeoBrutalist)
 }
 
 @Preview(name = "Workout complete dark", showBackground = true, backgroundColor = 0xFF121212)
 @Composable
 private fun WorkoutCompleteScreenDarkPreviewNeo() {
-    StratumTheme(themeId = StratumThemeId.NeoBrutalist, darkTheme = true) {
-        WorkoutCompleteScreenPreviewContent()
-    }
+    WorkoutCompleteBasePreviewContent(family = StratumThemeId.NeoBrutalist, darkTheme = true)
 }
 
 @Preview(name = "Workout complete proposals light", showBackground = true)
 @Composable
 private fun WorkoutCompleteProposalsLightPreview() {
-    StratumTheme {
-        WorkoutCompleteScreen(
-            state = previewLoadedWithProposals(),
-            actions = WorkoutCompleteActions(onClose = {}),
-        )
-    }
+    WorkoutCompleteProposalsPreviewContent(family = StratumThemeId.Tonal)
 }
 
 @Preview(
@@ -55,20 +42,49 @@ private fun WorkoutCompleteProposalsLightPreview() {
 )
 @Composable
 private fun WorkoutCompleteProposalsDarkPreview() {
-    StratumTheme(darkTheme = true) {
+    WorkoutCompleteProposalsPreviewContent(family = StratumThemeId.Tonal, darkTheme = true)
+}
+
+@Preview(name = "Workout complete proposals light neo", showBackground = true)
+@Composable
+private fun WorkoutCompleteProposalsLightPreviewNeo() {
+    WorkoutCompleteProposalsPreviewContent(family = StratumThemeId.NeoBrutalist)
+}
+
+@Preview(
+    name = "Workout complete proposals dark neo",
+    showBackground = true,
+    backgroundColor = 0xFF121212,
+)
+@Composable
+private fun WorkoutCompleteProposalsDarkPreviewNeo() {
+    WorkoutCompleteProposalsPreviewContent(family = StratumThemeId.NeoBrutalist, darkTheme = true)
+}
+
+@Composable
+internal fun WorkoutCompleteBasePreviewContent(
+    family: StratumThemeId,
+    darkTheme: Boolean? = null,
+) {
+    StratumTheme(themeId = family, darkTheme = darkTheme) {
         WorkoutCompleteScreen(
-            state = previewLoadedWithProposals(),
+            state = previewLoadedBase(),
             actions = WorkoutCompleteActions(onClose = {}),
         )
     }
 }
 
 @Composable
-private fun WorkoutCompleteScreenPreviewContent() {
-    WorkoutCompleteScreen(
-        state = previewLoadedBase(),
-        actions = WorkoutCompleteActions(onClose = {}),
-    )
+internal fun WorkoutCompleteProposalsPreviewContent(
+    family: StratumThemeId,
+    darkTheme: Boolean? = null,
+) {
+    StratumTheme(themeId = family, darkTheme = darkTheme) {
+        WorkoutCompleteScreen(
+            state = previewLoadedWithProposals(),
+            actions = WorkoutCompleteActions(onClose = {}),
+        )
+    }
 }
 
 private fun previewLoadedBase(): WorkoutCompleteUiState.Loaded =

@@ -60,6 +60,20 @@ internal fun editableFromLoaded(loaded: List<NoteDraftUi>): List<EditableNote> =
         )
     }
 
+/** Preview-seam initial drafts for the three note tabs, derived from one [NoteListsUi]. */
+private data class InitialNotesDrafts(
+    val session: List<EditableNote>,
+    val workout: List<EditableNote>,
+    val lift: List<EditableNote>,
+)
+
+private fun initialNotesDrafts(initialLists: NoteListsUi?): InitialNotesDrafts =
+    InitialNotesDrafts(
+        session = initialLists?.session?.let(::editableFromLoaded).orEmpty(),
+        workout = initialLists?.workout?.let(::editableFromLoaded).orEmpty(),
+        lift = initialLists?.lift?.let(::editableFromLoaded).orEmpty(),
+    )
+
 /** True when the drafts differ from [loaded] after dropping blank drafts. */
 internal fun noteDraftsDirty(loaded: List<NoteDraftUi>, drafts: List<EditableNote>): Boolean {
     val clean = drafts.filter { it.body.isNotBlank() }
@@ -82,19 +96,27 @@ fun ManageNotesScreen(
     liftNotes: WorkoutLiftNotesActions,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
+    /**
+     * Preview-only initial lists (screenshot tests capture before `LaunchedEffect` loads
+     * complete). Production callers leave this null; the load effect still refreshes.
+     */
+    initialLists: NoteListsUi? = null,
 ) {
     var loaded by remember(target.workoutLiftId, target.liftId) {
-        mutableStateOf<NoteListsUi?>(null)
+        mutableStateOf(initialLists)
     }
     var selectedTab by remember(target) { mutableStateOf(target.tab) }
-    var sessionDrafts by remember(target.workoutLiftId) {
-        mutableStateOf(emptyList<EditableNote>())
+    val initialDrafts = remember(target.workoutLiftId, initialLists) {
+        initialNotesDrafts(initialLists)
     }
-    var workoutDrafts by remember(target.workoutLiftId) {
-        mutableStateOf(emptyList<EditableNote>())
+    var sessionDrafts by remember(target.workoutLiftId, initialLists) {
+        mutableStateOf(initialDrafts.session)
     }
-    var liftDrafts by remember(target.workoutLiftId) {
-        mutableStateOf(emptyList<EditableNote>())
+    var workoutDrafts by remember(target.workoutLiftId, initialLists) {
+        mutableStateOf(initialDrafts.workout)
+    }
+    var liftDrafts by remember(target.workoutLiftId, initialLists) {
+        mutableStateOf(initialDrafts.lift)
     }
     /** Key of the note added via "Add Note" awaiting initial focus + keyboard. */
     var pendingFocusKey by remember(target.workoutLiftId) {
