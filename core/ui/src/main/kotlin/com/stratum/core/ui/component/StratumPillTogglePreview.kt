@@ -24,7 +24,7 @@ private fun StratumPillToggleNeoPreview() {
 }
 
 @Composable
-private fun PillTogglePreviewGrid(family: StratumThemeId) {
+internal fun PillTogglePreviewGrid(family: StratumThemeId) {
     StratumTheme(themeId = family) {
         Column(
             modifier = Modifier.fillMaxWidth(),

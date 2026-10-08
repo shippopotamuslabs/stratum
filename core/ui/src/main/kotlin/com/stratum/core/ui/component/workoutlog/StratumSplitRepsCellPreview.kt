@@ -13,71 +13,76 @@ import com.stratum.core.ui.theme.StratumThemeId
 @PreviewLightDark
 @Composable
 private fun StratumSplitRepsCellFullPreview() {
-    StratumTheme(themeId = StratumThemeId.Tonal) {
-        Box(
-            modifier =
-                Modifier
-                    .background(StratumThemeAccessor.colors.surfaceBase)
-                    .fillMaxWidth(),
-        ) {
-            StratumSplitRepsCell(
-                fullRepsText = "8",
-                partialRepsText = "2",
-                fullPlaceholder = "8",
-                selectedMode = RepsEntryMode.Full,
-                enabled = true,
-                isActive = true,
-                completed = false,
-                onSelectFull = {},
-                onSelectPartial = {},
-            )
-        }
-    }
+    SplitRepsCellPreviewContent(
+        family = StratumThemeId.Tonal,
+        fullRepsText = "8",
+        partialRepsText = "2",
+        fullPlaceholder = "8",
+        selectedMode = RepsEntryMode.Full,
+        isActive = true,
+        completed = false,
+    )
 }
 
 @PreviewLightDark
 @Composable
 private fun StratumSplitRepsCellPartialPreview() {
-    StratumTheme(themeId = StratumThemeId.Tonal) {
-        Box(
-            modifier =
-                Modifier
-                    .background(StratumThemeAccessor.colors.surfaceBase)
-                    .fillMaxWidth(),
-        ) {
-            StratumSplitRepsCell(
-                fullRepsText = "8",
-                partialRepsText = "",
-                fullPlaceholder = "8",
-                selectedMode = RepsEntryMode.Partial,
-                enabled = true,
-                isActive = true,
-                completed = false,
-                onSelectFull = {},
-                onSelectPartial = {},
-            )
-        }
-    }
+    SplitRepsCellPreviewContent(
+        family = StratumThemeId.Tonal,
+        fullRepsText = "8",
+        partialRepsText = "",
+        fullPlaceholder = "8",
+        selectedMode = RepsEntryMode.Partial,
+        isActive = true,
+        completed = false,
+    )
 }
 
 @PreviewLightDark
 @Composable
 private fun StratumSplitRepsCellCompletedUnfocusedPreview() {
-    StratumTheme(themeId = StratumThemeId.Tonal) {
+    SplitRepsCellPreviewContent(
+        family = StratumThemeId.Tonal,
+        fullRepsText = "14",
+        partialRepsText = "2",
+        fullPlaceholder = "12",
+        selectedMode = RepsEntryMode.Partial,
+        isActive = false,
+        completed = true,
+    )
+}
+
+@Composable
+internal fun SplitRepsCellPreviewContent(
+    family: StratumThemeId,
+    fullRepsText: String,
+    partialRepsText: String,
+    fullPlaceholder: String,
+    selectedMode: RepsEntryMode,
+    isActive: Boolean,
+    completed: Boolean,
+) {
+    StratumTheme(themeId = family) {
         Box(
             modifier =
                 Modifier
-                    .background(StratumThemeAccessor.colors.setComplete)
+                    .background(
+                        if (completed) {
+                            StratumThemeAccessor.colors.setComplete
+                        } else {
+                            StratumThemeAccessor.colors.surfaceBase
+                        },
+                    )
                     .fillMaxWidth(),
         ) {
             StratumSplitRepsCell(
-                fullRepsText = "14",
-                partialRepsText = "2",
-                fullPlaceholder = "12",
-                selectedMode = RepsEntryMode.Partial,
+                fullRepsText = fullRepsText,
+                partialRepsText = partialRepsText,
+                fullPlaceholder = fullPlaceholder,
+                selectedMode = selectedMode,
                 enabled = true,
-                isActive = false,
-                completed = true,
+                isActive = isActive,
+                completed = completed,
                 onSelectFull = {},
                 onSelectPartial = {},
             )

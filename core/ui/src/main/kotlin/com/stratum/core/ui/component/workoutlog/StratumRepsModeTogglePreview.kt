@@ -15,23 +15,21 @@ import com.stratum.core.ui.theme.StratumThemeId
 @PreviewLightDark
 @Composable
 private fun StratumRepsModeToggleFullPreview() {
-    StratumTheme(themeId = StratumThemeId.Tonal) {
-        Box(
-            modifier =
-                Modifier
-                    .background(StratumThemeAccessor.colors.surfaceBase)
-                    .width(72.dp)
-                    .height(56.dp),
-        ) {
-            StratumRepsModeToggle(mode = RepsEntryMode.Full, onModeChange = {})
-        }
-    }
+    RepsModeTogglePreviewContent(family = StratumThemeId.Tonal, mode = RepsEntryMode.Full)
 }
 
 @PreviewLightDark
 @Composable
 private fun StratumRepsModeTogglePartialPreview() {
-    StratumTheme(themeId = StratumThemeId.Tonal) {
+    RepsModeTogglePreviewContent(family = StratumThemeId.Tonal, mode = RepsEntryMode.Partial)
+}
+
+@Composable
+internal fun RepsModeTogglePreviewContent(
+    family: StratumThemeId,
+    mode: RepsEntryMode,
+) {
+    StratumTheme(themeId = family) {
         Box(
             modifier =
                 Modifier
@@ -39,7 +37,7 @@ private fun StratumRepsModeTogglePartialPreview() {
                     .width(72.dp)
                     .height(56.dp),
         ) {
-            StratumRepsModeToggle(mode = RepsEntryMode.Partial, onModeChange = {})
+            StratumRepsModeToggle(mode = mode, onModeChange = {})
         }
     }
 }

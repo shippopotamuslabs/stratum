@@ -66,6 +66,35 @@ fun StratumPlateCalculatorSheet(
     onApplyWeight: ((appliedWeight: Double, inventory: PlateInventoryUi) -> Unit)? = null,
     initialInventory: PlateInventoryUi = defaultPlateInventory(unitLabel),
 ) {
+    StratumBottomSheet(
+        onDismissRequest = onDismissRequest,
+        modifier = modifier,
+    ) {
+        StratumPlateCalculatorSheetContent(
+            initialTargetWeight = initialTargetWeight,
+            unitLabel = unitLabel,
+            onDismissRequest = onDismissRequest,
+            isDoubleSided = isDoubleSided,
+            onApplyWeight = onApplyWeight,
+            initialInventory = initialInventory,
+        )
+    }
+}
+
+/**
+ * Inline sheet body (STR-94): dialog windows are uncapturable in screenshot goldens, so
+ * previews and `@PreviewTest` wrappers pin this content directly. Pixel-identical to the
+ * sheet body above.
+ */
+@Composable
+internal fun StratumPlateCalculatorSheetContent(
+    initialTargetWeight: Double,
+    unitLabel: String,
+    onDismissRequest: () -> Unit,
+    isDoubleSided: Boolean = true,
+    onApplyWeight: ((appliedWeight: Double, inventory: PlateInventoryUi) -> Unit)? = null,
+    initialInventory: PlateInventoryUi = defaultPlateInventory(unitLabel),
+) {
     val keyboard = LocalSoftwareKeyboardController.current
     DisposableEffect(Unit) {
         onDispose { keyboard?.hide() }
@@ -128,189 +157,184 @@ fun StratumPlateCalculatorSheet(
         else -> null
     }
 
-    StratumBottomSheet(
-        onDismissRequest = onDismissRequest,
-        modifier = modifier,
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Column {
-                    StratumText(
-                        text = stringResource(CoreUiR.string.plate_calculator_title),
-                        style = StratumThemeAccessor.typography.titleLarge,
-                    )
-                    StratumText(
-                        text = stringResource(
-                            CoreUiR.string.plate_calculator_unit,
-                            unitSuffix.uppercase(),
-                        ),
-                        style = StratumThemeAccessor.typography.bodyLarge.copy(
-                            fontSize = 13.sp,
-                            lineHeight = 16.sp,
-                            color = StratumThemeAccessor.colors.textMuted,
-                        ),
-                    )
-                }
-
-                StratumIconButton(
-                    onClick = onDismissRequest,
-                    modifier = Modifier.size(36.dp),
-                    containerColor = StratumThemeAccessor.colors.surfaceSunken,
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = stringResource(CoreUiR.string.plate_calculator_close),
-                        tint = StratumThemeAccessor.colors.textMuted,
-                    )
-                }
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                StratumTextField(
-                    value = targetWeightText,
-                    onValueChange = { targetWeightText = it },
-                    label = stringResource(
-                        CoreUiR.string.plate_calculator_target_weight_label,
-                        unitSuffix,
+            Column {
+                StratumText(
+                    text = stringResource(CoreUiR.string.plate_calculator_title),
+                    style = StratumThemeAccessor.typography.titleLarge,
+                )
+                StratumText(
+                    text = stringResource(
+                        CoreUiR.string.plate_calculator_unit,
+                        unitSuffix.uppercase(),
                     ),
-                    placeholder = stringResource(CoreUiR.string.plate_calculator_target_placeholder),
-                    isError = isTargetError,
-                    errorText = targetErrorText,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.weight(1.2f),
-                )
-                StratumTextField(
-                    value = barWeightText,
-                    onValueChange = { barWeightText = it },
-                    label = stringResource(
-                        CoreUiR.string.plate_calculator_bar_weight_label,
-                        unitSuffix,
+                    style = StratumThemeAccessor.typography.bodyLarge.copy(
+                        fontSize = 13.sp,
+                        lineHeight = 16.sp,
+                        color = StratumThemeAccessor.colors.textMuted,
                     ),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.weight(0.8f),
                 )
             }
 
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                StratumText(
-                    text = stringResource(CoreUiR.string.plate_calculator_bar_weight_presets),
-                    style = StratumThemeAccessor.typography.sectionLabel,
-                    color = StratumThemeAccessor.colors.textMuted,
-                )
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    barPresets.forEach { preset ->
-                        StratumFilterChip(
-                            label = barPresetLabel(preset, unitSuffix),
-                            selected = parsedBarWeight == preset.weight,
-                            onSelectedChange = {
-                                barWeightText = PlateColors.formatPlateWeight(preset.weight)
-                            },
-                        )
-                    }
-                }
-            }
-
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                StratumText(
-                    text = stringResource(CoreUiR.string.plate_calculator_available_plates),
-                    style = StratumThemeAccessor.typography.sectionLabel,
-                    color = StratumThemeAccessor.colors.textMuted,
-                )
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    allPlateDenominations.forEach { plateWeight ->
-                        val isEnabled = plateWeight in enabledPlates
-                        val plateColor = PlateColors.colorFor(plateWeight, isKg = isKg)
-                        val weightStr = PlateColors.formatPlateWeight(plateWeight)
-
-                        StratumFilterChip(
-                            label = "$weightStr $unitSuffix",
-                            selected = isEnabled,
-                            onSelectedChange = { checked ->
-                                enabledPlates = if (checked) {
-                                    enabledPlates + plateWeight
-                                } else {
-                                    enabledPlates - plateWeight
-                                }
-                            },
-                            trailingIcon = {
-                                Box(
-                                    modifier = Modifier
-                                        .size(8.dp)
-                                        .clip(CircleShape)
-                                        .background(plateColor),
-                                )
-                            },
-                        )
-                    }
-                }
-            }
-
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                StratumText(
-                    text = stringResource(CoreUiR.string.plate_calculator_barbell_diagram),
-                    style = StratumThemeAccessor.typography.sectionLabel,
-                    color = StratumThemeAccessor.colors.textMuted,
-                )
-                StratumPlateBarbellDiagram(
-                    platesPerSide = if (plateLoad.isValid) plateLoad.platesPerSide else emptyList(),
-                    isMini = false,
-                    showPerSideBadge = true,
+            StratumIconButton(
+                onClick = onDismissRequest,
+                modifier = Modifier.size(36.dp),
+                containerColor = StratumThemeAccessor.colors.surfaceSunken,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = stringResource(CoreUiR.string.plate_calculator_close),
+                    tint = StratumThemeAccessor.colors.textMuted,
                 )
             }
+        }
 
-            PlateLoadBreakdownCard(plateLoad = plateLoad, unitSuffix = unitSuffix)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            StratumTextField(
+                value = targetWeightText,
+                onValueChange = { targetWeightText = it },
+                label = stringResource(
+                    CoreUiR.string.plate_calculator_target_weight_label,
+                    unitSuffix,
+                ),
+                placeholder = stringResource(CoreUiR.string.plate_calculator_target_placeholder),
+                isError = isTargetError,
+                errorText = targetErrorText,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier.weight(1.2f),
+            )
+            StratumTextField(
+                value = barWeightText,
+                onValueChange = { barWeightText = it },
+                label = stringResource(
+                    CoreUiR.string.plate_calculator_bar_weight_label,
+                    unitSuffix,
+                ),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier.weight(0.8f),
+            )
+        }
 
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            StratumText(
+                text = stringResource(CoreUiR.string.plate_calculator_bar_weight_presets),
+                style = StratumThemeAccessor.typography.sectionLabel,
+                color = StratumThemeAccessor.colors.textMuted,
+            )
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                val applyWeight = onApplyWeight
-                val canApply = applyWeight != null && plateLoad.isValid && plateLoad.totalWeight > 0.0
-                if (canApply && applyWeight != null) {
-                    StratumButton(
-                        text = stringResource(
-                            CoreUiR.string.plate_calculator_apply_to_set,
-                            formatWeightAmount(plateLoad.totalWeight),
-                            unitSuffix,
-                        ),
-                        onClick = {
-                            applyWeight(plateLoad.totalWeight, inventoryFromEdits())
-                            onDismissRequest()
+                barPresets.forEach { preset ->
+                    StratumFilterChip(
+                        label = barPresetLabel(preset, unitSuffix),
+                        selected = parsedBarWeight == preset.weight,
+                        onSelectedChange = {
+                            barWeightText = PlateColors.formatPlateWeight(preset.weight)
                         },
-                        modifier = Modifier.weight(1f),
                     )
                 }
+            }
+        }
 
-                StratumOutlinedButton(
-                    text = stringResource(CoreUiR.string.plate_calculator_done),
-                    onClick = onDismissRequest,
-                    modifier = if (canApply) Modifier.weight(0.5f) else Modifier.fillMaxWidth(),
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            StratumText(
+                text = stringResource(CoreUiR.string.plate_calculator_available_plates),
+                style = StratumThemeAccessor.typography.sectionLabel,
+                color = StratumThemeAccessor.colors.textMuted,
+            )
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                allPlateDenominations.forEach { plateWeight ->
+                    val isEnabled = plateWeight in enabledPlates
+                    val plateColor = PlateColors.colorFor(plateWeight, isKg = isKg)
+                    val weightStr = PlateColors.formatPlateWeight(plateWeight)
+
+                    StratumFilterChip(
+                        label = "$weightStr $unitSuffix",
+                        selected = isEnabled,
+                        onSelectedChange = { checked ->
+                            enabledPlates = if (checked) {
+                                enabledPlates + plateWeight
+                            } else {
+                                enabledPlates - plateWeight
+                            }
+                        },
+                        trailingIcon = {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(plateColor),
+                            )
+                        },
+                    )
+                }
+            }
+        }
+
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            StratumText(
+                text = stringResource(CoreUiR.string.plate_calculator_barbell_diagram),
+                style = StratumThemeAccessor.typography.sectionLabel,
+                color = StratumThemeAccessor.colors.textMuted,
+            )
+            StratumPlateBarbellDiagram(
+                platesPerSide = if (plateLoad.isValid) plateLoad.platesPerSide else emptyList(),
+                isMini = false,
+                showPerSideBadge = true,
+            )
+        }
+
+        PlateLoadBreakdownCard(plateLoad = plateLoad, unitSuffix = unitSuffix)
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            val applyWeight = onApplyWeight
+            val canApply = applyWeight != null && plateLoad.isValid && plateLoad.totalWeight > 0.0
+            if (canApply && applyWeight != null) {
+                StratumButton(
+                    text = stringResource(
+                        CoreUiR.string.plate_calculator_apply_to_set,
+                        formatWeightAmount(plateLoad.totalWeight),
+                        unitSuffix,
+                    ),
+                    onClick = {
+                        applyWeight(plateLoad.totalWeight, inventoryFromEdits())
+                        onDismissRequest()
+                    },
+                    modifier = Modifier.weight(1f),
                 )
             }
+
+            StratumOutlinedButton(
+                text = stringResource(CoreUiR.string.plate_calculator_done),
+                onClick = onDismissRequest,
+                modifier = if (canApply) Modifier.weight(0.5f) else Modifier.fillMaxWidth(),
+            )
         }
     }
 }

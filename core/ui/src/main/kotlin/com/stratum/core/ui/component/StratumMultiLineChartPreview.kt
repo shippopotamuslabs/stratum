@@ -36,7 +36,7 @@ private fun StratumMultiLineChartNeoDarkPreview() {
 }
 
 @Composable
-private fun PreviewMultiLine() {
+internal fun PreviewMultiLine() {
     val colors = StratumThemeAccessor.colors
     StratumMultiLineChart(
         primarySeries = previewHours(3.2f, 3.0f, 2.4f, 3.4f, 3.1f, 3.6f, 3.2f),

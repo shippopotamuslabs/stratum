@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.apter.robolectric.junit5)
+    alias(libs.plugins.screenshot)
 }
 
 android {
