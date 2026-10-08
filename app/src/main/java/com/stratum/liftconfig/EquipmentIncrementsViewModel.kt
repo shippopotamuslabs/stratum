@@ -323,8 +323,40 @@ class EquipmentIncrementsViewModel @Inject constructor(
     }
 
     /**
+     * First-band start edit (STR-101): only band 0's start is user-editable —
+     * it has no predecessor to tile from. Every later band's start stays
+     * derived from the previous band's end ([IncrementBandTiling]), so edits
+     * targeting other bands are ignored.
+     */
+    fun onBandStartChanged(index: Int, value: String) {
+        updateDraft { tiers ->
+            // Only band 0's start is stored state; later bands tile from their
+            // predecessor, so start edits there are an intentional no-op.
+            if (index != 0 || tiers.isEmpty()) return@updateDraft tiers
+            tiers.toMutableList().also { updated ->
+                updated[0] = updated[0].copy(lowerBound = IncrementTierDraftOps.filterNumeric(value))
+            }
+        }
+    }
+
+    /**
+     * Single entry point for band draft-field edits (one callback in
+     * [IncrementEditorBandActions] instead of three parallel ones); dispatches
+     * to the per-field handlers above. Thin adapters kept because call sites
+     * (and tests) address fields individually.
+     */
+    fun onBandFieldChanged(index: Int, field: BandField, value: String) {
+        when (field) {
+            BandField.START -> onBandStartChanged(index, value)
+            BandField.END -> onBandEndChanged(index, value)
+            BandField.STEP -> onTierIncrementChanged(index, value)
+        }
+    }
+
+    /**
      * Band-strip end edit (STR-58): replaces the band's end and re-tiles
-     * neighbors so bands never gap or overlap. Starts are derived, never typed.
+     * neighbors so bands never gap or overlap. Starts of bands after the
+     * first are derived, never typed.
      */
     fun onBandEndChanged(index: Int, value: String) {
         updateDraft { tiers ->
