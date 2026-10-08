@@ -495,7 +495,11 @@ private fun BandAddCell(
  * in one place. Then Ends-at and Step. (STR-103: Ends-at is half-typed UI-local
  * state — the field can be cleared mid-typing and shows exactly what was
  * typed; only a valid numeric end is committed to the draft, so a blank or
- * non-numeric value shows the error border and Done simply keeps the old end.) */
+ * non-numeric value shows the error border and Done simply keeps the old end.)
+ * (STR-104: Starts-at on bands after the first is half-typed UI-local state
+ * too — only a valid numeric start is committed, which moves the previous
+ * band's end via re-tiling; a blank or non-numeric value shows the error
+ * border and Done simply keeps the derived start.) */
 @Composable
 internal fun BandEditorSheet(
     index: Int,
@@ -513,6 +517,15 @@ internal fun BandEditorSheet(
     onDismiss: () -> Unit,
 ) {
     val isFirst = index == 0
+    // STR-104: the in-progress Starts-at text for bands after the first lives
+    // here, mirroring the Ends-at field (STR-103) — clearing the field is
+    // always possible, and only valid starts are pushed to onStartChanged
+    // (which moves the previous band's end via re-tiling). Keyed on the
+    // derived start so committed edits re-sync the field. Band 0 keeps its
+    // stored start (STR-101) and never uses this state.
+    var startText by remember(index, start) { mutableStateOf(start) }
+    val startInvalid =
+        !isFirst && with(IncrementBandTiling) { tiers.isStartInvalid(index, startText) }
     // STR-103: the in-progress Ends-at text lives here, not in the draft —
     // clearing the field is always possible, and only valid ends are pushed
     // to onEndChanged. Keyed on the band so reopening re-reads the draft.
@@ -531,9 +544,25 @@ internal fun BandEditorSheet(
             muted = true,
         )
         StratumTextField(
-            value = if (isFirst) tier.lowerBound else start,
-            onValueChange = onStartChanged,
+            value = if (isFirst) tier.lowerBound else startText,
+            onValueChange = { raw ->
+                if (isFirst) {
+                    // STR-101: the first band's start is stored state and
+                    // commits every keystroke (blank reads as zero).
+                    onStartChanged(raw)
+                } else {
+                    val filtered = IncrementTierDraftOps.filterNumeric(raw)
+                    startText = filtered
+                    // Only valid starts reach the draft: an invalid value
+                    // stays local, flags the error border, and is dropped on
+                    // Done — the derived start is never touched.
+                    if (!with(IncrementBandTiling) { tiers.isStartInvalid(index, filtered) }) {
+                        onStartChanged(filtered)
+                    }
+                }
+            },
             label = stringResource(UiR.string.equipment_band_starts_at_label, unitLabel),
+            isError = startInvalid,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             modifier = Modifier.fillMaxWidth(),
         )

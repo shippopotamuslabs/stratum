@@ -156,6 +156,47 @@ class IncrementBandTilingTest {
     }
 
     @Test
+    @DisplayName("Given a blank or non-numeric start on a later band when checked then it is invalid")
+    fun blankOrNonNumericStartIsInvalid() {
+        with(IncrementBandTiling) {
+            assertTrue(twoBand.isStartInvalid(1, ""))
+            assertTrue(twoBand.isStartInvalid(1, null))
+            assertTrue(twoBand.isStartInvalid(1, "-"))
+            assertTrue(twoBand.isStartInvalid(1, "abc"))
+        }
+    }
+
+    @Test
+    @DisplayName("Given a numeric start on a later band when checked then it is valid")
+    fun numericStartIsValid() {
+        with(IncrementBandTiling) {
+            assertFalse(twoBand.isStartInvalid(1, "50"))
+            assertFalse(twoBand.isStartInvalid(1, "2.5"))
+        }
+    }
+
+    @Test
+    @DisplayName("Given band zero when checked then its start is never invalid here")
+    fun bandZeroStartNeverInvalid() {
+        with(IncrementBandTiling) {
+            // Band 0's start is stored state (blank reads as zero) and never
+            // routes through the sheet-local start gate.
+            assertFalse(twoBand.isStartInvalid(0, ""))
+            assertFalse(twoBand.isStartInvalid(0, null))
+            assertFalse(twoBand.isStartInvalid(0, "abc"))
+        }
+    }
+
+    @Test
+    @DisplayName("Given an out-of-bounds index when checked then the start is never invalid")
+    fun outOfBoundsStartIndexNeverInvalid() {
+        with(IncrementBandTiling) {
+            assertFalse(twoBand.isStartInvalid(-1, ""))
+            assertFalse(twoBand.isStartInvalid(7, ""))
+        }
+    }
+
+    @Test
     @DisplayName("Given a band list when retiled then the first keeps its start and last stays open")
     fun retiledPreservesFirstStartAndOpensLast() {
         val drafts =
