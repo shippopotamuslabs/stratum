@@ -299,6 +299,29 @@ class EquipmentIncrementsViewModelTest {
     }
 
     @Test
+    @DisplayName("Given a blank end edit when applied then the old end is kept and neighbors stay tiled")
+    fun endEditIgnoresBlankEnd() = runTest {
+        subject.initialize(cableId.value)
+        subject.uiState.test {
+            awaitItemWith { it.equipmentName == "Cables" && it.editor.tiers.isNotEmpty() }
+            subject.addTier()
+            awaitItemWith { it.editor.tiers.size == 2 }
+            subject.onBandEndChanged(0, "60")
+            val edited = awaitItemWith { it.editor.tiers[0].upperBound == "60" }
+            assertEquals("60", edited.editor.tiers[1].lowerBound)
+            // STR-103: a cleared field never reaches the draft — the blank edit
+            // is ignored and emits nothing, so Done on an invalid value keeps
+            // the old end by construction.
+            subject.onBandFieldChanged(0, BandField.END, "")
+            expectNoEvents()
+            val kept = subject.uiState.value
+            assertEquals("60", kept.editor.tiers[0].upperBound)
+            assertEquals("60", kept.editor.tiers[1].lowerBound)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     @DisplayName("Given a first-band start of 10 when saved then the stored tiers keep it")
     fun savePersistsCustomFirstBandStart() = runTest {
         subject.initialize(cableId.value)

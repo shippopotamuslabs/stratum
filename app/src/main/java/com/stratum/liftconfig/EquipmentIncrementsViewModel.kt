@@ -360,10 +360,10 @@ class EquipmentIncrementsViewModel @Inject constructor(
 
     /**
      * Band-strip end edit (STR-58): replaces the band's end and re-tiles
-     * neighbors so bands never gap or overlap. Editing a later band's start
-     * routes here too ([onBandStartChanged] moves the previous band's end),
-     * so a band's start is never typed as free state — it tiles from the
-     * predecessor's end.
+     * neighbors so bands never gap or overlap. Blank edits are ignored — the
+     * sheet (STR-103) holds half-typed text locally and only commits valid
+     * numeric ends here, so a cleared field never collapses a band and an
+     * invalid value never reaches the draft.
      */
     fun onBandEndChanged(index: Int, value: String) {
         updateDraft { tiers ->

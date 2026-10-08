@@ -21,6 +21,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -271,6 +272,7 @@ internal fun IncrementEditorScreen(
     if (selection != null && editor.tiers.indices.contains(selection)) {
         BandEditorSheet(
             index = selection,
+            tiers = editor.tiers,
             tier = editor.tiers[selection],
             start =
                 if (selection == 0) {
@@ -490,10 +492,14 @@ private fun BandAddCell(
 /** Band editor sheet (STR-101, STR-102): every band's start is editable.
  * The first band stores its own start; editing a later band's start moves the
  * previous band's end to match via re-tiling, so the new band is fully set up
- * in one place. Then Ends-at and Step. */
+ * in one place. Then Ends-at and Step. (STR-103: Ends-at is half-typed UI-local
+ * state — the field can be cleared mid-typing and shows exactly what was
+ * typed; only a valid numeric end is committed to the draft, so a blank or
+ * non-numeric value shows the error border and Done simply keeps the old end.) */
 @Composable
 internal fun BandEditorSheet(
     index: Int,
+    tiers: List<IncrementTierDraft>,
     tier: IncrementTierDraft,
     start: String,
     isLast: Boolean,
@@ -507,6 +513,14 @@ internal fun BandEditorSheet(
     onDismiss: () -> Unit,
 ) {
     val isFirst = index == 0
+    // STR-103: the in-progress Ends-at text lives here, not in the draft —
+    // clearing the field is always possible, and only valid ends are pushed
+    // to onEndChanged. Keyed on the band so reopening re-reads the draft.
+    var endText by remember(index, tier.upperBound) {
+        mutableStateOf(tier.upperBound.orEmpty())
+    }
+    val endInvalid =
+        with(IncrementBandTiling) { tiers.isEndInvalid(index, endText) }
     StratumBottomSheet(
         onDismissRequest = onDismiss,
         title = stringResource(UiR.string.equipment_band_editor_title, index + 1),
@@ -524,10 +538,19 @@ internal fun BandEditorSheet(
             modifier = Modifier.fillMaxWidth(),
         )
         StratumTextField(
-            value = tier.upperBound.orEmpty(),
-            onValueChange = onEndChanged,
+            value = endText,
+            onValueChange = { raw ->
+                val filtered = IncrementTierDraftOps.filterNumeric(raw)
+                endText = filtered
+                // Only valid ends reach the draft: an invalid value stays
+                // local, flags the error border, and is dropped on Done.
+                if (!with(IncrementBandTiling) { tiers.isEndInvalid(index, filtered) }) {
+                    onEndChanged(filtered)
+                }
+            },
             label = stringResource(UiR.string.equipment_band_ends_at, unitLabel),
             enabled = !isLast,
+            isError = endInvalid,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             modifier = Modifier.fillMaxWidth(),
         )
