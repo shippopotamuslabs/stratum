@@ -146,24 +146,20 @@ internal fun LiftSwapPreviewContent(family: StratumThemeId, state: LiftSwapSheet
 internal fun previewSwapIdle(): LiftSwapSheetState =
     previewSwapBase(
         searchQuery = "",
-        options = previewSwapOptions(),
+        options = previewSwapOptions,
     )
 
 internal fun previewSwapSearching(): LiftSwapSheetState =
     previewSwapBase(
         searchQuery = "Bench",
-        options =
-            listOf(
-                previewSwapOptions()[0],
-                previewSwapOptions()[2],
-            ),
+        options = previewSwapOptionsById("lift-1", "lift-3"),
     )
 
 internal fun previewSwapResults(): LiftSwapSheetState =
     previewSwapBase(
         searchQuery = "",
         selectedMuscles = setOf(MuscleGroup.Chest),
-        options = listOf(previewSwapOptions()[0]),
+        options = previewSwapOptionsById("lift-1"),
     )
 
 internal fun previewSwapEmpty(): LiftSwapSheetState =
@@ -213,7 +209,7 @@ private fun previewSwapBase(
         searchQuery = searchQuery,
     )
 
-private fun previewSwapOptions(): List<LiftSwapOptionState> =
+private val previewSwapOptions: List<LiftSwapOptionState> =
     listOf(
         LiftSwapOptionState(
             id = "lift-1",
@@ -243,3 +239,9 @@ private fun previewSwapOptions(): List<LiftSwapOptionState> =
             isCustom = true,
         ),
     )
+
+/** Subset of [previewSwapOptions] by stable id (never positional index). */
+private fun previewSwapOptionsById(vararg ids: String): List<LiftSwapOptionState> {
+    val byId = previewSwapOptions.associateBy { it.id }
+    return ids.map { byId.getValue(it) }
+}
