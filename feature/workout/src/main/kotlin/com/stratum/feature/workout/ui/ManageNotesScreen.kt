@@ -60,6 +60,20 @@ internal fun editableFromLoaded(loaded: List<NoteDraftUi>): List<EditableNote> =
         )
     }
 
+/** Preview-seam initial drafts for the three note tabs, derived from one [NoteListsUi]. */
+private data class InitialNotesDrafts(
+    val session: List<EditableNote>,
+    val workout: List<EditableNote>,
+    val lift: List<EditableNote>,
+)
+
+private fun initialNotesDrafts(initialLists: NoteListsUi?): InitialNotesDrafts =
+    InitialNotesDrafts(
+        session = initialLists?.session?.let(::editableFromLoaded).orEmpty(),
+        workout = initialLists?.workout?.let(::editableFromLoaded).orEmpty(),
+        lift = initialLists?.lift?.let(::editableFromLoaded).orEmpty(),
+    )
+
 /** True when the drafts differ from [loaded] after dropping blank drafts. */
 internal fun noteDraftsDirty(loaded: List<NoteDraftUi>, drafts: List<EditableNote>): Boolean {
     val clean = drafts.filter { it.body.isNotBlank() }
@@ -92,14 +106,17 @@ fun ManageNotesScreen(
         mutableStateOf(initialLists)
     }
     var selectedTab by remember(target) { mutableStateOf(target.tab) }
-    var sessionDrafts by remember(target.workoutLiftId) {
-        mutableStateOf(initialLists?.session?.let(::editableFromLoaded).orEmpty())
+    val initialDrafts = remember(target.workoutLiftId, initialLists) {
+        initialNotesDrafts(initialLists)
     }
-    var workoutDrafts by remember(target.workoutLiftId) {
-        mutableStateOf(initialLists?.workout?.let(::editableFromLoaded).orEmpty())
+    var sessionDrafts by remember(target.workoutLiftId, initialLists) {
+        mutableStateOf(initialDrafts.session)
     }
-    var liftDrafts by remember(target.workoutLiftId) {
-        mutableStateOf(initialLists?.lift?.let(::editableFromLoaded).orEmpty())
+    var workoutDrafts by remember(target.workoutLiftId, initialLists) {
+        mutableStateOf(initialDrafts.workout)
+    }
+    var liftDrafts by remember(target.workoutLiftId, initialLists) {
+        mutableStateOf(initialDrafts.lift)
     }
     /** Key of the note added via "Add Note" awaiting initial focus + keyboard. */
     var pendingFocusKey by remember(target.workoutLiftId) {
