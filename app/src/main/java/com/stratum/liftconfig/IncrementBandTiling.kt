@@ -34,9 +34,11 @@ object IncrementBandTiling {
      * lower follows its predecessor's end, and the last band stays open-ended.
      * Edits to the last band's end are ignored (it has no end). Blank [newEnd]
      * keeps the current end so a cleared field never silently collapses a band.
-     * (STR-102: a later band's start edit routes here — the start is a derived
-     * value, so a cleared start snaps back by design.)
-     * (STR-103: the sheet holds half-typed text locally and only commits valid
+     * (STR-102: a later band's start edit routes here. STR-104: the sheet holds
+     * half-typed start text locally and only commits valid starts here, so the
+     * draft never sees a blank or non-numeric start; the blank guard below is
+     * defense-in-depth for any other caller.)
+     * (STR-103: the sheet holds half-typed end text locally and only commits valid
      * ends here, so the draft never sees a blank or non-numeric end.)
      */
     fun retileAfterEndEdit(
@@ -67,6 +69,20 @@ object IncrementBandTiling {
     fun List<IncrementTierDraft>.isEndInvalid(index: Int, end: String?): Boolean {
         if (index !in indices || index == lastIndex) return false
         return end.isNullOrBlank() || end.toDoubleOrNull() == null
+    }
+
+    /**
+     * Field-level validity for the sheet's Starts-at candidate on bands after
+     * the first (STR-104): a blank or non-numeric start is invalid and renders
+     * the red error border. An invalid candidate is never committed, so the
+     * derived start is untouched and Done simply keeps it. Band 0's start is
+     * stored state with its own blank-means-zero rule ([firstBandStartOrZero])
+     * and never routes through the sheet-local gate, so index 0 (and
+     * out-of-bounds indexes) are never invalid here.
+     */
+    fun List<IncrementTierDraft>.isStartInvalid(index: Int, start: String?): Boolean {
+        if (index !in indices || index == 0) return false
+        return start.isNullOrBlank() || start.toDoubleOrNull() == null
     }
 
     /**
