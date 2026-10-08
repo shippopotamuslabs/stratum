@@ -487,8 +487,10 @@ private fun BandAddCell(
     }
 }
 
-/** Band editor sheet: the first band's start is editable (STR-101); every
- * later band shows its derived start plus exactly Ends-at and Step. */
+/** Band editor sheet (STR-101, STR-102): every band's start is editable.
+ * The first band stores its own start; editing a later band's start moves the
+ * previous band's end to match via re-tiling, so the new band is fully set up
+ * in one place. Then Ends-at and Step. */
 @Composable
 internal fun BandEditorSheet(
     index: Int,
@@ -504,7 +506,6 @@ internal fun BandEditorSheet(
     onDone: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val colors = StratumThemeAccessor.colors
     val isFirst = index == 0
     StratumBottomSheet(
         onDismissRequest = onDismiss,
@@ -515,34 +516,13 @@ internal fun BandEditorSheet(
             style = StratumThemeAccessor.typography.sectionLabel,
             muted = true,
         )
-        if (isFirst) {
-            StratumTextField(
-                value = tier.lowerBound,
-                onValueChange = onStartChanged,
-                label = stringResource(UiR.string.equipment_band_starts_at_label, unitLabel),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                modifier = Modifier.fillMaxWidth(),
-            )
-        } else {
-            StratumText(
-                text =
-                    stringResource(
-                        UiR.string.equipment_band_starts_at,
-                        start,
-                        unitLabel,
-                    ),
-                style = StratumThemeAccessor.typography.bodyLarge,
-                muted = true,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .background(
-                            color = colors.surfaceSunken,
-                            shape = StratumThemeAccessor.shapes.panel,
-                        )
-                        .padding(horizontal = 14.dp, vertical = 12.dp),
-            )
-        }
+        StratumTextField(
+            value = if (isFirst) tier.lowerBound else start,
+            onValueChange = onStartChanged,
+            label = stringResource(UiR.string.equipment_band_starts_at_label, unitLabel),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            modifier = Modifier.fillMaxWidth(),
+        )
         StratumTextField(
             value = tier.upperBound.orEmpty(),
             onValueChange = onEndChanged,

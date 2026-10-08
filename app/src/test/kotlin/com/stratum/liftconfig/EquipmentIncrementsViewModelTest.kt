@@ -235,8 +235,11 @@ class EquipmentIncrementsViewModelTest {
     }
 
     @Test
-    @DisplayName("Given a start edit on a later band when applied then it is ignored")
-    fun laterBandStartEditIsIgnored() = runTest {
+    @DisplayName(
+        "Given a start edit on a later band when applied then the prior band's end moves " +
+            "to match and neighbors re-tile with no gap",
+    )
+    fun laterBandStartEditRetilesPriorBandEnd() = runTest {
         subject.initialize(cableId.value)
         subject.uiState.test {
             awaitItemWith { it.equipmentName == "Cables" && it.editor.tiers.isNotEmpty() }
@@ -244,9 +247,31 @@ class EquipmentIncrementsViewModelTest {
             awaitItemWith { it.editor.tiers.size == 2 }
             subject.onBandEndChanged(0, "60")
             awaitItemWith { it.editor.tiers[0].upperBound == "60" }
-            subject.onBandStartChanged(1, "99")
-            // Ignored edits emit no new state; the derived start still tiles from band 0's end.
-            assertEquals("60", subject.uiState.value.editor.tiers[1].lowerBound)
+            subject.onBandStartChanged(1, "70")
+            val retiled = awaitItemWith { it.editor.tiers[0].upperBound == "70" }
+            assertEquals("0", retiled.editor.tiers[0].lowerBound)
+            assertEquals("70", retiled.editor.tiers[0].upperBound)
+            assertEquals("70", retiled.editor.tiers[1].lowerBound)
+            assertTrue(retiled.editor.tiers[1].openEnded)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName(
+        "Given the unified field callback with a later band's start when edited then it " +
+            "re-tiles the prior band's end through the same dispatch",
+    )
+    fun bandFieldChangedStartOnLaterBandRetilesPriorBand() = runTest {
+        subject.initialize(cableId.value)
+        subject.uiState.test {
+            awaitItemWith { it.equipmentName == "Cables" && it.editor.tiers.isNotEmpty() }
+            subject.addTier()
+            awaitItemWith { it.editor.tiers.size == 2 }
+            subject.onBandFieldChanged(1, BandField.START, "80")
+            val retiled = awaitItemWith { it.editor.tiers[0].upperBound == "80" }
+            assertEquals("80", retiled.editor.tiers[1].lowerBound)
+            assertTrue(retiled.editor.tiers[1].openEnded)
             cancelAndIgnoreRemainingEvents()
         }
     }
