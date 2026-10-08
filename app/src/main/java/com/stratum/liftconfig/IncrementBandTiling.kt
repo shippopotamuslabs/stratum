@@ -1,22 +1,31 @@
 package com.stratum.liftconfig
 
 /**
- * Band-strip tiling math (STR-58, STR-101): the first band's start is
- * user-editable (existing configs default to 0, so nothing changes unless
- * edited); every later band's start is derived from the previous band's end,
- * and the last band is always open-ended. Single home for the
- * start-derivation rule so band edits, adds, and removes cannot drift apart.
+ * Band-strip tiling math (STR-58, STR-101): the first band's start is stored
+ * state — user-editable, read via [firstBandStartOrZero] — while every later
+ * band's start is derived from the previous band's end via [startAt], and the
+ * last band is always open-ended. The two are deliberately separate functions
+ * so callers can tell editable state from derived state at a glance.
  * Operates on display-unit draft strings; domain conversion stays in
  * [IncrementTierDraftOps].
  */
 object IncrementBandTiling {
     /**
-     * Start of band [index]: the first band's own lower bound (`"0"` when
-     * blank, so existing configs read as unchanged), otherwise the previous
-     * band's end. Empty when the previous end is blank.
+     * Stored start of the first band: its own lower bound (`"0"` when blank,
+     * so existing configs read as unchanged). Editable state — the first
+     * band has no predecessor to tile from.
+     */
+    fun firstBandStartOrZero(tiers: List<IncrementTierDraft>): String =
+        tiers.getOrNull(0)?.lowerBound.orEmpty().ifBlank { "0" }
+
+    /**
+     * Derived start of band [index]: the previous band's end. Empty when the
+     * previous end is blank. Requires [index] > 0 — band 0's start is stored
+     * state, see [firstBandStartOrZero]; there is no predecessor to derive
+     * from, so deriving would silently fabricate a value.
      */
     fun startAt(tiers: List<IncrementTierDraft>, index: Int): String {
-        if (index <= 0) return tiers.getOrNull(0)?.lowerBound.orEmpty().ifBlank { "0" }
+        require(index > 0) { "Band 0's start is stored state; use firstBandStartOrZero" }
         return tiers.getOrNull(index - 1)?.upperBound.orEmpty()
     }
 
@@ -53,7 +62,12 @@ object IncrementBandTiling {
      */
     fun retiled(tiers: List<IncrementTierDraft>): List<IncrementTierDraft> =
         tiers.mapIndexed { i, tier ->
-            val lower = startAt(tiers, i).ifBlank { tier.lowerBound }
+            val lower =
+                if (i == 0) {
+                    firstBandStartOrZero(tiers)
+                } else {
+                    startAt(tiers, i).ifBlank { tier.lowerBound }
+                }
             if (i == tiers.lastIndex) {
                 tier.copy(lowerBound = lower, openEnded = true, upperBound = null)
             } else {

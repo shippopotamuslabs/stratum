@@ -87,15 +87,24 @@ data class IncrementEditorChrome(
     val forkSuggestion: String?,
 )
 
+/** Which draft field of a band the user edited; one entry point for all band field edits. */
+enum class BandField {
+    START,
+    END,
+    STEP,
+}
+
 /** Band-strip callbacks, grouped so the screen signature stays lean. */
 data class IncrementEditorBandActions(
     val onBandClick: (Int) -> Unit,
     val onAddBand: () -> Unit,
     val onBandSheetDismiss: () -> Unit,
-    /** First-band start only (STR-101); later bands' starts stay derived. */
-    val onBandStartChanged: (Int, String) -> Unit,
-    val onBandEndChanged: (Int, String) -> Unit,
-    val onBandStepChanged: (Int, String) -> Unit,
+    /**
+     * Single entry point for band draft-field edits. Was three parallel
+     * (Int, String) -> Unit callbacks (start/end/step) that differed only by
+     * field; the enum keeps the boundary from growing with every new field.
+     */
+    val onBandFieldChanged: (Int, BandField, String) -> Unit,
     val onDeleteBand: (Int) -> Unit,
 )
 
@@ -263,13 +272,18 @@ internal fun IncrementEditorScreen(
         BandEditorSheet(
             index = selection,
             tier = editor.tiers[selection],
-            start = IncrementBandTiling.startAt(editor.tiers, selection),
+            start =
+                if (selection == 0) {
+                    IncrementBandTiling.firstBandStartOrZero(editor.tiers)
+                } else {
+                    IncrementBandTiling.startAt(editor.tiers, selection)
+                },
             isLast = selection == editor.tiers.lastIndex,
             canDelete = editor.tiers.size > 1,
             unitLabel = editor.unitLabel,
-            onStartChanged = { bandActions.onBandStartChanged(selection, it) },
-            onEndChanged = { bandActions.onBandEndChanged(selection, it) },
-            onStepChanged = { bandActions.onBandStepChanged(selection, it) },
+            onStartChanged = { bandActions.onBandFieldChanged(selection, BandField.START, it) },
+            onEndChanged = { bandActions.onBandFieldChanged(selection, BandField.END, it) },
+            onStepChanged = { bandActions.onBandFieldChanged(selection, BandField.STEP, it) },
             onDelete = { bandActions.onDeleteBand(selection) },
             onDone = bandActions.onBandSheetDismiss,
             onDismiss = bandActions.onBandSheetDismiss,
@@ -709,7 +723,12 @@ internal fun BandCaption(
     unitLabel: String,
     modifier: Modifier = Modifier,
 ) {
-    val start = IncrementBandTiling.startAt(tiers, selection)
+    val start =
+        if (selection == 0) {
+            IncrementBandTiling.firstBandStartOrZero(tiers)
+        } else {
+            IncrementBandTiling.startAt(tiers, selection)
+        }
     val isOpen = selection == tiers.lastIndex
     StratumText(
         text =
