@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
 import com.patrykandpatrick.vico.compose.cartesian.axis.HorizontalAxis
+import com.patrykandpatrick.vico.compose.cartesian.axis.VerticalAxis
 import com.patrykandpatrick.vico.compose.cartesian.axis.rememberAxisLabelComponent
 import com.patrykandpatrick.vico.compose.cartesian.axis.rememberAxisLineComponent
 import com.patrykandpatrick.vico.compose.cartesian.axis.rememberAxisTickComponent
@@ -41,6 +42,9 @@ import com.stratum.core.ui.theme.StratumThemeAccessor
  * of Light vs Deep vs REM vs Awake sleep, or a body-weight trend). Optional [dayLabels] render as a
  * quiet X-axis. Points are tappable so a parent pager can show the value at that day.
  * Use [valueFormat] [CompactChartValueFormat.HoursMinutes] when Y is stored as hours.
+ *
+ * @param showYAxis when true, draw a quiet start axis labeled with [yScale] formatting. The line
+ * layer already ranges via [yScale], so the axis only reveals the existing scale.
  */
 @Composable
 fun StratumMultiLineChart(
@@ -57,6 +61,7 @@ fun StratumMultiLineChart(
     dayLabels: List<String> = emptyList(),
     yScale: DetailYScale = DetailYScale.Volume,
     valueFormat: CompactChartValueFormat = CompactChartValueFormat.Number,
+    showYAxis: Boolean = false,
 ) {
     val colors = StratumThemeAccessor.colors
     val resolvedPrimary = if (primaryColor == Color.Unspecified) colors.textMuted else primaryColor
@@ -168,6 +173,24 @@ fun StratumMultiLineChart(
     } else {
         null
     }
+    val yFormatter = remember(yScale) {
+        CartesianValueFormatter { _, value, _ -> formatChartNumber(value, yScale) }
+    }
+    val yItemPlacer = remember {
+        VerticalAxis.ItemPlacer.count(count = { Y_AXIS_LABEL_COUNT })
+    }
+    val startAxis = if (showYAxis) {
+        VerticalAxis.rememberStart(
+            line = invisibleLine,
+            label = axisLabel,
+            tick = invisibleTick,
+            guideline = null,
+            valueFormatter = yFormatter,
+            itemPlacer = yItemPlacer,
+        )
+    } else {
+        null
+    }
 
     val lineProvider = LineCartesianLayer.LineProvider.series(lineStyles)
     val marker = rememberStratumChartMarker(
@@ -181,6 +204,7 @@ fun StratumMultiLineChart(
             rangeProvider = rangeProviderFor(yScale),
         ),
         bottomAxis = bottomAxis,
+        startAxis = startAxis,
         marker = marker,
         markerController = rememberStratumChartMarkerController(),
     )
@@ -232,6 +256,7 @@ private fun MultiLineBaselineOnly(modifier: Modifier, color: Color) {
 private const val LINE_STROKE_WIDTH_DP = 2
 private const val POINT_SIZE_DP = 6
 private const val AXIS_LABEL_SP = 9
+private const val Y_AXIS_LABEL_COUNT = 4
 private const val EMPTY_HEIGHT_DP = 48
 private const val STROKE_PADDING_PX = 4f
 private const val MIN_POINTS_FOR_LINE = 2

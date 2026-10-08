@@ -54,8 +54,11 @@ import com.stratum.core.ui.theme.StratumThemeAccessor
 import java.time.Instant
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import kotlin.math.floor
+import kotlin.math.log10
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.pow
 
 /**
  * Fullscreen detail chart with real Y values and date X labels.
@@ -480,6 +483,14 @@ internal object VolumeRangeProvider : CartesianLayerRangeProvider {
         volumeYRange(minY, maxY).second
 }
 
+internal object StepsRangeProvider : CartesianLayerRangeProvider {
+    override fun getMinY(minY: Double, maxY: Double, extraStore: ExtraStore): Double =
+        stepsYRange(minY, maxY).first
+
+    override fun getMaxY(minY: Double, maxY: Double, extraStore: ExtraStore): Double =
+        stepsYRange(minY, maxY).second
+}
+
 /**
  * Signed progress index about zero. Always includes 0 and a minimum span so flat near-zero weeks
  * still draw axis ticks without dividing by zero.
@@ -525,6 +536,28 @@ internal fun volumeYRange(dataMin: Double, dataMax: Double): Pair<Double, Double
     val ceiling = max(hi, VOLUME_MIN_SPAN)
     val pad = max(ceiling * VOLUME_PAD_FRACTION, VOLUME_MIN_SPAN * VOLUME_PAD_FRACTION)
     return 0.0 to (ceiling + pad)
+}
+
+/**
+ * Hero Steps bars. Floor at 0; ceiling is twice the smallest nice tick step covering half the
+ * peak, so the 3 evenly-spaced axis ticks always land on round labels ("0 / 5k / 10k").
+ * Guarantees positive length for all-zero / flat / non-finite input.
+ */
+internal fun stepsYRange(dataMin: Double, dataMax: Double): Pair<Double, Double> {
+    val (_, hi) = finiteDataBounds(dataMin, dataMax, fallbackSpan = STEPS_MIN_SPAN)
+    val peak = max(hi, 0.0)
+    val step = niceStepsTickStep(max(peak / 2.0, STEPS_MIN_TICK_STEP))
+    return 0.0 to (step * 2.0)
+}
+
+/** Smallest 1/2/2.5/5 × 10ⁿ step at or above [value] ([value] must be positive). */
+internal fun niceStepsTickStep(value: Double): Double {
+    val base = 10.0.pow(floor(log10(value)))
+    for (multiple in NICE_STEP_MULTIPLES) {
+        val candidate = multiple * base
+        if (candidate >= value) return candidate
+    }
+    return 10.0 * base
 }
 
 /** Coerce raw model min/max to a finite ordered pair with at least [fallbackSpan] width. */
@@ -582,5 +615,10 @@ private const val WEIGHT_MIN_SPAN = 5.0
 private const val WEIGHT_PAD_FRACTION = 0.08
 /** Minimum hard-set axis span so all-zero volume (rest week) still draws ticks. */
 private const val VOLUME_MIN_SPAN = 1.0
+/** Minimum step-data span for finite bounds; the tick floor below dominates the ceiling. */
+private const val STEPS_MIN_SPAN = 1.0
+/** Smallest half-range tick step, so all-zero / tiny step weeks still draw ticks (0/50/100). */
+private const val STEPS_MIN_TICK_STEP = 50.0
+private val NICE_STEP_MULTIPLES = doubleArrayOf(1.0, 2.0, 2.5, 5.0, 10.0)
 private const val VOLUME_PAD_FRACTION = 0.08
 private const val INDEX_NEGATIVE_LIGHTEN_FRACTION = 0.55f
