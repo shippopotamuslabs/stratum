@@ -1,6 +1,7 @@
 package com.stratum
 
 import com.stratum.core.ui.component.TrendPointUi
+import com.stratum.domain.healthconnect.DailyVitalSample
 import com.stratum.domain.healthconnect.HealthMetricsPages
 import com.stratum.domain.healthconnect.NightlySleepDuration
 import com.stratum.domain.healthconnect.RecoveryMetrics
@@ -79,10 +80,12 @@ class DashboardHealthUiTest {
         )
         assertTrue(
             RecoveryHealthPageUi(
-                stageSlices = listOf(
-                    SleepStageSliceUi(SleepStageUi.Light, 0.5f, "3h"),
-                    SleepStageSliceUi(SleepStageUi.Deep, 0.5f, "3h"),
-                ),
+                restingHrDailyPoints = listOf(TrendPointUi(0, 62f), TrendPointUi(1, 61f)),
+            ).hasChart(),
+        )
+        assertTrue(
+            RecoveryHealthPageUi(
+                hrvDailyPoints = listOf(TrendPointUi(0, 48f), TrendPointUi(1, 47f)),
             ).hasChart(),
         )
     }
@@ -124,10 +127,7 @@ class DashboardHealthUiTest {
         val ui = pages.toHealthUi(Weight.WeightUnit.Lb, zone)
 
         assertEquals("7h 12m", ui.recovery.lastNightDurationText)
-        assertEquals("3h 14m", ui.recovery.stageSlices.first { it.stage == SleepStageUi.Light }.durationText)
-        assertEquals("1h 35m", ui.recovery.stageSlices.first { it.stage == SleepStageUi.Deep }.durationText)
-        assertEquals("1h 39m", ui.recovery.stageSlices.first { it.stage == SleepStageUi.Rem }.durationText)
-        assertEquals("43m", ui.recovery.stageSlices.first { it.stage == SleepStageUi.Awake }.durationText)
+        assertEquals("7h 12m", ui.recovery.nightlyAverageText)
         assertEquals(3f, ui.recovery.lightNightlyPoints.single().value)
         assertEquals(2f, ui.recovery.deepNightlyPoints.single().value)
         assertEquals(2f, ui.recovery.remNightlyPoints.single().value)
@@ -161,7 +161,6 @@ class DashboardHealthUiTest {
         val ui = pages.toHealthUi(Weight.WeightUnit.Lb, zone)
 
         assertEquals(null, ui.recovery.lastNightDurationText)
-        assertTrue(ui.recovery.stageSlices.isEmpty())
         assertTrue(ui.recovery.hasChart())
         assertFalse(ui.recovery.showSleepEmptyText())
     }
@@ -205,6 +204,41 @@ class DashboardHealthUiTest {
                 nightlyPoints = listOf(TrendPointUi(0, 0f), TrendPointUi(1, 0f)),
             ).showSleepEmptyText(),
         )
+    }
+
+    @Test
+    @DisplayName("STR-98: recovery UI maps sparse per-day vitals and their averages")
+    fun recoveryMapsVitalTrendPoints() {
+        val zone = ZoneOffset.UTC
+        val pages = HealthMetricsPages(
+            visible = true,
+            recovery = RecoveryMetrics(
+                restingHeartRateDaily = listOf(
+                    DailyVitalSample(Instant.parse("2026-08-10T00:00:00Z"), 0.0),
+                    DailyVitalSample(Instant.parse("2026-08-11T00:00:00Z"), 62.0),
+                    DailyVitalSample(Instant.parse("2026-08-12T00:00:00Z"), 60.0),
+                ),
+                hrvDaily = listOf(
+                    DailyVitalSample(Instant.parse("2026-08-10T00:00:00Z"), 0.0),
+                    DailyVitalSample(Instant.parse("2026-08-11T00:00:00Z"), 44.0),
+                    DailyVitalSample(Instant.parse("2026-08-12T00:00:00Z"), 48.0),
+                ),
+            ),
+        )
+
+        val ui = pages.toHealthUi(Weight.WeightUnit.Lb, zone)
+
+        // Zero days are dropped; weekIndex keeps survivors aligned with the 7-day labels.
+        assertEquals(
+            listOf(TrendPointUi(1, 62f), TrendPointUi(2, 60f)),
+            ui.recovery.restingHrDailyPoints,
+        )
+        assertEquals(
+            listOf(TrendPointUi(1, 44f), TrendPointUi(2, 48f)),
+            ui.recovery.hrvDailyPoints,
+        )
+        assertEquals("46 ms", ui.recovery.hrvAverageText)
+        assertTrue(ui.recovery.hasChart())
     }
 
     @Test

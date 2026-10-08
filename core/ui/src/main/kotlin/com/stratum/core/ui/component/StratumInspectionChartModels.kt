@@ -51,6 +51,24 @@ internal fun syncColumnLayerModel(
     )
 
 /**
+ * Direct-model equivalent of `columnModel { series(...); series(...); ... }` for stacked
+ * columns: one entry list per segment series, index-aligned with the provider's colors.
+ */
+internal fun syncStackedColumnLayerModel(
+    series: List<List<TrendPointUi>>,
+): ColumnCartesianLayerModel =
+    ColumnCartesianLayerModel(
+        series = series.map { points ->
+            points.map { point ->
+                ColumnCartesianLayerModel.Entry(
+                    x = point.weekIndex.toDouble(),
+                    y = point.value.toDouble(),
+                )
+            }
+        },
+    )
+
+/**
  * Direct-model equivalent of `lineModel { series(...) }` for one or more series. Each series
  * takes its x values from [xs] by index; a series without x values falls back to indices,
  * matching `series(y = ...)` semantics.

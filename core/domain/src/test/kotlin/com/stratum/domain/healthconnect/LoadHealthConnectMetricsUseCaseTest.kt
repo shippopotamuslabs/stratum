@@ -568,6 +568,8 @@ class LoadHealthConnectMetricsUseCaseTest {
 
         assertNull(pages.recovery.restingHeartRateBpm)
         assertNull(pages.recovery.hrvRmssdMillis)
+        assertTrue(pages.recovery.restingHeartRateDaily.isEmpty())
+        assertTrue(pages.recovery.hrvDaily.isEmpty())
     }
 
     @Test
@@ -591,6 +593,17 @@ class LoadHealthConnectMetricsUseCaseTest {
         assertEquals(54L, pages.recovery.restingHeartRateBpm)
         assertEquals(52.0, pages.recovery.restingHeartRateSevenDayMean)
         assertEquals(45.5, pages.recovery.hrvRmssdMillis)
+
+        val rhrDaily = pages.recovery.restingHeartRateDaily
+        assertEquals(7, rhrDaily.size)
+        assertEquals(50.0, rhrDaily[4].value)
+        assertEquals(54.0, rhrDaily[6].value)
+        assertEquals(0.0, rhrDaily[0].value)
+        val hrvDaily = pages.recovery.hrvDaily
+        assertEquals(7, hrvDaily.size)
+        assertEquals(40.0, hrvDaily[5].value)
+        assertEquals(45.5, hrvDaily[6].value)
+        assertEquals(0.0, hrvDaily[0].value)
     }
 
     @Test

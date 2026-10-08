@@ -117,13 +117,53 @@ private fun assembleRecovery(
     } else {
         null
     }
+    val hrvInWindow = if (HealthMetricType.HeartRateVariability in granted) {
+        snapshot.hrvSamples.filter {
+            !it.time.isBefore(request.windowStart) && it.time.isBefore(request.windowEnd)
+        }
+    } else {
+        emptyList()
+    }
     return RecoveryMetrics(
         lastNight = lastNight,
         nightlyDurations = nightly,
         restingHeartRateBpm = latestRhr,
         restingHeartRateSevenDayMean = rhrMean,
         hrvRmssdMillis = latestHrv,
+        restingHeartRateDaily = dailyVitalMeans(
+            samples = rhrSamples,
+            timeOf = { it.time },
+            valueOf = { it.beatsPerMinute.toDouble() },
+            request = request,
+        ),
+        hrvDaily = dailyVitalMeans(
+            samples = hrvInWindow,
+            timeOf = { it.time },
+            valueOf = { it.rmssdMillis },
+            request = request,
+        ),
     )
+}
+
+/**
+ * Per-day mean of a vital's samples across the 7-day window, in window order.
+ * Days without samples yield 0.0 — the UI layer drops those points (a 0 bpm /
+ * 0 ms reading is never legitimate data).
+ */
+private fun <T> dailyVitalMeans(
+    samples: List<T>,
+    timeOf: (T) -> Instant,
+    valueOf: (T) -> Double,
+    request: HealthMetricsRequest,
+): List<DailyVitalSample> {
+    val byDay = samples.groupBy { timeOf(it).atZone(request.zone).toLocalDate() }
+    return request.windowDates().map { date ->
+        val values = byDay[date]?.map(valueOf).orEmpty()
+        DailyVitalSample(
+            dayStart = date.atStartOfDay(request.zone).toInstant(),
+            value = if (values.isEmpty()) 0.0 else values.average(),
+        )
+    }
 }
 
 internal fun fillDailySteps(

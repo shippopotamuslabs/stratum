@@ -189,6 +189,24 @@ screenshot-tests:
       - '**/build/reports/screenshotTest/'
     expire_in: 2 weeks
 
+# Manual golden re-record for agents/CI without a local Gradle daemon: runs the
+# `update` screenshot tasks and commits the regenerated PNGs back to the branch.
+# Trigger via "Play" on the job, then review the pushed golden diff (every PNG must
+# show only intended pixels) before merging.
+screenshot-record:
+  extends: .android-job
+  stage: test
+  needs: []
+  when: manual
+  script:
+    - ./gradlew :feature:workout:updateDebugScreenshotTest :feature:program:updateDebugScreenshotTest :app:updateDebugScreenshotTest :core:ui:updateDebugScreenshotTest :feature:settings:updateDebugScreenshotTest :feature:history:updateDebugScreenshotTest :feature:subscription:updateDebugScreenshotTest :feature:onboarding:updateDebugScreenshotTest
+    - git config user.email "ci@browntown.development"
+    - git config user.name "Stratum CI"
+    - git add '**/src/screenshotTestDebug/reference'
+    - git diff --cached --quiet || git commit -m "re-record screenshot goldens"
+    - git remote set-url origin "https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/${CI_PROJECT_PATH}.git"
+    - git push origin "HEAD:${CI_COMMIT_REF_NAME}"
+
 assemble-debug:
   extends: .android-job
   stage: test
