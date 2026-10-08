@@ -78,7 +78,7 @@ private fun ReviewImportTooLargeTonalPreview() {
 }
 
 @Composable
-private fun ReviewScreenSummaryGrid(family: StratumThemeId) {
+internal fun ReviewScreenSummaryGrid(family: StratumThemeId) {
     StratumTheme(themeId = family) {
         Column(
             modifier = Modifier.fillMaxWidth(),
@@ -113,7 +113,7 @@ private fun ReviewScreenSummaryGrid(family: StratumThemeId) {
 }
 
 @Composable
-private fun ReviewImportFailurePreview(
+internal fun ReviewImportFailurePreview(
     family: StratumThemeId,
     importProgramState: ImportProgramState,
 ) {
@@ -133,7 +133,7 @@ private fun ReviewImportFailurePreview(
     }
 }
 
-private fun completedReviewDraft(): ReviewDraftUi = ReviewDraftUi(
+internal fun completedReviewDraft(): ReviewDraftUi = ReviewDraftUi(
     trainingAge = "4–7 years",
     lastTrained = "Within the last month",
     sessionMinutes = 60,
@@ -142,7 +142,7 @@ private fun completedReviewDraft(): ReviewDraftUi = ReviewDraftUi(
     enabledLiftCount = 18,
 )
 
-private fun importReviewDraft(): ReviewDraftUi = ReviewDraftUi(
+internal fun importReviewDraft(): ReviewDraftUi = ReviewDraftUi(
     trainingAge = "4–7 years",
     lastTrained = "Within the last month",
     presetLabel = "Commercial gym",

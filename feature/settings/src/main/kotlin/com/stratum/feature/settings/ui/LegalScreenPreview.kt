@@ -8,15 +8,18 @@ import com.stratum.core.ui.theme.StratumThemeId
 @PreviewLightDark
 @Composable
 private fun LegalScreenTonalPreview() {
-    StratumTheme(themeId = StratumThemeId.Tonal, darkTheme = false) {
-        LegalScreen(onBackClick = {})
-    }
+    LegalScreenPreviewContent(family = StratumThemeId.Tonal)
 }
 
 @PreviewLightDark
 @Composable
 private fun LegalScreenNeoPreview() {
-    StratumTheme(themeId = StratumThemeId.NeoBrutalist, darkTheme = true) {
+    LegalScreenPreviewContent(family = StratumThemeId.NeoBrutalist)
+}
+
+@Composable
+internal fun LegalScreenPreviewContent(family: StratumThemeId) {
+    StratumTheme(themeId = family) {
         LegalScreen(onBackClick = {})
     }
 }

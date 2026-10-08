@@ -5,8 +5,9 @@ Screenshot Testing plugin (`com.android.compose.screenshot`). No emulator needed
 
 Covered today: `:feature:workout` (`WorkoutScreen` + route states),
 `:feature:program` (program, check-in, create, reorder/swap screens), `:app`
-(dashboard, gym, sign-in, liftconfig), and `:core:ui` (theme families + key
-`Stratum*` components).
+(dashboard, gym, sign-in, liftconfig), `:core:ui` (theme families + key
+`Stratum*` components), and `:feature:settings`, `:feature:history`,
+`:feature:subscription`, `:feature:onboarding`.
 
 ## Layout
 
@@ -22,10 +23,10 @@ Covered today: `:feature:workout` (`WorkoutScreen` + route states),
 
 ```sh
 # Re-record goldens after an intentional UI change (then review every PNG diff).
-./gradlew :feature:workout:updateDebugScreenshotTest :feature:program:updateDebugScreenshotTest :app:updateDebugScreenshotTest :core:ui:updateDebugScreenshotTest
+./gradlew :feature:workout:updateDebugScreenshotTest :feature:program:updateDebugScreenshotTest :app:updateDebugScreenshotTest :core:ui:updateDebugScreenshotTest :feature:settings:updateDebugScreenshotTest :feature:history:updateDebugScreenshotTest :feature:subscription:updateDebugScreenshotTest :feature:onboarding:updateDebugScreenshotTest
 
 # Verify against goldens (what CI runs).
-./gradlew :feature:workout:validateDebugScreenshotTest :feature:program:validateDebugScreenshotTest :app:validateDebugScreenshotTest :core:ui:validateDebugScreenshotTest
+./gradlew :feature:workout:validateDebugScreenshotTest :feature:program:validateDebugScreenshotTest :app:validateDebugScreenshotTest :core:ui:validateDebugScreenshotTest :feature:settings:validateDebugScreenshotTest :feature:history:validateDebugScreenshotTest :feature:subscription:validateDebugScreenshotTest :feature:onboarding:validateDebugScreenshotTest
 ```
 
 Diff reports land in `{module}/build/reports/screenshotTest/preview/debug/index.html`.

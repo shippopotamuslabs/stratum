@@ -12,43 +12,38 @@ import com.stratum.feature.settings.WeightUnitUi
 @PreviewLightDark
 @Composable
 private fun SettingsScreenTonalPreview() {
-    StratumTheme(themeId = StratumThemeId.Tonal, darkTheme = false) {
-        SettingsScreen(
-            uiState = SettingsUiState(
-                appearance = AppearanceUi.System,
-                themeFamily = ThemeFamilyUi.Stratum,
-                checkInsEnabled = true,
-                equipmentProposalsEnabled = true,
-                repRangeProposalsEnabled = false,
-                weightUnit = WeightUnitUi.Lbs,
-            ),
-            onBackClick = {},
-            onAppearanceSelected = {},
-            onThemeFamilySelected = {},
-            onCheckInsEnabledChange = {},
-        )
-    }
+    SettingsScreenPreviewContent(
+        family = StratumThemeId.Tonal,
+        uiState = previewSettingsDefault(),
+    )
 }
 
 @PreviewLightDark
 @Composable
 private fun SettingsScreenNeoPreview() {
-    StratumTheme(themeId = StratumThemeId.NeoBrutalist, darkTheme = true) {
+    SettingsScreenPreviewContent(
+        family = StratumThemeId.NeoBrutalist,
+        uiState = previewSettingsDebug(),
+    )
+}
+
+@PreviewLightDark
+@Composable
+private fun SettingsScreenHealthConnectBothPreview() {
+    SettingsScreenPreviewContent(
+        family = StratumThemeId.Tonal,
+        uiState = previewSettingsHealthBoth(),
+    )
+}
+
+@Composable
+internal fun SettingsScreenPreviewContent(
+    family: StratumThemeId,
+    uiState: SettingsUiState,
+) {
+    StratumTheme(themeId = family) {
         SettingsScreen(
-            uiState = SettingsUiState(
-                appearance = AppearanceUi.Dark,
-                themeFamily = ThemeFamilyUi.NeoBrutalist,
-                checkInsEnabled = false,
-                equipmentProposalsEnabled = true,
-                repRangeProposalsEnabled = true,
-                weightUnit = WeightUnitUi.Kg,
-                healthConnectEnabled = true,
-                healthConnectWriteGranted = true,
-                healthConnectReadsGranted = false,
-                showDebugTools = true,
-                debugStatusMessage = "Check-in forced for testing.",
-                isForceRefreshCooldown = true,
-            ),
+            uiState = uiState,
             onBackClick = {},
             onAppearanceSelected = {},
             onThemeFamilySelected = {},
@@ -57,22 +52,37 @@ private fun SettingsScreenNeoPreview() {
     }
 }
 
-@PreviewLightDark
-@Composable
-private fun SettingsScreenHealthConnectBothPreview() {
-    StratumTheme(themeId = StratumThemeId.Tonal, darkTheme = true) {
-        SettingsScreen(
-            uiState = SettingsUiState(
-                appearance = AppearanceUi.Dark,
-                themeFamily = ThemeFamilyUi.Stratum,
-                healthConnectEnabled = true,
-                healthConnectWriteGranted = true,
-                healthConnectReadsGranted = true,
-            ),
-            onBackClick = {},
-            onAppearanceSelected = {},
-            onThemeFamilySelected = {},
-            onCheckInsEnabledChange = {},
-        )
-    }
-}
+internal fun previewSettingsDefault(): SettingsUiState =
+    SettingsUiState(
+        appearance = AppearanceUi.System,
+        themeFamily = ThemeFamilyUi.Stratum,
+        checkInsEnabled = true,
+        equipmentProposalsEnabled = true,
+        repRangeProposalsEnabled = false,
+        weightUnit = WeightUnitUi.Lbs,
+    )
+
+internal fun previewSettingsDebug(): SettingsUiState =
+    SettingsUiState(
+        appearance = AppearanceUi.Dark,
+        themeFamily = ThemeFamilyUi.NeoBrutalist,
+        checkInsEnabled = false,
+        equipmentProposalsEnabled = true,
+        repRangeProposalsEnabled = true,
+        weightUnit = WeightUnitUi.Kg,
+        healthConnectEnabled = true,
+        healthConnectWriteGranted = true,
+        healthConnectReadsGranted = false,
+        showDebugTools = true,
+        debugStatusMessage = "Check-in forced for testing.",
+        isForceRefreshCooldown = true,
+    )
+
+internal fun previewSettingsHealthBoth(): SettingsUiState =
+    SettingsUiState(
+        appearance = AppearanceUi.Dark,
+        themeFamily = ThemeFamilyUi.Stratum,
+        healthConnectEnabled = true,
+        healthConnectWriteGranted = true,
+        healthConnectReadsGranted = true,
+    )
