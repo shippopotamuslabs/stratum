@@ -253,9 +253,10 @@ internal fun EditWorkoutSavingPreviewContent(family: StratumThemeId) {
 @Composable
 internal fun SheetContentPreview(
     family: StratumThemeId,
+    darkTheme: Boolean? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    StratumTheme(themeId = family) {
+    StratumTheme(themeId = family, darkTheme = darkTheme) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
