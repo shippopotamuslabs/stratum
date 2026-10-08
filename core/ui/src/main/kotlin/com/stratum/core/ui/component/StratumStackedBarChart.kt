@@ -35,24 +35,14 @@ import com.patrykandpatrick.vico.compose.common.component.rememberLineComponent
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
 /**
- * One stack segment of [StratumStackedBarChart]: its point series plus its fill color.
- * Keeping points and color together makes the series/color alignment structural
- * instead of a runtime-checked parallel-list contract.
- */
-data class StackedSegment(
-    val points: List<TrendPointUi>,
-    val color: Color,
-)
-
-/**
  * Stacked column chart: each x position renders its segments stacked into one bar
  * (e.g. sleep stages per night on the dashboard recovery page). Tapping a bar shows a
  * color-coded marker with each segment's value.
  *
  * Horizontal pan is disabled so a parent pager can fling.
  *
- * @param segments one entry per stack segment, index-aligned by [TrendPointUi.weekIndex]
- * (e.g. light/deep/REM/awake nightly hours).
+ * @param segments one entry per stack segment, each carrying its points (index-aligned
+ * by [TrendPointUi.weekIndex], e.g. light/deep/REM/awake nightly hours) and its fill.
  * @param contentDescription accessibility description.
  * @param dayLabels short weekday labels per x position; empty omits the bottom axis.
  * @param fillHeight when true, skip the compact intrinsic height and fill incoming constraints.
@@ -201,6 +191,12 @@ fun StratumStackedBarChart(
         contentDescription = contentDescription,
     )
 }
+
+/** One stack segment: its per-x points plus the fill color for its column slice. */
+data class StackedSegment(
+    val points: List<TrendPointUi>,
+    val color: Color,
+)
 
 @Composable
 private fun StackedBarBaselineOnly(modifier: Modifier, color: Color) {

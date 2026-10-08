@@ -214,12 +214,12 @@ class DashboardHealthUiTest {
             visible = true,
             recovery = RecoveryMetrics(
                 restingHeartRateDaily = listOf(
-                    DailyVitalSample(Instant.parse("2026-08-10T00:00:00Z"), 0.0),
+                    DailyVitalSample(Instant.parse("2026-08-10T00:00:00Z"), null),
                     DailyVitalSample(Instant.parse("2026-08-11T00:00:00Z"), 62.0),
                     DailyVitalSample(Instant.parse("2026-08-12T00:00:00Z"), 60.0),
                 ),
                 hrvDaily = listOf(
-                    DailyVitalSample(Instant.parse("2026-08-10T00:00:00Z"), 0.0),
+                    DailyVitalSample(Instant.parse("2026-08-10T00:00:00Z"), null),
                     DailyVitalSample(Instant.parse("2026-08-11T00:00:00Z"), 44.0),
                     DailyVitalSample(Instant.parse("2026-08-12T00:00:00Z"), 48.0),
                 ),
@@ -228,7 +228,7 @@ class DashboardHealthUiTest {
 
         val ui = pages.toHealthUi(Weight.WeightUnit.Lb, zone)
 
-        // Zero days are dropped; weekIndex keeps survivors aligned with the 7-day labels.
+        // Null days are dropped; weekIndex keeps survivors aligned with the 7-day labels.
         assertEquals(
             listOf(TrendPointUi(1, 62f), TrendPointUi(2, 60f)),
             ui.recovery.restingHrDailyPoints,

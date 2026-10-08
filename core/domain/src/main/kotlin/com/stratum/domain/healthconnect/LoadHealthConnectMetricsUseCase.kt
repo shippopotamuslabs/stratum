@@ -131,15 +131,11 @@ private fun assembleRecovery(
         restingHeartRateSevenDayMean = rhrMean,
         hrvRmssdMillis = latestHrv,
         restingHeartRateDaily = dailyVitalMeans(
-            samples = rhrSamples,
-            timeOf = { it.time },
-            valueOf = { it.beatsPerMinute.toDouble() },
+            samples = rhrSamples.map { it.time to it.beatsPerMinute.toDouble() },
             request = request,
         ),
         hrvDaily = dailyVitalMeans(
-            samples = hrvInWindow,
-            timeOf = { it.time },
-            valueOf = { it.rmssdMillis },
+            samples = hrvInWindow.map { it.time to it.rmssdMillis },
             request = request,
         ),
     )
@@ -147,22 +143,16 @@ private fun assembleRecovery(
 
 /**
  * Per-day mean of a vital's samples across the 7-day window, in window order.
- * Days without samples yield 0.0 — the UI layer drops those points (a 0 bpm /
+ * Days without samples yield null — the UI layer drops those points (a 0 bpm /
  * 0 ms reading is never legitimate data).
  */
-private fun <T> dailyVitalMeans(
-    samples: List<T>,
-    timeOf: (T) -> Instant,
-    valueOf: (T) -> Double,
+private fun dailyVitalMeans(
+    samples: List<Pair<Instant, Double>>,
     request: HealthMetricsRequest,
 ): List<DailyVitalSample> {
-    val byDay = samples.groupBy { timeOf(it).atZone(request.zone).toLocalDate() }
-    return request.windowDates().map { date ->
-        val values = byDay[date]?.map(valueOf).orEmpty()
-        DailyVitalSample(
-            dayStart = date.atStartOfDay(request.zone).toInstant(),
-            value = if (values.isEmpty()) 0.0 else values.average(),
-        )
+    val byDay = samples.groupBy({ it.first.atZone(request.zone).toLocalDate() }, { it.second })
+    return request.windowDays().map { (date, start) ->
+        DailyVitalSample(dayStart = start, value = byDay[date]?.average())
     }
 }
 
@@ -171,8 +161,7 @@ internal fun fillDailySteps(
     request: HealthMetricsRequest,
 ): List<DailyStepCount> {
     val byDay = sparse.associateBy { it.dayStart.atZone(request.zone).toLocalDate() }
-    return request.windowDates().map { date ->
-        val start = date.atStartOfDay(request.zone).toInstant()
+    return request.windowDays().map { (date, start) ->
         DailyStepCount(dayStart = start, count = byDay[date]?.count ?: 0L)
     }
 }
@@ -182,8 +171,7 @@ internal fun fillNightlySleep(
     request: HealthMetricsRequest,
 ): List<NightlySleepDuration> {
     val byDay = sessions.groupBy { it.end.atZone(request.zone).toLocalDate() }
-    return request.windowDates().map { date ->
-        val start = date.atStartOfDay(request.zone).toInstant()
+    return request.windowDays().map { (date, start) ->
         val summary = summarizeSleepSessions(byDay[date].orEmpty())
         NightlySleepDuration(dayStart = start, duration = summary.duration, zones = summary.zones)
     }
@@ -357,5 +345,12 @@ internal fun List<SleepStageSample>.toSleepZones(): SleepZones? {
 
 private fun HealthMetricsRequest.windowDates(): List<LocalDate> =
     (0 until HEALTH_METRICS_DAY_COUNT).map { windowStartDate.plusDays(it.toLong()) }
+
+/**
+ * Local dates plus their day-start instants across the 7-day window, in window order.
+ * The single window-expansion behind the step, sleep, and vital fills.
+ */
+private fun HealthMetricsRequest.windowDays(): List<Pair<LocalDate, Instant>> =
+    windowDates().map { date -> date to date.atStartOfDay(zone).toInstant() }
 
 private val SAME_ORIGIN_CONTIGUOUS_GAP: Duration = Duration.ofMinutes(30)
