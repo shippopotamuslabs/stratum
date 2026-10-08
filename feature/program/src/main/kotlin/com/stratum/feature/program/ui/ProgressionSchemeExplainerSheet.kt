@@ -17,30 +17,41 @@ import com.stratum.feature.program.R
 fun ProgressionSchemeExplainerSheet(onDismiss: () -> Unit) {
     StratumBottomSheet(
         onDismissRequest = onDismiss,
-        title = stringResource(R.string.edit_workout_progression_scheme_sheet_title),
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            StratumText(
-                text = stringResource(R.string.edit_workout_progression_scheme_linear_body),
-                style = StratumThemeAccessor.typography.bodyLarge,
-            )
-            StratumText(
-                text = stringResource(R.string.edit_workout_progression_scheme_double_body),
-                style = StratumThemeAccessor.typography.bodyLarge,
-            )
-            StratumText(
-                text = stringResource(R.string.edit_workout_progression_scheme_eligibility_body),
-                style = StratumThemeAccessor.typography.bodyLarge,
-                muted = true,
-            )
-            StratumText(
-                text = stringResource(R.string.edit_workout_progression_scheme_graduation_body),
-                style = StratumThemeAccessor.typography.bodyLarge,
-                muted = true,
-            )
-        }
+        ProgressionSchemeExplainerSheetContent()
+    }
+}
+
+/**
+ * Progression-scheme explainer body without the dialog window. Screenshot tests cannot
+ * capture dialog windows (an open sheet blanks the golden), so goldens pin this content
+ * inline (see docs/screenshot-tests.md). The title lives here (not the sheet wrapper) so
+ * the golden covers it; production pixels are unchanged (same text, style, and position).
+ */
+@Composable
+internal fun ProgressionSchemeExplainerSheetContent() {
+    SheetContentTitle(text = stringResource(R.string.edit_workout_progression_scheme_sheet_title))
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        StratumText(
+            text = stringResource(R.string.edit_workout_progression_scheme_linear_body),
+            style = StratumThemeAccessor.typography.bodyLarge,
+        )
+        StratumText(
+            text = stringResource(R.string.edit_workout_progression_scheme_double_body),
+            style = StratumThemeAccessor.typography.bodyLarge,
+        )
+        StratumText(
+            text = stringResource(R.string.edit_workout_progression_scheme_eligibility_body),
+            style = StratumThemeAccessor.typography.bodyLarge,
+            muted = true,
+        )
+        StratumText(
+            text = stringResource(R.string.edit_workout_progression_scheme_graduation_body),
+            style = StratumThemeAccessor.typography.bodyLarge,
+            muted = true,
+        )
     }
 }

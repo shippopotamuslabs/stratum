@@ -787,21 +787,10 @@ private fun EditWorkoutDiscardBottomSheet(
 ) {
     StratumBottomSheet(
         onDismissRequest = onDismiss,
-        title = stringResource(R.string.edit_workout_discard_title),
     ) {
-        StratumText(
-            text = stringResource(R.string.edit_workout_discard_message),
-            style = StratumThemeAccessor.typography.bodyLarge,
-        )
-        StratumButton(
-            text = stringResource(R.string.edit_workout_discard_confirm),
-            onClick = onConfirmDiscard,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        StratumOutlinedButton(
-            text = stringResource(R.string.edit_workout_discard_cancel),
-            onClick = onDismiss,
-            modifier = Modifier.fillMaxWidth(),
+        EditWorkoutDiscardSheetContent(
+            onConfirmDiscard = onConfirmDiscard,
+            onDismiss = onDismiss,
         )
     }
 }
@@ -814,52 +803,11 @@ private fun EditWorkoutDirtyStartDialog(
     onDismiss: () -> Unit,
 ) {
     Dialog(onDismissRequest = onDismiss) {
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .background(
-                        color = StratumThemeAccessor.colors.surfaceRaised,
-                        shape = StratumThemeAccessor.shapes.panel,
-                    )
-                    .border(
-                        width = StratumThemeAccessor.shapes.borderWidth,
-                        color = StratumThemeAccessor.colors.borderStrong,
-                        shape = StratumThemeAccessor.shapes.panel,
-                    )
-                    .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            StratumText(
-                text = stringResource(R.string.edit_workout_start_dirty_title),
-                style = StratumThemeAccessor.typography.titleLarge,
-            )
-            StratumText(
-                text = stringResource(R.string.edit_workout_start_dirty_body),
-                style = StratumThemeAccessor.typography.bodyLarge,
-                muted = true,
-            )
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                StratumButton(
-                    text = stringResource(R.string.edit_workout_start_dirty_confirm),
-                    onClick = onConfirmSaveAndStart,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                StratumOutlinedButton(
-                    text = stringResource(R.string.edit_workout_start_dirty_discard),
-                    onClick = onDiscardAndStart,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                StratumOutlinedButton(
-                    text = stringResource(R.string.edit_workout_start_dirty_cancel),
-                    onClick = onDismiss,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-        }
+        EditWorkoutDirtyStartDialogContent(
+            onConfirmSaveAndStart = onConfirmSaveAndStart,
+            onDiscardAndStart = onDiscardAndStart,
+            onDismiss = onDismiss,
+        )
     }
 }
 

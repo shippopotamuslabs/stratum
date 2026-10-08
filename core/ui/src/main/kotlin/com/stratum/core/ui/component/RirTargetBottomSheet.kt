@@ -49,37 +49,52 @@ fun RirTargetBottomSheet(
     onRirSelected: (Int) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    StratumBottomSheet(
+        onDismissRequest = onDismiss,
+    ) {
+        RirTargetSheetContent(
+            selectedRirGoal = selectedRirGoal,
+            onRirSelected = onRirSelected,
+            onDismiss = onDismiss,
+        )
+    }
+}
+
+/**
+ * RIR target sheet body without the dialog window. Screenshot tests cannot capture
+ * dialog windows (an open sheet blanks the golden), so goldens pin this content inline
+ * (see docs/screenshot-tests.md).
+ */
+@Composable
+fun RirTargetSheetContent(
+    selectedRirGoal: Int,
+    onRirSelected: (Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
     var showInfo by rememberSaveable { mutableStateOf(false) }
 
-    StratumBottomSheet(
-        onDismissRequest = {
-            showInfo = false
-            onDismiss()
+    AnimatedContent(
+        targetState = showInfo,
+        transitionSpec = {
+            (
+                fadeIn(animationSpec = tween(RIR_SHEET_ANIMATION_MS)) +
+                    scaleIn(initialScale = 0.92f, animationSpec = tween(RIR_SHEET_ANIMATION_MS))
+                ).togetherWith(
+                fadeOut(animationSpec = tween(RIR_SHEET_ANIMATION_MS)) +
+                    scaleOut(targetScale = 0.92f, animationSpec = tween(RIR_SHEET_ANIMATION_MS)),
+            ) using SizeTransform(clip = false)
         },
-    ) {
-        AnimatedContent(
-            targetState = showInfo,
-            transitionSpec = {
-                (
-                    fadeIn(animationSpec = tween(RIR_SHEET_ANIMATION_MS)) +
-                        scaleIn(initialScale = 0.92f, animationSpec = tween(RIR_SHEET_ANIMATION_MS))
-                    ).togetherWith(
-                    fadeOut(animationSpec = tween(RIR_SHEET_ANIMATION_MS)) +
-                        scaleOut(targetScale = 0.92f, animationSpec = tween(RIR_SHEET_ANIMATION_MS)),
-                ) using SizeTransform(clip = false)
-            },
-            label = "rir_target_sheet_content",
-        ) { infoVisible ->
-            if (infoVisible) {
-                RirTargetInfoContent(onCloseInfo = { showInfo = false })
-            } else {
-                RirTargetPickerContent(
-                    selectedRirGoal = selectedRirGoal,
-                    onInfoClick = { showInfo = true },
-                    onRirSelected = onRirSelected,
-                    onDismiss = onDismiss,
-                )
-            }
+        label = "rir_target_sheet_content",
+    ) { infoVisible ->
+        if (infoVisible) {
+            RirTargetInfoContent(onCloseInfo = { showInfo = false })
+        } else {
+            RirTargetPickerContent(
+                selectedRirGoal = selectedRirGoal,
+                onInfoClick = { showInfo = true },
+                onRirSelected = onRirSelected,
+                onDismiss = onDismiss,
+            )
         }
     }
 }
