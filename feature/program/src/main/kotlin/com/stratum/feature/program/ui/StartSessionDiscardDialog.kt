@@ -26,46 +26,62 @@ fun StartSessionDiscardDialog(
     onConfirm: () -> Unit,
 ) {
     Dialog(onDismissRequest = onDismiss) {
+        StartSessionDiscardDialogContent(
+            onDismiss = onDismiss,
+            onConfirm = onConfirm,
+        )
+    }
+}
+
+/**
+ * Active-session discard dialog body without the dialog window. Screenshot tests cannot
+ * capture dialog windows (an open dialog blanks the golden), so goldens pin this content
+ * inline (see docs/screenshot-tests.md).
+ */
+@Composable
+internal fun StartSessionDiscardDialogContent(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(
+                    color = StratumThemeAccessor.colors.surfaceRaised,
+                    shape = StratumThemeAccessor.shapes.panel,
+                )
+                .border(
+                    width = StratumThemeAccessor.shapes.borderWidth,
+                    color = StratumThemeAccessor.colors.borderStrong,
+                    shape = StratumThemeAccessor.shapes.panel,
+                )
+                .padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        StratumText(
+            text = stringResource(R.string.programs_start_discard_title),
+            style = StratumThemeAccessor.typography.titleLarge,
+        )
+        StratumText(
+            text = stringResource(R.string.programs_start_discard_body),
+            style = StratumThemeAccessor.typography.bodyLarge,
+            muted = true,
+        )
         Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .background(
-                        color = StratumThemeAccessor.colors.surfaceRaised,
-                        shape = StratumThemeAccessor.shapes.panel,
-                    )
-                    .border(
-                        width = StratumThemeAccessor.shapes.borderWidth,
-                        color = StratumThemeAccessor.colors.borderStrong,
-                        shape = StratumThemeAccessor.shapes.panel,
-                    )
-                    .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            StratumText(
-                text = stringResource(R.string.programs_start_discard_title),
-                style = StratumThemeAccessor.typography.titleLarge,
-            )
-            StratumText(
-                text = stringResource(R.string.programs_start_discard_body),
-                style = StratumThemeAccessor.typography.bodyLarge,
-                muted = true,
-            )
-            Column(
+            StratumButton(
+                text = stringResource(R.string.programs_start_discard_confirm),
+                onClick = onConfirm,
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                StratumButton(
-                    text = stringResource(R.string.programs_start_discard_confirm),
-                    onClick = onConfirm,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                StratumOutlinedButton(
-                    text = stringResource(R.string.programs_start_discard_cancel),
-                    onClick = onDismiss,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
+            )
+            StratumOutlinedButton(
+                text = stringResource(R.string.programs_start_discard_cancel),
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
     }
 }

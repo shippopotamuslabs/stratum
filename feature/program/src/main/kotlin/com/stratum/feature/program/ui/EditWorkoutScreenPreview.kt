@@ -64,54 +64,56 @@ internal fun EditWorkoutScreenPreviewContent(family: StratumThemeId) {
     StratumTheme(themeId = family) {
         EditWorkoutScreen(
             showStartWorkout = true,
-            state =
-                EditWorkoutUiState.Loaded(
-                    workoutId = "w-1",
-                    workoutName = "Push Day",
-                    upperVolumeByMuscle =
-                        listOf(
-                            StratumMuscleVolumeCardState(
-                                muscle = MuscleGroup.Chest,
-                                displayName = "Chest",
-                                exerciseCount = 1,
-                                setCount = 2.0,
-                            ),
-                        ),
-                    lowerVolumeByMuscle = emptyList(),
-                    estimatedDurationMinutes = 4,
-                    lifts =
-                        listOf(
-                            EditLiftState(
-                                workoutLiftId = "wl-1",
-                                liftId = "bench-press",
-                                name = "Barbell Bench Press",
-                                position = 0,
-                                sets =
-                                    listOf(
-                                        EditSetState(
-                                            setId = "s-1",
-                                            setNumber = 1,
-                                            repMin = 5,
-                                            repMax = 5,
-                                            restSeconds = 120,
-                                            rirGoal = 2,
-                                            isTopSet = true,
-                                        ),
-                                        EditSetState(
-                                            setId = "s-2",
-                                            setNumber = 2,
-                                            repMin = 0,
-                                            repMax = 0,
-                                            restSeconds = 120,
-                                            rirGoal = 2,
-                                            isTopSet = false,
-                                        ),
-                                    ),
-                            ),
-                        ),
-                ),
+            state = previewEditWorkoutLoadedState(),
             onLeave = {},
             callbacks = EditWorkoutScreenCallbacks(),
         )
     }
 }
+
+internal fun previewEditWorkoutLoadedState(): EditWorkoutUiState.Loaded =
+    EditWorkoutUiState.Loaded(
+        workoutId = "w-1",
+        workoutName = "Push Day",
+        upperVolumeByMuscle =
+            listOf(
+                StratumMuscleVolumeCardState(
+                    muscle = MuscleGroup.Chest,
+                    displayName = "Chest",
+                    exerciseCount = 1,
+                    setCount = 2.0,
+                ),
+            ),
+        lowerVolumeByMuscle = emptyList(),
+        estimatedDurationMinutes = 4,
+        lifts =
+            listOf(
+                EditLiftState(
+                    workoutLiftId = "wl-1",
+                    liftId = "bench-press",
+                    name = "Barbell Bench Press",
+                    position = 0,
+                    sets =
+                        listOf(
+                            EditSetState(
+                                setId = "s-1",
+                                setNumber = 1,
+                                repMin = 5,
+                                repMax = 5,
+                                restSeconds = 120,
+                                rirGoal = 2,
+                                isTopSet = true,
+                            ),
+                            EditSetState(
+                                setId = "s-2",
+                                setNumber = 2,
+                                repMin = 0,
+                                repMax = 0,
+                                restSeconds = 120,
+                                rirGoal = 2,
+                                isTopSet = false,
+                            ),
+                        ),
+                ),
+            ),
+    )
