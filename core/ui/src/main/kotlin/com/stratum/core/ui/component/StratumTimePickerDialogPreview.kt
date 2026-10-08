@@ -1,7 +1,10 @@
 package com.stratum.core.ui.component
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.PreviewLightDark
+import com.stratum.core.ui.R
 import com.stratum.core.ui.theme.StratumTheme
 import com.stratum.core.ui.theme.StratumThemeId
 import java.time.LocalTime
@@ -38,7 +41,11 @@ internal fun TimePickerDialogPreviewContent(
             initialTime = initialTime,
             onTimeSelected = {},
             onDismiss = {},
+            modifier = Modifier,
+            title = null,
             is24Hour = false,
+            confirmLabel = stringResource(R.string.stratum_time_picker_confirm),
+            dismissLabel = stringResource(R.string.stratum_time_picker_dismiss),
         )
     }
 }

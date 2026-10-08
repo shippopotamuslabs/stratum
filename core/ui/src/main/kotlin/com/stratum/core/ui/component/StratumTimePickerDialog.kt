@@ -63,6 +63,9 @@ fun StratumTimePickerDialog(
  * Inline dialog body (STR-94): dialog windows are uncapturable in screenshot goldens, so
  * previews and `@PreviewTest` wrappers pin this content directly. Pixel-identical to the
  * dialog body above.
+ *
+ * All arguments are explicit (no defaults): defaults live only on [StratumTimePickerDialog]
+ * so pixel-identity never depends on duplicated expressions.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,11 +73,11 @@ internal fun StratumTimePickerDialogContent(
     initialTime: LocalTime,
     onTimeSelected: (LocalTime) -> Unit,
     onDismiss: () -> Unit,
-    modifier: Modifier = Modifier,
-    title: String? = null,
-    is24Hour: Boolean = false,
-    confirmLabel: String = stringResource(R.string.stratum_time_picker_confirm),
-    dismissLabel: String = stringResource(R.string.stratum_time_picker_dismiss),
+    modifier: Modifier,
+    title: String?,
+    is24Hour: Boolean,
+    confirmLabel: String,
+    dismissLabel: String,
 ) {
     val colors = StratumThemeAccessor.colors
     val shapes = StratumThemeAccessor.shapes

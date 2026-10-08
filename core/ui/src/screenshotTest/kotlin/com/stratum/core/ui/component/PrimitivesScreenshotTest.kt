@@ -3,7 +3,6 @@ package com.stratum.core.ui.component
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import com.android.tools.screenshot.PreviewTest
-import com.stratum.core.ui.theme.StratumTheme
 import com.stratum.core.ui.theme.StratumThemeId
 
 /**
@@ -16,18 +15,14 @@ import com.stratum.core.ui.theme.StratumThemeId
 @PreviewLightDark
 @Composable
 fun primitiveButtonsTonal() {
-    StratumTheme(themeId = StratumThemeId.Tonal) {
-        ButtonPreviewColumn()
-    }
+    ButtonPreviewContent(family = StratumThemeId.Tonal)
 }
 
 @PreviewTest
 @PreviewLightDark
 @Composable
 fun primitiveButtonsNeo() {
-    StratumTheme(themeId = StratumThemeId.NeoBrutalist) {
-        ButtonPreviewColumn()
-    }
+    ButtonPreviewContent(family = StratumThemeId.NeoBrutalist)
 }
 
 @PreviewTest

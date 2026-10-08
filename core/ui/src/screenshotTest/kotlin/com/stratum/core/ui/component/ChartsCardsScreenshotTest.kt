@@ -3,10 +3,10 @@ package com.stratum.core.ui.component
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import com.android.tools.screenshot.PreviewTest
-import com.stratum.core.ui.component.platecalculator.PlateDiagramPreviewContent
+import com.stratum.core.ui.component.platecalculator.PlateDiagramEmptyPreviewContent
+import com.stratum.core.ui.component.platecalculator.PlateDiagramLoadedPreviewContent
 import com.stratum.core.ui.component.platecalculator.PlateMiniDrawerPreviewContent
 import com.stratum.core.ui.component.platecalculator.PlateSheetPreviewContent
-import com.stratum.core.ui.theme.StratumTheme
 import com.stratum.core.ui.theme.StratumThemeId
 import java.time.LocalTime
 
@@ -18,18 +18,14 @@ import java.time.LocalTime
 @PreviewLightDark
 @Composable
 fun chartMultiLineTonal() {
-    StratumTheme(themeId = StratumThemeId.Tonal) {
-        PreviewMultiLine()
-    }
+    MultiLineChartPreviewContent(family = StratumThemeId.Tonal)
 }
 
 @PreviewTest
 @PreviewLightDark
 @Composable
 fun chartMultiLineNeo() {
-    StratumTheme(themeId = StratumThemeId.NeoBrutalist) {
-        PreviewMultiLine()
-    }
+    MultiLineChartPreviewContent(family = StratumThemeId.NeoBrutalist)
 }
 
 @PreviewTest
@@ -134,18 +130,14 @@ fun chartDetailProgressVolumeNeo() {
 @PreviewLightDark
 @Composable
 fun chartDonutTonal() {
-    StratumTheme(themeId = StratumThemeId.Tonal) {
-        PreviewDonut()
-    }
+    DonutChartPreviewContent(family = StratumThemeId.Tonal)
 }
 
 @PreviewTest
 @PreviewLightDark
 @Composable
 fun chartDonutNeo() {
-    StratumTheme(themeId = StratumThemeId.NeoBrutalist) {
-        PreviewDonut()
-    }
+    DonutChartPreviewContent(family = StratumThemeId.NeoBrutalist)
 }
 
 @PreviewTest
@@ -180,28 +172,28 @@ fun musclePickerNeo() {
 @PreviewLightDark
 @Composable
 fun plateDiagramLoadedTonal() {
-    PlateDiagramPreviewContent(family = StratumThemeId.Tonal, targetWeight = 225.0)
+    PlateDiagramLoadedPreviewContent(family = StratumThemeId.Tonal, targetWeight = 225.0)
 }
 
 @PreviewTest
 @PreviewLightDark
 @Composable
 fun plateDiagramLoadedNeo() {
-    PlateDiagramPreviewContent(family = StratumThemeId.NeoBrutalist, targetWeight = 225.0)
+    PlateDiagramLoadedPreviewContent(family = StratumThemeId.NeoBrutalist, targetWeight = 225.0)
 }
 
 @PreviewTest
 @PreviewLightDark
 @Composable
 fun plateDiagramEmptyTonal() {
-    PlateDiagramPreviewContent(family = StratumThemeId.Tonal, targetWeight = null)
+    PlateDiagramEmptyPreviewContent(family = StratumThemeId.Tonal)
 }
 
 @PreviewTest
 @PreviewLightDark
 @Composable
 fun plateDiagramEmptyNeo() {
-    PlateDiagramPreviewContent(family = StratumThemeId.NeoBrutalist, targetWeight = null)
+    PlateDiagramEmptyPreviewContent(family = StratumThemeId.NeoBrutalist)
 }
 
 @PreviewTest
@@ -250,28 +242,44 @@ fun plateSheetNeo() {
 @PreviewLightDark
 @Composable
 fun programLibraryCardExpandedTonal() {
-    ProgramLibraryCardPreviewContent(family = StratumThemeId.Tonal, expanded = true)
+    ProgramLibraryCardPreviewContent(
+        family = StratumThemeId.Tonal,
+        state = previewProgramLibraryCardActiveState,
+        expanded = true,
+    )
 }
 
 @PreviewTest
 @PreviewLightDark
 @Composable
 fun programLibraryCardExpandedNeo() {
-    ProgramLibraryCardPreviewContent(family = StratumThemeId.NeoBrutalist, expanded = true)
+    ProgramLibraryCardPreviewContent(
+        family = StratumThemeId.NeoBrutalist,
+        state = previewProgramLibraryCardActiveState,
+        expanded = true,
+    )
 }
 
 @PreviewTest
 @PreviewLightDark
 @Composable
 fun programLibraryCardCollapsedTonal() {
-    ProgramLibraryCardPreviewContent(family = StratumThemeId.Tonal, expanded = false)
+    ProgramLibraryCardPreviewContent(
+        family = StratumThemeId.Tonal,
+        state = previewProgramLibraryCardInactiveState,
+        expanded = false,
+    )
 }
 
 @PreviewTest
 @PreviewLightDark
 @Composable
 fun programLibraryCardCollapsedNeo() {
-    ProgramLibraryCardPreviewContent(family = StratumThemeId.NeoBrutalist, expanded = false)
+    ProgramLibraryCardPreviewContent(
+        family = StratumThemeId.NeoBrutalist,
+        state = previewProgramLibraryCardInactiveState,
+        expanded = false,
+    )
 }
 
 @PreviewTest
@@ -312,16 +320,12 @@ fun durationStepperNeo() {
 @PreviewLightDark
 @Composable
 fun timeFieldTonal() {
-    StratumTheme(themeId = StratumThemeId.Tonal) {
-        TimeFieldPreviewColumn()
-    }
+    TimeFieldPreviewContent(family = StratumThemeId.Tonal)
 }
 
 @PreviewTest
 @PreviewLightDark
 @Composable
 fun timeFieldNeo() {
-    StratumTheme(themeId = StratumThemeId.NeoBrutalist) {
-        TimeFieldPreviewColumn()
-    }
+    TimeFieldPreviewContent(family = StratumThemeId.NeoBrutalist)
 }
