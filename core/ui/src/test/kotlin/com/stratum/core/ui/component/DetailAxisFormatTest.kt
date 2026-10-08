@@ -163,17 +163,17 @@ class DetailAxisFormatTest {
     }
 
     @Test
-    @DisplayName("step axis labels stay exact below 1k and compact above")
-    fun stepAxisLabels() {
-        assertEquals("0", formatStepAxisLabel(0.0))
-        assertEquals("500", formatStepAxisLabel(500.0))
-        assertEquals("999", formatStepAxisLabel(999.4))
-        assertEquals("1k", formatStepAxisLabel(999.6))
-        assertEquals("1k", formatStepAxisLabel(1000.0))
-        assertEquals("2.5k", formatStepAxisLabel(2500.0))
-        assertEquals("5k", formatStepAxisLabel(5000.0))
-        assertEquals("10k", formatStepAxisLabel(10000.0))
-        assertEquals("12.5k", formatStepAxisLabel(12500.0))
+    @DisplayName("steps scale labels stay exact below 1k and compact above")
+    fun stepsScaleLabels() {
+        assertEquals("0", formatChartNumber(0.0, DetailYScale.Steps))
+        assertEquals("500", formatChartNumber(500.0, DetailYScale.Steps))
+        assertEquals("999", formatChartNumber(999.4, DetailYScale.Steps))
+        assertEquals("1k", formatChartNumber(999.6, DetailYScale.Steps))
+        assertEquals("1k", formatChartNumber(1000.0, DetailYScale.Steps))
+        assertEquals("2.5k", formatChartNumber(2500.0, DetailYScale.Steps))
+        assertEquals("5k", formatChartNumber(5000.0, DetailYScale.Steps))
+        assertEquals("10k", formatChartNumber(10000.0, DetailYScale.Steps))
+        assertEquals("12.5k", formatChartNumber(12500.0, DetailYScale.Steps))
     }
 
     @Test
@@ -191,9 +191,9 @@ class DetailAxisFormatTest {
         val (minY, maxY) = stepsYRange(dataMin = 4800.0, dataMax = 8432.0)
         assertEquals(0.0, minY, 0.0)
         assertEquals(10000.0, maxY, 0.0)
-        assertEquals("0", formatStepAxisLabel(minY))
-        assertEquals("5k", formatStepAxisLabel((minY + maxY) / 2.0))
-        assertEquals("10k", formatStepAxisLabel(maxY))
+        assertEquals("0", formatChartNumber(minY, DetailYScale.Steps))
+        assertEquals("5k", formatChartNumber((minY + maxY) / 2.0, DetailYScale.Steps))
+        assertEquals("10k", formatChartNumber(maxY, DetailYScale.Steps))
     }
 
     @Test
@@ -226,5 +226,14 @@ class DetailAxisFormatTest {
         assertTrue(minY > 100.0, "floor stays near the data, not at zero: minY=$minY")
         assertTrue(maxY < 200.0, "ceiling stays near the data: maxY=$maxY")
         assertTrue(minY <= 176.4 && maxY >= 178.2)
+    }
+
+    @Test
+    @DisplayName("compact tick counts pair 3 labels with steps and 4 with other scales")
+    fun compactTickCounts() {
+        assertEquals(3, yTickCountFor(DetailYScale.Steps))
+        assertEquals(4, yTickCountFor(DetailYScale.Weight))
+        assertEquals(4, yTickCountFor(DetailYScale.Volume))
+        assertEquals(4, yTickCountFor(DetailYScale.Progress))
     }
 }

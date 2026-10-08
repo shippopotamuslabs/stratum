@@ -20,7 +20,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
 import com.patrykandpatrick.vico.compose.cartesian.axis.HorizontalAxis
-import com.patrykandpatrick.vico.compose.cartesian.axis.VerticalAxis
 import com.patrykandpatrick.vico.compose.cartesian.axis.rememberAxisLabelComponent
 import com.patrykandpatrick.vico.compose.cartesian.axis.rememberAxisLineComponent
 import com.patrykandpatrick.vico.compose.cartesian.axis.rememberAxisTickComponent
@@ -48,8 +47,8 @@ import com.stratum.core.ui.theme.StratumThemeAccessor
  * @param barColor fill for all bars (defaults to theme accent).
  * @param fillHeight when true, skip the compact intrinsic height and fill the incoming constraints
  * (health pager). Cards keep the default sparkline height.
- * @param showYAxis when true, draw a quiet start axis with compact step-count labels ("0 / 5k /
- * 10k") and floor the bars at 0 via [StepsRangeProvider]. Only for step-count series.
+ * @param yScale when non-null, draw a quiet start axis labeled via [formatChartNumber] and range
+ * the bars via [rangeProviderFor]. Null (default) keeps Vico's auto range with no axis.
  * @param contentDescription accessibility description.
  */
 @Composable
@@ -60,7 +59,7 @@ fun StratumVolumeBarChart(
     dayLabels: List<String> = emptyList(),
     barColor: Color = Color.Unspecified,
     fillHeight: Boolean = false,
-    showYAxis: Boolean = false,
+    yScale: DetailYScale? = null,
 ) {
     val colors = StratumThemeAccessor.colors
     val resolvedBar =
@@ -137,27 +136,22 @@ fun StratumVolumeBarChart(
     } else {
         null
     }
-    val yFormatter = remember {
-        CartesianValueFormatter { _, value, _ -> formatStepAxisLabel(value) }
-    }
-    val yItemPlacer = remember {
-        VerticalAxis.ItemPlacer.count(count = { Y_AXIS_LABEL_COUNT })
-    }
-    val startAxis = if (showYAxis) {
-        VerticalAxis.rememberStart(
-            line = invisibleLine,
+    val startAxis = if (yScale != null) {
+        rememberQuietStartAxis(
             label = axisLabel,
+            line = invisibleLine,
             tick = invisibleTick,
-            guideline = null,
-            valueFormatter = yFormatter,
-            itemPlacer = yItemPlacer,
+            valueFormatter = remember(yScale) {
+                CartesianValueFormatter { _, value, _ -> formatChartNumber(value, yScale) }
+            },
+            labelCount = yTickCountFor(yScale),
         )
     } else {
         null
     }
-    // Steps axis owns the Y range (floored at 0, nice ceiling); other callers keep Vico's auto.
-    val columnRangeProvider = remember(showYAxis) {
-        if (showYAxis) StepsRangeProvider else CartesianLayerRangeProvider.auto()
+    // A shown axis owns the Y range via the scale; otherwise keep Vico's auto.
+    val columnRangeProvider = remember(yScale) {
+        yScale?.let(::rangeProviderFor) ?: CartesianLayerRangeProvider.auto()
     }
 
     val marker = rememberStratumChartMarker(decimalCount = 0)
@@ -228,5 +222,4 @@ private const val CHART_HEIGHT_WITH_LABELS_DP = 62
 private const val COLUMN_WIDTH_DP = 6
 private const val COLUMN_SPACING_DP = 2
 private const val AXIS_LABEL_SP = 9
-private const val Y_AXIS_LABEL_COUNT = 3
 private const val STROKE_PADDING_PX = 4f

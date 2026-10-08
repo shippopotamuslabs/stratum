@@ -40,6 +40,17 @@ fun formatChartNumber(value: Double, scale: DetailYScale): String {
             }
             if (raw.contains('e', ignoreCase = true)) raw else trimTrailingZeros(raw)
         }
+        DetailYScale.Steps -> {
+            val rounded = round(value).toLong()
+            if (rounded == 0L) {
+                "0"
+            } else if (abs(rounded) < STEPS_COMPACT_THRESHOLD) {
+                rounded.toString()
+            } else {
+                val thousands = rounded / STEPS_COMPACT_THRESHOLD.toDouble()
+                trimTrailingZeros(String.format(Locale.US, "%.1f", thousands)) + "k"
+            }
+        }
     }
 }
 
@@ -56,19 +67,6 @@ fun formatHoursAsDuration(hours: Double): String {
     } else {
         "${minutes}m"
     }
-}
-
-/**
- * Compact step-count labels for the hero Steps y-axis ("0", "500", "5k", "10k").
- * Sub-1k ticks render exact; 1k+ render with a "k" suffix trimmed of ".0".
- */
-fun formatStepAxisLabel(value: Double): String {
-    if (abs(value) < ZERO_EPSILON) return "0"
-    val rounded = round(value).toLong()
-    if (rounded == 0L) return "0"
-    if (abs(rounded) < STEPS_COMPACT_THRESHOLD) return rounded.toString()
-    val thousands = rounded / STEPS_COMPACT_THRESHOLD.toDouble()
-    return trimTrailingZeros(String.format(Locale.US, "%.1f", thousands)) + "k"
 }
 
 private const val STEPS_COMPACT_THRESHOLD = 1000L
