@@ -37,7 +37,11 @@ subprojects {
     }
 
     tasks.withType<Test>().configureEach {
-        useJUnitPlatform()
+        // Screenshot validation tasks run the plugin's generated JUnit4 tests — keep them on
+        // the default JUnit4 runner (STR-11). Everything else stays on the JUnit Platform.
+        if (!name.contains("ScreenshotTest")) {
+            useJUnitPlatform()
+        }
         // Profile-driven default (see build/reports/profile): the Robolectric
         // suites dominate build time and test classes are fork-isolated, so run
         // them in parallel. Driven by testMaxParallelForks (gradle.properties;
