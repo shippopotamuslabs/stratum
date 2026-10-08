@@ -118,6 +118,7 @@ fun EquipmentIncrementsRoute(
                     viewModel.addTier()
                 },
                 onBandSheetDismiss = { selectedBand = null },
+                onBandStartChanged = viewModel::onBandStartChanged,
                 onBandEndChanged = viewModel::onBandEndChanged,
                 onBandStepChanged = viewModel::onTierIncrementChanged,
                 onDeleteBand = {
