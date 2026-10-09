@@ -42,7 +42,10 @@ include:
 
 workflow:
   rules:
-    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    # Cost control (STR-110): MR pipelines run only when the MR targets the
+    # default branch. Stacked MRs targeting feature branches skip CI entirely —
+    # the full diff gets validated when the stack finally targets main.
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event' && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == $CI_DEFAULT_BRANCH
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == 'schedule'
 
