@@ -258,7 +258,6 @@ private fun ActivityHealthPage(
     expandChart: Boolean,
 ) {
     HealthPageColumn(
-        title = stringResource(R.string.dashboard_health_activity),
         hero = page.todayStepsText,
         empty = stringResource(R.string.dashboard_health_steps_empty),
         secondary = page.sevenDayAverageText?.let {
@@ -294,7 +293,6 @@ private fun WeightHealthPage(
         }
     }.ifEmpty { null }
     HealthPageColumn(
-        title = stringResource(R.string.dashboard_health_weight),
         hero = page.latestText,
         empty = stringResource(R.string.dashboard_health_weight_empty),
         secondary = listOfNotNull(page.latestDateText, secondary).joinToString(" · ").ifEmpty { null },
@@ -331,12 +329,6 @@ private fun RecoveryHealthPage(
         modifier = if (expandChart) Modifier.fillMaxSize() else Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        StratumText(
-            text = stringResource(R.string.dashboard_health_recovery),
-            style = StratumThemeAccessor.typography.sectionLabel,
-            muted = true,
-            maxLines = 1,
-        )
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -431,8 +423,8 @@ private fun RecoveryStatCard(
                 onClick = onClick,
             )
             .semantics { this.selected = selected }
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
+            .padding(horizontal = 12.dp, vertical = 3.dp),
+        verticalArrangement = Arrangement.spacedBy(1.dp),
     ) {
         StratumText(
             text = label,
@@ -442,7 +434,7 @@ private fun RecoveryStatCard(
         )
         StratumNumber(
             text = value ?: "—",
-            style = typography.titleLarge,
+            style = typography.titleMedium,
             maxLines = 1,
         )
         if (secondary != null) {
@@ -590,7 +582,6 @@ private fun SleepStageUi.labelRes(): Int = when (this) {
 
 @Composable
 private fun HealthPageColumn(
-    title: String,
     hero: String?,
     empty: String,
     secondary: String?,
@@ -601,11 +592,6 @@ private fun HealthPageColumn(
         modifier = if (fillHeight) Modifier.fillMaxSize() else Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        StratumText(
-            text = title,
-            style = StratumThemeAccessor.typography.sectionLabel,
-            muted = true,
-        )
         if (hero != null) {
             StratumNumber(text = hero)
         } else {
