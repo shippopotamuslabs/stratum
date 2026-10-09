@@ -84,8 +84,28 @@ private fun assembleWeight(
         val kg = inWindow.map { WeightConversion.amountInKg(it.weight) }.average()
         Weight(kg, Weight.WeightUnit.Kg)
     }
-    return WeightMetrics(latest = latest, sevenDayMean = mean, samples = inWindow)
+    return WeightMetrics(
+        latest = latest,
+        sevenDayMean = mean,
+        samples = inWindow,
+        threeDayTrend = trailingWeightMeans(inWindow),
+    )
 }
+
+/**
+ * Trailing 3-day mean over time-sorted in-window samples, one point per sample in the same
+ * order. Each point averages the samples in `[time − 3 days, time]` — a time-aware window,
+ * so sparse weeks hug the raw series instead of smearing across gaps.
+ */
+internal fun trailingWeightMeans(sorted: List<WeightSample>): List<WeightSample> =
+    sorted.map { point ->
+        val floor = point.time.minus(TRAILING_MEAN_WINDOW)
+        val kg = sorted
+            .filter { !it.time.isBefore(floor) && !it.time.isAfter(point.time) }
+            .map { WeightConversion.amountInKg(it.weight) }
+            .average()
+        WeightSample(time = point.time, weight = Weight(kg, Weight.WeightUnit.Kg))
+    }
 
 private fun assembleRecovery(
     granted: Set<HealthMetricType>,
@@ -354,3 +374,4 @@ private fun HealthMetricsRequest.windowDays(): List<Pair<LocalDate, Instant>> =
     windowDates().map { date -> date to date.atStartOfDay(zone).toInstant() }
 
 private val SAME_ORIGIN_CONTIGUOUS_GAP: Duration = Duration.ofMinutes(30)
+private val TRAILING_MEAN_WINDOW: Duration = Duration.ofDays(3)

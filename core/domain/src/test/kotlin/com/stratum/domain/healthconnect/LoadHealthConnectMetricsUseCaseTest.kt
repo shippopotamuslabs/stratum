@@ -124,6 +124,86 @@ class LoadHealthConnectMetricsUseCaseTest {
     }
 
     @Test
+    @DisplayName("STR-107: daily weigh-ins smooth a spike with a trailing lag")
+    fun weightTrendSmoothsDailySpike() = runTest {
+        prefs.setPreferences(HealthConnectPreferences(enabled = true))
+        metrics.granted = setOf(HealthMetricType.Weight)
+        metrics.snapshot = HealthMetricsSnapshot(
+            weightSamples = listOf(
+                WeightSample(today.minusDays(3).atTime(8, 0).toInstant(zone), kg(80.0)),
+                WeightSample(today.minusDays(2).atTime(8, 0).toInstant(zone), kg(80.0)),
+                WeightSample(today.minusDays(1).atTime(8, 0).toInstant(zone), kg(83.0)),
+                WeightSample(today.atTime(7, 0).toInstant(zone), kg(80.0)),
+            ),
+        )
+
+        val pages = load(zone, now)
+
+        val trend = pages.weight.threeDayTrend
+        assertEquals(4, trend.size)
+        assertEquals(listOf(80.0, 80.0, 81.0, 80.75), trend.map { it.weight.amount })
+        assertEquals(
+            pages.weight.samples.map { it.time },
+            trend.map { it.time },
+        )
+    }
+
+    @Test
+    @DisplayName("STR-107: sparse weeks hug the raw series")
+    fun weightTrendHugsSparseSamples() = runTest {
+        prefs.setPreferences(HealthConnectPreferences(enabled = true))
+        metrics.granted = setOf(HealthMetricType.Weight)
+        metrics.snapshot = HealthMetricsSnapshot(
+            weightSamples = listOf(
+                WeightSample(today.minusDays(6).atTime(8, 0).toInstant(zone), kg(80.0)),
+                WeightSample(today.atTime(7, 0).toInstant(zone), kg(81.0)),
+            ),
+        )
+
+        val pages = load(zone, now)
+
+        assertEquals(
+            pages.weight.samples.map { it.weight.amount },
+            pages.weight.threeDayTrend.map { it.weight.amount },
+        )
+    }
+
+    @Test
+    @DisplayName("STR-107: trend window is time-aware, not last-N samples")
+    fun weightTrendIgnoresSamplesOlderThanThreeDays() = runTest {
+        prefs.setPreferences(HealthConnectPreferences(enabled = true))
+        metrics.granted = setOf(HealthMetricType.Weight)
+        metrics.snapshot = HealthMetricsSnapshot(
+            weightSamples = listOf(
+                WeightSample(today.minusDays(6).atTime(8, 0).toInstant(zone), kg(70.0)),
+                WeightSample(today.atTime(7, 0).toInstant(zone), kg(84.0)),
+                WeightSample(today.atTime(8, 0).toInstant(zone), kg(86.0)),
+            ),
+        )
+
+        val pages = load(zone, now)
+
+        // A last-3 mean would drag today toward 70 kg; the 3-day window keeps only same-day samples.
+        assertEquals(listOf(70.0, 84.0, 85.0), pages.weight.threeDayTrend.map { it.weight.amount })
+    }
+
+    @Test
+    @DisplayName("STR-107: trend is empty when weight is not granted")
+    fun weightTrendEmptyWhenNotGranted() = runTest {
+        prefs.setPreferences(HealthConnectPreferences(enabled = true))
+        metrics.granted = setOf(HealthMetricType.Steps)
+        metrics.snapshot = HealthMetricsSnapshot(
+            weightSamples = listOf(
+                WeightSample(today.atTime(7, 0).toInstant(zone), kg(80.0)),
+            ),
+        )
+
+        val pages = load(zone, now)
+
+        assertTrue(pages.weight.threeDayTrend.isEmpty())
+    }
+
+    @Test
     @DisplayName("last night matches today's chart bucket, not a longer prior night")
     fun lastNightPick() = runTest {
         prefs.setPreferences(HealthConnectPreferences(enabled = true))

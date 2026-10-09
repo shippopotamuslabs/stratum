@@ -456,6 +456,8 @@ internal fun previewHealthState(selectedPage: Int = 0): DashboardHealthUiState =
             deltaText = "−0.7 lb",
             trendPoints = listOf(178.2f, 177.8f, 177.4f, 177.0f, 176.6f, 176.5f, 176.4f)
                 .mapIndexed { index, value -> TrendPointUi(index, value) },
+            trendMeanPoints = listOf(178.2f, 178.0f, 177.8f, 177.6f, 177.2f, 176.875f, 176.625f)
+                .mapIndexed { index, value -> TrendPointUi(index, value) },
             dayLabels = PREVIEW_DAY_LABELS,
         ),
         recovery = RecoveryHealthPageUi(
