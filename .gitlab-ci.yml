@@ -189,6 +189,25 @@ screenshot-tests:
       - '**/build/reports/screenshotTest/'
     expire_in: 2 weeks
 
+# Manual golden re-record for agents/CI without a local Gradle daemon - runs the
+# `update` screenshot tasks and publishes the regenerated PNGs as job artifacts.
+# CI_JOB_TOKEN cannot push to the repo (403), so download the artifacts, review
+# every PNG (each must show only intended pixels), commit the approved ones from
+# a machine with write access, then push.
+screenshot-record:
+  extends: .android-job
+  stage: test
+  needs: []
+  when: manual
+  script:
+    - ./gradlew :feature:workout:updateDebugScreenshotTest :feature:program:updateDebugScreenshotTest :app:updateDebugScreenshotTest :core:ui:updateDebugScreenshotTest :feature:settings:updateDebugScreenshotTest :feature:history:updateDebugScreenshotTest :feature:subscription:updateDebugScreenshotTest :feature:onboarding:updateDebugScreenshotTest
+    - find . -type d -path '*/src/screenshotTestDebug/reference' | grep -v '/build/'
+  artifacts:
+    when: always
+    paths:
+      - '**/src/screenshotTestDebug/reference/'
+    expire_in: 1 week
+
 assemble-debug:
   extends: .android-job
   stage: test

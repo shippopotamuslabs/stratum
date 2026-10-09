@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -24,8 +23,11 @@ import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,30 +38,25 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
-import com.stratum.core.ui.component.CompactChartValueFormat
 import com.stratum.core.ui.component.DetailYScale
-import com.stratum.core.ui.component.DonutSliceUi
-import com.stratum.core.ui.component.StratumDonutChart
 import com.stratum.core.ui.component.StratumEdgeToEdgeCard
 import com.stratum.core.ui.component.StratumMultiLineChart
 import com.stratum.core.ui.component.StratumNumber
 import com.stratum.core.ui.component.StratumPullToRefresh
+import com.stratum.core.ui.component.StackedSegment
+import com.stratum.core.ui.component.StratumStackedBarChart
 import com.stratum.core.ui.component.StratumTabScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumVolumeBarChart
+import com.stratum.core.ui.component.TrendPointUi
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
 private val PagerHeight = 268.dp
 private val EmptyPagerHeight = 108.dp
-private val LegendDotSize = 6.dp
-private val DONUT_SIZE = 112.dp
-private const val DONUT_COLUMN_WEIGHT = 0.42f
-private const val STAGE_CHART_COLUMN_WEIGHT = 0.58f
 private const val PAGER_SNAP_THRESHOLD = 0.14f
 private const val AWAKE_BLEND_TOWARD_SURFACE = 0.28f
 internal val HealthChromeSpacing = 12.dp
@@ -317,167 +314,253 @@ private fun WeightHealthPage(
     }
 }
 
+/**
+ * STR-98 unified recovery page: one layout for both staged and stage-less sleep.
+ * Three tappable stat cards (Sleep / RHR / HRV) select the 7-day trend shown in the
+ * viewport below. The sleep chart stacks bars by stage whenever any night has stage
+ * data (plain bars otherwise); the legend is a color key only — per-night stage
+ * durations come from tapping a bar (Vico marker).
+ */
 @Composable
 private fun RecoveryHealthPage(
     page: RecoveryHealthPageUi,
     expandChart: Boolean,
 ) {
-    val hasStages = page.stageSlices.isNotEmpty()
+    var selection by remember { mutableStateOf(RecoveryTrendSelection.Sleep) }
     Column(
         modifier = if (expandChart) Modifier.fillMaxSize() else Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        StratumText(
+            text = stringResource(R.string.dashboard_health_recovery),
+            style = StratumThemeAccessor.typography.sectionLabel,
+            muted = true,
+            maxLines = 1,
+        )
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
         ) {
-            StratumText(
-                text = stringResource(R.string.dashboard_health_recovery),
-                style = StratumThemeAccessor.typography.sectionLabel,
-                muted = true,
-                maxLines = 1,
+            RecoveryStatCard(
+                label = stringResource(R.string.dashboard_health_stat_sleep),
+                value = page.lastNightDurationText,
+                secondary = page.nightlyAverageText?.let {
+                    stringResource(R.string.dashboard_health_stat_average, it)
+                },
+                selected = selection == RecoveryTrendSelection.Sleep,
+                onClick = { selection = RecoveryTrendSelection.Sleep },
                 modifier = Modifier.weight(1f),
             )
-            RecoveryVitalsRow(page)
-        }
-        if (!hasStages) {
-            val hero = page.lastNightDurationText
-            if (hero != null) {
-                StratumNumber(text = hero)
-            } else if (page.showSleepEmptyText()) {
-                StratumText(
-                    text = stringResource(R.string.dashboard_health_sleep_empty),
-                    muted = true,
-                )
-            }
-        }
-        if (hasStages) {
-            RecoveryStagesRow(
-                page = page,
-                fillHeight = expandChart,
+            RecoveryStatCard(
+                label = stringResource(R.string.dashboard_health_vital_rhr),
+                value = page.restingHrText,
+                secondary = page.restingHrAverageText?.let {
+                    stringResource(R.string.dashboard_health_stat_average, it)
+                },
+                selected = selection == RecoveryTrendSelection.RestingHr,
+                onClick = { selection = RecoveryTrendSelection.RestingHr },
+                modifier = Modifier.weight(1f),
             )
-        } else if (page.hasChart()) {
-            StratumVolumeBarChart(
-                series = page.nightlyPoints,
+            RecoveryStatCard(
+                label = stringResource(R.string.dashboard_health_vital_hrv),
+                value = page.hrvText,
+                secondary = page.hrvAverageText?.let {
+                    stringResource(R.string.dashboard_health_stat_average, it)
+                },
+                selected = selection == RecoveryTrendSelection.Hrv,
+                onClick = { selection = RecoveryTrendSelection.Hrv },
+                modifier = Modifier.weight(1f),
+            )
+        }
+        when (selection) {
+            RecoveryTrendSelection.Sleep -> RecoverySleepTrend(
+                page = page,
+                expandChart = expandChart,
+            )
+            RecoveryTrendSelection.RestingHr -> RecoveryVitalTrend(
+                points = page.restingHrDailyPoints,
                 dayLabels = page.dayLabels,
-                contentDescription = stringResource(R.string.dashboard_health_sleep_chart_cd),
-                modifier = healthChartModifier(expandChart),
-                fillHeight = expandChart,
+                contentDescription = stringResource(R.string.dashboard_health_rhr_trend_chart_cd),
+                emptyText = stringResource(R.string.dashboard_health_rhr_empty),
+                expandChart = expandChart,
+            )
+            RecoveryTrendSelection.Hrv -> RecoveryVitalTrend(
+                points = page.hrvDailyPoints,
+                dayLabels = page.dayLabels,
+                contentDescription = stringResource(R.string.dashboard_health_hrv_trend_chart_cd),
+                emptyText = stringResource(R.string.dashboard_health_hrv_empty),
+                expandChart = expandChart,
             )
         }
     }
 }
 
+private enum class RecoveryTrendSelection {
+    Sleep,
+    RestingHr,
+    Hrv,
+}
+
+// One-off selectable stat card (UI_DESIGN.md §7.2 step 4): used only on the recovery page,
+// mirroring the selected/unselected roles of HealthPagerPill. Semantic colors only.
 @Composable
-private fun ColumnScope.RecoveryStagesRow(
-    page: RecoveryHealthPageUi,
-    fillHeight: Boolean,
+private fun RecoveryStatCard(
+    label: String,
+    value: String?,
+    secondary: String?,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val colors = StratumThemeAccessor.colors
-    Row(
-        modifier = if (fillHeight) {
-            Modifier
-                .weight(1f)
-                .fillMaxWidth()
-        } else {
-            Modifier.fillMaxWidth()
-        },
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    val typography = StratumThemeAccessor.typography
+    val shape = StratumThemeAccessor.shapes.panel
+    Column(
+        modifier = modifier
+            .clip(shape)
+            .background(colors.surfaceRaised)
+            .border(
+                width = StratumThemeAccessor.shapes.borderWidth,
+                color = if (selected) colors.accent else colors.borderSubtle,
+                shape = shape,
+            )
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                role = Role.Tab,
+                onClick = onClick,
+            )
+            .semantics { this.selected = selected }
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        Column(
-            modifier = Modifier.weight(DONUT_COLUMN_WEIGHT),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            StratumDonutChart(
-                slices = page.stageSlices.map { slice ->
-                    DonutSliceUi(
-                        fraction = slice.fraction,
-                        color = slice.stage.color(),
-                    )
-                },
-                contentDescription = stringResource(R.string.dashboard_health_sleep_zones_cd),
-                modifier = Modifier.size(DONUT_SIZE),
-            ) {
-                page.lastNightDurationText?.let { duration ->
-                    StratumNumber(
-                        text = duration,
-                        style = StratumThemeAccessor.typography.titleMedium,
-                    )
-                }
-            }
-            SleepStageLegend(slices = page.stageSlices)
+        StratumText(
+            text = label,
+            style = typography.sectionLabel,
+            muted = true,
+            maxLines = 1,
+        )
+        StratumNumber(
+            text = value ?: "—",
+            style = typography.titleLarge,
+            maxLines = 1,
+        )
+        if (secondary != null) {
+            StratumText(
+                text = secondary,
+                style = typography.sectionLabel,
+                muted = true,
+                maxLines = 1,
+            )
         }
-        StratumMultiLineChart(
-            primarySeries = page.lightNightlyPoints,
-            secondarySeries = page.deepNightlyPoints,
-            tertiarySeries = page.remNightlyPoints,
-            quaternarySeries = page.awakeNightlyPoints,
-            primaryColor = colors.textMuted,
-            secondaryColor = colors.accent,
-            tertiaryColor = colors.textData,
-            quaternaryColor = awakeStageColor(),
+    }
+}
+
+private fun ColumnScope.healthChartModifier(expandChart: Boolean): Modifier =
+    if (expandChart) {
+        Modifier
+            .weight(1f)
+            .fillMaxWidth()
+    } else {
+        Modifier.fillMaxWidth()
+    }
+
+@Composable
+private fun ColumnScope.RecoverySleepTrend(
+    page: RecoveryHealthPageUi,
+    expandChart: Boolean,
+) {
+    val hasStages = page.lightNightlyPoints.any { it.value > 0f } ||
+        page.deepNightlyPoints.any { it.value > 0f } ||
+        page.remNightlyPoints.any { it.value > 0f } ||
+        page.awakeNightlyPoints.any { it.value > 0f }
+    if (hasStages) {
+        StratumStackedBarChart(
+            segments = listOf(
+                StackedSegment(points = page.lightNightlyPoints, color = SleepStageUi.Light.color()),
+                StackedSegment(points = page.deepNightlyPoints, color = SleepStageUi.Deep.color()),
+                StackedSegment(points = page.remNightlyPoints, color = SleepStageUi.Rem.color()),
+                StackedSegment(points = page.awakeNightlyPoints, color = SleepStageUi.Awake.color()),
+            ),
+            contentDescription = stringResource(R.string.dashboard_health_sleep_chart_cd),
             dayLabels = page.dayLabels,
-            valueFormat = CompactChartValueFormat.HoursMinutes,
-            contentDescription = stringResource(R.string.dashboard_health_sleep_stages_chart_cd),
-            modifier = Modifier
-                .weight(STAGE_CHART_COLUMN_WEIGHT)
-                .fillMaxHeight(),
+            modifier = healthChartModifier(expandChart),
+            fillHeight = expandChart,
+            // Volume scale: 0-based range with plain-number labels — the right shape for hours.
+            yScale = DetailYScale.Volume,
+        )
+        SleepStageColorKey()
+    } else if (page.nightlyPoints.any { it.value > 0f }) {
+        StratumVolumeBarChart(
+            series = page.nightlyPoints,
+            dayLabels = page.dayLabels,
+            contentDescription = stringResource(R.string.dashboard_health_sleep_chart_cd),
+            modifier = healthChartModifier(expandChart),
+            fillHeight = expandChart,
+            yScale = DetailYScale.Volume,
+        )
+    } else if (page.showSleepEmptyText()) {
+        StratumText(
+            text = stringResource(R.string.dashboard_health_sleep_empty),
+            muted = true,
         )
     }
 }
 
+/** Color key for the stacked sleep bars: stage names only, no durations (see STR-98). */
 @Composable
-private fun SleepStageLegend(slices: List<SleepStageSliceUi>) {
-    val typography = StratumThemeAccessor.typography
-    val durationStyle = typography.dataLarge.copy(
-        fontSize = typography.sectionLabel.fontSize,
-        lineHeight = typography.sectionLabel.lineHeight,
+private fun SleepStageColorKey() {
+    val stages = listOf(
+        SleepStageUi.Light,
+        SleepStageUi.Deep,
+        SleepStageUi.Rem,
+        SleepStageUi.Awake,
     )
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        slices.chunked(2).forEach { row ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                row.forEach { slice ->
-                    Row(
-                        modifier = Modifier.weight(1f),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(LegendDotSize)
-                                .clip(CircleShape)
-                                .background(slice.stage.color()),
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            StratumText(
-                                text = stringResource(slice.stage.labelRes()),
-                                muted = true,
-                                style = typography.sectionLabel,
-                                maxLines = 1,
-                            )
-                            StratumNumber(
-                                text = slice.durationText,
-                                style = durationStyle,
-                                maxLines = 1,
-                            )
-                        }
-                    }
-                }
-                if (row.size == 1) {
-                    Spacer(modifier = Modifier.weight(1f))
-                }
+        stages.forEach { stage ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(stage.color()),
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                StratumText(
+                    text = stringResource(stage.labelRes()),
+                    style = StratumThemeAccessor.typography.sectionLabel,
+                    muted = true,
+                    maxLines = 1,
+                )
             }
         }
+    }
+}
+
+@Composable
+private fun ColumnScope.RecoveryVitalTrend(
+    points: List<TrendPointUi>,
+    dayLabels: List<String>,
+    contentDescription: String,
+    emptyText: String,
+    expandChart: Boolean,
+) {
+    if (points.size >= 2) {
+        StratumMultiLineChart(
+            primarySeries = points,
+            contentDescription = contentDescription,
+            dayLabels = dayLabels,
+            modifier = healthChartModifier(expandChart),
+        )
+    } else {
+        StratumText(
+            text = emptyText,
+            muted = true,
+        )
     }
 }
 
@@ -503,126 +586,6 @@ private fun SleepStageUi.labelRes(): Int = when (this) {
     SleepStageUi.Deep -> R.string.dashboard_health_sleep_stage_deep
     SleepStageUi.Rem -> R.string.dashboard_health_sleep_stage_rem
     SleepStageUi.Awake -> R.string.dashboard_health_sleep_stage_awake
-}
-
-@Composable
-private fun RecoveryVitalsRow(page: RecoveryHealthPageUi) {
-    val description = recoverySecondary(page) ?: return
-    Row(
-        modifier = Modifier.semantics { contentDescription = description },
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        page.restingHrText?.let { current ->
-            RecoveryVitalChip(
-                label = stringResource(R.string.dashboard_health_vital_rhr),
-                value = current,
-                secondaryLabel = page.restingHrAverageText?.let {
-                    stringResource(R.string.dashboard_health_vital_avg)
-                },
-                secondaryValue = page.restingHrAverageText,
-            )
-        }
-        page.hrvText?.let { hrv ->
-            RecoveryVitalChip(
-                label = stringResource(R.string.dashboard_health_vital_hrv),
-                value = hrv,
-            )
-        }
-    }
-}
-
-@Composable
-private fun RecoveryVitalChip(
-    label: String,
-    value: String,
-    secondaryLabel: String? = null,
-    secondaryValue: String? = null,
-) {
-    val colors = StratumThemeAccessor.colors
-    val typography = StratumThemeAccessor.typography
-    val valueStyle = typography.dataLarge.copy(
-        fontSize = typography.sectionLabel.fontSize,
-        lineHeight = typography.sectionLabel.lineHeight,
-    )
-    Row(
-        modifier = Modifier
-            .background(color = colors.surfaceSunken, shape = StratumThemeAccessor.shapes.chip)
-            .clip(StratumThemeAccessor.shapes.chip)
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        VitalChipReading(
-            label = label,
-            value = value,
-            valueStyle = valueStyle,
-            labelStyle = typography.sectionLabel,
-        )
-        if (secondaryLabel != null && secondaryValue != null) {
-            StratumText(
-                text = stringResource(R.string.dashboard_health_vital_separator),
-                muted = true,
-                style = typography.sectionLabel,
-                maxLines = 1,
-            )
-            VitalChipReading(
-                label = secondaryLabel,
-                value = secondaryValue,
-                valueStyle = valueStyle,
-                labelStyle = typography.sectionLabel,
-            )
-        }
-    }
-}
-
-@Composable
-private fun VitalChipReading(
-    label: String,
-    value: String,
-    valueStyle: TextStyle,
-    labelStyle: TextStyle,
-) {
-    StratumText(
-        text = label,
-        muted = true,
-        style = labelStyle,
-        maxLines = 1,
-    )
-    StratumNumber(
-        text = value,
-        style = valueStyle,
-        maxLines = 1,
-    )
-}
-
-private fun ColumnScope.healthChartModifier(expandChart: Boolean): Modifier =
-    if (expandChart) {
-        Modifier
-            .weight(1f)
-            .fillMaxWidth()
-    } else {
-        Modifier.fillMaxWidth()
-    }
-
-@Composable
-private fun recoverySecondary(page: RecoveryHealthPageUi): String? {
-    val parts = buildList {
-        page.restingHrText?.let { current ->
-            val average = page.restingHrAverageText
-            add(
-                if (average != null) {
-                    stringResource(R.string.dashboard_health_rhr_with_average, current, average)
-                } else {
-                    stringResource(R.string.dashboard_health_rhr, current)
-                },
-            )
-        }
-        page.hrvText?.let {
-            add(stringResource(R.string.dashboard_health_hrv, it))
-        }
-    }
-    return parts.takeIf { it.isNotEmpty() }?.joinToString("  ")
 }
 
 @Composable

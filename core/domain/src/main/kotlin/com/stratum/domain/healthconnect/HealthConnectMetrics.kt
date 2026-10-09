@@ -122,6 +122,18 @@ data class RecoveryMetrics(
     val restingHeartRateBpm: Long? = null,
     val restingHeartRateSevenDayMean: Double? = null,
     val hrvRmssdMillis: Double? = null,
+    /**
+     * Per-day means across the 7-day window, one entry per [HealthMetricsRequest.windowDates]
+     * (null where the day has no samples). Backs the STR-98 recovery trend viewport.
+     */
+    val restingHeartRateDaily: List<DailyVitalSample> = emptyList(),
+    val hrvDaily: List<DailyVitalSample> = emptyList(),
+)
+
+/** One day's mean vital value; [value] is null when the day has no samples. */
+data class DailyVitalSample(
+    val dayStart: Instant,
+    val value: Double?,
 )
 
 data class SleepNight(
