@@ -335,4 +335,23 @@ class DashboardHealthUiTest {
 
         assertTrue(ui.weight.trendMeanPoints.isEmpty())
     }
+
+    @Test
+    @DisplayName("STR-111: weight legend shows only when both series are drawable")
+    fun weightLegendGating() {
+        val raw = listOf(TrendPointUi(0, 177f), TrendPointUi(1, 176.4f))
+        val trend = listOf(TrendPointUi(0, 177f), TrendPointUi(1, 176.7f))
+        assertTrue(WeightHealthPageUi(trendPoints = raw, trendMeanPoints = trend).hasTrendLegend())
+        // Raw chart without a drawable trend: chart yes, legend no.
+        val rawOnly = WeightHealthPageUi(trendPoints = raw, trendMeanPoints = emptyList())
+        assertTrue(rawOnly.hasChart())
+        assertFalse(rawOnly.hasTrendLegend())
+        // Single sample: neither chart nor legend.
+        val single = WeightHealthPageUi(
+            trendPoints = listOf(TrendPointUi(0, 177f)),
+            trendMeanPoints = listOf(TrendPointUi(0, 177f)),
+        )
+        assertFalse(single.hasChart())
+        assertFalse(single.hasTrendLegend())
+    }
 }
