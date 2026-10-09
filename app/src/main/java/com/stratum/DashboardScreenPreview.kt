@@ -460,15 +460,11 @@ internal fun previewHealthState(selectedPage: Int = 0): DashboardHealthUiState =
         ),
         recovery = RecoveryHealthPageUi(
             lastNightDurationText = "7h 12m",
-            stageSlices = listOf(
-                SleepStageSliceUi(SleepStageUi.Light, 0.45f, "3h 14m"),
-                SleepStageSliceUi(SleepStageUi.Deep, 0.22f, "1h 35m"),
-                SleepStageSliceUi(SleepStageUi.Rem, 0.23f, "1h 39m"),
-                SleepStageSliceUi(SleepStageUi.Awake, 0.10f, "43m"),
-            ),
+            nightlyAverageText = "7h 5m",
             restingHrText = "52 bpm",
             restingHrAverageText = "54 bpm",
             hrvText = "48 ms",
+            hrvAverageText = "46 ms",
             nightlyPoints = listOf(6.8f, 7.1f, 5.9f, 7.4f, 7.0f, 8.1f, 7.2f)
                 .mapIndexed { index, value -> TrendPointUi(index, value) },
             lightNightlyPoints = listOf(3.2f, 3.0f, 2.4f, 3.4f, 3.1f, 3.6f, 3.2f)
@@ -478,6 +474,10 @@ internal fun previewHealthState(selectedPage: Int = 0): DashboardHealthUiState =
             remNightlyPoints = listOf(1.6f, 1.7f, 1.3f, 1.8f, 1.6f, 2.0f, 1.7f)
                 .mapIndexed { index, value -> TrendPointUi(index, value) },
             awakeNightlyPoints = listOf(0.7f, 0.4f, 0.9f, 0.5f, 0.6f, 0.3f, 0.7f)
+                .mapIndexed { index, value -> TrendPointUi(index, value) },
+            restingHrDailyPoints = listOf(54f, 53f, 55f, 52f, 53f, 51f, 52f)
+                .mapIndexed { index, value -> TrendPointUi(index, value) },
+            hrvDailyPoints = listOf(44f, 47f, 42f, 49f, 46f, 50f, 48f)
                 .mapIndexed { index, value -> TrendPointUi(index, value) },
             dayLabels = PREVIEW_DAY_LABELS,
         ),
@@ -492,10 +492,16 @@ private fun previewStagelessSleepState(includeLastNight: Boolean): DashboardHeal
     previewHealthState(selectedPage = 2).copy(
         recovery = RecoveryHealthPageUi(
             lastNightDurationText = if (includeLastNight) "7h 12m" else null,
+            nightlyAverageText = "7h 5m",
             restingHrText = "52 bpm",
             restingHrAverageText = "54 bpm",
             hrvText = "48 ms",
+            hrvAverageText = "46 ms",
             nightlyPoints = listOf(6.8f, 7.1f, 5.9f, 7.4f, 7.0f, 8.1f, 7.2f)
+                .mapIndexed { index, value -> TrendPointUi(index, value) },
+            restingHrDailyPoints = listOf(54f, 53f, 55f, 52f, 53f, 51f, 52f)
+                .mapIndexed { index, value -> TrendPointUi(index, value) },
+            hrvDailyPoints = listOf(44f, 47f, 42f, 49f, 46f, 50f, 48f)
                 .mapIndexed { index, value -> TrendPointUi(index, value) },
             dayLabels = PREVIEW_DAY_LABELS,
         ),

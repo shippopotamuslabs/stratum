@@ -2,6 +2,7 @@ package com.stratum
 
 import com.stratum.core.ui.component.TrendPointUi
 import com.stratum.domain.healthconnect.ActivityMetrics
+import com.stratum.domain.healthconnect.DailyVitalSample
 import com.stratum.domain.healthconnect.HEALTH_METRICS_DAY_COUNT
 import com.stratum.domain.healthconnect.HealthMetricsPages
 import com.stratum.domain.healthconnect.NightlySleepDuration
@@ -46,22 +47,20 @@ data class WeightHealthPageUi(
 
 data class RecoveryHealthPageUi(
     val lastNightDurationText: String? = null,
-    val stageSlices: List<SleepStageSliceUi> = emptyList(),
+    val nightlyAverageText: String? = null,
     val restingHrText: String? = null,
     val restingHrAverageText: String? = null,
     val hrvText: String? = null,
+    val hrvAverageText: String? = null,
     val nightlyPoints: List<TrendPointUi> = emptyList(),
     val lightNightlyPoints: List<TrendPointUi> = emptyList(),
     val deepNightlyPoints: List<TrendPointUi> = emptyList(),
     val remNightlyPoints: List<TrendPointUi> = emptyList(),
     val awakeNightlyPoints: List<TrendPointUi> = emptyList(),
+    /** Sparse per-day vitals; only days with samples are present (null = no data, dropped). */
+    val restingHrDailyPoints: List<TrendPointUi> = emptyList(),
+    val hrvDailyPoints: List<TrendPointUi> = emptyList(),
     val dayLabels: List<String> = emptyList(),
-)
-
-data class SleepStageSliceUi(
-    val stage: SleepStageUi,
-    val fraction: Float,
-    val durationText: String,
 )
 
 enum class SleepStageUi {
@@ -75,22 +74,27 @@ internal fun ActivityHealthPageUi.hasChart(): Boolean = dailyPoints.any { it.val
 
 internal fun WeightHealthPageUi.hasChart(): Boolean = trendPoints.size >= 2
 
-internal fun RecoveryHealthPageUi.hasChart(): Boolean =
+internal fun RecoveryHealthPageUi.hasSleepChart(): Boolean =
     nightlyPoints.any { it.value > 0f } ||
         lightNightlyPoints.any { it.value > 0f } ||
         deepNightlyPoints.any { it.value > 0f } ||
         remNightlyPoints.any { it.value > 0f } ||
-        awakeNightlyPoints.any { it.value > 0f } ||
-        stageSlices.isNotEmpty()
+        awakeNightlyPoints.any { it.value > 0f }
+
+internal fun RecoveryHealthPageUi.hasChart(): Boolean =
+    hasSleepChart() ||
+        restingHrDailyPoints.isNotEmpty() ||
+        hrvDailyPoints.isNotEmpty()
 
 /**
  * STR-96: the "no sleep" empty copy must only show when the window truly has no
  * sleep data — never above a non-empty chart. [lastNightDurationText] is null
  * whenever the most recent night is missing, but older nights in the window can
- * still carry durations (non-zero bars below the copy).
+ * still carry durations (non-zero bars below the copy). Scoped to sleep data only:
+ * vitals may legitimately render while the sleep tab is empty.
  */
 internal fun RecoveryHealthPageUi.showSleepEmptyText(): Boolean =
-    lastNightDurationText == null && !hasChart()
+    lastNightDurationText == null && !hasSleepChart()
 
 internal fun DashboardHealthUiState.hasChart(): Boolean =
     activity.hasChart() || weight.hasChart() || recovery.hasChart()
@@ -156,22 +160,44 @@ private fun RecoveryMetrics.toUi(zone: ZoneId): RecoveryHealthPageUi {
         )
     }
     val labels = nightlyDurations.map { shortWeekdayLabel(it.dayStart, zone) }
+    val nightlyAverage = nightlyDurations
+        .map { it.duration }
+        .filter { !it.isZero }
+        .takeIf { it.isNotEmpty() }
+        ?.let { durations ->
+            val avgMinutes = durations.sumOf { it.toMinutes() } / durations.size
+            formatHoursMinutes(Duration.ofMinutes(avgMinutes))
+        }
     return RecoveryHealthPageUi(
         lastNightDurationText = lastNight?.duration?.let { formatHoursMinutes(it) },
-        stageSlices = lastNight?.zones.toSlices(),
+        nightlyAverageText = nightlyAverage,
         restingHrText = restingHeartRateBpm?.let { "$it bpm" },
         restingHrAverageText = restingHeartRateSevenDayMean?.let {
             "${it.toLong()} bpm"
         },
         hrvText = hrvRmssdMillis?.let { String.format(Locale.US, "%.0f ms", it) },
+        hrvAverageText = hrvDaily.mapNotNull { it.value }
+            .takeIf { it.isNotEmpty() }
+            ?.let { String.format(Locale.US, "%.0f ms", it.average()) },
         nightlyPoints = points.ifEmpty { zeroWeekPoints() },
         lightNightlyPoints = nightlyDurations.toStagePoints { it.light },
         deepNightlyPoints = nightlyDurations.toStagePoints { it.deep },
         remNightlyPoints = nightlyDurations.toStagePoints { it.rem },
         awakeNightlyPoints = nightlyDurations.toStagePoints { it.awake },
+        restingHrDailyPoints = restingHeartRateDaily.toVitalPoints(),
+        hrvDailyPoints = hrvDaily.toVitalPoints(),
         dayLabels = labels.ifEmpty { emptyList() },
     )
 }
+
+/**
+ * Sparse trend points: days with a null mean (no samples that day) are dropped.
+ * [weekIndex] keeps the surviving points aligned with the 7-day labels.
+ */
+private fun List<DailyVitalSample>.toVitalPoints(): List<TrendPointUi> =
+    mapIndexedNotNull { index, sample ->
+        sample.value?.let { TrendPointUi(weekIndex = index, value = it.toFloat()) }
+    }
 
 private fun List<NightlySleepDuration>.toStagePoints(
     hours: (SleepZones) -> Duration,
@@ -183,34 +209,6 @@ private fun List<NightlySleepDuration>.toStagePoints(
             value = night.zones?.let(hours).toHoursFloat(),
         )
     }
-}
-
-private fun SleepZones?.toSlices(): List<SleepStageSliceUi> {
-    val zones = this ?: return emptyList()
-    val totalMs = zones.total.toMillis().toFloat()
-    if (totalMs <= 0f) return emptyList()
-    return listOf(
-        SleepStageSliceUi(
-            stage = SleepStageUi.Light,
-            fraction = zones.light.toMillis() / totalMs,
-            durationText = formatHoursMinutes(zones.light),
-        ),
-        SleepStageSliceUi(
-            stage = SleepStageUi.Deep,
-            fraction = zones.deep.toMillis() / totalMs,
-            durationText = formatHoursMinutes(zones.deep),
-        ),
-        SleepStageSliceUi(
-            stage = SleepStageUi.Rem,
-            fraction = zones.rem.toMillis() / totalMs,
-            durationText = formatHoursMinutes(zones.rem),
-        ),
-        SleepStageSliceUi(
-            stage = SleepStageUi.Awake,
-            fraction = zones.awake.toMillis() / totalMs,
-            durationText = formatHoursMinutes(zones.awake),
-        ),
-    ).filter { it.fraction > 0f }
 }
 
 private fun Duration?.toHoursFloat(): Float =
