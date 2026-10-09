@@ -272,4 +272,67 @@ class DashboardHealthUiTest {
         assertEquals(2, ui.weight.trendPoints.size)
         assertTrue(ui.weight.hasChart())
     }
+
+    @Test
+    @DisplayName("STR-107: weight UI maps the trailing-mean series aligned with raw points")
+    fun weightMapsTrendMeanPoints() {
+        val zone = ZoneOffset.UTC
+        val pages = HealthMetricsPages(
+            visible = true,
+            weight = WeightMetrics(
+                samples = listOf(
+                    WeightSample(
+                        time = Instant.parse("2026-08-11T12:00:00Z"),
+                        weight = Weight(177.0, Weight.WeightUnit.Lb),
+                    ),
+                    WeightSample(
+                        time = Instant.parse("2026-08-12T12:00:00Z"),
+                        weight = Weight(176.4, Weight.WeightUnit.Lb),
+                    ),
+                ),
+                threeDayTrend = listOf(
+                    WeightSample(
+                        time = Instant.parse("2026-08-11T12:00:00Z"),
+                        weight = Weight(177.0, Weight.WeightUnit.Lb),
+                    ),
+                    WeightSample(
+                        time = Instant.parse("2026-08-12T12:00:00Z"),
+                        weight = Weight(176.7, Weight.WeightUnit.Lb),
+                    ),
+                ),
+            ),
+        )
+
+        val ui = pages.toHealthUi(Weight.WeightUnit.Lb, zone)
+
+        assertEquals(
+            listOf(TrendPointUi(0, 177.0f), TrendPointUi(1, 176.7f)),
+            ui.weight.trendMeanPoints,
+        )
+        assertEquals(
+            ui.weight.trendPoints.map { it.weekIndex },
+            ui.weight.trendMeanPoints.map { it.weekIndex },
+        )
+    }
+
+    @Test
+    @DisplayName("STR-107: weight UI leaves the trailing-mean series empty when unknown")
+    fun weightMapsEmptyTrendMeanPoints() {
+        val zone = ZoneOffset.UTC
+        val pages = HealthMetricsPages(
+            visible = true,
+            weight = WeightMetrics(
+                samples = listOf(
+                    WeightSample(
+                        time = Instant.parse("2026-08-12T12:00:00Z"),
+                        weight = Weight(176.4, Weight.WeightUnit.Lb),
+                    ),
+                ),
+            ),
+        )
+
+        val ui = pages.toHealthUi(Weight.WeightUnit.Lb, zone)
+
+        assertTrue(ui.weight.trendMeanPoints.isEmpty())
+    }
 }

@@ -42,6 +42,8 @@ data class WeightHealthPageUi(
     val sevenDayMeanText: String? = null,
     val deltaText: String? = null,
     val trendPoints: List<TrendPointUi> = emptyList(),
+    /** Muted trailing-mean series; 1:1 with [trendPoints] (`weekIndex`-aligned). Empty when unknown. */
+    val trendMeanPoints: List<TrendPointUi> = emptyList(),
     val dayLabels: List<String> = emptyList(),
 )
 
@@ -142,12 +144,20 @@ private fun WeightMetrics.toUi(
             value = convertBodyWeight(sample.weight, displayUnit).toFloat(),
         )
     }
+    // Domain emits one trend point per sample in the same order, so the index aligns both series.
+    val meanPoints = threeDayTrend.mapIndexed { index, sample ->
+        TrendPointUi(
+            weekIndex = index,
+            value = convertBodyWeight(sample.weight, displayUnit).toFloat(),
+        )
+    }
     return WeightHealthPageUi(
         latestText = latestAmount?.let { formatBodyWeight(it, displayUnit) },
         latestDateText = latest?.time?.let { formatShortDate(it, zone) },
         sevenDayMeanText = meanAmount?.let { formatBodyWeight(it, displayUnit) },
         deltaText = delta?.let { formatWeightDelta(it, displayUnit) },
         trendPoints = points,
+        trendMeanPoints = meanPoints,
         dayLabels = samples.map { shortWeekdayLabel(it.time, zone) },
     )
 }

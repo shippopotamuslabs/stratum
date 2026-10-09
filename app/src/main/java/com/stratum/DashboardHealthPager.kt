@@ -302,6 +302,8 @@ private fun WeightHealthPage(
             StratumMultiLineChart(
                 primarySeries = page.trendPoints,
                 primaryColor = StratumThemeAccessor.colors.textData,
+                secondarySeries = page.trendMeanPoints,
+                secondaryColor = StratumThemeAccessor.colors.textMuted,
                 dayLabels = page.dayLabels,
                 yScale = DetailYScale.Weight,
                 contentDescription = stringResource(R.string.dashboard_health_weight_chart_cd),

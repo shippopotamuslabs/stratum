@@ -114,6 +114,12 @@ data class WeightMetrics(
     val latest: WeightSample? = null,
     val sevenDayMean: Weight? = null,
     val samples: List<WeightSample> = emptyList(),
+    /**
+     * Trailing 3-day mean, one point per [samples] entry in the same order: each point's
+     * weight is the mean of samples in the prior 3 days (time-aware, not "last N"). On
+     * sparse weeks a point's window holds only itself, so the trend hugs the raw series.
+     */
+    val threeDayTrend: List<WeightSample> = emptyList(),
 )
 
 data class RecoveryMetrics(
