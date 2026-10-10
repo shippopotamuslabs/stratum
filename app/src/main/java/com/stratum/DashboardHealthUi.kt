@@ -9,6 +9,7 @@ import com.stratum.domain.healthconnect.NightlySleepDuration
 import com.stratum.domain.healthconnect.RecoveryMetrics
 import com.stratum.domain.healthconnect.SleepZones
 import com.stratum.domain.healthconnect.WeightMetrics
+import com.stratum.domain.healthconnect.WeightSample
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.WeightConversion
 import com.stratum.domain.lift.shortLabel
@@ -138,19 +139,9 @@ private fun WeightMetrics.toUi(
     val latestAmount = latest?.let { convertBodyWeight(it.weight, displayUnit) }
     val meanAmount = mean?.let { convertBodyWeight(it, displayUnit) }
     val delta = if (latestAmount != null && meanAmount != null) latestAmount - meanAmount else null
-    val points = samples.mapIndexed { index, sample ->
-        TrendPointUi(
-            weekIndex = index,
-            value = convertBodyWeight(sample.weight, displayUnit).toFloat(),
-        )
-    }
+    val points = samples.mapIndexed { index, sample -> sample.toTrendPointUi(index, displayUnit) }
     // Domain emits one trend point per sample in the same order, so the index aligns both series.
-    val meanPoints = threeDayTrend.mapIndexed { index, sample ->
-        TrendPointUi(
-            weekIndex = index,
-            value = convertBodyWeight(sample.weight, displayUnit).toFloat(),
-        )
-    }
+    val meanPoints = threeDayTrend.mapIndexed { index, sample -> sample.toTrendPointUi(index, displayUnit) }
     return WeightHealthPageUi(
         latestText = latestAmount?.let { formatBodyWeight(it, displayUnit) },
         latestDateText = latest?.time?.let { formatShortDate(it, zone) },
@@ -161,6 +152,12 @@ private fun WeightMetrics.toUi(
         dayLabels = samples.map { shortWeekdayLabel(it.time, zone) },
     )
 }
+
+private fun WeightSample.toTrendPointUi(index: Int, displayUnit: Weight.WeightUnit): TrendPointUi =
+    TrendPointUi(
+        weekIndex = index,
+        value = convertBodyWeight(weight, displayUnit).toFloat(),
+    )
 
 private fun RecoveryMetrics.toUi(zone: ZoneId): RecoveryHealthPageUi {
     val points = nightlyDurations.mapIndexed { index, night ->
