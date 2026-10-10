@@ -449,6 +449,8 @@ enum class DetailYScale {
     Progress,
     /** Hero step counts — floored at 0 with a nice ceiling and compact "k" labels. */
     Steps,
+    /** Resting-HR / HRV small multiples — data-fitted like Weight, integer labels. */
+    Vitals,
 }
 
 /**
@@ -492,6 +494,7 @@ internal fun rangeProviderFor(scale: DetailYScale): CartesianLayerRangeProvider 
     DetailYScale.Volume -> VolumeRangeProvider
     DetailYScale.Progress -> ProgressBaselineRangeProvider
     DetailYScale.Steps -> StepsRangeProvider
+    DetailYScale.Vitals -> VitalsRangeProvider
 }
 
 /**
@@ -500,7 +503,7 @@ internal fun rangeProviderFor(scale: DetailYScale): CartesianLayerRangeProvider 
  */
 internal fun yTickCountFor(scale: DetailYScale): Int = when (scale) {
     DetailYScale.Steps -> COMPACT_STEPS_LABEL_COUNT
-    DetailYScale.Weight, DetailYScale.Volume, DetailYScale.Progress -> COMPACT_LABEL_COUNT
+    DetailYScale.Weight, DetailYScale.Volume, DetailYScale.Progress, DetailYScale.Vitals -> COMPACT_LABEL_COUNT
 }
 
 internal object ProgressBaselineRangeProvider : CartesianLayerRangeProvider {
@@ -535,6 +538,14 @@ internal object StepsRangeProvider : CartesianLayerRangeProvider {
         stepsYRange(minY, maxY).second
 }
 
+internal object VitalsRangeProvider : CartesianLayerRangeProvider {
+    override fun getMinY(minY: Double, maxY: Double, extraStore: ExtraStore): Double =
+        vitalsYRange(minY, maxY).first
+
+    override fun getMaxY(minY: Double, maxY: Double, extraStore: ExtraStore): Double =
+        vitalsYRange(minY, maxY).second
+}
+
 /**
  * Signed progress index about zero. Always includes 0 and a minimum span so flat near-zero weeks
  * still draw axis ticks without dividing by zero.
@@ -556,20 +567,41 @@ internal fun progressYRange(dataMin: Double, dataMax: Double): Pair<Double, Doub
  * e1RM / weight. Pads and expands flat series (two sessions at the same load collapse to one
  * week) so Intrinsic-style min==max never reaches Vico's axis mapper.
  */
-internal fun weightYRange(dataMin: Double, dataMax: Double): Pair<Double, Double> {
-    val (lo, hi) = finiteDataBounds(dataMin, dataMax, fallbackSpan = WEIGHT_MIN_SPAN)
-    val span = max(hi - lo, WEIGHT_MIN_SPAN)
+internal fun weightYRange(dataMin: Double, dataMax: Double): Pair<Double, Double> =
+    fittedYRange(dataMin, dataMax, WEIGHT_MIN_SPAN, WEIGHT_PAD_FRACTION)
+
+/**
+ * Shared data-fitted floor/ceiling algorithm: pad around the data with a minimum span so
+ * flat weeks still draw ticks, keeping the floor non-negative when all data is positive.
+ * Per-scale delegates keep their own constants so tuning stays independent.
+ */
+private fun fittedYRange(
+    dataMin: Double,
+    dataMax: Double,
+    minSpan: Double,
+    padFraction: Double,
+): Pair<Double, Double> {
+    val (lo, hi) = finiteDataBounds(dataMin, dataMax, fallbackSpan = minSpan)
+    val span = max(hi - lo, minSpan)
     val center = (lo + hi) / 2.0
     val half = span / 2.0
     val expandedMin = min(lo, center - half)
     val expandedMax = max(hi, center + half)
-    // Keep floor non-negative when all data is positive (typical e1RM); still pad so ticks exist.
-    val floor = if (expandedMin >= 0.0) max(0.0, expandedMin - span * WEIGHT_PAD_FRACTION) else {
-        expandedMin - span * WEIGHT_PAD_FRACTION
+    // Keep floor non-negative when all data is positive; still pad so ticks exist.
+    val floor = if (expandedMin >= 0.0) max(0.0, expandedMin - span * padFraction) else {
+        expandedMin - span * padFraction
     }
-    val ceiling = expandedMax + span * WEIGHT_PAD_FRACTION
-    return floor to max(ceiling, floor + WEIGHT_MIN_SPAN)
+    val ceiling = expandedMax + span * padFraction
+    return floor to max(ceiling, floor + minSpan)
 }
+
+/**
+ * Resting-HR / HRV small multiples. Data-fitted like [weightYRange] — day-to-day movement is
+ * the point, so the floor stays near the data instead of zero. Flat weeks expand to a minimum
+ * span so Vico's axis mapper never sees length 0.
+ */
+internal fun vitalsYRange(dataMin: Double, dataMax: Double): Pair<Double, Double> =
+    fittedYRange(dataMin, dataMax, VITALS_MIN_SPAN, VITALS_PAD_FRACTION)
 
 /**
  * Hard-set volume bars/lines. Floor at 0; ensure a positive ceiling even when every bar is 0
@@ -657,6 +689,9 @@ private const val PROGRESS_PAD_FRACTION = 0.08
 /** Minimum e1RM axis span (kg) so a single flat week still has non-zero length. */
 private const val WEIGHT_MIN_SPAN = 5.0
 private const val WEIGHT_PAD_FRACTION = 0.08
+/** Minimum vitals axis span (bpm / ms) so a flat RHR/HRV week still draws ticks. */
+private const val VITALS_MIN_SPAN = 5.0
+private const val VITALS_PAD_FRACTION = 0.08
 /** Minimum hard-set axis span so all-zero volume (rest week) still draws ticks. */
 private const val VOLUME_MIN_SPAN = 1.0
 /** Minimum step-data span for finite bounds; the tick floor below dominates the ceiling. */

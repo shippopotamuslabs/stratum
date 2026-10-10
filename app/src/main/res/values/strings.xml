@@ -60,6 +60,8 @@
     <string name="dashboard_graph_best_progress">Best progress</string>
     <string name="dashboard_graph_avg_steps">Avg steps</string>
     <string name="dashboard_graph_peak_steps">Peak steps</string>
+    <string name="dashboard_graph_avg_vitals">Avg</string>
+    <string name="dashboard_graph_best_vitals">Best</string>
     <string name="dashboard_graph_range_1w">1W</string>
     <string name="dashboard_graph_range_1m">1M</string>
     <string name="dashboard_graph_range_3m">3M</string>

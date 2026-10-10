@@ -31,6 +31,20 @@ fun chartMultiLineNeo() {
 @PreviewTest
 @PreviewLightDark
 @Composable
+fun chartMultiLineVitalsTonal() {
+    MultiLineVitalsPreviewContent(family = StratumThemeId.Tonal)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun chartMultiLineVitalsNeo() {
+    MultiLineVitalsPreviewContent(family = StratumThemeId.NeoBrutalist)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
 fun chartDetailSingleTonal() {
     DetailChartPreviewContent(
         family = StratumThemeId.Tonal,

@@ -51,6 +51,9 @@ fun formatChartNumber(value: Double, scale: DetailYScale): String {
                 trimTrailingZeros(String.format(Locale.US, "%.1f", thousands)) + "k"
             }
         }
+        DetailYScale.Vitals -> {
+            round(value).toLong().toString()
+        }
     }
 }
 

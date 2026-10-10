@@ -336,6 +336,7 @@ private fun avgLabel(key: GraphStatLabelKey): String = when (key) {
     GraphStatLabelKey.Volume -> stringResource(R.string.dashboard_graph_avg_volume)
     GraphStatLabelKey.Progress -> stringResource(R.string.dashboard_graph_avg_progress)
     GraphStatLabelKey.Steps -> stringResource(R.string.dashboard_graph_avg_steps)
+    GraphStatLabelKey.Vitals -> stringResource(R.string.dashboard_graph_avg_vitals)
 }
 
 @Composable
@@ -344,6 +345,7 @@ private fun bestLabel(key: GraphStatLabelKey): String = when (key) {
     GraphStatLabelKey.Volume -> stringResource(R.string.dashboard_graph_peak_volume)
     GraphStatLabelKey.Progress -> stringResource(R.string.dashboard_graph_best_progress)
     GraphStatLabelKey.Steps -> stringResource(R.string.dashboard_graph_peak_steps)
+    GraphStatLabelKey.Vitals -> stringResource(R.string.dashboard_graph_best_vitals)
 }
 
 @Composable
