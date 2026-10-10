@@ -7,7 +7,6 @@ import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.lift.Weight
-import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.Weekday
@@ -77,7 +76,6 @@ object WorkoutLoggingFixtures {
         sessionId: String = "ts-import-1",
         exerciseNameRaw: String = "Bench Press",
         liftId: LiftId? = liftBenchId,
-        equipmentId: EquipmentId? = null,
         liftContext: LoggedLiftContext = importLiftContext(),
         completedAt: Instant = Instant.parse("2025-01-01T10:30:00Z"),
     ): LoggedSet =
@@ -92,7 +90,6 @@ object WorkoutLoggingFixtures {
             completedAt = completedAt,
         ).copy(
             liftId = liftId,
-            equipmentId = equipmentId,
             liftContext = if (liftId != null) liftContext else importLiftContext(liftName = exerciseNameRaw),
         )
 
@@ -217,13 +214,11 @@ object WorkoutLoggingFixtures {
         id: String,
         sessionId: TrainingSessionId,
         liftContext: LoggedLiftContext = importLiftContext(),
-        equipmentId: EquipmentId? = null,
     ): LoggedSet = LoggedSet(
         id = LoggedSetId(id),
         sessionId = sessionId,
         exerciseNameRaw = "Bench Press",
         liftId = liftBenchId,
-        equipmentId = equipmentId,
         setIndex = 0,
         weight = Weight(BENCH_WEIGHT_LB, Weight.WeightUnit.Lb),
         reps = 8,

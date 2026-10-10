@@ -9,7 +9,6 @@ import com.stratum.core.data.db.LiftDao
 import com.stratum.core.data.db.OnboardingProgressDao
 import com.stratum.core.data.db.SpecializationPreferenceDao
 import com.stratum.core.data.db.StratumDatabase
-import com.stratum.core.data.db.withProductionMigrations
 import com.stratum.domain.onboarding.UserTrainingProfileRepository
 import com.stratum.core.data.db.UserProfileDao
 import com.stratum.core.data.repository.RoomEquipmentRepository
@@ -147,11 +146,16 @@ object DatabaseModule {
         seedGate: com.stratum.core.data.sync.LiftCatalogSeedGate,
         loggingPort: LoggingPort,
     ): StratumDatabase {
-        // Manual migrations (v4→v5, v7→v8, v8→v9, v9→v10) are registered centrally via
-        // withProductionMigrations so DatabaseMigrationChainTest guards the same list.
+        // v5 moves pins to note-list tables via MIGRATION_4_5 (backfill + index rebuild).
+        // v8 converts per-lift increment overrides into "<lift name> Stack" equipment clones.
+        // v9 drops the now-unused increment_tiers.liftId column (STR-84).
         // Destructive fallback remains for unrecoverable paths (missing migration, identity skew).
         val database = Room.databaseBuilder(context, StratumDatabase::class.java, StratumDatabase.DATABASE_NAME)
-            .withProductionMigrations()
+            .addMigrations(
+                com.stratum.core.data.db.MIGRATION_4_5,
+                com.stratum.core.data.db.MIGRATION_7_8,
+                com.stratum.core.data.db.MIGRATION_8_9,
+            )
             .fallbackToDestructiveMigration(dropAllTables = true)
             .build()
         // Never call DAOs from RoomDatabase.Callback.onCreate — Room holds the DB lock during
