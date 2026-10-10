@@ -145,16 +145,22 @@ private fun assembleRecovery(
         emptyList()
     }
     val rhrLookback = if (HealthMetricType.RestingHeartRate in granted) {
-        snapshot.restingHeartRateLookback
-            .filter { !it.time.isBefore(request.vitalsLookbackStart) && it.time.isBefore(request.windowEnd) }
-            .map { it.time to it.beatsPerMinute.toDouble() }
+        lookbackValues(
+            samples = snapshot.restingHeartRateLookback,
+            timeOf = { it.time },
+            valueOf = { it.beatsPerMinute.toDouble() },
+            request = request,
+        )
     } else {
         emptyList()
     }
     val hrvLookback = if (HealthMetricType.HeartRateVariability in granted) {
-        snapshot.hrvLookback
-            .filter { !it.time.isBefore(request.vitalsLookbackStart) && it.time.isBefore(request.windowEnd) }
-            .map { it.time to it.rmssdMillis }
+        lookbackValues(
+            samples = snapshot.hrvLookback,
+            timeOf = { it.time },
+            valueOf = { it.rmssdMillis },
+            request = request,
+        )
     } else {
         emptyList()
     }
@@ -176,6 +182,20 @@ private fun assembleRecovery(
         hrvRange = personalVitalRange(hrvLookback, request.zone),
     )
 }
+
+/**
+ * Filters samples to the trailing lookback span and projects them to (time, value) pairs
+ * for band stats. One pipeline for every vital so bounds and mapping can't diverge.
+ */
+private fun <T> lookbackValues(
+    samples: List<T>,
+    timeOf: (T) -> Instant,
+    valueOf: (T) -> Double,
+    request: HealthMetricsRequest,
+): List<Pair<Instant, Double>> =
+    samples
+        .filter { request.containsInVitalsLookback(timeOf(it)) }
+        .map { timeOf(it) to valueOf(it) }
 
 /**
  * Personal-range band (p10–p90) over trailing lookback history. Null until history covers

@@ -23,7 +23,6 @@ import com.stratum.domain.healthconnect.SleepStageSample
 import com.stratum.domain.healthconnect.WeightSample
 import com.stratum.domain.logging.LoggingPort
 import dagger.hilt.android.qualifiers.ApplicationContext
-import java.time.Instant
 import java.time.Period
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -93,9 +92,9 @@ class HealthConnectMetricsReader @Inject constructor(
             } else {
                 emptyList()
             },
-            restingHeartRateSamples = rhrLookback.filter { inWindow(it.time, request) },
+            restingHeartRateSamples = rhrLookback.filter { request.containsInWindow(it.time) },
             restingHeartRateLookback = rhrLookback,
-            hrvSamples = hrvRead.samples.filter { inWindow(it.time, request) },
+            hrvSamples = hrvRead.samples.filter { request.containsInWindow(it.time) },
             hrvLookback = hrvRead.samples,
         )
     }
@@ -219,9 +218,6 @@ class HealthConnectMetricsReader @Inject constructor(
 
     private fun lookbackFilter(request: HealthMetricsRequest): TimeRangeFilter =
         TimeRangeFilter.between(request.vitalsLookbackStart, request.windowEnd)
-
-    private fun inWindow(time: Instant, request: HealthMetricsRequest): Boolean =
-        !time.isBefore(request.windowStart) && time.isBefore(request.windowEnd)
 
     private suspend fun currentGrantedPermissions(
         client: HealthConnectClient,
