@@ -2,6 +2,7 @@ package com.stratum.domain.training
 
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.training.identity.TrainingSessionId
 import java.time.Instant
@@ -11,6 +12,8 @@ data class LoggedSet(
     val sessionId: TrainingSessionId,
     val exerciseNameRaw: String,
     val liftId: LiftId?,
+    /** Equipment the set was performed with; null for legacy/unresolved rows. */
+    val equipmentId: EquipmentId? = null,
     val setIndex: Int,
     val weight: Weight,
     val reps: Int,

@@ -163,6 +163,38 @@ class LogSetUseCaseTest {
     }
 
     @Test
+    @DisplayName("null command equipment resolves to the lift's current equipment")
+    fun nullCommandEquipmentDefaultsToLift() = runTest {
+        val repo = FakeTrainingLogRepository()
+        repo.seedSession(WorkoutLoggingFixtures.inProgressSession(id = "ts-live-1"))
+        val useCase = buildUseCase(repo)
+
+        val set = useCase(command()).getOrThrow()
+
+        assertEquals(
+            com.stratum.domain.lift.SeedEquipmentIds.DoubleWeightPlates,
+            set.equipmentId,
+        )
+        assertEquals(
+            com.stratum.domain.lift.SeedEquipmentIds.DoubleWeightPlates,
+            repo.getSetsForSession(set.sessionId).single().equipmentId,
+        )
+    }
+
+    @Test
+    @DisplayName("explicit command equipment wins over the lift's equipment")
+    fun explicitCommandEquipmentWins() = runTest {
+        val repo = FakeTrainingLogRepository()
+        repo.seedSession(WorkoutLoggingFixtures.inProgressSession(id = "ts-live-1"))
+        val useCase = buildUseCase(repo)
+        val swapTarget = com.stratum.domain.lift.identity.EquipmentId("eq-cable")
+
+        val set = useCase(command().copy(equipmentId = swapTarget)).getOrThrow()
+
+        assertEquals(swapTarget, set.equipmentId)
+    }
+
+    @Test
     @DisplayName("partialReps persist; zero/empty become null")
     fun partialRepsNormalizedOnPersist() = runTest {
         val repo = FakeTrainingLogRepository()
