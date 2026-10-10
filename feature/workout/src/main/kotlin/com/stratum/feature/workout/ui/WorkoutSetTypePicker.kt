@@ -158,7 +158,7 @@ private fun WorkoutSetKind.badgeBackground(): Color =
         WorkoutSetKind.DropSet -> StratumSetTypeColors.dropSet
     }
 
-private fun WorkoutSetKind.displayNameRes(): Int =
+internal fun WorkoutSetKind.displayNameRes(): Int =
     when (this) {
         WorkoutSetKind.Standard -> R.string.workout_set_type_standard
         WorkoutSetKind.MyoRepFloor -> R.string.workout_set_type_myo_rep
