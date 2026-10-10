@@ -235,5 +235,42 @@ class DetailAxisFormatTest {
         assertEquals(4, yTickCountFor(DetailYScale.Weight))
         assertEquals(4, yTickCountFor(DetailYScale.Volume))
         assertEquals(4, yTickCountFor(DetailYScale.Progress))
+        assertEquals(4, yTickCountFor(DetailYScale.Vitals))
+    }
+
+    @Test
+    @DisplayName("STR-108: vitals axis labels are integers")
+    fun vitalsAxisLabels() {
+        assertEquals("52", formatChartNumber(52.0, DetailYScale.Vitals))
+        assertEquals("48", formatChartNumber(48.0, DetailYScale.Vitals))
+        assertEquals("52", formatChartNumber(52.4, DetailYScale.Vitals))
+        assertEquals("48", formatChartNumber(47.6, DetailYScale.Vitals))
+        assertEquals("0", formatChartNumber(0.0, DetailYScale.Vitals))
+    }
+
+    @Test
+    @DisplayName("STR-108: vitalsYRange fits RHR weeks without forcing zero")
+    fun vitalsRangeFitted() {
+        val (minY, maxY) = vitalsYRange(dataMin = 51.0, dataMax = 55.0)
+        assertTrue(minY > 40.0, "floor stays near the data, not at zero: minY=$minY")
+        assertTrue(maxY < 60.0, "ceiling stays near the data: maxY=$maxY")
+        assertTrue(minY <= 51.0 && maxY >= 55.0)
+    }
+
+    @Test
+    @DisplayName("STR-108: vitalsYRange expands flat weeks so axis length never hits 0")
+    fun vitalsRangeFlatSeries() {
+        val (minY, maxY) = vitalsYRange(dataMin = 52.0, dataMax = 52.0)
+        assertTrue(maxY - minY > 0.0, "length must be positive: $minY..$maxY")
+        assertTrue(minY <= 52.0 && maxY >= 52.0)
+        assertTrue(minY >= 0.0, "positive vitals keep non-negative floor: minY=$minY")
+    }
+
+    @Test
+    @DisplayName("STR-108: vitalsYRange handles non-finite model bounds")
+    fun vitalsRangeNonFinite() {
+        val nan = vitalsYRange(dataMin = Double.NaN, dataMax = Double.NaN)
+        assertTrue(nan.first.isFinite() && nan.second.isFinite())
+        assertTrue(nan.second - nan.first > 0.0)
     }
 }
