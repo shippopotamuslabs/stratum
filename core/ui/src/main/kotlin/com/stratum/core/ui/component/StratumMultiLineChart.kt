@@ -13,6 +13,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -27,12 +28,17 @@ import com.patrykandpatrick.vico.compose.cartesian.axis.rememberAxisTickComponen
 import com.patrykandpatrick.vico.compose.cartesian.data.CartesianChartModel
 import com.patrykandpatrick.vico.compose.cartesian.data.CartesianChartModelProducer
 import com.patrykandpatrick.vico.compose.cartesian.data.CartesianValueFormatter
+import com.patrykandpatrick.vico.compose.cartesian.axis.Axis
+import com.patrykandpatrick.vico.compose.cartesian.data.CartesianLayerRangeProvider
 import com.patrykandpatrick.vico.compose.cartesian.data.lineModel
+import com.patrykandpatrick.vico.compose.cartesian.decoration.Decoration
+import com.patrykandpatrick.vico.compose.cartesian.decoration.HorizontalBox
 import com.patrykandpatrick.vico.compose.cartesian.layer.LineCartesianLayer
 import com.patrykandpatrick.vico.compose.cartesian.layer.rememberLine
 import com.patrykandpatrick.vico.compose.cartesian.layer.rememberLineCartesianLayer
 import com.patrykandpatrick.vico.compose.cartesian.rememberCartesianChart
 import com.patrykandpatrick.vico.compose.common.Fill
+import com.patrykandpatrick.vico.compose.common.component.ShapeComponent
 import com.patrykandpatrick.vico.compose.common.component.rememberShapeComponent
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
@@ -45,7 +51,11 @@ import com.stratum.core.ui.theme.StratumThemeAccessor
  *
  * @param showYAxis when true, draw a quiet start axis labeled with [yScale] formatting. The line
  * layer already ranges via [yScale], so the axis only reveals the existing scale.
+ * @param band when non-null, shade its Y range behind the lines (personal-range band).
+ * The range provider widens to include band edges so they are never clipped.
  */
+// Four series × (series + color) plus axis/scale/band options — single chart responsibility.
+@Suppress("LongParameterList")
 @Composable
 fun StratumMultiLineChart(
     primarySeries: List<TrendPointUi>,
@@ -62,12 +72,14 @@ fun StratumMultiLineChart(
     yScale: DetailYScale = DetailYScale.Volume,
     valueFormat: CompactChartValueFormat = CompactChartValueFormat.Number,
     showYAxis: Boolean = false,
+    band: TrendBandUi? = null,
 ) {
     val colors = StratumThemeAccessor.colors
     val resolvedPrimary = if (primaryColor == Color.Unspecified) colors.textMuted else primaryColor
     val resolvedSecondary = if (secondaryColor == Color.Unspecified) colors.accent else secondaryColor
     val resolvedTertiary = if (tertiaryColor == Color.Unspecified) colors.textData else tertiaryColor
     val resolvedQuaternary = if (quaternaryColor == Color.Unspecified) colors.error else quaternaryColor
+    val resolvedBandFill = bandFillColor(band, colors.accent)
 
     val hasPrimary = primarySeries.size >= MIN_POINTS_FOR_LINE
     val hasSecondary = secondarySeries.size >= MIN_POINTS_FOR_LINE
@@ -222,15 +234,22 @@ fun StratumMultiLineChart(
         colorCode = lineStyles.size > 1,
         valueFormat = valueFormat,
     )
+    // Decorations live in the chart definition, so the band renders on both the live
+    // (producer) and inspection (preview/golden) model paths with no extra work.
+    val bandFill = if (band != null) resolvedBandFill else Color.Transparent
+    val bandBox = rememberShapeComponent(fill = Fill(bandFill), shape = RectangleShape)
+    val decorations = remember(band, bandBox) { bandDecorations(band, bandBox) }
+    val rangeProvider = remember(yScale, band) { bandAwareRangeProvider(yScale, band) }
     val chart = rememberCartesianChart(
         rememberLineCartesianLayer(
             lineProvider = lineProvider,
-            rangeProvider = rangeProviderFor(yScale),
+            rangeProvider = rangeProvider,
         ),
         bottomAxis = bottomAxis,
         startAxis = startAxis,
         marker = marker,
         markerController = rememberStratumChartMarkerController(),
+        decorations = decorations,
     )
 
     StratumCartesianChartHost(
@@ -242,6 +261,52 @@ fun StratumMultiLineChart(
         scrollState = rememberStratumChartScrollState(),
     )
 }
+
+/**
+ * Shaded Y-range band behind multi-line chart series (e.g. a personal-range band).
+ * [color] defaults to [Color.Unspecified], which the chart resolves to a translucent accent.
+ */
+data class TrendBandUi(
+    val range: ClosedFloatingPointRange<Float>,
+    val color: Color = Color.Unspecified,
+)
+
+private fun bandFillColor(band: TrendBandUi?, accent: Color): Color {
+    val custom = band?.color
+    return if (custom == null || custom == Color.Unspecified) {
+        accent.copy(alpha = BAND_FILL_ALPHA)
+    } else {
+        custom
+    }
+}
+
+private fun bandDecorations(band: TrendBandUi?, bandBox: ShapeComponent): List<Decoration> =
+    if (band != null) {
+        listOf(
+            HorizontalBox(
+                y = { band.range.start.toDouble()..band.range.endInclusive.toDouble() },
+                box = bandBox,
+                labelComponent = null,
+                label = { "" },
+                verticalAxisPosition = Axis.Position.Vertical.Start,
+            ),
+        )
+    } else {
+        emptyList()
+    }
+
+private fun bandAwareRangeProvider(
+    yScale: DetailYScale,
+    band: TrendBandUi?,
+): CartesianLayerRangeProvider =
+    if (band != null) {
+        BandWidenedRangeProvider(
+            base = rangeProviderFor(yScale),
+            band = band.range.start.toDouble()..band.range.endInclusive.toDouble(),
+        )
+    } else {
+        rangeProviderFor(yScale)
+    }
 
 @Composable
 private fun rememberLineStyle(color: Color): LineCartesianLayer.Line {
@@ -283,3 +348,4 @@ private const val AXIS_LABEL_SP = 9
 private const val EMPTY_HEIGHT_DP = 48
 private const val STROKE_PADDING_PX = 4f
 private const val MIN_POINTS_FOR_LINE = 2
+private const val BAND_FILL_ALPHA = 0.14f
