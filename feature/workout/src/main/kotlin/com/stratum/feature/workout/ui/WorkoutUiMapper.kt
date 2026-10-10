@@ -52,6 +52,8 @@ internal object WorkoutUiMapper {
          * copies the flag so no domain tier types cross into presentation.
          */
         adjustEquipmentWorkoutLiftIds: Set<WorkoutLiftId> = emptySet(),
+        /** Pre-mapped template change summary; null when the session has no dirty edits. */
+        templateChanges: TemplateChangeSummaryUi? = null,
     ): WorkoutUiState.Loaded {
         val lifts = rendered.lifts.map { lift ->
             val showWeightColumn = lift.loadType != LoadType.Bodyweight
@@ -229,6 +231,7 @@ internal object WorkoutUiMapper {
             sessionStartedAtEpochMilli = sessionStartedAtEpochMilli,
             hasIncompleteLifts = hasIncompleteLifts,
             hasDirtyEdits = hasDirtyEdits,
+            templateChanges = templateChanges,
             displayUnitEpoch = displayUnitEpoch,
         )
     }
@@ -285,17 +288,6 @@ internal object WorkoutUiMapper {
                     MyoRepKind.RepFloor, null -> "M"
                 }
             SetType.Standard -> "S"
-        }
-
-    private fun toWorkoutSetKind(setType: SetType, myoRepKind: MyoRepKind?): WorkoutSetKind =
-        when (setType) {
-            SetType.Standard -> WorkoutSetKind.Standard
-            SetType.DropSet -> WorkoutSetKind.DropSet
-            SetType.MyoRep ->
-                when (myoRepKind) {
-                    MyoRepKind.RepMatching -> WorkoutSetKind.MyoRepMatch
-                    MyoRepKind.RepFloor, null -> WorkoutSetKind.MyoRepFloor
-                }
         }
 
     private fun LiveSetKind.toWorkoutSetKind(): WorkoutSetKind =

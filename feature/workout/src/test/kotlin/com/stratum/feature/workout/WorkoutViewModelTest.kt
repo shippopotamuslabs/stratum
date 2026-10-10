@@ -70,8 +70,12 @@ import com.stratum.domain.workout.progression.DoubleProgressionEngine
 import com.stratum.domain.workout.progression.LinearProgressionDefaults
 import com.stratum.domain.workout.progression.LinearProgressionEngine
 import com.stratum.feature.workout.ui.LiftNoteListsSaveRequest
+import com.stratum.feature.workout.ui.LiftRemovedUi
+import com.stratum.feature.workout.ui.LiftSwappedUi
 import com.stratum.feature.workout.ui.NoteDraftUi
 import com.stratum.feature.workout.ui.ProposalEditContext
+import com.stratum.feature.workout.ui.RestEditedUi
+import com.stratum.feature.workout.ui.TemplateChangeCategoryUi
 import com.stratum.feature.workout.ui.WorkoutUiEvent
 import com.stratum.feature.workout.ui.WorkoutUiState
 import com.stratum.feature.workout.ui.equipmentEditRequestFor
@@ -396,6 +400,7 @@ class WorkoutViewModelTest {
             processScopedAbandon = processScopedAbandon(trainingLogRepository),
             finalizeTrainingSession = finalizeTrainingSession(liftRepo = liftRepository),
             applyOverlayToWorkout = com.stratum.domain.workout.ApplyOverlayToWorkoutUseCase(),
+            computeTemplateChangeSummary = com.stratum.domain.workout.ComputeTemplateChangeSummaryUseCase(),
             saveWorkoutUseCase = com.stratum.domain.program.SaveWorkoutUseCase(programRepository, NoOpProgramChangeEventRepository(), FakeLoggingPort()),
             getProgramById = GetProgramByIdUseCase(programRepository),
             observeLiftTrainingInsights = com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase(
@@ -484,6 +489,7 @@ class WorkoutViewModelTest {
             processScopedAbandon = processScopedAbandon(trainingLogRepository),
             finalizeTrainingSession = finalizeTrainingSession(liftRepo = liftRepository),
             applyOverlayToWorkout = com.stratum.domain.workout.ApplyOverlayToWorkoutUseCase(),
+            computeTemplateChangeSummary = com.stratum.domain.workout.ComputeTemplateChangeSummaryUseCase(),
             saveWorkoutUseCase = com.stratum.domain.program.SaveWorkoutUseCase(programRepository, NoOpProgramChangeEventRepository(), FakeLoggingPort()),
             getProgramById = GetProgramByIdUseCase(programRepository),
             observeLiftTrainingInsights = com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase(
@@ -558,6 +564,7 @@ class WorkoutViewModelTest {
             processScopedAbandon = processScopedAbandon(trainingLogRepository),
             finalizeTrainingSession = finalizeTrainingSession(liftRepo = liftRepository),
             applyOverlayToWorkout = com.stratum.domain.workout.ApplyOverlayToWorkoutUseCase(),
+            computeTemplateChangeSummary = com.stratum.domain.workout.ComputeTemplateChangeSummaryUseCase(),
             saveWorkoutUseCase = com.stratum.domain.program.SaveWorkoutUseCase(programRepository, NoOpProgramChangeEventRepository(), FakeLoggingPort()),
             getProgramById = GetProgramByIdUseCase(programRepository),
             observeLiftTrainingInsights = com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase(
@@ -1298,6 +1305,7 @@ class WorkoutViewModelTest {
             processScopedAbandon = processScopedAbandon(trainingLogRepository),
             finalizeTrainingSession = finalizeTrainingSession(liftRepo = liftRepository),
             applyOverlayToWorkout = com.stratum.domain.workout.ApplyOverlayToWorkoutUseCase(),
+            computeTemplateChangeSummary = com.stratum.domain.workout.ComputeTemplateChangeSummaryUseCase(),
             saveWorkoutUseCase = com.stratum.domain.program.SaveWorkoutUseCase(programRepository, NoOpProgramChangeEventRepository(), FakeLoggingPort()),
             getProgramById = GetProgramByIdUseCase(programRepository),
             observeLiftTrainingInsights = com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase(
@@ -1383,6 +1391,7 @@ class WorkoutViewModelTest {
             processScopedAbandon = processScopedAbandon(trainingLogRepository),
             finalizeTrainingSession = finalizeTrainingSession(liftRepo = liftRepository),
             applyOverlayToWorkout = com.stratum.domain.workout.ApplyOverlayToWorkoutUseCase(),
+            computeTemplateChangeSummary = com.stratum.domain.workout.ComputeTemplateChangeSummaryUseCase(),
             saveWorkoutUseCase = com.stratum.domain.program.SaveWorkoutUseCase(programRepository, NoOpProgramChangeEventRepository(), FakeLoggingPort()),
             getProgramById = GetProgramByIdUseCase(programRepository),
             observeLiftTrainingInsights = com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase(
@@ -1952,6 +1961,78 @@ class WorkoutViewModelTest {
             45,
             stored.restSecondsOverrides[SetSlotId.Template(liftSetId)],
         )
+    }
+
+    @Test
+    @DisplayName("Rest edit populates templateChanges with a Rest row (STR-125)")
+    fun restEditPopulatesTemplateChanges() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        viewModel.uiState.test {
+            val loaded = awaitLoaded()
+            assertNull(loaded.templateChanges)
+            val slotKey = loaded.lifts.first().sets.first().slotKey
+
+            viewModel.setRestSecondsForSlots(mapOf(slotKey to 45))
+            val updated = awaitItem() as WorkoutUiState.Loaded
+
+            assertTrue(updated.hasDirtyEdits)
+            val summary = updated.templateChanges
+            assertNotNull(summary)
+            assertEquals(1, summary!!.groups.size)
+            assertEquals(TemplateChangeCategoryUi.Rest, summary.groups[0].category)
+            val row = summary.groups[0].rows.single()
+            assertEquals(RestEditedUi("Squat", setPosition = 1, oldSeconds = 120, newSeconds = 45), row)
+
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Remove lift populates templateChanges with a Lifts row (STR-125)")
+    fun removeLiftPopulatesTemplateChanges() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        viewModel.uiState.test {
+            val loaded = awaitLoaded()
+            assertNull(loaded.templateChanges)
+
+            viewModel.removeLift(workoutLiftId)
+            val updated = awaitItem() as WorkoutUiState.Loaded
+
+            assertTrue(updated.hasDirtyEdits)
+            val summary = updated.templateChanges
+            assertNotNull(summary)
+            assertEquals(1, summary!!.groups.size)
+            assertEquals(TemplateChangeCategoryUi.Lifts, summary.groups[0].category)
+            val row = summary.groups[0].rows.single()
+            assertEquals(LiftRemovedUi("Squat", setCount = 2), row)
+
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Swap lift populates templateChanges with old and new names (STR-125)")
+    fun swapLiftPopulatesTemplateChanges() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        viewModel.uiState.test {
+            awaitLoaded()
+
+            viewModel.swapLift(workoutLiftId, LiftId("L-2"))
+            advanceUntilIdle()
+            val updated = awaitItem() as WorkoutUiState.Loaded
+
+            assertTrue(updated.hasDirtyEdits)
+            val summary = updated.templateChanges
+            assertNotNull(summary)
+            val row = summary!!.groups.single().rows.single()
+            assertEquals(TemplateChangeCategoryUi.Lifts, summary.groups.single().category)
+            assertEquals(LiftSwappedUi(oldName = "Squat", newName = "Bench Press"), row)
+
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     @Test

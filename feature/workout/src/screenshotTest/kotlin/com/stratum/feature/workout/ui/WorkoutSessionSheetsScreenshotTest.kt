@@ -70,6 +70,42 @@ fun workoutScreenCompleteSheetSaveChangesNeo() {
 @PreviewTest
 @PreviewLightDark
 @Composable
+fun workoutScreenCompleteSheetSaveChangesSummaryTonal() {
+    WorkoutCompleteSheetPreviewContent(
+        family = StratumThemeId.Tonal,
+        phase = CompleteSheetPhase.SaveChanges,
+        templateChanges = previewTemplateChangeSummary(),
+    )
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun workoutScreenCompleteSheetSaveChangesSummaryNeo() {
+    WorkoutCompleteSheetPreviewContent(
+        family = StratumThemeId.NeoBrutalist,
+        phase = CompleteSheetPhase.SaveChanges,
+        templateChanges = previewTemplateChangeSummary(),
+    )
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun templateChangeSummaryExpandedTonal() {
+    TemplateChangeSummaryPreviewContent(family = StratumThemeId.Tonal, expanded = true)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun templateChangeSummaryExpandedNeo() {
+    TemplateChangeSummaryPreviewContent(family = StratumThemeId.NeoBrutalist, expanded = true)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
 fun workoutScreenCompleteSheetAllSetsLoggedTonal() {
     WorkoutCompleteSheetPreviewContent(family = StratumThemeId.Tonal, phase = CompleteSheetPhase.AllSetsLogged)
 }

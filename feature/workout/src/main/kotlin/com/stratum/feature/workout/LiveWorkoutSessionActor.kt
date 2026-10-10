@@ -18,6 +18,7 @@ import com.stratum.domain.training.UpdateLoggedSetUseCase
 import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.domain.training.liveWorkoutRouteId
 import com.stratum.domain.workout.ApplyOverlayToWorkoutUseCase
+import com.stratum.domain.workout.ComputeTemplateChangeSummaryUseCase
 import com.stratum.domain.workout.EstimateAddedSetRepsUseCase
 import com.stratum.domain.workout.GenerateProgressionSnapshotUseCase
 import com.stratum.domain.workout.GetSessionPinnedNoteListsUseCase
@@ -58,6 +59,7 @@ internal class LiveWorkoutSessionActor(
     deleteLoggedSet: DeleteLoggedSetUseCase,
     finalizeTrainingSession: FinalizeTrainingSessionUseCase,
     applyOverlayToWorkout: ApplyOverlayToWorkoutUseCase,
+    computeTemplateChangeSummary: ComputeTemplateChangeSummaryUseCase,
     saveWorkoutUseCase: SaveWorkoutUseCase,
     getProgramById: GetProgramByIdUseCase,
     observeLiftTrainingInsights: ObserveLiftTrainingInsightsUseCase,
@@ -82,6 +84,7 @@ internal class LiveWorkoutSessionActor(
             deleteLoggedSet = deleteLoggedSet,
             finalizeTrainingSession = finalizeTrainingSession,
             applyOverlayToWorkout = applyOverlayToWorkout,
+            computeTemplateChangeSummary = computeTemplateChangeSummary,
             saveWorkoutUseCase = saveWorkoutUseCase,
             getProgramById = getProgramById,
             observeLiftTrainingInsights = observeLiftTrainingInsights,

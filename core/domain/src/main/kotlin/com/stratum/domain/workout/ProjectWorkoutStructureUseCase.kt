@@ -50,7 +50,7 @@ class ProjectWorkoutStructureUseCase @javax.inject.Inject constructor() {
                 useRestTimerBetweenLifts = workoutLift.useRestTimerBetweenLifts,
                 workoutPinnedNotes =
                     workoutPinnedNoteListsById[workoutLift.id]
-                        ?: workoutLift.pinnedNotes.ifEmpty { listOfNotNull(workoutLift.pinnedNote) },
+                        ?: workoutLift.effectiveNotes(),
                 liftPinnedNotes =
                     liftPinnedNoteListsById[workoutLift.liftId]
                         ?: listOfNotNull(liftPinnedNotesById[workoutLift.liftId]),
