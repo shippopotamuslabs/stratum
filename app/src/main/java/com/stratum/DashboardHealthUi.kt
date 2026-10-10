@@ -1,5 +1,6 @@
 package com.stratum
 
+import com.stratum.core.ui.component.TrendBandUi
 import com.stratum.core.ui.component.TrendPointUi
 import com.stratum.domain.healthconnect.ActivityMetrics
 import com.stratum.domain.healthconnect.DailyVitalSample
@@ -8,6 +9,7 @@ import com.stratum.domain.healthconnect.HealthMetricsPages
 import com.stratum.domain.healthconnect.NightlySleepDuration
 import com.stratum.domain.healthconnect.RecoveryMetrics
 import com.stratum.domain.healthconnect.SleepZones
+import com.stratum.domain.healthconnect.VitalRange
 import com.stratum.domain.healthconnect.WeightMetrics
 import com.stratum.domain.healthconnect.WeightSample
 import com.stratum.domain.lift.Weight
@@ -63,6 +65,9 @@ data class RecoveryHealthPageUi(
     /** Sparse per-day vitals; only days with samples are present (null = no data, dropped). */
     val restingHrDailyPoints: List<TrendPointUi> = emptyList(),
     val hrvDailyPoints: List<TrendPointUi> = emptyList(),
+    /** Personal-range bands; null when history is too sparse (line + axis only). */
+    val restingHrBand: TrendBandUi? = null,
+    val hrvBand: TrendBandUi? = null,
     val dayLabels: List<String> = emptyList(),
 )
 
@@ -197,9 +202,14 @@ private fun RecoveryMetrics.toUi(zone: ZoneId): RecoveryHealthPageUi {
         awakeNightlyPoints = nightlyDurations.toStagePoints { it.awake },
         restingHrDailyPoints = restingHeartRateDaily.toVitalPoints(),
         hrvDailyPoints = hrvDaily.toVitalPoints(),
+        restingHrBand = restingHeartRateRange?.toBand(),
+        hrvBand = hrvRange?.toBand(),
         dayLabels = labels.ifEmpty { emptyList() },
     )
 }
+
+private fun VitalRange.toBand(): TrendBandUi =
+    TrendBandUi(range = lower.toFloat()..upper.toFloat())
 
 /**
  * Sparse trend points: days with a null mean (no samples that day) are dropped.

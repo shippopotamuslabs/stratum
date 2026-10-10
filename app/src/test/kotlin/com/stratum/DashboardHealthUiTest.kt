@@ -1,5 +1,6 @@
 package com.stratum
 
+import com.stratum.core.ui.component.TrendBandUi
 import com.stratum.core.ui.component.TrendPointUi
 import com.stratum.domain.healthconnect.DailyVitalSample
 import com.stratum.domain.healthconnect.HealthMetricsPages
@@ -7,6 +8,7 @@ import com.stratum.domain.healthconnect.NightlySleepDuration
 import com.stratum.domain.healthconnect.RecoveryMetrics
 import com.stratum.domain.healthconnect.SleepNight
 import com.stratum.domain.healthconnect.SleepZones
+import com.stratum.domain.healthconnect.VitalRange
 import com.stratum.domain.healthconnect.WeightMetrics
 import com.stratum.domain.healthconnect.WeightSample
 import com.stratum.domain.lift.Weight
@@ -15,6 +17,7 @@ import java.time.Instant
 import java.time.ZoneOffset
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -353,5 +356,23 @@ class DashboardHealthUiTest {
         )
         assertFalse(single.hasChart())
         assertFalse(single.hasTrendLegend())
+    }
+
+    @Test
+    @DisplayName("STR-113: recovery UI maps personal-range bands, null when unknown")
+    fun recoveryMapsVitalBands() {
+        val zone = ZoneOffset.UTC
+        val pages = HealthMetricsPages(
+            visible = true,
+            recovery = RecoveryMetrics(
+                restingHeartRateRange = VitalRange(lower = 50.9, upper = 58.1),
+                hrvRange = null,
+            ),
+        )
+
+        val ui = pages.toHealthUi(Weight.WeightUnit.Lb, zone)
+
+        assertEquals(TrendBandUi(50.9f..58.1f), ui.recovery.restingHrBand)
+        assertNull(ui.recovery.hrvBand)
     }
 }

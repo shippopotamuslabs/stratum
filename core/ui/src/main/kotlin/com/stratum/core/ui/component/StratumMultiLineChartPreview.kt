@@ -78,6 +78,9 @@ internal fun MultiLineVitalsPreviewContent(
                 .height(120.dp)
                 .padding(16.dp),
             showYAxis = true,
+            // Sample personal-range band (STR-109): wider than the 51..55 week on both
+            // sides so the golden exercises range widening, not just the shading.
+            band = TrendBandUi(50f..56f),
         )
     }
 }
