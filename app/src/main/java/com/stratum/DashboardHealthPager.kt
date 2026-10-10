@@ -587,7 +587,9 @@ private fun ColumnScope.RecoveryVitalTrend(
             primarySeries = points,
             contentDescription = contentDescription,
             dayLabels = dayLabels,
+            yScale = DetailYScale.Vitals,
             modifier = healthChartModifier(expandChart),
+            showYAxis = true,
         )
     } else {
         StratumText(
