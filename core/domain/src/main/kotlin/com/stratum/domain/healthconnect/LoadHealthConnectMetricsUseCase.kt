@@ -144,6 +144,20 @@ private fun assembleRecovery(
     } else {
         emptyList()
     }
+    val rhrLookback = if (HealthMetricType.RestingHeartRate in granted) {
+        snapshot.restingHeartRateLookback
+            .filter { !it.time.isBefore(request.vitalsLookbackStart) && it.time.isBefore(request.windowEnd) }
+            .map { it.time to it.beatsPerMinute.toDouble() }
+    } else {
+        emptyList()
+    }
+    val hrvLookback = if (HealthMetricType.HeartRateVariability in granted) {
+        snapshot.hrvLookback
+            .filter { !it.time.isBefore(request.vitalsLookbackStart) && it.time.isBefore(request.windowEnd) }
+            .map { it.time to it.rmssdMillis }
+    } else {
+        emptyList()
+    }
     return RecoveryMetrics(
         lastNight = lastNight,
         nightlyDurations = nightly,
@@ -158,8 +172,42 @@ private fun assembleRecovery(
             samples = hrvInWindow.map { it.time to it.rmssdMillis },
             request = request,
         ),
+        restingHeartRateRange = personalVitalRange(rhrLookback, request.zone),
+        hrvRange = personalVitalRange(hrvLookback, request.zone),
     )
 }
+
+/**
+ * Personal-range band (p10–p90) over trailing lookback history. Null until history covers
+ * [VITALS_RANGE_MIN_HISTORY_DAYS] distinct local days — percentiles over a thinner past
+ * would pass noise off as a range. Percentiles (not mean±SD) so HRV outliers can't blow
+ * the band up.
+ */
+internal fun personalVitalRange(
+    samples: List<Pair<Instant, Double>>,
+    zone: ZoneId,
+): VitalRange? {
+    val daysWithData = samples.map { it.first.atZone(zone).toLocalDate() }.toSet()
+    if (daysWithData.size < VITALS_RANGE_MIN_HISTORY_DAYS) return null
+    val sorted = samples.map { it.second }.filter { it.isFinite() }.sorted()
+    if (sorted.isEmpty()) return null
+    return VitalRange(lower = percentile(sorted, P10), upper = percentile(sorted, P90))
+}
+
+/**
+ * Linear-interpolation percentile over ascending [sorted] (PERCENTILE.INC-style):
+ * rank `p * (n − 1)` interpolated between adjacent values. [p] must be in [0, 1].
+ */
+internal fun percentile(sorted: List<Double>, p: Double): Double {
+    if (sorted.size == 1) return sorted.single()
+    val rank = p * (sorted.size - 1)
+    val lo = rank.toInt()
+    val hi = (lo + 1).coerceAtMost(sorted.lastIndex)
+    return sorted[lo] + (sorted[hi] - sorted[lo]) * (rank - lo)
+}
+
+private const val P10 = 0.10
+private const val P90 = 0.90
 
 /**
  * Per-day mean of a vital's samples across the 7-day window, in window order.

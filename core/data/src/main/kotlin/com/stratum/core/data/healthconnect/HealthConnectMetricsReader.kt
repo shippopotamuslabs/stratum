@@ -23,6 +23,7 @@ import com.stratum.domain.healthconnect.SleepStageSample
 import com.stratum.domain.healthconnect.WeightSample
 import com.stratum.domain.logging.LoggingPort
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.time.Instant
 import java.time.Period
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -68,6 +69,13 @@ class HealthConnectMetricsReader @Inject constructor(
         } else {
             granted
         }
+        // One 30-day read per vital type, partitioned here: the 7-day lists keep their
+        // in-window contract for the trend lines while the lookback lists feed band stats.
+        val rhrLookback = if (HealthMetricType.RestingHeartRate in granted) {
+            readRestingHeartRate(client, request)
+        } else {
+            emptyList()
+        }
         return HealthMetricsSnapshot(
             grantedTypes = correctedGranted,
             dailySteps = if (HealthMetricType.Steps in granted) {
@@ -85,12 +93,10 @@ class HealthConnectMetricsReader @Inject constructor(
             } else {
                 emptyList()
             },
-            restingHeartRateSamples = if (HealthMetricType.RestingHeartRate in granted) {
-                readRestingHeartRate(client, request)
-            } else {
-                emptyList()
-            },
-            hrvSamples = hrvRead.samples,
+            restingHeartRateSamples = rhrLookback.filter { inWindow(it.time, request) },
+            restingHeartRateLookback = rhrLookback,
+            hrvSamples = hrvRead.samples.filter { inWindow(it.time, request) },
+            hrvLookback = hrvRead.samples,
         )
     }
 
@@ -165,7 +171,7 @@ class HealthConnectMetricsReader @Inject constructor(
         client: HealthConnectClient,
         request: HealthMetricsRequest,
     ): List<HeartRateSample> = catchHealthConnect(emptyList(), "readRestingHeartRate") {
-        readAll(client, RestingHeartRateRecord::class, instantFilter(request)).map { record ->
+        readAll(client, RestingHeartRateRecord::class, lookbackFilter(request)).map { record ->
             HeartRateSample(time = record.time, beatsPerMinute = record.beatsPerMinute)
         }
     }
@@ -201,7 +207,7 @@ class HealthConnectMetricsReader @Inject constructor(
             label = "readHrv",
             onPermissionDenied = { deniedAtRead = true },
         ) {
-            readAll(client, HeartRateVariabilityRmssdRecord::class, instantFilter(request)).map { record ->
+            readAll(client, HeartRateVariabilityRmssdRecord::class, lookbackFilter(request)).map { record ->
                 HrvSample(time = record.time, rmssdMillis = record.heartRateVariabilityMillis)
             }
         }
@@ -210,6 +216,12 @@ class HealthConnectMetricsReader @Inject constructor(
 
     private fun instantFilter(request: HealthMetricsRequest): TimeRangeFilter =
         TimeRangeFilter.between(request.windowStart, request.windowEnd)
+
+    private fun lookbackFilter(request: HealthMetricsRequest): TimeRangeFilter =
+        TimeRangeFilter.between(request.vitalsLookbackStart, request.windowEnd)
+
+    private fun inWindow(time: Instant, request: HealthMetricsRequest): Boolean =
+        !time.isBefore(request.windowStart) && time.isBefore(request.windowEnd)
 
     private suspend fun currentGrantedPermissions(
         client: HealthConnectClient,
