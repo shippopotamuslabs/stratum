@@ -70,8 +70,11 @@ import com.stratum.domain.workout.progression.DoubleProgressionEngine
 import com.stratum.domain.workout.progression.LinearProgressionDefaults
 import com.stratum.domain.workout.progression.LinearProgressionEngine
 import com.stratum.feature.workout.ui.LiftNoteListsSaveRequest
+import com.stratum.feature.workout.ui.LiftRemovedUi
+import com.stratum.feature.workout.ui.LiftSwappedUi
 import com.stratum.feature.workout.ui.NoteDraftUi
 import com.stratum.feature.workout.ui.ProposalEditContext
+import com.stratum.feature.workout.ui.RestEditedUi
 import com.stratum.feature.workout.ui.TemplateChangeCategoryUi
 import com.stratum.feature.workout.ui.WorkoutUiEvent
 import com.stratum.feature.workout.ui.WorkoutUiState
@@ -1979,9 +1982,7 @@ class WorkoutViewModelTest {
             assertEquals(1, summary!!.groups.size)
             assertEquals(TemplateChangeCategoryUi.Rest, summary.groups[0].category)
             val row = summary.groups[0].rows.single()
-            assertEquals("Squat · Set 1", row.label)
-            assertEquals("2:00", row.oldText)
-            assertEquals("0:45", row.newText)
+            assertEquals(RestEditedUi("Squat", setPosition = 1, oldSeconds = 120, newSeconds = 45), row)
 
             cancelAndIgnoreRemainingEvents()
         }
@@ -2005,9 +2006,7 @@ class WorkoutViewModelTest {
             assertEquals(1, summary!!.groups.size)
             assertEquals(TemplateChangeCategoryUi.Lifts, summary.groups[0].category)
             val row = summary.groups[0].rows.single()
-            assertEquals("Squat", row.label)
-            assertEquals("2 sets", row.oldText)
-            assertNull(row.newText)
+            assertEquals(LiftRemovedUi("Squat", setCount = 2), row)
 
             cancelAndIgnoreRemainingEvents()
         }
@@ -2030,8 +2029,7 @@ class WorkoutViewModelTest {
             assertNotNull(summary)
             val row = summary!!.groups.single().rows.single()
             assertEquals(TemplateChangeCategoryUi.Lifts, summary.groups.single().category)
-            assertEquals("Squat", row.oldText)
-            assertEquals("Bench Press", row.newText)
+            assertEquals(LiftSwappedUi(oldName = "Squat", newName = "Bench Press"), row)
 
             cancelAndIgnoreRemainingEvents()
         }

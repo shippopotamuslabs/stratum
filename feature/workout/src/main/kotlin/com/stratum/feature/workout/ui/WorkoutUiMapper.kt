@@ -290,17 +290,6 @@ internal object WorkoutUiMapper {
             SetType.Standard -> "S"
         }
 
-    private fun toWorkoutSetKind(setType: SetType, myoRepKind: MyoRepKind?): WorkoutSetKind =
-        when (setType) {
-            SetType.Standard -> WorkoutSetKind.Standard
-            SetType.DropSet -> WorkoutSetKind.DropSet
-            SetType.MyoRep ->
-                when (myoRepKind) {
-                    MyoRepKind.RepMatching -> WorkoutSetKind.MyoRepMatch
-                    MyoRepKind.RepFloor, null -> WorkoutSetKind.MyoRepFloor
-                }
-        }
-
     private fun LiveSetKind.toWorkoutSetKind(): WorkoutSetKind =
         when (this) {
             LiveSetKind.Standard -> WorkoutSetKind.Standard

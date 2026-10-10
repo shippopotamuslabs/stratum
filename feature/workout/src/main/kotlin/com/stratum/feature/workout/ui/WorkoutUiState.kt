@@ -1,6 +1,8 @@
 package com.stratum.feature.workout.ui
 
 import com.stratum.core.ui.component.SupersetLinkableLift
+import com.stratum.domain.program.SetType
+import com.stratum.domain.workout.myorep.MyoRepKind
 
 /**
  * Presentation state for the live workout screen (Slice 7). Domain models never reach
@@ -163,6 +165,18 @@ enum class WorkoutSetKind {
 /** True for either myo-rep subtype (floor or match). */
 fun WorkoutSetKind.isMyoRepKind(): Boolean =
     this == WorkoutSetKind.MyoRepFloor || this == WorkoutSetKind.MyoRepMatch
+
+/** Single domain → presentation mapping for template set types (shared by mappers). */
+internal fun toWorkoutSetKind(setType: SetType, myoRepKind: MyoRepKind?): WorkoutSetKind =
+    when (setType) {
+        SetType.Standard -> WorkoutSetKind.Standard
+        SetType.DropSet -> WorkoutSetKind.DropSet
+        SetType.MyoRep ->
+            when (myoRepKind) {
+                MyoRepKind.RepMatching -> WorkoutSetKind.MyoRepMatch
+                MyoRepKind.RepFloor, null -> WorkoutSetKind.MyoRepFloor
+            }
+    }
 
 data class RenderedSetUi(
     val slotKey: String,
