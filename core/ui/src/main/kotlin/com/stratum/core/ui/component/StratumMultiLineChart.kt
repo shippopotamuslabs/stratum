@@ -79,7 +79,7 @@ fun StratumMultiLineChart(
     val resolvedSecondary = if (secondaryColor == Color.Unspecified) colors.accent else secondaryColor
     val resolvedTertiary = if (tertiaryColor == Color.Unspecified) colors.textData else tertiaryColor
     val resolvedQuaternary = if (quaternaryColor == Color.Unspecified) colors.error else quaternaryColor
-    val resolvedBandFill = bandFillColor(band, colors.accent)
+    val resolvedBandFill = colors.accent.copy(alpha = BAND_FILL_ALPHA)
 
     val hasPrimary = primarySeries.size >= MIN_POINTS_FOR_LINE
     val hasSecondary = secondarySeries.size >= MIN_POINTS_FOR_LINE
@@ -262,23 +262,10 @@ fun StratumMultiLineChart(
     )
 }
 
-/**
- * Shaded Y-range band behind multi-line chart series (e.g. a personal-range band).
- * [color] defaults to [Color.Unspecified], which the chart resolves to a translucent accent.
- */
+/** Shaded Y-range band behind multi-line chart series (e.g. a personal-range band). */
 data class TrendBandUi(
     val range: ClosedFloatingPointRange<Float>,
-    val color: Color = Color.Unspecified,
 )
-
-private fun bandFillColor(band: TrendBandUi?, accent: Color): Color {
-    val custom = band?.color
-    return if (custom == null || custom == Color.Unspecified) {
-        accent.copy(alpha = BAND_FILL_ALPHA)
-    } else {
-        custom
-    }
-}
 
 private fun bandDecorations(band: TrendBandUi?, bandBox: ShapeComponent): List<Decoration> =
     if (band != null) {
