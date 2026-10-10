@@ -297,6 +297,9 @@ class SyncEntityDecoders @Inject constructor() {
                 sessionId = TrainingSessionId(data["session_id"] as? String ?: return null),
                 exerciseNameRaw = data["exercise_name_raw"] as? String ?: "",
                 liftId = (data["lift_id"] as? String)?.let(::LiftId),
+                equipmentId = (data["equipment_id"] as? String)?.let {
+                    runCatching { EquipmentId(it) }.getOrNull()
+                },
                 setIndex = (data["set_index"] as? Number)?.toInt() ?: 0,
                 weightAmount = (data["weight_amount"] as? Number)?.toDouble() ?: 0.0,
                 weightUnit = data["weight_unit"] as? String ?: "Lb",
