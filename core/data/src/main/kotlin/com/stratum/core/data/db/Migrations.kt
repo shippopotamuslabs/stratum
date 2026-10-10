@@ -1,23 +1,8 @@
 package com.stratum.core.data.db
 
-import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import java.util.UUID
-
-/**
- * Manual migrations applied by the production database builder. Single source shared by
- * `DataModule` and `DatabaseMigrationChainTest` so a version bump without a registered
- * migration fails the chain test instead of wiping user data via the destructive fallback.
- * Auto-migrations (1→2 … 6→7) come from the `@Database` annotations, not this list.
- */
-fun RoomDatabase.Builder<StratumDatabase>.withProductionMigrations(): RoomDatabase.Builder<StratumDatabase> =
-    addMigrations(
-        MIGRATION_4_5,
-        MIGRATION_7_8,
-        MIGRATION_8_9,
-        MIGRATION_9_10,
-    )
 
 /**
  * v4 → v5: multi-note storage.
@@ -284,44 +269,5 @@ val MIGRATION_7_8: Migration =
                 suffix++
             }
             return name
-        }
-    }
-
-/**
- * v9 → v10: set-level equipment logging (STR-118).
- *
- * - Adds nullable `logged_sets.equipmentId` (bare column, no FK — same as `liftId`)
- *   plus a `(liftId, equipmentId)` index for per-pair history lookups.
- * - Backfills every set from its lift's current equipment. Sets with no lift (null
- *   `liftId`) or a lift with no equipment keep null (legacy/unknown).
- *
- * Sync parity: backfilled rows carry new information the cloud lacks, so they are
- * stamped `pending_sync = PENDING_UPSERT` with a bumped clock and the upload engine
- * pushes them (MIGRATION_7_8 pattern). Rows staying null are unchanged versus cloud —
- * a missing `equipment_id` key decodes to null — and stay clean.
- */
-val MIGRATION_9_10: Migration =
-    object : Migration(9, 10) {
-        override fun migrate(db: SupportSQLiteDatabase) {
-            db.execSQL("ALTER TABLE `logged_sets` ADD COLUMN `equipmentId` TEXT")
-            db.execSQL(
-                """
-                UPDATE `logged_sets`
-                SET `equipmentId` = (
-                    SELECT `equipmentId` FROM `lifts`
-                    WHERE `lifts`.`id` = `logged_sets`.`liftId`
-                )
-                """.trimIndent(),
-            )
-            val now = System.currentTimeMillis()
-            db.execSQL(
-                "UPDATE `logged_sets` SET `pending_sync` = 1, `updated_at_epoch_millis` = ? " +
-                    "WHERE `equipmentId` IS NOT NULL",
-                arrayOf<Any?>(now),
-            )
-            db.execSQL(
-                "CREATE INDEX IF NOT EXISTS `index_logged_sets_liftId_equipmentId` " +
-                    "ON `logged_sets` (`liftId`, `equipmentId`)",
-            )
         }
     }

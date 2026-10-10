@@ -23,7 +23,6 @@ import com.stratum.domain.importing.SupersetAffinityRepository
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.Weight
-import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.training.GetCompletedSessionForEditUseCase
 import com.stratum.domain.training.LoggedSet
@@ -132,31 +131,6 @@ class EditHistoricalWorkoutViewModelTest {
     }
 
     @Test
-    @DisplayName("Confirm preserves set equipmentId through the edit round-trip")
-    fun confirmPreservesEquipmentId() = runTest {
-        val equipmentId = EquipmentId("eq-cable")
-        val env = buildEnv(seedEquipmentId = equipmentId)
-        env.vm.load("ts-1")
-        advanceUntilIdle()
-
-        val loaded = env.vm.uiState.value as EditHistoricalWorkoutUiState.Loaded
-        val setKey = loaded.lifts.single().sets.single().setKey
-        val liftKey = loaded.lifts.single().key
-
-        env.vm.onWeightChange(liftKey, setKey, "155")
-        env.vm.events.test {
-            env.vm.confirm()
-            advanceUntilIdle()
-            assertEquals(EditHistoricalWorkoutEvent.NavigateBack, awaitItem())
-            cancelAndIgnoreRemainingEvents()
-        }
-
-        val stored = env.logRepo.getSetsForSession(TrainingSessionId("ts-1")).single()
-        assertEquals(155.0, stored.weight.amount)
-        assertEquals(equipmentId, stored.equipmentId)
-    }
-
-    @Test
     @DisplayName("Add set increases draft rows and marks dirty")
     fun addSetMarksDirty() = runTest {
         val env = buildEnv()
@@ -211,7 +185,7 @@ class EditHistoricalWorkoutViewModelTest {
         assertEquals(135.0, stored.weight.amount)
     }
 
-    private suspend fun buildEnv(seedEquipmentId: EquipmentId? = null): Env {
+    private suspend fun buildEnv(): Env {
         val programRepo = FakeProgramRepository(WorkoutLoggingFixtures.twoWorkoutProgram())
         val session =
             WorkoutLoggingFixtures.completedLiveSession(id = "ts-1").copy(
@@ -228,7 +202,6 @@ class EditHistoricalWorkoutViewModelTest {
                 sessionId = TrainingSessionId("ts-1"),
                 exerciseNameRaw = "Bench",
                 liftId = WorkoutLoggingFixtures.liftBenchId,
-                equipmentId = seedEquipmentId,
                 setIndex = 0,
                 weight = Weight(135.0, Weight.WeightUnit.Lb),
                 reps = 8,

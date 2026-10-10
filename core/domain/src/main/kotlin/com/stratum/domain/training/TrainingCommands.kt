@@ -1,7 +1,6 @@
 package com.stratum.domain.training
 
 import com.stratum.domain.lift.Weight
-import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.SetType
 import com.stratum.domain.program.identity.WorkoutId
@@ -24,11 +23,6 @@ data class LogSetCommand(
     val reps: Int,
     val rir: Int?,
     val completedAt: Instant,
-    /**
-     * Equipment active on the lift card at log time. Null resolves to the lift's
-     * current equipment in [LogSetUseCase].
-     */
-    val equipmentId: EquipmentId? = null,
     /**
      * Live overlay slot fields. Always preferred for [LoggedLiftContext] when non-null so
      * auto-generated myo minis / retyped rows stamp correctly even when [workoutLiftId]

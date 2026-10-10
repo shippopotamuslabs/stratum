@@ -165,7 +165,6 @@ class SyncEntityEncoders @Inject constructor() {
             "session_id" to e.sessionId.value,
             "exercise_name_raw" to e.exerciseNameRaw,
             "lift_id" to e.liftId?.value,
-            "equipment_id" to e.equipmentId?.value,
             "set_index" to e.setIndex,
             "weight_amount" to e.weightAmount,
             "weight_unit" to e.weightUnit,

@@ -14,7 +14,6 @@ import com.stratum.domain.program.SetType
 import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.domain.importing.identity.ImportJobId
 import com.stratum.domain.importing.identity.LoggedSetId
-import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.identity.WorkoutLiftId
@@ -46,7 +45,6 @@ data class ImportJobEntity(
         Index("completedAtEpochMillis"),
         Index(value = ["workoutLiftId", "liftId", "setIndex"]),
         Index(value = ["liftId", "isPersonalRecord"], unique = true),
-        Index(value = ["liftId", "equipmentId"]),
     ],
 )
 data class LoggedSetEntity(
@@ -54,7 +52,6 @@ data class LoggedSetEntity(
     val sessionId: TrainingSessionId,
     val exerciseNameRaw: String,
     val liftId: LiftId?,
-    val equipmentId: EquipmentId? = null,
     val setIndex: Int,
     val weightAmount: Double,
     val weightUnit: String,

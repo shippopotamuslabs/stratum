@@ -202,25 +202,6 @@ class ExportTrainingLogsUseCaseTest {
     }
 
     @Test
-    @DisplayName("Export emits equipmentId for sets performed with known equipment")
-    fun exportEmitsSetEquipmentId() = runTest {
-        val withEquipment =
-            setA1.copy(
-                equipmentId = com.stratum.domain.lift.identity.EquipmentId("eq-cable"),
-            )
-        val repo = FakeTrainingLogRepository(
-            initialSessions = listOf(sessionA),
-            initialSets = listOf(withEquipment),
-        )
-        val result = useCase(repo)(ExportLogRange.AllTime)
-        assertTrue(result.isSuccess)
-        val root = decodeRoot(result.getOrThrow().bytes)
-        val sets = root.requireObject("history").requireArray("sets")
-        val setObj = sets.values.first() as JsonObject
-        assertEquals("eq-cable", setObj.requireString("equipmentId"))
-    }
-
-    @Test
     @DisplayName("IE-S1-008 Exported session and set ids match domain ids")
     fun ieS1_008_stableIds() = runTest {
         val sess = session("stable-sess-9", Instant.parse("2026-07-01T14:00:00Z"))
