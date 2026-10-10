@@ -23,6 +23,11 @@ sealed interface WorkoutUiState {
          */
         val hasDirtyEdits: Boolean = false,
         /**
+         * Template-vs-workout diff for the end-of-workout change summary (STR-125).
+         * Non-null only when [hasDirtyEdits] — clean and ad-hoc sessions carry null.
+         */
+        val templateChanges: TemplateChangeSummaryUi? = null,
+        /**
          * Increments when Settings weight unit flips so live draft stores clear and reseed
          * (avoids reinterpreting typed magnitudes under the new unit).
          */

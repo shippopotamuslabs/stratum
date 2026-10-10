@@ -34,6 +34,7 @@ import com.stratum.domain.training.LogSetUseCase
 import com.stratum.domain.training.ObserveCycleProgressUseCase
 import com.stratum.domain.training.UpdateLoggedSetUseCase
 import com.stratum.domain.workout.ApplyOverlayToWorkoutUseCase
+import com.stratum.domain.workout.ComputeTemplateChangeSummaryUseCase
 import com.stratum.domain.workout.GetSessionPinnedNoteListsUseCase
 import com.stratum.domain.workout.EditSessionEvent
 import com.stratum.domain.workout.EstimateAddedSetRepsUseCase
@@ -95,6 +96,7 @@ class WorkoutViewModel @Inject constructor(
     private val processScopedAbandon: ProcessScopedAbandonTrainingSession,
     finalizeTrainingSession: FinalizeTrainingSessionUseCase,
     applyOverlayToWorkout: ApplyOverlayToWorkoutUseCase,
+    computeTemplateChangeSummary: ComputeTemplateChangeSummaryUseCase,
     saveWorkoutUseCase: SaveWorkoutUseCase,
     getProgramById: GetProgramByIdUseCase,
     observeLiftTrainingInsights: ObserveLiftTrainingInsightsUseCase,
@@ -197,6 +199,7 @@ class WorkoutViewModel @Inject constructor(
             deleteLoggedSet = deleteLoggedSet,
             finalizeTrainingSession = finalizeTrainingSession,
             applyOverlayToWorkout = applyOverlayToWorkout,
+            computeTemplateChangeSummary = computeTemplateChangeSummary,
             saveWorkoutUseCase = saveWorkoutUseCase,
             getProgramById = getProgramById,
             observeLiftTrainingInsights = observeLiftTrainingInsights,

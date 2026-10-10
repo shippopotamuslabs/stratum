@@ -37,6 +37,17 @@
     <string name="workout_sheet_update_template">Update Workout Template</string>
     <string name="workout_sheet_discard_changes">Discard Changes</string>
 
+    <!-- Template change summary (STR-125) -->
+    <string name="workout_sheet_what_changed">What changed (%1$d)</string>
+    <string name="workout_sheet_what_changed_expand_cd">Expand change summary</string>
+    <string name="workout_sheet_what_changed_collapse_cd">Collapse change summary</string>
+    <string name="workout_sheet_change_category_lifts">Lifts</string>
+    <string name="workout_sheet_change_category_order">Lift order</string>
+    <string name="workout_sheet_change_category_sets">Sets</string>
+    <string name="workout_sheet_change_category_rest">Rest times</string>
+    <string name="workout_sheet_change_category_supersets">Supersets</string>
+    <string name="workout_sheet_change_category_notes">Notes</string>
+
     <!-- Workout complete screen -->
     <string name="workout_complete_title">Workout Complete</string>
     <string name="workout_complete_close">Close</string>

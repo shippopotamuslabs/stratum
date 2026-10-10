@@ -38,6 +38,7 @@ import com.stratum.domain.training.UpdateLoggedSetUseCase
 import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.domain.training.liveWorkoutRouteId
 import com.stratum.domain.workout.ApplyOverlayToWorkoutUseCase
+import com.stratum.domain.workout.ComputeTemplateChangeSummaryUseCase
 import com.stratum.domain.workout.EstimateAddedSetRepsUseCase
 import com.stratum.domain.workout.GenerateProgressionSnapshotUseCase
 import com.stratum.domain.workout.GetSessionPinnedNoteListsUseCase
@@ -58,6 +59,7 @@ import com.stratum.domain.workout.WorkoutOverlay
 import com.stratum.domain.workout.WorkoutStructureProjection
 import com.stratum.domain.workout.intensifier.RestDefaultForTransition
 import com.stratum.feature.workout.ui.WorkoutUiEvent
+import com.stratum.feature.workout.ui.TemplateChangeSummaryMapper
 import com.stratum.feature.workout.ui.WorkoutUiMapper
 import java.time.Instant
 import kotlinx.coroutines.CoroutineScope
@@ -86,6 +88,7 @@ internal class LiveWorkoutSessionRuntime(
     val deleteLoggedSet: DeleteLoggedSetUseCase,
     val finalizeTrainingSession: FinalizeTrainingSessionUseCase,
     val applyOverlayToWorkout: ApplyOverlayToWorkoutUseCase,
+    val computeTemplateChangeSummary: ComputeTemplateChangeSummaryUseCase,
     val saveWorkoutUseCase: SaveWorkoutUseCase,
     val getProgramById: GetProgramByIdUseCase,
     val observeLiftTrainingInsights: ObserveLiftTrainingInsightsUseCase,
@@ -319,6 +322,22 @@ internal class LiveWorkoutSessionRuntime(
         // Presentation name is historical: means "offer save-to-program-day", not raw overlay dirty.
         // Ad-hoc never offers template save (canSaveTemplateChanges == false).
         val hasDirtyEdits = overlay.isDirty && canSaveTemplateChanges
+        // End-of-workout change summary (STR-125): diff the baseline against the applied
+        // workout — the same artifact "Update Workout Template" persists — so the sheet
+        // shows exactly what update will write. Computed only when dirty.
+        val templateChanges =
+            if (hasDirtyEdits) {
+                val baseline = baselineWorkout
+                if (baseline == null) {
+                    null
+                } else {
+                    val applied = applyOverlayToWorkout(baseline, overlay)
+                    val summary = computeTemplateChangeSummary(baseline, applied, liftNamesById)
+                    TemplateChangeSummaryMapper.map(summary)
+                }
+            } else {
+                null
+            }
         val imageUrlByLiftId =
             liftsById.mapValues { (_, lift) -> lift.imageUris.firstOrNull() }
                 .mapKeys { (id, _) -> id.value }
@@ -372,6 +391,7 @@ internal class LiveWorkoutSessionRuntime(
                 defaultRestSecondsByLiftId = defaultRestSecondsByLiftId,
                 equipmentIdByLiftId = equipmentIdByLiftId,
                 adjustEquipmentWorkoutLiftIds = adjustEquipmentWorkoutLiftIds,
+                templateChanges = templateChanges,
             )
         // Active-workout notification snapshot is derived from domain session by
         // DomainActiveSessionSurfaceSync — do not dual-publish from render().

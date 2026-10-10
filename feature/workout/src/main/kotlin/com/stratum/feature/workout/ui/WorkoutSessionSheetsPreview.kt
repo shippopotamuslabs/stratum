@@ -53,6 +53,38 @@ private fun WorkoutCompleteSheetSaveChangesNeoPreview() {
 
 @PreviewLightDark
 @Composable
+private fun WorkoutCompleteSheetSaveChangesSummaryTonalPreview() {
+    WorkoutCompleteSheetPreviewContent(
+        family = StratumThemeId.Tonal,
+        phase = CompleteSheetPhase.SaveChanges,
+        templateChanges = previewTemplateChangeSummary(),
+    )
+}
+
+@PreviewLightDark
+@Composable
+private fun WorkoutCompleteSheetSaveChangesSummaryNeoPreview() {
+    WorkoutCompleteSheetPreviewContent(
+        family = StratumThemeId.NeoBrutalist,
+        phase = CompleteSheetPhase.SaveChanges,
+        templateChanges = previewTemplateChangeSummary(),
+    )
+}
+
+@PreviewLightDark
+@Composable
+private fun TemplateChangeSummaryExpandedTonalPreview() {
+    TemplateChangeSummaryPreviewContent(family = StratumThemeId.Tonal, expanded = true)
+}
+
+@PreviewLightDark
+@Composable
+private fun TemplateChangeSummaryExpandedNeoPreview() {
+    TemplateChangeSummaryPreviewContent(family = StratumThemeId.NeoBrutalist, expanded = true)
+}
+
+@PreviewLightDark
+@Composable
 private fun WorkoutCompleteSheetAllSetsLoggedTonalPreview() {
     WorkoutCompleteSheetPreviewContent(family = StratumThemeId.Tonal, phase = CompleteSheetPhase.AllSetsLogged)
 }
@@ -106,7 +138,11 @@ internal fun WorkoutLiftActionsOptionsPreviewContent(family: StratumThemeId) {
 
 /** Complete-workout sheet body for the given phase. */
 @Composable
-internal fun WorkoutCompleteSheetPreviewContent(family: StratumThemeId, phase: CompleteSheetPhase) {
+internal fun WorkoutCompleteSheetPreviewContent(
+    family: StratumThemeId,
+    phase: CompleteSheetPhase,
+    templateChanges: TemplateChangeSummaryUi? = null,
+) {
     SheetContentPreview(family = family) {
         CompleteSheetContent(
             phase = phase,
@@ -114,9 +150,78 @@ internal fun WorkoutCompleteSheetPreviewContent(family: StratumThemeId, phase: C
             onCompleteWorkout = {},
             onUpdateTemplate = {},
             onDiscardChanges = {},
+            templateChanges = templateChanges,
         )
     }
 }
+
+/** Change-summary section body, expanded when [expanded] (STR-125). */
+@Composable
+internal fun TemplateChangeSummaryPreviewContent(family: StratumThemeId, expanded: Boolean) {
+    SheetContentPreview(family = family) {
+        TemplateChangeSummarySection(
+            summary = previewTemplateChangeSummary(),
+            initiallyExpanded = expanded,
+        )
+    }
+}
+
+/** Multi-category fake summary shared by Studio previews and screenshot goldens. */
+internal fun previewTemplateChangeSummary(): TemplateChangeSummaryUi =
+    TemplateChangeSummaryUi(
+        groups =
+            listOf(
+                TemplateChangeGroupUi(
+                    category = TemplateChangeCategoryUi.Lifts,
+                    rows =
+                        listOf(
+                            TemplateChangeRowUi(label = "Barbell Row", oldText = null, newText = "3 sets"),
+                            TemplateChangeRowUi(label = "Lift", oldText = "Lat Pulldown", newText = "Pull-Up"),
+                        ),
+                ),
+                TemplateChangeGroupUi(
+                    category = TemplateChangeCategoryUi.Order,
+                    rows =
+                        listOf(
+                            TemplateChangeRowUi(label = "Back Squat", oldText = "Position 2", newText = "Position 1"),
+                        ),
+                ),
+                TemplateChangeGroupUi(
+                    category = TemplateChangeCategoryUi.Sets,
+                    rows =
+                        listOf(
+                            TemplateChangeRowUi(
+                                label = "Seated Cable Row",
+                                oldText = "3 sets",
+                                newText = "4 sets · 1 replaced",
+                            ),
+                            TemplateChangeRowUi(
+                                label = "Bench Press · Set 2",
+                                oldText = "Standard 6–10 · RIR 2",
+                                newText = "Myo-Rep 6–10 · RIR 1",
+                            ),
+                        ),
+                ),
+                TemplateChangeGroupUi(
+                    category = TemplateChangeCategoryUi.Rest,
+                    rows =
+                        listOf(
+                            TemplateChangeRowUi(label = "Bench Press · Set 1", oldText = "2:00", newText = "1:30"),
+                        ),
+                ),
+                TemplateChangeGroupUi(
+                    category = TemplateChangeCategoryUi.Supersets,
+                    rows =
+                        listOf(
+                            TemplateChangeRowUi(
+                                label = "Overhead Press",
+                                oldText = "Not grouped",
+                                newText = "Grouped with Lateral Raise",
+                            ),
+                        ),
+                ),
+            ),
+    )
 
 /** Discard-workout dialog body (carries its own surface + border, no sheet container). */
 @Composable
