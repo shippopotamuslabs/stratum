@@ -5,6 +5,7 @@ package com.stratum.core.data.healthconnect
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord
+import androidx.health.connect.client.records.RestingHeartRateRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.metadata.Device
 import androidx.health.connect.client.records.metadata.Metadata
@@ -18,6 +19,7 @@ import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
+import io.mockk.slot
 import io.mockk.unmockkAll
 import java.io.IOException
 import java.time.Instant
@@ -76,6 +78,13 @@ class HealthConnectMetricsReaderTest {
         time = Instant.parse("2026-10-03T08:00:00Z"),
         zoneOffset = ZoneOffset.UTC,
         heartRateVariabilityMillis = rmssdMillis,
+        metadata = Metadata.activelyRecorded(device = Device(type = Device.TYPE_PHONE)),
+    )
+
+    private fun rhrRecord(time: Instant, beatsPerMinute: Long) = RestingHeartRateRecord(
+        time = time,
+        zoneOffset = ZoneOffset.UTC,
+        beatsPerMinute = beatsPerMinute,
         metadata = Metadata.activelyRecorded(device = Device(type = Device.TYPE_PHONE)),
     )
 
@@ -150,6 +159,33 @@ class HealthConnectMetricsReaderTest {
 
         assertEquals(setOf(HealthMetricType.Steps), snapshot.grantedTypes)
         assertTrue(snapshot.hrvSamples.isEmpty())
+        assertTrue(fakeLogging.errors.isEmpty())
+    }
+
+    @Test
+    @DisplayName("STR-112: RHR read spans 30 days and partitions in-window from lookback")
+    fun rhrLookbackReadSpansThirtyDays() = runTest {
+        coEvery { permissionController.getGrantedPermissions() } returns
+            setOf(HealthConnectRequestedPermissions.readRestingHeartRate)
+        val requestSlot = slot<ReadRecordsRequest<RestingHeartRateRecord>>()
+        coEvery { client.readRecords(capture(requestSlot)) } returns
+            ReadRecordsResponse(
+                listOf(
+                    rhrRecord(Instant.parse("2026-09-23T08:00:00Z"), 54L),
+                    rhrRecord(Instant.parse("2026-10-02T08:00:00Z"), 52L),
+                ),
+                null,
+            )
+
+        val request = request()
+        val snapshot = reader.readSnapshot(request)
+
+        val filter = requestSlot.captured.timeRangeFilter
+        assertEquals(request.vitalsLookbackStart, filter.startTime)
+        assertEquals(request.windowEnd, filter.endTime)
+        assertEquals(1, snapshot.restingHeartRateSamples.size)
+        assertEquals(52L, snapshot.restingHeartRateSamples.single().beatsPerMinute)
+        assertEquals(2, snapshot.restingHeartRateLookback.size)
         assertTrue(fakeLogging.errors.isEmpty())
     }
 

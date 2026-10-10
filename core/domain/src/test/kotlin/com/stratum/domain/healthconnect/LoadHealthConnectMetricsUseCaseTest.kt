@@ -689,6 +689,74 @@ class LoadHealthConnectMetricsUseCaseTest {
     }
 
     @Test
+    @DisplayName("STR-112: rich lookback history yields p10-p90 personal-range bands")
+    fun vitalRangesFromRichHistory() = runTest {
+        prefs.setPreferences(HealthConnectPreferences(enabled = true))
+        metrics.granted = setOf(HealthMetricType.RestingHeartRate, HealthMetricType.HeartRateVariability)
+        val rhrLookback = (0..9).map { back ->
+            HeartRateSample(today.minusDays(back.toLong()).atTime(7, 0).toInstant(zone), 50L + back)
+        } + HeartRateSample(today.minusDays(60).atTime(7, 0).toInstant(zone), 200L)
+        val hrvLookback = (0..9).map { back ->
+            HrvSample(today.minusDays(back.toLong()).atTime(7, 0).toInstant(zone), 40.0 + back)
+        } + HrvSample(today.minusDays(5).atTime(18, 0).toInstant(zone), 150.0)
+        metrics.snapshot = HealthMetricsSnapshot(
+            restingHeartRateLookback = rhrLookback,
+            hrvLookback = hrvLookback,
+        )
+
+        val pages = load(zone, now)
+
+        // RHR 50..59 over 10 days: p10 ≈ 50.9, p90 ≈ 58.1; the day-60 200 bpm is out of span.
+        assertEquals(50.9, pages.recovery.restingHeartRateRange?.lower ?: Double.NaN, 1e-9)
+        assertEquals(58.1, pages.recovery.restingHeartRateRange?.upper ?: Double.NaN, 1e-9)
+        // HRV 40..49 plus a same-week 150 ms outlier: percentiles pin 41..49, not the max.
+        assertEquals(VitalRange(lower = 41.0, upper = 49.0), pages.recovery.hrvRange)
+    }
+
+    @Test
+    @DisplayName("STR-112: sparse lookback history falls back to no band")
+    fun vitalRangesNullWhenHistorySparse() = runTest {
+        prefs.setPreferences(HealthConnectPreferences(enabled = true))
+        metrics.granted = setOf(HealthMetricType.RestingHeartRate, HealthMetricType.HeartRateVariability)
+        metrics.snapshot = HealthMetricsSnapshot(
+            // Ten samples but only three distinct days: multi-sample days don't count extra.
+            restingHeartRateLookback = (0..9).map { index ->
+                val day = today.minusDays((index % 3).toLong())
+                HeartRateSample(day.atTime(7 + index, 0).toInstant(zone), 52L)
+            },
+            // Six distinct days is one short of the threshold.
+            hrvLookback = (0..5).map { back ->
+                HrvSample(today.minusDays(back.toLong()).atTime(7, 0).toInstant(zone), 45.0)
+            },
+        )
+
+        val pages = load(zone, now)
+
+        assertNull(pages.recovery.restingHeartRateRange)
+        assertNull(pages.recovery.hrvRange)
+    }
+
+    @Test
+    @DisplayName("STR-112: personal-range bands are null when vitals are not granted")
+    fun vitalRangesNullWhenNotGranted() = runTest {
+        prefs.setPreferences(HealthConnectPreferences(enabled = true))
+        metrics.granted = setOf(HealthMetricType.Sleep)
+        metrics.snapshot = HealthMetricsSnapshot(
+            restingHeartRateLookback = (0..9).map { back ->
+                HeartRateSample(today.minusDays(back.toLong()).atTime(7, 0).toInstant(zone), 52L)
+            },
+            hrvLookback = (0..9).map { back ->
+                HrvSample(today.minusDays(back.toLong()).atTime(7, 0).toInstant(zone), 45.0)
+            },
+        )
+
+        val pages = load(zone, now)
+
+        assertNull(pages.recovery.restingHeartRateRange)
+        assertNull(pages.recovery.hrvRange)
+    }
+
+    @Test
     @DisplayName("generic sleep stages do not produce a zone bar")
     fun genericStagesSkipZones() {
         val stages = listOf(
