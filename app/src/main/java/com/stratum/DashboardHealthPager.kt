@@ -52,6 +52,7 @@ import com.stratum.core.ui.component.StratumTabScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumVolumeBarChart
+import com.stratum.core.ui.component.TrendBandUi
 import com.stratum.core.ui.component.TrendPointUi
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
@@ -376,6 +377,7 @@ private fun RecoveryHealthPage(
             )
             RecoveryTrendSelection.RestingHr -> RecoveryVitalTrend(
                 points = page.restingHrDailyPoints,
+                band = page.restingHrBand,
                 dayLabels = page.dayLabels,
                 contentDescription = stringResource(R.string.dashboard_health_rhr_trend_chart_cd),
                 emptyText = stringResource(R.string.dashboard_health_rhr_empty),
@@ -383,6 +385,7 @@ private fun RecoveryHealthPage(
             )
             RecoveryTrendSelection.Hrv -> RecoveryVitalTrend(
                 points = page.hrvDailyPoints,
+                band = page.hrvBand,
                 dayLabels = page.dayLabels,
                 contentDescription = stringResource(R.string.dashboard_health_hrv_trend_chart_cd),
                 emptyText = stringResource(R.string.dashboard_health_hrv_empty),
@@ -577,6 +580,7 @@ private fun SleepStageColorKey() {
 @Composable
 private fun ColumnScope.RecoveryVitalTrend(
     points: List<TrendPointUi>,
+    band: TrendBandUi?,
     dayLabels: List<String>,
     contentDescription: String,
     emptyText: String,
@@ -590,6 +594,7 @@ private fun ColumnScope.RecoveryVitalTrend(
             yScale = DetailYScale.Vitals,
             modifier = healthChartModifier(expandChart),
             showYAxis = true,
+            band = band,
         )
     } else {
         StratumText(

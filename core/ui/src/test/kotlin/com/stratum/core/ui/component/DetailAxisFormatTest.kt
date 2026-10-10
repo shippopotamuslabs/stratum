@@ -1,5 +1,8 @@
 package com.stratum.core.ui.component
 
+import com.patrykandpatrick.vico.compose.cartesian.data.CartesianLayerRangeProvider
+import com.patrykandpatrick.vico.compose.common.data.ExtraStore
+import com.patrykandpatrick.vico.compose.common.data.MutableExtraStore
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -273,4 +276,56 @@ class DetailAxisFormatTest {
         assertTrue(nan.first.isFinite() && nan.second.isFinite())
         assertTrue(nan.second - nan.first > 0.0)
     }
+
+    @Test
+    @DisplayName("STR-113: band-widened provider expands data bounds with band edges")
+    fun bandWidenedRangeExpandsBounds() {
+        val seen = mutableListOf<Pair<Double, Double>>()
+        val base = recordingRangeProvider(seen)
+        val widened = BandWidenedRangeProvider(base, 49.0..57.0)
+        val store = MutableExtraStore()
+
+        assertEquals(49.0, widened.getMinY(51.0, 55.0, store), 0.0)
+        assertEquals(57.0, widened.getMaxY(51.0, 55.0, store), 0.0)
+        assertEquals(listOf(49.0 to 57.0, 49.0 to 57.0), seen)
+    }
+
+    @Test
+    @DisplayName("STR-113: band inside the data leaves bounds unchanged")
+    fun bandWidenedRangeInsideDataUnchanged() {
+        val seen = mutableListOf<Pair<Double, Double>>()
+        val widened = BandWidenedRangeProvider(recordingRangeProvider(seen), 52.0..54.0)
+        val store = MutableExtraStore()
+
+        widened.getMinY(51.0, 55.0, store)
+        widened.getMaxY(51.0, 55.0, store)
+
+        assertEquals(listOf(51.0 to 55.0, 51.0 to 55.0), seen)
+    }
+
+    @Test
+    @DisplayName("STR-113: widened vitals range contains band edges outside the line data")
+    fun bandWidenedVitalsRangeContainsBand() {
+        val widened = BandWidenedRangeProvider(VitalsRangeProvider, 49.0..57.0)
+        val store = MutableExtraStore()
+
+        val floor = widened.getMinY(51.0, 55.0, store)
+        val ceiling = widened.getMaxY(51.0, 55.0, store)
+
+        assertTrue(floor <= 49.0, "band lower edge must not clip: floor=$floor")
+        assertTrue(ceiling >= 57.0, "band upper edge must not clip: ceiling=$ceiling")
+    }
+
+    private fun recordingRangeProvider(seen: MutableList<Pair<Double, Double>>) =
+        object : CartesianLayerRangeProvider {
+            override fun getMinY(minY: Double, maxY: Double, extraStore: ExtraStore): Double {
+                seen += minY to maxY
+                return minY
+            }
+
+            override fun getMaxY(minY: Double, maxY: Double, extraStore: ExtraStore): Double {
+                seen += minY to maxY
+                return maxY
+            }
+        }
 }
