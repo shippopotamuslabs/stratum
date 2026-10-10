@@ -42,7 +42,7 @@ import androidx.room.TypeConverters
         LiftNoteEntity::class,
         WorkoutLiftNoteEntity::class,
     ],
-    version = 9,
+    version = 10,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),

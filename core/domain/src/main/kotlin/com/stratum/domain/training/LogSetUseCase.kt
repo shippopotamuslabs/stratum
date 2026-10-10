@@ -37,6 +37,7 @@ class LogSetUseCase @Inject constructor(
                 sessionId = command.sessionId,
                 exerciseNameRaw = lift.name,
                 liftId = command.liftId,
+                equipmentId = command.equipmentId ?: lift.equipmentId,
                 setIndex = command.setIndex,
                 weight = command.weight,
                 reps = command.reps,

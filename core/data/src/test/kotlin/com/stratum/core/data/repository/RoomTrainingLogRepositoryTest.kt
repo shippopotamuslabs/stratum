@@ -117,6 +117,28 @@ class RoomTrainingLogRepositoryTest {
     }
 
     @Test
+    @DisplayName("insertSet round-trips equipmentId through Room")
+    fun insertSetRoundTripsEquipmentId() = runTest {
+        val session = WorkoutLoggingFixtures.inProgressSession(id = "ts-live-1")
+        repository.insertSession(session)
+        val equipmentId = com.stratum.domain.lift.identity.EquipmentId("eq-cable")
+        repository.insertSet(
+            WorkoutLoggingFixtures.loggedSet(
+                "set-1",
+                TrainingSessionId("ts-live-1"),
+                equipmentId = equipmentId,
+            ),
+        )
+        repository.insertSet(
+            WorkoutLoggingFixtures.loggedSet("set-2", TrainingSessionId("ts-live-1")),
+        )
+
+        val sets = repository.getSetsForSession(TrainingSessionId("ts-live-1"))
+        assertEquals(equipmentId, sets.single { it.id.value == "set-1" }.equipmentId)
+        assertNull(sets.single { it.id.value == "set-2" }.equipmentId)
+    }
+
+    @Test
     @DisplayName("deleteSession tombstones lift_session_notes before CASCADE")
     fun deleteSessionTombstonesLiftSessionNotes() = runTest {
         val session = WorkoutLoggingFixtures.inProgressSession(id = "ts-live-1")
