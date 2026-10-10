@@ -39,6 +39,49 @@ internal fun MultiLineChartPreviewContent(
     }
 }
 
+@Preview(name = "Multi-line vitals light", showBackground = true)
+@Composable
+private fun StratumMultiLineVitalsLightPreview() {
+    MultiLineVitalsPreviewContent(family = StratumThemeId.Tonal)
+}
+
+@Preview(name = "Multi-line vitals dark", showBackground = true, backgroundColor = 0xFF121212)
+@Composable
+private fun StratumMultiLineVitalsDarkPreview() {
+    MultiLineVitalsPreviewContent(family = StratumThemeId.Tonal, darkTheme = true)
+}
+
+@Preview(name = "Multi-line vitals neo dark", showBackground = true, backgroundColor = 0xFF1A1A1A)
+@Composable
+private fun StratumMultiLineVitalsNeoDarkPreview() {
+    MultiLineVitalsPreviewContent(family = StratumThemeId.NeoBrutalist, darkTheme = true)
+}
+
+/**
+ * Single-series vitals chart (STR-108): same RHR week the dashboard recovery tab shows,
+ * with the fitted Vitals scale and y-axis the app enables. Default line color matches
+ * the app's RecoveryVitalTrend (no explicit color passed there either).
+ */
+@Composable
+internal fun MultiLineVitalsPreviewContent(
+    family: StratumThemeId,
+    darkTheme: Boolean? = null,
+) {
+    StratumTheme(themeId = family, darkTheme = darkTheme) {
+        StratumMultiLineChart(
+            primarySeries = previewVitals(54f, 53f, 55f, 52f, 53f, 51f, 52f),
+            dayLabels = listOf("M", "T", "W", "R", "F", "Sa", "Su"),
+            yScale = DetailYScale.Vitals,
+            contentDescription = "Resting heart rate for the last 7 days",
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(120.dp)
+                .padding(16.dp),
+            showYAxis = true,
+        )
+    }
+}
+
 @Composable
 private fun MultiLineChartPreviewBody() {
     val colors = StratumThemeAccessor.colors
@@ -62,3 +105,6 @@ private fun MultiLineChartPreviewBody() {
 
 private fun previewHours(vararg hours: Float): List<TrendPointUi> =
     hours.mapIndexed { index, value -> TrendPointUi(weekIndex = index, value = value) }
+
+private fun previewVitals(vararg values: Float): List<TrendPointUi> =
+    values.mapIndexed { index, value -> TrendPointUi(weekIndex = index, value = value) }

@@ -94,6 +94,7 @@ enum class GraphStatLabelKey {
     Volume,
     Progress,
     Steps,
+    Vitals,
 }
 
 /**
@@ -278,6 +279,8 @@ private fun unitSuffixFor(
     DetailYScale.Volume -> "sets"
     DetailYScale.Progress -> ""
     DetailYScale.Steps -> "steps"
+    // Graph detail never renders vitals (see primaryYScaleFor); no single unit across bpm/ms.
+    DetailYScale.Vitals -> ""
 }
 
 private fun List<TrendPoint>.toChartPoints(
@@ -307,6 +310,7 @@ private fun GraphDetailStats.toUi(
         DetailYScale.Volume -> GraphStatLabelKey.Volume
         DetailYScale.Progress -> GraphStatLabelKey.Progress
         DetailYScale.Steps -> GraphStatLabelKey.Steps
+        DetailYScale.Vitals -> GraphStatLabelKey.Vitals
     }
     val dateRangeText = if (dailyVolume) {
         formatDayStartRangeLabel(from, to, zone)
