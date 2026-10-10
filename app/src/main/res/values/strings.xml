@@ -100,6 +100,8 @@
     <string name="dashboard_health_sleep_stage_deep">Deep</string>
     <string name="dashboard_health_sleep_stage_rem">REM</string>
     <string name="dashboard_health_sleep_stage_awake">Awake</string>
+    <string name="dashboard_health_weight_legend_raw">Weigh-ins</string>
+    <string name="dashboard_health_weight_legend_trend">3-day avg</string>
     <string name="gym_placeholder_title">Gym</string>
     <string name="gym_placeholder_subtitle">Lift catalog and history land in a later slice.</string>
 </resources>
