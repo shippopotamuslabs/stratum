@@ -547,6 +547,21 @@ internal object VitalsRangeProvider : CartesianLayerRangeProvider {
 }
 
 /**
+ * Widens a [base] provider's data bounds with a shaded band's bounds before delegating,
+ * so band edges outside the line data are not clipped by the fitted range.
+ */
+internal class BandWidenedRangeProvider(
+    private val base: CartesianLayerRangeProvider,
+    private val band: ClosedFloatingPointRange<Double>,
+) : CartesianLayerRangeProvider {
+    override fun getMinY(minY: Double, maxY: Double, extraStore: ExtraStore): Double =
+        base.getMinY(min(minY, band.start), max(maxY, band.endInclusive), extraStore)
+
+    override fun getMaxY(minY: Double, maxY: Double, extraStore: ExtraStore): Double =
+        base.getMaxY(min(minY, band.start), max(maxY, band.endInclusive), extraStore)
+}
+
+/**
  * Signed progress index about zero. Always includes 0 and a minimum span so flat near-zero weeks
  * still draw axis ticks without dividing by zero.
  */
