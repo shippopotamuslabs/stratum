@@ -193,6 +193,7 @@ internal fun WorkoutSessionOverlays(
                 actions.onCompleteWorkout(false)
             },
             onDismiss = { sheets.onShowCompleteSheetChange(false) },
+            templateChanges = state.templateChanges,
         )
     }
 }
@@ -776,6 +777,7 @@ private fun CompleteWorkoutSheet(
     onUpdateTemplate: () -> Unit,
     onDiscardChanges: () -> Unit,
     onDismiss: () -> Unit,
+    templateChanges: TemplateChangeSummaryUi? = null,
 ) {
     StratumBottomSheet(onDismissRequest = onDismiss) {
         CompleteSheetContent(
@@ -784,6 +786,7 @@ private fun CompleteWorkoutSheet(
             onCompleteWorkout = onCompleteWorkout,
             onUpdateTemplate = onUpdateTemplate,
             onDiscardChanges = onDiscardChanges,
+            templateChanges = templateChanges,
         )
     }
 }
@@ -800,6 +803,7 @@ internal fun CompleteSheetContent(
     onCompleteWorkout: () -> Unit,
     onUpdateTemplate: () -> Unit,
     onDiscardChanges: () -> Unit,
+    templateChanges: TemplateChangeSummaryUi? = null,
 ) {
     when (phase) {
         CompleteSheetPhase.Incomplete -> {
@@ -860,6 +864,9 @@ internal fun CompleteSheetContent(
                 style = StratumThemeAccessor.typography.bodyLarge,
                 muted = true,
             )
+            if (templateChanges != null && !templateChanges.isEmpty) {
+                TemplateChangeSummarySection(summary = templateChanges)
+            }
             Spacer(modifier = Modifier.height(8.dp))
             StratumButton(
                 text = stringResource(R.string.workout_sheet_update_template),
