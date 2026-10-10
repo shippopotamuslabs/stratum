@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
@@ -129,11 +130,11 @@ private fun ChangeSummaryRow(row: TemplateChangeRowUi) {
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         StratumText(
-            text = row.label,
+            text = rowLabel(row),
             style = StratumThemeAccessor.typography.bodyLarge,
         )
         StratumText(
-            text = formatValues(row.oldText, row.newText),
+            text = formatValues(rowOldText(row), rowNewText(row)),
             style = StratumThemeAccessor.typography.bodyLarge,
             muted = true,
             maxLines = 3,
@@ -142,12 +143,124 @@ private fun ChangeSummaryRow(row: TemplateChangeRowUi) {
     }
 }
 
+@Composable
+private fun rowLabel(row: TemplateChangeRowUi): String =
+    when (row) {
+        is LiftAddedUi -> row.liftName
+        is LiftRemovedUi -> row.liftName
+        is LiftSwappedUi -> stringResource(R.string.workout_sheet_change_swapped_label)
+        is LiftMovedUi -> row.liftName
+        is SetCountChangedUi -> row.liftName
+        is SetEditedUi -> stringResource(R.string.workout_sheet_change_lift_set_label, row.liftName, row.setPosition)
+        is RestEditedUi -> stringResource(R.string.workout_sheet_change_lift_set_label, row.liftName, row.setPosition)
+        is SupersetGroupingChangedUi -> row.liftName
+        is RestBetweenLiftsChangedUi ->
+            stringResource(R.string.workout_sheet_change_rest_between_label, row.liftName)
+        is PinnedNotesChangedUi -> stringResource(R.string.workout_sheet_change_notes_label, row.liftName)
+    }
+
+@Composable
+private fun rowOldText(row: TemplateChangeRowUi): String? =
+    when (row) {
+        is LiftAddedUi -> null
+        is LiftRemovedUi -> setCountText(row.setCount)
+        is LiftSwappedUi -> row.oldName
+        is LiftMovedUi -> stringResource(R.string.workout_sheet_change_position, row.oldPosition)
+        is SetCountChangedUi -> setCountText(row.oldCount)
+        is SetEditedUi -> formatShape(row.oldShape)
+        is RestEditedUi -> formatRestDisplay(row.oldSeconds)
+        is SupersetGroupingChangedUi -> formatGrouping(row.oldPartners)
+        is RestBetweenLiftsChangedUi -> formatToggle(row.oldEnabled)
+        is PinnedNotesChangedUi -> formatNotes(row.oldNotes)
+    }
+
+@Composable
+private fun rowNewText(row: TemplateChangeRowUi): String? =
+    when (row) {
+        is LiftAddedUi -> setCountText(row.setCount)
+        is LiftRemovedUi -> null
+        is LiftSwappedUi -> row.newName
+        is LiftMovedUi -> stringResource(R.string.workout_sheet_change_position, row.newPosition)
+        is SetCountChangedUi -> formatNewCount(row.newCount, row.replacedCount)
+        is SetEditedUi -> formatShape(row.newShape)
+        is RestEditedUi -> formatRestDisplay(row.newSeconds)
+        is SupersetGroupingChangedUi -> formatGrouping(row.newPartners)
+        is RestBetweenLiftsChangedUi -> formatToggle(row.newEnabled)
+        is PinnedNotesChangedUi -> formatNotes(row.newNotes)
+    }
+
+@Composable
+private fun setCountText(count: Int): String =
+    pluralStringResource(R.plurals.workout_sheet_change_set_count, count, count)
+
+/** New total with churn detail (suffix only when sets were both added and removed). */
+@Composable
+private fun formatNewCount(newCount: Int, replacedCount: Int): String {
+    val label = setCountText(newCount)
+    return if (replacedCount > 0) {
+        stringResource(R.string.workout_sheet_change_set_count_replaced, label, replacedCount)
+    } else {
+        label
+    }
+}
+
+@Composable
+private fun formatToggle(enabled: Boolean): String =
+    stringResource(
+        if (enabled) {
+            R.string.workout_sheet_change_toggle_on
+        } else {
+            R.string.workout_sheet_change_toggle_off
+        },
+    )
+
+@Composable
+private fun formatGrouping(partners: List<String>): String =
+    if (partners.isEmpty()) {
+        stringResource(R.string.workout_sheet_change_not_grouped)
+    } else {
+        stringResource(R.string.workout_sheet_change_grouped_with, partners.joinToString(", "))
+    }
+
+@Composable
+private fun formatNotes(notes: List<String>): String =
+    if (notes.isEmpty()) {
+        stringResource(R.string.workout_sheet_change_no_notes)
+    } else {
+        notes.joinToString("; ")
+    }
+
+/**
+ * Compact set shape, e.g. `Standard 6–10 · RIR 2 · Top`. RIR-only back-offs
+ * (`0/0` band) omit the band. Set-type names reuse the set-type picker strings.
+ */
+@Composable
+private fun formatShape(shape: TemplateSetShapeUi): String {
+    val prescription =
+        buildString {
+            append(stringResource(shape.setKind.displayNameRes()))
+            if (shape.repMin != 0 || shape.repMax != 0) {
+                append(" ${formatBand(shape.repMin, shape.repMax)}")
+            }
+        }
+    return buildList {
+        add(prescription)
+        add(stringResource(R.string.workout_sheet_change_rir, shape.rirGoal))
+        if (shape.isTopSet) add(stringResource(R.string.workout_sheet_change_top_set))
+    }.joinToString(" · ")
+}
+
+private fun formatBand(repMin: Int, repMax: Int): String =
+    if (repMin == repMax) "$repMin" else "$repMin–$repMax"
+
 /** `old → new`; `+ new` for additions; `− old` for removals. */
+@Composable
 private fun formatValues(oldText: String?, newText: String?): String =
     when {
-        oldText != null && newText != null -> "$oldText → $newText"
-        oldText != null -> "− $oldText"
-        else -> "+ $newText"
+        oldText != null && newText != null ->
+            stringResource(R.string.workout_sheet_change_old_to_new, oldText, newText)
+        oldText != null -> stringResource(R.string.workout_sheet_change_removed, oldText)
+        else -> stringResource(R.string.workout_sheet_change_added, newText.orEmpty())
     }
 
 @Composable

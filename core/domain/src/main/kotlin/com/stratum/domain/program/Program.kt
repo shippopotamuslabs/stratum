@@ -91,7 +91,14 @@ data class WorkoutLift(
      * keeps the existing scalar-authoritative restore behavior.
      */
     val pinnedNotes: List<String> = emptyList(),
-)
+) {
+    /**
+     * Effective pinned notes: the list form wins, else the scalar. Storage reads leave
+     * the list empty (scalar-authoritative), while template saves carry the list —
+     * comparing effective content avoids phantom rows when both hold the same text.
+     */
+    fun effectiveNotes(): List<String> = pinnedNotes.ifEmpty { listOfNotNull(pinnedNote) }
+}
 
 /**
  * A single set in a [WorkoutLift]. Named `LiftSet` (not `Set`) to avoid the

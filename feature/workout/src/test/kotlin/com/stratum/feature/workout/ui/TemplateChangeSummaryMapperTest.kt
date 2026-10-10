@@ -52,48 +52,46 @@ class TemplateChangeSummaryMapperTest {
     }
 
     @Test
-    @DisplayName("Added lift has no old text and pluralized set count")
+    @DisplayName("Added lift maps to a structural row with the raw count")
     fun addedLiftRow() {
         val summary = TemplateChangeSummary(rows = listOf(LiftAdded("Row", setCount = 1)))
 
         val result = TemplateChangeSummaryMapper.map(summary)
 
         assertEquals(
-            listOf(TemplateChangeRowUi(label = "Row", oldText = null, newText = "1 set")),
+            listOf(LiftAddedUi(liftName = "Row", setCount = 1)),
             result.groups.single().rows,
         )
     }
 
     @Test
-    @DisplayName("Swapped lift shows old and new names")
+    @DisplayName("Swapped lift maps to a structural row with old and new names")
     fun swappedLiftRow() {
         val summary = TemplateChangeSummary(rows = listOf(LiftSwapped("Squat", "Bench Press")))
 
         val result = TemplateChangeSummaryMapper.map(summary)
 
         assertEquals(
-            listOf(TemplateChangeRowUi(label = "Lift", oldText = "Squat", newText = "Bench Press")),
+            listOf(LiftSwappedUi(oldName = "Squat", newName = "Bench Press")),
             result.groups.single().rows,
         )
     }
 
     @Test
-    @DisplayName("Moved lift shows 1-based positions")
+    @DisplayName("Moved lift maps 0-based positions to 1-based display positions")
     fun movedLiftRow() {
         val summary = TemplateChangeSummary(rows = listOf(LiftMoved("Squat", oldPosition = 1, newPosition = 0)))
 
         val result = TemplateChangeSummaryMapper.map(summary)
 
         assertEquals(
-            listOf(
-                TemplateChangeRowUi(label = "Squat", oldText = "Position 2", newText = "Position 1"),
-            ),
+            listOf(LiftMovedUi(liftName = "Squat", oldPosition = 2, newPosition = 1)),
             result.groups.single().rows,
         )
     }
 
     @Test
-    @DisplayName("Set count nets to one totals row")
+    @DisplayName("Set count maps to a structural totals row")
     fun setCountRow() {
         val summary =
             TemplateChangeSummary(rows = listOf(SetCountChanged("Squat", oldCount = 2, newCount = 4, replacedCount = 0)))
@@ -101,13 +99,13 @@ class TemplateChangeSummaryMapperTest {
         val result = TemplateChangeSummaryMapper.map(summary)
 
         assertEquals(
-            listOf(TemplateChangeRowUi(label = "Squat", oldText = "2 sets", newText = "4 sets")),
+            listOf(SetCountChangedUi(liftName = "Squat", oldCount = 2, newCount = 4, replacedCount = 0)),
             result.groups.single().rows,
         )
     }
 
     @Test
-    @DisplayName("Churned set count appends replaced detail to the new total")
+    @DisplayName("Churned set count carries the replaced count structurally")
     fun setCountRowWithReplaced() {
         val summary =
             TemplateChangeSummary(rows = listOf(SetCountChanged("Squat", oldCount = 2, newCount = 3, replacedCount = 2)))
@@ -115,15 +113,13 @@ class TemplateChangeSummaryMapperTest {
         val result = TemplateChangeSummaryMapper.map(summary)
 
         assertEquals(
-            listOf(
-                TemplateChangeRowUi(label = "Squat", oldText = "2 sets", newText = "3 sets · 2 replaced"),
-            ),
+            listOf(SetCountChangedUi(liftName = "Squat", oldCount = 2, newCount = 3, replacedCount = 2)),
             result.groups.single().rows,
         )
     }
 
     @Test
-    @DisplayName("Edited set formats shape with type, band, RIR, and top marker")
+    @DisplayName("Edited set maps shapes to presentation shapes with 1-based position")
     fun editedSetRow() {
         val summary =
             TemplateChangeSummary(
@@ -158,10 +154,25 @@ class TemplateChangeSummaryMapperTest {
 
         assertEquals(
             listOf(
-                TemplateChangeRowUi(
-                    label = "Bench Press · Set 2",
-                    oldText = "Standard 6–10 · RIR 2 · Top",
-                    newText = "Myo-Rep Match 8 · RIR 1",
+                SetEditedUi(
+                    liftName = "Bench Press",
+                    setPosition = 2,
+                    oldShape =
+                        TemplateSetShapeUi(
+                            setKind = WorkoutSetKind.Standard,
+                            repMin = 6,
+                            repMax = 10,
+                            rirGoal = 2,
+                            isTopSet = true,
+                        ),
+                    newShape =
+                        TemplateSetShapeUi(
+                            setKind = WorkoutSetKind.MyoRepMatch,
+                            repMin = 8,
+                            repMax = 8,
+                            rirGoal = 1,
+                            isTopSet = false,
+                        ),
                 ),
             ),
             result.groups.single().rows,
@@ -169,8 +180,8 @@ class TemplateChangeSummaryMapperTest {
     }
 
     @Test
-    @DisplayName("RIR-only back-off omits the zero band")
-    fun rirOnlyShapeOmitsBand() {
+    @DisplayName("RIR-only back-off preserves the zero band structurally")
+    fun rirOnlyShapePreservesBand() {
         val shape =
             TemplateSetShape(
                 setType = SetType.Standard,
@@ -190,13 +201,13 @@ class TemplateChangeSummaryMapperTest {
 
         val result = TemplateChangeSummaryMapper.map(summary)
 
-        val row = result.groups.single().rows.single()
-        assertEquals("Standard · RIR 2", row.oldText)
-        assertEquals("Standard · RIR 1", row.newText)
+        val row = result.groups.single().rows.single() as SetEditedUi
+        assertEquals(TemplateSetShapeUi(WorkoutSetKind.Standard, 0, 0, 2, false), row.oldShape)
+        assertEquals(TemplateSetShapeUi(WorkoutSetKind.Standard, 0, 0, 1, false), row.newShape)
     }
 
     @Test
-    @DisplayName("Edited rest formats seconds as m:ss")
+    @DisplayName("Edited rest maps to raw seconds with 1-based position")
     fun editedRestRow() {
         val summary =
             TemplateChangeSummary(rows = listOf(RestEdited("Squat", setPosition = 0, oldSeconds = 120, newSeconds = 45)))
@@ -204,15 +215,13 @@ class TemplateChangeSummaryMapperTest {
         val result = TemplateChangeSummaryMapper.map(summary)
 
         assertEquals(
-            listOf(
-                TemplateChangeRowUi(label = "Squat · Set 1", oldText = "2:00", newText = "0:45"),
-            ),
+            listOf(RestEditedUi(liftName = "Squat", setPosition = 1, oldSeconds = 120, newSeconds = 45)),
             result.groups.single().rows,
         )
     }
 
     @Test
-    @DisplayName("Superset grouping names partners and ungrouped sides")
+    @DisplayName("Superset grouping maps to raw partner lists")
     fun supersetGroupingRow() {
         val summary =
             TemplateChangeSummary(
@@ -226,10 +235,10 @@ class TemplateChangeSummaryMapperTest {
 
         assertEquals(
             listOf(
-                TemplateChangeRowUi(
-                    label = "Press",
-                    oldText = "Not grouped",
-                    newText = "Grouped with Raise, Fly",
+                SupersetGroupingChangedUi(
+                    liftName = "Press",
+                    oldPartners = emptyList(),
+                    newPartners = listOf("Raise", "Fly"),
                 ),
             ),
             result.groups.single().rows,
@@ -237,7 +246,7 @@ class TemplateChangeSummaryMapperTest {
     }
 
     @Test
-    @DisplayName("Rest-between-lifts toggle formats as On and Off")
+    @DisplayName("Rest-between-lifts toggle maps to raw booleans")
     fun restBetweenLiftsRow() {
         val summary =
             TemplateChangeSummary(
@@ -247,15 +256,13 @@ class TemplateChangeSummaryMapperTest {
         val result = TemplateChangeSummaryMapper.map(summary)
 
         assertEquals(
-            listOf(
-                TemplateChangeRowUi(label = "Squat · Rest between lifts", oldText = "Off", newText = "On"),
-            ),
+            listOf(RestBetweenLiftsChangedUi(liftName = "Squat", oldEnabled = false, newEnabled = true)),
             result.groups.single().rows,
         )
     }
 
     @Test
-    @DisplayName("Changed notes join bodies and empty sides read as no notes")
+    @DisplayName("Changed notes map to raw note lists")
     fun pinnedNotesRow() {
         val summary =
             TemplateChangeSummary(
@@ -269,7 +276,11 @@ class TemplateChangeSummaryMapperTest {
 
         assertEquals(
             listOf(
-                TemplateChangeRowUi(label = "Squat · Notes", oldText = "No notes", newText = "cue one; cue two"),
+                PinnedNotesChangedUi(
+                    liftName = "Squat",
+                    oldNotes = emptyList(),
+                    newNotes = listOf("cue one", "cue two"),
+                ),
             ),
             result.groups.single().rows,
         )

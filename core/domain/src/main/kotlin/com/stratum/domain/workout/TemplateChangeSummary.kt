@@ -1,5 +1,6 @@
 package com.stratum.domain.workout
 
+import com.stratum.domain.program.LiftSet
 import com.stratum.domain.program.SetType
 import com.stratum.domain.workout.myorep.MyoRepKind
 
@@ -33,7 +34,20 @@ data class TemplateSetShape(
     val repMax: Int,
     val rirGoal: Int,
     val isTopSet: Boolean,
-)
+) {
+    companion object {
+        /** Structural D2 template subset of [LiftSet] for old → new comparison. */
+        fun from(set: LiftSet): TemplateSetShape =
+            TemplateSetShape(
+                setType = set.setType,
+                myoRepKind = set.myoRepKind,
+                repMin = set.repMin,
+                repMax = set.repMax,
+                rirGoal = set.rirGoal,
+                isTopSet = set.isTopSet,
+            )
+    }
+}
 
 /**
  * One old → new row in the template change summary. Positions are 0-based template

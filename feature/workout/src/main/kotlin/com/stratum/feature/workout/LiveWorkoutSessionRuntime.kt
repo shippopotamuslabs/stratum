@@ -58,8 +58,9 @@ import com.stratum.domain.workout.StructuralMutation
 import com.stratum.domain.workout.WorkoutOverlay
 import com.stratum.domain.workout.WorkoutStructureProjection
 import com.stratum.domain.workout.intensifier.RestDefaultForTransition
-import com.stratum.feature.workout.ui.WorkoutUiEvent
 import com.stratum.feature.workout.ui.TemplateChangeSummaryMapper
+import com.stratum.feature.workout.ui.TemplateChangeSummaryUi
+import com.stratum.feature.workout.ui.WorkoutUiEvent
 import com.stratum.feature.workout.ui.WorkoutUiMapper
 import java.time.Instant
 import kotlinx.coroutines.CoroutineScope
@@ -322,22 +323,7 @@ internal class LiveWorkoutSessionRuntime(
         // Presentation name is historical: means "offer save-to-program-day", not raw overlay dirty.
         // Ad-hoc never offers template save (canSaveTemplateChanges == false).
         val hasDirtyEdits = overlay.isDirty && canSaveTemplateChanges
-        // End-of-workout change summary (STR-125): diff the baseline against the applied
-        // workout — the same artifact "Update Workout Template" persists — so the sheet
-        // shows exactly what update will write. Computed only when dirty.
-        val templateChanges =
-            if (hasDirtyEdits) {
-                val baseline = baselineWorkout
-                if (baseline == null) {
-                    null
-                } else {
-                    val applied = applyOverlayToWorkout(baseline, overlay)
-                    val summary = computeTemplateChangeSummary(baseline, applied, liftNamesById)
-                    TemplateChangeSummaryMapper.map(summary)
-                }
-            } else {
-                null
-            }
+        val templateChanges = resolveTemplateChanges(hasDirtyEdits)
         val imageUrlByLiftId =
             liftsById.mapValues { (_, lift) -> lift.imageUris.firstOrNull() }
                 .mapKeys { (id, _) -> id.value }
@@ -396,6 +382,20 @@ internal class LiveWorkoutSessionRuntime(
         // Active-workout notification snapshot is derived from domain session by
         // DomainActiveSessionSurfaceSync — do not dual-publish from render().
         effects.publishUi(mapped)
+    }
+
+    /**
+     * End-of-workout change summary (STR-125): diffs the baseline against the applied
+     * workout — the same artifact "Update Workout Template" persists — so the sheet
+     * shows exactly what update will write. Computed only when dirty; clean and ad-hoc
+     * sessions (or a missing baseline) carry null.
+     */
+    private fun resolveTemplateChanges(hasDirtyEdits: Boolean): TemplateChangeSummaryUi? {
+        if (!hasDirtyEdits) return null
+        val baseline = baselineWorkout ?: return null
+        val applied = applyOverlayToWorkout(baseline, overlay)
+        val summary = computeTemplateChangeSummary(baseline, applied, liftNamesById)
+        return TemplateChangeSummaryMapper.map(summary)
     }
 
     /**

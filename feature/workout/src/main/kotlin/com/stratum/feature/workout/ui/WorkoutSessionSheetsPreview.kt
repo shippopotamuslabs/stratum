@@ -175,30 +175,46 @@ internal fun previewTemplateChangeSummary(): TemplateChangeSummaryUi =
                     category = TemplateChangeCategoryUi.Lifts,
                     rows =
                         listOf(
-                            TemplateChangeRowUi(label = "Barbell Row", oldText = null, newText = "3 sets"),
-                            TemplateChangeRowUi(label = "Lift", oldText = "Lat Pulldown", newText = "Pull-Up"),
+                            LiftAddedUi(liftName = "Barbell Row", setCount = 3),
+                            LiftSwappedUi(oldName = "Lat Pulldown", newName = "Pull-Up"),
                         ),
                 ),
                 TemplateChangeGroupUi(
                     category = TemplateChangeCategoryUi.Order,
                     rows =
                         listOf(
-                            TemplateChangeRowUi(label = "Back Squat", oldText = "Position 2", newText = "Position 1"),
+                            LiftMovedUi(liftName = "Back Squat", oldPosition = 2, newPosition = 1),
                         ),
                 ),
                 TemplateChangeGroupUi(
                     category = TemplateChangeCategoryUi.Sets,
                     rows =
                         listOf(
-                            TemplateChangeRowUi(
-                                label = "Seated Cable Row",
-                                oldText = "3 sets",
-                                newText = "4 sets · 1 replaced",
+                            SetCountChangedUi(
+                                liftName = "Seated Cable Row",
+                                oldCount = 3,
+                                newCount = 4,
+                                replacedCount = 1,
                             ),
-                            TemplateChangeRowUi(
-                                label = "Bench Press · Set 2",
-                                oldText = "Standard 6–10 · RIR 2",
-                                newText = "Myo-Rep 6–10 · RIR 1",
+                            SetEditedUi(
+                                liftName = "Bench Press",
+                                setPosition = 2,
+                                oldShape =
+                                    TemplateSetShapeUi(
+                                        setKind = WorkoutSetKind.Standard,
+                                        repMin = 6,
+                                        repMax = 10,
+                                        rirGoal = 2,
+                                        isTopSet = false,
+                                    ),
+                                newShape =
+                                    TemplateSetShapeUi(
+                                        setKind = WorkoutSetKind.MyoRepFloor,
+                                        repMin = 6,
+                                        repMax = 10,
+                                        rirGoal = 1,
+                                        isTopSet = false,
+                                    ),
                             ),
                         ),
                 ),
@@ -206,17 +222,17 @@ internal fun previewTemplateChangeSummary(): TemplateChangeSummaryUi =
                     category = TemplateChangeCategoryUi.Rest,
                     rows =
                         listOf(
-                            TemplateChangeRowUi(label = "Bench Press · Set 1", oldText = "2:00", newText = "1:30"),
+                            RestEditedUi(liftName = "Bench Press", setPosition = 1, oldSeconds = 120, newSeconds = 90),
                         ),
                 ),
                 TemplateChangeGroupUi(
                     category = TemplateChangeCategoryUi.Supersets,
                     rows =
                         listOf(
-                            TemplateChangeRowUi(
-                                label = "Overhead Press",
-                                oldText = "Not grouped",
-                                newText = "Grouped with Lateral Raise",
+                            SupersetGroupingChangedUi(
+                                liftName = "Overhead Press",
+                                oldPartners = emptyList(),
+                                newPartners = listOf("Lateral Raise"),
                             ),
                         ),
                 ),
