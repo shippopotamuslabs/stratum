@@ -55,6 +55,7 @@ object StratumExportJson {
                         "completedAt" to jsonString(set.completedAt.toString()),
                     )
                     set.liftId?.let { fields += "liftId" to jsonString(it.value) }
+                    set.equipmentId?.let { fields += "equipmentId" to jsonString(it.value) }
                     set.rir?.let { fields += "rir" to jsonNumber(it) }
                     set.partialReps.normalizedPartialReps()?.let {
                         fields += "partialReps" to jsonNumber(it)
