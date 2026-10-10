@@ -77,6 +77,10 @@ internal fun ActivityHealthPageUi.hasChart(): Boolean = dailyPoints.any { it.val
 
 internal fun WeightHealthPageUi.hasChart(): Boolean = trendPoints.size >= 2
 
+/** Legend only when both series are drawable — a key for an undrawn line would be a lie. */
+internal fun WeightHealthPageUi.hasTrendLegend(): Boolean =
+    hasChart() && trendMeanPoints.size >= 2
+
 internal fun RecoveryHealthPageUi.hasSleepChart(): Boolean =
     nightlyPoints.any { it.value > 0f } ||
         lightNightlyPoints.any { it.value > 0f } ||

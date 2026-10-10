@@ -303,13 +303,16 @@ private fun WeightHealthPage(
                 primarySeries = page.trendPoints,
                 primaryColor = StratumThemeAccessor.colors.textData,
                 secondarySeries = page.trendMeanPoints,
-                secondaryColor = StratumThemeAccessor.colors.textMuted,
+                secondaryColor = StratumThemeAccessor.colors.accent,
                 dayLabels = page.dayLabels,
                 yScale = DetailYScale.Weight,
                 contentDescription = stringResource(R.string.dashboard_health_weight_chart_cd),
                 modifier = healthChartModifier(expandChart),
                 showYAxis = true,
             )
+            if (page.hasTrendLegend()) {
+                WeightTrendLegend()
+            }
         }
     }
 }
@@ -498,6 +501,42 @@ private fun ColumnScope.RecoverySleepTrend(
             text = stringResource(R.string.dashboard_health_sleep_empty),
             muted = true,
         )
+    }
+}
+
+/**
+ * Color key for the weight chart's two series. One-off in this file (UI_DESIGN.md §7.2 step 4),
+ * mirroring [SleepStageColorKey]: dot colors must match the [StratumMultiLineChart] series colors.
+ */
+@Composable
+private fun WeightTrendLegend() {
+    val colors = StratumThemeAccessor.colors
+    val entries = listOf(
+        colors.textData to stringResource(R.string.dashboard_health_weight_legend_raw),
+        colors.accent to stringResource(R.string.dashboard_health_weight_legend_trend),
+    )
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        entries.forEach { (color, label) ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(color),
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                StratumText(
+                    text = label,
+                    style = StratumThemeAccessor.typography.sectionLabel,
+                    muted = true,
+                    maxLines = 1,
+                )
+            }
+        }
     }
 }
 
