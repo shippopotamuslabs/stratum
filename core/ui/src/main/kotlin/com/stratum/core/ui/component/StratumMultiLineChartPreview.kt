@@ -69,7 +69,7 @@ internal fun MultiLineVitalsPreviewContent(
 ) {
     StratumTheme(themeId = family, darkTheme = darkTheme) {
         StratumMultiLineChart(
-            primarySeries = previewVitals(54f, 53f, 55f, 52f, 53f, 51f, 52f),
+            primarySeries = previewTrendValues(54f, 53f, 55f, 52f, 53f, 51f, 52f),
             dayLabels = listOf("M", "T", "W", "R", "F", "Sa", "Su"),
             yScale = DetailYScale.Vitals,
             contentDescription = "Resting heart rate for the last 7 days",
@@ -86,10 +86,10 @@ internal fun MultiLineVitalsPreviewContent(
 private fun MultiLineChartPreviewBody() {
     val colors = StratumThemeAccessor.colors
     StratumMultiLineChart(
-        primarySeries = previewHours(3.2f, 3.0f, 2.4f, 3.4f, 3.1f, 3.6f, 3.2f),
-        secondarySeries = previewHours(1.5f, 1.6f, 1.1f, 1.7f, 1.4f, 1.9f, 1.6f),
-        tertiarySeries = previewHours(1.6f, 1.7f, 1.3f, 1.8f, 1.6f, 2.0f, 1.7f),
-        quaternarySeries = previewHours(0.7f, 0.4f, 0.9f, 0.5f, 0.6f, 0.3f, 0.7f),
+        primarySeries = previewTrendValues(3.2f, 3.0f, 2.4f, 3.4f, 3.1f, 3.6f, 3.2f),
+        secondarySeries = previewTrendValues(1.5f, 1.6f, 1.1f, 1.7f, 1.4f, 1.9f, 1.6f),
+        tertiarySeries = previewTrendValues(1.6f, 1.7f, 1.3f, 1.8f, 1.6f, 2.0f, 1.7f),
+        quaternarySeries = previewTrendValues(0.7f, 0.4f, 0.9f, 0.5f, 0.6f, 0.3f, 0.7f),
         primaryColor = colors.textMuted,
         secondaryColor = colors.accent,
         tertiaryColor = colors.textData,
@@ -103,8 +103,5 @@ private fun MultiLineChartPreviewBody() {
     )
 }
 
-private fun previewHours(vararg hours: Float): List<TrendPointUi> =
-    hours.mapIndexed { index, value -> TrendPointUi(weekIndex = index, value = value) }
-
-private fun previewVitals(vararg values: Float): List<TrendPointUi> =
+private fun previewTrendValues(vararg values: Float): List<TrendPointUi> =
     values.mapIndexed { index, value -> TrendPointUi(weekIndex = index, value = value) }
