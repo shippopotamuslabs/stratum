@@ -18,6 +18,10 @@ enum class HealthMetricType {
 
 const val HEALTH_METRICS_DAY_COUNT = 7
 const val LAST_NIGHT_LOOKBACK_HOURS = 36L
+/** Trailing span for the RHR/HRV personal-range band (p10–p90 over this history). */
+const val VITALS_LOOKBACK_DAYS = 30L
+/** Distinct days with samples required before the band is shown (sparse-history fallback). */
+const val VITALS_RANGE_MIN_HISTORY_DAYS = 7
 
 /**
  * Query window for a dashboard metrics snapshot. [now] and [zone] are the only inputs; derived
@@ -33,6 +37,8 @@ data class HealthMetricsRequest(
     val todayStart: Instant = today.atStartOfDay(zone).toInstant()
     val windowEnd: Instant = today.plusDays(1).atStartOfDay(zone).toInstant()
     val lastNightLookbackStart: Instant = now.minus(Duration.ofHours(LAST_NIGHT_LOOKBACK_HOURS))
+    /** Start of the trailing 30-day span backing the RHR/HRV personal-range band. */
+    val vitalsLookbackStart: Instant = windowEnd.minus(Duration.ofDays(VITALS_LOOKBACK_DAYS))
     val localWindowStart: LocalDateTime = windowStartDate.atStartOfDay()
     val localWindowEnd: LocalDateTime = today.plusDays(1).atStartOfDay()
 }
@@ -45,6 +51,13 @@ data class HealthMetricsSnapshot(
     val sleepSessions: List<SleepSessionSample> = emptyList(),
     val restingHeartRateSamples: List<HeartRateSample> = emptyList(),
     val hrvSamples: List<HrvSample> = emptyList(),
+    /**
+     * Trailing-30-day vitals history backing the personal-range band, oldest first.
+     * Includes the 7-day window samples; the reader bounds reads to
+     * [HealthMetricsRequest.vitalsLookbackStart]..[HealthMetricsRequest.windowEnd].
+     */
+    val restingHeartRateLookback: List<HeartRateSample> = emptyList(),
+    val hrvLookback: List<HrvSample> = emptyList(),
 )
 
 data class DailyStepCount(
@@ -134,6 +147,18 @@ data class RecoveryMetrics(
      */
     val restingHeartRateDaily: List<DailyVitalSample> = emptyList(),
     val hrvDaily: List<DailyVitalSample> = emptyList(),
+    /**
+     * Personal-range bands (trailing-30-day p10–p90). Null when the type is ungranted
+     * or history covers fewer than [VITALS_RANGE_MIN_HISTORY_DAYS] distinct days.
+     */
+    val restingHeartRateRange: VitalRange? = null,
+    val hrvRange: VitalRange? = null,
+)
+
+/** Inclusive personal-range band for one vital, in native units (bpm / ms). */
+data class VitalRange(
+    val lower: Double,
+    val upper: Double,
 )
 
 /** One day's mean vital value; [value] is null when the day has no samples. */
