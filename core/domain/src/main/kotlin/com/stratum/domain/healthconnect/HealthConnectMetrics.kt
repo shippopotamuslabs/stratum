@@ -39,6 +39,14 @@ data class HealthMetricsRequest(
     val lastNightLookbackStart: Instant = now.minus(Duration.ofHours(LAST_NIGHT_LOOKBACK_HOURS))
     /** Start of the trailing 30-day span backing the RHR/HRV personal-range band. */
     val vitalsLookbackStart: Instant = windowEnd.minus(Duration.ofDays(VITALS_LOOKBACK_DAYS))
+
+    /** Half-open [windowStart, windowEnd) membership for in-memory partitioning. */
+    fun containsInWindow(time: Instant): Boolean =
+        !time.isBefore(windowStart) && time.isBefore(windowEnd)
+
+    /** Half-open [vitalsLookbackStart, windowEnd) membership for band-history partitioning. */
+    fun containsInVitalsLookback(time: Instant): Boolean =
+        !time.isBefore(vitalsLookbackStart) && time.isBefore(windowEnd)
     val localWindowStart: LocalDateTime = windowStartDate.atStartOfDay()
     val localWindowEnd: LocalDateTime = today.plusDays(1).atStartOfDay()
 }
