@@ -10,7 +10,7 @@ import androidx.room.TypeConverters
  * annotation below and by migration tests. Bump this (and only this) with every
  * entity change.
  */
-const val STRATUM_SCHEMA_VERSION = 10
+const val STRATUM_SCHEMA_VERSION = 11
 
 @Database(
     entities = [
@@ -64,6 +64,9 @@ const val STRATUM_SCHEMA_VERSION = 10
         // and lifts; pure column adds, no backfill. Pre-v7 rows keep null: no adder
         // on equipment, inherit-equipment on lifts.
         AutoMigration(from = 6, to = 7),
+        // 10 → 11 adds the tombstone flag (isDeleted) on equipment; pure column add
+        // defaulting to false. Pre-v11 rows are all live (no delete path existed).
+        AutoMigration(from = 10, to = 11),
     ],
 )
 @TypeConverters(WeekdaySetConverter::class, IntSetConverter::class, EnumConverters::class)

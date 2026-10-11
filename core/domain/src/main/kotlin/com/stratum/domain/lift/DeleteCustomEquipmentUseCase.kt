@@ -6,8 +6,9 @@ import com.stratum.domain.logging.runCatchingLogged
 import javax.inject.Inject
 
 /**
- * Deletes custom equipment that is not referenced by any lift. Seed equipment cannot be
- * deleted. Returns failure when the row is still in use or is not custom.
+ * Tombstones custom equipment (deleted flag; row retained for history). Seed equipment
+ * cannot be deleted. Referenced lifts keep resolving the tombstoned row — no
+ * reassignment. Returns failure when the row is seed equipment or missing.
  */
 class DeleteCustomEquipmentUseCase @Inject constructor(
     private val repository: EquipmentRepository,
@@ -23,7 +24,7 @@ class DeleteCustomEquipmentUseCase @Inject constructor(
             Result.success(Unit)
         } else {
             Result.failure(
-                IllegalStateException("Equipment cannot be deleted (seed, missing, or still in use)"),
+                IllegalStateException("Equipment cannot be deleted (seed equipment or missing)"),
             )
         }
     }

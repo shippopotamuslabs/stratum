@@ -66,6 +66,7 @@ class SyncEntityEncoders @Inject constructor() {
         mapOf(
             "name" to e.name,
             "is_custom" to e.isCustom,
+            "is_deleted" to e.isDeleted,
             "micro_options" to microWireList(e.microOptionsJson),
         )
 

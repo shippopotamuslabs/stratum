@@ -5,6 +5,7 @@ import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeEquipmentRepository
 import com.stratum.domain.lift.AddCustomEquipmentUseCase
+import com.stratum.domain.lift.DeleteCustomEquipmentUseCase
 import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.ForkEquipmentUseCase
 import com.stratum.domain.lift.IncrementTier
@@ -89,6 +90,11 @@ class ManageEquipmentViewModelTest {
                         fakeEquipmentRepository,
                         validate,
                         ValidateMicroIncrementsUseCase(),
+                        logging,
+                    ),
+                deleteCustomEquipment =
+                    DeleteCustomEquipmentUseCase(
+                        fakeEquipmentRepository,
                         logging,
                     ),
                 equipmentPickResult = equipmentPickResult,
@@ -244,6 +250,65 @@ class ManageEquipmentViewModelTest {
             val state = awaitItem()
             assertNull(state.forkingFromId)
             assertEquals("", state.forkNameDraft)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Given custom row when start delete then dialog arms with its name")
+    fun startDeleteArmsDialogForCustomRow() = runTest {
+        val id = fakeEquipmentRepository.addCustomEquipment("Old Stack")
+        subject.uiState.test {
+            awaitCatalogState()
+            subject.onStartDelete(id.value)
+            val state = awaitItem()
+            assertEquals(PendingDeleteUi(id.value, "Old Stack"), state.pendingDelete)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Given seed row when start delete then dialog stays closed")
+    fun startDeleteIgnoredForSeedRow() = runTest {
+        subject.uiState.test {
+            awaitCatalogState()
+            subject.onStartDelete("cable")
+            expectNoEvents()
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Given armed delete when confirm then row leaves catalog and message shows")
+    fun confirmDeleteTombstonesRow() = runTest {
+        val id = fakeEquipmentRepository.addCustomEquipment("Old Stack")
+        subject.uiState.test {
+            awaitCatalogState()
+            subject.onStartDelete(id.value)
+            awaitItem() // dialog armed
+            subject.onConfirmDelete()
+            advanceUntilIdle()
+            val state = expectMostRecentItem()
+            assertNull(state.pendingDelete)
+            assertTrue(state.rows.none { it.id == id.value })
+            assertTrue(state.userMessage?.contains("Old Stack") == true)
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertTrue(fakeEquipmentRepository.getEquipment(id)!!.isDeleted)
+    }
+
+    @Test
+    @DisplayName("Given armed delete when dismiss then dialog closes and row stays")
+    fun dismissDeleteKeepsRow() = runTest {
+        val id = fakeEquipmentRepository.addCustomEquipment("Old Stack")
+        subject.uiState.test {
+            awaitCatalogState()
+            subject.onStartDelete(id.value)
+            awaitItem() // dialog armed
+            subject.onDismissDelete()
+            val state = awaitItem()
+            assertNull(state.pendingDelete)
+            assertTrue(state.rows.any { it.id == id.value })
             cancelAndIgnoreRemainingEvents()
         }
     }
