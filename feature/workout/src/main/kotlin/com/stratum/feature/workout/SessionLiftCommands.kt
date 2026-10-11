@@ -81,6 +81,18 @@ internal suspend fun LiveWorkoutSessionRuntime.handleSwapLift(cmd: SessionComman
     flushOverlay()
 }
 
+internal suspend fun LiveWorkoutSessionRuntime.handleSwapEquipment(cmd: SessionCommand.SwapEquipment) {
+    commitOverlay(
+        overlay.copy(
+            swappedEquipment = overlay.swappedEquipment + (cmd.workoutLiftId to cmd.newEquipmentId),
+        ),
+    )
+    // Equipment swaps rebind the session read model only: snapshot history stays keyed
+    // by lift until per-pair progression lands (STR-123), so no snapshot recompute.
+    render()
+    flushOverlay()
+}
+
 internal suspend fun LiveWorkoutSessionRuntime.handleAddLifts(cmd: SessionCommand.AddLifts) {
     val currentIds = merge().lifts.map { it.workoutLiftId.value }
     commitOverlay(

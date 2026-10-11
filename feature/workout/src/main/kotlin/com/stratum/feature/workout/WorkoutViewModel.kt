@@ -4,9 +4,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.core.ui.component.SupersetLinkDirection
 import com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase
+import com.stratum.core.ui.component.EquipmentSwapOption
+import com.stratum.core.ui.component.EquipmentSwapSheetState
 import com.stratum.domain.lift.CatalogNoteInput
+import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.GetLiftNoteListsUseCase
+import com.stratum.domain.lift.ObserveEquipmentCatalogUseCase
 import com.stratum.domain.lift.GetPastSessionNotesForLiftUseCase
+import com.stratum.domain.lift.GetRecentlyUsedEquipmentForLiftUseCase
 import com.stratum.domain.lift.SessionNoteInput
 import com.stratum.domain.lift.WorkoutLiftNoteInput
 import com.stratum.domain.lift.identity.LiftCatalogNoteId
@@ -21,6 +26,7 @@ import com.stratum.domain.lift.OptionalNoteEdit
 import com.stratum.domain.lift.SaveLiftNotesCommand
 import com.stratum.domain.lift.SaveLiftNotesUseCase
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.domain.program.GetProgramByIdUseCase
@@ -47,7 +53,9 @@ import com.stratum.domain.workout.SetSlotId
 import com.stratum.domain.workout.WorkoutEditSession
 import com.stratum.feature.workout.notification.LiveWorkoutSurfaces
 import com.stratum.feature.workout.notification.RestTimerState
+import com.stratum.feature.workout.ui.EquipmentSwapUi
 import com.stratum.feature.workout.ui.PastSessionNotesGroupUi
+import com.stratum.feature.workout.ui.RenderedLiftUi
 import com.stratum.feature.workout.ui.WorkoutUiEvent
 import com.stratum.feature.workout.ui.WorkoutUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -109,6 +117,8 @@ class WorkoutViewModel @Inject constructor(
     private val getPastSessionNotesForLift: GetPastSessionNotesForLiftUseCase,
     private val getLiftNoteLists: GetLiftNoteListsUseCase,
     getSessionPinnedNoteLists: GetSessionPinnedNoteListsUseCase,
+    private val observeEquipmentCatalog: ObserveEquipmentCatalogUseCase,
+    private val getRecentlyUsedEquipment: GetRecentlyUsedEquipmentForLiftUseCase,
 ) : ViewModel() {
 
     /**
@@ -122,6 +132,13 @@ class WorkoutViewModel @Inject constructor(
     private val sessionFrames = MutableStateFlow<WorkoutUiState>(WorkoutUiState.Loading)
 
     val uiState: StateFlow<WorkoutUiState> = sessionFrames.asStateFlow()
+
+    /** Equipment catalog mirror for subheader names + the swap sheet full list. */
+    private val equipmentCatalog = MutableStateFlow<List<Equipment>>(emptyList())
+
+    /** Open equipment swap sheet, or null when closed. */
+    private val _equipmentSwap = MutableStateFlow<EquipmentSwapUi?>(null)
+    val equipmentSwap: StateFlow<EquipmentSwapUi?> = _equipmentSwap.asStateFlow()
 
     /** Transient snackbar copy; cleared via [userMessageShown] after the UI presents it. */
     private val _userMessage = MutableStateFlow<String?>(null)
@@ -152,7 +169,7 @@ class WorkoutViewModel @Inject constructor(
     private val sessionEffects =
         object : SessionEffects {
             override fun publishUi(state: WorkoutUiState) {
-                sessionFrames.value = state
+                sessionFrames.value = attachEquipmentNames(state)
             }
 
             override fun publishUserMessage(message: String?) {
@@ -209,6 +226,22 @@ class WorkoutViewModel @Inject constructor(
         )
 
     init {
+        viewModelScope.launch {
+            observeEquipmentCatalog().collect { catalog ->
+                equipmentCatalog.value = catalog
+                // Re-attach names to the current frame + refresh an open sheet's full list.
+                sessionFrames.value = attachEquipmentNames(sessionFrames.value)
+                _equipmentSwap.value?.let { open ->
+                    _equipmentSwap.value =
+                        open.copy(
+                            sheet =
+                                open.sheet.copy(
+                                    all = catalog.map { it.toSwapOption() },
+                                ),
+                        )
+                }
+            }
+        }
         viewModelScope.launch {
             observeWeightDisplayPreferences()
                 .catch {
@@ -442,6 +475,72 @@ class WorkoutViewModel @Inject constructor(
     fun swapLift(workoutLiftId: WorkoutLiftId, newLiftId: LiftId) {
         enqueue(SessionCommand.SwapLift(workoutLiftId, newLiftId))
     }
+
+    fun swapEquipment(workoutLiftId: WorkoutLiftId, newEquipmentId: EquipmentId) {
+        enqueue(SessionCommand.SwapEquipment(workoutLiftId, newEquipmentId))
+    }
+
+    /** Opens the equipment swap sheet for one lift card; recents load asynchronously. */
+    fun openEquipmentSwap(workoutLiftId: String) {
+        val loaded = sessionFrames.value as? WorkoutUiState.Loaded ?: return
+        val lift = loaded.lifts.firstOrNull { it.workoutLiftId == workoutLiftId } ?: return
+        val catalog = equipmentCatalog.value
+        _equipmentSwap.value =
+            EquipmentSwapUi(
+                workoutLiftId = workoutLiftId,
+                liftId = lift.liftId,
+                liftName = lift.liftName,
+                sheet =
+                    EquipmentSwapSheetState(
+                        current =
+                            lift.sessionEquipmentId?.let { id ->
+                                catalog.firstOrNull { it.id.value == id }?.toSwapOption()
+                            },
+                        recent = emptyList(),
+                        all = catalog.map { it.toSwapOption() },
+                    ),
+            )
+        viewModelScope.launch {
+            val recent = getRecentlyUsedEquipment(LiftId(lift.liftId)).map { it.toSwapOption() }
+            _equipmentSwap.value?.let { open ->
+                if (open.workoutLiftId == workoutLiftId) {
+                    _equipmentSwap.value = open.copy(sheet = open.sheet.copy(recent = recent))
+                }
+            }
+        }
+    }
+
+    fun setEquipmentSwapQuery(query: String) {
+        _equipmentSwap.value?.let { open ->
+            _equipmentSwap.value = open.copy(sheet = open.sheet.copy(query = query))
+        }
+    }
+
+    fun closeEquipmentSwap() {
+        _equipmentSwap.value = null
+    }
+
+    /** Applies the selection to the session overlay (remaining unlogged sets) + closes. */
+    fun selectSwapEquipment(optionId: String) {
+        val target = _equipmentSwap.value ?: return
+        swapEquipment(WorkoutLiftId(target.workoutLiftId), EquipmentId(optionId))
+        _equipmentSwap.value = null
+    }
+
+    private fun attachEquipmentNames(state: WorkoutUiState): WorkoutUiState {
+        if (state !is WorkoutUiState.Loaded) return state
+        val names = equipmentCatalog.value.associate { it.id.value to it.name }
+        if (names.isEmpty()) return state
+        return state.copy(
+            lifts =
+                state.lifts.map { lift ->
+                    lift.copy(sessionEquipmentName = lift.sessionEquipmentId?.let(names::get))
+                },
+        )
+    }
+
+    private fun Equipment.toSwapOption(): EquipmentSwapOption =
+        EquipmentSwapOption(id = id.value, name = name)
 
     fun addLifts(liftIds: List<LiftId>, asSuperset: Boolean = false) {
         enqueue(SessionCommand.AddLifts(liftIds, asSuperset))

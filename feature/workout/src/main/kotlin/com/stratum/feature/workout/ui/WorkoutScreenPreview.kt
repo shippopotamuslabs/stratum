@@ -131,6 +131,8 @@ internal fun previewWorkoutLoadedState(): WorkoutUiState.Loaded =
                     liftId = "back-squat",
                     liftName = "Back Squat",
                     navigatorInitials = "BS",
+                    sessionEquipmentId = "barbell",
+                    sessionEquipmentName = "Olympic Barbell",
                     sets =
                         listOf(
                             RenderedSetUi(

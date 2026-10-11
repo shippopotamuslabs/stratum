@@ -1,6 +1,7 @@
 package com.stratum.domain.workout
 
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.SetType
@@ -76,6 +77,12 @@ data class WorkoutOverlay(
     /** Fatigue-estimated baselines for dynamically-added slots (overlay-only; D3). */
     val dynamicBaselines: Map<SetSlotId, SlotRecommendation> = emptyMap(),
     val swappedLifts: Map<WorkoutLiftId, LiftId> = emptyMap(),
+    /**
+     * Mid-session equipment swaps by template slot. Ephemeral: applied to remaining
+     * sets and the live subheader, dropped unless "update template" persists it
+     * (save-back lands in STR-124, so this map is not in [isDirty] yet).
+     */
+    val swappedEquipment: Map<WorkoutLiftId, EquipmentId> = emptyMap(),
     val deletedLiftIds: Set<WorkoutLiftId> = emptySet(),
     /** Mid-session lifts not present on the baseline template. */
     val addedLifts: List<OverlayAddedLift> = emptyList(),

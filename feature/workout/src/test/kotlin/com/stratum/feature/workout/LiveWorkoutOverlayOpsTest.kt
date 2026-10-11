@@ -276,6 +276,99 @@ class LiveWorkoutOverlayOpsTest {
     }
 
     @Test
+    @DisplayName("STR-120: merge prefers the session equipment swap over template and default")
+    fun mergePrefersSwappedEquipment() {
+        val templateStructure =
+            structure.copy(
+                lifts =
+                    structure.lifts.map {
+                        it.copy(
+                            equipmentId =
+                                com.stratum.domain.lift.identity.EquipmentId("template-eq"),
+                        )
+                    },
+            )
+        val liftsById =
+            mapOf(
+                originalLiftId to
+                    Lift(
+                        id = originalLiftId,
+                        name = "Original Lift",
+                        movementPatterns = emptySet(),
+                        primaryMuscles = emptySet(),
+                        secondaryMuscles = emptySet(),
+                        incrementTiers = emptyList(),
+                        presetTags = emptySet(),
+                        enabled = true,
+                        equipmentId =
+                            com.stratum.domain.lift.identity.EquipmentId("default-eq"),
+                    ),
+            )
+        val rendered =
+            LiveWorkoutOverlayOps.merge(
+                structure = templateStructure,
+                overlay =
+                    WorkoutOverlay(
+                        swappedEquipment =
+                            mapOf(
+                                workoutLiftId to
+                                    com.stratum.domain.lift.identity.EquipmentId("swapped-eq"),
+                            ),
+                    ),
+                snapshotBySlot = emptyMap(),
+                liftsById = liftsById,
+                liftNamesById = liftsById.mapValues { it.value.name },
+                mergeRenderedWorkout = MergeRenderedWorkoutUseCase(),
+            )
+
+        assertEquals("swapped-eq", rendered.lifts.single().equipmentId?.value)
+    }
+
+    @Test
+    @DisplayName("STR-120: merge falls back to template then lift-default equipment")
+    fun mergeFallsBackToTemplateThenDefaultEquipment() {
+        val liftsById =
+            mapOf(
+                originalLiftId to
+                    Lift(
+                        id = originalLiftId,
+                        name = "Original Lift",
+                        movementPatterns = emptySet(),
+                        primaryMuscles = emptySet(),
+                        secondaryMuscles = emptySet(),
+                        incrementTiers = emptyList(),
+                        presetTags = emptySet(),
+                        enabled = true,
+                        equipmentId =
+                            com.stratum.domain.lift.identity.EquipmentId("default-eq"),
+                    ),
+            )
+        fun renderWithTemplate(templateEquipmentId: String?): String? =
+            LiveWorkoutOverlayOps.merge(
+                structure =
+                    structure.copy(
+                        lifts =
+                            structure.lifts.map {
+                                it.copy(
+                                    equipmentId =
+                                        templateEquipmentId?.let {
+                                            com.stratum.domain.lift.identity.EquipmentId(it)
+                                        },
+                                )
+                            },
+                    ),
+                overlay = WorkoutOverlay(),
+                snapshotBySlot = emptyMap(),
+                liftsById = liftsById,
+                liftNamesById = liftsById.mapValues { it.value.name },
+                mergeRenderedWorkout = MergeRenderedWorkoutUseCase(),
+            ).lifts.single().equipmentId?.value
+
+        assertEquals("template-eq", renderWithTemplate("template-eq"))
+        assertEquals("default-eq", renderWithTemplate(null))
+    }
+
+    @Test
     @DisplayName("merge keeps projection Bodyweight when catalog entry is missing")
     fun mergeKeepsProjectionBodyweightWithoutCatalog() {
         val bodyweightStructure = structure.copy(

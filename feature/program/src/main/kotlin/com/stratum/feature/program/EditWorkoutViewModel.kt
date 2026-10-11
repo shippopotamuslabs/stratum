@@ -25,11 +25,18 @@ import com.stratum.domain.training.StartTrainingSessionUseCase
 import com.stratum.domain.workout.ManageWorkoutOverlayUseCase
 import com.stratum.domain.workout.WorkoutEditSession
 import com.stratum.domain.workout.EditSessionEvent
+import com.stratum.core.ui.component.EquipmentSwapOption
+import com.stratum.core.ui.component.EquipmentSwapSheetState
 import com.stratum.core.ui.component.SupersetLinkDirection
 import com.stratum.core.ui.component.isLastInSupersetChain
 import com.stratum.core.ui.component.isSupersetPairMember
+import com.stratum.domain.lift.Equipment
+import com.stratum.domain.lift.GetRecentlyUsedEquipmentForLiftUseCase
+import com.stratum.domain.lift.ObserveEquipmentCatalogUseCase
+import com.stratum.domain.lift.identity.LiftId
 import com.stratum.feature.program.formatEstimatedWorkoutDuration
 import com.stratum.feature.program.ui.DEFAULT_REST_SECONDS
+import com.stratum.feature.program.ui.EditEquipmentSwapUi
 import com.stratum.feature.program.ui.EditLiftState
 import com.stratum.feature.program.ui.EditSetState
 import com.stratum.feature.program.ui.EditWorkoutUiEvent
@@ -63,6 +70,8 @@ class EditWorkoutViewModel @Inject constructor(
     private val estimateWorkoutDurationMinutes: EstimateWorkoutDurationMinutesUseCase,
     private val programChangeEventRepository: ProgramChangeEventRepository,
     private val workoutEditSession: WorkoutEditSession,
+    private val observeEquipmentCatalog: ObserveEquipmentCatalogUseCase,
+    private val getRecentlyUsedEquipment: GetRecentlyUsedEquipmentForLiftUseCase,
     startTrainingSession: StartTrainingSessionUseCase,
     observeCycleProgress: ObserveCycleProgressUseCase,
     abandonTrainingSession: AbandonTrainingSessionUseCase,
@@ -120,7 +129,11 @@ class EditWorkoutViewModel @Inject constructor(
     /** True while a start (save/abandon/session) is in flight — disable Start chrome. */
     val isStarting: StateFlow<Boolean> = _isStarting.asStateFlow()
 
+    private val _equipmentSwap = MutableStateFlow<EditEquipmentSwapUi?>(null)
+    val equipmentSwap: StateFlow<EditEquipmentSwapUi?> = _equipmentSwap.asStateFlow()
+
     private var catalogLifts: List<Lift> = emptyList()
+    private var equipmentCatalog: List<Equipment> = emptyList()
     private var programSnapshot: Program? = null
     private var baselineWorkout: Workout? = null
     /** When set, loads/saves that program (library or active); null = active only. */
@@ -142,12 +155,17 @@ class EditWorkoutViewModel @Inject constructor(
                 combine(
                     editableProgramFlow(scopedProgramId),
                     observeLiftCatalog(),
-                ) { program, lifts ->
-                    program to lifts
-                }.collect { (program, lifts) ->
+                    observeEquipmentCatalog(),
+                ) { program, lifts, equipment ->
+                    Triple(program, lifts, equipment)
+                }.collect { (program, lifts, equipment) ->
                     catalogLifts = lifts
+                    equipmentCatalog = equipment
+                    refreshOpenSheetCatalog()
                     if (hasSnapshot.value) {
-                        // Active edit session exists. Baseline updates from Room are ignored.
+                        // Active edit session exists. Baseline updates from Room are ignored,
+                        // but equipment display names re-join so renames don't go stale.
+                        rejoinEquipmentNames()
                         return@collect
                     }
                     programSnapshot = program
@@ -160,7 +178,10 @@ class EditWorkoutViewModel @Inject constructor(
                         return@collect
                     }
                     val compoundByLiftId = catalogLifts.associate { lift -> lift.id.value to lift.isCompound }
-                    val loaded = workout.toEditWorkoutUiState(liftNamesById, compoundByLiftId).markSaveState()
+                    val equipmentNamesById = equipment.associate { item -> item.id.value to item.name }
+                    val loaded =
+                        workout.toEditWorkoutUiState(liftNamesById, compoundByLiftId, equipmentNamesById)
+                            .markSaveState()
                     _uiState.value = applyDerivedMetrics(loaded)
                     hasSnapshot.value = true
                 }
@@ -699,6 +720,98 @@ class EditWorkoutViewModel @Inject constructor(
             )
         }
     }
+
+    /**
+     * Template equipment assignment for one lift. Marks the workout dirty via
+     * [updateLoaded]; persisted on save through `toWorkout`.
+     */
+    fun setEquipment(workoutLiftId: String, equipmentId: String) {
+        val name = equipmentCatalog.firstOrNull { it.id.value == equipmentId }?.name
+        updateLoaded { loaded ->
+            loaded.copy(
+                lifts =
+                    loaded.lifts.map { lift ->
+                        if (lift.workoutLiftId == workoutLiftId) {
+                            lift.copy(equipmentId = equipmentId, equipmentName = name)
+                        } else {
+                            lift
+                        }
+                    },
+            )
+        }
+    }
+
+    /** Opens the equipment swap sheet for one template lift card; recents load async. */
+    fun openEquipmentSwap(workoutLiftId: String) {
+        val loaded = _uiState.value as? EditWorkoutUiState.Loaded ?: return
+        val lift = loaded.lifts.firstOrNull { it.workoutLiftId == workoutLiftId } ?: return
+        val catalog = equipmentCatalog
+        _equipmentSwap.value =
+            EditEquipmentSwapUi(
+                workoutLiftId = workoutLiftId,
+                liftId = lift.liftId,
+                liftName = lift.name,
+                sheet =
+                    EquipmentSwapSheetState(
+                        current =
+                            lift.equipmentId?.let { id ->
+                                catalog.firstOrNull { it.id.value == id }?.toSwapOption()
+                            },
+                        recent = emptyList(),
+                        all = catalog.map { it.toSwapOption() },
+                    ),
+            )
+        viewModelScope.launch {
+            val recent = getRecentlyUsedEquipment(LiftId(lift.liftId)).map { it.toSwapOption() }
+            _equipmentSwap.value?.let { open ->
+                if (open.workoutLiftId == workoutLiftId) {
+                    _equipmentSwap.value = open.copy(sheet = open.sheet.copy(recent = recent))
+                }
+            }
+        }
+    }
+
+    fun setEquipmentSwapQuery(query: String) {
+        _equipmentSwap.value?.let { open ->
+            _equipmentSwap.value = open.copy(sheet = open.sheet.copy(query = query))
+        }
+    }
+
+    fun closeEquipmentSwap() {
+        _equipmentSwap.value = null
+    }
+
+    /** Applies the selection to the template draft + closes. */
+    fun selectSwapEquipment(optionId: String) {
+        val target = _equipmentSwap.value ?: return
+        setEquipment(target.workoutLiftId, optionId)
+        _equipmentSwap.value = null
+    }
+
+    /**
+     * Re-resolves equipment display names on catalog emissions without touching draft
+     * state: bypasses [updateLoaded] (which marks dirty) and skips no-op writes.
+     */
+    private fun rejoinEquipmentNames() {
+        val current = _uiState.value as? EditWorkoutUiState.Loaded ?: return
+        val names = equipmentCatalog.associate { it.id.value to it.name }
+        val relabeled =
+            current.lifts.map { lift -> lift.copy(equipmentName = lift.equipmentId?.let(names::get)) }
+        if (relabeled.map { it.equipmentName } == current.lifts.map { it.equipmentName }) return
+        _uiState.value = current.copy(lifts = relabeled)
+    }
+
+    private fun refreshOpenSheetCatalog() {
+        _equipmentSwap.value?.let { open ->
+            _equipmentSwap.value =
+                open.copy(
+                    sheet = open.sheet.copy(all = equipmentCatalog.map { it.toSwapOption() }),
+                )
+        }
+    }
+
+    private fun Equipment.toSwapOption(): EquipmentSwapOption =
+        EquipmentSwapOption(id = id.value, name = name)
 
     private fun updateSet(setId: String, transform: (EditSetState) -> EditSetState) {
         updateLoaded { loaded ->

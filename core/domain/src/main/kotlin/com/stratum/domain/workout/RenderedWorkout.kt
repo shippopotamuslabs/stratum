@@ -2,6 +2,7 @@ package com.stratum.domain.workout
 
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.SetType
@@ -51,6 +52,12 @@ data class RenderedWorkoutLift(
     val progressionScheme: ProgressionScheme,
     val sets: List<RenderedSet>,
     val supersetGroupId: WorkoutSupersetGroupId? = null,
+    /**
+     * Equipment in use for this lift this session: live-swap override, else the
+     * template assignment, else the lift default (resolved at merge). Null means
+     * bodyweight / unassigned.
+     */
+    val equipmentId: EquipmentId? = null,
     val loadType: LoadType = LoadType.Weighted,
     val useRestTimerBetweenLifts: Boolean = false,
     val isPlateLoaded: Boolean = false,

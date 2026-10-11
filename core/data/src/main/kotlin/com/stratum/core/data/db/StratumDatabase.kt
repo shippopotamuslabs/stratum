@@ -10,7 +10,7 @@ import androidx.room.TypeConverters
  * annotation below and by migration tests. Bump this (and only this) with every
  * entity change.
  */
-const val STRATUM_SCHEMA_VERSION = 11
+const val STRATUM_SCHEMA_VERSION = 12
 
 @Database(
     entities = [
@@ -67,6 +67,9 @@ const val STRATUM_SCHEMA_VERSION = 11
         // 10 → 11 adds the tombstone flag (isDeleted) on equipment; pure column add
         // defaulting to false. Pre-v11 rows are all live (no delete path existed).
         AutoMigration(from = 10, to = 11),
+        // 11 → 12 adds the nullable template-assignment column (equipment_id) on
+        // workout_lifts; pure column add. Null means "inherit the lift's equipment".
+        AutoMigration(from = 11, to = 12),
     ],
 )
 @TypeConverters(WeekdaySetConverter::class, IntSetConverter::class, EnumConverters::class)

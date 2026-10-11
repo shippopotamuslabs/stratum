@@ -62,6 +62,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 class EditWorkoutViewModelTest {
     private lateinit var repository: FakeProgramRepository
     private lateinit var trainingLog: FakeTrainingLogRepository
+    private lateinit var equipmentRepository: com.stratum.core.testing.onboarding.FakeEquipmentRepository
     private lateinit var workoutEditSession: WorkoutEditSession
     private val logging = FakeLoggingPort()
 
@@ -69,6 +70,7 @@ class EditWorkoutViewModelTest {
     fun setUp() {
         repository = FakeProgramRepository(PROGRAM)
         trainingLog = FakeTrainingLogRepository(programRepository = repository)
+        equipmentRepository = com.stratum.core.testing.onboarding.FakeEquipmentRepository()
         workoutEditSession = WorkoutEditSession()
     }
 
@@ -466,6 +468,123 @@ class EditWorkoutViewModelTest {
         return item
     }
 
+    private fun seedSwapCatalog() {
+        equipmentRepository.seed(
+            listOf(
+                com.stratum.domain.lift.Equipment(
+                    id = com.stratum.domain.lift.identity.EquipmentId("barbell"),
+                    name = "Olympic Barbell",
+                    incrementTiers = emptyList(),
+                ),
+                com.stratum.domain.lift.Equipment(
+                    id = com.stratum.domain.lift.identity.EquipmentId("ssb"),
+                    name = "Safety Squat Bar",
+                    incrementTiers = emptyList(),
+                ),
+            ),
+        )
+    }
+
+    @Test
+    @DisplayName("STR-120: setEquipment marks dirty, joins the name, and persists on save")
+    fun setEquipmentMarksDirtyAndPersists() = runTest {
+        seedSwapCatalog()
+        val viewModel = buildViewModel()
+        viewModel.initialize(WORKOUT_ID)
+        viewModel.uiState.test {
+            awaitLoaded()
+            viewModel.setEquipment(WORKOUT_LIFT_ID, "ssb")
+            val dirty = awaitItem() as EditWorkoutUiState.Loaded
+            assertTrue(dirty.isDirty)
+            val lift = dirty.lifts.single { it.workoutLiftId == WORKOUT_LIFT_ID }
+            assertEquals("ssb", lift.equipmentId)
+            assertEquals("Safety Squat Bar", lift.equipmentName)
+            viewModel.saveWorkout()
+            val saved = awaitItem() as EditWorkoutUiState.Loaded
+            assertFalse(saved.isDirty)
+            val persisted =
+                repository.getProgram()!!.workouts.first()
+                    .workoutLifts.single { it.id.value == WORKOUT_LIFT_ID }
+            assertEquals("ssb", persisted.equipmentId?.value)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("STR-120: swap sheet opens with current and catalog; select applies to the draft")
+    fun equipmentSwapSheetSelectAppliesToDraft() = runTest {
+        seedSwapCatalog()
+        val viewModel = buildViewModel()
+        viewModel.initialize(WORKOUT_ID)
+        viewModel.uiState.test {
+            awaitLoaded()
+            cancelAndIgnoreRemainingEvents()
+        }
+        viewModel.equipmentSwap.test {
+            assertNull(awaitItem())
+            viewModel.openEquipmentSwap(WORKOUT_LIFT_ID)
+            val opened = checkNotNull(awaitItem())
+            assertNull(opened.sheet.current)
+            assertEquals(2, opened.sheet.all.size)
+            viewModel.setEquipmentSwapQuery("safety")
+            assertEquals("safety", checkNotNull(awaitItem()).sheet.query)
+            viewModel.selectSwapEquipment("ssb")
+            assertNull(awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+        val loaded = viewModel.uiState.value as EditWorkoutUiState.Loaded
+        val lift = loaded.lifts.single { it.workoutLiftId == WORKOUT_LIFT_ID }
+        assertEquals("ssb", lift.equipmentId)
+        assertEquals("Safety Squat Bar", lift.equipmentName)
+        assertTrue(loaded.isDirty)
+    }
+
+    @Test
+    @DisplayName("STR-120 remediation: catalog rename re-joins names without marking dirty")
+    fun catalogRenameRejoinsNamesWithoutDirty() = runTest {
+        seedSwapCatalog()
+        val viewModel = buildViewModel()
+        viewModel.initialize(WORKOUT_ID)
+        viewModel.uiState.test {
+            awaitLoaded()
+            viewModel.setEquipment(WORKOUT_LIFT_ID, "ssb")
+            awaitItem() // dirty draft
+            viewModel.saveWorkout()
+            val saved = awaitItem() as EditWorkoutUiState.Loaded
+            assertFalse(saved.isDirty)
+            // Rename behind the editor's back; the row must relabel, staying clean.
+            equipmentRepository.seed(
+                listOf(
+                    com.stratum.domain.lift.Equipment(
+                        id = com.stratum.domain.lift.identity.EquipmentId("barbell"),
+                        name = "Olympic Barbell",
+                        incrementTiers = emptyList(),
+                    ),
+                    com.stratum.domain.lift.Equipment(
+                        id = com.stratum.domain.lift.identity.EquipmentId("ssb"),
+                        name = "SSB (renamed)",
+                        incrementTiers = emptyList(),
+                    ),
+                ),
+            )
+            // The save-triggered baseline reload may land ahead of the relabel; drain
+            // until the renamed row arrives. Every interim state must stay clean.
+            var relabeled: EditWorkoutUiState.Loaded? = null
+            for (attempt in 0 until 3) {
+                val item = awaitItem() as EditWorkoutUiState.Loaded
+                assertFalse(item.isDirty)
+                if (item.lifts.single { it.workoutLiftId == WORKOUT_LIFT_ID }.equipmentName == "SSB (renamed)") {
+                    relabeled = item
+                    break
+                }
+            }
+            val lift = checkNotNull(relabeled).lifts.single { it.workoutLiftId == WORKOUT_LIFT_ID }
+            assertEquals("ssb", lift.equipmentId)
+            assertEquals("SSB (renamed)", lift.equipmentName)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
     @Nested
     @DisplayName("Start workout from edit screen")
     inner class StartWorkout {
@@ -738,6 +857,11 @@ class EditWorkoutViewModelTest {
             observeCycleProgress = ObserveCycleProgressUseCase(repository, trainingLog),
             abandonTrainingSession = AbandonTrainingSessionUseCase(trainingLog, logging),
             manageWorkoutOverlay = ManageWorkoutOverlayUseCase(FakeWorkoutOverlayStore(), logging),
+            observeEquipmentCatalog = com.stratum.domain.lift.ObserveEquipmentCatalogUseCase(equipmentRepository),
+            getRecentlyUsedEquipment = com.stratum.domain.lift.GetRecentlyUsedEquipmentForLiftUseCase(
+                trainingLog,
+                equipmentRepository,
+            ),
         )
     }
 

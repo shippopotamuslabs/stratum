@@ -1,5 +1,6 @@
 package com.stratum.domain.program
 
+import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.identity.LiftSetId
@@ -91,6 +92,13 @@ data class WorkoutLift(
      * keeps the existing scalar-authoritative restore behavior.
      */
     val pinnedNotes: List<String> = emptyList(),
+    /**
+     * Equipment assigned in the template. Null means "inherit the lift's equipment".
+     * A mid-session swap overrides this ephemerally via
+     * [com.stratum.domain.workout.WorkoutOverlay.swappedEquipment]; "update template"
+     * persists the swap back here.
+     */
+    val equipmentId: EquipmentId? = null,
 ) {
     /**
      * Effective pinned notes: the list form wins, else the scalar. Storage reads leave
