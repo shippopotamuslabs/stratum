@@ -74,14 +74,19 @@ object PersonalRecordScoring {
      * without a liftId keep flags down and e1RM null (never PR-eligible).
      * Headline lift PRs stay "max across equipment" — [bestPersonalRecordSet] over a
      * lift's full history is unaffected by how flags partition into pairs.
+     * Output order always matches input order (pools are re-emitted positionally).
      */
     fun withPersonalRecordsPerPair(sets: List<LoggedSet>): List<LoggedSet> {
-        val (unidentified, identified) = sets.partition { it.liftId == null }
-        return identified
-            .groupBy { it.liftId to it.equipmentId }
-            .values
-            .flatMap(::withPersonalRecords) +
-            unidentified.map { it.copy(isPersonalRecord = false, estimatedOneRm = null) }
+        val flaggedById =
+            sets.filter { it.liftId != null }
+                .groupBy { it.liftId to it.equipmentId }
+                .values
+                .flatMap(::withPersonalRecords)
+                .associateBy { it.id }
+        return sets.map { set ->
+            flaggedById[set.id]
+                ?: set.copy(isPersonalRecord = false, estimatedOneRm = null)
+        }
     }
 
     /**
