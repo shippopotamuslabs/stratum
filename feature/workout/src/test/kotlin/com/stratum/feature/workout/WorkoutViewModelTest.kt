@@ -117,6 +117,7 @@ class WorkoutViewModelTest {
     private lateinit var programRepository: FakeProgramRepository
     private lateinit var trainingLogRepository: FakeTrainingLogRepository
     private lateinit var equipmentRepository: FakeEquipmentRepository
+    private lateinit var equipmentPickResult: com.stratum.domain.lift.EquipmentPickResult
     private lateinit var progressionHistory: FakeProgressionHistoryRepository
     private lateinit var workoutEditSession: WorkoutEditSession
     private lateinit var overlayStore: FakeWorkoutOverlayStore
@@ -143,6 +144,7 @@ class WorkoutViewModelTest {
             ),
         )
         equipmentRepository = FakeEquipmentRepository()
+        equipmentPickResult = com.stratum.domain.lift.EquipmentPickResult()
         progressionHistory = FakeProgressionHistoryRepository()
         workoutEditSession = WorkoutEditSession()
         overlayStore = FakeWorkoutOverlayStore()
@@ -440,6 +442,7 @@ class WorkoutViewModelTest {
                 trainingLogRepository,
                 equipmentRepository,
             ),
+            equipmentPickResult = equipmentPickResult,
         )
     }
 
@@ -534,6 +537,7 @@ class WorkoutViewModelTest {
                 trainingLogRepository,
                 equipmentRepository,
             ),
+            equipmentPickResult = equipmentPickResult,
         )
     }
 
@@ -626,6 +630,7 @@ class WorkoutViewModelTest {
                 trainingLogRepository,
                 equipmentRepository,
             ),
+            equipmentPickResult = equipmentPickResult,
         )
     }
 
@@ -1360,6 +1365,7 @@ class WorkoutViewModelTest {
                 trainingLogRepository,
                 equipmentRepository,
             ),
+            equipmentPickResult = equipmentPickResult,
         )
 
         localViewModel.startSession(workoutId)
@@ -1451,6 +1457,7 @@ class WorkoutViewModelTest {
                 trainingLogRepository,
                 equipmentRepository,
             ),
+            equipmentPickResult = equipmentPickResult,
         )
 
         localViewModel.startSession(workoutId)
@@ -3459,6 +3466,54 @@ class WorkoutViewModelTest {
         val lift = loaded.lifts.single { it.workoutLiftId == workoutLiftId.value }
         assertEquals("ssb", lift.sessionEquipmentId)
         assertEquals("Safety Squat Bar", lift.sessionEquipmentName)
+    }
+
+    @Test
+    @DisplayName("STR-121: created equipment pick applies as a session swap and closes the sheet")
+    fun createNewPickAppliesAsSessionSwap() = runTest {
+        seedSwapCatalog()
+        val viewModel =
+            buildViewModelWithProgram(program = programWithTemplateEquipment("barbell"))
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        viewModel.openEquipmentSwap(workoutLiftId.value)
+        advanceUntilIdle()
+        viewModel.beginCreateEquipment()
+        // Manage Equipment created the piece in the shared repo; the pick publishes on return.
+        equipmentRepository.seed(
+            equipmentRepository.current +
+                swapEquipment("new-machine", "New Machine"),
+        )
+        equipmentPickResult.publish(com.stratum.domain.lift.identity.EquipmentId("new-machine"))
+        advanceUntilIdle()
+
+        assertNull(viewModel.equipmentSwap.value)
+        val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
+        val lift = loaded.lifts.single { it.workoutLiftId == workoutLiftId.value }
+        assertEquals("new-machine", lift.sessionEquipmentId)
+        assertEquals("New Machine", lift.sessionEquipmentName)
+    }
+
+    @Test
+    @DisplayName("STR-121: pick published before arming is ignored")
+    fun stalePickBeforeArmingIgnored() = runTest {
+        seedSwapCatalog()
+        equipmentPickResult.publish(com.stratum.domain.lift.identity.EquipmentId("ssb"))
+        val viewModel =
+            buildViewModelWithProgram(program = programWithTemplateEquipment("barbell"))
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        viewModel.openEquipmentSwap(workoutLiftId.value)
+        advanceUntilIdle()
+        viewModel.beginCreateEquipment()
+        advanceUntilIdle()
+
+        assertNotNull(viewModel.equipmentSwap.value)
+        val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
+        val lift = loaded.lifts.single { it.workoutLiftId == workoutLiftId.value }
+        assertEquals("barbell", lift.sessionEquipmentId)
     }
 
     @Test

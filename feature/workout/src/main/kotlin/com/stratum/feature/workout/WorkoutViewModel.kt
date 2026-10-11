@@ -8,6 +8,7 @@ import com.stratum.core.ui.component.EquipmentSwapOption
 import com.stratum.core.ui.component.EquipmentSwapSheetState
 import com.stratum.domain.lift.CatalogNoteInput
 import com.stratum.domain.lift.Equipment
+import com.stratum.domain.lift.EquipmentPickResult
 import com.stratum.domain.lift.GetLiftNoteListsUseCase
 import com.stratum.domain.lift.ObserveEquipmentCatalogUseCase
 import com.stratum.domain.lift.GetPastSessionNotesForLiftUseCase
@@ -119,6 +120,7 @@ class WorkoutViewModel @Inject constructor(
     getSessionPinnedNoteLists: GetSessionPinnedNoteListsUseCase,
     private val observeEquipmentCatalog: ObserveEquipmentCatalogUseCase,
     private val getRecentlyUsedEquipment: GetRecentlyUsedEquipmentForLiftUseCase,
+    private val equipmentPickResult: EquipmentPickResult,
 ) : ViewModel() {
 
     /**
@@ -139,6 +141,11 @@ class WorkoutViewModel @Inject constructor(
     /** Open equipment swap sheet, or null when closed. */
     private val _equipmentSwap = MutableStateFlow<EquipmentSwapUi?>(null)
     val equipmentSwap: StateFlow<EquipmentSwapUi?> = _equipmentSwap.asStateFlow()
+
+    /** Create-new arming: target card + pick generation snapshot (see [beginCreateEquipment]). */
+    private var awaitingEquipmentPick = false
+    private var lastSeenPickGen = 0L
+    private var pendingCreateWorkoutLiftId: String? = null
 
     /** Transient snackbar copy; cleared via [userMessageShown] after the UI presents it. */
     private val _userMessage = MutableStateFlow<String?>(null)
@@ -226,6 +233,21 @@ class WorkoutViewModel @Inject constructor(
         )
 
     init {
+        viewModelScope.launch {
+            equipmentPickResult.result.collect { pick ->
+                if (!awaitingEquipmentPick || pick == null) return@collect
+                if (pick.generation <= lastSeenPickGen) return@collect
+                lastSeenPickGen = pick.generation
+                awaitingEquipmentPick = false
+                val target = pendingCreateWorkoutLiftId
+                pendingCreateWorkoutLiftId = null
+                val newId = pick.equipmentId
+                if (target != null && newId != null) {
+                    swapEquipment(WorkoutLiftId(target), newId)
+                    _equipmentSwap.value = null
+                }
+            }
+        }
         viewModelScope.launch {
             observeEquipmentCatalog().collect { catalog ->
                 equipmentCatalog.value = catalog
@@ -518,6 +540,18 @@ class WorkoutViewModel @Inject constructor(
 
     fun closeEquipmentSwap() {
         _equipmentSwap.value = null
+    }
+
+    /**
+     * Arms the create-new return path for the open sheet's lift. Call before navigating
+     * to Manage Equipment in selection mode; the created piece is applied as a session
+     * swap when the pick publishes.
+     */
+    fun beginCreateEquipment() {
+        val target = _equipmentSwap.value ?: return
+        lastSeenPickGen = equipmentPickResult.currentGeneration()
+        pendingCreateWorkoutLiftId = target.workoutLiftId
+        awaitingEquipmentPick = true
     }
 
     /** Applies the selection to the session overlay (remaining unlogged sets) + closes. */

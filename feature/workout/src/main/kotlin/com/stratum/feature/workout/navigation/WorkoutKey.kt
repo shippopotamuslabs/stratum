@@ -22,6 +22,7 @@ fun EntryProviderScope<NavKey>.workoutEntry(
     onSwapLiftClick: (workoutId: String, workoutLiftId: String?, liftId: String?, liftName: String?) -> Unit,
     onEditEquipmentClick: (EquipmentEditRequest) -> Unit,
     onReorderLiftsClick: (workoutId: String) -> Unit,
+    onCreateEquipmentClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     entry<WorkoutKey> { key ->
@@ -32,6 +33,7 @@ fun EntryProviderScope<NavKey>.workoutEntry(
             onSwapLiftClick = onSwapLiftClick,
             onEditEquipmentClick = onEditEquipmentClick,
             onReorderLiftsClick = onReorderLiftsClick,
+            onCreateEquipmentClick = onCreateEquipmentClick,
             modifier = modifier,
         )
     }

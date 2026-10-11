@@ -16,6 +16,7 @@ import com.stratum.domain.lift.SeedEquipmentIds
 import com.stratum.domain.lift.SetLiftDefaultRestUseCase
 import com.stratum.domain.lift.alignedWithEquipment
 import com.stratum.domain.lift.identity.EquipmentId
+import com.stratum.domain.lift.EquipmentPickResult
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.inferFatigueProfile
 import com.stratum.domain.lift.resolvedDefaultRestSeconds
