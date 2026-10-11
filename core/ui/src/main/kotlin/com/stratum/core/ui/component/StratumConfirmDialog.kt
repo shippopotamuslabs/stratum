@@ -31,47 +31,23 @@ fun StratumConfirmDialog(
     destructiveConfirm: Boolean = false,
     confirmEnabled: Boolean = true,
 ) {
-    val colors = StratumThemeAccessor.colors
-    val shapes = StratumThemeAccessor.shapes
     Dialog(onDismissRequest = onDismiss) {
-        Column(
-            modifier =
-                modifier
-                    .fillMaxWidth()
-                    .background(color = colors.surfaceRaised, shape = shapes.panel)
-                    .border(
-                        width = shapes.borderWidth,
-                        color = colors.borderStrong,
-                        shape = shapes.panel,
-                    )
-                    .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+        StratumDialogPanel(
+            title = title,
+            body = body,
+            modifier = modifier,
         ) {
-            StratumText(
-                text = title,
-                style = StratumThemeAccessor.typography.titleLarge,
+            StratumOutlinedButton(
+                text = dismissLabel,
+                onClick = onDismiss,
+                enabled = confirmEnabled,
             )
-            StratumText(
-                text = body,
-                style = StratumThemeAccessor.typography.bodyLarge,
-                muted = true,
+            StratumButton(
+                text = confirmLabel,
+                onClick = onConfirm,
+                enabled = confirmEnabled,
+                destructive = destructiveConfirm,
             )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End),
-            ) {
-                StratumOutlinedButton(
-                    text = dismissLabel,
-                    onClick = onDismiss,
-                    enabled = confirmEnabled,
-                )
-                StratumButton(
-                    text = confirmLabel,
-                    onClick = onConfirm,
-                    enabled = confirmEnabled,
-                    destructive = destructiveConfirm,
-                )
-            }
         }
     }
 }

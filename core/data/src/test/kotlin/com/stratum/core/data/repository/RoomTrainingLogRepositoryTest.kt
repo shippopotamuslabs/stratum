@@ -139,6 +139,35 @@ class RoomTrainingLogRepositoryTest {
     }
 
     @Test
+    @DisplayName("STR-122: updateSets persists rewritten equipmentId for the rewrite path")
+    fun updateSetsPersistsRewrittenEquipmentId() = runTest {
+        val session = WorkoutLoggingFixtures.inProgressSession(id = "ts-live-1")
+        repository.insertSession(session)
+        repository.insertSet(
+            WorkoutLoggingFixtures.loggedSet(
+                "set-1",
+                TrainingSessionId("ts-live-1"),
+                equipmentId = com.stratum.domain.lift.identity.EquipmentId("eq-cable"),
+            ),
+        )
+
+        val stored = repository.getSetsForSession(TrainingSessionId("ts-live-1")).single()
+        repository.updateSets(
+            listOf(
+                stored.copy(
+                    equipmentId = com.stratum.domain.lift.identity.EquipmentId("eq-barbell"),
+                ),
+            ),
+        )
+
+        val rewritten = repository.getSetsForSession(TrainingSessionId("ts-live-1")).single()
+        assertEquals(
+            com.stratum.domain.lift.identity.EquipmentId("eq-barbell"),
+            rewritten.equipmentId,
+        )
+    }
+
+    @Test
     @DisplayName("deleteSession tombstones lift_session_notes before CASCADE")
     fun deleteSessionTombstonesLiftSessionNotes() = runTest {
         val session = WorkoutLoggingFixtures.inProgressSession(id = "ts-live-1")
