@@ -218,7 +218,8 @@ internal fun EditWorkoutDirtyTopBarPreviewContent(family: StratumThemeId) {
             showStartWorkout = true,
             state = previewEditWorkoutLoadedState().copy(isDirty = true),
             onLeave = {},
-            callbacks = EditWorkoutScreenCallbacks(),
+            // Explicit no-op keeps the subheader visible, matching the wired edit flow.
+            callbacks = EditWorkoutScreenCallbacks(onEquipmentSwapClick = {}),
         )
     }
 }
@@ -231,7 +232,8 @@ internal fun EditWorkoutSavingPreviewContent(family: StratumThemeId) {
             showStartWorkout = true,
             state = previewEditWorkoutLoadedState().copy(isSaving = true),
             onLeave = {},
-            callbacks = EditWorkoutScreenCallbacks(),
+            // Explicit no-op keeps the subheader visible, matching the wired edit flow.
+            callbacks = EditWorkoutScreenCallbacks(onEquipmentSwapClick = {}),
         )
     }
 }
