@@ -169,12 +169,12 @@ internal fun WorkoutLiftList(
                     modifier =
                         Modifier
                             .fillMaxWidth()
+                            .onSizeChanged { footerHeightPx = it.height }
                             .padding(
                                 start = FooterHorizontalPadding,
                                 end = FooterHorizontalPadding,
                                 bottom = FooterBottomPadding,
-                            )
-                            .onSizeChanged { footerHeightPx = it.height },
+                            ),
                     verticalArrangement = Arrangement.spacedBy(FooterActionSpacing),
                 ) {
                     StratumButton(
