@@ -1,6 +1,7 @@
 package com.stratum.domain.training
 
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.SetType
 import com.stratum.domain.program.identity.WorkoutId
@@ -14,6 +15,29 @@ sealed class StartTrainingSessionRequest {
     data object AdHocEmpty : StartTrainingSessionRequest()
 }
 
+/**
+ * Source of the equipment stamped on a set logged through [LogSetCommand].
+ *
+ * Null is deliberately absent from this contract: on the command, "resolve from the
+ * lift" ([FromLift]) and "explicitly chosen" ([Explicit]) are distinct states, while
+ * null on [LoggedSet.equipmentId] means legacy/unknown. Keeping the two meanings in
+ * separate types stops future edits from conflating "unspecified, resolve me" with
+ * "known absent".
+ */
+sealed interface SetEquipmentSource {
+    /**
+     * Resolve the lift's current equipment at log time. [LogSetUseCase] is the
+     * single canonical resolver.
+     */
+    data object FromLift : SetEquipmentSource
+
+    /**
+     * Equipment explicitly active on the lift card at log time; wins over the
+     * lift's current equipment.
+     */
+    data class Explicit(val equipmentId: EquipmentId) : SetEquipmentSource
+}
+
 data class LogSetCommand(
     val sessionId: TrainingSessionId,
     val liftId: LiftId,
@@ -23,6 +47,11 @@ data class LogSetCommand(
     val reps: Int,
     val rir: Int?,
     val completedAt: Instant,
+    /**
+     * Equipment the set was performed with. Defaults to [SetEquipmentSource.FromLift],
+     * resolving to the lift's current equipment in [LogSetUseCase].
+     */
+    val equipment: SetEquipmentSource = SetEquipmentSource.FromLift,
     /**
      * Live overlay slot fields. Always preferred for [LoggedLiftContext] when non-null so
      * auto-generated myo minis / retyped rows stamp correctly even when [workoutLiftId]
