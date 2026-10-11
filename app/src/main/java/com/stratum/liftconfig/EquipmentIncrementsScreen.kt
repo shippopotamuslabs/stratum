@@ -22,6 +22,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stratum.core.ui.R as UiR
 import com.stratum.core.ui.component.StratumBottomSheet
+import com.stratum.core.ui.component.StratumConfirmDialog
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.theme.StratumThemeAccessor
@@ -55,6 +56,9 @@ fun EquipmentIncrementsRoute(
     LaunchedEffect(state.editor.saveSucceeded) {
         if (state.editor.saveSucceeded) onBackClick()
     }
+    LaunchedEffect(state.deleteSucceeded) {
+        if (state.deleteSucceeded) onBackClick()
+    }
     LaunchedEffect(viewModel) {
         viewModel.swapNavRequests.collect { onChooseEquipmentForLift(it) }
     }
@@ -67,6 +71,7 @@ fun EquipmentIncrementsRoute(
     var selectedBand by rememberSaveable { mutableStateOf<Int?>(null) }
     var showAffectedSheet by rememberSaveable { mutableStateOf(false) }
     var showSaveConfirm by rememberSaveable { mutableStateOf(false) }
+    var showDeleteConfirm by rememberSaveable { mutableStateOf(false) }
     var showForkSheet by rememberSaveable { mutableStateOf(false) }
     var showStopsSheet by rememberSaveable { mutableStateOf(false) }
     val tiers = state.editor.tiers
@@ -142,11 +147,34 @@ fun EquipmentIncrementsRoute(
                 },
                 onForkDismiss = { showForkSheet = false },
             ),
+        deleteAction =
+            if (state.canDelete) {
+                IncrementEditorDeleteAction(
+                    text = stringResource(UiR.string.equipment_delete_button),
+                    onClick = { showDeleteConfirm = true },
+                )
+            } else {
+                null
+            },
         onBackClick = onBackClick,
         showSaveConfirm = showSaveConfirm,
         showForkSheet = showForkSheet,
         showStopsSheet = showStopsSheet,
     )
+    if (showDeleteConfirm) {
+        StratumConfirmDialog(
+            title = stringResource(UiR.string.equipment_delete_title, state.equipmentName),
+            body = stringResource(UiR.string.equipment_delete_body, state.equipmentName),
+            confirmLabel = stringResource(UiR.string.equipment_delete_confirm),
+            dismissLabel = stringResource(UiR.string.equipment_dialog_cancel),
+            onConfirm = {
+                showDeleteConfirm = false
+                viewModel.deleteEquipment()
+            },
+            onDismiss = { showDeleteConfirm = false },
+            destructiveConfirm = true,
+        )
+    }
     if (showAffectedSheet) {
         AffectedLiftsSheet(
             lifts = state.affectedLifts,

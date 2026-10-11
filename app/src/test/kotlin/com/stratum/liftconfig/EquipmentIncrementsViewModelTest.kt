@@ -10,6 +10,7 @@ import com.stratum.core.testing.onboarding.FakeEquipmentProposalPreferences
 import com.stratum.core.testing.onboarding.FakeEquipmentRepository
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.domain.featureflag.ObserveIncrementsAiScanUseCase
+import com.stratum.domain.lift.DeleteCustomEquipmentUseCase
 import com.stratum.domain.lift.DismissEquipmentProposalUseCase
 import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.IncrementTier
@@ -99,6 +100,11 @@ class EquipmentIncrementsViewModelTest {
                         fakeProposalPrefs,
                         FakeLoggingPort(),
                     ),
+                deleteCustomEquipment =
+                    DeleteCustomEquipmentUseCase(
+                        fakeEquipmentRepository,
+                        FakeLoggingPort(),
+                    ),
                 equipmentPickResult = equipmentPickResult,
                 observeWeightDisplayPreferences =
                     com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase(
@@ -137,6 +143,82 @@ class EquipmentIncrementsViewModelTest {
             assertTrue(state.editor.tiers.isNotEmpty())
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    @Test
+    @DisplayName("Given seed equipment when observed then delete is not allowed")
+    fun seedEquipmentCannotDelete() = runTest {
+        subject.initialize(cableId.value)
+        advanceUntilIdle()
+
+        subject.uiState.test {
+            val state = awaitItemWith { it.equipmentName == "Cables" }
+            assertFalse(state.canDelete)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Given custom equipment when observed then delete is allowed")
+    fun customEquipmentCanDelete() = runTest {
+        val customId = seedCustomStack()
+        subject.initialize(customId.value)
+        advanceUntilIdle()
+
+        subject.uiState.test {
+            val state = awaitItemWith { it.equipmentName == "Old Stack" }
+            assertTrue(state.canDelete)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Given custom equipment when deleteEquipment then succeeds and tombstones the row")
+    fun deleteEquipmentSucceedsForCustom() = runTest {
+        val customId = seedCustomStack()
+        subject.initialize(customId.value)
+        advanceUntilIdle()
+
+        subject.uiState.test {
+            awaitItemWith { it.equipmentName == "Old Stack" }
+            subject.deleteEquipment()
+            advanceUntilIdle()
+            val state = expectMostRecentItem()
+            assertTrue(state.deleteSucceeded)
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertTrue(fakeEquipmentRepository.getEquipment(customId)!!.isDeleted)
+    }
+
+    @Test
+    @DisplayName("Given seed equipment when deleteEquipment then fails with a message")
+    fun deleteEquipmentFailsForSeed() = runTest {
+        subject.initialize(cableId.value)
+        advanceUntilIdle()
+
+        subject.uiState.test {
+            awaitItemWith { it.equipmentName == "Cables" }
+            subject.deleteEquipment()
+            advanceUntilIdle()
+            val state = expectMostRecentItem()
+            assertFalse(state.deleteSucceeded)
+            assertTrue(state.editor.validationMessage?.contains("cannot be deleted") == true)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    private fun seedCustomStack(): EquipmentId {
+        val customId = EquipmentId("custom-stack")
+        fakeEquipmentRepository.seed(
+            fakeEquipmentRepository.current +
+                Equipment(
+                    id = customId,
+                    name = "Old Stack",
+                    incrementTiers = openFive,
+                    isCustom = true,
+                ),
+        )
+        return customId
     }
 
     @Test

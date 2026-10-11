@@ -37,6 +37,7 @@
     <!-- Open-ended band: lower+: step  e.g. 100+: 10 -->
     <string name="manage_equipment_tier_chip_open">%1$s+: %2$s</string>
     <string name="manage_equipment_open_increments">Edit increments</string>
+    <string name="manage_equipment_delete_action">Delete %1$s</string>
     <string name="equipment_increments_title">Equipment increments</string>
     <!-- Affects N lifts (no name preview) -->
     <string name="equipment_increments_affects_count">Affects %1$d lift(s)</string>
@@ -71,6 +72,10 @@
     <string name="equipment_fork_body">Forks these bands into a separate profile. The shared one stays untouched.</string>
     <string name="equipment_fork_name_label">Profile name</string>
     <string name="equipment_dialog_cancel">Cancel</string>
+    <string name="equipment_delete_button">Delete equipment</string>
+    <string name="equipment_delete_title">Delete %1$s?</string>
+    <string name="equipment_delete_body">%1$s will be removed from your equipment. Logged sets keep showing it, and lifts using it keep working.</string>
+    <string name="equipment_delete_confirm">Delete</string>
     <string name="equipment_micro_row">Micro stops</string>
     <string name="equipment_micro_none">none</string>
     <string name="equipment_affected_sheet_title">Affected lifts</string>

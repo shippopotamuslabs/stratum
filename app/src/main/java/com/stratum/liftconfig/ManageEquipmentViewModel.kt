@@ -3,6 +3,7 @@ package com.stratum.liftconfig
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.domain.lift.AddCustomEquipmentUseCase
+import com.stratum.domain.lift.DeleteCustomEquipmentUseCase
 import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.ForkEquipmentUseCase
 import com.stratum.domain.lift.IncrementTier
@@ -35,6 +36,14 @@ data class EquipmentRowUi(
     val id: String,
     val name: String,
     val tierChips: List<EquipmentTierChipUi>,
+    /** Seed rows cannot be deleted, so swipe-to-delete is disabled for them. */
+    val isCustom: Boolean,
+)
+
+/** Equipment delete staged in the confirmation dialog. */
+data class PendingDeleteUi(
+    val id: String,
+    val name: String,
 )
 
 /**
@@ -60,6 +69,8 @@ data class ManageEquipmentUiState(
     val forkingFromName: String? = null,
     val forkNameDraft: String = "",
     val isForking: Boolean = false,
+    /** When non-null, the delete confirmation dialog is open for this equipment. */
+    val pendingDelete: PendingDeleteUi? = null,
     val userMessage: String? = null,
 )
 
@@ -68,6 +79,7 @@ class ManageEquipmentViewModel @Inject constructor(
     observeEquipmentCatalog: ObserveEquipmentCatalogUseCase,
     private val addCustomEquipment: AddCustomEquipmentUseCase,
     private val forkEquipment: ForkEquipmentUseCase,
+    private val deleteCustomEquipment: DeleteCustomEquipmentUseCase,
     private val equipmentPickResult: EquipmentPickResult,
 ) : ViewModel() {
 
@@ -75,6 +87,7 @@ class ManageEquipmentViewModel @Inject constructor(
     private val isCreating = MutableStateFlow(false)
     private val showCreateSheet = MutableStateFlow(false)
     private val forkDraft = MutableStateFlow(ForkDraft())
+    private val pendingDelete = MutableStateFlow<PendingDeleteUi?>(null)
     private val _userMessage = MutableStateFlow<String?>(null)
     private val _events = Channel<ManageEquipmentEvent>(Channel.BUFFERED)
     val events = _events.receiveAsFlow()
@@ -100,7 +113,8 @@ class ManageEquipmentViewModel @Inject constructor(
                 )
             },
             _userMessage,
-        ) { slice, message ->
+            pendingDelete,
+        ) { slice, message, delete ->
             ManageEquipmentUiState(
                 rows = slice.rows,
                 nameDraft = slice.nameDraft,
@@ -110,6 +124,7 @@ class ManageEquipmentViewModel @Inject constructor(
                 forkingFromName = slice.fork.sourceName,
                 forkNameDraft = slice.fork.nameDraft,
                 isForking = slice.fork.isForking,
+                pendingDelete = delete,
                 userMessage = message,
             )
         }.stateIn(
@@ -217,6 +232,7 @@ class ManageEquipmentViewModel @Inject constructor(
             id = id.value,
             name = name,
             tierChips = incrementTiers.map { it.toChipUi() },
+            isCustom = isCustom,
         )
 
     private fun IncrementTier.toChipUi(): EquipmentTierChipUi =
@@ -233,6 +249,35 @@ class ManageEquipmentViewModel @Inject constructor(
         val isForking: Boolean = false,
     )
 
+    /** Arms the delete confirmation dialog for a custom equipment row. */
+    fun onStartDelete(equipmentId: String) {
+        val row = uiState.value.rows.firstOrNull { it.id == equipmentId } ?: return
+        if (!row.isCustom) return
+        pendingDelete.value = PendingDeleteUi(id = equipmentId, name = row.name)
+    }
+
+    fun onDismissDelete() {
+        pendingDelete.value = null
+    }
+
+    /** Tombstones the staged equipment. Closes the dialog either way. */
+    fun onConfirmDelete() {
+        val pending = pendingDelete.value ?: return
+        viewModelScope.launch {
+            val result = deleteCustomEquipment(EquipmentId(pending.id))
+            pendingDelete.value = null
+            result
+                .onSuccess {
+                    _userMessage.value = "Deleted ${pending.name}."
+                }
+                .onFailure { error ->
+                    _userMessage.value =
+                        error.message?.takeIf { it.isNotBlank() }
+                            ?: MSG_DELETE_FAILED
+                }
+        }
+    }
+
     private data class CatalogSlice(
         val rows: List<EquipmentRowUi>,
         val nameDraft: String,
@@ -244,6 +289,7 @@ class ManageEquipmentViewModel @Inject constructor(
     private companion object {
         const val MSG_CREATE_FAILED = "Couldn't create equipment. Try again."
         const val MSG_FORK_FAILED = "Couldn't copy equipment. Try again."
+        const val MSG_DELETE_FAILED = "Couldn't delete equipment. Try again."
         const val FORK_NAME_SUFFIX = " (copy)"
     }
 }
