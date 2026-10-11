@@ -4,6 +4,7 @@ import com.stratum.domain.importing.LiftTrainingInsightsRepository
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.ProgramRepository
 import com.stratum.domain.program.ProgressionScheme
@@ -53,11 +54,21 @@ data class SnapshotRequest(
      * Mixed-unit stops are converted to the tiers unit at the rounding boundary.
      */
     val microIncrementsById: Map<LiftId, List<Weight>> = emptyMap(),
+    /**
+     * In-use equipment per template lift (STR-123: swap override, else template
+     * assignment, else lift default — resolved by the caller). A non-null entry scopes
+     * that lift's slot histories to the (lift, equipment) pair; legacy null-equipment
+     * rows are excluded from a scoped pool. Missing keys and null values leave history
+     * unfiltered (back-compat + unassigned lifts). Bodyweight lifts are never filtered.
+     * An empty scoped pool cold-starts like a lift with no history (conservative).
+     */
+    val equipmentIdByWorkoutLiftId: Map<WorkoutLiftId, EquipmentId?> = emptyMap(),
 )
 
 /**
  * Computes the progression snapshot once per session from history (D3). Recomputed
- * only on exercise swap. Dispatches to the matching progression engine per lift.
+ * on exercise swap and on equipment swap. Dispatches to the matching progression
+ * engine per lift.
  *
  * Per lift, builds a capacity-ordered recent-session block
  * ([com.stratum.domain.workout.progression.buildRecentSessionBlock]) from the per-slot
@@ -119,6 +130,19 @@ class GenerateProgressionSnapshotUseCase @Inject constructor(
                 perSlotHistories[index] = progressionHistoryPort.historyForSlot(
                     historyRequest(request, workoutLift, index),
                 )
+            }
+            // STR-123: scope slot histories to the in-use (lift, equipment) pair so
+            // recommendations and previous-sets follow the card's equipment. An empty
+            // scoped pool cold-starts through the same null-baseline path as no history.
+            val pairEquipmentId = request.equipmentIdByWorkoutLiftId[workoutLift.id]
+            val scopedLoadType = request.loadTypesById[workoutLift.liftId] ?: LoadType.Weighted
+            if (scopedLoadType != LoadType.Bodyweight && pairEquipmentId != null) {
+                for (index in sortedSets.indices) {
+                    perSlotHistories[index] =
+                        perSlotHistories.getValue(index).filter { entry ->
+                            entry.loggedSet.equipmentId == pairEquipmentId
+                        }
+                }
             }
 
             if (scheme == ProgressionScheme.Linear) {

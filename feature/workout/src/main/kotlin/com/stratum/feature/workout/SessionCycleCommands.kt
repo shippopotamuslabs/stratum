@@ -126,6 +126,7 @@ internal suspend fun LiveWorkoutSessionRuntime.handleApplyCycleSnapshot(cmd: Ses
                     loadTypesById = liftsById.mapValues { it.value.loadType },
                     incrementTiersById =
                         liftsById.mapValues { (_, lift) -> lift.incrementTiers },
+                    equipmentIdByWorkoutLiftId = sessionEquipmentByWorkoutLiftId(workout.workoutLifts),
                 ),
             )
         val snapshot =
@@ -150,6 +151,8 @@ internal suspend fun LiveWorkoutSessionRuntime.handleApplyCycleSnapshot(cmd: Ses
         // In-session swaps (or restored ones) rebind previous/recs to the
         // performed catalog lift — template snapshot alone is pre-swap.
         refreshSnapshotForSwappedLifts(workout)
+        // Restored equipment swaps re-scope pair history the same way.
+        refreshSnapshotForSwappedEquipment(workout)
         templateLiftFingerprint = fingerprint
         snapshotLoaded = true
         shouldRecompute = true
