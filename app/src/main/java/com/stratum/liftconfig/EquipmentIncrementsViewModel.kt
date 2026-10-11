@@ -99,7 +99,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
     private val isSaving = MutableStateFlow(false)
     private val saveSucceeded = MutableStateFlow(false)
     private val deleteSucceeded = MutableStateFlow(false)
-    /** Test-visible: the save-guard message channel (surfaced via [EquipmentIncrementsUiState]). */
+    /** Test-visible: the editor operation message channel (save/fork/delete/swap errors share it). */
     internal val validationOverride = MutableStateFlow<String?>(null)
     private val displayUnit = MutableStateFlow(Weight.WeightUnit.Lb)
 

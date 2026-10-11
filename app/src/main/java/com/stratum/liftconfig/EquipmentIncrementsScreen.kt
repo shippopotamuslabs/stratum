@@ -22,7 +22,6 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stratum.core.ui.R as UiR
 import com.stratum.core.ui.component.StratumBottomSheet
-import com.stratum.core.ui.component.StratumConfirmDialog
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.theme.StratumThemeAccessor
@@ -53,11 +52,8 @@ fun EquipmentIncrementsRoute(
         viewModel.initialize(equipmentId, sourceLiftId, initialTiersLb, proposalContext)
     }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    LaunchedEffect(state.editor.saveSucceeded) {
-        if (state.editor.saveSucceeded) onBackClick()
-    }
-    LaunchedEffect(state.deleteSucceeded) {
-        if (state.deleteSucceeded) onBackClick()
+    LaunchedEffect(state.editor.saveSucceeded, state.deleteSucceeded) {
+        if (state.editor.saveSucceeded || state.deleteSucceeded) onBackClick()
     }
     LaunchedEffect(viewModel) {
         viewModel.swapNavRequests.collect { onChooseEquipmentForLift(it) }
@@ -162,17 +158,13 @@ fun EquipmentIncrementsRoute(
         showStopsSheet = showStopsSheet,
     )
     if (showDeleteConfirm) {
-        StratumConfirmDialog(
-            title = stringResource(UiR.string.equipment_delete_title, state.equipmentName),
-            body = stringResource(UiR.string.equipment_delete_body, state.equipmentName),
-            confirmLabel = stringResource(UiR.string.equipment_delete_confirm),
-            dismissLabel = stringResource(UiR.string.equipment_dialog_cancel),
+        EquipmentDeleteConfirmDialog(
+            name = state.equipmentName,
             onConfirm = {
                 showDeleteConfirm = false
                 viewModel.deleteEquipment()
             },
             onDismiss = { showDeleteConfirm = false },
-            destructiveConfirm = true,
         )
     }
     if (showAffectedSheet) {
