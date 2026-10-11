@@ -14,6 +14,7 @@ import com.stratum.domain.lift.ValidateIncrementTiersUseCase
 import com.stratum.domain.lift.ValidateMicroIncrementsUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId
+import com.stratum.domain.lift.EquipmentPickResult
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
