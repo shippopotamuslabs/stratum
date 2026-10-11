@@ -63,6 +63,18 @@ class GetRecentlyUsedEquipmentForLiftUseCaseTest {
     }
 
     @Test
+    @DisplayName("tombstoned ids do not consume limit slots")
+    fun tombstonedIdsDoNotConsumeLimit() = runTest {
+        val (trainingRepo, useCase) = setup()
+        trainingRepo.seedSet(set("s-1", stackTombstoned, "2025-01-05T10:00:00Z"))
+        trainingRepo.seedSet(set("s-2", stackA, "2025-01-01T10:00:00Z"))
+
+        val recents = useCase(WorkoutLoggingFixtures.liftBenchId, limit = 1)
+
+        assertEquals(listOf(stackA), recents.map { it.id })
+    }
+
+    @Test
     @DisplayName("returns empty when the lift has no equipment history")
     fun emptyWithoutHistory() = runTest {
         val (_, useCase) = setup()

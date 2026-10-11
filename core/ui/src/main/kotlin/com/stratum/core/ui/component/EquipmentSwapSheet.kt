@@ -120,9 +120,10 @@ internal fun EquipmentSwapSheetContent(
                 modifier = Modifier.padding(vertical = 8.dp),
             )
         } else {
-            // Cap the list height so the create-new entry stays reachable on small screens.
+            // Weighted (not greedy): the list scrolls internally within remaining space so
+            // a large catalog cannot push the create-new entry off-screen.
             LazyColumn(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().weight(1f, fill = false),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 items(matches, key = { it.id }) { option ->

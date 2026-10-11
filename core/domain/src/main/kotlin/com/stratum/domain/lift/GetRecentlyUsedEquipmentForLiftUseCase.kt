@@ -18,11 +18,16 @@ class GetRecentlyUsedEquipmentForLiftUseCase @Inject constructor(
         limit: Int = DEFAULT_RECENT_EQUIPMENT_LIMIT,
     ): List<Equipment> {
         require(limit > 0) { "limit must be positive" }
-        return trainingLogRepository.getSetsForLift(liftId)
-            .mapNotNull { it.equipmentId }
-            .distinct()
-            .take(limit)
-            .mapNotNull { equipmentRepository.getEquipment(it)?.takeUnless { equipment -> equipment.isDeleted } }
+        // Sets arrive newest-first per the repository contract; resolve ids in order and
+        // stop at the first [limit] live rows so tombstones skip without consuming slots.
+        val live = ArrayList<Equipment>(limit)
+        val orderedIds =
+            trainingLogRepository.getSetsForLift(liftId).mapNotNull { it.equipmentId }.distinct()
+        for (id in orderedIds) {
+            if (live.size >= limit) break
+            equipmentRepository.getEquipment(id)?.takeUnless { it.isDeleted }?.let(live::add)
+        }
+        return live
     }
 
     companion object {
