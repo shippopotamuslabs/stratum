@@ -26,6 +26,7 @@ import com.stratum.domain.workout.WorkoutOverlay
 import com.stratum.domain.workout.WorkoutStructureProjection
 import com.stratum.domain.workout.applyRestOverride
 import com.stratum.domain.workout.applyShapeOverride
+import com.stratum.domain.workout.resolveSessionEquipmentId
 import com.stratum.domain.workout.resolvedLiftPinnedNotes
 import com.stratum.domain.workout.resolvedWorkoutPinnedNotes
 import java.util.UUID
@@ -464,6 +465,11 @@ internal object LiveWorkoutOverlayOps {
                 loadType = currentLoadType,
                 isPlateLoaded = currentIsPlateLoaded,
                 isDoubleSided = currentIsDoubleSided,
+                equipmentId = resolveSessionEquipmentId(
+                    swapOverrideId = overlay.swappedEquipment[lift.workoutLiftId],
+                    templateEquipmentId = lift.equipmentId,
+                    liftEquipmentId = catalog?.equipmentId,
+                ),
                 supersetGroupId = currentSupersetGroupId,
                 slots = orderedSlots,
                 useRestTimerBetweenLifts = overlay.useRestTimerBetweenLiftsOverrides[lift.workoutLiftId]
@@ -505,6 +511,11 @@ internal object LiveWorkoutOverlayOps {
                     progressionScheme = added.progressionScheme,
                     slots = slots,
                     supersetGroupId = groupId,
+                    equipmentId = resolveSessionEquipmentId(
+                        swapOverrideId = overlay.swappedEquipment[added.workoutLiftId],
+                        templateEquipmentId = null,
+                        liftEquipmentId = catalog?.equipmentId,
+                    ),
                     loadType = catalog?.loadType ?: LoadType.Weighted,
                     isPlateLoaded = catalog?.isPlateLoaded ?: false,
                     isDoubleSided = catalog?.isDoubleSidedPlateLoad ?: true,

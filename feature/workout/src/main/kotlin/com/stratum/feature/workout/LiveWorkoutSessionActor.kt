@@ -228,6 +228,7 @@ internal class LiveWorkoutSessionActor(
             is SessionCommand.AddDropSet -> runtime.handleAddDropSet(cmd)
             is SessionCommand.SetSetKind -> runtime.handleSetSetKind(cmd)
             is SessionCommand.SwapLift -> runtime.handleSwapLift(cmd)
+            is SessionCommand.SwapEquipment -> runtime.handleSwapEquipment(cmd)
             is SessionCommand.AddLifts -> runtime.handleAddLifts(cmd)
             is SessionCommand.RemoveLift -> runtime.handleRemoveLift(cmd)
             is SessionCommand.ReorderLifts -> runtime.handleReorderLifts(cmd)
@@ -284,6 +285,7 @@ internal fun sessionCommandFailureIsTerminal(cmd: SessionCommand): Boolean =
         is SessionCommand.AddDropSet,
         is SessionCommand.SetSetKind,
         is SessionCommand.SwapLift,
+        is SessionCommand.SwapEquipment,
         is SessionCommand.AddLifts,
         is SessionCommand.RemoveLift,
         is SessionCommand.ReorderLifts,

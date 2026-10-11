@@ -28,4 +28,6 @@ data class EditWorkoutScreenCallbacks(
     val onStartWorkout: () -> Unit = {},
     val onSwapLiftClick: (workoutId: String, workoutLiftId: String?, liftId: String?, liftName: String?) -> Unit = { _, _, _, _ -> },
     val onReorderLiftsClick: () -> Unit = {},
+    /** Equipment subheader tap: opens the swap sheet for the template card. */
+    val onEquipmentSwapClick: (workoutLiftId: String) -> Unit = {},
 )

@@ -93,6 +93,8 @@ internal fun previewEditWorkoutLoadedState(): EditWorkoutUiState.Loaded =
                     liftId = "bench-press",
                     name = "Barbell Bench Press",
                     position = 0,
+                    equipmentId = "barbell",
+                    equipmentName = "Olympic Barbell",
                     sets =
                         listOf(
                             EditSetState(

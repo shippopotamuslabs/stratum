@@ -78,6 +78,40 @@ class EditWorkoutDomainMapperTest {
     }
 
     @Test
+    @DisplayName("STR-120: template equipment id round-trips with the joined display name")
+    fun equipmentRoundTrips() {
+        val names = mapOf("bench-press" to "Bench", "incline-press" to "Incline")
+        val equipmentNames = mapOf("ssb" to "Safety Squat Bar")
+        val baseline =
+            baselineWorkout().let { workout ->
+                workout.copy(
+                    workoutLifts =
+                        workout.workoutLifts.mapIndexed { index, lift ->
+                            if (index == 0) {
+                                lift.copy(
+                                    equipmentId =
+                                        com.stratum.domain.lift.identity.EquipmentId("ssb"),
+                                )
+                            } else {
+                                lift
+                            }
+                        },
+                )
+            }
+        val edited =
+            baseline.workoutLifts.map { lift ->
+                lift.toEditLiftState(names, equipmentNamesById = equipmentNames)
+            }
+        assertEquals("ssb", edited[0].equipmentId)
+        assertEquals("Safety Squat Bar", edited[0].equipmentName)
+        assertNull(edited[1].equipmentId)
+
+        val saved = edited.toWorkout(baseline, WorkoutId("w-1"))
+        assertEquals("ssb", saved.workoutLifts[0].equipmentId?.value)
+        assertNull(saved.workoutLifts[1].equipmentId)
+    }
+
+    @Test
     @DisplayName("toWorkout defaults new set fields from progression scheme")
     fun mapsNewSetDefaults() {
         val baseline = baselineWorkout()

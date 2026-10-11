@@ -1,6 +1,7 @@
 package com.stratum.core.data.workoutoverlay
 
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.identity.LiftSetId
 import com.stratum.domain.program.identity.WorkoutLiftId
@@ -43,6 +44,9 @@ fun WorkoutOverlay.toDto(): WorkoutOverlayDto = WorkoutOverlayDto(
     swappedLifts = swappedLifts.entries.map { (workoutLiftId, liftId) ->
         SwappedLiftEntryDto(workoutLiftId.value, liftId.value)
     },
+    swappedEquipment = swappedEquipment.entries.map { (workoutLiftId, equipmentId) ->
+        SwappedEquipmentEntryDto(workoutLiftId.value, equipmentId.value)
+    },
     deletedLiftIds = deletedLiftIds.map { it.value },
     addedLifts = addedLifts.map { it.toDto() },
     supersetGroupIdOverrides = supersetGroupIdOverrides.entries.map { (workoutLiftId, groupId) ->
@@ -77,6 +81,10 @@ fun WorkoutOverlayDto.toDomain(): WorkoutOverlay = WorkoutOverlay(
     swappedLifts = swappedLifts
         .mapNotNull { entry -> entry.workoutLiftId.toWorkoutLiftIdOrNull()?.let { it to entry } }
         .mapNotNull { (key, entry) -> entry.liftId.toLiftIdOrNull()?.let { key to it } }
+        .toMap(),
+    swappedEquipment = swappedEquipment
+        .mapNotNull { entry -> entry.workoutLiftId.toWorkoutLiftIdOrNull()?.let { it to entry } }
+        .mapNotNull { (key, entry) -> entry.equipmentId.toEquipmentIdOrNull()?.let { key to it } }
         .toMap(),
     deletedLiftIds = deletedLiftIds.mapNotNull { it.toWorkoutLiftIdOrNull() }.toSet(),
     addedLifts = addedLifts.mapNotNull { it.toDomain() },
@@ -315,6 +323,7 @@ private fun StructuralMutationDto.toDomain(): StructuralMutation? = when (this) 
 
 private fun String.toLiftIdOrNull(): LiftId? = takeIf { isNotBlank() }?.let { LiftId(it) }
 private fun String.toWorkoutLiftIdOrNull(): WorkoutLiftId? = takeIf { isNotBlank() }?.let { WorkoutLiftId(it) }
+private fun String.toEquipmentIdOrNull(): EquipmentId? = takeIf { isNotBlank() }?.let { EquipmentId(it) }
 private fun String.toLiftSetIdOrNull(): LiftSetId? = takeIf { isNotBlank() }?.let { LiftSetId(it) }
 private fun String.toSupersetGroupIdOrNull(): WorkoutSupersetGroupId? =
     takeIf { isNotBlank() }?.let { WorkoutSupersetGroupId(it) }

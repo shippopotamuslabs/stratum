@@ -1,6 +1,7 @@
 package com.stratum.core.data.workoutoverlay
 
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.SetType
 import com.stratum.domain.program.identity.LiftSetId
@@ -93,6 +94,7 @@ class WorkoutOverlayMapperTest {
                 ),
             ),
             swappedLifts = mapOf(workoutLiftId to LiftId("front-squat")),
+            swappedEquipment = mapOf(workoutLiftId to EquipmentId("safety-squat-bar")),
             deletedLiftIds = setOf(WorkoutLiftId("wl-gone")),
             addedLifts = listOf(
                 OverlayAddedLift(
@@ -162,10 +164,17 @@ class WorkoutOverlayMapperTest {
                 SwappedLiftEntryDto(workoutLiftId = "", liftId = "should-not-appear"),
                 SwappedLiftEntryDto(workoutLiftId = "wl-3", liftId = "   "),
             ),
+            swappedEquipment = listOf(
+                SwappedEquipmentEntryDto(workoutLiftId = "wl-1", equipmentId = "safety-squat-bar"),
+                SwappedEquipmentEntryDto(workoutLiftId = "", equipmentId = "should-not-appear"),
+                SwappedEquipmentEntryDto(workoutLiftId = "wl-3", equipmentId = "   "),
+            ),
         )
         val restored = dto.toDomain()
         assertEquals(1, restored.swappedLifts.size)
         assertNotNull(restored.swappedLifts[WorkoutLiftId("wl-1")])
+        assertEquals(1, restored.swappedEquipment.size)
+        assertNotNull(restored.swappedEquipment[WorkoutLiftId("wl-1")])
     }
 
     @Test

@@ -96,6 +96,7 @@ fun WorkoutRoute(
     val isRestTimerActive = running != null && remainingRestSeconds > 0
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val userMessage by viewModel.userMessage.collectAsStateWithLifecycle()
+    val equipmentSwap by viewModel.equipmentSwap.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var pendingSetLogged by remember { mutableStateOf<WorkoutUiEvent.SetLogged?>(null) }
     var failedLogSlotKey by remember { mutableStateOf<String?>(null) }
@@ -159,6 +160,10 @@ fun WorkoutRoute(
                 onSetLoggedConsumed = { pendingSetLogged = null },
                 failedLogSlotKey = failedLogSlotKey,
                 onFailedLogConsumed = { failedLogSlotKey = null },
+                equipmentSwap = equipmentSwap,
+                onEquipmentSwapQuery = viewModel::setEquipmentSwapQuery,
+                onEquipmentSwapSelect = viewModel::selectSwapEquipment,
+                onEquipmentSwapDismiss = viewModel::closeEquipmentSwap,
                 actions = WorkoutScreenActions(
                     onNavigateBack = onNavigateBack,
                     onCompleteWorkout = viewModel::completeWorkout,
@@ -201,6 +206,7 @@ fun WorkoutRoute(
                         }
                     },
                     onDismissEquipmentAdjust = viewModel::dismissEquipmentAdjust,
+                    onEquipmentSwapClick = viewModel::openEquipmentSwap,
                     onLinkSupersetWithPrevious = { liftId ->
                         viewModel.linkSuperset(WorkoutLiftId(liftId), SupersetLinkDirection.Previous)
                     },

@@ -47,6 +47,10 @@ data class EditLiftState(
     val progressionScheme: ProgressionScheme = ProgressionScheme.Double,
     /** Workout-scoped pin; round-tripped on full save (notes UI lives on the live session). */
     val pinnedNote: String? = null,
+    /** Template-assigned equipment, if any (null inherits the lift default at session time). */
+    val equipmentId: String? = null,
+    /** Display name for [equipmentId], joined from the equipment catalog. */
+    val equipmentName: String? = null,
 ) : SupersetLinkableLift
 
 /**

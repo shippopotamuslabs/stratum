@@ -46,6 +46,7 @@ class ProjectWorkoutStructureUseCase @javax.inject.Inject constructor() {
                 liftName = liftNames[workoutLift.liftId].orEmpty(),
                 progressionScheme = workoutLift.progressionScheme.coerceForCompound(isCompound),
                 supersetGroupId = workoutLift.supersetGroupId,
+                equipmentId = workoutLift.equipmentId,
                 loadType = loadTypesById[workoutLift.liftId] ?: LoadType.Weighted,
                 useRestTimerBetweenLifts = workoutLift.useRestTimerBetweenLifts,
                 workoutPinnedNotes =

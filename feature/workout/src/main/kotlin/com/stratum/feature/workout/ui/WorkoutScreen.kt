@@ -43,6 +43,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.android.awaitFrame
 import kotlinx.coroutines.launch
 import com.stratum.core.ui.R as CoreUiR
+import com.stratum.core.ui.component.EquipmentSwapSheet
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumText
@@ -92,6 +93,8 @@ data class WorkoutScreenActions(
      * The screen calls it only from the chip's X affordance.
      */
     val onDismissEquipmentAdjust: (String) -> Unit = {},
+    /** Equipment subheader tap: opens the swap sheet for the card ([RenderedLiftUi.workoutLiftId]). */
+    val onEquipmentSwapClick: (String) -> Unit = {},
     val onLinkSupersetWithPrevious: (String) -> Unit,
     val onLinkSupersetWithNext: (String) -> Unit,
     val onRemoveFromSuperset: (String) -> Unit,
@@ -121,6 +124,13 @@ fun WorkoutScreen(
     /** Persist failed after optimistic draft materialise — reseed that slot. */
     failedLogSlotKey: String? = null,
     onFailedLogConsumed: () -> Unit = {},
+    /** Open equipment swap sheet, or null when closed. */
+    equipmentSwap: EquipmentSwapUi? = null,
+    onEquipmentSwapQuery: (String) -> Unit = {},
+    onEquipmentSwapSelect: (String) -> Unit = {},
+    onEquipmentSwapDismiss: () -> Unit = {},
+    /** Create-new entry point — wired to the equipment editor in STR-121. */
+    onEquipmentCreateNew: () -> Unit = {},
 ) {
     var showRestSheet by remember { mutableStateOf(false) }
     var showDiscardDialog by remember { mutableStateOf(false) }
@@ -352,6 +362,7 @@ fun WorkoutScreen(
                         // visible: only the X affordance or a real tier save quiets it.
                         onAdjustEquipment = actions.onAdjustEquipmentTap,
                         onDismissEquipmentAdjust = actions.onDismissEquipmentAdjust,
+                        onEquipmentSwapClick = actions.onEquipmentSwapClick,
                         onAddLift = actions.onAddLift,
                         onDiscardClick = { showDiscardDialog = true },
                     ),
@@ -400,6 +411,16 @@ fun WorkoutScreen(
                 onCompleteSheetPhaseChange = { completeSheetPhase = it },
             ),
     )
+
+    equipmentSwap?.let { swap ->
+        EquipmentSwapSheet(
+            state = swap.sheet,
+            onQueryChange = onEquipmentSwapQuery,
+            onSelect = { onEquipmentSwapSelect(it.id) },
+            onCreateNew = onEquipmentCreateNew,
+            onDismissRequest = onEquipmentSwapDismiss,
+        )
+    }
 }
 
 /** Applies a pure [AfterSetLoggedDecision] to UI callbacks (kept free of branching in Compose). */
