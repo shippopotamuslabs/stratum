@@ -163,7 +163,9 @@ class EditWorkoutViewModel @Inject constructor(
                     equipmentCatalog = equipment
                     refreshOpenSheetCatalog()
                     if (hasSnapshot.value) {
-                        // Active edit session exists. Baseline updates from Room are ignored.
+                        // Active edit session exists. Baseline updates from Room are ignored,
+                        // but equipment display names re-join so renames don't go stale.
+                        rejoinEquipmentNames()
                         return@collect
                     }
                     programSnapshot = program
@@ -784,6 +786,19 @@ class EditWorkoutViewModel @Inject constructor(
         val target = _equipmentSwap.value ?: return
         setEquipment(target.workoutLiftId, optionId)
         _equipmentSwap.value = null
+    }
+
+    /**
+     * Re-resolves equipment display names on catalog emissions without touching draft
+     * state: bypasses [updateLoaded] (which marks dirty) and skips no-op writes.
+     */
+    private fun rejoinEquipmentNames() {
+        val current = _uiState.value as? EditWorkoutUiState.Loaded ?: return
+        val names = equipmentCatalog.associate { it.id.value to it.name }
+        val relabeled =
+            current.lifts.map { lift -> lift.copy(equipmentName = lift.equipmentId?.let(names::get)) }
+        if (relabeled.map { it.equipmentName } == current.lifts.map { it.equipmentName }) return
+        _uiState.value = current.copy(lifts = relabeled)
     }
 
     private fun refreshOpenSheetCatalog() {

@@ -25,6 +25,50 @@ private fun EquipmentSwapSheetNeoPreview() {
     EquipmentSwapPreviewContent(family = StratumThemeId.NeoBrutalist)
 }
 
+@PreviewLightDark
+@Composable
+private fun EquipmentSwapSheetLargeCatalogTonalPreview() {
+    EquipmentSwapLargeCatalogPreviewContent(family = StratumThemeId.Tonal)
+}
+
+@PreviewLightDark
+@Composable
+private fun EquipmentSwapSheetLargeCatalogNeoPreview() {
+    EquipmentSwapLargeCatalogPreviewContent(family = StratumThemeId.NeoBrutalist)
+}
+
+/**
+ * Large-catalog regression: the list must scroll internally while the create-new
+ * entry stays visible (the [LazyColumn][androidx.compose.foundation.lazy.LazyColumn]
+ * is weighted, not greedy).
+ */
+@Composable
+fun EquipmentSwapLargeCatalogPreviewContent(family: StratumThemeId) {
+    val options = List(40) { index -> EquipmentSwapOption(id = "m-$index", name = "Machine %02d".format(index + 1)) }
+    StratumTheme(themeId = family) {
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .background(StratumThemeAccessor.colors.surfaceBase)
+                    .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            EquipmentSwapSheetContent(
+                state =
+                    EquipmentSwapSheetState(
+                        current = options[0],
+                        recent = listOf(options[1], options[2]),
+                        all = options,
+                    ),
+                onQueryChange = {},
+                onSelect = {},
+                onCreateNew = {},
+            )
+        }
+    }
+}
+
 /** Shared preview/screenshot content: subheader (assigned + unassigned) + full sheet. */
 @Composable
 fun EquipmentSwapPreviewContent(family: StratumThemeId) {

@@ -3,6 +3,7 @@ package com.stratum.equipment
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import com.android.tools.screenshot.PreviewTest
+import com.stratum.core.ui.component.EquipmentSwapLargeCatalogPreviewContent
 import com.stratum.core.ui.component.EquipmentSwapPreviewContent
 import com.stratum.core.ui.theme.StratumThemeId
 
@@ -22,4 +23,18 @@ fun equipmentSwapTonal() {
 @Composable
 fun equipmentSwapNeo() {
     EquipmentSwapPreviewContent(family = StratumThemeId.NeoBrutalist)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun equipmentSwapLargeCatalogTonal() {
+    EquipmentSwapLargeCatalogPreviewContent(family = StratumThemeId.Tonal)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun equipmentSwapLargeCatalogNeo() {
+    EquipmentSwapLargeCatalogPreviewContent(family = StratumThemeId.NeoBrutalist)
 }

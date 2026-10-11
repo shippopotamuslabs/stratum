@@ -539,6 +539,52 @@ class EditWorkoutViewModelTest {
         assertTrue(loaded.isDirty)
     }
 
+    @Test
+    @DisplayName("STR-120 remediation: catalog rename re-joins names without marking dirty")
+    fun catalogRenameRejoinsNamesWithoutDirty() = runTest {
+        seedSwapCatalog()
+        val viewModel = buildViewModel()
+        viewModel.initialize(WORKOUT_ID)
+        viewModel.uiState.test {
+            awaitLoaded()
+            viewModel.setEquipment(WORKOUT_LIFT_ID, "ssb")
+            awaitItem() // dirty draft
+            viewModel.saveWorkout()
+            val saved = awaitItem() as EditWorkoutUiState.Loaded
+            assertFalse(saved.isDirty)
+            // Rename behind the editor's back; the row must relabel, staying clean.
+            equipmentRepository.seed(
+                listOf(
+                    com.stratum.domain.lift.Equipment(
+                        id = com.stratum.domain.lift.identity.EquipmentId("barbell"),
+                        name = "Olympic Barbell",
+                        incrementTiers = emptyList(),
+                    ),
+                    com.stratum.domain.lift.Equipment(
+                        id = com.stratum.domain.lift.identity.EquipmentId("ssb"),
+                        name = "SSB (renamed)",
+                        incrementTiers = emptyList(),
+                    ),
+                ),
+            )
+            // The save-triggered baseline reload may land ahead of the relabel; drain
+            // until the renamed row arrives. Every interim state must stay clean.
+            var relabeled: EditWorkoutUiState.Loaded? = null
+            for (attempt in 0 until 3) {
+                val item = awaitItem() as EditWorkoutUiState.Loaded
+                assertFalse(item.isDirty)
+                if (item.lifts.single { it.workoutLiftId == WORKOUT_LIFT_ID }.equipmentName == "SSB (renamed)") {
+                    relabeled = item
+                    break
+                }
+            }
+            val lift = checkNotNull(relabeled).lifts.single { it.workoutLiftId == WORKOUT_LIFT_ID }
+            assertEquals("ssb", lift.equipmentId)
+            assertEquals("SSB (renamed)", lift.equipmentName)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
     @Nested
     @DisplayName("Start workout from edit screen")
     inner class StartWorkout {
