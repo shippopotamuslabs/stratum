@@ -65,6 +65,7 @@ class ComputeTemplateChangeSummaryUseCase @Inject constructor() {
          * stays category-major (lifts, order, sets, rest, supersets, notes).
          */
         fun rows(): List<TemplateChangeRow> {
+            val equipmentBucket = mutableListOf<TemplateChangeRow>()
             val orderBucket = mutableListOf<TemplateChangeRow>()
             val setBucket = mutableListOf<TemplateChangeRow>()
             val restBucket = mutableListOf<TemplateChangeRow>()
@@ -74,13 +75,32 @@ class ComputeTemplateChangeSummaryUseCase @Inject constructor() {
                 val name = nameOf(appliedLift.liftId)
                 val baselineSetsById = baselineLift.sets.associateBy { it.id }
                 val appliedSetsById = appliedLift.sets.associateBy { it.id }
+                equipmentRow(baselineLift, appliedLift, name)?.let(equipmentBucket::add)
                 orderRow(baselineLift, appliedLift, name)?.let(orderBucket::add)
                 emitSetRows(name, baselineLift, appliedLift, baselineSetsById, appliedSetsById, setBucket)
                 emitRestRows(name, appliedLift, baselineSetsById, restBucket)
                 emitSupersetRows(name, baselineLift, appliedLift, supersetBucket)
                 noteRow(name, baselineLift, appliedLift)?.let(noteBucket::add)
             }
-            return liftRows() + orderBucket + setBucket + restBucket + supersetBucket + noteBucket
+            return liftRows() + equipmentBucket + orderBucket + setBucket + restBucket +
+                supersetBucket + noteBucket
+        }
+
+        private fun equipmentRow(
+            baselineLift: WorkoutLift,
+            appliedLift: WorkoutLift,
+            name: String,
+        ): EquipmentSwapped? {
+            val baselineEquipment = baselineLift.equipmentId
+            val appliedEquipment = appliedLift.equipmentId
+            if (baselineEquipment == appliedEquipment) return null
+            // Equipment can only be assigned by a swap (never cleared to null).
+            if (appliedEquipment == null) return null
+            return EquipmentSwapped(
+                liftName = name,
+                oldId = baselineEquipment,
+                newId = appliedEquipment,
+            )
         }
 
         private fun liftRows(): List<TemplateChangeRow> {

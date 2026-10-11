@@ -149,6 +149,8 @@ private fun rowLabel(row: TemplateChangeRowUi): String =
         is LiftAddedUi -> row.liftName
         is LiftRemovedUi -> row.liftName
         is LiftSwappedUi -> stringResource(R.string.workout_sheet_change_swapped_label)
+        is EquipmentSwappedUi ->
+            stringResource(R.string.workout_sheet_change_equipment_label, row.liftName)
         is LiftMovedUi -> row.liftName
         is SetCountChangedUi -> row.liftName
         is SetEditedUi -> stringResource(R.string.workout_sheet_change_lift_set_label, row.liftName, row.setPosition)
@@ -165,6 +167,8 @@ private fun rowOldText(row: TemplateChangeRowUi): String? =
         is LiftAddedUi -> null
         is LiftRemovedUi -> setCountText(row.setCount)
         is LiftSwappedUi -> row.oldName
+        is EquipmentSwappedUi ->
+            row.oldName ?: stringResource(R.string.workout_sheet_change_equipment_unassigned)
         is LiftMovedUi -> stringResource(R.string.workout_sheet_change_position, row.oldPosition)
         is SetCountChangedUi -> setCountText(row.oldCount)
         is SetEditedUi -> formatShape(row.oldShape)
@@ -180,6 +184,8 @@ private fun rowNewText(row: TemplateChangeRowUi): String? =
         is LiftAddedUi -> setCountText(row.setCount)
         is LiftRemovedUi -> null
         is LiftSwappedUi -> row.newName
+        is EquipmentSwappedUi ->
+            row.newName ?: stringResource(R.string.workout_sheet_change_equipment_unassigned)
         is LiftMovedUi -> stringResource(R.string.workout_sheet_change_position, row.newPosition)
         is SetCountChangedUi -> formatNewCount(row.newCount, row.replacedCount)
         is SetEditedUi -> formatShape(row.newShape)
@@ -268,6 +274,7 @@ private fun categoryTitle(category: TemplateChangeCategoryUi): String =
     stringResource(
         when (category) {
             TemplateChangeCategoryUi.Lifts -> R.string.workout_sheet_change_category_lifts
+            TemplateChangeCategoryUi.Equipment -> R.string.workout_sheet_change_category_equipment
             TemplateChangeCategoryUi.Order -> R.string.workout_sheet_change_category_order
             TemplateChangeCategoryUi.Sets -> R.string.workout_sheet_change_category_sets
             TemplateChangeCategoryUi.Rest -> R.string.workout_sheet_change_category_rest

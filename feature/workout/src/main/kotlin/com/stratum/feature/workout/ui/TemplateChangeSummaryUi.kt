@@ -8,6 +8,7 @@ package com.stratum.feature.workout.ui
  */
 enum class TemplateChangeCategoryUi {
     Lifts,
+    Equipment,
     Order,
     Sets,
     Rest,
@@ -41,6 +42,19 @@ data class LiftSwappedUi(
 ) : TemplateChangeRowUi {
     override val liftName: String get() = newName
 }
+
+/**
+ * Equipment reassigned on a surviving template slot. Names resolve from the
+ * equipment catalog in the ViewModel (the session runtime has no catalog); ids
+ * stay for the join. A null old id means the template had no assignment.
+ */
+data class EquipmentSwappedUi(
+    override val liftName: String,
+    val oldId: String?,
+    val newId: String,
+    val oldName: String? = null,
+    val newName: String? = null,
+) : TemplateChangeRowUi
 
 data class LiftMovedUi(
     override val liftName: String,

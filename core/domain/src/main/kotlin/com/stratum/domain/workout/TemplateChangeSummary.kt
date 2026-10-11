@@ -6,13 +6,11 @@ import com.stratum.domain.workout.myorep.MyoRepKind
 
 /**
  * Categories for the end-of-workout template change summary (STR-125).
- *
- * Order is display order. Equipment changes join this enum once STR-117 equipment
- * swapping lands and the session overlay carries equipment state — there is nothing
- * to diff today.
+ * Order is display order.
  */
 enum class TemplateChangeCategory {
     Lifts,
+    Equipment,
     Order,
     Sets,
     Rest,
@@ -82,6 +80,18 @@ data class LiftSwapped(
 ) : TemplateChangeRow {
     override val category: TemplateChangeCategory = TemplateChangeCategory.Lifts
     override val liftName: String get() = newName
+}
+
+/**
+ * Same template slot, different assigned equipment (STR-124). Carries ids — the
+ * feature layer resolves display names from the equipment catalog.
+ */
+data class EquipmentSwapped(
+    override val liftName: String,
+    val oldId: com.stratum.domain.lift.identity.EquipmentId?,
+    val newId: com.stratum.domain.lift.identity.EquipmentId,
+) : TemplateChangeRow {
+    override val category: TemplateChangeCategory = TemplateChangeCategory.Equipment
 }
 
 /** A lift whose rank among surviving lifts changed (0-based template positions). */

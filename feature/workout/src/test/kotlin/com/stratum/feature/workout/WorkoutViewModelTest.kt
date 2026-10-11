@@ -81,6 +81,7 @@ import com.stratum.feature.workout.ui.RestEditedUi
 import com.stratum.feature.workout.ui.TemplateChangeCategoryUi
 import com.stratum.feature.workout.ui.WorkoutUiEvent
 import com.stratum.feature.workout.ui.WorkoutUiState
+import com.stratum.feature.workout.ui.EquipmentSwappedUi
 import com.stratum.feature.workout.ui.equipmentEditRequestFor
 import com.stratum.feature.workout.ui.liveEquipmentEditRequestFor
 import java.io.File
@@ -1935,6 +1936,75 @@ class WorkoutViewModelTest {
             programRepository.getProgram()!!.workouts.single().workoutLifts.single()
         assertEquals(liftId, templateLift.liftId)
         assertEquals(0, programRepository.saveProgramCalls.size)
+    }
+
+    @Test
+    @DisplayName("STR-124: swap marks dirty edits and names the equipment change in the summary")
+    fun equipmentSwapMarksDirtyEditsWithNamedSummaryRow() = runTest {
+        seedSwapCatalog()
+        val viewModel =
+            buildViewModelWithProgram(program = programWithTemplateEquipment("barbell"))
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        viewModel.swapEquipment(
+            workoutLiftId,
+            com.stratum.domain.lift.identity.EquipmentId("ssb"),
+        )
+        advanceUntilIdle()
+
+        val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertTrue(loaded.hasDirtyEdits)
+        val rows =
+            checkNotNull(loaded.templateChanges).groups.flatMap { it.rows }
+        val equipmentRow = rows.filterIsInstance<EquipmentSwappedUi>().single()
+        assertEquals("Olympic Barbell", equipmentRow.oldName)
+        assertEquals("Safety Squat Bar", equipmentRow.newName)
+    }
+
+    @Test
+    @DisplayName("STR-124: complete without update leaves template equipment unchanged")
+    fun equipmentSwapCompleteDiscardLeavesTemplate() = runTest {
+        seedSwapCatalog()
+        val viewModel =
+            buildViewModelWithProgram(program = programWithTemplateEquipment("barbell"))
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        viewModel.swapEquipment(
+            workoutLiftId,
+            com.stratum.domain.lift.identity.EquipmentId("ssb"),
+        )
+        advanceUntilIdle()
+        viewModel.completeWorkout(saveTemplate = false)
+        advanceUntilIdle()
+
+        val templateLift =
+            programRepository.getProgram()!!.workouts.single().workoutLifts.single()
+        assertEquals("barbell", templateLift.equipmentId?.value)
+    }
+
+    @Test
+    @DisplayName("STR-124: complete with update persists the equipment swap on the template")
+    fun equipmentSwapCompleteSaveTemplateUpdatesTemplate() = runTest {
+        seedSwapCatalog()
+        val viewModel =
+            buildViewModelWithProgram(program = programWithTemplateEquipment("barbell"))
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        viewModel.swapEquipment(
+            workoutLiftId,
+            com.stratum.domain.lift.identity.EquipmentId("ssb"),
+        )
+        advanceUntilIdle()
+        viewModel.completeWorkout(saveTemplate = true)
+        advanceUntilIdle()
+
+        val templateLift =
+            programRepository.getProgram()!!.workouts.single().workoutLifts.single()
+        assertEquals("ssb", templateLift.equipmentId?.value)
+        assertTrue(programRepository.saveProgramCalls.isNotEmpty())
     }
 
     @Test
