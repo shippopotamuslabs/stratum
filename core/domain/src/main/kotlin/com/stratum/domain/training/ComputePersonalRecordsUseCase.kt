@@ -32,7 +32,7 @@ class ComputePersonalRecordsUseCase @Inject constructor(
                 trainingLogRepository.getSetsForLift(liftId)
                     .filter { it.id !in incomingIds && it.id.value !in excludeSetIds }
             val flagged =
-                PersonalRecordScoring.withPersonalRecords(incoming + historyRaw)
+                PersonalRecordScoring.withPersonalRecordsPerPair(incoming + historyRaw)
                     .associateBy { it.id }
 
             updatedIncoming.addAll(incoming.map { flagged.getValue(it.id) })
