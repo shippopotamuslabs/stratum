@@ -18,6 +18,7 @@ import java.util.UUID
 internal fun Workout.toEditWorkoutUiState(
     liftNamesById: Map<String, String>,
     compoundByLiftId: Map<String, Boolean> = emptyMap(),
+    equipmentNamesById: Map<String, String> = emptyMap(),
 ): EditWorkoutUiState.Loaded =
     EditWorkoutUiState.Loaded(
         workoutId = id.value,
@@ -25,12 +26,13 @@ internal fun Workout.toEditWorkoutUiState(
         lifts =
             workoutLifts
                 .sortedBy { lift -> lift.position }
-                .map { lift -> lift.toEditLiftState(liftNamesById, compoundByLiftId) },
+                .map { lift -> lift.toEditLiftState(liftNamesById, compoundByLiftId, equipmentNamesById) },
     )
 
 internal fun WorkoutLift.toEditLiftState(
     liftNamesById: Map<String, String>,
     compoundByLiftId: Map<String, Boolean> = emptyMap(),
+    equipmentNamesById: Map<String, String> = emptyMap(),
 ): EditLiftState {
     val isCompound = compoundByLiftId[liftId.value] ?: false
     // Isolation never Linear (D8); heal import-stamped Linear isolation so intensifiers unlock.
@@ -53,6 +55,8 @@ internal fun WorkoutLift.toEditLiftState(
         isCompound = isCompound,
         progressionScheme = scheme,
         pinnedNote = pinnedNote,
+        equipmentId = equipmentId?.value,
+        equipmentName = equipmentId?.value?.let(equipmentNamesById::get),
     )
 }
 

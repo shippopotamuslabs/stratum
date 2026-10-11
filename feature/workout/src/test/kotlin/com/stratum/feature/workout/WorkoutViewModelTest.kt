@@ -4,6 +4,7 @@ import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
+import com.stratum.core.testing.onboarding.FakeEquipmentRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.NoOpProgramChangeEventRepository
 import com.stratum.core.testing.workout.FakeFatigueModel
@@ -23,6 +24,8 @@ import com.stratum.domain.lift.LiftSessionNote
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.identity.LiftSessionNoteId
+import com.stratum.domain.lift.GetRecentlyUsedEquipmentForLiftUseCase
+import com.stratum.domain.lift.ObserveEquipmentCatalogUseCase
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
 import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.Weight
@@ -113,6 +116,7 @@ class WorkoutViewModelTest {
 
     private lateinit var programRepository: FakeProgramRepository
     private lateinit var trainingLogRepository: FakeTrainingLogRepository
+    private lateinit var equipmentRepository: FakeEquipmentRepository
     private lateinit var progressionHistory: FakeProgressionHistoryRepository
     private lateinit var workoutEditSession: WorkoutEditSession
     private lateinit var overlayStore: FakeWorkoutOverlayStore
@@ -138,6 +142,7 @@ class WorkoutViewModelTest {
                 ),
             ),
         )
+        equipmentRepository = FakeEquipmentRepository()
         progressionHistory = FakeProgressionHistoryRepository()
         workoutEditSession = WorkoutEditSession()
         overlayStore = FakeWorkoutOverlayStore()
@@ -430,6 +435,11 @@ class WorkoutViewModelTest {
                 programRepository,
                 liftRepository,
             ),
+            observeEquipmentCatalog = ObserveEquipmentCatalogUseCase(equipmentRepository),
+            getRecentlyUsedEquipment = GetRecentlyUsedEquipmentForLiftUseCase(
+                trainingLogRepository,
+                equipmentRepository,
+            ),
         )
     }
 
@@ -519,6 +529,11 @@ class WorkoutViewModelTest {
                 programRepository,
                 liftRepository,
             ),
+            observeEquipmentCatalog = ObserveEquipmentCatalogUseCase(equipmentRepository),
+            getRecentlyUsedEquipment = GetRecentlyUsedEquipmentForLiftUseCase(
+                trainingLogRepository,
+                equipmentRepository,
+            ),
         )
     }
 
@@ -605,6 +620,11 @@ class WorkoutViewModelTest {
             getSessionPinnedNoteLists = GetSessionPinnedNoteListsUseCase(
                 programRepository,
                 liftRepository,
+            ),
+            observeEquipmentCatalog = ObserveEquipmentCatalogUseCase(equipmentRepository),
+            getRecentlyUsedEquipment = GetRecentlyUsedEquipmentForLiftUseCase(
+                trainingLogRepository,
+                equipmentRepository,
             ),
         )
     }
@@ -1335,6 +1355,11 @@ class WorkoutViewModelTest {
                 programRepository,
                 liftRepository,
             ),
+            observeEquipmentCatalog = ObserveEquipmentCatalogUseCase(equipmentRepository),
+            getRecentlyUsedEquipment = GetRecentlyUsedEquipmentForLiftUseCase(
+                trainingLogRepository,
+                equipmentRepository,
+            ),
         )
 
         localViewModel.startSession(workoutId)
@@ -1420,6 +1445,11 @@ class WorkoutViewModelTest {
             getSessionPinnedNoteLists = GetSessionPinnedNoteListsUseCase(
                 programRepository,
                 liftRepository,
+            ),
+            observeEquipmentCatalog = ObserveEquipmentCatalogUseCase(equipmentRepository),
+            getRecentlyUsedEquipment = GetRecentlyUsedEquipmentForLiftUseCase(
+                trainingLogRepository,
+                equipmentRepository,
             ),
         )
 
@@ -3306,5 +3336,148 @@ class WorkoutViewModelTest {
             item = awaitItem()
         }
         return item as WorkoutUiState.Loaded
+    }
+
+    private fun swapEquipment(id: String, name: String) =
+        com.stratum.domain.lift.Equipment(
+            id = com.stratum.domain.lift.identity.EquipmentId(id),
+            name = name,
+            incrementTiers = emptyList(),
+        )
+
+    private fun seedSwapCatalog() {
+        equipmentRepository.seed(
+            listOf(
+                swapEquipment("barbell", "Olympic Barbell"),
+                swapEquipment("ssb", "Safety Squat Bar"),
+                swapEquipment("cables", "Cables"),
+            ),
+        )
+    }
+
+    private fun programWithTemplateEquipment(equipmentId: String?): Program {
+        val base = program()
+        val workout = base.workouts.single()
+        return base.copy(
+            workouts =
+                listOf(
+                    workout.copy(
+                        workoutLifts =
+                            workout.workoutLifts.map { lift ->
+                                lift.copy(
+                                    equipmentId =
+                                        equipmentId?.let {
+                                            com.stratum.domain.lift.identity.EquipmentId(it)
+                                        },
+                                )
+                            },
+                    ),
+                ),
+        )
+    }
+
+    @Test
+    @DisplayName("STR-120: subheader name joins the session equipment from the catalog")
+    fun sessionEquipmentNameJoined() = runTest {
+        seedSwapCatalog()
+        val viewModel =
+            buildViewModelWithProgram(program = programWithTemplateEquipment("barbell"))
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
+        val lift = loaded.lifts.single { it.workoutLiftId == workoutLiftId.value }
+        assertEquals("barbell", lift.sessionEquipmentId)
+        assertEquals("Olympic Barbell", lift.sessionEquipmentName)
+    }
+
+    @Test
+    @DisplayName("STR-120: swap sheet opens with current, recents, and full catalog")
+    fun equipmentSwapSheetOpens() = runTest {
+        seedSwapCatalog()
+        trainingLogRepository.seedSet(
+            com.stratum.domain.training.LoggedSet(
+                id = com.stratum.domain.importing.identity.LoggedSetId("hist-ssb"),
+                sessionId = com.stratum.domain.training.identity.TrainingSessionId("s-history"),
+                exerciseNameRaw = "Squat",
+                liftId = liftId,
+                equipmentId = com.stratum.domain.lift.identity.EquipmentId("ssb"),
+                setIndex = 0,
+                weight = lb(135.0),
+                reps = 5,
+                rir = 2,
+                completedAt = Instant.parse("2026-07-04T10:00:00Z"),
+                liftContext =
+                    com.stratum.domain.training.LoggedLiftContext(
+                        liftName = "Squat",
+                        workoutLiftId = workoutLiftId,
+                        progressionScheme = ProgressionScheme.Double,
+                        setType = SetType.Standard,
+                        repMin = 4,
+                        repMax = 6,
+                        rirGoal = 2,
+                    ),
+            ),
+        )
+        val viewModel =
+            buildViewModelWithProgram(program = programWithTemplateEquipment("barbell"))
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        viewModel.equipmentSwap.test {
+            assertNull(awaitItem())
+            viewModel.openEquipmentSwap(workoutLiftId.value)
+            val opened = checkNotNull(awaitItem())
+            assertEquals("barbell", opened.sheet.current?.id)
+            assertEquals("Olympic Barbell", opened.sheet.current?.name)
+            assertEquals(3, opened.sheet.all.size)
+            // Recents load asynchronously after the sheet opens.
+            val withRecents = checkNotNull(awaitItem())
+            assertEquals(listOf("ssb"), withRecents.sheet.recent.map { it.id })
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("STR-120: selecting swap equipment rebinds the session and closes the sheet")
+    fun selectSwapEquipmentRebindsSession() = runTest {
+        seedSwapCatalog()
+        val viewModel =
+            buildViewModelWithProgram(program = programWithTemplateEquipment("barbell"))
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        viewModel.openEquipmentSwap(workoutLiftId.value)
+        advanceUntilIdle()
+        assertNotNull(viewModel.equipmentSwap.value)
+
+        viewModel.selectSwapEquipment("ssb")
+        advanceUntilIdle()
+
+        assertNull(viewModel.equipmentSwap.value)
+        val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
+        val lift = loaded.lifts.single { it.workoutLiftId == workoutLiftId.value }
+        assertEquals("ssb", lift.sessionEquipmentId)
+        assertEquals("Safety Squat Bar", lift.sessionEquipmentName)
+    }
+
+    @Test
+    @DisplayName("STR-120: swap query and dismiss update sheet state")
+    fun swapQueryAndDismiss() = runTest {
+        seedSwapCatalog()
+        val viewModel = buildViewModelWithProgram(program = program())
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        viewModel.openEquipmentSwap(workoutLiftId.value)
+        advanceUntilIdle()
+        // No template or lift equipment: current is null, sheet still opens.
+        assertNull(viewModel.equipmentSwap.value?.sheet?.current)
+
+        viewModel.setEquipmentSwapQuery("cable")
+        assertEquals("cable", viewModel.equipmentSwap.value?.sheet?.query)
+
+        viewModel.closeEquipmentSwap()
+        assertNull(viewModel.equipmentSwap.value)
     }
 }

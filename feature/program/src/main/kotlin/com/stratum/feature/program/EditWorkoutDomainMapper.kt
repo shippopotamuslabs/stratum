@@ -1,5 +1,6 @@
 package com.stratum.feature.program
 
+import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.LiftSet
 import com.stratum.domain.program.ProgressionScheme
@@ -54,6 +55,7 @@ internal fun List<EditLiftState>.toWorkout(
                         supersetGroupId = editLift.supersetGroupId?.let { WorkoutSupersetGroupId(it) },
                         useRestTimerBetweenLifts = persistUseRestTimerBetweenLifts(editLift, this),
                         pinnedNote = editLift.pinnedNote,
+                        equipmentId = editLift.equipmentId?.let { EquipmentId(it) },
                     )
                 },
     )

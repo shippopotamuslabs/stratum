@@ -89,6 +89,7 @@ internal object WorkoutUiMapper {
                 isDoubleSided = isDoubleSided,
                 unitLabel = unitLabel,
                 equipmentId = equipmentIdByLiftId[lift.liftId.value],
+                sessionEquipmentId = lift.equipmentId?.value,
                 showAdjustEquipmentChip = lift.workoutLiftId in adjustEquipmentWorkoutLiftIds,
                 sets = lift.sets.mapIndexed { setIndex, set ->
                     val prevLabel =

@@ -3,6 +3,7 @@ package com.stratum.feature.workout
 import com.stratum.core.ui.component.SupersetLinkDirection
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.Workout
@@ -65,6 +66,11 @@ internal sealed interface SessionCommand {
     data class SwapLift(
         val workoutLiftId: WorkoutLiftId,
         val newLiftId: LiftId,
+    ) : SessionCommand
+
+    data class SwapEquipment(
+        val workoutLiftId: WorkoutLiftId,
+        val newEquipmentId: EquipmentId,
     ) : SessionCommand
 
     data class AddLifts(

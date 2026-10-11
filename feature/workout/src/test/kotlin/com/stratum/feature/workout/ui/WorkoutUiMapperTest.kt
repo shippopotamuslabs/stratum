@@ -109,6 +109,40 @@ class WorkoutUiMapperTest {
     }
 
     @Test
+    @DisplayName("STR-120: resolved session equipment id copies to the subheader field")
+    fun sessionEquipmentIdMapsToUi() {
+        val rendered =
+            RenderedWorkout(
+                workoutId = WorkoutId("w-1"),
+                workoutName = "Lower",
+                lifts =
+                    listOf(
+                        RenderedWorkoutLift(
+                            workoutLiftId = WorkoutLiftId("wl-1"),
+                            liftId = LiftId("lift-1"),
+                            liftName = "Squat",
+                            progressionScheme = ProgressionScheme.Double,
+                            sets = emptyList(),
+                            loadType = LoadType.Weighted,
+                            equipmentId = com.stratum.domain.lift.identity.EquipmentId("ssb"),
+                        ),
+                        RenderedWorkoutLift(
+                            workoutLiftId = WorkoutLiftId("wl-2"),
+                            liftId = LiftId("lift-2"),
+                            liftName = "Curl",
+                            progressionScheme = ProgressionScheme.Double,
+                            sets = emptyList(),
+                            loadType = LoadType.Weighted,
+                        ),
+                    ),
+            )
+        val mapped = WorkoutUiMapper.map(rendered, sessionStartedAtEpochMilli = 1L)
+        val (resolved, unresolved) = mapped.lifts
+        assertEquals("ssb", resolved.sessionEquipmentId)
+        assertEquals(null, unresolved.sessionEquipmentId)
+    }
+
+    @Test
     @DisplayName("barbell and plate loaded lifts set isPlateLoaded to true")
     fun barbellLiftsMapIsPlateLoadedTrue() {
         val workout = RenderedWorkout(

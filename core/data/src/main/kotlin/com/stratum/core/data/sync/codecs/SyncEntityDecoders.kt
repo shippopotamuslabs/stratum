@@ -239,6 +239,7 @@ class SyncEntityDecoders @Inject constructor() {
                 id = WorkoutLiftId(id),
                 workoutId = WorkoutId(data["workout_id"] as? String ?: return null),
                 liftId = LiftId(data["lift_id"] as? String ?: return null),
+                equipmentId = idOrNull(data["equipment_id"], ::EquipmentId),
                 progressionScheme =
                     enumOrNull(data["progression_scheme"]) ?: ProgressionScheme.Double,
                 position = (data["position"] as? Number)?.toInt() ?: 0,

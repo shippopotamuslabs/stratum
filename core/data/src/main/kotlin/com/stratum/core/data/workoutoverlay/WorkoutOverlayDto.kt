@@ -138,6 +138,13 @@ data class SwappedLiftEntryDto(
     val liftId: String,
 )
 
+/** One entry of the `swappedEquipment` map (workoutLift key + replacement equipment value). */
+@Serializable
+data class SwappedEquipmentEntryDto(
+    val workoutLiftId: String,
+    val equipmentId: String,
+)
+
 /** One entry of the `supersetGroupIdOverrides` map. `groupId == null` ⇒ "removed from superset". */
 @Serializable
 data class SupersetGroupOverrideEntryDto(
@@ -213,6 +220,7 @@ data class WorkoutOverlayDto(
     val undoStack: List<StructuralMutationDto> = emptyList(),
     val dynamicBaselines: List<DynamicBaselineEntryDto> = emptyList(),
     val swappedLifts: List<SwappedLiftEntryDto> = emptyList(),
+    val swappedEquipment: List<SwappedEquipmentEntryDto> = emptyList(),
     val deletedLiftIds: List<String> = emptyList(),
     val addedLifts: List<OverlayAddedLiftDto> = emptyList(),
     val supersetGroupIdOverrides: List<SupersetGroupOverrideEntryDto> = emptyList(),

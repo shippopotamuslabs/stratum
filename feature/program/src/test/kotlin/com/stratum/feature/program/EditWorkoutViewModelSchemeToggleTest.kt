@@ -258,6 +258,15 @@ class EditWorkoutViewModelSchemeToggleTest {
                     com.stratum.core.testing.workout.FakeWorkoutOverlayStore(),
                     logging,
                 ),
+            observeEquipmentCatalog =
+                com.stratum.domain.lift.ObserveEquipmentCatalogUseCase(
+                    com.stratum.core.testing.onboarding.FakeEquipmentRepository(),
+                ),
+            getRecentlyUsedEquipment =
+                com.stratum.domain.lift.GetRecentlyUsedEquipmentForLiftUseCase(
+                    trainingLog,
+                    com.stratum.core.testing.onboarding.FakeEquipmentRepository(),
+                ),
         )
     }
 

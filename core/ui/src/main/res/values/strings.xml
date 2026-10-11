@@ -428,4 +428,13 @@
     <string name="plate_calculator_preset_technique">%1$s %2$s (Technique)</string>
     <string name="plate_calculator_preset_trap">%1$s %2$s (Trap Bar)</string>
     <string name="plate_calculator_preset_none">0 %1$s (No Bar)</string>
+    <string name="equipment_swap_title">Swap equipment</string>
+    <string name="equipment_swap_current">Current</string>
+    <string name="equipment_swap_recent">Recently used for this lift</string>
+    <string name="equipment_swap_all">All equipment</string>
+    <string name="equipment_swap_search_placeholder">Search equipment</string>
+    <string name="equipment_swap_create_new">Create new equipment</string>
+    <string name="equipment_swap_no_match">No equipment matches “%1$s”</string>
+    <string name="equipment_subheader_unassigned">Select equipment</string>
+    <string name="equipment_subheader_swap_cd">Swap equipment</string>
 </resources>

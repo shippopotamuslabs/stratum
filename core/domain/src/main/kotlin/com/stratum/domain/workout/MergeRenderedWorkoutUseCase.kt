@@ -86,6 +86,9 @@ class MergeRenderedWorkoutUseCase @javax.inject.Inject constructor() {
                 progressionScheme = lift.progressionScheme,
                 sets = renderedSets,
                 supersetGroupId = lift.supersetGroupId,
+                // The feature merge resolves the live-swap override onto the projection
+                // before this runs, so this copy carries the in-use equipment.
+                equipmentId = lift.equipmentId,
                 loadType = lift.loadType,
                 useRestTimerBetweenLifts = lift.useRestTimerBetweenLifts,
                 isPlateLoaded = lift.isPlateLoaded,
