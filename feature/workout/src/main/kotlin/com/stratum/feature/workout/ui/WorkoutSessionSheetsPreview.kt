@@ -180,6 +180,19 @@ internal fun previewTemplateChangeSummary(): TemplateChangeSummaryUi =
                         ),
                 ),
                 TemplateChangeGroupUi(
+                    category = TemplateChangeCategoryUi.Equipment,
+                    rows =
+                        listOf(
+                            EquipmentSwappedUi(
+                                liftName = "Back Squat",
+                                oldId = "barbell",
+                                newId = "ssb",
+                                oldName = "Olympic Barbell",
+                                newName = "Safety Squat Bar",
+                            ),
+                        ),
+                ),
+                TemplateChangeGroupUi(
                     category = TemplateChangeCategoryUi.Order,
                     rows =
                         listOf(

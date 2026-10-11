@@ -8,6 +8,7 @@ package com.stratum.feature.workout.ui
  */
 enum class TemplateChangeCategoryUi {
     Lifts,
+    Equipment,
     Order,
     Sets,
     Rest,
@@ -41,6 +42,19 @@ data class LiftSwappedUi(
 ) : TemplateChangeRowUi {
     override val liftName: String get() = newName
 }
+
+/**
+ * Equipment reassigned on a surviving template slot. Names resolve from the
+ * equipment catalog in the ViewModel (the session runtime has no catalog); ids
+ * stay for the join. A null old id means the template had no assignment.
+ */
+data class EquipmentSwappedUi(
+    override val liftName: String,
+    val oldId: String?,
+    val newId: String,
+    val oldName: String? = null,
+    val newName: String? = null,
+) : TemplateChangeRowUi
 
 data class LiftMovedUi(
     override val liftName: String,
@@ -101,6 +115,35 @@ data class TemplateChangeGroupUi(
     val category: TemplateChangeCategoryUi,
     val rows: List<TemplateChangeRowUi>,
 )
+
+/**
+ * Backfills [EquipmentSwappedUi] display names from the equipment catalog (STR-124).
+ * Pure: the mapper emits ids only (the session runtime has no catalog), and the
+ * ViewModel joins names at the same enrichment seam as lift equipment names.
+ * Unknown ids keep null names so the section renders the unassigned fallback.
+ */
+internal fun enrichTemplateChangeNames(
+    summary: TemplateChangeSummaryUi,
+    names: Map<String, String>,
+): TemplateChangeSummaryUi =
+    summary.copy(
+        groups =
+            summary.groups.map { group ->
+                group.copy(
+                    rows =
+                        group.rows.map { row ->
+                            if (row is EquipmentSwappedUi) {
+                                row.copy(
+                                    oldName = row.oldId?.let(names::get),
+                                    newName = names[row.newId],
+                                )
+                            } else {
+                                row
+                            }
+                        },
+                )
+            },
+    )
 
 data class TemplateChangeSummaryUi(
     val groups: List<TemplateChangeGroupUi>,

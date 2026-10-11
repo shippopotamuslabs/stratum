@@ -42,12 +42,15 @@
     <string name="workout_sheet_what_changed_expand_cd">Expand change summary</string>
     <string name="workout_sheet_what_changed_collapse_cd">Collapse change summary</string>
     <string name="workout_sheet_change_category_lifts">Lifts</string>
+    <string name="workout_sheet_change_category_equipment">Equipment</string>
     <string name="workout_sheet_change_category_order">Lift order</string>
     <string name="workout_sheet_change_category_sets">Sets</string>
     <string name="workout_sheet_change_category_rest">Rest times</string>
     <string name="workout_sheet_change_category_supersets">Supersets</string>
     <string name="workout_sheet_change_category_notes">Notes</string>
     <string name="workout_sheet_change_swapped_label">Lift</string>
+    <string name="workout_sheet_change_equipment_label">%1$s · Equipment</string>
+    <string name="workout_sheet_change_equipment_unassigned">No equipment</string>
     <string name="workout_sheet_change_lift_set_label">%1$s · Set %2$d</string>
     <string name="workout_sheet_change_rest_between_label">%1$s · Rest between lifts</string>
     <string name="workout_sheet_change_notes_label">%1$s · Notes</string>

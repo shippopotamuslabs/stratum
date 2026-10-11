@@ -14,6 +14,7 @@ import com.stratum.domain.workout.TemplateChangeSummary
 import com.stratum.domain.workout.TemplateSetShape
 import com.stratum.domain.workout.myorep.MyoRepKind
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -283,6 +284,49 @@ class TemplateChangeSummaryMapperTest {
                 ),
             ),
             result.groups.single().rows,
+        )
+    }
+
+    @Test
+    @DisplayName("enrichTemplateChangeNames backfills equipment names and leaves other rows alone")
+    fun enrichBackfillsEquipmentNames() {
+        val untouched =
+            TemplateChangeGroupUi(
+                category = TemplateChangeCategoryUi.Lifts,
+                rows = listOf(LiftAddedUi(liftName = "Row", setCount = 3)),
+            )
+        val summary =
+            TemplateChangeSummaryUi(
+                groups =
+                    listOf(
+                        TemplateChangeGroupUi(
+                            category = TemplateChangeCategoryUi.Equipment,
+                            rows =
+                                listOf(
+                                    EquipmentSwappedUi(liftName = "Squat", oldId = "barbell", newId = "ssb"),
+                                    EquipmentSwappedUi(liftName = "Press", oldId = null, newId = "unknown"),
+                                ),
+                        ),
+                        untouched,
+                    ),
+            )
+
+        val result =
+            enrichTemplateChangeNames(
+                summary,
+                mapOf("barbell" to "Olympic Barbell", "ssb" to "Safety Squat Bar"),
+            )
+
+        val equipment =
+            result.groups.single { it.category == TemplateChangeCategoryUi.Equipment }
+                .rows.filterIsInstance<EquipmentSwappedUi>()
+        assertEquals("Olympic Barbell", equipment[0].oldName)
+        assertEquals("Safety Squat Bar", equipment[0].newName)
+        assertNull(equipment[1].oldName)
+        assertNull(equipment[1].newName)
+        assertEquals(
+            untouched,
+            result.groups.single { it.category == TemplateChangeCategoryUi.Lifts },
         )
     }
 }
