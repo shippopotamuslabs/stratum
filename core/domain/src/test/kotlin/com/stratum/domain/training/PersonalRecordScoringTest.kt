@@ -2,6 +2,7 @@ package com.stratum.domain.training
 
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.training.identity.TrainingSessionId
 import java.time.Instant
@@ -150,6 +151,31 @@ class PersonalRecordScoringTest {
         assertFalse(flagged.getValue("bb-old").isPersonalRecord)
         assertTrue(flagged.getValue("bb-new").isPersonalRecord)
         assertTrue(flagged.getValue("ssb").isPersonalRecord)
+    }
+
+    @Test
+    @DisplayName("STR-123: per-pair flagging preserves input order for interleaved pairs")
+    fun perPairPreservesInputOrder() {
+        val barbellOne = createSet("bb1", weight = 100.0, reps = 5, at = earlier)
+            .copy(equipmentId = EquipmentId("barbell"))
+        val ssbOne = createSet("ssb1", weight = 60.0, reps = 5, at = earlier)
+            .copy(equipmentId = EquipmentId("ssb"))
+        val barbellTwo = createSet("bb2", weight = 110.0, reps = 5, at = later)
+            .copy(equipmentId = EquipmentId("barbell"))
+        val stray = createSet("stray", weight = 200.0, reps = 5, at = later)
+            .copy(liftId = null)
+
+        val flagged =
+            PersonalRecordScoring.withPersonalRecordsPerPair(
+                listOf(barbellOne, ssbOne, barbellTwo, stray),
+            )
+
+        assertEquals(listOf("bb1", "ssb1", "bb2", "stray"), flagged.map { it.id.value })
+        assertFalse(flagged[0].isPersonalRecord)
+        assertTrue(flagged[1].isPersonalRecord)
+        assertTrue(flagged[2].isPersonalRecord)
+        assertFalse(flagged[3].isPersonalRecord)
+        assertNull(flagged[3].estimatedOneRm)
     }
 
     @Test

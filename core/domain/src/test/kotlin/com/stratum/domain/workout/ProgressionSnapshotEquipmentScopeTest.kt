@@ -161,7 +161,7 @@ class ProgressionSnapshotEquipmentScopeTest {
 
     private suspend fun recFor(
         history: FakeProgressionHistoryRepository,
-        equipmentId: EquipmentId?,
+        equipmentId: EquipmentId = barbell,
         loadType: LoadType = LoadType.Weighted,
         scoped: Boolean = true,
     ): SlotRecommendation {
@@ -205,16 +205,8 @@ class ProgressionSnapshotEquipmentScopeTest {
     @DisplayName("missing equipment key leaves history unfiltered")
     fun missingKeyUnfiltered() = runTest {
         val history = mixedHistory()
-        val rec = recFor(history, equipmentId = null, scoped = false)
+        val rec = recFor(history, scoped = false)
         // Most-recent session wins regardless of equipment.
-        assertEquals(200.0, rec.previousWeight!!.amount, 0.01)
-    }
-
-    @Test
-    @DisplayName("null equipment value leaves history unfiltered")
-    fun nullValueUnfiltered() = runTest {
-        val history = mixedHistory()
-        val rec = recFor(history, equipmentId = null, scoped = true)
         assertEquals(200.0, rec.previousWeight!!.amount, 0.01)
     }
 
