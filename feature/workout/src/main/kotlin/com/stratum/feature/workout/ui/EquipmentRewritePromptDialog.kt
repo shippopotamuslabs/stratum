@@ -19,33 +19,44 @@ internal fun EquipmentRewritePromptDialog(
     onKeepOld: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val strings = rewritePromptStrings(prompt)
     StratumChoiceDialog(
-        title = stringResource(R.string.equipment_rewrite_title),
-        body =
-            pluralStringResource(
-                R.plurals.equipment_rewrite_body,
-                prompt.loggedCount,
-                prompt.loggedCount,
-                prompt.oldName ?: stringResource(R.string.equipment_rewrite_unnamed_old),
-                prompt.newName,
-            ),
-        primaryLabel = stringResource(R.string.equipment_rewrite_apply),
+        title = strings.title,
+        body = strings.body,
+        primaryLabel = strings.primary,
         onPrimary = onRewrite,
-        secondaryLabel = stringResource(R.string.equipment_rewrite_keep),
+        secondaryLabel = strings.secondary,
         onSecondary = onKeepOld,
         onDismissRequest = onDismiss,
     )
 }
 
-/**
- * Prompt body without the window, so previews and screenshot tests can render it inline.
- * Public for the `:app` screenshot test (same-module callers use [EquipmentRewritePromptDialog]).
- */
+/** Prompt body without the window, so previews and screenshot tests can render it inline. */
 @Composable
-fun EquipmentRewritePromptContent(
+internal fun EquipmentRewritePromptContent(
     prompt: EquipmentRewritePromptUi,
 ) {
+    val strings = rewritePromptStrings(prompt)
     StratumChoiceDialogContent(
+        title = strings.title,
+        body = strings.body,
+        primaryLabel = strings.primary,
+        onPrimary = {},
+        secondaryLabel = strings.secondary,
+        onSecondary = {},
+    )
+}
+
+private data class RewritePromptStrings(
+    val title: String,
+    val body: String,
+    val primary: String,
+    val secondary: String,
+)
+
+@Composable
+private fun rewritePromptStrings(prompt: EquipmentRewritePromptUi): RewritePromptStrings =
+    RewritePromptStrings(
         title = stringResource(R.string.equipment_rewrite_title),
         body =
             pluralStringResource(
@@ -55,9 +66,6 @@ fun EquipmentRewritePromptContent(
                 prompt.oldName ?: stringResource(R.string.equipment_rewrite_unnamed_old),
                 prompt.newName,
             ),
-        primaryLabel = stringResource(R.string.equipment_rewrite_apply),
-        onPrimary = {},
-        secondaryLabel = stringResource(R.string.equipment_rewrite_keep),
-        onSecondary = {},
+        primary = stringResource(R.string.equipment_rewrite_apply),
+        secondary = stringResource(R.string.equipment_rewrite_keep),
     )
-}

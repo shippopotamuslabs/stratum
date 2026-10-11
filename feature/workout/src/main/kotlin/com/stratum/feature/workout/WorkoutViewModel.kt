@@ -149,6 +149,7 @@ class WorkoutViewModel @Inject constructor(
 
     /** Partial-swap prompt, or null when no decision is pending. */
     private val _equipmentRewritePrompt = MutableStateFlow<EquipmentRewritePromptUi?>(null)
+    private var rewriteInFlight = false
     val equipmentRewritePrompt: StateFlow<EquipmentRewritePromptUi?> =
         _equipmentRewritePrompt.asStateFlow()
 
@@ -589,21 +590,26 @@ class WorkoutViewModel @Inject constructor(
 
     /** Prompt choice: logged sets keep the old equipment; only remaining sets swap. */
     fun keepLoggedSetsEquipment() {
+        if (rewriteInFlight) return
         val prompt = _equipmentRewritePrompt.value ?: return
         _equipmentRewritePrompt.value = null
         swapEquipment(WorkoutLiftId(prompt.workoutLiftId), EquipmentId(prompt.newId))
     }
 
-    /** Prompt choice: rewrite the logged sets' equipment to the new piece, then swap. */
+    /**
+     * Prompt choice: rewrite the logged sets' equipment to the new piece, then swap.
+     * Rewrite runs first so a failure leaves nothing applied; the prompt stays for
+     * retry. Choices are locked while the rewrite is in flight.
+     */
     fun confirmRewriteLoggedSets() {
         val prompt = _equipmentRewritePrompt.value ?: return
-        _equipmentRewritePrompt.value = null
-        swapEquipment(WorkoutLiftId(prompt.workoutLiftId), EquipmentId(prompt.newId))
+        if (rewriteInFlight) return
         val sessionId = session.cachedSessionId()
         if (sessionId == null) {
             _userMessage.value = MSG_EQUIPMENT_REWRITE_FAILED
             return
         }
+        rewriteInFlight = true
         viewModelScope.launch {
             val result =
                 rewriteSessionLiftEquipment(
@@ -611,7 +617,11 @@ class WorkoutViewModel @Inject constructor(
                     liftId = LiftId(prompt.liftId),
                     newEquipmentId = EquipmentId(prompt.newId),
                 )
-            if (result.isFailure) {
+            rewriteInFlight = false
+            if (result.isSuccess) {
+                swapEquipment(WorkoutLiftId(prompt.workoutLiftId), EquipmentId(prompt.newId))
+                _equipmentRewritePrompt.value = null
+            } else {
                 _userMessage.value = MSG_EQUIPMENT_REWRITE_FAILED
             }
         }
@@ -619,6 +629,7 @@ class WorkoutViewModel @Inject constructor(
 
     /** Prompt dismissed without choosing: no swap is applied. */
     fun dismissRewritePrompt() {
+        if (rewriteInFlight) return
         _equipmentRewritePrompt.value = null
     }
 

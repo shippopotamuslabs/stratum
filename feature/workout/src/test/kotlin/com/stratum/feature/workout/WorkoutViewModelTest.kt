@@ -3612,6 +3612,36 @@ class WorkoutViewModelTest {
     }
 
     @Test
+    @DisplayName("STR-122 remediation: failed rewrite keeps the prompt and applies nothing")
+    fun failedRewriteKeepsPrompt() = runTest {
+        seedSwapCatalog()
+        val viewModel =
+            buildViewModelWithProgram(program = programWithTemplateEquipment("barbell"))
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+        logFirstSet(viewModel)
+        viewModel.openEquipmentSwap(workoutLiftId.value)
+        advanceUntilIdle()
+        viewModel.selectSwapEquipment("ssb")
+        advanceUntilIdle()
+        assertNotNull(viewModel.equipmentRewritePrompt.value)
+
+        // Complete the session behind the prompt so the rewrite guard rejects.
+        viewModel.completeWorkout(saveTemplate = false)
+        advanceUntilIdle()
+        viewModel.confirmRewriteLoggedSets()
+        advanceUntilIdle()
+
+        assertNotNull(viewModel.equipmentRewritePrompt.value)
+        assertNotNull(viewModel.userMessage.value)
+        val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertEquals(
+            "barbell",
+            loaded.lifts.single { it.workoutLiftId == workoutLiftId.value }.sessionEquipmentId,
+        )
+    }
+
+    @Test
     @DisplayName("STR-122: keep choice swaps the session without touching logged sets")
     fun keepLoggedSetsEquipment() = runTest {
         seedSwapCatalog()

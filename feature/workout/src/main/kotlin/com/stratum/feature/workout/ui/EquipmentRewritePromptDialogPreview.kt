@@ -24,8 +24,9 @@ private fun EquipmentRewritePromptNeoPreview() {
     EquipmentRewritePromptPreviewContent(family = StratumThemeId.NeoBrutalist)
 }
 
+/** Public for the `:app` screenshot test; same-module callers use the dialog. */
 @Composable
-private fun EquipmentRewritePromptPreviewContent(family: StratumThemeId) {
+fun EquipmentRewritePromptPreviewContent(family: StratumThemeId) {
     StratumTheme(themeId = family) {
         Column(
             modifier =
