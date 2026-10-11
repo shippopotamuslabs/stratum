@@ -157,8 +157,7 @@ class SyncEntityDecoders @Inject constructor() {
                 stringList(data["preset_tags"])
                     .mapNotNull { enumOrNull<GymPreset>(it) }
                     .toSet()
-            val equipmentId =
-                (data["equipment_id"] as? String)?.let { runCatching { EquipmentId(it) }.getOrNull() }
+            val equipmentId = idOrNull(data["equipment_id"], ::EquipmentId)
             LiftEntity(
                 id = LiftId(id),
                 name = data["name"] as? String ?: return null,
@@ -296,7 +295,8 @@ class SyncEntityDecoders @Inject constructor() {
                 id = LoggedSetId(id),
                 sessionId = TrainingSessionId(data["session_id"] as? String ?: return null),
                 exerciseNameRaw = data["exercise_name_raw"] as? String ?: "",
-                liftId = (data["lift_id"] as? String)?.let(::LiftId),
+                liftId = idOrNull(data["lift_id"], ::LiftId),
+                equipmentId = idOrNull(data["equipment_id"], ::EquipmentId),
                 setIndex = (data["set_index"] as? Number)?.toInt() ?: 0,
                 weightAmount = (data["weight_amount"] as? Number)?.toDouble() ?: 0.0,
                 weightUnit = data["weight_unit"] as? String ?: "Lb",
@@ -395,6 +395,17 @@ class SyncEntityDecoders @Inject constructor() {
     private inline fun <reified T : Enum<T>> enumOrNull(raw: Any?): T? {
         val name = raw as? String ?: return null
         return runCatching { enumValueOf<T>(name) }.getOrNull()
+    }
+
+    /**
+     * Lenient id decode for nullable id fields where null is a supported state
+     * (liftless sets, legacy/unknown equipment): a missing, non-string, or invalid
+     * (blank) value decodes to null instead of failing the row. Fields where an
+     * invalid id must fail the row keep a direct constructor reference instead.
+     */
+    private fun <T> idOrNull(raw: Any?, factory: (String) -> T): T? {
+        val value = raw as? String ?: return null
+        return runCatching { factory(value) }.getOrNull()
     }
 
     @Suppress("UNCHECKED_CAST")

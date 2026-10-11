@@ -5,6 +5,13 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 
+/**
+ * Current Room schema version — the single source referenced by the `@Database`
+ * annotation below and by migration tests. Bump this (and only this) with every
+ * entity change.
+ */
+const val STRATUM_SCHEMA_VERSION = 10
+
 @Database(
     entities = [
         OnboardingProgressEntity::class,
@@ -42,7 +49,7 @@ import androidx.room.TypeConverters
         LiftNoteEntity::class,
         WorkoutLiftNoteEntity::class,
     ],
-    version = 9,
+    version = STRATUM_SCHEMA_VERSION,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),

@@ -1,8 +1,24 @@
 package com.stratum.core.data.db
 
+import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.stratum.core.data.sync.SyncFlags
 import java.util.UUID
+
+/**
+ * Manual migrations applied by the production database builder. Single source shared by
+ * `DataModule` and `DatabaseMigrationChainTest` so a version bump without a registered
+ * migration fails the chain test instead of wiping user data via the destructive fallback.
+ * Auto-migrations (1→2 … 6→7) come from the `@Database` annotations, not this list.
+ */
+fun RoomDatabase.Builder<StratumDatabase>.withProductionMigrations(): RoomDatabase.Builder<StratumDatabase> =
+    addMigrations(
+        MIGRATION_4_5,
+        MIGRATION_7_8,
+        MIGRATION_8_9,
+        MIGRATION_9_10,
+    )
 
 /**
  * v4 → v5: multi-note storage.
@@ -269,5 +285,91 @@ val MIGRATION_7_8: Migration =
                 suffix++
             }
             return name
+        }
+    }
+
+/**
+ * Backfills [column] on [table] from [parentColumn] on [parentTable] for rows whose
+ * keys match ([childKeyColumn] on the child, [parentKeyColumn] on the parent). Rows
+ * with no matching parent keep null. Emits the correlated UPDATE previously inlined
+ * per migration.
+ */
+internal fun SupportSQLiteDatabase.backfillColumnFromParent(
+    table: String,
+    column: String,
+    parentTable: String,
+    parentColumn: String,
+    childKeyColumn: String,
+    parentKeyColumn: String = "id",
+) {
+    execSQL(
+        "UPDATE `$table` SET `$column` = (" +
+            "SELECT `$parentColumn` FROM `$parentTable` " +
+            "WHERE `$parentTable`.`$parentKeyColumn` = `$table`.`$childKeyColumn`)",
+    )
+}
+
+/**
+ * Stamps rows matching [where] as locally-modified sync payload
+ * (`pending_sync = PENDING_UPSERT` with a bumped clock) so the upload engine pushes
+ * the backfilled data (MIGRATION_7_8 pattern). [where] is a static column predicate
+ * over [table].
+ */
+internal fun SupportSQLiteDatabase.markDirtyWhere(
+    table: String,
+    where: String,
+    now: Long = System.currentTimeMillis(),
+) {
+    execSQL(
+        "UPDATE `$table` SET `pending_sync` = ${SyncFlags.PENDING_UPSERT}, " +
+            "`updated_at_epoch_millis` = ? WHERE $where",
+        arrayOf<Any?>(now),
+    )
+}
+
+/**
+ * Creates a non-unique index unless it already exists.
+ */
+internal fun SupportSQLiteDatabase.createIndexIfNotExists(
+    indexName: String,
+    table: String,
+    vararg columns: String,
+) {
+    execSQL(
+        "CREATE INDEX IF NOT EXISTS `$indexName` ON `$table` (${columns.joinToString { "`$it`" }})",
+    )
+}
+
+/**
+ * v9 → v10: set-level equipment logging (STR-118).
+ *
+ * - Adds nullable `logged_sets.equipmentId` (bare column, no FK — same as `liftId`)
+ *   plus a `(liftId, equipmentId)` index for per-pair history lookups.
+ * - Backfills every set from its lift's current equipment. Sets with no lift (null
+ *   `liftId`) or a lift with no equipment keep null (legacy/unknown).
+ *
+ * Sync parity: backfilled rows carry new information the cloud lacks, so they are
+ * stamped `pending_sync = PENDING_UPSERT` with a bumped clock and the upload engine
+ * pushes them (MIGRATION_7_8 pattern). Rows staying null are unchanged versus cloud —
+ * a missing `equipment_id` key decodes to null — and stay clean.
+ */
+val MIGRATION_9_10: Migration =
+    object : Migration(9, 10) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE `logged_sets` ADD COLUMN `equipmentId` TEXT")
+            db.backfillColumnFromParent(
+                table = "logged_sets",
+                column = "equipmentId",
+                parentTable = "lifts",
+                parentColumn = "equipmentId",
+                childKeyColumn = "liftId",
+            )
+            db.markDirtyWhere(table = "logged_sets", where = "`equipmentId` IS NOT NULL")
+            db.createIndexIfNotExists(
+                indexName = "index_logged_sets_liftId_equipmentId",
+                table = "logged_sets",
+                "liftId",
+                "equipmentId",
+            )
         }
     }

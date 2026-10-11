@@ -9,6 +9,7 @@ import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.storageWeightFromDisplay
 import com.stratum.domain.program.SetType
@@ -255,6 +256,7 @@ class EditHistoricalWorkoutViewModel @Inject constructor(
                                 rir = set.rir ?: set.liftContext.rirGoal ?: 2,
                                 completedAt = set.completedAt,
                                 exerciseNameRaw = set.exerciseNameRaw,
+                                equipmentId = set.equipmentId,
                                 liftContext = set.liftContext,
                                 // Persist original storage unit; draft fields are in displayUnit.
                                 weightUnit = set.weight.unit,
@@ -366,6 +368,7 @@ class EditHistoricalWorkoutViewModel @Inject constructor(
                         sessionId = sessionId,
                         exerciseNameRaw = set.exerciseNameRaw,
                         liftId = lift.liftId,
+                        equipmentId = set.equipmentId,
                         setIndex = set.setIndex,
                         weight = weight,
                         reps = reps,
@@ -411,6 +414,7 @@ class EditHistoricalWorkoutViewModel @Inject constructor(
         val rir: Int,
         val completedAt: Instant,
         val exerciseNameRaw: String,
+        val equipmentId: EquipmentId?,
         val liftContext: LoggedLiftContext,
         val weightUnit: Weight.WeightUnit,
         val positionLabel: String,

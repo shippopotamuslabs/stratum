@@ -1,8 +1,5 @@
 package com.stratum.core.data.db
 
-import androidx.room.testing.MigrationTestHelper
-import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
-import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -19,13 +16,7 @@ class IncrementTierLiftColumnMigration8To9Test {
     @Test
     @DisplayName("8→9 drops liftId column, its FK and indexes; keeps equipment-scoped rows")
     fun migrate8To9() {
-        val helper =
-            MigrationTestHelper(
-                InstrumentationRegistry.getInstrumentation(),
-                StratumDatabase::class.java,
-                emptyList(),
-                FrameworkSQLiteOpenHelperFactory(),
-            )
+        val helper = MigrationTestUtils.newMigrationHelper()
         val dbName = "stratum-increment-tiers-8-9"
         helper.createDatabase(dbName, 8).use { db ->
             // createDatabase builds the v8 schema from the exported 8.json, so
@@ -64,7 +55,7 @@ class IncrementTierLiftColumnMigration8To9Test {
         helper.runMigrationsAndValidate(dbName, 9, true, MIGRATION_8_9).use { migrated ->
             // liftId column is gone.
             val columns =
-                rows(migrated, "PRAGMA table_info(increment_tiers)").map { it[1] as String }
+                MigrationTestUtils.rows(migrated, "PRAGMA table_info(increment_tiers)").map { it[1] as String }
             assertFalse(columns.contains("liftId"))
             assertEquals(
                 listOf(
@@ -84,7 +75,7 @@ class IncrementTierLiftColumnMigration8To9Test {
                     listOf("e_eq-1_0", "eq-1", 0.0, null, 5.0, 100L, 0L),
                     listOf("e_eq-1_100", "eq-1", 100.0, null, 10.0, 100L, 0L),
                 ),
-                rows(
+                MigrationTestUtils.rows(
                     migrated,
                     "SELECT id, equipmentId, lowerBound, upperBound, increment, " +
                         "updated_at_epoch_millis, pending_sync FROM increment_tiers ORDER BY id",
@@ -92,7 +83,7 @@ class IncrementTierLiftColumnMigration8To9Test {
             )
             // Only the equipment indexes exist.
             val indexes =
-                rows(
+                MigrationTestUtils.rows(
                     migrated,
                     "SELECT name FROM sqlite_master WHERE type = 'index' " +
                         "AND tbl_name = 'increment_tiers' AND name NOT LIKE 'sqlite_%' " +
@@ -106,12 +97,12 @@ class IncrementTierLiftColumnMigration8To9Test {
                 indexes,
             )
             // The equipment FK survived the rebuild.
-            val fkList = rows(migrated, "PRAGMA foreign_key_list(increment_tiers)")
+            val fkList = MigrationTestUtils.rows(migrated, "PRAGMA foreign_key_list(increment_tiers)")
             assertTrue(fkList.any { it[2] == "equipment" && it[3] == "equipmentId" })
             // Stale lift-scoped micro overrides are cleared and marked dirty.
             assertEquals(
                 listOf(listOf(null, 1L)),
-                rows(
+                MigrationTestUtils.rows(
                     migrated,
                     "SELECT micro_options_json, pending_sync FROM lifts WHERE id = 'lift-stale-micro'",
                 ),
@@ -119,24 +110,4 @@ class IncrementTierLiftColumnMigration8To9Test {
         }
     }
 
-    private fun rows(
-        db: androidx.sqlite.db.SupportSQLiteDatabase,
-        sql: String,
-    ): List<List<Any?>> =
-        db.query(sql).use { cursor ->
-            buildList {
-                while (cursor.moveToNext()) {
-                    add(
-                        List(cursor.columnCount) { index ->
-                            when (cursor.getType(index)) {
-                                android.database.Cursor.FIELD_TYPE_INTEGER -> cursor.getLong(index)
-                                android.database.Cursor.FIELD_TYPE_FLOAT -> cursor.getDouble(index)
-                                android.database.Cursor.FIELD_TYPE_NULL -> null
-                                else -> cursor.getString(index)
-                            }
-                        },
-                    )
-                }
-            }
-        }
 }

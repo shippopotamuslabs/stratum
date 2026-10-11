@@ -1,8 +1,5 @@
 package com.stratum.core.data.db
 
-import androidx.room.testing.MigrationTestHelper
-import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
-import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
@@ -18,13 +15,7 @@ class StratumDatabaseAutoMigration5To6Test {
     @Test
     @DisplayName("AutoMigration 5→6 adds the JSON payload column to program_change_events")
     fun migrate5To6() {
-        val helper =
-            MigrationTestHelper(
-                InstrumentationRegistry.getInstrumentation(),
-                StratumDatabase::class.java,
-                emptyList(),
-                FrameworkSQLiteOpenHelperFactory(),
-            )
+        val helper = MigrationTestUtils.newMigrationHelper()
         val dbName = "stratum-auto-5-6"
         helper.createDatabase(dbName, 5).apply {
             // Pre-v6 row written with flat payload columns only.

@@ -1,8 +1,5 @@
 package com.stratum.core.data.db
 
-import androidx.room.testing.MigrationTestHelper
-import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
-import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -17,13 +14,7 @@ class StratumDatabaseAutoMigration2To3Test {
     @Test
     @DisplayName("AutoMigration 2→3 adds pinned_note columns and lift_session_notes")
     fun migrate2To3() {
-        val helper =
-            MigrationTestHelper(
-                InstrumentationRegistry.getInstrumentation(),
-                StratumDatabase::class.java,
-                emptyList(),
-                FrameworkSQLiteOpenHelperFactory(),
-            )
+        val helper = MigrationTestUtils.newMigrationHelper()
         val dbName = "stratum-auto-2-3"
         helper.createDatabase(dbName, 2).close()
         helper.runMigrationsAndValidate(dbName, 3, true).use { migrated ->
