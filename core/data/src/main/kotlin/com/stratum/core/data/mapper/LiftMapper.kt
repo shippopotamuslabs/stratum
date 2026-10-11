@@ -97,6 +97,7 @@ fun EquipmentEntity.toDomain(tiers: List<IncrementTierEntity>): Equipment =
         incrementTiers = tiers.toDomainTiers(),
         isCustom = isCustom,
         microIncrements = microOptionsJson.toMicroIncrements(),
+        isDeleted = isDeleted,
     )
 
 fun Equipment.toEntity(
@@ -110,6 +111,7 @@ fun Equipment.toEntity(
         microOptionsJson = microIncrements.toMicroJsonOrNull(),
         updatedAtEpochMillis = nowMillis,
         pendingSync = pendingSync,
+        isDeleted = isDeleted,
     )
 
 fun Equipment.toTierEntities(

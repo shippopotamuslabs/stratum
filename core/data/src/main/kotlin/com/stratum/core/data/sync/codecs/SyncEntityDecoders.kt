@@ -133,6 +133,7 @@ class SyncEntityDecoders @Inject constructor() {
                 id = EquipmentId(id),
                 name = data["name"] as? String ?: return null,
                 isCustom = data["is_custom"] as? Boolean ?: false,
+                isDeleted = data["is_deleted"] as? Boolean ?: false,
                 microOptionsJson = equipmentMicroJsonFromWire(data["micro_options"]),
                 updatedAtEpochMillis = remoteUpdatedAt(data),
                 pendingSync = SyncFlags.CLEAN,

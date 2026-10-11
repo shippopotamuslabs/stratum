@@ -9,9 +9,15 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface EquipmentDao {
+    /**
+     * All rows INCLUDING tombstones — the lift join in `RoomLiftRepository` relies on
+     * unfiltered reads so lifts keep resolving deleted equipment. Catalog surfaces
+     * filter via `RoomEquipmentRepository.observeEquipment`, never here.
+     */
     @Query("SELECT * FROM equipment ORDER BY name COLLATE NOCASE")
     fun observeAll(): Flow<List<EquipmentEntity>>
 
+    /** All rows including tombstones (see [observeAll]). */
     @Query("SELECT * FROM equipment ORDER BY name COLLATE NOCASE")
     suspend fun getAll(): List<EquipmentEntity>
 
@@ -39,10 +45,26 @@ interface EquipmentDao {
         SET name = :name,
             pending_sync = ${SyncFlags.PENDING_UPSERT},
             updated_at_epoch_millis = :updatedAtEpochMillis
-        WHERE id = :id
+        WHERE id = :id AND isDeleted = 0
         """,
     )
     suspend fun rename(id: EquipmentId, name: String, updatedAtEpochMillis: Long)
+
+    /**
+     * Sets the deleted flag (tombstone) on custom equipment and marks it dirty for
+     * cloud upload. The row, name, and tiers are retained. Returns 1 when a row was
+     * tombstoned, 0 when missing, seed, or already tombstoned.
+     */
+    @Query(
+        """
+        UPDATE equipment
+        SET isDeleted = 1,
+            pending_sync = ${SyncFlags.PENDING_UPSERT},
+            updated_at_epoch_millis = :updatedAtEpochMillis
+        WHERE id = :id AND isCustom = 1 AND isDeleted = 0
+        """,
+    )
+    suspend fun tombstoneById(id: EquipmentId, updatedAtEpochMillis: Long): Int
 
     /**
      * Replaces the adder stops (JSON array of storage-lb doubles, null = no adder).
@@ -62,12 +84,6 @@ interface EquipmentDao {
         microOptionsJson: String?,
         updatedAtEpochMillis: Long,
     )
-
-    @Query("DELETE FROM equipment WHERE id = :id AND isCustom = 1")
-    suspend fun deleteCustomById(id: EquipmentId): Int
-
-    @Query("SELECT COUNT(*) FROM lifts WHERE equipmentId = :equipmentId")
-    suspend fun liftReferenceCount(equipmentId: EquipmentId): Int
 
     @Query("SELECT COUNT(*) FROM equipment WHERE isCustom = 0")
     suspend fun countSeedEquipment(): Int

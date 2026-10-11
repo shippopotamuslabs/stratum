@@ -12,10 +12,16 @@ import kotlinx.coroutines.flow.Flow
  * (ARCHITECTURE.md §4.4).
  */
 interface EquipmentRepository {
-    /** Hot stream of every equipment row with its default increment tiers. */
+    /**
+     * Hot stream of every equipment row with its default increment tiers.
+     * Tombstoned rows are excluded; use [getEquipment] for by-id history resolution.
+     */
     fun observeEquipment(): Flow<List<Equipment>>
 
-    /** Snapshot lookup by id, or null when missing. */
+    /**
+     * Snapshot lookup by id, or null when missing. Tombstoned rows are still
+     * returned so history, PR, and progression displays keep resolving names.
+     */
     suspend fun getEquipment(id: EquipmentId): Equipment?
 
     /**
@@ -43,7 +49,7 @@ interface EquipmentRepository {
         liftIds: List<LiftId>,
     ): EquipmentId
 
-    /** Renames equipment. No-op when missing. */
+    /** Renames equipment. No-op when missing or tombstoned. */
     suspend fun renameEquipment(id: EquipmentId, name: String)
 
     /**
@@ -51,7 +57,7 @@ interface EquipmentRepository {
      * stops. Empty list clears equipment defaults so lifts without overrides fall
      * through to global fallback. Null [micro] preserves the stored stops so
      * tiers-only callers cannot silently wipe the adder; non-null replaces them
-     * (empty means explicitly no adder).
+     * (empty means explicitly no adder). No-op when the row is missing or tombstoned.
      */
     suspend fun setIncrementTiers(
         id: EquipmentId,
@@ -60,8 +66,10 @@ interface EquipmentRepository {
     )
 
     /**
-     * Deletes custom equipment when no lifts reference it. Returns false when the row is
-     * seed equipment, missing, or still referenced.
+     * Tombstones custom equipment: sets the deleted flag and syncs it; the row, name,
+     * and tiers are retained so history keeps resolving. Returns false when the row is
+     * seed equipment or missing. Referenced lifts are NOT reassigned — they keep
+     * resolving the tombstoned row by id. Idempotent: re-deleting returns true.
      */
     suspend fun deleteCustomEquipment(id: EquipmentId): Boolean
 
@@ -78,6 +86,8 @@ interface EquipmentRepository {
      * Data-layer call sites that also write other user-owned rows (e.g. custom lifts) should
      * resolve equipment inside the same write lock / Room transaction as those rows so a
      * crash cannot leave orphan custom equipment.
+     *
+     * Tombstoned rows never match: a name that only matches tombstones creates a new row.
      */
     suspend fun findOrCreateByName(name: String): EquipmentId
 }

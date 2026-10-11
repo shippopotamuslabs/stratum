@@ -24,6 +24,12 @@ data class Equipment(
      * major-lattice points plus a selected stop (see IncrementLattice.kt).
      */
     val microIncrements: List<Weight> = emptyList(),
+    /**
+     * True once the user deletes this equipment. The row, name, and tiers are retained so
+     * history keeps resolving; catalog and picker surfaces exclude tombstoned rows while
+     * by-id lookups still return them.
+     */
+    val isDeleted: Boolean = false,
 )
 
 /**

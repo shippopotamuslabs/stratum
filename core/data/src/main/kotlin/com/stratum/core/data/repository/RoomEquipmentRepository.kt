@@ -42,7 +42,9 @@ class RoomEquipmentRepository @Inject constructor(
             incrementTierDao.observeAllEquipmentTiers(),
         ) { rows, tiers ->
             val byEquipment = tiers.groupBy { it.equipmentId }
-            rows.map { row -> row.toDomain(byEquipment[row.id].orEmpty()) }
+            rows
+                .filterNot { it.isDeleted }
+                .map { row -> row.toDomain(byEquipment[row.id].orEmpty()) }
         }
 
     override suspend fun getEquipment(id: EquipmentId): Equipment? {
@@ -109,6 +111,7 @@ class RoomEquipmentRepository @Inject constructor(
     ) {
         val now = System.currentTimeMillis()
         syncTouch.withWriteLock {
+            if (equipmentDao.getById(id)?.isDeleted == true) return@withWriteLock
             database.withTransaction {
                 val nextIds =
                     tiers.map { IncrementTierId.forEquipmentBand(id, it.lowerBound.amount).value }
@@ -135,23 +138,17 @@ class RoomEquipmentRepository @Inject constructor(
     override suspend fun deleteCustomEquipment(id: EquipmentId): Boolean {
         val row = equipmentDao.getById(id) ?: return false
         if (!row.isCustom) return false
-        if (equipmentDao.liftReferenceCount(id) > 0) return false
+        if (row.isDeleted) return true
         val now = System.currentTimeMillis()
-        return syncTouch.withWriteLock {
+        syncTouch.withWriteLock {
             database.withTransaction {
-                val tierIds = incrementTierDao.idsForEquipment(id)
-                syncTouch.replaceIds(SyncCollection.IncrementTiers, tierIds, emptyList(), now)
-                incrementTierDao.deleteForEquipment(id)
-                val deleted = equipmentDao.deleteCustomById(id)
-                if (deleted > 0) {
-                    syncTouch.enqueueDelete(SyncCollection.Equipment, id.value)
-                    syncTouch.markDirty()
-                    true
-                } else {
-                    false
-                }
+                // Tiers stay with the tombstoned row; the flag rides a normal upsert
+                // (no cloud-delete enqueue — the row is retained, not removed).
+                equipmentDao.tombstoneById(id, now)
             }
+            syncTouch.markDirty()
         }
+        return true
     }
 
     override suspend fun findOrCreateByName(name: String): EquipmentId {
@@ -207,7 +204,7 @@ class RoomEquipmentRepository @Inject constructor(
         nowMillis: Long,
     ): EquipmentId {
         val id = EquipmentId(UUID.randomUUID().toString())
-        val existingNames = equipmentDao.getAll().map { it.name }
+        val existingNames = equipmentDao.getAll().filterNot { it.isDeleted }.map { it.name }
         val cloneName = uniqueifyForkEquipmentName("$baseName Stack", existingNames)
         insertCustomEquipmentUnlocked(id, cloneName, tiers, micro = emptyList(), nowMillis = nowMillis)
         return id
@@ -216,12 +213,12 @@ class RoomEquipmentRepository @Inject constructor(
     private suspend fun resolveExistingByName(trimmed: String): EquipmentId? {
         if (trimmed.isEmpty()) return null
         // 1) Exact case-insensitive display-name match.
-        equipmentDao.findByNameIgnoreCase(trimmed)?.let { return it.id }
+        equipmentDao.findByNameIgnoreCase(trimmed)?.takeUnless { it.isDeleted }?.let { return it.id }
         // 2) Normalized match so free-text "cable" hits seed "Cables".
         val key = EquipmentNameMatching.normalizeKey(trimmed)
         if (key.isNotEmpty()) {
             equipmentDao.getAll()
-                .firstOrNull { EquipmentNameMatching.normalizeKey(it.name) == key }
+                .firstOrNull { !it.isDeleted && EquipmentNameMatching.normalizeKey(it.name) == key }
                 ?.let { return it.id }
         }
         // 3) Known free-text / GymEquipment aliases → seed id (when that row exists).

@@ -77,6 +77,7 @@ internal fun IncrementEditorPreview(
     selection: Int?,
     darkTheme: Boolean? = null,
     family: StratumThemeId = StratumThemeId.Tonal,
+    deleteAction: IncrementEditorDeleteAction? = null,
 ) {
     StratumTheme(themeId = family, darkTheme = darkTheme) {
         IncrementEditorScreen(
@@ -88,6 +89,7 @@ internal fun IncrementEditorPreview(
             bandActions = previewBandActions,
             stopActions = previewStopActions,
             saveActions = previewSaveActions,
+            deleteAction = deleteAction,
             onBackClick = {},
             showSaveConfirm = false,
             showForkSheet = false,
@@ -115,5 +117,29 @@ private fun IncrementEditorDarkPreview() {
         title = "Lat pulldown",
         selection = 1,
         darkTheme = true,
+    )
+}
+
+@Preview(name = "Increment editor delete light", showBackground = true)
+@Composable
+private fun IncrementEditorDeleteLightPreview() {
+    IncrementEditorPreview(
+        chrome = PREVIEW_EQUIPMENT_CHROME,
+        title = "Cables",
+        selection = null,
+        darkTheme = false,
+        deleteAction = IncrementEditorDeleteAction(text = "Delete equipment", onClick = {}),
+    )
+}
+
+@Preview(name = "Increment editor delete dark", showBackground = true, backgroundColor = 0xFF121212)
+@Composable
+private fun IncrementEditorDeleteDarkPreview() {
+    IncrementEditorPreview(
+        chrome = PREVIEW_EQUIPMENT_CHROME,
+        title = "Cables",
+        selection = null,
+        darkTheme = true,
+        deleteAction = IncrementEditorDeleteAction(text = "Delete equipment", onClick = {}),
     )
 }

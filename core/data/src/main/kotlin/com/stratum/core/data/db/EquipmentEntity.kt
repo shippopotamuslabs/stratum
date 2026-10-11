@@ -28,4 +28,11 @@ data class EquipmentEntity(
     val updatedAtEpochMillis: Long = 0L,
     @ColumnInfo(name = "pending_sync")
     val pendingSync: Int = SyncFlags.CLEAN,
+    /**
+     * User-deleted (tombstone) flag. The row, name, and tiers are retained so history
+     * keeps resolving; catalog surfaces exclude tombstoned rows while by-id lookups
+     * (including the lift join) still return them.
+     */
+    @ColumnInfo(defaultValue = "0")
+    val isDeleted: Boolean = false,
 )
