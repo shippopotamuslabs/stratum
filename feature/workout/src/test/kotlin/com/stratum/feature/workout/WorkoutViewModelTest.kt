@@ -3702,6 +3702,81 @@ class WorkoutViewModelTest {
         )
     }
 
+    private fun seedPairHistory(equipmentId: String, topWeight: Double, sessionTag: String) {
+        val session =
+            TrainingSession(
+                id = TrainingSessionId("s-pair-$sessionTag"),
+                programId = programId,
+                workoutId = workoutId,
+                status = TrainingSessionStatus.COMPLETED,
+                kind = TrainingSessionKind.PROGRAM_WORKOUT,
+                origin = TrainingSessionOrigin.IMPORT,
+                cycleNumberSnapshot = 1,
+                weekdaySnapshot = Weekday.Monday,
+                startedAt = Instant.parse("2026-06-28T10:00:00Z"),
+                endedAt = Instant.parse("2026-06-28T11:00:00Z"),
+                sourceApp = null,
+            )
+        progressionHistory.seed(
+            SlotHistoryRequest(programId, workoutId, workoutLiftId, liftId, 0),
+            SlotHistoryEntry(
+                session,
+                com.stratum.domain.training.LoggedSet(
+                    id = com.stratum.domain.importing.identity.LoggedSetId("hist-$sessionTag"),
+                    sessionId = session.id,
+                    exerciseNameRaw = "Squat",
+                    liftId = liftId,
+                    equipmentId = com.stratum.domain.lift.identity.EquipmentId(equipmentId),
+                    setIndex = 0,
+                    weight = lb(topWeight),
+                    reps = 5,
+                    rir = 2,
+                    completedAt = Instant.parse("2026-06-28T10:30:00Z"),
+                    liftContext = com.stratum.domain.training.LoggedLiftContext(
+                        liftName = "Squat",
+                        movementPatternsBitmask = 1,
+                        primaryMusclesBitmask = 1,
+                        secondaryMusclesBitmask = 0,
+                        fatigueProfile = com.stratum.domain.lift.FatigueProfile.Low,
+                        muscleLengthBias = com.stratum.domain.lift.MuscleLengthBias.MidRange,
+                    ),
+                ),
+            ),
+        )
+    }
+
+    @Test
+    @DisplayName("STR-123: swapping equipment re-scopes previous-sets to the new pair history")
+    fun swapEquipmentRescopesPreviousSets() = runTest {
+        seedSwapCatalog()
+        val viewModel =
+            buildViewModelWithProgram(program = programWithTemplateEquipment("barbell"))
+        seedPairHistory("barbell", 200.0, "bb")
+        seedPairHistory("ssb", 100.0, "ssb")
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        val before = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertEquals(
+            "200 × 5",
+            before.lifts.single { it.workoutLiftId == workoutLiftId.value }
+                .sets.first().previousWeightLabel,
+        )
+
+        viewModel.openEquipmentSwap(workoutLiftId.value)
+        advanceUntilIdle()
+        viewModel.selectSwapEquipment("ssb")
+        advanceUntilIdle()
+
+        assertNull(viewModel.equipmentRewritePrompt.value)
+        val after = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertEquals(
+            "100 × 5",
+            after.lifts.single { it.workoutLiftId == workoutLiftId.value }
+                .sets.first().previousWeightLabel,
+        )
+    }
+
     @Test
     @DisplayName("STR-121 remediation: dismissing the sheet disarms the pending create")
     fun dismissDisarmsPendingCreate() = runTest {

@@ -131,4 +131,38 @@ class PersonalRecordScoringTest {
             completedAt = at,
             liftContext = LoggedLiftContext(liftName = "Pull-up"),
         )
+
+    @Test
+    @DisplayName("STR-123: each (lift, equipment) pool crowns its own PR")
+    fun perPairWinners() {
+        val barbellOld = createSet("bb-old", weight = 100.0, reps = 5, at = earlier)
+            .copy(equipmentId = com.stratum.domain.lift.identity.EquipmentId("barbell"))
+        val barbellNew = createSet("bb-new", weight = 110.0, reps = 5, at = later)
+            .copy(equipmentId = com.stratum.domain.lift.identity.EquipmentId("barbell"))
+        val ssbOnly = createSet("ssb", weight = 60.0, reps = 5, at = later)
+            .copy(equipmentId = com.stratum.domain.lift.identity.EquipmentId("ssb"))
+
+        val flagged =
+            PersonalRecordScoring.withPersonalRecordsPerPair(
+                listOf(barbellOld, barbellNew, ssbOnly),
+            ).associateBy { it.id.value }
+
+        assertFalse(flagged.getValue("bb-old").isPersonalRecord)
+        assertTrue(flagged.getValue("bb-new").isPersonalRecord)
+        assertTrue(flagged.getValue("ssb").isPersonalRecord)
+    }
+
+    @Test
+    @DisplayName("STR-123: headline best-per-lift still spans equipment pools")
+    fun headlineSpansPools() {
+        val barbell = createSet("bb", weight = 110.0, reps = 5, at = earlier)
+            .copy(equipmentId = com.stratum.domain.lift.identity.EquipmentId("barbell"))
+        val ssb = createSet("ssb", weight = 60.0, reps = 5, at = later)
+            .copy(equipmentId = com.stratum.domain.lift.identity.EquipmentId("ssb"))
+
+        assertEquals(
+            "bb",
+            PersonalRecordScoring.bestPersonalRecordSet(listOf(barbell, ssb))?.id?.value,
+        )
+    }
 }
