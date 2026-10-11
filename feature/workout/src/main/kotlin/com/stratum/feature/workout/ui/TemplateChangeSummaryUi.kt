@@ -116,6 +116,35 @@ data class TemplateChangeGroupUi(
     val rows: List<TemplateChangeRowUi>,
 )
 
+/**
+ * Backfills [EquipmentSwappedUi] display names from the equipment catalog (STR-124).
+ * Pure: the mapper emits ids only (the session runtime has no catalog), and the
+ * ViewModel joins names at the same enrichment seam as lift equipment names.
+ * Unknown ids keep null names so the section renders the unassigned fallback.
+ */
+internal fun enrichTemplateChangeNames(
+    summary: TemplateChangeSummaryUi,
+    names: Map<String, String>,
+): TemplateChangeSummaryUi =
+    summary.copy(
+        groups =
+            summary.groups.map { group ->
+                group.copy(
+                    rows =
+                        group.rows.map { row ->
+                            if (row is EquipmentSwappedUi) {
+                                row.copy(
+                                    oldName = row.oldId?.let(names::get),
+                                    newName = names[row.newId],
+                                )
+                            } else {
+                                row
+                            }
+                        },
+                )
+            },
+    )
+
 data class TemplateChangeSummaryUi(
     val groups: List<TemplateChangeGroupUi>,
 ) {
