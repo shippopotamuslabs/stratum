@@ -114,4 +114,14 @@
     <string name="notif_rest_action_plus_10">+10s</string>
     <string name="notif_rest_action_skip">Skip</string>
     <string name="notif_active_workout_text">Workout in progress</string>
+
+    <!-- Equipment partial-swap prompt (STR-122) -->
+    <string name="equipment_rewrite_title">Sets already logged</string>
+    <string name="equipment_rewrite_keep">Keep old</string>
+    <string name="equipment_rewrite_apply">Rewrite to new</string>
+    <plurals name="equipment_rewrite_body">
+        <item quantity="one">%2$s is on 1 logged set. Rewrite it to %3$s, or keep the old equipment on the logged set?</item>
+        <item quantity="other">%2$s is on %1$d logged sets. Rewrite them to %3$s, or keep the old equipment on the logged sets?</item>
+    </plurals>
+    <string name="equipment_rewrite_unnamed_old">the previous equipment</string>
 </resources>
