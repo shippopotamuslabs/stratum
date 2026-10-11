@@ -84,6 +84,52 @@ class ComputeTemplateChangeSummaryUseCaseTest {
     }
 
     @Test
+    @DisplayName("STR-124: swapped equipment produces an EquipmentSwapped row with ids")
+    fun swappedEquipmentRow() {
+        val barbell = com.stratum.domain.lift.identity.EquipmentId("barbell")
+        val ssb = com.stratum.domain.lift.identity.EquipmentId("ssb")
+        val baseline =
+            sampleWorkout().copy(
+                workoutLifts =
+                    sampleWorkout().workoutLifts.map { lift ->
+                        lift.copy(equipmentId = barbell)
+                    },
+            )
+        val applied =
+            baseline.copy(
+                workoutLifts =
+                    listOf(
+                        baseline.workoutLifts[0].copy(equipmentId = ssb),
+                        baseline.workoutLifts[1],
+                    ),
+            )
+
+        val summary = useCase(baseline, applied, liftNames)
+
+        assertEquals(
+            listOf(EquipmentSwapped("Bench Press", barbell, ssb)),
+            summary.rows,
+        )
+    }
+
+    @Test
+    @DisplayName("STR-124: unchanged equipment produces no row")
+    fun unchangedEquipmentNoRow() {
+        val barbell = com.stratum.domain.lift.identity.EquipmentId("barbell")
+        val baseline =
+            sampleWorkout().copy(
+                workoutLifts =
+                    sampleWorkout().workoutLifts.map { lift ->
+                        lift.copy(equipmentId = barbell)
+                    },
+            )
+
+        val summary = useCase(baseline, baseline, liftNames)
+
+        assertTrue(summary.isEmpty)
+    }
+
+    @Test
     @DisplayName("Reorder produces LiftMoved rows with old and new positions")
     fun reorderRows() {
         val baseline = sampleWorkout()

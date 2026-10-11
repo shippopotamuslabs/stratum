@@ -129,6 +129,7 @@ data class WorkoutOverlay(
             addedSlots.isNotEmpty() ||
                 deletedSlotIds.isNotEmpty() ||
                 swappedLifts.isNotEmpty() ||
+                swappedEquipment.isNotEmpty() ||
                 deletedLiftIds.isNotEmpty() ||
                 addedLifts.isNotEmpty() ||
                 supersetGroupIdOverrides.isNotEmpty() ||

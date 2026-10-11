@@ -57,6 +57,7 @@ import com.stratum.domain.workout.WorkoutEditSession
 import com.stratum.feature.workout.notification.LiveWorkoutSurfaces
 import com.stratum.feature.workout.notification.RestTimerState
 import com.stratum.feature.workout.ui.EquipmentRewritePromptUi
+import com.stratum.feature.workout.ui.EquipmentSwappedUi
 import com.stratum.feature.workout.ui.EquipmentSwapUi
 import com.stratum.feature.workout.ui.PastSessionNotesGroupUi
 import com.stratum.feature.workout.ui.RenderedLiftUi
@@ -642,6 +643,25 @@ class WorkoutViewModel @Inject constructor(
                 state.lifts.map { lift ->
                     lift.copy(sessionEquipmentName = lift.sessionEquipmentId?.let(names::get))
                 },
+            templateChanges =
+                state.templateChanges?.copy(
+                    groups =
+                        state.templateChanges.groups.map { group ->
+                            group.copy(
+                                rows =
+                                    group.rows.map { row ->
+                                        if (row is EquipmentSwappedUi) {
+                                            row.copy(
+                                                oldName = row.oldId?.let(names::get),
+                                                newName = names[row.newId],
+                                            )
+                                        } else {
+                                            row
+                                        }
+                                    },
+                            )
+                        },
+                ),
         )
     }
 

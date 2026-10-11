@@ -1,5 +1,6 @@
 package com.stratum.feature.workout.ui
 
+import com.stratum.domain.workout.EquipmentSwapped
 import com.stratum.domain.workout.LiftAdded
 import com.stratum.domain.workout.LiftMoved
 import com.stratum.domain.workout.LiftRemoved
@@ -42,6 +43,7 @@ internal object TemplateChangeSummaryMapper {
     private fun TemplateChangeCategory.toCategoryUi(): TemplateChangeCategoryUi =
         when (this) {
             TemplateChangeCategory.Lifts -> TemplateChangeCategoryUi.Lifts
+            TemplateChangeCategory.Equipment -> TemplateChangeCategoryUi.Equipment
             TemplateChangeCategory.Order -> TemplateChangeCategoryUi.Order
             TemplateChangeCategory.Sets -> TemplateChangeCategoryUi.Sets
             TemplateChangeCategory.Rest -> TemplateChangeCategoryUi.Rest
@@ -54,6 +56,7 @@ internal object TemplateChangeSummaryMapper {
             is LiftAdded -> LiftAddedUi(liftName, setCount)
             is LiftRemoved -> LiftRemovedUi(liftName, setCount)
             is LiftSwapped -> LiftSwappedUi(oldName, newName)
+            is EquipmentSwapped -> EquipmentSwappedUi(liftName, oldId?.value, newId.value)
             is LiftMoved -> LiftMovedUi(liftName, oldPosition + 1, newPosition + 1)
             is SetCountChanged -> SetCountChangedUi(liftName, oldCount, newCount, replacedCount)
             is SetEdited -> SetEditedUi(liftName, setPosition + 1, oldShape.toShapeUi(), newShape.toShapeUi())
