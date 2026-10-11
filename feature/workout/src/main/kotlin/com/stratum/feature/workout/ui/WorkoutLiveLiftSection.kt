@@ -45,6 +45,8 @@ internal val LiftListSpacing = 16.dp
 private val FooterHorizontalPadding = 16.dp
 /** Vertical gap between Add Lift and Discard inside the session footer. */
 private val FooterActionSpacing = 12.dp
+/** Breathing room below Discard so it never sits flush against the bottom nav bar. */
+private val FooterBottomPadding = 16.dp
 private const val DEFAULT_ESTIMATED_LIFT_HEIGHT_PX = 420
 /** LazyList key for the trailing Add Lift + Discard chrome (not a lift panel). */
 internal const val WORKOUT_SESSION_FOOTER_KEY = "session-footer"
@@ -72,6 +74,8 @@ internal data class WorkoutLiftListActions(
  * so max scroll pins the last lift under the navigator — only the shortfall after last-lift +
  * gap + footer. Footer is a **single** LazyList item so pin math stays one inter-item gap
  * after the last lift (keyboard dock padding is layered on top and stays independent).
+ * The footer item carries its own trailing bottom padding below Discard — part of the
+ * measured footer height, so pin math stays exact.
  *
  * When the set-log keyboard is open, dock height is **added** to contentPadding (pin padding
  * stays stable) so low fields can scroll above the overlay without jumping on dismiss.
@@ -165,7 +169,11 @@ internal fun WorkoutLiftList(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = FooterHorizontalPadding)
+                            .padding(
+                                start = FooterHorizontalPadding,
+                                end = FooterHorizontalPadding,
+                                bottom = FooterBottomPadding,
+                            )
                             .onSizeChanged { footerHeightPx = it.height },
                     verticalArrangement = Arrangement.spacedBy(FooterActionSpacing),
                 ) {
