@@ -4,6 +4,7 @@ import com.stratum.domain.importing.LiftTrainingInsightsRepository
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.ProgramRepository
 import com.stratum.domain.program.ProgressionScheme
@@ -53,11 +54,21 @@ data class SnapshotRequest(
      * Mixed-unit stops are converted to the tiers unit at the rounding boundary.
      */
     val microIncrementsById: Map<LiftId, List<Weight>> = emptyMap(),
+    /**
+     * In-use equipment per template lift (STR-123: swap override, else template
+     * assignment, else lift default — resolved by the caller). A present entry scopes
+     * that lift's slot histories to the (lift, equipment) pair; legacy null-equipment
+     * rows are excluded from a scoped pool. Missing keys leave history unfiltered
+     * (back-compat + unassigned lifts). Bodyweight lifts are never filtered.
+     * An empty scoped pool cold-starts like a lift with no history (conservative).
+     */
+    val equipmentIdByWorkoutLiftId: Map<WorkoutLiftId, EquipmentId> = emptyMap(),
 )
 
 /**
  * Computes the progression snapshot once per session from history (D3). Recomputed
- * only on exercise swap. Dispatches to the matching progression engine per lift.
+ * on exercise swap and on equipment swap. Dispatches to the matching progression
+ * engine per lift.
  *
  * Per lift, builds a capacity-ordered recent-session block
  * ([com.stratum.domain.workout.progression.buildRecentSessionBlock]) from the per-slot
@@ -120,11 +131,18 @@ class GenerateProgressionSnapshotUseCase @Inject constructor(
                     historyRequest(request, workoutLift, index),
                 )
             }
+            // STR-123: scope slot histories to the in-use (lift, equipment) pair so
+            // recommendations and previous-sets follow the card's equipment. An empty
+            // scoped pool cold-starts through the same null-baseline path as no history.
+            val pairEquipmentId = request.equipmentIdByWorkoutLiftId[workoutLift.id]
+            val scopedLoadType = request.loadTypesById[workoutLift.liftId] ?: LoadType.Weighted
+            val scopedHistories =
+                scopeSlotHistoriesToEquipmentPair(perSlotHistories, pairEquipmentId, scopedLoadType)
 
             if (scheme == ProgressionScheme.Linear) {
                 val topIndex = slots.indexOfFirst { it.isTopSet }.takeIf { it >= 0 } ?: 0
                 val transition =
-                    linearProgressionEngine.diagnose(workoutLift.liftId, perSlotHistories[topIndex] ?: emptyList())
+                    linearProgressionEngine.diagnose(workoutLift.liftId, scopedHistories[topIndex] ?: emptyList())
                         .emittedEvent
                 if (transition != null) {
                     appendSchemeTransition(request.programId, workoutLift, transition)
@@ -148,7 +166,7 @@ class GenerateProgressionSnapshotUseCase @Inject constructor(
 
             // Capacity-ordered recent block → per-slot math baselines. Null = cold start
             // (no history for this lift at all); every slot gets a null baseline.
-            val recentBlock = buildRecentSessionBlock(perSlotHistories)
+            val recentBlock = buildRecentSessionBlock(scopedHistories)
 
             // Scheme gate on the top set → candidate shared weight, then look-ahead may
             // drop once for the whole straight set (real data preferred when fully covered).
@@ -158,7 +176,7 @@ class GenerateProgressionSnapshotUseCase @Inject constructor(
             val topRec = engine.recommend(
                 SlotProgressionRequest(
                     slot = topSlot,
-                    history = perSlotHistories[topIndex] ?: emptyList(),
+                    history = scopedHistories[topIndex] ?: emptyList(),
                     fallbackOneRm = null,
                     loadType = liftLoadType,
                     progressionBaseline = topBaseline,
@@ -186,7 +204,7 @@ class GenerateProgressionSnapshotUseCase @Inject constructor(
             val orderedRecs = ArrayList<SlotRecommendation>(sortedSets.size)
             for (index in sortedSets.indices) {
                 val slot = slots[index]
-                val history = perSlotHistories[index] ?: emptyList()
+                val history = scopedHistories[index] ?: emptyList()
                 val rec = engine.recommend(
                     SlotProgressionRequest(
                         slot = slot,
@@ -317,6 +335,23 @@ class GenerateProgressionSnapshotUseCase @Inject constructor(
         if (changed) {
             programRepository.saveProgram(program.copy(workouts = updatedWorkouts))
         }
+    }
+}
+
+/**
+ * Scopes per-slot histories to one (lift, equipment) pair (STR-123). Pure.
+ * Null equipment (unassigned lift) and [LoadType.Bodyweight] return [histories]
+ * unchanged; otherwise only entries logged on [equipmentId] survive, so an empty
+ * scoped pool cold-starts like a lift with no history.
+ */
+internal fun scopeSlotHistoriesToEquipmentPair(
+    histories: Map<Int, List<SlotHistoryEntry>>,
+    equipmentId: EquipmentId?,
+    loadType: LoadType,
+): Map<Int, List<SlotHistoryEntry>> {
+    if (equipmentId == null || loadType == LoadType.Bodyweight) return histories
+    return histories.mapValues { (_, entries) ->
+        entries.filter { it.loggedSet.equipmentId == equipmentId }
     }
 }
 

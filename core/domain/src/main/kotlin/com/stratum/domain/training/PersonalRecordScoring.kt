@@ -68,6 +68,28 @@ object PersonalRecordScoring {
     }
 
     /**
+     * Per-pair PR assignment (STR-123): PR identity is lift + equipment, so each
+     * (liftId, equipmentId) pool gets its own winner via [withPersonalRecords].
+     * Legacy null-equipment sets compete in their own `(liftId, null)` pool. Sets
+     * without a liftId keep flags down and e1RM null (never PR-eligible).
+     * Headline lift PRs stay "max across equipment" — [bestPersonalRecordSet] over a
+     * lift's full history is unaffected by how flags partition into pairs.
+     * Output order always matches input order (pools are re-emitted positionally).
+     */
+    fun withPersonalRecordsPerPair(sets: List<LoggedSet>): List<LoggedSet> {
+        val flaggedById =
+            sets.filter { it.liftId != null }
+                .groupBy { it.liftId to it.equipmentId }
+                .values
+                .flatMap(::withPersonalRecords)
+                .associateBy { it.id }
+        return sets.map { set ->
+            flaggedById[set.id]
+                ?: set.copy(isPersonalRecord = false, estimatedOneRm = null)
+        }
+    }
+
+    /**
      * Best set in [sets]. Null if none are eligible.
      *
      * Loaded family wins whenever any positive-load set is present so a bodyweight

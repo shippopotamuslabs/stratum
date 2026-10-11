@@ -11,6 +11,7 @@ import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.shouldShowLiveEquipmentAdjust
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.resolvedDefaultRestSeconds
 import com.stratum.domain.lift.storageWeightFromDisplay
@@ -55,6 +56,7 @@ import com.stratum.domain.workout.SetSlotId
 import com.stratum.domain.workout.SlotRecommendation
 import com.stratum.domain.workout.SnapshotRequest
 import com.stratum.domain.workout.StructuralMutation
+import com.stratum.domain.workout.resolveSessionEquipmentId
 import com.stratum.domain.workout.WorkoutOverlay
 import com.stratum.domain.workout.WorkoutStructureProjection
 import com.stratum.domain.workout.intensifier.RestDefaultForTransition
@@ -442,16 +444,43 @@ internal class LiveWorkoutSessionRuntime(
         return ProgressionScheme.Double
     }
 
-    internal suspend fun refreshSnapshotForSwappedLifts(workout: Workout) {
+    /**
+     * Re-scopes snapshots for in-session swaps (restored or external): a lift swap
+     * rebinds the history pool's lift, an equipment swap re-scopes pair history.
+     * One merged request covers lifts carrying both swaps (identity lift swaps — no
+     * pool change — are skipped unless paired with an equipment swap).
+     */
+    internal suspend fun refreshSnapshotForSwaps(workout: Workout) {
         val effective =
             workout.workoutLifts.mapNotNull { lift ->
-                val swappedId = overlay.swappedLifts[lift.id] ?: return@mapNotNull null
-                if (swappedId == lift.liftId) return@mapNotNull null
-                lift.copy(liftId = swappedId)
+                val swappedId = overlay.swappedLifts[lift.id]
+                val hasLiftSwap = swappedId != null && swappedId != lift.liftId
+                if (!hasLiftSwap && !overlay.swappedEquipment.containsKey(lift.id)) {
+                    return@mapNotNull null
+                }
+                // A lift swap on the same card rebinds the history pool's lift first.
+                lift.copy(liftId = swappedId ?: lift.liftId)
             }
         if (effective.isEmpty()) return
         mergeSnapshotForLifts(effective)
     }
+
+    /**
+     * In-use equipment per template lift for snapshot scoping (STR-123): live-swap
+     * override, else template assignment, else the effective lift's default — the same
+     * priority [LiveWorkoutOverlayOps.merge] renders. Unassigned lifts are omitted.
+     */
+    internal fun sessionEquipmentByWorkoutLiftId(
+        lifts: List<WorkoutLift>,
+    ): Map<WorkoutLiftId, EquipmentId> =
+        lifts.mapNotNull { lift ->
+            resolveSessionEquipmentId(
+                swapOverrideId = overlay.swappedEquipment[lift.id],
+                templateEquipmentId = lift.equipmentId,
+                liftEquipmentId =
+                    liftsById[overlay.swappedLifts[lift.id] ?: lift.liftId]?.equipmentId,
+            )?.let { lift.id to it }
+        }.toMap()
 
     internal suspend fun mergeSnapshotForLifts(lifts: List<WorkoutLift>) {
         if (lifts.isEmpty()) return
@@ -474,6 +503,7 @@ internal class LiveWorkoutSessionRuntime(
                 loadTypesById = liftsById.mapValues { it.value.loadType },
                 incrementTiersById = stepsByLiftId.mapValues { it.value.tiers },
                 microIncrementsById = stepsByLiftId.mapValues { it.value.microIncrements },
+                equipmentIdByWorkoutLiftId = sessionEquipmentByWorkoutLiftId(lifts),
             ),
         ).onSuccess { snapshot ->
             if (snapshot.bySlot.isNotEmpty()) {

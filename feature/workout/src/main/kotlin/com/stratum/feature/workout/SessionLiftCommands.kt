@@ -87,8 +87,14 @@ internal suspend fun LiveWorkoutSessionRuntime.handleSwapEquipment(cmd: SessionC
             swappedEquipment = overlay.swappedEquipment + (cmd.workoutLiftId to cmd.newEquipmentId),
         ),
     )
-    // Equipment swaps rebind the session read model only: snapshot history stays keyed
-    // by lift until per-pair progression lands (STR-123), so no snapshot recompute.
+    // Pair history differs from the pre-swap pool: recompute the snapshot and
+    // recommendations so previous-sets and prescriptions follow the new equipment.
+    val templateLift = baselineWorkout?.workoutLifts?.firstOrNull { it.id == cmd.workoutLiftId }
+    if (templateLift != null) {
+        val effectiveLiftId = overlay.swappedLifts[cmd.workoutLiftId] ?: templateLift.liftId
+        mergeSnapshotForLifts(listOf(templateLift.copy(liftId = effectiveLiftId)))
+    }
+    recomputeRecommendations()
     render()
     flushOverlay()
 }

@@ -146,11 +146,11 @@ class UpdateCompletedSessionSetsUseCase @Inject constructor(
     }
 
     /**
-     * Recomputes e1RM (null for zero-load) and marks exactly one PR per lift batch
-     * via [PersonalRecordScoring.withPersonalRecords].
+     * Recomputes e1RM (null for zero-load) and marks one PR per (lift, equipment)
+     * pair via [PersonalRecordScoring.withPersonalRecordsPerPair].
      */
     internal fun assignPersonalRecords(sets: List<LoggedSet>): List<LoggedSet> =
-        PersonalRecordScoring.withPersonalRecords(sets)
+        PersonalRecordScoring.withPersonalRecordsPerPair(sets)
 
     private companion object {
         const val TAG = "UpdateCompletedSessionSets"
