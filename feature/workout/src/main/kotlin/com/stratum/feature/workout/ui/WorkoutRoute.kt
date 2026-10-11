@@ -98,6 +98,7 @@ fun WorkoutRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val userMessage by viewModel.userMessage.collectAsStateWithLifecycle()
     val equipmentSwap by viewModel.equipmentSwap.collectAsStateWithLifecycle()
+    val equipmentRewritePrompt by viewModel.equipmentRewritePrompt.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var pendingSetLogged by remember { mutableStateOf<WorkoutUiEvent.SetLogged?>(null) }
     var failedLogSlotKey by remember { mutableStateOf<String?>(null) }
@@ -161,14 +162,21 @@ fun WorkoutRoute(
                 onSetLoggedConsumed = { pendingSetLogged = null },
                 failedLogSlotKey = failedLogSlotKey,
                 onFailedLogConsumed = { failedLogSlotKey = null },
-                equipmentSwap = equipmentSwap,
-                onEquipmentSwapQuery = viewModel::setEquipmentSwapQuery,
-                onEquipmentSwapSelect = viewModel::selectSwapEquipment,
-                onEquipmentSwapDismiss = viewModel::closeEquipmentSwap,
-                onEquipmentCreateNew = {
-                    viewModel.beginCreateEquipment()
-                    onCreateEquipmentClick()
-                },
+                equipmentSwapHost =
+                    EquipmentSwapHost(
+                        sheet = equipmentSwap,
+                        onQuery = viewModel::setEquipmentSwapQuery,
+                        onSelect = viewModel::selectSwapEquipment,
+                        onDismiss = viewModel::closeEquipmentSwap,
+                        onCreateNew = {
+                            viewModel.beginCreateEquipment()
+                            onCreateEquipmentClick()
+                        },
+                        rewritePrompt = equipmentRewritePrompt,
+                        onRewrite = viewModel::confirmRewriteLoggedSets,
+                        onKeepOld = viewModel::keepLoggedSetsEquipment,
+                        onDismissPrompt = viewModel::dismissRewritePrompt,
+                    ),
                 actions = WorkoutScreenActions(
                     onNavigateBack = onNavigateBack,
                     onCompleteWorkout = viewModel::completeWorkout,

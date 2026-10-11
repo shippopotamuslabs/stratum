@@ -40,6 +40,7 @@ import com.stratum.domain.training.FinalizeTrainingSessionUseCase
 import com.stratum.domain.training.GetLoggedSetsForSessionUseCase
 import com.stratum.domain.training.LogSetUseCase
 import com.stratum.domain.training.ObserveCycleProgressUseCase
+import com.stratum.domain.training.RewriteSessionLiftEquipmentUseCase
 import com.stratum.domain.training.UpdateLoggedSetUseCase
 import com.stratum.domain.workout.ApplyOverlayToWorkoutUseCase
 import com.stratum.domain.workout.ComputeTemplateChangeSummaryUseCase
@@ -55,6 +56,7 @@ import com.stratum.domain.workout.SetSlotId
 import com.stratum.domain.workout.WorkoutEditSession
 import com.stratum.feature.workout.notification.LiveWorkoutSurfaces
 import com.stratum.feature.workout.notification.RestTimerState
+import com.stratum.feature.workout.ui.EquipmentRewritePromptUi
 import com.stratum.feature.workout.ui.EquipmentSwapUi
 import com.stratum.feature.workout.ui.PastSessionNotesGroupUi
 import com.stratum.feature.workout.ui.RenderedLiftUi
@@ -122,6 +124,7 @@ class WorkoutViewModel @Inject constructor(
     private val observeEquipmentCatalog: ObserveEquipmentCatalogUseCase,
     private val getRecentlyUsedEquipment: GetRecentlyUsedEquipmentForLiftUseCase,
     private val equipmentPickResult: EquipmentPickResult,
+    private val rewriteSessionLiftEquipment: RewriteSessionLiftEquipmentUseCase,
 ) : ViewModel() {
 
     /**
@@ -143,6 +146,12 @@ class WorkoutViewModel @Inject constructor(
     // Declared above init: the pick collector launched below reads these eagerly.
     private val _equipmentSwap = MutableStateFlow<EquipmentSwapUi?>(null)
     val equipmentSwap: StateFlow<EquipmentSwapUi?> = _equipmentSwap.asStateFlow()
+
+    /** Partial-swap prompt, or null when no decision is pending. */
+    private val _equipmentRewritePrompt = MutableStateFlow<EquipmentRewritePromptUi?>(null)
+    private var rewriteInFlight = false
+    val equipmentRewritePrompt: StateFlow<EquipmentRewritePromptUi?> =
+        _equipmentRewritePrompt.asStateFlow()
 
     /** Create-new arming: target card + pick generation snapshot (see [beginCreateEquipment]). */
     private val pickAwaiter = EquipmentPickAwaiter(equipmentPickResult)
@@ -548,12 +557,80 @@ class WorkoutViewModel @Inject constructor(
         pickAwaiter.arm(target.workoutLiftId)
     }
 
-    /** Applies the selection to the session overlay (remaining unlogged sets) + closes. */
+    /**
+     * Applies the selection to the session overlay (remaining unlogged sets) + closes.
+     * When the lift has logged sets this session, the partial-swap prompt decides their
+     * fate first (STR-122) instead of applying immediately.
+     */
     fun selectSwapEquipment(optionId: String) {
         val target = _equipmentSwap.value ?: return
         pickAwaiter.disarm()
+        val loaded = sessionFrames.value as? WorkoutUiState.Loaded
+        val lift = loaded?.lifts?.firstOrNull { it.workoutLiftId == target.workoutLiftId }
+        val loggedCount = lift?.sets?.count { it.isComplete } ?: 0
+        if (lift != null && loggedCount > 0) {
+            _equipmentSwap.value = null
+            _equipmentRewritePrompt.value =
+                EquipmentRewritePromptUi(
+                    workoutLiftId = target.workoutLiftId,
+                    liftId = target.liftId,
+                    liftName = target.liftName,
+                    oldName = lift.sessionEquipmentName,
+                    newId = optionId,
+                    newName = target.sheet.all.firstOrNull { it.id == optionId }?.name
+                        ?: target.sheet.current?.name
+                        ?: optionId,
+                    loggedCount = loggedCount,
+                )
+            return
+        }
         swapEquipment(WorkoutLiftId(target.workoutLiftId), EquipmentId(optionId))
         _equipmentSwap.value = null
+    }
+
+    /** Prompt choice: logged sets keep the old equipment; only remaining sets swap. */
+    fun keepLoggedSetsEquipment() {
+        if (rewriteInFlight) return
+        val prompt = _equipmentRewritePrompt.value ?: return
+        _equipmentRewritePrompt.value = null
+        swapEquipment(WorkoutLiftId(prompt.workoutLiftId), EquipmentId(prompt.newId))
+    }
+
+    /**
+     * Prompt choice: rewrite the logged sets' equipment to the new piece, then swap.
+     * Rewrite runs first so a failure leaves nothing applied; the prompt stays for
+     * retry. Choices are locked while the rewrite is in flight.
+     */
+    fun confirmRewriteLoggedSets() {
+        val prompt = _equipmentRewritePrompt.value ?: return
+        if (rewriteInFlight) return
+        val sessionId = session.cachedSessionId()
+        if (sessionId == null) {
+            _userMessage.value = MSG_EQUIPMENT_REWRITE_FAILED
+            return
+        }
+        rewriteInFlight = true
+        viewModelScope.launch {
+            val result =
+                rewriteSessionLiftEquipment(
+                    sessionId = sessionId,
+                    liftId = LiftId(prompt.liftId),
+                    newEquipmentId = EquipmentId(prompt.newId),
+                )
+            rewriteInFlight = false
+            if (result.isSuccess) {
+                swapEquipment(WorkoutLiftId(prompt.workoutLiftId), EquipmentId(prompt.newId))
+                _equipmentRewritePrompt.value = null
+            } else {
+                _userMessage.value = MSG_EQUIPMENT_REWRITE_FAILED
+            }
+        }
+    }
+
+    /** Prompt dismissed without choosing: no swap is applied. */
+    fun dismissRewritePrompt() {
+        if (rewriteInFlight) return
+        _equipmentRewritePrompt.value = null
     }
 
     private fun attachEquipmentNames(state: WorkoutUiState): WorkoutUiState {
@@ -792,6 +869,7 @@ class WorkoutViewModel @Inject constructor(
         const val MSG_SESSION_COMMAND_DROPPED =
             "Couldn't update the workout. Leave and re-open the session."
         const val MSG_NOTES_SAVE_FAILED = "Couldn't save notes. Try again."
+        const val MSG_EQUIPMENT_REWRITE_FAILED = "Couldn't update logged sets. Try again."
     }
 }
 
