@@ -1,8 +1,5 @@
 package com.stratum.core.data.db
 
-import androidx.room.testing.MigrationTestHelper
-import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
-import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
@@ -18,13 +15,7 @@ class SetEquipmentMigration9To10Test {
     @Test
     @DisplayName("9→10 backfills logged_sets.equipmentId from the set's lift; nulls stay null and clean")
     fun migrate9To10() {
-        val helper =
-            MigrationTestHelper(
-                InstrumentationRegistry.getInstrumentation(),
-                StratumDatabase::class.java,
-                emptyList(),
-                FrameworkSQLiteOpenHelperFactory(),
-            )
+        val helper = MigrationTestUtils.newMigrationHelper()
         val dbName = "stratum-logged-sets-equipment-9-10"
         helper.createDatabase(dbName, 9).use { db ->
             // createDatabase builds the v9 schema from the exported 9.json, so
@@ -98,7 +89,7 @@ class SetEquipmentMigration9To10Test {
         helper.runMigrationsAndValidate(dbName, 10, true, MIGRATION_9_10).use { migrated ->
             // equipmentId column exists.
             val columns =
-                rows(migrated, "PRAGMA table_info(logged_sets)").map { it[1] as String }
+                MigrationTestUtils.rows(migrated, "PRAGMA table_info(logged_sets)").map { it[1] as String }
             assertTrue(columns.contains("equipmentId"))
 
             // Backfill: lift-linked sets inherit; bare-lift and liftless sets stay null.
@@ -109,7 +100,7 @@ class SetEquipmentMigration9To10Test {
                     listOf("set-c", null),
                     listOf("set-d", null),
                 ),
-                rows(migrated, "SELECT id, equipmentId FROM logged_sets ORDER BY id"),
+                MigrationTestUtils.rows(migrated, "SELECT id, equipmentId FROM logged_sets ORDER BY id"),
             )
 
             // All other columns byte-identical, including the PR flag and e1RM.
@@ -120,7 +111,7 @@ class SetEquipmentMigration9To10Test {
                     listOf("set-c", 0.0, 12L, null, null, 1700L, null, null),
                     listOf("set-d", 95.0, 5L, 3L, null, 1800L, null, 110.0),
                 ),
-                rows(
+                MigrationTestUtils.rows(
                     migrated,
                     "SELECT id, weightAmount, reps, rir, partialReps, completedAtEpochMillis, " +
                         "isPersonalRecord, estimatedOneRm FROM logged_sets ORDER BY id",
@@ -129,7 +120,7 @@ class SetEquipmentMigration9To10Test {
 
             // Backfilled rows are dirty with a bumped clock; null-staying rows untouched.
             val syncState =
-                rows(
+                MigrationTestUtils.rows(
                     migrated,
                     "SELECT id, pending_sync, updated_at_epoch_millis FROM logged_sets ORDER BY id",
                 )
@@ -144,7 +135,7 @@ class SetEquipmentMigration9To10Test {
 
             // New (liftId, equipmentId) index exists alongside the established indexes.
             val indexes =
-                rows(
+                MigrationTestUtils.rows(
                     migrated,
                     "SELECT name FROM sqlite_master WHERE type = 'index' " +
                         "AND tbl_name = 'logged_sets' AND name NOT LIKE 'sqlite_%' " +
@@ -162,30 +153,10 @@ class SetEquipmentMigration9To10Test {
             )
 
             // No FK added on equipmentId — only the session cascade remains.
-            val fkList = rows(migrated, "PRAGMA foreign_key_list(logged_sets)")
+            val fkList = MigrationTestUtils.rows(migrated, "PRAGMA foreign_key_list(logged_sets)")
             assertEquals(1, fkList.size)
             assertTrue(fkList.any { it[2] == "training_sessions" && it[3] == "sessionId" })
         }
     }
 
-    private fun rows(
-        db: androidx.sqlite.db.SupportSQLiteDatabase,
-        sql: String,
-    ): List<List<Any?>> =
-        db.query(sql).use { cursor ->
-            buildList {
-                while (cursor.moveToNext()) {
-                    add(
-                        List(cursor.columnCount) { index ->
-                            when (cursor.getType(index)) {
-                                android.database.Cursor.FIELD_TYPE_INTEGER -> cursor.getLong(index)
-                                android.database.Cursor.FIELD_TYPE_FLOAT -> cursor.getDouble(index)
-                                android.database.Cursor.FIELD_TYPE_NULL -> null
-                                else -> cursor.getString(index)
-                            }
-                        },
-                    )
-                }
-            }
-        }
 }

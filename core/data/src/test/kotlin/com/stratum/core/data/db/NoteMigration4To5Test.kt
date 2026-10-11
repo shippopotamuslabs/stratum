@@ -1,8 +1,5 @@
 package com.stratum.core.data.db
 
-import androidx.room.testing.MigrationTestHelper
-import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
-import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
@@ -18,13 +15,7 @@ class NoteMigration4To5Test {
     @Test
     @DisplayName("4→5 backfills note tables, keeps legacy pins, and relaxes the session slot")
     fun migrate4To5() {
-        val helper =
-            MigrationTestHelper(
-                InstrumentationRegistry.getInstrumentation(),
-                StratumDatabase::class.java,
-                emptyList(),
-                FrameworkSQLiteOpenHelperFactory(),
-            )
+        val helper = MigrationTestUtils.newMigrationHelper()
         val dbName = "stratum-notes-4-5"
         helper.createDatabase(dbName, 4).use { db ->
             db.execSQL(
@@ -102,25 +93,25 @@ class NoteMigration4To5Test {
         helper.runMigrationsAndValidate(dbName, 5, true, MIGRATION_4_5).use { migrated ->
             assertEquals(
                 listOf(listOf("lift-1::0", "lift-1", "catalog pin", 0L, 100L, 100L, 0L)),
-                rows(migrated, "SELECT id, lift_id, body, position, created_at_epoch_millis, updated_at_epoch_millis, pending_sync FROM lift_notes"),
+                MigrationTestUtils.rows(migrated, "SELECT id, lift_id, body, position, created_at_epoch_millis, updated_at_epoch_millis, pending_sync FROM lift_notes"),
             )
             assertEquals(
                 listOf(listOf("wl-1::0", "wl-1", "slot pin", 0L, 200L, 200L, 0L)),
-                rows(migrated, "SELECT id, workout_lift_id, body, position, created_at_epoch_millis, updated_at_epoch_millis, pending_sync FROM workout_lift_notes"),
+                MigrationTestUtils.rows(migrated, "SELECT id, workout_lift_id, body, position, created_at_epoch_millis, updated_at_epoch_millis, pending_sync FROM workout_lift_notes"),
             )
             // Legacy mirrors stay readable.
             assertEquals(
                 "catalog pin",
-                single(migrated, "SELECT pinned_note FROM lifts WHERE id = 'lift-1'"),
+                MigrationTestUtils.single(migrated, "SELECT pinned_note FROM lifts WHERE id = 'lift-1'"),
             )
             assertEquals(
                 "slot pin",
-                single(migrated, "SELECT pinned_note FROM workout_lifts WHERE id = 'wl-1'"),
+                MigrationTestUtils.single(migrated, "SELECT pinned_note FROM workout_lifts WHERE id = 'wl-1'"),
             )
             // Session row gains position + created_at (= updated_at for pre-v5 rows).
             assertEquals(
                 listOf(listOf("n-1", "session body", 0L, 50L)),
-                rows(migrated, "SELECT id, body, position, created_at_epoch_millis FROM lift_session_notes"),
+                MigrationTestUtils.rows(migrated, "SELECT id, body, position, created_at_epoch_millis FROM lift_session_notes"),
             )
             // The slot index is now non-unique: a second row for the slot inserts cleanly.
             migrated.execSQL(
@@ -128,7 +119,7 @@ class NoteMigration4To5Test {
             )
             assertEquals(
                 2,
-                (single(migrated, "SELECT COUNT(*) FROM lift_session_notes") as Long).toInt(),
+                (MigrationTestUtils.single(migrated, "SELECT COUNT(*) FROM lift_session_notes") as Long).toInt(),
             )
             assertSlotIndexNonUnique(migrated)
         }
@@ -149,26 +140,4 @@ class NoteMigration4To5Test {
         }
     }
 
-    private fun rows(
-        db: androidx.sqlite.db.SupportSQLiteDatabase,
-        sql: String,
-    ): List<List<Any?>> =
-        db.query(sql).use { cursor ->
-            buildList {
-                while (cursor.moveToNext()) {
-                    add(
-                        List(cursor.columnCount) { index ->
-                            when (cursor.getType(index)) {
-                                android.database.Cursor.FIELD_TYPE_INTEGER -> cursor.getLong(index)
-                                android.database.Cursor.FIELD_TYPE_NULL -> null
-                                else -> cursor.getString(index)
-                            }
-                        },
-                    )
-                }
-            }
-        }
-
-    private fun single(db: androidx.sqlite.db.SupportSQLiteDatabase, sql: String): Any? =
-        rows(db, sql).single().single()
 }

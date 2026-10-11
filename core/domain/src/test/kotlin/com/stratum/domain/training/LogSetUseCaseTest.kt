@@ -163,8 +163,8 @@ class LogSetUseCaseTest {
     }
 
     @Test
-    @DisplayName("null command equipment resolves to the lift's current equipment")
-    fun nullCommandEquipmentDefaultsToLift() = runTest {
+    @DisplayName("default equipment source resolves to the lift's current equipment")
+    fun defaultEquipmentSourceResolvesToLift() = runTest {
         val repo = FakeTrainingLogRepository()
         repo.seedSession(WorkoutLoggingFixtures.inProgressSession(id = "ts-live-1"))
         val useCase = buildUseCase(repo)
@@ -189,7 +189,7 @@ class LogSetUseCaseTest {
         val useCase = buildUseCase(repo)
         val swapTarget = com.stratum.domain.lift.identity.EquipmentId("eq-cable")
 
-        val set = useCase(command().copy(equipmentId = swapTarget)).getOrThrow()
+        val set = useCase(command().copy(equipment = SetEquipmentSource.Explicit(swapTarget))).getOrThrow()
 
         assertEquals(swapTarget, set.equipmentId)
     }

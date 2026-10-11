@@ -2,9 +2,6 @@ package com.stratum.core.data.db
 
 import android.content.Context
 import androidx.room.Room
-import androidx.room.testing.MigrationTestHelper
-import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
-import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
@@ -32,25 +29,10 @@ class DatabaseMigrationChainTest {
     @DisplayName("production builder upgrades every shipped schema version to current")
     fun productionBuilderUpgradesEveryShippedVersion() {
         val context = RuntimeEnvironment.getApplication()
-        val current = currentSchemaVersion(context)
+        val current = MigrationTestUtils.currentSchemaVersion
         assertTrue(current > 1, "expected a migrated schema, got v$current")
         for (version in 1 until current) {
             assertUpgrade(context, version, current)
-        }
-    }
-
-    private fun currentSchemaVersion(context: Context): Int {
-        val name = "stratum-chain-current"
-        context.deleteDatabase(name)
-        val database =
-            Room.databaseBuilder(context, StratumDatabase::class.java, name)
-                .withProductionMigrations()
-                .build()
-        return try {
-            database.openHelper.readableDatabase.version
-        } finally {
-            database.close()
-            context.deleteDatabase(name)
         }
     }
 
@@ -58,23 +40,18 @@ class DatabaseMigrationChainTest {
         val name = "stratum-chain-$fromVersion"
         val markerId = "marker-$fromVersion"
         context.deleteDatabase(name)
-        val helper =
-            MigrationTestHelper(
-                InstrumentationRegistry.getInstrumentation(),
-                StratumDatabase::class.java,
-                emptyList(),
-                FrameworkSQLiteOpenHelperFactory(),
-            )
-        // onboarding_progress is untouched by every migration (identical v1→v10):
-        // a stable marker table for all start versions.
+        val helper = MigrationTestUtils.newMigrationHelper()
+        // onboarding_progress is untouched by every migration (identical across all
+        // shipped versions): a stable marker table for all start versions.
         helper.createDatabase(name, fromVersion).use { db ->
             db.execSQL(
                 """
                 INSERT INTO onboarding_progress
                   (id, currentStep, startedAt, completedAt, selected_path,
                    updated_at_epoch_millis, pending_sync)
-                VALUES ('$markerId', 'Profile', 1, NULL, NULL, 1, 0)
+                VALUES (?, 'Profile', 1, NULL, NULL, 1, 0)
                 """.trimIndent(),
+                arrayOf<Any?>(markerId),
             )
         }
         val database =
@@ -84,15 +61,16 @@ class DatabaseMigrationChainTest {
         try {
             val sqlite = database.openHelper.readableDatabase
             assertEquals(current, sqlite.version, "v$fromVersion must upgrade to v$current")
-            sqlite.query(
-                "SELECT id FROM onboarding_progress WHERE id = ?",
-                arrayOf<Any?>(markerId),
-            ).use { cursor ->
-                assertTrue(
-                    cursor.count == 1,
-                    "marker row must survive v$fromVersion → v$current",
+            val surviving =
+                MigrationTestUtils.rows(
+                    sqlite,
+                    "SELECT id FROM onboarding_progress WHERE id = ?",
+                    arrayOf<Any?>(markerId),
                 )
-            }
+            assertTrue(
+                surviving.size == 1,
+                "marker row must survive v$fromVersion → v$current",
+            )
         } finally {
             database.close()
             context.deleteDatabase(name)

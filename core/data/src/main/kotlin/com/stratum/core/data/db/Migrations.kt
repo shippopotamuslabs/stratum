@@ -3,6 +3,7 @@ package com.stratum.core.data.db
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.stratum.core.data.sync.SyncFlags
 import java.util.UUID
 
 /**
@@ -288,6 +289,58 @@ val MIGRATION_7_8: Migration =
     }
 
 /**
+ * Backfills [column] on [table] from [parentColumn] on [parentTable] for rows whose
+ * keys match ([childKeyColumn] on the child, [parentKeyColumn] on the parent). Rows
+ * with no matching parent keep null. Emits the correlated UPDATE previously inlined
+ * per migration.
+ */
+internal fun SupportSQLiteDatabase.backfillColumnFromParent(
+    table: String,
+    column: String,
+    parentTable: String,
+    parentColumn: String,
+    childKeyColumn: String,
+    parentKeyColumn: String = "id",
+) {
+    execSQL(
+        "UPDATE `$table` SET `$column` = (" +
+            "SELECT `$parentColumn` FROM `$parentTable` " +
+            "WHERE `$parentTable`.`$parentKeyColumn` = `$table`.`$childKeyColumn`)",
+    )
+}
+
+/**
+ * Stamps rows matching [where] as locally-modified sync payload
+ * (`pending_sync = PENDING_UPSERT` with a bumped clock) so the upload engine pushes
+ * the backfilled data (MIGRATION_7_8 pattern). [where] is a static column predicate
+ * over [table].
+ */
+internal fun SupportSQLiteDatabase.markDirtyWhere(
+    table: String,
+    where: String,
+    now: Long = System.currentTimeMillis(),
+) {
+    execSQL(
+        "UPDATE `$table` SET `pending_sync` = ${SyncFlags.PENDING_UPSERT}, " +
+            "`updated_at_epoch_millis` = ? WHERE $where",
+        arrayOf<Any?>(now),
+    )
+}
+
+/**
+ * Creates a non-unique index unless it already exists.
+ */
+internal fun SupportSQLiteDatabase.createIndexIfNotExists(
+    indexName: String,
+    table: String,
+    vararg columns: String,
+) {
+    execSQL(
+        "CREATE INDEX IF NOT EXISTS `$indexName` ON `$table` (${columns.joinToString { "`$it`" }})",
+    )
+}
+
+/**
  * v9 → v10: set-level equipment logging (STR-118).
  *
  * - Adds nullable `logged_sets.equipmentId` (bare column, no FK — same as `liftId`)
@@ -304,24 +357,19 @@ val MIGRATION_9_10: Migration =
     object : Migration(9, 10) {
         override fun migrate(db: SupportSQLiteDatabase) {
             db.execSQL("ALTER TABLE `logged_sets` ADD COLUMN `equipmentId` TEXT")
-            db.execSQL(
-                """
-                UPDATE `logged_sets`
-                SET `equipmentId` = (
-                    SELECT `equipmentId` FROM `lifts`
-                    WHERE `lifts`.`id` = `logged_sets`.`liftId`
-                )
-                """.trimIndent(),
+            db.backfillColumnFromParent(
+                table = "logged_sets",
+                column = "equipmentId",
+                parentTable = "lifts",
+                parentColumn = "equipmentId",
+                childKeyColumn = "liftId",
             )
-            val now = System.currentTimeMillis()
-            db.execSQL(
-                "UPDATE `logged_sets` SET `pending_sync` = 1, `updated_at_epoch_millis` = ? " +
-                    "WHERE `equipmentId` IS NOT NULL",
-                arrayOf<Any?>(now),
-            )
-            db.execSQL(
-                "CREATE INDEX IF NOT EXISTS `index_logged_sets_liftId_equipmentId` " +
-                    "ON `logged_sets` (`liftId`, `equipmentId`)",
+            db.markDirtyWhere(table = "logged_sets", where = "`equipmentId` IS NOT NULL")
+            db.createIndexIfNotExists(
+                indexName = "index_logged_sets_liftId_equipmentId",
+                table = "logged_sets",
+                "liftId",
+                "equipmentId",
             )
         }
     }

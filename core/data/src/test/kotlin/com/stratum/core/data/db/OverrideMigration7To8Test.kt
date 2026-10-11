@@ -1,8 +1,5 @@
 package com.stratum.core.data.db
 
-import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
-import androidx.test.platform.app.InstrumentationRegistry
-import androidx.room.testing.MigrationTestHelper
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -17,13 +14,7 @@ class OverrideMigration7To8Test {
     @Test
     @DisplayName("7→8 converts lift overrides to '<lift name> Stack' clones with sync parity")
     fun migrate7To8() {
-        val helper =
-            MigrationTestHelper(
-                InstrumentationRegistry.getInstrumentation(),
-                StratumDatabase::class.java,
-                emptyList(),
-                FrameworkSQLiteOpenHelperFactory(),
-            )
+        val helper = MigrationTestUtils.newMigrationHelper()
         val dbName = "stratum-overrides-7-8"
         helper.createDatabase(dbName, 7).use { db ->
             db.execSQL(
@@ -72,15 +63,15 @@ class OverrideMigration7To8Test {
         }
         helper.runMigrationsAndValidate(dbName, 8, true, MIGRATION_7_8).use { migrated ->
             // Clone names: "Squat Stack" is taken, so the Squat clone dedupes.
-            val squatCloneId = single(migrated, "SELECT id FROM equipment WHERE name = 'Squat Stack 2'") as String
-            val rowCloneId = single(migrated, "SELECT id FROM equipment WHERE name = 'Row Stack'") as String
+            val squatCloneId = MigrationTestUtils.single(migrated, "SELECT id FROM equipment WHERE name = 'Squat Stack 2'") as String
+            val rowCloneId = MigrationTestUtils.single(migrated, "SELECT id FROM equipment WHERE name = 'Row Stack'") as String
             assertEquals(
                 listOf(listOf("Squat Stack 2", 1L, "[2.5]", 1L)),
-                rows(migrated, "SELECT name, isCustom, micro_options_json, pending_sync FROM equipment WHERE id = '$squatCloneId'"),
+                MigrationTestUtils.rows(migrated, "SELECT name, isCustom, micro_options_json, pending_sync FROM equipment WHERE id = '$squatCloneId'"),
             )
             assertEquals(
                 listOf(listOf("Row Stack", 1L, "[1.25]", 1L)),
-                rows(migrated, "SELECT name, isCustom, micro_options_json, pending_sync FROM equipment WHERE id = '$rowCloneId'"),
+                MigrationTestUtils.rows(migrated, "SELECT name, isCustom, micro_options_json, pending_sync FROM equipment WHERE id = '$rowCloneId'"),
             )
             // Override bands copied as equipment-scoped rows with deterministic ids.
             assertEquals(
@@ -88,26 +79,26 @@ class OverrideMigration7To8Test {
                     listOf("e_${squatCloneId}_0", squatCloneId, null, 0.0, 100.0, 5.0, 1L),
                     listOf("e_${squatCloneId}_100", squatCloneId, null, 100.0, null, 10.0, 1L),
                 ),
-                rows(migrated, "SELECT id, equipmentId, liftId, lowerBound, upperBound, increment, pending_sync FROM increment_tiers WHERE equipmentId = '$squatCloneId' ORDER BY lowerBound"),
+                MigrationTestUtils.rows(migrated, "SELECT id, equipmentId, liftId, lowerBound, upperBound, increment, pending_sync FROM increment_tiers WHERE equipmentId = '$squatCloneId' ORDER BY lowerBound"),
             )
             // Old lift-scoped rows are gone; shared rows untouched and still clean.
-            assertEquals(0L, single(migrated, "SELECT COUNT(*) FROM increment_tiers WHERE liftId IS NOT NULL"))
+            assertEquals(0L, MigrationTestUtils.single(migrated, "SELECT COUNT(*) FROM increment_tiers WHERE liftId IS NOT NULL"))
             assertEquals(
                 listOf(listOf("e_eq-default_0", "eq-default", 0L)),
-                rows(migrated, "SELECT id, equipmentId, pending_sync FROM increment_tiers WHERE id = 'e_eq-default_0'"),
+                MigrationTestUtils.rows(migrated, "SELECT id, equipmentId, pending_sync FROM increment_tiers WHERE id = 'e_eq-default_0'"),
             )
             // Lifts reassigned to their clones, micro overrides cleared, marked dirty.
             assertEquals(
                 listOf(listOf(squatCloneId, null, 1L)),
-                rows(migrated, "SELECT equipmentId, micro_options_json, pending_sync FROM lifts WHERE id = 'lift-squat'"),
+                MigrationTestUtils.rows(migrated, "SELECT equipmentId, micro_options_json, pending_sync FROM lifts WHERE id = 'lift-squat'"),
             )
             assertEquals(
                 listOf(listOf(rowCloneId, null, 1L)),
-                rows(migrated, "SELECT equipmentId, micro_options_json, pending_sync FROM lifts WHERE id = 'lift-row'"),
+                MigrationTestUtils.rows(migrated, "SELECT equipmentId, micro_options_json, pending_sync FROM lifts WHERE id = 'lift-row'"),
             )
             assertEquals(
                 listOf(listOf("eq-default", null, 0L)),
-                rows(migrated, "SELECT equipmentId, micro_options_json, pending_sync FROM lifts WHERE id = 'lift-bench'"),
+                MigrationTestUtils.rows(migrated, "SELECT equipmentId, micro_options_json, pending_sync FROM lifts WHERE id = 'lift-bench'"),
             )
             // Stale cloud docs for the deleted override rows are tombstoned.
             assertEquals(
@@ -115,34 +106,11 @@ class OverrideMigration7To8Test {
                     listOf("increment_tiers/lift-squat_0", "increment_tiers", "lift-squat_0"),
                     listOf("increment_tiers/lift-squat_100", "increment_tiers", "lift-squat_100"),
                 ),
-                rows(migrated, "SELECT row_id, collection_path, entity_id FROM pending_cloud_deletes ORDER BY entity_id"),
+                MigrationTestUtils.rows(migrated, "SELECT row_id, collection_path, entity_id FROM pending_cloud_deletes ORDER BY entity_id"),
             )
             // No other equipment was cloned.
-            assertEquals(4L, single(migrated, "SELECT COUNT(*) FROM equipment"))
+            assertEquals(4L, MigrationTestUtils.single(migrated, "SELECT COUNT(*) FROM equipment"))
         }
     }
 
-    private fun rows(
-        db: androidx.sqlite.db.SupportSQLiteDatabase,
-        sql: String,
-    ): List<List<Any?>> =
-        db.query(sql).use { cursor ->
-            buildList {
-                while (cursor.moveToNext()) {
-                    add(
-                        List(cursor.columnCount) { index ->
-                            when (cursor.getType(index)) {
-                                android.database.Cursor.FIELD_TYPE_INTEGER -> cursor.getLong(index)
-                                android.database.Cursor.FIELD_TYPE_FLOAT -> cursor.getDouble(index)
-                                android.database.Cursor.FIELD_TYPE_NULL -> null
-                                else -> cursor.getString(index)
-                            }
-                        },
-                    )
-                }
-            }
-        }
-
-    private fun single(db: androidx.sqlite.db.SupportSQLiteDatabase, sql: String): Any? =
-        rows(db, sql).single().single()
 }

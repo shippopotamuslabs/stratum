@@ -1,8 +1,5 @@
 package com.stratum.core.data.db
 
-import androidx.room.testing.MigrationTestHelper
-import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
-import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -17,13 +14,7 @@ class StratumDatabaseAutoMigration3To4Test {
     @Test
     @DisplayName("AutoMigration 3→4 adds partialReps to logged_sets")
     fun migrate3To4() {
-        val helper =
-            MigrationTestHelper(
-                InstrumentationRegistry.getInstrumentation(),
-                StratumDatabase::class.java,
-                emptyList(),
-                FrameworkSQLiteOpenHelperFactory(),
-            )
+        val helper = MigrationTestUtils.newMigrationHelper()
         val dbName = "stratum-auto-3-4"
         helper.createDatabase(dbName, 3).close()
         helper.runMigrationsAndValidate(dbName, 4, true).use { migrated ->
