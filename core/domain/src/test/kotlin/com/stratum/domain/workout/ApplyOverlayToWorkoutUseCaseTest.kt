@@ -114,6 +114,39 @@ class ApplyOverlayToWorkoutUseCaseTest {
     }
 
     @Test
+    @DisplayName("STR-124: swapped equipment persists to the template lift")
+    fun swappedEquipmentApplied() {
+        val baseline = sampleWorkout()
+        val newEquipmentId = com.stratum.domain.lift.identity.EquipmentId("ssb")
+        val overlay = WorkoutOverlay(
+            swappedEquipment = mapOf(WorkoutLiftId("wl-1") to newEquipmentId),
+        )
+
+        val result = useCase(baseline, overlay)
+
+        assertEquals(newEquipmentId, result.workoutLifts[0].equipmentId)
+        assertEquals(null, result.workoutLifts[1].equipmentId)
+    }
+
+    @Test
+    @DisplayName("STR-124: template equipment survives a swap-free save-back")
+    fun templateEquipmentPreservedWithoutSwap() {
+        val barbell = com.stratum.domain.lift.identity.EquipmentId("barbell")
+        val baseline =
+            sampleWorkout().copy(
+                workoutLifts =
+                    sampleWorkout().workoutLifts.map { lift ->
+                        lift.copy(equipmentId = barbell)
+                    },
+            )
+
+        val result = useCase(baseline, WorkoutOverlay())
+
+        assertEquals(barbell, result.workoutLifts[0].equipmentId)
+        assertEquals(barbell, result.workoutLifts[1].equipmentId)
+    }
+
+    @Test
     @DisplayName("Deleted sets are removed from the workout lift")
     fun deletedSetsRemoved() {
         val baseline = sampleWorkout()
@@ -356,6 +389,21 @@ class ApplyOverlayToWorkoutUseCaseTest {
         assertTrue(
             WorkoutOverlay(
                 restSecondsOverrides = mapOf(SetSlotId.Template(LiftSetId("ls-1")) to 60),
+            ).isDirty,
+        )
+    }
+
+    @Test
+    @DisplayName("STR-124: swappedEquipment marks the overlay dirty (update-template offer)")
+    fun swappedEquipmentIsDirty() {
+        assertFalse(WorkoutOverlay().isDirty)
+        assertTrue(
+            WorkoutOverlay(
+                swappedEquipment =
+                    mapOf(
+                        WorkoutLiftId("wl-1") to
+                            com.stratum.domain.lift.identity.EquipmentId("ssb"),
+                    ),
             ).isDirty,
         )
     }

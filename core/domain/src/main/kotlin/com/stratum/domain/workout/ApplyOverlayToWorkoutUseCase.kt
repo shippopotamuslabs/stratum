@@ -14,9 +14,9 @@ import javax.inject.Inject
  * so the changes can be persisted via `SaveWorkoutUseCase`. Only the structural fields are
  * applied — logged sets and live recommendations are session activity, not template edits.
  *
- * Applied overlay fields: swapped lifts, deleted lifts, added lifts, deleted sets, added sets,
- * superset group overrides, rest-timer-between-lifts overrides, per-slot rest-seconds overrides,
- * per-slot set-type/shape overrides, and lift reordering.
+ * Applied overlay fields: swapped lifts, swapped equipment, deleted lifts, added lifts,
+ * deleted sets, added sets, superset group overrides, rest-timer-between-lifts overrides,
+ * per-slot rest-seconds overrides, per-slot set-type/shape overrides, and lift reordering.
  *
  * Overlay-added slots that are also present in [WorkoutOverlay.deletedSlotIds] are **not**
  * written to the template (matches live merge semantics). Live-generated myo mini-sets
@@ -69,6 +69,7 @@ class ApplyOverlayToWorkoutUseCase @Inject constructor() {
                     sets = allSets,
                     supersetGroupId = updatedSupersetGroupId,
                     useRestTimerBetweenLifts = updatedRestTimer,
+                    equipmentId = overlay.swappedEquipment[lift.id] ?: lift.equipmentId,
                     pinnedNote = resolvedWorkoutPinnedNoteFirst(
                         overlay,
                         lift.id,
@@ -125,6 +126,7 @@ class ApplyOverlayToWorkoutUseCase @Inject constructor() {
                     sets = sets,
                     supersetGroupId = groupOverride,
                     useRestTimerBetweenLifts = restOverride ?: added.useRestTimerBetweenLifts,
+                    equipmentId = overlay.swappedEquipment[added.workoutLiftId],
                     pinnedNote = resolvedWorkoutPinnedNoteFirst(
                         overlay,
                         added.workoutLiftId,
