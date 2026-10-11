@@ -20,6 +20,7 @@ import com.stratum.domain.lift.DeleteCustomEquipmentUseCase
 import com.stratum.domain.lift.DismissEquipmentProposalUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId
+import com.stratum.domain.lift.EquipmentPickResult
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.shortLabel
 import com.stratum.feature.workout.ui.ProposalEditContext

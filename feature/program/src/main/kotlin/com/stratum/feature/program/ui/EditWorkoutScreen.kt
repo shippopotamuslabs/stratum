@@ -78,6 +78,7 @@ fun EditWorkoutRoute(
     onSwapLiftClick: (workoutId: String, workoutLiftId: String?, liftId: String?, liftName: String?) -> Unit,
     onReorderLiftsClick: (workoutId: String) -> Unit,
     onNavigateToWorkout: (workoutId: String) -> Unit = {},
+    onCreateEquipmentClick: () -> Unit = {},
     modifier: Modifier = Modifier,
     programId: String? = null,
     viewModel: EditWorkoutViewModel = hiltViewModel(),
@@ -207,8 +208,10 @@ fun EditWorkoutRoute(
             state = swap.sheet,
             onQueryChange = viewModel::setEquipmentSwapQuery,
             onSelect = { viewModel.selectSwapEquipment(it.id) },
-            // Create-new entry point — wired to the equipment editor in STR-121.
-            onCreateNew = {},
+            onCreateNew = {
+                viewModel.beginCreateEquipment()
+                onCreateEquipmentClick()
+            },
             onDismissRequest = viewModel::closeEquipmentSwap,
         )
     }

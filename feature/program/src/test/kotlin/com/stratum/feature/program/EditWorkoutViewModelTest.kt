@@ -46,6 +46,7 @@ import com.stratum.feature.program.ui.PLACEHOLDER_LIFT_NAME
 import com.stratum.feature.program.ui.SaveBlockedReason
 import app.cash.turbine.ReceiveTurbine
 import java.time.Instant
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -63,6 +64,7 @@ class EditWorkoutViewModelTest {
     private lateinit var repository: FakeProgramRepository
     private lateinit var trainingLog: FakeTrainingLogRepository
     private lateinit var equipmentRepository: com.stratum.core.testing.onboarding.FakeEquipmentRepository
+    private lateinit var equipmentPickResult: com.stratum.domain.lift.EquipmentPickResult
     private lateinit var workoutEditSession: WorkoutEditSession
     private val logging = FakeLoggingPort()
 
@@ -71,6 +73,7 @@ class EditWorkoutViewModelTest {
         repository = FakeProgramRepository(PROGRAM)
         trainingLog = FakeTrainingLogRepository(programRepository = repository)
         equipmentRepository = com.stratum.core.testing.onboarding.FakeEquipmentRepository()
+        equipmentPickResult = com.stratum.domain.lift.EquipmentPickResult()
         workoutEditSession = WorkoutEditSession()
     }
 
@@ -585,6 +588,180 @@ class EditWorkoutViewModelTest {
         }
     }
 
+    @Test
+    @DisplayName("STR-121: created equipment pick applies to the draft and closes the sheet")
+    fun createNewPickAppliesToDraft() = runTest {
+        seedSwapCatalog()
+        val viewModel = buildViewModel()
+        viewModel.initialize(WORKOUT_ID)
+        viewModel.uiState.test {
+            awaitLoaded()
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        viewModel.openEquipmentSwap(WORKOUT_LIFT_ID)
+        viewModel.beginCreateEquipment()
+        equipmentRepository.seed(
+            equipmentRepository.current +
+                com.stratum.domain.lift.Equipment(
+                    id = com.stratum.domain.lift.identity.EquipmentId("new-machine"),
+                    name = "New Machine",
+                    incrementTiers = emptyList(),
+                ),
+        )
+        equipmentPickResult.publish(com.stratum.domain.lift.identity.EquipmentId("new-machine"))
+        advanceUntilIdle()
+
+        viewModel.equipmentSwap.test {
+            // Sheet closed by the applied pick.
+            assertNull(awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+        val loaded = viewModel.uiState.value as EditWorkoutUiState.Loaded
+        val lift = loaded.lifts.single { it.workoutLiftId == WORKOUT_LIFT_ID }
+        assertEquals("new-machine", lift.equipmentId)
+        assertEquals("New Machine", lift.equipmentName)
+        assertTrue(loaded.isDirty)
+    }
+
+    @Test
+    @DisplayName("STR-121: pick published before arming is ignored")
+    fun stalePickBeforeArmingIgnored() = runTest {
+        seedSwapCatalog()
+        equipmentPickResult.publish(com.stratum.domain.lift.identity.EquipmentId("ssb"))
+        val viewModel = buildViewModel()
+        viewModel.initialize(WORKOUT_ID)
+        viewModel.uiState.test {
+            awaitLoaded()
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        viewModel.openEquipmentSwap(WORKOUT_LIFT_ID)
+        viewModel.beginCreateEquipment()
+        // Let the (ignored) pick flow through the collector.
+        advanceUntilIdle()
+
+        assertNotNull(viewModel.equipmentSwap.value)
+        val loaded = viewModel.uiState.value as EditWorkoutUiState.Loaded
+        assertNull(loaded.lifts.single { it.workoutLiftId == WORKOUT_LIFT_ID }.equipmentId)
+        assertFalse(loaded.isDirty)
+    }
+
+    @Test
+    @DisplayName("STR-121 remediation: dismissing the sheet disarms the pending create")
+    fun dismissDisarmsPendingCreate() = runTest {
+        seedSwapCatalog()
+        val viewModel = buildViewModel()
+        viewModel.initialize(WORKOUT_ID)
+        viewModel.uiState.test {
+            awaitLoaded()
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        viewModel.openEquipmentSwap(WORKOUT_LIFT_ID)
+        viewModel.beginCreateEquipment()
+        viewModel.closeEquipmentSwap()
+        // A later unrelated pick must not apply to the abandoned target.
+        equipmentRepository.seed(
+            equipmentRepository.current +
+                com.stratum.domain.lift.Equipment(
+                    id = com.stratum.domain.lift.identity.EquipmentId("new-machine"),
+                    name = "New Machine",
+                    incrementTiers = emptyList(),
+                ),
+        )
+        equipmentPickResult.publish(com.stratum.domain.lift.identity.EquipmentId("new-machine"))
+        advanceUntilIdle()
+
+        assertNull(viewModel.equipmentSwap.value)
+        val loaded = viewModel.uiState.value as EditWorkoutUiState.Loaded
+        assertNull(loaded.lifts.single { it.workoutLiftId == WORKOUT_LIFT_ID }.equipmentId)
+        assertFalse(loaded.isDirty)
+    }
+
+    @Test
+    @DisplayName("STR-121 remediation: manual select disarms the pending create")
+    fun manualSelectDisarmsPendingCreate() = runTest {
+        seedSwapCatalog()
+        val viewModel = buildViewModel()
+        viewModel.initialize(WORKOUT_ID)
+        viewModel.uiState.test {
+            awaitLoaded()
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        viewModel.openEquipmentSwap(WORKOUT_LIFT_ID)
+        viewModel.beginCreateEquipment()
+        viewModel.selectSwapEquipment("ssb")
+        equipmentRepository.seed(
+            equipmentRepository.current +
+                com.stratum.domain.lift.Equipment(
+                    id = com.stratum.domain.lift.identity.EquipmentId("new-machine"),
+                    name = "New Machine",
+                    incrementTiers = emptyList(),
+                ),
+        )
+        equipmentPickResult.publish(com.stratum.domain.lift.identity.EquipmentId("new-machine"))
+        advanceUntilIdle()
+
+        assertNull(viewModel.equipmentSwap.value)
+        val loaded = viewModel.uiState.value as EditWorkoutUiState.Loaded
+        val lift = loaded.lifts.single { it.workoutLiftId == WORKOUT_LIFT_ID }
+        assertEquals("ssb", lift.equipmentId)
+        assertEquals("Safety Squat Bar", lift.equipmentName)
+    }
+
+    @Test
+    @DisplayName("STR-121 remediation: pick for a stale target is dropped, open sheet kept")
+    fun pickForStaleTargetDropped() = runTest {
+        seedSwapCatalog()
+        repository = FakeProgramRepository(twoLiftProgram())
+        val viewModel = buildViewModel()
+        viewModel.initialize(WORKOUT_ID)
+        viewModel.uiState.test {
+            awaitLoaded()
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        viewModel.openEquipmentSwap(WORKOUT_LIFT_ID)
+        viewModel.beginCreateEquipment()
+        viewModel.openEquipmentSwap("wl-2")
+        equipmentRepository.seed(
+            equipmentRepository.current +
+                com.stratum.domain.lift.Equipment(
+                    id = com.stratum.domain.lift.identity.EquipmentId("new-machine"),
+                    name = "New Machine",
+                    incrementTiers = emptyList(),
+                ),
+        )
+        equipmentPickResult.publish(com.stratum.domain.lift.identity.EquipmentId("new-machine"))
+        advanceUntilIdle()
+
+        val loaded = viewModel.uiState.value as EditWorkoutUiState.Loaded
+        assertNull(loaded.lifts.single { it.workoutLiftId == WORKOUT_LIFT_ID }.equipmentId)
+        assertEquals("wl-2", viewModel.equipmentSwap.value?.workoutLiftId)
+    }
+
+    private fun twoLiftProgram(): Program {
+        val workout = PROGRAM.workouts.single { it.id.value == WORKOUT_ID }
+        val first = workout.workoutLifts.single { it.id.value == WORKOUT_LIFT_ID }
+        val second =
+            first.copy(
+                id = WorkoutLiftId("wl-2"),
+                position = 1,
+                sets =
+                    first.sets.mapIndexed { index, set ->
+                        set.copy(
+                            id = LiftSetId("ls-wl2-$index"),
+                            workoutLiftId = WorkoutLiftId("wl-2"),
+                        )
+                    },
+            )
+        return PROGRAM.copy(
+            workouts = listOf(workout.copy(workoutLifts = listOf(first, second))),
+        )
+    }
+
     @Nested
     @DisplayName("Start workout from edit screen")
     inner class StartWorkout {
@@ -862,6 +1039,7 @@ class EditWorkoutViewModelTest {
                 trainingLog,
                 equipmentRepository,
             ),
+            equipmentPickResult = equipmentPickResult,
         )
     }
 

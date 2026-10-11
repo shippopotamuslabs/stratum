@@ -19,6 +19,7 @@ import com.stratum.domain.lift.UpdateLiftMusclesUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.classifyLiftCategory
 import com.stratum.domain.lift.identity.EquipmentId
+import com.stratum.domain.lift.EquipmentPickResult
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.resolvedDefaultRestSeconds
 import com.stratum.domain.onboarding.MuscleGroup

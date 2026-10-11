@@ -8,9 +8,11 @@ import com.stratum.core.ui.component.EquipmentSwapOption
 import com.stratum.core.ui.component.EquipmentSwapSheetState
 import com.stratum.domain.lift.CatalogNoteInput
 import com.stratum.domain.lift.Equipment
+import com.stratum.domain.lift.EquipmentPickResult
 import com.stratum.domain.lift.GetLiftNoteListsUseCase
 import com.stratum.domain.lift.ObserveEquipmentCatalogUseCase
 import com.stratum.domain.lift.GetPastSessionNotesForLiftUseCase
+import com.stratum.domain.lift.EquipmentPickAwaiter
 import com.stratum.domain.lift.GetRecentlyUsedEquipmentForLiftUseCase
 import com.stratum.domain.lift.SessionNoteInput
 import com.stratum.domain.lift.WorkoutLiftNoteInput
@@ -119,6 +121,7 @@ class WorkoutViewModel @Inject constructor(
     getSessionPinnedNoteLists: GetSessionPinnedNoteListsUseCase,
     private val observeEquipmentCatalog: ObserveEquipmentCatalogUseCase,
     private val getRecentlyUsedEquipment: GetRecentlyUsedEquipmentForLiftUseCase,
+    private val equipmentPickResult: EquipmentPickResult,
 ) : ViewModel() {
 
     /**
@@ -137,8 +140,12 @@ class WorkoutViewModel @Inject constructor(
     private val equipmentCatalog = MutableStateFlow<List<Equipment>>(emptyList())
 
     /** Open equipment swap sheet, or null when closed. */
+    // Declared above init: the pick collector launched below reads these eagerly.
     private val _equipmentSwap = MutableStateFlow<EquipmentSwapUi?>(null)
     val equipmentSwap: StateFlow<EquipmentSwapUi?> = _equipmentSwap.asStateFlow()
+
+    /** Create-new arming: target card + pick generation snapshot (see [beginCreateEquipment]). */
+    private val pickAwaiter = EquipmentPickAwaiter(equipmentPickResult)
 
     /** Transient snackbar copy; cleared via [userMessageShown] after the UI presents it. */
     private val _userMessage = MutableStateFlow<String?>(null)
@@ -226,6 +233,16 @@ class WorkoutViewModel @Inject constructor(
         )
 
     init {
+        viewModelScope.launch {
+            equipmentPickResult.result.collect { pick ->
+                pickAwaiter.onPick(pick, _equipmentSwap.value?.workoutLiftId)?.let { (targetId, resolved) ->
+                    resolved.equipmentId?.let { newId ->
+                        swapEquipment(WorkoutLiftId(targetId), newId)
+                        _equipmentSwap.value = null
+                    }
+                }
+            }
+        }
         viewModelScope.launch {
             observeEquipmentCatalog().collect { catalog ->
                 equipmentCatalog.value = catalog
@@ -517,12 +534,24 @@ class WorkoutViewModel @Inject constructor(
     }
 
     fun closeEquipmentSwap() {
+        pickAwaiter.disarm()
         _equipmentSwap.value = null
+    }
+
+    /**
+     * Arms the create-new return path for the open sheet's lift. Call before navigating
+     * to Manage Equipment in selection mode; the created piece is applied as a session
+     * swap when the pick publishes.
+     */
+    fun beginCreateEquipment() {
+        val target = _equipmentSwap.value ?: return
+        pickAwaiter.arm(target.workoutLiftId)
     }
 
     /** Applies the selection to the session overlay (remaining unlogged sets) + closes. */
     fun selectSwapEquipment(optionId: String) {
         val target = _equipmentSwap.value ?: return
+        pickAwaiter.disarm()
         swapEquipment(WorkoutLiftId(target.workoutLiftId), EquipmentId(optionId))
         _equipmentSwap.value = null
     }

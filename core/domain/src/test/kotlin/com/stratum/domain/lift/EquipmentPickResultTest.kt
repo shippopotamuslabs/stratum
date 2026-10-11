@@ -1,4 +1,4 @@
-package com.stratum.liftconfig
+package com.stratum.domain.lift
 
 import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule

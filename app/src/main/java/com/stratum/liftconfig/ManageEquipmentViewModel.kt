@@ -10,6 +10,7 @@ import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.ObserveEquipmentCatalogUseCase
 import com.stratum.domain.lift.SeedEquipmentIds
 import com.stratum.domain.lift.identity.EquipmentId
+import com.stratum.domain.lift.EquipmentPickResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel

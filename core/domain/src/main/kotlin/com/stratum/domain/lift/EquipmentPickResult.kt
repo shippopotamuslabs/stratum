@@ -1,9 +1,9 @@
-package com.stratum.liftconfig
+package com.stratum.domain.lift
 
 import com.stratum.domain.lift.identity.EquipmentId
-import dagger.hilt.android.scopes.ActivityRetainedScoped
 import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -12,12 +12,14 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterNotNull
 
 /**
- * Activity-retained one-shot result channel for Manage Equipment selection mode.
+ * Process-scoped one-shot result channel for Manage Equipment selection mode.
  *
  * Callers mark awaiting and snapshot [currentGeneration], then collect [result] only when
- * a published [Pick.generation] is greater than that snapshot.
+ * a published [Pick.generation] is greater than that snapshot. Singleton (not
+ * activity-retained): generations only move forward, so a stale pick from a previous
+ * activity can never satisfy a freshly-armed consumer.
  */
-@ActivityRetainedScoped
+@Singleton
 class EquipmentPickResult @Inject constructor() {
     data class Pick(
         val generation: Long,

@@ -16,6 +16,7 @@ import com.stratum.domain.lift.ObserveEquipmentCatalogUseCase
 import com.stratum.domain.lift.SeedEquipmentIds
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId
+import com.stratum.domain.lift.EquipmentPickResult
 import com.stratum.domain.onboarding.MuscleGroup
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
