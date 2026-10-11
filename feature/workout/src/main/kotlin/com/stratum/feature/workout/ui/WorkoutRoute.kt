@@ -54,6 +54,7 @@ fun WorkoutRoute(
     onSwapLiftClick: (workoutId: String, workoutLiftId: String?, liftId: String?, liftName: String?) -> Unit,
     onEditEquipmentClick: (EquipmentEditRequest) -> Unit,
     onReorderLiftsClick: (workoutId: String) -> Unit,
+    onCreateEquipmentClick: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: WorkoutViewModel = hiltViewModel(),
 ) {
@@ -164,6 +165,10 @@ fun WorkoutRoute(
                 onEquipmentSwapQuery = viewModel::setEquipmentSwapQuery,
                 onEquipmentSwapSelect = viewModel::selectSwapEquipment,
                 onEquipmentSwapDismiss = viewModel::closeEquipmentSwap,
+                onEquipmentCreateNew = {
+                    viewModel.beginCreateEquipment()
+                    onCreateEquipmentClick()
+                },
                 actions = WorkoutScreenActions(
                     onNavigateBack = onNavigateBack,
                     onCompleteWorkout = viewModel::completeWorkout,

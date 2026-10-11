@@ -129,7 +129,7 @@ fun WorkoutScreen(
     onEquipmentSwapQuery: (String) -> Unit = {},
     onEquipmentSwapSelect: (String) -> Unit = {},
     onEquipmentSwapDismiss: () -> Unit = {},
-    /** Create-new entry point — wired to the equipment editor in STR-121. */
+    /** Create-new entry point — the route arms the return path, then navigates. */
     onEquipmentCreateNew: () -> Unit = {},
 ) {
     var showRestSheet by remember { mutableStateOf(false) }

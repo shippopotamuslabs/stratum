@@ -267,6 +267,8 @@ class EditWorkoutViewModelSchemeToggleTest {
                     trainingLog,
                     com.stratum.core.testing.onboarding.FakeEquipmentRepository(),
                 ),
+            equipmentPickResult =
+                com.stratum.domain.lift.EquipmentPickResult(),
         )
     }
 

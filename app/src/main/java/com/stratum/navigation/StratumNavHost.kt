@@ -406,6 +406,9 @@ fun StratumNavHost(
                     backStack.removeAll { it is WorkoutKey && it.workoutId == workoutId }
                     backStack.add(WorkoutKey(workoutId))
                 },
+                onCreateEquipmentClick = {
+                    backStack.add(ManageEquipmentKey(selectionMode = true))
+                },
             )
             workoutEntry(
                 onNavigateBack = onNavigateBack,
@@ -419,6 +422,9 @@ fun StratumNavHost(
                 onEditEquipmentClick = { request -> pushEquipmentEditor(backStack, request) },
                 onReorderLiftsClick = { workoutId ->
                     backStack.add(ReorderLiftsKey(workoutId))
+                },
+                onCreateEquipmentClick = {
+                    backStack.add(ManageEquipmentKey(selectionMode = true))
                 },
             )
             workoutCompleteEntry(
