@@ -66,7 +66,8 @@ internal fun EditWorkoutScreenPreviewContent(family: StratumThemeId) {
             showStartWorkout = true,
             state = previewEditWorkoutLoadedState(),
             onLeave = {},
-            callbacks = EditWorkoutScreenCallbacks(),
+            // Explicit no-op keeps the subheader visible, matching the wired edit flow.
+            callbacks = EditWorkoutScreenCallbacks(onEquipmentSwapClick = {}),
         )
     }
 }

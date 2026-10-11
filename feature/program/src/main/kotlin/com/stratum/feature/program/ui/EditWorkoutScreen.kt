@@ -607,7 +607,10 @@ internal fun EditWorkoutContent(
                     onShowProgressionSchemeInfo = onShowProgressionSchemeInfo,
                     onSetKind = callbacks.onSetSetKind,
                     onSetMatchBackoffCount = callbacks.onSetMatchBackoffCount,
-                    onEquipmentSwapClick = { callbacks.onEquipmentSwapClick(lift.workoutLiftId) },
+                    onEquipmentSwapClick =
+                        callbacks.onEquipmentSwapClick?.let { onSwap ->
+                            { onSwap(lift.workoutLiftId) }
+                        },
                 )
             }
         item {
@@ -677,7 +680,7 @@ private fun EditLiftPanel(
     onShowProgressionSchemeInfo: () -> Unit,
     onSetKind: (setId: String, kind: EditSetKind) -> Unit = { _, _ -> },
     onSetMatchBackoffCount: (activationSetId: String, count: Int) -> Unit = { _, _ -> },
-    onEquipmentSwapClick: () -> Unit = {},
+    onEquipmentSwapClick: (() -> Unit)? = null,
 ) {
     StratumEdgeToEdgeCard(
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -707,10 +710,12 @@ private fun EditLiftPanel(
             }
         }
 
-        StratumEquipmentSubheader(
-            equipmentName = lift.equipmentName,
-            onSwapClick = onEquipmentSwapClick,
-        )
+        onEquipmentSwapClick?.let { onSwapClick ->
+            StratumEquipmentSubheader(
+                equipmentName = lift.equipmentName,
+                onSwapClick = onSwapClick,
+            )
+        }
 
         if (lift.isCompound) {
             ProgressionSchemeToggleRow(
@@ -886,7 +891,8 @@ fun EditWorkoutScreenLoadedPreview() {
                         ),
                 ),
             onLeave = {},
-            callbacks = EditWorkoutScreenCallbacks(),
+            // Explicit no-op keeps the subheader visible, matching the wired edit flow.
+            callbacks = EditWorkoutScreenCallbacks(onEquipmentSwapClick = {}),
         )
     }
 }
