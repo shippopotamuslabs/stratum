@@ -32,7 +32,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stratum.core.ui.R as UiR
 import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumButton
-import com.stratum.core.ui.component.StratumConfirmDialog
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumSwipeToRevealRow
@@ -265,14 +264,10 @@ fun ManageEquipmentScreen(
 
     val pendingDelete = state.pendingDelete
     if (pendingDelete != null) {
-        StratumConfirmDialog(
-            title = stringResource(UiR.string.equipment_delete_title, pendingDelete.name),
-            body = stringResource(UiR.string.equipment_delete_body, pendingDelete.name),
-            confirmLabel = stringResource(UiR.string.equipment_delete_confirm),
-            dismissLabel = stringResource(UiR.string.equipment_dialog_cancel),
+        EquipmentDeleteConfirmDialog(
+            name = pendingDelete.name,
             onConfirm = actions.onConfirmDelete,
             onDismiss = actions.onDismissDelete,
-            destructiveConfirm = true,
         )
     }
 }
