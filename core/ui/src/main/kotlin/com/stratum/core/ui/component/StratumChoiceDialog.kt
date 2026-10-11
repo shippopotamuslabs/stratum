@@ -58,51 +58,10 @@ fun StratumChoiceDialogContent(
     modifier: Modifier = Modifier,
     destructivePrimary: Boolean = false,
 ) {
-    val colors = StratumThemeAccessor.colors
-    val shapes = StratumThemeAccessor.shapes
-    Column(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .background(color = colors.surfaceRaised, shape = shapes.panel)
-                .border(
-                    width = shapes.borderWidth,
-                    color = colors.borderStrong,
-                    shape = shapes.panel,
-                )
-                .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        StratumText(
-            text = title,
-            style = StratumThemeAccessor.typography.titleLarge,
-        )
-        StratumText(
-            text = body,
-            style = StratumThemeAccessor.typography.bodyLarge,
-            muted = true,
-        )
-        ChoiceDialogActions(
-            primaryLabel = primaryLabel,
-            onPrimary = onPrimary,
-            secondaryLabel = secondaryLabel,
-            onSecondary = onSecondary,
-            destructivePrimary = destructivePrimary,
-        )
-    }
-}
-
-@Composable
-private fun ColumnScope.ChoiceDialogActions(
-    primaryLabel: String,
-    onPrimary: () -> Unit,
-    secondaryLabel: String,
-    onSecondary: () -> Unit,
-    destructivePrimary: Boolean,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End),
+    StratumDialogPanel(
+        title = title,
+        body = body,
+        modifier = modifier,
     ) {
         StratumOutlinedButton(
             text = secondaryLabel,

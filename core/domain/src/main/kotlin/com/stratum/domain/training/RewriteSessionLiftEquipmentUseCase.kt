@@ -8,8 +8,7 @@ import javax.inject.Inject
 
 /**
  * Rewrites `equipmentId` on every set logged for [liftId] in [sessionId] — the
- * "rewrite to new equipment" path of the STR-122 partial-swap prompt. The session
- * must be `IN_PROGRESS` (mirrors [UpdateLoggedSetUseCase]). Returns the rows touched.
+ * "rewrite to new equipment" path of the STR-122 partial-swap prompt.
  */
 class RewriteSessionLiftEquipmentUseCase @Inject constructor(
     private val trainingLogRepository: TrainingLogRepository,
@@ -19,20 +18,14 @@ class RewriteSessionLiftEquipmentUseCase @Inject constructor(
         sessionId: TrainingSessionId,
         liftId: LiftId,
         newEquipmentId: EquipmentId,
-    ): Result<Int> = runCatching {
-        val session =
-            trainingLogRepository.getSession(sessionId)
-                ?: throw IllegalArgumentException("Training session ${sessionId.value} not found")
-        if (session.status != TrainingSessionStatus.IN_PROGRESS) {
-            throw TrainingSessionNotInProgressException(sessionId, session.status)
-        }
+    ): Result<Unit> = runCatching {
+        trainingLogRepository.requireInProgressSession(sessionId)
         val matching =
             trainingLogRepository.getSetsForSession(sessionId)
                 .filter { it.liftId == liftId && it.equipmentId != newEquipmentId }
         if (matching.isNotEmpty()) {
             trainingLogRepository.updateSets(matching.map { it.copy(equipmentId = newEquipmentId) })
         }
-        matching.size
     }.onFailure { error ->
         loggingPort.error(TAG, "Failed to rewrite session lift equipment: ${error.message}", error)
     }

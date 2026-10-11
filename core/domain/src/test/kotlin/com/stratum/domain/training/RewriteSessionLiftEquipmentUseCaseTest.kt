@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test
 class RewriteSessionLiftEquipmentUseCaseTest {
 
     @Test
-    @DisplayName("rewrites equipment on matching sets only, returns rows touched")
+    @DisplayName("rewrites equipment on matching sets only")
     fun rewritesMatchingSets() = runTest {
         val repo = FakeTrainingLogRepository()
         val sessionId = TrainingSessionId("ts-live-1")
@@ -32,7 +32,6 @@ class RewriteSessionLiftEquipmentUseCaseTest {
         val result = useCase(sessionId, LiftId("lift-1"), EquipmentId("ssb"))
 
         assertTrue(result.isSuccess)
-        assertEquals(2, result.getOrThrow())
         val byId = repo.getAllSets().associateBy { it.id.value }
         assertEquals(EquipmentId("ssb"), byId.getValue("ls-1").equipmentId)
         assertEquals(EquipmentId("ssb"), byId.getValue("ls-2").equipmentId)
