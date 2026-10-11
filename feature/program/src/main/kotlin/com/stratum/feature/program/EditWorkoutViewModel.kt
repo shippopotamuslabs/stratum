@@ -32,6 +32,7 @@ import com.stratum.core.ui.component.isLastInSupersetChain
 import com.stratum.core.ui.component.isSupersetPairMember
 import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.EquipmentPickResult
+import com.stratum.domain.lift.EquipmentPickAwaiter
 import com.stratum.domain.lift.GetRecentlyUsedEquipmentForLiftUseCase
 import com.stratum.domain.lift.ObserveEquipmentCatalogUseCase
 import com.stratum.domain.lift.identity.LiftId
@@ -88,6 +89,13 @@ class EditWorkoutViewModel @Inject constructor(
             manageWorkoutOverlay = manageWorkoutOverlay,
         )
 
+    // Declared above init: the pick collector launched below reads these eagerly.
+    private val _equipmentSwap = MutableStateFlow<EditEquipmentSwapUi?>(null)
+    val equipmentSwap: StateFlow<EditEquipmentSwapUi?> = _equipmentSwap.asStateFlow()
+
+    /** Create-new arming: target card + pick generation snapshot (see [beginCreateEquipment]). */
+    private val pickAwaiter = EquipmentPickAwaiter(equipmentPickResult)
+
     init {
         viewModelScope.launch {
             workoutEditSession.events.collect { event ->
@@ -112,16 +120,11 @@ class EditWorkoutViewModel @Inject constructor(
         }
         viewModelScope.launch {
             equipmentPickResult.result.collect { pick ->
-                if (!awaitingEquipmentPick || pick == null) return@collect
-                if (pick.generation <= lastSeenPickGen) return@collect
-                lastSeenPickGen = pick.generation
-                awaitingEquipmentPick = false
-                val target = pendingCreateWorkoutLiftId
-                pendingCreateWorkoutLiftId = null
-                val newId = pick.equipmentId
-                if (target != null && newId != null) {
-                    setEquipment(target, newId.value)
-                    _equipmentSwap.value = null
+                pickAwaiter.onPick(pick, _equipmentSwap.value?.workoutLiftId)?.let { (targetId, resolved) ->
+                    resolved.equipmentId?.let { newId ->
+                        setEquipment(targetId, newId.value)
+                        _equipmentSwap.value = null
+                    }
                 }
             }
         }
@@ -145,14 +148,6 @@ class EditWorkoutViewModel @Inject constructor(
     private val _isStarting = MutableStateFlow(false)
     /** True while a start (save/abandon/session) is in flight — disable Start chrome. */
     val isStarting: StateFlow<Boolean> = _isStarting.asStateFlow()
-
-    private val _equipmentSwap = MutableStateFlow<EditEquipmentSwapUi?>(null)
-    val equipmentSwap: StateFlow<EditEquipmentSwapUi?> = _equipmentSwap.asStateFlow()
-
-    /** Create-new arming: target card + pick generation snapshot (see [beginCreateEquipment]). */
-    private var awaitingEquipmentPick = false
-    private var lastSeenPickGen = 0L
-    private var pendingCreateWorkoutLiftId: String? = null
 
     private var catalogLifts: List<Lift> = emptyList()
     private var equipmentCatalog: List<Equipment> = emptyList()
@@ -800,6 +795,7 @@ class EditWorkoutViewModel @Inject constructor(
     }
 
     fun closeEquipmentSwap() {
+        pickAwaiter.disarm()
         _equipmentSwap.value = null
     }
 
@@ -810,14 +806,13 @@ class EditWorkoutViewModel @Inject constructor(
      */
     fun beginCreateEquipment() {
         val target = _equipmentSwap.value ?: return
-        lastSeenPickGen = equipmentPickResult.currentGeneration()
-        pendingCreateWorkoutLiftId = target.workoutLiftId
-        awaitingEquipmentPick = true
+        pickAwaiter.arm(target.workoutLiftId)
     }
 
     /** Applies the selection to the template draft + closes. */
     fun selectSwapEquipment(optionId: String) {
         val target = _equipmentSwap.value ?: return
+        pickAwaiter.disarm()
         setEquipment(target.workoutLiftId, optionId)
         _equipmentSwap.value = null
     }
