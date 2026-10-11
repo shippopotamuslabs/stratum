@@ -43,6 +43,24 @@ class LoggedSetEquipmentSyncCodecTest {
         assertEquals(null, encoded["equipment_id"])
     }
 
+    @Test
+    @DisplayName("logged-set sync decodes a blank equipment_id as null (lenient id contract)")
+    fun blankEquipmentIdDecodesNull() {
+        val decoded =
+            requireNotNull(decoders.loggedSet("set-1", baseLoggedSetDoc() + ("equipment_id" to "  ")))
+
+        assertNull(decoded.equipmentId)
+    }
+
+    @Test
+    @DisplayName("logged-set sync decodes a blank lift_id as null (unified lenient id contract)")
+    fun blankLiftIdDecodesNull() {
+        val decoded =
+            requireNotNull(decoders.loggedSet("set-1", baseLoggedSetDoc() + ("lift_id" to "")))
+
+        assertNull(decoded.liftId)
+    }
+
     private fun loggedSetEntity(equipmentId: EquipmentId?): LoggedSetEntity =
         LoggedSetEntity(
             id = LoggedSetId("set-1"),
