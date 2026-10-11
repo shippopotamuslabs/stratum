@@ -126,6 +126,12 @@ data class IncrementEditorSaveActions(
     val onForkDismiss: () -> Unit,
 )
 
+/** Optional destructive action rendered below the save buttons (equipment delete). */
+data class IncrementEditorDeleteAction(
+    val text: String,
+    val onClick: () -> Unit,
+)
+
 /**
  * The single band-strip increments editor screen (STR-73).
  *
@@ -142,6 +148,7 @@ internal fun IncrementEditorScreen(
     bandActions: IncrementEditorBandActions,
     stopActions: IncrementEditorStopActions,
     saveActions: IncrementEditorSaveActions,
+    deleteAction: IncrementEditorDeleteAction? = null,
     onBackClick: () -> Unit,
     showSaveConfirm: Boolean,
     showForkSheet: Boolean,
@@ -187,6 +194,15 @@ internal fun IncrementEditorScreen(
                         text = stringResource(UiR.string.equipment_increments_save_as_new),
                         onClick = saveActions.onSaveAsNewClick,
                         enabled = !editor.isSaving && editor.validationMessage == null,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                if (deleteAction != null) {
+                    StratumTextButton(
+                        text = deleteAction.text,
+                        onClick = deleteAction.onClick,
+                        enabled = !editor.isSaving,
+                        contentColor = StratumThemeAccessor.colors.error,
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }

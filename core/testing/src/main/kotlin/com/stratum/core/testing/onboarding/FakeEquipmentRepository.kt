@@ -12,6 +12,7 @@ import com.stratum.domain.lift.identity.LiftId
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
 
 /**
  * In-memory [EquipmentRepository] for domain and ViewModel tests.
@@ -24,7 +25,6 @@ class FakeEquipmentRepository(
     private val liftRepository: FakeLiftRepository? = null,
 ) : EquipmentRepository {
     private val rows = MutableStateFlow(initial)
-    private val liftRefs = mutableMapOf<EquipmentId, Int>()
 
     /** Lift ids assigned via [createCustomEquipmentAndAssignLifts], keyed by new equipment. */
     val assignedLiftsByEquipment: Map<EquipmentId, List<LiftId>>
@@ -38,18 +38,14 @@ class FakeEquipmentRepository(
      */
     var failNextWrite: Boolean = false
 
-    /** Test hook: mark how many lifts reference an equipment id (for delete rules). */
-    fun setLiftReferenceCount(id: EquipmentId, count: Int) {
-        liftRefs[id] = count
-    }
-
     val current: List<Equipment> get() = rows.value
 
     fun seed(equipment: List<Equipment>) {
         rows.value = equipment
     }
 
-    override fun observeEquipment(): Flow<List<Equipment>> = rows
+    override fun observeEquipment(): Flow<List<Equipment>> =
+        rows.map { list -> list.filterNot { it.isDeleted } }
 
     override suspend fun getEquipment(id: EquipmentId): Equipment? =
         rows.value.firstOrNull { it.id == id }
@@ -81,7 +77,6 @@ class FakeEquipmentRepository(
         val id = addCustomEquipment(name, tiers)
         val distinct = liftIds.distinct()
         assignedLifts[id] = distinct
-        setLiftReferenceCount(id, distinct.size)
         val lifts = liftRepository
         if (lifts != null) {
             lifts.equipmentNamesById = lifts.equipmentNamesById + (id to name)
@@ -129,20 +124,19 @@ class FakeEquipmentRepository(
     override suspend fun deleteCustomEquipment(id: EquipmentId): Boolean {
         val row = rows.value.firstOrNull { it.id == id } ?: return false
         if (!row.isCustom) return false
-        if ((liftRefs[id] ?: 0) > 0) return false
-        rows.value = rows.value.filterNot { it.id == id }
+        rows.value = rows.value.map { if (it.id == id) it.copy(isDeleted = true) else it }
         return true
     }
 
     override suspend fun findOrCreateByName(name: String): EquipmentId {
         val trimmed = name.trim()
         rows.value
-            .firstOrNull { it.name.equals(trimmed, ignoreCase = true) }
+            .firstOrNull { !it.isDeleted && it.name.equals(trimmed, ignoreCase = true) }
             ?.let { return it.id }
         val key = EquipmentNameMatching.normalizeKey(trimmed)
         if (key.isNotEmpty()) {
             rows.value
-                .firstOrNull { EquipmentNameMatching.normalizeKey(it.name) == key }
+                .firstOrNull { !it.isDeleted && EquipmentNameMatching.normalizeKey(it.name) == key }
                 ?.let { return it.id }
         }
         EquipmentNameMatching.seedIdFromFreeText(trimmed)?.let { seedId ->

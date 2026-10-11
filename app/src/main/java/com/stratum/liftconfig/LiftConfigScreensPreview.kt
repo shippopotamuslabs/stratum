@@ -73,6 +73,26 @@ private fun ManageEquipmentSelectionNeoPreview() {
 
 @PreviewLightDark
 @Composable
+private fun ManageEquipmentDeletingTonalPreview() {
+    ManageEquipmentPreviewContent(
+        family = StratumThemeId.Tonal,
+        state = previewManageEquipmentDeleting(),
+        selectionMode = false,
+    )
+}
+
+@PreviewLightDark
+@Composable
+private fun ManageEquipmentDeletingNeoPreview() {
+    ManageEquipmentPreviewContent(
+        family = StratumThemeId.NeoBrutalist,
+        state = previewManageEquipmentDeleting(),
+        selectionMode = false,
+    )
+}
+
+@PreviewLightDark
+@Composable
 private fun LiftInformationInstructionsTonalPreview() {
     LiftInformationPreviewContent(
         family = StratumThemeId.Tonal,
@@ -230,6 +250,7 @@ internal fun previewManageEquipment(): ManageEquipmentUiState =
                                 increment = "10 lb",
                             ),
                         ),
+                    isCustom = false,
                 ),
                 EquipmentRowUi(
                     id = "eq-dumbbell",
@@ -242,8 +263,14 @@ internal fun previewManageEquipment(): ManageEquipmentUiState =
                                 increment = "5 lb",
                             ),
                         ),
+                    isCustom = true,
                 ),
             ),
+    )
+
+internal fun previewManageEquipmentDeleting(): ManageEquipmentUiState =
+    previewManageEquipment().copy(
+        pendingDelete = PendingDeleteUi(id = "eq-dumbbell", name = "Adjustable Dumbbell"),
     )
 
 internal fun previewLiftInformation(tab: LiftInfoTab): LiftInformationUiState =

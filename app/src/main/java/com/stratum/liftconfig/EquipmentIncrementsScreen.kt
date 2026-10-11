@@ -52,8 +52,8 @@ fun EquipmentIncrementsRoute(
         viewModel.initialize(equipmentId, sourceLiftId, initialTiersLb, proposalContext)
     }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    LaunchedEffect(state.editor.saveSucceeded) {
-        if (state.editor.saveSucceeded) onBackClick()
+    LaunchedEffect(state.editor.saveSucceeded, state.deleteSucceeded) {
+        if (state.editor.saveSucceeded || state.deleteSucceeded) onBackClick()
     }
     LaunchedEffect(viewModel) {
         viewModel.swapNavRequests.collect { onChooseEquipmentForLift(it) }
@@ -67,6 +67,7 @@ fun EquipmentIncrementsRoute(
     var selectedBand by rememberSaveable { mutableStateOf<Int?>(null) }
     var showAffectedSheet by rememberSaveable { mutableStateOf(false) }
     var showSaveConfirm by rememberSaveable { mutableStateOf(false) }
+    var showDeleteConfirm by rememberSaveable { mutableStateOf(false) }
     var showForkSheet by rememberSaveable { mutableStateOf(false) }
     var showStopsSheet by rememberSaveable { mutableStateOf(false) }
     val tiers = state.editor.tiers
@@ -142,11 +143,30 @@ fun EquipmentIncrementsRoute(
                 },
                 onForkDismiss = { showForkSheet = false },
             ),
+        deleteAction =
+            if (state.canDelete) {
+                IncrementEditorDeleteAction(
+                    text = stringResource(UiR.string.equipment_delete_button),
+                    onClick = { showDeleteConfirm = true },
+                )
+            } else {
+                null
+            },
         onBackClick = onBackClick,
         showSaveConfirm = showSaveConfirm,
         showForkSheet = showForkSheet,
         showStopsSheet = showStopsSheet,
     )
+    if (showDeleteConfirm) {
+        EquipmentDeleteConfirmDialog(
+            name = state.equipmentName,
+            onConfirm = {
+                showDeleteConfirm = false
+                viewModel.deleteEquipment()
+            },
+            onDismiss = { showDeleteConfirm = false },
+        )
+    }
     if (showAffectedSheet) {
         AffectedLiftsSheet(
             lifts = state.affectedLifts,

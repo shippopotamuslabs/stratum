@@ -16,6 +16,7 @@ import com.stratum.domain.lift.SetEquipmentIncrementTiersUseCase
 import com.stratum.domain.lift.SetLiftEquipmentUseCase
 import com.stratum.domain.lift.ValidateIncrementTiersUseCase
 import com.stratum.domain.lift.ValidateMicroIncrementsUseCase
+import com.stratum.domain.lift.DeleteCustomEquipmentUseCase
 import com.stratum.domain.lift.DismissEquipmentProposalUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId
@@ -45,6 +46,10 @@ import kotlinx.coroutines.launch
 data class EquipmentIncrementsUiState(
     val equipmentId: String = "",
     val equipmentName: String = "",
+    /** Seed equipment cannot be deleted, so the delete action is hidden for it. */
+    val canDelete: Boolean = false,
+    /** True once delete succeeds; the route navigates back, mirroring save. */
+    val deleteSucceeded: Boolean = false,
     /** Shared editor content; see [IncrementsEditorData]. */
     val editor: IncrementsEditorData = IncrementsEditorData(),
     /** Lifts inheriting this equipment's defaults (includes disabled). */
@@ -64,6 +69,7 @@ data class AffectedLiftUi(
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
+@Suppress("TooManyFunctions") // Single-screen editor VM: many small draft actions by design.
 class EquipmentIncrementsViewModel @Inject constructor(
     private val observeEquipmentCatalog: ObserveEquipmentCatalogUseCase,
     private val observeEquipmentAffectedLifts: ObserveEquipmentAffectedLiftsUseCase,
@@ -74,6 +80,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
     /** Owned by the quick-swap path: applies a picked equipment to the pending lift. */
     private val setLiftEquipment: SetLiftEquipmentUseCase,
     private val dismissEquipmentProposal: DismissEquipmentProposalUseCase,
+    private val deleteCustomEquipment: DeleteCustomEquipmentUseCase,
     private val equipmentPickResult: EquipmentPickResult,
     observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
     private val scanDelegate: IncrementScanDelegate,
@@ -91,7 +98,8 @@ class EquipmentIncrementsViewModel @Inject constructor(
     private val proposalSession = ProposalEditorSession()
     private val isSaving = MutableStateFlow(false)
     private val saveSucceeded = MutableStateFlow(false)
-    /** Test-visible: the save-guard message channel (surfaced via [EquipmentIncrementsUiState]). */
+    private val deleteSucceeded = MutableStateFlow(false)
+    /** Test-visible: the editor operation message channel (save/fork/delete/swap errors share it). */
     internal val validationOverride = MutableStateFlow<String?>(null)
     private val displayUnit = MutableStateFlow(Weight.WeightUnit.Lb)
 
@@ -151,6 +159,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
     private data class SaveInputs(
         val saving: Boolean,
         val saved: Boolean,
+        val deleted: Boolean,
     )
 
     private data class Flags(
@@ -160,6 +169,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
         val saved: Boolean,
         val validation: String?,
         val scan: IncrementScanDelegate.ScanUi,
+        val deleted: Boolean,
     )
 
     private val affectedLifts =
@@ -180,7 +190,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
             // Typed combine stages producing named holders: the save pair rides a
             // single slot alongside the delegate-owned scan state.
             combine(
-                combine(isSaving, saveSucceeded, ::SaveInputs),
+                combine(isSaving, saveSucceeded, deleteSucceeded, ::SaveInputs),
                 drafts,
                 proposalSession.input,
                 validationOverride,
@@ -193,6 +203,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
                     save.saved,
                     validation,
                     scan,
+                    save.deleted,
                 )
             },
         ) { id, catalog, affected, unit, flags ->
@@ -205,6 +216,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
                 proposalInput = flags.proposalInput,
                 saving = flags.saving,
                 saved = flags.saved,
+                deleted = flags.deleted,
                 validation = flags.validation,
                 scan = flags.scan,
             )
@@ -233,6 +245,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
         resetDrafts()
         scanDelegate.onOwnerChanged(id)
         saveSucceeded.value = false
+        deleteSucceeded.value = false
         validationOverride.value = null
     }
 
@@ -467,6 +480,24 @@ class EquipmentIncrementsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Tombstones the open custom equipment. The route navigates back on
+     * [EquipmentIncrementsUiState.deleteSucceeded], mirroring save.
+     */
+    fun deleteEquipment() {
+        val id = requireEquipmentId("delete") ?: return
+        viewModelScope.launch {
+            val result = deleteCustomEquipment(EquipmentId(id))
+            if (result.isSuccess) {
+                deleteSucceeded.value = true
+                validationOverride.value = null
+            } else {
+                validationOverride.value = result.exceptionOrNull()?.message
+                    ?: "Could not delete equipment"
+            }
+        }
+    }
+
     /** Name prefill for the save-as-new sheet: `"<name> (copy)"`. */
     fun forkNameSuggestion(): String =
         "${uiState.value.equipmentName.ifBlank { "Equipment" }} (copy)"
@@ -584,6 +615,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
         proposalInput: ProposalInput?,
         saving: Boolean,
         saved: Boolean,
+        deleted: Boolean,
         validation: String?,
         scan: IncrementScanDelegate.ScanUi,
     ): EquipmentIncrementsUiState {
@@ -616,6 +648,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
         return EquipmentIncrementsUiState(
             equipmentId = id.orEmpty(),
             equipmentName = equipment?.name.orEmpty(),
+            canDelete = equipment?.isCustom == true,
             editor =
                 IncrementsEditorData(
                     tiers = tiers,
@@ -639,6 +672,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
                         enabled = lift.enabled,
                     )
                 },
+            deleteSucceeded = deleted,
         )
     }
 

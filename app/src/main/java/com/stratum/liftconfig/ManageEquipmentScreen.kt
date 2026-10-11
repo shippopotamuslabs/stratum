@@ -34,6 +34,7 @@ import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumButton
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumScaffold
+import com.stratum.core.ui.component.StratumSwipeToRevealRow
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTextField
 import com.stratum.core.ui.component.StratumTopBar
@@ -87,6 +88,9 @@ fun ManageEquipmentRoute(
                 onForkNameDraftChange = viewModel::onForkNameDraftChange,
                 onConfirmFork = viewModel::onConfirmFork,
                 onDismissFork = viewModel::onDismissFork,
+                onStartDelete = viewModel::onStartDelete,
+                onConfirmDelete = viewModel::onConfirmDelete,
+                onDismissDelete = viewModel::onDismissDelete,
             ),
         snackbarHostState = snackbarHostState,
     )
@@ -107,6 +111,9 @@ data class ManageEquipmentActions(
     val onForkNameDraftChange: (String) -> Unit = {},
     val onConfirmFork: () -> Unit = {},
     val onDismissFork: () -> Unit = {},
+    val onStartDelete: (String) -> Unit = {},
+    val onConfirmDelete: () -> Unit = {},
+    val onDismissDelete: () -> Unit = {},
 )
 
 @Composable
@@ -181,6 +188,7 @@ fun ManageEquipmentScreen(
                     },
                     onEditIncrements = { actions.onOpenIncrements(row.id) },
                     onCopyAsCustom = { actions.onStartFork(row.id) },
+                    onDeleteRequest = { actions.onStartDelete(row.id) },
                 )
             }
         }
@@ -253,6 +261,15 @@ fun ManageEquipmentScreen(
             }
         }
     }
+
+    val pendingDelete = state.pendingDelete
+    if (pendingDelete != null) {
+        EquipmentDeleteConfirmDialog(
+            name = pendingDelete.name,
+            onConfirm = actions.onConfirmDelete,
+            onDismiss = actions.onDismissDelete,
+        )
+    }
 }
 
 @Composable
@@ -288,9 +305,45 @@ private fun EquipmentHelpCard() {
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun EquipmentRow(
+    row: EquipmentRowUi,
+    selectionMode: Boolean,
+    onClick: () -> Unit,
+    onEditIncrements: () -> Unit,
+    onCopyAsCustom: () -> Unit,
+    onDeleteRequest: () -> Unit,
+) {
+    // Swipe-to-delete in manage mode only: pickers select, they don't destroy.
+    // Seed rows are never deletable.
+    if (row.isCustom && !selectionMode) {
+        StratumSwipeToRevealRow(
+            onActionClick = onDeleteRequest,
+            actionContentDescription =
+                stringResource(UiR.string.manage_equipment_delete_action, row.name),
+        ) {
+            EquipmentRowContent(
+                row = row,
+                selectionMode = selectionMode,
+                onClick = onClick,
+                onEditIncrements = onEditIncrements,
+                onCopyAsCustom = onCopyAsCustom,
+            )
+        }
+    } else {
+        EquipmentRowContent(
+            row = row,
+            selectionMode = selectionMode,
+            onClick = onClick,
+            onEditIncrements = onEditIncrements,
+            onCopyAsCustom = onCopyAsCustom,
+        )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun EquipmentRowContent(
     row: EquipmentRowUi,
     selectionMode: Boolean,
     onClick: () -> Unit,

@@ -10,6 +10,7 @@ import com.stratum.core.testing.onboarding.FakeEquipmentRepository
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.domain.featureflag.AppFeatureFlag
 import com.stratum.domain.featureflag.ObserveIncrementsAiScanUseCase
+import com.stratum.domain.lift.DeleteCustomEquipmentUseCase
 import com.stratum.domain.lift.DismissEquipmentProposalUseCase
 import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.ForkEquipmentUseCase
@@ -117,6 +118,11 @@ class EquipmentIncrementsScanTest {
             dismissEquipmentProposal =
                 DismissEquipmentProposalUseCase(
                     fakeProposalPrefs,
+                    FakeLoggingPort(),
+                ),
+            deleteCustomEquipment =
+                DeleteCustomEquipmentUseCase(
+                    fakeEquipmentRepository,
                     FakeLoggingPort(),
                 ),
             equipmentPickResult = equipmentPickResult,

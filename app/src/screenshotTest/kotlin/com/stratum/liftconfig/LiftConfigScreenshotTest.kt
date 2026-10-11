@@ -84,6 +84,28 @@ fun manageEquipmentSelectionNeo() {
 @PreviewTest
 @PreviewLightDark
 @Composable
+fun manageEquipmentDeletingTonal() {
+    ManageEquipmentPreviewContent(
+        family = StratumThemeId.Tonal,
+        state = previewManageEquipmentDeleting(),
+        selectionMode = false,
+    )
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun manageEquipmentDeletingNeo() {
+    ManageEquipmentPreviewContent(
+        family = StratumThemeId.NeoBrutalist,
+        state = previewManageEquipmentDeleting(),
+        selectionMode = false,
+    )
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
 fun liftInformationInstructionsTonal() {
     LiftInformationPreviewContent(
         family = StratumThemeId.Tonal,
@@ -164,5 +186,31 @@ fun equipmentIncrementsNeo() {
         title = "Cables",
         selection = null,
         family = StratumThemeId.NeoBrutalist,
+    )
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun equipmentIncrementsDeleteTonal() {
+    IncrementEditorPreview(
+        chrome = PREVIEW_EQUIPMENT_CHROME,
+        title = "Cables",
+        selection = null,
+        family = StratumThemeId.Tonal,
+        deleteAction = IncrementEditorDeleteAction(text = "Delete equipment", onClick = {}),
+    )
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun equipmentIncrementsDeleteNeo() {
+    IncrementEditorPreview(
+        chrome = PREVIEW_EQUIPMENT_CHROME,
+        title = "Cables",
+        selection = null,
+        family = StratumThemeId.NeoBrutalist,
+        deleteAction = IncrementEditorDeleteAction(text = "Delete equipment", onClick = {}),
     )
 }
