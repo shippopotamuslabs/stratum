@@ -36,9 +36,11 @@ import androidx.activity.compose.BackHandler
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stratum.core.ui.R as CoreUiR
+import com.stratum.core.ui.component.EquipmentSwapSheet
 import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumButton
 import com.stratum.core.ui.component.StratumEdgeToEdgeCard
+import com.stratum.core.ui.component.StratumEquipmentSubheader
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumOutlinedButton
 import com.stratum.core.ui.component.StratumPillToggle
@@ -92,6 +94,7 @@ fun EditWorkoutRoute(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val userMessage by viewModel.userMessage.collectAsStateWithLifecycle()
     val isStarting by viewModel.isStarting.collectAsStateWithLifecycle()
+    val equipmentSwap by viewModel.equipmentSwap.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var showLeaveDiscardDialog by remember { mutableStateOf(false) }
     var showDirtyStartDialog by remember { mutableStateOf(false) }
@@ -169,6 +172,7 @@ fun EditWorkoutRoute(
                     viewModel.startReorderLifts()
                     onReorderLiftsClick(workoutId)
                 },
+                onEquipmentSwapClick = viewModel::openEquipmentSwap,
             ),
         snackbarHostState = snackbarHostState,
         modifier = modifier,
@@ -195,6 +199,17 @@ fun EditWorkoutRoute(
                 showActiveSessionDiscardDialog = false
                 viewModel.confirmDiscardActiveAndStart()
             },
+        )
+    }
+
+    equipmentSwap?.let { swap ->
+        EquipmentSwapSheet(
+            state = swap.sheet,
+            onQueryChange = viewModel::setEquipmentSwapQuery,
+            onSelect = { viewModel.selectSwapEquipment(it.id) },
+            // Create-new entry point — wired to the equipment editor in STR-121.
+            onCreateNew = {},
+            onDismissRequest = viewModel::closeEquipmentSwap,
         )
     }
 }
@@ -592,6 +607,7 @@ internal fun EditWorkoutContent(
                     onShowProgressionSchemeInfo = onShowProgressionSchemeInfo,
                     onSetKind = callbacks.onSetSetKind,
                     onSetMatchBackoffCount = callbacks.onSetMatchBackoffCount,
+                    onEquipmentSwapClick = { callbacks.onEquipmentSwapClick(lift.workoutLiftId) },
                 )
             }
         item {
@@ -661,6 +677,7 @@ private fun EditLiftPanel(
     onShowProgressionSchemeInfo: () -> Unit,
     onSetKind: (setId: String, kind: EditSetKind) -> Unit = { _, _ -> },
     onSetMatchBackoffCount: (activationSetId: String, count: Int) -> Unit = { _, _ -> },
+    onEquipmentSwapClick: () -> Unit = {},
 ) {
     StratumEdgeToEdgeCard(
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -689,6 +706,11 @@ private fun EditLiftPanel(
                 )
             }
         }
+
+        StratumEquipmentSubheader(
+            equipmentName = lift.equipmentName,
+            onSwapClick = onEquipmentSwapClick,
+        )
 
         if (lift.isCompound) {
             ProgressionSchemeToggleRow(

@@ -6,6 +6,7 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.stratum.core.data.sync.SyncFlags
+import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.ProgressionScheme
@@ -98,6 +99,12 @@ data class WorkoutLiftEntity(
     @PrimaryKey @ColumnInfo(name = "id") val id: WorkoutLiftId,
     @ColumnInfo(name = "workout_id") val workoutId: WorkoutId,
     @ColumnInfo(name = "lift_id") val liftId: LiftId,
+    /**
+     * Template-assigned equipment. Null means "inherit the lift's equipment".
+     * Bare column, no FK — same convention as `logged_sets.equipmentId`, so
+     * tombstoned equipment never blocks template reads.
+     */
+    @ColumnInfo(name = "equipment_id") val equipmentId: EquipmentId? = null,
     @ColumnInfo(name = "progression_scheme") val progressionScheme: ProgressionScheme,
     val position: Int,
     @ColumnInfo(name = "superset_group_id") val supersetGroupId: WorkoutSupersetGroupId? = null,

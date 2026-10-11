@@ -81,6 +81,13 @@ data class RenderedLiftUi(
      */
     val equipmentId: String? = null,
     /**
+     * Equipment in use for this lift this session (live-swap override, else template
+     * assignment, else lift default). Drives the card subheader + swap sheet.
+     */
+    val sessionEquipmentId: String? = null,
+    /** Display name for [sessionEquipmentId], joined from the equipment catalog. */
+    val sessionEquipmentName: String? = null,
+    /**
      * True when a logged weight this session sits off the lift's increment lattice.
      * Drives the "Adjust Equipment" chip under the lift title. The session runtime
      * clears it for dismissed (X) and saved-away (tier-edited) cards.

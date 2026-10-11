@@ -124,6 +124,7 @@ class SyncEntityEncoders @Inject constructor() {
         mapOf(
             "workout_id" to e.workoutId.value,
             "lift_id" to e.liftId.value,
+            "equipment_id" to e.equipmentId?.value,
             "progression_scheme" to e.progressionScheme.name,
             "position" to e.position,
             "superset_group_id" to e.supersetGroupId?.value,
