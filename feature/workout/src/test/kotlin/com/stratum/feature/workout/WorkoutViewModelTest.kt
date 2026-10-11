@@ -443,6 +443,11 @@ class WorkoutViewModelTest {
                 equipmentRepository,
             ),
             equipmentPickResult = equipmentPickResult,
+            rewriteSessionLiftEquipment =
+                com.stratum.domain.training.RewriteSessionLiftEquipmentUseCase(
+                    trainingLogRepository,
+                    FakeLoggingPort(),
+                ),
         )
     }
 
@@ -538,6 +543,11 @@ class WorkoutViewModelTest {
                 equipmentRepository,
             ),
             equipmentPickResult = equipmentPickResult,
+            rewriteSessionLiftEquipment =
+                com.stratum.domain.training.RewriteSessionLiftEquipmentUseCase(
+                    trainingLogRepository,
+                    FakeLoggingPort(),
+                ),
         )
     }
 
@@ -631,6 +641,11 @@ class WorkoutViewModelTest {
                 equipmentRepository,
             ),
             equipmentPickResult = equipmentPickResult,
+            rewriteSessionLiftEquipment =
+                com.stratum.domain.training.RewriteSessionLiftEquipmentUseCase(
+                    trainingLogRepository,
+                    FakeLoggingPort(),
+                ),
         )
     }
 
@@ -1366,6 +1381,11 @@ class WorkoutViewModelTest {
                 equipmentRepository,
             ),
             equipmentPickResult = equipmentPickResult,
+            rewriteSessionLiftEquipment =
+                com.stratum.domain.training.RewriteSessionLiftEquipmentUseCase(
+                    trainingLogRepository,
+                    FakeLoggingPort(),
+                ),
         )
 
         localViewModel.startSession(workoutId)
@@ -1458,6 +1478,11 @@ class WorkoutViewModelTest {
                 equipmentRepository,
             ),
             equipmentPickResult = equipmentPickResult,
+            rewriteSessionLiftEquipment =
+                com.stratum.domain.training.RewriteSessionLiftEquipmentUseCase(
+                    trainingLogRepository,
+                    FakeLoggingPort(),
+                ),
         )
 
         localViewModel.startSession(workoutId)
@@ -3514,6 +3539,137 @@ class WorkoutViewModelTest {
         val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
         val lift = loaded.lifts.single { it.workoutLiftId == workoutLiftId.value }
         assertEquals("barbell", lift.sessionEquipmentId)
+    }
+
+    private suspend fun kotlinx.coroutines.test.TestScope.logFirstSet(viewModel: WorkoutViewModel) {
+        viewModel.logSet(
+            slotKey = liftSetId.value,
+            weight = lb(135.0),
+            reps = 5,
+            rir = 2,
+        )
+        advanceUntilIdle()
+    }
+
+    @Test
+    @DisplayName("STR-122: selecting with logged sets raises the prompt instead of swapping")
+    fun selectWithLoggedSetsShowsPrompt() = runTest {
+        seedSwapCatalog()
+        val viewModel =
+            buildViewModelWithProgram(program = programWithTemplateEquipment("barbell"))
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+        logFirstSet(viewModel)
+
+        viewModel.openEquipmentSwap(workoutLiftId.value)
+        advanceUntilIdle()
+        viewModel.selectSwapEquipment("ssb")
+        advanceUntilIdle()
+
+        val prompt = checkNotNull(viewModel.equipmentRewritePrompt.value)
+        assertEquals(1, prompt.loggedCount)
+        assertEquals("ssb", prompt.newId)
+        assertEquals("Safety Squat Bar", prompt.newName)
+        assertEquals("Olympic Barbell", prompt.oldName)
+        assertNull(viewModel.equipmentSwap.value)
+        val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertEquals(
+            "barbell",
+            loaded.lifts.single { it.workoutLiftId == workoutLiftId.value }.sessionEquipmentId,
+        )
+    }
+
+    @Test
+    @DisplayName("STR-122: rewrite choice rewrites logged sets and swaps the session")
+    fun confirmRewriteLoggedSets() = runTest {
+        seedSwapCatalog()
+        val viewModel =
+            buildViewModelWithProgram(program = programWithTemplateEquipment("barbell"))
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+        logFirstSet(viewModel)
+        viewModel.openEquipmentSwap(workoutLiftId.value)
+        advanceUntilIdle()
+        viewModel.selectSwapEquipment("ssb")
+        advanceUntilIdle()
+        assertNotNull(viewModel.equipmentRewritePrompt.value)
+
+        viewModel.confirmRewriteLoggedSets()
+        advanceUntilIdle()
+
+        assertNull(viewModel.equipmentRewritePrompt.value)
+        val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertEquals(
+            "ssb",
+            loaded.lifts.single { it.workoutLiftId == workoutLiftId.value }.sessionEquipmentId,
+        )
+        val sets =
+            trainingLogRepository.getSetsForSession(
+                com.stratum.domain.training.identity.TrainingSessionId("ts-active"),
+            )
+        assertTrue(sets.isNotEmpty())
+        assertTrue(sets.all { it.equipmentId?.value == "ssb" })
+    }
+
+    @Test
+    @DisplayName("STR-122: keep choice swaps the session without touching logged sets")
+    fun keepLoggedSetsEquipment() = runTest {
+        seedSwapCatalog()
+        val viewModel =
+            buildViewModelWithProgram(program = programWithTemplateEquipment("barbell"))
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+        logFirstSet(viewModel)
+        val before =
+            trainingLogRepository.getSetsForSession(
+                com.stratum.domain.training.identity.TrainingSessionId("ts-active"),
+            ).single().equipmentId
+        viewModel.openEquipmentSwap(workoutLiftId.value)
+        advanceUntilIdle()
+        viewModel.selectSwapEquipment("ssb")
+        advanceUntilIdle()
+        assertNotNull(viewModel.equipmentRewritePrompt.value)
+
+        viewModel.keepLoggedSetsEquipment()
+        advanceUntilIdle()
+
+        assertNull(viewModel.equipmentRewritePrompt.value)
+        val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertEquals(
+            "ssb",
+            loaded.lifts.single { it.workoutLiftId == workoutLiftId.value }.sessionEquipmentId,
+        )
+        val after =
+            trainingLogRepository.getSetsForSession(
+                com.stratum.domain.training.identity.TrainingSessionId("ts-active"),
+            ).single().equipmentId
+        assertEquals(before, after)
+    }
+
+    @Test
+    @DisplayName("STR-122: dismissing the prompt applies no swap")
+    fun dismissRewritePromptAppliesNothing() = runTest {
+        seedSwapCatalog()
+        val viewModel =
+            buildViewModelWithProgram(program = programWithTemplateEquipment("barbell"))
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+        logFirstSet(viewModel)
+        viewModel.openEquipmentSwap(workoutLiftId.value)
+        advanceUntilIdle()
+        viewModel.selectSwapEquipment("ssb")
+        advanceUntilIdle()
+        assertNotNull(viewModel.equipmentRewritePrompt.value)
+
+        viewModel.dismissRewritePrompt()
+        advanceUntilIdle()
+
+        assertNull(viewModel.equipmentRewritePrompt.value)
+        val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertEquals(
+            "barbell",
+            loaded.lifts.single { it.workoutLiftId == workoutLiftId.value }.sessionEquipmentId,
+        )
     }
 
     @Test

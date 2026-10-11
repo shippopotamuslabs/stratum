@@ -124,13 +124,7 @@ fun WorkoutScreen(
     /** Persist failed after optimistic draft materialise — reseed that slot. */
     failedLogSlotKey: String? = null,
     onFailedLogConsumed: () -> Unit = {},
-    /** Open equipment swap sheet, or null when closed. */
-    equipmentSwap: EquipmentSwapUi? = null,
-    onEquipmentSwapQuery: (String) -> Unit = {},
-    onEquipmentSwapSelect: (String) -> Unit = {},
-    onEquipmentSwapDismiss: () -> Unit = {},
-    /** Create-new entry point — the route arms the return path, then navigates. */
-    onEquipmentCreateNew: () -> Unit = {},
+    equipmentSwapHost: EquipmentSwapHost = EquipmentSwapHost(),
 ) {
     var showRestSheet by remember { mutableStateOf(false) }
     var showDiscardDialog by remember { mutableStateOf(false) }
@@ -412,13 +406,22 @@ fun WorkoutScreen(
             ),
     )
 
-    equipmentSwap?.let { swap ->
+    equipmentSwapHost.sheet?.let { swap ->
         EquipmentSwapSheet(
             state = swap.sheet,
-            onQueryChange = onEquipmentSwapQuery,
-            onSelect = { onEquipmentSwapSelect(it.id) },
-            onCreateNew = onEquipmentCreateNew,
-            onDismissRequest = onEquipmentSwapDismiss,
+            onQueryChange = equipmentSwapHost.onQuery,
+            onSelect = { equipmentSwapHost.onSelect(it.id) },
+            onCreateNew = equipmentSwapHost.onCreateNew,
+            onDismissRequest = equipmentSwapHost.onDismiss,
+        )
+    }
+
+    equipmentSwapHost.rewritePrompt?.let { prompt ->
+        EquipmentRewritePromptDialog(
+            prompt = prompt,
+            onRewrite = equipmentSwapHost.onRewrite,
+            onKeepOld = equipmentSwapHost.onKeepOld,
+            onDismiss = equipmentSwapHost.onDismissPrompt,
         )
     }
 }
