@@ -3,6 +3,7 @@ package com.stratum.core.data.db
 import androidx.room.Room
 import com.stratum.domain.importing.ImportHistoryTrainingMapper
 import com.stratum.domain.importing.identity.LoggedSetId
+import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.identity.ProgramId
@@ -86,7 +87,7 @@ class LoggedSetDaoContractTest {
     }
 
     @Test
-    @DisplayName("Unique constraint on (liftId, isPersonalRecord) rejects duplicate PRs but allows multiple null sets")
+    @DisplayName("Unique constraint on (liftId, equipmentId, isPersonalRecord) rejects duplicate PRs per pair but allows per-equipment PRs")
     fun uniqueConstraintOnPr() = runTest {
         val sessionId = TrainingSessionId("session-1")
         sessionDao.upsert(
@@ -115,26 +116,45 @@ class LoggedSetDaoContractTest {
         )
         setDao.upsertAll(listOf(set1, set2))
 
+        val equipA = EquipmentId("equip-a")
+        val equipB = EquipmentId("equip-b")
+
         val prSet1 = loggedSet("pr-set-1", sessionId, completedAtEpochMillis = 4_000L).copy(
             liftId = LiftId("lift-bench"),
+            equipmentId = equipA,
             isPersonalRecord = true
         )
         setDao.upsert(prSet1)
 
+        // Second PR for the SAME (lift, equipment) pair must be rejected.
         val prSet2 = loggedSet("pr-set-2", sessionId, completedAtEpochMillis = 5_000L).copy(
             liftId = LiftId("lift-bench"),
+            equipmentId = equipA,
             isPersonalRecord = true
         )
-        
+
         try {
             setDao.upsert(prSet2)
         } catch (e: Exception) {
             // Expected
         }
 
+        val afterDup = setDao.getForSession(sessionId)
+        assertTrue(afterDup.any { it.id == LoggedSetId("pr-set-1") })
+        assertTrue(afterDup.none { it.id == LoggedSetId("pr-set-2") })
+
+        // Same lift, DIFFERENT equipment: allowed (STR-129 — finalize must not crash
+        // when one session earns PRs for the same lift on two equipments).
+        val prSet3 = loggedSet("pr-set-3", sessionId, completedAtEpochMillis = 6_000L).copy(
+            liftId = LiftId("lift-bench"),
+            equipmentId = equipB,
+            isPersonalRecord = true
+        )
+        setDao.upsert(prSet3)
+
         val allSets = setDao.getForSession(sessionId)
         assertTrue(allSets.any { it.id == LoggedSetId("pr-set-1") })
-        assertTrue(allSets.none { it.id == LoggedSetId("pr-set-2") })
+        assertTrue(allSets.any { it.id == LoggedSetId("pr-set-3") })
     }
 
     @Test
