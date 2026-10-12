@@ -857,7 +857,7 @@ class PersistImportedHistoryUseCase @Inject constructor(
                 catalogStep = ImportCatalogProgressStep.SavingHistory,
             ),
         )
-        // Demote prior live PRs first — unique (liftId, isPersonalRecord) cannot hold two trues.
+        // Demote prior live PRs first — unique (liftId, equipmentId, isPersonalRecord) cannot hold two trues per pair.
         if (computation.oldPrSetsToUpdate.isNotEmpty()) {
             trainingLogRepository.updateSets(computation.oldPrSetsToUpdate)
         }

@@ -45,7 +45,11 @@ data class ImportJobEntity(
         Index("sessionId"),
         Index("completedAtEpochMillis"),
         Index(value = ["workoutLiftId", "liftId", "setIndex"]),
-        Index(value = ["liftId", "isPersonalRecord"], unique = true),
+        // STR-129: PR identity is per (liftId, equipmentId) since STR-123, so the
+        // unique PR index must include equipmentId — (liftId, isPersonalRecord)
+        // crashed finalize whenever one session earned PRs for the same lift on
+        // two different equipments.
+        Index(value = ["liftId", "equipmentId", "isPersonalRecord"], unique = true),
         Index(value = ["liftId", "equipmentId"]),
     ],
 )

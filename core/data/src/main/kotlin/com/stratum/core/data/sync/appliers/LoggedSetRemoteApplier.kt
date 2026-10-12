@@ -10,9 +10,9 @@ import javax.inject.Singleton
  *
  * **Invariant side-effects of applying a remote winner mark PENDING so they upload and heal
  * cloud.** When the remote set is a personal record, demotes any existing local PR for that
- * lift with [com.stratum.core.data.sync.SyncFlags.PENDING_UPSERT] so the unique PR index cannot
- * permanently stall pull and dual-PR cloud state heals. Same rule as program demotion in
- * [ProgramRemoteApplier].
+ * (lift, equipment) pair with [com.stratum.core.data.sync.SyncFlags.PENDING_UPSERT] so the unique
+ * PR index cannot permanently stall pull and dual-PR cloud state heals. Same rule as program
+ * demotion in [ProgramRemoteApplier].
  */
 @Singleton
 class LoggedSetRemoteApplier @Inject constructor(
@@ -25,6 +25,7 @@ class LoggedSetRemoteApplier @Inject constructor(
         if (entity.isPersonalRecord == true && liftId != null) {
             loggedSetDao.demotePersonalRecordsForLift(
                 liftId = liftId,
+                equipmentId = entity.equipmentId,
                 exceptId = entity.id,
                 minUpdatedAtEpochMillis = maxOf(entity.updatedAtEpochMillis, System.currentTimeMillis()),
             )

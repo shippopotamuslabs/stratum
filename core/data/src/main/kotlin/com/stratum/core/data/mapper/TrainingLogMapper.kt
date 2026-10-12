@@ -52,7 +52,14 @@ internal fun LoggedSetEntity.toTrainingDomain(): LoggedSet = LoggedSet(
     liftId = liftId,
     equipmentId = equipmentId,
     setIndex = setIndex,
-    weight = com.stratum.domain.lift.Weight(weightAmount, com.stratum.domain.lift.Weight.WeightUnit.parse(weightUnit)),
+    weight = com.stratum.domain.lift.Weight(
+        weightAmount,
+        // STR-129: never throw on malformed unit strings from the DB — fall back to Lb
+        // so a single bad row cannot brick finalize. The bad value is preserved in
+        // the entity; this only affects the domain view.
+        com.stratum.domain.lift.Weight.WeightUnit.parseOrNull(weightUnit)
+            ?: com.stratum.domain.lift.Weight.WeightUnit.Lb,
+    ),
     reps = reps,
     rir = rir,
     completedAt = java.time.Instant.ofEpochMilli(completedAtEpochMillis),

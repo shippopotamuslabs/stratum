@@ -8,6 +8,7 @@ import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
+import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.training.TrainingSessionStatus
 import com.stratum.domain.training.identity.TrainingSessionId
@@ -231,7 +232,7 @@ interface TrainingLoggedSetDao {
 
     /**
      * Reassigns all sets from [sourceLiftIds] onto [targetLiftId], rewrites snapshot names, and
-     * clears personal-record flags (null) so the unique (liftId, isPersonalRecord) index is safe.
+     * clears personal-record flags (null) so the unique (liftId, equipmentId, isPersonalRecord) index is safe.
      */
     @Query(
         """
@@ -297,8 +298,10 @@ interface TrainingLoggedSetDao {
     suspend fun markSyncedIfUnchanged(id: String, updatedAt: Long)
 
     /**
-     * Clears other personal-record flags for [liftId] so remote PR apply cannot violate
-     * the unique (liftId, isPersonalRecord) index.
+     * Clears other personal-record flags for the ([liftId], [equipmentId]) pair so remote
+     * PR apply cannot violate the unique (liftId, equipmentId, isPersonalRecord) index.
+     * PR identity is per pair since STR-123: sibling-equipment PRs are independent and
+     * must not be demoted.
      *
      * Demotions use PENDING_UPSERT + a non-regressing clock (same pattern as
      * [com.stratum.core.data.db.ProgramDao.demoteOtherActivesPending]) so dual-PR cloud
@@ -315,12 +318,14 @@ interface TrainingLoggedSetDao {
                 ELSE updated_at_epoch_millis
             END
         WHERE liftId = :liftId
+          AND equipmentId IS :equipmentId
           AND isPersonalRecord = 1
           AND id != :exceptId
         """,
     )
     suspend fun demotePersonalRecordsForLift(
         liftId: LiftId,
+        equipmentId: EquipmentId?,
         exceptId: LoggedSetId,
         minUpdatedAtEpochMillis: Long,
     )
