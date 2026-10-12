@@ -16,6 +16,7 @@ import com.stratum.domain.workout.myorep.MyoRepKind
 import java.time.Instant
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -609,6 +610,98 @@ class ApplyOverlayToWorkoutUseCaseTest {
             ).isDirty,
         )
     }
+
+    // ---- STR-127: lift swap re-scopes equipment + pinned notes --------------
+
+    @Test
+    @DisplayName("Lift swap resets template equipment so the new lift inherits its own default")
+    fun swapResetsEquipment() {
+        val baseline =
+            sampleWorkout().withFirstLift {
+                it.copy(equipmentId = com.stratum.domain.lift.identity.EquipmentId("eq-old"))
+            }
+        val overlay =
+            WorkoutOverlay(
+                swappedLifts = mapOf(WorkoutLiftId("wl-1") to LiftId("lift-ohp")),
+            )
+
+        val result = useCase(baseline, overlay)
+
+        val swapped = result.workoutLifts.first { it.id.value == "wl-1" }
+        assertEquals(LiftId("lift-ohp"), swapped.liftId)
+        assertNull(swapped.equipmentId)
+    }
+
+    @Test
+    @DisplayName("Lift swap keeps an explicit session equipment swap for the new pair")
+    fun swapKeepsSessionEquipmentOverride() {
+        val baseline =
+            sampleWorkout().withFirstLift {
+                it.copy(equipmentId = com.stratum.domain.lift.identity.EquipmentId("eq-old"))
+            }
+        val newEquipment = com.stratum.domain.lift.identity.EquipmentId("eq-new")
+        val overlay =
+            WorkoutOverlay(
+                swappedLifts = mapOf(WorkoutLiftId("wl-1") to LiftId("lift-ohp")),
+                swappedEquipment = mapOf(WorkoutLiftId("wl-1") to newEquipment),
+            )
+
+        val result = useCase(baseline, overlay)
+
+        assertEquals(newEquipment, result.workoutLifts.first { it.id.value == "wl-1" }.equipmentId)
+    }
+
+    @Test
+    @DisplayName("Lift swap does not write the old lift's pinned notes onto the new lift")
+    fun swapDoesNotCarryPinnedNotes() {
+        val baseline =
+            sampleWorkout().withFirstLift {
+                it.copy(pinnedNote = "bench cue", pinnedNotes = listOf("bench cue"))
+            }
+        val overlay =
+            WorkoutOverlay(
+                swappedLifts = mapOf(WorkoutLiftId("wl-1") to LiftId("lift-ohp")),
+            )
+
+        val result = useCase(baseline, overlay)
+
+        val swapped = result.workoutLifts.first { it.id.value == "wl-1" }
+        assertEquals(LiftId("lift-ohp"), swapped.liftId)
+        assertNull(swapped.pinnedNote)
+        assertEquals(emptyList<String>(), swapped.pinnedNotes)
+    }
+
+    @Test
+    @DisplayName("Swap back to the template lift restores its stashed pinned notes")
+    fun swapBackRestoresStashedNotes() {
+        val slot = WorkoutLiftId("wl-1")
+        val baseline =
+            sampleWorkout().withFirstLift {
+                it.copy(pinnedNote = "bench cue", pinnedNotes = listOf("bench cue"))
+            }
+        // Session swapped bench -> ohp -> bench: the second swap left the pair
+        // (wl-1, lift-bench) stash holding the original notes.
+        val overlay =
+            WorkoutOverlay(
+                swappedLifts = mapOf(slot to LiftId("lift-bench")),
+                pinnedNoteStash =
+                    mapOf(SlotLiftPair(slot, LiftId("lift-bench")) to listOf("bench cue")),
+            )
+
+        val result = useCase(baseline, overlay)
+
+        val restored = result.workoutLifts.first { it.id == slot }
+        assertEquals(listOf("bench cue"), restored.pinnedNotes)
+        assertEquals("bench cue", restored.pinnedNote)
+    }
+
+    private fun Workout.withFirstLift(transform: (WorkoutLift) -> WorkoutLift): Workout =
+        copy(
+            workoutLifts =
+                workoutLifts.mapIndexed { index, lift ->
+                    if (index == 0) transform(lift) else lift
+                },
+        )
 
     private fun sampleWorkout(): Workout = Workout(
         id = WorkoutId("w-1"),

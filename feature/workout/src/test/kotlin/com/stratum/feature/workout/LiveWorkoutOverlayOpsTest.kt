@@ -368,6 +368,164 @@ class LiveWorkoutOverlayOpsTest {
         assertEquals("default-eq", renderWithTemplate(null))
     }
 
+    // ---- STR-127: lift swap re-scopes equipment + pinned notes --------------
+
+    private fun catalogLift(id: LiftId, name: String, equipmentId: String?): Lift =
+        Lift(
+            id = id,
+            name = name,
+            movementPatterns = emptySet(),
+            primaryMuscles = emptySet(),
+            secondaryMuscles = emptySet(),
+            incrementTiers = emptyList(),
+            presetTags = emptySet(),
+            enabled = true,
+            equipmentId = equipmentId?.let { com.stratum.domain.lift.identity.EquipmentId(it) },
+        )
+
+    @Test
+    @DisplayName("STR-127: swapLift stashes outgoing notes and drops the old pair's equipment override")
+    fun swapLiftStashesNotesAndDropsEquipment() {
+        val overlay =
+            WorkoutOverlay(
+                swappedEquipment =
+                    mapOf(workoutLiftId to com.stratum.domain.lift.identity.EquipmentId("eq-session")),
+                workoutLiftPinnedNoteLists = mapOf(workoutLiftId to listOf("edited pin")),
+            )
+
+        val swapped =
+            LiveWorkoutOverlayOps.swapLift(
+                overlay = overlay,
+                workoutLiftId = workoutLiftId,
+                newLiftId = swappedLiftId,
+                outgoingLiftId = originalLiftId,
+                outgoingNotes = listOf("original pair note"),
+            )
+
+        assertEquals(swappedLiftId, swapped.swappedLifts[workoutLiftId])
+        assertTrue(swapped.swappedEquipment.isEmpty())
+        assertEquals(
+            listOf("original pair note"),
+            swapped.pinnedNoteStash[
+                com.stratum.domain.workout.SlotLiftPair(workoutLiftId, originalLiftId)
+            ],
+        )
+        // The slot pin maps held the outgoing pair's edits; they are stashed, not carried.
+        assertTrue(swapped.workoutLiftPinnedNoteLists.isEmpty())
+    }
+
+    @Test
+    @DisplayName("STR-127: swapLift to the same lift is a no-op")
+    fun swapLiftSameLiftNoOp() {
+        val overlay = WorkoutOverlay()
+        assertEquals(
+            overlay,
+            LiveWorkoutOverlayOps.swapLift(
+                overlay = overlay,
+                workoutLiftId = workoutLiftId,
+                newLiftId = originalLiftId,
+                outgoingLiftId = originalLiftId,
+                outgoingNotes = emptyList(),
+            ),
+        )
+    }
+
+    @Test
+    @DisplayName("STR-127: merge after a lift swap shows the new lift's default equipment and none of the old notes")
+    fun mergeAfterLiftSwapRescopesEquipmentAndNotes() {
+        val templateStructure =
+            structure.copy(
+                lifts =
+                    structure.lifts.map {
+                        it.copy(
+                            equipmentId =
+                                com.stratum.domain.lift.identity.EquipmentId("template-eq"),
+                            workoutPinnedNotes = listOf("original pair note"),
+                        )
+                    },
+            )
+        val liftsById =
+            mapOf(
+                originalLiftId to catalogLift(originalLiftId, "Original Lift", "default-eq"),
+                swappedLiftId to catalogLift(swappedLiftId, "Swapped Lift", "swapped-default-eq"),
+            )
+        val overlay =
+            LiveWorkoutOverlayOps.swapLift(
+                overlay = WorkoutOverlay(),
+                workoutLiftId = workoutLiftId,
+                newLiftId = swappedLiftId,
+                outgoingLiftId = originalLiftId,
+                outgoingNotes = listOf("original pair note"),
+            )
+
+        val rendered =
+            LiveWorkoutOverlayOps.merge(
+                structure = templateStructure,
+                overlay = overlay,
+                snapshotBySlot = emptyMap(),
+                liftsById = liftsById,
+                liftNamesById = liftsById.mapValues { it.value.name },
+                mergeRenderedWorkout = MergeRenderedWorkoutUseCase(),
+            )
+
+        val lift = rendered.lifts.single()
+        assertEquals(swappedLiftId, lift.liftId)
+        assertEquals("swapped-default-eq", lift.equipmentId?.value)
+        assertEquals(emptyList<String>(), lift.workoutPinnedNotes)
+    }
+
+    @Test
+    @DisplayName("STR-127: merge after swap-back restores the original pair's notes and template equipment")
+    fun mergeAfterSwapBackRestoresPair() {
+        val templateStructure =
+            structure.copy(
+                lifts =
+                    structure.lifts.map {
+                        it.copy(
+                            equipmentId =
+                                com.stratum.domain.lift.identity.EquipmentId("template-eq"),
+                            workoutPinnedNotes = listOf("original pair note"),
+                        )
+                    },
+            )
+        val liftsById =
+            mapOf(
+                originalLiftId to catalogLift(originalLiftId, "Original Lift", "default-eq"),
+                swappedLiftId to catalogLift(swappedLiftId, "Swapped Lift", "swapped-default-eq"),
+            )
+        val afterSwapOut =
+            LiveWorkoutOverlayOps.swapLift(
+                overlay = WorkoutOverlay(),
+                workoutLiftId = workoutLiftId,
+                newLiftId = swappedLiftId,
+                outgoingLiftId = originalLiftId,
+                outgoingNotes = listOf("original pair note"),
+            )
+        val afterSwapBack =
+            LiveWorkoutOverlayOps.swapLift(
+                overlay = afterSwapOut,
+                workoutLiftId = workoutLiftId,
+                newLiftId = originalLiftId,
+                outgoingLiftId = swappedLiftId,
+                outgoingNotes = emptyList(),
+            )
+
+        val rendered =
+            LiveWorkoutOverlayOps.merge(
+                structure = templateStructure,
+                overlay = afterSwapBack,
+                snapshotBySlot = emptyMap(),
+                liftsById = liftsById,
+                liftNamesById = liftsById.mapValues { it.value.name },
+                mergeRenderedWorkout = MergeRenderedWorkoutUseCase(),
+            )
+
+        val lift = rendered.lifts.single()
+        assertEquals(originalLiftId, lift.liftId)
+        assertEquals("template-eq", lift.equipmentId?.value)
+        assertEquals(listOf("original pair note"), lift.workoutPinnedNotes)
+    }
+
     @Test
     @DisplayName("merge keeps projection Bodyweight when catalog entry is missing")
     fun mergeKeepsProjectionBodyweightWithoutCatalog() {
