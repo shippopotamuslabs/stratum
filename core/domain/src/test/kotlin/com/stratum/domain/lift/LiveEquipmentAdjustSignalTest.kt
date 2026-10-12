@@ -178,6 +178,40 @@ class LiveEquipmentAdjustSignalTest {
     }
 
     @Test
+    @DisplayName("Given explicit steps when checked then the steps lattice decides, not the lift's")
+    fun explicitStepsDecide() {
+        // STR-128: the swapped-to equipment's steps replace the lift's own lattice.
+        val swappedSteps =
+            EffectiveSteps(
+                tiers = listOf(IncrementTier(Weight(0.0, lb), null, Weight(2.5, lb))),
+                microIncrements = emptyList(),
+            )
+        // 62.5 is off the lift's open 5-lb lattice but on the swapped 2.5-lb one.
+        assertTrue(shouldShowLiveEquipmentAdjust(weights(62.5), lift()))
+        assertFalse(
+            shouldShowLiveEquipmentAdjust(
+                loggedWeights = weights(62.5),
+                steps = swappedSteps,
+                loadType = LoadType.Weighted,
+            ),
+        )
+        // And the reverse: on the lift's lattice, off the swapped one.
+        val tenSteps =
+            EffectiveSteps(
+                tiers = listOf(IncrementTier(Weight(0.0, lb), null, Weight(10.0, lb))),
+                microIncrements = emptyList(),
+            )
+        assertFalse(shouldShowLiveEquipmentAdjust(weights(65.0), lift()))
+        assertTrue(
+            shouldShowLiveEquipmentAdjust(
+                loggedWeights = weights(65.0),
+                steps = tenSteps,
+                loadType = LoadType.Weighted,
+            ),
+        )
+    }
+
+    @Test
     @DisplayName("Given adder-exact logged weights when checked then the chip stays hidden")
     fun adderExactHidesChip() {
         assertFalse(
