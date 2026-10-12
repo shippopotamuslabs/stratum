@@ -24,24 +24,23 @@ internal sealed interface SessionCommand {
      */
     data class StartSession(val routeWorkoutId: WorkoutId) : SessionCommand
 
-    /** Cycle-progress + catalog emission: structure rebuild, restore, adopt, render. */
+    /**
+     * Cycle-progress + catalog emission: structure rebuild, restore, adopt, render.
+     * [equipment] rides along atomically with the lift catalog so the runtime
+     * resolves "Adjust Equipment" tiers by the equipment in use (STR-128) from the
+     * same snapshot, never a separately-synced mirror.
+     */
     data class ApplyCycleSnapshot(
         val routeWorkoutId: WorkoutId,
         val program: Program?,
         val session: TrainingSession?,
         val workout: Workout?,
         val catalog: List<Lift>,
+        val equipment: List<Equipment> = emptyList(),
     ) : SessionCommand
 
     /** Re-render with current display unit (prefs flip). */
     data object RenderOnly : SessionCommand
-
-    /**
-     * Equipment catalog emission: the runtime mirrors it so the "Adjust Equipment"
-     * chip, its tracker, and the editor seed resolve tiers by the equipment in use
-     * (STR-128), including tier saves made mid-session on a swapped-to piece.
-     */
-    data class UpdateEquipmentCatalog(val equipment: List<Equipment>) : SessionCommand
 
     data class LogSet(
         val slotKey: String,

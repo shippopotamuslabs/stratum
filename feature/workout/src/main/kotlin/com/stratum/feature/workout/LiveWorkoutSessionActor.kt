@@ -213,7 +213,6 @@ internal class LiveWorkoutSessionActor(
             SessionCommand.FinalizeAbandonLocal,
             -> Unit // handled in [handleLifecycle]
             is SessionCommand.ApplyCycleSnapshot -> runtime.handleApplyCycleSnapshot(cmd)
-            is SessionCommand.UpdateEquipmentCatalog -> runtime.handleUpdateEquipmentCatalog(cmd)
             SessionCommand.RenderOnly -> runtime.handleRenderOnly()
             is SessionCommand.LogSet -> runtime.handleLogSet(cmd)
             is SessionCommand.UnlogSet -> runtime.handleUnlogSet(cmd)
@@ -272,7 +271,6 @@ internal fun sessionCommandFailureIsTerminal(cmd: SessionCommand): Boolean =
         is SessionCommand.CompleteWorkout,
         -> true
         SessionCommand.RenderOnly,
-        is SessionCommand.UpdateEquipmentCatalog,
         is SessionCommand.LogSet,
         is SessionCommand.UnlogSet,
         is SessionCommand.AddSet,

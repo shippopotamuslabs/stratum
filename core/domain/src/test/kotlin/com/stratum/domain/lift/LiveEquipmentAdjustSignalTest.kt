@@ -43,11 +43,15 @@ class LiveEquipmentAdjustSignalTest {
 
     private fun weights(vararg amounts: Double) = amounts.map { Weight(it, lb) }
 
+    /** Lift-form convenience: the signal over the lift's own effective steps. */
+    private fun signal(weights: List<Weight>, lift: Lift) =
+        shouldShowLiveEquipmentAdjust(weights, EffectiveSteps.from(lift), lift.loadType)
+
     @Test
     @DisplayName("Given an off-lattice logged weight when checked then the chip shows")
     fun offLatticeShowsChip() {
         assertTrue(
-            shouldShowLiveEquipmentAdjust(
+            signal(
                 weights(60.0, 62.5),
                 lift(),
             ),
@@ -57,14 +61,14 @@ class LiveEquipmentAdjustSignalTest {
     @Test
     @DisplayName("Given a single off-lattice set with no peers when checked then the chip shows")
     fun singleOffLatticeSetShowsChip() {
-        assertTrue(shouldShowLiveEquipmentAdjust(weights(62.5), lift()))
+        assertTrue(signal(weights(62.5), lift()))
     }
 
     @Test
     @DisplayName("Given on-lattice logged weights when checked then the chip stays hidden")
     fun onLatticeHidesChip() {
         assertFalse(
-            shouldShowLiveEquipmentAdjust(
+            signal(
                 weights(60.0, 65.0),
                 lift(),
             ),
@@ -74,20 +78,20 @@ class LiveEquipmentAdjustSignalTest {
     @Test
     @DisplayName("Given no logged sets when checked then the chip stays hidden")
     fun noLoggedSetsHidesChip() {
-        assertFalse(shouldShowLiveEquipmentAdjust(emptyList(), lift()))
+        assertFalse(signal(emptyList(), lift()))
     }
 
     @Test
     @DisplayName("Given only near-zero weights when checked then the chip stays hidden")
     fun zeroWeightsHideChip() {
-        assertFalse(shouldShowLiveEquipmentAdjust(weights(0.0, 0.0), lift()))
+        assertFalse(signal(weights(0.0, 0.0), lift()))
     }
 
     @Test
     @DisplayName("Given a bodyweight lift when checked then the chip stays hidden")
     fun bodyweightHidesChip() {
         assertFalse(
-            shouldShowLiveEquipmentAdjust(
+            signal(
                 weights(62.5),
                 lift(loadType = LoadType.Bodyweight),
             ),
@@ -98,7 +102,7 @@ class LiveEquipmentAdjustSignalTest {
     @DisplayName("Given empty tiers when checked then the chip stays hidden")
     fun emptyTiersHideChip() {
         assertFalse(
-            shouldShowLiveEquipmentAdjust(
+            signal(
                 weights(62.5),
                 lift(tiers = emptyList()),
             ),
@@ -109,7 +113,7 @@ class LiveEquipmentAdjustSignalTest {
     @DisplayName("Given a typo-magnitude outlier among on-lattice peers when checked then it is ignored")
     fun typoOutlierIgnored() {
         assertFalse(
-            shouldShowLiveEquipmentAdjust(
+            signal(
                 weights(60.0, 65.0, 625.0),
                 lift(),
             ),
@@ -120,7 +124,7 @@ class LiveEquipmentAdjustSignalTest {
     @DisplayName("Given an off-lattice assisted load when checked then magnitude decides")
     fun assistedOffLatticeShowsChip() {
         assertTrue(
-            shouldShowLiveEquipmentAdjust(
+            signal(
                 weights(-62.5),
                 lift(loadType = LoadType.Assisted),
             ),
@@ -131,7 +135,7 @@ class LiveEquipmentAdjustSignalTest {
     @DisplayName("Given an on-lattice assisted load when checked then the chip stays hidden")
     fun assistedOnLatticeHidesChip() {
         assertFalse(
-            shouldShowLiveEquipmentAdjust(
+            signal(
                 weights(-65.0),
                 lift(loadType = LoadType.Assisted),
             ),
@@ -165,7 +169,7 @@ class LiveEquipmentAdjustSignalTest {
                         liftContext = WorkoutLoggingFixtures.importLiftContext("Lat pulldown"),
                     )
                 }
-            val live = shouldShowLiveEquipmentAdjust(weights(amounts), catalogLift)
+            val live = signal(weights(amounts), catalogLift)
             val postWorkout =
                 anomalyForLift(
                     liftId = catalogLift.id,
@@ -187,7 +191,7 @@ class LiveEquipmentAdjustSignalTest {
                 microIncrements = emptyList(),
             )
         // 62.5 is off the lift's open 5-lb lattice but on the swapped 2.5-lb one.
-        assertTrue(shouldShowLiveEquipmentAdjust(weights(62.5), lift()))
+        assertTrue(signal(weights(62.5), lift()))
         assertFalse(
             shouldShowLiveEquipmentAdjust(
                 loggedWeights = weights(62.5),
@@ -201,7 +205,7 @@ class LiveEquipmentAdjustSignalTest {
                 tiers = listOf(IncrementTier(Weight(0.0, lb), null, Weight(10.0, lb))),
                 microIncrements = emptyList(),
             )
-        assertFalse(shouldShowLiveEquipmentAdjust(weights(65.0), lift()))
+        assertFalse(signal(weights(65.0), lift()))
         assertTrue(
             shouldShowLiveEquipmentAdjust(
                 loggedWeights = weights(65.0),
@@ -215,7 +219,7 @@ class LiveEquipmentAdjustSignalTest {
     @DisplayName("Given adder-exact logged weights when checked then the chip stays hidden")
     fun adderExactHidesChip() {
         assertFalse(
-            shouldShowLiveEquipmentAdjust(
+            signal(
                 weights(65.0, 70.0),
                 lift(tiers = pinTiers, micro = pinMicro),
             ),
@@ -226,7 +230,7 @@ class LiveEquipmentAdjustSignalTest {
     @DisplayName("Given true residual alongside adder use when checked then the chip shows")
     fun trueResidualWithAdderShowsChip() {
         assertTrue(
-            shouldShowLiveEquipmentAdjust(
+            signal(
                 weights(65.0, 62.0),
                 lift(tiers = pinTiers, micro = pinMicro),
             ),
