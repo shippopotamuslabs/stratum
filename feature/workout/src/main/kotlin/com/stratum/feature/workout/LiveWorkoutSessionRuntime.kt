@@ -112,10 +112,10 @@ internal class LiveWorkoutSessionRuntime(
     var liftsById: Map<LiftId, Lift> = emptyMap()
 
     /**
-     * Equipment catalog mirror (STR-128), fed by SessionCommand.UpdateEquipmentCatalog
-     * independently of the session lifecycle: it is catalog data, not session state,
-     * so it is deliberately not cleared with session memory (the ViewModel's
-     * collector only re-emits on equipment changes).
+     * Equipment catalog as of the latest cycle snapshot (STR-128): delivered
+     * atomically with the lift catalog in [SessionCommand.ApplyCycleSnapshot] and
+     * cleared with session memory like [liftsById]. The adjust chip resolves
+     * tiers by the equipment in use from this map.
      */
     var equipmentById: Map<EquipmentId, Equipment> = emptyMap()
     var fatigueByLiftId: Map<LiftId, FatigueDecay> = emptyMap()
@@ -147,6 +147,7 @@ internal class LiveWorkoutSessionRuntime(
         structure = null
         snapshotBySlot = emptyMap()
         liftsById = emptyMap()
+        equipmentById = emptyMap()
         liftNamesById = emptyMap()
         resetOverlay(WorkoutOverlay())
         baselineWorkout = null
@@ -166,6 +167,7 @@ internal class LiveWorkoutSessionRuntime(
         snapshotBySlot = emptyMap()
         fatigueByLiftId = emptyMap()
         liftsById = emptyMap()
+        equipmentById = emptyMap()
         liftNamesById = emptyMap()
         resetOverlay(WorkoutOverlay())
         cachedProgramId = null
@@ -429,17 +431,17 @@ internal class LiveWorkoutSessionRuntime(
     internal fun effectiveStepsFor(renderedLift: RenderedWorkoutLift): EffectiveSteps {
         val catalog = liftsById[renderedLift.liftId]
         val catalogSteps =
-            EffectiveSteps(
-                tiers = catalog?.incrementTiers.orEmpty(),
-                microIncrements = catalog?.microIncrements.orEmpty(),
-            )
+            catalog?.let { EffectiveSteps.from(it) }
+                ?: EffectiveSteps(tiers = emptyList(), microIncrements = emptyList())
         val resolvedId = renderedLift.equipmentId ?: return catalogSteps
+        // The lift's linked equipment is the one case the catalog steps must win:
+        // a Lift's tiers are *defined* as that equipment's tiers plus the global
+        // fallback resolution (see LiftMapper), which an equipment-direct read
+        // would lose when the linked equipment's tiers are cleared. Every other
+        // resolved piece (a live swap) owns its lattice outright.
         if (resolvedId == catalog?.equipmentId) return catalogSteps
         val equipment = equipmentById[resolvedId] ?: return catalogSteps
-        return EffectiveSteps(
-            tiers = equipment.incrementTiers,
-            microIncrements = equipment.microIncrements,
-        )
+        return EffectiveSteps.from(equipment)
     }
 
     /**
