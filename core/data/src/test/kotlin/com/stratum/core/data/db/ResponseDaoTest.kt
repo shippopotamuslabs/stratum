@@ -186,11 +186,12 @@ class ResponseDaoTest {
     }
 
     @Test
-    @DisplayName("RP-S8-007 schema version includes response modeling tables (Room v13)")
+    @DisplayName("RP-S8-007 schema version includes response modeling tables (Room v14)")
     fun rpS8_007_schemaVersionIncludesModelingTables() {
         // v13 (STR-129: PR unique index → (liftId, equipmentId, isPersonalRecord))
-        // bumped the schema version; response tables remain present.
-        assertEquals(13, database.openHelper.readableDatabase.version)
+        // and v14 (STR-127: workout_lift_notes pair-scoping lift_id) bumped the
+        // schema version; response tables remain present.
+        assertEquals(14, database.openHelper.readableDatabase.version)
     }
 
     private fun sampleVolumeObservation(

@@ -136,4 +136,103 @@ class PinnedNoteResolutionTest {
         )
         assertNull(resolvedWorkoutPinnedNoteFirst(WorkoutOverlay(), workoutLiftId, null))
     }
+
+    // ---- STR-127 pair-aware resolution ------------------------------------
+
+    private val templateLiftId = LiftId("lift-template")
+    private val swappedLiftId = LiftId("lift-swapped")
+
+    @Test
+    @DisplayName("pair-aware: unswapped slot keeps the template list")
+    fun pairUnswappedKeepsTemplate() {
+        assertEquals(
+            listOf("template note"),
+            resolvedWorkoutPinnedNotes(
+                overlay = WorkoutOverlay(),
+                workoutLiftId = workoutLiftId,
+                templateLiftId = templateLiftId,
+                templateNotes = listOf("template note"),
+            ),
+        )
+    }
+
+    @Test
+    @DisplayName("pair-aware: swapped slot without a stash never shows the template lift's notes")
+    fun pairSwappedWithoutStashIsEmpty() {
+        val overlay =
+            WorkoutOverlay(swappedLifts = mapOf(workoutLiftId to swappedLiftId))
+        assertEquals(
+            emptyList<String>(),
+            resolvedWorkoutPinnedNotes(
+                overlay = overlay,
+                workoutLiftId = workoutLiftId,
+                templateLiftId = templateLiftId,
+                templateNotes = listOf("template note"),
+            ),
+        )
+    }
+
+    @Test
+    @DisplayName("pair-aware: swapped slot reads its own pair's stash")
+    fun pairSwappedReadsStash() {
+        val overlay =
+            WorkoutOverlay(
+                swappedLifts = mapOf(workoutLiftId to swappedLiftId),
+                pinnedNoteStash =
+                    mapOf(
+                        SlotLiftPair(workoutLiftId, swappedLiftId) to listOf("swapped pair note"),
+                        SlotLiftPair(workoutLiftId, templateLiftId) to listOf("template note"),
+                    ),
+            )
+        assertEquals(
+            listOf("swapped pair note"),
+            resolvedWorkoutPinnedNotes(
+                overlay = overlay,
+                workoutLiftId = workoutLiftId,
+                templateLiftId = templateLiftId,
+                templateNotes = listOf("template note"),
+            ),
+        )
+    }
+
+    @Test
+    @DisplayName("pair-aware: swap back to the template lift restores its stashed notes")
+    fun pairSwapBackRestoresStash() {
+        val overlay =
+            WorkoutOverlay(
+                swappedLifts = mapOf(workoutLiftId to templateLiftId),
+                pinnedNoteStash =
+                    mapOf(
+                        SlotLiftPair(workoutLiftId, templateLiftId) to listOf("stashed template note"),
+                    ),
+            )
+        assertEquals(
+            listOf("stashed template note"),
+            resolvedWorkoutPinnedNotes(
+                overlay = overlay,
+                workoutLiftId = workoutLiftId,
+                templateLiftId = templateLiftId,
+                templateNotes = listOf("template note"),
+            ),
+        )
+    }
+
+    @Test
+    @DisplayName("pair-aware: explicit overlay pins still win on a swapped slot")
+    fun pairOverlayPinsWin() {
+        val overlay =
+            WorkoutOverlay(
+                swappedLifts = mapOf(workoutLiftId to swappedLiftId),
+                workoutLiftPinnedNoteLists = mapOf(workoutLiftId to listOf("edited in session")),
+            )
+        assertEquals(
+            listOf("edited in session"),
+            resolvedWorkoutPinnedNotes(
+                overlay = overlay,
+                workoutLiftId = workoutLiftId,
+                templateLiftId = templateLiftId,
+                templateNotes = listOf("template note"),
+            ),
+        )
+    }
 }

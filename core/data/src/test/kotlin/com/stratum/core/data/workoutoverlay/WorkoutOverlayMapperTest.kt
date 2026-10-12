@@ -235,4 +235,34 @@ class WorkoutOverlayMapperTest {
         assertTrue(restored.workoutLiftPinnedNoteLists.isEmpty())
         assertEquals(mapOf(WorkoutLiftId("wl-1") to "Keep elbows tucked"), restored.workoutLiftPinnedNotes)
     }
+
+    @Test
+    @DisplayName("pinned note stash round-trips, including meaningful empty pair entries (STR-127)")
+    fun pinnedNoteStashRoundTrip() {
+        val overlay = WorkoutOverlay(
+            pinnedNoteStash = mapOf(
+                com.stratum.domain.workout.SlotLiftPair(
+                    WorkoutLiftId("wl-1"),
+                    LiftId("lift-bench"),
+                ) to listOf("bench cue", "brace"),
+                // Empty means "this pair has no notes" — it must not collapse to absent.
+                com.stratum.domain.workout.SlotLiftPair(
+                    WorkoutLiftId("wl-1"),
+                    LiftId("lift-ohp"),
+                ) to emptyList(),
+            ),
+        )
+
+        val restored = overlay.toDto().toDomain()
+
+        assertEquals(overlay.pinnedNoteStash, restored.pinnedNoteStash)
+        assertTrue(restored.pinnedNoteStash.isNotEmpty())
+    }
+
+    @Test
+    @DisplayName("DTOs without the stash field restore an empty stash (STR-127)")
+    fun legacyDtoWithoutStashRestoresEmpty() {
+        val restored = WorkoutOverlayDto().toDomain()
+        assertTrue(restored.pinnedNoteStash.isEmpty())
+    }
 }

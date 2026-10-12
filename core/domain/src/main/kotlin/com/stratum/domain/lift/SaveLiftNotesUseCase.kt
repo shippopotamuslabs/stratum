@@ -32,11 +32,19 @@ class SaveLiftNotesUseCase @Inject constructor(
             }
             val workoutNeedsOverlay =
                 command.workoutNotes?.let { inputs ->
-                    !programRepository.setWorkoutLiftPinnedNotes(command.workoutLiftId, inputs)
+                    // Pair-scoped (STR-127): writes land on the (slot, lift) pair of
+                    // the lift the user is looking at, never the previous occupant's.
+                    !programRepository.setWorkoutLiftPinnedNotes(
+                        command.workoutLiftId,
+                        command.liftId,
+                        inputs,
+                    )
                 } ?: command.workoutNote?.let { edit ->
+                    // Pair-scoped like the list path above (STR-127).
                     val written =
                         programRepository.setWorkoutLiftPinnedNote(
                             command.workoutLiftId,
+                            command.liftId,
                             sanitizeLiftNoteBody(edit.body),
                         )
                     !written

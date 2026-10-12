@@ -281,6 +281,37 @@ class SaveLiftNotesUseCaseTest {
     }
 
     @Test
+    @DisplayName("STR-127: singular workout pin lands on the command's pair, not the slot's current pair")
+    fun singularWorkoutPinIsPairScoped() = runTest {
+        val programs = FakeProgramRepository(sampleProgram())
+        val useCase =
+            SaveLiftNotesUseCase(
+                FakeLiftNotesRepository(),
+                FakeLiftRepository(listOf(sampleLift())),
+                programs,
+                FakeLoggingPort(),
+            )
+        // The slot's persisted lift is liftId (squat); the edit targets another
+        // lift's pair (e.g. a swapped-in lift mid-session).
+        val otherLift = LiftId("ohp")
+        useCase(
+            SaveLiftNotesCommand(
+                sessionId = sessionId,
+                workoutLiftId = workoutLiftId,
+                liftId = otherLift,
+                workoutNote = OptionalNoteEdit("ohp cue"),
+            ),
+        )
+
+        assertEquals(
+            listOf("ohp cue"),
+            programs.getWorkoutLiftPinnedNotes(workoutLiftId, otherLift).map { it.body },
+        )
+        // The current pair and its scalar mirror stay untouched.
+        assertEquals(emptyList<String>(), programs.getWorkoutLiftPinnedNotes(workoutLiftId).map { it.body })
+    }
+
+    @Test
     @DisplayName("workout pin on a missing template slot needs overlay")
     fun overlayOnlyWorkoutPin() = runTest {
         val useCase =

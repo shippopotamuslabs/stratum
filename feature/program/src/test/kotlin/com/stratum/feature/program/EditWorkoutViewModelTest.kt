@@ -1174,6 +1174,66 @@ class EditWorkoutViewModelTest {
     }
 
     @Test
+    @DisplayName("STR-127: lift swap resets equipment and pinned note to the new pair; swap-back restores the stashed pair")
+    fun liftSwapRescopesEquipmentAndPinnedNote() = runTest {
+        seedSwapCatalog()
+        // wl-1 (bench-press) carries a template equipment assignment + pinned note.
+        repository = FakeProgramRepository(
+            PROGRAM.copy(
+                workouts = PROGRAM.workouts.map { workout ->
+                    workout.copy(
+                        workoutLifts = workout.workoutLifts.map { lift ->
+                            if (lift.id.value == WORKOUT_LIFT_ID) {
+                                lift.copy(
+                                    pinnedNote = "bench cue",
+                                    equipmentId =
+                                        com.stratum.domain.lift.identity.EquipmentId("ssb"),
+                                )
+                            } else {
+                                lift
+                            }
+                        },
+                    )
+                },
+            ),
+        )
+        val viewModel = buildViewModel()
+        viewModel.initialize(WORKOUT_ID)
+        viewModel.uiState.test {
+            val initial = awaitLoaded()
+            val first = initial.lifts.first { it.workoutLiftId == WORKOUT_LIFT_ID }
+            assertEquals("bench cue", first.pinnedNote)
+            assertEquals("ssb", first.equipmentId)
+
+            workoutEditSession.selectLift(
+                workoutId = WORKOUT_ID,
+                workoutLiftId = WORKOUT_LIFT_ID,
+                liftId = "incline-press",
+            )
+            val swapped = awaitItem() as EditWorkoutUiState.Loaded
+            val swappedLift = swapped.lifts.first { it.workoutLiftId == WORKOUT_LIFT_ID }
+            assertEquals("incline-press", swappedLift.liftId)
+            // The old lift's pinned note must not follow the swap.
+            assertNull(swappedLift.pinnedNote)
+            // incline-press has no catalog default equipment in this fixture: cleared.
+            assertNull(swappedLift.equipmentId)
+
+            workoutEditSession.selectLift(
+                workoutId = WORKOUT_ID,
+                workoutLiftId = WORKOUT_LIFT_ID,
+                liftId = "bench-press",
+            )
+            val restored = awaitItem() as EditWorkoutUiState.Loaded
+            val restoredLift = restored.lifts.first { it.workoutLiftId == WORKOUT_LIFT_ID }
+            assertEquals("bench-press", restoredLift.liftId)
+            assertEquals("bench cue", restoredLift.pinnedNote)
+            assertEquals("ssb", restoredLift.equipmentId)
+            assertEquals("Safety Squat Bar", restoredLift.equipmentName)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     @DisplayName("Given loaded workout when LiftsSelected with asSuperset then new lifts share a group id")
     fun handlesLiftsSelectedAsSuperset() = runTest {
         val viewModel = buildViewModel()

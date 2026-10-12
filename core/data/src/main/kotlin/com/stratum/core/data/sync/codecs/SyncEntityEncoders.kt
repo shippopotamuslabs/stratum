@@ -233,6 +233,8 @@ class SyncEntityEncoders @Inject constructor() {
     fun workoutLiftNote(e: WorkoutLiftNoteEntity): Map<String, Any?> =
         mapOf(
             "workout_lift_id" to e.workoutLiftId.value,
+            // Pair scope (STR-127); absent on rows written before v14.
+            "lift_id" to e.liftId?.value,
             "body" to e.body,
             "position" to e.position,
             "created_at_epoch_millis" to e.createdAtEpochMillis,

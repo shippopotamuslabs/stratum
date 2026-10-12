@@ -59,6 +59,14 @@ interface WorkoutLiftNoteDao {
     @Query("SELECT id FROM workout_lift_notes WHERE workout_lift_id = :workoutLiftId ORDER BY position ASC")
     suspend fun idsForWorkoutLift(workoutLiftId: WorkoutLiftId): List<WorkoutLiftNoteId>
 
+    /**
+     * Pair-scoped delete (STR-127): removes only the rows whose ids the repository
+     * resolved to one (slot, lift) pair, so other pairs of the slot stay stashed.
+     * Pair resolution (including unscoped legacy rows) happens in Kotlin.
+     */
+    @Query("DELETE FROM workout_lift_notes WHERE id IN (:ids)")
+    suspend fun deleteByIds(ids: List<WorkoutLiftNoteId>)
+
     @Query("SELECT * FROM workout_lift_notes WHERE workout_lift_id IN (:workoutLiftIds)")
     suspend fun getForWorkoutLifts(workoutLiftIds: List<WorkoutLiftId>): List<WorkoutLiftNoteEntity>
 
