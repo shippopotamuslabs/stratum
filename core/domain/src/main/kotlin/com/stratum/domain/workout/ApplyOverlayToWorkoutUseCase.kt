@@ -86,14 +86,23 @@ class ApplyOverlayToWorkoutUseCase @Inject constructor() {
                     sets = allSets,
                     supersetGroupId = updatedSupersetGroupId,
                     useRestTimerBetweenLifts = updatedRestTimer,
+                    // Save-back persists the resolved pair equipment: the session
+                    // override, else the template assignment when it belongs to
+                    // this pair (null after a pair swap = inherit the new lift's
+                    // default at render).
                     equipmentId =
-                        if (swappedLiftId != null && swappedLiftId != lift.liftId) {
-                            overlay.swappedEquipment[lift.id]
-                        } else {
-                            // Unswapped — or swapped back to the template lift, whose
-                            // pair owns the template assignment again.
-                            overlay.swappedEquipment[lift.id] ?: lift.equipmentId
-                        },
+                        resolveSessionEquipmentId(
+                            swapOverrideId = overlay.swappedEquipment[lift.id],
+                            templateEquipmentId =
+                                templateEquipmentIdForPair(
+                                    swappedLiftId = swappedLiftId,
+                                    templateLiftId = lift.liftId,
+                                    hasSessionEquipmentOverride =
+                                        overlay.swappedEquipment.containsKey(lift.id),
+                                    templateEquipmentId = lift.equipmentId,
+                                ),
+                            liftEquipmentId = null,
+                        ),
                     pinnedNote =
                         if (swappedLiftId != null) {
                             pairNotes?.firstOrNull()

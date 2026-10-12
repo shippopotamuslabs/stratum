@@ -30,6 +30,7 @@ import com.stratum.domain.workout.applyShapeOverride
 import com.stratum.domain.workout.resolveSessionEquipmentId
 import com.stratum.domain.workout.resolvedLiftPinnedNotes
 import com.stratum.domain.workout.resolvedWorkoutPinnedNotes
+import com.stratum.domain.workout.templateEquipmentIdForPair
 import java.util.UUID
 
 /**
@@ -501,19 +502,15 @@ internal object LiveWorkoutOverlayOps {
                 isDoubleSided = currentIsDoubleSided,
                 equipmentId = resolveSessionEquipmentId(
                     swapOverrideId = overlay.swappedEquipment[lift.workoutLiftId],
-                    // STR-127: after a lift swap the template assignment belongs to
-                    // the old pair — the incoming lift falls back to its own default
-                    // unless an equipment swap in this session chose otherwise.
+                    // STR-127: pair-scoped template assignment (see helper).
                     templateEquipmentId =
-                        if (
-                            swappedLiftId != null &&
-                            swappedLiftId != lift.liftId &&
-                            !overlay.swappedEquipment.containsKey(lift.workoutLiftId)
-                        ) {
-                            null
-                        } else {
-                            lift.equipmentId
-                        },
+                        templateEquipmentIdForPair(
+                            swappedLiftId = swappedLiftId,
+                            templateLiftId = lift.liftId,
+                            hasSessionEquipmentOverride =
+                                overlay.swappedEquipment.containsKey(lift.workoutLiftId),
+                            templateEquipmentId = lift.equipmentId,
+                        ),
                     liftEquipmentId = catalog?.equipmentId,
                 ),
                 supersetGroupId = currentSupersetGroupId,

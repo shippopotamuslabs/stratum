@@ -139,19 +139,35 @@ class RoomProgramRepository @Inject constructor(
     }
 
     override suspend fun setWorkoutLiftPinnedNote(id: WorkoutLiftId, note: String?): Boolean {
+        val slot = workoutLiftDao.getById(id) ?: return false
+        return setWorkoutLiftPinnedNote(id, slot.liftId, note)
+    }
+
+    override suspend fun setWorkoutLiftPinnedNote(
+        id: WorkoutLiftId,
+        liftId: LiftId,
+        note: String?,
+    ): Boolean {
         // Scalar writes go through the list path so the note table and the legacy
-        // mirror stay consistent (reads prefer the table). Preserves the first-row
-        // id; a blank note clears the list. Missing slots still report false.
+        // mirror stay consistent (reads prefer the table). Pair-scoped (STR-127):
+        // id retention resolves within the target pair only, and the mirror is
+        // written by the list path only when the pair is the slot's current one.
+        // Preserves the pair's first-row id; a blank note clears the pair's list.
+        // Missing slots still report false.
         val slot = workoutLiftDao.getById(id) ?: return false
         val clean = sanitizeLiftNoteBody(note)
         if (clean == null) {
-            return setWorkoutLiftPinnedNotes(id, emptyList())
+            return setWorkoutLiftPinnedNotes(id, liftId, emptyList())
         }
         val existingId =
             database.workoutLiftNoteDao().getForWorkoutLift(id)
-                .forPair(slot.liftId, slot.liftId)
+                .forPair(liftId, slot.liftId)
                 .firstOrNull()?.id
-        return setWorkoutLiftPinnedNotes(id, listOf(WorkoutLiftNoteInput(id = existingId, body = clean)))
+        return setWorkoutLiftPinnedNotes(
+            id,
+            liftId,
+            listOf(WorkoutLiftNoteInput(id = existingId, body = clean)),
+        )
     }
 
     override suspend fun getWorkoutLiftPinnedNotes(id: WorkoutLiftId): List<WorkoutLiftNote> {
@@ -363,21 +379,13 @@ class RoomProgramRepository @Inject constructor(
             .associate { it.id to it.pinnedNotes }
         val restored =
             prevNotes.filter { row ->
-                val slotId = row.workoutLiftId
-                if (slotId !in nextPins) return@filter false
-                // The pair the carried replace will own: the slot's new current
-                // pair (unscoped legacy rows resolve to the current pair too).
-                val isCarriedPair =
-                    slotId in carriedNoteLists &&
-                        (row.liftId == null || row.liftId == nextSlotLifts[slotId])
-                if (isCarriedPair) return@filter false
-                val rowPairLift = row.liftId ?: prevSlotLifts[slotId]
-                val isContinuingPair =
-                    rowPairLift == prevSlotLifts[slotId] && rowPairLift == nextSlotLifts[slotId]
-                if (isContinuingPair && prevPins[slotId] != nextPins[slotId]) {
-                    return@filter false
-                }
-                true
+                row.shouldRestoreAfterSave(
+                    prevPins = prevPins,
+                    nextPins = nextPins,
+                    prevSlotLifts = prevSlotLifts,
+                    nextSlotLifts = nextSlotLifts,
+                    carriedNoteLists = carriedNoteLists,
+                )
             }
         if (restored.isNotEmpty()) {
             database.workoutLiftNoteDao().upsertAll(restored)
@@ -463,6 +471,34 @@ internal fun List<WorkoutLiftNoteEntity>.forPair(
     currentLiftId: LiftId?,
 ): List<WorkoutLiftNoteEntity> =
     filter { row -> row.liftId == liftId || (row.liftId == null && liftId == currentLiftId) }
+
+/**
+ * Whether a pre-save note row survives a hierarchy save (STR-127 pair rules):
+ * - the slot must still exist in the saved program;
+ * - rows of the pair a carried list is about to replace do not restore (the
+ *   replace re-mints them) — that is the slot's new current pair, with
+ *   unscoped legacy rows resolving to the current pair;
+ * - for the continuing pair (same lift before and after), the legacy scalar
+ *   rule applies: a changed scalar pin retires the stored list;
+ * - every other pair (a swapped-out lift's stash) always restores.
+ */
+internal fun WorkoutLiftNoteEntity.shouldRestoreAfterSave(
+    prevPins: Map<WorkoutLiftId, String?>,
+    nextPins: Map<WorkoutLiftId, String?>,
+    prevSlotLifts: Map<WorkoutLiftId, LiftId>,
+    nextSlotLifts: Map<WorkoutLiftId, LiftId>,
+    carriedNoteLists: Map<WorkoutLiftId, List<String>>,
+): Boolean {
+    val slotId = workoutLiftId
+    if (slotId !in nextPins) return false
+    val isCarriedPair =
+        slotId in carriedNoteLists && (liftId == null || liftId == nextSlotLifts[slotId])
+    if (isCarriedPair) return false
+    val rowPairLift = liftId ?: prevSlotLifts[slotId]
+    val isContinuingPair =
+        rowPairLift == prevSlotLifts[slotId] && rowPairLift == nextSlotLifts[slotId]
+    return !isContinuingPair || prevPins[slotId] == nextPins[slotId]
+}
 
 internal fun WorkoutLiftNoteEntity.toWorkoutLiftNote(): WorkoutLiftNote =
     WorkoutLiftNote(

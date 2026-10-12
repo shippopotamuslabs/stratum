@@ -40,9 +40,11 @@ class SaveLiftNotesUseCase @Inject constructor(
                         inputs,
                     )
                 } ?: command.workoutNote?.let { edit ->
+                    // Pair-scoped like the list path above (STR-127).
                     val written =
                         programRepository.setWorkoutLiftPinnedNote(
                             command.workoutLiftId,
+                            command.liftId,
                             sanitizeLiftNoteBody(edit.body),
                         )
                     !written
