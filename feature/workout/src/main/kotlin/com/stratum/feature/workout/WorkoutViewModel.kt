@@ -256,6 +256,9 @@ class WorkoutViewModel @Inject constructor(
         viewModelScope.launch {
             observeEquipmentCatalog().collect { catalog ->
                 equipmentCatalog.value = catalog
+                // STR-128: the session runtime resolves adjust-chip tiers by the
+                // equipment in use, so it needs the same catalog mirror.
+                enqueue(SessionCommand.UpdateEquipmentCatalog(catalog))
                 // Re-attach names to the current frame + refresh an open sheet's full list.
                 sessionFrames.value = attachEquipmentNames(sessionFrames.value)
                 _equipmentSwap.value?.let { open ->

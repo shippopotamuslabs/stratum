@@ -65,6 +65,17 @@ import kotlinx.coroutines.launch
 
 /** Cycle/catalog apply + overlay restore for [LiveWorkoutSessionRuntime]. */
 
+/**
+ * Equipment catalog mirror update (STR-128): render-only, so a mid-session tier
+ * save on the in-use equipment re-resolves the adjust chip against its new tiers.
+ */
+internal fun LiveWorkoutSessionRuntime.handleUpdateEquipmentCatalog(
+    cmd: SessionCommand.UpdateEquipmentCatalog,
+) {
+    equipmentById = cmd.equipment.associateBy { equipment -> equipment.id }
+    if (structure != null) render()
+}
+
 internal suspend fun LiveWorkoutSessionRuntime.handleApplyCycleSnapshot(cmd: SessionCommand.ApplyCycleSnapshot) {
     liftNamesById = cmd.catalog.associate { lift -> lift.id to lift.name }
     liftsById = cmd.catalog.associateBy { lift -> lift.id }

@@ -1,6 +1,7 @@
 package com.stratum.feature.workout
 
 import com.stratum.core.ui.component.SupersetLinkDirection
+import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId
@@ -34,6 +35,13 @@ internal sealed interface SessionCommand {
 
     /** Re-render with current display unit (prefs flip). */
     data object RenderOnly : SessionCommand
+
+    /**
+     * Equipment catalog emission: the runtime mirrors it so the "Adjust Equipment"
+     * chip, its tracker, and the editor seed resolve tiers by the equipment in use
+     * (STR-128), including tier saves made mid-session on a swapped-to piece.
+     */
+    data class UpdateEquipmentCatalog(val equipment: List<Equipment>) : SessionCommand
 
     data class LogSet(
         val slotKey: String,
