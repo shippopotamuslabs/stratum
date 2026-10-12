@@ -1,5 +1,6 @@
 package com.stratum.core.data.db
 
+import android.database.sqlite.SQLiteConstraintException
 import androidx.room.Room
 import com.stratum.domain.importing.ImportHistoryTrainingMapper
 import com.stratum.domain.importing.identity.LoggedSetId
@@ -133,11 +134,18 @@ class LoggedSetDaoContractTest {
             isPersonalRecord = true
         )
 
-        try {
-            setDao.upsert(prSet2)
-        } catch (e: Exception) {
-            // Expected
-        }
+        val duplicateError: Exception? =
+            try {
+                setDao.upsert(prSet2)
+                null
+            } catch (e: Exception) {
+                e
+            }
+        assertTrue(
+            duplicateError is SQLiteConstraintException,
+            "duplicate PR for the same (lift, equipment) pair must throw " +
+                "SQLiteConstraintException, got: $duplicateError",
+        )
 
         val afterDup = setDao.getForSession(sessionId)
         assertTrue(afterDup.any { it.id == LoggedSetId("pr-set-1") })
