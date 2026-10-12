@@ -14,10 +14,10 @@ import tech.apter.junit.jupiter.robolectric.RobolectricExtension
  * STR-127 migration coverage: v13 → v14 adds `workout_lift_notes.lift_id` and
  * backfills it from each slot's current lift.
  *
- * Follows the STR-129 precedent: no MigrationTestHelper validate-to-current
- * (the v13/v14 schema JSONs are KSP-generated during the build, not checked in),
- * so this creates the database at v12 from the checked-in export, seeds rows,
- * and upgrades through the production migration chain with the real database.
+ * No MigrationTestHelper validate-to-current (the v14 schema JSON is
+ * KSP-generated during the build, not checked in), so this creates the
+ * database at v12 from the checked-in export, seeds rows, and upgrades
+ * through the production migration chain with the real database.
  */
 @ExtendWith(RobolectricExtension::class)
 @Config(sdk = [34])
