@@ -18,6 +18,7 @@ fun RoomDatabase.Builder<StratumDatabase>.withProductionMigrations(): RoomDataba
         MIGRATION_7_8,
         MIGRATION_8_9,
         MIGRATION_9_10,
+        MIGRATION_12_13,
     )
 
 /**
@@ -370,6 +371,28 @@ val MIGRATION_9_10: Migration =
                 table = "logged_sets",
                 "liftId",
                 "equipmentId",
+            )
+        }
+    }
+
+/**
+ * v12 → v13: PR unique index follows STR-123's per-(lift, equipment) PR identity (STR-129).
+ *
+ * - Drops the stale UNIQUE(liftId, isPersonalRecord) index, which crashed workout
+ *   finalize with SQLiteConstraintException whenever one session earned PRs for the
+ *   same lift on two different equipments.
+ * - Creates UNIQUE(liftId, equipmentId, isPersonalRecord) instead.
+ * - Safe with no backfill: existing rows satisfy the old index, so they trivially
+ *   satisfy the new (strictly more permissive) one.
+ */
+val MIGRATION_12_13: Migration =
+    object : Migration(12, 13) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("DROP INDEX IF EXISTS `index_logged_sets_liftId_isPersonalRecord`")
+            db.execSQL(
+                "CREATE UNIQUE INDEX IF NOT EXISTS " +
+                    "`index_logged_sets_liftId_equipmentId_isPersonalRecord` " +
+                    "ON `logged_sets` (`liftId`, `equipmentId`, `isPersonalRecord`)",
             )
         }
     }

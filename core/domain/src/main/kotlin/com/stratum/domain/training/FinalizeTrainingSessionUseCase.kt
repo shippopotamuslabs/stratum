@@ -54,8 +54,9 @@ class FinalizeTrainingSessionUseCase @Inject constructor(
             val sessionSets = trainingLogRepository.getSetsForSession(sessionId)
             val computation = computePersonalRecords(sessionSets).getOrThrow()
 
-            // Room unique index on (liftId, isPersonalRecord): only one true-PR per lift.
-            // Demote previous PRs *before* promoting session sets so the unique constraint is free.
+            // Room unique index on (liftId, equipmentId, isPersonalRecord): only one
+            // true-PR per (lift, equipment) pair. Demote previous PRs *before* promoting
+            // session sets so the unique constraint is free.
             if (computation.oldPrSetsToUpdate.isNotEmpty()) {
                 trainingLogRepository.updateSets(computation.oldPrSetsToUpdate)
             }
