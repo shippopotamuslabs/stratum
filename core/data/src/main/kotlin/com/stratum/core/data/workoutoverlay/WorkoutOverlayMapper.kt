@@ -12,6 +12,7 @@ import com.stratum.domain.workout.OverlayAddedLift
 import com.stratum.domain.workout.OverlaySetInstanceId
 import com.stratum.domain.workout.SetSlot
 import com.stratum.domain.workout.SetSlotId
+import com.stratum.domain.workout.SlotLiftPair
 import com.stratum.domain.workout.SlotRecommendation
 import com.stratum.domain.workout.SlotShapeOverride
 import com.stratum.domain.workout.StructuralMutation
@@ -68,6 +69,9 @@ fun WorkoutOverlay.toDto(): WorkoutOverlayDto = WorkoutOverlayDto(
     workoutLiftPinnedNoteLists = workoutLiftPinnedNoteLists.entries.map { (workoutLiftId, bodies) ->
         WorkoutLiftPinnedNoteListEntryDto(workoutLiftId.value, bodies)
     },
+    pinnedNoteStash = pinnedNoteStash.entries.map { (pair, bodies) ->
+        PinnedNoteStashEntryDto(pair.workoutLiftId.value, pair.liftId.value, bodies)
+    },
 )
 
 /** `DTO → WorkoutOverlay`. Blank-id entries are skipped. */
@@ -123,6 +127,9 @@ fun WorkoutOverlayDto.toDomain(): WorkoutOverlay = WorkoutOverlay(
     workoutLiftPinnedNoteLists = workoutLiftPinnedNoteLists
         .mapNotNull { entry -> entry.toNoteListPairOrNull() }
         .toMap(),
+    pinnedNoteStash = pinnedNoteStash
+        .mapNotNull { entry -> entry.toStashPairOrNull() }
+        .toMap(),
 )
 
 private fun List<LoggedSetEntryDto>.toLoggedSetMap(): Map<SetSlotId, LoggedSetValue> = buildMap {
@@ -140,6 +147,14 @@ private fun WorkoutLiftPinnedNoteListEntryDto.toNoteListPairOrNull(): Pair<Worko
     val bodies = bodies.filter { it.isNotBlank() }
     if (bodies.isEmpty()) return null
     return key to bodies
+}
+
+private fun PinnedNoteStashEntryDto.toStashPairOrNull(): Pair<SlotLiftPair, List<String>>? {
+    val slot = workoutLiftId.toWorkoutLiftIdOrNull() ?: return null
+    val lift = liftId.toLiftIdOrNull() ?: return null
+    // An empty stash entry is meaningful ("this pair has no notes — do not fall
+    // back to the template list"), so unlike note lists it round-trips as-is.
+    return SlotLiftPair(slot, lift) to bodies.filter { it.isNotBlank() }
 }
 
 private fun LiveSetRecommendationEntryDto.toDomainPairOrNull(): Pair<SetSlotId, LiveSetRecommendation>? {

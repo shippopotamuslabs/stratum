@@ -20,6 +20,7 @@ import com.stratum.domain.workout.ProgressionSnapshot
 import com.stratum.domain.workout.RenderedWorkout
 import com.stratum.domain.workout.SetSlot
 import com.stratum.domain.workout.SetSlotId
+import com.stratum.domain.workout.SlotLiftPair
 import com.stratum.domain.workout.SlotRecommendation
 import com.stratum.domain.workout.WorkoutLiftProjection
 import com.stratum.domain.workout.WorkoutOverlay
@@ -102,6 +103,39 @@ internal object LiveWorkoutOverlayOps {
             addedSlots = overlay.addedSlots + newSlots,
             dynamicBaselines = overlay.dynamicBaselines + newBaselines,
             orderedLiftIds = nextOrdered,
+        )
+    }
+
+    /**
+     * Applies a lift swap to the overlay (STR-127). Row-held state is scoped to
+     * the (slot, lift) pair, so:
+     * - the outgoing pair's effective notes ([outgoingNotes], resolved by the
+     *   caller from overlay pins / stash / template) are stashed under the
+     *   outgoing lift and the slot's overlay pin maps are cleared — they held the
+     *   outgoing pair's edits;
+     * - the slot's session equipment override is dropped: it belonged to the
+     *   outgoing pair, and the incoming lift resolves to its own default;
+     * - the incoming pair's notes are *not* copied into the pin maps — readers
+     *   resolve them pair-aware from [WorkoutOverlay.pinnedNoteStash] / storage.
+     *
+     * A same-lift swap is a no-op.
+     */
+    fun swapLift(
+        overlay: WorkoutOverlay,
+        workoutLiftId: WorkoutLiftId,
+        newLiftId: LiftId,
+        outgoingLiftId: LiftId,
+        outgoingNotes: List<String>,
+    ): WorkoutOverlay {
+        if (newLiftId == outgoingLiftId) return overlay
+        return overlay.copy(
+            swappedLifts = overlay.swappedLifts + (workoutLiftId to newLiftId),
+            swappedEquipment = overlay.swappedEquipment - workoutLiftId,
+            pinnedNoteStash =
+                overlay.pinnedNoteStash +
+                    (SlotLiftPair(workoutLiftId, outgoingLiftId) to outgoingNotes),
+            workoutLiftPinnedNotes = overlay.workoutLiftPinnedNotes - workoutLiftId,
+            workoutLiftPinnedNoteLists = overlay.workoutLiftPinnedNoteLists - workoutLiftId,
         )
     }
 
@@ -467,7 +501,19 @@ internal object LiveWorkoutOverlayOps {
                 isDoubleSided = currentIsDoubleSided,
                 equipmentId = resolveSessionEquipmentId(
                     swapOverrideId = overlay.swappedEquipment[lift.workoutLiftId],
-                    templateEquipmentId = lift.equipmentId,
+                    // STR-127: after a lift swap the template assignment belongs to
+                    // the old pair — the incoming lift falls back to its own default
+                    // unless an equipment swap in this session chose otherwise.
+                    templateEquipmentId =
+                        if (
+                            swappedLiftId != null &&
+                            swappedLiftId != lift.liftId &&
+                            !overlay.swappedEquipment.containsKey(lift.workoutLiftId)
+                        ) {
+                            null
+                        } else {
+                            lift.equipmentId
+                        },
                     liftEquipmentId = catalog?.equipmentId,
                 ),
                 supersetGroupId = currentSupersetGroupId,
@@ -477,7 +523,8 @@ internal object LiveWorkoutOverlayOps {
                 workoutPinnedNotes = resolvedWorkoutPinnedNotes(
                     overlay,
                     lift.workoutLiftId,
-                    lift.workoutPinnedNotes,
+                    templateLiftId = lift.liftId,
+                    templateNotes = lift.workoutPinnedNotes,
                 ),
                 liftPinnedNotes = resolvedLiftPinnedNotes(
                     // Map miss (swapped-in / session-added lifts) falls back to the live
@@ -524,6 +571,7 @@ internal object LiveWorkoutOverlayOps {
                     workoutPinnedNotes = resolvedWorkoutPinnedNotes(
                         overlay,
                         added.workoutLiftId,
+                        templateLiftId = added.liftId,
                         templateNotes = emptyList(),
                     ),
                     liftPinnedNotes = resolvedLiftPinnedNotes(

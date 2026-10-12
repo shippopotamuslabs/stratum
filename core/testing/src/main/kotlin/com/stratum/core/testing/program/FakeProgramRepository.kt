@@ -2,6 +2,7 @@ package com.stratum.core.testing.program
 
 import com.stratum.domain.lift.WorkoutLiftNote
 import com.stratum.domain.lift.WorkoutLiftNoteInput
+import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.sanitizeLiftNoteBody
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.ProgramRepository
@@ -28,8 +29,16 @@ class FakeProgramRepository(
     private val programs = MutableStateFlow<Map<String, Program>>(
         if (initial == null) emptyMap() else mapOf(initial.id.value to initial.copy(isActive = true)),
     )
-    /** Source of truth for workout note lists; [WorkoutLift.pinnedNote] mirrors the first body. */
+    /**
+     * Source of truth for workout note lists, keyed by (slot, lift) pair (STR-127);
+     * [WorkoutLift.pinnedNote] mirrors the first body of the slot's current pair.
+     */
     private val workoutNotes = MutableStateFlow<Map<String, List<WorkoutLiftNote>>>(emptyMap())
+
+    private fun pairKey(id: WorkoutLiftId, liftId: LiftId): String =
+        "${id.value}::${liftId.value}"
+
+    private fun pairKeySlot(key: String): String = key.substringBefore("::")
     /**
      * Serializes note-map check-then-write sequences (lazy-migrate, replace),
      * mirroring Room's write-lock semantics so concurrent first reads converge
@@ -57,31 +66,36 @@ class FakeProgramRepository(
                     .flatMap { workout -> workout.workoutLifts }
                     .map { it.id.value }
                     .toSet()
-            workoutNotes.value = workoutNotes.value.filterKeys { it in liveSlotIds }
+            workoutNotes.value =
+                workoutNotes.value.filterKeys { pairKeySlot(it) in liveSlotIds }
         }
     }
 
     /**
-     * Reconciles per-slot note lists after a program save. If the save changed a
-     * slot's scalar pin, a stale list entry must not keep overriding the newly
-     * saved pin, so it is dropped and the scalar becomes authoritative again.
-     * Slots whose pin is untouched keep their existing note lists.
+     * Reconciles per-pair note lists after a program save. If the save changed a
+     * slot's scalar pin *without* changing the lift on the slot, that pair's stale
+     * list entry must not keep overriding the newly saved pin, so it is dropped and
+     * the scalar becomes authoritative again. A lift change stashes the outgoing
+     * pair instead (STR-127): its entry survives for a later swap-back.
      */
     private suspend fun reconcileWorkoutNotesAfterSave(previous: Program?, updated: Program) {
         notesMutex.withLock {
-            val previousPins =
+            val previousSlots =
                 previous?.workouts
                     ?.flatMap { workout -> workout.workoutLifts }
-                    ?.associate { it.id.value to it.pinnedNote }
+                    ?.associate { it.id.value to (it.liftId to it.pinnedNote) }
                     .orEmpty()
-            val changedSlotIds =
+            val changedPairKeys =
                 updated.workouts
                     .flatMap { workout -> workout.workoutLifts }
-                    .filter { slot -> previousPins[slot.id.value] != slot.pinnedNote }
-                    .map { it.id.value }
+                    .filter { slot ->
+                        val prev = previousSlots[slot.id.value]
+                        prev != null && prev.first == slot.liftId && prev.second != slot.pinnedNote
+                    }
+                    .map { slot -> pairKey(slot.id, slot.liftId) }
                     .toSet()
-            if (changedSlotIds.isNotEmpty()) {
-                workoutNotes.value = workoutNotes.value.filterKeys { it !in changedSlotIds }
+            if (changedPairKeys.isNotEmpty()) {
+                workoutNotes.value = workoutNotes.value.filterKeys { it !in changedPairKeys }
             }
         }
     }
@@ -153,11 +167,12 @@ class FakeProgramRepository(
             for (slot in updated.workouts.flatMap { workout -> workout.workoutLifts }) {
                 val bodies = slot.pinnedNotes.mapNotNull(::sanitizeLiftNoteBody)
                 // Idempotent: re-saving an already-installed list keeps existing row ids.
-                val current = next[slot.id.value]
+                val key = pairKey(slot.id, slot.liftId)
+                val current = next[key]
                 val needsInstall =
                     bodies.isNotEmpty() && (current == null || current.map { it.body } != bodies)
                 if (needsInstall) {
-                    next = next + (slot.id.value to bodies.mapIndexed { index, body ->
+                    next = next + (key to bodies.mapIndexed { index, body ->
                         WorkoutLiftNote(
                             id = WorkoutLiftNoteId(UUID.randomUUID().toString()),
                             workoutLiftId = slot.id,
@@ -207,11 +222,23 @@ class FakeProgramRepository(
     }
 
     override suspend fun getWorkoutLiftPinnedNotes(id: WorkoutLiftId): List<WorkoutLiftNote> {
+        val slot = findWorkoutLift(id) ?: return emptyList()
+        return getWorkoutLiftPinnedNotes(id, slot.liftId)
+    }
+
+    override suspend fun getWorkoutLiftPinnedNotes(
+        id: WorkoutLiftId,
+        liftId: LiftId,
+    ): List<WorkoutLiftNote> {
         notesMutex.withLock {
-            workoutNotes.value[id.value]?.let { return it }
+            val key = pairKey(id, liftId)
+            workoutNotes.value[key]?.let { return it }
+            val slot = findWorkoutLift(id) ?: return emptyList()
+            // The legacy scalar belongs to the slot's current pair only.
+            if (slot.liftId != liftId) return emptyList()
             // Sanitizer parity with Room: trim and enforce the length cap before
             // creating the row; a blank legacy pin migrates to nothing.
-            val clean = sanitizeLiftNoteBody(findWorkoutLift(id)?.pinnedNote)
+            val clean = sanitizeLiftNoteBody(slot.pinnedNote)
                 ?: return emptyList()
             // Client lazy-migrate parity: persist the legacy pin as the
             // position-0 row (written inline — routing through the setter would
@@ -227,7 +254,7 @@ class FakeProgramRepository(
                         updatedAt = Instant.now(),
                     ),
                 )
-            workoutNotes.value = workoutNotes.value + (id.value to migrated)
+            workoutNotes.value = workoutNotes.value + (key to migrated)
             return migrated
         }
     }
@@ -236,12 +263,22 @@ class FakeProgramRepository(
         id: WorkoutLiftId,
         notes: List<WorkoutLiftNoteInput>,
     ): Boolean {
-        if (findWorkoutLift(id) == null) return false
+        val slot = findWorkoutLift(id) ?: return false
+        return setWorkoutLiftPinnedNotes(id, slot.liftId, notes)
+    }
+
+    override suspend fun setWorkoutLiftPinnedNotes(
+        id: WorkoutLiftId,
+        liftId: LiftId,
+        notes: List<WorkoutLiftNoteInput>,
+    ): Boolean {
+        val slot = findWorkoutLift(id) ?: return false
         notesMutex.withLock {
             val now = Instant.now()
+            val key = pairKey(id, liftId)
             // Read the map directly: the getter lazy-migrates legacy pins, which
             // would mint a throwaway row just to compute id retention here.
-            val currentIds = workoutNotes.value[id.value]?.map { it.id }?.toSet().orEmpty()
+            val currentIds = workoutNotes.value[key]?.map { it.id }?.toSet().orEmpty()
             val minted =
                 notes.mapNotNull { input ->
                     sanitizeLiftNoteBody(input.body)?.let { body -> input to body }
@@ -255,8 +292,11 @@ class FakeProgramRepository(
                         updatedAt = now,
                     )
                 }
-            workoutNotes.value = workoutNotes.value + (id.value to minted)
-            updateWorkoutLiftPin(id, minted.firstOrNull()?.body)
+            workoutNotes.value = workoutNotes.value + (key to minted)
+            // The scalar mirror tracks the slot's current pair only.
+            if (slot.liftId == liftId) {
+                updateWorkoutLiftPin(id, minted.firstOrNull()?.body)
+            }
             return true
         }
     }

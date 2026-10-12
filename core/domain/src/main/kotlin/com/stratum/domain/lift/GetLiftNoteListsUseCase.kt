@@ -41,7 +41,9 @@ class GetLiftNoteListsUseCase @Inject constructor(
         LiftNoteLists(
             session = liftNotesRepository.getSessionNotes(sessionId, workoutLiftId),
             workout = overlayWorkoutNotes?.toOverlayNotes(workoutLiftId)
-                ?: programRepository.getWorkoutLiftPinnedNotes(workoutLiftId),
+                // Pair-scoped (STR-127): the editor shows the notes of the lift
+                // currently on the slot, not the previous occupant's.
+                ?: programRepository.getWorkoutLiftPinnedNotes(workoutLiftId, liftId),
             lift = liftRepository.getPinnedNotes(liftId),
         )
 

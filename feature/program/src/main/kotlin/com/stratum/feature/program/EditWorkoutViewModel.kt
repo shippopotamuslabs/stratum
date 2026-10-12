@@ -151,6 +151,15 @@ class EditWorkoutViewModel @Inject constructor(
 
     private var catalogLifts: List<Lift> = emptyList()
     private var equipmentCatalog: List<Equipment> = emptyList()
+
+    /** Row state stashed per (slot, lift) pair when a lift is swapped out (STR-127). */
+    private data class SwappedEditLiftStash(
+        val pinnedNote: String?,
+        val equipmentId: String?,
+        val equipmentName: String?,
+    )
+
+    private val liftSwapStash = mutableMapOf<Pair<String, String>, SwappedEditLiftStash>()
     private var programSnapshot: Program? = null
     private var baselineWorkout: Workout? = null
     /** When set, loads/saves that program (library or active); null = active only. */
@@ -299,6 +308,7 @@ class EditWorkoutViewModel @Inject constructor(
 
     /** Reset in-memory editor to the last persisted baseline (unsaved edits dropped). */
     private fun discardLocalEdits() {
+        liftSwapStash.clear()
         val baseline = baselineWorkout ?: return
         val restored =
             baseline
@@ -463,13 +473,35 @@ class EditWorkoutViewModel @Inject constructor(
                 loaded.copy(lifts = loaded.lifts + newLift)
             } else {
                 // Swap: replace identity and apply the new lift's default rest to all sets.
+                // STR-127: pinned note + equipment are (slot, lift) pair state — stash
+                // the outgoing pair's values, restore the incoming pair's stash when
+                // it was swapped out earlier in this draft, and otherwise reset
+                // equipment to the incoming lift's catalog default (never carry the
+                // old lift's assignment or note onto the new lift).
                 val updatedLifts = loaded.lifts.map { lift ->
                     if (lift.workoutLiftId == workoutLiftId) {
+                        if (lift.liftId != liftId) {
+                            liftSwapStash[workoutLiftId to lift.liftId] =
+                                SwappedEditLiftStash(
+                                    pinnedNote = lift.pinnedNote,
+                                    equipmentId = lift.equipmentId,
+                                    equipmentName = lift.equipmentName,
+                                )
+                        }
+                        val incoming = liftSwapStash[workoutLiftId to liftId]
+                        val defaultEquipmentId = catalog?.equipmentId?.value
+                        val defaultEquipmentName =
+                            defaultEquipmentId?.let { id ->
+                                equipmentCatalog.firstOrNull { it.id.value == id }?.name
+                            }
                         lift.copy(
                             liftId = liftId,
                             name = liftName,
                             isCompound = isCompound,
                             sets = lift.sets.map { set -> set.copy(restSeconds = restSeconds) },
+                            pinnedNote = incoming?.pinnedNote,
+                            equipmentId = incoming?.equipmentId ?: defaultEquipmentId,
+                            equipmentName = incoming?.equipmentName ?: defaultEquipmentName,
                         )
                     } else {
                         lift
@@ -915,6 +947,7 @@ class EditWorkoutViewModel @Inject constructor(
         programSnapshot = null
         baselineWorkout = null
         catalogLifts = emptyList()
+        liftSwapStash.clear()
         _uiState.value = EditWorkoutUiState.Loading
     }
 

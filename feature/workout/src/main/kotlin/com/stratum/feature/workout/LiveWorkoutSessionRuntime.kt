@@ -476,7 +476,17 @@ internal class LiveWorkoutSessionRuntime(
         lifts.mapNotNull { lift ->
             resolveSessionEquipmentId(
                 swapOverrideId = overlay.swappedEquipment[lift.id],
-                templateEquipmentId = lift.equipmentId,
+                // STR-127: same rule as render — after a lift swap the template
+                // assignment belongs to the old pair and is skipped.
+                templateEquipmentId =
+                    if (
+                        overlay.swappedLifts[lift.id].let { it != null && it != lift.liftId } &&
+                        !overlay.swappedEquipment.containsKey(lift.id)
+                    ) {
+                        null
+                    } else {
+                        lift.equipmentId
+                    },
                 liftEquipmentId =
                     liftsById[overlay.swappedLifts[lift.id] ?: lift.liftId]?.equipmentId,
             )?.let { lift.id to it }
