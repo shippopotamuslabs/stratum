@@ -17,10 +17,32 @@ fun shouldShowLiveEquipmentAdjust(
     lift: Lift,
     epsilon: Double = LATTICE_EPSILON,
 ): Boolean =
-    screenLatticeWeights(
-        weights = loggedWeights,
-        tiers = lift.incrementTiers,
+    shouldShowLiveEquipmentAdjust(
+        loggedWeights = loggedWeights,
+        steps =
+            EffectiveSteps(
+                tiers = lift.incrementTiers,
+                microIncrements = lift.microIncrements,
+            ),
         loadType = lift.loadType,
         epsilon = epsilon,
-        micro = lift.microIncrements,
+    )
+
+/**
+ * Steps-explicit variant for callers whose equipment in use differs from the lift's
+ * linked equipment (a live equipment swap, STR-128): the lattice is the *resolved*
+ * equipment's [steps], not the catalog lift's defaults.
+ */
+fun shouldShowLiveEquipmentAdjust(
+    loggedWeights: List<Weight>,
+    steps: EffectiveSteps,
+    loadType: LoadType,
+    epsilon: Double = LATTICE_EPSILON,
+): Boolean =
+    screenLatticeWeights(
+        weights = loggedWeights,
+        tiers = steps.tiers,
+        loadType = loadType,
+        epsilon = epsilon,
+        micro = steps.microIncrements,
     ).residualWeights.isNotEmpty()

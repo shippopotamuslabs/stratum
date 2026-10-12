@@ -7,6 +7,7 @@ import com.stratum.core.ui.component.unlinkLiftFromSuperset
 import com.stratum.domain.importing.FatigueDecay
 import com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase
 import com.stratum.domain.lift.EffectiveSteps
+import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.shouldShowLiveEquipmentAdjust
@@ -50,6 +51,7 @@ import com.stratum.domain.workout.OverlaySetInstanceId
 import com.stratum.domain.workout.ProjectWorkoutStructureUseCase
 import com.stratum.domain.workout.RecomputeRecommendationsUseCase
 import com.stratum.domain.workout.RenderedWorkout
+import com.stratum.domain.workout.RenderedWorkoutLift
 import com.stratum.domain.workout.SessionPinnedNoteLists
 import com.stratum.domain.workout.SetSlot
 import com.stratum.domain.workout.SetSlotId
@@ -108,6 +110,14 @@ internal class LiveWorkoutSessionRuntime(
     var overlay: WorkoutOverlay = WorkoutOverlay()
     var liftNamesById: Map<LiftId, String> = emptyMap()
     var liftsById: Map<LiftId, Lift> = emptyMap()
+
+    /**
+     * Equipment catalog mirror (STR-128), fed by SessionCommand.UpdateEquipmentCatalog
+     * independently of the session lifecycle: it is catalog data, not session state,
+     * so it is deliberately not cleared with session memory (the ViewModel's
+     * collector only re-emits on equipment changes).
+     */
+    var equipmentById: Map<EquipmentId, Equipment> = emptyMap()
     var fatigueByLiftId: Map<LiftId, FatigueDecay> = emptyMap()
     var snapshotLoaded: Boolean = false
     var templateLiftFingerprint: List<String> = emptyList()
@@ -338,30 +348,27 @@ internal class LiveWorkoutSessionRuntime(
             liftsById.mapKeys { (id, _) -> id.value }.mapValues { (_, lift) ->
                 lift.equipmentId?.value
             }
+        // One steps value per lift, resolved by the equipment in use (STR-128):
+        // tiers and micro share a single lookup so the chip signal and the tracker
+        // can never observe different lattices for the same card.
+        val stepsByWorkoutLiftId =
+            rendered.lifts.associate { lift ->
+                lift.workoutLiftId to effectiveStepsFor(lift)
+            }
         // Live off-lattice signal per lift card, from sets logged so far this session.
-        // Logged weights persist in canonical Lb, matching catalog tier units.
+        // Logged weights persist in canonical Lb, matching equipment tier units.
         // Tier edits after the chip showed resolve it; untouched editor visits keep it.
         val rawAdjustIds =
             rendered.lifts.mapNotNull { lift ->
                 val catalog = liftsById[lift.liftId] ?: return@mapNotNull null
                 val loggedWeights = lift.sets.mapNotNull { it.loggedValue?.weight }
-                if (shouldShowLiveEquipmentAdjust(loggedWeights, catalog)) {
+                val steps = stepsByWorkoutLiftId[lift.workoutLiftId] ?: return@mapNotNull null
+                if (shouldShowLiveEquipmentAdjust(loggedWeights, steps, catalog.loadType)) {
                     lift.workoutLiftId
                 } else {
                     null
                 }
             }.toSet()
-        // One steps value per lift: tiers and micro share a single lookup so the
-        // tracker can never observe one facet without the other.
-        val stepsByWorkoutLiftId =
-            rendered.lifts.associate { lift ->
-                val catalog = liftsById[lift.liftId]
-                lift.workoutLiftId to
-                    EffectiveSteps(
-                        tiers = catalog?.incrementTiers.orEmpty(),
-                        microIncrements = catalog?.microIncrements.orEmpty(),
-                    )
-            }
         val adjustEquipmentWorkoutLiftIds =
             equipmentAdjustTracker.update(
                 rawIds = rawAdjustIds,
@@ -411,8 +418,33 @@ internal class LiveWorkoutSessionRuntime(
     }
 
     /**
+     * Effective steps for one rendered card, resolved by the equipment in use
+     * (STR-128): the merge-resolved equipment owns the lattice, so after an
+     * equipment swap the chip, tracker, and editor seed all read the swapped-to
+     * piece's tiers — not the catalog lift's linked (pre-swap) equipment. The
+     * catalog lift's steps stay the answer when the resolved equipment is the
+     * lift's own linked equipment (its tiers already carry the fallback
+     * resolution) or when the resolved piece is not in the catalog mirror yet.
+     */
+    internal fun effectiveStepsFor(renderedLift: RenderedWorkoutLift): EffectiveSteps {
+        val catalog = liftsById[renderedLift.liftId]
+        val catalogSteps =
+            EffectiveSteps(
+                tiers = catalog?.incrementTiers.orEmpty(),
+                microIncrements = catalog?.microIncrements.orEmpty(),
+            )
+        val resolvedId = renderedLift.equipmentId ?: return catalogSteps
+        if (resolvedId == catalog?.equipmentId) return catalogSteps
+        val equipment = equipmentById[resolvedId] ?: return catalogSteps
+        return EffectiveSteps(
+            tiers = equipment.incrementTiers,
+            microIncrements = equipment.microIncrements,
+        )
+    }
+
+    /**
      * Tap-time inference inputs for one lift card's editor request: the sets logged so
-     * far this session (canonical Lb) with the lift's current effective tiers. Pure
+     * far this session (canonical Lb) with the in-use equipment's effective tiers. Pure
      * domain data, no navigation DTOs — the UI layer owns request routing (same join
      * as the pill signal in [render]). Null when the card or its catalog lift is
      * unknown.
@@ -421,7 +453,7 @@ internal class LiveWorkoutSessionRuntime(
         val renderedLift = merge().lifts.firstOrNull { it.workoutLiftId == workoutLiftId } ?: return null
         val catalog = liftsById[renderedLift.liftId] ?: return null
         return LiveEquipmentSeed(
-            currentTiers = catalog.incrementTiers,
+            currentTiers = effectiveStepsFor(renderedLift).tiers,
             loadType = catalog.loadType,
             loggedWeights = renderedLift.sets.mapNotNull { it.loggedValue?.weight },
         )
