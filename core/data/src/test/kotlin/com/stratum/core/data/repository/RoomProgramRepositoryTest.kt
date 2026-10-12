@@ -382,6 +382,88 @@ class RoomProgramRepositoryTest {
         }
 
         @Test
+        fun `pair write for another lift leaves the current pair and mirror untouched`() = runTest {
+            seedReferencedLifts()
+            repository.saveProgram(PROGRAM_P1)
+            val slot = WorkoutLiftId("wl-1")
+            repository.setWorkoutLiftPinnedNotes(slot, listOf(WorkoutLiftNoteInput(body = "bench cue")))
+
+            assertTrue(
+                repository.setWorkoutLiftPinnedNotes(
+                    slot,
+                    LiftId("back-squat"),
+                    listOf(WorkoutLiftNoteInput(body = "squat cue")),
+                ),
+            )
+
+            assertEquals(listOf("bench cue"), repository.getWorkoutLiftPinnedNotes(slot).map { it.body })
+            assertEquals(
+                listOf("squat cue"),
+                repository.getWorkoutLiftPinnedNotes(slot, LiftId("back-squat")).map { it.body },
+            )
+            // Mirror tracks the current pair (bench-press) only.
+            assertEquals("bench cue", database.workoutLiftDao().getById(slot)?.pinnedNote)
+        }
+
+        @Test
+        fun `persisted lift swap stashes the outgoing pair notes and swap-back restores them`() = runTest {
+            seedReferencedLifts()
+            repository.saveProgram(PROGRAM_P1)
+            val slot = WorkoutLiftId("wl-1")
+            repository.setWorkoutLiftPinnedNotes(slot, listOf(WorkoutLiftNoteInput(body = "bench cue")))
+
+            // The persisted swap shape SwapWorkoutLiftUseCase writes: new lift,
+            // cleared equipment, incoming pair's notes carried (none for squat).
+            val swappedProgram = PROGRAM_P1.copy(
+                workouts = PROGRAM_P1.workouts.map { workout ->
+                    workout.copy(
+                        workoutLifts = workout.workoutLifts.map { lift ->
+                            if (lift.id == slot) {
+                                lift.copy(
+                                    liftId = LiftId("back-squat"),
+                                    pinnedNote = null,
+                                    pinnedNotes = emptyList(),
+                                )
+                            } else {
+                                lift
+                            }
+                        },
+                    )
+                },
+            )
+            repository.saveProgram(swappedProgram)
+
+            assertEquals(emptyList<String>(), repository.getWorkoutLiftPinnedNotes(slot).map { it.body })
+            assertEquals(
+                listOf("bench cue"),
+                repository.getWorkoutLiftPinnedNotes(slot, LiftId("bench-press")).map { it.body },
+            )
+
+            // Swap back: the use case carries the restored pair list through the save.
+            val restoredProgram = swappedProgram.copy(
+                workouts = swappedProgram.workouts.map { workout ->
+                    workout.copy(
+                        workoutLifts = workout.workoutLifts.map { lift ->
+                            if (lift.id == slot) {
+                                lift.copy(
+                                    liftId = LiftId("bench-press"),
+                                    pinnedNote = "bench cue",
+                                    pinnedNotes = listOf("bench cue"),
+                                )
+                            } else {
+                                lift
+                            }
+                        },
+                    )
+                },
+            )
+            repository.saveProgram(restoredProgram)
+
+            assertEquals(listOf("bench cue"), repository.getWorkoutLiftPinnedNotes(slot).map { it.body })
+            assertEquals("bench cue", database.workoutLiftDao().getById(slot)?.pinnedNote)
+        }
+
+        @Test
         fun `unchanged hierarchy re-save preserves note ids`() = runTest {
             seedReferencedLifts()
             repository.saveProgram(PROGRAM_P1)
