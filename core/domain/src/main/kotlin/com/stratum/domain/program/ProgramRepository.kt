@@ -2,6 +2,7 @@ package com.stratum.domain.program
 
 import com.stratum.domain.lift.WorkoutLiftNote
 import com.stratum.domain.lift.WorkoutLiftNoteInput
+import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import kotlinx.coroutines.flow.Flow
@@ -76,6 +77,29 @@ interface ProgramRepository {
      */
     suspend fun setWorkoutLiftPinnedNotes(
         id: WorkoutLiftId,
+        notes: List<WorkoutLiftNoteInput>,
+    ): Boolean
+
+    /**
+     * Workout notes for one (slot, lift) pair (STR-127): slot pinned notes belong to
+     * the lift that occupied the slot when they were written, so a swapped-in lift
+     * reads its own pair's notes — never the previous lift's. Unscoped legacy rows
+     * count as the slot's current lift pair only.
+     */
+    suspend fun getWorkoutLiftPinnedNotes(
+        id: WorkoutLiftId,
+        liftId: LiftId,
+    ): List<WorkoutLiftNote>
+
+    /**
+     * Pair-scoped form of [setWorkoutLiftPinnedNotes]: replaces only the
+     * (slot, [liftId]) pair's list; other pairs of the same slot stay stashed.
+     * The legacy first-note mirror is updated only when [liftId] is the lift
+     * currently on the slot.
+     */
+    suspend fun setWorkoutLiftPinnedNotes(
+        id: WorkoutLiftId,
+        liftId: LiftId,
         notes: List<WorkoutLiftNoteInput>,
     ): Boolean
 

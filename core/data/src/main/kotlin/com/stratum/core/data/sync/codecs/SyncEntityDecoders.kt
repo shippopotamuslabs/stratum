@@ -386,6 +386,8 @@ class SyncEntityDecoders @Inject constructor() {
             WorkoutLiftNoteEntity(
                 id = WorkoutLiftNoteId(id),
                 workoutLiftId = WorkoutLiftId(data["workout_lift_id"] as? String ?: return null),
+                // Pair scope (STR-127); old payloads omit it → unscoped legacy row.
+                liftId = (data["lift_id"] as? String)?.let { LiftId(it) },
                 body = sanitizeLiftNoteBody(data["body"] as? String) ?: return null,
                 position = (data["position"] as? Number)?.toInt() ?: 0,
                 createdAtEpochMillis = (data["created_at_epoch_millis"] as? Number)?.toLong() ?: 0L,

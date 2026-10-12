@@ -45,4 +45,12 @@ class GetSessionPinnedNoteListsUseCase @Inject constructor(
                 }
         return SessionPinnedNoteLists(byWorkoutLiftId = workoutLists, byLiftId = liftLists)
     }
+
+    /**
+     * Stored slot notes for one explicit (slot, lift) pair (STR-127) — used when a
+     * lift is swapped in mid-session and its own pair's notes (stashed by an
+     * earlier swap or a persisted template swap) must resurface.
+     */
+    suspend fun pinnedNotesFor(workoutLiftId: WorkoutLiftId, liftId: LiftId): List<String> =
+        programRepository.getWorkoutLiftPinnedNotes(workoutLiftId, liftId).map { it.body }
 }

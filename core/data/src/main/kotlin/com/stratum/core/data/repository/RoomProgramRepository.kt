@@ -16,6 +16,7 @@ import com.stratum.core.data.sync.SyncFlags
 import com.stratum.core.data.sync.SyncTouch
 import com.stratum.domain.lift.WorkoutLiftNote
 import com.stratum.domain.lift.WorkoutLiftNoteInput
+import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.sanitizeLiftNoteBody
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.ProgramRepository
@@ -141,23 +142,39 @@ class RoomProgramRepository @Inject constructor(
         // Scalar writes go through the list path so the note table and the legacy
         // mirror stay consistent (reads prefer the table). Preserves the first-row
         // id; a blank note clears the list. Missing slots still report false.
-        if (workoutLiftDao.getById(id) == null) return false
+        val slot = workoutLiftDao.getById(id) ?: return false
         val clean = sanitizeLiftNoteBody(note)
         if (clean == null) {
             return setWorkoutLiftPinnedNotes(id, emptyList())
         }
-        val existingId = database.workoutLiftNoteDao().idsForWorkoutLift(id).firstOrNull()
+        val existingId =
+            database.workoutLiftNoteDao().getForWorkoutLift(id)
+                .forPair(slot.liftId, slot.liftId)
+                .firstOrNull()?.id
         return setWorkoutLiftPinnedNotes(id, listOf(WorkoutLiftNoteInput(id = existingId, body = clean)))
     }
 
     override suspend fun getWorkoutLiftPinnedNotes(id: WorkoutLiftId): List<WorkoutLiftNote> {
-        val rows = database.workoutLiftNoteDao().getForWorkoutLift(id)
+        val slot = workoutLiftDao.getById(id) ?: return emptyList()
+        return getWorkoutLiftPinnedNotes(id, slot.liftId)
+    }
+
+    override suspend fun getWorkoutLiftPinnedNotes(
+        id: WorkoutLiftId,
+        liftId: LiftId,
+    ): List<WorkoutLiftNote> {
+        val slot = workoutLiftDao.getById(id) ?: return emptyList()
+        val rows = database.workoutLiftNoteDao().getForWorkoutLift(id).forPair(liftId, slot.liftId)
         if (rows.isNotEmpty()) return rows.map { it.toWorkoutLiftNote() }
         // Client lazy-migrate for slots that predate the v5 backfill (or were
         // written remotely by an old client): persist the legacy column as the
         // position-0 row so later reads and sync converge on the new shape.
-        if (migrateLegacyWorkoutPin(id)) {
-            return database.workoutLiftNoteDao().getForWorkoutLift(id).map { it.toWorkoutLiftNote() }
+        // The legacy scalar belongs to the slot's current pair only — other pairs
+        // have no legacy source.
+        if (liftId == slot.liftId && migrateLegacyWorkoutPin(id)) {
+            return database.workoutLiftNoteDao().getForWorkoutLift(id)
+                .forPair(liftId, slot.liftId)
+                .map { it.toWorkoutLiftNote() }
         }
         return emptyList()
     }
@@ -177,11 +194,21 @@ class RoomProgramRepository @Inject constructor(
         var migrated = false
         syncTouch.withWriteLock {
             database.withTransaction {
-                if (database.workoutLiftNoteDao().getForWorkoutLift(id).isEmpty()) {
-                    val current =
-                        workoutLiftDao.getById(id)?.pinnedNote?.takeIf { it.isNotBlank() }
+                val slot = workoutLiftDao.getById(id)
+                val pairEmpty =
+                    slot == null ||
+                        database.workoutLiftNoteDao().getForWorkoutLift(id)
+                            .forPair(slot.liftId, slot.liftId)
+                            .isEmpty()
+                if (slot != null && pairEmpty) {
+                    val current = slot.pinnedNote?.takeIf { it.isNotBlank() }
                     if (current != null) {
-                        replaceWorkoutLiftNotes(id, listOf(WorkoutLiftNoteInput(body = current)), now)
+                        replaceWorkoutLiftNotes(
+                            id,
+                            slot.liftId,
+                            listOf(WorkoutLiftNoteInput(body = current)),
+                            now,
+                        )
                         migrated = true
                     }
                 }
@@ -195,11 +222,20 @@ class RoomProgramRepository @Inject constructor(
         id: WorkoutLiftId,
         notes: List<WorkoutLiftNoteInput>,
     ): Boolean {
+        val slot = workoutLiftDao.getById(id) ?: return false
+        return setWorkoutLiftPinnedNotes(id, slot.liftId, notes)
+    }
+
+    override suspend fun setWorkoutLiftPinnedNotes(
+        id: WorkoutLiftId,
+        liftId: LiftId,
+        notes: List<WorkoutLiftNoteInput>,
+    ): Boolean {
         if (workoutLiftDao.getById(id) == null) return false
         val now = System.currentTimeMillis()
         syncTouch.withWriteLock {
             database.withTransaction {
-                replaceWorkoutLiftNotes(id, notes, now)
+                replaceWorkoutLiftNotes(id, liftId, notes, now)
             }
             syncTouch.markDirty()
         }
@@ -207,17 +243,22 @@ class RoomProgramRepository @Inject constructor(
     }
 
     /**
-     * Whole-slot note replace inside the caller's transaction: sanitize, contiguous
-     * positions, slot-scoped id retention, plus the legacy first-note mirror.
+     * Whole-pair note replace inside the caller's transaction (STR-127): sanitize,
+     * contiguous positions, pair-scoped id retention, plus the legacy first-note
+     * mirror — the mirror tracks the slot's *current* pair only, so it is written
+     * only when [liftId] is the lift on the slot. Other pairs' rows stay stashed.
      * Delete propagation for the new rows lands in PR3.
      */
     private suspend fun replaceWorkoutLiftNotes(
         id: WorkoutLiftId,
+        liftId: LiftId,
         notes: List<WorkoutLiftNoteInput>,
         now: Long,
     ) {
         val noteDao = database.workoutLiftNoteDao()
-        val currentIds = noteDao.idsForWorkoutLift(id).toSet()
+        val slotLiftId = workoutLiftDao.getById(id)?.liftId
+        val pairRows = noteDao.getForWorkoutLift(id).forPair(liftId, slotLiftId)
+        val currentIds = pairRows.map { it.id }.toSet()
         val minted =
             notes.mapNotNull { input ->
                 sanitizeLiftNoteBody(input.body)?.let { body -> input to body }
@@ -226,6 +267,7 @@ class RoomProgramRepository @Inject constructor(
                     id = input.id?.takeIf { it in currentIds }
                         ?: WorkoutLiftNoteId(UUID.randomUUID().toString()),
                     workoutLiftId = id,
+                    liftId = liftId,
                     body = body,
                     position = index,
                     createdAtEpochMillis = now,
@@ -233,7 +275,9 @@ class RoomProgramRepository @Inject constructor(
                     pendingSync = SyncFlags.PENDING_UPSERT,
                 )
             }
-        noteDao.deleteForWorkoutLift(id)
+        if (currentIds.isNotEmpty()) {
+            noteDao.deleteByIds(currentIds.toList())
+        }
         if (minted.isNotEmpty()) {
             noteDao.upsertAll(minted)
         }
@@ -242,11 +286,13 @@ class RoomProgramRepository @Inject constructor(
         if (removed.isNotEmpty()) {
             syncTouch.enqueueDelete(SyncCollection.WorkoutLiftNotes, removed, now)
         }
-        workoutLiftDao.setPinnedNote(
-            id = id,
-            note = minted.firstOrNull()?.body,
-            updatedAtEpochMillis = now,
-        )
+        if (liftId == slotLiftId) {
+            workoutLiftDao.setPinnedNote(
+                id = id,
+                note = minted.firstOrNull()?.body,
+                updatedAtEpochMillis = now,
+            )
+        }
     }
 
     override suspend fun updateCyclePointer(
@@ -285,10 +331,15 @@ class RoomProgramRepository @Inject constructor(
         // Snapshot per-slot pins + note rows: the delete below CASCADE-clears both, and
         // the reinsert must restore lists for slots whose scalar pin is untouched while
         // dropping stale rows where the save changed the pin (scalar authoritative).
-        val prevPins =
+        // Pair scoping (STR-127): the scalar rule governs only the pair that was the
+        // slot's current pair before the save and remains current after it; stashed
+        // pairs of swapped-out lifts always restore, and a carried list replaces
+        // only the incoming (now-current) pair's rows.
+        val prevSlotEntities =
             workoutDao.getForProgram(program.id.value)
                 .flatMap { workout -> workoutLiftDao.getForWorkout(workout.id.value) }
-                .associate { it.id to it.pinnedNote }
+        val prevPins = prevSlotEntities.associate { it.id to it.pinnedNote }
+        val prevSlotLifts = prevSlotEntities.associate { it.id to it.liftId }
         val prevNotes =
             if (prevPins.isEmpty()) {
                 emptyList()
@@ -303,6 +354,7 @@ class RoomProgramRepository @Inject constructor(
         if (lifts.isEmpty()) return
         workoutLiftDao.upsertAll(lifts.map { it.toEntity(nowMillis = now) })
         val nextPins = lifts.associate { it.id to it.pinnedNote }
+        val nextSlotLifts = lifts.associate { it.id to it.liftId }
         // Slots carrying an explicit ordered list through the template save
         // replace their stored rows; everything else keeps the
         // scalar-authoritative restore behavior.
@@ -311,9 +363,21 @@ class RoomProgramRepository @Inject constructor(
             .associate { it.id to it.pinnedNotes }
         val restored =
             prevNotes.filter { row ->
-                row.workoutLiftId in nextPins &&
-                    row.workoutLiftId !in carriedNoteLists &&
-                    prevPins[row.workoutLiftId] == nextPins[row.workoutLiftId]
+                val slotId = row.workoutLiftId
+                if (slotId !in nextPins) return@filter false
+                // The pair the carried replace will own: the slot's new current
+                // pair (unscoped legacy rows resolve to the current pair too).
+                val isCarriedPair =
+                    slotId in carriedNoteLists &&
+                        (row.liftId == null || row.liftId == nextSlotLifts[slotId])
+                if (isCarriedPair) return@filter false
+                val rowPairLift = row.liftId ?: prevSlotLifts[slotId]
+                val isContinuingPair =
+                    rowPairLift == prevSlotLifts[slotId] && rowPairLift == nextSlotLifts[slotId]
+                if (isContinuingPair && prevPins[slotId] != nextPins[slotId]) {
+                    return@filter false
+                }
+                true
             }
         if (restored.isNotEmpty()) {
             database.workoutLiftNoteDao().upsertAll(restored)
@@ -321,12 +385,21 @@ class RoomProgramRepository @Inject constructor(
         for ((slotId, bodies) in carriedNoteLists) {
             replaceWorkoutLiftNotes(
                 slotId,
+                nextSlotLifts.getValue(slotId),
                 bodies.map { body -> WorkoutLiftNoteInput(body = body) },
                 now,
             )
             // The hierarchy delete CASCADE-cleared the previous rows without
             // tombstones; enqueue deletes so synced devices drop replaced rows.
-            val replacedIds = prevNotes.filter { it.workoutLiftId == slotId }.map { it.id.value }
+            // Only the carried (incoming) pair's rows were replaced — stashed
+            // pairs of other lifts were restored above and stay live.
+            val replacedIds =
+                prevNotes
+                    .filter { row ->
+                        row.workoutLiftId == slotId &&
+                            (row.liftId == null || row.liftId == nextSlotLifts[slotId])
+                    }
+                    .map { it.id.value }
             if (replacedIds.isNotEmpty()) {
                 syncTouch.enqueueDelete(SyncCollection.WorkoutLiftNotes, replacedIds, now)
             }
@@ -379,6 +452,17 @@ class RoomProgramRepository @Inject constructor(
             rejoinProgram(programEntity, workouts, liftsByWorkout, setsByLift)
         }
 }
+
+/**
+ * Rows belonging to the (slot, [liftId]) pair (STR-127): explicitly scoped rows
+ * match on lift; unscoped legacy rows (`liftId == null`, pre-v14 sync payloads)
+ * belong to whichever pair is the slot's current one ([currentLiftId]).
+ */
+internal fun List<WorkoutLiftNoteEntity>.forPair(
+    liftId: LiftId,
+    currentLiftId: LiftId?,
+): List<WorkoutLiftNoteEntity> =
+    filter { row -> row.liftId == liftId || (row.liftId == null && liftId == currentLiftId) }
 
 internal fun WorkoutLiftNoteEntity.toWorkoutLiftNote(): WorkoutLiftNote =
     WorkoutLiftNote(

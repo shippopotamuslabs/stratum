@@ -1,6 +1,7 @@
 package com.stratum.domain.workout
 
 import com.stratum.domain.lift.Lift
+import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.identity.WorkoutLiftId
 
 /** Overlay pin wins; otherwise the template/projection value. */
@@ -38,6 +39,37 @@ fun resolvedWorkoutPinnedNotes(
     overlay.workoutLiftPinnedNoteLists[workoutLiftId]
         ?: overlay.workoutLiftPinnedNotes[workoutLiftId]?.let(::listOf)
         ?: templateNotes
+
+/**
+ * Pair-aware list resolution (STR-127): slot pinned notes belong to the
+ * (slot, lift) pair, not the slot alone.
+ *
+ * - An explicit overlay pin for the slot (session-added slots, in-session pin
+ *   edits) always wins — those maps hold the current pair's notes by construction.
+ * - An unswapped slot resolves exactly like [resolvedWorkoutPinnedNotes].
+ * - A swapped slot reads the stash for the swapped-in pair; a lift that was never
+ *   stashed for this slot in this session and is not the template lift has no
+ *   pair notes (empty), so the template lift's notes never leak onto it.
+ * - A swap back to the template lift restores its stash when one was captured,
+ *   and otherwise falls back to the template list.
+ */
+fun resolvedWorkoutPinnedNotes(
+    overlay: WorkoutOverlay,
+    workoutLiftId: WorkoutLiftId,
+    templateLiftId: LiftId,
+    templateNotes: List<String>,
+): List<String> {
+    if (
+        overlay.workoutLiftPinnedNoteLists.containsKey(workoutLiftId) ||
+        overlay.workoutLiftPinnedNotes.containsKey(workoutLiftId)
+    ) {
+        return resolvedWorkoutPinnedNotes(overlay, workoutLiftId, templateNotes)
+    }
+    val swappedLiftId = overlay.swappedLifts[workoutLiftId]
+        ?: return resolvedWorkoutPinnedNotes(overlay, workoutLiftId, templateNotes)
+    return overlay.pinnedNoteStash[SlotLiftPair(workoutLiftId, swappedLiftId)]
+        ?: if (swappedLiftId == templateLiftId) templateNotes else emptyList()
+}
 
 /**
  * Display form: first overlay list entry wins; otherwise the legacy single-note
