@@ -1,6 +1,5 @@
 package com.stratum.core.data.db
 
-import android.database.sqlite.SQLiteConstraintException
 import androidx.room.Room
 import com.stratum.domain.importing.ImportHistoryTrainingMapper
 import com.stratum.domain.importing.identity.LoggedSetId
@@ -128,24 +127,14 @@ class LoggedSetDaoContractTest {
         setDao.upsert(prSet1)
 
         // Second PR for the SAME (lift, equipment) pair must be rejected.
+        // Note: Room @Upsert silently drops the conflicting row (no throw), so we
+        // assert on state: pr-set-1 survives, pr-set-2 is not inserted.
         val prSet2 = loggedSet("pr-set-2", sessionId, completedAtEpochMillis = 5_000L).copy(
             liftId = LiftId("lift-bench"),
             equipmentId = equipA,
             isPersonalRecord = true
         )
-
-        val duplicateError: Exception? =
-            try {
-                setDao.upsert(prSet2)
-                null
-            } catch (e: Exception) {
-                e
-            }
-        assertTrue(
-            duplicateError is SQLiteConstraintException,
-            "duplicate PR for the same (lift, equipment) pair must throw " +
-                "SQLiteConstraintException, got: $duplicateError",
-        )
+        setDao.upsert(prSet2)
 
         val afterDup = setDao.getForSession(sessionId)
         assertTrue(afterDup.any { it.id == LoggedSetId("pr-set-1") })

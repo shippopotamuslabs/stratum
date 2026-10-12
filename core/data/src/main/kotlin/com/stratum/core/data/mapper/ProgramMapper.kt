@@ -20,7 +20,9 @@ import java.time.Instant
 internal fun ProgramEntity.toDomain(workouts: List<Workout>): Program = Program(
     id = id,
     name = name,
-    createdAt = Instant.parse(createdAt),
+    // STR-129: never throw on malformed timestamps — fall back to epoch so a single
+    // bad row cannot brick finalize.
+    createdAt = runCatching { Instant.parse(createdAt) }.getOrElse { Instant.EPOCH },
     cycleLength = cycleLength,
     trainingWeekdays = trainingWeekdays,
     workouts = workouts,
