@@ -164,4 +164,92 @@ class SwapWorkoutLiftUseCaseTest {
         assertEquals(LiftId("lift-bench"), payload.previousLiftId)
         assertEquals(LiftId("lift-squat"), payload.newLiftId)
     }
+
+    // ---- STR-127: pair-scoped equipment + pinned notes -----------------------
+
+    @Test
+    @DisplayName("Swap resets equipment and notes to the incoming pair instead of carrying the old lift's")
+    fun swapRescopesEquipmentAndNotes() = runTest {
+        val slot = WorkoutLiftId("wl-1")
+        val repository = FakeProgramRepository(pairProgram())
+        repository.setWorkoutLiftPinnedNotes(
+            slot,
+            listOf(com.stratum.domain.lift.WorkoutLiftNoteInput(body = "bench cue")),
+        )
+        val useCase =
+            SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository(), FakeLoggingPort())
+
+        useCase(slot, LiftId("lift-ohp")).getOrThrow()
+
+        val swapped = repository.getProgram()!!.workouts.single().workoutLifts.single()
+        assertEquals(LiftId("lift-ohp"), swapped.liftId)
+        // Equipment assignment cleared -> the new lift inherits its catalog default.
+        assertEquals(null, swapped.equipmentId)
+        assertEquals(null, swapped.pinnedNote)
+        assertEquals(emptyList<String>(), swapped.pinnedNotes)
+        // The outgoing pair's notes stay stored under their own pair.
+        assertEquals(
+            listOf("bench cue"),
+            repository.getWorkoutLiftPinnedNotes(slot, LiftId("lift-bench")).map { it.body },
+        )
+        assertEquals(
+            emptyList<String>(),
+            repository.getWorkoutLiftPinnedNotes(slot).map { it.body },
+        )
+    }
+
+    @Test
+    @DisplayName("Swapping a lift back restores its stashed pair notes")
+    fun swapBackRestoresNotes() = runTest {
+        val slot = WorkoutLiftId("wl-1")
+        val repository = FakeProgramRepository(pairProgram())
+        repository.setWorkoutLiftPinnedNotes(
+            slot,
+            listOf(com.stratum.domain.lift.WorkoutLiftNoteInput(body = "bench cue")),
+        )
+        val useCase =
+            SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository(), FakeLoggingPort())
+
+        useCase(slot, LiftId("lift-ohp")).getOrThrow()
+        useCase(slot, LiftId("lift-bench")).getOrThrow()
+
+        val restored = repository.getProgram()!!.workouts.single().workoutLifts.single()
+        assertEquals(LiftId("lift-bench"), restored.liftId)
+        assertEquals("bench cue", restored.pinnedNote)
+        assertEquals(
+            listOf("bench cue"),
+            repository.getWorkoutLiftPinnedNotes(slot).map { it.body },
+        )
+    }
+
+    private fun pairProgram(): Program =
+        Program(
+            id = ProgramId("p-1"),
+            name = "Push Program",
+            createdAt = Instant.now(),
+            cycleLength = 1,
+            trainingWeekdays = setOf(Weekday.Monday),
+            workouts = listOf(
+                Workout(
+                    id = WorkoutId("w-1"),
+                    programId = ProgramId("p-1"),
+                    name = "Push Day",
+                    weekday = Weekday.Monday,
+                    position = 0,
+                    workoutLifts = listOf(
+                        WorkoutLift(
+                            id = WorkoutLiftId("wl-1"),
+                            workoutId = WorkoutId("w-1"),
+                            liftId = LiftId("lift-bench"),
+                            progressionScheme = ProgressionScheme.Double,
+                            position = 0,
+                            sets = emptyList(),
+                            pinnedNote = "bench cue",
+                            equipmentId =
+                                com.stratum.domain.lift.identity.EquipmentId("eq-bench"),
+                        ),
+                    ),
+                ),
+            ),
+        )
 }

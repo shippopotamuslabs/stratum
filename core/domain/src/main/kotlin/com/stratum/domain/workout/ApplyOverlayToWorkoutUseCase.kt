@@ -64,22 +64,62 @@ class ApplyOverlayToWorkoutUseCase @Inject constructor() {
                     .sortedBy { it.position }
                     .mapIndexed { index, set -> set.copy(position = index) }
 
+                // STR-127: a lift swap re-scopes row-held state to the new pair.
+                // Equipment resets to the new lift's default (null = inherit it)
+                // unless an explicit session equipment swap targets the new pair;
+                // pinned notes resolve pair-aware so the old lift's notes are
+                // never written onto the incoming lift (its own pair's notes —
+                // stashed or none — are written instead).
+                val pairNotes =
+                    if (swappedLiftId != null) {
+                        resolvedWorkoutPinnedNotes(
+                            overlay,
+                            lift.id,
+                            templateLiftId = lift.liftId,
+                            templateNotes = lift.effectiveNotes(),
+                        )
+                    } else {
+                        null
+                    }
                 lift.copy(
                     liftId = updatedLiftId,
                     sets = allSets,
                     supersetGroupId = updatedSupersetGroupId,
                     useRestTimerBetweenLifts = updatedRestTimer,
-                    equipmentId = overlay.swappedEquipment[lift.id] ?: lift.equipmentId,
-                    pinnedNote = resolvedWorkoutPinnedNoteFirst(
-                        overlay,
-                        lift.id,
-                        lift.pinnedNote,
-                    ),
-                    pinnedNotes = resolvedWorkoutPinnedNotes(
-                        overlay.workoutLiftPinnedNoteLists,
-                        lift.id,
-                        lift.pinnedNotes,
-                    ),
+                    // Save-back persists the resolved pair equipment: the session
+                    // override, else the template assignment when it belongs to
+                    // this pair (null after a pair swap = inherit the new lift's
+                    // default at render).
+                    equipmentId =
+                        resolveSessionEquipmentId(
+                            swapOverrideId = overlay.swappedEquipment[lift.id],
+                            templateEquipmentId =
+                                templateEquipmentIdForPair(
+                                    swappedLiftId = swappedLiftId,
+                                    templateLiftId = lift.liftId,
+                                    hasSessionEquipmentOverride =
+                                        overlay.swappedEquipment.containsKey(lift.id),
+                                    templateEquipmentId = lift.equipmentId,
+                                ),
+                            liftEquipmentId = null,
+                        ),
+                    pinnedNote =
+                        if (swappedLiftId != null) {
+                            pairNotes?.firstOrNull()
+                        } else {
+                            resolvedWorkoutPinnedNoteFirst(
+                                overlay,
+                                lift.id,
+                                lift.pinnedNote,
+                            )
+                        },
+                    pinnedNotes =
+                        pairNotes
+                            ?: resolvedWorkoutPinnedNotes(
+                                overlay.workoutLiftPinnedNoteLists,
+                                lift.id,
+                                lift.pinnedNotes,
+                            ),
                 )
             }
 
@@ -116,10 +156,24 @@ class ApplyOverlayToWorkoutUseCase @Inject constructor() {
                 } else {
                     added.supersetGroupId
                 }
+                // STR-127 pair scoping for a swapped session-added lift: the
+                // effective lift is the swapped-in one, equipment falls back to
+                // its default (the swappedEquipment lookup below already yields
+                // null after a lift swap cleared the old pair's override), and
+                // notes resolve pair-aware against the added lift as template.
+                val effectiveAddedLiftId =
+                    overlay.swappedLifts[added.workoutLiftId] ?: added.liftId
+                val addedPairNotes =
+                    resolvedWorkoutPinnedNotes(
+                        overlay,
+                        added.workoutLiftId,
+                        templateLiftId = added.liftId,
+                        templateNotes = emptyList(),
+                    )
                 WorkoutLift(
                     id = added.workoutLiftId,
                     workoutId = baseline.id,
-                    liftId = added.liftId,
+                    liftId = effectiveAddedLiftId,
                     progressionScheme = added.progressionScheme,
                     // Temporary; renumbered after final order is known.
                     position = 0,
@@ -127,16 +181,26 @@ class ApplyOverlayToWorkoutUseCase @Inject constructor() {
                     supersetGroupId = groupOverride,
                     useRestTimerBetweenLifts = restOverride ?: added.useRestTimerBetweenLifts,
                     equipmentId = overlay.swappedEquipment[added.workoutLiftId],
-                    pinnedNote = resolvedWorkoutPinnedNoteFirst(
-                        overlay,
-                        added.workoutLiftId,
-                        templateNote = null,
-                    ),
-                    pinnedNotes = resolvedWorkoutPinnedNotes(
-                        overlay.workoutLiftPinnedNoteLists,
-                        added.workoutLiftId,
-                        templateNotes = emptyList(),
-                    ),
+                    pinnedNote =
+                        if (overlay.swappedLifts.containsKey(added.workoutLiftId)) {
+                            addedPairNotes.firstOrNull()
+                        } else {
+                            resolvedWorkoutPinnedNoteFirst(
+                                overlay,
+                                added.workoutLiftId,
+                                templateNote = null,
+                            )
+                        },
+                    pinnedNotes =
+                        if (overlay.swappedLifts.containsKey(added.workoutLiftId)) {
+                            addedPairNotes
+                        } else {
+                            resolvedWorkoutPinnedNotes(
+                                overlay.workoutLiftPinnedNoteLists,
+                                added.workoutLiftId,
+                                templateNotes = emptyList(),
+                            )
+                        },
                 )
             }
 

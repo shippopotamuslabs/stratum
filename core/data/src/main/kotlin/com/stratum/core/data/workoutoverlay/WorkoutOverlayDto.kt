@@ -207,6 +207,14 @@ data class WorkoutLiftPinnedNoteListEntryDto(
     val bodies: List<String> = emptyList(),
 )
 
+/** One entry of the `pinnedNoteStash` map ((slot, lift) pair key + ordered bodies, STR-127). */
+@Serializable
+data class PinnedNoteStashEntryDto(
+    val workoutLiftId: String,
+    val liftId: String,
+    val bodies: List<String> = emptyList(),
+)
+
 /**
  * DTO mirror of [com.stratum.domain.workout.WorkoutOverlay].
  * All collection-typed domain fields become entry lists / nullable lists.
@@ -234,6 +242,11 @@ data class WorkoutOverlayDto(
      * support — those restore an empty map and keep the legacy scalar entries.
      */
     val workoutLiftPinnedNoteLists: List<WorkoutLiftPinnedNoteListEntryDto> = emptyList(),
+    /**
+     * (Slot, lift) pair stash of swapped-out lifts' pins (STR-127). Absent
+     * (default) in DTOs written before pair scoping — those restore an empty stash.
+     */
+    val pinnedNoteStash: List<PinnedNoteStashEntryDto> = emptyList(),
 )
 
 /** Entry list element for [WorkoutOverlayDto.recommendations]. */

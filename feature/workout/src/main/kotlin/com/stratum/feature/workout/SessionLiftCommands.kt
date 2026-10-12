@@ -47,12 +47,14 @@ import com.stratum.domain.workout.RecomputeRecommendationsUseCase
 import com.stratum.domain.workout.RenderedWorkout
 import com.stratum.domain.workout.SetSlot
 import com.stratum.domain.workout.SetSlotId
+import com.stratum.domain.workout.SlotLiftPair
 import com.stratum.domain.workout.SlotRecommendation
 import com.stratum.domain.workout.SnapshotRequest
 import com.stratum.domain.workout.StructuralMutation
 import com.stratum.domain.workout.WorkoutOverlay
 import com.stratum.domain.workout.WorkoutStructureProjection
 import com.stratum.domain.workout.intensifier.RestDefaultForTransition
+import com.stratum.domain.workout.resolvedWorkoutPinnedNotes
 import com.stratum.feature.workout.ui.WorkoutUiEvent
 import com.stratum.feature.workout.ui.WorkoutUiMapper
 import java.time.Instant
@@ -64,15 +66,70 @@ import kotlinx.coroutines.launch
 /** Lift / superset / rest mutators for [LiveWorkoutSessionRuntime]. */
 
 internal suspend fun LiveWorkoutSessionRuntime.handleSwapLift(cmd: SessionCommand.SwapLift) {
-    commitOverlay(
-        overlay.copy(
-            swappedLifts = overlay.swappedLifts + (cmd.workoutLiftId to cmd.newLiftId),
-        ),
-    )
-    // Snapshot previous/recs are keyed by template history; recompute them for the
-    // performed lift so the card does not keep the pre-swap baselines (D3).
     val workout = baselineWorkout
     val templateLift = workout?.workoutLifts?.firstOrNull { it.id == cmd.workoutLiftId }
+    val addedLift = overlay.addedLifts.firstOrNull { it.workoutLiftId == cmd.workoutLiftId }
+    val outgoingLiftId =
+        overlay.swappedLifts[cmd.workoutLiftId] ?: templateLift?.liftId ?: addedLift?.liftId
+    if (outgoingLiftId != null && outgoingLiftId != cmd.newLiftId) {
+        // STR-127: stash the outgoing pair's effective slot notes before the swap
+        // commits — overlay pins win, then the pair stash (slot already swapped),
+        // then the stored template list.
+        val templateNotes =
+            if (templateLift == null) {
+                emptyList()
+            } else {
+                sessionPinnedNotes.byWorkoutLiftId[cmd.workoutLiftId]
+                    ?: structure?.lifts
+                        ?.firstOrNull { it.workoutLiftId == cmd.workoutLiftId }
+                        ?.workoutPinnedNotes
+                    ?: emptyList()
+            }
+        val outgoingNotes =
+            resolvedWorkoutPinnedNotes(
+                overlay,
+                cmd.workoutLiftId,
+                templateLiftId = templateLift?.liftId ?: outgoingLiftId,
+                templateNotes = templateNotes,
+            )
+        var nextOverlay =
+            LiveWorkoutOverlayOps.swapLift(
+                overlay = overlay,
+                workoutLiftId = cmd.workoutLiftId,
+                newLiftId = cmd.newLiftId,
+                outgoingLiftId = outgoingLiftId,
+                outgoingNotes = outgoingNotes,
+            )
+        // The incoming pair may already have notes in storage (stashed by an
+        // earlier persisted swap on this slot): warm the session stash so render
+        // and template save-back resolve them without another storage read.
+        val incomingKey = SlotLiftPair(cmd.workoutLiftId, cmd.newLiftId)
+        if (
+            templateLift != null &&
+            cmd.newLiftId != templateLift.liftId &&
+            !nextOverlay.pinnedNoteStash.containsKey(incomingKey)
+        ) {
+            val stored =
+                runCatching {
+                    getSessionPinnedNoteLists.pinnedNotesFor(cmd.workoutLiftId, cmd.newLiftId)
+                }.getOrDefault(emptyList())
+            if (stored.isNotEmpty()) {
+                nextOverlay =
+                    nextOverlay.copy(
+                        pinnedNoteStash = nextOverlay.pinnedNoteStash + (incomingKey to stored),
+                    )
+            }
+        }
+        commitOverlay(nextOverlay)
+    } else {
+        commitOverlay(
+            overlay.copy(
+                swappedLifts = overlay.swappedLifts + (cmd.workoutLiftId to cmd.newLiftId),
+            ),
+        )
+    }
+    // Snapshot previous/recs are keyed by template history; recompute them for the
+    // performed lift so the card does not keep the pre-swap baselines (D3).
     if (templateLift != null) {
         mergeSnapshotForLifts(listOf(templateLift.copy(liftId = cmd.newLiftId)))
     }

@@ -274,12 +274,21 @@ class SyncHandlersProvider @Inject constructor(
         val row = workoutLiftNoteDao.getById(id) ?: return
         database.withTransaction {
             workoutLiftNoteDao.deleteById(id)
-            val remaining = workoutLiftNoteDao.getForWorkoutLift(row.workoutLiftId)
-            workoutLiftDao.setPinnedNote(
-                id = row.workoutLiftId,
-                note = remaining.firstOrNull()?.body,
-                updatedAtEpochMillis = System.currentTimeMillis(),
-            )
+            // Pair scope (STR-127): the mirror tracks the slot's current pair only.
+            // A tombstone for a stashed pair (or a pair that is not current) leaves
+            // the mirror untouched; a current-pair tombstone refreshes it from the
+            // remaining rows of that pair.
+            val currentLiftId = workoutLiftDao.getById(row.workoutLiftId)?.liftId
+            if (row.liftId == null || row.liftId == currentLiftId) {
+                val remaining =
+                    workoutLiftNoteDao.getForWorkoutLift(row.workoutLiftId)
+                        .filter { it.liftId == null || it.liftId == currentLiftId }
+                workoutLiftDao.setPinnedNote(
+                    id = row.workoutLiftId,
+                    note = remaining.firstOrNull()?.body,
+                    updatedAtEpochMillis = System.currentTimeMillis(),
+                )
+            }
         }
     }
 

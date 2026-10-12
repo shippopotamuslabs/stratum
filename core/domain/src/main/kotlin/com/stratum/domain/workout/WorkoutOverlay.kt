@@ -37,6 +37,12 @@ data class OverlayAddedLift(
     val useRestTimerBetweenLifts: Boolean = false,
 )
 
+/** Identifies one (slot, lift) pair for pair-scoped slot state (STR-127). */
+data class SlotLiftPair(
+    val workoutLiftId: WorkoutLiftId,
+    val liftId: LiftId,
+)
+
 /**
  * Overlay structural mutations (D5). Slice 3 ships `AddSet` / `DeleteSet`; Slice 5
  * adds `GenerateMyoRepMiniSet`; Slice 6 adds `AddDropSet`.
@@ -117,6 +123,13 @@ data class WorkoutOverlay(
      * Readers prefer this map and fall back to the single-note map.
      */
     val workoutLiftPinnedNoteLists: Map<WorkoutLiftId, List<String>> = emptyMap(),
+    /**
+     * Stashed slot pinned notes per (slot, lift) pair (STR-127): when a lift is
+     * swapped out mid-session, its slot notes are preserved here; swapping that
+     * lift back into the slot restores them. The slot-keyed pin maps above always
+     * hold the *current* pair's notes — this stash holds the other pairs'.
+     */
+    val pinnedNoteStash: Map<SlotLiftPair, List<String>> = emptyMap(),
 ) {
     /**
      * True when the overlay carries unsaved structural edits (swaps, added/deleted sets or

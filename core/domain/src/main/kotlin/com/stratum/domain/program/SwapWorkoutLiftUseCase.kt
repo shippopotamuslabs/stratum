@@ -45,6 +45,25 @@ class SwapWorkoutLiftUseCase @Inject constructor(
             )
         }
 
+        // STR-127: row-held state is scoped to the (slot, lift) pair. The incoming
+        // lift brings its own pair's stashed notes (empty when it never occupied
+        // this slot) and inherits its catalog default equipment (null assignment);
+        // the outgoing lift's notes stay stored under its own pair and resurface
+        // if it is swapped back in. A same-lift "swap" is not a swap: no re-scope.
+        val targetLift =
+            program.workouts
+                .flatMap { it.workoutLifts }
+                .firstOrNull { it.id == workoutLiftId }
+        val incomingNotes =
+            if (targetLift != null && targetLift.liftId != newLiftId) {
+                runCatching {
+                    programRepository.getWorkoutLiftPinnedNotes(workoutLiftId, newLiftId)
+                        .map { it.body }
+                }.getOrDefault(emptyList())
+            } else {
+                null
+            }
+
         var found = false
         var previousLiftId: LiftId? = null
         val updatedWorkouts = program.workouts.map { workout ->
@@ -52,7 +71,16 @@ class SwapWorkoutLiftUseCase @Inject constructor(
                 if (lift.id == workoutLiftId) {
                     found = true
                     previousLiftId = lift.liftId
-                    lift.copy(liftId = newLiftId)
+                    if (incomingNotes != null) {
+                        lift.copy(
+                            liftId = newLiftId,
+                            equipmentId = null,
+                            pinnedNote = incomingNotes.firstOrNull(),
+                            pinnedNotes = incomingNotes,
+                        )
+                    } else {
+                        lift.copy(liftId = newLiftId)
+                    }
                 } else {
                     lift
                 }

@@ -10,7 +10,7 @@ import androidx.room.TypeConverters
  * annotation below and by migration tests. Bump this (and only this) with every
  * entity change.
  */
-const val STRATUM_SCHEMA_VERSION = 13
+const val STRATUM_SCHEMA_VERSION = 14
 
 @Database(
     entities = [
@@ -71,6 +71,9 @@ const val STRATUM_SCHEMA_VERSION = 13
         // workout_lifts; pure column add. Null means "inherit the lift's equipment".
         AutoMigration(from = 11, to = 12),
         // 12 → 13 is a manual migration (MIGRATION_12_13: PR unique index rebuild).
+        // 13 → 14 is a manual migration (MIGRATION_13_14: workout_lift_notes gains
+        // the pair-scoping lift_id column + FK via table rebuild, backfilled from
+        // each slot's current lift).
     ],
 )
 @TypeConverters(WeekdaySetConverter::class, IntSetConverter::class, EnumConverters::class)

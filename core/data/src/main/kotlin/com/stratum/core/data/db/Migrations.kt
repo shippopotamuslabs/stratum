@@ -19,6 +19,7 @@ fun RoomDatabase.Builder<StratumDatabase>.withProductionMigrations(): RoomDataba
         MIGRATION_8_9,
         MIGRATION_9_10,
         MIGRATION_12_13,
+        MIGRATION_13_14,
     )
 
 /**
@@ -393,6 +394,63 @@ val MIGRATION_12_13: Migration =
                 "CREATE UNIQUE INDEX IF NOT EXISTS " +
                     "`index_logged_sets_liftId_equipmentId_isPersonalRecord` " +
                     "ON `logged_sets` (`liftId`, `equipmentId`, `isPersonalRecord`)",
+            )
+        }
+    }
+
+/**
+ * v13 → v14: slot pinned notes are scoped to the (slot, lift) pair (STR-127).
+ *
+ * - Adds nullable `lift_id` to `workout_lift_notes` (plus an FK to `lifts`) via
+ *   table rebuild — SQLite cannot add a foreign key with ALTER TABLE.
+ * - Backfills every existing row from its slot's current lift: pre-v14 notes were
+ *   written for whichever lift occupied the slot, which is exactly that lift.
+ *   Rows whose slot vanished keep null (unscoped legacy) instead of dropping.
+ * - No sync restamp: the pair scope is derivable on every device from the slot's
+ *   lift, and the encoder starts sending `lift_id` with the next write.
+ */
+val MIGRATION_13_14: Migration =
+    object : Migration(13, 14) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `workout_lift_notes_new` (
+                  `id` TEXT NOT NULL,
+                  `workout_lift_id` TEXT NOT NULL,
+                  `lift_id` TEXT,
+                  `body` TEXT NOT NULL,
+                  `position` INTEGER NOT NULL,
+                  `created_at_epoch_millis` INTEGER NOT NULL,
+                  `updated_at_epoch_millis` INTEGER NOT NULL,
+                  `pending_sync` INTEGER NOT NULL,
+                  PRIMARY KEY(`id`),
+                  FOREIGN KEY(`workout_lift_id`) REFERENCES `workout_lifts`(`id`)
+                    ON UPDATE NO ACTION ON DELETE CASCADE,
+                  FOREIGN KEY(`lift_id`) REFERENCES `lifts`(`id`)
+                    ON UPDATE NO ACTION ON DELETE CASCADE
+                )
+                """.trimIndent(),
+            )
+            db.execSQL(
+                """
+                INSERT INTO `workout_lift_notes_new`
+                  (`id`, `workout_lift_id`, `lift_id`, `body`, `position`,
+                   `created_at_epoch_millis`, `updated_at_epoch_millis`, `pending_sync`)
+                SELECT n.`id`, n.`workout_lift_id`, wl.`lift_id`, n.`body`, n.`position`,
+                       n.`created_at_epoch_millis`, n.`updated_at_epoch_millis`, n.`pending_sync`
+                FROM `workout_lift_notes` n
+                LEFT JOIN `workout_lifts` wl ON wl.`id` = n.`workout_lift_id`
+                """.trimIndent(),
+            )
+            db.execSQL("DROP TABLE `workout_lift_notes`")
+            db.execSQL("ALTER TABLE `workout_lift_notes_new` RENAME TO `workout_lift_notes`")
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_workout_lift_notes_workout_lift_id` " +
+                    "ON `workout_lift_notes` (`workout_lift_id`)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_workout_lift_notes_workout_lift_id_position` " +
+                    "ON `workout_lift_notes` (`workout_lift_id`, `position`)",
             )
         }
     }
