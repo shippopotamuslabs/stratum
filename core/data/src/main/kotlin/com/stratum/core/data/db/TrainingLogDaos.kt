@@ -231,7 +231,7 @@ interface TrainingLoggedSetDao {
 
     /**
      * Reassigns all sets from [sourceLiftIds] onto [targetLiftId], rewrites snapshot names, and
-     * clears personal-record flags (null) so the unique (liftId, isPersonalRecord) index is safe.
+     * clears personal-record flags (null) so the unique (liftId, equipmentId, isPersonalRecord) index is safe.
      */
     @Query(
         """
@@ -298,7 +298,7 @@ interface TrainingLoggedSetDao {
 
     /**
      * Clears other personal-record flags for [liftId] so remote PR apply cannot violate
-     * the unique (liftId, isPersonalRecord) index.
+     * the unique (liftId, equipmentId, isPersonalRecord) index.
      *
      * Demotions use PENDING_UPSERT + a non-regressing clock (same pattern as
      * [com.stratum.core.data.db.ProgramDao.demoteOtherActivesPending]) so dual-PR cloud
