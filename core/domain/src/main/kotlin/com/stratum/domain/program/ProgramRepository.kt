@@ -61,6 +61,18 @@ interface ProgramRepository {
     suspend fun setWorkoutLiftPinnedNote(id: WorkoutLiftId, note: String?): Boolean
 
     /**
+     * Pair-scoped form of [setWorkoutLiftPinnedNote] (STR-127): the single-note
+     * write lands on the (slot, [liftId]) pair — a note edited while a swapped-in
+     * lift occupies the slot must not overwrite the template pair's notes or its
+     * legacy mirror (the mirror updates only when [liftId] is the slot's lift).
+     */
+    suspend fun setWorkoutLiftPinnedNote(
+        id: WorkoutLiftId,
+        liftId: LiftId,
+        note: String?,
+    ): Boolean
+
+    /**
      * All workout notes for one template slot, display order (position ascending).
      *
      * Client lazy-migrate: when the slot carries only a legacy `pinned_note`

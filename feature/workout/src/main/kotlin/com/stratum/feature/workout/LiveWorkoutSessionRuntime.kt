@@ -57,6 +57,7 @@ import com.stratum.domain.workout.SlotRecommendation
 import com.stratum.domain.workout.SnapshotRequest
 import com.stratum.domain.workout.StructuralMutation
 import com.stratum.domain.workout.resolveSessionEquipmentId
+import com.stratum.domain.workout.templateEquipmentIdForPair
 import com.stratum.domain.workout.WorkoutOverlay
 import com.stratum.domain.workout.WorkoutStructureProjection
 import com.stratum.domain.workout.intensifier.RestDefaultForTransition
@@ -476,17 +477,15 @@ internal class LiveWorkoutSessionRuntime(
         lifts.mapNotNull { lift ->
             resolveSessionEquipmentId(
                 swapOverrideId = overlay.swappedEquipment[lift.id],
-                // STR-127: same rule as render — after a lift swap the template
-                // assignment belongs to the old pair and is skipped.
+                // STR-127: same pair rule as render (see templateEquipmentIdForPair).
                 templateEquipmentId =
-                    if (
-                        overlay.swappedLifts[lift.id].let { it != null && it != lift.liftId } &&
-                        !overlay.swappedEquipment.containsKey(lift.id)
-                    ) {
-                        null
-                    } else {
-                        lift.equipmentId
-                    },
+                    templateEquipmentIdForPair(
+                        swappedLiftId = overlay.swappedLifts[lift.id],
+                        templateLiftId = lift.liftId,
+                        hasSessionEquipmentOverride =
+                            overlay.swappedEquipment.containsKey(lift.id),
+                        templateEquipmentId = lift.equipmentId,
+                    ),
                 liftEquipmentId =
                     liftsById[overlay.swappedLifts[lift.id] ?: lift.liftId]?.equipmentId,
             )?.let { lift.id to it }

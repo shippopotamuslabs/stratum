@@ -15,6 +15,7 @@ import com.stratum.domain.program.mergeWorkout
 import com.stratum.domain.program.Workout
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
+import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.training.AbandonTrainingSessionUseCase
 import com.stratum.domain.training.ObserveCycleProgressUseCase
@@ -23,6 +24,7 @@ import com.stratum.domain.training.ProgramChangeEventRepository
 import com.stratum.domain.training.ProgramChangeEventType
 import com.stratum.domain.training.StartTrainingSessionUseCase
 import com.stratum.domain.workout.ManageWorkoutOverlayUseCase
+import com.stratum.domain.workout.SlotLiftPair
 import com.stratum.domain.workout.WorkoutEditSession
 import com.stratum.domain.workout.EditSessionEvent
 import com.stratum.core.ui.component.EquipmentSwapOption
@@ -159,7 +161,7 @@ class EditWorkoutViewModel @Inject constructor(
         val equipmentName: String?,
     )
 
-    private val liftSwapStash = mutableMapOf<Pair<String, String>, SwappedEditLiftStash>()
+    private val liftSwapStash = mutableMapOf<SlotLiftPair, SwappedEditLiftStash>()
     private var programSnapshot: Program? = null
     private var baselineWorkout: Workout? = null
     /** When set, loads/saves that program (library or active); null = active only. */
@@ -481,14 +483,17 @@ class EditWorkoutViewModel @Inject constructor(
                 val updatedLifts = loaded.lifts.map { lift ->
                     if (lift.workoutLiftId == workoutLiftId) {
                         if (lift.liftId != liftId) {
-                            liftSwapStash[workoutLiftId to lift.liftId] =
+                            liftSwapStash[
+                                SlotLiftPair(WorkoutLiftId(workoutLiftId), LiftId(lift.liftId))
+                            ] =
                                 SwappedEditLiftStash(
                                     pinnedNote = lift.pinnedNote,
                                     equipmentId = lift.equipmentId,
                                     equipmentName = lift.equipmentName,
                                 )
                         }
-                        val incoming = liftSwapStash[workoutLiftId to liftId]
+                        val incoming =
+                            liftSwapStash[SlotLiftPair(WorkoutLiftId(workoutLiftId), LiftId(liftId))]
                         val defaultEquipmentId = catalog?.equipmentId?.value
                         val defaultEquipmentName =
                             defaultEquipmentId?.let { id ->

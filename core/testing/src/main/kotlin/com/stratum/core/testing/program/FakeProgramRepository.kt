@@ -10,6 +10,7 @@ import com.stratum.domain.program.WorkoutLift
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.program.identity.WorkoutLiftNoteId
+import com.stratum.domain.workout.SlotLiftPair
 import java.time.Instant
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
@@ -33,12 +34,10 @@ class FakeProgramRepository(
      * Source of truth for workout note lists, keyed by (slot, lift) pair (STR-127);
      * [WorkoutLift.pinnedNote] mirrors the first body of the slot's current pair.
      */
-    private val workoutNotes = MutableStateFlow<Map<String, List<WorkoutLiftNote>>>(emptyMap())
+    private val workoutNotes =
+        MutableStateFlow<Map<SlotLiftPair, List<WorkoutLiftNote>>>(emptyMap())
 
-    private fun pairKey(id: WorkoutLiftId, liftId: LiftId): String =
-        "${id.value}::${liftId.value}"
-
-    private fun pairKeySlot(key: String): String = key.substringBefore("::")
+    private fun pairKey(id: WorkoutLiftId, liftId: LiftId) = SlotLiftPair(id, liftId)
     /**
      * Serializes note-map check-then-write sequences (lazy-migrate, replace),
      * mirroring Room's write-lock semantics so concurrent first reads converge
@@ -67,7 +66,7 @@ class FakeProgramRepository(
                     .map { it.id.value }
                     .toSet()
             workoutNotes.value =
-                workoutNotes.value.filterKeys { pairKeySlot(it) in liveSlotIds }
+                workoutNotes.value.filterKeys { it.workoutLiftId.value in liveSlotIds }
         }
     }
 
@@ -213,12 +212,25 @@ class FakeProgramRepository(
     }
 
     override suspend fun setWorkoutLiftPinnedNote(id: WorkoutLiftId, note: String?): Boolean {
+        val slot = findWorkoutLift(id) ?: return false
+        return setWorkoutLiftPinnedNote(id, slot.liftId, note)
+    }
+
+    override suspend fun setWorkoutLiftPinnedNote(
+        id: WorkoutLiftId,
+        liftId: LiftId,
+        note: String?,
+    ): Boolean {
         val clean = sanitizeLiftNoteBody(note)
         if (clean == null) {
-            return setWorkoutLiftPinnedNotes(id, emptyList())
+            return setWorkoutLiftPinnedNotes(id, liftId, emptyList())
         }
-        val existingId = getWorkoutLiftPinnedNotes(id).firstOrNull()?.id
-        return setWorkoutLiftPinnedNotes(id, listOf(WorkoutLiftNoteInput(id = existingId, body = clean)))
+        val existingId = getWorkoutLiftPinnedNotes(id, liftId).firstOrNull()?.id
+        return setWorkoutLiftPinnedNotes(
+            id,
+            liftId,
+            listOf(WorkoutLiftNoteInput(id = existingId, body = clean)),
+        )
     }
 
     override suspend fun getWorkoutLiftPinnedNotes(id: WorkoutLiftId): List<WorkoutLiftNote> {
