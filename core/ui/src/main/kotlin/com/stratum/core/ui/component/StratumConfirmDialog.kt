@@ -30,17 +30,18 @@ fun StratumConfirmDialog(
     modifier: Modifier = Modifier,
     destructiveConfirm: Boolean = false,
     confirmEnabled: Boolean = true,
+    content: @Composable (androidx.compose.foundation.layout.ColumnScope.() -> Unit)? = null,
 ) {
     Dialog(onDismissRequest = onDismiss) {
         StratumDialogPanel(
             title = title,
             body = body,
             modifier = modifier,
+            content = content,
         ) {
             StratumOutlinedButton(
                 text = dismissLabel,
                 onClick = onDismiss,
-                enabled = confirmEnabled,
             )
             StratumButton(
                 text = confirmLabel,
