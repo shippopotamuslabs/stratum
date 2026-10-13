@@ -260,23 +260,8 @@ class WorkoutViewModel @Inject constructor(
         viewModelScope.launch {
             observeEquipmentCatalog().collect { catalog ->
                 equipmentCatalog.value = catalog
-                // STR-105 Scope 5: resolve retained (tombstoned) rows referenced
-                // by this session so names/tiers never blank mid-session.
-                val loaded = sessionFrames.value as? WorkoutUiState.Loaded
-                val referenced =
-                    loaded?.lifts?.mapNotNull { it.sessionEquipmentId }?.toSet().orEmpty()
-                val known = catalog.map { it.id.value }.toSet() +
-                    retainedEquipment.value.map { it.id.value }
-                val missing = referenced - known
-                if (missing.isNotEmpty()) {
-                    val fetched =
-                        missing.mapNotNull { id ->
-                            getEquipment(com.stratum.domain.lift.identity.EquipmentId(id))
-                        }.filter { it.isDeleted }
-                    if (fetched.isNotEmpty()) {
-                        retainedEquipment.value = retainedEquipment.value + fetched
-                    }
-                }
+                // STR-105 Scope 5: retained rows for this session (see helper).
+                fetchRetainedEquipment(catalog)
                 // Re-attach names to the current frame + refresh an open sheet's full list.
                 sessionFrames.value = attachEquipmentNames(sessionFrames.value)
                 _equipmentSwap.value?.let { open ->
@@ -660,6 +645,25 @@ class WorkoutViewModel @Inject constructor(
     fun dismissRewritePrompt() {
         if (rewriteInFlight) return
         _equipmentRewritePrompt.value = null
+    }
+
+    /**
+     * Resolves tombstoned rows referenced by the current frame (deleted
+     * mid-session) into [retainedEquipment] so subheader names and retained
+     * tiers never blank. Live catalog rows are never retained.
+     */
+    private suspend fun fetchRetainedEquipment(catalog: List<Equipment>) {
+        val loaded = sessionFrames.value as? WorkoutUiState.Loaded ?: return
+        val referenced = loaded.lifts.mapNotNull { it.sessionEquipmentId }.toSet()
+        val known = catalog.map { it.id.value }.toSet() +
+            retainedEquipment.value.map { it.id.value }
+        val fetched =
+            (referenced - known).mapNotNull { id ->
+                getEquipment(com.stratum.domain.lift.identity.EquipmentId(id))
+            }.filter { it.isDeleted }
+        if (fetched.isNotEmpty()) {
+            retainedEquipment.value = retainedEquipment.value + fetched
+        }
     }
 
     private fun attachEquipmentNames(state: WorkoutUiState): WorkoutUiState {
