@@ -54,7 +54,9 @@ class FakeLiftRepository(
     /** Optional name lookup for equipment ids when [addCustomLift] only has a name. */
     var equipmentNamesById: Map<EquipmentId, String> = emptyMap()
 
-    override fun observeLifts(): Flow<List<Lift>> = lifts
+    // STR-131 parity with Room: catalog reads never surface tombstoned lifts;
+    // by-id reads (getLiftsByIds, currentLifts) stay unfiltered.
+    override fun observeLifts(): Flow<List<Lift>> = lifts.map { rows -> rows.filterNot { it.isDeleted } }
 
     override suspend fun getLiftsByIds(ids: Collection<LiftId>): List<Lift> {
         if (ids.isEmpty()) return emptyList()
@@ -62,12 +64,14 @@ class FakeLiftRepository(
         return lifts.value.filter { it.id in wanted }
     }
 
-    override fun observeEnabledLifts(): Flow<List<Lift>> = lifts.map { rows -> rows.filter { it.enabled } }
+    override fun observeEnabledLifts(): Flow<List<Lift>> =
+        lifts.map { rows -> rows.filter { it.enabled && !it.isDeleted } }
 
-    override fun observeLifts(isCustom: Boolean): Flow<List<Lift>> = lifts.map { rows -> rows.filter { it.isCustom == isCustom } }
+    override fun observeLifts(isCustom: Boolean): Flow<List<Lift>> =
+        lifts.map { rows -> rows.filter { it.isCustom == isCustom && !it.isDeleted } }
 
     override fun observeLiftsContainingPattern(pattern: MovementPattern): Flow<List<Lift>> =
-        lifts.map { rows -> rows.filter { pattern in it.movementPatterns } }
+        lifts.map { rows -> rows.filter { pattern in it.movementPatterns && !it.isDeleted } }
 
     override fun observeSelectedPreset(): Flow<GymPreset?> = selectedPreset
 
@@ -75,13 +79,13 @@ class FakeLiftRepository(
 
     override suspend fun applyPreset(preset: GymPreset) {
         lifts.value = lifts.value.map { lift ->
-            if (preset in lift.presetTags) lift.copy(enabled = true) else lift
+            if (preset in lift.presetTags && !lift.isDeleted) lift.copy(enabled = true) else lift
         }
     }
 
     override suspend fun setLiftEnabled(id: LiftId, enabled: Boolean) {
         lifts.value = lifts.value.map { lift ->
-            if (lift.id == id) lift.copy(enabled = enabled) else lift
+            if (lift.id == id && !lift.isDeleted) lift.copy(enabled = enabled) else lift
         }
     }
 
@@ -89,7 +93,7 @@ class FakeLiftRepository(
         if (ids.isEmpty()) return
         enableLiftsInvocations += ids
         lifts.value = lifts.value.map { lift ->
-            if (lift.id in ids) lift.copy(enabled = true) else lift
+            if (lift.id in ids && !lift.isDeleted) lift.copy(enabled = true) else lift
         }
     }
 
@@ -158,6 +162,13 @@ class FakeLiftRepository(
     /** Test hook: the current preset choice. */
     val currentPreset: GymPreset? get() = selectedPreset.value
 
+    /** Test hook: tombstone a lift in place (STR-131), mirroring RoomDeleteLiftPort's flag write. */
+    fun tombstoneLift(id: LiftId) {
+        lifts.value = lifts.value.map { lift ->
+            if (lift.id == id) lift.copy(isDeleted = true) else lift
+        }
+    }
+
     /** Test hook: seed a known catalog (replaces wholesale). */
     fun seedLifts(lifts: List<Lift>) {
         this.lifts.value = lifts
@@ -178,7 +189,7 @@ class FakeLiftRepository(
 
     override suspend fun setLiftEquipment(id: LiftId, equipmentId: EquipmentId?, loadType: LoadType) {
         lifts.value = lifts.value.map { lift ->
-            if (lift.id == id) {
+            if (lift.id == id && !lift.isDeleted) {
                 lift.copy(
                     equipmentId = equipmentId,
                     equipmentName = equipmentId?.let { equipmentNamesById[it] },
@@ -200,7 +211,7 @@ class FakeLiftRepository(
         secondaryMuscles: Set<MuscleGroup>,
     ) {
         lifts.value = lifts.value.map { lift ->
-            if (lift.id == id && lift.isCustom) {
+            if (lift.id == id && lift.isCustom && !lift.isDeleted) {
                 lift.copy(
                     primaryMuscles = primaryMuscles,
                     secondaryMuscles = secondaryMuscles,
@@ -213,7 +224,7 @@ class FakeLiftRepository(
 
     override suspend fun updateCustomLiftDetails(id: LiftId, details: CustomLiftDetails) {
         lifts.value = lifts.value.map { lift ->
-            if (lift.id == id && lift.isCustom) {
+            if (lift.id == id && lift.isCustom && !lift.isDeleted) {
                 lift.copy(
                     movementPatterns = details.movementPatterns,
                     muscleLengthBias = details.muscleLengthBias,
@@ -230,7 +241,7 @@ class FakeLiftRepository(
 
     override suspend fun setDefaultRestSeconds(id: LiftId, restSeconds: Int?) {
         lifts.value = lifts.value.map { lift ->
-            if (lift.id == id) lift.copy(defaultRestSeconds = restSeconds) else lift
+            if (lift.id == id && !lift.isDeleted) lift.copy(defaultRestSeconds = restSeconds) else lift
         }
     }
 
@@ -273,8 +284,8 @@ class FakeLiftRepository(
     }
 
     override suspend fun setPinnedNotes(id: LiftId, notes: List<CatalogNoteInput>) {
-        // Match Room: writing notes for a missing lift touches zero rows.
-        if (lifts.value.none { it.id == id }) return
+        // Match Room: writing notes for a missing or tombstoned lift touches zero rows.
+        if (lifts.value.none { it.id == id && !it.isDeleted }) return
         notesMutex.withLock {
             val now = Instant.now()
             // Read the map directly: the getter lazy-migrates legacy pins, which
