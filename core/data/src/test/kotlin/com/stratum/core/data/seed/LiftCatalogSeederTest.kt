@@ -76,6 +76,26 @@ class LiftCatalogSeederTest {
     }
 
     @Test
+    @DisplayName("STR-131: reseeding never resurrects a tombstoned seed lift")
+    fun reseedSkipsTombstonedLifts() = runTest {
+        seedAll()
+        val dao = database.liftDao()
+        val target = dao.observeLifts().first().first { it.id.value == "barbell-curl" }
+        dao.tombstoneById(target.id, updatedAtEpochMillis = 999L)
+        // Give the tombstoned row a user-side divergence the seed would clobber.
+        val tombstoned = dao.getById(target.id)!!
+        assertTrue(tombstoned.isDeleted)
+
+        subject.seed(RuntimeEnvironment.getApplication())
+
+        val after = dao.getById(target.id)!!
+        assertTrue(after.isDeleted)
+        assertEquals(999L, after.updatedAtEpochMillis)
+        // Startup gate parity: tombstoned rows still count as seeded.
+        assertTrue(dao.countSeedLifts() > 10)
+    }
+
+    @Test
     @DisplayName("Given the bundled asset when seeded then lifts carry decoded muscles + preset tags")
     fun seedDecodesMusclesAndTags() = runTest {
         seedAll()

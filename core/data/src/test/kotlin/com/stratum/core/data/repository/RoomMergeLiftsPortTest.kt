@@ -28,7 +28,6 @@ import com.stratum.domain.training.identity.TrainingSessionId
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
@@ -79,7 +78,7 @@ class RoomMergeLiftsPortTest {
     }
 
     @Test
-    @DisplayName("Reassigns history, hides seed, deletes custom, repoints templates in one txn")
+    @DisplayName("Reassigns history, tombstones seed, deletes custom, repoints templates in one txn")
     fun fullMergeHappyPath() = runTest {
         seedLifts()
         seedSessionAndSets()
@@ -97,7 +96,7 @@ class RoomMergeLiftsPortTest {
         subject.applyMerge(
             targetLiftId = targetId,
             targetName = "Target Lift",
-            sourcesToHide = setOf(seedSourceId),
+            sourcesToTombstone = setOf(seedSourceId),
             sourcesToDelete = setOf(customSourceId),
         )
 
@@ -108,8 +107,12 @@ class RoomMergeLiftsPortTest {
         assertTrue(sets.all { it.exerciseNameRaw == "Target Lift" })
         assertTrue(sets.none { it.isPersonalRecord == true })
 
+        // STR-131: the seed source is tombstoned, not disabled — enabled is
+        // left exactly as it was, and the row is marked for an is_deleted upsert.
         val seed = database.liftDao().getById(seedSourceId)!!
-        assertFalse(seed.enabled)
+        assertTrue(seed.isDeleted)
+        assertTrue(seed.enabled)
+        assertEquals(SyncFlags.PENDING_UPSERT, seed.pendingSync)
         assertNull(database.liftDao().getById(customSourceId))
 
         val slots = database.workoutLiftDao().getAll().sortedBy { it.position }
@@ -147,7 +150,7 @@ class RoomMergeLiftsPortTest {
         subject.applyMerge(
             targetLiftId = targetId,
             targetName = "Target Lift",
-            sourcesToHide = setOf(seedSourceId),
+            sourcesToTombstone = setOf(seedSourceId),
             sourcesToDelete = emptySet(),
         )
 
@@ -189,7 +192,7 @@ class RoomMergeLiftsPortTest {
         subject.applyMerge(
             targetLiftId = targetId,
             targetName = "Target Lift",
-            sourcesToHide = setOf(seedSourceId),
+            sourcesToTombstone = setOf(seedSourceId),
             sourcesToDelete = setOf(customSourceId),
         )
 
@@ -211,7 +214,7 @@ class RoomMergeLiftsPortTest {
         subject.applyMerge(
             targetLiftId = targetId,
             targetName = "Target Lift",
-            sourcesToHide = setOf(seedSourceId),
+            sourcesToTombstone = setOf(seedSourceId),
             sourcesToDelete = setOf(customSourceId),
         )
 

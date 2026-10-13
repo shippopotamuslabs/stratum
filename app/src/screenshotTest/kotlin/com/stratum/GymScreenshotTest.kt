@@ -26,6 +26,20 @@ fun gymLoadedNeo() {
 @PreviewTest
 @PreviewLightDark
 @Composable
+fun gymDeleteDialogTonal() {
+    GymScreenPreviewContent(family = StratumThemeId.Tonal, state = previewGymDeleteDialog())
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun gymDeleteDialogNeo() {
+    GymScreenPreviewContent(family = StratumThemeId.NeoBrutalist, state = previewGymDeleteDialog())
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
 fun gymMergeModeTonal() {
     GymScreenPreviewContent(family = StratumThemeId.Tonal, state = previewGymMergeMode())
 }
