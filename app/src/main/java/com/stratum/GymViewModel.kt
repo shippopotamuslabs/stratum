@@ -257,9 +257,10 @@ class GymViewModel @Inject constructor(
 
     /** Arms the delete confirmation dialog; loads the STR-131 impact first. */
     private var deleteLoadJob: kotlinx.coroutines.Job? = null
+    private var deleteInFlight = false
 
     fun onStartDelete(liftId: String) {
-        if (mergeSelection.value.active || isMerging.value) return
+        if (mergeSelection.value.active || isMerging.value || deleteInFlight) return
         deleteLoadJob?.cancel()
         deleteLoadJob =
             viewModelScope.launch {
@@ -277,16 +278,26 @@ class GymViewModel @Inject constructor(
     /** Tombstones the staged lift (seed and custom alike — delete means delete). */
     fun onConfirmDelete() {
         val pending = pendingDelete.value ?: return
+        if (deleteInFlight) return
+        // Snapshot + clear synchronously and cancel any in-flight impact load,
+        // so a stale load completing during the delete can neither resurrect
+        // this dialog nor stage a different lift's dialog underneath it.
+        deleteLoadJob?.cancel()
+        deleteLoadJob = null
+        pendingDelete.value = null
+        deleteInFlight = true
         viewModelScope.launch {
-            val result = deleteLift(LiftId(pending.id))
-            pendingDelete.value = null
-            result
-                .onSuccess {
-                    _userMessage.value = "Deleted ${pending.name}."
-                }
-                .onFailure {
-                    _userMessage.value = MSG_DELETE_FAILED
-                }
+            try {
+                deleteLift(LiftId(pending.id))
+                    .onSuccess {
+                        _userMessage.value = "Deleted ${pending.name}."
+                    }
+                    .onFailure {
+                        _userMessage.value = MSG_DELETE_FAILED
+                    }
+            } finally {
+                deleteInFlight = false
+            }
         }
     }
 

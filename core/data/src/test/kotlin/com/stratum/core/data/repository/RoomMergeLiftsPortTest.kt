@@ -222,6 +222,52 @@ class RoomMergeLiftsPortTest {
         assertEquals(0, prTrue)
     }
 
+    @Test
+    @DisplayName("STR-131: merging a seed source sweeps its pair-note stashes; target notes survive")
+    fun mergeTombstoneSweepsStashNotes() = runTest {
+        seedLifts()
+        seedProgramWithSourceAndTarget()
+        val noteDao = database.workoutLiftNoteDao()
+        noteDao.upsertAll(
+            listOf(
+                com.stratum.core.data.db.WorkoutLiftNoteEntity(
+                    id = com.stratum.domain.program.identity.WorkoutLiftNoteId("wn-stash"),
+                    workoutLiftId = WorkoutLiftId("wl-target"),
+                    liftId = seedSourceId,
+                    body = "source cue stashed on target slot",
+                    position = 0,
+                ),
+                com.stratum.core.data.db.WorkoutLiftNoteEntity(
+                    id = com.stratum.domain.program.identity.WorkoutLiftNoteId("wn-target"),
+                    workoutLiftId = WorkoutLiftId("wl-target"),
+                    liftId = targetId,
+                    body = "target cue",
+                    position = 0,
+                ),
+            ),
+        )
+
+        subject.applyMerge(
+            targetLiftId = targetId,
+            targetName = "Target Lift",
+            sourcesToTombstone = setOf(seedSourceId),
+            sourcesToDelete = emptySet(),
+        )
+
+        assertTrue(noteDao.getForLiftId(seedSourceId).isEmpty())
+        assertEquals(
+            listOf("target cue"),
+            noteDao.getForWorkoutLift(WorkoutLiftId("wl-target")).map { it.body },
+        )
+        val pending = database.pendingCloudDeleteDao().peekPending(20)
+        assertTrue(
+            pending.any {
+                it.collectionPath == SyncCollection.WorkoutLiftNotes.firestorePath &&
+                    it.entityId == "wn-stash"
+            },
+        )
+    }
+
     private suspend fun seedLifts() {
         database.liftDao().upsertAll(
             listOf(

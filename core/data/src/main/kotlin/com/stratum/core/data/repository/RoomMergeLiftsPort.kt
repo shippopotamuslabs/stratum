@@ -67,9 +67,28 @@ class RoomMergeLiftsPort @Inject constructor(
                 // Seed sources tombstone after re-pointing (same transaction):
                 // their sets and slots already point at the target, so no live
                 // pointer references the tombstoned rows. `enabled` is left
-                // as-is — it carries no meaning on a tombstoned row.
-                for (id in sourcesToTombstone) {
-                    liftDao.tombstoneById(id, now)
+                // as-is — it carries no meaning on a tombstoned row. Their
+                // pair-scoped stash notes are swept too (STR-131 invariant: a
+                // tombstoned lift keeps no live pointers and its stashed notes
+                // must not outlive it — same sweep as the Gym delete path;
+                // custom sources' notes CASCADE with their hard delete).
+                if (sourcesToTombstone.isNotEmpty()) {
+                    val noteDao = database.workoutLiftNoteDao()
+                    val stashNoteIds =
+                        sourcesToTombstone.flatMap { id ->
+                            noteDao.getForLiftId(id).map { it.id.value }
+                        }
+                    for (id in sourcesToTombstone) {
+                        noteDao.deleteByLiftId(id)
+                        liftDao.tombstoneById(id, now)
+                    }
+                    if (stashNoteIds.isNotEmpty()) {
+                        syncTouch.enqueueDelete(
+                            SyncCollection.WorkoutLiftNotes,
+                            stashNoteIds,
+                            now,
+                        )
+                    }
                 }
                 if (sourcesToDelete.isNotEmpty()) {
                     for (id in sourcesToDelete) {

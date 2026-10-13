@@ -23,7 +23,7 @@ internal fun LiftDeleteConfirmDialog(
         val workoutLabels =
             pending.affectedWorkouts.map { workout ->
                 if (workout.slotCount > 1) {
-                    stringResource(UiR.string.equipment_delete_workout_slots, workout.name, workout.slotCount)
+                    stringResource(UiR.string.lift_delete_workout_slots, workout.name, workout.slotCount)
                 } else {
                     workout.name
                 }

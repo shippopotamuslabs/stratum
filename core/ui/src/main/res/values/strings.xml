@@ -241,6 +241,7 @@
     <string name="lift_delete_slots_body">It will be removed from %1$s. Those workouts stay — only the lift\'s slots are removed.</string>
     <string name="lift_delete_sets_body">%1$d logged set(s) stay in your history, unchanged.</string>
     <string name="lift_delete_session_note">It\'s in the workout you\'re doing now. You can finish the session — the lift won\'t be saved back to the template.</string>
+    <string name="lift_delete_workout_slots">%1$s (%2$d slot(s))</string>
     <string name="gym_merge_confirm">Confirm merge</string>
     <string name="gym_merge_success">Lifts merged</string>
     <string name="gym_merge_failed">Couldn\'t merge those lifts. Try again.</string>
