@@ -273,6 +273,33 @@ internal fun previewManageEquipmentDeleting(): ManageEquipmentUiState =
         pendingDelete = PendingDeleteUi(id = "eq-dumbbell", name = "Adjustable Dumbbell"),
     )
 
+internal fun previewManageEquipmentReassigning(): ManageEquipmentUiState =
+    previewManageEquipment().copy(
+        pendingDelete =
+            PendingDeleteUi(
+                id = "eq-dumbbell",
+                name = "Adjustable Dumbbell",
+                affectedLiftNames = listOf("Dumbbell Press"),
+                affectedWorkouts = listOf(AffectedWorkoutUi(name = "Push Day", slotCount = 2)),
+                candidates =
+                    listOf(
+                        ReplacementOptionUi(id = "eq-barbell", name = "Olympic Barbell"),
+                    ),
+                selectedReplacementId = "eq-barbell",
+            ),
+    )
+
+internal fun previewManageEquipmentFallback(): ManageEquipmentUiState =
+    previewManageEquipment().copy(
+        pendingDelete =
+            PendingDeleteUi(
+                id = "eq-dumbbell",
+                name = "Adjustable Dumbbell",
+                affectedLiftNames = listOf("Dumbbell Press"),
+                usesBodyweightFallback = true,
+            ),
+    )
+
 internal fun previewLiftInformation(tab: LiftInfoTab): LiftInformationUiState =
     LiftInformationUiState(
         liftId = "lift-bench",

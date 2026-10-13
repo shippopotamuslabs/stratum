@@ -9,8 +9,10 @@ import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeEquipmentProposalPreferences
 import com.stratum.core.testing.onboarding.FakeEquipmentRepository
 import com.stratum.core.testing.onboarding.FakeLiftRepository
+import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.domain.featureflag.ObserveIncrementsAiScanUseCase
 import com.stratum.domain.lift.DeleteCustomEquipmentUseCase
+import com.stratum.domain.lift.GetEquipmentDeleteImpactUseCase
 import com.stratum.domain.lift.DismissEquipmentProposalUseCase
 import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.IncrementTier
@@ -34,6 +36,8 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
@@ -95,7 +99,7 @@ class EquipmentIncrementsViewModelTest {
                 validateMicroIncrements = ValidateMicroIncrementsUseCase(),
                 forkEquipmentWithTiers =
                     testForkEquipmentWithTiers(fakeEquipmentRepository, fakeLiftRepository),
-                setLiftEquipment = SetLiftEquipmentUseCase(fakeLiftRepository, FakeLoggingPort()),
+                setLiftEquipment = SetLiftEquipmentUseCase(fakeLiftRepository, fakeEquipmentRepository, FakeLoggingPort()),
                 dismissEquipmentProposal =
                     DismissEquipmentProposalUseCase(
                         fakeProposalPrefs,
@@ -105,6 +109,12 @@ class EquipmentIncrementsViewModelTest {
                     DeleteCustomEquipmentUseCase(
                         fakeEquipmentRepository,
                         FakeLoggingPort(),
+                    ),
+                getDeleteImpact =
+                    GetEquipmentDeleteImpactUseCase(
+                        fakeEquipmentRepository,
+                        fakeLiftRepository,
+                        FakeProgramRepository(),
                     ),
                 equipmentPickResult = equipmentPickResult,
                 observeWeightDisplayPreferences =
@@ -147,14 +157,14 @@ class EquipmentIncrementsViewModelTest {
     }
 
     @Test
-    @DisplayName("Given seed equipment when observed then delete is not allowed")
+    @DisplayName("Given visible seed equipment when observed then delete is allowed (STR-105)")
     fun seedEquipmentCannotDelete() = runTest {
         subject.initialize(cableId.value)
         advanceUntilIdle()
 
         subject.uiState.test {
             val state = awaitItemWith { it.equipmentName == "Cables" }
-            assertFalse(state.canDelete)
+            assertTrue(state.canDelete)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -192,7 +202,7 @@ class EquipmentIncrementsViewModelTest {
     }
 
     @Test
-    @DisplayName("Given seed equipment when deleteEquipment then fails with a message")
+    @DisplayName("Given visible seed equipment when deleteEquipment then succeeds (STR-105)")
     fun deleteEquipmentFailsForSeed() = runTest {
         subject.initialize(cableId.value)
         advanceUntilIdle()
@@ -202,10 +212,28 @@ class EquipmentIncrementsViewModelTest {
             subject.deleteEquipment()
             advanceUntilIdle()
             val state = expectMostRecentItem()
-            assertFalse(state.deleteSucceeded)
-            assertTrue(state.editor.validationMessage?.contains("cannot be deleted") == true)
+            assertTrue(state.deleteSucceeded)
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    @Test
+    @DisplayName("Affected seed delete shows Bodyweight fallback and confirms without a pick (STR-105)")
+    fun affectedSeedDeleteUsesFallback() = runTest {
+        subject.initialize(cableId.value)
+        advanceUntilIdle()
+
+        subject.onStartDelete()
+        advanceUntilIdle()
+
+        val pending = subject.deleteDialog.value
+        assertNotNull(pending)
+        assertEquals(5, pending!!.affectedLiftNames.size)
+        assertTrue(pending.usesBodyweightFallback)
+        subject.deleteEquipment()
+        advanceUntilIdle()
+        assertTrue(fakeEquipmentRepository.getEquipment(cableId)!!.isDeleted)
+        assertNull(subject.deleteDialog.value)
     }
 
     private fun seedCustomStack(): EquipmentId {

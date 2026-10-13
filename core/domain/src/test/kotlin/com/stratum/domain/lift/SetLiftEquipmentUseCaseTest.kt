@@ -1,6 +1,7 @@
 package com.stratum.domain.lift
 
 import com.stratum.core.testing.logging.FakeLoggingPort
+import com.stratum.core.testing.onboarding.FakeEquipmentRepository
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
@@ -21,7 +22,7 @@ class SetLiftEquipmentUseCaseTest {
     fun bodyweightEquipmentSetsBodyweightLoadOnCatalog() = runTest {
         val repo = FakeLiftRepository(listOf(sampleLift(isCustom = false)))
         repo.equipmentNamesById = mapOf(SeedEquipmentIds.Bodyweight to "Bodyweight")
-        val useCase = SetLiftEquipmentUseCase(repo, FakeLoggingPort())
+        val useCase = SetLiftEquipmentUseCase(repo, FakeEquipmentRepository(), FakeLoggingPort())
 
         val result = useCase(liftId, SeedEquipmentIds.Bodyweight)
 
@@ -45,7 +46,7 @@ class SetLiftEquipmentUseCaseTest {
                 ),
             )
         repo.equipmentNamesById = mapOf(cableId to "Cables")
-        val useCase = SetLiftEquipmentUseCase(repo, FakeLoggingPort())
+        val useCase = SetLiftEquipmentUseCase(repo, FakeEquipmentRepository(), FakeLoggingPort())
 
         val result = useCase(liftId, cableId)
 
@@ -63,7 +64,7 @@ class SetLiftEquipmentUseCaseTest {
                 listOf(sampleLift(isCustom = true, loadType = LoadType.Assisted)),
             )
         repo.equipmentNamesById = mapOf(cableId to "Cables")
-        val useCase = SetLiftEquipmentUseCase(repo, FakeLoggingPort())
+        val useCase = SetLiftEquipmentUseCase(repo, FakeEquipmentRepository(), FakeLoggingPort())
 
         val result = useCase(liftId, cableId)
 
@@ -78,7 +79,7 @@ class SetLiftEquipmentUseCaseTest {
             FakeLiftRepository(
                 listOf(sampleLift(isCustom = true, loadType = LoadType.Assisted)),
             )
-        val useCase = SetLiftEquipmentUseCase(repo, FakeLoggingPort())
+        val useCase = SetLiftEquipmentUseCase(repo, FakeEquipmentRepository(), FakeLoggingPort())
 
         val result = useCase(liftId, null)
 
@@ -89,10 +90,29 @@ class SetLiftEquipmentUseCaseTest {
     }
 
     @Test
+    @DisplayName("Tombstoned equipment cannot be persisted; live pick or clear succeeds")
+    fun tombstonedEquipmentRejected() = runTest {
+        val repo = FakeLiftRepository(listOf(sampleLift(isCustom = false, equipmentId = cableId)))
+        val equipmentRepo = FakeEquipmentRepository(
+            initial = listOf(
+                Equipment(id = cableId, name = "Cables", incrementTiers = emptyList(), isDeleted = true),
+                Equipment(id = EquipmentId("live-eq"), name = "Live", incrementTiers = emptyList()),
+            ),
+        )
+        val useCase = SetLiftEquipmentUseCase(repo, equipmentRepo, FakeLoggingPort())
+
+        assertTrue(useCase(liftId, cableId).isFailure)
+        assertEquals(cableId, repo.currentLifts.single().equipmentId)
+        assertTrue(useCase(liftId, EquipmentId("live-eq")).isSuccess)
+        assertTrue(useCase(liftId, null).isSuccess)
+        assertEquals(null, repo.currentLifts.single().equipmentId)
+    }
+
+    @Test
     @DisplayName("Missing lift fails without writing")
     fun missingLiftFails() = runTest {
         val repo = FakeLiftRepository()
-        val useCase = SetLiftEquipmentUseCase(repo, FakeLoggingPort())
+        val useCase = SetLiftEquipmentUseCase(repo, FakeEquipmentRepository(), FakeLoggingPort())
 
         val result = useCase(liftId, cableId)
 

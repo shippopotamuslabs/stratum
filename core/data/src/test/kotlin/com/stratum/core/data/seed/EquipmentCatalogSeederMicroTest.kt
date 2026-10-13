@@ -69,6 +69,22 @@ class EquipmentCatalogSeederMicroTest {
     }
 
     @Test
+    @DisplayName("Re-seeding never resurrects a tombstoned seed row or replaces its tiers")
+    fun reseedPreservesTombstone() = runTest {
+        subject.seed(RuntimeEnvironment.getApplication())
+        val cable = EquipmentId("cable")
+        val tiersBefore = database.incrementTierDao().getForEquipment(cable)
+        assertTrue(tiersBefore.isNotEmpty())
+        database.equipmentDao().tombstoneById(cable, 5L)
+        assertTrue(database.equipmentDao().getById(cable)!!.isDeleted)
+
+        subject.seed(RuntimeEnvironment.getApplication())
+
+        assertTrue(database.equipmentDao().getById(cable)!!.isDeleted)
+        assertEquals(tiersBefore, database.incrementTierDao().getForEquipment(cable))
+    }
+
+    @Test
     @DisplayName("Given the bundled asset when read then no seed ships micro stops")
     fun shippedSeedsHaveNoMicro() {
         val text =

@@ -8,9 +8,11 @@ import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeEquipmentProposalPreferences
 import com.stratum.core.testing.onboarding.FakeEquipmentRepository
 import com.stratum.core.testing.onboarding.FakeLiftRepository
+import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.domain.featureflag.AppFeatureFlag
 import com.stratum.domain.featureflag.ObserveIncrementsAiScanUseCase
 import com.stratum.domain.lift.DeleteCustomEquipmentUseCase
+import com.stratum.domain.lift.GetEquipmentDeleteImpactUseCase
 import com.stratum.domain.lift.DismissEquipmentProposalUseCase
 import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.ForkEquipmentUseCase
@@ -113,9 +115,9 @@ class EquipmentIncrementsScanTest {
                         ValidateMicroIncrementsUseCase(),
                         FakeLoggingPort(),
                     ),
-                    SetLiftEquipmentUseCase(fakeLiftRepository, FakeLoggingPort()),
+                    SetLiftEquipmentUseCase(fakeLiftRepository, fakeEquipmentRepository, FakeLoggingPort()),
                 ),
-            setLiftEquipment = SetLiftEquipmentUseCase(fakeLiftRepository, FakeLoggingPort()),
+            setLiftEquipment = SetLiftEquipmentUseCase(fakeLiftRepository, fakeEquipmentRepository, FakeLoggingPort()),
             dismissEquipmentProposal =
                 DismissEquipmentProposalUseCase(
                     fakeProposalPrefs,
@@ -125,6 +127,12 @@ class EquipmentIncrementsScanTest {
                 DeleteCustomEquipmentUseCase(
                     fakeEquipmentRepository,
                     FakeLoggingPort(),
+                ),
+            getDeleteImpact =
+                GetEquipmentDeleteImpactUseCase(
+                    fakeEquipmentRepository,
+                    fakeLiftRepository,
+                    FakeProgramRepository(),
                 ),
             equipmentPickResult = equipmentPickResult,
             observeWeightDisplayPreferences =

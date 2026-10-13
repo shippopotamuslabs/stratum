@@ -17,6 +17,8 @@ import com.stratum.domain.lift.SetLiftEquipmentUseCase
 import com.stratum.domain.lift.ValidateIncrementTiersUseCase
 import com.stratum.domain.lift.ValidateMicroIncrementsUseCase
 import com.stratum.domain.lift.DeleteCustomEquipmentUseCase
+import com.stratum.domain.lift.GetEquipmentDeleteImpactUseCase
+import com.stratum.domain.lift.SeedEquipmentIds
 import com.stratum.domain.lift.DismissEquipmentProposalUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId
@@ -47,7 +49,7 @@ import kotlinx.coroutines.launch
 data class EquipmentIncrementsUiState(
     val equipmentId: String = "",
     val equipmentName: String = "",
-    /** Seed equipment cannot be deleted, so the delete action is hidden for it. */
+    /** STR-105 eligibility: hidden system rows show no delete action. */
     val canDelete: Boolean = false,
     /** True once delete succeeds; the route navigates back, mirroring save. */
     val deleteSucceeded: Boolean = false,
@@ -82,6 +84,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
     private val setLiftEquipment: SetLiftEquipmentUseCase,
     private val dismissEquipmentProposal: DismissEquipmentProposalUseCase,
     private val deleteCustomEquipment: DeleteCustomEquipmentUseCase,
+    private val getDeleteImpact: GetEquipmentDeleteImpactUseCase,
     private val equipmentPickResult: EquipmentPickResult,
     observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
     private val scanDelegate: IncrementScanDelegate,
@@ -100,6 +103,10 @@ class EquipmentIncrementsViewModel @Inject constructor(
     private val isSaving = MutableStateFlow(false)
     private val saveSucceeded = MutableStateFlow(false)
     private val deleteSucceeded = MutableStateFlow(false)
+    private val _deleteDialog = MutableStateFlow<PendingDeleteUi?>(null)
+
+    /** STR-105 delete dialog staging (impact + single replacement pick). */
+    val deleteDialog: StateFlow<PendingDeleteUi?> = _deleteDialog
     /** Test-visible: the editor operation message channel (save/fork/delete/swap errors share it). */
     internal val validationOverride = MutableStateFlow<String?>(null)
     private val displayUnit = MutableStateFlow(Weight.WeightUnit.Lb)
@@ -481,14 +488,59 @@ class EquipmentIncrementsViewModel @Inject constructor(
         }
     }
 
+    /** Arms the STR-105 delete dialog for the open equipment. */
+    fun onStartDelete() {
+        val id = equipmentId.value?.takeIf { it.isNotBlank() } ?: return
+        viewModelScope.launch {
+            val impact = getDeleteImpact(EquipmentId(id))
+            _deleteDialog.value =
+                PendingDeleteUi(
+                    id = id,
+                    name = uiState.value.equipmentName,
+                    affectedLiftNames = impact?.affectedLifts?.map { it.name }.orEmpty(),
+                    affectedWorkouts =
+                        impact?.affectedWorkouts?.map {
+                            AffectedWorkoutUi(name = it.workoutName, slotCount = it.slotCount)
+                        }.orEmpty(),
+                    candidates =
+                        impact?.replacementCandidates?.map {
+                            ReplacementOptionUi(id = it.id.value, name = it.name)
+                        }.orEmpty(),
+                    usesBodyweightFallback = impact?.usesBodyweightFallback == true,
+                )
+        }
+    }
+
+    private fun PendingDeleteUi?.needsReplacementPick(): Boolean =
+        this != null && hasAffectedPointers && !usesBodyweightFallback &&
+            selectedReplacementId == null
+
+    fun onSelectDeleteReplacement(replacementId: String) {
+        val pending = _deleteDialog.value ?: return
+        _deleteDialog.value = pending.copy(selectedReplacementId = replacementId)
+    }
+
+    fun onDismissDelete() {
+        _deleteDialog.value = null
+    }
+
     /**
-     * Tombstones the open custom equipment. The route navigates back on
-     * [EquipmentIncrementsUiState.deleteSucceeded], mirroring save.
+     * Tombstones the open equipment with its chosen replacement. The route
+     * navigates back on [EquipmentIncrementsUiState.deleteSucceeded].
      */
     fun deleteEquipment() {
         val id = requireEquipmentId("delete") ?: return
+        val pending = _deleteDialog.value
+        if (pending.needsReplacementPick()) return
+        val replacement =
+            if (pending != null && pending.hasAffectedPointers && !pending.usesBodyweightFallback) {
+                pending.selectedReplacementId?.let(::EquipmentId)
+            } else {
+                null
+            }
+        _deleteDialog.value = null
         viewModelScope.launch {
-            val result = deleteCustomEquipment(EquipmentId(id))
+            val result = deleteCustomEquipment(EquipmentId(id), replacement)
             if (result.isSuccess) {
                 deleteSucceeded.value = true
                 validationOverride.value = null
@@ -649,7 +701,10 @@ class EquipmentIncrementsViewModel @Inject constructor(
         return EquipmentIncrementsUiState(
             equipmentId = id.orEmpty(),
             equipmentName = equipment?.name.orEmpty(),
-            canDelete = equipment?.isCustom == true,
+            canDelete =
+                equipment != null &&
+                    equipment.id !in SeedEquipmentIds.hiddenFromCatalog &&
+                    !equipment.isDeleted,
             editor =
                 IncrementsEditorData(
                     tiers = tiers,

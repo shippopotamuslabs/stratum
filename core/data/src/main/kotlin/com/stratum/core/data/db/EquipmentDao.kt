@@ -51,9 +51,10 @@ interface EquipmentDao {
     suspend fun rename(id: EquipmentId, name: String, updatedAtEpochMillis: Long)
 
     /**
-     * Sets the deleted flag (tombstone) on custom equipment and marks it dirty for
-     * cloud upload. The row, name, and tiers are retained. Returns 1 when a row was
-     * tombstoned, 0 when missing, seed, or already tombstoned.
+     * Sets the deleted flag (tombstone) on equipment and marks it dirty for
+     * cloud upload. The row, name, and tiers are retained. Eligibility (hidden
+     * system rows refused) is enforced by the repository; this update only
+     * refuses already-tombstoned rows. Returns 1 when a row was tombstoned.
      */
     @Query(
         """
@@ -61,7 +62,7 @@ interface EquipmentDao {
         SET isDeleted = 1,
             pending_sync = ${SyncFlags.PENDING_UPSERT},
             updated_at_epoch_millis = :updatedAtEpochMillis
-        WHERE id = :id AND isCustom = 1 AND isDeleted = 0
+        WHERE id = :id AND isDeleted = 0
         """,
     )
     suspend fun tombstoneById(id: EquipmentId, updatedAtEpochMillis: Long): Int

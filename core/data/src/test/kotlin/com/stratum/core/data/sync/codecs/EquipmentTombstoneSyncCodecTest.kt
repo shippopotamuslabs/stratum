@@ -49,6 +49,26 @@ class EquipmentTombstoneSyncCodecTest {
         assertFalse(decoded.isDeleted)
     }
 
+    @Test
+    @DisplayName("seed-shaped tombstone (is_custom false) round-trips through sync")
+    fun seedTombstoneRoundTrip() {
+        val tombstoned =
+            EquipmentEntity(
+                id = EquipmentId("cable"),
+                name = "Cables",
+                isCustom = false,
+                isDeleted = true,
+            )
+
+        val encoded = encoders.equipment(tombstoned)
+        assertEquals(false, encoded["is_custom"])
+        assertEquals(true, encoded["is_deleted"])
+
+        val decoded = requireNotNull(decoders.equipment("cable", encoded))
+        assertFalse(decoded.isCustom)
+        assertTrue(decoded.isDeleted)
+    }
+
     private fun equipmentEntity(isDeleted: Boolean): EquipmentEntity =
         EquipmentEntity(
             id = EquipmentId("eq-1"),
