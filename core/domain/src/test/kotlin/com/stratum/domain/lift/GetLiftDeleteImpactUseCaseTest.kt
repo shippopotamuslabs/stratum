@@ -3,6 +3,7 @@ package com.stratum.domain.lift
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
+import com.stratum.core.testing.workout.FakeWorkoutOverlayStore
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
@@ -20,6 +21,8 @@ import com.stratum.domain.training.TrainingSessionKind
 import com.stratum.domain.training.TrainingSessionOrigin
 import com.stratum.domain.training.TrainingSessionStatus
 import com.stratum.domain.training.identity.TrainingSessionId
+import com.stratum.domain.workout.OverlayAddedLift
+import com.stratum.domain.workout.WorkoutOverlay
 import java.time.Instant
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -39,6 +42,7 @@ class GetLiftDeleteImpactUseCaseTest {
     private lateinit var liftRepo: FakeLiftRepository
     private lateinit var logRepo: FakeTrainingLogRepository
     private lateinit var programRepo: FakeProgramRepository
+    private lateinit var overlayStore: FakeWorkoutOverlayStore
     private lateinit var subject: GetLiftDeleteImpactUseCase
 
     @BeforeEach
@@ -52,7 +56,8 @@ class GetLiftDeleteImpactUseCaseTest {
             )
         logRepo = FakeTrainingLogRepository()
         programRepo = FakeProgramRepository()
-        subject = GetLiftDeleteImpactUseCase(liftRepo, programRepo, logRepo)
+        overlayStore = FakeWorkoutOverlayStore()
+        subject = GetLiftDeleteImpactUseCase(liftRepo, programRepo, logRepo, overlayStore)
     }
 
     @Test
@@ -94,6 +99,36 @@ class GetLiftDeleteImpactUseCaseTest {
     fun flagsActiveSessionLoggedSet() = runTest {
         logRepo.seedSession(session(TrainingSessionStatus.IN_PROGRESS, workoutId = null))
         logRepo.seedSet(loggedSet("s-1", liftId))
+
+        val impact = subject(liftId)!!
+
+        assertTrue(impact.inActiveSession)
+    }
+
+    @Test
+    @DisplayName("Lift swapped into the active session via overlay (no sets logged) flags the note")
+    fun flagsActiveSessionOverlaySwap() = runTest {
+        logRepo.seedSession(session(TrainingSessionStatus.IN_PROGRESS, workoutId = null))
+        overlayStore.seed(
+            sessionId,
+            WorkoutOverlay(swappedLifts = mapOf(WorkoutLiftId("wl-9") to liftId)),
+        )
+
+        val impact = subject(liftId)!!
+
+        assertTrue(impact.inActiveSession)
+    }
+
+    @Test
+    @DisplayName("Lift added to the active session via overlay (no sets logged) flags the note")
+    fun flagsActiveSessionOverlayAdd() = runTest {
+        logRepo.seedSession(session(TrainingSessionStatus.IN_PROGRESS, workoutId = null))
+        overlayStore.seed(
+            sessionId,
+            WorkoutOverlay(
+                addedLifts = listOf(OverlayAddedLift(WorkoutLiftId("wl-9"), liftId)),
+            ),
+        )
 
         val impact = subject(liftId)!!
 
