@@ -28,11 +28,17 @@ class ApplyOverlayToWorkoutUseCase @Inject constructor() {
      * Scope 4.6): a grandfathered swap override pointing at one of these must
      * not be written back — the slot keeps the equipment the delete-time
      * sweep assigned (its template assignment).
+     * @param tombstonedLiftIds lifts deleted mid-session (STR-131 Scope 4.5):
+     * a slot whose effective lift (after swap resolution) is one of these is
+     * dropped from the save-back entirely — a tombstoned lift must never be
+     * re-persisted as a live template pointer. Dropping matches what the
+     * delete-time sweep did to every other template.
      */
     operator fun invoke(
         baseline: Workout,
         overlay: WorkoutOverlay,
         tombstonedEquipmentIds: Set<com.stratum.domain.lift.identity.EquipmentId> = emptySet(),
+        tombstonedLiftIds: Set<com.stratum.domain.lift.identity.LiftId> = emptySet(),
     ): Workout {
         val liveAddedSlots =
             overlay.addedSlots
@@ -134,11 +140,17 @@ class ApplyOverlayToWorkoutUseCase @Inject constructor() {
                             ),
                 )
             }
+            // STR-131 save-back guard: never persist a slot whose effective
+            // lift was tombstoned mid-session.
+            .filterNot { it.liftId in tombstonedLiftIds }
 
         val existingIds = updatedLifts.map { it.id }.toSet()
         val newlyAddedLifts = overlay.addedLifts
             .filterNot { it.workoutLiftId in overlay.deletedLiftIds }
             .filterNot { it.workoutLiftId in existingIds }
+            .filterNot {
+                (overlay.swappedLifts[it.workoutLiftId] ?: it.liftId) in tombstonedLiftIds
+            }
             .map { added ->
                 val slots = liveAddedSlots
                     .filter { it.workoutLiftId == added.workoutLiftId }

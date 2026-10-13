@@ -173,20 +173,33 @@ class MergeLiftsUseCaseTest {
     }
 
     @Test
-    @DisplayName("Given seed source when merged then seed is disabled not deleted")
-    fun hidesSeedSources() = runTest {
+    @DisplayName("Given seed source when merged then seed is tombstoned not disabled")
+    fun tombstonesSeedSources() = runTest {
         val result = subject(targetLiftId = targetId, sourceLiftIds = setOf(seedSourceId))
 
         assertTrue(result.isSuccess)
-        val hidden = liftRepo.currentLifts.singleOrNull { it.id == seedSourceId }
-        assertNotNull(hidden)
-        assertFalse(hidden!!.enabled)
-        assertFalse(hidden.isCustom)
+        val tombstoned = liftRepo.currentLifts.singleOrNull { it.id == seedSourceId }
+        assertNotNull(tombstoned)
+        // STR-131: tombstoned, with enabled left as-is; gone from catalog reads.
+        assertTrue(tombstoned!!.isDeleted)
+        assertTrue(tombstoned.enabled)
+        assertFalse(tombstoned.isCustom)
         assertTrue(liftRepo.currentLifts.any { it.id == targetId && it.enabled })
     }
 
     @Test
-    @DisplayName("Given mixed seed+custom sources when merged then seed hidden and custom deleted")
+    @DisplayName("Given seed source merged into custom target then seed tombstones too (target-independent)")
+    fun seedIntoCustomTargetTombstones() = runTest {
+        val result = subject(targetLiftId = sourceAId, sourceLiftIds = setOf(seedSourceId))
+
+        assertTrue(result.isSuccess)
+        assertTrue(liftRepo.currentLifts.single { it.id == seedSourceId }.isDeleted)
+        val survivor = liftRepo.currentLifts.single { it.id == sourceAId }
+        assertFalse(survivor.isDeleted)
+    }
+
+    @Test
+    @DisplayName("Given mixed seed+custom sources when merged then seed tombstoned and custom deleted")
     fun mixedSeedAndCustom() = runTest {
         val result =
             subject(
@@ -195,7 +208,7 @@ class MergeLiftsUseCaseTest {
             )
 
         assertTrue(result.isSuccess)
-        assertFalse(liftRepo.currentLifts.single { it.id == seedSourceId }.enabled)
+        assertTrue(liftRepo.currentLifts.single { it.id == seedSourceId }.isDeleted)
         assertNull(liftRepo.currentLifts.firstOrNull { it.id == sourceAId })
     }
 

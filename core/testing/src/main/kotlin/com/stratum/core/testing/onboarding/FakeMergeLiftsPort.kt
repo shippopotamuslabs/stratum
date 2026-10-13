@@ -11,7 +11,7 @@ import com.stratum.domain.program.Workout
 /**
  * In-memory [MergeLiftsPort] for domain / ViewModel tests. Mirrors production semantics without
  * Room: reassign sets, re-point program templates (allowing the same catalog lift twice in a
- * workout), hide seeds, delete customs.
+ * workout), tombstone seeds, delete customs.
  */
 class FakeMergeLiftsPort(
     private val liftRepository: FakeLiftRepository,
@@ -26,11 +26,11 @@ class FakeMergeLiftsPort(
     override suspend fun applyMerge(
         targetLiftId: LiftId,
         targetName: String,
-        sourcesToHide: Set<LiftId>,
+        sourcesToTombstone: Set<LiftId>,
         sourcesToDelete: Set<LiftId>,
     ) {
         applyMergeCallCount++
-        val allSources = sourcesToHide + sourcesToDelete
+        val allSources = sourcesToTombstone + sourcesToDelete
         require(allSources.isNotEmpty()) { "At least one source lift is required" }
         require(targetLiftId !in allSources) { "Target lift cannot also be a source" }
 
@@ -61,8 +61,10 @@ class FakeMergeLiftsPort(
             }
         }
 
-        for (id in sourcesToHide) {
-            liftRepository.setLiftEnabled(id, enabled = false)
+        for (id in sourcesToTombstone) {
+            // STR-131 parity: a tombstoned source's pair-note stashes are swept.
+            programRepository.dropPairNotesForLift(id)
+            liftRepository.tombstoneLift(id)
         }
         if (sourcesToDelete.isNotEmpty()) {
             liftRepository.deleteLifts(sourcesToDelete)

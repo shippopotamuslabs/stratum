@@ -20,6 +20,7 @@ import com.stratum.core.data.db.TrainingSessionDao
 import com.stratum.core.data.db.UserProfileDao
 import com.stratum.core.data.db.WorkoutDao
 import com.stratum.core.data.db.WorkoutLiftDao
+import com.stratum.core.data.repository.sweepLiftTemplateReferences
 import com.stratum.core.data.sync.FirestoreSyncMetadata
 import com.stratum.core.data.sync.FirestoreSyncRemoteApplyPolicy
 import com.stratum.core.data.sync.LocalSyncMeta
@@ -221,7 +222,16 @@ class SyncHandlersProvider @Inject constructor(
                 liftDao.getById(LiftId(id))
                     ?.let { LocalSyncMeta(it.pendingSync, it.updatedAtEpochMillis) }
             },
-            deleteById = { id -> liftDao.deleteById(LiftId(id)) },
+            deleteById = { id ->
+                // STR-131 Scope 5: a received hard delete (merge custom source)
+                // must not FK-RESTRICT-fail on devices whose templates still
+                // slot the lift — sweep the local template references first,
+                // in the same transaction, then delete the row.
+                database.withTransaction {
+                    sweepLiftTemplateReferences(database, LiftId(id))
+                    liftDao.deleteById(LiftId(id))
+                }
+            },
             markSynced = { id, at -> liftDao.markSyncedIfUnchanged(id, at) },
             upsertRemote = liftRemoteApplier::upsertFromRemote,
             checkHasPending = { liftDao.getPending(1).isNotEmpty() },

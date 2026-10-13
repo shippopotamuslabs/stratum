@@ -168,6 +168,7 @@ class SyncEntityDecoders @Inject constructor() {
                 presetTags = presets.toPresetCsv(),
                 equipmentId = equipmentId,
                 isCustom = data["is_custom"] as? Boolean ?: false,
+                isDeleted = data["is_deleted"] as? Boolean ?: false,
                 enabled = data["enabled"] as? Boolean ?: false,
                 description = data["description"] as? String,
                 imageUrisCsv = stringList(data["image_uris"]).joinToString(",").ifBlank { null },

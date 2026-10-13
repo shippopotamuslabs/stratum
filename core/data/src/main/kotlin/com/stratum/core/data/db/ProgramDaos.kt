@@ -263,6 +263,14 @@ interface WorkoutLiftDao {
     @Query("SELECT * FROM workout_lifts WHERE equipment_id = :equipmentId")
     suspend fun getByEquipmentId(equipmentId: com.stratum.domain.lift.identity.EquipmentId): List<WorkoutLiftEntity>
 
+    /** Every template slot pointing at [liftId] across all programs (STR-131 delete sweep). */
+    @Query("SELECT * FROM workout_lifts WHERE lift_id = :liftId")
+    suspend fun getByLiftId(liftId: LiftId): List<WorkoutLiftEntity>
+
+    /** Deletes every template slot pointing at [liftId]; template sets CASCADE. */
+    @Query("DELETE FROM workout_lifts WHERE lift_id = :liftId")
+    suspend fun deleteByLiftId(liftId: LiftId): Int
+
     /**
      * Re-points template slots off deleted equipment onto its replacement
      * (STR-105 Scope 4.3). Null (inherit) slots are never matched.

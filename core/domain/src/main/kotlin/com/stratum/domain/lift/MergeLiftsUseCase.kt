@@ -17,8 +17,9 @@ import javax.inject.Inject
  * - Survivor catalog metadata (muscles, equipment, increments, etc.) is never modified.
  * - Program `workout_lifts` that pointed at sources are re-pointed to the target. The same
  *   catalog lift may appear more than once in a workout after re-point (no slot collapse).
- * - **Seed** sources are **hidden** (`enabled = false`), not deleted — keeps the shared catalog
- *   row for re-enable / reseed integrity (same pattern as import non-recent customs).
+ * - **Seed** sources are **tombstoned** ([Lift.isDeleted], STR-131), never merely
+ *   disabled — merged away means deleted, same as a Gym delete. The row is kept
+ *   so the shared catalog and any retained references keep resolving.
  * - **Custom** sources are hard-deleted after re-point.
  * - Active-session overlay catalog ids (swaps / mid-session adds) are remapped to the survivor.
  * - Structural mutations run via [MergeLiftsPort] in one data-layer transaction.
@@ -54,13 +55,13 @@ class MergeLiftsUseCase @Inject constructor(
             val target = lifts.first { it.id == targetLiftId }
             val sources = lifts.filter { it.id in sourceLiftIds }
 
-            val sourcesToHide = sources.filter { !it.isCustom }.map { it.id }.toSet()
+            val sourcesToTombstone = sources.filter { !it.isCustom }.map { it.id }.toSet()
             val sourcesToDelete = sources.filter { it.isCustom }.map { it.id }.toSet()
 
             mergeLiftsPort.applyMerge(
                 targetLiftId = targetLiftId,
                 targetName = target.name,
-                sourcesToHide = sourcesToHide,
+                sourcesToTombstone = sourcesToTombstone,
                 sourcesToDelete = sourcesToDelete,
             )
 

@@ -110,6 +110,31 @@ class GymViewModelTest {
                         workoutOverlayStore = FakeWorkoutOverlayStore(),
                         loggingPort = logging,
                     ),
+                deleteLift =
+                    com.stratum.domain.lift.DeleteLiftUseCase(
+                        deleteLiftPort =
+                            com.stratum.core.testing.onboarding.FakeDeleteLiftPort(
+                                fakeLiftRepository,
+                                fakeProgramRepository,
+                            ),
+                        rebuildDerived =
+                            RebuildLocalDerivedTrainingDataUseCase(
+                                localDerivedStages =
+                                    com.stratum.core.testing.training.localDerivedTrainingStages(
+                                        trainingLog = fakeLogRepository,
+                                        liftRepository = fakeLiftRepository,
+                                    ),
+                                responseModelingScheduler = FakeResponseModelingSchedulerPort(),
+                                loggingPort = logging,
+                            ),
+                        loggingPort = logging,
+                    ),
+                getLiftDeleteImpact =
+                    com.stratum.domain.lift.GetLiftDeleteImpactUseCase(
+                        fakeLiftRepository,
+                        fakeProgramRepository,
+                        fakeLogRepository,
+                    ),
             )
     }
 
@@ -244,6 +269,98 @@ class GymViewModelTest {
             cancelAndIgnoreRemainingEvents()
         }
         assertEquals(1, mergePort.applyMergeCallCount)
+    }
+
+    @Test
+    @DisplayName("STR-131: start delete stages the dialog with DB impact for a seed lift")
+    fun startDeleteStagesImpact() = runTest {
+        fakeProgramRepository.saveProgram(
+            com.stratum.domain.program.Program(
+                id = com.stratum.domain.program.identity.ProgramId("p-1"),
+                name = "Main",
+                createdAt = java.time.Instant.parse("2026-01-01T00:00:00Z"),
+                cycleLength = 1,
+                isActive = true,
+                workouts =
+                    listOf(
+                        com.stratum.domain.program.Workout(
+                            id = com.stratum.domain.program.identity.WorkoutId("w-1"),
+                            programId = com.stratum.domain.program.identity.ProgramId("p-1"),
+                            name = "Push",
+                            weekday = null,
+                            position = 0,
+                            workoutLifts =
+                                listOf(
+                                    com.stratum.domain.program.WorkoutLift(
+                                        id = com.stratum.domain.program.identity.WorkoutLiftId("wl-1"),
+                                        workoutId = com.stratum.domain.program.identity.WorkoutId("w-1"),
+                                        liftId = LiftId("1"),
+                                        progressionScheme = com.stratum.domain.program.ProgressionScheme.Linear,
+                                        position = 0,
+                                        sets = emptyList(),
+                                    ),
+                                ),
+                        ),
+                    ),
+            ),
+        )
+        subject.uiState.test {
+            skipInitialCatalog()
+            subject.onStartDelete("1")
+            val state = awaitItem()
+            val pending = state.pendingDelete
+            assertEquals("Bench Press", pending?.name)
+            assertEquals(1, pending?.totalSlotCount)
+            assertEquals(listOf("Push"), pending?.affectedWorkouts?.map { it.name })
+            assertEquals(0, pending?.loggedSetCount)
+            assertEquals(false, pending?.inActiveSession)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("STR-131: confirm delete tombstones seed and custom alike and reports success")
+    fun confirmDeleteTombstones() = runTest {
+        subject.uiState.test {
+            skipInitialCatalog()
+            subject.onStartDelete("3")
+            awaitItem()
+            subject.onConfirmDelete()
+            advanceUntilIdle()
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertTrue(fakeLiftRepository.currentLifts.single { it.id == LiftId("3") }.isDeleted)
+        assertEquals("Deleted Custom Row.", subject.userMessage.value)
+        assertEquals(null, subject.uiState.value.pendingDelete)
+    }
+
+    @Test
+    @DisplayName("STR-131: dismiss clears the staged delete without deleting")
+    fun dismissDeleteClears() = runTest {
+        subject.uiState.test {
+            skipInitialCatalog()
+            subject.onStartDelete("1")
+            awaitItem()
+            subject.onDismissDelete()
+            val state = awaitItem()
+            assertEquals(null, state.pendingDelete)
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertFalse(fakeLiftRepository.currentLifts.single { it.id == LiftId("1") }.isDeleted)
+    }
+
+    @Test
+    @DisplayName("STR-131: delete is not offered in merge mode")
+    fun startDeleteIgnoredInMergeMode() = runTest {
+        subject.uiState.test {
+            skipInitialCatalog()
+            subject.enterMergeMode("1")
+            awaitItem()
+            subject.onStartDelete("2")
+            advanceUntilIdle()
+            assertEquals(null, subject.uiState.value.pendingDelete)
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     private suspend fun app.cash.turbine.ReceiveTurbine<GymUiState>.skipInitialCatalog(): GymUiState {

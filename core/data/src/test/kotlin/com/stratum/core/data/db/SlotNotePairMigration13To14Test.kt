@@ -87,7 +87,9 @@ class SlotNotePairMigration13To14Test {
                 .build()
         try {
             val sqlite = database.openHelper.readableDatabase
-            assertEquals(14, sqlite.version)
+            // Upgrades through the production chain to current (v15 since
+            // STR-131); the 13→14 backfill assertions below are version-agnostic.
+            assertEquals(MigrationTestUtils.currentSchemaVersion, sqlite.version)
             val columns =
                 MigrationTestUtils.rows(sqlite, "PRAGMA table_info(workout_lift_notes)")
                     .map { it[1] as String }

@@ -93,7 +93,7 @@ import kotlin.coroutines.cancellation.CancellationException
  * lift.
  */
 @HiltViewModel
-@Suppress("TooManyFunctions", "LongParameterList")
+@Suppress("TooManyFunctions", "LongParameterList", "LargeClass")
 class WorkoutViewModel @Inject constructor(
     private val observeCycleProgress: ObserveCycleProgressUseCase,
     generateSnapshot: GenerateProgressionSnapshotUseCase,
@@ -104,6 +104,7 @@ class WorkoutViewModel @Inject constructor(
     logSetUseCase: LogSetUseCase,
     updateLoggedSet: UpdateLoggedSetUseCase,
     private val observeLiftCatalog: ObserveLiftCatalogUseCase,
+    private val getLiftsByIds: com.stratum.domain.lift.GetLiftsByIdsUseCase,
     getLoggedSetsForSession: GetLoggedSetsForSessionUseCase,
     deleteLoggedSet: DeleteLoggedSetUseCase,
     private val processScopedAbandon: ProcessScopedAbandonTrainingSession,
@@ -146,6 +147,9 @@ class WorkoutViewModel @Inject constructor(
 
     /** Tombstoned rows referenced by this session, resolved by id (STR-105 Scope 5). */
     private val retainedEquipment = MutableStateFlow<List<Equipment>>(emptyList())
+
+    /** Tombstoned lifts referenced by this session, resolved by id (STR-131 Scope 4.5). */
+    private val retainedLifts = MutableStateFlow<List<com.stratum.domain.lift.Lift>>(emptyList())
 
     /** Open equipment swap sheet, or null when closed. */
     // Declared above init: the pick collector launched below reads these eagerly.
@@ -276,6 +280,12 @@ class WorkoutViewModel @Inject constructor(
             }
         }
         viewModelScope.launch {
+            observeLiftCatalog().collect { catalog ->
+                // STR-131 Scope 4.5: retained rows for this session (see helper).
+                fetchRetainedLifts(catalog)
+            }
+        }
+        viewModelScope.launch {
             observeWeightDisplayPreferences()
                 .catch {
                     // Keep the last display unit if DataStore throws; do not kill the session.
@@ -382,8 +392,16 @@ class WorkoutViewModel @Inject constructor(
                     observeLiftCatalog(),
                     observeEquipmentCatalog(),
                     retainedEquipment,
-                ) { progress, catalog, equipment, retained ->
-                    Triple(progress, catalog, equipment + retained)
+                    retainedLifts,
+                ) { progress, catalog, equipment, retained, retainedLiftRows ->
+                    // Live catalog wins on id collisions; retained rows only
+                    // fill in lifts the catalog no longer surfaces (STR-131).
+                    val liveIds = catalog.map { it.id }.toSet()
+                    Triple(
+                        progress,
+                        catalog + retainedLiftRows.filterNot { it.id in liveIds },
+                        equipment + retained,
+                    )
                 }.collect { (progress, catalog, equipment) ->
                     val program = progress.program
                     val trainingSession = progress.activeSession
@@ -663,6 +681,27 @@ class WorkoutViewModel @Inject constructor(
             }.filter { it.isDeleted }
         if (fetched.isNotEmpty()) {
             retainedEquipment.value = retainedEquipment.value + fetched
+        }
+    }
+
+    /**
+     * Resolves tombstoned lifts referenced by the current frame (deleted
+     * mid-session) into [retainedLifts] so the session keeps resolving the
+     * retained row by id and can finish normally (STR-131 grandfathering).
+     * Live catalog rows are never retained.
+     */
+    private suspend fun fetchRetainedLifts(catalog: List<com.stratum.domain.lift.Lift>) {
+        val loaded = sessionFrames.value as? WorkoutUiState.Loaded ?: return
+        val referenced = loaded.lifts.map { it.liftId }.toSet()
+        val known = catalog.map { it.id.value }.toSet() +
+            retainedLifts.value.map { it.id.value }.toSet()
+        val missing = referenced - known
+        if (missing.isEmpty()) return
+        val fetched =
+            getLiftsByIds(missing.map { com.stratum.domain.lift.identity.LiftId(it) })
+                .filter { it.isDeleted }
+        if (fetched.isNotEmpty()) {
+            retainedLifts.value = retainedLifts.value + fetched
         }
     }
 
