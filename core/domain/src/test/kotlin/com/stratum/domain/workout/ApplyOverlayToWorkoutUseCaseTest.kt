@@ -53,6 +53,36 @@ class ApplyOverlayToWorkoutUseCaseTest {
     }
 
     @Test
+    @DisplayName("STR-131 save-back guard: slots on tombstoned lifts are dropped, others kept")
+    fun tombstonedLiftSlotsDroppedFromSaveBack() {
+        val baseline = sampleWorkout()
+        val result =
+            useCase(
+                baseline,
+                WorkoutOverlay(),
+                tombstonedLiftIds = setOf(LiftId("lift-bench")),
+            )
+        assertEquals(listOf("lift-squat"), result.workoutLifts.map { it.liftId.value })
+    }
+
+    @Test
+    @DisplayName("STR-131 save-back guard: swap onto a tombstoned lift drops the slot")
+    fun swapOntoTombstonedLiftDroppedFromSaveBack() {
+        val baseline = sampleWorkout()
+        val overlay =
+            WorkoutOverlay(
+                swappedLifts = mapOf(WorkoutLiftId("wl-2") to LiftId("lift-dead")),
+            )
+        val result =
+            useCase(
+                baseline,
+                overlay,
+                tombstonedLiftIds = setOf(LiftId("lift-dead")),
+            )
+        assertEquals(listOf("lift-bench"), result.workoutLifts.map { it.liftId.value })
+    }
+
+    @Test
     @DisplayName("Auto-generated myo minis are not written to the template")
     fun myoMinisExcludedFromTemplate() {
         val baseline = sampleWorkout()

@@ -94,7 +94,7 @@ class NoteSyncConvergenceTest {
                 programChangeEventDao = database.programChangeEventDao(),
                 encoders = encoders,
                 decoders = decoders,
-                liftRemoteApplier = LiftRemoteApplier(database.liftDao(), encoders, decoders),
+                liftRemoteApplier = LiftRemoteApplier(database, database.liftDao(), encoders, decoders),
                 programRemoteApplier = ProgramRemoteApplier(database.programDao(), decoders),
                 loggedSetRemoteApplier = LoggedSetRemoteApplier(database.trainingLoggedSetDao(), decoders),
             )
