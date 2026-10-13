@@ -84,6 +84,18 @@ interface WorkoutLiftNoteDao {
     @Query("DELETE FROM workout_lift_notes WHERE workout_lift_id = :workoutLiftId")
     suspend fun deleteForWorkoutLift(workoutLiftId: WorkoutLiftId)
 
+    /**
+     * Every note row scoped to the (slot, [liftId]) pair, wherever the slot
+     * lives — the STR-131 stash sweep reads these before deleting so their
+     * sync delete records can be enqueued.
+     */
+    @Query("SELECT * FROM workout_lift_notes WHERE lift_id = :liftId")
+    suspend fun getForLiftId(liftId: LiftId): List<WorkoutLiftNoteEntity>
+
+    /** Deletes every pair-note scoped to [liftId], regardless of occupying slot (STR-131). */
+    @Query("DELETE FROM workout_lift_notes WHERE lift_id = :liftId")
+    suspend fun deleteByLiftId(liftId: LiftId): Int
+
     @Query("DELETE FROM workout_lift_notes WHERE id = :id")
     suspend fun deleteById(id: WorkoutLiftNoteId)
 

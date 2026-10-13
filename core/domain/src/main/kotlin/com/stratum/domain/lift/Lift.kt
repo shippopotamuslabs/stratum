@@ -60,6 +60,12 @@ data class Lift(
      * Distinct from [description] (seed/catalog copy).
      */
     val pinnedNote: String? = null,
+    /**
+     * Tombstone flag (STR-131): the lift was deleted. The row is retained so
+     * logged history keeps resolving it by id, but catalog reads never surface
+     * it and no live pointer may reference it. Mirrors [Equipment.isDeleted].
+     */
+    val isDeleted: Boolean = false,
 ) {
     /**
      * Multi-joint / Linear programming gate — **not** used for rest.

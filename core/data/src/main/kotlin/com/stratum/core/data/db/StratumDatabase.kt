@@ -10,7 +10,7 @@ import androidx.room.TypeConverters
  * annotation below and by migration tests. Bump this (and only this) with every
  * entity change.
  */
-const val STRATUM_SCHEMA_VERSION = 14
+const val STRATUM_SCHEMA_VERSION = 15
 
 @Database(
     entities = [
@@ -74,6 +74,11 @@ const val STRATUM_SCHEMA_VERSION = 14
         // 13 → 14 is a manual migration (MIGRATION_13_14: workout_lift_notes gains
         // the pair-scoping lift_id column + FK via table rebuild, backfilled from
         // each slot's current lift).
+        // 14 → 15 adds the tombstone flag (isDeleted) on lifts (STR-131); pure
+        // column add defaulting to false. Pre-v15 rows are all live — past
+        // merge-hidden seed lifts stay merely disabled (Scope 7: no retroactive
+        // conversion; enabled=false carries no provenance).
+        AutoMigration(from = 14, to = 15),
     ],
 )
 @TypeConverters(WeekdaySetConverter::class, IntSetConverter::class, EnumConverters::class)

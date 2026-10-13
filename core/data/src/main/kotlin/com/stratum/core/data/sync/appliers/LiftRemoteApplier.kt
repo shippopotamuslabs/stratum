@@ -1,7 +1,10 @@
 package com.stratum.core.data.sync.appliers
 
+import androidx.room.withTransaction
 import com.stratum.core.data.db.LiftDao
 import com.stratum.core.data.db.LiftEntity
+import com.stratum.core.data.db.StratumDatabase
+import com.stratum.core.data.repository.sweepLiftTemplateReferences
 import com.stratum.core.data.sync.FirestoreSyncMetadata
 import com.stratum.core.data.sync.SyncFlags
 import com.stratum.core.data.sync.codecs.SyncEntityDecoders
@@ -19,6 +22,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class LiftRemoteApplier @Inject constructor(
+    private val database: StratumDatabase,
     private val liftDao: LiftDao,
     private val encoders: SyncEntityEncoders,
     private val decoders: SyncEntityDecoders,
@@ -31,6 +35,7 @@ class LiftRemoteApplier @Inject constructor(
                 "is_custom" to false,
                 "catalog_overlay" to true,
                 "enabled" to entity.enabled,
+                "is_deleted" to entity.isDeleted,
                 "default_rest_seconds" to entity.defaultRestSeconds,
                 "equipment_id" to entity.equipmentId?.value,
                 "pinned_note" to entity.pinnedNote.orEmpty(),
@@ -94,14 +99,42 @@ class LiftRemoteApplier @Inject constructor(
     }
 
     private suspend fun applyOverlay(existing: LiftEntity, data: Map<String, Any?>): Boolean {
-        liftDao.upsert(overlayFrom(existing, data))
+        applyRemoteLift(overlayFrom(existing, data))
         return true
     }
 
     private suspend fun decodeFullAndUpsert(id: String, data: Map<String, Any?>): Boolean {
-        val full = decoders.lift(id, data) ?: return false
-        liftDao.upsert(full)
+        val decoded = decoders.lift(id, data) ?: return false
+        // STR-131: payloads from pre-tombstone builds carry no `is_deleted`
+        // key; their upsert must not un-delete a locally tombstoned row.
+        // (An explicit key always wins — LWW already gated stale docs.)
+        val full =
+            if (data.containsKey("is_deleted")) {
+                decoded
+            } else {
+                val existing = liftDao.getById(LiftId(id))
+                decoded.copy(isDeleted = existing?.isDeleted ?: false)
+            }
+        applyRemoteLift(full)
         return true
+    }
+
+    /**
+     * Applies a remote lift row; a tombstone additionally runs the STR-131
+     * reference sweep in the same transaction (Scope 5): this device's
+     * template slots and stash notes for the lift are dropped locally exactly
+     * as the origin device's delete dropped them. Idempotent — a re-applied
+     * tombstone finds nothing left to sweep. Logged sets are untouched.
+     */
+    private suspend fun applyRemoteLift(entity: LiftEntity) {
+        if (!entity.isDeleted) {
+            liftDao.upsert(entity)
+            return
+        }
+        database.withTransaction {
+            liftDao.upsert(entity)
+            sweepLiftTemplateReferences(database, entity.id)
+        }
     }
 
     private fun overlayFrom(existing: LiftEntity, data: Map<String, Any?>): LiftEntity {
@@ -127,6 +160,12 @@ class LiftRemoteApplier @Inject constructor(
         // applier's lift_id skip); local uploads always carry null, cleaning the cloud.
         return existing.copy(
             enabled = enabled,
+            isDeleted =
+                if (data.containsKey("is_deleted")) {
+                    data["is_deleted"] as? Boolean ?: existing.isDeleted
+                } else {
+                    existing.isDeleted
+                },
             defaultRestSeconds = rest,
             equipmentId = equipmentId,
             pinnedNote = pinnedNote,
