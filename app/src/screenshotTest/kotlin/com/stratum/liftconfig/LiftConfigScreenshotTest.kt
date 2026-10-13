@@ -106,6 +106,20 @@ fun manageEquipmentDeletingNeo() {
 @PreviewTest
 @PreviewLightDark
 @Composable
+fun manageEquipmentRevealedTonal() {
+    ManageEquipmentRevealedPreviewContent(family = StratumThemeId.Tonal)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun manageEquipmentRevealedNeo() {
+    ManageEquipmentRevealedPreviewContent(family = StratumThemeId.NeoBrutalist)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
 fun manageEquipmentReassigningTonal() {
     ManageEquipmentPreviewContent(
         family = StratumThemeId.Tonal,
