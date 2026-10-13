@@ -55,7 +55,28 @@ data class PendingDeleteUi(
 ) {
     val hasAffectedPointers: Boolean
         get() = affectedLiftNames.isNotEmpty() || affectedWorkouts.isNotEmpty()
+
+    /** Single gate shared by dialog enablement and both ViewModel confirms. */
+    val canConfirmDelete: Boolean
+        get() = !hasAffectedPointers || usesBodyweightFallback || selectedReplacementId != null
 }
+
+/** One canonical impact -> dialog-state mapping used by both delete surfaces. */
+internal fun com.stratum.domain.lift.EquipmentDeleteImpact.toPendingDeleteUi(): PendingDeleteUi =
+    PendingDeleteUi(
+        id = equipmentId.value,
+        name = equipmentName,
+        affectedLiftNames = affectedLifts.map { it.name },
+        affectedWorkouts =
+            affectedWorkouts.map {
+                AffectedWorkoutUi(name = it.workoutName, slotCount = it.slotCount)
+            },
+        candidates =
+            replacementCandidates.map {
+                ReplacementOptionUi(id = it.id.value, name = it.name)
+            },
+        usesBodyweightFallback = usesBodyweightFallback,
+    )
 
 /**
  * One-shot navigation / sheet effects after create or fork succeeds.
@@ -263,27 +284,19 @@ class ManageEquipmentViewModel @Inject constructor(
     )
 
     /** Arms the delete confirmation dialog; loads the STR-105 impact first. */
+    private var deleteLoadJob: kotlinx.coroutines.Job? = null
+
     fun onStartDelete(equipmentId: String) {
         val row = uiState.value.rows.firstOrNull { it.id == equipmentId } ?: return
         if (!row.canDelete) return
-        viewModelScope.launch {
-            val impact = getDeleteImpact(EquipmentId(equipmentId))
-            pendingDelete.value =
-                PendingDeleteUi(
-                    id = equipmentId,
-                    name = row.name,
-                    affectedLiftNames = impact?.affectedLifts?.map { it.name }.orEmpty(),
-                    affectedWorkouts =
-                        impact?.affectedWorkouts?.map {
-                            AffectedWorkoutUi(name = it.workoutName, slotCount = it.slotCount)
-                        }.orEmpty(),
-                    candidates =
-                        impact?.replacementCandidates?.map {
-                            ReplacementOptionUi(id = it.id.value, name = it.name)
-                        }.orEmpty(),
-                    usesBodyweightFallback = impact?.usesBodyweightFallback == true,
-                )
-        }
+        deleteLoadJob?.cancel()
+        deleteLoadJob =
+            viewModelScope.launch {
+                val impact = getDeleteImpact(EquipmentId(equipmentId))
+                pendingDelete.value =
+                    impact?.toPendingDeleteUi()
+                        ?: PendingDeleteUi(id = equipmentId, name = row.name)
+            }
     }
 
     /** Single replacement pick for the whole delete operation. */
@@ -293,17 +306,15 @@ class ManageEquipmentViewModel @Inject constructor(
     }
 
     fun onDismissDelete() {
+        deleteLoadJob?.cancel()
+        deleteLoadJob = null
         pendingDelete.value = null
     }
 
     /** Tombstones the staged equipment with its chosen replacement. */
     fun onConfirmDelete() {
         val pending = pendingDelete.value ?: return
-        if (pending.hasAffectedPointers && !pending.usesBodyweightFallback &&
-            pending.selectedReplacementId == null
-        ) {
-            return
-        }
+        if (!pending.canConfirmDelete) return
         val replacement =
             if (pending.hasAffectedPointers && !pending.usesBodyweightFallback) {
                 pending.selectedReplacementId?.let(::EquipmentId)

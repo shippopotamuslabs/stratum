@@ -31,6 +31,7 @@ import com.stratum.feature.workout.ui.samplesLb
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -488,32 +489,23 @@ class EquipmentIncrementsViewModel @Inject constructor(
         }
     }
 
+    private var deleteLoadJob: Job? = null
+
     /** Arms the STR-105 delete dialog for the open equipment. */
     fun onStartDelete() {
         val id = equipmentId.value?.takeIf { it.isNotBlank() } ?: return
-        viewModelScope.launch {
-            val impact = getDeleteImpact(EquipmentId(id))
-            _deleteDialog.value =
-                PendingDeleteUi(
-                    id = id,
-                    name = uiState.value.equipmentName,
-                    affectedLiftNames = impact?.affectedLifts?.map { it.name }.orEmpty(),
-                    affectedWorkouts =
-                        impact?.affectedWorkouts?.map {
-                            AffectedWorkoutUi(name = it.workoutName, slotCount = it.slotCount)
-                        }.orEmpty(),
-                    candidates =
-                        impact?.replacementCandidates?.map {
-                            ReplacementOptionUi(id = it.id.value, name = it.name)
-                        }.orEmpty(),
-                    usesBodyweightFallback = impact?.usesBodyweightFallback == true,
-                )
-        }
+        deleteLoadJob?.cancel()
+        deleteLoadJob =
+            viewModelScope.launch {
+                val impact = getDeleteImpact(EquipmentId(id))
+                _deleteDialog.value =
+                    impact?.toPendingDeleteUi()
+                        ?: PendingDeleteUi(id = id, name = uiState.value.equipmentName)
+            }
     }
 
     private fun PendingDeleteUi?.needsReplacementPick(): Boolean =
-        this != null && hasAffectedPointers && !usesBodyweightFallback &&
-            selectedReplacementId == null
+        this != null && !canConfirmDelete
 
     fun onSelectDeleteReplacement(replacementId: String) {
         val pending = _deleteDialog.value ?: return
@@ -521,6 +513,8 @@ class EquipmentIncrementsViewModel @Inject constructor(
     }
 
     fun onDismissDelete() {
+        deleteLoadJob?.cancel()
+        deleteLoadJob = null
         _deleteDialog.value = null
     }
 
@@ -529,8 +523,9 @@ class EquipmentIncrementsViewModel @Inject constructor(
      * navigates back on [EquipmentIncrementsUiState.deleteSucceeded].
      */
     fun deleteEquipment() {
-        val id = requireEquipmentId("delete") ?: return
         val pending = _deleteDialog.value
+        // Delete the staged row, never whatever the live flow opened since.
+        val id = pending?.id ?: requireEquipmentId("delete") ?: return
         if (pending.needsReplacementPick()) return
         val replacement =
             if (pending != null && pending.hasAffectedPointers && !pending.usesBodyweightFallback) {
