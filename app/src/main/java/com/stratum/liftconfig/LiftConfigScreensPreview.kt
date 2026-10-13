@@ -1,9 +1,29 @@
 package com.stratum.liftconfig
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.PreviewLightDark
+import androidx.compose.ui.unit.dp
+import com.stratum.core.ui.R as UiR
 import com.stratum.core.ui.component.StratumMuscleFilterCardState
 import com.stratum.core.ui.theme.StratumTheme
+import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.core.ui.theme.StratumThemeId
 import com.stratum.domain.onboarding.MuscleGroup
 
@@ -182,6 +202,79 @@ internal fun ManageEquipmentPreviewContent(
                     onNameDraftChange = {},
                 ),
         )
+    }
+}
+
+/**
+ * Swiped-open equipment row for screenshot goldens (STR-130). The real swipe
+ * state needs a gesture, so this fixture reproduces the revealed layout
+ * statically: the same panel clip + transparent foreground the production
+ * call site passes to StratumSwipeToRevealRow, with the real row content
+ * shifted by the component's 25% reveal fraction.
+ */
+@Composable
+internal fun ManageEquipmentRevealedPreviewContent(family: StratumThemeId) {
+    StratumTheme(themeId = family) {
+        val colors = StratumThemeAccessor.colors
+        val shapes = StratumThemeAccessor.shapes
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .background(colors.surfaceBase)
+                    .padding(horizontal = 16.dp, vertical = 16.dp),
+        ) {
+            // STR-105 preview rows are deletable; mirror that here.
+            val row = previewManageEquipment().rows[1].copy(canDelete = true)
+            BoxWithConstraints(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(shapes.panel),
+            ) {
+                val revealWidth = maxWidth * 0.25f
+                Box(
+                    modifier =
+                        Modifier
+                            .matchParentSize()
+                            .background(colors.error),
+                ) {
+                    Box(
+                        modifier =
+                            Modifier
+                                .align(Alignment.CenterEnd)
+                                .width(revealWidth)
+                                .fillMaxHeight(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Box(
+                            modifier =
+                                Modifier
+                                    .size(24.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                painter = painterResource(UiR.drawable.ic_remove),
+                                contentDescription = null,
+                                tint = colors.error,
+                                modifier = Modifier.size(12.dp),
+                            )
+                        }
+                    }
+                }
+                Box(modifier = Modifier.offset(x = -revealWidth)) {
+                    EquipmentRowContent(
+                        row = row,
+                        selectionMode = false,
+                        onClick = {},
+                        onEditIncrements = {},
+                        onCopyAsCustom = {},
+                    )
+                }
+            }
+        }
     }
 }
 

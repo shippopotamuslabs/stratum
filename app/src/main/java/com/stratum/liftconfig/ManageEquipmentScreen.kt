@@ -24,6 +24,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -330,6 +332,15 @@ private fun EquipmentRow(
             onActionClick = onDeleteRequest,
             actionContentDescription =
                 stringResource(UiR.string.manage_equipment_delete_action, row.name),
+            // Transparent so the red reveal shows through the corner notches where
+            // the card's rounded outline curves away — otherwise a surface-colored
+            // sliver sits between the card edge and the red. The card paints its own
+            // panel-shaped background, so the closed state is unchanged.
+            contentBackgroundColor = Color.Transparent,
+            // Clip to the panel shape so the revealed red background conforms to
+            // the card's rounded corners instead of peeking out square. The radius
+            // comes from the theme (12.dp Tonal / 4.dp NeoBrutalist), never hardcoded.
+            modifier = Modifier.clip(StratumThemeAccessor.shapes.panel),
         ) {
             EquipmentRowContent(
                 row = row,
@@ -352,7 +363,7 @@ private fun EquipmentRow(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun EquipmentRowContent(
+internal fun EquipmentRowContent(
     row: EquipmentRowUi,
     selectionMode: Boolean,
     onClick: () -> Unit,
