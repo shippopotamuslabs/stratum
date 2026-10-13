@@ -313,6 +313,35 @@ class FakeProgramRepository(
         }
     }
 
+    /** Template slots explicitly assigned [equipmentId] (STR-105 sweep). */
+    fun countEquipmentSlots(equipmentId: com.stratum.domain.lift.identity.EquipmentId): Int =
+        programs.value.values
+            .flatMap { it.workouts }
+            .flatMap { it.workoutLifts }
+            .count { it.equipmentId == equipmentId }
+
+    /** STR-105 sweep: re-point template slots off deleted equipment. */
+    fun repointEquipment(
+        deletedId: com.stratum.domain.lift.identity.EquipmentId,
+        replacementId: com.stratum.domain.lift.identity.EquipmentId,
+    ) {
+        programs.value = programs.value.mapValues { (_, program) ->
+            program.copy(
+                workouts = program.workouts.map { workout ->
+                    workout.copy(
+                        workoutLifts = workout.workoutLifts.map { slot ->
+                            if (slot.equipmentId == deletedId) {
+                                slot.copy(equipmentId = replacementId)
+                            } else {
+                                slot
+                            }
+                        },
+                    )
+                },
+            )
+        }
+    }
+
     override suspend fun updateCyclePointer(
         programId: ProgramId,
         currentCycleNumber: Int,

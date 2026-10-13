@@ -52,6 +52,7 @@ fun EquipmentIncrementsRoute(
         viewModel.initialize(equipmentId, sourceLiftId, initialTiersLb, proposalContext)
     }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val pendingDelete by viewModel.deleteDialog.collectAsStateWithLifecycle()
     LaunchedEffect(state.editor.saveSucceeded, state.deleteSucceeded) {
         if (state.editor.saveSucceeded || state.deleteSucceeded) onBackClick()
     }
@@ -67,7 +68,6 @@ fun EquipmentIncrementsRoute(
     var selectedBand by rememberSaveable { mutableStateOf<Int?>(null) }
     var showAffectedSheet by rememberSaveable { mutableStateOf(false) }
     var showSaveConfirm by rememberSaveable { mutableStateOf(false) }
-    var showDeleteConfirm by rememberSaveable { mutableStateOf(false) }
     var showForkSheet by rememberSaveable { mutableStateOf(false) }
     var showStopsSheet by rememberSaveable { mutableStateOf(false) }
     val tiers = state.editor.tiers
@@ -147,7 +147,7 @@ fun EquipmentIncrementsRoute(
             if (state.canDelete) {
                 IncrementEditorDeleteAction(
                     text = stringResource(UiR.string.equipment_delete_button),
-                    onClick = { showDeleteConfirm = true },
+                    onClick = viewModel::onStartDelete,
                 )
             } else {
                 null
@@ -157,14 +157,19 @@ fun EquipmentIncrementsRoute(
         showForkSheet = showForkSheet,
         showStopsSheet = showStopsSheet,
     )
-    if (showDeleteConfirm) {
+    if (pendingDelete != null) {
+        val pending = pendingDelete!!
         EquipmentDeleteConfirmDialog(
-            name = state.equipmentName,
-            onConfirm = {
-                showDeleteConfirm = false
-                viewModel.deleteEquipment()
-            },
-            onDismiss = { showDeleteConfirm = false },
+            name = pending.name,
+            onConfirm = viewModel::deleteEquipment,
+            onDismiss = viewModel::onDismissDelete,
+            affectedLiftNames = pending.affectedLiftNames,
+            affectedWorkouts = pending.affectedWorkouts,
+            candidates = pending.candidates,
+            selectedReplacementId = pending.selectedReplacementId,
+            usesBodyweightFallback = pending.usesBodyweightFallback,
+            canConfirmDelete = pending.canConfirmDelete,
+            onSelectReplacement = viewModel::onSelectDeleteReplacement,
         )
     }
     if (showAffectedSheet) {

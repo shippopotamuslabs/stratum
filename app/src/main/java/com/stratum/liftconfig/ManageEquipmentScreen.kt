@@ -91,6 +91,7 @@ fun ManageEquipmentRoute(
                 onStartDelete = viewModel::onStartDelete,
                 onConfirmDelete = viewModel::onConfirmDelete,
                 onDismissDelete = viewModel::onDismissDelete,
+                onSelectReplacement = viewModel::onSelectReplacement,
             ),
         snackbarHostState = snackbarHostState,
     )
@@ -114,6 +115,7 @@ data class ManageEquipmentActions(
     val onStartDelete: (String) -> Unit = {},
     val onConfirmDelete: () -> Unit = {},
     val onDismissDelete: () -> Unit = {},
+    val onSelectReplacement: (String) -> Unit = {},
 )
 
 @Composable
@@ -268,6 +270,13 @@ fun ManageEquipmentScreen(
             name = pendingDelete.name,
             onConfirm = actions.onConfirmDelete,
             onDismiss = actions.onDismissDelete,
+            affectedLiftNames = pendingDelete.affectedLiftNames,
+            affectedWorkouts = pendingDelete.affectedWorkouts,
+            candidates = pendingDelete.candidates,
+            selectedReplacementId = pendingDelete.selectedReplacementId,
+            usesBodyweightFallback = pendingDelete.usesBodyweightFallback,
+            canConfirmDelete = pendingDelete.canConfirmDelete,
+            onSelectReplacement = actions.onSelectReplacement,
         )
     }
 }
@@ -315,8 +324,8 @@ private fun EquipmentRow(
     onDeleteRequest: () -> Unit,
 ) {
     // Swipe-to-delete in manage mode only: pickers select, they don't destroy.
-    // Seed rows are never deletable.
-    if (row.isCustom && !selectionMode) {
+    // Visible seed + custom rows delete; hidden system rows never appear here.
+    if (row.canDelete && !selectionMode) {
         StratumSwipeToRevealRow(
             onActionClick = onDeleteRequest,
             actionContentDescription =

@@ -17,6 +17,7 @@ import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.EquipmentNameMatching
 import com.stratum.domain.lift.EquipmentRepository
 import com.stratum.domain.lift.IncrementTier
+import com.stratum.domain.lift.alignedWithEquipment
 import com.stratum.domain.lift.uniqueifyForkEquipmentName
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.defaultSingleTiers
@@ -135,20 +136,58 @@ class RoomEquipmentRepository @Inject constructor(
         }
     }
 
-    override suspend fun deleteCustomEquipment(id: EquipmentId): Boolean {
+    override suspend fun deleteCustomEquipment(id: EquipmentId, replacementId: EquipmentId?): Boolean {
         val row = equipmentDao.getById(id) ?: return false
-        if (!row.isCustom) return false
+        if (id in com.stratum.domain.lift.SeedEquipmentIds.hiddenFromCatalog) return false
         if (row.isDeleted) return true
         val now = System.currentTimeMillis()
+        var deleted = false
         syncTouch.withWriteLock {
             database.withTransaction {
+                // Re-read under the lock: a concurrent tombstone wins idempotently.
+                val current = equipmentDao.getById(id) ?: return@withTransaction
+                if (current.isDeleted) {
+                    deleted = true
+                    return@withTransaction
+                }
+                val workoutLiftDao = database.workoutLiftDao()
+                val affectedLifts = liftDao.getLifts().filter { it.equipmentId == id }
+                val affectedSlots = workoutLiftDao.getByEquipmentId(id)
+                val hasPointers = affectedLifts.isNotEmpty() || affectedSlots.isNotEmpty()
+                val candidates =
+                    equipmentDao.getAll().filter {
+                        !it.isDeleted && it.id != id &&
+                            it.id !in com.stratum.domain.lift.SeedEquipmentIds.hiddenFromCatalog
+                    }
+                if (hasPointers && replacementId == null && candidates.isNotEmpty()) {
+                    // Replacement required but not chosen: fail, change nothing.
+                    return@withTransaction
+                }
+                val effectiveReplacement =
+                    replacementId
+                        ?: if (hasPointers) com.stratum.domain.lift.SeedEquipmentIds.Bodyweight else null
+                if (replacementId != null && !isValidReplacementTarget(id, replacementId)) {
+                    return@withTransaction
+                }
+                if (hasPointers && effectiveReplacement != null) {
+                    for (lift in affectedLifts) {
+                        liftDao.setEquipmentIdAndLoadType(
+                            id = lift.id,
+                            equipmentId = effectiveReplacement,
+                            loadType = lift.loadType.alignedWithEquipment(effectiveReplacement),
+                            updatedAtEpochMillis = now,
+                        )
+                    }
+                    workoutLiftDao.repointEquipmentId(id, effectiveReplacement, now)
+                }
                 // Tiers stay with the tombstoned row; the flag rides a normal upsert
                 // (no cloud-delete enqueue — the row is retained, not removed).
                 equipmentDao.tombstoneById(id, now)
+                deleted = true
             }
-            syncTouch.markDirty()
+            if (deleted) syncTouch.markDirty()
         }
-        return true
+        return deleted
     }
 
     override suspend fun findOrCreateByName(name: String): EquipmentId {
@@ -210,6 +249,15 @@ class RoomEquipmentRepository @Inject constructor(
         return id
     }
 
+    private suspend fun isValidReplacementTarget(
+        deletedId: EquipmentId,
+        replacementId: EquipmentId,
+    ): Boolean {
+        val target = equipmentDao.getById(replacementId) ?: return false
+        return !target.isDeleted && replacementId != deletedId &&
+            replacementId !in com.stratum.domain.lift.SeedEquipmentIds.hiddenFromCatalog
+    }
+
     private suspend fun resolveExistingByName(trimmed: String): EquipmentId? {
         if (trimmed.isEmpty()) return null
         // 1) Exact case-insensitive display-name match.
@@ -221,9 +269,10 @@ class RoomEquipmentRepository @Inject constructor(
                 .firstOrNull { !it.isDeleted && EquipmentNameMatching.normalizeKey(it.name) == key }
                 ?.let { return it.id }
         }
-        // 3) Known free-text / GymEquipment aliases → seed id (when that row exists).
+        // 3) Known free-text / GymEquipment aliases → seed id (live rows only:
+        // a tombstoned alias target must not resurrect — mint a new row instead).
         GymEquipmentToEquipmentId.seedIdFromFreeText(trimmed)?.let { seedId ->
-            equipmentDao.getById(seedId)?.let { return it.id }
+            equipmentDao.getById(seedId)?.takeUnless { it.isDeleted }?.let { return it.id }
         }
         return null
     }

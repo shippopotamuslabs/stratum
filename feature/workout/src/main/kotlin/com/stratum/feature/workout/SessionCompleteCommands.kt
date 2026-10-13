@@ -86,7 +86,7 @@ internal suspend fun LiveWorkoutSessionRuntime.handleCompleteWorkout(cmd: Sessio
                 null
             }
         if (templateToSave != null) {
-            val updated = applyOverlayToWorkout(templateToSave, overlay)
+            val updated = applyOverlayToWorkout(templateToSave, overlay, tombstonedEquipmentIds)
             val saveResult = saveWorkoutUseCase(workoutId, updated)
             if (saveResult.isFailure) {
                 effects.publishUserMessage(LiveWorkoutSessionRuntime.MSG_COMPLETE_FAILED)

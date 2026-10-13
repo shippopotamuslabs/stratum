@@ -106,6 +106,50 @@ fun manageEquipmentDeletingNeo() {
 @PreviewTest
 @PreviewLightDark
 @Composable
+fun manageEquipmentReassigningTonal() {
+    ManageEquipmentPreviewContent(
+        family = StratumThemeId.Tonal,
+        state = previewManageEquipmentReassigning(),
+        selectionMode = false,
+    )
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun manageEquipmentReassigningNeo() {
+    ManageEquipmentPreviewContent(
+        family = StratumThemeId.NeoBrutalist,
+        state = previewManageEquipmentReassigning(),
+        selectionMode = false,
+    )
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun manageEquipmentFallbackTonal() {
+    ManageEquipmentPreviewContent(
+        family = StratumThemeId.Tonal,
+        state = previewManageEquipmentFallback(),
+        selectionMode = false,
+    )
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun manageEquipmentFallbackNeo() {
+    ManageEquipmentPreviewContent(
+        family = StratumThemeId.NeoBrutalist,
+        state = previewManageEquipmentFallback(),
+        selectionMode = false,
+    )
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
 fun liftInformationInstructionsTonal() {
     LiftInformationPreviewContent(
         family = StratumThemeId.Tonal,

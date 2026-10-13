@@ -22,6 +22,7 @@ import kotlin.coroutines.cancellation.CancellationException
 class SwapWorkoutLiftUseCase @Inject constructor(
     private val programRepository: ProgramRepository,
     private val programChangeEventRepository: ProgramChangeEventRepository,
+    private val equipmentRepository: com.stratum.domain.lift.EquipmentRepository,
     private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(workoutLiftId: WorkoutLiftId, newLiftId: LiftId): Result<Unit> {
@@ -98,6 +99,18 @@ class SwapWorkoutLiftUseCase @Inject constructor(
         }
 
         val updatedProgram = program.copy(workouts = updatedWorkouts)
+        // STR-105 Scope 8: this save must not persist any tombstoned slot pointer.
+        val orphaned =
+            updatedProgram.workouts
+                .flatMap { it.workoutLifts }
+                .mapNotNull { it.equipmentId }
+                .distinct()
+                .filter { id -> equipmentRepository.getEquipment(id)?.isDeleted == true }
+        if (orphaned.isNotEmpty()) {
+            return Result.failure(
+                IllegalStateException("Deleted equipment is still assigned; pick a live equipment first"),
+            )
+        }
         return runCatchingLogged(loggingPort, TAG, "Failed to swap workout lift") {
             programRepository.saveProgram(updatedProgram)
             programChangeEventRepository.append(

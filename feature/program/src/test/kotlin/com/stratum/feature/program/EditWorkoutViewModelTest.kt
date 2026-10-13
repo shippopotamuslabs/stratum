@@ -463,6 +463,63 @@ class EditWorkoutViewModelTest {
         }
     }
 
+    @Test
+    @DisplayName("Tombstoned slot shows retained name; save blocked until live pick (STR-105)")
+    fun tombstonedSlotBlocksSave() = runTest {
+        val deadId = com.stratum.domain.lift.identity.EquipmentId("dead-eq")
+        val liveId = com.stratum.domain.lift.identity.EquipmentId("live-eq")
+        equipmentRepository.seed(
+            listOf(
+                com.stratum.domain.lift.Equipment(
+                    id = deadId, name = "Old Stack", incrementTiers = emptyList(), isDeleted = true,
+                ),
+                com.stratum.domain.lift.Equipment(
+                    id = liveId, name = "New Stack", incrementTiers = emptyList(),
+                ),
+            ),
+        )
+        val orphanProgram =
+            PROGRAM.copy(
+                workouts = PROGRAM.workouts.map { workout ->
+                    workout.copy(
+                        workoutLifts = workout.workoutLifts.mapIndexed { index, slot ->
+                            if (index == 0) slot.copy(equipmentId = deadId) else slot
+                        },
+                    )
+                },
+            )
+        repository = FakeProgramRepository(orphanProgram)
+        trainingLog = FakeTrainingLogRepository(programRepository = repository)
+        val viewModel = buildViewModel()
+        viewModel.initialize(WORKOUT_ID)
+        viewModel.uiState.test {
+            val loaded = awaitLoaded()
+            // Retained name renders instead of a blank (Scope 5).
+            assertEquals("Old Stack", loaded.lifts.first().equipmentName)
+            viewModel.setRestSeconds(setId = null, workoutLiftId = WORKOUT_LIFT_ID, restSeconds = 45)
+            awaitItem()
+            viewModel.saveWorkout()
+            advanceUntilIdle()
+            assertTrue(viewModel.userMessage.value?.contains("Deleted equipment") == true)
+            // Nothing was persisted with the tombstoned pointer.
+            assertEquals(
+                deadId,
+                repository.getProgram()!!.workouts.first().workoutLifts.first().equipmentId,
+            )
+            // Picking live equipment unblocks the save.
+            viewModel.setEquipment(WORKOUT_LIFT_ID, liveId.value)
+            viewModel.saveWorkout()
+            advanceUntilIdle()
+            val saved = expectMostRecentItem() as EditWorkoutUiState.Loaded
+            assertFalse(saved.isDirty)
+            assertEquals(
+                liveId,
+                repository.getProgram()!!.workouts.first().workoutLifts.first().equipmentId,
+            )
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
     private suspend fun ReceiveTurbine<EditWorkoutUiState>.awaitLoaded(): EditWorkoutUiState.Loaded {
         var item = awaitItem()
         while (item !is EditWorkoutUiState.Loaded) {
@@ -1035,6 +1092,7 @@ class EditWorkoutViewModelTest {
             abandonTrainingSession = AbandonTrainingSessionUseCase(trainingLog, logging),
             manageWorkoutOverlay = ManageWorkoutOverlayUseCase(FakeWorkoutOverlayStore(), logging),
             observeEquipmentCatalog = com.stratum.domain.lift.ObserveEquipmentCatalogUseCase(equipmentRepository),
+            getEquipment = com.stratum.domain.lift.GetEquipmentUseCase(equipmentRepository),
             getRecentlyUsedEquipment = com.stratum.domain.lift.GetRecentlyUsedEquipmentForLiftUseCase(
                 trainingLog,
                 equipmentRepository,

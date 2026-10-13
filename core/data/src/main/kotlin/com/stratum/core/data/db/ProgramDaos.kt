@@ -258,6 +258,29 @@ interface WorkoutLiftDao {
         targetLiftId: LiftId,
         updatedAtEpochMillis: Long,
     ): Int
+
+    /** Slots explicitly assigned [equipmentId] (STR-105 delete sweep). */
+    @Query("SELECT * FROM workout_lifts WHERE equipment_id = :equipmentId")
+    suspend fun getByEquipmentId(equipmentId: com.stratum.domain.lift.identity.EquipmentId): List<WorkoutLiftEntity>
+
+    /**
+     * Re-points template slots off deleted equipment onto its replacement
+     * (STR-105 Scope 4.3). Null (inherit) slots are never matched.
+     */
+    @Query(
+        """
+        UPDATE workout_lifts
+        SET equipment_id = :replacementId,
+            pending_sync = ${SyncFlags.PENDING_UPSERT},
+            updated_at_epoch_millis = :updatedAtEpochMillis
+        WHERE equipment_id = :deletedId
+        """,
+    )
+    suspend fun repointEquipmentId(
+        deletedId: com.stratum.domain.lift.identity.EquipmentId,
+        replacementId: com.stratum.domain.lift.identity.EquipmentId,
+        updatedAtEpochMillis: Long,
+    ): Int
 }
 
 @Dao

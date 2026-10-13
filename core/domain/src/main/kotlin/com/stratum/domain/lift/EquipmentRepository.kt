@@ -66,12 +66,19 @@ interface EquipmentRepository {
     )
 
     /**
-     * Tombstones custom equipment: sets the deleted flag and syncs it; the row, name,
-     * and tiers are retained so history keeps resolving. Returns false when the row is
-     * seed equipment or missing. Referenced lifts are NOT reassigned — they keep
-     * resolving the tombstoned row by id. Idempotent: re-deleting returns true.
+     * Tombstones equipment: sets the deleted flag and syncs it; the row, name,
+     * and tiers are retained so history keeps resolving. Every visible seed row
+     * and every custom row is deletable; only the hidden system rows
+     * ([SeedEquipmentIds.hiddenFromCatalog]) and missing rows return false.
+     *
+     * Live pointers (catalog lift links, template slot assignments) are
+     * reassigned to [replacementId] in the same atomic write; when pointers
+     * exist, no replacement was supplied, and live candidates exist, the delete
+     * fails and changes nothing. When no candidate exists, pointers fall back
+     * to [SeedEquipmentIds.Bodyweight]. Logged sets and history are never
+     * rewritten. Idempotent: re-deleting returns true and sweeps nothing.
      */
-    suspend fun deleteCustomEquipment(id: EquipmentId): Boolean
+    suspend fun deleteCustomEquipment(id: EquipmentId, replacementId: EquipmentId? = null): Boolean
 
     /**
      * Finds equipment for a free-text label, or creates a custom row with that display name

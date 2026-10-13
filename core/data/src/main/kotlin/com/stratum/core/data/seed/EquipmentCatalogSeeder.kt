@@ -32,6 +32,9 @@ class EquipmentCatalogSeeder(
         if (dtos.isEmpty()) return 0
         for (dto in dtos) {
             val id = EquipmentId(dto.id)
+            // STR-105 Scope 7: never resurrect a tombstoned seed row — skip it
+            // entirely (flag and retained tiers are its history).
+            if (equipmentDao.getById(id)?.isDeleted == true) continue
             equipmentDao.upsert(
                 EquipmentEntity(
                     id = id,
