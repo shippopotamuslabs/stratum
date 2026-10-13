@@ -134,6 +134,7 @@ class GymViewModelTest {
                         fakeLiftRepository,
                         fakeProgramRepository,
                         fakeLogRepository,
+                        FakeWorkoutOverlayStore(),
                     ),
             )
     }
