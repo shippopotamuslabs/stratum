@@ -3,6 +3,7 @@ package com.stratum.domain.lift
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.ProgramRepository
 import com.stratum.domain.training.TrainingLogRepository
+import com.stratum.domain.workout.WorkoutOverlayStore
 import javax.inject.Inject
 
 /**
@@ -15,6 +16,7 @@ class GetLiftDeleteImpactUseCase @Inject constructor(
     private val liftRepository: LiftRepository,
     private val programRepository: ProgramRepository,
     private val trainingLogRepository: TrainingLogRepository,
+    private val workoutOverlayStore: WorkoutOverlayStore,
 ) {
     suspend operator fun invoke(id: LiftId): LiftDeleteImpact? {
         val lift = liftRepository.getLiftsByIds(listOf(id)).firstOrNull() ?: return null
@@ -50,7 +52,17 @@ class GetLiftDeleteImpactUseCase @Inject constructor(
                             ?.workoutLifts
                             ?.any { it.liftId == id }
                     } ?: false
-                templateHasLift ||
+                // STR-131 Scope 4.5: the lift also counts as session-referenced
+                // when it only exists in the session overlay (swapped in or
+                // added mid-session, no set logged yet). The logged-set check
+                // stays: it covers a lift logged then swapped back out, which
+                // neither the template nor the overlay still names.
+                val overlay = workoutOverlayStore.load(activeSession.id)
+                val overlayHasLift =
+                    overlay != null &&
+                        (id in overlay.swappedLifts.values ||
+                            overlay.addedLifts.any { it.liftId == id })
+                templateHasLift || overlayHasLift ||
                     trainingLogRepository.getSetsForSession(activeSession.id).any { it.liftId == id }
             }
 
