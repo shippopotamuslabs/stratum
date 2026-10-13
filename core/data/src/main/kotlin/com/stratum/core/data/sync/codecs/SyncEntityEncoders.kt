@@ -79,6 +79,7 @@ class SyncEntityEncoders @Inject constructor() {
             "preset_tags" to e.presetTags.toPresetSet().map { it.name },
             "equipment_id" to e.equipmentId?.value,
             "is_custom" to e.isCustom,
+            "is_deleted" to e.isDeleted,
             "enabled" to e.enabled,
             "description" to e.description,
             "image_uris" to (e.imageUrisCsv?.split(",")?.filter { it.isNotBlank() } ?: emptyList()),

@@ -57,6 +57,7 @@ fun LiftEntity.toDomain(
         loadType = loadType,
         defaultRestSeconds = defaultRestSeconds,
         pinnedNote = pinnedNote,
+        isDeleted = isDeleted,
     )
 }
 
@@ -88,6 +89,7 @@ fun Lift.toEntity(
     pinnedNote = pinnedNote,
     updatedAtEpochMillis = nowMillis,
     pendingSync = SyncFlags.PENDING_UPSERT,
+    isDeleted = isDeleted,
 )
 
 fun EquipmentEntity.toDomain(tiers: List<IncrementTierEntity>): Equipment =

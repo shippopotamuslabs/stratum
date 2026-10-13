@@ -412,6 +412,49 @@ class RoomLiftRepositoryTest {
         }
     }
 
+    @Nested
+    @DisplayName("STR-131 tombstone filtering")
+    inner class TombstoneFiltering {
+        @Test
+        @DisplayName("Catalog flows exclude tombstoned lifts; by-id reads still return them")
+        fun catalogExcludesTombstonedByIdReturns() = runTest {
+            val live = LiftId("live-lift")
+            val gone = LiftId("gone-lift")
+            seedLift(live, enabled = true)
+            seedLift(gone, enabled = true)
+            database.liftDao().tombstoneById(gone, updatedAtEpochMillis = 5L)
+
+            assertEquals(listOf(live), subject.observeLifts().first().map { it.id })
+            assertEquals(listOf(live), subject.observeEnabledLifts().first().map { it.id })
+            assertEquals(listOf(live), subject.observeLifts(isCustom = false).first().map { it.id })
+            assertEquals(
+                listOf(live),
+                subject.observeLiftsContainingPattern(MovementPattern.SquatPattern).first().map { it.id },
+            )
+            val byId = subject.getLiftsByIds(listOf(gone))
+            assertEquals(listOf(gone), byId.map { it.id })
+            assertTrue(byId.single().isDeleted)
+        }
+
+        @Test
+        @DisplayName("Writes against a tombstoned lift are no-ops (enable, rest, notes)")
+        fun writesNoOpOnTombstoned() = runTest {
+            val gone = LiftId("gone-lift")
+            seedLift(gone, enabled = false)
+            database.liftDao().tombstoneById(gone, updatedAtEpochMillis = 5L)
+
+            subject.setLiftEnabled(gone, enabled = true)
+            subject.setDefaultRestSeconds(gone, 300)
+            subject.setPinnedNotes(gone, listOf(CatalogNoteInput(body = "nope")))
+
+            val row = database.liftDao().getById(gone)!!
+            assertTrue(row.isDeleted)
+            assertEquals(false, row.enabled)
+            assertEquals(null, row.defaultRestSeconds)
+            assertTrue(subject.getPinnedNotes(gone).isEmpty())
+        }
+    }
+
     private suspend fun firstLifts(): List<com.stratum.domain.lift.Lift> =
         subject.observeLifts().first()
 

@@ -78,19 +78,19 @@ interface LiftDao {
         SET enabled = :enabled,
             pending_sync = ${SyncFlags.PENDING_UPSERT},
             updated_at_epoch_millis = :updatedAtEpochMillis
-        WHERE id = :id
+        WHERE id = :id AND isDeleted = 0
         """,
     )
     suspend fun setEnabled(id: LiftId, enabled: Boolean, updatedAtEpochMillis: Long)
 
-    /** Batch disable/enable for merge-hide (and similar bulk availability changes). */
+    /** Batch disable/enable for bulk availability changes (preset apply and similar). */
     @Query(
         """
         UPDATE lifts
         SET enabled = :enabled,
             pending_sync = ${SyncFlags.PENDING_UPSERT},
             updated_at_epoch_millis = :updatedAtEpochMillis
-        WHERE id IN (:ids)
+        WHERE id IN (:ids) AND isDeleted = 0
         """,
     )
     suspend fun setEnabledForIds(
@@ -110,7 +110,7 @@ interface LiftDao {
             secondaryMusclesBitmask = :secondaryBitmask,
             pending_sync = ${SyncFlags.PENDING_UPSERT},
             updated_at_epoch_millis = :updatedAtEpochMillis
-        WHERE id = :id AND isCustom = 1
+        WHERE id = :id AND isCustom = 1 AND isDeleted = 0
         """,
     )
     suspend fun updateMuscles(
@@ -133,7 +133,7 @@ interface LiftDao {
             equipmentId = :equipmentId,
             pending_sync = ${SyncFlags.PENDING_UPSERT},
             updated_at_epoch_millis = :updatedAtEpochMillis
-        WHERE id = :id AND isCustom = 1
+        WHERE id = :id AND isCustom = 1 AND isDeleted = 0
         """,
     )
     suspend fun updateCustomDetails(
@@ -156,7 +156,7 @@ interface LiftDao {
         SET equipmentId = :equipmentId,
             pending_sync = ${SyncFlags.PENDING_UPSERT},
             updated_at_epoch_millis = :updatedAtEpochMillis
-        WHERE id = :id
+        WHERE id = :id AND isDeleted = 0
         """,
     )
     suspend fun setEquipmentId(
@@ -176,7 +176,7 @@ interface LiftDao {
             loadType = :loadType,
             pending_sync = ${SyncFlags.PENDING_UPSERT},
             updated_at_epoch_millis = :updatedAtEpochMillis
-        WHERE id = :id
+        WHERE id = :id AND isDeleted = 0
         """,
     )
     suspend fun setEquipmentIdAndLoadType(
@@ -197,7 +197,7 @@ interface LiftDao {
         SET micro_options_json = NULL,
             pending_sync = ${SyncFlags.PENDING_UPSERT},
             updated_at_epoch_millis = :updatedAtEpochMillis
-        WHERE id = :id
+        WHERE id = :id AND isDeleted = 0
         """,
     )
     suspend fun clearMicroOptions(
@@ -215,7 +215,7 @@ interface LiftDao {
         SET defaultRestSeconds = :restSeconds,
             pending_sync = ${SyncFlags.PENDING_UPSERT},
             updated_at_epoch_millis = :updatedAtEpochMillis
-        WHERE id = :id
+        WHERE id = :id AND isDeleted = 0
         """,
     )
     suspend fun setDefaultRestSeconds(id: LiftId, restSeconds: Int?, updatedAtEpochMillis: Long)
@@ -229,7 +229,7 @@ interface LiftDao {
         SET pinned_note = :note,
             pending_sync = ${SyncFlags.PENDING_UPSERT},
             updated_at_epoch_millis = :updatedAtEpochMillis
-        WHERE id = :id
+        WHERE id = :id AND isDeleted = 0
         """,
     )
     suspend fun setPinnedNote(id: LiftId, note: String?, updatedAtEpochMillis: Long)
@@ -241,7 +241,7 @@ interface LiftDao {
         SET enabled = 1,
             pending_sync = ${SyncFlags.PENDING_UPSERT},
             updated_at_epoch_millis = :updatedAtEpochMillis
-        WHERE id IN (:ids)
+        WHERE id IN (:ids) AND isDeleted = 0
         """,
     )
     suspend fun enableAll(ids: List<LiftId>, updatedAtEpochMillis: Long)
@@ -275,4 +275,23 @@ interface LiftDao {
 
     @Query("DELETE FROM lifts WHERE id = :id")
     suspend fun deleteById(id: LiftId)
+
+    /**
+     * Tombstones the row (STR-131): sets the deleted flag and marks it dirty so
+     * the deletion propagates as an `is_deleted` upsert. The row itself is
+     * retained — logged history keeps resolving it by id. Returns 1 when a
+     * live row was tombstoned, 0 when the row is missing or already
+     * tombstoned (re-delete is a no-op). `enabled` is deliberately untouched:
+     * a tombstoned row's availability flag carries no meaning.
+     */
+    @Query(
+        """
+        UPDATE lifts
+        SET isDeleted = 1,
+            pending_sync = ${SyncFlags.PENDING_UPSERT},
+            updated_at_epoch_millis = :updatedAtEpochMillis
+        WHERE id = :id AND isDeleted = 0
+        """,
+    )
+    suspend fun tombstoneById(id: LiftId, updatedAtEpochMillis: Long): Int
 }

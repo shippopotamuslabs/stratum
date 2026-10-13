@@ -52,7 +52,7 @@ class SyncHandlerRegistryTest {
                 programChangeEventDao = db.programChangeEventDao(),
                 encoders = encoders,
                 decoders = decoders,
-                liftRemoteApplier = LiftRemoteApplier(db.liftDao(), encoders, decoders),
+                liftRemoteApplier = LiftRemoteApplier(db, db.liftDao(), encoders, decoders),
                 programRemoteApplier = ProgramRemoteApplier(db.programDao(), decoders),
                 loggedSetRemoteApplier = LoggedSetRemoteApplier(db.trainingLoggedSetDao(), decoders),
             )

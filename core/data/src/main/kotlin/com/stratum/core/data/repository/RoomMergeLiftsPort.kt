@@ -16,7 +16,8 @@ import javax.inject.Singleton
 /**
  * Single-transaction merge: reassign logged sets, re-point all program `workout_lifts` that
  * referenced sources onto the survivor (duplicate catalog lifts in one workout are allowed),
- * hide seed sources, delete custom sources (+ cloud tombstones).
+ * tombstone seed sources (STR-131 — merged away means deleted, never merely
+ * disabled), delete custom sources (+ cloud tombstones).
  */
 @Singleton
 class RoomMergeLiftsPort @Inject constructor(
@@ -31,10 +32,10 @@ class RoomMergeLiftsPort @Inject constructor(
     override suspend fun applyMerge(
         targetLiftId: LiftId,
         targetName: String,
-        sourcesToHide: Set<LiftId>,
+        sourcesToTombstone: Set<LiftId>,
         sourcesToDelete: Set<LiftId>,
     ) {
-        val allSources = sourcesToHide + sourcesToDelete
+        val allSources = sourcesToTombstone + sourcesToDelete
         require(allSources.isNotEmpty()) { "At least one source lift is required" }
         require(targetLiftId !in allSources) { "Target lift cannot also be a source" }
 
@@ -63,12 +64,31 @@ class RoomMergeLiftsPort @Inject constructor(
                     updatedAtEpochMillis = now,
                 )
 
-                if (sourcesToHide.isNotEmpty()) {
-                    liftDao.setEnabledForIds(
-                        ids = sourcesToHide.toList(),
-                        enabled = false,
-                        updatedAtEpochMillis = now,
-                    )
+                // Seed sources tombstone after re-pointing (same transaction):
+                // their sets and slots already point at the target, so no live
+                // pointer references the tombstoned rows. `enabled` is left
+                // as-is — it carries no meaning on a tombstoned row. Their
+                // pair-scoped stash notes are swept too (STR-131 invariant: a
+                // tombstoned lift keeps no live pointers and its stashed notes
+                // must not outlive it — same sweep as the Gym delete path;
+                // custom sources' notes CASCADE with their hard delete).
+                if (sourcesToTombstone.isNotEmpty()) {
+                    val noteDao = database.workoutLiftNoteDao()
+                    val stashNoteIds =
+                        sourcesToTombstone.flatMap { id ->
+                            noteDao.getForLiftId(id).map { it.id.value }
+                        }
+                    for (id in sourcesToTombstone) {
+                        noteDao.deleteByLiftId(id)
+                        liftDao.tombstoneById(id, now)
+                    }
+                    if (stashNoteIds.isNotEmpty()) {
+                        syncTouch.enqueueDelete(
+                            SyncCollection.WorkoutLiftNotes,
+                            stashNoteIds,
+                            now,
+                        )
+                    }
                 }
                 if (sourcesToDelete.isNotEmpty()) {
                     for (id in sourcesToDelete) {

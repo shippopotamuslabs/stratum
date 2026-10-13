@@ -6,6 +6,7 @@ import com.stratum.core.data.db.GymPreferenceDao
 import com.stratum.core.data.db.GymPreferenceEntity
 import com.stratum.core.data.db.IncrementTierDao
 import com.stratum.core.data.db.LiftDao
+import com.stratum.core.data.db.LiftEntity
 import com.stratum.core.data.db.LiftNoteEntity
 import com.stratum.core.data.db.StratumDatabase
 import com.stratum.core.data.mapper.toBitmask
@@ -57,8 +58,19 @@ class RoomLiftRepository @Inject constructor(
             liftDao.observeLifts(),
             observeEquipmentById(),
         ) { rows, equipmentById ->
-            rows.map { it.toDomain(equipmentById) }
+            rows.toCatalogDomain(equipmentById)
         }
+
+    /**
+     * The one catalog mapping for lift rows (STR-131): tombstoned lifts never
+     * surface in catalog reads. The filter lives here (repository layer) so
+     * every catalog consumer — Gym, pickers, swap lists, generation, recents,
+     * import matching, Lift Metrics — inherits it; by-id reads stay
+     * unfiltered for history and session resolution.
+     */
+    private fun List<LiftEntity>.toCatalogDomain(
+        equipmentById: Map<EquipmentId, Equipment>,
+    ): List<Lift> = filterNot { it.isDeleted }.map { it.toDomain(equipmentById) }
 
     override suspend fun getLiftsByIds(ids: Collection<LiftId>): List<Lift> {
         if (ids.isEmpty()) return emptyList()
@@ -74,7 +86,7 @@ class RoomLiftRepository @Inject constructor(
             liftDao.observeEnabledLifts(),
             observeEquipmentById(),
         ) { rows, equipmentById ->
-            rows.map { it.toDomain(equipmentById) }
+            rows.toCatalogDomain(equipmentById)
         }
 
     override fun observeLifts(isCustom: Boolean): Flow<List<Lift>> =
@@ -82,7 +94,7 @@ class RoomLiftRepository @Inject constructor(
             liftDao.observeLiftsByCustom(isCustom),
             observeEquipmentById(),
         ) { rows, equipmentById ->
-            rows.map { it.toDomain(equipmentById) }
+            rows.toCatalogDomain(equipmentById)
         }
 
     override fun observeLiftsContainingPattern(pattern: MovementPattern): Flow<List<Lift>> =
@@ -90,7 +102,7 @@ class RoomLiftRepository @Inject constructor(
             liftDao.observeLiftsByPattern(1 shl pattern.ordinal),
             observeEquipmentById(),
         ) { rows, equipmentById ->
-            rows.map { it.toDomain(equipmentById) }
+            rows.toCatalogDomain(equipmentById)
         }
 
     override fun observeSelectedPreset(): Flow<GymPreset?> =
@@ -324,7 +336,11 @@ class RoomLiftRepository @Inject constructor(
         syncTouch.withWriteLock {
             database.withTransaction {
                 if (database.liftNoteDao().getForLift(id).isEmpty()) {
-                    val current = liftDao.getById(id)?.pinnedNote?.takeIf { it.isNotBlank() }
+                    val current =
+                        liftDao.getById(id)
+                            ?.takeUnless { it.isDeleted }
+                            ?.pinnedNote
+                            ?.takeIf { it.isNotBlank() }
                     if (current != null) {
                         val body = sanitizeLiftNoteBody(current) ?: return@withTransaction
                         database.liftNoteDao().upsertAll(
@@ -351,7 +367,8 @@ class RoomLiftRepository @Inject constructor(
     }
 
     override suspend fun setPinnedNotes(id: LiftId, notes: List<CatalogNoteInput>) {
-        if (liftDao.getById(id) == null) return
+        // Tombstoned lifts are immutable (STR-131 write guard).
+        if (liftDao.getById(id)?.isDeleted != false) return
         val now = System.currentTimeMillis()
         syncTouch.withWriteLock {
             database.withTransaction {

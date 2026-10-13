@@ -38,7 +38,7 @@ class LiftRemoteApplierMatrixTest {
             ).allowMainThreadQueries().build()
         val encoders = SyncEntityEncoders()
         val decoders = SyncEntityDecoders()
-        subject = LiftRemoteApplier(database.liftDao(), encoders, decoders)
+        subject = LiftRemoteApplier(database, database.liftDao(), encoders, decoders)
     }
 
     @AfterEach
@@ -218,6 +218,111 @@ class LiftRemoteApplierMatrixTest {
             )
         assertTrue(ok)
         assertEquals("[2.5]", database.liftDao().getById(LiftId("bench"))!!.microOptionsJson)
+    }
+
+    @Test
+    @DisplayName("STR-131: received seed tombstone applies the flag and sweeps local template slots")
+    fun overlayTombstoneSweepsLocalSlots() = runTest {
+        seedCatalog("bench")
+        seedProgramWithSlot("bench")
+        val ok =
+            subject.upsertFromRemote(
+                "bench",
+                mapOf(
+                    "catalog_overlay" to true,
+                    "is_custom" to false,
+                    "is_deleted" to true,
+                    FirestoreSyncMetadata.UPDATED_AT to 60L,
+                ),
+            )
+        assertTrue(ok)
+        val row = database.liftDao().getById(LiftId("bench"))!!
+        assertTrue(row.isDeleted)
+        // The local slot pointing at the tombstoned lift is swept (Scope 5).
+        assertTrue(database.workoutLiftDao().getAll().isEmpty())
+        // Re-applying the same tombstone is idempotent.
+        assertTrue(
+            subject.upsertFromRemote(
+                "bench",
+                mapOf(
+                    "catalog_overlay" to true,
+                    "is_custom" to false,
+                    "is_deleted" to true,
+                    FirestoreSyncMetadata.UPDATED_AT to 61L,
+                ),
+            ),
+        )
+        assertTrue(database.liftDao().getById(LiftId("bench"))!!.isDeleted)
+    }
+
+    @Test
+    @DisplayName("STR-131: old-payload upsert without is_deleted never un-deletes a tombstoned custom")
+    fun oldPayloadDoesNotUndelete() = runTest {
+        val custom =
+            LiftEntity(
+                id = LiftId("mine"),
+                name = "Mine",
+                movementPatternsBitmask = 0,
+                primaryMusclesBitmask = 0,
+                secondaryMusclesBitmask = 0,
+                presetTags = ",",
+                isCustom = true,
+                enabled = true,
+                isDeleted = true,
+                updatedAtEpochMillis = 5L,
+                pendingSync = SyncFlags.CLEAN,
+            )
+        database.liftDao().upsert(custom)
+        val ok =
+            subject.upsertFromRemote(
+                "mine",
+                mapOf(
+                    "is_custom" to true,
+                    "name" to "Mine",
+                    "movement_patterns" to emptyList<String>(),
+                    "primary_muscles" to emptyList<String>(),
+                    "secondary_muscles" to emptyList<String>(),
+                    "preset_tags" to emptyList<String>(),
+                    "enabled" to true,
+                    FirestoreSyncMetadata.UPDATED_AT to 90L,
+                ),
+            )
+        assertTrue(ok)
+        assertTrue(database.liftDao().getById(LiftId("mine"))!!.isDeleted)
+    }
+
+    private suspend fun seedProgramWithSlot(liftId: String) {
+        database.programDao().upsert(
+            com.stratum.core.data.db.ProgramEntity(
+                id = com.stratum.domain.program.identity.ProgramId("p-1"),
+                name = "Main",
+                createdAt = "2026-01-01T00:00:00Z",
+                cycleLength = 1,
+                isActive = true,
+            ),
+        )
+        database.workoutDao().upsertAll(
+            listOf(
+                com.stratum.core.data.db.WorkoutEntity(
+                    id = com.stratum.domain.program.identity.WorkoutId("w-1"),
+                    programId = com.stratum.domain.program.identity.ProgramId("p-1"),
+                    name = "Push",
+                    weekday = null,
+                    position = 0,
+                ),
+            ),
+        )
+        database.workoutLiftDao().upsertAll(
+            listOf(
+                com.stratum.core.data.db.WorkoutLiftEntity(
+                    id = com.stratum.domain.program.identity.WorkoutLiftId("wl-1"),
+                    workoutId = com.stratum.domain.program.identity.WorkoutId("w-1"),
+                    liftId = LiftId(liftId),
+                    progressionScheme = com.stratum.domain.program.ProgressionScheme.Linear,
+                    position = 0,
+                ),
+            ),
+        )
     }
 
     private suspend fun seedCatalog(id: String): LiftEntity {

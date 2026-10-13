@@ -71,4 +71,11 @@ data class LiftEntity(
     val updatedAtEpochMillis: Long = 0L,
     @ColumnInfo(name = "pending_sync")
     val pendingSync: Int = SyncFlags.CLEAN,
+    /**
+     * Tombstone flag (STR-131): the row is retained so logged history keeps
+     * resolving by id, but the lift is deleted — catalog reads filter it out
+     * and no live pointer may reference it. Mirrors [EquipmentEntity.isDeleted].
+     */
+    @ColumnInfo(defaultValue = "0")
+    val isDeleted: Boolean = false,
 )
