@@ -1,6 +1,7 @@
 package com.stratum.feature.workout
 
 import com.stratum.core.ui.component.SupersetLinkDirection
+import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId
@@ -23,13 +24,19 @@ internal sealed interface SessionCommand {
      */
     data class StartSession(val routeWorkoutId: WorkoutId) : SessionCommand
 
-    /** Cycle-progress + catalog emission: structure rebuild, restore, adopt, render. */
+    /**
+     * Cycle-progress + catalog emission: structure rebuild, restore, adopt, render.
+     * [equipment] rides along atomically with the lift catalog so the runtime
+     * resolves "Adjust Equipment" tiers by the equipment in use (STR-128) from the
+     * same snapshot, never a separately-synced mirror.
+     */
     data class ApplyCycleSnapshot(
         val routeWorkoutId: WorkoutId,
         val program: Program?,
         val session: TrainingSession?,
         val workout: Workout?,
         val catalog: List<Lift>,
+        val equipment: List<Equipment> = emptyList(),
     ) : SessionCommand
 
     /** Re-render with current display unit (prefs flip). */

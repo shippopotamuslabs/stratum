@@ -12,4 +12,20 @@ package com.stratum.domain.lift
 data class EffectiveSteps(
     val tiers: List<IncrementTier>,
     val microIncrements: List<Weight>,
-)
+) {
+    companion object {
+        /** The lift's own effective steps (its linked equipment's resolved lattice). */
+        fun from(lift: Lift): EffectiveSteps =
+            EffectiveSteps(
+                tiers = lift.incrementTiers,
+                microIncrements = lift.microIncrements,
+            )
+
+        /** The equipment's own steps, for equipment-in-use resolution (STR-128). */
+        fun from(equipment: Equipment): EffectiveSteps =
+            EffectiveSteps(
+                tiers = equipment.incrementTiers,
+                microIncrements = equipment.microIncrements,
+            )
+    }
+}

@@ -367,14 +367,17 @@ class WorkoutViewModel @Inject constructor(
         sessionObservationJob =
             viewModelScope.launch {
                 session.send(SessionCommand.StartSession(workoutId))
-                // Catalog is combined so a mid-session lift merge (delete/hide source + overlay
-                // remap) rebinds even when the program row fingerprint is unchanged.
+                // Catalogs are combined so a mid-session lift merge (delete/hide source + overlay
+                // remap) rebinds even when the program row fingerprint is unchanged, and the
+                // equipment catalog rides the same snapshot (STR-128) so tier saves on the
+                // equipment in use re-resolve the adjust chip atomically with the lifts.
                 combine(
                     observeCycleProgress(),
                     observeLiftCatalog(),
-                ) { progress, catalog ->
-                    progress to catalog
-                }.collect { (progress, catalog) ->
+                    observeEquipmentCatalog(),
+                ) { progress, catalog, equipment ->
+                    Triple(progress, catalog, equipment)
+                }.collect { (progress, catalog, equipment) ->
                     val program = progress.program
                     val trainingSession = progress.activeSession
                     if (
@@ -389,6 +392,7 @@ class WorkoutViewModel @Inject constructor(
                                 session = trainingSession,
                                 workout = null,
                                 catalog = catalog,
+                                equipment = equipment,
                             ),
                         )
                         return@collect
@@ -406,6 +410,7 @@ class WorkoutViewModel @Inject constructor(
                                 session = trainingSession,
                                 workout = null,
                                 catalog = catalog,
+                                equipment = equipment,
                             ),
                         )
                         return@collect
@@ -417,6 +422,7 @@ class WorkoutViewModel @Inject constructor(
                             session = trainingSession,
                             workout = workout,
                             catalog = catalog,
+                            equipment = equipment,
                         ),
                     )
                 }

@@ -65,9 +65,15 @@ import kotlinx.coroutines.launch
 
 /** Cycle/catalog apply + overlay restore for [LiveWorkoutSessionRuntime]. */
 
+/** Re-render when a session is loaded (display-unit flips, catalog updates). */
+internal fun LiveWorkoutSessionRuntime.handleRenderOnly() {
+    if (structure != null) render()
+}
+
 internal suspend fun LiveWorkoutSessionRuntime.handleApplyCycleSnapshot(cmd: SessionCommand.ApplyCycleSnapshot) {
     liftNamesById = cmd.catalog.associate { lift -> lift.id to lift.name }
     liftsById = cmd.catalog.associateBy { lift -> lift.id }
+    equipmentById = cmd.equipment.associateBy { equipment -> equipment.id }
 
     val program = cmd.program
     val session = cmd.session

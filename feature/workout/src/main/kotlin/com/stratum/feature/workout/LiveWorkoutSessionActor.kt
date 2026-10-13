@@ -213,9 +213,7 @@ internal class LiveWorkoutSessionActor(
             SessionCommand.FinalizeAbandonLocal,
             -> Unit // handled in [handleLifecycle]
             is SessionCommand.ApplyCycleSnapshot -> runtime.handleApplyCycleSnapshot(cmd)
-            SessionCommand.RenderOnly -> {
-                if (runtime.structure != null) runtime.render()
-            }
+            SessionCommand.RenderOnly -> runtime.handleRenderOnly()
             is SessionCommand.LogSet -> runtime.handleLogSet(cmd)
             is SessionCommand.UnlogSet -> runtime.handleUnlogSet(cmd)
             is SessionCommand.AddSet -> runtime.handleAddSet(cmd)
