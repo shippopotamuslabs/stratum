@@ -93,7 +93,7 @@ import kotlin.coroutines.cancellation.CancellationException
  * lift.
  */
 @HiltViewModel
-@Suppress("TooManyFunctions", "LongParameterList")
+@Suppress("TooManyFunctions", "LongParameterList", "LargeClass")
 class WorkoutViewModel @Inject constructor(
     private val observeCycleProgress: ObserveCycleProgressUseCase,
     generateSnapshot: GenerateProgressionSnapshotUseCase,
