@@ -16,7 +16,8 @@ import javax.inject.Singleton
 /**
  * Single-transaction merge: reassign logged sets, re-point all program `workout_lifts` that
  * referenced sources onto the survivor (duplicate catalog lifts in one workout are allowed),
- * hide seed sources, delete custom sources (+ cloud tombstones).
+ * tombstone seed sources (STR-131 — merged away means deleted, never merely
+ * disabled), delete custom sources (+ cloud tombstones).
  */
 @Singleton
 class RoomMergeLiftsPort @Inject constructor(
@@ -31,10 +32,10 @@ class RoomMergeLiftsPort @Inject constructor(
     override suspend fun applyMerge(
         targetLiftId: LiftId,
         targetName: String,
-        sourcesToHide: Set<LiftId>,
+        sourcesToTombstone: Set<LiftId>,
         sourcesToDelete: Set<LiftId>,
     ) {
-        val allSources = sourcesToHide + sourcesToDelete
+        val allSources = sourcesToTombstone + sourcesToDelete
         require(allSources.isNotEmpty()) { "At least one source lift is required" }
         require(targetLiftId !in allSources) { "Target lift cannot also be a source" }
 
@@ -63,12 +64,12 @@ class RoomMergeLiftsPort @Inject constructor(
                     updatedAtEpochMillis = now,
                 )
 
-                if (sourcesToHide.isNotEmpty()) {
-                    liftDao.setEnabledForIds(
-                        ids = sourcesToHide.toList(),
-                        enabled = false,
-                        updatedAtEpochMillis = now,
-                    )
+                // Seed sources tombstone after re-pointing (same transaction):
+                // their sets and slots already point at the target, so no live
+                // pointer references the tombstoned rows. `enabled` is left
+                // as-is — it carries no meaning on a tombstoned row.
+                for (id in sourcesToTombstone) {
+                    liftDao.tombstoneById(id, now)
                 }
                 if (sourcesToDelete.isNotEmpty()) {
                     for (id in sourcesToDelete) {
