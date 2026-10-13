@@ -3366,6 +3366,120 @@ class WorkoutViewModelTest {
     }
 
     @Test
+    @DisplayName("STR-128: weight fitting the swapped-to tiers clears the chip and seeds the editor with them")
+    fun adjustChipAndSeedUseSwappedEquipmentTiers() = runTest {
+        equipmentRepository.seed(
+            listOf(
+                swapEquipment("barbell", "Olympic Barbell", tiers = barbellTiers()),
+                swapEquipment("ssb", "Safety Squat Bar", tiers = openTier(2.5)),
+                swapEquipment("cables", "Cables"),
+            ),
+        )
+        val viewModel =
+            buildViewModelWithProgram(
+                program = programWithTemplateEquipment("barbell"),
+                lifts = listOf(catalogLiftWithTiers()),
+            )
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        // 62.5 is off the barbell lattice (40–100 @ 5): chip shows pre-swap.
+        viewModel.logSet(slotKey = liftSetId.value, weight = lb(62.5), reps = 5, rir = 2)
+        advanceUntilIdle()
+        val preSwap = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertTrue(preSwap.lifts.first().showAdjustEquipmentChip)
+
+        viewModel.swapEquipment(
+            workoutLiftId,
+            com.stratum.domain.lift.identity.EquipmentId("ssb"),
+        )
+        advanceUntilIdle()
+
+        // 62.5 sits exactly on the SSB's open 2.5 lattice: no spurious chip, and
+        // the editor seed carries the swapped-to piece's tiers.
+        val postSwap = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertFalse(postSwap.lifts.first().showAdjustEquipmentChip)
+        val seed = checkNotNull(viewModel.liveEquipmentSeed(workoutLiftId.value))
+        assertEquals(openTier(2.5), seed.currentTiers)
+    }
+
+    @Test
+    @DisplayName("STR-128: weight off the swapped-to tiers shows the chip after the swap")
+    fun adjustChipShowsForWeightOffSwappedTiers() = runTest {
+        equipmentRepository.seed(
+            listOf(
+                swapEquipment("barbell", "Olympic Barbell", tiers = barbellTiers()),
+                swapEquipment("ssb", "Safety Squat Bar", tiers = openTier(10.0)),
+                swapEquipment("cables", "Cables"),
+            ),
+        )
+        val viewModel =
+            buildViewModelWithProgram(
+                program = programWithTemplateEquipment("barbell"),
+                lifts = listOf(catalogLiftWithTiers()),
+            )
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        // 65 is on the barbell lattice (40–100 @ 5): no chip pre-swap.
+        viewModel.logSet(slotKey = liftSetId.value, weight = lb(65.0), reps = 5, rir = 2)
+        advanceUntilIdle()
+        val preSwap = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertFalse(preSwap.lifts.first().showAdjustEquipmentChip)
+
+        viewModel.swapEquipment(
+            workoutLiftId,
+            com.stratum.domain.lift.identity.EquipmentId("ssb"),
+        )
+        advanceUntilIdle()
+
+        // 65 is off the SSB's open 10 lattice: the chip must now show.
+        val postSwap = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertTrue(postSwap.lifts.first().showAdjustEquipmentChip)
+        val seed = checkNotNull(viewModel.liveEquipmentSeed(workoutLiftId.value))
+        assertEquals(openTier(10.0), seed.currentTiers)
+    }
+
+    @Test
+    @DisplayName("STR-128: a tier save on the swapped-to equipment resolves the chip")
+    fun adjustChipResolvedBySwappedEquipmentTierSave() = runTest {
+        equipmentRepository.seed(
+            listOf(
+                swapEquipment("barbell", "Olympic Barbell", tiers = barbellTiers()),
+                swapEquipment("ssb", "Safety Squat Bar", tiers = openTier(10.0)),
+                swapEquipment("cables", "Cables"),
+            ),
+        )
+        val viewModel =
+            buildViewModelWithProgram(
+                program = programWithTemplateEquipment("barbell"),
+                lifts = listOf(catalogLiftWithTiers()),
+            )
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        viewModel.swapEquipment(
+            workoutLiftId,
+            com.stratum.domain.lift.identity.EquipmentId("ssb"),
+        )
+        advanceUntilIdle()
+        viewModel.logSet(slotKey = liftSetId.value, weight = lb(65.0), reps = 5, rir = 2)
+        advanceUntilIdle()
+        val shown = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertTrue(shown.lifts.first().showAdjustEquipmentChip)
+
+        // Saving tiers on the swapped-to piece (not the lift's default equipment)
+        // resolves the chip, mirroring the default-equipment tier-save behavior.
+        equipmentRepository.setIncrementTiers(
+            com.stratum.domain.lift.identity.EquipmentId("ssb"),
+            openTier(20.0),
+        )
+        advanceUntilIdle()
+        val quiet = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertFalse(quiet.lifts.first().showAdjustEquipmentChip)
+    }
+
+    @Test
     @DisplayName("Given an on-lattice logged weight when rendered then the adjust chip stays hidden")
     fun adjustChipHiddenForOnLatticeWeight() = runTest {
         val viewModel =
@@ -3440,12 +3554,23 @@ class WorkoutViewModelTest {
         return item as WorkoutUiState.Loaded
     }
 
-    private fun swapEquipment(id: String, name: String) =
+    private fun swapEquipment(
+        id: String,
+        name: String,
+        tiers: List<com.stratum.domain.lift.IncrementTier> = emptyList(),
+    ) =
         com.stratum.domain.lift.Equipment(
             id = com.stratum.domain.lift.identity.EquipmentId(id),
             name = name,
-            incrementTiers = emptyList(),
+            incrementTiers = tiers,
         )
+
+    /** The catalog lift's tier bands, as the barbell equipment's own tiers (STR-128). */
+    private fun barbellTiers(): List<com.stratum.domain.lift.IncrementTier> =
+        catalogLiftWithTiers().incrementTiers
+
+    private fun openTier(increment: Double) =
+        listOf(com.stratum.domain.lift.IncrementTier(lb(0.0), null, lb(increment)))
 
     private fun seedSwapCatalog() {
         equipmentRepository.seed(

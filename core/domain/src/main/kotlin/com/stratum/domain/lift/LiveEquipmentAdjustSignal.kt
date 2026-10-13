@@ -11,16 +11,21 @@ package com.stratum.domain.lift
  * Unlike the post-workout path there is no sparse-seed suppression or ranking here: the
  * input is only the sets logged so far this session, and a single genuine off-lattice
  * set at the machine is worth one quiet chip.
+ *
+ * The lattice is explicit ([steps]) rather than read off a [Lift]: the equipment in
+ * use can differ from the lift's linked equipment after a live swap (STR-128), so
+ * every caller resolves the in-use equipment's [EffectiveSteps] itself.
  */
 fun shouldShowLiveEquipmentAdjust(
     loggedWeights: List<Weight>,
-    lift: Lift,
+    steps: EffectiveSteps,
+    loadType: LoadType,
     epsilon: Double = LATTICE_EPSILON,
 ): Boolean =
     screenLatticeWeights(
         weights = loggedWeights,
-        tiers = lift.incrementTiers,
-        loadType = lift.loadType,
+        tiers = steps.tiers,
+        loadType = loadType,
         epsilon = epsilon,
-        micro = lift.microIncrements,
+        micro = steps.microIncrements,
     ).residualWeights.isNotEmpty()
