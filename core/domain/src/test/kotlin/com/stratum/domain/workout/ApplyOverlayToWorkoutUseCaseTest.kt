@@ -703,6 +703,29 @@ class ApplyOverlayToWorkoutUseCaseTest {
                 },
         )
 
+    @Test
+    @DisplayName("Tombstoned swap override is dropped on save-back; slot keeps swept equipment")
+    fun tombstonedSwapOverrideDroppedOnSaveBack() {
+        val swept = com.stratum.domain.lift.identity.EquipmentId("replacement-eq")
+        val tombstoned = com.stratum.domain.lift.identity.EquipmentId("deleted-eq")
+        val baseline =
+            sampleWorkout().let { workout ->
+                workout.copy(
+                    workoutLifts = workout.workoutLifts.mapIndexed { index, lift ->
+                        if (index == 0) lift.copy(equipmentId = swept) else lift
+                    },
+                )
+            }
+        val overlay =
+            WorkoutOverlay(
+                swappedEquipment = mapOf(WorkoutLiftId("wl-1") to tombstoned),
+            )
+
+        val result = useCase(baseline, overlay, tombstonedEquipmentIds = setOf(tombstoned))
+
+        assertEquals(swept, result.workoutLifts[0].equipmentId)
+    }
+
     private fun sampleWorkout(): Workout = Workout(
         id = WorkoutId("w-1"),
         programId = ProgramId("p-1"),

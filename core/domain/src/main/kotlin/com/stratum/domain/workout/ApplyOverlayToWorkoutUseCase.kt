@@ -23,7 +23,17 @@ import javax.inject.Inject
  * (overlay MyoRep slots that are not activations) are also excluded — they are session-only.
  */
 class ApplyOverlayToWorkoutUseCase @Inject constructor() {
-    operator fun invoke(baseline: Workout, overlay: WorkoutOverlay): Workout {
+    /**
+     * @param tombstonedEquipmentIds equipment deleted mid-session (STR-105
+     * Scope 4.6): a grandfathered swap override pointing at one of these must
+     * not be written back — the slot keeps the equipment the delete-time
+     * sweep assigned (its template assignment).
+     */
+    operator fun invoke(
+        baseline: Workout,
+        overlay: WorkoutOverlay,
+        tombstonedEquipmentIds: Set<com.stratum.domain.lift.identity.EquipmentId> = emptySet(),
+    ): Workout {
         val liveAddedSlots =
             overlay.addedSlots
                 .filterNot { it.slotId in overlay.deletedSlotIds }
@@ -92,13 +102,15 @@ class ApplyOverlayToWorkoutUseCase @Inject constructor() {
                     // default at render).
                     equipmentId =
                         resolveSessionEquipmentId(
-                            swapOverrideId = overlay.swappedEquipment[lift.id],
+                            swapOverrideId = overlay.swappedEquipment[lift.id]
+                                ?.takeUnless { it in tombstonedEquipmentIds },
                             templateEquipmentId =
                                 templateEquipmentIdForPair(
                                     swappedLiftId = swappedLiftId,
                                     templateLiftId = lift.liftId,
                                     hasSessionEquipmentOverride =
-                                        overlay.swappedEquipment.containsKey(lift.id),
+                                        overlay.swappedEquipment[lift.id]
+                                            ?.takeUnless { it in tombstonedEquipmentIds } != null,
                                     templateEquipmentId = lift.equipmentId,
                                 ),
                             liftEquipmentId = null,
@@ -180,7 +192,8 @@ class ApplyOverlayToWorkoutUseCase @Inject constructor() {
                     sets = sets,
                     supersetGroupId = groupOverride,
                     useRestTimerBetweenLifts = restOverride ?: added.useRestTimerBetweenLifts,
-                    equipmentId = overlay.swappedEquipment[added.workoutLiftId],
+                    equipmentId = overlay.swappedEquipment[added.workoutLiftId]
+                        ?.takeUnless { it in tombstonedEquipmentIds },
                     pinnedNote =
                         if (overlay.swappedLifts.containsKey(added.workoutLiftId)) {
                             addedPairNotes.firstOrNull()

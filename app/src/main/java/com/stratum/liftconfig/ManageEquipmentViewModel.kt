@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.stratum.domain.lift.AddCustomEquipmentUseCase
 import com.stratum.domain.lift.DeleteCustomEquipmentUseCase
 import com.stratum.domain.lift.Equipment
+import com.stratum.domain.lift.GetEquipmentDeleteImpactUseCase
 import com.stratum.domain.lift.ForkEquipmentUseCase
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.ObserveEquipmentCatalogUseCase
@@ -37,15 +38,45 @@ data class EquipmentRowUi(
     val id: String,
     val name: String,
     val tierChips: List<EquipmentTierChipUi>,
-    /** Seed rows cannot be deleted, so swipe-to-delete is disabled for them. */
     val isCustom: Boolean,
+    /** STR-105 eligibility: visible seed + custom rows delete; hidden system rows never do. */
+    val canDelete: Boolean = false,
 )
 
-/** Equipment delete staged in the confirmation dialog. */
+/** Equipment delete staged in the confirmation dialog (STR-105 impact + pick). */
 data class PendingDeleteUi(
     val id: String,
     val name: String,
-)
+    val affectedLiftNames: List<String> = emptyList(),
+    val affectedWorkouts: List<AffectedWorkoutUi> = emptyList(),
+    val candidates: List<ReplacementOptionUi> = emptyList(),
+    val selectedReplacementId: String? = null,
+    val usesBodyweightFallback: Boolean = false,
+) {
+    val hasAffectedPointers: Boolean
+        get() = affectedLiftNames.isNotEmpty() || affectedWorkouts.isNotEmpty()
+
+    /** Single gate shared by dialog enablement and both ViewModel confirms. */
+    val canConfirmDelete: Boolean
+        get() = !hasAffectedPointers || usesBodyweightFallback || selectedReplacementId != null
+}
+
+/** One canonical impact -> dialog-state mapping used by both delete surfaces. */
+internal fun com.stratum.domain.lift.EquipmentDeleteImpact.toPendingDeleteUi(): PendingDeleteUi =
+    PendingDeleteUi(
+        id = equipmentId.value,
+        name = equipmentName,
+        affectedLiftNames = affectedLifts.map { it.name },
+        affectedWorkouts =
+            affectedWorkouts.map {
+                AffectedWorkoutUi(name = it.workoutName, slotCount = it.slotCount)
+            },
+        candidates =
+            replacementCandidates.map {
+                ReplacementOptionUi(id = it.id.value, name = it.name)
+            },
+        usesBodyweightFallback = usesBodyweightFallback,
+    )
 
 /**
  * One-shot navigation / sheet effects after create or fork succeeds.
@@ -81,6 +112,7 @@ class ManageEquipmentViewModel @Inject constructor(
     private val addCustomEquipment: AddCustomEquipmentUseCase,
     private val forkEquipment: ForkEquipmentUseCase,
     private val deleteCustomEquipment: DeleteCustomEquipmentUseCase,
+    private val getDeleteImpact: GetEquipmentDeleteImpactUseCase,
     private val equipmentPickResult: EquipmentPickResult,
 ) : ViewModel() {
 
@@ -234,6 +266,7 @@ class ManageEquipmentViewModel @Inject constructor(
             name = name,
             tierChips = incrementTiers.map { it.toChipUi() },
             isCustom = isCustom,
+            canDelete = id !in SeedEquipmentIds.hiddenFromCatalog && !isDeleted,
         )
 
     private fun IncrementTier.toChipUi(): EquipmentTierChipUi =
@@ -250,22 +283,46 @@ class ManageEquipmentViewModel @Inject constructor(
         val isForking: Boolean = false,
     )
 
-    /** Arms the delete confirmation dialog for a custom equipment row. */
+    /** Arms the delete confirmation dialog; loads the STR-105 impact first. */
+    private var deleteLoadJob: kotlinx.coroutines.Job? = null
+
     fun onStartDelete(equipmentId: String) {
         val row = uiState.value.rows.firstOrNull { it.id == equipmentId } ?: return
-        if (!row.isCustom) return
-        pendingDelete.value = PendingDeleteUi(id = equipmentId, name = row.name)
+        if (!row.canDelete) return
+        deleteLoadJob?.cancel()
+        deleteLoadJob =
+            viewModelScope.launch {
+                val impact = getDeleteImpact(EquipmentId(equipmentId))
+                pendingDelete.value =
+                    impact?.toPendingDeleteUi()
+                        ?: PendingDeleteUi(id = equipmentId, name = row.name)
+            }
+    }
+
+    /** Single replacement pick for the whole delete operation. */
+    fun onSelectReplacement(replacementId: String) {
+        val pending = pendingDelete.value ?: return
+        pendingDelete.value = pending.copy(selectedReplacementId = replacementId)
     }
 
     fun onDismissDelete() {
+        deleteLoadJob?.cancel()
+        deleteLoadJob = null
         pendingDelete.value = null
     }
 
-    /** Tombstones the staged equipment. Closes the dialog either way. */
+    /** Tombstones the staged equipment with its chosen replacement. */
     fun onConfirmDelete() {
         val pending = pendingDelete.value ?: return
+        if (!pending.canConfirmDelete) return
+        val replacement =
+            if (pending.hasAffectedPointers && !pending.usesBodyweightFallback) {
+                pending.selectedReplacementId?.let(::EquipmentId)
+            } else {
+                null
+            }
         viewModelScope.launch {
-            val result = deleteCustomEquipment(EquipmentId(pending.id))
+            val result = deleteCustomEquipment(EquipmentId(pending.id), replacement)
             pendingDelete.value = null
             result
                 .onSuccess {

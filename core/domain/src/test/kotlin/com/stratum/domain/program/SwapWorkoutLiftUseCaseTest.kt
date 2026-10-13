@@ -52,7 +52,7 @@ class SwapWorkoutLiftUseCaseTest {
         )
 
         val repository = FakeProgramRepository(initialProgram)
-        val useCase = SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository(), FakeLoggingPort())
+        val useCase = SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository(), com.stratum.core.testing.onboarding.FakeEquipmentRepository(), FakeLoggingPort())
 
         val result = useCase(targetWorkoutLiftId, newLiftId)
 
@@ -66,7 +66,7 @@ class SwapWorkoutLiftUseCaseTest {
     fun swapFailsWhenNoProgram() = runTest {
         val logging = FakeLoggingPort()
         val repository = FakeProgramRepository(null)
-        val useCase = SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository(), logging)
+        val useCase = SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository(), com.stratum.core.testing.onboarding.FakeEquipmentRepository(), logging)
 
         val result = useCase(WorkoutLiftId("wl-1"), LiftId("incline-db-bench"))
 
@@ -109,7 +109,7 @@ class SwapWorkoutLiftUseCaseTest {
 
         val repository = FakeProgramRepository(initialProgram)
         val logging = FakeLoggingPort()
-        val useCase = SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository(), logging)
+        val useCase = SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository(), com.stratum.core.testing.onboarding.FakeEquipmentRepository(), logging)
 
         val result = useCase(WorkoutLiftId("non-existent"), LiftId("incline-db-bench"))
 
@@ -153,7 +153,7 @@ class SwapWorkoutLiftUseCaseTest {
                 ),
             ),
         )
-        val useCase = SwapWorkoutLiftUseCase(FakeProgramRepository(program), events, FakeLoggingPort())
+        val useCase = SwapWorkoutLiftUseCase(FakeProgramRepository(program), events, com.stratum.core.testing.onboarding.FakeEquipmentRepository(), FakeLoggingPort())
 
         useCase(WorkoutLiftId("wl-bench"), LiftId("lift-squat")).getOrThrow()
 
@@ -177,7 +177,7 @@ class SwapWorkoutLiftUseCaseTest {
             listOf(com.stratum.domain.lift.WorkoutLiftNoteInput(body = "bench cue")),
         )
         val useCase =
-            SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository(), FakeLoggingPort())
+            SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository(), com.stratum.core.testing.onboarding.FakeEquipmentRepository(), FakeLoggingPort())
 
         useCase(slot, LiftId("lift-ohp")).getOrThrow()
 
@@ -208,7 +208,7 @@ class SwapWorkoutLiftUseCaseTest {
             listOf(com.stratum.domain.lift.WorkoutLiftNoteInput(body = "bench cue")),
         )
         val useCase =
-            SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository(), FakeLoggingPort())
+            SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository(), com.stratum.core.testing.onboarding.FakeEquipmentRepository(), FakeLoggingPort())
 
         useCase(slot, LiftId("lift-ohp")).getOrThrow()
         useCase(slot, LiftId("lift-bench")).getOrThrow()

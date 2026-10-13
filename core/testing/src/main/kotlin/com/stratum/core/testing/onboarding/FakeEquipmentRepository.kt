@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.map
 class FakeEquipmentRepository(
     initial: List<Equipment> = emptyList(),
     private val liftRepository: FakeLiftRepository? = null,
+    private val programRepository: com.stratum.core.testing.program.FakeProgramRepository? = null,
 ) : EquipmentRepository {
     private val rows = MutableStateFlow(initial)
 
@@ -114,6 +115,12 @@ class FakeEquipmentRepository(
         }
     }
 
+    private fun isValidReplacement(deletedId: EquipmentId, replacementId: EquipmentId): Boolean {
+        val target = rows.value.firstOrNull { it.id == replacementId } ?: return false
+        return !target.isDeleted && replacementId != deletedId &&
+            replacementId !in com.stratum.domain.lift.SeedEquipmentIds.hiddenFromCatalog
+    }
+
     private fun throwIfFailNextWrite() {
         if (failNextWrite) {
             failNextWrite = false
@@ -121,9 +128,32 @@ class FakeEquipmentRepository(
         }
     }
 
-    override suspend fun deleteCustomEquipment(id: EquipmentId): Boolean {
+    override suspend fun deleteCustomEquipment(id: EquipmentId, replacementId: EquipmentId?): Boolean {
         val row = rows.value.firstOrNull { it.id == id } ?: return false
-        if (!row.isCustom) return false
+        if (id in com.stratum.domain.lift.SeedEquipmentIds.hiddenFromCatalog) return false
+        if (row.isDeleted) return true
+        return performDelete(id, replacementId)
+    }
+
+    private fun performDelete(id: EquipmentId, replacementId: EquipmentId?): Boolean {
+        val affectedLifts =
+            liftRepository?.currentLifts?.filter { it.equipmentId == id }.orEmpty()
+        val affectedSlots = programRepository?.countEquipmentSlots(id) ?: 0
+        val hasPointers = affectedLifts.isNotEmpty() || affectedSlots > 0
+        val candidates =
+            rows.value.filter {
+                !it.isDeleted && it.id != id &&
+                    it.id !in com.stratum.domain.lift.SeedEquipmentIds.hiddenFromCatalog
+            }
+        if (hasPointers && replacementId == null && candidates.isNotEmpty()) return false
+        if (replacementId != null && !isValidReplacement(id, replacementId)) return false
+        val effective =
+            replacementId
+                ?: if (hasPointers) com.stratum.domain.lift.SeedEquipmentIds.Bodyweight else null
+        if (hasPointers && effective != null) {
+            liftRepository?.repointEquipment(id, effective)
+            programRepository?.repointEquipment(id, effective)
+        }
         rows.value = rows.value.map { if (it.id == id) it.copy(isDeleted = true) else it }
         return true
     }
@@ -140,7 +170,7 @@ class FakeEquipmentRepository(
                 ?.let { return it.id }
         }
         EquipmentNameMatching.seedIdFromFreeText(trimmed)?.let { seedId ->
-            rows.value.firstOrNull { it.id == seedId }?.let { return it.id }
+            rows.value.firstOrNull { it.id == seedId && !it.isDeleted }?.let { return it.id }
         }
         return addCustomEquipment(trimmed)
     }

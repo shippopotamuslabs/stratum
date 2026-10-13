@@ -123,6 +123,7 @@ class WorkoutViewModel @Inject constructor(
     private val getLiftNoteLists: GetLiftNoteListsUseCase,
     getSessionPinnedNoteLists: GetSessionPinnedNoteListsUseCase,
     private val observeEquipmentCatalog: ObserveEquipmentCatalogUseCase,
+    private val getEquipment: com.stratum.domain.lift.GetEquipmentUseCase,
     private val getRecentlyUsedEquipment: GetRecentlyUsedEquipmentForLiftUseCase,
     private val equipmentPickResult: EquipmentPickResult,
     private val rewriteSessionLiftEquipment: RewriteSessionLiftEquipmentUseCase,
@@ -142,6 +143,9 @@ class WorkoutViewModel @Inject constructor(
 
     /** Equipment catalog mirror for subheader names + the swap sheet full list. */
     private val equipmentCatalog = MutableStateFlow<List<Equipment>>(emptyList())
+
+    /** Tombstoned rows referenced by this session, resolved by id (STR-105 Scope 5). */
+    private val retainedEquipment = MutableStateFlow<List<Equipment>>(emptyList())
 
     /** Open equipment swap sheet, or null when closed. */
     // Declared above init: the pick collector launched below reads these eagerly.
@@ -256,6 +260,8 @@ class WorkoutViewModel @Inject constructor(
         viewModelScope.launch {
             observeEquipmentCatalog().collect { catalog ->
                 equipmentCatalog.value = catalog
+                // STR-105 Scope 5: retained rows for this session (see helper).
+                fetchRetainedEquipment(catalog)
                 // Re-attach names to the current frame + refresh an open sheet's full list.
                 sessionFrames.value = attachEquipmentNames(sessionFrames.value)
                 _equipmentSwap.value?.let { open ->
@@ -375,8 +381,9 @@ class WorkoutViewModel @Inject constructor(
                     observeCycleProgress(),
                     observeLiftCatalog(),
                     observeEquipmentCatalog(),
-                ) { progress, catalog, equipment ->
-                    Triple(progress, catalog, equipment)
+                    retainedEquipment,
+                ) { progress, catalog, equipment, retained ->
+                    Triple(progress, catalog, equipment + retained)
                 }.collect { (progress, catalog, equipment) ->
                     val program = progress.program
                     val trainingSession = progress.activeSession
@@ -640,9 +647,28 @@ class WorkoutViewModel @Inject constructor(
         _equipmentRewritePrompt.value = null
     }
 
+    /**
+     * Resolves tombstoned rows referenced by the current frame (deleted
+     * mid-session) into [retainedEquipment] so subheader names and retained
+     * tiers never blank. Live catalog rows are never retained.
+     */
+    private suspend fun fetchRetainedEquipment(catalog: List<Equipment>) {
+        val loaded = sessionFrames.value as? WorkoutUiState.Loaded ?: return
+        val referenced = loaded.lifts.mapNotNull { it.sessionEquipmentId }.toSet()
+        val known = catalog.map { it.id.value }.toSet() +
+            retainedEquipment.value.map { it.id.value }
+        val fetched =
+            (referenced - known).mapNotNull { id ->
+                getEquipment(com.stratum.domain.lift.identity.EquipmentId(id))
+            }.filter { it.isDeleted }
+        if (fetched.isNotEmpty()) {
+            retainedEquipment.value = retainedEquipment.value + fetched
+        }
+    }
+
     private fun attachEquipmentNames(state: WorkoutUiState): WorkoutUiState {
         if (state !is WorkoutUiState.Loaded) return state
-        val names = equipmentCatalog.value.associate { it.id.value to it.name }
+        val names = (equipmentCatalog.value + retainedEquipment.value).associate { it.id.value to it.name }
         if (names.isEmpty()) return state
         return state.copy(
             lifts =

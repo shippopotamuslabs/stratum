@@ -439,6 +439,7 @@ class WorkoutViewModelTest {
                 liftRepository,
             ),
             observeEquipmentCatalog = ObserveEquipmentCatalogUseCase(equipmentRepository),
+            getEquipment = com.stratum.domain.lift.GetEquipmentUseCase(equipmentRepository),
             getRecentlyUsedEquipment = GetRecentlyUsedEquipmentForLiftUseCase(
                 trainingLogRepository,
                 equipmentRepository,
@@ -539,6 +540,7 @@ class WorkoutViewModelTest {
                 liftRepository,
             ),
             observeEquipmentCatalog = ObserveEquipmentCatalogUseCase(equipmentRepository),
+            getEquipment = com.stratum.domain.lift.GetEquipmentUseCase(equipmentRepository),
             getRecentlyUsedEquipment = GetRecentlyUsedEquipmentForLiftUseCase(
                 trainingLogRepository,
                 equipmentRepository,
@@ -637,6 +639,7 @@ class WorkoutViewModelTest {
                 liftRepository,
             ),
             observeEquipmentCatalog = ObserveEquipmentCatalogUseCase(equipmentRepository),
+            getEquipment = com.stratum.domain.lift.GetEquipmentUseCase(equipmentRepository),
             getRecentlyUsedEquipment = GetRecentlyUsedEquipmentForLiftUseCase(
                 trainingLogRepository,
                 equipmentRepository,
@@ -1377,6 +1380,7 @@ class WorkoutViewModelTest {
                 liftRepository,
             ),
             observeEquipmentCatalog = ObserveEquipmentCatalogUseCase(equipmentRepository),
+            getEquipment = com.stratum.domain.lift.GetEquipmentUseCase(equipmentRepository),
             getRecentlyUsedEquipment = GetRecentlyUsedEquipmentForLiftUseCase(
                 trainingLogRepository,
                 equipmentRepository,
@@ -1474,6 +1478,7 @@ class WorkoutViewModelTest {
                 liftRepository,
             ),
             observeEquipmentCatalog = ObserveEquipmentCatalogUseCase(equipmentRepository),
+            getEquipment = com.stratum.domain.lift.GetEquipmentUseCase(equipmentRepository),
             getRecentlyUsedEquipment = GetRecentlyUsedEquipmentForLiftUseCase(
                 trainingLogRepository,
                 equipmentRepository,

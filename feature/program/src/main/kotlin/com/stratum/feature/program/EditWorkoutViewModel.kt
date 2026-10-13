@@ -75,6 +75,7 @@ class EditWorkoutViewModel @Inject constructor(
     private val programChangeEventRepository: ProgramChangeEventRepository,
     private val workoutEditSession: WorkoutEditSession,
     private val observeEquipmentCatalog: ObserveEquipmentCatalogUseCase,
+    private val getEquipment: com.stratum.domain.lift.GetEquipmentUseCase,
     private val getRecentlyUsedEquipment: GetRecentlyUsedEquipmentForLiftUseCase,
     private val equipmentPickResult: EquipmentPickResult,
     startTrainingSession: StartTrainingSessionUseCase,
@@ -206,7 +207,20 @@ class EditWorkoutViewModel @Inject constructor(
                         return@collect
                     }
                     val compoundByLiftId = catalogLifts.associate { lift -> lift.id.value to lift.isCompound }
-                    val equipmentNamesById = equipment.associate { item -> item.id.value to item.name }
+                    // STR-105 Scope 5: slots referencing tombstoned equipment
+                    // (legacy orphans) still show the retained name.
+                    val catalogNames = equipment.associate { item -> item.id.value to item.name }
+                    val referencedIds =
+                        workout.workoutLifts.mapNotNull { it.equipmentId?.value }.toSet()
+                    val retainedNames =
+                        referencedIds
+                            .filterNot { it in catalogNames }
+                            .mapNotNull { id ->
+                                getEquipment(com.stratum.domain.lift.identity.EquipmentId(id))
+                                    ?.let { row -> id to row.name }
+                            }
+                            .toMap()
+                    val equipmentNamesById = catalogNames + retainedNames
                     val loaded =
                         workout.toEditWorkoutUiState(liftNamesById, compoundByLiftId, equipmentNamesById)
                             .markSaveState()
@@ -325,14 +339,31 @@ class EditWorkoutViewModel @Inject constructor(
 
     private suspend fun persistWorkoutIfNeeded(): EditWorkoutStartCoordinator.PersistResult {
         val loaded = _uiState.value as? EditWorkoutUiState.Loaded
-            ?: return EditWorkoutStartCoordinator.PersistResult.Failed
         val baseline = baselineWorkout
-            ?: return EditWorkoutStartCoordinator.PersistResult.Failed
+        if (loaded == null || baseline == null) {
+            return EditWorkoutStartCoordinator.PersistResult.Failed
+        }
         EditWorkoutStartCoordinator.persistResultFor(loaded, isSaving = loaded.isSaving)?.let {
             return it
         }
         if (!loaded.isDirty) {
             return EditWorkoutStartCoordinator.PersistResult.Success
+        }
+        // STR-105 Scope 8: never persist a slot pointing at tombstoned equipment.
+        val updatedWorkoutPreview = loaded.lifts.toWorkout(baseline, WorkoutId(loaded.workoutId))
+        val orphanedSlots =
+            updatedWorkoutPreview.workoutLifts.filter { slot ->
+                slot.equipmentId?.let { id -> getEquipment(id)?.isDeleted } == true
+            }
+        if (orphanedSlots.isNotEmpty()) {
+            val names =
+                orphanedSlots.joinToString(", ") { slot ->
+                    catalogLifts.firstOrNull { it.id == slot.liftId }?.name
+                        ?: slot.liftId.value
+                }
+            _userMessage.value =
+                "Deleted equipment is still assigned to $names. Pick a live equipment first."
+            return EditWorkoutStartCoordinator.PersistResult.Failed
         }
         _uiState.value = loaded.copy(isSaving = true)
         val updatedWorkout = loaded.lifts.toWorkout(baseline, WorkoutId(loaded.workoutId))

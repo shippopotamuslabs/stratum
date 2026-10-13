@@ -32,5 +32,5 @@ fun testForkEquipmentWithTiers(
             ValidateMicroIncrementsUseCase(),
             FakeLoggingPort(),
         ),
-        SetLiftEquipmentUseCase(liftRepository, FakeLoggingPort()),
+        SetLiftEquipmentUseCase(liftRepository, equipmentRepository, FakeLoggingPort()),
     )

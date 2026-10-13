@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -24,6 +25,7 @@ internal fun StratumDialogPanel(
     title: String,
     body: String,
     modifier: Modifier = Modifier,
+    content: @Composable (ColumnScope.() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit,
 ) {
     val colors = StratumThemeAccessor.colors
@@ -50,6 +52,7 @@ internal fun StratumDialogPanel(
             style = StratumThemeAccessor.typography.bodyLarge,
             muted = true,
         )
+        content?.invoke(this)
         DialogActionRow(actions = actions)
     }
 }

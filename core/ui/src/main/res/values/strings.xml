@@ -76,6 +76,10 @@
     <string name="equipment_delete_title">Delete %1$s?</string>
     <string name="equipment_delete_body">%1$s will be removed from your equipment. Logged sets keep showing it, and lifts using it keep working.</string>
     <string name="equipment_delete_confirm">Delete</string>
+    <string name="equipment_delete_affected_body">%1$s is used by %2$s. Choose a replacement — everything using %1$s will switch to it. Logged sets keep showing %1$s.</string>
+    <string name="equipment_delete_fallback_body">%1$s is used by %2$s. No other equipment is available, so they will fall back to Bodyweight. Logged sets keep showing %1$s.</string>
+    <string name="equipment_delete_replacement_label">Replacement equipment</string>
+    <string name="equipment_delete_workout_slots">%1$s (%2$d slot(s))</string>
     <string name="equipment_micro_row">Micro stops</string>
     <string name="equipment_micro_none">none</string>
     <string name="equipment_affected_sheet_title">Affected lifts</string>

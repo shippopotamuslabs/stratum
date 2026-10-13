@@ -118,6 +118,9 @@ internal class LiveWorkoutSessionRuntime(
      * tiers by the equipment in use from this map.
      */
     var equipmentById: Map<EquipmentId, Equipment> = emptyMap()
+
+    /** Tombstoned equipment retained for this session (STR-105 grandfathering). */
+    var tombstonedEquipmentIds: Set<EquipmentId> = emptySet()
     var fatigueByLiftId: Map<LiftId, FatigueDecay> = emptyMap()
     var snapshotLoaded: Boolean = false
     var templateLiftFingerprint: List<String> = emptyList()
@@ -405,7 +408,7 @@ internal class LiveWorkoutSessionRuntime(
     private fun resolveTemplateChanges(hasDirtyEdits: Boolean): TemplateChangeSummaryUi? {
         if (!hasDirtyEdits) return null
         val baseline = baselineWorkout ?: return null
-        val applied = applyOverlayToWorkout(baseline, overlay)
+        val applied = applyOverlayToWorkout(baseline, overlay, tombstonedEquipmentIds)
         val summary = computeTemplateChangeSummary(baseline, applied, liftNamesById)
         return TemplateChangeSummaryMapper.map(summary)
     }

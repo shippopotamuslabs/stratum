@@ -11,6 +11,7 @@ import com.stratum.domain.lift.LiftRepository
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.alignedWithEquipment
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftCatalogNoteId
 import com.stratum.domain.lift.identity.LiftId
@@ -296,6 +297,21 @@ class FakeLiftRepository(
             val first = minted.firstOrNull()?.body
             lifts.value = lifts.value.map { lift ->
                 if (lift.id == id) lift.copy(pinnedNote = first) else lift
+            }
+        }
+    }
+
+    /** STR-105 sweep: re-point lifts off deleted equipment (loadType aligned). */
+    fun repointEquipment(deletedId: EquipmentId, replacementId: EquipmentId) {
+        lifts.value = lifts.value.map { lift ->
+            if (lift.equipmentId == deletedId) {
+                lift.copy(
+                    equipmentId = replacementId,
+                    equipmentName = equipmentNamesById[replacementId],
+                    loadType = lift.loadType.alignedWithEquipment(replacementId),
+                )
+            } else {
+                lift
             }
         }
     }
