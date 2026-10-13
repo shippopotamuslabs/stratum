@@ -11,8 +11,11 @@ import com.stratum.core.ui.component.LiftSwapOptionState
 import com.stratum.core.ui.component.LiftSwapSheetState
 import com.stratum.core.ui.component.defaultMuscleFilterTiers
 import com.stratum.core.ui.component.toVolumeDisplayName
+import com.stratum.domain.lift.DeleteLiftUseCase
+import com.stratum.domain.lift.GetLiftDeleteImpactUseCase
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.LiftCategory
+import com.stratum.domain.lift.LiftDeleteImpact
 import com.stratum.domain.lift.MergeLiftsUseCase
 import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
@@ -50,21 +53,52 @@ data class GymUiState(
     val sheet: LiftSwapSheetState,
     val isMergeMode: Boolean = false,
     val isMerging: Boolean = false,
+    val pendingDelete: PendingLiftDeleteUi? = null,
 ) {
     val canConfirmMerge: Boolean
         get() = isMergeMode && !isMerging && sheet.selectedOptions.size >= 2
 }
+
+/** One workout line in the lift delete dialog (display name + slot count). */
+data class AffectedLiftWorkoutUi(
+    val name: String,
+    val slotCount: Int,
+)
+
+/** Lift delete staged in the confirmation dialog (STR-131 impact, DB-computed). */
+data class PendingLiftDeleteUi(
+    val id: String,
+    val name: String,
+    val affectedWorkouts: List<AffectedLiftWorkoutUi> = emptyList(),
+    val loggedSetCount: Int = 0,
+    val inActiveSession: Boolean = false,
+) {
+    val totalSlotCount: Int get() = affectedWorkouts.sumOf { it.slotCount }
+}
+
+internal fun LiftDeleteImpact.toPendingDeleteUi(): PendingLiftDeleteUi =
+    PendingLiftDeleteUi(
+        id = liftId.value,
+        name = liftName,
+        affectedWorkouts =
+            affectedWorkouts.map { AffectedLiftWorkoutUi(it.workoutName, it.slotCount) },
+        loggedSetCount = loggedSetCount,
+        inActiveSession = inActiveSession,
+    )
 
 @HiltViewModel
 class GymViewModel @Inject constructor(
     private val observeLiftCatalog: ObserveLiftCatalogUseCase,
     private val setLiftEnabled: SetLiftEnabledUseCase,
     private val mergeLifts: MergeLiftsUseCase,
+    private val deleteLift: DeleteLiftUseCase,
+    private val getLiftDeleteImpact: GetLiftDeleteImpactUseCase,
 ) : ViewModel() {
 
     private val filters = MutableStateFlow(GymFilters())
     private val mergeSelection = MutableStateFlow(MergeSelection())
     private val isMerging = MutableStateFlow(false)
+    private val pendingDelete = MutableStateFlow<PendingLiftDeleteUi?>(null)
     private val _userMessage = MutableStateFlow<String?>(null)
     val userMessage: StateFlow<String?> = _userMessage.asStateFlow()
 
@@ -78,7 +112,8 @@ class GymViewModel @Inject constructor(
             filters.asStateFlow(),
             mergeSelection.asStateFlow(),
             isMerging.asStateFlow(),
-        ) { catalog, filters, merge, merging ->
+            pendingDelete.asStateFlow(),
+        ) { catalog, filters, merge, merging, pending ->
             val base = buildGymCatalogState(catalog, filters)
             val selectedOptions =
                 if (!merge.active) {
@@ -96,6 +131,7 @@ class GymViewModel @Inject constructor(
                     ),
                 isMergeMode = merge.active,
                 isMerging = merging,
+                pendingDelete = pending,
             )
         }.stateIn(
             viewModelScope,
@@ -219,11 +255,47 @@ class GymViewModel @Inject constructor(
         }
     }
 
+    /** Arms the delete confirmation dialog; loads the STR-131 impact first. */
+    private var deleteLoadJob: kotlinx.coroutines.Job? = null
+
+    fun onStartDelete(liftId: String) {
+        if (mergeSelection.value.active || isMerging.value) return
+        deleteLoadJob?.cancel()
+        deleteLoadJob =
+            viewModelScope.launch {
+                val impact = getLiftDeleteImpact(LiftId(liftId)) ?: return@launch
+                pendingDelete.value = impact.toPendingDeleteUi()
+            }
+    }
+
+    fun onDismissDelete() {
+        deleteLoadJob?.cancel()
+        deleteLoadJob = null
+        pendingDelete.value = null
+    }
+
+    /** Tombstones the staged lift (seed and custom alike — delete means delete). */
+    fun onConfirmDelete() {
+        val pending = pendingDelete.value ?: return
+        viewModelScope.launch {
+            val result = deleteLift(LiftId(pending.id))
+            pendingDelete.value = null
+            result
+                .onSuccess {
+                    _userMessage.value = "Deleted ${pending.name}."
+                }
+                .onFailure {
+                    _userMessage.value = MSG_DELETE_FAILED
+                }
+        }
+    }
+
     private companion object {
         const val MSG_TOGGLE_FAILED = "Couldn't update that lift. Try again."
         const val MSG_MERGE_SUCCESS = "Lifts merged"
         const val MSG_MERGE_FAILED = "Couldn't merge those lifts. Try again."
         const val MSG_NEED_TWO = "Select at least two lifts to merge"
+        const val MSG_DELETE_FAILED = "Couldn't delete that lift. Try again."
     }
 
     private fun <T> Set<T>.toggle(value: T): Set<T> =

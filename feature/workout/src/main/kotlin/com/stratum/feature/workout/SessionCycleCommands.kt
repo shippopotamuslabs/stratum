@@ -75,6 +75,7 @@ internal suspend fun LiveWorkoutSessionRuntime.handleApplyCycleSnapshot(cmd: Ses
     liftsById = cmd.catalog.associateBy { lift -> lift.id }
     equipmentById = cmd.equipment.associateBy { equipment -> equipment.id }
     tombstonedEquipmentIds = cmd.equipment.filter { it.isDeleted }.map { it.id }.toSet()
+    tombstonedLiftIds = cmd.catalog.filter { it.isDeleted }.map { it.id }.toSet()
 
     val program = cmd.program
     val session = cmd.session
