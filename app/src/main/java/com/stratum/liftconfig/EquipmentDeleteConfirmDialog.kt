@@ -42,6 +42,7 @@ internal fun EquipmentDeleteConfirmDialog(
     candidates: List<ReplacementOptionUi> = emptyList(),
     selectedReplacementId: String? = null,
     usesBodyweightFallback: Boolean = false,
+    canConfirmDelete: Boolean? = null,
     onSelectReplacement: (String) -> Unit = {},
 ) {
     val workoutLabels = mutableListOf<String>()
@@ -62,7 +63,7 @@ internal fun EquipmentDeleteConfirmDialog(
             stringResource(UiR.string.equipment_delete_affected_body, name, affectedSummary)
         else -> stringResource(UiR.string.equipment_delete_body, name)
     }
-    val confirmEnabled = !hasAffected || usesBodyweightFallback || selectedReplacementId != null
+    val confirmEnabled = canConfirmDelete ?: (!hasAffected || usesBodyweightFallback || selectedReplacementId != null)
     StratumConfirmDialog(
         title = stringResource(UiR.string.equipment_delete_title, name),
         body = body,

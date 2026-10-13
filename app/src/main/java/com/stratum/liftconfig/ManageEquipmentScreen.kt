@@ -275,6 +275,7 @@ fun ManageEquipmentScreen(
             candidates = pendingDelete.candidates,
             selectedReplacementId = pendingDelete.selectedReplacementId,
             usesBodyweightFallback = pendingDelete.usesBodyweightFallback,
+            canConfirmDelete = pendingDelete.canConfirmDelete,
             onSelectReplacement = actions.onSelectReplacement,
         )
     }
