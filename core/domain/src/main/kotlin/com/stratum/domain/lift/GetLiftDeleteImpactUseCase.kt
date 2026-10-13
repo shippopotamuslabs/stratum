@@ -1,8 +1,10 @@
 package com.stratum.domain.lift
 
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.program.Program
 import com.stratum.domain.program.ProgramRepository
 import com.stratum.domain.training.TrainingLogRepository
+import com.stratum.domain.training.TrainingSession
 import com.stratum.domain.workout.WorkoutOverlayStore
 import javax.inject.Inject
 
@@ -42,29 +44,7 @@ class GetLiftDeleteImpactUseCase @Inject constructor(
 
         val activeSession = trainingLogRepository.getActiveSession()
         val inActiveSession =
-            activeSession != null && run {
-                val templateHasLift =
-                    activeSession.workoutId?.let { workoutId ->
-                        programs
-                            .asSequence()
-                            .flatMap { it.workouts.asSequence() }
-                            .firstOrNull { it.id == workoutId }
-                            ?.workoutLifts
-                            ?.any { it.liftId == id }
-                    } ?: false
-                // STR-131 Scope 4.5: the lift also counts as session-referenced
-                // when it only exists in the session overlay (swapped in or
-                // added mid-session, no set logged yet). The logged-set check
-                // stays: it covers a lift logged then swapped back out, which
-                // neither the template nor the overlay still names.
-                val overlay = workoutOverlayStore.load(activeSession.id)
-                val overlayHasLift =
-                    overlay != null &&
-                        (id in overlay.swappedLifts.values ||
-                            overlay.addedLifts.any { it.liftId == id })
-                templateHasLift || overlayHasLift ||
-                    trainingLogRepository.getSetsForSession(activeSession.id).any { it.liftId == id }
-            }
+            activeSession != null && sessionReferencesLift(activeSession, programs, id)
 
         return LiftDeleteImpact(
             liftId = id,
@@ -73,5 +53,31 @@ class GetLiftDeleteImpactUseCase @Inject constructor(
             loggedSetCount = loggedSetCount,
             inActiveSession = inActiveSession,
         )
+    }
+
+    /**
+     * STR-131 Scope 4.5 session-reference check, cheapest signal first: the
+     * session's template workout, then the session overlay (a lift swapped in
+     * or added mid-session, no set logged yet), then logged sets (a lift
+     * logged then swapped back out, which neither of the first two names).
+     */
+    private suspend fun sessionReferencesLift(
+        session: TrainingSession,
+        programs: List<Program>,
+        id: LiftId,
+    ): Boolean {
+        val templateHasLift =
+            session.workoutId?.let { workoutId ->
+                programs
+                    .asSequence()
+                    .flatMap { it.workouts.asSequence() }
+                    .firstOrNull { it.id == workoutId }
+                    ?.workoutLifts
+                    ?.any { it.liftId == id }
+            } ?: false
+        if (templateHasLift) return true
+        val overlay = workoutOverlayStore.load(session.id)
+        if (overlay?.containsLift(id) == true) return true
+        return trainingLogRepository.getSetsForSession(session.id).any { it.liftId == id }
     }
 }

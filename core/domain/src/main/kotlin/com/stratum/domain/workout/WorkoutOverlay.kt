@@ -153,6 +153,10 @@ data class WorkoutOverlay(
                 workoutLiftPinnedNotes.isNotEmpty() ||
                 workoutLiftPinnedNoteLists.isNotEmpty()
 
+    /** True when [liftId] is live in this session via a lift swap or a mid-session add. */
+    fun containsLift(liftId: LiftId): Boolean =
+        liftId in swappedLifts.values || addedLifts.any { it.liftId == liftId }
+
     fun apply(mutation: StructuralMutation): WorkoutOverlay {
         val nextUndoStack = undoStack + mutation
         return when (mutation) {
