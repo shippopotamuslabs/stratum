@@ -20,13 +20,21 @@ import kotlinx.coroutines.flow.Flow
  */
 @Suppress("TooManyFunctions")
 interface LiftRepository {
-    /** Hot stream of every lift in the catalog, each carrying its current `enabled` flag. */
+    /**
+     * Hot stream of the live catalog, each carrying its current `enabled` flag.
+     * Tombstoned lifts ([Lift.isDeleted], STR-131) are filtered at the
+     * repository layer and never surface here — nor in any other catalog read
+     * on this interface. By-id reads ([getLiftsByIds]) stay unfiltered: they
+     * exist so history/session resolution can reach retained tombstoned rows.
+     */
     fun observeLifts(): Flow<List<Lift>>
 
     /**
      * Snapshot of lifts whose ids are in [ids] — SQL `WHERE id IN (...)`, not a full-catalog
      * load then filter (DATA_LAYER_RULES.md §5). Empty [ids] returns empty without a query.
      * Order is not guaranteed; callers that need a stable order should sort.
+     * Unfiltered by tombstone: tombstoned rows are returned (history and
+     * grandfathered sessions resolve through here).
      */
     suspend fun getLiftsByIds(ids: Collection<LiftId>): List<Lift>
 

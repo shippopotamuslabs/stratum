@@ -57,7 +57,11 @@ class RoomLiftRepository @Inject constructor(
             liftDao.observeLifts(),
             observeEquipmentById(),
         ) { rows, equipmentById ->
-            rows.map { it.toDomain(equipmentById) }
+            // STR-131: catalog reads never surface tombstoned lifts. The filter
+            // lives here (repository layer) so every catalog consumer — Gym,
+            // pickers, swap lists, generation, recents, import matching, Lift
+            // Metrics — inherits it; by-id reads stay unfiltered for history.
+            rows.filterNot { it.isDeleted }.map { it.toDomain(equipmentById) }
         }
 
     override suspend fun getLiftsByIds(ids: Collection<LiftId>): List<Lift> {
@@ -74,7 +78,11 @@ class RoomLiftRepository @Inject constructor(
             liftDao.observeEnabledLifts(),
             observeEquipmentById(),
         ) { rows, equipmentById ->
-            rows.map { it.toDomain(equipmentById) }
+            // STR-131: catalog reads never surface tombstoned lifts. The filter
+            // lives here (repository layer) so every catalog consumer — Gym,
+            // pickers, swap lists, generation, recents, import matching, Lift
+            // Metrics — inherits it; by-id reads stay unfiltered for history.
+            rows.filterNot { it.isDeleted }.map { it.toDomain(equipmentById) }
         }
 
     override fun observeLifts(isCustom: Boolean): Flow<List<Lift>> =
@@ -82,7 +90,11 @@ class RoomLiftRepository @Inject constructor(
             liftDao.observeLiftsByCustom(isCustom),
             observeEquipmentById(),
         ) { rows, equipmentById ->
-            rows.map { it.toDomain(equipmentById) }
+            // STR-131: catalog reads never surface tombstoned lifts. The filter
+            // lives here (repository layer) so every catalog consumer — Gym,
+            // pickers, swap lists, generation, recents, import matching, Lift
+            // Metrics — inherits it; by-id reads stay unfiltered for history.
+            rows.filterNot { it.isDeleted }.map { it.toDomain(equipmentById) }
         }
 
     override fun observeLiftsContainingPattern(pattern: MovementPattern): Flow<List<Lift>> =
@@ -90,7 +102,11 @@ class RoomLiftRepository @Inject constructor(
             liftDao.observeLiftsByPattern(1 shl pattern.ordinal),
             observeEquipmentById(),
         ) { rows, equipmentById ->
-            rows.map { it.toDomain(equipmentById) }
+            // STR-131: catalog reads never surface tombstoned lifts. The filter
+            // lives here (repository layer) so every catalog consumer — Gym,
+            // pickers, swap lists, generation, recents, import matching, Lift
+            // Metrics — inherits it; by-id reads stay unfiltered for history.
+            rows.filterNot { it.isDeleted }.map { it.toDomain(equipmentById) }
         }
 
     override fun observeSelectedPreset(): Flow<GymPreset?> =
@@ -324,7 +340,11 @@ class RoomLiftRepository @Inject constructor(
         syncTouch.withWriteLock {
             database.withTransaction {
                 if (database.liftNoteDao().getForLift(id).isEmpty()) {
-                    val current = liftDao.getById(id)?.pinnedNote?.takeIf { it.isNotBlank() }
+                    val current =
+                        liftDao.getById(id)
+                            ?.takeUnless { it.isDeleted }
+                            ?.pinnedNote
+                            ?.takeIf { it.isNotBlank() }
                     if (current != null) {
                         val body = sanitizeLiftNoteBody(current) ?: return@withTransaction
                         database.liftNoteDao().upsertAll(
@@ -351,7 +371,8 @@ class RoomLiftRepository @Inject constructor(
     }
 
     override suspend fun setPinnedNotes(id: LiftId, notes: List<CatalogNoteInput>) {
-        if (liftDao.getById(id) == null) return
+        // Tombstoned lifts are immutable (STR-131 write guard).
+        if (liftDao.getById(id)?.isDeleted != false) return
         val now = System.currentTimeMillis()
         syncTouch.withWriteLock {
             database.withTransaction {

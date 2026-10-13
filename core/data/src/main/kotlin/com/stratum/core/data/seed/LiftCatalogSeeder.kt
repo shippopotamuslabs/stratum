@@ -48,6 +48,11 @@ class LiftCatalogSeeder(
                 .filterNot { dto -> isBandVariantLift(dto.id, dto.name) }
                 .mapNotNull(::mapDto)
         for (lift in lifts) {
+            // STR-131: a tombstoned seed row is never resurrected by reseeding.
+            // The fresh seed entity carries isDeleted=false and default user
+            // fields, so upserting over a tombstoned row would silently undo
+            // the user's delete (and the synced tombstone). Skip it whole.
+            if (liftDao.getById(lift.id)?.isDeleted == true) continue
             liftDao.upsert(lift)
         }
         return dtos.size
