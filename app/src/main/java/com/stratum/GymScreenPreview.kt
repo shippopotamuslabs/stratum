@@ -66,6 +66,22 @@ internal fun previewGymLoaded(): GymUiState =
             ),
     )
 
+internal fun previewGymDeleteDialog(): GymUiState =
+    previewGymLoaded().copy(
+        pendingDelete =
+            PendingLiftDeleteUi(
+                id = "lift-1",
+                name = "Barbell Bench Press",
+                affectedWorkouts =
+                    listOf(
+                        AffectedLiftWorkoutUi(name = "Push Day", slotCount = 2),
+                        AffectedLiftWorkoutUi(name = "Full Body", slotCount = 1),
+                    ),
+                loggedSetCount = 148,
+                inActiveSession = true,
+            ),
+    )
+
 internal fun previewGymMergeMode(): GymUiState {
     val options = previewGymOptions()
     return GymUiState(

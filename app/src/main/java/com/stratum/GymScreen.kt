@@ -27,6 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
@@ -47,6 +48,7 @@ import com.stratum.core.ui.component.SelectedMusclesRow
 import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumSearchField
+import com.stratum.core.ui.component.StratumSwipeToRevealRow
 import com.stratum.core.ui.component.StratumTabScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
@@ -100,6 +102,9 @@ fun GymScreen(
                 onToggleMergeSelection = viewModel::toggleMergeSelection,
                 onDeselectFromMerge = viewModel::deselectFromMerge,
                 onConfirmMerge = viewModel::confirmMerge,
+                onStartDelete = viewModel::onStartDelete,
+                onConfirmDelete = viewModel::onConfirmDelete,
+                onDismissDelete = viewModel::onDismissDelete,
             ),
         snackbarHostState = snackbarHostState,
         modifier = modifier,
@@ -125,6 +130,9 @@ fun GymScreen(
     val onToggleMergeSelection = callbacks.onToggleMergeSelection
     val onDeselectFromMerge = callbacks.onDeselectFromMerge
     val onConfirmMerge = callbacks.onConfirmMerge
+    val onStartDelete = callbacks.onStartDelete
+    val onConfirmDelete = callbacks.onConfirmDelete
+    val onDismissDelete = callbacks.onDismissDelete
     val sheet = state.sheet
     var showMuscleSheet by remember { mutableStateOf(false) }
     var showGymActions by remember { mutableStateOf(false) }
@@ -229,29 +237,50 @@ fun GymScreen(
                 contentPadding = PaddingValues(bottom = 16.dp),
             ) {
                 items(sheet.options, key = { option -> option.id }) { option ->
-                    LiftSwapOptionRow(
-                        option = option,
-                        selected = option.id in selectedIds,
-                        onClick = {
-                            if (state.isMergeMode) {
-                                onToggleMergeSelection(option)
-                            } else {
-                                selectedLift = option
-                            }
-                        },
-                        trailingContent =
-                            if (state.isMergeMode) {
-                                null
-                            } else {
-                                {
-                                    Icon(
-                                        painter = painterResource(UiR.drawable.ic_chevron_right),
-                                        contentDescription = null,
-                                        tint = StratumThemeAccessor.colors.textMuted,
-                                    )
+                    val rowContent: @Composable () -> Unit = {
+                        LiftSwapOptionRow(
+                            option = option,
+                            selected = option.id in selectedIds,
+                            onClick = {
+                                if (state.isMergeMode) {
+                                    onToggleMergeSelection(option)
+                                } else {
+                                    selectedLift = option
                                 }
                             },
-                    )
+                            trailingContent =
+                                if (state.isMergeMode) {
+                                    null
+                                } else {
+                                    {
+                                        Icon(
+                                            painter = painterResource(UiR.drawable.ic_chevron_right),
+                                            contentDescription = null,
+                                            tint = StratumThemeAccessor.colors.textMuted,
+                                        )
+                                    }
+                                },
+                        )
+                    }
+                    if (state.isMergeMode) {
+                        rowContent()
+                    } else {
+                        // STR-131 swipe-to-delete (normal mode only; merge mode,
+                        // an in-flight merge, and the row whose config sheet is
+                        // open render without swipe). STR-130 corner treatment:
+                        // transparent content background + panel clip so the red
+                        // reveal conforms to the card's rounded corners.
+                        StratumSwipeToRevealRow(
+                            onActionClick = { onStartDelete(option.id) },
+                            actionContentDescription =
+                                stringResource(UiR.string.gym_delete_lift_action, option.name),
+                            enabled = !state.isMerging && selectedLift?.id != option.id,
+                            contentBackgroundColor = Color.Transparent,
+                            modifier = Modifier.clip(StratumThemeAccessor.shapes.panel),
+                        ) {
+                            rowContent()
+                        }
+                    }
                 }
 
                 if (sheet.options.isEmpty()) {
@@ -315,6 +344,15 @@ fun GymScreen(
                 onEnterMergeMode(id)
             },
             onDismissRequest = { selectedLift = null },
+        )
+    }
+
+    val pendingDelete = state.pendingDelete
+    if (pendingDelete != null) {
+        LiftDeleteConfirmDialog(
+            pending = pendingDelete,
+            onConfirm = onConfirmDelete,
+            onDismiss = onDismissDelete,
         )
     }
 
@@ -478,4 +516,7 @@ data class GymScreenCallbacks(
     val onToggleMergeSelection: (LiftSwapOptionState) -> Unit = {},
     val onDeselectFromMerge: (String) -> Unit = {},
     val onConfirmMerge: (targetLiftId: String) -> Unit = {},
+    val onStartDelete: (liftId: String) -> Unit = {},
+    val onConfirmDelete: () -> Unit = {},
+    val onDismissDelete: () -> Unit = {},
 )

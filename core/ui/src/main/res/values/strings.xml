@@ -233,7 +233,14 @@
     <string name="gym_merge_cancel">Cancel merge</string>
     <string name="gym_merge_confirm_selection">Confirm merge selection</string>
     <string name="gym_merge_target_title">Merge into</string>
-    <string name="gym_merge_target_subtitle">All logged sets from the other lifts move onto the one you choose (it keeps its name, muscles, equipment, and other details). Custom lifts you merge away are removed; built-in Stratum lifts are turned off instead of deleted so you can re-enable them later.</string>
+    <string name="gym_merge_target_subtitle">All logged sets from the other lifts move onto the one you choose (it keeps its name, muscles, equipment, and other details). Lifts you merge away are deleted.</string>
+    <string name="gym_delete_lift_action">Delete %1$s</string>
+    <string name="lift_delete_title">Delete %1$s?</string>
+    <string name="lift_delete_confirm">Delete</string>
+    <string name="lift_delete_body">%1$s will be removed from your lift catalog.</string>
+    <string name="lift_delete_slots_body">It will be removed from %1$s. Those workouts stay — only the lift\'s slots are removed.</string>
+    <string name="lift_delete_sets_body">%1$d logged set(s) stay in your history, unchanged.</string>
+    <string name="lift_delete_session_note">It\'s in the workout you\'re doing now. You can finish the session — the lift won\'t be saved back to the template.</string>
     <string name="gym_merge_confirm">Confirm merge</string>
     <string name="gym_merge_success">Lifts merged</string>
     <string name="gym_merge_failed">Couldn\'t merge those lifts. Try again.</string>
