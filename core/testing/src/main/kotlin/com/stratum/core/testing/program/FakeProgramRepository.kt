@@ -342,6 +342,14 @@ class FakeProgramRepository(
         }
     }
 
+    /** Drops every pair-note entry scoped to [liftId] (merge tombstone sweep parity). */
+    suspend fun dropPairNotesForLift(liftId: LiftId) {
+        notesMutex.withLock {
+            workoutNotes.value =
+                workoutNotes.value.filterKeys { it.liftId != liftId }
+        }
+    }
+
     /**
      * STR-131 sweep: remove every template slot pointing at [liftId] across all
      * programs (workouts survive, possibly empty) and drop every pair-note

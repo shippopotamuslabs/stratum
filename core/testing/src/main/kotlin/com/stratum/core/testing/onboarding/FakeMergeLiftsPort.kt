@@ -62,6 +62,8 @@ class FakeMergeLiftsPort(
         }
 
         for (id in sourcesToTombstone) {
+            // STR-131 parity: a tombstoned source's pair-note stashes are swept.
+            programRepository.dropPairNotesForLift(id)
             liftRepository.tombstoneLift(id)
         }
         if (sourcesToDelete.isNotEmpty()) {

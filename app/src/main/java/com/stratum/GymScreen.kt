@@ -237,50 +237,15 @@ fun GymScreen(
                 contentPadding = PaddingValues(bottom = 16.dp),
             ) {
                 items(sheet.options, key = { option -> option.id }) { option ->
-                    val rowContent: @Composable () -> Unit = {
-                        LiftSwapOptionRow(
-                            option = option,
-                            selected = option.id in selectedIds,
-                            onClick = {
-                                if (state.isMergeMode) {
-                                    onToggleMergeSelection(option)
-                                } else {
-                                    selectedLift = option
-                                }
-                            },
-                            trailingContent =
-                                if (state.isMergeMode) {
-                                    null
-                                } else {
-                                    {
-                                        Icon(
-                                            painter = painterResource(UiR.drawable.ic_chevron_right),
-                                            contentDescription = null,
-                                            tint = StratumThemeAccessor.colors.textMuted,
-                                        )
-                                    }
-                                },
-                        )
-                    }
-                    if (state.isMergeMode) {
-                        rowContent()
-                    } else {
-                        // STR-131 swipe-to-delete (normal mode only; merge mode,
-                        // an in-flight merge, and the row whose config sheet is
-                        // open render without swipe). STR-130 corner treatment:
-                        // transparent content background + panel clip so the red
-                        // reveal conforms to the card's rounded corners.
-                        StratumSwipeToRevealRow(
-                            onActionClick = { onStartDelete(option.id) },
-                            actionContentDescription =
-                                stringResource(UiR.string.gym_delete_lift_action, option.name),
-                            enabled = !state.isMerging && selectedLift?.id != option.id,
-                            contentBackgroundColor = Color.Transparent,
-                            modifier = Modifier.clip(StratumThemeAccessor.shapes.panel),
-                        ) {
-                            rowContent()
-                        }
-                    }
+                    GymCatalogRow(
+                        option = option,
+                        selected = option.id in selectedIds,
+                        isMergeMode = state.isMergeMode,
+                        isSwipeEnabled = !state.isMerging && selectedLift?.id != option.id,
+                        onToggleMergeSelection = onToggleMergeSelection,
+                        onSelect = { selectedLift = option },
+                        onStartDelete = onStartDelete,
+                    )
                 }
 
                 if (sheet.options.isEmpty()) {
@@ -373,6 +338,64 @@ fun GymScreen(
     LaunchedEffect(state.isMerging, state.isMergeMode) {
         if (!state.isMerging && !state.isMergeMode) {
             showMergeTargetSheet = false
+        }
+    }
+}
+
+/**
+ * One Gym catalog row: merge mode renders the plain selectable row; normal
+ * mode wraps it in the STR-131 swipe-to-delete reveal with the STR-130 corner
+ * treatment (transparent content background + panel clip, so the red reveal
+ * conforms to the card's rounded corners). The revealed action opens the
+ * delete confirmation — it never deletes directly.
+ */
+@Composable
+private fun GymCatalogRow(
+    option: LiftSwapOptionState,
+    selected: Boolean,
+    isMergeMode: Boolean,
+    isSwipeEnabled: Boolean,
+    onToggleMergeSelection: (LiftSwapOptionState) -> Unit,
+    onSelect: () -> Unit,
+    onStartDelete: (String) -> Unit,
+) {
+    val rowContent: @Composable () -> Unit = {
+        LiftSwapOptionRow(
+            option = option,
+            selected = selected,
+            onClick = {
+                if (isMergeMode) {
+                    onToggleMergeSelection(option)
+                } else {
+                    onSelect()
+                }
+            },
+            trailingContent =
+                if (isMergeMode) {
+                    null
+                } else {
+                    {
+                        Icon(
+                            painter = painterResource(UiR.drawable.ic_chevron_right),
+                            contentDescription = null,
+                            tint = StratumThemeAccessor.colors.textMuted,
+                        )
+                    }
+                },
+        )
+    }
+    if (isMergeMode) {
+        rowContent()
+    } else {
+        StratumSwipeToRevealRow(
+            onActionClick = { onStartDelete(option.id) },
+            actionContentDescription =
+                stringResource(UiR.string.gym_delete_lift_action, option.name),
+            enabled = isSwipeEnabled,
+            contentBackgroundColor = Color.Transparent,
+            modifier = Modifier.clip(StratumThemeAccessor.shapes.panel),
+        ) {
+            rowContent()
         }
     }
 }
