@@ -168,6 +168,7 @@ fun EquipmentIncrementsRoute(
             candidates = pending.candidates,
             selectedReplacementId = pending.selectedReplacementId,
             usesBodyweightFallback = pending.usesBodyweightFallback,
+            canConfirmDelete = pending.canConfirmDelete,
             onSelectReplacement = viewModel::onSelectDeleteReplacement,
         )
     }
