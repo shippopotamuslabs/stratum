@@ -31,6 +31,7 @@ internal val PREVIEW_EQUIPMENT_CHROME =
                 onDismiss = {},
             ),
         forkSuggestion = "Cables (copy)",
+        nameField = IncrementEditorNameField(label = "Name", value = "Cables", onChanged = {}),
     )
 
 private val PREVIEW_OVERRIDE_CHROME =
