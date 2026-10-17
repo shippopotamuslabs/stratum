@@ -86,6 +86,15 @@ data class IncrementEditorChrome(
     val saveConfirm: IncrementSaveConfirm?,
     /** Null = no save-as-new and no fork sheet (nothing to fork from). */
     val forkSuggestion: String?,
+    /** STR-135: editable equipment name at the top of the body; null hides the field. */
+    val nameField: IncrementEditorNameField? = null,
+)
+
+/** STR-135: an editable name shown at the top of the editor body. */
+data class IncrementEditorNameField(
+    val label: String,
+    val value: String,
+    val onChanged: (String) -> Unit,
 )
 
 /** Which draft field of a band the user edited; one entry point for all band field edits. */
@@ -218,6 +227,14 @@ internal fun IncrementEditorScreen(
                     .padding(bottom = 8.dp)
                     .verticalScroll(rememberScrollState()),
         ) {
+            chrome.nameField?.let { nameField ->
+                StratumTextField(
+                    value = nameField.value,
+                    onValueChange = nameField.onChanged,
+                    label = nameField.label,
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                )
+            }
             if (chrome.contextText != null) {
                 EditorContextRow(
                     text = chrome.contextText,

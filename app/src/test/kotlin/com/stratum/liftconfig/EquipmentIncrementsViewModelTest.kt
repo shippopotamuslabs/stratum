@@ -20,6 +20,7 @@ import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.ObserveEquipmentAffectedLiftsUseCase
 import com.stratum.domain.lift.ObserveEquipmentCatalogUseCase
+import com.stratum.domain.lift.RenameEquipmentUseCase
 import com.stratum.domain.lift.ScanIncrementTiersUseCase
 import com.stratum.domain.lift.SetEquipmentIncrementTiersUseCase
 import com.stratum.domain.lift.ValidateMicroIncrementsUseCase
@@ -95,6 +96,7 @@ class EquipmentIncrementsViewModelTest {
                         ValidateMicroIncrementsUseCase(),
                         FakeLoggingPort(),
                     ),
+                renameEquipment = RenameEquipmentUseCase(fakeEquipmentRepository, FakeLoggingPort()),
                 validateIncrementTiers = ValidateIncrementTiersUseCase(),
                 validateMicroIncrements = ValidateMicroIncrementsUseCase(),
                 forkEquipmentWithTiers =
@@ -476,6 +478,54 @@ class EquipmentIncrementsViewModelTest {
             listOf(IncrementTier(Weight(10.0, lb), null, Weight(5.0, lb))),
             stored.incrementTiers,
         )
+    }
+
+    @Test
+    @DisplayName("Given an edited name when saved then the stored equipment carries the new name")
+    fun savePersistsRenamedEquipment() = runTest {
+        subject.initialize(cableId.value)
+        subject.uiState.test {
+            awaitItemWith { it.equipmentName == "Cables" && it.editor.tiers.isNotEmpty() }
+            subject.onNameChanged("Lat stack")
+            awaitItemWith { it.equipmentName == "Lat stack" }
+            subject.save()
+            assertTrue(awaitItemWith { it.editor.saveSucceeded }.editor.saveSucceeded)
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        val stored = fakeEquipmentRepository.current.single { it.id == cableId }
+        assertEquals("Lat stack", stored.name)
+    }
+
+    @Test
+    @DisplayName("Given a blanked name when saved then save blocks with a message and nothing is written")
+    fun blankNameBlocksSave() = runTest {
+        subject.initialize(cableId.value)
+        subject.uiState.test {
+            awaitItemWith { it.equipmentName == "Cables" && it.editor.tiers.isNotEmpty() }
+            subject.onNameChanged("  ")
+            val state = awaitItemWith { it.editor.validationMessage != null }
+            assertEquals("Equipment name is required", state.editor.validationMessage)
+            assertFalse(state.editor.saveSucceeded)
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        assertEquals("Cables", fakeEquipmentRepository.current.single { it.id == cableId }.name)
+    }
+
+    @Test
+    @DisplayName("Given no name edit when saved then the stored name is untouched")
+    fun saveWithoutNameEditKeepsStoredName() = runTest {
+        subject.initialize(cableId.value)
+        subject.uiState.test {
+            awaitItemWith { it.equipmentName == "Cables" && it.editor.tiers.isNotEmpty() }
+            subject.onBandStartChanged(0, "10")
+            subject.save()
+            assertTrue(awaitItemWith { it.editor.saveSucceeded }.editor.saveSucceeded)
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        assertEquals("Cables", fakeEquipmentRepository.current.single { it.id == cableId }.name)
     }
 
     @Test

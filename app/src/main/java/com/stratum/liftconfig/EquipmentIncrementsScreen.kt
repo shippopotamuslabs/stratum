@@ -103,6 +103,12 @@ fun EquipmentIncrementsRoute(
                         onDismiss = { showSaveConfirm = false },
                     ),
                 forkSuggestion = "${state.equipmentName.ifBlank { "Equipment" }} (copy)",
+                nameField =
+                    IncrementEditorNameField(
+                        label = stringResource(UiR.string.equipment_name_label),
+                        value = state.equipmentName,
+                        onChanged = viewModel::onNameChanged,
+                    ),
             ),
         title =
             state.equipmentName.ifBlank {
