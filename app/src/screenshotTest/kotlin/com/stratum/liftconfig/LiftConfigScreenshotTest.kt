@@ -142,6 +142,28 @@ fun manageEquipmentReassigningNeo() {
 @PreviewTest
 @PreviewLightDark
 @Composable
+fun manageEquipmentReassigningLongListTonal() {
+    ManageEquipmentPreviewContent(
+        family = StratumThemeId.Tonal,
+        state = previewManageEquipmentReassigningLongList(),
+        selectionMode = false,
+    )
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun manageEquipmentReassigningLongListNeo() {
+    ManageEquipmentPreviewContent(
+        family = StratumThemeId.NeoBrutalist,
+        state = previewManageEquipmentReassigningLongList(),
+        selectionMode = false,
+    )
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
 fun manageEquipmentFallbackTonal() {
     ManageEquipmentPreviewContent(
         family = StratumThemeId.Tonal,
