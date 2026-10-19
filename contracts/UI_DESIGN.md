@@ -12,8 +12,11 @@ Pair with `AGENTS.md` for architecture and validation commands.
 **§11–§12 embed the two Shippopotamus gospels in full** — the Color Palette Gospel and the
 Android Jetpack Compose Gospel (declared canonical by Sean, 2026-10-19, for Bloviate,
 Stratum, Enclave, and all future Shippopotamus products). They govern all **new** UI work.
-Where §§1–10 conflict with §§11–12, the gospels win for new work; every known conflict is
-listed in STR-137's MR for Sean's ratification (shipped screens are not silently redesigned).
+Where §§1–10 conflict with §§11–12, the gospels win for new work. The STR-137 conflict
+register was **ratified by Sean on 2026-10-19** and executed in STR-138; the adoption
+status in §11.3 / §12.6 records what was migrated, what is a sanctioned carve-out (Neo
+Brutalist), and the standing differences that remain (shipped screens are not silently
+redesigned).
 
 ---
 
@@ -25,7 +28,7 @@ listed in STR-137's MR for Sean's ratification (shipped screens are not silently
 | Use `Stratum*` components from `:core:ui` for product chrome. | Use raw `Button`, `Card`, `OutlinedTextField`, or M3 surfaces in features. |
 | Define colors in theme specs only (`StratumTonalSpec`, `NeoBrutalistSpec`). | Hard-code hex literals in feature modules (except previews/tests — see §6). |
 | Support theme **family** swap (Tonal, NeoBrutalist) + light/dark/system. | Name public components `Neo*` or `Material*` — use neutral `Stratum*` API. |
-| Use tabular figures for weights, reps, RPE, volume, and PR values. | Use playful accents (Enclave peach, purple AI gradients, neon hazard palettes). |
+| Use tabular figures for weights, reps, RPE, volume, and PR values. | Use playful accents (Enclave peach, neon hazard palettes). |
 | Dark-first layouts optimized for gym use (OLED, one-handed logging). | Glassmorphism, soft marketing shadows, landing-page hero layouts. |
 | Include Light + Dark `@Preview` for new/changed composables. | Inject real ViewModels or Hilt into `@Preview` functions. |
 | Run Design Read (§7.1) and Pre-Flight (§7.3) before completing UI tasks. | Ship industrial/CRT brutalism, scanlines, or terminal-aesthetic chrome. |
@@ -61,13 +64,19 @@ Product neo-brutalism for lifting: **concrete, iron, plate-loaded** — friendly
 **Do not:**
 
 - Peach / coral primary (Enclave lock — forbidden)
-- Purple gradients, neon green, hazard-yellow as primary accent
+- Neon green, hazard-yellow as primary accent
 - CRT scanlines, ASCII frames, Swiss poster hazard red as dominant chrome
+
+**Anti-purple repeal (2026-10-19):** The former house anti-purple rule is **repealed**.
+The Material/Tonal family's accent is the gospel indigo family (§11). Neo's accent stays
+iron/rust under the sanctioned carve-out (§11.3) — a family identity choice, not the
+repealed ban.
 
 ### 1.2 Stratum Tonal (default)
 
 - Material 3 tonal surfaces with **subtle stratum dividers** (horizontal banding motif — optional 1dp `surfaceSunken` stripes, not neo borders)
-- 12–16dp corners on cards; tonal elevation instead of hard shadow
+- 12–16dp corners on cards; **buttons full pill** (§12.3); tonal elevation instead of hard shadow
+- Accent is the **gospel indigo family** (§11; light: §11.4) per Sean's 2026-10-19 ratification
 - Same semantic palette roles as Neo — different geometry/elevation only
 
 ---
@@ -204,7 +213,7 @@ Minimum touch target: **48dp** for in-workout controls (log set, +2.5, complete,
 
 If ambiguous between preserve and overhaul, ask **once**. Otherwise declare the Design Read and proceed.
 
-**Anti-default discipline:** No stock fitness-app purple, no Enclave peach, no generic three-card feature grids.
+**Anti-default discipline:** No Enclave peach, no generic three-card feature grids. (The house accent is the gospel indigo family, §11 — the old anti-purple rule was repealed 2026-10-19.)
 
 ### 7.2 Extend before invent
 
@@ -342,15 +351,111 @@ mockup/image disagrees with this text, THIS TEXT WINS.
 - bg-scrim: rgba(13,14,17,0.80)
 - surface-overlay: #1F222AF2
 
-### 11.3 Adoption status in Stratum
+### 11.3 Adoption status in Stratum — RATIFIED (Sean, 2026-10-19; executed in STR-138)
 
-Already aligned: tonal (non-shadow) elevation in the Tonal family (§1.2, §2.3); 48dp
-minimum touch targets for in-workout controls (§5 — the gospel extends this to *every*
-interactive, §12.5). Everything else in this section that differs from `StratumTonalSpec` /
-`NeoBrutalistSpec` values — accent hue, surface ramp, border ramp, text ramp, semantic
-hues, the dark-only scope vs Stratum's shipped light specs — is a **conflict pending Sean's
-ratification**, listed in full in STR-137's MR. Until ratified, family specs keep their
-current values; new tokens/components follow the gospel.
+Sean ruled on the full STR-137 conflict register on 2026-10-19. The rulings are binding:
+
+1. **Neo Brutalist is a sanctioned, permanent carve-out.** The gospels govern the
+   Material/Tonal theme family only. Neo keeps its 4dp corners, hard offset shadows,
+   2dp borders, and iron/rust accent as its identity — permanently, not as a pending
+   conflict. `NeoBrutalistSpec` is never re-tokened to the gospel.
+2. **The anti-purple rule is repealed** (struck in §1.1, §7.1, and the Strict Boundaries
+   table). The Material/Tonal accent is the gospel indigo family.
+3. **Light theme stays**, and its canon is the Light Palette Gospel (§11.4).
+
+Migrated in STR-138 (`StratumTonalSpec`, Tonal family only):
+
+- **Accent:** dark steel `#5B7C99` → gospel indigo **#7A7CFF** (on-accent `#FFFFFF` →
+  bg-base **#0D0E11** — white on the indigo is only 3.4:1; muted `#3D5A72` → accent-deep
+  **#3B3BAA**). Light steel `#5B7C99` → light-gospel indigo **#5457E8** (muted → accent-deep
+  **#2F31A0**).
+- **Borders (dark):** `#4A4A4A` / `#3A3A3A` → gospel **#343A48** (border-strong) /
+  **#2A2E39** (border-default). Stratum's two border roles map to gospel border-strong /
+  border-default; gospel border-subtle (hairline) has no Stratum role.
+- **Text (dark):** `#F2F2F2` / `#9CA3AF` → gospel **#EDEEF0** (text-primary) /
+  **#A1A5B0** (text-secondary). `textData` has no gospel counterpart and now tracks
+  text-primary ink in both modes (tabular figures carry the data distinction, not hue).
+- **Light spec:** adopts the Light Gospel tokens in full (§11.4) — surfaces, borders,
+  text ramp, accent family.
+
+Standing differences (deliberately NOT migrated; each needs its own ruling or follow-up):
+
+- **Dark surface ramp:** Tonal dark surfaces (`#121212` / `#1E1E1E` / `#282828` /
+  `#0E0E0E`) predate the gospel ramp (`#0D0E11` → `#272A33`) and were outside the
+  ratification sweep. They remain until Sean rules or a follow-up ticket migrates them.
+- **Semantic hues:** gospel success/warning/danger/info vs Stratum's `setComplete`
+  (a dark *fill* in dark mode, not a foreground), `error`, `prHighlight`, `warning`.
+  The usage shapes differ (fill vs foreground), so this is a role decision, not a hex
+  swap — deferred.
+- Already aligned before ratification: tonal (non-shadow) elevation in the Tonal family
+  (§1.2, §2.3); 48dp minimum touch targets for in-workout controls (§5 — the gospel
+  extends this to *every* interactive, §12.5; widening is a follow-up).
+
+### 11.4 Light Palette Gospel — Official Light Theme (canonical, embedded)
+
+Ratified by Sean, 2026-10-19 (companion to §11; canonical source: the Shippopotamus
+Light Palette Gospel). Same token names as §11.2, re-derived for light: white cards on a
+grey canvas, cool indigo-grey neutrals, the safe accent step **#5457E8**, and text-faint
+at ~3.3:1 restricted to disabled/incidental use.
+
+**Why (condensed from the canon):** Light mode is the astigmatism-friendly polarity —
+halation is a dark-mode disease; light's enemy is glare at maximum contrast, so the 21:1
+pure pairing is banned from this side too (text-primary lands at 15.5:1, the same zone as
+dark's 15.8:1). The dark accent #7A7CFF measures only 3.4:1 on white and physically
+cannot cross over, so the accent is re-derived deeper at the same hue. Elevation inverts:
+shadows return and surfaces climb toward white instead of away from black.
+
+**Tokens**
+
+**Background layers**
+
+- bg-base (app canvas, deepest): #F4F4F8
+- bg-subtle (navbar, tab bar): #ECECF1
+- surface-1 (cards, sheets): #FFFFFF
+- surface-2 (hover/pressed fills, tonal containers): #EFEFF4
+- surface-3 (modal, popover): #FFFFFF (shadow, not lightness, separates the top layer)
+
+**Borders / dividers** (on light, borders are *darker* than the surface)
+
+- border-subtle (hairline dividers, decorative only): #E2E2EA
+- border-default (cards, resting inputs): #C6C7D1
+- border-strong (interactive boundaries — meets WCAG 1.4.11's 3:1): #83858F
+
+**Text layers**
+
+- text-primary (15.5:1 on bg-base): #1B1C22
+- text-high (secondary headings): #2C2E3E
+- text-secondary (body secondary — AAA): #494B5C
+- text-tertiary (captions, metadata — AA): #63667A
+- text-faint (icons, disabled, placeholder — ~3.3:1, NON-text grade only): #83868F
+
+**Indigo accent family** (state direction inverts: hover/active go *darker*)
+
+- accent-base: #5457E8
+- accent-hover: #4849D6
+- accent-active: #3739B8
+- accent-border-subtle: #7A7CFF (the dark gospel's base, demoted to a boundary tint)
+- accent-deep: #2F31A0
+- accent-muted-bg (12% opacity): rgba(84,87,232,0.12)
+- focus-ring: rgba(84,87,232,0.60) — render critical focus in solid accent-base where the
+  platform allows (alpha composites weaker on light)
+
+**Semantic colors (text-grade on white; NOT yet adopted into Stratum roles — see §11.3)**
+
+- success-muted-green: #2E7D43
+- warning-amber: #9C6B10
+- danger-soft-red: #C02E3A
+- info-sky-blue: #1F6FB4
+
+**Mobile extras**
+
+- bg-scrim: rgba(13,14,17,0.45)
+- surface-overlay: #FFFFFFF2
+
+**Stratum adoption (Tonal light spec):** `surfaceBase` = bg-base, `surfaceRaised` =
+surface-1, `surfaceInset` = surface-2, `surfaceSunken` = bg-subtle, `borderStrong` =
+border-strong, `borderSubtle` = border-default, `textPrimary` / `textMuted` =
+text-primary / text-secondary, `accent` / `accentMuted` = accent-base / accent-deep.
 
 ---
 
@@ -468,12 +573,24 @@ Canonical for BLOVIATE / STRATUM / ENCLAVE. Companion: §11 (colors).
   primitive.
 - Haptics: light click on toggles/switches, medium on FAB press (HapticFeedback).
 
-### 12.6 Adoption status in Stratum
+### 12.6 Adoption status in Stratum — RATIFIED (Sean, 2026-10-19; executed in STR-138)
 
-Already aligned: 48dp minimum for in-workout controls (§5); Tonal-family 12dp panel /
-8dp chip corners match the gospel card/chip radii; `titleLarge` (22/28 SemiBold) and
-`bodyLarge` (16/24/400) in `DefaultStratumTypography` match the gospel scale exactly.
-Conflicts and gaps (button pill shape, full M3 type scale, Spacing object usage,
-Expressive motion, font family, Neo Brutalist geometry/shadows) are listed in STR-137's
-MR for Sean's ratification; the Spacing object itself (`StratumSpacing`) ships with
-STR-137 so new work has the gospel spacing source available immediately.
+- **Neo Brutalist geometry/shadows are a sanctioned carve-out** (§11.3 ruling 1): the
+  shape scale, no-shadow rule, and pill buttons in this section govern the Material/Tonal
+  family only, permanently.
+- **Button pill:** adopted for the Tonal family — `tonalShapes().button` is full pill
+  (CircleShape).
+- **Type scale:** completed. `StratumTypography` now carries the full 15-style gospel
+  scale (plus Stratum's `dataLarge` / `sectionLabel`), `titleMedium` corrected to
+  16/24 Medium, and `StratumTheme` wires the Material bridge `Typography` from the spec
+  instead of M3 defaults. `titleLarge` (22/28 SemiBold) and `bodyLarge` (16/24/400)
+  already matched exactly.
+- **Spacing:** the Spacing object (`StratumSpacing`) shipped with STR-137; adopting it
+  inside shipped components is layout work — follow-up, not yet done.
+- Already aligned: 48dp minimum for in-workout controls (§5); Tonal-family 12dp panel /
+  8dp chip corners match the gospel card/chip radii.
+- **Remaining follow-ups (not ratified away, not yet done):** Expressive motion scheme
+  (`MotionScheme.expressive()`, press morphs, haptics) — no Stratum motion tokens exist
+  yet; font family (Shipopotamus Sans / Roboto Flex vs `FontFamily.Default`); widening
+  the 48dp law to *every* interactive (component-by-component); spacing adoption inside
+  shipped components.
