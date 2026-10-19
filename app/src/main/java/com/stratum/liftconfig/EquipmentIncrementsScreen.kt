@@ -24,6 +24,7 @@ import com.stratum.core.ui.R as UiR
 import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumText
+import com.stratum.core.ui.component.StratumTextField
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.workout.ui.ProposalEditContext
 import com.stratum.feature.workout.ui.ProposalTierArgs
@@ -103,13 +104,16 @@ fun EquipmentIncrementsRoute(
                         onDismiss = { showSaveConfirm = false },
                     ),
                 forkSuggestion = "${state.equipmentName.ifBlank { "Equipment" }} (copy)",
-                nameField =
-                    IncrementEditorNameField(
-                        label = stringResource(UiR.string.equipment_name_label),
-                        value = state.equipmentName,
-                        onChanged = viewModel::onNameChanged,
-                    ),
             ),
+        headerContent = {
+            // STR-135: the equipment name edits as a draft and persists on save.
+            StratumTextField(
+                value = state.equipmentName,
+                onValueChange = viewModel::onNameChanged,
+                label = stringResource(UiR.string.equipment_name_label),
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+            )
+        },
         title =
             state.equipmentName.ifBlank {
                 stringResource(UiR.string.equipment_increments_title)

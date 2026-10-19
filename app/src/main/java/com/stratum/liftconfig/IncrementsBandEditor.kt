@@ -7,6 +7,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
@@ -86,15 +87,6 @@ data class IncrementEditorChrome(
     val saveConfirm: IncrementSaveConfirm?,
     /** Null = no save-as-new and no fork sheet (nothing to fork from). */
     val forkSuggestion: String?,
-    /** STR-135: editable equipment name at the top of the body; null hides the field. */
-    val nameField: IncrementEditorNameField? = null,
-)
-
-/** STR-135: an editable name shown at the top of the editor body. */
-data class IncrementEditorNameField(
-    val label: String,
-    val value: String,
-    val onChanged: (String) -> Unit,
 )
 
 /** Which draft field of a band the user edited; one entry point for all band field edits. */
@@ -158,6 +150,8 @@ internal fun IncrementEditorScreen(
     stopActions: IncrementEditorStopActions,
     saveActions: IncrementEditorSaveActions,
     deleteAction: IncrementEditorDeleteAction? = null,
+    /** Caller-supplied content at the top of the body (e.g. the equipment name field); null renders nothing. */
+    headerContent: (@Composable ColumnScope.() -> Unit)? = null,
     onBackClick: () -> Unit,
     showSaveConfirm: Boolean,
     showForkSheet: Boolean,
@@ -227,14 +221,7 @@ internal fun IncrementEditorScreen(
                     .padding(bottom = 8.dp)
                     .verticalScroll(rememberScrollState()),
         ) {
-            chrome.nameField?.let { nameField ->
-                StratumTextField(
-                    value = nameField.value,
-                    onValueChange = nameField.onChanged,
-                    label = nameField.label,
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                )
-            }
+            headerContent?.invoke(this)
             if (chrome.contextText != null) {
                 EditorContextRow(
                     text = chrome.contextText,
