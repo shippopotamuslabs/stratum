@@ -1,9 +1,14 @@
 package com.stratum.liftconfig
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R as UiR
 import com.stratum.core.ui.component.StratumButton
 import com.stratum.core.ui.component.StratumConfirmDialog
@@ -80,19 +85,30 @@ internal fun EquipmentDeleteConfirmDialog(
                     style = StratumThemeAccessor.typography.sectionLabel,
                     muted = true,
                 )
-                candidates.forEach { candidate ->
-                    if (candidate.id == selectedReplacementId) {
-                        StratumButton(
-                            text = candidate.name,
-                            onClick = { onSelectReplacement(candidate.id) },
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    } else {
-                        StratumOutlinedButton(
-                            text = candidate.name,
-                            onClick = { onSelectReplacement(candidate.id) },
-                            modifier = Modifier.fillMaxWidth(),
-                        )
+                // STR-134: the candidate list scrolls inside a weighted slot so
+                // a long list can never push the Cancel/Delete row off the
+                // dialog; short lists size to their content exactly as before.
+                Column(
+                    modifier =
+                        Modifier
+                            .weight(1f, fill = false)
+                            .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    candidates.forEach { candidate ->
+                        if (candidate.id == selectedReplacementId) {
+                            StratumButton(
+                                text = candidate.name,
+                                onClick = { onSelectReplacement(candidate.id) },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        } else {
+                            StratumOutlinedButton(
+                                text = candidate.name,
+                                onClick = { onSelectReplacement(candidate.id) },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
                     }
                 }
             }

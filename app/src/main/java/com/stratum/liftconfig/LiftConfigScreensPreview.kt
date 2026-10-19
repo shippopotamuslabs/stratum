@@ -113,6 +113,26 @@ private fun ManageEquipmentDeletingNeoPreview() {
 
 @PreviewLightDark
 @Composable
+private fun ManageEquipmentReassigningLongListTonalPreview() {
+    ManageEquipmentPreviewContent(
+        family = StratumThemeId.Tonal,
+        state = previewManageEquipmentReassigningLongList(),
+        selectionMode = false,
+    )
+}
+
+@PreviewLightDark
+@Composable
+private fun ManageEquipmentReassigningLongListNeoPreview() {
+    ManageEquipmentPreviewContent(
+        family = StratumThemeId.NeoBrutalist,
+        state = previewManageEquipmentReassigningLongList(),
+        selectionMode = false,
+    )
+}
+
+@PreviewLightDark
+@Composable
 private fun LiftInformationInstructionsTonalPreview() {
     LiftInformationPreviewContent(
         family = StratumThemeId.Tonal,
@@ -377,6 +397,34 @@ internal fun previewManageEquipmentReassigning(): ManageEquipmentUiState =
                 candidates =
                     listOf(
                         ReplacementOptionUi(id = "eq-barbell", name = "Olympic Barbell"),
+                    ),
+                selectedReplacementId = "eq-barbell",
+            ),
+    )
+
+/** STR-134: a candidate list long enough to overflow the dialog unbounded. */
+internal fun previewManageEquipmentReassigningLongList(): ManageEquipmentUiState =
+    previewManageEquipment().copy(
+        pendingDelete =
+            PendingDeleteUi(
+                id = "eq-dumbbell",
+                name = "Adjustable Dumbbell",
+                affectedLiftNames = listOf("Dumbbell Press"),
+                affectedWorkouts = listOf(AffectedWorkoutUi(name = "Push Day", slotCount = 2)),
+                candidates =
+                    listOf(
+                        ReplacementOptionUi(id = "eq-barbell", name = "Olympic Barbell"),
+                        ReplacementOptionUi(id = "eq-cable-y", name = "Cable Y-Raise stack"),
+                        ReplacementOptionUi(id = "eq-cable-cross", name = "Cable crossover"),
+                        ReplacementOptionUi(id = "eq-lat-stack", name = "Lat pulldown stack"),
+                        ReplacementOptionUi(id = "eq-row-stack", name = "Seated row stack"),
+                        ReplacementOptionUi(id = "eq-pec-deck", name = "Pec deck"),
+                        ReplacementOptionUi(id = "eq-leg-ext", name = "Leg extension"),
+                        ReplacementOptionUi(id = "eq-leg-curl", name = "Leg curl"),
+                        ReplacementOptionUi(id = "eq-smith", name = "Smith machine"),
+                        ReplacementOptionUi(id = "eq-trap-bar", name = "Trap bar"),
+                        ReplacementOptionUi(id = "eq-ssb", name = "Safety squat bar"),
+                        ReplacementOptionUi(id = "eq-ez-bar", name = "EZ curl bar"),
                     ),
                 selectedReplacementId = "eq-barbell",
             ),
