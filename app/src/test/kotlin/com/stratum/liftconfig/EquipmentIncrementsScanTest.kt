@@ -21,6 +21,7 @@ import com.stratum.domain.lift.IncrementScanPort
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.ObserveEquipmentAffectedLiftsUseCase
 import com.stratum.domain.lift.ObserveEquipmentCatalogUseCase
+import com.stratum.domain.lift.RenameAndSetIncrementTiersUseCase
 import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.ScanIncrementTiersUseCase
 import com.stratum.domain.lift.ScanPhoto
@@ -94,6 +95,13 @@ class EquipmentIncrementsScanTest {
                 ObserveEquipmentAffectedLiftsUseCase(fakeLiftRepository),
             setEquipmentIncrementTiers =
                 SetEquipmentIncrementTiersUseCase(
+                    fakeEquipmentRepository,
+                    ValidateIncrementTiersUseCase(),
+                    ValidateMicroIncrementsUseCase(),
+                    FakeLoggingPort(),
+                ),
+            renameAndSetIncrementTiers =
+                RenameAndSetIncrementTiersUseCase(
                     fakeEquipmentRepository,
                     ValidateIncrementTiersUseCase(),
                     ValidateMicroIncrementsUseCase(),

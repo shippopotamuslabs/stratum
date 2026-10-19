@@ -24,6 +24,7 @@ import com.stratum.core.ui.R as UiR
 import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumText
+import com.stratum.core.ui.component.StratumTextField
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.workout.ui.ProposalEditContext
 import com.stratum.feature.workout.ui.ProposalTierArgs
@@ -64,6 +65,18 @@ fun EquipmentIncrementsRoute(
             scanUi = state.editor.scanUi,
             onScanPhoto = viewModel::scan,
         )
+    // STR-135: the equipment name field rides the shared editor's header slot.
+    val editor =
+        state.editor.copy(
+            headerContent = {
+                StratumTextField(
+                    value = state.equipmentName,
+                    onValueChange = viewModel::onNameChanged,
+                    label = stringResource(UiR.string.equipment_name_label),
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                )
+            },
+        )
     // Null = band editor sheet closed; non-null opens it for that band.
     var selectedBand by rememberSaveable { mutableStateOf<Int?>(null) }
     var showAffectedSheet by rememberSaveable { mutableStateOf(false) }
@@ -75,7 +88,7 @@ fun EquipmentIncrementsRoute(
 
     val affectedCount = state.affectedLiftCount
     IncrementEditorScreen(
-        editor = state.editor,
+        editor = editor,
         chrome =
             IncrementEditorChrome(
                 contextText =

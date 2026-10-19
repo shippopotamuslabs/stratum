@@ -1,11 +1,17 @@
 package com.stratum.liftconfig
 
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import com.stratum.core.ui.component.StratumTextField
 import com.stratum.core.ui.theme.StratumTheme
 import com.stratum.core.ui.theme.StratumThemeId
 
-private val PREVIEW_EDITOR =
+private fun previewEditor(headerContent: (@Composable ColumnScope.() -> Unit)? = null) =
     IncrementsEditorData(
         tiers =
             listOf(
@@ -14,6 +20,7 @@ private val PREVIEW_EDITOR =
             ),
         microStops = listOf("1.25"),
         unitLabel = "lb",
+        headerContent = headerContent,
     )
 
 internal val PREVIEW_EQUIPMENT_CHROME =
@@ -32,6 +39,16 @@ internal val PREVIEW_EQUIPMENT_CHROME =
             ),
         forkSuggestion = "Cables (copy)",
     )
+
+/** Equipment name field supplied through the screen's header slot (STR-135). */
+internal val PREVIEW_EQUIPMENT_NAME_FIELD: @Composable ColumnScope.() -> Unit = {
+    StratumTextField(
+        value = "Cables",
+        onValueChange = {},
+        label = "Name",
+        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+    )
+}
 
 private val PREVIEW_OVERRIDE_CHROME =
     IncrementEditorChrome(
@@ -78,10 +95,11 @@ internal fun IncrementEditorPreview(
     darkTheme: Boolean? = null,
     family: StratumThemeId = StratumThemeId.Tonal,
     deleteAction: IncrementEditorDeleteAction? = null,
+    headerContent: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
     StratumTheme(themeId = family, darkTheme = darkTheme) {
         IncrementEditorScreen(
-            editor = PREVIEW_EDITOR,
+            editor = previewEditor(headerContent),
             chrome = chrome,
             title = title,
             selection = selection,
@@ -106,6 +124,7 @@ private fun IncrementEditorLightPreview() {
         title = "Cables",
         selection = 0,
         darkTheme = false,
+        headerContent = PREVIEW_EQUIPMENT_NAME_FIELD,
     )
 }
 
@@ -129,6 +148,7 @@ private fun IncrementEditorDeleteLightPreview() {
         selection = null,
         darkTheme = false,
         deleteAction = IncrementEditorDeleteAction(text = "Delete equipment", onClick = {}),
+        headerContent = PREVIEW_EQUIPMENT_NAME_FIELD,
     )
 }
 
@@ -141,5 +161,6 @@ private fun IncrementEditorDeleteDarkPreview() {
         selection = null,
         darkTheme = true,
         deleteAction = IncrementEditorDeleteAction(text = "Delete equipment", onClick = {}),
+        headerContent = PREVIEW_EQUIPMENT_NAME_FIELD,
     )
 }

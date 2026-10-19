@@ -20,6 +20,7 @@ import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.ObserveEquipmentAffectedLiftsUseCase
 import com.stratum.domain.lift.ObserveEquipmentCatalogUseCase
+import com.stratum.domain.lift.RenameAndSetIncrementTiersUseCase
 import com.stratum.domain.lift.ScanIncrementTiersUseCase
 import com.stratum.domain.lift.SetEquipmentIncrementTiersUseCase
 import com.stratum.domain.lift.ValidateMicroIncrementsUseCase
@@ -90,6 +91,13 @@ class EquipmentIncrementsViewModelTest {
                     ObserveEquipmentAffectedLiftsUseCase(fakeLiftRepository),
                 setEquipmentIncrementTiers =
                     SetEquipmentIncrementTiersUseCase(
+                        fakeEquipmentRepository,
+                        ValidateIncrementTiersUseCase(),
+                        ValidateMicroIncrementsUseCase(),
+                        FakeLoggingPort(),
+                    ),
+                renameAndSetIncrementTiers =
+                    RenameAndSetIncrementTiersUseCase(
                         fakeEquipmentRepository,
                         ValidateIncrementTiersUseCase(),
                         ValidateMicroIncrementsUseCase(),
@@ -476,6 +484,76 @@ class EquipmentIncrementsViewModelTest {
             listOf(IncrementTier(Weight(10.0, lb), null, Weight(5.0, lb))),
             stored.incrementTiers,
         )
+    }
+
+    @Test
+    @DisplayName("Given an edited name when saved then the stored equipment carries the new name")
+    fun savePersistsRenamedEquipment() = runTest {
+        subject.initialize(cableId.value)
+        subject.uiState.test {
+            awaitItemWith { it.equipmentName == "Cables" && it.editor.tiers.isNotEmpty() }
+            subject.onNameChanged("Lat stack")
+            awaitItemWith { it.equipmentName == "Lat stack" }
+            subject.save()
+            assertTrue(awaitItemWith { it.editor.saveSucceeded }.editor.saveSucceeded)
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        val stored = fakeEquipmentRepository.current.single { it.id == cableId }
+        assertEquals("Lat stack", stored.name)
+    }
+
+    @Test
+    @DisplayName("Given a blanked name when saved then save blocks with a message and nothing is written")
+    fun blankNameBlocksSave() = runTest {
+        subject.initialize(cableId.value)
+        subject.uiState.test {
+            awaitItemWith { it.equipmentName == "Cables" && it.editor.tiers.isNotEmpty() }
+            subject.onNameChanged("  ")
+            val state = awaitItemWith { it.editor.validationMessage != null }
+            assertEquals("Equipment name is required", state.editor.validationMessage)
+            assertFalse(state.editor.saveSucceeded)
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        assertEquals("Cables", fakeEquipmentRepository.current.single { it.id == cableId }.name)
+    }
+
+    @Test
+    @DisplayName("Given no name edit when saved then the stored name is untouched")
+    fun saveWithoutNameEditKeepsStoredName() = runTest {
+        subject.initialize(cableId.value)
+        subject.uiState.test {
+            awaitItemWith { it.equipmentName == "Cables" && it.editor.tiers.isNotEmpty() }
+            subject.onBandStartChanged(0, "10")
+            subject.save()
+            assertTrue(awaitItemWith { it.editor.saveSucceeded }.editor.saveSucceeded)
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        assertEquals("Cables", fakeEquipmentRepository.current.single { it.id == cableId }.name)
+    }
+
+    @Test
+    @DisplayName("Given a name and band edit when the save write fails then stored name and tiers are unchanged")
+    fun failedSaveLeavesNameAndTiersUnchanged() = runTest {
+        val before = fakeEquipmentRepository.current.single { it.id == cableId }
+        subject.initialize(cableId.value)
+        subject.uiState.test {
+            awaitItemWith { it.equipmentName == "Cables" && it.editor.tiers.isNotEmpty() }
+            subject.onNameChanged("Lat stack")
+            subject.onBandStartChanged(0, "10")
+            fakeEquipmentRepository.failNextWrite = true
+            subject.save()
+            val state = awaitItemWith { it.editor.validationMessage != null }
+            assertFalse(state.editor.saveSucceeded)
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        val stored = fakeEquipmentRepository.current.single { it.id == cableId }
+        assertEquals(before.name, stored.name)
+        assertEquals(before.incrementTiers, stored.incrementTiers)
+        assertEquals(before.microIncrements, stored.microIncrements)
     }
 
     @Test

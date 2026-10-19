@@ -115,6 +115,24 @@ class FakeEquipmentRepository(
         }
     }
 
+    override suspend fun renameAndSetIncrementTiers(
+        id: EquipmentId,
+        name: String,
+        tiers: List<IncrementTier>,
+        micro: List<Weight>,
+    ) {
+        // Single write boundary: the fail flag throws before any state changes,
+        // mirroring the Room transaction (name and tiers land together or not at all).
+        throwIfFailNextWrite()
+        rows.value = rows.value.map { row ->
+            if (row.id == id) {
+                row.copy(name = name, incrementTiers = tiers, microIncrements = micro)
+            } else {
+                row
+            }
+        }
+    }
+
     private fun isValidReplacement(deletedId: EquipmentId, replacementId: EquipmentId): Boolean {
         val target = rows.value.firstOrNull { it.id == replacementId } ?: return false
         return !target.isDeleted && replacementId != deletedId &&
