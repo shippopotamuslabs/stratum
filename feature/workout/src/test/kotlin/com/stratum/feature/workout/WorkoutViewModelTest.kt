@@ -1973,6 +1973,36 @@ class WorkoutViewModelTest {
     }
 
     @Test
+    @DisplayName("STR-136: swapping equipment forth and back leaves no save offer")
+    fun equipmentSwapBackToOriginalLeavesNoTemplateChanges() = runTest {
+        seedSwapCatalog()
+        val viewModel =
+            buildViewModelWithProgram(program = programWithTemplateEquipment("barbell"))
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        viewModel.swapEquipment(
+            workoutLiftId,
+            com.stratum.domain.lift.identity.EquipmentId("ssb"),
+        )
+        advanceUntilIdle()
+        val swapped = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertTrue(swapped.hasDirtyEdits)
+
+        viewModel.swapEquipment(
+            workoutLiftId,
+            com.stratum.domain.lift.identity.EquipmentId("barbell"),
+        )
+        advanceUntilIdle()
+
+        // Net-zero edit: the overlay still carries the swap entry, but the
+        // applied workout equals the baseline, so no sheet may be offered.
+        val restored = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertTrue(!restored.hasDirtyEdits)
+        assertNull(restored.templateChanges)
+    }
+
+    @Test
     @DisplayName("STR-124: complete without update leaves template equipment unchanged")
     fun equipmentSwapCompleteDiscardLeavesTemplate() = runTest {
         seedSwapCatalog()
@@ -2128,6 +2158,28 @@ class WorkoutViewModelTest {
 
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    @Test
+    @DisplayName("STR-136: rest edit reverted to the template value leaves no save offer")
+    fun restEditRevertedLeavesNoTemplateChanges() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+        val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
+        val slotKey = loaded.lifts.first().sets.first().slotKey
+
+        viewModel.setRestSecondsForSlots(mapOf(slotKey to 45))
+        advanceUntilIdle()
+        val edited = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertTrue(edited.hasDirtyEdits)
+
+        viewModel.setRestSecondsForSlots(mapOf(slotKey to 120))
+        advanceUntilIdle()
+
+        val restored = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertTrue(!restored.hasDirtyEdits)
+        assertNull(restored.templateChanges)
     }
 
     @Test
