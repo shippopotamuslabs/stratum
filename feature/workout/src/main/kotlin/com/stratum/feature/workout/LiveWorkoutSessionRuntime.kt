@@ -341,10 +341,16 @@ internal class LiveWorkoutSessionRuntime(
             rendered.lifts.any { lift ->
                 lift.sets.any { it.loggedValue == null }
             }
-        // Presentation name is historical: means "offer save-to-program-day", not raw overlay dirty.
-        // Ad-hoc never offers template save (canSaveTemplateChanges == false).
-        val hasDirtyEdits = overlay.isDirty && canSaveTemplateChanges
-        val templateChanges = resolveTemplateChanges(hasDirtyEdits)
+        // The save offer follows the change summary, not the raw overlay latch:
+        // edits that net to zero against the baseline (equipment swapped forth
+        // and back, a reverted rest override, an added-then-deleted set) leave
+        // the overlay non-empty but write nothing, so they must not pop the
+        // sheet (STR-136). Ad-hoc never offers template save
+        // (canSaveTemplateChanges == false).
+        val templateChanges =
+            resolveTemplateChanges(overlay.isDirty && canSaveTemplateChanges)
+                ?.takeUnless { it.isEmpty }
+        val hasDirtyEdits = templateChanges != null
         val imageUrlByLiftId =
             liftsById.mapValues { (_, lift) -> lift.imageUris.firstOrNull() }
                 .mapKeys { (id, _) -> id.value }
