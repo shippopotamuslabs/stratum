@@ -11,7 +11,7 @@ import com.stratum.core.ui.component.StratumTextField
 import com.stratum.core.ui.theme.StratumTheme
 import com.stratum.core.ui.theme.StratumThemeId
 
-private val PREVIEW_EDITOR =
+private fun previewEditor(headerContent: (@Composable ColumnScope.() -> Unit)? = null) =
     IncrementsEditorData(
         tiers =
             listOf(
@@ -20,6 +20,7 @@ private val PREVIEW_EDITOR =
             ),
         microStops = listOf("1.25"),
         unitLabel = "lb",
+        headerContent = headerContent,
     )
 
 internal val PREVIEW_EQUIPMENT_CHROME =
@@ -98,7 +99,7 @@ internal fun IncrementEditorPreview(
 ) {
     StratumTheme(themeId = family, darkTheme = darkTheme) {
         IncrementEditorScreen(
-            editor = PREVIEW_EDITOR,
+            editor = previewEditor(headerContent),
             chrome = chrome,
             title = title,
             selection = selection,
@@ -107,7 +108,6 @@ internal fun IncrementEditorPreview(
             stopActions = previewStopActions,
             saveActions = previewSaveActions,
             deleteAction = deleteAction,
-            headerContent = headerContent,
             onBackClick = {},
             showSaveConfirm = false,
             showForkSheet = false,

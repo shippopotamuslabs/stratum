@@ -65,6 +65,18 @@ fun EquipmentIncrementsRoute(
             scanUi = state.editor.scanUi,
             onScanPhoto = viewModel::scan,
         )
+    // STR-135: the equipment name field rides the shared editor's header slot.
+    val editor =
+        state.editor.copy(
+            headerContent = {
+                StratumTextField(
+                    value = state.equipmentName,
+                    onValueChange = viewModel::onNameChanged,
+                    label = stringResource(UiR.string.equipment_name_label),
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                )
+            },
+        )
     // Null = band editor sheet closed; non-null opens it for that band.
     var selectedBand by rememberSaveable { mutableStateOf<Int?>(null) }
     var showAffectedSheet by rememberSaveable { mutableStateOf(false) }
@@ -76,7 +88,7 @@ fun EquipmentIncrementsRoute(
 
     val affectedCount = state.affectedLiftCount
     IncrementEditorScreen(
-        editor = state.editor,
+        editor = editor,
         chrome =
             IncrementEditorChrome(
                 contextText =
@@ -105,15 +117,6 @@ fun EquipmentIncrementsRoute(
                     ),
                 forkSuggestion = "${state.equipmentName.ifBlank { "Equipment" }} (copy)",
             ),
-        headerContent = {
-            // STR-135: the equipment name edits as a draft and persists on save.
-            StratumTextField(
-                value = state.equipmentName,
-                onValueChange = viewModel::onNameChanged,
-                label = stringResource(UiR.string.equipment_name_label),
-                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-            )
-        },
         title =
             state.equipmentName.ifBlank {
                 stringResource(UiR.string.equipment_increments_title)

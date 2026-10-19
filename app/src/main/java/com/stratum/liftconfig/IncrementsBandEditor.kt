@@ -150,8 +150,6 @@ internal fun IncrementEditorScreen(
     stopActions: IncrementEditorStopActions,
     saveActions: IncrementEditorSaveActions,
     deleteAction: IncrementEditorDeleteAction? = null,
-    /** Caller-supplied content at the top of the body (e.g. the equipment name field); null renders nothing. */
-    headerContent: (@Composable ColumnScope.() -> Unit)? = null,
     onBackClick: () -> Unit,
     showSaveConfirm: Boolean,
     showForkSheet: Boolean,
@@ -221,7 +219,7 @@ internal fun IncrementEditorScreen(
                     .padding(bottom = 8.dp)
                     .verticalScroll(rememberScrollState()),
         ) {
-            headerContent?.invoke(this)
+            editor.headerContent?.invoke(this)
             if (chrome.contextText != null) {
                 EditorContextRow(
                     text = chrome.contextText,

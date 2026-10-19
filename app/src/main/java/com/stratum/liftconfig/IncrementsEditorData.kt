@@ -1,5 +1,8 @@
 package com.stratum.liftconfig
 
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.runtime.Composable
+
 /**
  * Shared increments-editor content rendered by [EquipmentIncrementsRoute].
  *
@@ -32,4 +35,6 @@ data class IncrementsEditorData(
      * text mapping happens at the composable boundary.
      */
     val scanUi: IncrementScanState = IncrementScanState.Idle,
+    /** Caller-supplied header content (e.g. the equipment name field); null renders nothing. */
+    val headerContent: (@Composable ColumnScope.() -> Unit)? = null,
 )
