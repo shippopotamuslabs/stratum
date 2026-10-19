@@ -12,6 +12,7 @@ import com.stratum.domain.lift.ObserveEquipmentCatalogUseCase
 import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.MicroIncrementsValidationResult
 import com.stratum.domain.lift.ScanPhoto
+import com.stratum.domain.lift.RenameAndSetIncrementTiersUseCase
 import com.stratum.domain.lift.SetEquipmentIncrementTiersUseCase
 import com.stratum.domain.lift.SetLiftEquipmentUseCase
 import com.stratum.domain.lift.ValidateIncrementTiersUseCase
@@ -78,6 +79,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
     private val observeEquipmentCatalog: ObserveEquipmentCatalogUseCase,
     private val observeEquipmentAffectedLifts: ObserveEquipmentAffectedLiftsUseCase,
     private val setEquipmentIncrementTiers: SetEquipmentIncrementTiersUseCase,
+    private val renameAndSetIncrementTiers: RenameAndSetIncrementTiersUseCase,
     private val validateIncrementTiers: ValidateIncrementTiersUseCase,
     private val validateMicroIncrements: ValidateMicroIncrementsUseCase,
     private val forkEquipmentWithTiers: ForkEquipmentWithTiersUseCase,
@@ -159,10 +161,12 @@ class EquipmentIncrementsViewModel @Inject constructor(
         swapNav.trySend(liftId)
     }
 
-    /** Both editor sections in one nullable holder; null seeds from stored values. */
+    /** Editor sections in one nullable holder; a null section seeds from stored values. */
     private data class EditorDrafts(
         val tiers: List<IncrementTierDraft>?,
         val microStops: List<String>?,
+        /** STR-135: name draft; null = untouched, the stored name stands. */
+        val name: String? = null,
     )
 
     private data class SaveInputs(
@@ -463,8 +467,22 @@ class EquipmentIncrementsViewModel @Inject constructor(
         return id
     }
 
+    /** STR-135: the name edits as a draft and persists on save, like the bands. */
+    fun onNameChanged(value: String) {
+        drafts.update { current ->
+            (current ?: EditorDrafts(null, null)).copy(name = value)
+        }
+        validationOverride.value = null
+        saveSucceeded.value = false
+    }
+
     fun save() {
         val id = requireEquipmentId("save") ?: return
+        val draftName = drafts.value?.name
+        nameValidationMessage(draftName)?.let { message ->
+            validationOverride.value = message
+            return
+        }
         val domainTiers = validatedDraftTiers() ?: return
         // Validate the draft stops (not the derived uiState list, which lags a
         // combine cycle): back-to-back edits and save observe the same value.
@@ -476,7 +494,15 @@ class EquipmentIncrementsViewModel @Inject constructor(
             ) ?: return
         viewModelScope.launch {
             isSaving.value = true
-            val result = setEquipmentIncrementTiers(EquipmentId(id), domainTiers, domainMicro)
+            // A name edit saves through the combined use case: the rename and
+            // the tier write land in one repository transaction, so a failure
+            // can never leave the new name over the old tiers (or vice versa).
+            val result =
+                if (draftName != null) {
+                    renameAndSetIncrementTiers(EquipmentId(id), draftName, domainTiers, domainMicro)
+                } else {
+                    setEquipmentIncrementTiers(EquipmentId(id), domainTiers, domainMicro)
+                }
             isSaving.value = false
             if (result.isSuccess) {
                 dismissProposalContext()
@@ -695,7 +721,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
             )
         return EquipmentIncrementsUiState(
             equipmentId = id.orEmpty(),
-            equipmentName = equipment?.name.orEmpty(),
+            equipmentName = drafts?.name ?: equipment?.name.orEmpty(),
             canDelete =
                 equipment != null &&
                     equipment.id !in SeedEquipmentIds.hiddenFromCatalog &&
@@ -705,7 +731,9 @@ class EquipmentIncrementsViewModel @Inject constructor(
                     tiers = tiers,
                     microStops = microStops,
                     validationMessage =
-                        validation ?: liveValidationMessage(tiers, microStops, unit),
+                        validation
+                            ?: nameValidationMessage(drafts?.name)
+                            ?: liveValidationMessage(tiers, microStops, unit),
                     warnedTierIndexes = warnedTierIndexes,
                     isSaving = saving,
                     saveSucceeded = saved,
@@ -748,6 +776,10 @@ class EquipmentIncrementsViewModel @Inject constructor(
         validationOverride.value = null
         saveSucceeded.value = false
     }
+
+    /** A touched-but-blank name draft blocks save, mirroring the rename use case. */
+    private fun nameValidationMessage(draftName: String?): String? =
+        if (draftName != null && draftName.isBlank()) "Equipment name is required" else null
 
     private fun liveValidationMessage(
         tiers: List<IncrementTierDraft>,

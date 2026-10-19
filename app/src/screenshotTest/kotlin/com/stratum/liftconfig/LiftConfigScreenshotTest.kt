@@ -253,6 +253,7 @@ fun equipmentIncrementsTonal() {
         title = "Cables",
         selection = null,
         family = StratumThemeId.Tonal,
+        headerContent = PREVIEW_EQUIPMENT_NAME_FIELD,
     )
 }
 
@@ -266,6 +267,7 @@ fun equipmentIncrementsNeo() {
         title = "Cables",
         selection = null,
         family = StratumThemeId.NeoBrutalist,
+        headerContent = PREVIEW_EQUIPMENT_NAME_FIELD,
     )
 }
 
@@ -279,6 +281,7 @@ fun equipmentIncrementsDeleteTonal() {
         selection = null,
         family = StratumThemeId.Tonal,
         deleteAction = IncrementEditorDeleteAction(text = "Delete equipment", onClick = {}),
+        headerContent = PREVIEW_EQUIPMENT_NAME_FIELD,
     )
 }
 
@@ -292,5 +295,6 @@ fun equipmentIncrementsDeleteNeo() {
         selection = null,
         family = StratumThemeId.NeoBrutalist,
         deleteAction = IncrementEditorDeleteAction(text = "Delete equipment", onClick = {}),
+        headerContent = PREVIEW_EQUIPMENT_NAME_FIELD,
     )
 }

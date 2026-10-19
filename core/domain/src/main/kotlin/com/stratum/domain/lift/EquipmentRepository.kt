@@ -66,6 +66,19 @@ interface EquipmentRepository {
     )
 
     /**
+     * Renames equipment and replaces its default tiers and adder stops in one
+     * atomic write (same sync lock + Room transaction in the data layer), so an
+     * editor save can never land the name without the tiers or vice versa.
+     * No-op when the row is missing or tombstoned.
+     */
+    suspend fun renameAndSetIncrementTiers(
+        id: EquipmentId,
+        name: String,
+        tiers: List<IncrementTier>,
+        micro: List<Weight>,
+    )
+
+    /**
      * Tombstones equipment: sets the deleted flag and syncs it; the row, name,
      * and tiers are retained so history keeps resolving. Every visible seed row
      * and every custom row is deletable; only the hidden system rows

@@ -39,6 +39,7 @@
     <string name="manage_equipment_open_increments">Edit increments</string>
     <string name="manage_equipment_delete_action">Delete %1$s</string>
     <string name="equipment_increments_title">Equipment increments</string>
+    <string name="equipment_name_label">Name</string>
     <!-- Affects N lifts (no name preview) -->
     <string name="equipment_increments_affects_count">Affects %1$d lift(s)</string>
     <!-- Affects N lifts: Name1, Name2, Name3 -->
