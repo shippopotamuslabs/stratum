@@ -12,7 +12,7 @@ import com.stratum.domain.lift.ObserveEquipmentCatalogUseCase
 import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.MicroIncrementsValidationResult
 import com.stratum.domain.lift.ScanPhoto
-import com.stratum.domain.lift.RenameEquipmentUseCase
+import com.stratum.domain.lift.RenameAndSetIncrementTiersUseCase
 import com.stratum.domain.lift.SetEquipmentIncrementTiersUseCase
 import com.stratum.domain.lift.SetLiftEquipmentUseCase
 import com.stratum.domain.lift.ValidateIncrementTiersUseCase
@@ -79,7 +79,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
     private val observeEquipmentCatalog: ObserveEquipmentCatalogUseCase,
     private val observeEquipmentAffectedLifts: ObserveEquipmentAffectedLiftsUseCase,
     private val setEquipmentIncrementTiers: SetEquipmentIncrementTiersUseCase,
-    private val renameEquipment: RenameEquipmentUseCase,
+    private val renameAndSetIncrementTiers: RenameAndSetIncrementTiersUseCase,
     private val validateIncrementTiers: ValidateIncrementTiersUseCase,
     private val validateMicroIncrements: ValidateMicroIncrementsUseCase,
     private val forkEquipmentWithTiers: ForkEquipmentWithTiersUseCase,
@@ -479,8 +479,8 @@ class EquipmentIncrementsViewModel @Inject constructor(
     fun save() {
         val id = requireEquipmentId("save") ?: return
         val draftName = drafts.value?.name
-        if (draftName != null && draftName.isBlank()) {
-            validationOverride.value = "Equipment name is required"
+        nameValidationMessage(draftName)?.let { message ->
+            validationOverride.value = message
             return
         }
         val domainTiers = validatedDraftTiers() ?: return
@@ -494,18 +494,15 @@ class EquipmentIncrementsViewModel @Inject constructor(
             ) ?: return
         viewModelScope.launch {
             isSaving.value = true
-            if (draftName != null) {
-                // Rename first: a failed rename aborts the save before any
-                // tier write, so the two never land half-applied.
-                val renameResult = renameEquipment(EquipmentId(id), draftName)
-                if (renameResult.isFailure) {
-                    isSaving.value = false
-                    validationOverride.value =
-                        renameResult.exceptionOrNull()?.message ?: "Could not rename equipment"
-                    return@launch
+            // A name edit saves through the combined use case: the rename and
+            // the tier write land in one repository transaction, so a failure
+            // can never leave the new name over the old tiers (or vice versa).
+            val result =
+                if (draftName != null) {
+                    renameAndSetIncrementTiers(EquipmentId(id), draftName, domainTiers, domainMicro)
+                } else {
+                    setEquipmentIncrementTiers(EquipmentId(id), domainTiers, domainMicro)
                 }
-            }
-            val result = setEquipmentIncrementTiers(EquipmentId(id), domainTiers, domainMicro)
             isSaving.value = false
             if (result.isSuccess) {
                 dismissProposalContext()

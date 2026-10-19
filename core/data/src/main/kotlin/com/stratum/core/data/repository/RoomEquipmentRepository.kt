@@ -114,25 +114,53 @@ class RoomEquipmentRepository @Inject constructor(
         syncTouch.withWriteLock {
             if (equipmentDao.getById(id)?.isDeleted == true) return@withWriteLock
             database.withTransaction {
-                val nextIds =
-                    tiers.map { IncrementTierId.forEquipmentBand(id, it.lowerBound.amount).value }
-                val previousIds = incrementTierDao.idsForEquipment(id)
-                syncTouch.replaceIds(SyncCollection.IncrementTiers, previousIds, nextIds, now)
-                incrementTierDao.deleteForEquipment(id)
-                if (tiers.isNotEmpty()) {
-                    incrementTierDao.upsertAll(tiers.toEquipmentEntities(id, now))
-                }
-                // Null micro preserves the stored stops (tiers-only write must not
-                // silently wipe the adder); non-null replaces them outright.
-                if (micro != null) {
-                    equipmentDao.updateMicroOptions(
-                        id = id,
-                        microOptionsJson = micro.toMicroJsonOrNull(),
-                        updatedAtEpochMillis = now,
-                    )
-                }
+                replaceIncrementTiers(id, tiers, micro, now)
             }
             syncTouch.markDirty()
+        }
+    }
+
+    override suspend fun renameAndSetIncrementTiers(
+        id: EquipmentId,
+        name: String,
+        tiers: List<IncrementTier>,
+        micro: List<Weight>,
+    ) {
+        val now = System.currentTimeMillis()
+        syncTouch.withWriteLock {
+            val row = equipmentDao.getById(id) ?: return@withWriteLock
+            if (row.isDeleted) return@withWriteLock
+            database.withTransaction {
+                equipmentDao.rename(id, name, updatedAtEpochMillis = now)
+                replaceIncrementTiers(id, tiers, micro, now)
+            }
+            syncTouch.markDirty()
+        }
+    }
+
+    /** Tier replace shared by the tiers-only and rename+tiers writes; call inside a transaction. */
+    private suspend fun replaceIncrementTiers(
+        id: EquipmentId,
+        tiers: List<IncrementTier>,
+        micro: List<Weight>?,
+        now: Long,
+    ) {
+        val nextIds =
+            tiers.map { IncrementTierId.forEquipmentBand(id, it.lowerBound.amount).value }
+        val previousIds = incrementTierDao.idsForEquipment(id)
+        syncTouch.replaceIds(SyncCollection.IncrementTiers, previousIds, nextIds, now)
+        incrementTierDao.deleteForEquipment(id)
+        if (tiers.isNotEmpty()) {
+            incrementTierDao.upsertAll(tiers.toEquipmentEntities(id, now))
+        }
+        // Null micro preserves the stored stops (tiers-only write must not
+        // silently wipe the adder); non-null replaces them outright.
+        if (micro != null) {
+            equipmentDao.updateMicroOptions(
+                id = id,
+                microOptionsJson = micro.toMicroJsonOrNull(),
+                updatedAtEpochMillis = now,
+            )
         }
     }
 
