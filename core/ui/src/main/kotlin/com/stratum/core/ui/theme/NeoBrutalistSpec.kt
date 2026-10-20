@@ -4,11 +4,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 object NeoBrutalistSpec {
+    // Cached singletons — see StratumTonalSpec for the rationale.
+    private val darkInstance: StratumThemeSpec by lazy { darkSpec() }
+    private val lightInstance: StratumThemeSpec by lazy { lightSpec() }
+
     fun resolve(dark: Boolean): StratumThemeSpec =
         if (dark) {
-            darkSpec()
+            darkInstance
         } else {
-            lightSpec()
+            lightInstance
         }
 
     private fun darkSpec(): StratumThemeSpec =
