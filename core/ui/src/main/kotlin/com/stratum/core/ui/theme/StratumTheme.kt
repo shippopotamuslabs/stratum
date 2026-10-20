@@ -78,26 +78,36 @@ fun StratumTheme(
  * No drop shadows are added in dark — [StratumElevations] stays the elevation
  * model (§2.3); `surfaceTint` only tints M3 tonal-elevation surfaces.
  */
+/** The five M3 surface-container slots, mapped from Stratum tokens per §12.4. */
+private data class ContainerRamp(
+    val lowest: Color,
+    val low: Color,
+    val container: Color,
+    val high: Color,
+    val highest: Color,
+)
+
 internal fun materialColorScheme(spec: StratumThemeSpec): ColorScheme {
     val colors = spec.colors
-    val surfaceContainerLowest: Color
-    val surfaceContainerLow: Color
-    val surfaceContainer: Color
-    val surfaceContainerHigh: Color
-    val surfaceContainerHighest: Color
-    if (spec.dark) {
-        surfaceContainerLowest = colors.surfaceBase
-        surfaceContainerLow = colors.surfaceSunken
-        surfaceContainer = colors.surfaceRaised
-        surfaceContainerHigh = colors.surfaceRaised
-        surfaceContainerHighest = colors.surfaceInset
-    } else {
-        surfaceContainerLowest = colors.surfaceRaised
-        surfaceContainerLow = colors.surfaceBase
-        surfaceContainer = colors.surfaceInset
-        surfaceContainerHigh = colors.surfaceRaised
-        surfaceContainerHighest = colors.surfaceRaised
-    }
+    // Container ramp per the §12.4 mapping in the KDoc above.
+    val ramp =
+        if (spec.dark) {
+            ContainerRamp(
+                lowest = colors.surfaceBase,
+                low = colors.surfaceSunken,
+                container = colors.surfaceRaised,
+                high = colors.surfaceRaised,
+                highest = colors.surfaceInset,
+            )
+        } else {
+            ContainerRamp(
+                lowest = colors.surfaceRaised,
+                low = colors.surfaceBase,
+                container = colors.surfaceInset,
+                high = colors.surfaceRaised,
+                highest = colors.surfaceRaised,
+            )
+        }
     val base =
         if (spec.dark) {
             darkColorScheme(
@@ -132,11 +142,11 @@ internal fun materialColorScheme(spec: StratumThemeSpec): ColorScheme {
         }
     return base.copy(
         surfaceTint = colors.accent,
-        surfaceContainerLowest = surfaceContainerLowest,
-        surfaceContainerLow = surfaceContainerLow,
-        surfaceContainer = surfaceContainer,
-        surfaceContainerHigh = surfaceContainerHigh,
-        surfaceContainerHighest = surfaceContainerHighest,
+        surfaceContainerLowest = ramp.lowest,
+        surfaceContainerLow = ramp.low,
+        surfaceContainer = ramp.container,
+        surfaceContainerHigh = ramp.high,
+        surfaceContainerHighest = ramp.highest,
     )
 }
 
