@@ -39,6 +39,41 @@ internal fun ButtonPreviewContent(
     }
 }
 
+@PreviewLightDark
+@Composable
+private fun StratumButtonVariantsTonalPreview() {
+    ButtonVariantsPreviewContent()
+}
+
+/** §12.7 shape languages side by side (Tonal): pill default, square, square large. */
+@Composable
+internal fun ButtonVariantsPreviewContent() {
+    StratumTheme(themeId = StratumThemeId.Tonal, darkTheme = true) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            StratumButton(
+                text = "Pill (default)",
+                onClick = {},
+                modifier = Modifier.fillMaxWidth(),
+            )
+            StratumButton(
+                text = "Square",
+                onClick = {},
+                modifier = Modifier.fillMaxWidth(),
+                variant = StratumButtonVariant.Square,
+            )
+            StratumButton(
+                text = "Square large",
+                onClick = {},
+                modifier = Modifier.fillMaxWidth(),
+                variant = StratumButtonVariant.SquareLarge,
+            )
+        }
+    }
+}
+
 @Composable
 private fun ButtonPreviewBody() {
     Column(
