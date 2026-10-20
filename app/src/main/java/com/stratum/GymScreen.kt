@@ -19,7 +19,6 @@ import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material3.Icon
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -55,8 +54,8 @@ import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.UserMessageEffect
 import com.stratum.core.ui.theme.StratumSpacing
-import com.stratum.core.ui.theme.StratumGlassChrome
 import com.stratum.core.ui.theme.rememberGlassBottomPadding
+import com.stratum.core.ui.theme.rememberGlassTopPadding
 import com.stratum.core.ui.theme.rememberGlassActive
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.liftconfig.LiftConfigBottomSheet
@@ -159,15 +158,10 @@ fun GymScreen(
         }
     }
 
-    // Hoisted so the top bar can read the scroll position (§12.8 glass-when-scrolled).
     val listState = rememberLazyListState()
-    val topBarScrolled by remember {
-        derivedStateOf {
-            listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0
-        }
-    }
     val glass = rememberGlassActive()
     val glassBottomPadding = rememberGlassBottomPadding()
+    val glassTopPadding = rememberGlassTopPadding()
     // Overlay only outside merge mode: the merge top bar stays solid, so its
     // content (the selection panel) must not slide beneath it.
     val overlayTopBar = glass && !state.isMergeMode
@@ -212,7 +206,6 @@ fun GymScreen(
                             )
                         }
                     },
-                    scrolled = topBarScrolled,
                 )
             }
         },
@@ -243,7 +236,7 @@ fun GymScreen(
                 verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
                 contentPadding =
                     PaddingValues(
-                        top = if (overlayTopBar) StratumGlassChrome.topBarHeight else 0.dp,
+                        top = if (overlayTopBar) glassTopPadding else 0.dp,
                         bottom = glassBottomPadding + StratumSpacing.s16,
                     ),
             ) {

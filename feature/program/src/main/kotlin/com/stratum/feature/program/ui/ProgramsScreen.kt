@@ -99,7 +99,6 @@ internal fun ProgramsScreen(
     onCheckInSkipClick: () -> Unit = {},
     snackbarHostState: SnackbarHostState? = null,
 ) {
-    // Hoisted so the top bar can read the scroll position (§12.8 glass-when-scrolled).
     val programsScrollState = rememberScrollState()
     val glass = rememberGlassActive()
     val glassTopPadding = rememberGlassTopPadding()
@@ -117,7 +116,6 @@ internal fun ProgramsScreen(
         topBar = {
             StratumTopBar(
                 title = stringResource(R.string.programs_screen_title),
-                scrolled = programsScrollState.value > 0,
                 navigationIcon = if (isPreviewMode) null else {
                     {
                         StratumIconButton(onClick = callbacks.onCalendarClick) {

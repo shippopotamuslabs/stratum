@@ -1,5 +1,7 @@
 package com.stratum.core.ui.theme
 
+import androidx.compose.ui.unit.dp
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -14,6 +16,17 @@ import org.junit.jupiter.api.Test
  * objects on every read, or every glass modifier downstream would churn.
  */
 class StratumHazeStylesTest {
+
+    // STR-155: the clearance an overlay screen must give its scrollable is the
+    // status-bar inset PLUS the bar height. The shipped formula omitted the
+    // inset, so content collided with the bar on device; goldens cannot catch
+    // that (Robolectric runs with zero insets), so the formula is pinned here.
+    @Test
+    fun glassTopClearance_addsStatusInsetToBarHeight() {
+        assertEquals(StratumGlassChrome.topBarHeight, glassTopClearance(0.dp))
+        assertEquals(StratumGlassChrome.topBarHeight + 24.dp, glassTopClearance(24.dp))
+        assertEquals(StratumGlassChrome.topBarHeight + 35.dp, glassTopClearance(35.dp))
+    }
 
     @Test
     fun tonal_enablesGlass() {

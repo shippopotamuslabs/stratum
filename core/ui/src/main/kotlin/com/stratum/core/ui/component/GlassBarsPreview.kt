@@ -33,8 +33,8 @@ import dev.chrisbanes.haze.rememberHazeState
  * Preview / golden content for the Glass Bars shell (§12.8, STR-153): a tab screen's
  * worth of content with the top bar and bottom nav bar overlaid, mirroring how
  * `MainTabShell` hosts them. With [glass] the content is the shared state's
- * `hazeSource` and both bars take their glass treatments (top bar in its scrolled
- * state); without it both bars render their pre-glass solid treatments — the pair
+ * `hazeSource` and both bars take their glass treatments; without it both bars
+ * render their pre-glass solid treatments — the pair
  * is the before/after record for the migration.
  */
 @Composable
@@ -93,7 +93,6 @@ fun GlassBarsPreviewContent(glass: Boolean) {
 
         StratumTopBar(
             title = "Programs",
-            scrolled = glass,
             modifier = Modifier.align(Alignment.TopCenter),
         )
         StratumNavigationBar(

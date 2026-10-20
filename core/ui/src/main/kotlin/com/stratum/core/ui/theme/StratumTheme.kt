@@ -1,6 +1,9 @@
 package com.stratum.core.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
@@ -48,10 +51,27 @@ fun rememberGlassActive(): Boolean = rememberGlassHazeState() != null
 fun rememberGlassBottomPadding(): androidx.compose.ui.unit.Dp =
     if (rememberGlassHazeState() != null) StratumGlassChrome.bottomBarHeight else 0.dp
 
+/**
+ * Top clearance for content scrolling under a glass top bar (§12.8): the
+ * status-bar inset the bar spans PLUS the bar's own height. Clearing only
+ * [StratumGlassChrome.topBarHeight] lets content slide up under the bar by
+ * exactly the inset, colliding with the title and eating taps (STR-155 field
+ * report). Pure function so the formula is unit-pinned: Robolectric goldens
+ * run with zero insets and cannot catch an omission here.
+ */
+fun glassTopClearance(statusBarTop: androidx.compose.ui.unit.Dp): androidx.compose.ui.unit.Dp =
+    statusBarTop + StratumGlassChrome.topBarHeight
+
 /** Top clearance for content scrolling under a glass top bar (§12.8). */
 @Composable
-fun rememberGlassTopPadding(): androidx.compose.ui.unit.Dp =
-    if (rememberGlassHazeState() != null) StratumGlassChrome.topBarHeight else 0.dp
+fun rememberGlassTopPadding(): androidx.compose.ui.unit.Dp {
+    if (rememberGlassHazeState() == null) return 0.dp
+    val statusBarTop =
+        WindowInsets.statusBars
+            .asPaddingValues()
+            .calculateTopPadding()
+    return glassTopClearance(statusBarTop)
+}
 
 object StratumThemeSpecFactory {
     fun resolve(
