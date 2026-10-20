@@ -1,5 +1,6 @@
 package com.stratum.core.ui.theme
 
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Typography
 import androidx.compose.runtime.Immutable
@@ -52,6 +53,21 @@ data class StratumShapes(
     val buttonSquareLargeCorner: Dp get() = corners.large
     val buttonPressed: Shape get() = RoundedCornerShape(corners.medium)
     val buttonPressedCorner: Dp get() = corners.medium
+
+    /**
+     * Resting corner for [variant]'s press morph (§12.7) — the theme layer
+     * owns this family knowledge so components never probe shape identity.
+     * The pill rests on [ShippopotamusPillRestCorner] when this family's
+     * button IS the pill; otherwise it rests on the pressed corner. Under
+     * Neo every value involved is 4.dp, so the morph is constant there.
+     */
+    fun buttonRestCorner(variant: StratumButtonVariant): Dp =
+        when (variant) {
+            StratumButtonVariant.Pill ->
+                if (button == CircleShape) ShippopotamusPillRestCorner else buttonPressedCorner
+            StratumButtonVariant.Square -> buttonSquareCorner
+            StratumButtonVariant.SquareLarge -> buttonSquareLargeCorner
+        }
 
     val extraSmall: RoundedCornerShape get() = RoundedCornerShape(corners.extraSmall)
     val extraSmallCorner: Dp get() = corners.extraSmall

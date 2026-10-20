@@ -3,6 +3,7 @@ package com.stratum.core.ui.theme
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
@@ -25,3 +26,12 @@ val ShippopotamusButtonShapeSquare: Shape = RoundedCornerShape(12.dp)
 
 /** Pressed shape: both the pill and the square variant morph to this on press. */
 val ShippopotamusPressedShape: Shape = RoundedCornerShape(12.dp)
+
+/**
+ * Resting corner the pill's press morph animates FROM (§12.7 sketch value).
+ * A corner radius renders capped at half the button's height, so the value
+ * must exceed twice the tallest gospel button (56.dp large) to read as a full
+ * pill at rest; it is only meaningful inside the gospel button heights
+ * (40/56 dp), which is every button the system ships.
+ */
+val ShippopotamusPillRestCorner: Dp = 100.dp

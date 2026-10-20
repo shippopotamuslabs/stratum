@@ -8,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
+import com.stratum.core.ui.theme.StratumButtonVariant
 import com.stratum.core.ui.theme.StratumTheme
 import com.stratum.core.ui.theme.StratumThemeId
 
@@ -47,8 +48,8 @@ private fun StratumButtonVariantsTonalPreview() {
 
 /** §12.7 shape languages side by side (Tonal): pill default, square, square large. */
 @Composable
-internal fun ButtonVariantsPreviewContent() {
-    StratumTheme(themeId = StratumThemeId.Tonal, darkTheme = true) {
+internal fun ButtonVariantsPreviewContent(darkTheme: Boolean? = null) {
+    StratumTheme(themeId = StratumThemeId.Tonal, darkTheme = darkTheme) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
