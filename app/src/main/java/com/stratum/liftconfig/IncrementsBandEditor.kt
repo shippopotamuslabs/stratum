@@ -219,13 +219,14 @@ internal fun IncrementEditorScreen(
                     .padding(bottom = 8.dp)
                     .verticalScroll(rememberScrollState()),
         ) {
-            editor.headerContent?.invoke(this)
             if (chrome.contextText != null) {
                 EditorContextRow(
                     text = chrome.contextText,
                     onClick = chrome.onContextClick,
+                    modifier = Modifier.padding(top = 4.dp),
                 )
             }
+            editor.headerContent?.invoke(this)
             StratumText(
                 text = stringResource(UiR.string.equipment_band_section),
                 style = StratumThemeAccessor.typography.sectionLabel,
