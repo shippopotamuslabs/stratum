@@ -490,6 +490,10 @@ Canonical for BLOVIATE / STRATUM / ENCLAVE. Companion: §11 (colors).
 - Vertical rhythm: 8 / 16 / 24 / 32 / 48 / 64. NEVER 5, 7, 10, 15.
 - Spacing object: s4, s8, s12, s16, s24, s32, s48, s64 — only these values.
   (In Stratum code: `StratumSpacing` in `:core:ui/theme`.)
+- Stacked button pairs: 8dp (s8) between stacked full-width buttons (CTA stacks,
+  bottom-bar action pairs). The 4dp micro value is only for inside a component
+  (icon-to-text, chip gaps), never between two controls; section rhythm (16dp)
+  separates sections, not buttons in a pair.
 
 **Shapes (corner radius)**
 
