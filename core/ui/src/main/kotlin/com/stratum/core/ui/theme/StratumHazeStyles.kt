@@ -1,6 +1,5 @@
 package com.stratum.core.ui.theme
 
-import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -23,8 +22,11 @@ import dev.chrisbanes.haze.blur.HazeColorEffect
  * Brutalist keeps its solid chrome under the sanctioned carve-out (§11.3
  * ruling 1), so its styles exist but chrome must not apply them while
  * [enabled] is false.
+ *
+ * Deliberately NOT `@Immutable`: [HazeBlurStyle] is an opaque style spec, so
+ * claiming value immutability for the wrapper would overstate what Compose
+ * can rely on. Stability comes from the spec singletons that hold these.
  */
-@Immutable
 data class StratumHazeStyles(
     val topBar: HazeBlurStyle,
     val bottomBar: HazeBlurStyle,

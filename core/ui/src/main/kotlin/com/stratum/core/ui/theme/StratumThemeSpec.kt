@@ -120,19 +120,17 @@ data class StratumThemeSpec(
     val shapes: StratumShapes,
     val elevations: StratumElevations,
     val typography: StratumTypography,
-) {
     /**
-     * Glass Bars styles (§12.8) derived from this spec's colors — the single
+     * Glass Bars styles (§12.8) derived from this spec's own colors — the single
      * construction path, mirroring how [StratumShapes] derives from its
      * canonical corner scale. Glass is enabled for the Tonal family only;
      * Neo Brutalist chrome stays solid under its carve-out (§11.3 ruling 1).
+     * The spec objects cache one instance per family/darkness, so these style
+     * objects are stable across the app.
      */
-    // Built once per spec instance: HazeBlurStyle values are not value-equal, so
-    // rebuilding them per read would churn every glass modifier that consumes them.
-    val haze: StratumHazeStyles by lazy {
-        stratumHazeStyles(colors = colors, enabled = id == StratumThemeId.Tonal)
-    }
-}
+    val haze: StratumHazeStyles =
+        stratumHazeStyles(colors = colors, enabled = id == StratumThemeId.Tonal),
+)
 
 private fun gospelStyle(
     fontSize: TextUnit,

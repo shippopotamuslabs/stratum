@@ -28,9 +28,14 @@ class StratumHazeStylesTest {
     }
 
     @Test
-    fun styles_areStablePerSpecInstance() {
+    fun specs_areCachedSingletons_soStyleInstancesAreStable() {
+        // Glass modifiers identity-compare style objects; per-instance caches
+        // inside the spec would still churn across resolve() calls, so the
+        // factories hand out one spec per family/darkness.
+        assertSame(StratumTonalSpec.resolve(dark = true), StratumTonalSpec.resolve(dark = true))
+        assertSame(StratumTonalSpec.resolve(dark = false), StratumTonalSpec.resolve(dark = false))
+        assertSame(NeoBrutalistSpec.resolve(dark = true), NeoBrutalistSpec.resolve(dark = true))
         val spec = StratumTonalSpec.resolve(dark = true)
-        assertSame(spec.haze, spec.haze)
         assertSame(spec.haze.topBar, spec.haze.topBar)
     }
 }
