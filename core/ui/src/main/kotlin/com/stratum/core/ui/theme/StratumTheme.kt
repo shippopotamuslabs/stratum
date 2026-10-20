@@ -77,7 +77,7 @@ fun StratumTheme(
     CompositionLocalProvider(LocalStratumTheme provides spec) {
         MaterialTheme(
             colorScheme = materialScheme,
-            typography = androidx.compose.material3.Typography(),
+            typography = spec.typography.material,
             content = content,
         )
     }

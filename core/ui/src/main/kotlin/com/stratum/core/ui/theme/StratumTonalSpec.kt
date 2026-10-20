@@ -3,8 +3,16 @@ package com.stratum.core.ui.theme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
-private val SteelAccent = Color(0xFF5B7C99)
-
+/**
+ * Stratum Tonal family — the Material theme family.
+ *
+ * Accent, border, and text tokens follow the Shippopotamus Palette Gospel (§11 of
+ * `contracts/UI_DESIGN.md`), per Sean's 2026-10-19 ratification (STR-138): the steel
+ * accent was replaced by the gospel indigo family, and the light spec adopts the Light
+ * Palette Gospel (PALETTE-LIGHT) tokens. Dark surface values and the semantic hues
+ * (error / setComplete / prHighlight / warning) are unchanged — see §11.3 for the
+ * standing differences that remain.
+ */
 object StratumTonalSpec {
     fun resolve(dark: Boolean): StratumThemeSpec =
         if (dark) {
@@ -19,23 +27,23 @@ object StratumTonalSpec {
             dark = true,
             colors =
                 StratumColors(
-                    accent = SteelAccent,
-                    onAccent = Color(0xFFFFFFFF),
-                    accentMuted = Color(0xFF3D5A72),
-                    surfaceBase = Color(0xFF121212),
-                    surfaceRaised = Color(0xFF1E1E1E),
-                    surfaceInset = Color(0xFF282828),
-                    surfaceSunken = Color(0xFF0E0E0E),
-                    borderStrong = Color(0xFF4A4A4A),
-                    borderSubtle = Color(0xFF3A3A3A),
-                    textPrimary = Color(0xFFF2F2F2),
-                    textMuted = Color(0xFF9CA3AF),
-                    textData = Color(0xFFE5E7EB),
-                    error = Color(0xFFEF4444),
-                    onError = Color(0xFFFFFFFF),
-                    setComplete = Color(0xFF1B3D2F),
-                    prHighlight = Color(0xFFE0B040),
-                    warning = Color(0xFFFBBF24),
+                    accent = GospelPaletteTokens.Dark.Accent,
+                    onAccent = GospelPaletteTokens.Dark.OnAccent,
+                    accentMuted = GospelPaletteTokens.Dark.AccentMuted,
+                    surfaceBase = GospelPaletteTokens.Dark.SurfaceBase,
+                    surfaceRaised = GospelPaletteTokens.Dark.SurfaceRaised,
+                    surfaceInset = GospelPaletteTokens.Dark.SurfaceInset,
+                    surfaceSunken = GospelPaletteTokens.Dark.SurfaceSunken,
+                    borderStrong = GospelPaletteTokens.Dark.BorderStrong,
+                    borderSubtle = GospelPaletteTokens.Dark.BorderSubtle,
+                    textPrimary = GospelPaletteTokens.Dark.TextPrimary,
+                    textMuted = GospelPaletteTokens.Dark.TextMuted,
+                    textData = GospelPaletteTokens.Dark.TextData,
+                    error = GospelPaletteTokens.Dark.Error,
+                    onError = GospelPaletteTokens.Dark.OnError,
+                    setComplete = GospelPaletteTokens.Dark.SetComplete,
+                    prHighlight = GospelPaletteTokens.Dark.PrHighlight,
+                    warning = GospelPaletteTokens.Dark.Warning,
                 ),
             shapes = tonalShapes(),
             elevations =
@@ -54,23 +62,23 @@ object StratumTonalSpec {
             dark = false,
             colors =
                 StratumColors(
-                    accent = SteelAccent,
-                    onAccent = Color(0xFFFFFFFF),
-                    accentMuted = Color(0xFF4A657A),
-                    surfaceBase = Color(0xFFF4F4F4),
-                    surfaceRaised = Color(0xFFFFFFFF),
-                    surfaceInset = Color(0xFFF4F4F4),
-                    surfaceSunken = Color(0xFFE8E8E8),
-                    borderStrong = Color(0xFFCBD5E1),
-                    borderSubtle = Color(0xFFE2E8F0),
-                    textPrimary = Color(0xFF111827),
-                    textMuted = Color(0xFF475569),
-                    textData = Color(0xFF1F2937),
-                    error = Color(0xFFDC2626),
-                    onError = Color(0xFFFFFFFF),
-                    setComplete = Color(0xFFE8F5E9),
-                    prHighlight = Color(0xFF8A6708),
-                    warning = Color(0xFFB45309),
+                    accent = GospelPaletteTokens.Light.Accent,
+                    onAccent = GospelPaletteTokens.Light.OnAccent,
+                    accentMuted = GospelPaletteTokens.Light.AccentMuted,
+                    surfaceBase = GospelPaletteTokens.Light.SurfaceBase,
+                    surfaceRaised = GospelPaletteTokens.Light.SurfaceRaised,
+                    surfaceInset = GospelPaletteTokens.Light.SurfaceInset,
+                    surfaceSunken = GospelPaletteTokens.Light.SurfaceSunken,
+                    borderStrong = GospelPaletteTokens.Light.BorderStrong,
+                    borderSubtle = GospelPaletteTokens.Light.BorderSubtle,
+                    textPrimary = GospelPaletteTokens.Light.TextPrimary,
+                    textMuted = GospelPaletteTokens.Light.TextMuted,
+                    textData = GospelPaletteTokens.Light.TextData,
+                    error = GospelPaletteTokens.Light.Error,
+                    onError = GospelPaletteTokens.Light.OnError,
+                    setComplete = GospelPaletteTokens.Light.SetComplete,
+                    prHighlight = GospelPaletteTokens.Light.PrHighlight,
+                    warning = GospelPaletteTokens.Light.Warning,
                 ),
             shapes = tonalShapes(),
             elevations =
