@@ -54,6 +54,8 @@ import com.stratum.core.ui.component.StratumStackedBarChart
 import com.stratum.core.ui.component.StratumTabScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
+import androidx.compose.runtime.CompositionLocalProvider
+import com.stratum.core.ui.theme.LocalStratumHazeState
 import com.stratum.core.ui.component.StratumVolumeBarChart
 import com.stratum.core.ui.component.TrendBandUi
 import com.stratum.core.ui.component.TrendPointUi
@@ -86,11 +88,18 @@ internal fun DashboardHealthScaffold(
         modifier = modifier,
         horizontalPadding = 0.dp,
         topBar = {
-            StratumTopBar(
-                title = stringResource(R.string.dashboard_title),
-                actions = settingsAction,
-                containerColor = if (heroVisible) colors.surfaceRaised else colors.surfaceBase,
-            )
+            // In-flow bar (this screen is not an overlay host): render solid.
+            // A null HazeState keeps StratumTopBar off the glass path (STR-155)
+            // — glass requires content scrolling beneath the bar, which this
+            // host never does; without this the bar went transparent and
+            // stayed that way (no scrolled signal is ever passed here).
+            CompositionLocalProvider(LocalStratumHazeState provides null) {
+                StratumTopBar(
+                    title = stringResource(R.string.dashboard_title),
+                    actions = settingsAction,
+                    containerColor = if (heroVisible) colors.surfaceRaised else colors.surfaceBase,
+                )
+            }
         },
     ) {
         if (onRefresh != null) {
