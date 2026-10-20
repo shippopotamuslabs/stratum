@@ -53,6 +53,58 @@ class StratumGospelTokensTest {
     }
 
     @Test
+    fun tonalDark_resolvesNamedGospelTokens() {
+        val colors = StratumTonalSpec.resolve(dark = true).colors
+        assertEquals(GospelPaletteTokens.Dark.Accent, colors.accent)
+        assertEquals(GospelPaletteTokens.Dark.OnAccent, colors.onAccent)
+        assertEquals(GospelPaletteTokens.Dark.AccentMuted, colors.accentMuted)
+        assertEquals(GospelPaletteTokens.Dark.SurfaceBase, colors.surfaceBase)
+        assertEquals(GospelPaletteTokens.Dark.SurfaceRaised, colors.surfaceRaised)
+        assertEquals(GospelPaletteTokens.Dark.SurfaceInset, colors.surfaceInset)
+        assertEquals(GospelPaletteTokens.Dark.SurfaceSunken, colors.surfaceSunken)
+        assertEquals(GospelPaletteTokens.Dark.BorderStrong, colors.borderStrong)
+        assertEquals(GospelPaletteTokens.Dark.BorderSubtle, colors.borderSubtle)
+        assertEquals(GospelPaletteTokens.Dark.TextPrimary, colors.textPrimary)
+        assertEquals(GospelPaletteTokens.Dark.TextMuted, colors.textMuted)
+        assertEquals(GospelPaletteTokens.Dark.TextData, colors.textData)
+        assertEquals(GospelPaletteTokens.Dark.Error, colors.error)
+        assertEquals(GospelPaletteTokens.Dark.OnError, colors.onError)
+        assertEquals(GospelPaletteTokens.Dark.SetComplete, colors.setComplete)
+        assertEquals(GospelPaletteTokens.Dark.PrHighlight, colors.prHighlight)
+        assertEquals(GospelPaletteTokens.Dark.Warning, colors.warning)
+    }
+
+    @Test
+    fun tonalLight_resolvesNamedGospelTokens() {
+        val colors = StratumTonalSpec.resolve(dark = false).colors
+        assertEquals(GospelPaletteTokens.Light.Accent, colors.accent)
+        assertEquals(GospelPaletteTokens.Light.OnAccent, colors.onAccent)
+        assertEquals(GospelPaletteTokens.Light.AccentMuted, colors.accentMuted)
+        assertEquals(GospelPaletteTokens.Light.SurfaceBase, colors.surfaceBase)
+        assertEquals(GospelPaletteTokens.Light.SurfaceRaised, colors.surfaceRaised)
+        assertEquals(GospelPaletteTokens.Light.SurfaceInset, colors.surfaceInset)
+        assertEquals(GospelPaletteTokens.Light.SurfaceSunken, colors.surfaceSunken)
+        assertEquals(GospelPaletteTokens.Light.BorderStrong, colors.borderStrong)
+        assertEquals(GospelPaletteTokens.Light.BorderSubtle, colors.borderSubtle)
+        assertEquals(GospelPaletteTokens.Light.TextPrimary, colors.textPrimary)
+        assertEquals(GospelPaletteTokens.Light.TextMuted, colors.textMuted)
+        assertEquals(GospelPaletteTokens.Light.TextData, colors.textData)
+        assertEquals(GospelPaletteTokens.Light.Error, colors.error)
+        assertEquals(GospelPaletteTokens.Light.OnError, colors.onError)
+        assertEquals(GospelPaletteTokens.Light.SetComplete, colors.setComplete)
+        assertEquals(GospelPaletteTokens.Light.PrHighlight, colors.prHighlight)
+        assertEquals(GospelPaletteTokens.Light.Warning, colors.warning)
+    }
+
+    @Test
+    fun gospelTokens_pinCanonHexPerFamily() {
+        // One raw-hex spot check per family so canon drift is caught without
+        // duplicating every literal; full per-role pins live above.
+        assertEquals(Color(0xFF7A7CFF), GospelPaletteTokens.Dark.Accent)
+        assertEquals(Color(0xFF5457E8), GospelPaletteTokens.Light.Accent)
+    }
+
+    @Test
     fun tonalButtons_areFullPill() {
         assertEquals(CircleShape, StratumTonalSpec.resolve(dark = true).shapes.button)
         assertEquals(CircleShape, StratumTonalSpec.resolve(dark = false).shapes.button)
@@ -73,6 +125,9 @@ class StratumGospelTokensTest {
         // Stratum-specific styles survive the completion untouched.
         assertEquals(20.sp, typography.dataLarge.fontSize)
         assertEquals(13.sp, typography.sectionLabel.fontSize)
+        // Delegated accessors expose the composed M3 scale with zero copies.
+        assertEquals(typography.material.bodyLarge, typography.bodyLarge)
+        assertEquals(typography.material.displayLarge, typography.displayLarge)
     }
 
     @Test

@@ -77,31 +77,11 @@ fun StratumTheme(
     CompositionLocalProvider(LocalStratumTheme provides spec) {
         MaterialTheme(
             colorScheme = materialScheme,
-            typography = spec.typography.toMaterialTypography(),
+            typography = spec.typography.material,
             content = content,
         )
     }
 }
-
-/** Maps the semantic gospel type scale onto the M3 slots the bridge provides. */
-private fun StratumTypography.toMaterialTypography(): androidx.compose.material3.Typography =
-    androidx.compose.material3.Typography(
-        displayLarge = displayLarge,
-        displayMedium = displayMedium,
-        displaySmall = displaySmall,
-        headlineLarge = headlineLarge,
-        headlineMedium = headlineMedium,
-        headlineSmall = headlineSmall,
-        titleLarge = titleLarge,
-        titleMedium = titleMedium,
-        titleSmall = titleSmall,
-        bodyLarge = bodyLarge,
-        bodyMedium = bodyMedium,
-        bodySmall = bodySmall,
-        labelLarge = labelLarge,
-        labelMedium = labelMedium,
-        labelSmall = labelSmall,
-    )
 
 object StratumThemeAccessor {
     val colors: StratumColors
