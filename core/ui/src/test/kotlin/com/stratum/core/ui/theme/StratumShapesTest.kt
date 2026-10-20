@@ -1,7 +1,6 @@
 package com.stratum.core.ui.theme
 
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -73,12 +72,12 @@ class StratumShapesTest {
     fun materialBridge_tonalDarkMapsContainersAndTint() {
         val spec = StratumTonalSpec.resolve(dark = true)
         val scheme = materialColorScheme(spec)
-        assertEquals(Color(0xFF7A7CFF), scheme.surfaceTint)
-        assertEquals(Color(0xFF0D0E11), scheme.surfaceContainerLowest)
-        assertEquals(Color(0xFF111216), scheme.surfaceContainerLow)
-        assertEquals(Color(0xFF181A20), scheme.surfaceContainer)
-        assertEquals(Color(0xFF181A20), scheme.surfaceContainerHigh)
-        assertEquals(Color(0xFF272A33), scheme.surfaceContainerHighest)
+        assertEquals(spec.colors.accent, scheme.surfaceTint)
+        assertEquals(spec.colors.surfaceBase, scheme.surfaceContainerLowest)
+        assertEquals(spec.colors.surfaceSunken, scheme.surfaceContainerLow)
+        assertEquals(spec.colors.surfaceRaised, scheme.surfaceContainer)
+        assertEquals(spec.colors.surfaceRaised, scheme.surfaceContainerHigh)
+        assertEquals(spec.colors.surfaceInset, scheme.surfaceContainerHighest)
         // Legacy slots preserved.
         assertEquals(spec.colors.surfaceRaised, scheme.surface)
         assertEquals(spec.colors.surfaceBase, scheme.background)
@@ -88,25 +87,25 @@ class StratumShapesTest {
     fun materialBridge_tonalLightMapsContainersAndTint() {
         val spec = StratumTonalSpec.resolve(dark = false)
         val scheme = materialColorScheme(spec)
-        assertEquals(Color(0xFF5457E8), scheme.surfaceTint)
-        assertEquals(Color(0xFFFFFFFF), scheme.surfaceContainerLowest)
-        assertEquals(Color(0xFFF4F4F8), scheme.surfaceContainerLow)
-        assertEquals(Color(0xFFEFEFF4), scheme.surfaceContainer)
-        assertEquals(Color(0xFFFFFFFF), scheme.surfaceContainerHigh)
-        assertEquals(Color(0xFFFFFFFF), scheme.surfaceContainerHighest)
+        assertEquals(spec.colors.accent, scheme.surfaceTint)
+        assertEquals(spec.colors.surfaceRaised, scheme.surfaceContainerLowest)
+        assertEquals(spec.colors.surfaceBase, scheme.surfaceContainerLow)
+        assertEquals(spec.colors.surfaceInset, scheme.surfaceContainer)
+        assertEquals(spec.colors.surfaceRaised, scheme.surfaceContainerHigh)
+        assertEquals(spec.colors.surfaceRaised, scheme.surfaceContainerHighest)
     }
 
     @Test
     fun materialBridge_neoUsesOwnRampAndAccentAsTint() {
         val dark = NeoBrutalistSpec.resolve(dark = true)
         val darkScheme = materialColorScheme(dark)
-        assertEquals(Color(0xFFC45C26), darkScheme.surfaceTint)
-        assertEquals(Color(0xFF1A1A1A), darkScheme.surfaceContainerLowest)
-        assertEquals(Color(0xFF121212), darkScheme.surfaceContainerLow)
-        assertEquals(Color(0xFF242424), darkScheme.surfaceContainer)
-        assertEquals(Color(0xFF2E2E2E), darkScheme.surfaceContainerHighest)
+        assertEquals(dark.colors.accent, darkScheme.surfaceTint)
+        assertEquals(dark.colors.surfaceBase, darkScheme.surfaceContainerLowest)
+        assertEquals(dark.colors.surfaceSunken, darkScheme.surfaceContainerLow)
+        assertEquals(dark.colors.surfaceRaised, darkScheme.surfaceContainer)
+        assertEquals(dark.colors.surfaceInset, darkScheme.surfaceContainerHighest)
         val light = NeoBrutalistSpec.resolve(dark = false)
-        assertEquals(Color(0xFFB45309), materialColorScheme(light).surfaceTint)
+        assertEquals(light.colors.accent, materialColorScheme(light).surfaceTint)
     }
 
     @Test
