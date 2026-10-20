@@ -46,7 +46,7 @@ internal val PREVIEW_EQUIPMENT_NAME_FIELD: @Composable ColumnScope.() -> Unit = 
         value = "Cables",
         onValueChange = {},
         label = "Name",
-        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+        modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
     )
 }
 
