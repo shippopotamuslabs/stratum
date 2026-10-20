@@ -45,6 +45,7 @@ import com.stratum.core.ui.component.StratumOutlinedButton
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTextField
 import com.stratum.core.ui.component.formatWeightAmount
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.domain.lift.BarPreset
 import com.stratum.domain.lift.BarPresetKind
@@ -161,7 +162,7 @@ internal fun StratumPlateCalculatorSheetContent(
         modifier = Modifier
             .fillMaxWidth()
             .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -201,7 +202,7 @@ internal fun StratumPlateCalculatorSheetContent(
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
         ) {
             StratumTextField(
                 value = targetWeightText,
@@ -228,7 +229,7 @@ internal fun StratumPlateCalculatorSheetContent(
             )
         }
 
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8)) {
             StratumText(
                 text = stringResource(CoreUiR.string.plate_calculator_bar_weight_presets),
                 style = StratumThemeAccessor.typography.sectionLabel,
@@ -238,7 +239,7 @@ internal fun StratumPlateCalculatorSheetContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 barPresets.forEach { preset ->
@@ -253,7 +254,7 @@ internal fun StratumPlateCalculatorSheetContent(
             }
         }
 
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8)) {
             StratumText(
                 text = stringResource(CoreUiR.string.plate_calculator_available_plates),
                 style = StratumThemeAccessor.typography.sectionLabel,
@@ -261,8 +262,8 @@ internal fun StratumPlateCalculatorSheetContent(
             )
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
+                verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
             ) {
                 allPlateDenominations.forEach { plateWeight ->
                     val isEnabled = plateWeight in enabledPlates
@@ -292,7 +293,7 @@ internal fun StratumPlateCalculatorSheetContent(
             }
         }
 
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8)) {
             StratumText(
                 text = stringResource(CoreUiR.string.plate_calculator_barbell_diagram),
                 style = StratumThemeAccessor.typography.sectionLabel,
@@ -310,8 +311,8 @@ internal fun StratumPlateCalculatorSheetContent(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                .padding(top = StratumSpacing.s4),
+            horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
         ) {
             val applyWeight = onApplyWeight
             val canApply = applyWeight != null && plateLoad.isValid && plateLoad.totalWeight > 0.0
@@ -359,8 +360,8 @@ internal fun PlateLoadBreakdownCard(
                 },
                 shape = StratumThemeAccessor.shapes.panel,
             )
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+            .padding(StratumSpacing.s12),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -513,7 +514,7 @@ private fun PlateBreakdownRow(
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
         ) {
             Box(
                 modifier = Modifier

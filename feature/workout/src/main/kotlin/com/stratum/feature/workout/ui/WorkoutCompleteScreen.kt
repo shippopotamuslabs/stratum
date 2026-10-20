@@ -1,3 +1,5 @@
+// STR-142 allowlist: dense 2.dp data stacks pinned; card gaps adopted.
+@file:Suppress("ForbiddenRawSpacingLiteralInUi")
 package com.stratum.feature.workout.ui
 
 import androidx.compose.foundation.background
@@ -45,6 +47,7 @@ import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.share.SHARE_CAPTURE_DEFAULT_PIXEL_SIZE
 import com.stratum.core.ui.share.ShareCaptureHost
 import com.stratum.core.ui.share.WorkoutShareCard
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.feature.workout.R
@@ -103,8 +106,8 @@ fun WorkoutCompleteScreen(
                         .fillMaxWidth()
                         .padding(padding)
                         .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 16.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                        .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s16),
+                verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
             ) {
                 StratumText(
                     text = stringResource(R.string.workout_complete_title),
@@ -178,7 +181,7 @@ private fun RepRangeProposalsSection(
     onSkip: (String) -> Unit,
     onNotNow: (String) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12)) {
         StratumText(
             text = stringResource(R.string.workout_complete_rep_range_section),
             style = StratumThemeAccessor.typography.titleMedium,
@@ -216,8 +219,8 @@ private fun RepRangeShiftCard(
             .fillMaxWidth()
             .background(color = cardColor, shape = panelShape)
             .border(width = borderWidth, color = borderColor, shape = panelShape)
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+            .padding(StratumSpacing.s16),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
     ) {
         StratumText(
             text = stringResource(
@@ -253,7 +256,7 @@ private fun RepRangeShiftCard(
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+            horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8, Alignment.End),
         ) {
             StratumTextButton(
                 text = stringResource(R.string.workout_complete_proposal_skip),
@@ -278,7 +281,7 @@ private fun EquipmentProposalsSection(
     onSkip: (String) -> Unit,
     onNotNow: (String) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12)) {
         StratumText(
             text = stringResource(R.string.workout_complete_equipment_section),
             style = StratumThemeAccessor.typography.titleMedium,
@@ -320,8 +323,8 @@ private fun EquipmentProposalCard(
             .fillMaxWidth()
             .background(color = cardColor, shape = panelShape)
             .border(width = borderWidth, color = borderColor, shape = panelShape)
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+            .padding(StratumSpacing.s16),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
     ) {
         StratumText(
             text = card.title,
@@ -383,7 +386,7 @@ private fun EquipmentProposalCard(
                 enabled = actionsEnabled,
             )
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8, Alignment.End),
             ) {
                 StratumTextButton(
                     text = stringResource(R.string.workout_complete_proposal_skip),
@@ -404,7 +407,7 @@ private fun EquipmentProposalCard(
 private fun SummaryStatCards(state: WorkoutCompleteUiState.Loaded) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
     ) {
         StratumStatCard(
             label = stringResource(R.string.workout_complete_duration),
@@ -471,12 +474,12 @@ private fun PerformanceItem(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier.padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = modifier.padding(StratumSpacing.s16),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
             modifier = Modifier.fillMaxWidth(),
         ) {
             if (bestSet.isPersonalRecord) {

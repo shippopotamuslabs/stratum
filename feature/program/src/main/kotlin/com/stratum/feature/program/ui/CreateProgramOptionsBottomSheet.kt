@@ -29,6 +29,7 @@ import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumButton
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTextField
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.program.R
 
@@ -119,8 +120,8 @@ private fun CreateProgramOptionRow(
                 .background(color = colors.surfaceRaised, shape = shapes.panel)
                 .border(width = shapes.borderWidth, color = colors.borderSubtle, shape = shapes.panel)
                 .clickable(onClick = onClick)
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s16),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(

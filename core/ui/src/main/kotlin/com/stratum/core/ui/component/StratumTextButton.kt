@@ -11,9 +11,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.theme.LocalStratumTheme
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
-private val TopBarTextButtonPadding = PaddingValues(start = 8.dp, top = 8.dp, end = 0.dp, bottom = 8.dp)
+private val TopBarTextButtonPadding =
+    PaddingValues(
+        start = StratumSpacing.s8,
+        top = StratumSpacing.s8,
+        end = 0.dp,
+        bottom = StratumSpacing.s8,
+    )
 private val TopBarTextButtonEndInset = 16.dp
 
 /**

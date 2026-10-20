@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
 /**
@@ -45,9 +46,9 @@ fun StratumBottomSheet(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp)
-                    .padding(top = 4.dp, bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                    .padding(horizontal = StratumSpacing.s12)
+                    .padding(top = StratumSpacing.s4, bottom = StratumSpacing.s32),
+            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
         ) {
             title?.let {
                 StratumText(
@@ -55,7 +56,7 @@ fun StratumBottomSheet(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .padding(bottom = 8.dp),
+                            .padding(bottom = StratumSpacing.s8),
                     style = StratumThemeAccessor.typography.titleLarge,
                     textAlign = TextAlign.Center,
                 )
@@ -106,7 +107,7 @@ private fun StratumBottomSheetHandle(
         modifier =
             modifier
                 .fillMaxWidth()
-                .padding(top = 12.dp, bottom = 4.dp),
+                .padding(top = StratumSpacing.s12, bottom = StratumSpacing.s4),
         contentAlignment = Alignment.Center,
     ) {
         Box(

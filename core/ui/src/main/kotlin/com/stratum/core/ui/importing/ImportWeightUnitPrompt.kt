@@ -18,6 +18,7 @@ import com.stratum.core.ui.component.StratumButton
 import com.stratum.core.ui.component.StratumOutlinedButton
 import com.stratum.core.ui.component.StratumSegmentedControl
 import com.stratum.core.ui.component.StratumText
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
 /**
@@ -50,8 +51,8 @@ fun ImportWeightUnitPrompt(
                         color = colors.borderStrong,
                         shape = shapes.panel,
                     )
-                    .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                    .padding(StratumSpacing.s24),
+            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
         ) {
             StratumText(
                 text = stringResource(R.string.import_weight_unit_title),
@@ -70,7 +71,7 @@ fun ImportWeightUnitPrompt(
             )
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End),
+                horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s12, Alignment.End),
             ) {
                 StratumOutlinedButton(
                     text = stringResource(R.string.import_weight_unit_cancel),

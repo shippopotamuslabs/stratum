@@ -12,6 +12,8 @@ import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumPreferenceRow
 import com.stratum.core.ui.component.StratumSwitch
 import com.stratum.core.ui.component.StratumText
+import com.stratum.core.ui.theme.StratumSpacing
+
 
 /**
  * Hub sheet for a catalog lift: recommendation toggle, increments, information, and merge.
@@ -29,7 +31,7 @@ fun LiftConfigBottomSheet(
     StratumBottomSheet(onDismissRequest = onDismissRequest) {
         Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
         ) {
             StratumText(text = liftName)
             StratumPreferenceRow(

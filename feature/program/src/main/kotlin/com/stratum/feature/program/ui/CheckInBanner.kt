@@ -1,3 +1,5 @@
+// STR-142 allowlist: dense 2.dp banner stack pinned.
+@file:Suppress("ForbiddenRawSpacingLiteralInUi")
 package com.stratum.feature.program.ui
 
 import androidx.compose.foundation.background
@@ -16,6 +18,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTextButton
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.program.R
 
@@ -42,7 +45,7 @@ fun CheckInBanner(
                 )
                 .background(color = colors.surfaceRaised, shape = shapes.panel)
                 .clickable(role = Role.Button, onClick = onTap)
-                .padding(horizontal = 12.dp, vertical = 12.dp),
+                .padding(horizontal = StratumSpacing.s12, vertical = StratumSpacing.s12),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {

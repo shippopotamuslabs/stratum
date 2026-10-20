@@ -22,6 +22,7 @@ import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
 import com.stratum.core.ui.component.UserMessageEffect
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.program.R
 import androidx.compose.material3.SnackbarHostState
@@ -70,7 +71,7 @@ fun ProgramLibraryScreen(
                     Modifier
                         .fillMaxSize()
                         .padding(padding)
-                        .padding(24.dp),
+                        .padding(StratumSpacing.s24),
                 contentAlignment = Alignment.Center,
             ) {
                 StratumText(
@@ -85,8 +86,8 @@ fun ProgramLibraryScreen(
                     Modifier
                         .fillMaxSize()
                         .padding(padding),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(horizontal = StratumSpacing.s12, vertical = StratumSpacing.s12),
+                verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
             ) {
                 items(
                     items = state.programs,

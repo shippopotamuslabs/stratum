@@ -43,6 +43,7 @@ import com.stratum.core.ui.component.StratumTextField
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
 import com.stratum.core.ui.progress.ProgramGenerationProgressUi
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.core.ui.theme.stratumCardHardShadow
 import com.stratum.core.ui.theme.stratumDockTopRule
@@ -124,7 +125,7 @@ fun CreateProgramScreen(
                                     programOptionsMode = CreateProgramOptionsMode.Menu
                                     showProgramOptionsSheet = true
                                 },
-                                modifier = Modifier.padding(end = 8.dp),
+                                modifier = Modifier.padding(end = StratumSpacing.s8),
                             ) {
                                 Icon(
                                     painter = painterResource(CoreUiR.drawable.ic_more_vert),
@@ -175,7 +176,7 @@ fun CreateProgramScreen(
                 StratumText(
                     text = state.loadErrorMessage,
                     muted = true,
-                    modifier = Modifier.align(Alignment.Center).padding(24.dp),
+                    modifier = Modifier.align(Alignment.Center).padding(StratumSpacing.s24),
                 )
             } else when (state.step) {
                 CreateProgramStep.ChoosePath ->
@@ -313,8 +314,8 @@ private fun ChooseCreatePathContent(
         modifier =
             Modifier
                 .fillMaxSize()
-                .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(StratumSpacing.s12),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
     ) {
         StratumText(
             text = stringResource(R.string.create_program_choose_path_title),
@@ -362,11 +363,11 @@ private fun PathCard(
                     shape = shapes.panel,
                 )
                 .clickable(onClick = onClick)
-                .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(StratumSpacing.s16),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
     ) {
         Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             StratumText(text = title, style = StratumThemeAccessor.typography.titleLarge)
@@ -394,7 +395,7 @@ private fun GeneratingContent(
         modifier =
             Modifier
                 .fillMaxSize()
-                .padding(horizontal = 24.dp, vertical = 16.dp),
+                .padding(horizontal = StratumSpacing.s24, vertical = StratumSpacing.s16),
         verticalArrangement =
             if (isError) {
                 Arrangement.Center
@@ -408,7 +409,7 @@ private fun GeneratingContent(
                 text = error ?: stringResource(R.string.create_program_generate_error),
                 muted = true,
             )
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(StratumSpacing.s16))
             StratumButton(text = stringResource(R.string.create_program_generate_cta), onClick = onRetry)
         } else {
             ProgramGenerationLoadingContent(
@@ -479,7 +480,7 @@ private fun CreateProgramVolumeRow(state: CreateProgramUiState) {
                 stringResource(R.string.edit_workout_volume_scope_workout),
                 stringResource(R.string.edit_workout_volume_scope_program),
             ),
-        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+        modifier = Modifier.padding(horizontal = StratumSpacing.s12, vertical = StratumSpacing.s8),
     )
 }
 
@@ -492,8 +493,8 @@ private fun DayActionButtonsRow(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(start = StratumSpacing.s12, end = StratumSpacing.s12, top = StratumSpacing.s12, bottom = StratumSpacing.s4),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
     ) {
         StratumOutlinedButton(
             text = stringResource(R.string.create_program_remove_day),
@@ -514,8 +515,8 @@ private fun RestDayBody(onAddExercise: () -> Unit) {
         modifier =
             Modifier
                 .fillMaxSize()
-                .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(StratumSpacing.s16),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
     ) {
         StratumText(
             text = stringResource(R.string.create_program_rest_day),
@@ -530,7 +531,7 @@ private fun RestDayBody(onAddExercise: () -> Unit) {
                         color = StratumThemeAccessor.colors.borderSubtle,
                         shape = StratumThemeAccessor.shapes.panel,
                     )
-                    .padding(20.dp),
+                    .padding(StratumSpacing.s16),
         ) {
             StratumText(
                 text = stringResource(R.string.create_program_rest_day_hint),
@@ -598,7 +599,7 @@ private fun WizardBottomBar(
                 .fillMaxWidth()
                 .background(StratumThemeAccessor.colors.surfaceRaised)
                 .stratumDockTopRule()
-                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12)
                 .navigationBarsPadding(),
     ) {
         StratumButton(
@@ -627,9 +628,9 @@ private fun EditorBottomBar(
                 .fillMaxWidth()
                 .background(StratumThemeAccessor.colors.surfaceRaised)
                 .stratumDockTopRule()
-                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12)
                 .navigationBarsPadding(),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
     ) {
         if (saveError != null) {
             StratumText(text = saveError, muted = true)

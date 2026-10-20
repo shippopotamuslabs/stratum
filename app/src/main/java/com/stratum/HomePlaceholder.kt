@@ -12,6 +12,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumText
+import com.stratum.core.ui.theme.StratumSpacing
+
 
 @Composable
 fun HomePlaceholder(modifier: Modifier = Modifier) {
@@ -20,7 +22,7 @@ fun HomePlaceholder(modifier: Modifier = Modifier) {
         contentWindowInsets = WindowInsets.statusBars,
     ) { padding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(12.dp),
+            modifier = Modifier.fillMaxSize().padding(padding).padding(StratumSpacing.s12),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {

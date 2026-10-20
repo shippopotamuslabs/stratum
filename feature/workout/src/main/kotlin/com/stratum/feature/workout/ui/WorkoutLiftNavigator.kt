@@ -1,3 +1,5 @@
+// STR-142 allowlist: completion-badge overlay geometry (3.dp) pinned.
+@file:Suppress("ForbiddenRawSpacingLiteralInUi")
 package com.stratum.feature.workout.ui
 
 import androidx.compose.foundation.background
@@ -30,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.LiftThumbnail
 import com.stratum.core.ui.component.StratumText
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.workout.R
 import com.stratum.feature.workout.isLiftComplete
@@ -61,7 +64,7 @@ internal fun LiftNavigatorRow(
     // Fixed row height so the underline slot is never clipped by LazyRow measurement.
     LazyRow(
         modifier = modifier.height(LiftNavigatorRowHeight),
-        contentPadding = PaddingValues(horizontal = 16.dp),
+        contentPadding = PaddingValues(horizontal = StratumSpacing.s16),
         horizontalArrangement = Arrangement.spacedBy(LiftNavigatorTabSpacing),
         verticalAlignment = Alignment.Top,
     ) {

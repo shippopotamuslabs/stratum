@@ -1,3 +1,5 @@
+// STR-142 allowlist: hero spacers (28.dp) and 2.dp hairlines pinned; row insets adopted.
+@file:Suppress("ForbiddenRawSpacingLiteralInUi")
 package com.stratum.feature.subscription.ui
 
 import androidx.compose.foundation.background
@@ -48,6 +50,7 @@ import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTextButton
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.legal.LegalUrls
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.subscription.PaywallProductUi
 import com.stratum.feature.subscription.PaywallUiState
@@ -111,7 +114,7 @@ fun PaywallScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(paddingValues)
-                        .padding(24.dp),
+                        .padding(StratumSpacing.s24),
                 )
             }
             is PaywallUiState.Content -> {
@@ -123,7 +126,7 @@ fun PaywallScreen(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(paddingValues)
-                            .padding(24.dp),
+                            .padding(StratumSpacing.s24),
                     )
                 } else {
                     PaywallContent(
@@ -158,14 +161,14 @@ private fun PaywallErrorContent(
                 style = typography.titleMedium,
                 color = colors.textPrimary,
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(StratumSpacing.s8))
             StratumText(
                 text = message,
                 style = typography.bodyLarge,
                 muted = true,
                 textAlign = TextAlign.Center,
             )
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(StratumSpacing.s16))
             StratumButton(
                 text = stringResource(R.string.paywall_retry),
                 onClick = onRetryClick,
@@ -192,7 +195,7 @@ private fun PaywallContent(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp, vertical = 16.dp),
+            .padding(horizontal = StratumSpacing.s24, vertical = StratumSpacing.s16),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         if (trialDays > 0) {
@@ -200,7 +203,7 @@ private fun PaywallContent(
                 label = stringResource(R.string.paywall_trial_badge, trialDays),
                 active = true,
             )
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(StratumSpacing.s16))
         }
 
         StratumText(
@@ -213,7 +216,7 @@ private fun PaywallContent(
             textAlign = TextAlign.Center,
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(StratumSpacing.s8))
 
         StratumText(
             text = stringResource(R.string.paywall_subtitle),
@@ -226,7 +229,7 @@ private fun PaywallContent(
 
         Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
         ) {
             BenefitRow(
                 icon = Icons.Default.AutoAwesome,
@@ -259,11 +262,11 @@ private fun PaywallContent(
             modifier = Modifier.fillMaxWidth(),
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(StratumSpacing.s12))
 
         Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
         ) {
             state.products.forEach { product ->
                 val isSelected = product.productId == state.selectedProductId
@@ -275,7 +278,7 @@ private fun PaywallContent(
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(StratumSpacing.s12))
 
         if (!state.isEntitled) {
             StratumText(
@@ -290,7 +293,7 @@ private fun PaywallContent(
             )
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(StratumSpacing.s24))
 
         if (state.errorMessage != null) {
             StratumText(
@@ -298,7 +301,7 @@ private fun PaywallContent(
                 style = typography.sectionLabel,
                 color = colors.error,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(bottom = 12.dp),
+                modifier = Modifier.padding(bottom = StratumSpacing.s12),
             )
         }
 
@@ -336,7 +339,7 @@ private fun PaywallContent(
             )
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(StratumSpacing.s8))
 
         if (!state.isEntitled) {
             StratumTextButton(
@@ -350,7 +353,7 @@ private fun PaywallContent(
             )
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(StratumSpacing.s16))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -362,7 +365,7 @@ private fun PaywallContent(
                 style = typography.sectionLabel,
                 muted = true,
                 modifier = Modifier
-                    .padding(horizontal = 8.dp)
+                    .padding(horizontal = StratumSpacing.s8)
                     .clickable { uriHandler.openUri(LegalUrls.TERMS) },
             )
             StratumText(
@@ -375,12 +378,12 @@ private fun PaywallContent(
                 style = typography.sectionLabel,
                 muted = true,
                 modifier = Modifier
-                    .padding(horizontal = 8.dp)
+                    .padding(horizontal = StratumSpacing.s8)
                     .clickable { uriHandler.openUri(LegalUrls.PRIVACY) },
             )
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(StratumSpacing.s8))
 
         StratumBrandFooter()
     }
@@ -421,7 +424,7 @@ private fun PlanSelectionCard(
                 shape = shapes.panel,
             )
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s16),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -449,12 +452,12 @@ private fun PlanSelectionCard(
                 }
             }
 
-            Spacer(modifier = Modifier.width(14.dp))
+            Spacer(modifier = Modifier.width(StratumSpacing.s16))
 
             Column(modifier = Modifier.weight(1f)) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
                 ) {
                     StratumText(
                         text = title,
@@ -476,7 +479,7 @@ private fun PlanSelectionCard(
                 )
             }
 
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(StratumSpacing.s8))
 
             Column(horizontalAlignment = Alignment.End) {
                 StratumNumber(
@@ -527,7 +530,7 @@ private fun BenefitRow(
             )
         }
 
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(StratumSpacing.s16))
 
         Column(modifier = Modifier.weight(1f)) {
             StratumText(

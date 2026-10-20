@@ -1,3 +1,5 @@
+// STR-142 allowlist: section rhythm (20.dp) pinned; screen margins adopted.
+@file:Suppress("ForbiddenRawSpacingLiteralInUi")
 package com.stratum.feature.settings.ui
 
 import androidx.compose.foundation.background
@@ -25,6 +27,7 @@ import com.stratum.core.ui.component.StratumSwitch
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.settings.AppearanceUi
 import com.stratum.feature.settings.HealthConnectPermissionFocus
@@ -74,7 +77,7 @@ fun SettingsScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 20.dp),
+                .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s16),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             SettingsGroup(title = stringResource(R.string.settings_membership_section)) {
@@ -411,7 +414,7 @@ private fun SettingsGroup(
     val shapes = StratumThemeAccessor.shapes
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
     ) {
         StratumText(
             text = title,
@@ -427,8 +430,8 @@ private fun SettingsGroup(
                     color = colors.borderSubtle,
                     shape = shapes.panel,
                 )
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(horizontal = StratumSpacing.s12, vertical = StratumSpacing.s8),
+            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
         ) {
             content()
         }
@@ -443,8 +446,8 @@ private fun SettingsControlBlock(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+            .padding(vertical = StratumSpacing.s4),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
     ) {
         StratumText(
             text = label,

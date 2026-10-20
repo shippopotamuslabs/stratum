@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.sp
 import com.stratum.core.ui.component.StratumButton
 import com.stratum.core.ui.component.StratumNumber
 import com.stratum.core.ui.component.StratumText
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.onboarding.GenerateState
 import com.stratum.feature.onboarding.ImportProgramState
@@ -88,8 +89,12 @@ fun ReviewScreen(
         }
 
     Column(
-        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        modifier =
+            modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
     ) {
         // Primary action pinned to the top so it's always visible without scrolling.
         // Hidden during import load/error — those panes own the CTA (timeline / Choose another file).
@@ -198,7 +203,7 @@ private fun ReviewSummary(
     generateError: Boolean,
     generateErrorMessage: String?,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16)) {
         StratumText(
             text = stringResource(
                 if (showGenerateCards) R.string.review_intro_generate else R.string.review_intro_import,
@@ -266,8 +271,8 @@ private fun ReviewSummary(
 @Composable
 private fun ReviewGenerateError(message: String?) {
     Column(
-        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        modifier = Modifier.fillMaxWidth().padding(top = StratumSpacing.s4),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
     ) {
         StratumText(text = stringResource(R.string.onboarding_generate_error_title))
         if (!message.isNullOrEmpty()) {
@@ -303,12 +308,12 @@ private fun ReviewCard(
                 color = StratumThemeAccessor.colors.borderSubtle,
                 shape = StratumThemeAccessor.shapes.panel,
             )
-            .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+            .padding(StratumSpacing.s16),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             OrderBadge(order = order)
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(StratumSpacing.s12))
             StratumText(text = title, style = StratumThemeAccessor.typography.titleLarge)
         }
         content()
@@ -349,7 +354,7 @@ private fun OrderBadge(order: Int) {
 @Composable
 private fun SummaryRow(label: String, value: String?) {
     val notSet = stringResource(R.string.review_not_set)
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4)) {
         StratumText(text = label, muted = true)
         StratumText(
             text = value ?: notSet,

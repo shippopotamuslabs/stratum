@@ -1,3 +1,5 @@
+// STR-142 allowlist: calendar mini-grid micro-gap (2.dp) pinned.
+@file:Suppress("ForbiddenRawSpacingLiteralInUi")
 package com.stratum.feature.history.ui.calendar
 
 import androidx.compose.foundation.clickable
@@ -12,6 +14,7 @@ import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.component.StratumText
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.history.ui.HistoryYearUi
 import java.time.format.TextStyle
@@ -30,8 +33,8 @@ internal fun HistoryMultiYearBlock(
             modifier
                 .fillMaxWidth()
                 .clickable(role = Role.Button) { onYearClick(year.year) }
-                .padding(horizontal = 12.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
     ) {
         StratumText(
             text = year.year.toString(),
@@ -39,7 +42,7 @@ internal fun HistoryMultiYearBlock(
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
         ) {
             year.months.forEach { mini ->
                 Column(

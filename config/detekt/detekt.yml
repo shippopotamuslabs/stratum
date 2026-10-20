@@ -28,6 +28,8 @@ stratum:
     active: true
   ForbiddenUseCaseInFeatureMapper:
     active: true
+  ForbiddenRawSpacingLiteralInUi:
+    active: true
 
 potential-bugs:
   active: true

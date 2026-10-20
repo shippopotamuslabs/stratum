@@ -21,6 +21,7 @@ import com.stratum.core.ui.component.StratumOutlinedButton
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTimeField
 import com.stratum.core.ui.component.formatWorkoutDuration
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.history.R
 import java.time.Duration
@@ -107,11 +108,11 @@ internal fun EditWorkoutTimeSheetContent(
 
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
         ) {
             StratumDateField(
                 label = stringResource(R.string.history_edit_time_start_date_label),
@@ -133,7 +134,7 @@ internal fun EditWorkoutTimeSheetContent(
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
         ) {
             StratumDateField(
                 label = stringResource(R.string.history_edit_time_finish_date_label),
@@ -175,8 +176,8 @@ internal fun EditWorkoutTimeSheetContent(
         }
 
         Column(
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth().padding(top = StratumSpacing.s8),
+            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
         ) {
             StratumButton(
                 text = stringResource(R.string.history_edit_time_save),

@@ -17,6 +17,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
 /**
@@ -41,8 +42,8 @@ fun StratumEquipmentSubheader(
                     onClickLabel = stringResource(R.string.equipment_subheader_swap_cd),
                     onClick = onSwapClick,
                 )
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s8),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(

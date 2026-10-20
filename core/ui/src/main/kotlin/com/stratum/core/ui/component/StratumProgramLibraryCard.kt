@@ -31,6 +31,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R as CoreUiR
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
 /** Presentation row for one day under a library program (workout or rest). */
@@ -97,8 +98,8 @@ fun StratumProgramLibraryCard(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s16),
+            horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (state.isActive) {
@@ -118,7 +119,7 @@ fun StratumProgramLibraryCard(
                     Modifier
                         .weight(1f)
                         .clickable(role = Role.Button, onClick = onProgramClick),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
             ) {
                 StratumText(
                     text = state.name,
@@ -198,13 +199,13 @@ private fun ProgramLibraryDayRow(
             Modifier
                 .fillMaxWidth()
                 .then(clickable)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(
             modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
         ) {
             StratumText(
                 text = day.name,
@@ -220,8 +221,8 @@ private fun ProgramLibraryDayRow(
             }
             if (day.muscleLabels.isNotEmpty()) {
                 FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
+                    verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
                 ) {
                     day.muscleLabels.forEach { label ->
                         MetadataBadge(text = label)

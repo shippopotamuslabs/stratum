@@ -1,3 +1,5 @@
+// STR-142 allowlist: dense plate-chip insets (2.dp) pinned; section gaps adopted.
+@file:Suppress("ForbiddenRawSpacingLiteralInUi")
 package com.stratum.core.ui.component.platecalculator
 
 import androidx.compose.foundation.background
@@ -30,6 +32,7 @@ import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumNumber
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.formatWeightAmount
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
 /**
@@ -59,12 +62,12 @@ fun StratumPlateCalculatorMiniDrawer(
                 },
                 shape = StratumThemeAccessor.shapes.panel,
             )
-            .padding(horizontal = 8.dp, vertical = 6.dp),
+            .padding(horizontal = StratumSpacing.s8, vertical = StratumSpacing.s8),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
         ) {
             StratumPlateBarbellDiagram(
                 platesPerSide = if (plateLoad.isValid) plateLoad.platesPerSide else emptyList(),
@@ -77,7 +80,7 @@ fun StratumPlateCalculatorMiniDrawer(
                 modifier = Modifier
                     .weight(1f)
                     .padding(vertical = 2.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
             ) {
                 when (plateLoad.status) {
                     PlateLoadStatusUi.BelowBarWeight -> {
@@ -150,7 +153,7 @@ fun StratumPlateCalculatorMiniDrawer(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .horizontalScroll(rememberScrollState()),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 plateLoad.platesPerSide.forEach { plate ->
@@ -161,7 +164,7 @@ fun StratumPlateCalculatorMiniDrawer(
 
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
                         ) {
                             StratumText(
                                 text = stringResource(
@@ -243,7 +246,7 @@ private fun PlateBadgePill(
             )
             .padding(horizontal = 6.dp, vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
     ) {
         Box(
             modifier = Modifier

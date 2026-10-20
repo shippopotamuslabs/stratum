@@ -53,6 +53,7 @@ import com.stratum.core.ui.component.StratumTabScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.UserMessageEffect
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.liftconfig.LiftConfigBottomSheet
 import com.stratum.liftconfig.MergeTargetBottomSheet
@@ -157,7 +158,7 @@ fun GymScreen(
     StratumTabScaffold(
         modifier = modifier,
         snackbarHostState = snackbarHostState,
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
         topBar = {
             if (state.isMergeMode) {
                 MergeModeTopBar(
@@ -177,7 +178,7 @@ fun GymScreen(
                             modifier =
                                 Modifier
                                     .fillMaxWidth()
-                                    .padding(vertical = 4.dp),
+                                    .padding(vertical = StratumSpacing.s4),
                             placeholder = stringResource(UiR.string.lift_swap_search_placeholder),
                         )
                     },
@@ -213,7 +214,7 @@ fun GymScreen(
             )
         } else {
             FilterDropdownRow(
-                modifier = Modifier.padding(top = 8.dp),
+                modifier = Modifier.padding(top = StratumSpacing.s8),
                 state = sheet,
                 onFilterIntent = onFilterIntent,
                 onMuscleFilterClick = { showMuscleSheet = true },
@@ -233,8 +234,8 @@ fun GymScreen(
                     Modifier
                         .fillMaxWidth()
                         .weight(1f),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
+                contentPadding = PaddingValues(bottom = StratumSpacing.s16),
             ) {
                 items(sheet.options, key = { option -> option.id }) { option ->
                     GymCatalogRow(
@@ -253,7 +254,7 @@ fun GymScreen(
                         StratumText(
                             text = stringResource(UiR.string.lift_swap_empty),
                             muted = true,
-                            modifier = Modifier.padding(vertical = 24.dp),
+                            modifier = Modifier.padding(vertical = StratumSpacing.s24),
                         )
                     }
                 }
@@ -494,8 +495,8 @@ private fun GymActionRow(
                 .background(color = colors.surfaceRaised, shape = shapes.panel)
                 .border(width = shapes.borderWidth, color = colors.borderSubtle, shape = shapes.panel)
                 .clickable(onClick = onClick)
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s16),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         when {

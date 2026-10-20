@@ -25,6 +25,7 @@ import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTextField
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.workout.ui.ProposalEditContext
 import com.stratum.feature.workout.ui.ProposalTierArgs
@@ -66,8 +67,6 @@ fun EquipmentIncrementsRoute(
             onScanPhoto = viewModel::scan,
         )
     // STR-135: the equipment name field rides the shared editor's header slot.
-    // STR-149: the Shared-by bar renders above this field in the shared editor;
-    // the 12.dp top padding is the breathing room between the two.
     val editor =
         state.editor.copy(
             headerContent = {
@@ -75,7 +74,7 @@ fun EquipmentIncrementsRoute(
                     value = state.equipmentName,
                     onValueChange = viewModel::onNameChanged,
                     label = stringResource(UiR.string.equipment_name_label),
-                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = StratumSpacing.s12),
                 )
             },
         )
@@ -221,8 +220,8 @@ private fun AffectedLiftsSheet(
                     Modifier
                         .fillMaxWidth()
                         .clickable { onLiftClick(lift.id) }
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12),
+                horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 StratumText(
