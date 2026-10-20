@@ -9,9 +9,12 @@ Read before generating or restyling any UI. Enforced by Detekt rule set `stratum
 
 Pair with `AGENTS.md` for architecture and validation commands.
 
-**§11–§12 embed the two Shippopotamus gospels in full** — the Color Palette Gospel and the
+**§11–§12 embed the Shippopotamus gospels in full** — the Color Palette Gospel and the
 Android Jetpack Compose Gospel (declared canonical by Sean, 2026-10-19, for Bloviate,
-Stratum, Enclave, and all future Shippopotamus products). They govern all **new** UI work.
+Stratum, Enclave, and all future Shippopotamus products), plus the Button Shape Gospel
+(declared canonical by Sean, 2026-10-20, embedded in §12.7 under his Contract Waiver for
+that edit) and the Glass Bars Gospel (Haze 2.0; declared canonical by Sean, 2026-10-20,
+embedded in §12.8 under the same waiver). They govern all **new** UI work.
 Where §§1–10 conflict with §§11–12, the gospels win for new work. The STR-137 conflict
 register was **ratified by Sean on 2026-10-19** and executed in STR-138; the adoption
 status in §11.3 / §12.6 records what was migrated, what is a sanctioned carve-out (Neo
@@ -496,7 +499,8 @@ Canonical for BLOVIATE / STRATUM / ENCLAVE. Companion: §11 (colors).
   toggle track, active nav indicator).
 - Nested rule: child radius = parent radius − padding.
 - Expressive: Cookie4Sided, Clover, Squircle, Arch for loaders/FAB morph/press morph.
-  Buttons morph pill → 16dp + scale 0.96 on press, Spring.StiffnessHigh.
+  Buttons morph pill → 12dp + scale 0.96 on press, Spring.StiffnessHigh (pressed shape
+  per the Button Shape Gospel, §12.7).
 
 **Typography (M3 scale; font: Shipopotamus Sans, fallback Roboto Flex / Google Sans Flex variable)**
 
@@ -523,7 +527,10 @@ Canonical for BLOVIATE / STRATUM / ENCLAVE. Companion: §11 (colors).
   Elevated → Outlined → Text. Filled: accent container; Tonal: accent-muted container,
   text-primary on; Outlined: 1dp border-default, no fill; Text: 12dp horizontal padding.
   Icon button 40×40, icon 24dp. Segmented/ToggleButton 40dp, selected = tonal. Press:
-  corner morph 50%→16dp + scale 0.96 + ripple (spring).
+  corner morph 50%→12dp + scale 0.96 + ripple (spring). Button shape language per §12.7:
+  full pill by default; the square variant (12dp medium / 16dp large) only for
+  toolbar/secondary/dense contexts — never mixed randomly in the same row; one screen =
+  one button shape language.
 - **FAB:** small 40 / medium 56 / large 96; shape large 16dp or full (extended); accent
   container, icon 24dp. Extended FAB 56dp height, labelLarge, 16dp icon gap.
 - **TEXT FIELDS:** height 56dp; padding 8dp vertical, 16dp horizontal (12dp with icons);
@@ -546,10 +553,14 @@ Canonical for BLOVIATE / STRATUM / ENCLAVE. Companion: §11 (colors).
   press, 48dp touch height.
 - **BOTTOM SHEET:** extraLarge 28dp top-only, surface-3 container at 6dp/11% tint, drag
   handle 32×4 #6E7280, scrim palette scrim (§11.2 mobile extras). **DIALOG:** extraLarge
-  28dp, surface-3, padding 24dp, button gap 8dp, title titleLarge.
+  28dp, surface-3, padding 24dp, button gap 8dp, title titleLarge. (A Haze sheet instead
+  follows §12.8: `hazeChild` + `ShippopotamusHazeSheet` + surface-3 tint, no opaque
+  scrim.)
 - **NAVIGATION:** bar 80dp height, 3–5 items, active indicator 32dp full pill, icon 24dp,
-  label labelMedium; container bg-subtle/surface-1. Rail 80dp wide. TopAppBar small 64dp
-  (titleLarge), medium 112dp, large 152dp.
+  label labelMedium; container **glass per §12.8** (always glass, never solid —
+  supersedes the earlier bg-subtle/surface-1 solid container). Rail 80dp wide. TopAppBar
+  small 64dp (titleLarge), medium 112dp, large 152dp — transparent at rest, glass when
+  scrolled, per §12.8.
 - **LIST ITEM:** one-line 56dp / two-line 72dp / three-line 88dp; leading icon 24dp,
   padding 16dp, gap 16dp; title titleMedium, subtitle bodyMedium text-secondary.
 
@@ -594,3 +605,239 @@ Canonical for BLOVIATE / STRATUM / ENCLAVE. Companion: §11 (colors).
   yet; font family (Shipopotamus Sans / Roboto Flex vs `FontFamily.Default`); widening
   the 48dp law to *every* interactive (component-by-component); spacing adoption inside
   shipped components.
+
+### 12.7 Button Shape Gospel — Canonical (Sean, 2026-10-20)
+
+Declared canonical by Sean, 2026-10-20, for Bloviate / Stratum / Enclave and all future
+Shippopotamus apps. Embedded here **in full** under Sean's direction (his Contract
+Waiver for this edit), like §11/§12: this contract is self-contained. This section
+governs button shape specifically and supersedes §12.2/§12.3 wherever they disagree on
+button shape or button press morph. Sean's pasted source spelled the tokens
+`Shipopotamus*` (one p); the canonical spelling is `Shippopotamus*`, used below.
+
+**Default for Bloviate / consumer: FULL PILL**
+
+- Shape: `CircleShape` / 9999px / full token (`ShippopotamusButtonShape`).
+- Why: empirically friendliest, highest tap recognition, matches Google Phone, Gboard,
+  etc. More rounded corners + pill buttons are the M3 signature.
+
+**Allowed variant for toolbars / secondary / dense enterprise: SQUARE**
+
+- Shape: `RoundedCornerShape(12.dp)` for medium buttons, `RoundedCornerShape(16.dp)`
+  for large (`ShippopotamusButtonShapeSquare`).
+- When to use: inside a card that already has 12dp radius — use an 8dp inner button
+  (nested radius = outer − padding); data-dense toolbar, filter bar, table actions;
+  when you want the Linear/Raycast serious vibe vs. bubbly consumer.
+
+**Rules (non-negotiable)**
+
+- Never mix randomly in the same row. One screen = one button shape language.
+- If you use the square variant, it still morphs on press to the same pressed shape as
+  the pill variant: `ShippopotamusPressedShape = RoundedCornerShape(12.dp)`.
+
+**Compose implementation**
+
+```kotlin
+val ShippopotamusButtonShape = CircleShape // DEFAULT PILL
+val ShippopotamusButtonShapeSquare = RoundedCornerShape(12.dp) // ALLOWED VARIANT (medium; 16.dp for large)
+val ShippopotamusPressedShape = RoundedCornerShape(12.dp) // Both morph to this on press
+
+Button(
+  shape = ShippopotamusButtonShape,
+  modifier = Modifier.minimumInteractiveComponentSize() // 48dp enforced
+) { Text("Primary", style = MaterialTheme.typography.labelLarge) }
+
+// Expressive press morph
+val corner by animateDpAsState(if (pressed) 12.dp else 100.dp, spring(StiffnessHigh))
+val scale by animateFloatAsState(if (pressed) 0.96f else 1f)
+```
+
+**Adoption in Stratum:** the Tonal family already complies with the default —
+`tonalShapes().button` is full pill (CircleShape), ratified in §12.6 / STR-138 — so no
+code change is needed for the default. The **Neo Brutalist family is a sanctioned
+carve-out** (§11.3 ruling 1, §12.6): its 4dp button geometry is permanent by design and
+this gospel does not govern it, exactly as with the §12 shape scale and pill rule.
+Where Stratum's dense surfaces (data toolbars, filter bars, table-like actions) use the
+square variant is new-work judgment under the one-language-per-screen rule. When the
+standing Expressive-motion follow-up in §12.6 lands, its button press morph uses this
+section's 12dp pressed shape. Wiring named `Shippopotamus*` button-shape tokens is
+implementation work under a future ticket — this amendment changes the contract, not
+shipped screens.
+
+### 12.8 Glass Bars Gospel — Top + Bottom + Haze (Sean, 2026-10-20)
+
+Declared canonical by Sean, 2026-10-20, for Bloviate / Stratum / Enclave and all future
+Shippopotamus apps. Uses **Haze 2.0** (Chris Banes); Android 15+ edge-to-edge enforced.
+Embedded here **in full** under Sean's direction (his Contract Waiver for this edit),
+like §11/§12/§12.7: this contract is self-contained. This section governs bars, sheets,
+and overlay glass for new work and supersedes §12.3 wherever they disagree on those
+surfaces. Sean's pasted source spelled the tokens `Shipopotamus*` (one p); the
+canonical spelling is `Shippopotamus*`, used below.
+
+**Dependency**
+
+```kotlin
+implementation("dev.chrisbanes.haze:haze:2.0.1") // core blur
+implementation("dev.chrisbanes.haze:haze-glass:2.0.1") // refraction Glass (optional, for hero)
+```
+
+Haze provides hardware-accelerated visual effects — blur, refraction-driven Glass, and
+custom effects with reusable config.
+
+**Foundation — edge-to-edge (required for glass to work)**
+
+- Activity: `enableEdgeToEdge()` — status + gesture nav are transparent, content draws
+  behind.
+- Scaffold: `contentWindowInsets = WindowInsets(0,0,0,0)` — insets are handled
+  manually.
+- Main body: `Modifier.hazeSource(state)` + `.windowInsetsPadding` +
+  `.consumeWindowInsets`.
+
+**Reusable styles — one `HazeState` per screen, shared; don't inline magic numbers**
+
+```kotlin
+val hazeState = rememberHazeState()
+
+val ShippopotamusHazeTopBar = HazeStyle.Unspecified.copy(
+  blurRadius = 24.dp, // 20–28dp for top bar — enough to read title over photos
+  tint = Color(0xFF0D0E11).copy(alpha = 0.65f), // bg-base #0D0E11 at 65%
+  noiseFactor = 0.5f, // micro-texture prevents banding on OLED
+)
+
+val ShippopotamusHazeBottomBar = HazeStyle.Unspecified.copy(
+  blurRadius = 20.dp,
+  tint = Color(0xFF181A20).copy(alpha = 0.75f), // surface-1 #181A20 at 75%
+  noiseFactor = 0.5f
+)
+
+val ShippopotamusHazeSheet = HazeStyle.Thick // preset: heavy blur for bottom sheets
+```
+
+Usage pattern: background scrollable = `hazeSource`; bars = `hazeChild`; **never put
+haze behind body text directly — behind containers only.**
+
+**Top bar (TopAppBar)** — Height small 64dp (default), medium 112dp, large 152dp for
+hero. Container TRANSPARENT when at top (scroll offset 0), becomes glass when scrolled.
+Shape: none — full width, no rounded corners. Content: title `titleLarge`, icons 24dp,
+padding 16dp. Border: none — blur provides separation. When scrolled: glass + subtle
+1dp bottom hairline #2A2E39 at 40%, or borderless for pure glass. Content scrolls
+underneath, blurred — movement is visible but the title stays readable.
+
+```kotlin
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ShippopotamusTopBar(
+  title: String,
+  hazeState: HazeState,
+  scrollBehavior: TopAppBarScrollBehavior
+) {
+  val isScrolled = scrollBehavior.state.overlappedFraction > 0.01f
+
+  TopAppBar(
+    title = { Text(title, style = MaterialTheme.typography.titleLarge) },
+    navigationIcon = { IconButton({}) { Icon(Icons.Default.Menu, null) } },
+    actions = { IconButton({}) { Icon(Icons.Default.Search, null) } },
+    scrollBehavior = scrollBehavior,
+    colors = TopAppBarDefaults.topAppBarColors(
+      containerColor = Color.Transparent, // transparent when not scrolled
+      scrolledContainerColor = Color.Transparent // we handle via haze
+    ),
+    modifier = Modifier
+      .hazeChild(
+        state = hazeState,
+        style = if (isScrolled) ShippopotamusHazeTopBar else HazeStyle.Unspecified.copy(blurRadius = 0.dp)
+      )
+      .then(
+        if (isScrolled) Modifier.drawWithContent {
+          drawContent()
+          drawLine(Color(0xFF2A2E39).copy(0.4f), Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx())
+        } else Modifier
+      )
+  )
+}
+
+// In screen:
+val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior() // or enterAlwaysScrollBehavior()
+Scaffold(
+  modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+  topBar = { ShippopotamusTopBar("Stratum", hazeState, scrollBehavior) },
+  containerColor = Color(0xFF0D0E11),
+  contentWindowInsets = WindowInsets(0,0,0,0)
+) { padding ->
+  LazyColumn(
+    Modifier
+      .fillMaxSize()
+      .hazeSource(state = hazeState, zIndex = 0f) // zIndex 0 = source
+      .windowInsetsPadding(WindowInsets.statusBars.only(WindowInsetsSides.Top))
+      .padding(padding)
+  ) { /* main body passes underneath top bar */ }
+}
+```
+
+**Bottom bar (NavigationBar)** — Height 80dp (68dp tighter is allowed, 80dp is
+canonical). Container ALWAYS glass — never solid; translucent tint + blur so content
+scrolls under. Shape: none for the bar; active indicator = full pill 32dp height,
+accent #7A7CFF at 15% fill. Icons 24dp, label `labelMedium`. Inactive #858994; active
+#EDEEF0 + accent indicator. Border: 100% borderless — blur is the separation. Gesture
+nav: `windowInsetsPadding(WindowInsets.navigationBars)` + `navigationBarsPadding` on
+content so the last item is not hidden behind the system pill. The bottom bar shares
+the screen's `hazeState` with the top bar so both blur the same source.
+
+```kotlin
+@Composable
+fun ShippopotamusBottomBar(hazeState: HazeState) {
+  var selected by remember { mutableStateOf(0) }
+
+  NavigationBar(
+    containerColor = Color.Transparent, // haze handles color
+    tonalElevation = 0.dp,
+    modifier = Modifier
+      .hazeChild(
+        state = hazeState,
+        style = ShippopotamusHazeBottomBar
+      )
+      .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom))
+  ) {
+    listOf("Home", "Search", "Library").forEachIndexed { i, label ->
+      NavigationBarItem(
+        selected = i == selected,
+        onClick = { selected = i },
+        icon = { Icon(Icons.Default.Home, null) },
+        label = { Text(label, style = MaterialTheme.typography.labelMedium) },
+        colors = NavigationBarItemDefaults.colors(
+          selectedIconColor = Color(0xFFEDEEF0),
+          selectedTextColor = Color(0xFFEDEEF0),
+          indicatorColor = Color(0xFF7A7CFF).copy(alpha = 0.15f), // accent-muted
+          unselectedIconColor = Color(0xFF858994),
+          unselectedTextColor = Color(0xFF858994)
+        )
+      )
+    }
+  }
+}
+```
+
+**Where else to use Haze**
+
+1. Bottom sheet: sheet container = `hazeChild` with `ShippopotamusHazeSheet` +
+   surface-3 #272A33 tint. Content underneath stays visible blurred — elevated
+   without an opaque scrim.
+2. FAB over feed: extended FAB that blurs the feed behind it — small blur, 12dp.
+3. Image overlays: hero image with a glass chip (e.g. a "Live" badge) — haze-glass
+   with refraction for liquid glass.
+
+**Performance:** Haze 2.0 adaptive rendering quality automatically drops quality on a
+low-end GPU. Keep `blurRadius <= 28dp`; avoid stacking more than 2 `hazeChild`s in the
+same frame.
+
+**Adoption in Stratum:** Stratum has **no Haze dependency yet**, so this is new-work
+law, not a description of shipped code: adding Haze 2.0.1, the edge-to-edge
+foundation, and glass bars is implementation work under a future ticket. **STR-150
+note:** STR-150 (in flight at this amendment) set the nav bar container to solid
+bg-subtle under the pre-glass §12.3 spec — that work is **transitional**; this section
+supersedes it for new work, and a follow-up ticket should migrate `StratumNavigationBar`
+to the glass treatment rather than treating bg-subtle as final. The top-bar title
+consumes `titleLarge` (§12.2 scale, SemiBold); Sean's pasted spec line saying "Medium"
+is superseded by that scale. The Neo Brutalist family's bar/sheet treatments stay
+under its sanctioned carve-out (§11.3/§12.6); this gospel governs the Material/Tonal
+family.
