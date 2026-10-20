@@ -144,23 +144,29 @@ stages:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
+# Shared gate rules (STR-154; forge review on !322): test/scan gate jobs run
+# on merge-request pipelines ONLY — merges are semi-linear, so the tree that
+# lands on main IS the tree the MR pipeline tested, and main pipelines build +
+# deploy without re-testing. Scheduled pipelines also match so the nightly
+# run stays a full-suite safety net. Defined once here: five jobs extend this,
+# so a future gate change is one edit, not five. (Jobs with `changes:`-
+# filtered rules — screenshot-tests, functions-tests, osv-scan-image — keep
+# their own variants.)
+.gate-rules:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_PIPELINE_SOURCE == 'schedule'
+
 # Static analysis in one job (STR-76): detekt and Android lint both compile the
 # app, so running them as separate jobs paid for two full compilations plus
 # two VM boots per pipeline. A single Gradle invocation shares the compile.
 static-analysis:
-  extends: .android-job
+  extends: [.android-job, .gate-rules]
   stage: lint
   # needs: [] opts out of stage gating: this job is independent of every other
   # MR job, so with runner concurrent > 1 it starts immediately instead of
   # waiting for earlier stages. Same pattern on all independent lint/test jobs.
   needs: []
-  # Gate job (STR-154): the MR pipeline is the only test gate. Merges are
-  # semi-linear, so the tree that lands on main IS the tree this job tested;
-  # main pipelines build + deploy only. Scheduled pipelines keep a nightly
-  # full-suite safety net.
-  rules:
-    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
-    - if: $CI_PIPELINE_SOURCE == 'schedule'
   script:
     - ./gradlew detekt lintDebug --continue
   artifacts:
@@ -171,16 +177,9 @@ static-analysis:
     expire_in: 1 week
 
 unit-tests:
-  extends: .android-job
+  extends: [.android-job, .gate-rules]
   stage: test
   needs: []
-  # Gate job (STR-154): the MR pipeline is the only test gate. Merges are
-  # semi-linear, so the tree that lands on main IS the tree this job tested;
-  # main pipelines build + deploy only. Scheduled pipelines keep a nightly
-  # full-suite safety net.
-  rules:
-    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
-    - if: $CI_PIPELINE_SOURCE == 'schedule'
   script:
     # JVM domain tests + every Android module's debug unit tests.
     # Solver tests are excluded by construction (see header).
@@ -244,16 +243,9 @@ screenshot-record:
     expire_in: 1 week
 
 assemble-debug:
-  extends: .android-job
+  extends: [.android-job, .gate-rules]
   stage: test
   needs: []
-  # Gate job (STR-154): the MR pipeline is the only test gate. Merges are
-  # semi-linear, so the tree that lands on main IS the tree this job tested;
-  # main pipelines build + deploy only. Scheduled pipelines keep a nightly
-  # full-suite safety net.
-  rules:
-    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
-    - if: $CI_PIPELINE_SOURCE == 'schedule'
   script:
     - ./gradlew :app:assembleDebug
   artifacts:
@@ -266,6 +258,12 @@ assemble-debug:
 # validates minification, not ship-readiness.
 assemble-release:
   extends: .android-job
+  # STR-154 + forge review (!322): the default-branch run exists to feed the
+  # deploy lanes on push pipelines. A scheduled pipeline must not spend a
+  # release build feeding distributions that schedules never trigger.
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE != 'schedule'
   # Release builds stay on the muscle tier: R8 full-mode shrinking is the most
   # CPU-hungry step and this is the last gate before shipping (STR-75).
   # TEMPORARY (STR-110): home-server until cloud costs are reined in.
@@ -318,14 +316,8 @@ solver-contract-tests:
   image: python:3.12-slim
   tags: [home-server]
   stage: test
+  extends: .gate-rules
   needs: []
-  # Gate job (STR-154): the MR pipeline is the only test gate. Merges are
-  # semi-linear, so the tree that lands on main IS the tree this job tested;
-  # main pipelines build + deploy only. Scheduled pipelines keep a nightly
-  # full-suite safety net.
-  rules:
-    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
-    - if: $CI_PIPELINE_SOURCE == 'schedule'
   variables:
     SOLVER_MODULE: solver
     PYTHONPATH: $CI_PROJECT_DIR/solver-python
@@ -345,16 +337,9 @@ solver-contract-tests:
 # fails the job when OSV reports a known CVE. Runs on MRs; scheduled
 # pipelines re-scan nightly (STR-154). Triage path: docs/security-scanning.md
 osv-scan:
-  extends: .android-job
+  extends: [.android-job, .gate-rules]
   stage: lint
   needs: []
-  # Gate job (STR-154): the MR pipeline is the only test gate. Merges are
-  # semi-linear, so the tree that lands on main IS the tree this job tested;
-  # main pipelines build + deploy only. Scheduled pipelines keep a nightly
-  # full-suite safety net.
-  rules:
-    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
-    - if: $CI_PIPELINE_SOURCE == 'schedule'
   script:
     # OSV-Scanner release binary (static Go binary; the shell executor can't run
     # the analyzer Docker images GitLab's own templates use). Always downloaded
@@ -630,7 +615,10 @@ distribute-internal:
   tags: [home-server]
   stage: deploy
   rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    # Push pipelines on main only (forge review, !322): a scheduled pipeline
+    # also has CI_COMMIT_BRANCH == main, and without the source guard the
+    # nightly safety net would re-distribute a build every night.
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE != 'schedule'
   # Wait for the release build only (STR-154): the MR pipeline is the test
   # gate and the semi-linear merge lands exactly the tested tree, so main
   # distributes without re-testing. (The old needs on unit-tests +
