@@ -28,7 +28,7 @@ fun StratumNavigationBar(
     val colors = StratumThemeAccessor.colors
     NavigationBar(
         modifier = modifier,
-        containerColor = colors.surfaceRaised,
+        containerColor = colors.surfaceSunken,
         contentColor = colors.textPrimary,
     ) {
         items.forEachIndexed { index, item ->
