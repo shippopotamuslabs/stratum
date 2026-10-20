@@ -171,4 +171,7 @@ object StratumThemeAccessor {
 
     val elevations: StratumElevations
         @Composable get() = LocalStratumTheme.current.elevations
+
+    val haze: StratumHazeStyles
+        @Composable get() = LocalStratumTheme.current.haze
 }
