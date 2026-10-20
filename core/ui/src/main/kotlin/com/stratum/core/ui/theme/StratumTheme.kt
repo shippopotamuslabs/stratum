@@ -1,12 +1,20 @@
 package com.stratum.core.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.CornerBasedShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 
 val LocalStratumTheme =
     staticCompositionLocalOf {
@@ -41,47 +49,114 @@ fun StratumTheme(
     val resolvedDark =
         darkTheme ?: preferences.colorMode.resolveDark(isSystemInDarkTheme())
     val spec = StratumThemeSpecFactory.resolve(themeId, resolvedDark)
-    val materialScheme =
-        if (spec.dark) {
-            darkColorScheme(
-                primary = spec.colors.accent,
-                onPrimary = spec.colors.onAccent,
-                background = spec.colors.surfaceBase,
-                onBackground = spec.colors.textPrimary,
-                surface = spec.colors.surfaceRaised,
-                onSurface = spec.colors.textPrimary,
-                surfaceVariant = spec.colors.surfaceSunken,
-                onSurfaceVariant = spec.colors.textMuted,
-                outline = spec.colors.borderSubtle,
-                outlineVariant = spec.colors.borderStrong,
-                error = spec.colors.error,
-                onError = spec.colors.onError,
-            )
-        } else {
-            lightColorScheme(
-                primary = spec.colors.accent,
-                onPrimary = spec.colors.onAccent,
-                background = spec.colors.surfaceBase,
-                onBackground = spec.colors.textPrimary,
-                surface = spec.colors.surfaceRaised,
-                onSurface = spec.colors.textPrimary,
-                surfaceVariant = spec.colors.surfaceSunken,
-                onSurfaceVariant = spec.colors.textMuted,
-                outline = spec.colors.borderSubtle,
-                outlineVariant = spec.colors.borderStrong,
-                error = spec.colors.error,
-                onError = spec.colors.onError,
-            )
-        }
 
     CompositionLocalProvider(LocalStratumTheme provides spec) {
         MaterialTheme(
-            colorScheme = materialScheme,
+            colorScheme = materialColorScheme(spec),
+            shapes = materialShapes(spec),
             typography = spec.typography.material,
             content = content,
         )
     }
 }
+
+/**
+ * Material bridge for the semantic ramp: every slot is derived from
+ * [StratumColors] so M3-default internals agree with Stratum tokens.
+ *
+ * Container mapping follows the gospel tonal steps (§12.2 — dark: 0dp bg-base, 1dp
+ * surface-1, 3dp surface-2, 6dp surface-3; light analogous per §11.4, where
+ * elevation climbs toward white instead of away from black):
+ *
+ * - Dark: Lowest = base, Low = sunken, Container = raised, High = raised (Stratum
+ *   has no surface-2 role and its dialogs/sheets use raised, so the 3dp step
+ *   folds here), Highest = inset (surface-3, top of the ramp).
+ * - Light: Lowest = raised (white), Low = base (grey canvas), Container = inset
+ *   (tonal fills), High = raised, Highest = raised (light modals are white, §11.4
+ *   surface-3, and Stratum sheets/dialogs use raised).
+ *
+ * No drop shadows are added in dark — [StratumElevations] stays the elevation
+ * model (§2.3); `surfaceTint` only tints M3 tonal-elevation surfaces.
+ */
+internal fun materialColorScheme(spec: StratumThemeSpec): ColorScheme {
+    val colors = spec.colors
+    val surfaceContainerLowest: Color
+    val surfaceContainerLow: Color
+    val surfaceContainer: Color
+    val surfaceContainerHigh: Color
+    val surfaceContainerHighest: Color
+    if (spec.dark) {
+        surfaceContainerLowest = colors.surfaceBase
+        surfaceContainerLow = colors.surfaceSunken
+        surfaceContainer = colors.surfaceRaised
+        surfaceContainerHigh = colors.surfaceRaised
+        surfaceContainerHighest = colors.surfaceInset
+    } else {
+        surfaceContainerLowest = colors.surfaceRaised
+        surfaceContainerLow = colors.surfaceBase
+        surfaceContainer = colors.surfaceInset
+        surfaceContainerHigh = colors.surfaceRaised
+        surfaceContainerHighest = colors.surfaceRaised
+    }
+    val base =
+        if (spec.dark) {
+            darkColorScheme(
+                primary = colors.accent,
+                onPrimary = colors.onAccent,
+                background = colors.surfaceBase,
+                onBackground = colors.textPrimary,
+                surface = colors.surfaceRaised,
+                onSurface = colors.textPrimary,
+                surfaceVariant = colors.surfaceSunken,
+                onSurfaceVariant = colors.textMuted,
+                outline = colors.borderSubtle,
+                outlineVariant = colors.borderStrong,
+                error = colors.error,
+                onError = colors.onError,
+            )
+        } else {
+            lightColorScheme(
+                primary = colors.accent,
+                onPrimary = colors.onAccent,
+                background = colors.surfaceBase,
+                onBackground = colors.textPrimary,
+                surface = colors.surfaceRaised,
+                onSurface = colors.textPrimary,
+                surfaceVariant = colors.surfaceSunken,
+                onSurfaceVariant = colors.textMuted,
+                outline = colors.borderSubtle,
+                outlineVariant = colors.borderStrong,
+                error = colors.error,
+                onError = colors.onError,
+            )
+        }
+    return base.copy(
+        surfaceTint = colors.accent,
+        surfaceContainerLowest = surfaceContainerLowest,
+        surfaceContainerLow = surfaceContainerLow,
+        surfaceContainer = surfaceContainer,
+        surfaceContainerHigh = surfaceContainerHigh,
+        surfaceContainerHighest = surfaceContainerHighest,
+    )
+}
+
+/**
+ * Material bridge for the gospel shape scale (§12.4): the M3 slots carry the
+ * spec's scale rungs. Tonal maps its gospel radii; Neo maps its own 4dp
+ * geometry (carve-out, §11.3 ruling 1) — never pill buttons.
+ */
+internal fun materialShapes(spec: StratumThemeSpec): Shapes =
+    Shapes(
+        extraSmall = spec.shapes.extraSmall.asCorner(spec.shapes.extraSmallCorner),
+        small = spec.shapes.small.asCorner(spec.shapes.smallCorner),
+        medium = spec.shapes.medium.asCorner(spec.shapes.mediumCorner),
+        large = spec.shapes.large.asCorner(spec.shapes.largeCorner),
+        extraLarge = spec.shapes.extraLarge.asCorner(spec.shapes.extraLargeCorner),
+    )
+
+/** Spec shapes are corner-based; fall back to the rung's corner Dp if one ever is not. */
+private fun Shape.asCorner(fallback: Dp): CornerBasedShape =
+    (this as? CornerBasedShape) ?: RoundedCornerShape(fallback)
 
 object StratumThemeAccessor {
     val colors: StratumColors

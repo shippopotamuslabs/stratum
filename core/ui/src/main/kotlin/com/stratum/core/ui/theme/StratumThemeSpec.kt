@@ -22,7 +22,32 @@ data class StratumShapes(
     val chip: Shape,
     val chipCorner: Dp,
     val borderWidth: Dp,
+    // Gospel shape scale (§12.2 / §12.4 of `contracts/UI_DESIGN.md`): one Shape +
+    // one corner Dp per M3 slot. ADDITIVE — existing fields above are untouched so
+    // every `shapes.panel` / `shapes.chip` / `shapes.borderWidth` call site keeps
+    // compiling and rendering identically.
+    val extraSmall: Shape,
+    val extraSmallCorner: Dp,
+    val small: Shape,
+    val smallCorner: Dp,
+    val medium: Shape,
+    val mediumCorner: Dp,
+    val large: Shape,
+    val largeCorner: Dp,
+    val extraLarge: Shape,
+    val extraLargeCorner: Dp,
 )
+
+/**
+ * Gospel nested-radius rule (§12.2): a child nested inside a padded parent takes
+ * the parent's corner radius minus the padding, floored at zero.
+ *
+ * Example: a 28dp bottom sheet with 12dp padding nests a 16dp inner container.
+ */
+fun nestedChildRadius(
+    parentRadius: Dp,
+    padding: Dp,
+): Dp = (parentRadius - padding).coerceAtLeast(0.dp)
 
 /**
  * Semantic typography bundle. The M3 slots live in [material] carrying the full
@@ -141,6 +166,18 @@ internal fun tonalShapes(): StratumShapes =
         chip = RoundedCornerShape(8.dp),
         chipCorner = 8.dp,
         borderWidth = 1.dp,
+        // Gospel scale (§12.2 / §12.4): extraSmall 4, small 8, medium 12, large 16,
+        // extraLarge 28. panel/chip reuse the medium/small rungs.
+        extraSmall = RoundedCornerShape(4.dp),
+        extraSmallCorner = 4.dp,
+        small = RoundedCornerShape(8.dp),
+        smallCorner = 8.dp,
+        medium = RoundedCornerShape(12.dp),
+        mediumCorner = 12.dp,
+        large = RoundedCornerShape(16.dp),
+        largeCorner = 16.dp,
+        extraLarge = RoundedCornerShape(28.dp),
+        extraLargeCorner = 28.dp,
     )
 
 internal fun neoBrutalistShapes(): StratumShapes =
@@ -151,4 +188,18 @@ internal fun neoBrutalistShapes(): StratumShapes =
         chip = RoundedCornerShape(4.dp),
         chipCorner = 4.dp,
         borderWidth = 2.dp,
+        // Sanctioned carve-out (§11.3 ruling 1): Neo keeps its 4dp identity —
+        // the gospel radii above are NOT adopted here. The extra scale slots exist
+        // only because the shared data class requires values, so every rung
+        // mirrors Neo's own 4dp geometry.
+        extraSmall = RoundedCornerShape(4.dp),
+        extraSmallCorner = 4.dp,
+        small = RoundedCornerShape(4.dp),
+        smallCorner = 4.dp,
+        medium = RoundedCornerShape(4.dp),
+        mediumCorner = 4.dp,
+        large = RoundedCornerShape(4.dp),
+        largeCorner = 4.dp,
+        extraLarge = RoundedCornerShape(4.dp),
+        extraLargeCorner = 4.dp,
     )
