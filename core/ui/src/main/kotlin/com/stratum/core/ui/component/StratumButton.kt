@@ -8,7 +8,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -19,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
+import com.stratum.core.ui.theme.StratumButtonVariant
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.core.ui.theme.stratumButtonHardShadow
 
@@ -53,18 +53,9 @@ fun StratumButton(
 
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
-    // The pill's resting corner is unbounded, so the morph starts from a
-    // corner larger than any button height (§12.7 sketch: 100.dp), which
-    // renders as the full pill at rest. Families whose default button is not
-    // the pill (Neo) rest on their pressed corner instead — a constant
-    // animation, i.e. no morph at all.
-    val restCorner =
-        when (variant) {
-            StratumButtonVariant.Pill ->
-                if (shapes.button == CircleShape) PillRestCorner else shapes.buttonPressedCorner
-            StratumButtonVariant.Square -> shapes.buttonSquareCorner
-            StratumButtonVariant.SquareLarge -> shapes.buttonSquareLargeCorner
-        }
+    // Resting corner per variant, resolved by the theme layer (§12.7):
+    // family knowledge (pill vs carve-out geometry) lives in StratumShapes.
+    val restCorner = shapes.buttonRestCorner(variant)
     val corner by
         animateDpAsState(
             targetValue = if (pressed) shapes.buttonPressedCorner else restCorner,
@@ -109,6 +100,3 @@ fun StratumButton(
 }
 
 private val MinTouchHeight = 48.dp
-
-/** Resting corner for the pill press morph (§12.7 sketch value). */
-private val PillRestCorner = 100.dp

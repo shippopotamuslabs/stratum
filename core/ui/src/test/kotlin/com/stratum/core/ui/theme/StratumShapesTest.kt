@@ -35,6 +35,10 @@ class StratumShapesTest {
             assertEquals(RoundedCornerShape(12.dp), shapes.buttonSquare)
             assertEquals(RoundedCornerShape(16.dp), shapes.buttonSquareLarge)
             assertEquals(RoundedCornerShape(12.dp), shapes.buttonPressed)
+            // Press-morph resting corners resolve in the theme layer (§12.7).
+            assertEquals(ShippopotamusPillRestCorner, shapes.buttonRestCorner(StratumButtonVariant.Pill))
+            assertEquals(12.dp, shapes.buttonRestCorner(StratumButtonVariant.Square))
+            assertEquals(16.dp, shapes.buttonRestCorner(StratumButtonVariant.SquareLarge))
         }
     }
 
@@ -57,6 +61,11 @@ class StratumShapesTest {
             assertEquals(RoundedCornerShape(4.dp), shapes.chip)
             assertEquals(RoundedCornerShape(4.dp), shapes.buttonSquare)
             assertEquals(RoundedCornerShape(4.dp), shapes.buttonPressed)
+            // Every variant's resting corner collapses to 4.dp (§12.7 resolver):
+            // the press morph can never move Neo geometry.
+            assertEquals(4.dp, shapes.buttonRestCorner(StratumButtonVariant.Pill))
+            assertEquals(4.dp, shapes.buttonRestCorner(StratumButtonVariant.Square))
+            assertEquals(4.dp, shapes.buttonRestCorner(StratumButtonVariant.SquareLarge))
         }
     }
 

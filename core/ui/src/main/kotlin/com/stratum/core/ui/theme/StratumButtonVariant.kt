@@ -1,4 +1,4 @@
-package com.stratum.core.ui.component
+package com.stratum.core.ui.theme
 
 /**
  * Button shape language for [StratumButton] (Button Shape Gospel, §12.7).
