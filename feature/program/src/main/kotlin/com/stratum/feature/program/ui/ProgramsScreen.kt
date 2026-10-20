@@ -171,28 +171,32 @@ internal fun ProgramsScreen(
                         )
                     }
                     val hasActiveWorkout = activeWorkoutBar != null
-                    StratumButton(
-                        text = stringResource(R.string.programs_start_next_workout),
-                        onClick = {
-                            if (hasActiveWorkout) {
-                                pendingStartAction = ProgramsStartAction.StartNextWorkout
-                            } else {
-                                callbacks.onStartNextWorkoutClick()
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    StratumOutlinedButton(
-                        text = stringResource(R.string.programs_start_empty_workout),
-                        onClick = {
-                            if (hasActiveWorkout) {
-                                pendingStartAction = ProgramsStartAction.StartEmptyWorkout
-                            } else {
-                                callbacks.onStartEmptyWorkoutClick()
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                    // Stacked CTA pair: 8dp within the pair (Compose Gospel), not the
+                    // 16dp section rhythm of the surrounding column.
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        StratumButton(
+                            text = stringResource(R.string.programs_start_next_workout),
+                            onClick = {
+                                if (hasActiveWorkout) {
+                                    pendingStartAction = ProgramsStartAction.StartNextWorkout
+                                } else {
+                                    callbacks.onStartNextWorkoutClick()
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        StratumOutlinedButton(
+                            text = stringResource(R.string.programs_start_empty_workout),
+                            onClick = {
+                                if (hasActiveWorkout) {
+                                    pendingStartAction = ProgramsStartAction.StartEmptyWorkout
+                                } else {
+                                    callbacks.onStartEmptyWorkoutClick()
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
                 }
 
                 when (state) {
