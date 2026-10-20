@@ -11,6 +11,7 @@ import androidx.compose.ui.window.Dialog
 import com.stratum.core.ui.component.StratumButton
 import com.stratum.core.ui.component.StratumOutlinedButton
 import com.stratum.core.ui.component.StratumText
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.program.R
 
@@ -52,7 +53,7 @@ internal fun StartSessionDiscardDialogContent(
         )
         Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
         ) {
             StratumButton(
                 text = stringResource(R.string.programs_start_discard_confirm),

@@ -13,6 +13,7 @@ import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumButton
 import com.stratum.core.ui.component.StratumOutlinedButton
 import com.stratum.core.ui.component.StratumText
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.program.R
 
@@ -26,7 +27,7 @@ import com.stratum.feature.program.R
 internal fun SheetContentTitle(text: String) {
     StratumText(
         text = text,
-        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+        modifier = Modifier.fillMaxWidth().padding(bottom = StratumSpacing.s8),
         style = StratumThemeAccessor.typography.titleLarge,
         textAlign = TextAlign.Center,
     )
@@ -83,7 +84,7 @@ internal fun EditWorkoutDirtyStartDialogContent(
         )
         Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
         ) {
             StratumButton(
                 text = stringResource(R.string.edit_workout_start_dirty_confirm),

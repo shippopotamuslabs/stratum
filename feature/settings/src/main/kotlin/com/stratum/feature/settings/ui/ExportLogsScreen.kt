@@ -1,3 +1,5 @@
+// STR-142 allowlist: section rhythm (20.dp) pinned; screen margins adopted.
+@file:Suppress("ForbiddenRawSpacingLiteralInUi")
 package com.stratum.feature.settings.ui
 
 import androidx.compose.foundation.background
@@ -25,6 +27,7 @@ import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
 import com.stratum.core.ui.component.formatMediumDate
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.settings.ExportLogPreviewUi
 import com.stratum.feature.settings.ExportLogsErrorUi
@@ -84,7 +87,7 @@ fun ExportLogsScreen(
                     .fillMaxSize()
                     .padding(padding)
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 20.dp),
+                    .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s16),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             StratumText(
@@ -93,15 +96,15 @@ fun ExportLogsScreen(
                 style = StratumThemeAccessor.typography.sectionLabel,
             )
 
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12)) {
                 StratumText(
                     text = stringResource(R.string.export_logs_range_section_title),
                     style = StratumThemeAccessor.typography.titleMedium,
                 )
                 FlowRow(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
+                    verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
                 ) {
                     presets.forEach { (preset, label) ->
                         StratumFilterChip(
@@ -126,8 +129,8 @@ fun ExportLogsScreen(
                                 color = colors.borderSubtle,
                                 shape = shapes.panel,
                             )
-                            .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                            .padding(StratumSpacing.s16),
+                    verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
                 ) {
                     StratumText(
                         text = stringResource(R.string.export_logs_custom_section_title),
@@ -227,8 +230,8 @@ private fun ExportLogsPreviewCard(
                     color = colors.borderSubtle,
                     shape = shapes.panel,
                 )
-                .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(StratumSpacing.s16),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
     ) {
         StratumText(
             text = stringResource(R.string.export_logs_preview_title),
@@ -241,7 +244,7 @@ private fun ExportLogsPreviewCard(
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
         ) {
             StratumStatCard(
                 label = stringResource(R.string.export_logs_preview_sessions),

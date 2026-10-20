@@ -1,3 +1,5 @@
+// STR-142 allowlist: active-workout-bar clearance inset (96.dp) and dense 2.dp stack pinned.
+@file:Suppress("ForbiddenRawSpacingLiteralInUi")
 package com.stratum.feature.program.ui
 
 import androidx.compose.animation.AnimatedVisibility
@@ -68,6 +70,7 @@ import com.stratum.core.ui.component.StratumNumber
 import com.stratum.core.ui.component.StratumTabScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.program.R
 import kotlin.time.Duration.Companion.milliseconds
@@ -134,9 +137,9 @@ internal fun ProgramsScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(StratumThemeAccessor.colors.surfaceRaised)
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12)
                         .navigationBarsPadding(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
                 ) {
                     StratumButton(
                         text = stringResource(R.string.programs_keep_program),
@@ -158,10 +161,10 @@ internal fun ProgramsScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 12.dp)
-                    .padding(vertical = 16.dp)
+                    .padding(horizontal = StratumSpacing.s16)
+                    .padding(vertical = StratumSpacing.s16)
                     .padding(bottom = if (activeWorkoutBar != null) 96.dp else 0.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
             ) {
                 if (!isPreviewMode) {
                     if (showCheckInBanner) {
@@ -173,7 +176,7 @@ internal fun ProgramsScreen(
                     val hasActiveWorkout = activeWorkoutBar != null
                     // Stacked CTA pair: 8dp within the pair (Compose Gospel), not the
                     // 16dp section rhythm of the surrounding column.
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8)) {
                         StratumButton(
                             text = stringResource(R.string.programs_start_next_workout),
                             onClick = {
@@ -409,7 +412,7 @@ private fun ActiveWorkoutBar(
                 )
             }
             .clickable { onExpandWorkoutClick(activeWorkoutBar.workoutId) }
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
@@ -427,11 +430,11 @@ private fun ActiveWorkoutBar(
         Column(
             modifier = Modifier
                 .weight(1f)
-                .padding(horizontal = 12.dp)
+                .padding(horizontal = StratumSpacing.s12)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8)
             ) {
                 StratumText(
                     text = activeWorkoutBar.workoutName,
@@ -479,8 +482,8 @@ private fun ActiveWorkoutBar(
                         color = StratumThemeAccessor.colors.borderStrong,
                         shape = StratumThemeAccessor.shapes.panel
                     )
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                    .padding(StratumSpacing.s24),
+                verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16)
             ) {
                 StratumText(
                     text = stringResource(R.string.programs_discard_workout),
@@ -493,7 +496,7 @@ private fun ActiveWorkoutBar(
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End)
+                    horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s12, Alignment.End)
                 ) {
                     StratumOutlinedButton(
                         text = stringResource(R.string.programs_cancel_discard),
@@ -600,7 +603,7 @@ private fun RestDayRow(
                     color = StratumThemeAccessor.colors.borderSubtle,
                     shape = StratumThemeAccessor.shapes.panel,
                 )
-                .padding(horizontal = 20.dp, vertical = 12.dp),
+                .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -663,9 +666,9 @@ internal fun WorkoutCard(
                     .fillMaxWidth()
                     .padding(
                         horizontal = WorkoutCardContentPadding,
-                        vertical = 16.dp,
+                        vertical = StratumSpacing.s16,
                     ),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Entire header (except checkbox) toggles expand — not only the chevron.
@@ -679,7 +682,7 @@ internal fun WorkoutCard(
                             onClick = { onExpandedChange(!expanded) },
                         )
                         .semantics { contentDescription = expandCollapseLabel },
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(
@@ -731,7 +734,7 @@ internal fun WorkoutCard(
                                 .padding(
                                     start = WorkoutCardContentPadding,
                                     end = WorkoutCardContentPadding,
-                                    top = 12.dp,
+                                    top = StratumSpacing.s12,
                                     bottom = WorkoutCardContentPadding,
                                 ),
                     )
@@ -755,9 +758,9 @@ private fun LiftRow(
                 .fillMaxWidth()
                 .padding(
                     horizontal = WorkoutCardContentPadding,
-                    vertical = 14.dp,
+                    vertical = StratumSpacing.s16,
                 ),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -824,8 +827,8 @@ private fun UnskipWorkoutDialog(
                     color = StratumThemeAccessor.colors.borderStrong,
                     shape = StratumThemeAccessor.shapes.panel,
                 )
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(StratumSpacing.s24),
+            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
         ) {
             StratumText(
                 text = stringResource(R.string.programs_unskip_warning_title),
@@ -838,7 +841,7 @@ private fun UnskipWorkoutDialog(
             )
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End),
+                horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s12, Alignment.End),
             ) {
                 StratumOutlinedButton(
                     text = stringResource(R.string.programs_unskip_cancel),

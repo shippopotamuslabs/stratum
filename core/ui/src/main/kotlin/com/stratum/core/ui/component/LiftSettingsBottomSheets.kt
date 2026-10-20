@@ -27,6 +27,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R as CoreUiR
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumSupersetGroupColors
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
@@ -498,7 +499,7 @@ fun SupersetLinkSheetContent(
 ) {
     StratumText(
         text = stringResource(CoreUiR.string.edit_workout_create_superset),
-        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+        modifier = Modifier.fillMaxWidth().padding(bottom = StratumSpacing.s8),
         style = StratumThemeAccessor.typography.titleLarge,
         textAlign = TextAlign.Center,
     )
@@ -531,7 +532,7 @@ private fun SupersetRestBetweenLiftsRow(
                 .background(color = colors.surfaceRaised, shape = shapes.panel)
                 .border(width = shapes.borderWidth, color = colors.borderSubtle, shape = shapes.panel)
                 .clickable { onCheckedChange(!checked) }
-                .padding(start = 16.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+                .padding(start = StratumSpacing.s16, end = StratumSpacing.s4, top = StratumSpacing.s8, bottom = StratumSpacing.s8),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -569,7 +570,7 @@ private fun SupersetLinkSheetRow(
                 .background(color = colors.surfaceRaised, shape = shapes.panel)
                 .border(width = shapes.borderWidth, color = colors.borderSubtle, shape = shapes.panel)
                 .clickable(onClick = onClick)
-                .padding(horizontal = 16.dp, vertical = 14.dp),
+                .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s16),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -607,8 +608,8 @@ private fun LiftActionRow(
                 .background(color = colors.surfaceRaised, shape = shapes.panel)
                 .border(width = shapes.borderWidth, color = colors.borderSubtle, shape = shapes.panel)
                 .clickable(onClick = onClick)
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s16),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         when {
@@ -653,6 +654,6 @@ fun SupersetGroupChip(
                     color = StratumSupersetGroupColors.backgroundFor(groupId),
                     shape = StratumThemeAccessor.shapes.chip,
                 )
-                .padding(horizontal = 8.dp, vertical = 2.dp),
+                .padding(horizontal = StratumSpacing.s8, vertical = StratumSpacing.s4),
     )
 }

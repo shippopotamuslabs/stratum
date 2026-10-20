@@ -51,6 +51,7 @@ import com.stratum.core.ui.component.StratumSegmentedControl
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTrendChart
 import com.stratum.core.ui.component.StratumVolumeBarChart
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
 @Composable
@@ -179,7 +180,7 @@ private fun ColumnScope.LoadingState(
             textAlign = TextAlign.Center,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 48.dp, horizontal = BOARD_HORIZONTAL_PADDING_DP.dp),
+                .padding(vertical = StratumSpacing.s48, horizontal = BOARD_HORIZONTAL_PADDING_DP.dp),
         )
     }
 }
@@ -198,9 +199,9 @@ private fun ColumnScope.EmptyState(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 48.dp, horizontal = 16.dp),
+                .padding(vertical = StratumSpacing.s48, horizontal = StratumSpacing.s16),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
         ) {
             StratumText(
                 text = stringResource(R.string.dashboard_empty_title),
@@ -272,7 +273,7 @@ private fun ColumnScope.LoadedContent(
         contentPadding = PaddingValues(
             start = BOARD_HORIZONTAL_PADDING_DP.dp,
             end = BOARD_HORIZONTAL_PADDING_DP.dp,
-            bottom = 16.dp,
+            bottom = StratumSpacing.s16,
         ),
     ) {
         item(
@@ -372,7 +373,7 @@ private fun DashboardBoardSelector(
     )
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
     ) {
         StratumText(
             text = stringResource(R.string.dashboard_lift_metrics_label),
@@ -444,7 +445,7 @@ private fun LazyGridScope.emptyTabItem(textRes: Int) {
             textAlign = TextAlign.Center,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 48.dp),
+                .padding(vertical = StratumSpacing.s48),
         )
     }
 }
@@ -603,7 +604,7 @@ private fun TrendCard(
             )
             .then(clickModifier)
             .padding(CARD_PADDING_DP.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),

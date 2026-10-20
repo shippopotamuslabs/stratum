@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.stratum.core.ui.R
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.domain.lift.LiftCategory
 import com.stratum.domain.lift.MuscleLengthBias
@@ -76,7 +77,7 @@ fun FilterDropdownRow(
 
     Row(
         modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (state.hasActiveFilter) {
@@ -94,7 +95,7 @@ fun FilterDropdownRow(
         }
         LazyRow(
             state = listState,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             item(key = "muscles") {
@@ -152,8 +153,8 @@ private fun MuscleFilterChip(
                 .border(width = shapes.borderWidth, color = borderColor, shape = shapes.chip)
                 .clickable { onClick() }
                 .semantics { role = Role.Button }
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                .padding(horizontal = StratumSpacing.s12, vertical = StratumSpacing.s8),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
@@ -182,7 +183,7 @@ fun SelectedMusclesRow(
     if (selectedMuscles.isEmpty()) return
     LazyRow(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         items(selectedMuscles.toList(), key = { it.name }) { muscle ->
@@ -220,20 +221,20 @@ fun MuscleFilterBottomSheet(
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
         ) {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f, fill = false),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
             ) {
                 item(key = "upper-body-header") {
                     StratumText(
                         text = "Upper Body",
                         style = StratumThemeAccessor.typography.sectionLabel,
                         muted = true,
-                        modifier = Modifier.padding(vertical = 4.dp),
+                        modifier = Modifier.padding(vertical = StratumSpacing.s4),
                     )
                 }
                 item(key = "upper-body-grid") {
@@ -248,7 +249,7 @@ fun MuscleFilterBottomSheet(
                         text = "Lower Body",
                         style = StratumThemeAccessor.typography.sectionLabel,
                         muted = true,
-                        modifier = Modifier.padding(vertical = 4.dp),
+                        modifier = Modifier.padding(vertical = StratumSpacing.s4),
                     )
                 }
                 item(key = "lower-body-grid") {
@@ -263,8 +264,8 @@ fun MuscleFilterBottomSheet(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    .padding(top = StratumSpacing.s16),
+                horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (selectedMuscles.isNotEmpty()) {
@@ -357,8 +358,8 @@ private fun <T> FilterDropdownChip(
                     .border(width = shapes.borderWidth, color = borderColor, shape = shapes.chip)
                     .clickable { expanded = true }
                     .semantics { role = Role.Button }
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    .padding(horizontal = StratumSpacing.s12, vertical = StratumSpacing.s8),
+            horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
@@ -415,12 +416,12 @@ fun LiftSwapOptionRow(
                 .background(color = colors.surfaceRaised, shape = shapes.panel)
                 .border(width = borderWidth, color = borderColor, shape = shapes.panel)
                 .clickable(onClick = onClick)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         LiftThumbnail(name = option.name, imageUrl = option.imageUrl)
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4)) {
             StratumText(
                 text = option.name,
                 style = StratumThemeAccessor.typography.bodyLarge,
@@ -428,8 +429,8 @@ fun LiftSwapOptionRow(
                 overflow = TextOverflow.Ellipsis,
             )
             FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
+                verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
             ) {
                 if (option.categoryLabel.isNotBlank()) {
                     MetadataBadge(text = option.categoryLabel)
@@ -513,7 +514,7 @@ fun MetadataBadge(
         modifier =
             modifier
                 .background(color = colors.surfaceInset, shape = shapes.chip)
-                .padding(horizontal = 8.dp, vertical = 2.dp),
+                .padding(horizontal = StratumSpacing.s8, vertical = StratumSpacing.s4),
     ) {
         StratumText(
             text = text,
@@ -561,13 +562,13 @@ fun SelectedLiftsTray(
                 .background(color = colors.surfaceRaised, shape = shapes.panel)
                 .border(width = shapes.borderWidth, color = colors.borderSubtle, shape = shapes.panel)
                 .clickable(onClick = onExpandToggle)
-                .padding(horizontal = 8.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                .padding(horizontal = StratumSpacing.s8, vertical = StratumSpacing.s4),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Row(
             modifier = Modifier.weight(1f),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             visible.forEach { option ->
@@ -632,8 +633,8 @@ fun LiftPickerSearchBottomBar(
             modifier
                 .fillMaxWidth()
                 .windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s8),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         StratumSearchField(
@@ -665,7 +666,7 @@ fun SelectedLiftsListPanel(
 ) {
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
     ) {
         header?.invoke()
 
@@ -673,7 +674,7 @@ fun SelectedLiftsListPanel(
             text = stringResource(R.string.lift_swap_selected_lifts_title),
             style = StratumThemeAccessor.typography.sectionLabel,
             muted = true,
-            modifier = Modifier.padding(vertical = 4.dp),
+            modifier = Modifier.padding(vertical = StratumSpacing.s4),
         )
 
         LazyColumn(
@@ -682,8 +683,8 @@ fun SelectedLiftsListPanel(
                     .fillMaxWidth()
                     .weight(1f, fill = false)
                     .then(Modifier),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding = PaddingValues(bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
+            contentPadding = PaddingValues(bottom = StratumSpacing.s16),
         ) {
             items(selectedOptions, key = { option -> option.id }) { option ->
                 LiftSwapOptionRow(

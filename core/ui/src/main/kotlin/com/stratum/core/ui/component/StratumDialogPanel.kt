@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
 /**
@@ -40,8 +41,8 @@ internal fun StratumDialogPanel(
                     color = colors.borderStrong,
                     shape = shapes.panel,
                 )
-                .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(StratumSpacing.s24),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
     ) {
         StratumText(
             text = title,
@@ -61,7 +62,7 @@ internal fun StratumDialogPanel(
 private fun DialogActionRow(actions: @Composable RowScope.() -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s12, Alignment.End),
         content = actions,
     )
 }

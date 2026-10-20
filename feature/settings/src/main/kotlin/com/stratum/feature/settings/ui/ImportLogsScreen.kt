@@ -37,6 +37,7 @@ import com.stratum.core.ui.importing.StratumImportResultCard
 import com.stratum.core.ui.importing.StratumImportResultTone
 import com.stratum.core.ui.importing.StratumImportStatusBanner
 import com.stratum.core.ui.importing.loadImportFiles
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.settings.ImportLogsUiState
 import com.stratum.feature.settings.R
@@ -140,8 +141,8 @@ fun ImportLogsScreen(
                     .fillMaxSize()
                     .padding(padding)
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                    .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s16),
+            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
         ) {
             StratumText(
                 text = stringResource(R.string.import_logs_description),

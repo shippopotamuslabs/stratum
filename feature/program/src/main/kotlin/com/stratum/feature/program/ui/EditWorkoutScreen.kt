@@ -50,6 +50,7 @@ import com.stratum.core.ui.component.StratumTopBarTextButton
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
 import com.stratum.core.ui.component.UserMessageEffect
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumTheme
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.core.ui.component.RirTargetBottomSheet
@@ -527,7 +528,7 @@ internal fun EditWorkoutContent(
     onStartWorkout: () -> Unit = callbacks.onStartWorkout,
 ) {
     // Horizontal padding only on inset chrome; lift cards are full-bleed like live workout.
-    val listInset = Modifier.padding(horizontal = 12.dp)
+    val listInset = Modifier.padding(horizontal = StratumSpacing.s12)
     val listState = rememberLazyListState()
     // Parent ProvideEditWorkoutDock already supplies listModifier-sized host; we only bind list.
     val dockHeightDp =
@@ -542,10 +543,10 @@ internal fun EditWorkoutContent(
         modifier = modifier,
         contentPadding =
             PaddingValues(
-                top = 16.dp,
-                bottom = 16.dp + dockHeightDp,
+                top = StratumSpacing.s16,
+                bottom = StratumSpacing.s16 + dockHeightDp,
             ),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
     ) {
             if (showStartWorkout) {
                 item {
@@ -620,7 +621,7 @@ internal fun EditWorkoutContent(
             StratumOutlinedButton(
                 text = stringResource(R.string.edit_workout_add_lift),
                 onClick = callbacks.onAddLift,
-                modifier = listInset.padding(bottom = 20.dp).fillMaxWidth(),
+                modifier = listInset.padding(bottom = StratumSpacing.s16).fillMaxWidth(),
             )
         }
     }
@@ -640,7 +641,7 @@ private fun EditWorkoutExerciseSummaryHeader(
     ) {
         Column(
             modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
         ) {
             StratumText(
                 text = stringResource(R.string.edit_workout_exercise_count_header, exerciseCount),
@@ -686,13 +687,13 @@ private fun EditLiftPanel(
     onEquipmentSwapClick: (() -> Unit)? = null,
 ) {
     StratumEdgeToEdgeCard(
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
     ) {
         Row(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
+                    .padding(horizontal = StratumSpacing.s16),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -725,7 +726,7 @@ private fun EditLiftPanel(
                 selectedScheme = lift.progressionScheme,
                 onSchemeSelected = { scheme -> onSetProgressionScheme(lift.workoutLiftId, scheme) },
                 onInfoClick = onShowProgressionSchemeInfo,
-                modifier = Modifier.padding(horizontal = 16.dp),
+                modifier = Modifier.padding(horizontal = StratumSpacing.s16),
             )
         }
 
@@ -733,7 +734,7 @@ private fun EditLiftPanel(
             lift.supersetGroupId?.let { groupId ->
                 SupersetGroupChip(
                     groupId = groupId,
-                    modifier = Modifier.padding(horizontal = 16.dp),
+                    modifier = Modifier.padding(horizontal = StratumSpacing.s16),
                 )
             }
         }
@@ -782,7 +783,7 @@ private fun ProgressionSchemeToggleRow(
         Row(
             modifier = Modifier.clickable(onClick = onInfoClick),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
         ) {
             StratumText(
                 text = stringResource(R.string.edit_workout_progression_scheme_label),

@@ -1,3 +1,5 @@
+// STR-142 allowlist: section rhythm (20.dp) pinned; screen margins adopted.
+@file:Suppress("ForbiddenRawSpacingLiteralInUi")
 package com.stratum.core.ui.trainingsetup
 
 import androidx.compose.foundation.layout.Arrangement
@@ -16,6 +18,8 @@ import com.stratum.core.ui.R
 import com.stratum.core.ui.component.StratumFilterChip
 import com.stratum.core.ui.component.StratumMusclePicker
 import com.stratum.core.ui.component.StratumText
+import com.stratum.core.ui.theme.StratumSpacing
+
 
 /**
  * Shared minimum-volume preferences step. Used by onboarding and create program.
@@ -28,7 +32,11 @@ fun MinimumVolumePreferencesScreen(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp),
+        modifier =
+            modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         StratumText(
@@ -46,8 +54,8 @@ fun MinimumVolumePreferencesScreen(
             )
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
+                verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
             ) {
                 draft.suggestedMuscleLabels.forEach { label ->
                     val selected = label in draft.selectedMuscleLabels

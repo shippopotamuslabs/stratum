@@ -1,3 +1,5 @@
+// STR-142 allowlist: calendar day-cell geometry (7-col grid, 56.dp placeholder, 1/2.dp insets) pinned.
+@file:Suppress("ForbiddenRawSpacingLiteralInUi")
 package com.stratum.feature.history.ui.calendar
 
 import androidx.compose.foundation.background
@@ -23,6 +25,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.component.StratumText
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.history.R
 import com.stratum.feature.history.ui.HistoryDayUi
@@ -39,8 +42,8 @@ internal fun HistoryMonthBlock(
     // platformLocale bridges Compose's Locale to java.util.Locale for getDisplayName.
     val locale = LocalLocale.current.platformLocale
     Column(
-        modifier = modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = modifier.fillMaxWidth().padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
     ) {
         StratumText(
             text =
@@ -90,7 +93,7 @@ private fun MonthDayGrid(
         val trailing = (7 - (size % 7)) % 7
         repeat(trailing) { add(null) }
     }
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4)) {
         cells.chunked(7).forEach { week ->
             Row(modifier = Modifier.fillMaxWidth()) {
                 week.forEach { day ->

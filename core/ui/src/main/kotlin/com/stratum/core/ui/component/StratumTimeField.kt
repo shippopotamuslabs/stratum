@@ -22,6 +22,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R as CoreUiR
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -53,7 +54,7 @@ fun StratumTimeField(
 
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
     ) {
         StratumText(
             text = label,
@@ -77,7 +78,7 @@ fun StratumTimeField(
                             Modifier
                         },
                     )
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                    .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s16),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {

@@ -35,6 +35,7 @@ import com.stratum.core.ui.component.StratumTextFieldOptions
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
 import com.stratum.core.ui.component.StratumTopBarTextButton
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import java.util.UUID
 
@@ -197,9 +198,9 @@ fun ManageNotesScreen(
                 Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12)
                     .imePadding(),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
         ) {
             StratumSegmentedControl(
                 segments =
@@ -235,7 +236,7 @@ fun ManageNotesScreen(
             }
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
             ) {
                 if (currentDrafts.isEmpty()) {
                     item(key = "empty") {

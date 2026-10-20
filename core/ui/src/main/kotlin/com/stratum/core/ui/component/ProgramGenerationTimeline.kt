@@ -14,6 +14,7 @@ import com.stratum.core.ui.progress.activeTimelineIndex
 import com.stratum.core.ui.progress.programGenerationPhaseStringRes
 import com.stratum.core.ui.progress.programGenerationProgressSubtitle
 import com.stratum.core.ui.progress.programGenerationTimelinePhases
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
 /**
@@ -61,10 +62,10 @@ fun ProgramGenerationLoadingContent(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier.fillMaxWidth().padding(top = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        modifier = modifier.fillMaxWidth().padding(top = StratumSpacing.s16),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4)) {
             StratumText(
                 text = stringResource(R.string.program_generate_loading),
                 style = StratumThemeAccessor.typography.titleLarge,

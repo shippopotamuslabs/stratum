@@ -31,6 +31,7 @@ import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.SupersetLinkDirection
 import com.stratum.core.ui.component.UserMessageEffect
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.program.identity.WorkoutId
@@ -288,12 +289,12 @@ internal fun NoActiveSessionContent(
 ) {
     StratumScaffold(snackbarHostState = snackbarHostState) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(16.dp),
+            modifier = Modifier.fillMaxSize().padding(StratumSpacing.s16),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             StratumText(text = "No active session.")
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(StratumSpacing.s16))
             StratumButton(text = "Back", onClick = onNavigateBack)
         }
     }
@@ -307,7 +308,7 @@ internal fun ErrorContent(
 ) {
     StratumScaffold(snackbarHostState = snackbarHostState) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(16.dp),
+            modifier = Modifier.fillMaxSize().padding(StratumSpacing.s16),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
@@ -315,7 +316,7 @@ internal fun ErrorContent(
                 text = "Error: $message",
                 style = StratumThemeAccessor.typography.bodyLarge.copy(color = StratumThemeAccessor.colors.error),
             )
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(StratumSpacing.s16))
             StratumButton(text = "Back", onClick = onNavigateBack)
         }
     }

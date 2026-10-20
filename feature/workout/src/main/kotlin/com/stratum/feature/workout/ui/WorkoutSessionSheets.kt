@@ -48,6 +48,7 @@ import com.stratum.core.ui.component.isLastInSupersetChain
 import com.stratum.core.ui.component.isSupersetPairMember
 import com.stratum.core.ui.component.shouldKeepSupersetSheetOpenAfterLink
 import com.stratum.core.ui.component.supersetLinkSheetOptions
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.workout.R
 import com.stratum.feature.workout.notification.RestTimerDefaults
@@ -245,7 +246,7 @@ internal fun ColumnScope.RestTimerSheetContent(
         style = StratumThemeAccessor.typography.titleLarge,
         modifier = Modifier
             .align(Alignment.CenterHorizontally)
-            .padding(bottom = 8.dp)
+            .padding(bottom = StratumSpacing.s8)
     )
 
     val progress = if (totalSeconds > 0) remainingSeconds.toFloat() / totalSeconds else 0f
@@ -263,13 +264,13 @@ internal fun ColumnScope.RestTimerSheetContent(
         )
     }
 
-    Spacer(modifier = Modifier.height(12.dp))
+    Spacer(modifier = Modifier.height(StratumSpacing.s12))
 
     if (isTimerActive) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = StratumSpacing.s16),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -283,7 +284,7 @@ internal fun ColumnScope.RestTimerSheetContent(
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8)
             ) {
                 Icon(
                     imageVector = Icons.Default.Timer,
@@ -308,14 +309,14 @@ internal fun ColumnScope.RestTimerSheetContent(
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(StratumSpacing.s16))
 
         StratumButton(
             text = "Skip",
             onClick = onSkip,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = StratumSpacing.s16)
         )
     } else {
         StratumText(
@@ -324,15 +325,15 @@ internal fun ColumnScope.RestTimerSheetContent(
             muted = true,
             modifier = Modifier
                 .align(Alignment.CenterHorizontally)
-                .padding(bottom = 8.dp)
+                .padding(bottom = StratumSpacing.s8)
         )
 
         FlowRow(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(horizontal = StratumSpacing.s12),
+            horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8, Alignment.CenterHorizontally),
+            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
         ) {
             val presets = (30..RestTimerDefaults.MAX_REST_SECONDS step 30).toList()
             presets.forEach { seconds ->
@@ -349,7 +350,7 @@ internal fun ColumnScope.RestTimerSheetContent(
                             shape = StratumThemeAccessor.shapes.chip
                         )
                         .clickable { onStartPreset(seconds) }
-                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                        .padding(horizontal = StratumSpacing.s12, vertical = StratumSpacing.s8)
                 ) {
                     StratumText(
                         text = label,
@@ -396,8 +397,8 @@ internal fun DiscardWorkoutDialogContent(
                 color = StratumThemeAccessor.colors.borderStrong,
                 shape = StratumThemeAccessor.shapes.panel
             )
-            .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+            .padding(StratumSpacing.s24),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16)
     ) {
         StratumText(
             text = stringResource(R.string.workout_screen_discard_workout),
@@ -410,7 +411,7 @@ internal fun DiscardWorkoutDialogContent(
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End)
+            horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s12, Alignment.End)
         ) {
             StratumOutlinedButton(
                 text = stringResource(R.string.workout_screen_cancel_discard),
@@ -448,7 +449,7 @@ internal fun hasUnsavedRestChanges(
 internal fun SheetContentTitle(text: String) {
     StratumText(
         text = text,
-        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+        modifier = Modifier.fillMaxWidth().padding(bottom = StratumSpacing.s8),
         style = StratumThemeAccessor.typography.titleLarge,
         textAlign = TextAlign.Center,
     )
@@ -664,8 +665,8 @@ internal fun ConfigureRestTimesSheetContent(
                         color = StratumThemeAccessor.colors.borderSubtle,
                         shape = StratumThemeAccessor.shapes.panel,
                     )
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+                    .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12),
+            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
         ) {
             Row(
                 modifier =
@@ -818,7 +819,7 @@ internal fun CompleteSheetContent(
                 style = StratumThemeAccessor.typography.bodyLarge,
                 muted = true,
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(StratumSpacing.s8))
             StratumButton(
                 text = stringResource(R.string.workout_sheet_continue_workout),
                 onClick = onContinueWorkout,
@@ -842,14 +843,14 @@ internal fun CompleteSheetContent(
                 style = StratumThemeAccessor.typography.bodyLarge,
                 muted = true,
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(StratumSpacing.s8))
             // Primary filled CTA spanning sheet content width (sheet already pads 12.dp).
             StratumButton(
                 text = stringResource(R.string.workout_sheet_complete_workout),
                 onClick = onCompleteWorkout,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 4.dp),
+                    .padding(horizontal = StratumSpacing.s4),
             )
         }
         CompleteSheetPhase.SaveChanges -> {
@@ -867,7 +868,7 @@ internal fun CompleteSheetContent(
             if (templateChanges != null && !templateChanges.isEmpty) {
                 TemplateChangeSummarySection(summary = templateChanges)
             }
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(StratumSpacing.s8))
             StratumButton(
                 text = stringResource(R.string.workout_sheet_update_template),
                 onClick = onUpdateTemplate,

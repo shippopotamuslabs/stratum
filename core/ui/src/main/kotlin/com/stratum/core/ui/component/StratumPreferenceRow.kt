@@ -14,6 +14,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R as CoreUiR
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
 /**
@@ -46,8 +47,8 @@ fun StratumPreferenceRow(
                         Modifier
                     },
                 )
-                .padding(vertical = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(vertical = StratumSpacing.s12),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(
@@ -61,7 +62,7 @@ fun StratumPreferenceRow(
                             Modifier
                         },
                     ),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
         ) {
             StratumText(text = title)
             StratumText(text = subtitle, muted = true)

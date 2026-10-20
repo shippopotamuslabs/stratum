@@ -30,6 +30,7 @@ import com.stratum.core.ui.component.LiftThumbnail
 import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumButton
 import com.stratum.core.ui.component.StratumText
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
 /**
@@ -60,7 +61,7 @@ fun MergeTargetBottomSheet(
         )
         Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
         ) {
             candidates.forEach { option ->
                 MergeTargetChoiceRow(
@@ -111,8 +112,8 @@ private fun MergeTargetChoiceRow(
                     this.selected = selected
                 }
                 .clickable(onClick = onClick)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         LiftThumbnail(

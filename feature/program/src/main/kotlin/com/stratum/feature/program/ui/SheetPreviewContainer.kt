@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumTheme
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.core.ui.theme.StratumThemeId
@@ -32,9 +33,9 @@ internal fun SheetContentPreview(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(StratumThemeAccessor.colors.surfaceRaised)
-                .padding(horizontal = 12.dp)
-                .padding(top = 4.dp, bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(horizontal = StratumSpacing.s12)
+                .padding(top = StratumSpacing.s4, bottom = StratumSpacing.s32),
+            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
             content = content,
         )
     }

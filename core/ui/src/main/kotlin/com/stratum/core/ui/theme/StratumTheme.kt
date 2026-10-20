@@ -1,8 +1,6 @@
 package com.stratum.core.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.shape.CornerBasedShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
@@ -12,9 +10,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 
 val LocalStratumTheme =
     staticCompositionLocalOf {
@@ -157,16 +152,12 @@ internal fun materialColorScheme(spec: StratumThemeSpec): ColorScheme {
  */
 internal fun materialShapes(spec: StratumThemeSpec): Shapes =
     Shapes(
-        extraSmall = spec.shapes.extraSmall.asCorner(spec.shapes.extraSmallCorner),
-        small = spec.shapes.small.asCorner(spec.shapes.smallCorner),
-        medium = spec.shapes.medium.asCorner(spec.shapes.mediumCorner),
-        large = spec.shapes.large.asCorner(spec.shapes.largeCorner),
-        extraLarge = spec.shapes.extraLarge.asCorner(spec.shapes.extraLargeCorner),
+        extraSmall = spec.shapes.extraSmall,
+        small = spec.shapes.small,
+        medium = spec.shapes.medium,
+        large = spec.shapes.large,
+        extraLarge = spec.shapes.extraLarge,
     )
-
-/** Spec shapes are corner-based; fall back to the rung's corner Dp if one ever is not. */
-private fun Shape.asCorner(fallback: Dp): CornerBasedShape =
-    (this as? CornerBasedShape) ?: RoundedCornerShape(fallback)
 
 object StratumThemeAccessor {
     val colors: StratumColors

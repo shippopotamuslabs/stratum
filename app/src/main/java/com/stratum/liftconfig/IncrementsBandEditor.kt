@@ -1,3 +1,5 @@
+// STR-142 allowlist: dense tier-cell micro-stack (2.dp) pinned.
+@file:Suppress("ForbiddenRawSpacingLiteralInUi")
 package com.stratum.liftconfig
 
 import androidx.compose.foundation.background
@@ -46,6 +48,7 @@ import com.stratum.core.ui.component.StratumTextButton
 import com.stratum.core.ui.component.StratumTextField
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
 /**
@@ -181,8 +184,8 @@ internal fun IncrementEditorScreen(
                         .fillMaxWidth()
                         .background(StratumThemeAccessor.colors.surfaceBase)
                         .navigationBarsPadding()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                        .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12),
+                verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
             ) {
                 StratumButton(
                     text = chrome.saveText,
@@ -215,15 +218,15 @@ internal fun IncrementEditorScreen(
                 Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(horizontal = 16.dp)
-                    .padding(bottom = 8.dp)
+                    .padding(horizontal = StratumSpacing.s16)
+                    .padding(bottom = StratumSpacing.s8)
                     .verticalScroll(rememberScrollState()),
         ) {
             if (chrome.contextText != null) {
                 EditorContextRow(
                     text = chrome.contextText,
                     onClick = chrome.onContextClick,
-                    modifier = Modifier.padding(top = 4.dp),
+                    modifier = Modifier.padding(top = StratumSpacing.s4),
                 )
             }
             editor.headerContent?.invoke(this)
@@ -231,13 +234,13 @@ internal fun IncrementEditorScreen(
                 text = stringResource(UiR.string.equipment_band_section),
                 style = StratumThemeAccessor.typography.sectionLabel,
                 muted = true,
-                modifier = Modifier.padding(start = 2.dp, top = 12.dp, bottom = 8.dp),
+                modifier = Modifier.padding(start = StratumSpacing.s4, top = StratumSpacing.s12, bottom = StratumSpacing.s8),
             )
             StratumText(
                 text = stringResource(UiR.string.equipment_band_hint),
                 style = StratumThemeAccessor.typography.sectionLabel.copy(fontSize = 12.sp),
                 muted = true,
-                modifier = Modifier.padding(start = 2.dp, bottom = 10.dp),
+                modifier = Modifier.padding(start = StratumSpacing.s4, bottom = StratumSpacing.s12),
             )
             BandStrip(
                 tiers = editor.tiers,
@@ -251,20 +254,20 @@ internal fun IncrementEditorScreen(
                     tiers = editor.tiers,
                     selection = selection,
                     unitLabel = editor.unitLabel,
-                    modifier = Modifier.padding(start = 2.dp, top = 6.dp),
+                    modifier = Modifier.padding(start = StratumSpacing.s4, top = StratumSpacing.s8),
                 )
             }
             if (editor.scanAvailable) {
                 ScanStatusLines(
                     scanUi = editor.scanUi,
                     picker = scanPicker,
-                    modifier = Modifier.padding(top = 12.dp),
+                    modifier = Modifier.padding(top = StratumSpacing.s12),
                 )
             }
             if (editor.validationMessage != null) {
                 EditorErrorBanner(
                     message = editor.validationMessage,
-                    modifier = Modifier.padding(top = 12.dp),
+                    modifier = Modifier.padding(top = StratumSpacing.s12),
                 )
             }
             if (editor.warnedTierIndexes.isNotEmpty()) {
@@ -272,14 +275,14 @@ internal fun IncrementEditorScreen(
                     text = stringResource(UiR.string.lift_increments_sample_warning),
                     style = StratumThemeAccessor.typography.sectionLabel,
                     muted = true,
-                    modifier = Modifier.padding(start = 2.dp, top = 12.dp),
+                    modifier = Modifier.padding(start = StratumSpacing.s4, top = StratumSpacing.s12),
                 )
             }
             StratumText(
                 text = stringResource(UiR.string.lift_increments_micro_title),
                 style = StratumThemeAccessor.typography.sectionLabel,
                 muted = true,
-                modifier = Modifier.padding(start = 2.dp, top = 14.dp, bottom = 8.dp),
+                modifier = Modifier.padding(start = StratumSpacing.s4, top = StratumSpacing.s16, bottom = StratumSpacing.s8),
             )
             MicroStopsRow(
                 stops = editor.microStops,
@@ -366,7 +369,7 @@ private fun PanelRow(
         rowModifier = rowModifier.clickable(onClick = onClick)
     }
     Row(
-        modifier = rowModifier.padding(horizontal = 14.dp, vertical = 12.dp),
+        modifier = rowModifier.padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -414,7 +417,7 @@ internal fun BandStrip(
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Row(
@@ -422,7 +425,7 @@ internal fun BandStrip(
                 Modifier
                     .weight(1f)
                     .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
         ) {
             tiers.forEachIndexed { index, tier ->
                 val isOpen = index == tiers.lastIndex
@@ -471,7 +474,7 @@ private fun BandCell(
                     shape = shapes.panel,
                 )
                 .clickable(onClick = onClick)
-                .padding(horizontal = 8.dp, vertical = 12.dp),
+                .padding(horizontal = StratumSpacing.s8, vertical = StratumSpacing.s12),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
@@ -691,7 +694,7 @@ internal fun StopsSheet(
         stops.forEachIndexed { index, stop ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 StratumTextField(
@@ -743,7 +746,7 @@ internal fun ForkNameSheet(
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End),
+            horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s12, Alignment.End),
         ) {
             StratumOutlinedButton(
                 text = stringResource(UiR.string.equipment_dialog_cancel),
