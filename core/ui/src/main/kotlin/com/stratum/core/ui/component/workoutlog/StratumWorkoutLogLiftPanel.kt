@@ -1,3 +1,5 @@
+// STR-142 allowlist: dense set-log row rhythm (2.dp) and header inset (20.dp) pinned.
+@file:Suppress("ForbiddenRawSpacingLiteralInUi")
 package com.stratum.core.ui.component.workoutlog
 
 import androidx.compose.foundation.background
@@ -23,6 +25,7 @@ import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.StratumEdgeToEdgeCard
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.SupersetGroupChip
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
 private val AddSetIconSize = 16.dp
@@ -88,7 +91,7 @@ fun StratumWorkoutLogLiftPanel(
             )
         }
 
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(StratumSpacing.s4))
 
         StratumWorkoutLogTableHeader(
             showWeightColumn = lift.showWeightColumn,
@@ -140,8 +143,8 @@ private fun PinnedLiftNotesSlot(
             Modifier
                 .fillMaxWidth()
                 .padding(horizontal = WorkoutLogHeaderHorizontalPadding)
-                .padding(top = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+                .padding(top = StratumSpacing.s4),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
     ) {
         workout.forEach { body ->
             PinnedLiftNoteRow(
@@ -177,7 +180,7 @@ private fun PinnedLiftNoteRow(
     Row(
         modifier = rowModifier.padding(vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
     ) {
         Icon(
             painter = painterResource(CoreUiR.drawable.ic_push_pin),
@@ -218,7 +221,7 @@ private fun WorkoutLogAddSetRow(
         modifier =
             modifier
                 .fillMaxWidth()
-                .padding(horizontal = WorkoutLogTableHorizontalPadding, vertical = 4.dp),
+                .padding(horizontal = WorkoutLogTableHorizontalPadding, vertical = StratumSpacing.s4),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(

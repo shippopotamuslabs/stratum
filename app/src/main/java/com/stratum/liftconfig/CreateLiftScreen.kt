@@ -22,6 +22,8 @@ import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
 import com.stratum.core.ui.component.StratumTopBarTextButton
 import com.stratum.core.ui.component.UserMessageEffect
+import com.stratum.core.ui.theme.StratumSpacing
+
 
 @Composable
 fun CreateLiftRoute(
@@ -111,8 +113,8 @@ fun CreateLiftScreen(
                 Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                    .padding(horizontal = StratumSpacing.s16),
+            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
         ) {
             StratumTextField(
                 value = state.name,

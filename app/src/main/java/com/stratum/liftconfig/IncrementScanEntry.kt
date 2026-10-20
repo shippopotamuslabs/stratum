@@ -42,6 +42,7 @@ import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTextButton
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.domain.lift.ScanPhoto
 import java.io.ByteArrayOutputStream
@@ -259,7 +260,7 @@ internal fun ScanStatusLines(
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
     ) {
         if (scanUi is IncrementScanState.Scanning) {
             StratumText(
@@ -340,8 +341,8 @@ private fun ScanSourceRow(
             Modifier
                 .fillMaxWidth()
                 .clickable(enabled = enabled, onClick = onClick)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(

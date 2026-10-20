@@ -1,3 +1,5 @@
+// STR-142 allowlist: dense set-log column insets (2.dp) pinned.
+@file:Suppress("ForbiddenRawSpacingLiteralInUi")
 package com.stratum.core.ui.component.workoutlog
 
 import androidx.compose.foundation.background
@@ -28,6 +30,7 @@ import com.stratum.core.ui.component.StratumNumber
 import com.stratum.core.ui.component.StratumSwipeToRevealRow
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.theme.StratumSetTypeColors
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
 @Composable
@@ -132,7 +135,7 @@ fun StratumWorkoutLogSetRow(
                 Modifier
                     .fillMaxWidth()
                     .background(rowBg)
-                    .padding(vertical = 4.dp, horizontal = WorkoutLogTableHorizontalPadding),
+                    .padding(vertical = StratumSpacing.s4, horizontal = WorkoutLogTableHorizontalPadding),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(modifier = Modifier.weight(weights.label), contentAlignment = Alignment.CenterStart) {

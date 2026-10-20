@@ -25,6 +25,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
 /**
@@ -41,7 +42,7 @@ fun StratumChoiceGroup(
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
     ) {
         options.forEach { option ->
             StratumChoiceRow(
@@ -113,7 +114,7 @@ private fun StratumChoiceRow(
             text = label,
             modifier = Modifier
                 .weight(1f)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12),
             style = StratumThemeAccessor.typography.bodyLarge,
             color = labelColor,
         )

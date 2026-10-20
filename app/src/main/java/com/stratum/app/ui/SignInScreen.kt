@@ -37,6 +37,7 @@ import com.stratum.core.ui.component.StratumOutlinedButton
 import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.legal.LegalUrls
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.core.ui.R as CoreUiR
 import kotlinx.coroutines.delay
@@ -55,7 +56,7 @@ fun SignInScreen(
                 Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(24.dp),
+                    .padding(StratumSpacing.s24),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
@@ -69,7 +70,7 @@ fun SignInScreen(
             StratumText(
                 text = stringResource(R.string.sign_in_message),
                 muted = true,
-                modifier = Modifier.padding(top = 20.dp, bottom = 24.dp),
+                modifier = Modifier.padding(top = StratumSpacing.s16, bottom = StratumSpacing.s24),
             )
             when (shellState) {
                 ShellUiState.CheckingAuth -> {
@@ -83,33 +84,33 @@ fun SignInScreen(
                         onClick = onSignInWithGoogle,
                         enabled = true,
                     )
-                    SignInLegalFooter(modifier = Modifier.padding(top = 20.dp))
+                    SignInLegalFooter(modifier = Modifier.padding(top = StratumSpacing.s16))
                 }
                 is ShellUiState.SignInError -> {
                     // [shellState.message] is already mapped to user-facing copy in MainViewModel
                     // (see toGoogleSignInMessage); never pass raw throwables into ShellUiState.
                     SignInErrorText(
                         text = shellState.message,
-                        modifier = Modifier.padding(bottom = 16.dp),
+                        modifier = Modifier.padding(bottom = StratumSpacing.s16),
                     )
                     StratumGoogleSignInButton(
                         onClick = onSignInWithGoogle,
                         enabled = true,
                     )
-                    SignInLegalFooter(modifier = Modifier.padding(top = 20.dp))
+                    SignInLegalFooter(modifier = Modifier.padding(top = StratumSpacing.s16))
                 }
                 is ShellUiState.SessionFailed -> {
                     // Technical session.message stays in logs / state for support; UI is fixed copy.
                     SignInErrorText(
                         text = stringResource(R.string.sign_in_session_failed),
-                        modifier = Modifier.padding(bottom = 16.dp),
+                        modifier = Modifier.padding(bottom = StratumSpacing.s16),
                     )
                     StratumButton(
                         text = stringResource(R.string.sign_in_retry),
                         onClick = onRetrySession,
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(StratumSpacing.s12))
                     StratumOutlinedButton(
                         text = stringResource(R.string.sign_in_sign_out),
                         onClick = onSignOut,

@@ -1,3 +1,5 @@
+// STR-142 allowlist: dense 2.dp change-row stack pinned.
+@file:Suppress("ForbiddenRawSpacingLiteralInUi")
 package com.stratum.feature.workout.ui
 
 import androidx.compose.animation.AnimatedVisibility
@@ -37,6 +39,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.StratumText
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.workout.R
 
@@ -68,7 +71,7 @@ internal fun TemplateChangeSummarySection(
                     .heightIn(min = 48.dp)
                     .clip(StratumThemeAccessor.shapes.chip)
                     .clickable(role = Role.Button, onClick = { expanded = !expanded })
-                    .padding(horizontal = 4.dp),
+                    .padding(horizontal = StratumSpacing.s4),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             StratumText(
@@ -104,7 +107,7 @@ internal fun TemplateChangeSummarySection(
                         .fillMaxWidth()
                         .heightIn(max = MAX_EXPANDED_HEIGHT_DP.dp)
                         .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
             ) {
                 summary.groups.forEachIndexed { index, group ->
                     if (index > 0) ChangeSummaryDivider()
@@ -126,7 +129,7 @@ private fun ChangeSummaryRow(row: TemplateChangeRowUi) {
         modifier =
             Modifier
                 .fillMaxWidth()
-                .padding(vertical = 4.dp),
+                .padding(vertical = StratumSpacing.s4),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         StratumText(

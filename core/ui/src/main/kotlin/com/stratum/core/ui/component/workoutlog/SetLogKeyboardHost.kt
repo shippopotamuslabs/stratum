@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.StratumText
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import kotlinx.coroutines.delay
 import com.stratum.core.ui.component.formatWeightAmount
@@ -577,7 +578,7 @@ private fun SetLogKeyboardDockContent(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                        .padding(horizontal = StratumSpacing.s8, vertical = StratumSpacing.s4),
                 style = StratumThemeAccessor.typography.sectionLabel,
                 color = StratumThemeAccessor.colors.textMuted,
             )
@@ -594,7 +595,7 @@ private fun SetLogKeyboardDockContent(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 6.dp, vertical = 4.dp),
+                        .padding(horizontal = StratumSpacing.s4, vertical = StratumSpacing.s4),
             )
         }
 

@@ -12,6 +12,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.component.StratumProgressTimeline
 import com.stratum.core.ui.component.StratumText
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
 /**
@@ -38,8 +39,8 @@ fun StratumImportInfoCard(
                     color = colors.borderSubtle,
                     shape = shapes.panel,
                 )
-                .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(StratumSpacing.s16),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
     ) {
         StratumText(
             text = title,
@@ -73,8 +74,8 @@ fun StratumImportStatusBanner(
             modifier
                 .fillMaxWidth()
                 .background(color = colors.surfaceSunken, shape = shapes.panel)
-                .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+                .padding(StratumSpacing.s16),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
     ) {
         StratumText(
             text = title,
@@ -123,8 +124,8 @@ fun StratumImportResultCard(
                     color = borderColor,
                     shape = shapes.panel,
                 )
-                .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(StratumSpacing.s16),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
     ) {
         StratumText(
             text = title,
@@ -156,7 +157,7 @@ fun StratumImportProgressSection(
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
     ) {
         StratumText(
             text = title,

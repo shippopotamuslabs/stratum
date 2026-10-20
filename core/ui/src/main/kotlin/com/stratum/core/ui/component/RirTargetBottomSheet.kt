@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.theme.StratumRirTargetColors
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
 private const val RIR_SHEET_ANIMATION_MS = 220
@@ -108,7 +109,7 @@ private fun RirTargetPickerContent(
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
     ) {
         RirSheetTitleRow(
             onInfoClick = onInfoClick,
@@ -182,7 +183,7 @@ private fun RirSheetTitleRow(
 private fun RirTargetInfoContent(onCloseInfo: () -> Unit) {
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),

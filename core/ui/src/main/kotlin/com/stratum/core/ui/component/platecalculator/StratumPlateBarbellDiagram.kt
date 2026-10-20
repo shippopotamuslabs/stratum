@@ -1,3 +1,5 @@
+// STR-142 allowlist: plate-diagram geometry (sub-token insets, conditional mini padding) pinned.
+@file:Suppress("ForbiddenRawSpacingLiteralInUi")
 package com.stratum.core.ui.component.platecalculator
 
 import androidx.compose.foundation.background
@@ -24,6 +26,7 @@ import androidx.compose.ui.unit.sp
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.StratumNumber
 import com.stratum.core.ui.component.StratumText
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
 /**
@@ -61,7 +64,7 @@ fun StratumPlateBarbellDiagram(
                 color = StratumThemeAccessor.colors.borderSubtle,
                 shape = StratumThemeAccessor.shapes.panel,
             )
-            .padding(horizontal = if (isMini) 6.dp else 16.dp),
+            .padding(horizontal = if (isMini) 6.dp else StratumSpacing.s16),
         contentAlignment = if (isMini) Alignment.CenterStart else Alignment.Center,
     ) {
         Row(
@@ -131,7 +134,10 @@ fun StratumPlateBarbellDiagram(
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(top = if (isMini) 4.dp else 8.dp, end = if (isMini) 4.dp else 8.dp)
+                    .padding(
+                        top = if (isMini) StratumSpacing.s4 else StratumSpacing.s8,
+                        end = if (isMini) StratumSpacing.s4 else StratumSpacing.s8,
+                    )
                     .clip(StratumThemeAccessor.shapes.chip)
                     .background(StratumThemeAccessor.colors.surfaceRaised)
                     .border(

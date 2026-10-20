@@ -54,6 +54,7 @@ import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
 import com.stratum.core.ui.component.UserMessageEffect
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.program.LiftSwapViewModel
 import com.stratum.feature.program.navigation.LiftSwapCommitMode
@@ -245,7 +246,7 @@ fun LiftSwapScreen(
                     modifier =
                         Modifier
                             .fillMaxSize()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                            .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s8),
                 )
             } else {
                 LiftPickerContent(
@@ -260,7 +261,7 @@ fun LiftSwapScreen(
                     modifier =
                         Modifier
                             .fillMaxSize()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                            .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s8),
                 )
             }
         }
@@ -291,7 +292,7 @@ private fun LiftPickerContent(
 ) {
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
     ) {
         FilterDropdownRow(
             state = state,
@@ -309,7 +310,7 @@ private fun LiftPickerContent(
                 Modifier
                     .fillMaxWidth()
                     .weight(1f),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
         ) {
             if (isDefaultScreen && !state.isAddMode) {
                 val similarLifts = state.options.filter { it.similarity >= SIMILARITY_THRESHOLD }
@@ -321,7 +322,7 @@ private fun LiftPickerContent(
                             text = "Similar Lifts",
                             style = StratumThemeAccessor.typography.sectionLabel,
                             muted = true,
-                            modifier = Modifier.padding(vertical = 8.dp),
+                            modifier = Modifier.padding(vertical = StratumSpacing.s8),
                         )
                     }
                     items(similarLifts, key = { option -> option.id }) { option ->
@@ -344,8 +345,8 @@ private fun LiftPickerContent(
                                 Modifier
                                     .fillMaxWidth()
                                     .clickable { onAllLiftsExpandedChange(!allLiftsExpanded) }
-                                    .padding(vertical = 8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    .padding(vertical = StratumSpacing.s8),
+                            horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             StratumText(
@@ -390,7 +391,7 @@ private fun LiftPickerContent(
                     StratumText(
                         text = stringResource(R.string.lift_swap_empty),
                         muted = true,
-                        modifier = Modifier.padding(vertical = 24.dp),
+                        modifier = Modifier.padding(vertical = StratumSpacing.s24),
                     )
                 }
             }

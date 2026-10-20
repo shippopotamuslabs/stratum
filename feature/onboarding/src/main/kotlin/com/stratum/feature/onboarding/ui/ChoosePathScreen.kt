@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.component.StratumText
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.core.ui.theme.stratumCardHardShadow
 import com.stratum.feature.onboarding.R
@@ -41,8 +42,12 @@ internal fun ChoosePathScreen(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        modifier =
+            modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
     ) {
         StratumText(
             text = stringResource(R.string.choose_path_title),
@@ -92,12 +97,12 @@ private fun ChoosePathCard(
                 shape = shapes.panel,
             )
             .clickable(onClick = onClick)
-            .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+            .padding(StratumSpacing.s16),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             PathArrow()
-            Spacer(modifier = Modifier.size(12.dp))
+            Spacer(modifier = Modifier.size(StratumSpacing.s12))
             StratumText(text = title, style = StratumThemeAccessor.typography.titleLarge)
         }
         StratumText(text = description, muted = true)

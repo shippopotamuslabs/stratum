@@ -14,6 +14,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
 /**
@@ -32,7 +33,7 @@ fun StratumFeatureErrorFallback(
         modifier =
             modifier
                 .fillMaxSize()
-                .padding(24.dp),
+                .padding(StratumSpacing.s24),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -41,13 +42,13 @@ fun StratumFeatureErrorFallback(
             style = StratumThemeAccessor.typography.titleLarge,
             textAlign = TextAlign.Center,
         )
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(StratumSpacing.s8))
         StratumText(
             text = message,
             muted = true,
             textAlign = TextAlign.Center,
         )
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(StratumSpacing.s24))
         StratumButton(
             text = retryLabel,
             onClick = onRetry,

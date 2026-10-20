@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
 /**
@@ -46,7 +47,7 @@ fun StratumActiveBadge(
                     color = if (active) colors.accent else colors.borderSubtle,
                     shape = shapes.chip,
                 )
-                .padding(horizontal = 10.dp, vertical = 4.dp),
+                .padding(horizontal = StratumSpacing.s8, vertical = StratumSpacing.s4),
     ) {
         Text(
             text = label,

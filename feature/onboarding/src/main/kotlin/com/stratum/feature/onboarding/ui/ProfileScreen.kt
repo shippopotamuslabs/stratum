@@ -1,3 +1,5 @@
+// STR-142 allowlist: section rhythm (20.dp) pinned; screen margins adopted.
+@file:Suppress("ForbiddenRawSpacingLiteralInUi")
 package com.stratum.feature.onboarding.ui
 
 import androidx.compose.foundation.layout.Arrangement
@@ -15,6 +17,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.component.StratumChoiceGroup
 import com.stratum.core.ui.component.StratumText
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.onboarding.LAST_TRAINED_OPTIONS
 import com.stratum.feature.onboarding.ProfileDraftUi
@@ -32,7 +35,11 @@ fun ProfileScreen(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp),
+        modifier =
+            modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         Section(label = stringResource(R.string.profile_training_age_heading)) {
@@ -67,13 +74,13 @@ fun ProfileScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(StratumSpacing.s8))
     }
 }
 
 @Composable
 private fun Section(label: String, content: @Composable () -> Unit) {
-    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8)) {
         StratumText(text = label, style = StratumThemeAccessor.typography.bodyLarge)
         content()
     }

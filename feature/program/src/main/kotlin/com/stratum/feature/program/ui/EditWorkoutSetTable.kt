@@ -1,3 +1,5 @@
+// STR-142 allowlist: dense set-table chips (2/6.dp) pinned.
+@file:Suppress("ForbiddenRawSpacingLiteralInUi")
 package com.stratum.feature.program.ui
 
 import androidx.compose.foundation.Canvas
@@ -48,6 +50,7 @@ import com.stratum.core.ui.component.workoutlog.DockCellRevealEffect
 import com.stratum.core.ui.component.workoutlog.RepRangeKeyboardField
 import com.stratum.core.ui.component.workoutlog.StratumInlineNumericCell
 import com.stratum.core.ui.theme.StratumSetTypeColors
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.workout.myorep.MyoRepLifecycle
@@ -84,11 +87,11 @@ internal fun EditWorkoutSetTable(
 
     Column(
         // Match live workout log table inset; panel itself is edge-to-edge.
-        modifier = modifier.fillMaxWidth().padding(horizontal = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = modifier.fillMaxWidth().padding(horizontal = StratumSpacing.s8),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
     ) {
         Column(
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
         ) {
             EditWorkoutSetTableHeader()
             SetTableHeaderDivider()
@@ -98,7 +101,7 @@ internal fun EditWorkoutSetTable(
             val matchActivation = isEditMatchActivation(sets, fullIndex)
             val matchBackoffCount =
                 if (matchActivation) editMatchBackoffCount(sets, fullIndex) else 0
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4)) {
                 EditWorkoutSetTableRow(
                     workoutLiftId = workoutLiftId,
                     set = set,
@@ -331,13 +334,13 @@ private fun MatchBackoffCountRow(
                         color = StratumThemeAccessor.colors.borderSubtle,
                         shape = StratumThemeAccessor.shapes.panel,
                     )
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                    .padding(horizontal = StratumSpacing.s12, vertical = StratumSpacing.s8),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
             ) {
                 Box(
                     modifier =
@@ -364,9 +367,9 @@ private fun MatchBackoffCountRow(
                             color = StratumThemeAccessor.colors.borderSubtle,
                             shape = StratumThemeAccessor.shapes.chip,
                         )
-                        .padding(horizontal = 4.dp, vertical = 2.dp),
+                        .padding(horizontal = StratumSpacing.s4, vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
             ) {
                 val minReached = count <= MyoRepLifecycle.MIN_MATCH_BACKOFF_COUNT
                 val maxReached = count >= MyoRepLifecycle.MAX_MATCH_BACKOFF_COUNT
@@ -504,8 +507,8 @@ private fun SetTypeOptionRow(
                 .background(color = colors.surfaceRaised, shape = shapes.panel)
                 .border(width = shapes.borderWidth, color = colors.borderSubtle, shape = shapes.panel)
                 .clickable(onClick = onClick)
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s16),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         SetTypeLetterBadge(
@@ -671,8 +674,8 @@ private fun RepRangeCell(
     }
 
     Row(
-        modifier = modifier.padding(horizontal = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
+        modifier = modifier.padding(horizontal = StratumSpacing.s4),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s4, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         StratumInlineNumericCell(
@@ -718,7 +721,7 @@ private fun RepRangeCell(
 @Composable
 private fun BackoffRepRangeCell(modifier: Modifier = Modifier) {
     Box(
-        modifier = modifier.padding(horizontal = 4.dp),
+        modifier = modifier.padding(horizontal = StratumSpacing.s4),
         contentAlignment = Alignment.Center,
     ) {
         // Backoff sets are RIR-only; the rep range is not prescribed (see Program.kt and
@@ -756,7 +759,7 @@ private fun RestTimeCell(
                 .onGloballyPositioned { coords ->
                     cellBoundsInWindow = coords.boundsInWindow()
                 }
-                .padding(horizontal = 4.dp)
+                .padding(horizontal = StratumSpacing.s4)
                 .height(36.dp)
                 .clip(StratumThemeAccessor.shapes.chip)
                 .background(StratumThemeAccessor.colors.surfaceInset)
@@ -785,7 +788,7 @@ private fun RestTimeCell(
                         )
                     },
                 )
-                .padding(horizontal = 8.dp),
+                .padding(horizontal = StratumSpacing.s8),
         contentAlignment = Alignment.Center,
     ) {
         StratumNumber(

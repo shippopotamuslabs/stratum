@@ -33,6 +33,7 @@ import com.stratum.core.ui.component.workoutlog.ProvideSetLogKeyboardHost
 import com.stratum.core.ui.component.workoutlog.StratumWorkoutLogLiftPanel
 import com.stratum.core.ui.component.workoutlog.WorkoutLogSetRowActions
 import com.stratum.core.ui.component.workoutlog.rememberOverlayDockListBinding
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.history.R
 
@@ -129,7 +130,7 @@ fun EditHistoricalWorkoutScreen(
                         Modifier
                             .fillMaxSize()
                             .padding(padding)
-                            .padding(vertical = 12.dp),
+                            .padding(vertical = StratumSpacing.s12),
                 ) { listModifier ->
                     val keyboardHost = LocalSetLogKeyboardHost.current
                     val dockHeightDp =
@@ -142,7 +143,7 @@ fun EditHistoricalWorkoutScreen(
                         state = listState,
                         modifier = listModifier,
                         contentPadding = PaddingValues(bottom = dockHeightDp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
                     ) {
                         items(state.lifts, key = { it.key }) { lift ->
                             StratumWorkoutLogLiftPanel(

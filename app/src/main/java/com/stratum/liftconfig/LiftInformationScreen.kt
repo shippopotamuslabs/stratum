@@ -1,3 +1,5 @@
+// STR-142 allowlist: dense 2.dp text stacks pinned.
+@file:Suppress("ForbiddenRawSpacingLiteralInUi")
 package com.stratum.liftconfig
 
 import androidx.compose.animation.AnimatedVisibility
@@ -43,6 +45,7 @@ import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
 import com.stratum.core.ui.component.UserMessageEffect
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
 @Composable
@@ -128,8 +131,8 @@ fun LiftInformationScreen(
                 Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                    .padding(horizontal = StratumSpacing.s16),
+            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
         ) {
             StratumSegmentedControl(
                 modifier = Modifier.fillMaxWidth(),
@@ -176,8 +179,8 @@ fun LiftInformationScreen(
 private fun InstructionsTab(state: LiftInformationUiState) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        contentPadding = PaddingValues(bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
+        contentPadding = PaddingValues(bottom = StratumSpacing.s24),
     ) {
         if (state.imageUrls.isEmpty()) {
             item {
@@ -231,8 +234,8 @@ private fun HistoryTab(
     val shapes = StratumThemeAccessor.shapes
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        contentPadding = PaddingValues(bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
+        contentPadding = PaddingValues(bottom = StratumSpacing.s24),
     ) {
         item {
             HistoryPersonalRecordCard(personalRecord = state.personalRecord)
@@ -255,7 +258,7 @@ private fun HistoryTab(
                         modifier =
                             Modifier
                                 .fillMaxWidth()
-                                .padding(top = 4.dp)
+                                .padding(top = StratumSpacing.s4)
                                 .height(shapes.borderWidth)
                                 .background(colors.borderSubtle),
                     )
@@ -281,8 +284,8 @@ private fun HistoryPersonalRecordCard(
                     color = colors.borderSubtle,
                     shape = shapes.panel,
                 )
-                .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(StratumSpacing.s16),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -310,7 +313,7 @@ private fun HistoryPersonalRecordCard(
             StratumText(text = personalRecord.dateText, muted = true)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
             ) {
                 StratumText(text = personalRecord.weightRepsText)
                 if (personalRecord.rir != null) {
@@ -323,7 +326,7 @@ private fun HistoryPersonalRecordCard(
                 }
             }
             Column(
-                modifier = Modifier.padding(top = 4.dp),
+                modifier = Modifier.padding(top = StratumSpacing.s4),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 StratumText(
@@ -356,7 +359,7 @@ private fun HistorySessionRow(
                 Modifier
                     .fillMaxWidth()
                     .clickable(onClick = onToggle)
-                    .padding(vertical = 8.dp),
+                    .padding(vertical = StratumSpacing.s8),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -390,8 +393,8 @@ private fun HistorySessionRow(
         }
         AnimatedVisibility(visible = session.expanded) {
             Column(
-                modifier = Modifier.padding(start = 8.dp, bottom = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.padding(start = StratumSpacing.s8, bottom = StratumSpacing.s8),
+                verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
             ) {
                 session.sets.forEach { set ->
                     Row(

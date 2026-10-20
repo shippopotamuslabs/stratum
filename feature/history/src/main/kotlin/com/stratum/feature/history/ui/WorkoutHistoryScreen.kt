@@ -34,6 +34,7 @@ import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.history.R
 import com.stratum.feature.history.ui.calendar.HistoryMonthBlock
@@ -69,7 +70,7 @@ fun WorkoutHistoryScreen(
                     Row(
                         modifier = Modifier.clickable { showModeSheet = true },
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
                     ) {
                         StratumText(
                             text = modeLabel,
@@ -158,12 +159,12 @@ private fun HistoryStatsStrip(
         modifier =
             modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 10.dp),
+                .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Row(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
@@ -177,7 +178,7 @@ private fun HistoryStatsStrip(
             )
         }
         Row(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
@@ -220,7 +221,7 @@ private fun HistoryCalendarBody(
                         StratumText(
                             text = stringResource(R.string.history_empty),
                             muted = true,
-                            modifier = Modifier.padding(16.dp),
+                            modifier = Modifier.padding(StratumSpacing.s16),
                         )
                     }
                 }

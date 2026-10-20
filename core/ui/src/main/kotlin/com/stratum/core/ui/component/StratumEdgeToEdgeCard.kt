@@ -13,6 +13,7 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.unit.dp
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
 /**
@@ -33,8 +34,8 @@ import com.stratum.core.ui.theme.StratumThemeAccessor
 @Composable
 fun StratumEdgeToEdgeCard(
     modifier: Modifier = Modifier,
-    contentPadding: PaddingValues = PaddingValues(vertical = 16.dp),
-    verticalArrangement: Arrangement.Vertical = Arrangement.spacedBy(8.dp),
+    contentPadding: PaddingValues = PaddingValues(vertical = StratumSpacing.s16),
+    verticalArrangement: Arrangement.Vertical = Arrangement.spacedBy(StratumSpacing.s8),
     drawEdgeBands: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) {

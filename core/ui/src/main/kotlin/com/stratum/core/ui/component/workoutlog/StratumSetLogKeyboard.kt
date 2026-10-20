@@ -18,6 +18,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.RirTargetOptionRow
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
 /**
@@ -84,8 +85,8 @@ fun StratumSetLogKeyboardContent(
         }
 
     Column(
-        modifier = modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = modifier.padding(horizontal = StratumSpacing.s8, vertical = StratumSpacing.s4),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
     ) {
         RirTargetOptionRow(
             selectedRirGoal = state.selectedRir ?: -1,

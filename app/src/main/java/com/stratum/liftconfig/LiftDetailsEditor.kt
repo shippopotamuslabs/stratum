@@ -1,3 +1,5 @@
+// STR-142 allowlist: section rhythm (20.dp) and dense 2.dp label stack pinned; row insets adopted.
+@file:Suppress("ForbiddenRawSpacingLiteralInUi")
 package com.stratum.liftconfig
 
 import androidx.compose.foundation.background
@@ -38,6 +40,7 @@ import com.stratum.core.ui.component.StratumPillToggle
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTextField
 import com.stratum.core.ui.component.defaultMuscleFilterTiers
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.SetLiftDefaultRestUseCase
@@ -296,10 +299,10 @@ private fun LiftDetailsEditorContent(
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(20.dp),
-        contentPadding = PaddingValues(bottom = 24.dp),
+        contentPadding = PaddingValues(bottom = StratumSpacing.s24),
     ) {
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -307,7 +310,7 @@ private fun LiftDetailsEditorContent(
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
                     ) {
                         StratumText(text = stringResource(UiR.string.lift_info_target_muscles))
                         if (canEdit) {
@@ -353,8 +356,8 @@ private fun LiftDetailsEditorContent(
                     )
                 } else {
                     FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
+                        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
                     ) {
                         cards.forEach { card ->
                             StratumMuscleFilterCard(
@@ -385,7 +388,7 @@ private fun LiftDetailsEditorContent(
                             color = colors.borderSubtle,
                             shape = shapes.panel,
                         )
-                        .padding(horizontal = 14.dp, vertical = 4.dp),
+                        .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s4),
             ) {
                 specRows.forEachIndexed { index, row ->
                     val editable =
@@ -440,8 +443,8 @@ private fun DetailSpecRow(
                         Modifier
                     },
                 )
-                .padding(vertical = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(vertical = StratumSpacing.s12),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         StratumText(
@@ -473,7 +476,7 @@ private fun SingleSelectDetailSheet(
     onSelect: (String) -> Unit,
 ) {
     StratumBottomSheet(onDismissRequest = onDismiss, title = title) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8)) {
             options.forEach { option ->
                 DetailOptionRow(
                     label = option.label,
@@ -498,8 +501,8 @@ private fun MultiSelectDetailSheet(
 ) {
     StratumBottomSheet(onDismissRequest = onDismiss, title = title) {
         FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
+            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
         ) {
             options.forEach { option ->
                 StratumFilterChip(
@@ -533,7 +536,7 @@ private fun EquipmentActionSheet(
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
         ) {
             EquipmentActionRow(
                 label = stringResource(UiR.string.lift_info_equipment_bodyweight),
@@ -561,7 +564,7 @@ private fun EquipmentActionRow(
             Modifier
                 .fillMaxWidth()
                 .clickable(onClick = onClick)
-                .padding(vertical = 14.dp),
+                .padding(vertical = StratumSpacing.s16),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -640,7 +643,7 @@ private fun DetailOptionRow(
                     shape = shapes.panel,
                 )
                 .clickable(onClick = onClick)
-                .padding(horizontal = 14.dp, vertical = 12.dp),
+                .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -661,7 +664,7 @@ private fun DetailOptionRow(
             StratumText(
                 text = stringResource(UiR.string.lift_info_selected_marker),
                 muted = true,
-                modifier = Modifier.padding(start = 12.dp),
+                modifier = Modifier.padding(start = StratumSpacing.s12),
             )
         }
     }

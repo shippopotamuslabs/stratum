@@ -1,3 +1,5 @@
+// STR-142 allowlist: exported-bitmap card geometry (20.dp margin, 2.dp micro-gap) pinned; inner gaps adopted.
+@file:Suppress("ForbiddenRawSpacingLiteralInUi")
 package com.stratum.core.ui.share
 
 import androidx.compose.foundation.background
@@ -24,6 +26,7 @@ import com.stratum.core.ui.R
 import com.stratum.core.ui.component.StratumBrandFooter
 import com.stratum.core.ui.component.StratumNumber
 import com.stratum.core.ui.component.StratumText
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
 /**
@@ -46,14 +49,14 @@ fun WorkoutShareCard(
             modifier
                 .background(color = surface, shape = panelShape)
                 .border(width = borderWidth, color = borderColor, shape = panelShape)
-                .padding(horizontal = 20.dp, vertical = 18.dp),
+                .padding(horizontal = 20.dp, vertical = StratumSpacing.s16),
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
         Column(
             modifier = Modifier.weight(1f, fill = true),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4)) {
                 StratumText(
                     text = stringResource(R.string.workout_share_title),
                     style = StratumThemeAccessor.typography.sectionLabel,
@@ -84,7 +87,7 @@ fun WorkoutShareCard(
                                 color = StratumThemeAccessor.colors.borderSubtle,
                                 shape = panelShape,
                             )
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                            .padding(horizontal = StratumSpacing.s12, vertical = StratumSpacing.s8),
                     verticalArrangement = Arrangement.spacedBy(0.dp),
                 ) {
                     content.visibleSets.forEachIndexed { index, set ->
@@ -94,14 +97,14 @@ fun WorkoutShareCard(
                                 modifier =
                                     Modifier
                                         .fillMaxWidth()
-                                        .padding(vertical = 6.dp)
+                                        .padding(vertical = StratumSpacing.s8)
                                         .height(StratumThemeAccessor.shapes.borderWidth)
                                         .background(StratumThemeAccessor.colors.borderSubtle),
                             )
                         }
                     }
                     if (content.overflowCount > 0) {
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(StratumSpacing.s8))
                         StratumText(
                             text =
                                 stringResource(
@@ -122,7 +125,7 @@ fun WorkoutShareCard(
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(StratumSpacing.s12))
         StratumBrandFooter()
     }
 }
@@ -131,7 +134,7 @@ fun WorkoutShareCard(
 private fun ShareStatRow(content: WorkoutShareContent) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
     ) {
         ShareStatChip(
             label = stringResource(R.string.workout_share_duration),
@@ -165,7 +168,7 @@ private fun ShareStatChip(
                     color = StratumThemeAccessor.colors.borderSubtle,
                     shape = shape,
                 )
-                .padding(horizontal = 12.dp, vertical = 10.dp),
+                .padding(horizontal = StratumSpacing.s12, vertical = StratumSpacing.s8),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         StratumText(
@@ -188,7 +191,7 @@ private fun ShareLiftRow(set: ShareLiftRowUi) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
     ) {
         if (set.isPersonalRecord) {
             Icon(
@@ -198,7 +201,7 @@ private fun ShareLiftRow(set: ShareLiftRowUi) {
                 modifier = Modifier.size(16.dp),
             )
         } else {
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(StratumSpacing.s16))
         }
         StratumText(
             text = set.liftName,

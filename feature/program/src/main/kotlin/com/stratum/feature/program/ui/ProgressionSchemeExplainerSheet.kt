@@ -10,6 +10,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumText
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.program.R
 
@@ -33,7 +34,7 @@ internal fun ProgressionSchemeExplainerSheetContent() {
     SheetContentTitle(text = stringResource(R.string.edit_workout_progression_scheme_sheet_title))
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
     ) {
         StratumText(
             text = stringResource(R.string.edit_workout_progression_scheme_linear_body),

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
 /**
@@ -34,8 +35,8 @@ internal fun DialogPanelContent(
                     color = StratumThemeAccessor.colors.borderStrong,
                     shape = StratumThemeAccessor.shapes.panel,
                 )
-                .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(StratumSpacing.s24),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
         content = content,
     )
 }

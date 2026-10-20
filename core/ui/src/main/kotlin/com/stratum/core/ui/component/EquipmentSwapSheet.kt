@@ -21,6 +21,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
 /** One selectable equipment row. Ids are opaque strings; host VMs map domain `Equipment`. */
@@ -87,7 +88,7 @@ internal fun EquipmentSwapSheetContent(
     val matches = filterEquipmentOptions(state.query, state.all)
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
     ) {
         state.current?.let { current ->
             EquipmentSwapSectionLabel(text = stringResource(R.string.equipment_swap_current))
@@ -117,14 +118,14 @@ internal fun EquipmentSwapSheetContent(
             StratumText(
                 text = stringResource(R.string.equipment_swap_no_match, state.query.trim()),
                 muted = true,
-                modifier = Modifier.padding(vertical = 8.dp),
+                modifier = Modifier.padding(vertical = StratumSpacing.s8),
             )
         } else {
             // Weighted (not greedy): the list scrolls internally within remaining space so
             // a large catalog cannot push the create-new entry off-screen.
             LazyColumn(
                 modifier = Modifier.fillMaxWidth().weight(1f, fill = false),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
             ) {
                 items(matches, key = { it.id }) { option ->
                     EquipmentSwapOptionRow(
@@ -166,8 +167,8 @@ private fun EquipmentSwapOptionRow(
                 .background(color = colors.surfaceRaised, shape = shapes.panel)
                 .border(width = borderWidth, color = borderColor, shape = shapes.panel)
                 .clickable(onClick = onClick)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         StratumText(
@@ -199,8 +200,8 @@ private fun EquipmentSwapCreateNewRow(
             modifier
                 .fillMaxWidth()
                 .clickable(onClick = onClick)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(

@@ -16,6 +16,7 @@ import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
 import com.stratum.core.ui.legal.LegalUrls
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.feature.settings.R
 
 @Composable
@@ -45,8 +46,8 @@ fun LegalScreen(
                     .fillMaxSize()
                     .padding(padding)
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+                    .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s8),
+            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
         ) {
             StratumPreferenceRow(
                 title = stringResource(R.string.legal_terms_title),

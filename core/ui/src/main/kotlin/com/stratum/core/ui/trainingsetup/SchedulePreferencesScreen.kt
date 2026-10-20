@@ -1,3 +1,5 @@
+// STR-142 allowlist: section rhythm (20.dp) pinned; screen margins adopted.
+@file:Suppress("ForbiddenRawSpacingLiteralInUi")
 package com.stratum.core.ui.trainingsetup
 
 import androidx.compose.foundation.border
@@ -34,6 +36,7 @@ import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumSegmentedControl
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumToggleGroup
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.domain.program.schedule.GenerationCycleDefaults
 
@@ -58,7 +61,11 @@ fun SchedulePreferencesScreen(
     onTrainingSlotToggled: (Int) -> Unit = {},
 ) {
     Column(
-        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp),
+        modifier =
+            modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         TrainingDayCountSection(
@@ -80,7 +87,7 @@ fun SchedulePreferencesScreen(
             onCustomSessionMinutesChange = onCustomSessionMinutesChange,
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(StratumSpacing.s8))
     }
 }
 
@@ -95,7 +102,7 @@ private fun TrainingDayCountSection(
     val increaseCd = stringResource(R.string.training_setup_schedule_days_step_up)
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
     ) {
         StratumText(
             text = stringResource(R.string.training_setup_schedule_days_heading),
@@ -110,7 +117,7 @@ private fun TrainingDayCountSection(
                 Modifier
                     .fillMaxWidth()
                     .border(shapes.borderWidth, colors.borderSubtle, shapes.panel)
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                    .padding(horizontal = StratumSpacing.s8, vertical = StratumSpacing.s4),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
@@ -154,7 +161,7 @@ private fun TrainingSlotPlacementSection(
     onSixDayCycleLengthSelected: (Int) -> Unit,
     onTrainingSlotToggled: (Int) -> Unit,
 ) {
-    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8)) {
         if (draft.showSixDayCycleOptions) {
             StratumText(
                 text = stringResource(R.string.training_setup_schedule_cycle_heading),
@@ -240,8 +247,8 @@ private fun SessionLengthSection(
     onCustomSessionMinutesChange: (Int) -> Unit,
 ) {
     Column(
-        modifier = Modifier.padding(top = 4.dp).fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.padding(top = StratumSpacing.s4).fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
     ) {
         StratumText(
             text = stringResource(R.string.training_setup_schedule_session_length_heading),

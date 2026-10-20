@@ -16,6 +16,7 @@ import androidx.compose.ui.window.Dialog
 import com.stratum.core.ui.component.StratumButton
 import com.stratum.core.ui.component.StratumFilterChip
 import com.stratum.core.ui.component.StratumText
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
 @Composable
@@ -37,8 +38,8 @@ internal fun DeltoidSubPickerDialog(
                     color = StratumThemeAccessor.colors.borderSubtle,
                     shape = StratumThemeAccessor.shapes.panel,
                 )
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(StratumSpacing.s24),
+            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
         ) {
             StratumText(
                 text = "Select Shoulder Focus",
@@ -46,7 +47,7 @@ internal fun DeltoidSubPickerDialog(
             )
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
             ) {
                 DELTOID_LABELS.forEach { (_, label) ->
                     val isSelected = label in selectedLabels

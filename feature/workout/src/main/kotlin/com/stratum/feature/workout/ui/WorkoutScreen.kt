@@ -1,3 +1,5 @@
+// STR-142 allowlist: rest-timer bar gap (6.dp) pinned to bar width.
+@file:Suppress("ForbiddenRawSpacingLiteralInUi")
 package com.stratum.feature.workout.ui
 
 import androidx.activity.compose.BackHandler
@@ -39,6 +41,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.stratum.core.ui.theme.StratumSpacing
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.android.awaitFrame
 import kotlinx.coroutines.launch
@@ -320,8 +323,8 @@ fun WorkoutScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(vertical = StratumSpacing.s12),
+            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12)
         ) {
             LiftNavigatorRow(
                 lifts = state.lifts,
@@ -507,7 +510,7 @@ private fun RestTimerTopBarIndicator(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .clickable(onClick = onClick)
-            .padding(end = 8.dp)
+            .padding(end = StratumSpacing.s8)
     ) {
         Icon(
             imageVector = Icons.Default.Timer,
