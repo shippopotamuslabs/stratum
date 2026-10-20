@@ -44,6 +44,9 @@ workflow:
   rules:
     # Cost control (STR-110): MR pipelines run only when the MR targets the
     # default branch. Stacked MRs targeting feature branches skip CI entirely —
+    # Gate model (STR-154): the MR pipeline is the ONLY test gate (see the
+    # per-job STR-154 notes). Main pipelines build + deploy only; scheduled
+    # pipelines run the full suite nightly as the safety net.
     # the full diff gets validated when the stack finally targets main.
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event' && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == $CI_DEFAULT_BRANCH
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
@@ -141,11 +144,24 @@ stages:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
+# Shared gate rules (STR-154; forge review on !322): test/scan gate jobs run
+# on merge-request pipelines ONLY — merges are semi-linear, so the tree that
+# lands on main IS the tree the MR pipeline tested, and main pipelines build +
+# deploy without re-testing. Scheduled pipelines also match so the nightly
+# run stays a full-suite safety net. Defined once here: five jobs extend this,
+# so a future gate change is one edit, not five. (Jobs with `changes:`-
+# filtered rules — screenshot-tests, functions-tests, osv-scan-image — keep
+# their own variants.)
+.gate-rules:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_PIPELINE_SOURCE == 'schedule'
+
 # Static analysis in one job (STR-76): detekt and Android lint both compile the
 # app, so running them as separate jobs paid for two full compilations plus
 # two VM boots per pipeline. A single Gradle invocation shares the compile.
 static-analysis:
-  extends: .android-job
+  extends: [.android-job, .gate-rules]
   stage: lint
   # needs: [] opts out of stage gating: this job is independent of every other
   # MR job, so with runner concurrent > 1 it starts immediately instead of
@@ -161,7 +177,7 @@ static-analysis:
     expire_in: 1 week
 
 unit-tests:
-  extends: .android-job
+  extends: [.android-job, .gate-rules]
   stage: test
   needs: []
   script:
@@ -197,7 +213,8 @@ screenshot-tests:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
       when: manual
       allow_failure: true
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    # STR-154: no default-branch run — the nightly schedule is the net.
+    - if: $CI_PIPELINE_SOURCE == 'schedule'
   script:
     - ./gradlew :feature:workout:validateDebugScreenshotTest :feature:program:validateDebugScreenshotTest :app:validateDebugScreenshotTest :core:ui:validateDebugScreenshotTest :feature:settings:validateDebugScreenshotTest :feature:history:validateDebugScreenshotTest :feature:subscription:validateDebugScreenshotTest :feature:onboarding:validateDebugScreenshotTest
   artifacts:
@@ -226,7 +243,7 @@ screenshot-record:
     expire_in: 1 week
 
 assemble-debug:
-  extends: .android-job
+  extends: [.android-job, .gate-rules]
   stage: test
   needs: []
   script:
@@ -241,6 +258,12 @@ assemble-debug:
 # validates minification, not ship-readiness.
 assemble-release:
   extends: .android-job
+  # STR-154 + forge review (!322): the default-branch run exists to feed the
+  # deploy lanes on push pipelines. A scheduled pipeline must not spend a
+  # release build feeding distributions that schedules never trigger.
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE != 'schedule'
   # Release builds stay on the muscle tier: R8 full-mode shrinking is the most
   # CPU-hungry step and this is the last gate before shipping (STR-75).
   # TEMPORARY (STR-110): home-server until cloud costs are reined in.
@@ -273,12 +296,13 @@ functions-tests:
     - npm ci --no-audit --no-fund
     - npm run build
     - npm test
-  # Unchanged functions/ code needs no re-test on MRs; main still always runs.
+  # Unchanged functions/ code needs no re-test on MRs; scheduled pipelines
+  # always run it (STR-154: main pipelines no longer re-test).
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
       changes:
         - functions/**/*
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == 'schedule'
 
 # Solver JSON-boundary contract tests (STR-47): fixture validity, solver
 # round-trip, leniency rows, version matrix (see solver-contract/tests/).
@@ -292,6 +316,7 @@ solver-contract-tests:
   image: python:3.12-slim
   tags: [home-server]
   stage: test
+  extends: .gate-rules
   needs: []
   variables:
     SOLVER_MODULE: solver
@@ -309,10 +334,10 @@ solver-contract-tests:
 # Cloud Run fat JAR ships its own JVM dependency graph and is not a dependency
 # of :app, so it needs its own SBOM) via scripts/generate-sbom.py — no Gradle
 # lockfiles are committed to the repo — plus the functions lockfiles, then
-# fails the job when OSV reports a known CVE. Runs on MRs and the default
-# branch. Triage path: docs/security-scanning.md
+# fails the job when OSV reports a known CVE. Runs on MRs; scheduled
+# pipelines re-scan nightly (STR-154). Triage path: docs/security-scanning.md
 osv-scan:
-  extends: .android-job
+  extends: [.android-job, .gate-rules]
   stage: lint
   needs: []
   script:
@@ -377,14 +402,15 @@ osv-scan-image:
       fi
     - docker info
   # Docker image build + scan only matters when the solver image inputs change;
-  # main still always runs. (Keeps allow_failure: true per the rollout note.)
+  # scheduled pipelines always run it (STR-154). (Keeps allow_failure: true
+  # per the rollout note.)
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
       changes:
         - solver-service/**/*
         - scripts/scan-solver-image.sh
         - gradle/libs.versions.toml
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == 'schedule'
   script:
     # Same pinned installer as osv-scan (shell executor can't run the analyzer
     # Docker images GitLab's own templates use), into a job-private dir.
@@ -589,10 +615,15 @@ distribute-internal:
   tags: [home-server]
   stage: deploy
   rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-  # Wait for release build AND tests: needs: opts out of stage gating, so
-  # list the test jobs explicitly to prevent distributing an untested build.
-  needs: [assemble-release, unit-tests, static-analysis]
+    # Push pipelines on main only (forge review, !322): a scheduled pipeline
+    # also has CI_COMMIT_BRANCH == main, and without the source guard the
+    # nightly safety net would re-distribute a build every night.
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE != 'schedule'
+  # Wait for the release build only (STR-154): the MR pipeline is the test
+  # gate and the semi-linear merge lands exactly the tested tree, so main
+  # distributes without re-testing. (The old needs on unit-tests +
+  # static-analysis encoded the test-on-main model this replaces.)
+  needs: [assemble-release]
   script:
     - test -n "$FIREBASE_SERVICE_ACCOUNT_JSON" || (echo "Missing FIREBASE_SERVICE_ACCOUNT_JSON file variable" && exit 1)
     - export GOOGLE_APPLICATION_CREDENTIALS="$FIREBASE_SERVICE_ACCOUNT_JSON"
