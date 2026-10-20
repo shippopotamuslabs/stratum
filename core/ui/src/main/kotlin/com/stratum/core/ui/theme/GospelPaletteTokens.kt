@@ -18,10 +18,13 @@ object GospelPaletteTokens {
         val Accent = Color(0xFF7A7CFF)
         val OnAccent = Color(0xFF0D0E11)
         val AccentMuted = Color(0xFF3B3BAA)
-        val SurfaceBase = Color(0xFF121212)
-        val SurfaceRaised = Color(0xFF1E1E1E)
-        val SurfaceInset = Color(0xFF282828)
-        val SurfaceSunken = Color(0xFF0E0E0E)
+        // Gospel dark ramp (§11.2): bg-base / surface-1 / surface-3 /
+        // bg-subtle. surfaceInset takes surface-3 (not surface-2) so
+        // inset wells stay distinct from pressed cards on OLED (STR-140).
+        val SurfaceBase = Color(0xFF0D0E11)
+        val SurfaceRaised = Color(0xFF181A20)
+        val SurfaceInset = Color(0xFF272A33)
+        val SurfaceSunken = Color(0xFF111216)
         // Gospel border ramp: Stratum's two roles map to border-strong /
         // border-default (gospel border-subtle has no Stratum role).
         val BorderStrong = Color(0xFF343A48)
@@ -32,11 +35,17 @@ object GospelPaletteTokens {
         val TextPrimary = Color(0xFFEDEEF0)
         val TextMuted = Color(0xFFA1A5B0)
         val TextData = Color(0xFFEDEEF0)
-        val Error = Color(0xFFEF4444)
-        val OnError = Color(0xFFFFFFFF)
-        val SetComplete = Color(0xFF1B3D2F)
+        // Gospel danger-soft-red (§11.2). onError stays bg-base ink:
+        // #FFFFFF on #E07A7A is only ~3:1, while #0D0E11 reaches ~7:1.
+        val Error = Color(0xFFE07A7A)
+        val OnError = Color(0xFF0D0E11)
+        // setComplete REMAINS A FILL: gospel success #7DBE8C mixed 30/70
+        // toward surface-1 #181A20 → #364B40.
+        val SetComplete = Color(0xFF364B40)
+        // PR gold keeps the saturated family, not warning-amber (STR-140).
         val PrHighlight = Color(0xFFE0B040)
-        val Warning = Color(0xFFFBBF24)
+        // Gospel warning-amber (§11.2).
+        val Warning = Color(0xFFD9B07A)
     }
 
     object Light {
@@ -60,10 +69,12 @@ object GospelPaletteTokens {
         val TextPrimary = Color(0xFF1B1C22)
         val TextMuted = Color(0xFF494B5C)
         val TextData = Color(0xFF1B1C22)
-        val Error = Color(0xFFDC2626)
+        // Light gospel semantics (§11.4, verified in STR-140).
+        val Error = Color(0xFFC02E3A)
         val OnError = Color(0xFFFFFFFF)
-        val SetComplete = Color(0xFFE8F5E9)
+        // Fill tint of gospel success #2E7D43: 12% on white → #E6EFE8.
+        val SetComplete = Color(0xFFE6EFE8)
         val PrHighlight = Color(0xFF8A6708)
-        val Warning = Color(0xFFB45309)
+        val Warning = Color(0xFF9C6B10)
     }
 }
