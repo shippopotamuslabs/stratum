@@ -66,6 +66,8 @@ fun EquipmentIncrementsRoute(
             onScanPhoto = viewModel::scan,
         )
     // STR-135: the equipment name field rides the shared editor's header slot.
+    // STR-149: the Shared-by bar renders above this field in the shared editor;
+    // the 12.dp top padding is the breathing room between the two.
     val editor =
         state.editor.copy(
             headerContent = {
@@ -73,7 +75,7 @@ fun EquipmentIncrementsRoute(
                     value = state.equipmentName,
                     onValueChange = viewModel::onNameChanged,
                     label = stringResource(UiR.string.equipment_name_label),
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
                 )
             },
         )
