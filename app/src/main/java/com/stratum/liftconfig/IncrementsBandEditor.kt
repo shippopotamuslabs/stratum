@@ -182,7 +182,7 @@ internal fun IncrementEditorScreen(
                         .background(StratumThemeAccessor.colors.surfaceBase)
                         .navigationBarsPadding()
                         .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 StratumButton(
                     text = chrome.saveText,
