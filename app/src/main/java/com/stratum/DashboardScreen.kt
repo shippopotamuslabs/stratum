@@ -53,6 +53,7 @@ import com.stratum.core.ui.component.StratumTrendChart
 import com.stratum.core.ui.component.StratumVolumeBarChart
 import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
+import com.stratum.core.ui.theme.rememberGlassBottomPadding
 
 @Composable
 fun DashboardScreen(
@@ -147,7 +148,10 @@ internal fun DashboardScreen(
                 pagerState = healthPagerState,
                 onNavigateToSettings = onNavigateToSettings,
             )
-            DashboardUiState.Error -> StratumFeatureErrorFallback(onRetry = onRetry)
+            DashboardUiState.Error ->
+                Box(modifier = Modifier.padding(bottom = rememberGlassBottomPadding())) {
+                    StratumFeatureErrorFallback(onRetry = onRetry)
+                }
             is DashboardUiState.Loaded -> LoadedContent(
                 state = state,
                 tab = selectedTab,
@@ -228,7 +232,10 @@ private fun ColumnScope.DashboardStatusColumn(
         modifier = Modifier
             .weight(1f)
             .fillMaxWidth()
-            .verticalScroll(rememberScrollState()),
+            .verticalScroll(rememberScrollState())
+            // Under the shell's glass nav bar (§12.8) the column scrolls beneath it;
+            // pad the end so the last content clears the bar.
+            .padding(bottom = rememberGlassBottomPadding()),
     ) {
         DashboardHeroBand(
             health = health,
@@ -273,7 +280,7 @@ private fun ColumnScope.LoadedContent(
         contentPadding = PaddingValues(
             start = BOARD_HORIZONTAL_PADDING_DP.dp,
             end = BOARD_HORIZONTAL_PADDING_DP.dp,
-            bottom = StratumSpacing.s16,
+            bottom = rememberGlassBottomPadding() + StratumSpacing.s16,
         ),
     ) {
         item(

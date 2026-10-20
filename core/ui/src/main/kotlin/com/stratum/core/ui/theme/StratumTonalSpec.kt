@@ -14,11 +14,17 @@ import androidx.compose.ui.unit.dp
  * standing differences that remain.
  */
 object StratumTonalSpec {
+    // Cached singletons: specs are immutable token bundles, and the haze styles
+    // they carry are identity-compared by glass modifiers — one instance per
+    // family/darkness keeps every consumer on the same style objects.
+    private val darkInstance: StratumThemeSpec by lazy { darkSpec() }
+    private val lightInstance: StratumThemeSpec by lazy { lightSpec() }
+
     fun resolve(dark: Boolean): StratumThemeSpec =
         if (dark) {
-            darkSpec()
+            darkInstance
         } else {
-            lightSpec()
+            lightInstance
         }
 
     private fun darkSpec(): StratumThemeSpec =
