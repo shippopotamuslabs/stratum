@@ -10,9 +10,10 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Test
 
 /**
- * Pins the STR-138 gospel ratification: Stratum Tonal (the Material family) follows the
- * Shippopotamus Palette + Light Palette gospels; Neo Brutalist is a sanctioned carve-out
- * and keeps its own tokens.
+ * Pins the STR-138 gospel ratification plus the STR-140 dark surface ramp and
+ * semantic hues: Stratum Tonal (the Material family) follows the Shippopotamus
+ * Palette + Light Palette gospels; Neo Brutalist is a sanctioned carve-out and keeps
+ * its own tokens.
  */
 class StratumGospelTokensTest {
 
@@ -98,10 +99,56 @@ class StratumGospelTokensTest {
 
     @Test
     fun gospelTokens_pinCanonHexPerFamily() {
-        // One raw-hex spot check per family so canon drift is caught without
-        // duplicating every literal; full per-role pins live above.
+        // Raw-hex spot checks pin the canon so drift is caught; full
+        // per-role pins live above.
         assertEquals(Color(0xFF7A7CFF), GospelPaletteTokens.Dark.Accent)
         assertEquals(Color(0xFF5457E8), GospelPaletteTokens.Light.Accent)
+        assertEquals(Color(0xFF0D0E11), GospelPaletteTokens.Dark.SurfaceBase)
+        assertEquals(Color(0xFF181A20), GospelPaletteTokens.Dark.SurfaceRaised)
+        assertEquals(Color(0xFF272A33), GospelPaletteTokens.Dark.SurfaceInset)
+        assertEquals(Color(0xFF111216), GospelPaletteTokens.Dark.SurfaceSunken)
+        assertEquals(Color(0xFFE07A7A), GospelPaletteTokens.Dark.Error)
+        assertEquals(Color(0xFF0D0E11), GospelPaletteTokens.Dark.OnError)
+        assertEquals(Color(0xFF364B40), GospelPaletteTokens.Dark.SetComplete)
+        assertEquals(Color(0xFFD9B07A), GospelPaletteTokens.Dark.Warning)
+        assertEquals(Color(0xFFC02E3A), GospelPaletteTokens.Light.Error)
+        assertEquals(Color(0xFFE6EFE8), GospelPaletteTokens.Light.SetComplete)
+        assertEquals(Color(0xFF9C6B10), GospelPaletteTokens.Light.Warning)
+    }
+
+    @Test
+    fun tonalDark_usesGospelDarkSurfaceRamp() {
+        val colors = StratumTonalSpec.resolve(dark = true).colors
+        // §11.2 layers: bg-base / surface-1 / surface-3 / bg-subtle.
+        assertEquals(Color(0xFF0D0E11), colors.surfaceBase)
+        assertEquals(Color(0xFF181A20), colors.surfaceRaised)
+        assertEquals(Color(0xFF272A33), colors.surfaceInset)
+        assertEquals(Color(0xFF111216), colors.surfaceSunken)
+    }
+
+    @Test
+    fun tonalDark_usesGospelSemanticHues() {
+        val colors = StratumTonalSpec.resolve(dark = true).colors
+        assertEquals(Color(0xFFE07A7A), colors.error)
+        // onError stays bg-base ink: white on danger-soft-red is only ~3:1.
+        assertEquals(Color(0xFF0D0E11), colors.onError)
+        assertEquals(Color(0xFFD9B07A), colors.warning)
+        // setComplete REMAINS A FILL: success #7DBE8C mixed 30/70 toward
+        // surface-1 #181A20.
+        assertEquals(Color(0xFF364B40), colors.setComplete)
+        // PR gold keeps the saturated family, not warning-amber.
+        assertEquals(Color(0xFFE0B040), colors.prHighlight)
+    }
+
+    @Test
+    fun tonalLight_usesGospelSemanticHues() {
+        val colors = StratumTonalSpec.resolve(dark = false).colors
+        assertEquals(Color(0xFFC02E3A), colors.error)
+        assertEquals(Color(0xFFFFFFFF), colors.onError)
+        assertEquals(Color(0xFF9C6B10), colors.warning)
+        // 12% tint of success #2E7D43 on white.
+        assertEquals(Color(0xFFE6EFE8), colors.setComplete)
+        assertEquals(Color(0xFF8A6708), colors.prHighlight)
     }
 
     @Test
