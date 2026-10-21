@@ -31,6 +31,10 @@ class StratumShapesTest {
             // Legacy fields keep working on their gospel rungs.
             assertEquals(12.dp, shapes.panelCorner)
             assertEquals(8.dp, shapes.chipCorner)
+            // Button derivations ride the same scale (§12.7).
+            assertEquals(RoundedCornerShape(12.dp), shapes.buttonSquare)
+            assertEquals(RoundedCornerShape(16.dp), shapes.buttonSquareLarge)
+            assertEquals(RoundedCornerShape(12.dp), shapes.buttonPressed)
         }
     }
 
@@ -51,6 +55,8 @@ class StratumShapesTest {
             assertEquals(RoundedCornerShape(4.dp), shapes.panel)
             assertEquals(RoundedCornerShape(4.dp), shapes.button)
             assertEquals(RoundedCornerShape(4.dp), shapes.chip)
+            assertEquals(RoundedCornerShape(4.dp), shapes.buttonSquare)
+            assertEquals(RoundedCornerShape(4.dp), shapes.buttonPressed)
         }
     }
 

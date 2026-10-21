@@ -1,6 +1,7 @@
 package com.stratum.core.ui.theme
 
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -155,6 +156,31 @@ class StratumGospelTokensTest {
     fun tonalButtons_areFullPill() {
         assertEquals(CircleShape, StratumTonalSpec.resolve(dark = true).shapes.button)
         assertEquals(CircleShape, StratumTonalSpec.resolve(dark = false).shapes.button)
+    }
+
+    @Test
+    fun buttonShapeGospel_namedTokensResolvePerFamily() {
+        // The canonical gospel constants (§12.7).
+        assertEquals(CircleShape, ShippopotamusButtonShape)
+        assertEquals(RoundedCornerShape(12.dp), ShippopotamusButtonShapeSquare)
+        assertEquals(RoundedCornerShape(12.dp), ShippopotamusPressedShape)
+        // Tonal resolves the tokens through its corner scale.
+        for (dark in listOf(true, false)) {
+            val shapes = StratumTonalSpec.resolve(dark = dark).shapes
+            assertEquals(ShippopotamusButtonShape, shapes.button)
+            assertEquals(ShippopotamusButtonShapeSquare, shapes.buttonSquare)
+            assertEquals(RoundedCornerShape(16.dp), shapes.buttonSquareLarge)
+            assertEquals(ShippopotamusPressedShape, shapes.buttonPressed)
+            assertEquals(12.dp, shapes.buttonSquareCorner)
+            assertEquals(16.dp, shapes.buttonSquareLargeCorner)
+            assertEquals(12.dp, shapes.buttonPressedCorner)
+        }
+        // Neo carve-out: the derivations collapse onto its own 4.dp geometry.
+        val neo = NeoBrutalistSpec.resolve(dark = true).shapes
+        assertEquals(RoundedCornerShape(4.dp), neo.buttonSquare)
+        assertEquals(RoundedCornerShape(4.dp), neo.buttonSquareLarge)
+        assertEquals(RoundedCornerShape(4.dp), neo.buttonPressed)
+        assertEquals(4.dp, neo.buttonPressedCorner)
     }
 
     @Test
