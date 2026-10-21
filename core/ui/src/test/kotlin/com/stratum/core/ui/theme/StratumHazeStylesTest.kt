@@ -1,5 +1,6 @@
 package com.stratum.core.ui.theme
 
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.component.GLASS_BACKGROUND_FLOOR_ALPHA
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -45,6 +46,31 @@ class StratumHazeStylesTest {
         assertEquals(StratumGlassChrome.topBarHeight, StratumGlassChrome.topClearance(0.dp))
         assertEquals(StratumGlassChrome.topBarHeight + 24.dp, StratumGlassChrome.topClearance(24.dp))
         assertEquals(StratumGlassChrome.topBarHeight + 35.dp, StratumGlassChrome.topClearance(35.dp))
+    }
+
+    // STR-162: the dock offset is the FULL nav footprint — bar height PLUS the
+    // system navigation-bar inset the glass bar spans. STR-156's formula
+    // (bar height − s12, no inset) left most of the active-workout drawer
+    // behind the bar on device; goldens cannot catch that (Robolectric runs
+    // with zero insets), so the formula is pinned here.
+    @Test
+    fun dockClearance_addsNavigationInsetToBarHeight() {
+        assertEquals(StratumGlassChrome.bottomBarHeight, StratumGlassChrome.dockClearance(0.dp))
+        assertEquals(StratumGlassChrome.bottomBarHeight + 28.dp, StratumGlassChrome.dockClearance(28.dp))
+        assertEquals(StratumGlassChrome.bottomBarHeight + 48.dp, StratumGlassChrome.dockClearance(48.dp))
+    }
+
+    // STR-162: the dock takes bar-depth tint (the bottom bar's 0.75), NOT the
+    // modal sheet's near-opaque Thick — at 0.90 the blurred content under a
+    // permanent drawer contributed ~10% and the surface read as a flat slab
+    // on device. Must stay translucent so the glaze reads, and present so the
+    // drawer never goes invisible over an empty source.
+    @Test
+    fun dockTint_isBarDepthTranslucent() {
+        assertEquals(0.75f, DOCK_TINT_ALPHA)
+        assertTrue(DOCK_TINT_ALPHA > 0f)
+        assertTrue(DOCK_TINT_ALPHA < 1f)
+        assertTrue(DOCK_TINT_ALPHA < sheetTintAlpha(Color.Black))
     }
 
     @Test
