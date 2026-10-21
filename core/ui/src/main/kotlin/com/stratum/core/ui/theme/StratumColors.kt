@@ -8,6 +8,8 @@ data class StratumColors(
     val accent: Color,
     val onAccent: Color,
     val accentMuted: Color,
+    /** Content on an [accentMuted] container (tonal selected states, §12.3). */
+    val onAccentMuted: Color,
     val surfaceBase: Color,
     val surfaceRaised: Color,
     val surfaceInset: Color,

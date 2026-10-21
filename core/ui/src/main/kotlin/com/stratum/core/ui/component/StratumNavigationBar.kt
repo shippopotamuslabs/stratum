@@ -92,7 +92,8 @@ fun StratumNavigationBar(
                 label = {
                     Text(
                         text = item.label,
-                        style = if (glass) typography.labelMedium else typography.bodyLarge,
+                        // §12.3: nav labels are labelMedium on both bar paths.
+                        style = typography.labelMedium,
                     )
                 },
                 colors = itemColors,

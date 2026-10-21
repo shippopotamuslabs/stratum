@@ -1,8 +1,10 @@
 package com.stratum.core.ui.component
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -11,6 +13,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.theme.StratumTheme
+import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.core.ui.theme.StratumThemeId
 
 @PreviewLightDark
@@ -29,7 +32,13 @@ private fun StratumTextFieldNeoPreview() {
 internal fun TextFieldPreviewGrid(family: StratumThemeId) {
     StratumTheme(themeId = family) {
         Column(
-            modifier = Modifier.fillMaxWidth(),
+            // §12.3 fields are transparent, so the grid paints the screen
+            // background the fields would sit on in production.
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .background(StratumThemeAccessor.colors.surfaceBase)
+                    .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             StratumTextField(

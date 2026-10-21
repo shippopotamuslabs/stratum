@@ -35,11 +35,12 @@ internal fun StratumDialogPanel(
         modifier =
             modifier
                 .fillMaxWidth()
-                .background(color = colors.surfaceRaised, shape = shapes.panel)
+                // §12.3: dialogs sit on surface-3 with the extraLarge (28dp) shape.
+                .background(color = colors.surfaceInset, shape = shapes.extraLarge)
                 .border(
                     width = shapes.borderWidth,
                     color = colors.borderStrong,
-                    shape = shapes.panel,
+                    shape = shapes.extraLarge,
                 )
                 .padding(StratumSpacing.s24),
         verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
@@ -62,7 +63,8 @@ internal fun StratumDialogPanel(
 private fun DialogActionRow(actions: @Composable RowScope.() -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s12, Alignment.End),
+        // §12.3: dialog action buttons sit 8dp apart.
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8, Alignment.End),
         content = actions,
     )
 }

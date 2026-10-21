@@ -25,7 +25,7 @@ private fun StratumChoiceDialogNeoPreview() {
 }
 
 @Composable
-private fun StratumChoiceDialogPreviewContent(family: StratumThemeId) {
+internal fun StratumChoiceDialogPreviewContent(family: StratumThemeId) {
     StratumTheme(themeId = family) {
         Column(
             modifier =

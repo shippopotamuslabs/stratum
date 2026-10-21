@@ -38,7 +38,8 @@ fun StratumBottomSheet(
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
         modifier = modifier,
-        containerColor = StratumThemeAccessor.colors.surfaceRaised,
+        // §12.3: sheets sit on surface-3.
+        containerColor = StratumThemeAccessor.colors.surfaceInset,
         contentColor = StratumThemeAccessor.colors.textPrimary,
         dragHandle = { StratumBottomSheetHandle() },
     ) {
@@ -113,7 +114,8 @@ private fun StratumBottomSheetHandle(
         Box(
             modifier =
                 Modifier
-                    .size(width = 36.dp, height = 4.dp)
+                    // §12.3: drag handle is 32x4dp.
+                    .size(width = 32.dp, height = 4.dp)
                     .background(
                         color = StratumThemeAccessor.colors.borderSubtle,
                         shape = RoundedCornerShape(2.dp),
