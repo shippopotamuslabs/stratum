@@ -12,8 +12,9 @@ import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.assertDoesNotExist
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
@@ -54,8 +55,9 @@ import tech.apter.junit.jupiter.robolectric.RobolectricExtension
  *
  * One [runComposeUiTest] environment (a second never reaches idle — see
  * GlassHostActivationTest), and the test clock never auto-advances: the
- * drawer's elapsed timer loops on a 1s delay forever by design, so frames
- * are stepped manually.
+ * drawer's elapsed timer loops on a 1s delay forever by design, so an
+ * auto-advancing clock would chase it forever; parked, idling flushes
+ * only the work each tap schedules at the current virtual time.
  */
 @ExtendWith(RobolectricExtension::class)
 @DisplayName("Active-workout drawer over the glass nav")
@@ -151,7 +153,7 @@ class ActiveWorkoutDrawerTest {
             onNodeWithText("Discard").performClick()
             settle()
             assertEquals(1, cancelClicks)
-            onNodeWithText("Discard Workout?").assertDoesNotExist()
+            onAllNodesWithText("Discard Workout?").assertCountEquals(0)
         }
     }
 
@@ -209,8 +211,9 @@ class ActiveWorkoutDrawerTest {
 
 @OptIn(ExperimentalTestApi::class)
 private fun androidx.compose.ui.test.ComposeUiTest.settle() {
-    repeat(SETTLE_FRAMES) { mainClock.advanceByFrame() }
+    // The clock never auto-advances in this test (see the class doc), so
+    // idling only flushes work scheduled at the current virtual time —
+    // recompositions from the tap under test — and never chases the
+    // drawer's 1s elapsed timer into the future.
     waitForIdle()
 }
-
-private const val SETTLE_FRAMES = 3
