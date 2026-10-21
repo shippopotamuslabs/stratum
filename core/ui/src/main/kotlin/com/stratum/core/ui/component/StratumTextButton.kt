@@ -32,7 +32,7 @@ fun StratumTextButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    style: TextStyle = StratumThemeAccessor.typography.bodyLarge,
+    style: TextStyle = StratumThemeAccessor.typography.labelLarge,
     contentColor: Color = StratumThemeAccessor.colors.accent,
     contentPadding: PaddingValues = ButtonDefaults.TextButtonContentPadding,
 ) {
@@ -61,7 +61,7 @@ fun StratumTopBarTextButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    style: TextStyle = StratumThemeAccessor.typography.bodyLarge,
+    style: TextStyle = StratumThemeAccessor.typography.labelLarge,
 ) {
     val colors = StratumThemeAccessor.colors
     val spec = LocalStratumTheme.current

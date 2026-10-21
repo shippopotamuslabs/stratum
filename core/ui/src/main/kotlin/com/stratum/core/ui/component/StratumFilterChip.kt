@@ -34,7 +34,7 @@ fun StratumFilterChip(
         label = {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s4)
+                horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8)
             ) {
                 Text(text = label)
                 if (trailingIcon != null) {
@@ -49,7 +49,7 @@ fun StratumFilterChip(
             enabled = enabled,
             selected = selected,
             borderColor = StratumThemeAccessor.colors.borderSubtle,
-            selectedBorderColor = StratumThemeAccessor.colors.accent,
+            selectedBorderColor = StratumThemeAccessor.colors.borderSubtle,
             disabledBorderColor = StratumThemeAccessor.colors.borderSubtle,
             borderWidth = StratumThemeAccessor.shapes.borderWidth,
             selectedBorderWidth = StratumThemeAccessor.shapes.borderWidth,
@@ -57,8 +57,9 @@ fun StratumFilterChip(
         colors = FilterChipDefaults.filterChipColors(
             containerColor = StratumThemeAccessor.colors.surfaceRaised,
             labelColor = StratumThemeAccessor.colors.textMuted,
-            selectedContainerColor = StratumThemeAccessor.colors.accent,
-            selectedLabelColor = StratumThemeAccessor.colors.onAccent,
+            // §12.3: selected filter chips are tonal (accent-muted container).
+            selectedContainerColor = StratumThemeAccessor.colors.accentMuted,
+            selectedLabelColor = StratumThemeAccessor.colors.onAccentMuted,
             disabledContainerColor = StratumThemeAccessor.colors.surfaceSunken,
             disabledLabelColor = StratumThemeAccessor.colors.textMuted,
         ),

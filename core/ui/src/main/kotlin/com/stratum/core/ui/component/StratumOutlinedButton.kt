@@ -26,7 +26,7 @@ fun StratumOutlinedButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    style: TextStyle = StratumThemeAccessor.typography.bodyLarge,
+    style: TextStyle = StratumThemeAccessor.typography.labelLarge,
     contentPadding: PaddingValues = ButtonDefaults.ContentPadding,
     containerColor: Color = Color.Transparent,
     /** When true, uses error semantic colors for border and label. */
@@ -39,14 +39,15 @@ fun StratumOutlinedButton(
         when {
             destructive -> colors.error
             elevations.useHardShadow -> colors.borderStrong
-            else -> colors.accent
+            // §12.3: outlined buttons carry the border-default color, no fill.
+            else -> colors.borderSubtle
         }
     val contentColor = if (destructive) colors.error else colors.accent
     OutlinedButton(
         onClick = onClick,
         modifier =
             modifier
-                .heightIn(min = MinTouchHeight)
+                .heightIn(min = DefaultHeight)
                 .stratumButtonHardShadow(enabled = enabled, shape = shapes.button),
         enabled = enabled,
         shape = shapes.button,
@@ -72,4 +73,5 @@ fun StratumOutlinedButton(
     }
 }
 
-private val MinTouchHeight = 48.dp
+// §12.3 visual height; touch stays 48dp via M3 minimumInteractiveComponentSize.
+private val DefaultHeight = 40.dp

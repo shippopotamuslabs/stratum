@@ -167,7 +167,8 @@ private fun ConnectedSegmentCell(
     val background = segmentBackground(selected = selected, enabled = enabled, colors = colors)
     val labelColor = when {
         !enabled -> colors.textMuted
-        selected -> colors.onAccent
+        // §12.3: the selected segment is tonal (accent-muted + its content color).
+        selected -> colors.onAccentMuted
         else -> colors.textPrimary
     }
     val modifiedLabel = stringResource(R.string.stratum_segment_modified)
@@ -225,7 +226,7 @@ private fun ConnectedSegmentCell(
                             .size(ModifiedDotSize)
                             .clip(CircleShape)
                             .background(
-                                if (selected) colors.onAccent else colors.accent,
+                                if (selected) colors.onAccentMuted else colors.accent,
                             ),
                 )
             }
@@ -239,7 +240,7 @@ private fun segmentBackground(
     colors: StratumColors,
 ): Color = when {
     !enabled -> colors.surfaceSunken
-    selected -> colors.accent
+    selected -> colors.accentMuted
     else -> colors.surfaceRaised
 }
 

@@ -14,8 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -542,15 +540,9 @@ private fun SupersetRestBetweenLiftsRow(
             color = colors.textPrimary,
             modifier = Modifier.weight(1f),
         )
-        Checkbox(
+        StratumCheckbox(
             checked = checked,
             onCheckedChange = onCheckedChange,
-            colors =
-                CheckboxDefaults.colors(
-                    checkedColor = colors.accent,
-                    uncheckedColor = colors.textMuted,
-                    checkmarkColor = colors.onAccent,
-                ),
         )
     }
 }
