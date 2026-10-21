@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
+    alias(libs.plugins.apter.robolectric.junit5)
     alias(libs.plugins.screenshot)
 }
 
@@ -58,6 +59,9 @@ dependencies {
     implementation(libs.hilt.android)
     implementation(libs.hilt.navigation.compose)
     implementation(libs.coil.compose)
+    // Hosts the shared HazeState in the glass preview/test harnesses, the same
+    // reason :app carries it for MainTabShell.
+    implementation(libs.haze)
     ksp(libs.hilt.compiler)
     ksp(libs.kotlin.metadata.jvm)
 
@@ -65,6 +69,11 @@ dependencies {
     testImplementation(libs.kotlin.test.junit5)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.turbine)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.compose.ui.test.junit4)
+    testImplementation(libs.androidx.compose.ui.test.manifest)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.apter.junit5.robolectric.extension)
     testImplementation(project(":core:testing"))
     testRuntimeOnly(libs.junit.platform.launcher)
 
