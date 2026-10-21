@@ -73,7 +73,8 @@ import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.core.ui.theme.rememberGlassChromePadding
-import com.stratum.core.ui.theme.stratumGlassSheet
+import com.stratum.core.ui.theme.rememberGlassBottomDockPadding
+import com.stratum.core.ui.theme.stratumDockSurface
 import com.stratum.feature.program.R
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -324,7 +325,6 @@ private fun ActiveWorkoutBar(
         }
     }
 
-    val chrome = rememberGlassChromePadding()
     val panelShape = StratumThemeAccessor.shapes.panel
     val borderWidth = StratumThemeAccessor.shapes.borderWidth
     val borderSubtleColor = StratumThemeAccessor.colors.borderSubtle
@@ -349,25 +349,18 @@ private fun ActiveWorkoutBar(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            // Under glass the drawer docks over the nav bar (STR-156): lifted by
-            // the nav clearance minus one spacing step, so its lower sliver
-            // passes beneath the nav glass and it reads as emerging from behind
-            // it. The 8dp drop shadow below is deliberate and kept in both modes.
-            .padding(bottom = if (chrome.active) (chrome.bottom - StratumSpacing.s12).coerceAtLeast(0.dp) else 0.dp)
+            // Under glass the drawer docks over the nav bar (STR-156): the
+            // canonical dock offset lifts it clear of the nav glass; the 8dp
+            // drop shadow below is deliberate and kept in both modes.
+            .padding(bottom = rememberGlassBottomDockPadding())
             .shadow(
                 elevation = 8.dp,
                 shape = drawerShape,
                 clip = false
             )
-            .then(
-                if (chrome.active) {
-                    Modifier.stratumGlassSheet(drawerShape)
-                } else {
-                    Modifier.background(
-                        color = StratumThemeAccessor.colors.surfaceRaised,
-                        shape = drawerShape
-                    )
-                }
+            .stratumDockSurface(
+                shape = drawerShape,
+                solidColor = StratumThemeAccessor.colors.surfaceRaised,
             )
             .drawBehind {
                 val strokeWidth = borderWidth.toPx()

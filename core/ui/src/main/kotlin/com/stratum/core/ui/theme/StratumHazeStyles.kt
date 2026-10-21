@@ -101,23 +101,32 @@ internal fun sheetTintAlpha(surfaceInset: Color): Float =
     if (surfaceInset.luminance() >= 0.5f) 0.83f else 0.9f
 
 /**
- * §12.8 sheet glass (ShippopotamusHazeSheet) for overlay drawers and docks that
- * live OUTSIDE their hazeSource subtree (e.g. `StratumTabScaffold`'s
- * bottomOverlay slot): paints the sheet tint as a floor under the
- * [StratumHazeStyles.sheet] blur, clipped to [shape], so the surface never
- * renders fully transparent even where blur is unavailable — the same floor
- * discipline as `StratumTopBar` (STR-155). No-op when glass is inactive;
- * callers keep their solid background for that case.
+ * §12.8 sheet surface (ShippopotamusHazeSheet) for overlay drawers and docks
+ * that live OUTSIDE their hazeSource subtree (e.g. `StratumTabScaffold`'s
+ * bottomOverlay slot). The single place the glass-versus-solid choice is
+ * made: when glass is inactive this paints [solidColor]; when active it
+ * paints the sheet tint as a floor under the [StratumHazeStyles.sheet]
+ * blur, clipped to [shape], so the surface never renders fully transparent
+ * even where blur is unavailable — the same floor discipline as
+ * `StratumTopBar` (STR-155). Callers pass geometry and their solid color,
+ * never a glass conditional of their own.
  */
 @Composable
-fun Modifier.stratumGlassSheet(shape: Shape): Modifier {
-    val hazeState = rememberGlassHazeState() ?: return this
+fun Modifier.stratumDockSurface(
+    shape: Shape,
+    solidColor: Color,
+): Modifier {
+    val hazeState = rememberGlassHazeState()
     val colors = StratumThemeAccessor.colors
-    return this
-        .background(
-            color = colors.surfaceInset.copy(alpha = sheetTintAlpha(colors.surfaceInset)),
-            shape = shape,
-        )
-        .clip(shape)
-        .hazeBlur(input = HazeInput.Sources(hazeState), style = StratumThemeAccessor.haze.sheet)
+    return if (hazeState == null) {
+        background(color = solidColor, shape = shape)
+    } else {
+        this
+            .background(
+                color = colors.surfaceInset.copy(alpha = sheetTintAlpha(colors.surfaceInset)),
+                shape = shape,
+            )
+            .clip(shape)
+            .hazeBlur(input = HazeInput.Sources(hazeState), style = StratumThemeAccessor.haze.sheet)
+    }
 }
