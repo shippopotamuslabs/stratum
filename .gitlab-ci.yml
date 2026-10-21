@@ -148,10 +148,10 @@ stages:
 # on merge-request pipelines ONLY — merges are semi-linear, so the tree that
 # lands on main IS the tree the MR pipeline tested, and main pipelines build +
 # deploy without re-testing. Scheduled pipelines also match so the nightly
-# run stays a full-suite safety net. Defined once here: five jobs extend this,
-# so a future gate change is one edit, not five. (Jobs with `changes:`-
-# filtered rules — screenshot-tests, functions-tests, osv-scan-image — keep
-# their own variants.)
+# run stays a full-suite safety net. Defined once here: three jobs extend
+# this, so a future gate change is one edit, not three. (Jobs with
+# `changes:`-filtered rules — screenshot-tests, functions-tests, osv-scan,
+# osv-scan-image, solver-contract-tests — keep their own variants; STR-174.)
 .gate-rules:
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
@@ -210,6 +210,12 @@ screenshot-tests:
         - 'core/ui/**/*.kt'
         - 'app/src/**/*.kt'
         - '**/src/main/res/**/*'
+        # STR-174: rendering also moves when the dependency/build config
+        # moves (Compose BOM, screenshot plugin), not only when sources do.
+        - 'gradle/libs.versions.toml'
+        - '**/build.gradle.kts'
+        - 'build.gradle.kts'
+        - '.gitlab-ci.yml'
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
       when: manual
       allow_failure: true
@@ -307,8 +313,13 @@ functions-tests:
 # Solver JSON-boundary contract tests (STR-47): fixture validity, solver
 # round-trip, leniency rows, version matrix (see solver-contract/tests/).
 # No Android toolchain — lightweight python job on the home runner, same shape
-# as functions-tests. No `changes:` gate and no allow_failure: any contract
-# violation fails the pipeline.
+# as functions-tests. No allow_failure when it runs: any contract violation
+# fails the pipeline. STR-174 supersedes the STR-47 no-changes-gate stance:
+# the job now runs on MRs only when the contract surface moves (the suites
+# themselves, either solver implementation, the callable boundary, or the
+# client), with a manual fallback on other MRs; scheduled pipelines always
+# run it, and solver-tests-nightly exercises the same suites nightly, so a
+# skipped MR run is never the last word.
 # Round-trips against the REAL Python solver (STR-45): SOLVER_MODULE=solver
 # with solver-python on PYTHONPATH. The stub_solver default is for solver-less
 # local runs only — CI must never silently test the stub.
@@ -316,8 +327,23 @@ solver-contract-tests:
   image: python:3.12-slim
   tags: [home-server]
   stage: test
-  extends: .gate-rules
   needs: []
+  # Own rules (not .gate-rules): the MR rule is `changes:`-filtered.
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'schedule'
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+      changes:
+        - 'solver-contract/**/*'
+        - 'solver-python/**/*'
+        - 'solver-service/**/*'
+        - 'functions/**/*'
+        - 'functions-python/**/*'
+        - 'core/inference/**/*'
+        - 'docs/callable-function-versioning.md'
+        - '.gitlab-ci.yml'
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+      when: manual
+      allow_failure: true
   variables:
     SOLVER_MODULE: solver
     PYTHONPATH: $CI_PROJECT_DIR/solver-python
@@ -334,12 +360,39 @@ solver-contract-tests:
 # Cloud Run fat JAR ships its own JVM dependency graph and is not a dependency
 # of :app, so it needs its own SBOM) via scripts/generate-sbom.py — no Gradle
 # lockfiles are committed to the repo — plus the functions lockfiles, then
-# fails the job when OSV reports a known CVE. Runs on MRs; scheduled
-# pipelines re-scan nightly (STR-154). Triage path: docs/security-scanning.md
+# fails the job when OSV reports a known CVE. Triage path:
+# docs/security-scanning.md
+#
+# Gates vs signals (STR-174): on MR pipelines this job is a SIGNAL, not a
+# gate — allow_failure: true, and it only auto-runs when dependency-bearing
+# files change (otherwise a manual fallback stays clickable). An advisory
+# published against an untouched pin must never block an unrelated merge
+# again (the STR-162 incident: PYSEC-2026-3844..3849 vs functions-python,
+# diff touched zero Python). On scheduled pipelines it always runs and
+# stays STRICT: the nightly is where an unaddressed CVE turns red.
 osv-scan:
-  extends: [.android-job, .gate-rules]
+  extends: .android-job
   stage: lint
   needs: []
+  # Own rules (not .gate-rules): per-source allow_failure + `changes:`.
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'schedule'
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+      allow_failure: true
+      changes:
+        - 'functions/package-lock.json'
+        - 'functions-python/requirements.txt'
+        - 'gradle/libs.versions.toml'
+        - '**/build.gradle.kts'
+        - 'build.gradle.kts'
+        - 'settings.gradle.kts'
+        - 'scripts/generate-sbom.py'
+        - 'scripts/install-osv-scanner.sh'
+        - '.osv-scanner.toml'
+        - '.gitlab-ci.yml'
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+      when: manual
+      allow_failure: true
   script:
     # OSV-Scanner release binary (static Go binary; the shell executor can't run
     # the analyzer Docker images GitLab's own templates use). Always downloaded
