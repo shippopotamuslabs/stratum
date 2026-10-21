@@ -18,6 +18,10 @@ object GospelPaletteTokens {
         val Accent = Color(0xFF7A7CFF)
         val OnAccent = Color(0xFF0D0E11)
         val AccentMuted = Color(0xFF3B3BAA)
+        // Content on the deep muted step: white clears 8:1 on #3B3BAA;
+        // text-primary also works here, but white is the one value that
+        // pairs correctly in BOTH themes (see Light).
+        val OnAccentMuted = Color(0xFFFFFFFF)
         // Gospel dark ramp (§11.2): bg-base / surface-1 / surface-3 /
         // bg-subtle. surfaceInset takes surface-3 (not surface-2) so
         // inset wells stay distinct from pressed cards on OLED (STR-140).
@@ -54,6 +58,10 @@ object GospelPaletteTokens {
         val Accent = Color(0xFF5457E8)
         val OnAccent = Color(0xFFFFFFFF)
         val AccentMuted = Color(0xFF2F31A0)
+        // Content on the deep muted step: white. Light text-primary
+        // (#1B1C22) on #2F31A0 is ~1.9:1 — the §12.3 "text-primary on
+        // tonal" pairing is dark-theme wording; white is its light form.
+        val OnAccentMuted = Color(0xFFFFFFFF)
         // Light Gospel layers: grey canvas, white cards, tonal fills,
         // bg-subtle wells — elevation climbs toward white.
         val SurfaceBase = Color(0xFFF4F4F8)

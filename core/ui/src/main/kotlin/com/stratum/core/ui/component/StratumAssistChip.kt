@@ -33,7 +33,13 @@ fun StratumAssistChip(
 ) {
     AssistChip(
         onClick = onClick,
-        label = { StratumText(text = label) },
+        // §12.3: chip labels are labelLarge.
+        label = {
+            StratumText(
+                text = label,
+                style = StratumThemeAccessor.typography.labelLarge,
+            )
+        },
         modifier = modifier,
         enabled = enabled,
         trailingIcon =

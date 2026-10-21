@@ -45,7 +45,8 @@ fun StratumPillToggle(
     onSelectedIndexChange: (Int) -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    selectedColor: Color = StratumThemeAccessor.colors.surfaceRaised,
+    // §12.3: the selected toggle is tonal (accent-muted) by default.
+    selectedColor: Color = StratumThemeAccessor.colors.accentMuted,
 ) {
     require(segments.isNotEmpty()) { "StratumPillToggle requires at least one segment." }
     require(selectedIndex in segments.indices) {
@@ -175,7 +176,7 @@ private fun pillLabelColor(
 ): Color =
     when {
         !enabled -> colors.textMuted
-        selected -> colors.textPrimary
+        selected -> colors.onAccentMuted
         else -> colors.textMuted
     }
 

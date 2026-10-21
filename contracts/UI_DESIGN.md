@@ -550,9 +550,12 @@ Canonical for BLOVIATE / STRATUM / ENCLAVE. Companion: §11 (colors).
   Assist: small 8dp, 1dp outline. Filter: small, check 18dp, selected = tonal. Input:
   avatar 24dp + close 18dp. Suggestion: tonal.
 - **SWITCH:** track 32dp high × 52dp wide, full pill; thumb 24dp; inactive track
-  border-default color; active track accent; thumb white; touch auto-48dp.
-- **CHECKBOX/RADIO:** 20dp visible, 48dp touch; checkbox small 4dp, radio full; active
-  accent.
+  border-default color; active track accent; thumb = the on-accent content token
+  (dark: bg-base ink, 5.7:1 on the bright track — white reads only 3.4:1 and was
+  rejected in the palette gospel; light: white); touch auto-48dp.
+- **CHECKBOX/RADIO:** checkbox geometry is the M3 default (18dp box, 2dp corner),
+  adopted as-is (Sean, 2026-10-21: no custom control for a 20dp/4dp variant);
+  48dp touch; radio full; active accent.
 - **SLIDER:** track 4dp, active accent, inactive border-default, thumb 20dp, halo 40dp
   press, 48dp touch height.
 - **BOTTOM SHEET:** extraLarge 28dp top-only, surface-3 container at 6dp/11% tint, drag
