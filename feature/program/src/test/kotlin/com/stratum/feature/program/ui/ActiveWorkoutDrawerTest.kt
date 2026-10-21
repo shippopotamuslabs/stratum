@@ -146,10 +146,14 @@ class ActiveWorkoutDrawerTest {
             assertEquals("w-1", expandedWorkoutId)
 
             // Delete button opens the discard confirm; confirming fires the
-            // cancel callback and dismisses the dialog.
+            // cancel callback and dismisses the dialog. Existence, not
+            // assertIsDisplayed: the confirm is a Compose Dialog, which
+            // lives in its own window whose bounds the display check cannot
+            // validate under Robolectric — the node existing at all is what
+            // pins the delete tap having opened it.
             onNodeWithContentDescription("Cancel Workout").performClick()
             settle()
-            onNodeWithText("Discard Workout?").assertIsDisplayed()
+            onNodeWithText("Discard Workout?").assertExists()
             onNodeWithText("Discard").performClick()
             settle()
             assertEquals(1, cancelClicks)
