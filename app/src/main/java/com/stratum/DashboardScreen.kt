@@ -53,7 +53,7 @@ import com.stratum.core.ui.component.StratumTrendChart
 import com.stratum.core.ui.component.StratumVolumeBarChart
 import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
-import com.stratum.core.ui.theme.rememberGlassBottomPadding
+import com.stratum.core.ui.theme.rememberGlassChromePadding
 
 @Composable
 fun DashboardScreen(
@@ -130,6 +130,7 @@ internal fun DashboardScreen(
     // shows for every board state except Error, which renders only the error fallback. The
     // top bar stays shaded exactly when the band is shown so they read as one slab.
     val heroVisible = state != DashboardUiState.Error
+    val chrome = rememberGlassChromePadding()
     DashboardHealthScaffold(
         heroVisible = heroVisible,
         settingsAction = settingsAction,
@@ -149,7 +150,7 @@ internal fun DashboardScreen(
                 onNavigateToSettings = onNavigateToSettings,
             )
             DashboardUiState.Error ->
-                Box(modifier = Modifier.padding(bottom = rememberGlassBottomPadding())) {
+                Box(modifier = Modifier.padding(bottom = chrome.bottom)) {
                     StratumFeatureErrorFallback(onRetry = onRetry)
                 }
             is DashboardUiState.Loaded -> LoadedContent(
@@ -228,14 +229,19 @@ private fun ColumnScope.DashboardStatusColumn(
     onNavigateToSettings: () -> Unit,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val chrome = rememberGlassChromePadding()
     Column(
         modifier = Modifier
             .weight(1f)
             .fillMaxWidth()
             .verticalScroll(rememberScrollState())
-            // Under the shell's glass nav bar (§12.8) the column scrolls beneath it;
-            // pad the end so the last content clears the bar.
-            .padding(bottom = rememberGlassBottomPadding()),
+            // Under the shell's glass bars (§12.8) the column scrolls beneath them:
+            // pad the start by the glass top clearance (0 when solid) and the end
+            // so the last content clears the nav bar.
+            .padding(
+                top = chrome.top,
+                bottom = chrome.bottom,
+            ),
     ) {
         DashboardHeroBand(
             health = health,
@@ -259,6 +265,7 @@ private fun ColumnScope.LoadedContent(
     onOpenMuscleGraph: (String) -> Unit,
     onOpenMuscleDailyVolumeGraph: (String) -> Unit,
 ) {
+    val chrome = rememberGlassChromePadding()
     val hasItems = when (tab) {
         DashboardBoardTabUi.Muscles -> state.muscles.isNotEmpty()
         DashboardBoardTabUi.SevenDay -> state.runningDailyVolume.isNotEmpty()
@@ -280,7 +287,10 @@ private fun ColumnScope.LoadedContent(
         contentPadding = PaddingValues(
             start = BOARD_HORIZONTAL_PADDING_DP.dp,
             end = BOARD_HORIZONTAL_PADDING_DP.dp,
-            bottom = rememberGlassBottomPadding() + StratumSpacing.s16,
+            // Overlay host (STR-155): the grid scrolls under the glass top bar —
+            // its start clears the bar via the top clearance (0 when solid).
+            top = chrome.top,
+            bottom = chrome.bottom + StratumSpacing.s16,
         ),
     ) {
         item(

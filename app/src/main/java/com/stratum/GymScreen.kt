@@ -19,7 +19,6 @@ import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material3.Icon
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -55,9 +54,7 @@ import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.UserMessageEffect
 import com.stratum.core.ui.theme.StratumSpacing
-import com.stratum.core.ui.theme.StratumGlassChrome
-import com.stratum.core.ui.theme.rememberGlassBottomPadding
-import com.stratum.core.ui.theme.rememberGlassActive
+import com.stratum.core.ui.theme.rememberGlassChromePadding
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.liftconfig.LiftConfigBottomSheet
 import com.stratum.liftconfig.MergeTargetBottomSheet
@@ -159,18 +156,11 @@ fun GymScreen(
         }
     }
 
-    // Hoisted so the top bar can read the scroll position (§12.8 glass-when-scrolled).
     val listState = rememberLazyListState()
-    val topBarScrolled by remember {
-        derivedStateOf {
-            listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0
-        }
-    }
-    val glass = rememberGlassActive()
-    val glassBottomPadding = rememberGlassBottomPadding()
+    val chrome = rememberGlassChromePadding()
     // Overlay only outside merge mode: the merge top bar stays solid, so its
     // content (the selection panel) must not slide beneath it.
-    val overlayTopBar = glass && !state.isMergeMode
+    val overlayTopBar = chrome.active && !state.isMergeMode
 
     StratumTabScaffold(
         modifier = modifier,
@@ -212,7 +202,6 @@ fun GymScreen(
                             )
                         }
                     },
-                    scrolled = topBarScrolled,
                 )
             }
         },
@@ -243,8 +232,8 @@ fun GymScreen(
                 verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
                 contentPadding =
                     PaddingValues(
-                        top = if (overlayTopBar) StratumGlassChrome.topBarHeight else 0.dp,
-                        bottom = glassBottomPadding + StratumSpacing.s16,
+                        top = if (overlayTopBar) chrome.top else 0.dp,
+                        bottom = chrome.bottom + StratumSpacing.s16,
                     ),
             ) {
                 item {

@@ -1,6 +1,9 @@
 package com.stratum.core.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
@@ -37,21 +40,41 @@ fun rememberGlassHazeState(): dev.chrisbanes.haze.HazeState? =
     if (StratumThemeAccessor.haze.enabled) LocalStratumHazeState.current else null
 
 /**
- * Whether glass chrome applies here, for consumers that only need the boolean
- * (screens outside `:core:ui` must never name the Haze type itself).
+ * The glass clearances for content hosted under the chrome, read once so the
+ * host-activation gate is subscribed a single time. Screens consume this
+ * instead of composing the active/top/bottom reads themselves; the overlay
+ * decision itself stays in `StratumTabScaffold`, which pairs the bar treatment
+ * with its source subtree atomically. All zeros when glass does not apply (no
+ * host state, Neo carve-out, previews), so solid layouts need no branching.
  */
-@Composable
-fun rememberGlassActive(): Boolean = rememberGlassHazeState() != null
+data class GlassChromePadding(
+    val active: Boolean,
+    val top: androidx.compose.ui.unit.Dp,
+    val bottom: androidx.compose.ui.unit.Dp,
+)
 
-/** Bottom clearance for content hosted under the always-glass nav bar (§12.8). */
+/** Single-subscription snapshot of [GlassChromePadding] for this composition. */
 @Composable
-fun rememberGlassBottomPadding(): androidx.compose.ui.unit.Dp =
-    if (rememberGlassHazeState() != null) StratumGlassChrome.bottomBarHeight else 0.dp
-
-/** Top clearance for content scrolling under a glass top bar (§12.8). */
-@Composable
-fun rememberGlassTopPadding(): androidx.compose.ui.unit.Dp =
-    if (rememberGlassHazeState() != null) StratumGlassChrome.topBarHeight else 0.dp
+fun rememberGlassChromePadding(): GlassChromePadding {
+    if (rememberGlassHazeState() == null) {
+        return GlassChromePadding(
+            active = false,
+            top = 0.dp,
+            bottom = 0.dp,
+        )
+    }
+    val top =
+        StratumGlassChrome.topClearance(
+            WindowInsets.statusBars
+                .asPaddingValues()
+                .calculateTopPadding(),
+        )
+    return GlassChromePadding(
+        active = true,
+        top = top,
+        bottom = StratumGlassChrome.bottomBarHeight,
+    )
+}
 
 object StratumThemeSpecFactory {
     fun resolve(
