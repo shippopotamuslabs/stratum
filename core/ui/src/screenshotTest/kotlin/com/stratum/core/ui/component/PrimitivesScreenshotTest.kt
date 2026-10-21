@@ -28,6 +28,13 @@ fun primitiveButtonsNeo() {
 @PreviewTest
 @PreviewLightDark
 @Composable
+fun primitiveButtonVariantsTonal() {
+    ButtonVariantsPreviewContent()
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
 fun primitiveAssistChipsTonal() {
     AssistChipPreviewGrid(family = StratumThemeId.Tonal)
 }
