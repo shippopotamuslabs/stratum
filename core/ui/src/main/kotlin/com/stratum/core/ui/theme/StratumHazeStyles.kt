@@ -1,10 +1,18 @@
 package com.stratum.core.ui.theme
 
+import androidx.compose.foundation.background
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import dev.chrisbanes.haze.HazeInput
 import dev.chrisbanes.haze.blur.HazeBlurStyle
 import dev.chrisbanes.haze.blur.HazeColorEffect
+import dev.chrisbanes.haze.blur.hazeBlur
 
 /**
  * Glass Bars Gospel styles (§12.8 of `contracts/UI_DESIGN.md`), derived from a
@@ -64,9 +72,7 @@ internal fun stratumHazeStyles(
                 colorEffects(
                     listOf(
                         HazeColorEffect.tint(
-                            colors.surfaceInset.copy(
-                                alpha = if (colors.surfaceInset.luminance() >= 0.5f) 0.83f else 0.9f,
-                            ),
+                            colors.surfaceInset.copy(alpha = sheetTintAlpha(colors.surfaceInset)),
                         ),
                     ),
                 )
@@ -88,4 +94,39 @@ object StratumGlassChrome {
      * insets and cannot catch an omission here.
      */
     fun topClearance(statusBarTop: Dp): Dp = statusBarTop + topBarHeight
+}
+
+/** §12.8 sheet tint depth (materials-Thick rule): near-opaque, lighter over light surfaces. */
+internal fun sheetTintAlpha(surfaceInset: Color): Float =
+    if (surfaceInset.luminance() >= 0.5f) 0.83f else 0.9f
+
+/**
+ * §12.8 sheet surface (ShippopotamusHazeSheet) for overlay drawers and docks
+ * that live OUTSIDE their hazeSource subtree (e.g. `StratumTabScaffold`'s
+ * bottomOverlay slot). The single place the glass-versus-solid choice is
+ * made: when glass is inactive this paints [solidColor]; when active it
+ * paints the sheet tint as a floor under the [StratumHazeStyles.sheet]
+ * blur, clipped to [shape], so the surface never renders fully transparent
+ * even where blur is unavailable — the same floor discipline as
+ * `StratumTopBar` (STR-155). Callers pass geometry and their solid color,
+ * never a glass conditional of their own.
+ */
+@Composable
+fun Modifier.stratumDockSurface(
+    shape: Shape,
+    solidColor: Color,
+): Modifier {
+    val hazeState = rememberGlassHazeState()
+    val colors = StratumThemeAccessor.colors
+    return if (hazeState == null) {
+        background(color = solidColor, shape = shape)
+    } else {
+        this
+            .background(
+                color = colors.surfaceInset.copy(alpha = sheetTintAlpha(colors.surfaceInset)),
+                shape = shape,
+            )
+            .clip(shape)
+            .hazeBlur(input = HazeInput.Sources(hazeState), style = StratumThemeAccessor.haze.sheet)
+    }
 }

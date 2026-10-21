@@ -41,6 +41,20 @@ fun programsScreenEmptyNeo() {
 @PreviewTest
 @PreviewLightDark
 @Composable
+fun programsScreenActiveWorkoutTonal() {
+    ProgramsActiveWorkoutPreviewContent(family = StratumThemeId.Tonal)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun programsScreenActiveWorkoutNeo() {
+    ProgramsActiveWorkoutPreviewContent(family = StratumThemeId.NeoBrutalist)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
 fun programLibraryLoadedTonal() {
     ProgramLibraryLoadedPreviewContent(family = StratumThemeId.Tonal)
 }
