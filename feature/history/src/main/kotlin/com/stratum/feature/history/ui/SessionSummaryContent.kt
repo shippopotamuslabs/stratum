@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.outlined.Tag
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -17,6 +16,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R as CoreUiR
+import com.stratum.core.ui.component.StratumDivider
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumMuscleVolumeCardState
 import com.stratum.core.ui.component.StratumMuscleVolumeRow
@@ -81,7 +81,7 @@ internal fun SessionSummaryContent(
         )
 
         if (upperVolumeByMuscle.isNotEmpty() || lowerVolumeByMuscle.isNotEmpty()) {
-            HorizontalDivider(color = StratumThemeAccessor.colors.borderSubtle)
+            StratumDivider()
             val initialTier =
                 if (upperVolumeByMuscle.isEmpty() && lowerVolumeByMuscle.isNotEmpty()) {
                     StratumVolumeBodyTier.Lower

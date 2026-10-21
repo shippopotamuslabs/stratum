@@ -185,3 +185,45 @@ fun primitiveEdgeToEdgeCardsTonal() {
 fun primitiveEdgeToEdgeCardsNeo() {
     EdgeToEdgeCardPreview(family = StratumThemeId.NeoBrutalist)
 }
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun primitiveSurfacesTonal() {
+    SurfacePreviewGrid(family = StratumThemeId.Tonal)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun primitiveSurfacesNeo() {
+    SurfacePreviewGrid(family = StratumThemeId.NeoBrutalist)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun primitiveChipsTonal() {
+    ChipPreviewGrid(family = StratumThemeId.Tonal)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun primitiveChipsNeo() {
+    ChipPreviewGrid(family = StratumThemeId.NeoBrutalist)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun primitiveListRowsTonal() {
+    ListRowPreviewGrid(family = StratumThemeId.Tonal)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun primitiveListRowsNeo() {
+    ListRowPreviewGrid(family = StratumThemeId.NeoBrutalist)
+}
