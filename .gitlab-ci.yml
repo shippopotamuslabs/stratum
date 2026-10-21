@@ -148,8 +148,8 @@ stages:
 # on merge-request pipelines ONLY — merges are semi-linear, so the tree that
 # lands on main IS the tree the MR pipeline tested, and main pipelines build +
 # deploy without re-testing. Scheduled pipelines also match so the nightly
-# run stays a full-suite safety net. Defined once here: three jobs extend
-# this, so a future gate change is one edit, not three. (Jobs with
+# run stays a full-suite safety net. Defined once here: two jobs extend
+# this, so a future gate change is one edit, not two. (Jobs with
 # `changes:`-filtered rules — screenshot-tests, functions-tests, osv-scan,
 # osv-scan-image, solver-contract-tests — keep their own variants; STR-174.)
 .gate-rules:
@@ -248,16 +248,10 @@ screenshot-record:
       - '**/src/screenshotTestDebug/reference/'
     expire_in: 1 week
 
-assemble-debug:
-  extends: [.android-job, .gate-rules]
-  stage: test
-  needs: []
-  script:
-    - ./gradlew :app:assembleDebug
-  artifacts:
-    paths:
-      - app/build/outputs/apk/debug/*.apk
-    expire_in: 1 week
+# No assemble-debug job (STR-176): it was redundant — assemble-release proves
+# full compilation, and unit-tests + screenshot-tests compile and exercise the
+# debug variant. On the single serialized Katana runner the extra job cost a
+# full Gradle compile plus queue time on every pipeline for no new signal.
 
 # Release gate: R8 shrinking/optimization, resource shrinking, Hilt, and the
 # perf plugin only meet in release builds. Unsigned (no keystore in CI) — this
