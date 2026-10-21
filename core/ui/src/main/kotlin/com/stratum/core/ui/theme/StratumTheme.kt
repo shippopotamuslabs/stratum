@@ -48,6 +48,14 @@ fun rememberGlassHazeState(): dev.chrisbanes.haze.HazeState? =
  * decision itself stays in `StratumTabScaffold`, which pairs the bar treatment
  * with its source subtree atomically. All zeros when glass does not apply (no
  * host state, Neo carve-out, previews), so solid layouts need no branching.
+ *
+ * Both clearances are FULL chrome footprints, symmetric by construction:
+ * [top] is the status-bar inset plus the top bar's height
+ * ([StratumGlassChrome.topClearance], STR-155) and [bottom] is the
+ * navigation-bar inset plus the bottom bar's height
+ * ([StratumGlassChrome.dockClearance], STR-162) — the space the glass
+ * actually occupies, so content padded by either one clears the glass
+ * entirely, inset included.
  */
 data class GlassChromePadding(
     val active: Boolean,
@@ -58,27 +66,20 @@ data class GlassChromePadding(
 /**
  * Bottom offset for a drawer/dock overlaid at the shell's bottom edge
  * (`StratumTabScaffold`'s bottomOverlay slot): under glass it lifts the
- * surface clear of the shell's FULL nav footprint — the bar height plus the
- * system navigation-bar inset the glass bar spans — so the whole surface
+ * surface clear of the shell's FULL nav footprint, so the whole surface
  * rests above the nav glass, the position it held pre-glass (STR-162;
  * STR-156's bar-height-minus-s12 formula omitted the inset and left most
- * of the drawer behind the bar on device). The inset is read here the same
- * way [rememberGlassChromePadding] reads the status-bar inset for the top
- * clearance, and the sum itself is the pure, unit-pinned
- * [StratumGlassChrome.dockClearance]. Zero when glass is inactive — the
- * slot's own anchor already sits above any in-flow bottom bar there.
+ * of the drawer behind the bar on device). The footprint itself is
+ * [GlassChromePadding.bottom] from the single [rememberGlassChromePadding]
+ * snapshot — one source of truth, shared with every screen's scroll
+ * clearance; this accessor exists so dock call sites name their intent
+ * and never hand-compute nav clearance. Zero when glass is inactive —
+ * the slot's own anchor already sits above any in-flow bottom bar there.
  */
 @Composable
 fun rememberGlassBottomDockPadding(): Dp {
     val chrome = rememberGlassChromePadding()
-    if (!chrome.active) {
-        return 0.dp
-    }
-    val navigationBarBottom =
-        WindowInsets.navigationBars
-            .asPaddingValues()
-            .calculateBottomPadding()
-    return StratumGlassChrome.dockClearance(navigationBarBottom)
+    return if (chrome.active) chrome.bottom else 0.dp
 }
 
 /** Single-subscription snapshot of [GlassChromePadding] for this composition. */
@@ -97,10 +98,16 @@ fun rememberGlassChromePadding(): GlassChromePadding {
                 .asPaddingValues()
                 .calculateTopPadding(),
         )
+    val bottom =
+        StratumGlassChrome.dockClearance(
+            WindowInsets.navigationBars
+                .asPaddingValues()
+                .calculateBottomPadding(),
+        )
     return GlassChromePadding(
         active = true,
         top = top,
-        bottom = StratumGlassChrome.bottomBarHeight,
+        bottom = bottom,
     )
 }
 

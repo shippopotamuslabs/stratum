@@ -49,54 +49,43 @@ internal fun stratumHazeStyles(
 ): StratumHazeStyles =
     StratumHazeStyles(
         // bg-base at 65%, blur 24dp (§12.8 ShippopotamusHazeTopBar).
-        topBar =
-            HazeBlurStyle {
-                blurRadius(24.dp)
-                backgroundColor(colors.surfaceBase)
-                colorEffects(listOf(HazeColorEffect.tint(colors.surfaceBase.copy(alpha = 0.65f))))
-                noiseFactor(0.5f)
-            },
+        topBar = tintedBlurStyle(24.dp, colors.surfaceBase, tintAlpha = 0.65f, noise = 0.5f),
         // surface-1 at 75%, blur 20dp (§12.8 ShippopotamusHazeBottomBar).
-        bottomBar =
-            HazeBlurStyle {
-                blurRadius(20.dp)
-                backgroundColor(colors.surfaceRaised)
-                colorEffects(listOf(HazeColorEffect.tint(colors.surfaceRaised.copy(alpha = 0.75f))))
-                noiseFactor(0.5f)
-            },
+        bottomBar = tintedBlurStyle(20.dp, colors.surfaceRaised, tintAlpha = 0.75f, noise = 0.5f),
         // The gospel's Thick sheet (§12.8 ShippopotamusHazeSheet): the materials
         // Thick construction (blur 24dp, near-opaque tint) over the surface-3 tint.
-        sheet =
-            HazeBlurStyle {
-                blurRadius(24.dp)
-                backgroundColor(colors.surfaceInset)
-                colorEffects(
-                    listOf(
-                        HazeColorEffect.tint(
-                            colors.surfaceInset.copy(alpha = sheetTintAlpha(colors.surfaceInset)),
-                        ),
-                    ),
-                )
-            },
+        sheet = tintedBlurStyle(24.dp, colors.surfaceInset, tintAlpha = sheetTintAlpha(colors.surfaceInset)),
         // Dock (STR-162): the sheet construction at BAR depth. A permanent dock
         // (the active-workout drawer) is not a modal sheet — the Thick tint
         // (0.90 dark) leaves only ~10% of the blurred content visible and reads
         // as a flat slab on device. Same blur and base as the sheet, tinted at
         // the bottom bar's 0.75 so the frosting actually reads.
-        dock =
-            HazeBlurStyle {
-                blurRadius(24.dp)
-                backgroundColor(colors.surfaceInset)
-                colorEffects(
-                    listOf(
-                        HazeColorEffect.tint(
-                            colors.surfaceInset.copy(alpha = DOCK_TINT_ALPHA),
-                        ),
-                    ),
-                )
-            },
+        dock = tintedBlurStyle(24.dp, colors.surfaceInset, tintAlpha = DOCK_TINT_ALPHA),
         enabled = enabled,
     )
+
+/**
+ * The one blur-style construction every §12.8 style shares: a blur radius
+ * over an opaque [base], a single tint of that base at [tintAlpha], and an
+ * optional noise factor (bars carry the gospel's 0.5 grain; sheets and the
+ * dock follow the materials construction, which has none). Styles differ
+ * ONLY in these inputs — a future blur/tint discipline change lands here
+ * once instead of drifting across copy-pasted builder blocks.
+ */
+private fun tintedBlurStyle(
+    blurRadius: Dp,
+    base: Color,
+    tintAlpha: Float,
+    noise: Float? = null,
+): HazeBlurStyle =
+    HazeBlurStyle {
+        blurRadius(blurRadius)
+        backgroundColor(base)
+        colorEffects(listOf(HazeColorEffect.tint(base.copy(alpha = tintAlpha))))
+        if (noise != null) {
+            noiseFactor(noise)
+        }
+    }
 
 /** Canonical glass chrome heights (§12.8): content hosted under glass pads its ends by these. */
 object StratumGlassChrome {
@@ -114,15 +103,16 @@ object StratumGlassChrome {
     fun topClearance(statusBarTop: Dp): Dp = statusBarTop + topBarHeight
 
     /**
-     * Bottom offset for a drawer/dock overlaid at the shell's bottom edge under
-     * glass (§12.8): the FULL nav footprint — the bar's own height PLUS the
-     * system navigation-bar inset the bar spans — so the docked surface rests
-     * entirely above the nav glass, the position it held pre-glass when the
-     * shell reserved that space. STR-156's first formula (bar height − s12,
-     * inset omitted) left most of the drawer behind the bar on device
-     * (STR-162 field report). Pure function so the formula is unit-pinned:
-     * Robolectric goldens run with zero insets and cannot catch an omission
-     * here (same reasoning as [topClearance]).
+     * The glass bottom clearance (§12.8): the FULL nav footprint — the bar's
+     * own height PLUS the system navigation-bar inset the bar spans. It is
+     * both the bottom clearance screens pad scrollables by
+     * (`GlassChromePadding.bottom`) and the offset that docks an overlaid
+     * drawer entirely above the nav glass, the position it held pre-glass
+     * when the shell reserved that space. STR-156's first dock formula
+     * (bar height − s12, inset omitted) left most of the drawer behind the
+     * bar on device (STR-162 field report). Pure function so the formula is
+     * unit-pinned: Robolectric goldens run with zero insets and cannot
+     * catch an omission here (same reasoning as [topClearance]).
      */
     fun dockClearance(navigationBarBottom: Dp): Dp = bottomBarHeight + navigationBarBottom
 }
