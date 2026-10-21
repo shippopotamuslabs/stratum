@@ -18,10 +18,12 @@ import androidx.compose.material.icons.outlined.Dashboard
 import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import com.stratum.core.ui.theme.LocalStratumHazeState
 import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import dev.chrisbanes.haze.hazeSource
@@ -40,7 +42,6 @@ fun GlassBarsPreviewContent(glass: Boolean) {
     val colors = StratumThemeAccessor.colors
     val typography = StratumThemeAccessor.typography
     val hazeState = rememberHazeState()
-    val barState = if (glass) hazeState else null
 
     val cardColors =
         listOf(
@@ -54,6 +55,9 @@ fun GlassBarsPreviewContent(glass: Boolean) {
             colors.surfaceRaised,
         )
 
+    CompositionLocalProvider(
+        LocalStratumHazeState provides if (glass) hazeState else null,
+    ) {
     Box(
         modifier =
             Modifier
@@ -89,7 +93,6 @@ fun GlassBarsPreviewContent(glass: Boolean) {
 
         StratumTopBar(
             title = "Programs",
-            hazeState = barState,
             scrolled = glass,
             modifier = Modifier.align(Alignment.TopCenter),
         )
@@ -114,8 +117,8 @@ fun GlassBarsPreviewContent(glass: Boolean) {
                 ),
             selectedIndex = 1,
             onItemSelected = {},
-            hazeState = barState,
             modifier = Modifier.align(Alignment.BottomCenter),
         )
+    }
     }
 }

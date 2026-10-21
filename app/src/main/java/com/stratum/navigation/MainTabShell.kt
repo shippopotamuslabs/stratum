@@ -28,6 +28,8 @@ import com.stratum.R
 import com.stratum.core.ui.component.StratumNavigationBar
 import com.stratum.core.ui.component.StratumNavigationBarItem
 import com.stratum.core.ui.component.StratumScaffold
+import androidx.compose.runtime.CompositionLocalProvider
+import com.stratum.core.ui.theme.LocalStratumHazeState
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.program.ProgramsRoute
 import com.stratum.feature.program.ui.ProgramsScreenCallbacks
@@ -83,7 +85,6 @@ fun MainTabShell(
     // pre-glass layout exactly, so screenshot references stay stable there.
     val hazeState = rememberHazeState()
     val glass = StratumThemeAccessor.haze.enabled && !isPreviewMode
-    val screenHazeState = if (glass) hazeState else null
 
     val currentTab = remember(selectedTabIndex) { MainTab.fromIndex(selectedTabIndex) }
     LaunchedEffect(currentTab) {
@@ -109,66 +110,66 @@ fun MainTabShell(
             ),
         )
 
-    StratumScaffold(
-        modifier = modifier.fillMaxSize(),
-        bottomBar = {
-            if (!isPreviewMode && !hideBottomBar) {
-                StratumNavigationBar(
-                    items = items,
-                    selectedIndex = selectedTabIndex,
-                    onItemSelected = { index -> selectedTabIndex = index },
-                    hazeState = screenHazeState,
-                )
-            }
-        },
-    ) { padding ->
-        // Tab screens own their top bar + status-bar inset. Under glass (§12.8) the
-        // shell reserves NO bottom space: tab content is the hazeSource and scrolls
-        // beneath the always-glass nav bar; screens pad their own ends instead.
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .then(if (glass) Modifier.hazeSource(state = hazeState) else Modifier)
-                    .padding(
-                        PaddingValues(
-                            bottom = if (glass) 0.dp else padding.calculateBottomPadding(),
-                        ),
-                    ),
-        ) {
-            when (MainTab.fromIndex(selectedTabIndex)) {
-                MainTab.Dashboard ->
-                    DashboardScreen(
-                        onNavigateToSettings = callbacks.onNavigateToSettings,
-                        hazeState = screenHazeState,
+    CompositionLocalProvider(
+        LocalStratumHazeState provides if (isPreviewMode) null else hazeState,
+    ) {
+        StratumScaffold(
+            modifier = modifier.fillMaxSize(),
+            bottomBar = {
+                if (!isPreviewMode && !hideBottomBar) {
+                    StratumNavigationBar(
+                        items = items,
+                        selectedIndex = selectedTabIndex,
+                        onItemSelected = { index -> selectedTabIndex = index },
                     )
-                MainTab.Program ->
-                    ProgramsRoute(
-                        isPreviewMode = isPreviewMode,
-                        hazeState = screenHazeState,
-                        callbacks =
-                            ProgramsScreenCallbacks(
-                                onCalendarClick = callbacks.onNavigateToHistory,
-                                onKeepProgramClick = callbacks.onKeepProgramClick,
-                                onDiscardProgramClick = callbacks.onDiscardProgramClick,
-                                onEditWorkoutClick = callbacks.onNavigateToEditWorkout,
-                                onCreateProgramClick = callbacks.onCreateProgramClick,
-                                onEditProgramClick = callbacks.onEditProgramClick,
-                                onReorderWorkoutsClick = callbacks.onReorderWorkoutsClick,
-                                onProgramLibraryClick = callbacks.onProgramLibraryClick,
+                }
+            },
+        ) { padding ->
+            // Tab screens own their top bar + status-bar inset. Under glass (§12.8) the
+            // shell reserves NO bottom space: tab content is the hazeSource and scrolls
+            // beneath the always-glass nav bar; screens pad their own ends instead.
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .then(if (glass) Modifier.hazeSource(state = hazeState) else Modifier)
+                        .padding(
+                            PaddingValues(
+                                bottom = if (glass) 0.dp else padding.calculateBottomPadding(),
                             ),
-                        onSwapLiftClick = callbacks.onNavigateToSwap,
-                        onNavigateToWorkout = callbacks.onNavigateToWorkout,
-                    )
-                MainTab.Gym ->
-                    GymScreen(
-                        hazeState = screenHazeState,
-                        onCreateNewLift = callbacks.onCreateNewLift,
-                        onManageEquipment = callbacks.onManageEquipment,
-                        onNavigateToIncrements = callbacks.onNavigateToEquipmentIncrements,
-                        onNavigateToInformation = callbacks.onNavigateToLiftInformation,
-                        onMergeModeChange = { active -> hideBottomBar = active },
-                    )
+                        ),
+            ) {
+                when (MainTab.fromIndex(selectedTabIndex)) {
+                    MainTab.Dashboard ->
+                        DashboardScreen(
+                            onNavigateToSettings = callbacks.onNavigateToSettings,
+                        )
+                    MainTab.Program ->
+                        ProgramsRoute(
+                            isPreviewMode = isPreviewMode,
+                            callbacks =
+                                ProgramsScreenCallbacks(
+                                    onCalendarClick = callbacks.onNavigateToHistory,
+                                    onKeepProgramClick = callbacks.onKeepProgramClick,
+                                    onDiscardProgramClick = callbacks.onDiscardProgramClick,
+                                    onEditWorkoutClick = callbacks.onNavigateToEditWorkout,
+                                    onCreateProgramClick = callbacks.onCreateProgramClick,
+                                    onEditProgramClick = callbacks.onEditProgramClick,
+                                    onReorderWorkoutsClick = callbacks.onReorderWorkoutsClick,
+                                    onProgramLibraryClick = callbacks.onProgramLibraryClick,
+                                ),
+                            onSwapLiftClick = callbacks.onNavigateToSwap,
+                            onNavigateToWorkout = callbacks.onNavigateToWorkout,
+                        )
+                    MainTab.Gym ->
+                        GymScreen(
+                            onCreateNewLift = callbacks.onCreateNewLift,
+                            onManageEquipment = callbacks.onManageEquipment,
+                            onNavigateToIncrements = callbacks.onNavigateToEquipmentIncrements,
+                            onNavigateToInformation = callbacks.onNavigateToLiftInformation,
+                            onMergeModeChange = { active -> hideBottomBar = active },
+                        )
+                }
             }
         }
     }

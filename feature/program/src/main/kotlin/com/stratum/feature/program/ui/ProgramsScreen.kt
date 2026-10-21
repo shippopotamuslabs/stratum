@@ -71,9 +71,10 @@ import com.stratum.core.ui.component.StratumTabScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.theme.StratumSpacing
-import com.stratum.core.ui.theme.StratumGlassChrome
 import com.stratum.core.ui.theme.StratumThemeAccessor
-import dev.chrisbanes.haze.HazeState
+import com.stratum.core.ui.theme.rememberGlassBottomPadding
+import com.stratum.core.ui.theme.rememberGlassActive
+import com.stratum.core.ui.theme.rememberGlassTopPadding
 import com.stratum.feature.program.R
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -97,11 +98,12 @@ internal fun ProgramsScreen(
     onCheckInBannerClick: () -> Unit = {},
     onCheckInSkipClick: () -> Unit = {},
     snackbarHostState: SnackbarHostState? = null,
-    hazeState: HazeState? = null,
 ) {
     // Hoisted so the top bar can read the scroll position (§12.8 glass-when-scrolled).
     val programsScrollState = rememberScrollState()
-    val glass = hazeState != null && StratumThemeAccessor.haze.enabled
+    val glass = rememberGlassActive()
+    val glassTopPadding = rememberGlassTopPadding()
+    val glassBottomPadding = rememberGlassBottomPadding()
 
     var showOptionsSheet by remember { mutableStateOf(false) }
     var pendingUnskipWorkoutId by remember { mutableStateOf<String?>(null) }
@@ -115,7 +117,6 @@ internal fun ProgramsScreen(
         topBar = {
             StratumTopBar(
                 title = stringResource(R.string.programs_screen_title),
-                hazeState = hazeState,
                 scrolled = programsScrollState.value > 0,
                 navigationIcon = if (isPreviewMode) null else {
                     {
@@ -173,11 +174,11 @@ internal fun ProgramsScreen(
                     .verticalScroll(programsScrollState)
                     .padding(horizontal = StratumSpacing.s16)
                     .padding(
-                        top = StratumSpacing.s16 + if (glass) StratumGlassChrome.topBarHeight else 0.dp,
+                        top = StratumSpacing.s16 + glassTopPadding,
                         bottom =
                             StratumSpacing.s16 +
                                 (if (activeWorkoutBar != null) 96.dp else 0.dp) +
-                                if (glass) StratumGlassChrome.bottomBarHeight else 0.dp,
+                                glassBottomPadding,
                     ),
                 verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
             ) {

@@ -10,11 +10,48 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 
 val LocalStratumTheme =
     staticCompositionLocalOf {
         StratumTonalSpec.resolve(dark = true)
     }
+
+/**
+ * The hosting shell's shared HazeState (§12.8: one per screen, shared by both
+ * bars), provided by the shell (`MainTabShell`). Null outside a glass host —
+ * previews, tests, detail routes — where chrome renders its solid treatment.
+ * Consumers read it through [rememberGlassHazeState], never directly, so the
+ * family enablement check lives in exactly one place.
+ */
+val LocalStratumHazeState =
+    staticCompositionLocalOf<dev.chrisbanes.haze.HazeState?> { null }
+
+/**
+ * The shared glass state for this composition, or null when glass does not
+ * apply (no host state, or the Neo Brutalist carve-out). This is THE canonical
+ * glass check — components and screens must not re-derive it.
+ */
+@Composable
+fun rememberGlassHazeState(): dev.chrisbanes.haze.HazeState? =
+    if (StratumThemeAccessor.haze.enabled) LocalStratumHazeState.current else null
+
+/**
+ * Whether glass chrome applies here, for consumers that only need the boolean
+ * (screens outside `:core:ui` must never name the Haze type itself).
+ */
+@Composable
+fun rememberGlassActive(): Boolean = rememberGlassHazeState() != null
+
+/** Bottom clearance for content hosted under the always-glass nav bar (§12.8). */
+@Composable
+fun rememberGlassBottomPadding(): androidx.compose.ui.unit.Dp =
+    if (rememberGlassHazeState() != null) StratumGlassChrome.bottomBarHeight else 0.dp
+
+/** Top clearance for content scrolling under a glass top bar (§12.8). */
+@Composable
+fun rememberGlassTopPadding(): androidx.compose.ui.unit.Dp =
+    if (rememberGlassHazeState() != null) StratumGlassChrome.topBarHeight else 0.dp
 
 object StratumThemeSpecFactory {
     fun resolve(

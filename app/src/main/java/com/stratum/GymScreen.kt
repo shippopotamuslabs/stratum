@@ -56,14 +56,14 @@ import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.UserMessageEffect
 import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumGlassChrome
+import com.stratum.core.ui.theme.rememberGlassBottomPadding
+import com.stratum.core.ui.theme.rememberGlassActive
 import com.stratum.core.ui.theme.StratumThemeAccessor
-import dev.chrisbanes.haze.HazeState
 import com.stratum.liftconfig.LiftConfigBottomSheet
 import com.stratum.liftconfig.MergeTargetBottomSheet
 
 @Composable
 fun GymScreen(
-    hazeState: HazeState? = null,
     onCreateNewLift: () -> Unit,
     onManageEquipment: () -> Unit = {},
     onNavigateToIncrements: (liftId: String, equipmentId: String?) -> Unit = { _, _ -> },
@@ -113,7 +113,6 @@ fun GymScreen(
             ),
         snackbarHostState = snackbarHostState,
         modifier = modifier,
-        hazeState = hazeState,
     )
 }
 
@@ -123,7 +122,6 @@ fun GymScreen(
     callbacks: GymScreenCallbacks,
     modifier: Modifier = Modifier,
     snackbarHostState: SnackbarHostState? = null,
-    hazeState: HazeState? = null,
 ) {
     val onSearchQueryChanged = callbacks.onSearchQueryChanged
     val onFilterIntent = callbacks.onFilterIntent
@@ -168,12 +166,16 @@ fun GymScreen(
             listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0
         }
     }
-    val glass = hazeState != null && StratumThemeAccessor.haze.enabled
-    val glassBottomPadding = if (glass) StratumGlassChrome.bottomBarHeight else 0.dp
+    val glass = rememberGlassActive()
+    val glassBottomPadding = rememberGlassBottomPadding()
+    // Overlay only outside merge mode: the merge top bar stays solid, so its
+    // content (the selection panel) must not slide beneath it.
+    val overlayTopBar = glass && !state.isMergeMode
 
     StratumTabScaffold(
         modifier = modifier,
         snackbarHostState = snackbarHostState,
+        overlayTopBar = overlayTopBar,
         verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
         topBar = {
             if (state.isMergeMode) {
@@ -210,7 +212,6 @@ fun GymScreen(
                             )
                         }
                     },
-                    hazeState = hazeState,
                     scrolled = topBarScrolled,
                 )
             }
@@ -231,18 +232,6 @@ fun GymScreen(
                 modifier = Modifier.weight(1f),
             )
         } else {
-            FilterDropdownRow(
-                modifier = Modifier.padding(top = StratumSpacing.s8),
-                state = sheet,
-                onFilterIntent = onFilterIntent,
-                onMuscleFilterClick = { showMuscleSheet = true },
-            )
-
-            SelectedMusclesRow(
-                selectedMuscles = sheet.selectedMuscles,
-                onMuscleToggled = { muscle -> onFilterIntent(LiftSwapFilterIntent.ToggleMuscle(muscle)) },
-            )
-
             val selectedIds = if (state.isMergeMode) sheet.selectedLiftIds else emptySet()
 
             LazyColumn(
@@ -252,8 +241,29 @@ fun GymScreen(
                         .fillMaxWidth()
                         .weight(1f),
                 verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
-                contentPadding = PaddingValues(bottom = glassBottomPadding + StratumSpacing.s16),
+                contentPadding =
+                    PaddingValues(
+                        top = if (overlayTopBar) StratumGlassChrome.topBarHeight else 0.dp,
+                        bottom = glassBottomPadding + StratumSpacing.s16,
+                    ),
             ) {
+                item {
+                    FilterDropdownRow(
+                        modifier = Modifier.padding(top = StratumSpacing.s8, bottom = StratumSpacing.s4),
+                        state = sheet,
+                        onFilterIntent = onFilterIntent,
+                        onMuscleFilterClick = { showMuscleSheet = true },
+                    )
+                }
+
+                item {
+                    SelectedMusclesRow(
+                        selectedMuscles = sheet.selectedMuscles,
+                        onMuscleToggled = { muscle -> onFilterIntent(LiftSwapFilterIntent.ToggleMuscle(muscle)) },
+                        modifier = Modifier.padding(bottom = StratumSpacing.s4),
+                    )
+                }
+
                 items(sheet.options, key = { option -> option.id }) { option ->
                     GymCatalogRow(
                         option = option,

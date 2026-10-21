@@ -51,17 +51,15 @@ import com.stratum.core.ui.component.StratumSegmentedControl
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTrendChart
 import com.stratum.core.ui.component.StratumVolumeBarChart
-import com.stratum.core.ui.theme.StratumGlassChrome
 import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
-import dev.chrisbanes.haze.HazeState
+import com.stratum.core.ui.theme.rememberGlassBottomPadding
 
 @Composable
 fun DashboardScreen(
     onNavigateToSettings: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: DashboardViewModel = hiltViewModel(),
-    hazeState: HazeState? = null,
 ) {
     // A workout completed in another tab refreshes the weekly tables on finalize; reload on resume
     // so the board never shows a stale snapshot when the user returns to the dashboard.
@@ -89,7 +87,6 @@ fun DashboardScreen(
         onOpenMuscleDailyVolumeGraph = viewModel::openMuscleDailyVolumeGraph,
         onRetry = viewModel::retry,
         modifier = modifier,
-        hazeState = hazeState,
     )
 
     DashboardGraphDetailHost(
@@ -115,16 +112,7 @@ internal fun DashboardScreen(
     onOpenMuscleGraph: (String) -> Unit = {},
     onOpenMuscleDailyVolumeGraph: (String) -> Unit = {},
     onRetry: () -> Unit = {},
-    hazeState: HazeState? = null,
 ) {
-    // Under the shell's glass nav bar (§12.8) the board scrolls beneath it, so the
-    // scrollable content pads its end by the bar height to keep the last cards clear.
-    val glassBottomPadding =
-        if (hazeState != null && StratumThemeAccessor.haze.enabled) {
-            StratumGlassChrome.bottomBarHeight
-        } else {
-            0.dp
-        }
     val healthPagerState = rememberPagerState(
         initialPage = health.selectedPage.coerceIn(0, HEALTH_PAGER_PAGE_COUNT - 1),
         pageCount = { HEALTH_PAGER_PAGE_COUNT },
@@ -154,15 +142,16 @@ internal fun DashboardScreen(
                 health = health,
                 pagerState = healthPagerState,
                 onNavigateToSettings = onNavigateToSettings,
-                glassBottomPadding = glassBottomPadding,
             )
             DashboardUiState.Empty -> EmptyState(
                 health = health,
                 pagerState = healthPagerState,
                 onNavigateToSettings = onNavigateToSettings,
-                glassBottomPadding = glassBottomPadding,
             )
-            DashboardUiState.Error -> StratumFeatureErrorFallback(onRetry = onRetry)
+            DashboardUiState.Error ->
+                Box(modifier = Modifier.padding(bottom = rememberGlassBottomPadding())) {
+                    StratumFeatureErrorFallback(onRetry = onRetry)
+                }
             is DashboardUiState.Loaded -> LoadedContent(
                 state = state,
                 tab = selectedTab,
@@ -173,7 +162,6 @@ internal fun DashboardScreen(
                 onOpenLiftGraph = onOpenLiftGraph,
                 onOpenMuscleGraph = onOpenMuscleGraph,
                 onOpenMuscleDailyVolumeGraph = onOpenMuscleDailyVolumeGraph,
-                glassBottomPadding = glassBottomPadding,
             )
         }
     }
@@ -184,13 +172,11 @@ private fun ColumnScope.LoadingState(
     health: DashboardHealthUiState,
     pagerState: PagerState,
     onNavigateToSettings: () -> Unit,
-    glassBottomPadding: Dp = 0.dp,
 ) {
     DashboardStatusColumn(
         health = health,
         pagerState = pagerState,
         onNavigateToSettings = onNavigateToSettings,
-        glassBottomPadding = glassBottomPadding,
     ) {
         StratumText(
             text = stringResource(R.string.dashboard_loading),
@@ -208,13 +194,11 @@ private fun ColumnScope.EmptyState(
     health: DashboardHealthUiState,
     pagerState: PagerState,
     onNavigateToSettings: () -> Unit,
-    glassBottomPadding: Dp = 0.dp,
 ) {
     DashboardStatusColumn(
         health = health,
         pagerState = pagerState,
         onNavigateToSettings = onNavigateToSettings,
-        glassBottomPadding = glassBottomPadding,
     ) {
         Column(
             modifier = Modifier
@@ -242,7 +226,6 @@ private fun ColumnScope.DashboardStatusColumn(
     health: DashboardHealthUiState,
     pagerState: PagerState,
     onNavigateToSettings: () -> Unit,
-    glassBottomPadding: Dp = 0.dp,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(
@@ -250,7 +233,9 @@ private fun ColumnScope.DashboardStatusColumn(
             .weight(1f)
             .fillMaxWidth()
             .verticalScroll(rememberScrollState())
-            .padding(bottom = glassBottomPadding),
+            // Under the shell's glass nav bar (§12.8) the column scrolls beneath it;
+            // pad the end so the last content clears the bar.
+            .padding(bottom = rememberGlassBottomPadding()),
     ) {
         DashboardHeroBand(
             health = health,
@@ -273,7 +258,6 @@ private fun ColumnScope.LoadedContent(
     onOpenLiftGraph: (String) -> Unit,
     onOpenMuscleGraph: (String) -> Unit,
     onOpenMuscleDailyVolumeGraph: (String) -> Unit,
-    glassBottomPadding: Dp = 0.dp,
 ) {
     val hasItems = when (tab) {
         DashboardBoardTabUi.Muscles -> state.muscles.isNotEmpty()
@@ -296,7 +280,7 @@ private fun ColumnScope.LoadedContent(
         contentPadding = PaddingValues(
             start = BOARD_HORIZONTAL_PADDING_DP.dp,
             end = BOARD_HORIZONTAL_PADDING_DP.dp,
-            bottom = glassBottomPadding + StratumSpacing.s16,
+            bottom = rememberGlassBottomPadding() + StratumSpacing.s16,
         ),
     ) {
         item(

@@ -11,8 +11,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.theme.StratumThemeAccessor
+import com.stratum.core.ui.theme.rememberGlassHazeState
 import dev.chrisbanes.haze.HazeInput
-import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.blur.hazeBlur
 
 /** Gospel indicator fill for the glass bar: accent at 15% (§12.8). */
@@ -22,11 +22,13 @@ private const val GLASS_INDICATOR_ALPHA = 0.15f
  * Bottom navigation bar for primary app destinations. Wraps M3 [NavigationBar] with Stratum
  * semantic colors so active tabs use [StratumThemeAccessor.colors.accent] (UI_DESIGN.md §3).
  *
- * When a [hazeState] is supplied and the theme family's glass is enabled (Tonal — §12.8),
+ * When hosted under a glass shell (a shared HazeState provided via
+ * `LocalStratumHazeState`) and the theme family's glass is enabled (Tonal — §12.8),
  * the bar is ALWAYS glass: transparent container, no tonal elevation, the shared
  * `ShippopotamusHazeBottomBar` style blurring the screen's `hazeSource` content beneath it,
- * and a 32dp pill indicator in accent at 15%. Without a state (previews, tests) or under
- * Neo Brutalist (sanctioned carve-out, §11.3 ruling 1) it keeps the solid container.
+ * and a 32dp pill indicator in accent at 15%. Without a host state (previews, tests)
+ * or under Neo Brutalist (sanctioned carve-out, §11.3 ruling 1) it keeps the solid
+ * container.
  */
 @Composable
 fun StratumNavigationBar(
@@ -34,7 +36,6 @@ fun StratumNavigationBar(
     selectedIndex: Int,
     onItemSelected: (Int) -> Unit,
     modifier: Modifier = Modifier,
-    hazeState: HazeState? = null,
 ) {
     require(items.isNotEmpty()) { "StratumNavigationBar requires at least one item." }
     require(selectedIndex in items.indices) {
@@ -44,7 +45,8 @@ fun StratumNavigationBar(
     val colors = StratumThemeAccessor.colors
     val typography = StratumThemeAccessor.typography
     val haze = StratumThemeAccessor.haze
-    val glass = hazeState != null && haze.enabled
+    val hazeState = rememberGlassHazeState()
+    val glass = hazeState != null
 
     val itemColors =
         if (glass) {
