@@ -1,5 +1,8 @@
 package com.stratum.core.ui.theme
 
+import androidx.compose.ui.unit.dp
+import com.stratum.core.ui.component.GLASS_BACKGROUND_FLOOR_ALPHA
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -14,6 +17,35 @@ import org.junit.jupiter.api.Test
  * objects on every read, or every glass modifier downstream would churn.
  */
 class StratumHazeStylesTest {
+
+    // STR-155: the clearance an overlay screen must give its scrollable is the
+    // status-bar inset PLUS the bar height. The shipped formula omitted the
+    // inset, so content collided with the bar on device; goldens cannot catch
+    // that (Robolectric runs with zero insets), so the formula is pinned here.
+    // The clearance formula's inputs: screens pad scrollables by the bar heights,
+    // so a height change without a padding review collides content with chrome.
+    @Test
+    fun glassChrome_heightsArePinned() {
+        assertEquals(64.dp, StratumGlassChrome.topBarHeight)
+        assertEquals(80.dp, StratumGlassChrome.bottomBarHeight)
+    }
+
+    // STR-155 floor: the glass top bar paints surface-base at this alpha UNDER the
+    // blur so it never goes fully transparent. Must stay translucent (glass reads
+    // as glass) but present (no invisible bar over an empty source).
+    @Test
+    fun topBarGlassFloor_isTranslucentButPresent() {
+        assertEquals(0.65f, GLASS_BACKGROUND_FLOOR_ALPHA)
+        assertTrue(GLASS_BACKGROUND_FLOOR_ALPHA > 0f)
+        assertTrue(GLASS_BACKGROUND_FLOOR_ALPHA < 1f)
+    }
+
+    @Test
+    fun topClearance_addsStatusInsetToBarHeight() {
+        assertEquals(StratumGlassChrome.topBarHeight, StratumGlassChrome.topClearance(0.dp))
+        assertEquals(StratumGlassChrome.topBarHeight + 24.dp, StratumGlassChrome.topClearance(24.dp))
+        assertEquals(StratumGlassChrome.topBarHeight + 35.dp, StratumGlassChrome.topClearance(35.dp))
+    }
 
     @Test
     fun tonal_enablesGlass() {

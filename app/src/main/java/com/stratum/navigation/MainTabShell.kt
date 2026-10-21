@@ -33,7 +33,6 @@ import com.stratum.core.ui.theme.LocalStratumHazeState
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.program.ProgramsRoute
 import com.stratum.feature.program.ui.ProgramsScreenCallbacks
-import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
 
 internal enum class MainTab(val index: Int) {
@@ -126,13 +125,16 @@ fun MainTabShell(
             },
         ) { padding ->
             // Tab screens own their top bar + status-bar inset. Under glass (§12.8) the
-            // shell reserves NO bottom space: tab content is the hazeSource and scrolls
+            // shell reserves NO bottom space: each tab's scrollable is the hazeSource
+            // (see the StratumTabScaffold seam — source on content side only, so the
+            // screen's top bar sits outside its own source subtree) and scrolls
             // beneath the always-glass nav bar; screens pad their own ends instead.
+            // The shell keeps NO source here: wrapping the whole tab (bar included)
+            // would put the top bars inside their own source subtree (STR-155).
             Box(
                 modifier =
                     Modifier
                         .fillMaxSize()
-                        .then(if (glass) Modifier.hazeSource(state = hazeState) else Modifier)
                         .padding(
                             PaddingValues(
                                 bottom = if (glass) 0.dp else padding.calculateBottomPadding(),

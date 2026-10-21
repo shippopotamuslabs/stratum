@@ -78,4 +78,14 @@ internal fun stratumHazeStyles(
 object StratumGlassChrome {
     val topBarHeight: Dp = 64.dp
     val bottomBarHeight: Dp = 80.dp
+
+    /**
+     * Top clearance for content scrolling under a glass top bar (§12.8): the
+     * status-bar inset the bar spans PLUS the bar's own height. Clearing only
+     * [topBarHeight] lets content slide up under the bar by exactly the inset,
+     * colliding with the title and eating taps (STR-155 field report). Pure
+     * function so the formula is unit-pinned: Robolectric goldens run with zero
+     * insets and cannot catch an omission here.
+     */
+    fun topClearance(statusBarTop: Dp): Dp = statusBarTop + topBarHeight
 }
