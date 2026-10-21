@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -146,16 +147,21 @@ class ActiveWorkoutDrawerTest {
             assertEquals("w-1", expandedWorkoutId)
 
             // Delete button opens the discard confirm; confirming fires the
-            // cancel callback and dismisses the dialog. Existence, not
-            // assertIsDisplayed: the confirm is a Compose Dialog, which
-            // lives in its own window whose bounds the display check cannot
-            // validate under Robolectric — the node existing at all is what
-            // pins the delete tap having opened it.
+            // cancel callback and dismisses the dialog. The confirm is a
+            // Compose Dialog — its own window, whose first composition is
+            // driven by a frame the parked clock never advances on its own,
+            // so plain idling races its semantics registration (observed:
+            // one run found it not-displayed, the next found no node at
+            // all). waitUntil* drives the clock while it waits, which is
+            // what makes the dialog steps deterministic here. Existence is
+            // asserted, not displayedness: the dialog window's bounds are
+            // not something the display check can validate under
+            // Robolectric.
             onNodeWithContentDescription("Cancel Workout").performClick()
-            settle()
+            waitUntilExactlyOneExists(hasText("Discard Workout?"), DIALOG_TIMEOUT_MS)
             onNodeWithText("Discard Workout?").assertExists()
             onNodeWithText("Discard").performClick()
-            settle()
+            waitUntilDoesNotExist(hasText("Discard Workout?"), DIALOG_TIMEOUT_MS)
             assertEquals(1, cancelClicks)
             onAllNodesWithText("Discard Workout?").assertCountEquals(0)
         }
@@ -221,3 +227,6 @@ private fun androidx.compose.ui.test.ComposeUiTest.settle() {
     // drawer's 1s elapsed timer into the future.
     waitForIdle()
 }
+
+/** Virtual-time budget for the dialog window to compose/dispose (see the dialog steps). */
+private const val DIALOG_TIMEOUT_MS = 5_000L
