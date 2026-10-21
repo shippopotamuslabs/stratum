@@ -15,7 +15,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material.icons.outlined.NightsStay
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -28,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.component.StratumBottomSheet
+import com.stratum.core.ui.component.StratumDivider
 import com.stratum.core.ui.component.StratumFeatureErrorFallback
 import com.stratum.core.ui.component.StratumPreferenceRow
 import com.stratum.core.ui.component.StratumScaffold
@@ -95,7 +95,7 @@ fun WorkoutHistoryScreen(
                             weekStreak = state.weekStreak,
                             restDaysCount = state.restDaysCount,
                         )
-                        HorizontalDivider(color = StratumThemeAccessor.colors.borderSubtle)
+                        StratumDivider()
                     }
                 },
             )
