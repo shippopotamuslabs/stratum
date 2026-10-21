@@ -70,7 +70,7 @@ fun StratumTabScaffold(
     ) { paddingValues ->
         // Overlay mode (§12.8 glass top bar): content flows UNDER the top bar so the
         // glass has something to blur; the screen's own scrollable then owns the top
-        // clearance (glassTopClearance) as content padding. The source lives on this
+        // clearance (StratumGlassChrome.topClearance) as content padding. The source lives on this
         // content column only — the topBar slot stays outside the source subtree.
         val topPadding = if (overlay) 0.dp else paddingValues.calculateTopPadding()
         val colModifier = Modifier

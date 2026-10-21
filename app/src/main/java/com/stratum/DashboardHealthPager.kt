@@ -54,7 +54,7 @@ import com.stratum.core.ui.component.StratumStackedBarChart
 import com.stratum.core.ui.component.StratumTabScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
-import com.stratum.core.ui.theme.rememberGlassActive
+import com.stratum.core.ui.theme.rememberGlassChromePadding
 import com.stratum.core.ui.component.StratumVolumeBarChart
 import com.stratum.core.ui.component.TrendBandUi
 import com.stratum.core.ui.component.TrendPointUi
@@ -86,16 +86,16 @@ internal fun DashboardHealthScaffold(
     // Overlay host like Programs/Gym (STR-155): the board scrolls under the glass
     // bar via the StratumTabScaffold seam. heroVisible only shades the SOLID bar;
     // under glass the bar treatment is fixed (blur + floor + hairline).
-    val glass = rememberGlassActive()
+    val chrome = rememberGlassChromePadding()
     StratumTabScaffold(
         modifier = modifier,
         horizontalPadding = 0.dp,
-        overlayTopBar = glass,
+        overlayTopBar = chrome.active,
         topBar = {
             StratumTopBar(
                 title = stringResource(R.string.dashboard_title),
                 actions = settingsAction,
-                containerColor = if (!glass && heroVisible) colors.surfaceRaised else colors.surfaceBase,
+                containerColor = if (!chrome.active && heroVisible) colors.surfaceRaised else colors.surfaceBase,
             )
         },
     ) {
