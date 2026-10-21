@@ -39,6 +39,7 @@ data class StratumHazeStyles(
     val topBar: HazeBlurStyle,
     val bottomBar: HazeBlurStyle,
     val sheet: HazeBlurStyle,
+    val dock: HazeBlurStyle,
     val enabled: Boolean,
 )
 
@@ -77,6 +78,23 @@ internal fun stratumHazeStyles(
                     ),
                 )
             },
+        // Dock (STR-162): the sheet construction at BAR depth. A permanent dock
+        // (the active-workout drawer) is not a modal sheet — the Thick tint
+        // (0.90 dark) leaves only ~10% of the blurred content visible and reads
+        // as a flat slab on device. Same blur and base as the sheet, tinted at
+        // the bottom bar's 0.75 so the frosting actually reads.
+        dock =
+            HazeBlurStyle {
+                blurRadius(24.dp)
+                backgroundColor(colors.surfaceInset)
+                colorEffects(
+                    listOf(
+                        HazeColorEffect.tint(
+                            colors.surfaceInset.copy(alpha = DOCK_TINT_ALPHA),
+                        ),
+                    ),
+                )
+            },
         enabled = enabled,
     )
 
@@ -94,6 +112,19 @@ object StratumGlassChrome {
      * insets and cannot catch an omission here.
      */
     fun topClearance(statusBarTop: Dp): Dp = statusBarTop + topBarHeight
+
+    /**
+     * Bottom offset for a drawer/dock overlaid at the shell's bottom edge under
+     * glass (§12.8): the FULL nav footprint — the bar's own height PLUS the
+     * system navigation-bar inset the bar spans — so the docked surface rests
+     * entirely above the nav glass, the position it held pre-glass when the
+     * shell reserved that space. STR-156's first formula (bar height − s12,
+     * inset omitted) left most of the drawer behind the bar on device
+     * (STR-162 field report). Pure function so the formula is unit-pinned:
+     * Robolectric goldens run with zero insets and cannot catch an omission
+     * here (same reasoning as [topClearance]).
+     */
+    fun dockClearance(navigationBarBottom: Dp): Dp = bottomBarHeight + navigationBarBottom
 }
 
 /** §12.8 sheet tint depth (materials-Thick rule): near-opaque, lighter over light surfaces. */
@@ -101,15 +132,27 @@ internal fun sheetTintAlpha(surfaceInset: Color): Float =
     if (surfaceInset.luminance() >= 0.5f) 0.83f else 0.9f
 
 /**
- * §12.8 sheet surface (ShippopotamusHazeSheet) for overlay drawers and docks
- * that live OUTSIDE their hazeSource subtree (e.g. `StratumTabScaffold`'s
- * bottomOverlay slot). The single place the glass-versus-solid choice is
- * made: when glass is inactive this paints [solidColor]; when active it
- * paints the sheet tint as a floor under the [StratumHazeStyles.sheet]
- * blur, clipped to [shape], so the surface never renders fully transparent
- * even where blur is unavailable — the same floor discipline as
- * `StratumTopBar` (STR-155). Callers pass geometry and their solid color,
- * never a glass conditional of their own.
+ * Dock tint depth (STR-162): the bottom bar's 0.75, in both modes. A docked
+ * drawer lives on screen permanently, so it takes bar depth — at the sheet's
+ * near-opaque Thick tint the blur underneath contributes only ~10% and the
+ * surface reads as a flat solid panel on device. Also drives the floor
+ * painted under the dock's blur, following the top-bar precedent that a glass
+ * surface's floor alpha equals its style tint alpha
+ * (GLASS_BACKGROUND_FLOOR_ALPHA == the top bar's 0.65).
+ */
+internal const val DOCK_TINT_ALPHA: Float = 0.75f
+
+/**
+ * §12.8 dock surface for overlay drawers and docks that live OUTSIDE their
+ * hazeSource subtree (e.g. `StratumTabScaffold`'s bottomOverlay slot). The
+ * single place the glass-versus-solid choice is made: when glass is inactive
+ * this paints [solidColor]; when active it paints the dock tint as a floor
+ * under the [StratumHazeStyles.dock] blur, clipped to [shape], so the
+ * surface never renders fully transparent even where blur is unavailable —
+ * the same floor discipline as `StratumTopBar` (STR-155), with the floor at
+ * the dock's tint depth (STR-162: a permanent dock takes the bar-depth
+ * [DOCK_TINT_ALPHA], not the modal sheet's near-opaque Thick). Callers pass
+ * geometry and their solid color, never a glass conditional of their own.
  */
 @Composable
 fun Modifier.stratumDockSurface(
@@ -123,10 +166,10 @@ fun Modifier.stratumDockSurface(
     } else {
         this
             .background(
-                color = colors.surfaceInset.copy(alpha = sheetTintAlpha(colors.surfaceInset)),
+                color = colors.surfaceInset.copy(alpha = DOCK_TINT_ALPHA),
                 shape = shape,
             )
             .clip(shape)
-            .hazeBlur(input = HazeInput.Sources(hazeState), style = StratumThemeAccessor.haze.sheet)
+            .hazeBlur(input = HazeInput.Sources(hazeState), style = StratumThemeAccessor.haze.dock)
     }
 }

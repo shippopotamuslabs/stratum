@@ -3,6 +3,7 @@ package com.stratum.core.ui.theme
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
@@ -57,21 +58,27 @@ data class GlassChromePadding(
 /**
  * Bottom offset for a drawer/dock overlaid at the shell's bottom edge
  * (`StratumTabScaffold`'s bottomOverlay slot): under glass it lifts the
- * surface clear of the shell's nav bar minus one spacing step, so the
- * surface's lower sliver passes beneath the nav glass and it reads as
- * emerging from behind it (STR-156). Zero when glass is inactive — the
+ * surface clear of the shell's FULL nav footprint — the bar height plus the
+ * system navigation-bar inset the glass bar spans — so the whole surface
+ * rests above the nav glass, the position it held pre-glass (STR-162;
+ * STR-156's bar-height-minus-s12 formula omitted the inset and left most
+ * of the drawer behind the bar on device). The inset is read here the same
+ * way [rememberGlassChromePadding] reads the status-bar inset for the top
+ * clearance, and the sum itself is the pure, unit-pinned
+ * [StratumGlassChrome.dockClearance]. Zero when glass is inactive — the
  * slot's own anchor already sits above any in-flow bottom bar there.
- * The formula lives here, next to [rememberGlassChromePadding], so no
- * feature component hand-computes nav clearance.
  */
 @Composable
 fun rememberGlassBottomDockPadding(): Dp {
     val chrome = rememberGlassChromePadding()
-    return if (chrome.active) {
-        (chrome.bottom - StratumSpacing.s12).coerceAtLeast(0.dp)
-    } else {
-        0.dp
+    if (!chrome.active) {
+        return 0.dp
     }
+    val navigationBarBottom =
+        WindowInsets.navigationBars
+            .asPaddingValues()
+            .calculateBottomPadding()
+    return StratumGlassChrome.dockClearance(navigationBarBottom)
 }
 
 /** Single-subscription snapshot of [GlassChromePadding] for this composition. */

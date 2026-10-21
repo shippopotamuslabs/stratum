@@ -350,8 +350,10 @@ private fun ActiveWorkoutBar(
         modifier = modifier
             .fillMaxWidth()
             // Under glass the drawer docks over the nav bar (STR-156): the
-            // canonical dock offset lifts it clear of the nav glass; the 8dp
-            // drop shadow below is deliberate and kept in both modes.
+            // canonical dock offset lifts it clear of the FULL nav footprint
+            // (bar height + system inset, STR-162) so the whole drawer rests
+            // above the nav glass; the 8dp drop shadow below is deliberate
+            // and kept in both modes.
             .padding(bottom = rememberGlassBottomDockPadding())
             .shadow(
                 elevation = 8.dp,
