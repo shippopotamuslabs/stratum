@@ -14,7 +14,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -152,16 +151,20 @@ class ActiveWorkoutDrawerTest {
             // driven by a frame the parked clock never advances on its own,
             // so plain idling races its semantics registration (observed:
             // one run found it not-displayed, the next found no node at
-            // all). waitUntil* drives the clock while it waits, which is
-            // what makes the dialog steps deterministic here. Existence is
-            // asserted, not displayedness: the dialog window's bounds are
-            // not something the display check can validate under
-            // Robolectric.
+            // all). waitUntil (the AppLaunchTest idiom) drives the clock
+            // while it polls, which is what makes the dialog steps
+            // deterministic here. Existence is asserted, not displayedness:
+            // the dialog window's bounds are not something the display
+            // check can validate under Robolectric.
             onNodeWithContentDescription("Cancel Workout").performClick()
-            waitUntilExactlyOneExists(hasText("Discard Workout?"), DIALOG_TIMEOUT_MS)
+            waitUntil(timeoutMillis = DIALOG_TIMEOUT_MS) {
+                onAllNodesWithText("Discard Workout?").fetchSemanticsNodes().isNotEmpty()
+            }
             onNodeWithText("Discard Workout?").assertExists()
             onNodeWithText("Discard").performClick()
-            waitUntilDoesNotExist(hasText("Discard Workout?"), DIALOG_TIMEOUT_MS)
+            waitUntil(timeoutMillis = DIALOG_TIMEOUT_MS) {
+                onAllNodesWithText("Discard Workout?").fetchSemanticsNodes().isEmpty()
+            }
             assertEquals(1, cancelClicks)
             onAllNodesWithText("Discard Workout?").assertCountEquals(0)
         }
