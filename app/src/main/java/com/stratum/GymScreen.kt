@@ -19,6 +19,7 @@ import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material3.Icon
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -54,12 +55,15 @@ import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.UserMessageEffect
 import com.stratum.core.ui.theme.StratumSpacing
+import com.stratum.core.ui.theme.StratumGlassChrome
 import com.stratum.core.ui.theme.StratumThemeAccessor
+import dev.chrisbanes.haze.HazeState
 import com.stratum.liftconfig.LiftConfigBottomSheet
 import com.stratum.liftconfig.MergeTargetBottomSheet
 
 @Composable
 fun GymScreen(
+    hazeState: HazeState? = null,
     onCreateNewLift: () -> Unit,
     onManageEquipment: () -> Unit = {},
     onNavigateToIncrements: (liftId: String, equipmentId: String?) -> Unit = { _, _ -> },
@@ -109,6 +113,7 @@ fun GymScreen(
             ),
         snackbarHostState = snackbarHostState,
         modifier = modifier,
+        hazeState = hazeState,
     )
 }
 
@@ -118,6 +123,7 @@ fun GymScreen(
     callbacks: GymScreenCallbacks,
     modifier: Modifier = Modifier,
     snackbarHostState: SnackbarHostState? = null,
+    hazeState: HazeState? = null,
 ) {
     val onSearchQueryChanged = callbacks.onSearchQueryChanged
     val onFilterIntent = callbacks.onFilterIntent
@@ -154,6 +160,16 @@ fun GymScreen(
             else -> onExitMergeMode()
         }
     }
+
+    // Hoisted so the top bar can read the scroll position (§12.8 glass-when-scrolled).
+    val listState = rememberLazyListState()
+    val topBarScrolled by remember {
+        derivedStateOf {
+            listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0
+        }
+    }
+    val glass = hazeState != null && StratumThemeAccessor.haze.enabled
+    val glassBottomPadding = if (glass) StratumGlassChrome.bottomBarHeight else 0.dp
 
     StratumTabScaffold(
         modifier = modifier,
@@ -194,6 +210,8 @@ fun GymScreen(
                             )
                         }
                     },
+                    hazeState = hazeState,
+                    scrolled = topBarScrolled,
                 )
             }
         },
@@ -225,7 +243,6 @@ fun GymScreen(
                 onMuscleToggled = { muscle -> onFilterIntent(LiftSwapFilterIntent.ToggleMuscle(muscle)) },
             )
 
-            val listState = rememberLazyListState()
             val selectedIds = if (state.isMergeMode) sheet.selectedLiftIds else emptySet()
 
             LazyColumn(
@@ -235,7 +252,7 @@ fun GymScreen(
                         .fillMaxWidth()
                         .weight(1f),
                 verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
-                contentPadding = PaddingValues(bottom = StratumSpacing.s16),
+                contentPadding = PaddingValues(bottom = glassBottomPadding + StratumSpacing.s16),
             ) {
                 items(sheet.options, key = { option -> option.id }) { option ->
                     GymCatalogRow(

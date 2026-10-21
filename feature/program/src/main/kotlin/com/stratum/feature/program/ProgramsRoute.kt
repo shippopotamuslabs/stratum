@@ -13,6 +13,7 @@ import com.stratum.feature.program.ui.CheckInScreen
 import com.stratum.feature.program.ui.ProgramsScreen
 import com.stratum.feature.program.ui.ProgramsScreenCallbacks
 import com.stratum.feature.program.ui.ProgramsUiEvent
+import dev.chrisbanes.haze.HazeState
 
 @Composable
 fun ProgramsRoute(
@@ -23,6 +24,7 @@ fun ProgramsRoute(
     onSwapLiftClick: (workoutId: String, workoutLiftId: String?, liftId: String?, liftName: String?) -> Unit = { _, _, _, _ -> },
     onNavigateToWorkout: (workoutId: String) -> Unit = {},
     isPreviewMode: Boolean = false,
+    hazeState: HazeState? = null,
 ) {
     val state by viewModel.programsUiState.collectAsStateWithLifecycle()
     val activeWorkoutBar by viewModel.activeWorkoutBarState.collectAsStateWithLifecycle()
@@ -91,6 +93,7 @@ fun ProgramsRoute(
             onCheckInBannerClick = checkInViewModel::openCheckIn,
             onCheckInSkipClick = checkInViewModel::skip,
             snackbarHostState = snackbarHostState,
+            hazeState = hazeState,
         )
     }
 }
