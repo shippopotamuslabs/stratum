@@ -42,6 +42,7 @@ import com.stratum.core.ui.component.StratumTextField
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
 import com.stratum.core.ui.component.UserMessageEffect
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import kotlinx.coroutines.flow.collectLatest
 
@@ -163,9 +164,9 @@ fun ManageEquipmentScreen(
                 Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp),
+                    .padding(horizontal = StratumSpacing.s16),
+            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
+            contentPadding = PaddingValues(top = StratumSpacing.s8, bottom = StratumSpacing.s24),
         ) {
             item(key = "equipment-help") {
                 EquipmentHelpCard()
@@ -175,7 +176,7 @@ fun ManageEquipmentScreen(
                     StratumText(
                         text = stringResource(UiR.string.manage_equipment_empty),
                         muted = true,
-                        modifier = Modifier.padding(vertical = 24.dp),
+                        modifier = Modifier.padding(vertical = StratumSpacing.s24),
                     )
                 }
             }
@@ -205,7 +206,7 @@ fun ManageEquipmentScreen(
             },
             title = stringResource(UiR.string.manage_equipment_add),
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12)) {
                 StratumText(
                     text = stringResource(UiR.string.manage_equipment_create_guidance),
                     style = StratumThemeAccessor.typography.sectionLabel,
@@ -236,7 +237,7 @@ fun ManageEquipmentScreen(
             },
             title = stringResource(UiR.string.manage_equipment_copy_title),
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12)) {
                 val sourceName = state.forkingFromName.orEmpty()
                 if (sourceName.isNotBlank()) {
                     StratumText(
@@ -297,8 +298,8 @@ private fun EquipmentHelpCard() {
                     color = colors.borderSubtle,
                     shape = shapes.panel,
                 )
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
         verticalAlignment = Alignment.Top,
     ) {
         Icon(
@@ -379,13 +380,13 @@ internal fun EquipmentRowContent(
                 .background(colors.surfaceRaised, shapes.panel)
                 .border(shapes.borderWidth, colors.borderSubtle, shapes.panel)
                 .clickable(onClick = onClick)
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(
             modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
         ) {
             StratumText(
                 text = row.name,
@@ -393,8 +394,8 @@ internal fun EquipmentRowContent(
             )
             if (row.tierChips.isNotEmpty()) {
                 FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
+                    verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
                 ) {
                     row.tierChips.forEach { chip ->
                         EquipmentTierChip(chip = chip)
@@ -460,7 +461,7 @@ private fun EquipmentTierChip(
             modifier
                 .background(colors.surfaceInset, shapes.chip)
                 .border(shapes.borderWidth, colors.borderSubtle, shapes.chip)
-                .padding(horizontal = 8.dp, vertical = 4.dp),
+                .padding(horizontal = StratumSpacing.s8, vertical = StratumSpacing.s4),
     ) {
         StratumText(
             text = label,

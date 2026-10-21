@@ -36,6 +36,7 @@ import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumSegmentedControl
 import com.stratum.core.ui.component.StratumText
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.onboarding.GymLiftsDraftUi
 import com.stratum.feature.onboarding.GymPresetOptionUi
@@ -69,15 +70,19 @@ fun GymAndLiftOnboardingSetupScreen(
     }
 
     Column(
-        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        modifier =
+            modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
     ) {
         StratumText(
             text = stringResource(FeatureR.string.gym_lifts_intro),
             muted = true,
         )
 
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8)) {
             StratumText(
                 text = stringResource(FeatureR.string.gym_lifts_weight_unit_title),
                 style = StratumThemeAccessor.typography.sectionLabel,
@@ -238,8 +243,8 @@ private fun GymImportCard(
                     color = borderColor,
                     shape = StratumThemeAccessor.shapes.panel,
                 )
-                .padding(12.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(StratumSpacing.s12),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(
@@ -247,7 +252,7 @@ private fun GymImportCard(
                 Modifier
                     .weight(1f)
                     .clickable(enabled = !importActive && !showCompleteBadge, onClick = onClick),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
         ) {
             StratumText(
                 text = title,
@@ -269,7 +274,7 @@ private fun GymImportCard(
                             .clickable(onClick = onLearnMoreClick)
                             .semantics { contentDescription = learnMoreLabel },
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.ic_info),
@@ -379,8 +384,8 @@ private fun GymPresetCard(
                     color = borderColor,
                     shape = StratumThemeAccessor.shapes.panel,
                 )
-                .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+                .padding(StratumSpacing.s12),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
     ) {
         StratumText(
             text = option.label,

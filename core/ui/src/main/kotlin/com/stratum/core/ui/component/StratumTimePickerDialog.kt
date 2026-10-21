@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.stratum.core.ui.R
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import java.time.LocalTime
 
@@ -90,7 +91,7 @@ internal fun StratumTimePickerDialogContent(
     Column(
             modifier =
                 modifier
-                    .padding(horizontal = 24.dp)
+                    .padding(horizontal = StratumSpacing.s24)
                     .wrapContentWidth()
                     .wrapContentHeight()
                     .background(color = colors.surfaceRaised, shape = shapes.panel)
@@ -99,8 +100,8 @@ internal fun StratumTimePickerDialogContent(
                         color = colors.borderStrong,
                         shape = shapes.panel,
                     )
-                    .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                    .padding(StratumSpacing.s24),
+            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             StratumText(
@@ -132,7 +133,7 @@ internal fun StratumTimePickerDialogContent(
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End),
+                horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s12, Alignment.End),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 StratumTextButton(

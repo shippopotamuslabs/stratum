@@ -15,6 +15,7 @@ import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.settings.R
 
@@ -45,8 +46,8 @@ fun ImportDataScreen(
                     .fillMaxSize()
                     .padding(padding)
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+                    .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s16),
+            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
         ) {
             StratumText(
                 text = stringResource(R.string.import_data_description),

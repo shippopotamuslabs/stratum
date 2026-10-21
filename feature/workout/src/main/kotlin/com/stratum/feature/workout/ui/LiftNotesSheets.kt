@@ -25,6 +25,7 @@ import com.stratum.core.ui.component.StratumButton
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumSegmentedControl
 import com.stratum.core.ui.component.StratumText
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
 enum class LiftNoteTab {
@@ -75,7 +76,7 @@ internal fun ManageNotesSummaryContent(
 
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
             StratumIconButton(
@@ -116,7 +117,7 @@ internal fun ManageNotesSummaryContent(
                     Modifier
                         .fillMaxWidth()
                         .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
             ) {
                 preview.take(2).forEach { note ->
                     StratumText(
@@ -167,7 +168,7 @@ internal fun PastSessionNotesSheet(
                     Modifier
                         .fillMaxWidth()
                         .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
             ) {
                 notes.forEach { group ->
                     PastSessionNotesGroup(group)
@@ -181,7 +182,7 @@ internal fun PastSessionNotesSheet(
 private fun PastSessionNotesGroup(group: PastSessionNotesGroupUi) {
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),

@@ -22,6 +22,7 @@ import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTextButton
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.settings.ExportProgramsUiState
 import com.stratum.feature.settings.R
@@ -60,8 +61,8 @@ fun ExportProgramsScreen(
                     .fillMaxSize()
                     .padding(padding)
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                    .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s16),
+            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
         ) {
             StratumText(
                 text = stringResource(R.string.export_programs_description),
@@ -91,7 +92,7 @@ fun ExportProgramsScreen(
                         style = StratumThemeAccessor.typography.sectionLabel,
                         muted = true,
                     )
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s4)) {
                         StratumTextButton(
                             text = stringResource(R.string.export_programs_select_all),
                             onClick = onSelectAll,
@@ -122,7 +123,7 @@ fun ExportProgramsScreen(
                         trailing = {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
                             ) {
                                 if (program.isActive) {
                                     StratumActiveBadge(

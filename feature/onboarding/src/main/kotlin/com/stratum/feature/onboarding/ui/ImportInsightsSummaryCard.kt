@@ -1,3 +1,5 @@
+// STR-142 allowlist: dense 2.dp stacks and dose-table geometry pinned; card padding adopted.
+@file:Suppress("ForbiddenRawSpacingLiteralInUi")
 package com.stratum.feature.onboarding.ui
 
 import androidx.compose.animation.AnimatedVisibility
@@ -42,6 +44,7 @@ import com.stratum.core.ui.component.StratumEffectivenessBars
 import com.stratum.core.ui.component.StratumNumber
 import com.stratum.core.ui.component.StratumSegmentedControl
 import com.stratum.core.ui.component.StratumText
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.domain.importing.LandmarkConfidenceTier
 import com.stratum.domain.importing.UserEffectivenessTier
@@ -83,8 +86,8 @@ fun ImportInsightsSummaryCard(
                     color = StratumThemeAccessor.colors.borderSubtle,
                     shape = StratumThemeAccessor.shapes.panel,
                 )
-                .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(StratumSpacing.s16),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
     ) {
         StratumText(
             text = stringResource(R.string.gym_lifts_import_summary_title),
@@ -110,7 +113,7 @@ fun ImportInsightsSummaryCard(
 private fun ImportSummaryTabContent(
     summary: ImportInsightsSummaryUi,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16)) {
         StratumText(
             text = stringResource(R.string.gym_lifts_import_summary_intro),
             muted = true,
@@ -145,7 +148,7 @@ private fun ImportSummaryTabContent(
             )
         }
 
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8)) {
             StratumText(
                 text = stringResource(R.string.gym_lifts_import_summary_extracted_title),
                 style = StratumThemeAccessor.typography.titleLarge,
@@ -189,7 +192,7 @@ private fun ImportDoseResponseTabContent(
         DoseResponseGuideBottomSheet(onDismiss = { showGuide = false })
     }
 
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12)) {
         if (summary.hasVolumeSnapshots) {
             val learnMoreLabel = stringResource(R.string.gym_lifts_import_summary_landmarks_learn_more)
             StratumText(
@@ -208,7 +211,7 @@ private fun ImportDoseResponseTabContent(
                         .clickable(onClick = { showGuide = true })
                         .semantics { contentDescription = learnMoreLabel },
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
             ) {
                 Icon(
                     painter = painterResource(CoreUiR.drawable.ic_info),
@@ -221,7 +224,7 @@ private fun ImportDoseResponseTabContent(
                     style = StratumThemeAccessor.typography.bodyLarge,
                 )
             }
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(StratumSpacing.s8))
             DoseResponseTableHeader()
             summary.volumeSnapshots.forEach { snapshot ->
                 DoseResponseAccordionRow(
@@ -250,7 +253,7 @@ private fun ImportDoseResponseTabContent(
 private fun ImportEfficacyTabContent(
     summary: ImportInsightsSummaryUi,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12)) {
         if (summary.hasEffectiveLifts) {
             EfficacyTableHeader()
             summary.effectiveLifts.forEach { lift ->
@@ -308,7 +311,7 @@ private fun EfficacyTableRow(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .padding(vertical = 8.dp),
+                .padding(vertical = StratumSpacing.s8),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(
@@ -366,7 +369,7 @@ private fun SummaryStatBlock(
     label: String,
     value: String,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4)) {
         StratumText(text = label, muted = true)
         StratumText(text = value)
     }
@@ -481,13 +484,13 @@ private fun DoseResponseAccordionRow(
                     .heightIn(min = DOSE_ROW_MIN_HEIGHT.dp)
                     .clickable(onClick = onToggle)
                     .semantics { contentDescription = rowA11y }
-                    .padding(vertical = 8.dp),
+                    .padding(vertical = StratumSpacing.s8),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Row(
                 modifier = Modifier.weight(DOSE_MUSCLE_WEIGHT),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
             ) {
                 Icon(
                     painter = painterResource(CoreUiR.drawable.ic_chevron_down),
@@ -554,13 +557,13 @@ private fun DoseResponseExpandedDetail(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .padding(start = 4.dp, end = 4.dp, bottom = 12.dp)
+                .padding(start = StratumSpacing.s4, end = StratumSpacing.s4, bottom = StratumSpacing.s12)
                 .background(
                     color = StratumThemeAccessor.colors.surfaceSunken,
                     shape = StratumThemeAccessor.shapes.panel,
                 )
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s16),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
     ) {
         StratumText(
             text = stringResource(R.string.gym_lifts_import_summary_landmarks_logged_volume_title),
@@ -575,9 +578,9 @@ private fun DoseResponseExpandedDetail(
         }
 
         Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+            modifier = Modifier.fillMaxWidth().padding(top = StratumSpacing.s4),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
         ) {
             StratumConfidenceBars(
                 tier = snapshot.confidenceTier,

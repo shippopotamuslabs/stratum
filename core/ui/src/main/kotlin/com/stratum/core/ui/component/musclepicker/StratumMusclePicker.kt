@@ -17,6 +17,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.component.StratumSegmentedControl
+import com.stratum.core.ui.theme.StratumSpacing
+
 
 /**
  * A tappable front/back body illustration for selecting muscle groups. Tap a region to
@@ -53,7 +55,7 @@ fun StratumMusclePicker(
     Column(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
     ) {
         BodyCanvas(
             regions = regions,

@@ -1,3 +1,5 @@
+// STR-142 allowlist: card padding (20.dp) and 1.dp hairline stack pinned; section gaps adopted.
+@file:Suppress("ForbiddenRawSpacingLiteralInUi")
 package com.stratum
 
 import androidx.compose.foundation.background
@@ -40,6 +42,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.stratum.core.ui.theme.StratumSpacing
 import kotlinx.coroutines.launch
 import com.stratum.core.ui.component.DetailYScale
 import com.stratum.core.ui.component.StratumEdgeToEdgeCard
@@ -118,8 +121,8 @@ internal fun DashboardHealthPager(
     val hasChart = state.hasChart()
     StratumEdgeToEdgeCard(
         modifier = modifier.height(if (hasChart) PagerHeight else EmptyPagerHeight),
-        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        contentPadding = PaddingValues(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
         // Merge with the raised top bar — no Neo iron band at the seam.
         drawEdgeBands = false,
     ) {
@@ -158,7 +161,7 @@ private fun HealthPagerPills(pagerState: PagerState) {
     val scope = rememberCoroutineScope()
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         labels.forEachIndexed { index, label ->
@@ -183,7 +186,7 @@ internal fun DashboardHealthDisabledPrompt(
 ) {
     StratumEdgeToEdgeCard(
         modifier = modifier.clickable(role = Role.Button, onClick = onNavigateToSettings),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 20.dp),
+        contentPadding = PaddingValues(horizontal = StratumSpacing.s16, vertical = 20.dp),
         drawEdgeBands = false,
     ) {
         StratumText(
@@ -249,7 +252,7 @@ private fun HealthPagerPill(
                 onClick = onClick,
             )
             .semantics { this.selected = selected }
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+            .padding(horizontal = StratumSpacing.s12, vertical = StratumSpacing.s8),
     )
 }
 
@@ -333,11 +336,11 @@ private fun RecoveryHealthPage(
     var selection by remember { mutableStateOf(RecoveryTrendSelection.Sleep) }
     Column(
         modifier = if (expandChart) Modifier.fillMaxSize() else Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
         ) {
             RecoveryStatCard(
                 label = stringResource(R.string.dashboard_health_stat_sleep),
@@ -431,7 +434,7 @@ private fun RecoveryStatCard(
                 onClick = onClick,
             )
             .semantics { this.selected = selected }
-            .padding(horizontal = 12.dp, vertical = 3.dp),
+            .padding(horizontal = StratumSpacing.s12, vertical = StratumSpacing.s4),
         verticalArrangement = Arrangement.spacedBy(1.dp),
     ) {
         StratumText(
@@ -520,7 +523,7 @@ private fun WeightTrendLegend() {
     )
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s12, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         entries.forEach { (color, label) ->
@@ -531,7 +534,7 @@ private fun WeightTrendLegend() {
                         .clip(CircleShape)
                         .background(color),
                 )
-                Spacer(modifier = Modifier.width(4.dp))
+                Spacer(modifier = Modifier.width(StratumSpacing.s4))
                 StratumText(
                     text = label,
                     style = StratumThemeAccessor.typography.sectionLabel,
@@ -554,7 +557,7 @@ private fun SleepStageColorKey() {
     )
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s12, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         stages.forEach { stage ->
@@ -565,7 +568,7 @@ private fun SleepStageColorKey() {
                         .clip(CircleShape)
                         .background(stage.color()),
                 )
-                Spacer(modifier = Modifier.width(4.dp))
+                Spacer(modifier = Modifier.width(StratumSpacing.s4))
                 StratumText(
                     text = stringResource(stage.labelRes()),
                     style = StratumThemeAccessor.typography.sectionLabel,
@@ -638,7 +641,7 @@ private fun HealthPageColumn(
 ) {
     Column(
         modifier = if (fillHeight) Modifier.fillMaxSize() else Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
     ) {
         if (hero != null) {
             StratumNumber(text = hero)

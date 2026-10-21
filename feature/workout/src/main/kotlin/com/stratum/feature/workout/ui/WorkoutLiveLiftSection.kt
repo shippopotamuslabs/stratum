@@ -37,6 +37,7 @@ import com.stratum.core.ui.component.workoutlog.ProvideSetLogKeyboardHost
 import com.stratum.core.ui.component.workoutlog.StratumWorkoutLogLiftPanel
 import com.stratum.core.ui.component.workoutlog.WorkoutLogSetRowActions
 import com.stratum.core.ui.component.workoutlog.rememberOverlayDockListBinding
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.workout.R
 
@@ -292,7 +293,7 @@ internal fun LiveLiftSection(
                         onDismissClick = onDismissAdjustEquipmentClick,
                         dismissContentDescription =
                             stringResource(R.string.workout_live_adjust_equipment_dismiss_cd),
-                        modifier = Modifier.padding(horizontal = 16.dp),
+                        modifier = Modifier.padding(horizontal = StratumSpacing.s16),
                     )
                 }
             }

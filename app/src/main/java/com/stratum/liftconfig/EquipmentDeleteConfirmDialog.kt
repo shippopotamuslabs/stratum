@@ -14,6 +14,7 @@ import com.stratum.core.ui.component.StratumButton
 import com.stratum.core.ui.component.StratumConfirmDialog
 import com.stratum.core.ui.component.StratumOutlinedButton
 import com.stratum.core.ui.component.StratumText
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
 /** One replacement candidate in the delete dialog picker (id + display name). */
@@ -93,7 +94,7 @@ internal fun EquipmentDeleteConfirmDialog(
                         Modifier
                             .weight(1f, fill = false)
                             .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
                 ) {
                     candidates.forEach { candidate ->
                         if (candidate.id == selectedReplacementId) {

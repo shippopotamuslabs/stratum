@@ -47,6 +47,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.stratum.core.ui.R
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
 internal enum class SegmentUnit { Hours, Minutes }
@@ -90,7 +91,7 @@ fun StratumDurationStepper(
 
     Row(
         modifier = modifier.fillMaxWidth().height(StepperHeight),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
         verticalAlignment = Alignment.Top,
     ) {
         DurationSegment(
@@ -173,11 +174,11 @@ private fun DurationSegment(
     val shape = StratumThemeAccessor.shapes.panel
     Column(
         modifier = modifier.fillMaxWidth().fillMaxHeight(),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().weight(1f),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
             verticalAlignment = Alignment.Top,
         ) {
             ValueBox(

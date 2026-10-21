@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.component.ProgramGenerationLoadingContent
 import com.stratum.core.ui.component.StratumButton
 import com.stratum.core.ui.component.StratumText
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.onboarding.ImportProgramPhaseUi
 import com.stratum.feature.onboarding.ProgramGenerationProgressUi
@@ -43,8 +44,8 @@ internal fun ImportLoadingContent(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier.fillMaxWidth().padding(top = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        modifier = modifier.fillMaxWidth().padding(top = StratumSpacing.s16),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
     ) {
         StratumText(
             text = stringResource(R.string.onboarding_import_loading),
@@ -85,8 +86,8 @@ internal fun ImportProgramErrorContent(
     val shapes = StratumThemeAccessor.shapes
 
     Column(
-        modifier = modifier.fillMaxWidth().padding(top = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        modifier = modifier.fillMaxWidth().padding(top = StratumSpacing.s8),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
     ) {
         Column(
             modifier = Modifier
@@ -97,8 +98,8 @@ internal fun ImportProgramErrorContent(
                     color = colors.error,
                     shape = shapes.panel,
                 )
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(StratumSpacing.s16),
+            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
         ) {
             StratumText(
                 text = title,

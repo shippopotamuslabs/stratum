@@ -23,6 +23,7 @@ import com.stratum.core.ui.component.StratumMuscleVolumeRow
 import com.stratum.core.ui.component.StratumStatCard
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumVolumeBodyTier
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.history.R
 
@@ -44,16 +45,16 @@ internal fun SessionSummaryContent(
 ) {
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4)) {
             StratumText(
                 text = workoutName,
                 style = StratumThemeAccessor.typography.titleLarge,
             )
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
             ) {
                 StratumText(
                     text = completedAtLabel,
@@ -105,7 +106,7 @@ internal fun SessionStatsRow(
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
     ) {
         StratumStatCard(
             label = stringResource(R.string.history_session_duration),
@@ -117,7 +118,7 @@ internal fun SessionStatsRow(
                     tint = StratumThemeAccessor.colors.textMuted,
                 )
             },
-            contentPadding = 12.dp,
+            contentPadding = StratumSpacing.s12,
             valueStyle = StratumThemeAccessor.typography.titleMedium,
             modifier = Modifier.weight(1f),
         )
@@ -131,7 +132,7 @@ internal fun SessionStatsRow(
                     tint = StratumThemeAccessor.colors.textMuted,
                 )
             },
-            contentPadding = 12.dp,
+            contentPadding = StratumSpacing.s12,
             valueStyle = StratumThemeAccessor.typography.titleMedium,
             modifier = Modifier.weight(1f),
         )
@@ -145,7 +146,7 @@ internal fun SessionStatsRow(
                     tint = StratumThemeAccessor.colors.prHighlight,
                 )
             },
-            contentPadding = 12.dp,
+            contentPadding = StratumSpacing.s12,
             valueStyle = StratumThemeAccessor.typography.titleMedium,
             modifier = Modifier.weight(1f),
         )

@@ -20,6 +20,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.core.ui.theme.stratumButtonHardShadow
 
@@ -54,7 +55,7 @@ fun StratumGoogleSignInButton(
                 .background(backgroundColor, shapes.button)
                 .border(shapes.borderWidth, borderColor, shapes.button)
                 .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
-                .padding(horizontal = 12.dp, vertical = 12.dp),
+                .padding(horizontal = StratumSpacing.s12, vertical = StratumSpacing.s12),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -67,7 +68,7 @@ fun StratumGoogleSignInButton(
         Text(
             text = text,
             color = textColor,
-            modifier = Modifier.padding(start = 10.dp),
+            modifier = Modifier.padding(start = StratumSpacing.s8),
         )
     }
 }

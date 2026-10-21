@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.component.StratumText
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.history.ui.HistoryMiniMonthUi
 import com.stratum.feature.history.ui.HistoryYearUi
@@ -25,8 +26,8 @@ internal fun HistoryYearBlock(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = modifier.fillMaxWidth().padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
     ) {
         StratumText(
             text = year.year.toString(),
@@ -35,7 +36,7 @@ internal fun HistoryYearBlock(
         year.months.chunked(3).forEach { rowMonths ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
             ) {
                 rowMonths.forEach { mini ->
                     MiniMonthHeatmap(
@@ -74,7 +75,7 @@ internal fun MiniMonthHeatmap(
                     Modifier
                 },
             ),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
     ) {
         StratumText(
             text = mini.yearMonth.month.getDisplayName(TextStyle.SHORT, locale),

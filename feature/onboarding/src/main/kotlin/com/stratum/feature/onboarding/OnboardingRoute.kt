@@ -37,6 +37,7 @@ import com.stratum.core.ui.importing.ImportWeightUnitPrompt
 import com.stratum.core.ui.importing.ImportWeightUnitUi
 import com.stratum.core.ui.importing.loadImportFile
 import com.stratum.core.ui.importing.loadImportFiles
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.domain.onboarding.OnboardingPath
 import com.stratum.domain.program.importing.ProgramTemplateImportLimits
@@ -301,8 +302,8 @@ private fun OnboardingWizard(
 @Composable
 private fun Stepper(steps: List<WizardStepUi>, currentStepId: String) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = StratumSpacing.s12, vertical = StratumSpacing.s8),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
     ) {
         steps.forEach { entry ->
             val active = entry.id == currentStepId
@@ -328,7 +329,7 @@ private fun WizardControls(
     onNext: () -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(12.dp),
+        modifier = Modifier.fillMaxWidth().padding(StratumSpacing.s12),
         horizontalArrangement = Arrangement.End,
         verticalAlignment = Alignment.CenterVertically,
     ) {

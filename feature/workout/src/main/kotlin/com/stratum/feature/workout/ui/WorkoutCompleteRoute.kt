@@ -31,6 +31,7 @@ import com.stratum.core.ui.component.LocalUiRenderErrorReporter
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.UserMessageEffect
 import com.stratum.core.ui.share.shareWorkoutImage
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.feature.workout.R
 import com.stratum.feature.workout.WorkoutCompleteViewModel
 import kotlin.coroutines.cancellation.CancellationException
@@ -98,12 +99,12 @@ fun WorkoutCompleteRoute(
             }
         is WorkoutCompleteUiState.Error ->
             Column(
-                modifier = Modifier.fillMaxSize().padding(16.dp),
+                modifier = Modifier.fillMaxSize().padding(StratumSpacing.s16),
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 StratumText(text = "Failed to load workout summary.")
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(StratumSpacing.s16))
             }
         is WorkoutCompleteUiState.Loaded -> {
             UserMessageEffect(

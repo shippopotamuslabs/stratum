@@ -31,6 +31,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R as CoreUiR
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumTheme
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
@@ -69,7 +70,7 @@ fun StratumReorderListScreen(
                         text = stringResource(CoreUiR.string.reorder_list_cancel),
                         onClick = onCancel,
                         contentColor = StratumThemeAccessor.colors.error,
-                        modifier = Modifier.padding(start = 16.dp),
+                        modifier = Modifier.padding(start = StratumSpacing.s16),
                     )
                 },
                 actions = {
@@ -78,7 +79,7 @@ fun StratumReorderListScreen(
                         onClick = onConfirm,
                         enabled = confirmEnabled,
                         contentColor = StratumThemeAccessor.colors.accent,
-                        modifier = Modifier.padding(end = 16.dp),
+                        modifier = Modifier.padding(end = StratumSpacing.s16),
                     )
                 },
             )
@@ -120,8 +121,8 @@ private fun StratumReorderList(
 
     LazyColumn(
         modifier = modifier,
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        contentPadding = PaddingValues(horizontal = StratumSpacing.s12, vertical = StratumSpacing.s16),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
     ) {
         itemsIndexed(items, key = { _, item -> item.id }) { index, item ->
             val isDragging = index == draggedIndex
@@ -143,7 +144,7 @@ private fun StratumReorderList(
                             color = StratumThemeAccessor.colors.borderSubtle,
                             shape = StratumThemeAccessor.shapes.panel,
                         )
-                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                        .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s16),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {

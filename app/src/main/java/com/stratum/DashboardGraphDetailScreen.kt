@@ -1,3 +1,5 @@
+// STR-142 allowlist: unit-label baseline nudge (2.dp) pinned; section gaps adopted.
+@file:Suppress("ForbiddenRawSpacingLiteralInUi")
 package com.stratum
 
 import androidx.compose.foundation.background
@@ -42,6 +44,7 @@ import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
 /**
@@ -99,7 +102,7 @@ private fun GraphDetailLoading(onDismiss: () -> Unit) {
             textAlign = TextAlign.Center,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 48.dp),
+                .padding(vertical = StratumSpacing.s48),
         )
     }
 }
@@ -116,7 +119,7 @@ private fun GraphDetailEmpty(onDismiss: () -> Unit) {
             textAlign = TextAlign.Center,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 48.dp, horizontal = 16.dp),
+                .padding(vertical = StratumSpacing.s48, horizontal = StratumSpacing.s16),
         )
     }
 }
@@ -170,7 +173,7 @@ private fun GraphDetailReady(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = StratumSpacing.s16),
         ) {
             // Daily volume has a single Volume mode — hide the mode row to avoid a lone tab.
             if (state.modes.size > 1) {
@@ -180,10 +183,10 @@ private fun GraphDetailReady(
                     kind = state.kind,
                     onSelect = onSelectMode,
                 )
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(StratumSpacing.s16))
             }
             StatsRow(stats = state.stats)
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(StratumSpacing.s12))
             val primaryColor = colorForRole(state.primaryColorRole)
             val secondaryColor = state.secondaryColorRole?.let { colorForRole(it) }
             StratumDetailChart(
@@ -201,7 +204,7 @@ private fun GraphDetailReady(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .padding(vertical = 8.dp),
+                    .padding(vertical = StratumSpacing.s8),
             )
             TimeRangePicker(
                 ranges = state.ranges,
@@ -209,7 +212,7 @@ private fun GraphDetailReady(
                 onSelect = onSelectRange,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 16.dp, top = 8.dp),
+                    .padding(bottom = StratumSpacing.s16, top = StratumSpacing.s8),
             )
         }
     }
@@ -231,7 +234,7 @@ private fun ModeTabRow(
     onSelect: (GraphViewMode) -> Unit,
 ) {
     Row(
-        horizontalArrangement = Arrangement.spacedBy(24.dp),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s24),
         modifier = Modifier.fillMaxWidth(),
     ) {
         modes.forEach { mode ->
@@ -282,7 +285,7 @@ private fun UnderlineTab(
                 onClick = onClick,
             )
             .semantics { this.selected = selected }
-            .padding(vertical = 6.dp),
+            .padding(vertical = StratumSpacing.s8),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         BasicText(
@@ -290,7 +293,7 @@ private fun UnderlineTab(
             style = style,
             onTextLayout = { result -> textWidthPx = result.size.width.toFloat() },
         )
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(StratumSpacing.s4))
         Box(
             modifier = Modifier.width(underlineWidth),
             contentAlignment = Alignment.Center,
@@ -312,7 +315,7 @@ private fun UnderlineTab(
 private fun StatsRow(stats: GraphStatsUi) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(32.dp),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s32),
         verticalAlignment = Alignment.Top,
     ) {
         StatBlock(
@@ -367,7 +370,7 @@ private fun StatBlock(
                 style = StratumThemeAccessor.typography.dataLarge,
             )
             if (unit.isNotEmpty()) {
-                Spacer(modifier = Modifier.width(4.dp))
+                Spacer(modifier = Modifier.width(StratumSpacing.s4))
                 StratumText(
                     text = unit,
                     muted = true,
@@ -401,7 +404,7 @@ private fun TimeRangePicker(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Row(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             ranges.forEach { range ->
@@ -425,7 +428,7 @@ private fun TimeRangePicker(
                             onClick = { onSelect(range) },
                         )
                         .semantics { this.selected = isSelected }
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                        .padding(horizontal = StratumSpacing.s12, vertical = StratumSpacing.s8),
                     contentAlignment = Alignment.Center,
                 ) {
                     androidx.compose.material3.Text(

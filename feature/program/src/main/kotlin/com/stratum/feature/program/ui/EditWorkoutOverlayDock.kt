@@ -43,6 +43,7 @@ import com.stratum.core.ui.component.workoutlog.parseRepRangeDraft
 import com.stratum.core.ui.component.workoutlog.setLogKeyboardContentHeight
 import com.stratum.core.ui.component.workoutlog.toggleRepRangeField
 import com.stratum.core.ui.component.workoutlog.validateRepRangeDrafts
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.domain.program.ProgressionRepRangePolicy
 import com.stratum.feature.program.R
@@ -461,8 +462,8 @@ private fun EditWorkoutRestDock(host: EditWorkoutDockHostState) {
         modifier =
             Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
     ) {
         Box(
             modifier = Modifier.fillMaxWidth(),

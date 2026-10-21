@@ -32,6 +32,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.component.StratumText
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumTheme
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.program.CreateProgramDayUi
@@ -72,7 +73,7 @@ internal fun DayTabsRow(
                 Modifier
                     .fillMaxSize()
                     .horizontalScroll(scrollState)
-                    .padding(horizontal = 4.dp),
+                    .padding(horizontal = StratumSpacing.s4),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             days.forEach { day ->
@@ -88,7 +89,7 @@ internal fun DayTabsRow(
                         Modifier
                             .fillMaxHeight()
                             .clickable(onClick = onAddDay)
-                            .padding(horizontal = 12.dp),
+                            .padding(horizontal = StratumSpacing.s12),
                     contentAlignment = Alignment.Center,
                 ) {
                     StratumText(
@@ -132,7 +133,7 @@ private fun DayTab(
                         )
                     }
                 }
-                .padding(horizontal = 12.dp),
+                .padding(horizontal = StratumSpacing.s12),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -180,7 +181,7 @@ private fun DayTabsRowPreviewContent() {
             Modifier
                 .fillMaxWidth()
                 .background(StratumThemeAccessor.colors.surfaceBase)
-                .padding(vertical = 8.dp),
+                .padding(vertical = StratumSpacing.s8),
     ) {
         DayTabsRow(
             days = days,

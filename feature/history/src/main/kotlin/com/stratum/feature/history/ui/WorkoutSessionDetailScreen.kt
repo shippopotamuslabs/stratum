@@ -42,6 +42,7 @@ import com.stratum.core.ui.component.StratumTopBarBackButton
 import com.stratum.core.ui.share.SHARE_CAPTURE_DEFAULT_PIXEL_SIZE
 import com.stratum.core.ui.share.ShareCaptureHost
 import com.stratum.core.ui.share.WorkoutShareCard
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.history.R
 import java.time.LocalDate
@@ -143,7 +144,7 @@ fun WorkoutSessionDetailScreen(
                                 .fillMaxSize()
                                 .padding(padding)
                                 .verticalScroll(rememberScrollState())
-                                .padding(horizontal = 16.dp, vertical = 16.dp),
+                                .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s16),
                     )
             }
         }
@@ -193,7 +194,7 @@ private fun SessionDetailContent(
 ) {
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
     ) {
         SessionSummaryContent(
             workoutName = state.workoutName,
@@ -246,8 +247,8 @@ private fun HistoryLiftBlock(lift: HistoryLiftUi) {
                     color = StratumThemeAccessor.colors.borderSubtle,
                     shape = panelShape,
                 )
-                .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+                .padding(StratumSpacing.s16),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
     ) {
         StratumText(
             text = lift.liftName,
@@ -266,7 +267,7 @@ private fun HistoryLiftBlock(lift: HistoryLiftUi) {
             ) {
                 Row(
                     modifier = Modifier.weight(1f),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     StratumNumber(

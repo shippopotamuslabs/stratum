@@ -22,6 +22,7 @@ import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.history.R
 
@@ -79,8 +80,8 @@ fun HistoryDaySessionsScreen(
                         Modifier
                             .fillMaxSize()
                             .padding(padding)
-                            .padding(horizontal = 16.dp, vertical = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                            .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s16),
+                    verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
                 ) {
                     items(
                         items = state.sessions,
@@ -121,10 +122,10 @@ private fun HistoryDaySessionCard(
                     shape = panelShape,
                 )
                 .clickable(role = Role.Button, onClick = onClick)
-                .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(StratumSpacing.s16),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4)) {
             StratumText(
                 text = session.workoutName,
                 style = StratumThemeAccessor.typography.titleLarge,

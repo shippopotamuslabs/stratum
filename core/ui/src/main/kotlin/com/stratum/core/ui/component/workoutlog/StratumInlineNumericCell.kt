@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import android.view.inputmethod.InputMethodManager
 import com.stratum.core.ui.component.StratumText
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
@@ -131,7 +132,7 @@ fun StratumInlineNumericCell(
                 color = borderColor,
                 shape = StratumThemeAccessor.shapes.chip,
             )
-            .padding(horizontal = 4.dp)
+            .padding(horizontal = StratumSpacing.s4)
 
     if (useCustomKeyboard) {
         if (isActive && enabled) {

@@ -24,6 +24,7 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.StratumText
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
 /**
@@ -142,7 +143,7 @@ private fun SplitHalf(
                         color = colors.accent.copy(alpha = 0.35f),
                         shape = StratumThemeAccessor.shapes.chip,
                     )
-                    .padding(horizontal = 4.dp)
+                    .padding(horizontal = StratumSpacing.s4)
             } else {
                 Modifier
             }

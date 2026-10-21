@@ -1,3 +1,5 @@
+// STR-142 allowlist: section rhythm (20.dp) pinned.
+@file:Suppress("ForbiddenRawSpacingLiteralInUi")
 package com.stratum.feature.program.ui
 
 import androidx.activity.compose.BackHandler
@@ -35,6 +37,7 @@ import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.program.R
 
@@ -87,7 +90,7 @@ fun CheckInScreen(
                         .fillMaxWidth()
                         .background(StratumThemeAccessor.colors.surfaceBase)
                         .navigationBarsPadding()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                        .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12),
             ) {
                 StratumButton(
                     text =
@@ -113,7 +116,7 @@ fun CheckInScreen(
                     .fillMaxSize()
                     .padding(padding)
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 16.dp),
+                    .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s16),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             when (state.phase) {
@@ -170,7 +173,7 @@ internal fun CheckInSwapPickerContent(
             Modifier
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
     ) {
         swapCandidates.forEach { candidate ->
             SwapCandidateRow(
@@ -190,8 +193,8 @@ private fun CheckInStepIndicator(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(horizontal = StratumSpacing.s12, vertical = StratumSpacing.s8),
+        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
     ) {
         repeat(stepCount) { index ->
             Box(
@@ -227,8 +230,8 @@ private fun SubjectiveStep(
             description = stringResource(R.string.checkin_overall_recovery_hint),
         )
         FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
+            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
         ) {
             systemicRecoveryOptions().forEach { signal ->
                 StratumFilterChip(
@@ -244,8 +247,8 @@ private fun SubjectiveStep(
             description = stringResource(R.string.checkin_localized_question_hint),
         )
         FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
+            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
         ) {
             StratumFilterChip(
                 label = stringResource(R.string.checkin_localized_no),
@@ -265,8 +268,8 @@ private fun SubjectiveStep(
                 description = stringResource(R.string.checkin_pick_muscles_hint),
             )
             FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
+                verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
             ) {
                 state.availableMuscles.forEach { muscle ->
                     StratumFilterChip(
@@ -278,14 +281,14 @@ private fun SubjectiveStep(
             }
 
             state.muscleSignals.forEach { row ->
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8)) {
                     StratumText(
                         text = row.displayName,
                         style = StratumThemeAccessor.typography.titleMedium,
                     )
                     FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
+                        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
                     ) {
                         muscleIssueOptions().forEach { signal ->
                             StratumFilterChip(
@@ -309,7 +312,7 @@ private fun RecommendationsStep(
     onToggleAccepted: (id: String, accepted: Boolean) -> Unit,
     onOpenSwapPicker: (id: String) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12)) {
         if (state.recommendations.isEmpty()) {
             StratumText(
                 text = stringResource(R.string.checkin_no_changes),
@@ -355,12 +358,12 @@ private fun RecommendationCard(
                     color = if (selected) colors.surfaceRaised else colors.surfaceSunken,
                     shape = shapes.panel,
                 )
-                .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+                .padding(StratumSpacing.s12),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             StratumText(
@@ -411,7 +414,7 @@ private fun SectionHeading(
     title: String,
     description: String,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4)) {
         StratumText(
             text = title,
             style = StratumThemeAccessor.typography.titleMedium,
@@ -445,7 +448,7 @@ private fun SwapCandidateRow(
                     shape = shapes.panel,
                 )
                 .clickable(onClick = onClick)
-                .padding(12.dp),
+                .padding(StratumSpacing.s12),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         StratumText(
