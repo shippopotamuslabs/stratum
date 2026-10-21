@@ -1,5 +1,6 @@
 package com.stratum.feature.program.ui
 
+import android.os.Looper
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.Icons
@@ -33,6 +34,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
+import org.robolectric.Shadows.shadowOf
 import tech.apter.junit.jupiter.robolectric.RobolectricExtension
 
 /**
@@ -147,22 +149,21 @@ class ActiveWorkoutDrawerTest {
 
             // Delete button opens the discard confirm; confirming fires the
             // cancel callback and dismisses the dialog. The confirm is a
-            // Compose Dialog — its own window, whose first composition is
-            // driven by a frame the parked clock never advances on its own,
-            // so plain idling races its semantics registration (observed:
-            // one run found it not-displayed, the next found no node at
-            // all). waitUntil (the AppLaunchTest idiom) drives the clock
-            // while it polls, which is what makes the dialog steps
-            // deterministic here. Existence is asserted, not displayedness:
-            // the dialog window's bounds are not something the display
-            // check can validate under Robolectric.
+            // Compose Dialog — its own window, whose attach and teardown
+            // under Robolectric sit in the paused main looper: neither
+            // waitForIdle nor the virtual clock's polling pumps it (runs
+            // variously found the dialog not-displayed, absent, or still
+            // present after confirming). pumpUntil drives the looper
+            // explicitly and is deterministic here. Existence is asserted,
+            // not displayedness: the dialog window's bounds are not
+            // something the display check can validate under Robolectric.
             onNodeWithContentDescription("Cancel Workout").performClick()
-            waitUntil(timeoutMillis = DIALOG_TIMEOUT_MS) {
+            pumpUntil {
                 onAllNodesWithText("Discard Workout?").fetchSemanticsNodes().isNotEmpty()
             }
             onNodeWithText("Discard Workout?").assertExists()
             onNodeWithText("Discard").performClick()
-            waitUntil(timeoutMillis = DIALOG_TIMEOUT_MS) {
+            pumpUntil {
                 onAllNodesWithText("Discard Workout?").fetchSemanticsNodes().isEmpty()
             }
             assertEquals(1, cancelClicks)
@@ -231,5 +232,21 @@ private fun androidx.compose.ui.test.ComposeUiTest.settle() {
     waitForIdle()
 }
 
-/** Virtual-time budget for the dialog window to compose/dispose (see the dialog steps). */
-private const val DIALOG_TIMEOUT_MS = 5_000L
+@OptIn(ExperimentalTestApi::class)
+private fun androidx.compose.ui.test.ComposeUiTest.pumpUntil(condition: () -> Boolean) {
+    // See the dialog steps: a Dialog window's semantics enter and leave
+    // the tree only when Robolectric's paused main looper runs, so each
+    // pump advances one frame and idles the looper before re-checking.
+    // One pump sufficed in every observed run; the bound is headroom for
+    // a loaded runner.
+    repeat(DIALOG_PUMP_FRAMES) {
+        if (condition()) return
+        mainClock.advanceTimeByFrame()
+        shadowOf(Looper.getMainLooper()).idle()
+        waitForIdle()
+    }
+    assertTrue(condition(), "dialog window did not reach the expected state")
+}
+
+/** Frame pumps a dialog step may take before failing (see [pumpUntil]). */
+private const val DIALOG_PUMP_FRAMES = 100
