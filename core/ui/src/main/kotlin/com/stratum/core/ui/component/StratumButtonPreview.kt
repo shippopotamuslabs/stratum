@@ -8,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
+import com.stratum.core.ui.theme.StratumButtonVariant
 import com.stratum.core.ui.theme.StratumTheme
 import com.stratum.core.ui.theme.StratumThemeId
 
@@ -36,6 +37,41 @@ internal fun ButtonPreviewContent(
 ) {
     StratumTheme(themeId = family, darkTheme = darkTheme) {
         ButtonPreviewBody()
+    }
+}
+
+@PreviewLightDark
+@Composable
+private fun StratumButtonVariantsTonalPreview() {
+    ButtonVariantsPreviewContent()
+}
+
+/** §12.7 shape languages side by side (Tonal): pill default, square, square large. */
+@Composable
+internal fun ButtonVariantsPreviewContent(darkTheme: Boolean? = null) {
+    StratumTheme(themeId = StratumThemeId.Tonal, darkTheme = darkTheme) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            StratumButton(
+                text = "Pill (default)",
+                onClick = {},
+                modifier = Modifier.fillMaxWidth(),
+            )
+            StratumButton(
+                text = "Square",
+                onClick = {},
+                modifier = Modifier.fillMaxWidth(),
+                variant = StratumButtonVariant.Square,
+            )
+            StratumButton(
+                text = "Square large",
+                onClick = {},
+                modifier = Modifier.fillMaxWidth(),
+                variant = StratumButtonVariant.SquareLarge,
+            )
+        }
     }
 }
 

@@ -42,6 +42,33 @@ data class StratumShapes(
     val chip: Shape get() = RoundedCornerShape(corners.small)
     val chipCorner: Dp get() = corners.small
 
+    // Button Shape Gospel (§12.7): the square variant and the pressed shape,
+    // derived from the canonical scale like panel/chip above. Tonal resolves
+    // them to the gospel tokens (12.dp medium / 16.dp large / 12.dp pressed);
+    // Neo's flat 4.dp scale collapses every derivation onto its carve-out
+    // geometry, so Neo buttons never see a gospel radius.
+    val buttonSquare: Shape get() = RoundedCornerShape(corners.medium)
+    val buttonSquareCorner: Dp get() = corners.medium
+    val buttonSquareLarge: Shape get() = RoundedCornerShape(corners.large)
+    val buttonSquareLargeCorner: Dp get() = corners.large
+    val buttonPressed: Shape get() = RoundedCornerShape(corners.medium)
+    val buttonPressedCorner: Dp get() = corners.medium
+
+    /**
+     * Resting corner for [variant]'s press morph (§12.7) — the theme layer
+     * owns this family knowledge so components never probe shape identity.
+     * The pill rests on [ShippopotamusPillRestCorner] when this family's
+     * button IS the pill; otherwise it rests on the pressed corner. Under
+     * Neo every value involved is 4.dp, so the morph is constant there.
+     */
+    fun buttonRestCorner(variant: StratumButtonVariant): Dp =
+        when (variant) {
+            StratumButtonVariant.Pill ->
+                if (button == CircleShape) ShippopotamusPillRestCorner else buttonPressedCorner
+            StratumButtonVariant.Square -> buttonSquareCorner
+            StratumButtonVariant.SquareLarge -> buttonSquareLargeCorner
+        }
+
     val extraSmall: RoundedCornerShape get() = RoundedCornerShape(corners.extraSmall)
     val extraSmallCorner: Dp get() = corners.extraSmall
     val small: RoundedCornerShape get() = RoundedCornerShape(corners.small)
@@ -185,8 +212,8 @@ internal val DefaultStratumTypography =
 
 internal fun tonalShapes(): StratumShapes =
     StratumShapes(
-        // Gospel: Material-family buttons are full pill (§12.3).
-        button = CircleShape,
+        // Gospel: Material-family buttons are full pill (§12.3 / §12.7 token).
+        button = ShippopotamusButtonShape,
         borderWidth = 1.dp,
         // Gospel scale (§12.2 / §12.4): extraSmall 4, small 8, medium 12,
         // large 16, extraLarge 28.
