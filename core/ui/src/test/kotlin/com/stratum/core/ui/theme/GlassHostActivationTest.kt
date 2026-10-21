@@ -105,10 +105,12 @@ class GlassHostActivationTest {
     }
 
     @Composable
-    private fun observeReads(): Observed =
-        Observed(
-            active = rememberGlassActive(),
-            topPadding = rememberGlassTopPadding(),
-            bottomPadding = rememberGlassBottomPadding(),
+    private fun observeReads(): Observed {
+        val chrome = rememberGlassChromePadding()
+        return Observed(
+            active = chrome.active,
+            topPadding = chrome.top,
+            bottomPadding = chrome.bottom,
         )
+    }
 }

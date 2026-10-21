@@ -41,10 +41,10 @@ class StratumHazeStylesTest {
     }
 
     @Test
-    fun glassTopClearance_addsStatusInsetToBarHeight() {
-        assertEquals(StratumGlassChrome.topBarHeight, glassTopClearance(0.dp))
-        assertEquals(StratumGlassChrome.topBarHeight + 24.dp, glassTopClearance(24.dp))
-        assertEquals(StratumGlassChrome.topBarHeight + 35.dp, glassTopClearance(35.dp))
+    fun topClearance_addsStatusInsetToBarHeight() {
+        assertEquals(StratumGlassChrome.topBarHeight, StratumGlassChrome.topClearance(0.dp))
+        assertEquals(StratumGlassChrome.topBarHeight + 24.dp, StratumGlassChrome.topClearance(24.dp))
+        assertEquals(StratumGlassChrome.topBarHeight + 35.dp, StratumGlassChrome.topClearance(35.dp))
     }
 
     @Test
