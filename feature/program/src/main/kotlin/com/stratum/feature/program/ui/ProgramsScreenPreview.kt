@@ -1,16 +1,30 @@
 package com.stratum.feature.program.ui
 
 import com.stratum.core.ui.component.StratumMuscleVolumeCardState
+import com.stratum.core.ui.component.StratumNavigationBar
+import com.stratum.core.ui.component.StratumNavigationBarItem
+import com.stratum.core.ui.component.StratumScaffold
+import com.stratum.core.ui.theme.LocalStratumHazeState
 import com.stratum.core.ui.theme.StratumTheme
 import com.stratum.core.ui.theme.StratumThemeId
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.feature.program.ui.ScheduleItemState.RestDay
 import com.stratum.feature.program.ui.ScheduleItemState.Workout
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ListAlt
+import androidx.compose.material.icons.automirrored.outlined.ListAlt
+import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.outlined.Dashboard
+import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -19,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
+import dev.chrisbanes.haze.rememberHazeState
 
 @PreviewLightDark
 @Composable
@@ -59,7 +74,8 @@ internal fun ProgramsLoadedPreviewContent(
  * STR-156 regression pin: the minimized-workout drawer had NO screenshot
  * coverage, which is how the glass shell hid it behind the nav bar unnoticed.
  * Solid host here (no glass state in previews) — this pins the drawer's
- * presence and legacy geometry; the glazed treatment is device-verified.
+ * presence and legacy geometry; the glazed treatment is pinned by
+ * [ProgramsActiveWorkoutGlassPreviewContent] below.
  */
 @Composable
 internal fun ProgramsActiveWorkoutPreviewContent(
@@ -77,6 +93,65 @@ internal fun ProgramsActiveWorkoutPreviewContent(
                     startedAtEpochMilli = startedAt,
                 ),
         )
+    }
+}
+
+/**
+ * STR-162 screenshot pin: the active-workout drawer under a REAL glass host,
+ * replicating `MainTabShell`'s hosting (shared HazeState provided, glass nav
+ * bar in the shell scaffold's bottom slot, NO bottom space reserved for the
+ * content). This is the composition that hid the drawer (STR-156) and then
+ * under-lifted it (STR-162): the golden must show the FULL drawer — name,
+ * timer, next lift — resting above the nav bar, glazed, with the loaded
+ * program scrolling beneath both glass surfaces.
+ */
+@Composable
+internal fun ProgramsActiveWorkoutGlassPreviewContent(darkTheme: Boolean? = null) {
+    StratumTheme(themeId = StratumThemeId.Tonal, darkTheme = darkTheme) {
+        val hazeState = rememberHazeState()
+        CompositionLocalProvider(LocalStratumHazeState provides hazeState) {
+            StratumScaffold(
+                bottomBar = {
+                    StratumNavigationBar(
+                        items =
+                            listOf(
+                                StratumNavigationBarItem(
+                                    label = "Dashboard",
+                                    icon = Icons.Outlined.Dashboard,
+                                    selectedIcon = Icons.Filled.Dashboard,
+                                ),
+                                StratumNavigationBarItem(
+                                    label = "Program",
+                                    icon = Icons.AutoMirrored.Outlined.ListAlt,
+                                    selectedIcon = Icons.AutoMirrored.Filled.ListAlt,
+                                ),
+                                StratumNavigationBarItem(
+                                    label = "Gym",
+                                    icon = Icons.Outlined.FitnessCenter,
+                                    selectedIcon = Icons.Filled.FitnessCenter,
+                                ),
+                            ),
+                        selectedIndex = 1,
+                        onItemSelected = {},
+                    )
+                },
+            ) { _ ->
+                // Glass shell rule (§12.8): no bottom space reserved — content
+                // scrolls beneath the nav glass and pads its own ends.
+                Box(modifier = Modifier.fillMaxSize()) {
+                    val startedAt = remember { System.currentTimeMillis() }
+                    LoadedProgramsScreen(
+                        activeWorkoutBar =
+                            MinimizedWorkoutState(
+                                workoutId = "w-preview-active",
+                                workoutName = "Minimal Lower A",
+                                nextLiftName = "Barbell Romanian Deadlift",
+                                startedAtEpochMilli = startedAt,
+                            ),
+                    )
+                }
+            }
+        }
     }
 }
 
