@@ -9,6 +9,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.ui.unit.Dp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -52,6 +53,26 @@ data class GlassChromePadding(
     val top: androidx.compose.ui.unit.Dp,
     val bottom: androidx.compose.ui.unit.Dp,
 )
+
+/**
+ * Bottom offset for a drawer/dock overlaid at the shell's bottom edge
+ * (`StratumTabScaffold`'s bottomOverlay slot): under glass it lifts the
+ * surface clear of the shell's nav bar minus one spacing step, so the
+ * surface's lower sliver passes beneath the nav glass and it reads as
+ * emerging from behind it (STR-156). Zero when glass is inactive — the
+ * slot's own anchor already sits above any in-flow bottom bar there.
+ * The formula lives here, next to [rememberGlassChromePadding], so no
+ * feature component hand-computes nav clearance.
+ */
+@Composable
+fun rememberGlassBottomDockPadding(): Dp {
+    val chrome = rememberGlassChromePadding()
+    return if (chrome.active) {
+        (chrome.bottom - StratumSpacing.s12).coerceAtLeast(0.dp)
+    } else {
+        0.dp
+    }
+}
 
 /** Single-subscription snapshot of [GlassChromePadding] for this composition. */
 @Composable

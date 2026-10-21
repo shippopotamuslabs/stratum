@@ -55,8 +55,36 @@ internal fun ProgramsLoadedPreviewContent(
     }
 }
 
+/**
+ * STR-156 regression pin: the minimized-workout drawer had NO screenshot
+ * coverage, which is how the glass shell hid it behind the nav bar unnoticed.
+ * Solid host here (no glass state in previews) — this pins the drawer's
+ * presence and legacy geometry; the glazed treatment is device-verified.
+ */
 @Composable
-private fun LoadedProgramsScreen(isPreviewMode: Boolean = false) {
+internal fun ProgramsActiveWorkoutPreviewContent(
+    family: StratumThemeId,
+    darkTheme: Boolean? = null,
+) {
+    StratumTheme(themeId = family, darkTheme = darkTheme) {
+        val startedAt = remember { System.currentTimeMillis() }
+        LoadedProgramsScreen(
+            activeWorkoutBar =
+                MinimizedWorkoutState(
+                    workoutId = "w-preview-active",
+                    workoutName = "Minimal Lower A",
+                    nextLiftName = "Barbell Romanian Deadlift",
+                    startedAtEpochMilli = startedAt,
+                ),
+        )
+    }
+}
+
+@Composable
+private fun LoadedProgramsScreen(
+    isPreviewMode: Boolean = false,
+    activeWorkoutBar: MinimizedWorkoutState? = null,
+) {
     ProgramsScreen(
         state =
             ProgramsUiState.Loaded(
@@ -131,6 +159,7 @@ private fun LoadedProgramsScreen(isPreviewMode: Boolean = false) {
         callbacks = ProgramsScreenCallbacks(),
         onSwapLiftClick = { _, _ -> },
         isPreviewMode = isPreviewMode,
+        activeWorkoutBar = activeWorkoutBar,
     )
 }
 

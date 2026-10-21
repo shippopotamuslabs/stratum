@@ -1,6 +1,7 @@
 package com.stratum.core.ui.component
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.WindowInsets
@@ -35,6 +36,14 @@ import dev.chrisbanes.haze.hazeSource
  * subtree has nothing behind it to blur; the seam keeps exactly that from happening.
  * Merge-mode and other solid bars pass `overlayTopBar = false` and stay in-flow.
  *
+ * [bottomOverlay] is the bottom twin of that seam (STR-156): a drawer or dock
+ * rendered over the content's bottom edge, OUTSIDE the source subtree, so it can
+ * carry sheet glass of its own. It anchors to the same bottom edge the content
+ * column is padded to, so in-flow bottom bars keep reserving its space; under
+ * glass the overlay itself owns any nav-clearance offset. Content hosted inside
+ * the source can never play this role — the STR-155 field report's hidden
+ * active-workout drawer is what happens when it tries.
+ *
  * Usage:
  * ```kotlin
  * StratumTabScaffold(topBar = { … }) {
@@ -52,6 +61,7 @@ fun StratumTabScaffold(
     verticalArrangement: Arrangement.Vertical = Arrangement.Top,
     horizontalAlignment: Alignment.Horizontal = Alignment.Start,
     overlayTopBar: Boolean = false,
+    bottomOverlay: @Composable (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     // The overlay request is honored only under an active shared glass state; a
@@ -73,19 +83,32 @@ fun StratumTabScaffold(
         // clearance (StratumGlassChrome.topClearance) as content padding. The source lives on this
         // content column only — the topBar slot stays outside the source subtree.
         val topPadding = if (overlay) 0.dp else paddingValues.calculateTopPadding()
+        val bottomPadding = paddingValues.calculateBottomPadding()
         val colModifier = Modifier
             .fillMaxSize()
             .then(if (overlayState != null) Modifier.hazeSource(state = overlayState) else Modifier)
             .padding(
                 top = topPadding,
-                bottom = paddingValues.calculateBottomPadding(),
+                bottom = bottomPadding,
             )
             .padding(horizontal = horizontalPadding)
-        Column(
-            modifier = colModifier,
-            verticalArrangement = verticalArrangement,
-            horizontalAlignment = horizontalAlignment,
-            content = content,
-        )
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = colModifier,
+                verticalArrangement = verticalArrangement,
+                horizontalAlignment = horizontalAlignment,
+                content = content,
+            )
+            if (bottomOverlay != null) {
+                Box(
+                    modifier =
+                        Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = bottomPadding),
+                ) {
+                    bottomOverlay()
+                }
+            }
+        }
     }
 }
