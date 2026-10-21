@@ -54,6 +54,7 @@ import com.stratum.core.ui.component.StratumVolumeBarChart
 import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.core.ui.theme.rememberGlassBottomPadding
+import com.stratum.core.ui.theme.rememberGlassTopPadding
 
 @Composable
 fun DashboardScreen(
@@ -233,9 +234,13 @@ private fun ColumnScope.DashboardStatusColumn(
             .weight(1f)
             .fillMaxWidth()
             .verticalScroll(rememberScrollState())
-            // Under the shell's glass nav bar (§12.8) the column scrolls beneath it;
-            // pad the end so the last content clears the bar.
-            .padding(bottom = rememberGlassBottomPadding()),
+            // Under the shell's glass bars (§12.8) the column scrolls beneath them:
+            // pad the start by the glass top clearance (0 when solid) and the end
+            // so the last content clears the nav bar.
+            .padding(
+                top = rememberGlassTopPadding(),
+                bottom = rememberGlassBottomPadding(),
+            ),
     ) {
         DashboardHeroBand(
             health = health,
@@ -280,6 +285,9 @@ private fun ColumnScope.LoadedContent(
         contentPadding = PaddingValues(
             start = BOARD_HORIZONTAL_PADDING_DP.dp,
             end = BOARD_HORIZONTAL_PADDING_DP.dp,
+            // Overlay host (STR-155): the grid scrolls under the glass top bar —
+            // its start clears the bar via the top clearance (0 when solid).
+            top = rememberGlassTopPadding(),
             bottom = rememberGlassBottomPadding() + StratumSpacing.s16,
         ),
     ) {

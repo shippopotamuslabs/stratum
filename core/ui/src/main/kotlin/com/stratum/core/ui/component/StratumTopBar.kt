@@ -23,6 +23,13 @@ import dev.chrisbanes.haze.blur.hazeBlur
 private const val GLASS_HAIRLINE_ALPHA = 0.4f
 
 /**
+ * Glass floor (STR-155): surface-base at 65% painted UNDER the blur so the bar never
+ * goes fully transparent — e.g. when its source subtree has no content behind it yet.
+ * Matches the style tint depth (§12.8 ShippopotamusHazeTopBar) so blur + floor agree.
+ */
+internal const val GLASS_BACKGROUND_FLOOR_ALPHA = 0.65f
+
+/**
  * Stratum's centered top bar. Wraps Material 3 [CenterAlignedTopAppBar] using
  * `StratumTheme` semantic roles so feature code never imports raw M3 app bar APIs.
  *
@@ -30,7 +37,8 @@ private const val GLASS_HAIRLINE_ALPHA = 0.4f
  * (a shared HazeState provided via `LocalStratumHazeState`) and the theme family's
  * glass is enabled (Tonal), the bar is ALWAYS glazed — the shared
  * `ShippopotamusHazeTopBar` style blurs the screen's `hazeSource` content passing
- * underneath, with a 1dp hairline at 40% as its permanent lower edge. Sean's
+ * underneath, over a surface-base-at-65% floor so the bar never goes fully
+ * transparent, with a 1dp hairline at 40% as its permanent lower edge. Sean's
  * amendment repealed the original transparent-at-rest state in full ("The Gospel
  * of Glaze says that it must remain glazed"), so there is no scrolled variant.
  * The host must let its content actually scroll beneath the bar (see
@@ -63,10 +71,12 @@ fun StratumTopBar(
     val emptyActions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {}
 
     val hairlineColor = StratumThemeAccessor.colors.borderSubtle.copy(alpha = GLASS_HAIRLINE_ALPHA)
+    val floorColor = StratumThemeAccessor.colors.surfaceBase.copy(alpha = GLASS_BACKGROUND_FLOOR_ALPHA)
     val columnModifier =
         if (glass) {
             modifier
                 .fillMaxWidth()
+                .background(floorColor)
                 .hazeBlur(
                     input = HazeInput.Sources(hazeState),
                     style = haze.topBar,
