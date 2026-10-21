@@ -14,29 +14,45 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+/**
+ * Canonical corner scale (§12.2 / §12.4 of `contracts/UI_DESIGN.md`): the five
+ * M3 rungs as Dp, and the ONLY stored copy of them. [StratumShapes] derives
+ * every Shape and corner accessor from this scale, so a rung's Shape and its
+ * corner Dp can never drift apart.
+ */
+@Immutable
+data class StratumCornerScale(
+    val extraSmall: Dp,
+    val small: Dp,
+    val medium: Dp,
+    val large: Dp,
+    val extraLarge: Dp,
+)
+
 @Immutable
 data class StratumShapes(
-    val panel: Shape,
-    val panelCorner: Dp,
     val button: Shape,
-    val chip: Shape,
-    val chipCorner: Dp,
     val borderWidth: Dp,
-    // Gospel shape scale (§12.2 / §12.4 of `contracts/UI_DESIGN.md`): one Shape +
-    // one corner Dp per M3 slot. ADDITIVE — existing fields above are untouched so
-    // every `shapes.panel` / `shapes.chip` / `shapes.borderWidth` call site keeps
-    // compiling and rendering identically.
-    val extraSmall: Shape,
-    val extraSmallCorner: Dp,
-    val small: Shape,
-    val smallCorner: Dp,
-    val medium: Shape,
-    val mediumCorner: Dp,
-    val large: Shape,
-    val largeCorner: Dp,
-    val extraLarge: Shape,
-    val extraLargeCorner: Dp,
-)
+    val corners: StratumCornerScale,
+) {
+    // Panel is the medium rung and chip the small rung (§12.2); both derive
+    // from the canonical scale rather than storing a second copy.
+    val panel: Shape get() = RoundedCornerShape(corners.medium)
+    val panelCorner: Dp get() = corners.medium
+    val chip: Shape get() = RoundedCornerShape(corners.small)
+    val chipCorner: Dp get() = corners.small
+
+    val extraSmall: RoundedCornerShape get() = RoundedCornerShape(corners.extraSmall)
+    val extraSmallCorner: Dp get() = corners.extraSmall
+    val small: RoundedCornerShape get() = RoundedCornerShape(corners.small)
+    val smallCorner: Dp get() = corners.small
+    val medium: RoundedCornerShape get() = RoundedCornerShape(corners.medium)
+    val mediumCorner: Dp get() = corners.medium
+    val large: RoundedCornerShape get() = RoundedCornerShape(corners.large)
+    val largeCorner: Dp get() = corners.large
+    val extraLarge: RoundedCornerShape get() = RoundedCornerShape(corners.extraLarge)
+    val extraLargeCorner: Dp get() = corners.extraLarge
+}
 
 /**
  * Gospel nested-radius rule (§12.2): a child nested inside a padded parent takes
@@ -159,47 +175,34 @@ internal val DefaultStratumTypography =
 
 internal fun tonalShapes(): StratumShapes =
     StratumShapes(
-        panel = RoundedCornerShape(12.dp),
-        panelCorner = 12.dp,
         // Gospel: Material-family buttons are full pill (§12.3).
         button = CircleShape,
-        chip = RoundedCornerShape(8.dp),
-        chipCorner = 8.dp,
         borderWidth = 1.dp,
-        // Gospel scale (§12.2 / §12.4): extraSmall 4, small 8, medium 12, large 16,
-        // extraLarge 28. panel/chip reuse the medium/small rungs.
-        extraSmall = RoundedCornerShape(4.dp),
-        extraSmallCorner = 4.dp,
-        small = RoundedCornerShape(8.dp),
-        smallCorner = 8.dp,
-        medium = RoundedCornerShape(12.dp),
-        mediumCorner = 12.dp,
-        large = RoundedCornerShape(16.dp),
-        largeCorner = 16.dp,
-        extraLarge = RoundedCornerShape(28.dp),
-        extraLargeCorner = 28.dp,
+        // Gospel scale (§12.2 / §12.4): extraSmall 4, small 8, medium 12,
+        // large 16, extraLarge 28.
+        corners =
+            StratumCornerScale(
+                extraSmall = 4.dp,
+                small = 8.dp,
+                medium = 12.dp,
+                large = 16.dp,
+                extraLarge = 28.dp,
+            ),
     )
 
 internal fun neoBrutalistShapes(): StratumShapes =
     StratumShapes(
-        panel = RoundedCornerShape(4.dp),
-        panelCorner = 4.dp,
         button = RoundedCornerShape(4.dp),
-        chip = RoundedCornerShape(4.dp),
-        chipCorner = 4.dp,
         borderWidth = 2.dp,
         // Sanctioned carve-out (§11.3 ruling 1): Neo keeps its 4dp identity —
-        // the gospel radii above are NOT adopted here. The extra scale slots exist
-        // only because the shared data class requires values, so every rung
+        // the gospel radii are NOT adopted here, so every rung of the scale
         // mirrors Neo's own 4dp geometry.
-        extraSmall = RoundedCornerShape(4.dp),
-        extraSmallCorner = 4.dp,
-        small = RoundedCornerShape(4.dp),
-        smallCorner = 4.dp,
-        medium = RoundedCornerShape(4.dp),
-        mediumCorner = 4.dp,
-        large = RoundedCornerShape(4.dp),
-        largeCorner = 4.dp,
-        extraLarge = RoundedCornerShape(4.dp),
-        extraLargeCorner = 4.dp,
+        corners =
+            StratumCornerScale(
+                extraSmall = 4.dp,
+                small = 4.dp,
+                medium = 4.dp,
+                large = 4.dp,
+                extraLarge = 4.dp,
+            ),
     )
