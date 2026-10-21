@@ -38,6 +38,8 @@ object GospelPaletteTokens {
         // the data distinction, not hue).
         val TextPrimary = Color(0xFFEDEEF0)
         val TextMuted = Color(0xFFA1A5B0)
+        // Gospel text-faint (icons, disabled, placeholder grade).
+        val TextFaint = Color(0xFF6E7280)
         val TextData = Color(0xFFEDEEF0)
         // Gospel danger-soft-red (§11.2). onError stays bg-base ink:
         // #FFFFFF on #E07A7A is only ~3:1, while #0D0E11 reaches ~7:1.
@@ -76,6 +78,8 @@ object GospelPaletteTokens {
         // textData tracks text-primary, as in dark.
         val TextPrimary = Color(0xFF1B1C22)
         val TextMuted = Color(0xFF494B5C)
+        // Light text-faint (PALETTE-LIGHT: 3.3:1, non-text grade only).
+        val TextFaint = Color(0xFF83868F)
         val TextData = Color(0xFF1B1C22)
         // Light gospel semantics (§11.4, verified in STR-140).
         val Error = Color(0xFFC02E3A)

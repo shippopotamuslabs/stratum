@@ -114,10 +114,12 @@ private fun StratumBottomSheetHandle(
         Box(
             modifier =
                 Modifier
-                    // §12.3: drag handle is 32x4dp.
+                    // §12.3: drag handle is 32x4dp in text-faint (the palette
+                    // grey named for incidental UI; borderSubtle was nearly
+                    // invisible on the sheet surface — STR-175).
                     .size(width = 32.dp, height = 4.dp)
                     .background(
-                        color = StratumThemeAccessor.colors.borderSubtle,
+                        color = StratumThemeAccessor.colors.textFaint,
                         shape = RoundedCornerShape(2.dp),
                     ),
         )
