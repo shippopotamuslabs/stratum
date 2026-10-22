@@ -18,6 +18,11 @@ data class StratumColors(
     val borderSubtle: Color,
     val textPrimary: Color,
     val textMuted: Color,
+    /**
+     * Faintest ink (palette text-faint). Non-text grade (~3.3:1): incidental UI
+     * only, such as the bottom-sheet drag handle; never body text.
+     */
+    val textFaint: Color,
     val textData: Color,
     val error: Color,
     val onError: Color,

@@ -33,6 +33,8 @@ object NeoBrutalistSpec {
                     borderSubtle = Color(0xFF3D3D3D),
                     textPrimary = Color(0xFFF5F5F5),
                     textMuted = Color(0xFFA3A3A3),
+                    // One neutral step below muted (500), same rule as light.
+                    textFaint = Color(0xFF737373),
                     textData = Color(0xFFE5E5E5),
                     error = Color(0xFFEF4444),
                     onError = Color(0xFF1A1A1A),
@@ -70,6 +72,7 @@ object NeoBrutalistSpec {
                     borderSubtle = Color(0xFF525252),
                     textPrimary = Color(0xFF171717),
                     textMuted = Color(0xFF525252),
+                    textFaint = Color(0xFF737373),
                     textData = Color(0xFF262626),
                     error = Color(0xFFDC2626),
                     onError = Color(0xFFFFFFFF),
