@@ -119,6 +119,62 @@ fun primitivePillTogglesNeo() {
 @PreviewTest
 @PreviewLightDark
 @Composable
+fun primitiveSwitchesTonal() {
+    SwitchPreviewGrid(family = StratumThemeId.Tonal)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun primitiveSwitchesNeo() {
+    SwitchPreviewGrid(family = StratumThemeId.NeoBrutalist)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun primitiveCheckboxesTonal() {
+    CheckboxPreviewGrid(family = StratumThemeId.Tonal)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun primitiveCheckboxesNeo() {
+    CheckboxPreviewGrid(family = StratumThemeId.NeoBrutalist)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun primitiveIconButtonsTonal() {
+    IconButtonPreviewGrid(family = StratumThemeId.Tonal)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun primitiveIconButtonsNeo() {
+    IconButtonPreviewGrid(family = StratumThemeId.NeoBrutalist)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun primitiveChoiceDialogsTonal() {
+    StratumChoiceDialogPreviewContent(family = StratumThemeId.Tonal)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun primitiveChoiceDialogsNeo() {
+    StratumChoiceDialogPreviewContent(family = StratumThemeId.NeoBrutalist)
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
 fun primitiveEdgeToEdgeCardsTonal() {
     EdgeToEdgeCardPreview(family = StratumThemeId.Tonal)
 }

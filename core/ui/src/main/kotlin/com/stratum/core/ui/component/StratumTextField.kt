@@ -19,6 +19,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -60,6 +61,10 @@ fun StratumTextField(
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     visualTransformation: VisualTransformation = VisualTransformation.None,
     options: StratumTextFieldOptions = StratumTextFieldOptions(),
+    /** Optional leading icon (§12.3: 16dp icon-to-text gap via M3 field metrics). */
+    leadingIcon: (@Composable () -> Unit)? = null,
+    /** Optional trailing icon. The clear-button overlay stays independent of this slot. */
+    trailingIcon: (@Composable () -> Unit)? = null,
 ) {
     val maxLines = options.maxLines ?: if (singleLine) 1 else Int.MAX_VALUE
     // Shared chrome so the select-all and plain branches differ only in value wiring.
@@ -67,7 +72,8 @@ fun StratumTextField(
     val placeholderContent: (@Composable () -> Unit)? =
         placeholder?.let { { Text(text = it) } }
     val supportingContent = supportingLine(isError, errorText, options.supportingText)
-    val fieldShape = StratumThemeAccessor.shapes.panel
+    // §12.3: outlined fields use the extraSmall (4dp) radius on all corners.
+    val fieldShape = StratumThemeAccessor.shapes.extraSmall
     val fieldColors = stratumTextFieldColors(isError)
     // Selection state for select-all-on-focus. Unconditional hooks; only read when enabled.
     // External value changes (e.g. length truncation) adopt the text and park the cursor at
@@ -111,6 +117,8 @@ fun StratumTextField(
                     visualTransformation = visualTransformation,
                     shape = fieldShape,
                     colors = fieldColors,
+                    leadingIcon = leadingIcon,
+                    trailingIcon = trailingIcon,
                 )
             } else {
                 OutlinedTextField(
@@ -129,6 +137,8 @@ fun StratumTextField(
                     visualTransformation = visualTransformation,
                     shape = fieldShape,
                     colors = fieldColors,
+                    leadingIcon = leadingIcon,
+                    trailingIcon = trailingIcon,
                 )
             }
         }
@@ -168,8 +178,9 @@ private fun stratumTextFieldColors(isError: Boolean): TextFieldColors =
         focusedTextColor = StratumThemeAccessor.colors.textPrimary,
         unfocusedTextColor = StratumThemeAccessor.colors.textPrimary,
         disabledTextColor = StratumThemeAccessor.colors.textMuted,
-        focusedContainerColor = StratumThemeAccessor.colors.surfaceBase,
-        unfocusedContainerColor = StratumThemeAccessor.colors.surfaceBase,
+        // §12.3: outlined fields are transparent (the border carries the chrome).
+        focusedContainerColor = Color.Transparent,
+        unfocusedContainerColor = Color.Transparent,
         disabledContainerColor = StratumThemeAccessor.colors.surfaceSunken,
         cursorColor = StratumThemeAccessor.colors.accent,
         errorCursorColor = StratumThemeAccessor.colors.error,
