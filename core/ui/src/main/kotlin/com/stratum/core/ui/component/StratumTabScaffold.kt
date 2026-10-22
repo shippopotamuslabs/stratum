@@ -22,6 +22,9 @@ import dev.chrisbanes.haze.hazeSource
  *
  * - **`contentWindowInsets` is always `WindowInsets(0)`** — the shell owns the bottom inset;
  *   screens must not consume it again or a double-gap appears above the nav bar.
+ *   Detail routes outside a shell use `StratumDetailScaffold` instead, which wraps
+ *   this scaffold with the detail insets preset rather than weakening this
+ *   invariant.
  * - Wraps content in a `Column` that applies only `top` / `bottom` from the scaffold's
  *   `PaddingValues` (resolves to the top-bar height only, since insets are zeroed) plus
  *   [horizontalPadding] (default 12dp — close to the glass, matching the top-app-bar feel).
@@ -64,6 +67,40 @@ fun StratumTabScaffold(
     bottomOverlay: @Composable (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    // The public contract keeps the tab invariant: the shell owns the insets, so
+    // they are always WindowInsets(0) here. The internal overload below exists
+    // for exactly one sanctioned caller in this module — StratumDetailScaffold,
+    // the detail-route preset — so the exception stays named and local instead
+    // of becoming a generic pass-through every call site can reach for.
+    StratumTabScaffold(
+        modifier = modifier,
+        topBar = topBar,
+        bottomBar = bottomBar,
+        snackbarHostState = snackbarHostState,
+        horizontalPadding = horizontalPadding,
+        verticalArrangement = verticalArrangement,
+        horizontalAlignment = horizontalAlignment,
+        overlayTopBar = overlayTopBar,
+        bottomOverlay = bottomOverlay,
+        contentWindowInsets = WindowInsets(0),
+        content = content,
+    )
+}
+
+@Composable
+internal fun StratumTabScaffold(
+    modifier: Modifier = Modifier,
+    topBar: @Composable () -> Unit = {},
+    bottomBar: @Composable () -> Unit = {},
+    snackbarHostState: SnackbarHostState? = null,
+    horizontalPadding: Dp = 12.dp,
+    verticalArrangement: Arrangement.Vertical = Arrangement.Top,
+    horizontalAlignment: Alignment.Horizontal = Alignment.Start,
+    overlayTopBar: Boolean = false,
+    bottomOverlay: @Composable (() -> Unit)? = null,
+    contentWindowInsets: WindowInsets = WindowInsets(0),
+    content: @Composable ColumnScope.() -> Unit,
+) {
     // The overlay request is honored only under an active shared glass state; a
     // screen asking for overlay outside a glass host (previews, Neo, detail routes)
     // keeps the legacy in-flow bar instead of a transparent one with no source.
@@ -76,7 +113,7 @@ fun StratumTabScaffold(
         topBar = topBar,
         bottomBar = bottomBar,
         snackbarHostState = snackbarHostState,
-        contentWindowInsets = WindowInsets(0),
+        contentWindowInsets = contentWindowInsets,
     ) { paddingValues ->
         // Overlay mode (§12.8 glass top bar): content flows UNDER the top bar so the
         // glass has something to blur; the screen's own scrollable then owns the top

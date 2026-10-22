@@ -3,6 +3,7 @@ package com.stratum.feature.workout.navigation
 import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
+import com.stratum.core.ui.component.StratumGlassHost
 import com.stratum.feature.workout.ui.EquipmentEditRequest
 import com.stratum.feature.workout.ui.WorkoutRoute
 import kotlinx.serialization.Serializable
@@ -26,15 +27,21 @@ fun EntryProviderScope<NavKey>.workoutEntry(
     modifier: Modifier = Modifier,
 ) {
     entry<WorkoutKey> { key ->
-        WorkoutRoute(
-            workoutId = key.workoutId,
-            onNavigateBack = onNavigateBack,
-            onNavigateToFinalize = onNavigateToFinalize,
-            onSwapLiftClick = onSwapLiftClick,
-            onEditEquipmentClick = onEditEquipmentClick,
-            onReorderLiftsClick = onReorderLiftsClick,
-            onCreateEquipmentClick = onCreateEquipmentClick,
-            modifier = modifier,
-        )
+        // Glass host (STR-157, §12.8): one HazeState for this screen, provided at
+        // the detail-route level. The session screen (and ManageNotesScreen, which
+        // it hosts) reads it through the scaffold seam; Neo keeps solid chrome via
+        // the theme gate, and unhosted compositions stay solid.
+        StratumGlassHost {
+            WorkoutRoute(
+                workoutId = key.workoutId,
+                onNavigateBack = onNavigateBack,
+                onNavigateToFinalize = onNavigateToFinalize,
+                onSwapLiftClick = onSwapLiftClick,
+                onEditEquipmentClick = onEditEquipmentClick,
+                onReorderLiftsClick = onReorderLiftsClick,
+                onCreateEquipmentClick = onCreateEquipmentClick,
+                modifier = modifier,
+            )
+        }
     }
 }

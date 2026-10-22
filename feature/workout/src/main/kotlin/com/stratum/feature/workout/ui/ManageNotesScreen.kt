@@ -25,8 +25,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R as CoreUiR
+import com.stratum.core.ui.component.StratumDetailScaffold
 import com.stratum.core.ui.component.StratumOutlinedButton
-import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumSegmentedControl
 import com.stratum.core.ui.component.StratumSwipeToRevealRow
 import com.stratum.core.ui.component.StratumText
@@ -152,8 +152,12 @@ fun ManageNotesScreen(
     val liftDirty = loadedLists?.let { noteDraftsDirty(it.lift, liftDrafts) } ?: false
     val isDirty = sessionDirty || workoutDirty || liftDirty
 
-    StratumScaffold(
-        modifier = modifier.fillMaxSize(),
+    // Glass (§12.8, STR-157): hosted inside the session screen's composition, so
+    // the route's glass host reaches this screen too. Under glass the top bar
+    // overlays and the content column carries the top clearance, keeping the
+    // tab header beneath the glass; solid hosts keep the in-flow geometry.
+    StratumDetailScaffold(
+        modifier = modifier,
         topBar = {
             StratumTopBar(
                 title = target.liftName,
@@ -192,12 +196,12 @@ fun ManageNotesScreen(
                 },
             )
         },
-    ) { padding ->
+    ) { chrome ->
         Column(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .padding(padding)
+                    .padding(top = chrome.top)
                     .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12)
                     .imePadding(),
             verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),

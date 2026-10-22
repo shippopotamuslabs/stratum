@@ -39,7 +39,7 @@ import com.stratum.core.ui.component.StratumConfirmDialog
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumNumber
 import com.stratum.core.ui.component.StratumOutlinedButton
-import com.stratum.core.ui.component.StratumScaffold
+import com.stratum.core.ui.component.StratumDetailScaffold
 import com.stratum.core.ui.component.StratumStatCard
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTextButton
@@ -68,8 +68,12 @@ fun WorkoutCompleteScreen(
     var captureActive by remember { mutableStateOf(false) }
     val actionsBusy = isSharing || captureActive
 
+    // Glass (§12.8, STR-157): under the route's glass host the top bar overlays
+    // and the scrollable column carries the top clearance as its top content
+    // padding, so the summary scrolls beneath the glass. Solid hosts keep the
+    // in-flow geometry exactly (chrome.top is 0 there).
     Box(modifier = modifier.fillMaxSize()) {
-        StratumScaffold(
+        StratumDetailScaffold(
             modifier = Modifier.fillMaxSize(),
             snackbarHostState = snackbarHostState,
             topBar = {
@@ -99,14 +103,18 @@ fun WorkoutCompleteScreen(
                     },
                 )
             },
-        ) { padding ->
+        ) { chrome ->
             Column(
                 modifier =
                     Modifier
-                        .fillMaxWidth()
-                        .padding(padding)
+                        .fillMaxSize()
                         .verticalScroll(rememberScrollState())
-                        .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s16),
+                        .padding(
+                            start = StratumSpacing.s16,
+                            end = StratumSpacing.s16,
+                            top = StratumSpacing.s16 + chrome.top,
+                            bottom = StratumSpacing.s16,
+                        ),
                 verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
             ) {
                 StratumText(

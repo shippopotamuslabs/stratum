@@ -49,7 +49,7 @@ import kotlinx.coroutines.launch
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.EquipmentSwapSheet
 import com.stratum.core.ui.component.StratumIconButton
-import com.stratum.core.ui.component.StratumScaffold
+import com.stratum.core.ui.component.StratumDetailScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarTextButton
@@ -274,8 +274,13 @@ fun WorkoutScreen(
         return
     }
 
-    StratumScaffold(
-        modifier = modifier.fillMaxSize(),
+    // Glass (§12.8, STR-157): under the route's glass host the top bar overlays and
+    // the content column below carries the top clearance, so the navigator row and
+    // the lift list start beneath the glass; the list's own scroll geometry (pin
+    // math, dock padding) is untouched and set-logging text never passes behind
+    // the bar. Solid hosts (Neo, previews) keep the in-flow geometry exactly.
+    StratumDetailScaffold(
+        modifier = modifier,
         snackbarHostState = snackbarHostState,
         topBar = {
             StratumTopBar(
@@ -319,11 +324,11 @@ fun WorkoutScreen(
                 }
             )
         },
-    ) { padding ->
+    ) { chrome ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(top = chrome.top)
                 .padding(vertical = StratumSpacing.s12),
             verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12)
         ) {
