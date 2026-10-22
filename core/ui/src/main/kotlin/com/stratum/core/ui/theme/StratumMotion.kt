@@ -11,44 +11,19 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.Dp
 
 /**
- * Stratum motion tokens (§12.5): the M3 Expressive motion scheme as
- * Stratum's own API, behind the scheme's member names.
- *
- * API availability (checked for STR-146): `MotionScheme.expressive()`
- * exists in the resolved material3 1.4.0 (Compose BOM 2026.09) but is
- * internal in that version; it turns public in material3 1.5. The specs
- * below are therefore spring-equivalents of the expressive scheme,
- * value-for-value (read from the 1.5.0-beta01 expressive implementation),
- * so adopting the real scheme later is a token swap, not a call-site
- * change. Spatial specs animate movement/size/shape; effects specs
- * animate color/alpha (damping 1.0, no bounce).
+ * Stratum motion tokens (§12.5). The motion default is the M3 Expressive
+ * scheme itself: [StratumTheme] wires `MotionScheme.expressive()` into
+ * MaterialTheme (material3 pinned at 1.5.0-beta01 in the version catalog,
+ * where the scheme is public; the BOM's managed 1.4.0 keeps it internal),
+ * and components read spatial/effects springs from there. These tokens
+ * name only what the scheme does not expose: the button press morph's
+ * specs, which the contract fixes directly (§12.2 / §12.3 / §12.7).
  */
 object StratumMotion {
     /** Pressed-state scale for buttons (§12.2: pill → 12dp + scale 0.96). */
     const val PressedScale: Float = 0.96f
 
-    /** Expressive default spatial spring. */
-    fun <T> defaultSpatialSpec(): AnimationSpec<T> = spring(dampingRatio = 0.8f, stiffness = 380f)
-
-    /** Expressive fast spatial spring. */
-    fun <T> fastSpatialSpec(): AnimationSpec<T> = spring(dampingRatio = 0.6f, stiffness = 800f)
-
-    /** Expressive slow spatial spring. */
-    fun <T> slowSpatialSpec(): AnimationSpec<T> = spring(dampingRatio = 0.8f, stiffness = 200f)
-
-    /** Expressive default effects spring. */
-    fun <T> defaultEffectsSpec(): AnimationSpec<T> = spring(stiffness = 1600f)
-
-    /** Expressive fast effects spring. */
-    fun <T> fastEffectsSpec(): AnimationSpec<T> = spring(stiffness = 3800f)
-
-    /** Expressive slow effects spring. */
-    fun <T> slowEffectsSpec(): AnimationSpec<T> = spring(stiffness = 800f)
-
-    /**
-     * Corner morph spring for the button press (§12.7 names
-     * [Spring.StiffnessHigh] directly; the scheme has no equivalent).
-     */
+    /** Corner morph spring for the button press (§12.7: [Spring.StiffnessHigh]). */
     val pressCornerSpec: AnimationSpec<Dp> = spring(stiffness = Spring.StiffnessHigh)
 
     /** Scale spring paired with [pressCornerSpec] for the press morph. */
