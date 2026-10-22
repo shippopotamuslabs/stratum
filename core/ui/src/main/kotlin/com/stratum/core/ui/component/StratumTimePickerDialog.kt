@@ -116,18 +116,20 @@ internal fun StratumTimePickerDialogContent(
                     TimePickerDefaults.colors(
                         clockDialColor = colors.surfaceSunken,
                         clockDialSelectedContentColor = colors.onAccent,
-                        clockDialUnselectedContentColor = colors.textPrimary,
+                        // material3 1.5 names: the unselected variants were
+                        // consolidated into the plain content/container slots.
+                        clockDialContentColor = colors.textPrimary,
                         selectorColor = colors.accent,
                         containerColor = colors.surfaceRaised,
                         periodSelectorBorderColor = colors.borderSubtle,
                         periodSelectorSelectedContainerColor = colors.accent,
-                        periodSelectorUnselectedContainerColor = colors.surfaceSunken,
+                        periodSelectorContainerColor = colors.surfaceSunken,
                         periodSelectorSelectedContentColor = colors.onAccent,
-                        periodSelectorUnselectedContentColor = colors.textPrimary,
+                        periodSelectorContentColor = colors.textPrimary,
                         timeSelectorSelectedContainerColor = colors.accent,
-                        timeSelectorUnselectedContainerColor = colors.surfaceSunken,
+                        timeSelectorContainerColor = colors.surfaceSunken,
                         timeSelectorSelectedContentColor = colors.onAccent,
-                        timeSelectorUnselectedContentColor = colors.textPrimary,
+                        timeSelectorContentColor = colors.textPrimary,
                     ),
             )
 
