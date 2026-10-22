@@ -20,8 +20,12 @@ import dev.chrisbanes.haze.hazeSource
  * Scaffold variant for screens hosted inside `MainTabShell` (or any shell that already reserves
  * the navigation-bar inset via its own padding). Differences from [StratumScaffold]:
  *
- * - **`contentWindowInsets` is always `WindowInsets(0)`** — the shell owns the bottom inset;
- *   screens must not consume it again or a double-gap appears above the nav bar.
+ * - **`contentWindowInsets` defaults to `WindowInsets(0)`** — the tab shell owns the
+ *   insets; screens must not consume them again or a double-gap appears above the
+ *   nav bar. Detail hosts outside a shell (STR-157: the workout routes) pass
+ *   `StratumScaffold`'s detail insets instead, so solid mode keeps the exact
+ *   geometry those screens had on `StratumScaffold`; overlay mode ignores the
+ *   top inset either way (the clearance formula owns it, §12.8).
  * - Wraps content in a `Column` that applies only `top` / `bottom` from the scaffold's
  *   `PaddingValues` (resolves to the top-bar height only, since insets are zeroed) plus
  *   [horizontalPadding] (default 12dp — close to the glass, matching the top-app-bar feel).
@@ -62,6 +66,7 @@ fun StratumTabScaffold(
     horizontalAlignment: Alignment.Horizontal = Alignment.Start,
     overlayTopBar: Boolean = false,
     bottomOverlay: @Composable (() -> Unit)? = null,
+    contentWindowInsets: WindowInsets = WindowInsets(0),
     content: @Composable ColumnScope.() -> Unit,
 ) {
     // The overlay request is honored only under an active shared glass state; a
@@ -76,7 +81,7 @@ fun StratumTabScaffold(
         topBar = topBar,
         bottomBar = bottomBar,
         snackbarHostState = snackbarHostState,
-        contentWindowInsets = WindowInsets(0),
+        contentWindowInsets = contentWindowInsets,
     ) { paddingValues ->
         // Overlay mode (§12.8 glass top bar): content flows UNDER the top bar so the
         // glass has something to blur; the screen's own scrollable then owns the top

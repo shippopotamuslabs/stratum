@@ -20,11 +20,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.exclude
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -43,13 +47,14 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.theme.StratumSpacing
+import com.stratum.core.ui.theme.rememberGlassChromePadding
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.android.awaitFrame
 import kotlinx.coroutines.launch
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.EquipmentSwapSheet
 import com.stratum.core.ui.component.StratumIconButton
-import com.stratum.core.ui.component.StratumScaffold
+import com.stratum.core.ui.component.StratumTabScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarTextButton
@@ -274,9 +279,18 @@ fun WorkoutScreen(
         return
     }
 
-    StratumScaffold(
-        modifier = modifier.fillMaxSize(),
+    // Glass (§12.8, STR-157): under the route's glass host the top bar overlays and
+    // the content column below carries the top clearance, so the navigator row and
+    // the lift list start beneath the glass; the list's own scroll geometry (pin
+    // math, dock padding) is untouched and set-logging text never passes behind
+    // the bar. Solid hosts (Neo, previews) keep the in-flow geometry exactly.
+    val chrome = rememberGlassChromePadding()
+    StratumTabScaffold(
+        modifier = modifier,
         snackbarHostState = snackbarHostState,
+        contentWindowInsets = ScaffoldDefaults.contentWindowInsets.exclude(WindowInsets.navigationBars),
+        horizontalPadding = 0.dp,
+        overlayTopBar = chrome.active,
         topBar = {
             StratumTopBar(
                 title = elapsedTimeStr,
@@ -319,11 +333,11 @@ fun WorkoutScreen(
                 }
             )
         },
-    ) { padding ->
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(top = chrome.top)
                 .padding(vertical = StratumSpacing.s12),
             verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12)
         ) {

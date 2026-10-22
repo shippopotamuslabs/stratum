@@ -7,6 +7,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.exclude
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.ui.draw.clip
@@ -23,20 +26,22 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.StratumOutlinedButton
-import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumSegmentedControl
 import com.stratum.core.ui.component.StratumSwipeToRevealRow
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTextField
+import com.stratum.core.ui.component.StratumTabScaffold
 import com.stratum.core.ui.component.StratumTextFieldOptions
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
 import com.stratum.core.ui.component.StratumTopBarTextButton
 import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
+import com.stratum.core.ui.theme.rememberGlassChromePadding
 import java.util.UUID
 
 /** Matches [com.stratum.domain.lift.MAX_LIFT_NOTE_LENGTH]; keep in sync (UI must not import domain). */
@@ -152,8 +157,16 @@ fun ManageNotesScreen(
     val liftDirty = loadedLists?.let { noteDraftsDirty(it.lift, liftDrafts) } ?: false
     val isDirty = sessionDirty || workoutDirty || liftDirty
 
-    StratumScaffold(
-        modifier = modifier.fillMaxSize(),
+    // Glass (§12.8, STR-157): hosted inside the session screen's composition, so
+    // the route's glass host reaches this screen too. Under glass the top bar
+    // overlays and the content column carries the top clearance, keeping the
+    // tab header beneath the glass; solid hosts keep the in-flow geometry.
+    val chrome = rememberGlassChromePadding()
+    StratumTabScaffold(
+        modifier = modifier,
+        contentWindowInsets = ScaffoldDefaults.contentWindowInsets.exclude(WindowInsets.navigationBars),
+        horizontalPadding = 0.dp,
+        overlayTopBar = chrome.active,
         topBar = {
             StratumTopBar(
                 title = target.liftName,
@@ -192,12 +205,12 @@ fun ManageNotesScreen(
                 },
             )
         },
-    ) { padding ->
+    ) {
         Column(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .padding(padding)
+                    .padding(top = chrome.top)
                     .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12)
                     .imePadding(),
             verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
