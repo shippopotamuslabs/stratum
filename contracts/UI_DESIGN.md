@@ -1,5 +1,5 @@
 # UI_DESIGN.md
-**Stratum — UI Design Contract v1.0**
+**Stratum — UI Design Contract v1.1**
 
 Immutable UI contract for Android Compose. Defines theme families, token architecture,
 component boundaries, and agent workflow.
@@ -14,12 +14,12 @@ Android Jetpack Compose Gospel (declared canonical by Sean, 2026-10-19, for Blov
 Stratum, Enclave, and all future Shippopotamus products), plus the Button Shape Gospel
 (declared canonical by Sean, 2026-10-20, embedded in §12.7 under his Contract Waiver for
 that edit) and the Glass Bars Gospel (Haze 2.0; declared canonical by Sean, 2026-10-20,
-embedded in §12.8 under the same waiver). They govern all **new** UI work.
-Where §§1–10 conflict with §§11–12, the gospels win for new work. The STR-137 conflict
-register was **ratified by Sean on 2026-10-19** and executed in STR-138; the adoption
-status in §11.3 / §12.6 records what was migrated, what is a sanctioned carve-out (Neo
-Brutalist), and the standing differences that remain (shipped screens are not silently
-redesigned).
+embedded in §12.8 under the same waiver). They govern all UI work.
+Where §§1–10 conflict with §§11–12, the gospels win. The STR-137 conflict
+register was **ratified by Sean on 2026-10-19**, executed in STR-138, and the STR-139
+gospel-alignment program (STR-141–STR-148, STR-175, STR-179) brought the shipped app to
+the state the gospels describe; the adoption status in §11.3 / §12.6 records that
+implemented state. Neo Brutalist is a sanctioned, permanent carve-out (§11.3 ruling 1).
 
 ---
 
@@ -366,33 +366,32 @@ Sean ruled on the full STR-137 conflict register on 2026-10-19. The rulings are 
    table). The Material/Tonal accent is the gospel indigo family.
 3. **Light theme stays**, and its canon is the Light Palette Gospel (§11.4).
 
-Migrated in STR-138 (`StratumTonalSpec`, Tonal family only):
+Implemented state (Tonal family; tokens centralized in `GospelPaletteTokens`,
+consumed by `StratumTonalSpec`):
 
 - **Accent:** dark steel `#5B7C99` → gospel indigo **#7A7CFF** (on-accent `#FFFFFF` →
   bg-base **#0D0E11** — white on the indigo is only 3.4:1; muted `#3D5A72` → accent-deep
   **#3B3BAA**). Light steel `#5B7C99` → light-gospel indigo **#5457E8** (muted → accent-deep
   **#2F31A0**).
-- **Borders (dark):** `#4A4A4A` / `#3A3A3A` → gospel **#343A48** (border-strong) /
-  **#2A2E39** (border-default). Stratum's two border roles map to gospel border-strong /
-  border-default; gospel border-subtle (hairline) has no Stratum role.
+- **Borders (dark):** `#4A4A4A` / `#3A3A3A` → gospel **#343A48** (`BorderStrong`) /
+  **#2A2E39** (`BorderSubtle`).
+- **Surfaces (dark):** the gospel ramp — base **#0D0E11**, raised **#181A20**,
+  inset **#272A33**, sunken **#111216** (Stratum's fourth surface role sits one step
+  below base). The pre-gospel `#121212`-family ramp is gone.
 - **Text (dark):** `#F2F2F2` / `#9CA3AF` → gospel **#EDEEF0** (text-primary) /
-  **#A1A5B0** (text-secondary). `textData` has no gospel counterpart and now tracks
-  text-primary ink in both modes (tabular figures carry the data distinction, not hue).
+  **#A1A5B0** (text-secondary); the ramp is completed by the `textFaint` token
+  **#6E7280** (STR-175). `textData` has no gospel counterpart and tracks text-primary
+  ink in both modes (tabular figures carry the data distinction, not hue).
 - **Light spec:** adopts the Light Gospel tokens in full (§11.4) — surfaces, borders,
   text ramp, accent family.
-
-Standing differences (deliberately NOT migrated; each needs its own ruling or follow-up):
-
-- **Dark surface ramp:** Tonal dark surfaces (`#121212` / `#1E1E1E` / `#282828` /
-  `#0E0E0E`) predate the gospel ramp (`#0D0E11` → `#272A33`) and were outside the
-  ratification sweep. They remain until Sean rules or a follow-up ticket migrates them.
-- **Semantic hues:** gospel success/warning/danger/info vs Stratum's `setComplete`
-  (a dark *fill* in dark mode, not a foreground), `error`, `prHighlight`, `warning`.
-  The usage shapes differ (fill vs foreground), so this is a role decision, not a hex
-  swap — deferred.
-- Already aligned before ratification: tonal (non-shadow) elevation in the Tonal family
-  (§1.2, §2.3); 48dp minimum touch targets for in-workout controls (§5 — the gospel
-  extends this to *every* interactive, §12.5; widening is a follow-up).
+- **Semantic hues:** gospel danger **#E07A7A** is `error`; gospel warning **#D9B07A**
+  is `warning`. `setComplete` remains a *fill* by design: gospel success `#7DBE8C`
+  mixed 30/70 toward the surface (**#364B40** in dark) — a background for
+  completed-set rows, never a foreground. `prHighlight` (**#E0B040**) is a
+  Stratum-specific role with no gospel counterpart.
+- Already aligned before ratification: tonal (non-shadow) elevation in the Tonal
+  family (§1.2, §2.3); the 48dp law and its widening to every interactive are
+  recorded in §12.6.
 
 ### 11.4 Light Palette Gospel — Official Light Theme (canonical, embedded)
 
@@ -591,27 +590,37 @@ Canonical for BLOVIATE / STRATUM / ENCLAVE. Companion: §11 (colors).
   primitive.
 - Haptics: light click on toggles/switches, medium on FAB press (HapticFeedback).
 
-### 12.6 Adoption status in Stratum — RATIFIED (Sean, 2026-10-19; executed in STR-138)
+### 12.6 Adoption status in Stratum — RATIFIED (Sean, 2026-10-19; implemented STR-138 through STR-147)
 
 - **Neo Brutalist geometry/shadows are a sanctioned carve-out** (§11.3 ruling 1): the
   shape scale, no-shadow rule, and pill buttons in this section govern the Material/Tonal
   family only, permanently.
 - **Button pill:** adopted for the Tonal family — `tonalShapes().button` is full pill
-  (CircleShape).
-- **Type scale:** completed. `StratumTypography` now carries the full 15-style gospel
+  (CircleShape), with the §12.7 press morph to 12dp (STR-146).
+- **Type scale and font:** completed. `StratumTypography` now carries the full 15-style gospel
   scale (plus Stratum's `dataLarge` / `sectionLabel`), `titleMedium` corrected to
   16/24 Medium, and `StratumTheme` wires the Material bridge `Typography` from the spec
   instead of M3 defaults. `titleLarge` (22/28 SemiBold) and `bodyLarge` (16/24/400)
-  already matched exactly.
-- **Spacing:** the Spacing object (`StratumSpacing`) shipped with STR-137; adopting it
-  inside shipped components is layout work — follow-up, not yet done.
-- Already aligned: 48dp minimum for in-workout controls (§5); Tonal-family 12dp panel /
-  8dp chip corners match the gospel card/chip radii.
-- **Remaining follow-ups (not ratified away, not yet done):** Expressive motion scheme
-  (`MotionScheme.expressive()`, press morphs, haptics) — no Stratum motion tokens exist
-  yet; font family (Shipopotamus Sans / Roboto Flex vs `FontFamily.Default`); widening
-  the 48dp law to *every* interactive (component-by-component); spacing adoption inside
-  shipped components.
+  already matched exactly. The font family landed in STR-147: Roboto Flex via the
+  Google Fonts downloadable provider (weights 400/500/600) with `FontFamily.Default`
+  fallback — resolution is asynchronous, text renders in the fallback and swaps when
+  the download lands, and never renders blank. `dataLarge` carries tabular figures
+  via the `tnum` OpenType feature rather than a monospace family.
+- **Spacing:** the Spacing object (`StratumSpacing`) shipped with STR-137 and is
+  adopted inside shipped components (STR-142), enforced by the off-grid detekt guard
+  (`ForbiddenRawSpacingLiteralInUi`, maxIssues 0).
+- **48dp law:** widened to *every* interactive (STR-145) via real `sizeIn` floors on
+  the components. The floors are the enforcing mechanism in layout:
+  `minimumInteractiveComponentSize` inflates the touch target without sizing the
+  visible face inside it.
+- **Motion and haptics:** `MotionScheme.expressive()` is wired via the material3
+  1.5.0-beta01 pin, with press morphs and the §12.5 haptics vocabulary (STR-146).
+- **Primitives:** the §4.1 required set is complete (STR-144: `StratumSurface`,
+  `StratumDivider`, `StratumChip`, `StratumListRow`).
+- **Hard shadows:** `stratumHardShadow` anchors to the visible face box centered
+  inside the 48dp touch target, not the inflated layout node (STR-179).
+- Already aligned: Tonal-family 12dp panel / 8dp chip corners match the gospel
+  card/chip radii.
 
 ### 12.7 Button Shape Gospel — Canonical (Sean, 2026-10-20)
 
@@ -665,11 +674,10 @@ code change is needed for the default. The **Neo Brutalist family is a sanctione
 carve-out** (§11.3 ruling 1, §12.6): its 4dp button geometry is permanent by design and
 this gospel does not govern it, exactly as with the §12 shape scale and pill rule.
 Where Stratum's dense surfaces (data toolbars, filter bars, table-like actions) use the
-square variant is new-work judgment under the one-language-per-screen rule. When the
-standing Expressive-motion follow-up in §12.6 lands, its button press morph uses this
-section's 12dp pressed shape. Wiring named `Shippopotamus*` button-shape tokens is
-implementation work under a future ticket — this amendment changes the contract, not
-shipped screens.
+square variant is new-work judgment under the one-language-per-screen rule. The
+Expressive-motion adoption recorded in §12.6 has landed: the button press morph uses
+this section's 12dp pressed shape, and the named `Shippopotamus*` button-shape tokens
+are wired in `ShippopotamusButtonShapes.kt`.
 
 ### 12.8 Glass Bars Gospel — Top + Bottom + Haze (Sean, 2026-10-20)
 
