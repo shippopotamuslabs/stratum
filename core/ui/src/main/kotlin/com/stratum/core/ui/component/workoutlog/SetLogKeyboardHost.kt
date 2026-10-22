@@ -44,9 +44,19 @@ import com.stratum.core.ui.component.platecalculator.parsePlateTargetWeight
  */
 const val SET_LOG_KEYBOARD_HEIGHT_FRACTION = 0.33f
 
+/**
+ * §12.5 floor for the pad: four key rows must each stay >= 48dp, plus the
+ * three 6dp inter-row gaps — 4 * 48 + 3 * 6 = 210dp. On short screens
+ * (landscape, split-screen) the pad grows past its 0.33 fraction rather
+ * than shrinking keys below the touch-target law; hosted content such as
+ * the reps-mode toggle inherits the floored key height.
+ */
+private val MinSetLogKeyboardContentHeight = 210.dp
+
 /** Resolved pad content height for the current configuration (excludes nav bar). */
 fun setLogKeyboardContentHeight(configuration: Configuration): Dp =
     (configuration.screenHeightDp * SET_LOG_KEYBOARD_HEIGHT_FRACTION).dp
+        .coerceAtLeast(MinSetLogKeyboardContentHeight)
 
 /**
  * Active keyboard session. Hosted **above** the LazyColumn so scrolling never disposes the pad.
