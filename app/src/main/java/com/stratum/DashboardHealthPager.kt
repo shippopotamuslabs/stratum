@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerDefaults
@@ -238,28 +239,37 @@ private fun HealthPagerPill(
 ) {
     val colors = StratumThemeAccessor.colors
     val shape = StratumThemeAccessor.shapes.chip
-    StratumText(
-        text = label,
-        style = StratumThemeAccessor.typography.sectionLabel,
-        color = if (selected) colors.onAccent else colors.textMuted,
-        maxLines = 1,
-        modifier = Modifier
-            .clip(shape)
-            .background(if (selected) colors.accent else colors.surfaceSunken)
-            .border(
-                width = StratumThemeAccessor.shapes.borderWidth,
-                color = if (selected) colors.accent else colors.borderSubtle,
-                shape = shape,
-            )
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                role = Role.Tab,
-                onClick = onClick,
-            )
-            .semantics { this.selected = selected }
-            .padding(horizontal = StratumSpacing.s12, vertical = StratumSpacing.s8),
-    )
+    // §12.5: the 34dp pill visual sits in a 48dp target box that carries the
+    // tab click and selection semantics.
+    Box(
+        modifier =
+            Modifier
+                .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    role = Role.Tab,
+                    onClick = onClick,
+                )
+                .semantics { this.selected = selected },
+        contentAlignment = Alignment.Center,
+    ) {
+        StratumText(
+            text = label,
+            style = StratumThemeAccessor.typography.sectionLabel,
+            color = if (selected) colors.onAccent else colors.textMuted,
+            maxLines = 1,
+            modifier = Modifier
+                .clip(shape)
+                .background(if (selected) colors.accent else colors.surfaceSunken)
+                .border(
+                    width = StratumThemeAccessor.shapes.borderWidth,
+                    color = if (selected) colors.accent else colors.borderSubtle,
+                    shape = shape,
+                )
+                .padding(horizontal = StratumSpacing.s12, vertical = StratumSpacing.s8),
+        )
+    }
 }
 
 @Composable

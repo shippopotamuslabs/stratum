@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -278,6 +279,8 @@ private fun UnderlineTab(
 
     Column(
         modifier = Modifier
+            // §12.5: tab target floors at 48dp tall (content alone is 44-47dp).
+            .sizeIn(minHeight = 48.dp)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -414,6 +417,9 @@ private fun TimeRangePicker(
                 val borderColor = if (isSelected) colors.textPrimary else colors.borderSubtle
                 Box(
                     modifier = Modifier
+                        // §12.5: range pills floor at 48dp in both dimensions
+                        // (short labels like "1W" were ~46dp wide, 34dp tall).
+                        .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
                         .clip(pillShape)
                         .background(background)
                         .border(

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -58,6 +59,10 @@ fun StratumSplitRepsCell(
     Row(
         modifier =
             modifier
+                // §12.5: the sizeIn floor ahead of the 36dp height floors
+                // the halves' hit height at 48dp (width stays the reps
+                // column's, split in two).
+                .sizeIn(minHeight = 48.dp)
                 .height(36.dp)
                 .clip(shapes.chip)
                 .border(

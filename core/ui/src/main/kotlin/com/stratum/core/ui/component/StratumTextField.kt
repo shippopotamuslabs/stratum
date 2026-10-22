@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.VisualTransformation
@@ -154,20 +155,31 @@ fun StratumTextField(
     Box(modifier = modifier.fillMaxWidth()) {
         field(Modifier)
         if (value.isNotEmpty()) {
-            Icon(
-                painter = painterResource(R.drawable.ic_close),
-                contentDescription = stringResource(R.string.stratum_text_field_clear_cd),
-                tint = StratumThemeAccessor.colors.textMuted,
+            // §12.5: the glyph stays 18dp at its 12dp inset, but the tap target
+            // is the full 48dp corner box around it (descendants merge so the
+            // box reads as one button carrying the icon's description).
+            Box(
                 modifier =
                     Modifier
                         .align(Alignment.TopEnd)
-                        .padding(top = CLEAR_ICON_INSET, end = CLEAR_ICON_INSET)
-                        .size(CLEAR_ICON_SIZE)
+                        .size(48.dp)
+                        .semantics(mergeDescendants = true) {}
                         .clickable(
                             role = Role.Button,
                             onClick = { onValueChange("") },
                         ),
-            )
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_close),
+                    contentDescription = stringResource(R.string.stratum_text_field_clear_cd),
+                    tint = StratumThemeAccessor.colors.textMuted,
+                    modifier =
+                        Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = CLEAR_ICON_INSET, end = CLEAR_ICON_INSET)
+                            .size(CLEAR_ICON_SIZE),
+                )
+            }
         }
     }
 }

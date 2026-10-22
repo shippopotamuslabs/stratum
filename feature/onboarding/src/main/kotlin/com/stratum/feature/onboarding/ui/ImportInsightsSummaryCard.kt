@@ -208,7 +208,10 @@ private fun ImportDoseResponseTabContent(
             Row(
                 modifier =
                     Modifier
+                        // §12.5: padding inside the clickable brings the link
+                        // row to the 48dp target height (24dp content + 24dp).
                         .clickable(onClick = { showGuide = true })
+                        .padding(vertical = StratumSpacing.s12)
                         .semantics { contentDescription = learnMoreLabel },
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
@@ -713,6 +716,7 @@ private const val DOSE_LOGGED_LABEL_WEIGHT = 1.2f
 private const val DOSE_LOGGED_VALUE_WEIGHT = 0.7f
 private const val EFFICACY_MUSCLE_WEIGHT = 1.4f
 private const val EFFICACY_SIGNAL_WEIGHT = 1f
-private const val DOSE_ROW_MIN_HEIGHT = 40
+// §12.5: accordion header rows floor at the 48dp touch-target minimum.
+private const val DOSE_ROW_MIN_HEIGHT = 48
 private const val CHEVRON_ROTATION_COLLAPSED = 0f
 private const val CHEVRON_ROTATION_EXPANDED = 180f
