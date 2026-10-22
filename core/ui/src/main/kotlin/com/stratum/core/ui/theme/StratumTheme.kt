@@ -145,6 +145,9 @@ fun StratumTheme(
             colorScheme = materialColorScheme(spec),
             shapes = materialShapes(spec),
             typography = spec.typography.material,
+            // No motionScheme argument: in material3 1.4.0 the expressive
+            // scheme is internal (public in 1.5), so §12.5's expressive
+            // springs ship as StratumMotion tokens instead (STR-146).
             content = content,
         )
     }

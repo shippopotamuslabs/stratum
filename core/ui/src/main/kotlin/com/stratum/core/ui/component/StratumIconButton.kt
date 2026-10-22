@@ -1,18 +1,24 @@
 package com.stratum.core.ui.component
 
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
+import com.stratum.core.ui.theme.ShippopotamusPillRestCorner
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
 /**
- * Circular icon button for secondary actions in Stratum chrome.
+ * Circular icon button for secondary actions in Stratum chrome. Press morph
+ * per §12.3 (StratumPressMorph): the default circular shape morphs its
+ * corner to the family's pressed corner and scales to 0.96; a caller-passed
+ * custom [shape] keeps its geometry and only scales.
  */
 @Composable
 fun StratumIconButton(
@@ -24,13 +30,23 @@ fun StratumIconButton(
     shape: Shape = CircleShape,
     content: @Composable () -> Unit,
 ) {
+    val shapes = StratumThemeAccessor.shapes
+    val interactionSource = remember { MutableInteractionSource() }
+    val circular = shape == CircleShape
+    val morph =
+        rememberStratumPressMorph(
+            interactionSource = interactionSource,
+            restCorner = if (circular) ShippopotamusPillRestCorner else shapes.buttonPressedCorner,
+            pressedCorner = shapes.buttonPressedCorner,
+        )
     IconButton(
         onClick = onClick,
         // §12.3: 40x40dp container. Appended after the caller's modifier so a
         // caller-set size (earlier in the chain) still wins deliberately.
-        modifier = modifier.size(40.dp),
+        modifier = modifier.then(morph.scaleModifier).size(40.dp),
         enabled = enabled,
-        shape = shape,
+        shape = if (circular) morph.shape else shape,
+        interactionSource = interactionSource,
         colors =
             IconButtonDefaults.iconButtonColors(
                 containerColor = containerColor,

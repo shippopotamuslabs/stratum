@@ -1,16 +1,19 @@
 package com.stratum.core.ui.component
 
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.theme.LocalStratumTheme
+import com.stratum.core.ui.theme.StratumButtonVariant
 import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
@@ -24,7 +27,8 @@ private val TopBarTextButtonPadding =
 private val TopBarTextButtonEndInset = 16.dp
 
 /**
- * Text-only action for inline secondary actions.
+ * Text-only action for inline secondary actions. Press morph per §12.7
+ * (StratumPressMorph), same as [StratumButton].
  */
 @Composable
 fun StratumTextButton(
@@ -37,10 +41,20 @@ fun StratumTextButton(
     contentPadding: PaddingValues = ButtonDefaults.TextButtonContentPadding,
 ) {
     val colors = StratumThemeAccessor.colors
+    val shapes = StratumThemeAccessor.shapes
+    val interactionSource = remember { MutableInteractionSource() }
+    val morph =
+        rememberStratumPressMorph(
+            interactionSource = interactionSource,
+            restCorner = shapes.buttonRestCorner(StratumButtonVariant.Pill),
+            pressedCorner = shapes.buttonPressedCorner,
+        )
     TextButton(
         onClick = onClick,
-        modifier = modifier,
+        modifier = modifier.then(morph.scaleModifier),
         enabled = enabled,
+        shape = morph.shape,
+        interactionSource = interactionSource,
         colors =
             ButtonDefaults.textButtonColors(
                 contentColor = contentColor,
