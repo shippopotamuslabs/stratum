@@ -6,6 +6,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.indication
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,9 +17,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,6 +37,7 @@ import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -556,36 +560,73 @@ private fun SetTypeLetterBadge(
                 color = contentColor,
             )
         }
+    if (onClick == null) {
+        Box(
+            modifier =
+                modifier
+                    .size(size)
+                    .clip(CircleShape)
+                    .background(background)
+                    .then(
+                        if (selected) {
+                            Modifier.border(
+                                width = 2.dp,
+                                color = StratumThemeAccessor.colors.textPrimary,
+                                shape = CircleShape,
+                            )
+                        } else {
+                            Modifier
+                        },
+                    ),
+            contentAlignment = Alignment.Center,
+        ) {
+            StratumNumber(
+                text = label,
+                style = labelStyle,
+            )
+        }
+        return
+    }
+    // §12.5: 48dp target outside, the sized circle stays the visual; the
+    // ripple is drawn clipped to the circle via the shared source.
+    val interactionSource = remember { MutableInteractionSource() }
     Box(
         modifier =
             modifier
-                .size(size)
-                .clip(CircleShape)
-                .background(background)
-                .then(
-                    if (selected) {
-                        Modifier.border(
-                            width = 2.dp,
-                            color = StratumThemeAccessor.colors.textPrimary,
-                            shape = CircleShape,
-                        )
-                    } else {
-                        Modifier
-                    },
-                )
-                .then(
-                    if (onClick != null) {
-                        Modifier.clickable(onClick = onClick)
-                    } else {
-                        Modifier
-                    },
+                .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = null,
+                    role = Role.Button,
+                    onClick = onClick,
                 ),
         contentAlignment = Alignment.Center,
     ) {
-        StratumNumber(
-            text = label,
-            style = labelStyle,
-        )
+        Box(
+            modifier =
+                Modifier
+                    .size(size)
+                    .clip(CircleShape)
+                    .background(background)
+                    .indication(interactionSource, ripple())
+                    .then(
+                        if (selected) {
+                            Modifier.border(
+                                width = 2.dp,
+                                color = StratumThemeAccessor.colors.textPrimary,
+                                shape = CircleShape,
+                            )
+                        } else {
+                            Modifier
+                        },
+                    ),
+            contentAlignment = Alignment.Center,
+        ) {
+            StratumNumber(
+                text = label,
+                style = labelStyle,
+            )
+        }
     }
 }
 
@@ -595,27 +636,54 @@ private fun SetColumnCircleBadge(
     backgroundColor: Color = StratumThemeAccessor.colors.surfaceInset,
     content: @Composable () -> Unit,
 ) {
+    if (onClick == null) {
+        Box(
+            modifier =
+                Modifier
+                    .size(SetTypeBadgeTableSize)
+                    .clip(CircleShape)
+                    .background(backgroundColor)
+                    .border(
+                        width = StratumThemeAccessor.shapes.borderWidth,
+                        color = StratumThemeAccessor.colors.borderSubtle,
+                        shape = CircleShape,
+                    ),
+            contentAlignment = Alignment.Center,
+        ) {
+            content()
+        }
+        return
+    }
+    // §12.5: same split as SetTypeLetterBadge — 48dp target, 32dp visual.
+    val interactionSource = remember { MutableInteractionSource() }
     Box(
         modifier =
             Modifier
-                .size(SetTypeBadgeTableSize)
-                .clip(CircleShape)
-                .background(backgroundColor)
-                .border(
-                    width = StratumThemeAccessor.shapes.borderWidth,
-                    color = StratumThemeAccessor.colors.borderSubtle,
-                    shape = CircleShape,
-                )
-                .then(
-                    if (onClick != null) {
-                        Modifier.clickable(onClick = onClick)
-                    } else {
-                        Modifier
-                    },
+                .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = null,
+                    role = Role.Button,
+                    onClick = onClick,
                 ),
         contentAlignment = Alignment.Center,
     ) {
-        content()
+        Box(
+            modifier =
+                Modifier
+                    .size(SetTypeBadgeTableSize)
+                    .clip(CircleShape)
+                    .background(backgroundColor)
+                    .border(
+                        width = StratumThemeAccessor.shapes.borderWidth,
+                        color = StratumThemeAccessor.colors.borderSubtle,
+                        shape = CircleShape,
+                    )
+                    .indication(interactionSource, ripple()),
+            contentAlignment = Alignment.Center,
+        ) {
+            content()
+        }
     }
 }
 
@@ -760,6 +828,9 @@ private fun RestTimeCell(
                     cellBoundsInWindow = coords.boundsInWindow()
                 }
                 .padding(horizontal = StratumSpacing.s4)
+                // §12.5: the sizeIn floor ahead of the 36dp height floors
+                // the rest cell's hit height at 48dp.
+                .sizeIn(minHeight = 48.dp)
                 .height(36.dp)
                 .clip(StratumThemeAccessor.shapes.chip)
                 .background(StratumThemeAccessor.colors.surfaceInset)

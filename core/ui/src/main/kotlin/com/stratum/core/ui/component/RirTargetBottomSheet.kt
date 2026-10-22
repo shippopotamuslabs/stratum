@@ -11,6 +11,8 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.indication
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,11 +20,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -242,32 +247,47 @@ private fun RirSheetOption(
                 color = contentColor,
             )
         }
+    // §12.5: 48dp target on the outer box, the sized circle stays the visual;
+    // the ripple is drawn clipped to the circle via the shared source.
+    val interactionSource = remember { MutableInteractionSource() }
     Box(
         modifier =
             Modifier
-                .size(size)
-                .clip(CircleShape)
-                .background(background)
-                .then(
-                    if (isSelected) {
-                        Modifier.border(
-                            width = 2.dp,
-                            color = StratumThemeAccessor.colors.textPrimary,
-                            shape = CircleShape,
-                        )
-                    } else {
-                        Modifier
-                    },
-                )
+                .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
                 // Keyboard RIR row must not steal focus from the active numeric caret.
                 .focusProperties { canFocus = false }
-                .clickable(onClick = onClick),
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = null,
+                    onClick = onClick,
+                ),
         contentAlignment = Alignment.Center,
     ) {
-        StratumNumber(
-            text = label,
-            style = labelStyle,
-        )
+        Box(
+            modifier =
+                Modifier
+                    .size(size)
+                    .clip(CircleShape)
+                    .background(background)
+                    .indication(interactionSource, ripple())
+                    .then(
+                        if (isSelected) {
+                            Modifier.border(
+                                width = 2.dp,
+                                color = StratumThemeAccessor.colors.textPrimary,
+                                shape = CircleShape,
+                            )
+                        } else {
+                            Modifier
+                        },
+                    ),
+            contentAlignment = Alignment.Center,
+        ) {
+            StratumNumber(
+                text = label,
+                style = labelStyle,
+            )
+        }
     }
 }
 
@@ -296,25 +316,47 @@ fun RirTargetBadge(
                 color = contentColor,
             )
         }
+    // §12.5: same split as the sheet option — 48dp target outside, sized
+    // circle as the visual, ripple clipped to the circle. The outer box is
+    // always present so enabled and disabled badges keep the same footprint.
+    val interactionSource = remember { MutableInteractionSource() }
     Box(
         modifier =
             modifier
-                .size(size)
-                .clip(CircleShape)
-                .background(background)
+                .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
                 .then(
                     if (enabled) {
-                        Modifier.clickable(onClick = onClick)
+                        Modifier.clickable(
+                            interactionSource = interactionSource,
+                            indication = null,
+                            onClick = onClick,
+                        )
                     } else {
                         Modifier
                     }
                 ),
         contentAlignment = Alignment.Center,
     ) {
-        StratumNumber(
-            text = label,
-            style = labelStyle,
-        )
+        Box(
+            modifier =
+                Modifier
+                    .size(size)
+                    .clip(CircleShape)
+                    .background(background)
+                    .then(
+                        if (enabled) {
+                            Modifier.indication(interactionSource, ripple())
+                        } else {
+                            Modifier
+                        }
+                    ),
+            contentAlignment = Alignment.Center,
+        ) {
+            StratumNumber(
+                text = label,
+                style = labelStyle,
+            )
+        }
     }
 }
 

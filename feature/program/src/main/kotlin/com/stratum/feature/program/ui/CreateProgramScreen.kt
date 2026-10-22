@@ -553,7 +553,12 @@ private fun RestDayBody(onAddExercise: () -> Unit) {
                     StratumThemeAccessor.typography.bodyLarge.copy(
                         color = StratumThemeAccessor.colors.accent,
                     ),
-                modifier = Modifier.clickable(onClick = onAddExercise),
+                // §12.5: padding inside the clickable brings the bare text
+                // link to the 48dp target height (24dp line + 24dp).
+                modifier =
+                    Modifier
+                        .clickable(onClick = onAddExercise)
+                        .padding(vertical = StratumSpacing.s12),
             )
         }
     }

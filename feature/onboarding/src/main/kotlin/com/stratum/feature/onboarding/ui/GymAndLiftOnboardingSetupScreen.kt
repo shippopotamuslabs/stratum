@@ -271,7 +271,10 @@ private fun GymImportCard(
                 Row(
                     modifier =
                         Modifier
+                            // §12.5: padding inside the clickable brings the
+                            // link row to the 48dp target height.
                             .clickable(onClick = onLearnMoreClick)
+                            .padding(vertical = StratumSpacing.s12)
                             .semantics { contentDescription = learnMoreLabel },
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
