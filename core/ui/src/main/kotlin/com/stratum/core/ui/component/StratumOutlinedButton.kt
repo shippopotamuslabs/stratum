@@ -1,14 +1,12 @@
 package com.stratum.core.ui.component
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
@@ -48,10 +46,8 @@ fun StratumOutlinedButton(
             else -> colors.borderSubtle
         }
     val contentColor = if (destructive) colors.error else colors.accent
-    val interactionSource = remember { MutableInteractionSource() }
     val morph =
         rememberStratumPressMorph(
-            interactionSource = interactionSource,
             restCorner = shapes.buttonRestCorner(variant),
             pressedCorner = shapes.buttonPressedCorner,
         )
@@ -64,7 +60,7 @@ fun StratumOutlinedButton(
                 .stratumButtonHardShadow(enabled = enabled, shape = morph.shape),
         enabled = enabled,
         shape = morph.shape,
-        interactionSource = interactionSource,
+        interactionSource = morph.interactionSource,
         border = BorderStroke(shapes.borderWidth, borderColor),
         elevation =
             ButtonDefaults.buttonElevation(

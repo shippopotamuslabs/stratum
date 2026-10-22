@@ -69,6 +69,16 @@ data class StratumShapes(
             StratumButtonVariant.SquareLarge -> buttonSquareLargeCorner
         }
 
+    /**
+     * Resting corner for an icon button's press morph (§12.3): the pill
+     * rest corner while the caller keeps the default circular [shape];
+     * a caller-passed custom shape keeps its geometry, so the corner
+     * rests on the pressed corner and the morph idles. Same theme-layer
+     * rule as [buttonRestCorner]: components never import family tokens.
+     */
+    fun iconButtonRestCorner(shape: Shape): Dp =
+        if (shape == CircleShape) ShippopotamusPillRestCorner else buttonPressedCorner
+
     val extraSmall: RoundedCornerShape get() = RoundedCornerShape(corners.extraSmall)
     val extraSmallCorner: Dp get() = corners.extraSmall
     val small: RoundedCornerShape get() = RoundedCornerShape(corners.small)

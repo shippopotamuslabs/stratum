@@ -1,13 +1,11 @@
 package com.stratum.core.ui.component
 
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
@@ -42,10 +40,8 @@ fun StratumTextButton(
 ) {
     val colors = StratumThemeAccessor.colors
     val shapes = StratumThemeAccessor.shapes
-    val interactionSource = remember { MutableInteractionSource() }
     val morph =
         rememberStratumPressMorph(
-            interactionSource = interactionSource,
             restCorner = shapes.buttonRestCorner(StratumButtonVariant.Pill),
             pressedCorner = shapes.buttonPressedCorner,
         )
@@ -54,7 +50,7 @@ fun StratumTextButton(
         modifier = modifier.then(morph.scaleModifier),
         enabled = enabled,
         shape = morph.shape,
-        interactionSource = interactionSource,
+        interactionSource = morph.interactionSource,
         colors =
             ButtonDefaults.textButtonColors(
                 contentColor = contentColor,

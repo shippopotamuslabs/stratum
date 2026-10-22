@@ -1,7 +1,6 @@
 package com.stratum.core.ui.component
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
@@ -12,7 +11,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
@@ -55,13 +53,11 @@ fun StratumButton(
     val shapes = StratumThemeAccessor.shapes
     val elevations = StratumThemeAccessor.elevations
 
-    val interactionSource = remember { MutableInteractionSource() }
     // Press morph (§12.7): resting corner per variant, resolved by the theme
     // layer — family knowledge (pill vs carve-out geometry) lives in
     // StratumShapes; the morph itself is shared (StratumPressMorph).
     val morph =
         rememberStratumPressMorph(
-            interactionSource = interactionSource,
             restCorner = shapes.buttonRestCorner(variant),
             pressedCorner = shapes.buttonPressedCorner,
         )
@@ -74,7 +70,7 @@ fun StratumButton(
                 .stratumButtonHardShadow(enabled = enabled, shape = shapes.button),
         enabled = enabled,
         shape = morph.shape,
-        interactionSource = interactionSource,
+        interactionSource = morph.interactionSource,
         border =
             if (elevations.useHardShadow) {
                 BorderStroke(shapes.borderWidth, colors.borderStrong)
