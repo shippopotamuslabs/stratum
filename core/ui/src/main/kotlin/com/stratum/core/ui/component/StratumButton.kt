@@ -52,6 +52,10 @@ fun StratumButton(
     val colors = StratumThemeAccessor.colors
     val shapes = StratumThemeAccessor.shapes
     val elevations = StratumThemeAccessor.elevations
+    // The visible face height: heightIn floor for the button and the box the
+    // hard shadow must match (Material centers the face inside its 48dp
+    // touch target — see stratumHardShadow, STR-179).
+    val buttonHeight = if (large) LargeHeight else DefaultHeight
 
     // Press morph (§12.7): resting corner per variant, resolved by the theme
     // layer — family knowledge (pill vs carve-out geometry) lives in
@@ -66,8 +70,12 @@ fun StratumButton(
         modifier =
             modifier
                 .then(morph.scaleModifier)
-                .heightIn(min = if (large) LargeHeight else DefaultHeight)
-                .stratumButtonHardShadow(enabled = enabled, shape = shapes.button),
+                .heightIn(min = buttonHeight)
+                .stratumButtonHardShadow(
+                    enabled = enabled,
+                    shape = shapes.button,
+                    faceHeight = buttonHeight,
+                ),
         enabled = enabled,
         shape = morph.shape,
         interactionSource = morph.interactionSource,
