@@ -500,7 +500,8 @@ private fun BandAddCell(
     val colors = StratumThemeAccessor.colors
     StratumIconButton(
         onClick = onClick,
-        modifier = modifier.size(width = 44.dp, height = 64.dp),
+        // §12.5: icon-button targets floor at 48 wide (was 44).
+        modifier = modifier.size(width = 48.dp, height = 64.dp),
         contentColor = colors.accent,
     ) {
         Icon(

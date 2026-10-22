@@ -36,7 +36,8 @@ fun StratumEquipmentSubheader(
         modifier =
             modifier
                 .fillMaxWidth()
-                .heightIn(min = 40.dp)
+                // §12.5: every interactive floors at 48dp (was 40dp).
+                .heightIn(min = 48.dp)
                 .clickable(
                     role = Role.Button,
                     onClickLabel = stringResource(R.string.equipment_subheader_swap_cd),

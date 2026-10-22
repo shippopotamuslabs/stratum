@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -271,7 +272,12 @@ private fun GymImportCard(
                 Row(
                     modifier =
                         Modifier
+                            // §12.5: heightIn floors the link row at the 48dp
+                            // target height at any font scale; the padding is
+                            // the visual breathing room inside that target.
                             .clickable(onClick = onLearnMoreClick)
+                            .heightIn(min = 48.dp)
+                            .padding(vertical = StratumSpacing.s12)
                             .semantics { contentDescription = learnMoreLabel },
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s4),

@@ -125,8 +125,8 @@ private fun LiftNavigatorGroup(
                     .fillMaxWidth()
                     .height(LiftNavigatorUnderlineHeight)
                     .clip(RoundedCornerShape(1.5.dp))
-                    // High-contrast bar (sample apps use a light line on dark chrome).
-                    .background(colors.textPrimary),
+                    // Selection underline uses the accent.
+                    .background(colors.accent),
             )
         }
     }

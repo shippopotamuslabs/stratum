@@ -5,10 +5,12 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.stratum.core.ui.theme.StratumThemeAccessor
+import com.stratum.core.ui.theme.rememberStratumHaptics
 
 /**
  * Binary on/off switch. Wraps Material 3 [Switch] with Stratum semantic colors so feature
- * modules never import raw M3 switch APIs.
+ * modules never import raw M3 switch APIs. User toggles fire the §12.5 light
+ * toggle haptic (StratumHaptics).
  */
 @Composable
 fun StratumSwitch(
@@ -18,9 +20,13 @@ fun StratumSwitch(
     enabled: Boolean = true,
 ) {
     val colors = StratumThemeAccessor.colors
+    val haptics = rememberStratumHaptics()
     Switch(
         checked = checked,
-        onCheckedChange = onCheckedChange,
+        onCheckedChange = { newChecked ->
+            haptics.toggle(newChecked)
+            onCheckedChange(newChecked)
+        },
         enabled = enabled,
         modifier = modifier,
         colors =

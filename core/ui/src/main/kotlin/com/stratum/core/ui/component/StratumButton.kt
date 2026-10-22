@@ -1,24 +1,16 @@
 package com.stratum.core.ui.component
 
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
@@ -36,9 +28,10 @@ import com.stratum.core.ui.theme.stratumButtonHardShadow
  *
  * Shape follows the Button Shape Gospel (§12.7): [variant] picks the resting
  * shape and, while pressed, the corner morphs to the family's pressed shape
- * (12.dp under Tonal) for BOTH variants. Neo's 4.dp corner scale makes its
- * resting and pressed corners identical, so its geometry is untouched by
- * construction (sanctioned carve-out, §11.3 ruling 1).
+ * (12.dp under Tonal) for BOTH variants and the button scales to 0.96
+ * (StratumPressMorph). Neo's 4.dp corner scale makes its resting and pressed
+ * corners identical, so its geometry is untouched by construction
+ * (sanctioned carve-out, §11.3 ruling 1).
  */
 @Composable
 fun StratumButton(
@@ -60,26 +53,24 @@ fun StratumButton(
     val shapes = StratumThemeAccessor.shapes
     val elevations = StratumThemeAccessor.elevations
 
-    val interactionSource = remember { MutableInteractionSource() }
-    val pressed by interactionSource.collectIsPressedAsState()
-    // Resting corner per variant, resolved by the theme layer (§12.7):
-    // family knowledge (pill vs carve-out geometry) lives in StratumShapes.
-    val restCorner = shapes.buttonRestCorner(variant)
-    val corner by
-        animateDpAsState(
-            targetValue = if (pressed) shapes.buttonPressedCorner else restCorner,
-            animationSpec = spring(stiffness = Spring.StiffnessHigh),
-            label = "StratumButtonPressMorph",
+    // Press morph (§12.7): resting corner per variant, resolved by the theme
+    // layer — family knowledge (pill vs carve-out geometry) lives in
+    // StratumShapes; the morph itself is shared (StratumPressMorph).
+    val morph =
+        rememberStratumPressMorph(
+            restCorner = shapes.buttonRestCorner(variant),
+            pressedCorner = shapes.buttonPressedCorner,
         )
     Button(
         onClick = onClick,
         modifier =
             modifier
+                .then(morph.scaleModifier)
                 .heightIn(min = if (large) LargeHeight else DefaultHeight)
                 .stratumButtonHardShadow(enabled = enabled, shape = shapes.button),
         enabled = enabled,
-        shape = RoundedCornerShape(corner),
-        interactionSource = interactionSource,
+        shape = morph.shape,
+        interactionSource = morph.interactionSource,
         border =
             if (elevations.useHardShadow) {
                 BorderStroke(shapes.borderWidth, colors.borderStrong)

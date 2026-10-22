@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -635,6 +636,9 @@ private fun RestDayRow(
 
 private val WorkoutCardContentPadding = 20.dp
 
+/** Day-row height shared by workout cards and the Rest Day row. */
+private val WorkoutCardHeaderMinHeight = 72.dp
+
 @Composable
 internal fun WorkoutCard(
     workout: WorkoutViewState,
@@ -682,14 +686,15 @@ internal fun WorkoutCard(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(
-                        horizontal = WorkoutCardContentPadding,
-                        vertical = StratumSpacing.s16,
-                    ),
+                    .padding(horizontal = WorkoutCardContentPadding),
             horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Entire header (except checkbox) toggles expand — not only the chevron.
+            // §12.5: the vertical padding lives inside the expand clickable so
+            // its target is the full header band, not the 28dp content row.
+            // The band floors at 72dp so workout rows match the Rest Day row,
+            // whose height the 48dp checkbox plus s12 padding sets.
             Row(
                 modifier =
                     Modifier
@@ -699,7 +704,9 @@ internal fun WorkoutCard(
                             indication = null,
                             onClick = { onExpandedChange(!expanded) },
                         )
-                        .semantics { contentDescription = expandCollapseLabel },
+                        .semantics { contentDescription = expandCollapseLabel }
+                        .heightIn(min = WorkoutCardHeaderMinHeight)
+                        .padding(vertical = StratumSpacing.s16),
                 horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
                 verticalAlignment = Alignment.CenterVertically,
             ) {

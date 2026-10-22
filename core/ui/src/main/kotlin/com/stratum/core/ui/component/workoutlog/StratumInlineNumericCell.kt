@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.BasicTextField
@@ -124,6 +125,11 @@ fun StratumInlineNumericCell(
             .onGloballyPositioned { coords ->
                 cellBoundsInWindow = coords.boundsInWindow()
             }
+            // §12.5: the 48dp law reaches the set-log cells too. The sizeIn
+            // floor sits ahead of the 36dp height so the layout coerces up to
+            // 48dp; both tap paths (inactive clickable, focused-cell tap
+            // gestures) share this modifier, so both inherit the floored bounds.
+            .sizeIn(minHeight = 48.dp)
             .height(36.dp)
             .clip(StratumThemeAccessor.shapes.chip)
             .background(cellBackground)

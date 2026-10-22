@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
@@ -169,14 +170,19 @@ private fun PinnedLiftNoteRow(
     body: String,
     onClick: (() -> Unit)?,
 ) {
+    // §12.5: the row floors at 48dp tall in both variants (content alone
+    // measured 46dp), so the note never sits below the touch-target law.
     val rowModifier =
-        if (onClick != null) {
-            Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onClick)
-        } else {
-            Modifier.fillMaxWidth()
-        }
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable(onClick = onClick)
+                } else {
+                    Modifier
+                },
+            )
     Row(
         modifier = rowModifier.padding(vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
