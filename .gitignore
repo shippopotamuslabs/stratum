@@ -88,3 +88,5 @@ pip-wheel-metadata/
 third_party/
 /.zcode
 /.worktrees/
+/builds
+/cache
