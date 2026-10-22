@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -781,7 +782,11 @@ private fun ProgressionSchemeToggleRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Row(
-            modifier = Modifier.clickable(onClick = onInfoClick),
+            // §12.5: the label + info icon row floors at the 48dp target.
+            modifier =
+                Modifier
+                    .sizeIn(minHeight = 48.dp)
+                    .clickable(onClick = onInfoClick),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
         ) {

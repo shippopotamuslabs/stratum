@@ -559,6 +559,8 @@ fun SelectedLiftsTray(
         modifier =
             modifier
                 .fillMaxWidth()
+                // §12.5: header content alone is 40dp; floor the bar at 48dp.
+                .heightIn(min = 48.dp)
                 .background(color = colors.surfaceRaised, shape = shapes.panel)
                 .border(width = shapes.borderWidth, color = colors.borderSubtle, shape = shapes.panel)
                 .clickable(onClick = onExpandToggle)

@@ -90,7 +90,7 @@ fun StratumDurationStepper(
     }
 
     Row(
-        modifier = modifier.fillMaxWidth().height(StepperHeight),
+        modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
         verticalAlignment = Alignment.Top,
     ) {
@@ -173,11 +173,11 @@ private fun DurationSegment(
 ) {
     val shape = StratumThemeAccessor.shapes.panel
     Column(
-        modifier = modifier.fillMaxWidth().fillMaxHeight(),
+        modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().weight(1f),
+            modifier = Modifier.fillMaxWidth().height(StepperControlRowHeight),
             horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
             verticalAlignment = Alignment.Top,
         ) {
@@ -461,7 +461,12 @@ private fun StepperButton(
     }
 }
 
-private val StepperHeight = 96.dp
+// §12.5 derivation: the two stepper buttons split the control row evenly, so
+// the row is fixed at 2 x 48dp + the 1dp divider = 97dp. The segment label
+// below takes its intrinsic height, so the stepper's total height is not
+// fixed: it is this row plus the 4dp gap plus the label. At the old fixed
+// 96dp total the buttons were ~33dp.
+private val StepperControlRowHeight = 97.dp
 private val SegmentValuePadding = 4.dp
 private const val SEGMENT_FONT_HEIGHT_RATIO = 0.6f
 private const val SEGMENT_FONT_WIDTH_RATIO = 1.2f

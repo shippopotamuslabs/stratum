@@ -6,7 +6,9 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material3.ColorScheme
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -129,6 +131,7 @@ object StratumThemeSpecFactory {
  * When [darkTheme] is null, dark tokens follow [ThemePreferences.colorMode] (System / Light /
  * Dark). Explicit [darkTheme] wins so existing `@Preview` call sites stay valid.
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun StratumTheme(
     preferences: ThemePreferences = ThemePreferences(),
@@ -145,6 +148,10 @@ fun StratumTheme(
             colorScheme = materialColorScheme(spec),
             shapes = materialShapes(spec),
             typography = spec.typography.material,
+            // §12.5: M3 Expressive spring physics are the motion default
+            // (material3 1.5.0-beta01 pin; the scheme is internal in the
+            // BOM's managed 1.4.0). Stratum's own specs: StratumMotion.
+            motionScheme = MotionScheme.expressive(),
             content = content,
         )
     }

@@ -115,6 +115,61 @@ wired in `:app` via callbacks and shared routes.
 - Allowed deps: Kotlin stdlib, coroutines, `javax.inject`
 - Unit tests run on JVM without Robolectric; use fakes from `:core:testing`
 
+### 3.1 Domain model policy: rich aggregates, honest projections
+
+Types in `:core:domain` fall into four classes, and the class decides how much
+behavior a type must carry:
+
+- **(A) Aggregates / domain models — rich.** We own the concept and are
+  authoritative about its validity (`Program`, `TrainingSession`, `Lift`,
+  `Equipment`, `LoggedSet`, `WorkoutOverlay`). They enforce their invariants at
+  construction (`init` or factory — `copy()` runs the constructor, so `init`
+  checks cannot be bypassed) and expose state transitions as named methods on
+  the type, never as raw `copy()` state edits in a use case.
+- **(B) Value objects — rich and small.** Immutable, validated at construction,
+  behavior attached (`Weight`, `IncrementTier`, typed ids). A collection that
+  carries rules is wrapped as a value object, not passed as a bare list.
+- **(C) Domain services — procedural by design.** Rules that span aggregates or
+  need full history live here (recommendation / progression / generation
+  engines, response modeling, `PlateCalculator`). They do not move onto an
+  arbitrarily chosen aggregate.
+- **(D) Read models / projections / results / wire types — data-only by
+  design.** Built by a mapper or engine, consumed read-only, never persisted
+  back as truth. No behavior is required; naming must make the class obvious.
+
+The full classification of every data class in `:core:domain` is recorded in
+`docs/domain-model-classification-inventory.csv` (STR-164); every later refactor
+chunk cites its inventory rows. Only classes A and B get refactor chunks.
+
+Rules that follow from the classes:
+
+- **Impossible states are unrepresentable.** If a state genuinely cannot occur
+  (`LiftSet.repMin > repMax`, a cycle position outside the cycle), the
+  constructor forbids it, full stop.
+- **Legitimate states have exactly one owner of their meaning.** A state that
+  looks irregular is usually legitimate: a `COMPLETED` imported session with
+  `endedAt == null` means "finished, end time unknown". The model owns that
+  meaning in one place — a normalizing factory or named behavior on the type —
+  and no consumer re-decides it with a local `?:` fallback. Changing a producer
+  (the import mapper above all) to emit the normalized shape is part of the
+  same chunk as its model, never a reason to keep the rule off the model.
+- **Room entities stay rule-free.** Rules never live on `*Entity` classes in
+  `:core:data`; the mapper seam (`toDomain()` / `toEntity()`) is construction
+  only, not a home for logic.
+- **Kotlin-rich, not Java-rich.** No private-field / getter-setter encapsulation
+  theatre that fights data classes, Room mapping, or Compose immutability:
+  invariants in `init` / factories, behavior as member functions or extensions
+  in the model's own file.
+- **Use cases orchestrate.** They load, invoke domain behavior, persist, and
+  publish. A validity rule or a state-meaning rule implemented in a use case,
+  ViewModel, repository, or consumer fallback instead of on the owning domain
+  model is a contract violation.
+- **Ports belong to the layer that consumes them.** Repository and service
+  ports serving use cases belong in the application layer and move with the
+  use cases when that layer is extracted (STR-172); only a port consumed
+  solely by a domain service stays defined in `:core:domain`. The inventory
+  records the consuming layer per port.
+
 ### `:core:testing`
 
 - Hand-written fakes implementing domain ports
