@@ -37,7 +37,7 @@ import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumOutlinedButton
 import com.stratum.core.ui.component.StratumReorderItem
 import com.stratum.core.ui.component.StratumReorderListScreen
-import com.stratum.core.ui.component.StratumScaffold
+import com.stratum.core.ui.component.StratumDetailScaffold
 import com.stratum.core.ui.component.StratumScopedMuscleVolumeRow
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTextField
@@ -99,7 +99,13 @@ fun CreateProgramScreen(
         return
     }
 
-    StratumScaffold(
+    // Glass (§12.8, STR-158): under the route's glass host the top bar overlays
+    // and the step region below carries the top clearance — the wizard steps
+    // and the editor own their internal scrolling, so the whole region sits
+    // beneath the glass and no form field is ever obscured by the bar. The
+    // per-step bottom bars and IME behavior are untouched; solid hosts keep
+    // the in-flow geometry exactly.
+    StratumDetailScaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
             StratumTopBar(
@@ -166,12 +172,12 @@ fun CreateProgramScreen(
                 else -> Unit
             }
         },
-    ) { padding ->
+    ) { chrome ->
         Box(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .padding(padding),
+                    .padding(top = chrome.top),
         ) {
             if (state.loadErrorMessage != null) {
                 StratumText(

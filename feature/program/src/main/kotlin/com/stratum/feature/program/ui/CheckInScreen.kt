@@ -32,8 +32,8 @@ import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumButton
 import com.stratum.core.ui.component.StratumFilterChip
 import com.stratum.core.ui.component.StratumIconButton
+import com.stratum.core.ui.component.StratumDetailScaffold
 import com.stratum.core.ui.component.StratumPillToggle
-import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
@@ -64,7 +64,11 @@ fun CheckInScreen(
 
     BackHandler(onBack = onBack)
 
-    StratumScaffold(
+    // Glass (§12.8, STR-158): this screen composes inside the Programs tab, so
+    // the tab shell's glass host reaches it with no hosting of its own. Under
+    // glass the top bar (with its step indicator) overlays and the scrollable
+    // column carries the top clearance; the bottom action bar is unchanged.
+    StratumDetailScaffold(
         modifier = modifier,
         topBar = {
             StratumTopBar(
@@ -109,14 +113,14 @@ fun CheckInScreen(
                 )
             }
         },
-    ) { padding ->
+    ) { chrome ->
         Column(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .padding(padding)
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s16),
+                    .padding(horizontal = StratumSpacing.s16)
+                    .padding(top = StratumSpacing.s16 + chrome.top, bottom = StratumSpacing.s16),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             when (state.phase) {

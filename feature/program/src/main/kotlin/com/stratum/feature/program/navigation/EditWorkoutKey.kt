@@ -3,6 +3,7 @@ package com.stratum.feature.program.navigation
 import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
+import com.stratum.core.ui.component.StratumGlassHost
 import com.stratum.feature.program.ui.EditWorkoutRoute
 import kotlinx.serialization.Serializable
 
@@ -26,15 +27,19 @@ fun EntryProviderScope<NavKey>.editWorkoutEntry(
     modifier: Modifier = Modifier,
 ) {
     entry<EditWorkoutKey> { key ->
-        EditWorkoutRoute(
-            workoutId = key.workoutId,
-            programId = key.programId,
-            onBackClick = onBackClick,
-            onSwapLiftClick = onSwapLiftClick,
-            onReorderLiftsClick = onReorderLiftsClick,
-            onNavigateToWorkout = onNavigateToWorkout,
-            onCreateEquipmentClick = onCreateEquipmentClick,
-            modifier = modifier,
-        )
+        // Glass host (STR-158, §12.8): one HazeState for this route, provided at
+        // the detail-route level — same host pattern as the workout routes.
+        StratumGlassHost {
+            EditWorkoutRoute(
+                workoutId = key.workoutId,
+                programId = key.programId,
+                onBackClick = onBackClick,
+                onSwapLiftClick = onSwapLiftClick,
+                onReorderLiftsClick = onReorderLiftsClick,
+                onNavigateToWorkout = onNavigateToWorkout,
+                onCreateEquipmentClick = onCreateEquipmentClick,
+                modifier = modifier,
+            )
+        }
     }
 }
