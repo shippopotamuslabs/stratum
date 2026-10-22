@@ -57,7 +57,6 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-process:2.11.0")
     implementation(libs.androidx.navigation3.ui)
     implementation(libs.androidx.navigation3.runtime)
-    implementation(libs.haze)
     implementation(libs.hilt.android)
     implementation(libs.hilt.navigation.compose)
     ksp(libs.hilt.compiler)

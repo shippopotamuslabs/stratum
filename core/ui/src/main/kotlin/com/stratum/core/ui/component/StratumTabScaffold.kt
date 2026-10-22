@@ -20,12 +20,11 @@ import dev.chrisbanes.haze.hazeSource
  * Scaffold variant for screens hosted inside `MainTabShell` (or any shell that already reserves
  * the navigation-bar inset via its own padding). Differences from [StratumScaffold]:
  *
- * - **`contentWindowInsets` defaults to `WindowInsets(0)`** — the tab shell owns the
- *   insets; screens must not consume them again or a double-gap appears above the
- *   nav bar. Detail hosts outside a shell (STR-157: the workout routes) pass
- *   `StratumScaffold`'s detail insets instead, so solid mode keeps the exact
- *   geometry those screens had on `StratumScaffold`; overlay mode ignores the
- *   top inset either way (the clearance formula owns it, §12.8).
+ * - **`contentWindowInsets` is always `WindowInsets(0)`** — the shell owns the bottom inset;
+ *   screens must not consume it again or a double-gap appears above the nav bar.
+ *   Detail routes outside a shell use `StratumDetailScaffold` instead, which wraps
+ *   this scaffold with the detail insets preset rather than weakening this
+ *   invariant.
  * - Wraps content in a `Column` that applies only `top` / `bottom` from the scaffold's
  *   `PaddingValues` (resolves to the top-bar height only, since insets are zeroed) plus
  *   [horizontalPadding] (default 12dp — close to the glass, matching the top-app-bar feel).
@@ -57,6 +56,39 @@ import dev.chrisbanes.haze.hazeSource
  */
 @Composable
 fun StratumTabScaffold(
+    modifier: Modifier = Modifier,
+    topBar: @Composable () -> Unit = {},
+    bottomBar: @Composable () -> Unit = {},
+    snackbarHostState: SnackbarHostState? = null,
+    horizontalPadding: Dp = 12.dp,
+    verticalArrangement: Arrangement.Vertical = Arrangement.Top,
+    horizontalAlignment: Alignment.Horizontal = Alignment.Start,
+    overlayTopBar: Boolean = false,
+    bottomOverlay: @Composable (() -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    // The public contract keeps the tab invariant: the shell owns the insets, so
+    // they are always WindowInsets(0) here. The internal overload below exists
+    // for exactly one sanctioned caller in this module — StratumDetailScaffold,
+    // the detail-route preset — so the exception stays named and local instead
+    // of becoming a generic pass-through every call site can reach for.
+    StratumTabScaffold(
+        modifier = modifier,
+        topBar = topBar,
+        bottomBar = bottomBar,
+        snackbarHostState = snackbarHostState,
+        horizontalPadding = horizontalPadding,
+        verticalArrangement = verticalArrangement,
+        horizontalAlignment = horizontalAlignment,
+        overlayTopBar = overlayTopBar,
+        bottomOverlay = bottomOverlay,
+        contentWindowInsets = WindowInsets(0),
+        content = content,
+    )
+}
+
+@Composable
+internal fun StratumTabScaffold(
     modifier: Modifier = Modifier,
     topBar: @Composable () -> Unit = {},
     bottomBar: @Composable () -> Unit = {},

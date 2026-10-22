@@ -14,16 +14,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.exclude
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -43,8 +39,8 @@ import com.stratum.core.ui.component.StratumConfirmDialog
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumNumber
 import com.stratum.core.ui.component.StratumOutlinedButton
+import com.stratum.core.ui.component.StratumDetailScaffold
 import com.stratum.core.ui.component.StratumStatCard
-import com.stratum.core.ui.component.StratumTabScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTextButton
 import com.stratum.core.ui.component.StratumTopBar
@@ -53,7 +49,6 @@ import com.stratum.core.ui.share.ShareCaptureHost
 import com.stratum.core.ui.share.WorkoutShareCard
 import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
-import com.stratum.core.ui.theme.rememberGlassChromePadding
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.feature.workout.R
 
@@ -77,14 +72,10 @@ fun WorkoutCompleteScreen(
     // and the scrollable column carries the top clearance as its top content
     // padding, so the summary scrolls beneath the glass. Solid hosts keep the
     // in-flow geometry exactly (chrome.top is 0 there).
-    val chrome = rememberGlassChromePadding()
     Box(modifier = modifier.fillMaxSize()) {
-        StratumTabScaffold(
+        StratumDetailScaffold(
             modifier = Modifier.fillMaxSize(),
             snackbarHostState = snackbarHostState,
-            contentWindowInsets = ScaffoldDefaults.contentWindowInsets.exclude(WindowInsets.navigationBars),
-            horizontalPadding = 0.dp,
-            overlayTopBar = chrome.active,
             topBar = {
                 StratumTopBar(
                     title = state.workoutName,
@@ -112,7 +103,7 @@ fun WorkoutCompleteScreen(
                     },
                 )
             },
-        ) {
+        ) { chrome ->
             Column(
                 modifier =
                     Modifier
