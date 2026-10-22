@@ -40,12 +40,12 @@ import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.EquipmentSwapSheet
 import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumButton
+import com.stratum.core.ui.component.StratumDetailScaffold
 import com.stratum.core.ui.component.StratumEdgeToEdgeCard
 import com.stratum.core.ui.component.StratumEquipmentSubheader
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumOutlinedButton
 import com.stratum.core.ui.component.StratumPillToggle
-import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBarTextButton
 import com.stratum.core.ui.component.StratumTopBar
@@ -275,7 +275,12 @@ fun EditWorkoutScreen(
         modifier = modifier.fillMaxSize(),
         host = dockHost,
     ) { listModifier, _ ->
-        StratumScaffold(
+        // Glass (§12.8, STR-158): under the route's glass host the top bar
+        // overlays and the loaded content carries the top clearance; the
+        // overlay dock (listModifier, dock padding) is untouched, so set
+        // fields and the dock never pass behind the glass. Solid hosts keep
+        // the in-flow geometry exactly.
+        StratumDetailScaffold(
             modifier = listModifier,
             snackbarHostState = snackbarHostState,
             topBar = {
@@ -285,14 +290,11 @@ fun EditWorkoutScreen(
                     onSaveWorkout = { attemptSave() },
                 )
             },
-        ) { padding ->
+        ) { chrome ->
             when (state) {
                 EditWorkoutUiState.Loading ->
                     Box(
-                        modifier =
-                            Modifier
-                                .fillMaxSize()
-                                .padding(padding),
+                        modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center,
                     ) {
                         StratumText(
@@ -303,10 +305,7 @@ fun EditWorkoutScreen(
 
                 EditWorkoutUiState.NotFound ->
                     Box(
-                        modifier =
-                            Modifier
-                                .fillMaxSize()
-                                .padding(padding),
+                        modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center,
                     ) {
                         StratumText(
@@ -322,7 +321,7 @@ fun EditWorkoutScreen(
                         onRirClick = { set -> rirSheetSet = set },
                         onShowLiftActions = { liftId -> liftActionsLiftId = liftId },
                         onShowProgressionSchemeInfo = { showProgressionSchemeExplainer = true },
-                        modifier = Modifier.padding(padding),
+                        modifier = Modifier.padding(top = chrome.top),
                         dockHost = dockHost,
                         showStartWorkout = showStartWorkout,
                         isStarting = isStarting,
