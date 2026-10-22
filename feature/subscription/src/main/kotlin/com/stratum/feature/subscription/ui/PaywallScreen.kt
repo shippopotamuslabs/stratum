@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -364,10 +365,12 @@ private fun PaywallContent(
                 text = stringResource(R.string.paywall_terms),
                 style = typography.sectionLabel,
                 muted = true,
-                // §12.5: padding inside the clickable — the legal links get
-                // a 50dp-tall target (18dp line + 32dp) instead of 18dp.
+                // §12.5: heightIn floors the legal links at the 48dp
+                // target height at any font scale; the padding is the
+                // visual breathing room inside that target.
                 modifier = Modifier
                     .clickable { uriHandler.openUri(LegalUrls.TERMS) }
+                    .heightIn(min = 48.dp)
                     .padding(horizontal = StratumSpacing.s8, vertical = StratumSpacing.s16),
             )
             StratumText(
@@ -381,6 +384,7 @@ private fun PaywallContent(
                 muted = true,
                 modifier = Modifier
                     .clickable { uriHandler.openUri(LegalUrls.PRIVACY) }
+                    .heightIn(min = 48.dp)
                     .padding(horizontal = StratumSpacing.s8, vertical = StratumSpacing.s16),
             )
         }

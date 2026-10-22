@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.hasClickAction
@@ -28,9 +29,15 @@ import tech.apter.junit.jupiter.robolectric.RobolectricExtension
 /**
  * §12.5 regression lock (STR-145): the custom interactives whose visuals are
  * smaller than 48dp must still report >= 48dp touch bounds. Each component
- * here was a sub-48 target before the pass; if a future change drops the
- * [androidx.compose.material3.minimumInteractiveComponentSize] floor or the
- * outer-target split, these bounds shrink and the test fails.
+ * here was a sub-48 target before the pass; if a future change drops a
+ * sizeIn floor or the outer-target split, these bounds shrink and the test
+ * fails.
+ *
+ * All checks live in ONE test method as sequential runComposeUiTest blocks:
+ * under this module's JUnit 5 + Robolectric setup a second compose test
+ * method in the same class wedges the test JVM (reproduced locally and in
+ * CI on STR-145's first pipeline), while sequential blocks in one method
+ * run clean.
  */
 @ExtendWith(RobolectricExtension::class)
 @DisplayName("Touch target bounds (§12.5)")
@@ -56,182 +63,170 @@ class TouchTargetBoundsTest {
 
     @Test
     @OptIn(ExperimentalTestApi::class)
-    @DisplayName("RIR badge target is at least 48dp")
-    fun rirBadgeTarget() =
-        runComposeUiTest {
-            setContent {
-                StratumTheme(darkTheme = true) {
-                    RirTargetBadge(rirGoal = 2, onClick = {})
-                }
-            }
-            assertTargetAtLeast48("RIR badge", onNode(hasClickAction()).boundsDp(density))
-        }
+    @DisplayName("every custom interactive target is at least 48dp")
+    fun allCustomTargetsAreAtLeast48dp() {
+        runComposeUiTest { checkRirBadge() }
+        runComposeUiTest { checkSetColumnBadge() }
+        runComposeUiTest { checkInlineNumericCell() }
+        runComposeUiTest { checkSplitRepsCell() }
+        runComposeUiTest { checkActiveBadge() }
+        runComposeUiTest { checkClickableSurface() }
+        runComposeUiTest { checkTextFieldClear() }
+        runComposeUiTest { checkAssistChipDismiss() }
+        runComposeUiTest { checkDurationStepper() }
+    }
 
-    @Test
     @OptIn(ExperimentalTestApi::class)
-    @DisplayName("set column badge target is at least 48dp")
-    fun setColumnBadgeTarget() =
-        runComposeUiTest {
-            setContent {
-                StratumTheme(darkTheme = true) {
-                    WorkoutLogSetColumnBadge(onClick = {}) {
-                        Text("W")
-                    }
-                }
+    private fun ComposeUiTest.checkRirBadge() {
+        setContent {
+            StratumTheme(darkTheme = true) {
+                RirTargetBadge(rirGoal = 2, onClick = {})
             }
-            assertTargetAtLeast48("set badge", onNode(hasClickAction()).boundsDp(density))
         }
+        assertTargetAtLeast48("RIR badge", onNode(hasClickAction()).boundsDp(density))
+    }
 
-    @Test
     @OptIn(ExperimentalTestApi::class)
-    @DisplayName("inactive numeric cell target is at least 48dp tall")
-    fun inlineNumericCellTarget() =
-        runComposeUiTest {
-            setContent {
-                StratumTheme(darkTheme = true) {
-                    StratumInlineNumericCell(
-                        value = "135",
-                        placeholder = "lb",
-                        enabled = true,
-                        onActivate = {},
-                        modifier = Modifier.width(72.dp),
-                    )
+    private fun ComposeUiTest.checkSetColumnBadge() {
+        setContent {
+            StratumTheme(darkTheme = true) {
+                WorkoutLogSetColumnBadge(onClick = {}) {
+                    Text("W")
                 }
             }
-            assertTargetAtLeast48(
-                "numeric cell",
-                onNode(hasClickAction()).boundsDp(density),
-                width = false,
-            )
         }
+        assertTargetAtLeast48("set badge", onNode(hasClickAction()).boundsDp(density))
+    }
 
-    @Test
     @OptIn(ExperimentalTestApi::class)
-    @DisplayName("split reps halves are at least 48dp tall")
-    fun splitRepsCellTargets() =
-        runComposeUiTest {
-            setContent {
-                StratumTheme(darkTheme = true) {
-                    StratumSplitRepsCell(
-                        fullRepsText = "8",
-                        partialRepsText = "2",
-                        fullPlaceholder = "Full",
-                        selectedMode = RepsEntryMode.Full,
-                        enabled = true,
-                        isActive = false,
-                        completed = false,
-                        onSelectFull = {},
-                        onSelectPartial = {},
-                        modifier = Modifier.width(96.dp),
-                    )
-                }
+    private fun ComposeUiTest.checkInlineNumericCell() {
+        setContent {
+            StratumTheme(darkTheme = true) {
+                StratumInlineNumericCell(
+                    value = "135",
+                    placeholder = "lb",
+                    enabled = true,
+                    onActivate = {},
+                    modifier = Modifier.width(72.dp),
+                )
             }
-            assertTargetAtLeast48(
-                "full half",
-                onNodeWithContentDescription("Full reps").boundsDp(density),
-                width = false,
-            )
-            assertTargetAtLeast48(
-                "partial half",
-                onNodeWithContentDescription("Partial reps").boundsDp(density),
-                width = false,
-            )
         }
+        assertTargetAtLeast48(
+            "numeric cell",
+            onNode(hasClickAction()).boundsDp(density),
+            width = false,
+        )
+    }
 
-    @Test
     @OptIn(ExperimentalTestApi::class)
-    @DisplayName("inactive Active badge target is at least 48dp")
-    fun activeBadgeTarget() =
-        runComposeUiTest {
-            setContent {
-                StratumTheme(darkTheme = true) {
-                    StratumActiveBadge(label = "Active", active = false, onClick = {})
-                }
+    private fun ComposeUiTest.checkSplitRepsCell() {
+        setContent {
+            StratumTheme(darkTheme = true) {
+                StratumSplitRepsCell(
+                    fullRepsText = "8",
+                    partialRepsText = "2",
+                    fullPlaceholder = "Full",
+                    selectedMode = RepsEntryMode.Full,
+                    enabled = true,
+                    isActive = false,
+                    completed = false,
+                    onSelectFull = {},
+                    onSelectPartial = {},
+                    modifier = Modifier.width(96.dp),
+                )
             }
-            assertTargetAtLeast48("active badge", onNode(hasClickAction()).boundsDp(density))
         }
+        assertTargetAtLeast48(
+            "full half",
+            onNodeWithContentDescription("Full reps").boundsDp(density),
+            width = false,
+        )
+        assertTargetAtLeast48(
+            "partial half",
+            onNodeWithContentDescription("Partial reps").boundsDp(density),
+            width = false,
+        )
+    }
 
-    @Test
     @OptIn(ExperimentalTestApi::class)
-    @DisplayName("clickable surface floors at 48dp whatever the content")
-    fun surfaceTarget() =
-        runComposeUiTest {
-            setContent {
-                StratumTheme(darkTheme = true) {
-                    StratumSurface(onClick = {}) {
-                        Box(Modifier.size(8.dp))
-                    }
-                }
+    private fun ComposeUiTest.checkActiveBadge() {
+        setContent {
+            StratumTheme(darkTheme = true) {
+                StratumActiveBadge(label = "Active", active = false, onClick = {})
             }
-            assertTargetAtLeast48("surface", onNode(hasClickAction()).boundsDp(density))
         }
+        assertTargetAtLeast48("active badge", onNode(hasClickAction()).boundsDp(density))
+    }
 
-    @Test
     @OptIn(ExperimentalTestApi::class)
-    @DisplayName("text field clear target is at least 48dp")
-    fun textFieldClearTarget() =
-        runComposeUiTest {
-            setContent {
-                StratumTheme(darkTheme = true) {
-                    StratumTextField(
-                        value = "x",
-                        onValueChange = {},
-                        label = "Notes",
-                        options = StratumTextFieldOptions(showClearButton = true),
-                    )
+    private fun ComposeUiTest.checkClickableSurface() {
+        setContent {
+            StratumTheme(darkTheme = true) {
+                StratumSurface(onClick = {}) {
+                    Box(Modifier.size(8.dp))
                 }
             }
-            assertTargetAtLeast48(
-                "clear button",
-                onNodeWithContentDescription("Clear").boundsDp(density),
-            )
         }
+        assertTargetAtLeast48("surface", onNode(hasClickAction()).boundsDp(density))
+    }
 
-    @Test
     @OptIn(ExperimentalTestApi::class)
-    @DisplayName("assist chip dismiss target is at least 48dp")
-    fun assistChipDismissTarget() =
-        runComposeUiTest {
-            setContent {
-                StratumTheme(darkTheme = true) {
-                    StratumAssistChip(
-                        label = "Hint",
-                        onClick = {},
-                        onDismissClick = {},
-                        dismissContentDescription = "Dismiss hint",
-                    )
-                }
+    private fun ComposeUiTest.checkTextFieldClear() {
+        setContent {
+            StratumTheme(darkTheme = true) {
+                StratumTextField(
+                    value = "x",
+                    onValueChange = {},
+                    label = "Notes",
+                    options = StratumTextFieldOptions(showClearButton = true),
+                )
             }
-            assertTargetAtLeast48(
-                "dismiss",
-                onNodeWithContentDescription("Dismiss hint").boundsDp(density),
-            )
         }
+        assertTargetAtLeast48(
+            "clear button",
+            onNodeWithContentDescription("Clear").boundsDp(density),
+        )
+    }
 
-    @Test
     @OptIn(ExperimentalTestApi::class)
-    @DisplayName("duration stepper buttons are at least 48dp tall")
-    fun durationStepperTargets() =
-        runComposeUiTest {
-            setContent {
-                StratumTheme(darkTheme = true) {
-                    StratumDurationStepper(
-                        totalMinutes = 90,
-                        onTotalMinutesChange = {},
-                        minMinutes = 0,
-                        maxMinutes = 600,
-                        hoursLabel = "Hours",
-                        minutesLabel = "Minutes",
-                        incrementContentDescription = "Increment",
-                        decrementContentDescription = "Decrement",
-                    )
-                }
-            }
-            val nodes = onAllNodesWithContentDescription("Increment").fetchSemanticsNodes()
-            assertTrue(nodes.size == 2, "expected two segment steppers, found ${nodes.size}")
-            nodes.forEach { node ->
-                val heightDp = node.boundsInRoot.height / density.density
-                assertTrue(heightDp >= 48f, "stepper button height: ${heightDp}dp")
+    private fun ComposeUiTest.checkAssistChipDismiss() {
+        setContent {
+            StratumTheme(darkTheme = true) {
+                StratumAssistChip(
+                    label = "Hint",
+                    onClick = {},
+                    onDismissClick = {},
+                    dismissContentDescription = "Dismiss hint",
+                )
             }
         }
+        assertTargetAtLeast48(
+            "dismiss",
+            onNodeWithContentDescription("Dismiss hint").boundsDp(density),
+        )
+    }
+
+    @OptIn(ExperimentalTestApi::class)
+    private fun ComposeUiTest.checkDurationStepper() {
+        setContent {
+            StratumTheme(darkTheme = true) {
+                StratumDurationStepper(
+                    totalMinutes = 90,
+                    onTotalMinutesChange = {},
+                    minMinutes = 0,
+                    maxMinutes = 600,
+                    hoursLabel = "Hours",
+                    minutesLabel = "Minutes",
+                    incrementContentDescription = "Increment",
+                    decrementContentDescription = "Decrement",
+                )
+            }
+        }
+        val nodes = onAllNodesWithContentDescription("Increment").fetchSemanticsNodes()
+        assertTrue(nodes.size == 2, "expected two segment steppers, found ${nodes.size}")
+        nodes.forEach { node ->
+            val heightDp = node.boundsInRoot.height / density.density
+            assertTrue(heightDp >= 48f, "stepper button height: ${heightDp}dp")
+        }
+    }
 }
