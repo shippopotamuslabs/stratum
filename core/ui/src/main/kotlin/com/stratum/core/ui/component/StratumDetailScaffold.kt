@@ -34,6 +34,7 @@ import com.stratum.core.ui.theme.rememberGlassChromePadding
 fun StratumDetailScaffold(
     modifier: Modifier = Modifier,
     topBar: @Composable () -> Unit = {},
+    bottomBar: @Composable () -> Unit = {},
     snackbarHostState: SnackbarHostState? = null,
     content: @Composable ColumnScope.(GlassChromePadding) -> Unit,
 ) {
@@ -41,6 +42,7 @@ fun StratumDetailScaffold(
     StratumTabScaffold(
         modifier = modifier,
         topBar = topBar,
+        bottomBar = bottomBar,
         snackbarHostState = snackbarHostState,
         horizontalPadding = 0.dp,
         overlayTopBar = chrome.active,
