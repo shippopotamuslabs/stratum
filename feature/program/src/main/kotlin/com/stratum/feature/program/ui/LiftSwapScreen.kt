@@ -47,8 +47,8 @@ import com.stratum.core.ui.component.LiftPickerSearchBottomBar
 import com.stratum.core.ui.component.SelectedLiftsListPanel
 import com.stratum.core.ui.component.SelectedLiftsTray
 import com.stratum.core.ui.component.SelectedMusclesRow
+import com.stratum.core.ui.component.StratumDetailScaffold
 import com.stratum.core.ui.component.StratumIconButton
-import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumSwitch
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
@@ -157,7 +157,11 @@ fun LiftSwapScreen(
         showSelectedPanel = false
     }
 
-    StratumScaffold(
+    // Glass (§12.8, STR-158): under the route's glass host the top bar overlays
+    // and the panel region below carries the top clearance, so the picker
+    // panels (and their lists) start beneath the glass; the search bottom bar
+    // and IME behavior are untouched. Solid hosts keep the in-flow geometry.
+    StratumDetailScaffold(
         modifier = modifier.fillMaxSize(),
         snackbarHostState = snackbarHostState,
         topBar = {
@@ -220,13 +224,13 @@ fun LiftSwapScreen(
                 )
             }
         },
-    ) { paddingValues ->
+    ) { chrome ->
         AnimatedContent(
             targetState = showSelectedPanel && state.isAddMode,
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .padding(paddingValues),
+                    .padding(top = chrome.top),
             transitionSpec = {
                 if (targetState) {
                     (slideInVertically { height -> height } + fadeIn()) togetherWith

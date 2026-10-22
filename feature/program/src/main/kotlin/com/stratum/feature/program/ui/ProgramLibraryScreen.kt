@@ -16,7 +16,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.component.StratumConfirmDialog
 import com.stratum.core.ui.component.StratumProgramLibraryCard
-import com.stratum.core.ui.component.StratumScaffold
+import com.stratum.core.ui.component.StratumDetailScaffold
 import com.stratum.core.ui.component.StratumSwipeToRevealRow
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
@@ -50,7 +50,11 @@ fun ProgramLibraryScreen(
         snackbarHostState = snackbarHostState,
         onUserMessageShown = onUserMessageShown,
     )
-    StratumScaffold(
+    // Glass (§12.8, STR-158): under the route's glass host the top bar overlays
+    // and the list carries the top clearance as content padding, so cards
+    // scroll beneath the glass. Solid hosts keep the in-flow geometry exactly
+    // (chrome.top is 0 there).
+    StratumDetailScaffold(
         modifier = modifier.fillMaxSize(),
         snackbarHostState = snackbarHostState,
         topBar = {
@@ -64,13 +68,12 @@ fun ProgramLibraryScreen(
                 },
             )
         },
-    ) { padding ->
+    ) { chrome ->
         if (state.programs.isEmpty()) {
             Box(
                 modifier =
                     Modifier
                         .fillMaxSize()
-                        .padding(padding)
                         .padding(StratumSpacing.s24),
                 contentAlignment = Alignment.Center,
             ) {
@@ -82,11 +85,14 @@ fun ProgramLibraryScreen(
             }
         } else {
             LazyColumn(
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .padding(padding),
-                contentPadding = PaddingValues(horizontal = StratumSpacing.s12, vertical = StratumSpacing.s12),
+                modifier = Modifier.fillMaxSize(),
+                contentPadding =
+                    PaddingValues(
+                        start = StratumSpacing.s12,
+                        end = StratumSpacing.s12,
+                        top = StratumSpacing.s12 + chrome.top,
+                        bottom = StratumSpacing.s12,
+                    ),
                 verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
             ) {
                 items(
