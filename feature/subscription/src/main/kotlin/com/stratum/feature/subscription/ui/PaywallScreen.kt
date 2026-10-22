@@ -364,9 +364,11 @@ private fun PaywallContent(
                 text = stringResource(R.string.paywall_terms),
                 style = typography.sectionLabel,
                 muted = true,
+                // §12.5: padding inside the clickable — the legal links get
+                // a 50dp-tall target (18dp line + 32dp) instead of 18dp.
                 modifier = Modifier
-                    .padding(horizontal = StratumSpacing.s8)
-                    .clickable { uriHandler.openUri(LegalUrls.TERMS) },
+                    .clickable { uriHandler.openUri(LegalUrls.TERMS) }
+                    .padding(horizontal = StratumSpacing.s8, vertical = StratumSpacing.s16),
             )
             StratumText(
                 text = "•",
@@ -378,8 +380,8 @@ private fun PaywallContent(
                 style = typography.sectionLabel,
                 muted = true,
                 modifier = Modifier
-                    .padding(horizontal = StratumSpacing.s8)
-                    .clickable { uriHandler.openUri(LegalUrls.PRIVACY) },
+                    .clickable { uriHandler.openUri(LegalUrls.PRIVACY) }
+                    .padding(horizontal = StratumSpacing.s8, vertical = StratumSpacing.s16),
             )
         }
 

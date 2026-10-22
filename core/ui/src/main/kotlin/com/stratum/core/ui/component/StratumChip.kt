@@ -11,9 +11,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.LocalContentColor
-import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -35,9 +35,8 @@ private val AvatarSize = 24.dp
  * this one implementation. Visual height 32dp, label labelLarge. Selected reads
  * tonal (accentMuted container, onAccentMuted content), never the bright accent.
  *
- * - Interactive (Input/Assist): pass [onClick]. The touch target is 48dp via
- *   minimumInteractiveComponentSize while the visual chip stays 32dp (§12.5,
- *   the same split [StratumButton] gets from M3).
+ * - Interactive (Input/Assist): pass [onClick]. The touch target is a real
+ *   48dp layout box (sizeIn minimums) while the visual chip stays 32dp (§12.5).
  * - Suggestion: leave [onClick] null — the chip renders quiet (secondary label,
  *   no click target), per §12.3's non-interactive-looking rule.
  * - Input chips may carry a 24dp circular [avatar] leading slot; icon-led chips
@@ -90,7 +89,7 @@ fun StratumChip(
         Box(
             modifier =
                 modifier
-                    .minimumInteractiveComponentSize()
+                    .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
                     .clickable(
                         interactionSource = interactionSource,
                         indication = null,

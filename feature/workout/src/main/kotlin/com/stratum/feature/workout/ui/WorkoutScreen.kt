@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -508,7 +509,10 @@ private fun RestTimerTopBarIndicator(
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
+        // §12.5: the rest-timer indicator is a mid-workout control — its
+        // target floors at 48dp tall (the row's content is only 24dp).
         modifier = modifier
+            .sizeIn(minHeight = 48.dp)
             .clickable(onClick = onClick)
             .padding(end = StratumSpacing.s8)
     ) {

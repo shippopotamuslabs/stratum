@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R
@@ -112,20 +113,26 @@ fun StratumSwipeToRevealRow(
                         .matchParentSize()
                         .background(errorColor),
             ) {
+                // §12.5: the whole revealed error band is the target — the
+                // 24dp circle was never touchable on its own. The button
+                // keeps the icon visual; the band carries the click.
                 Box(
                     modifier =
                         Modifier
                             .align(Alignment.CenterEnd)
                             .width(with(density) { revealWidthPx.toDp() })
-                            .fillMaxHeight(),
+                            .fillMaxHeight()
+                            .clickable(
+                                role = Role.Button,
+                                onClick = {
+                                    isRevealed = false
+                                    dragOffsetPx = 0f
+                                    onActionClick()
+                                },
+                            ),
                     contentAlignment = Alignment.Center,
                 ) {
                     SwipeDeleteActionButton(
-                        onClick = {
-                            isRevealed = false
-                            dragOffsetPx = 0f
-                            onActionClick()
-                        },
                         minusTint = errorColor,
                         contentDescription = actionContentDescription,
                     )
@@ -190,7 +197,6 @@ internal fun rowClipWithTopOverflow(topOverflow: Dp): Shape {
 
 @Composable
 private fun SwipeDeleteActionButton(
-    onClick: () -> Unit,
     minusTint: Color,
     contentDescription: String,
 ) {
@@ -199,8 +205,7 @@ private fun SwipeDeleteActionButton(
             Modifier
                 .size(SwipeDeleteIconSize)
                 .clip(CircleShape)
-                .background(Color.White)
-                .clickable(onClick = onClick),
+                .background(Color.White),
         contentAlignment = Alignment.Center,
     ) {
         Icon(

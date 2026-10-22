@@ -682,14 +682,14 @@ internal fun WorkoutCard(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(
-                        horizontal = WorkoutCardContentPadding,
-                        vertical = StratumSpacing.s16,
-                    ),
+                    .padding(horizontal = WorkoutCardContentPadding),
             horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Entire header (except checkbox) toggles expand — not only the chevron.
+            // §12.5: the vertical padding lives inside the expand clickable so
+            // its target is the full 60dp header band, not the 28dp content row;
+            // total header height is unchanged.
             Row(
                 modifier =
                     Modifier
@@ -699,7 +699,8 @@ internal fun WorkoutCard(
                             indication = null,
                             onClick = { onExpandedChange(!expanded) },
                         )
-                        .semantics { contentDescription = expandCollapseLabel },
+                        .semantics { contentDescription = expandCollapseLabel }
+                        .padding(vertical = StratumSpacing.s16),
                 horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
