@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Icon
@@ -553,11 +554,13 @@ private fun RestDayBody(onAddExercise: () -> Unit) {
                     StratumThemeAccessor.typography.bodyLarge.copy(
                         color = StratumThemeAccessor.colors.accent,
                     ),
-                // §12.5: padding inside the clickable brings the bare text
-                // link to the 48dp target height (24dp line + 24dp).
+                // §12.5: heightIn floors the bare text link at the 48dp
+                // target height at any font scale; the padding is the
+                // visual breathing room inside that target.
                 modifier =
                     Modifier
                         .clickable(onClick = onAddExercise)
+                        .heightIn(min = 48.dp)
                         .padding(vertical = StratumSpacing.s12),
             )
         }
