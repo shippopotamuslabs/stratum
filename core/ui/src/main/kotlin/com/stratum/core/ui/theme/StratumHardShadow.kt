@@ -1,11 +1,13 @@
 package com.stratum.core.ui.theme
 
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
@@ -23,18 +25,38 @@ import androidx.compose.ui.unit.dp
  *
  * Prefer [stratumButtonHardShadow] / [stratumCardHardShadow] so offsets come from
  * [StratumElevations] instead of hard-coded theme branches in features.
+ *
+ * [faceHeight] + [touchTargetHeight] exist for Material buttons (STR-179): the interactive
+ * `Surface` inside a Material button wraps the caller's chain in
+ * `minimumInteractiveComponentSize`, which inflates the layout node to the touch target
+ * (48dp by default) and centers the visible face inside it. This draw scope measures the
+ * inflated node, so an outline at the full scope size overshoots the face on every side.
+ * When the caller supplies its face height and the scope is exactly that inflated target,
+ * the outline is rebuilt at the centered face box instead. Plain surfaces leave both unset
+ * and keep the node == face outline.
  */
 fun Modifier.stratumHardShadow(
     offset: Dp,
     color: Color,
     shape: Shape,
+    faceHeight: Dp? = null,
+    touchTargetHeight: Dp = 0.dp,
 ): Modifier {
     if (offset <= 0.dp) return this
     return drawBehind {
         val offsetPx = offset.toPx()
-        val outline = shape.createOutline(size, layoutDirection, this)
+        val faceHeightPx =
+            if (faceHeight != null && touchTargetHeight > 0.dp) {
+                val candidatePx = faceHeight.toPx()
+                val targetPx = touchTargetHeight.toPx()
+                if (size.height > candidatePx && size.height <= targetPx) candidatePx else size.height
+            } else {
+                size.height
+            }
+        val faceTopPx = (size.height - faceHeightPx) / 2f
+        val outline = shape.createOutline(Size(size.width, faceHeightPx), layoutDirection, this)
         val path = Path().apply { addOutline(outline) }
-        withTransform({ translate(left = offsetPx, top = offsetPx) }) {
+        withTransform({ translate(left = offsetPx, top = faceTopPx + offsetPx) }) {
             drawPath(path, color)
         }
     }
@@ -52,11 +74,13 @@ fun Modifier.stratumButtonHardShadow(
     enabled: Boolean = true,
     shape: Shape = StratumThemeAccessor.shapes.button,
     reserveSpace: Boolean = true,
+    faceHeight: Dp? = null,
 ): Modifier {
     val elevations = StratumThemeAccessor.elevations
     if (!elevations.useHardShadow || !enabled) return this
     val offset = elevations.buttonShadowOffset
     if (offset <= 0.dp) return this
+    val touchTargetHeight = LocalMinimumInteractiveComponentSize.current
     val base =
         if (reserveSpace) {
             padding(end = offset, bottom = offset)
@@ -67,6 +91,8 @@ fun Modifier.stratumButtonHardShadow(
         offset = offset,
         color = elevations.hardShadowColor,
         shape = shape,
+        faceHeight = faceHeight,
+        touchTargetHeight = touchTargetHeight,
     )
 }
 
