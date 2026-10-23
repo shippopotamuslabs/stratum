@@ -20,15 +20,8 @@ class SetEquipmentIncrementTiersUseCase @Inject constructor(
         tiers: List<IncrementTier>,
         micro: List<Weight> = emptyList(),
     ): Result<Unit> {
-        // Constructing the lattice is the validation (STR-165): it throws the same
-        // invalid-tier / invalid-micro exceptions the validators used to produce.
-        try {
-            IncrementLattice(tiers, micro)
-        } catch (e: IncrementTiersInvalidException) {
-            return Result.failure(e)
-        } catch (e: MicroIncrementsInvalidException) {
-            return Result.failure(e)
-        }
+        // Constructing the lattice is the validation (STR-165).
+        IncrementLattice.resultOf(tiers, micro).onFailure { return Result.failure(it) }
         return runCatchingLogged(loggingPort, TAG, "Failed to set equipment increment tiers") {
             repository.setIncrementTiers(id, tiers, micro)
         }

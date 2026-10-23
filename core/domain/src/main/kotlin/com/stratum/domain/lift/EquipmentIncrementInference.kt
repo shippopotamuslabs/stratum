@@ -23,7 +23,7 @@ data class InferredIncrementLattice(
     val tiers: List<IncrementTier>,
 ) {
     /** The proposed tiers as a validated lattice (STR-165); inference only builds valid tiers. */
-    val lattice: IncrementLattice get() = IncrementLattice(tiers)
+    fun requireLattice(): IncrementLattice = IncrementLattice(tiers)
 }
 
 /**

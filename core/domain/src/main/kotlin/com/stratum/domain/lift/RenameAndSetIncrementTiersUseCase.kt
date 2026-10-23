@@ -26,13 +26,7 @@ class RenameAndSetIncrementTiersUseCase @Inject constructor(
             return Result.failure(IllegalArgumentException("Equipment name is required"))
         }
         // Constructing the lattice is the validation (STR-165).
-        try {
-            IncrementLattice(tiers, micro)
-        } catch (e: IncrementTiersInvalidException) {
-            return Result.failure(e)
-        } catch (e: MicroIncrementsInvalidException) {
-            return Result.failure(e)
-        }
+        IncrementLattice.resultOf(tiers, micro).onFailure { return Result.failure(it) }
         return runCatchingLogged(loggingPort, TAG, "Failed to rename equipment and set increment tiers") {
             repository.renameAndSetIncrementTiers(id, trimmed, tiers, micro)
         }
