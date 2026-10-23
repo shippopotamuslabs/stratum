@@ -8,6 +8,7 @@ import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.theme.GlassChromePadding
 import com.stratum.core.ui.theme.rememberGlassChromePadding
@@ -29,6 +30,13 @@ import com.stratum.core.ui.theme.rememberGlassChromePadding
  *   screen applies the top clearance where its own geometry puts it (on the
  *   scrollable, or on the column above a fixed header). `chrome.top` is 0
  *   whenever glass is inactive, so solid layouts need no branching.
+ * - **Bottom-slot bars (STR-159)** — a `StratumTopBar` `bottom` slot grows
+ *   the bar past the canonical 64 dp the clearance formula assumes, and
+ *   content cleared by the formula alone slides under the slot (the first
+ *   bottom-slot goldens showed the collision). A screen whose bar carries
+ *   a bottom slot declares its height via [topBarBottomSlotHeight]; the
+ *   slot composable pins that same height by construction, keeping the
+ *   clearance a pure formula (see `StratumGlassChrome.topClearance`).
  */
 @Composable
 fun StratumDetailScaffold(
@@ -36,9 +44,10 @@ fun StratumDetailScaffold(
     topBar: @Composable () -> Unit = {},
     bottomBar: @Composable () -> Unit = {},
     snackbarHostState: SnackbarHostState? = null,
+    topBarBottomSlotHeight: Dp = 0.dp,
     content: @Composable ColumnScope.(GlassChromePadding) -> Unit,
 ) {
-    val chrome = rememberGlassChromePadding()
+    val chrome = rememberGlassChromePadding(topBarBottomSlotHeight)
     StratumTabScaffold(
         modifier = modifier,
         topBar = topBar,

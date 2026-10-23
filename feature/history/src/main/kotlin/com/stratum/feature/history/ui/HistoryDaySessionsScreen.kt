@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -17,8 +18,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import com.stratum.core.ui.component.StratumDetailScaffold
 import com.stratum.core.ui.component.StratumFeatureErrorFallback
-import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
@@ -40,7 +41,10 @@ fun HistoryDaySessionsScreen(
             else -> stringResource(R.string.history_day_sessions_title)
         }
 
-    StratumScaffold(
+    // Glass (§12.8, STR-159): under the route's glass host the top bar overlays
+    // and the session list carries the top clearance as content padding, so
+    // cards scroll beneath the glass. Solid hosts keep the in-flow geometry.
+    StratumDetailScaffold(
         modifier = modifier,
         topBar = {
             StratumTopBar(
@@ -53,24 +57,18 @@ fun HistoryDaySessionsScreen(
                 },
             )
         },
-    ) { padding ->
+    ) { chrome ->
         when (state) {
             HistoryDaySessionsUiState.Loading ->
                 Box(
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .padding(padding),
+                    modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) {
                     StratumText(text = "…", muted = true)
                 }
             HistoryDaySessionsUiState.Error ->
                 Box(
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .padding(padding),
+                    modifier = Modifier.fillMaxSize(),
                 ) {
                     StratumFeatureErrorFallback(onRetry = onRetry)
                 }
@@ -79,8 +77,12 @@ fun HistoryDaySessionsScreen(
                     modifier =
                         Modifier
                             .fillMaxSize()
-                            .padding(padding)
-                            .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s16),
+                            .padding(horizontal = StratumSpacing.s16),
+                    contentPadding =
+                        PaddingValues(
+                            top = StratumSpacing.s16 + chrome.top,
+                            bottom = StratumSpacing.s16,
+                        ),
                     verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
                 ) {
                     items(

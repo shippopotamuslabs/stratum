@@ -86,7 +86,7 @@ fun rememberGlassBottomDockPadding(): Dp {
 
 /** Single-subscription snapshot of [GlassChromePadding] for this composition. */
 @Composable
-fun rememberGlassChromePadding(): GlassChromePadding {
+fun rememberGlassChromePadding(bottomSlotHeight: Dp = 0.dp): GlassChromePadding {
     if (rememberGlassHazeState() == null) {
         return GlassChromePadding(
             active = false,
@@ -99,6 +99,7 @@ fun rememberGlassChromePadding(): GlassChromePadding {
             WindowInsets.statusBars
                 .asPaddingValues()
                 .calculateTopPadding(),
+            bottomSlotHeight,
         )
     val bottom =
         StratumGlassChrome.dockClearance(

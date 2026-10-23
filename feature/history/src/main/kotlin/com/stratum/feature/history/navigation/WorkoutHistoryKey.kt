@@ -13,6 +13,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
+import com.stratum.core.ui.component.StratumGlassHost
 import com.stratum.core.ui.component.UserMessageEffect
 import com.stratum.feature.history.EditHistoricalWorkoutViewModel
 import com.stratum.feature.history.HistoryDaySessionsViewModel
@@ -56,10 +57,14 @@ fun EntryProviderScope<NavKey>.workoutHistoryEntry(
     onDayClick: (day: HistoryDayUi) -> Unit,
 ) {
     entry<WorkoutHistoryKey> {
-        WorkoutHistoryRoute(
-            onBackClick = onBackClick,
-            onDayClick = onDayClick,
-        )
+        // Glass host (STR-159, §12.8): one HazeState for this route, provided at
+        // the detail-route level — same host pattern as the workout routes.
+        StratumGlassHost {
+            WorkoutHistoryRoute(
+                onBackClick = onBackClick,
+                onDayClick = onDayClick,
+            )
+        }
     }
 }
 
@@ -68,11 +73,14 @@ fun EntryProviderScope<NavKey>.historyDaySessionsEntry(
     onSessionClick: (sessionId: String) -> Unit,
 ) {
     entry<HistoryDaySessionsKey> { key ->
-        HistoryDaySessionsRoute(
-            dateIso = key.dateIso,
-            onBackClick = onBackClick,
-            onSessionClick = onSessionClick,
-        )
+        // Glass host (STR-159, §12.8): same host pattern as the calendar route.
+        StratumGlassHost {
+            HistoryDaySessionsRoute(
+                dateIso = key.dateIso,
+                onBackClick = onBackClick,
+                onSessionClick = onSessionClick,
+            )
+        }
     }
 }
 
@@ -81,11 +89,14 @@ fun EntryProviderScope<NavKey>.workoutSessionDetailEntry(
     onEditWorkoutClick: (sessionId: String) -> Unit,
 ) {
     entry<WorkoutSessionDetailKey> { key ->
-        WorkoutSessionDetailRoute(
-            sessionId = key.sessionId,
-            onBackClick = onBackClick,
-            onEditWorkoutClick = { onEditWorkoutClick(key.sessionId) },
-        )
+        // Glass host (STR-159, §12.8): same host pattern as the calendar route.
+        StratumGlassHost {
+            WorkoutSessionDetailRoute(
+                sessionId = key.sessionId,
+                onBackClick = onBackClick,
+                onEditWorkoutClick = { onEditWorkoutClick(key.sessionId) },
+            )
+        }
     }
 }
 
@@ -93,10 +104,13 @@ fun EntryProviderScope<NavKey>.editHistoricalWorkoutEntry(
     onBackClick: () -> Unit,
 ) {
     entry<EditHistoricalWorkoutKey> { key ->
-        EditHistoricalWorkoutRoute(
-            sessionId = key.sessionId,
-            onBackClick = onBackClick,
-        )
+        // Glass host (STR-159, §12.8): same host pattern as the calendar route.
+        StratumGlassHost {
+            EditHistoricalWorkoutRoute(
+                sessionId = key.sessionId,
+                onBackClick = onBackClick,
+            )
+        }
     }
 }
 
