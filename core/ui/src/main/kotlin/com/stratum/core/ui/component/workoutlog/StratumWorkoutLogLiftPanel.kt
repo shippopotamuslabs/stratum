@@ -111,6 +111,9 @@ fun StratumWorkoutLogLiftPanel(
                     .background(StratumThemeAccessor.colors.borderSubtle),
         )
 
+        // STR-182: visual gap so the top set's RIR corner badge clears the divider.
+        Spacer(modifier = Modifier.height(2.dp))
+
         lift.sets.forEach { set ->
             StratumWorkoutLogSetRow(
                 set = set,
