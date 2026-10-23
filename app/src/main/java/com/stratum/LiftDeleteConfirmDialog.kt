@@ -1,6 +1,7 @@
 package com.stratum
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.stratum.core.ui.R as UiR
 import com.stratum.core.ui.component.StratumConfirmDialog
@@ -20,18 +21,21 @@ internal fun LiftDeleteConfirmDialog(
 ) {
     val lines = mutableListOf(stringResource(UiR.string.lift_delete_body, pending.name))
     if (pending.affectedWorkouts.isNotEmpty()) {
-        val workoutLabels =
+        val bulletLines =
             pending.affectedWorkouts.map { workout ->
-                if (workout.slotCount > 1) {
-                    stringResource(UiR.string.lift_delete_workout_slots, workout.name, workout.slotCount)
-                } else {
-                    workout.name
-                }
+                val label =
+                    if (workout.slotCount > 1) {
+                        stringResource(UiR.string.lift_delete_workout_slots, workout.name, workout.slotCount)
+                    } else {
+                        workout.name
+                    }
+                stringResource(UiR.string.lift_delete_bullet, label)
             }
-        lines += stringResource(UiR.string.lift_delete_slots_body, workoutLabels.joinToString(", "))
+        lines += stringResource(UiR.string.lift_delete_slots_intro) + "\n" + bulletLines.joinToString("\n")
     }
     if (pending.loggedSetCount > 0) {
-        lines += stringResource(UiR.string.lift_delete_sets_body, pending.loggedSetCount)
+        lines +=
+            pluralStringResource(UiR.plurals.lift_delete_sets_body, pending.loggedSetCount, pending.loggedSetCount)
     }
     if (pending.inActiveSession) {
         lines += stringResource(UiR.string.lift_delete_session_note)
