@@ -99,8 +99,18 @@ object StratumGlassChrome {
      * colliding with the title and eating taps (STR-155 field report). Pure
      * function so the formula is unit-pinned: Robolectric goldens run with zero
      * insets and cannot catch an omission here.
+     *
+     * A `StratumTopBar` `bottom` slot (CheckIn's step indicator, history's
+     * stats strip) grows the bar beyond [topBarHeight]; the slot's height is
+     * declared by the owning screen as [bottomSlotHeight] and pinned by
+     * construction at the slot (a fixed height on the slot composable), so
+     * the clearance stays a pure, unit-pinned formula rather than a layout
+     * measurement goldens cannot observe (STR-159).
      */
-    fun topClearance(statusBarTop: Dp): Dp = statusBarTop + topBarHeight
+    fun topClearance(
+        statusBarTop: Dp,
+        bottomSlotHeight: Dp = 0.dp,
+    ): Dp = statusBarTop + topBarHeight + bottomSlotHeight
 
     /**
      * The glass bottom clearance (§12.8): the FULL nav footprint — the bar's

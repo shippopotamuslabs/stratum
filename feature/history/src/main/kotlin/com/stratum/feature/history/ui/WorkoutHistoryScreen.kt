@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -27,10 +28,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.component.StratumBottomSheet
+import com.stratum.core.ui.component.StratumDetailScaffold
 import com.stratum.core.ui.component.StratumDivider
 import com.stratum.core.ui.component.StratumFeatureErrorFallback
 import com.stratum.core.ui.component.StratumPreferenceRow
-import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
@@ -62,8 +63,14 @@ fun WorkoutHistoryScreen(
             else -> stringResource(R.string.history_mode_month)
         }
 
-    StratumScaffold(
+    // Glass (§12.8, STR-159): under the route's glass host the top bar (with
+    // its stats strip) overlays and the calendar body sits in the region
+    // beneath it — the body owns its internal scrolling per calendar mode.
+    // Solid hosts keep the in-flow geometry exactly. The bar's bottom slot
+    // (strip + divider) is declared so the clearance covers the whole bar.
+    StratumDetailScaffold(
         modifier = modifier,
+        topBarBottomSlotHeight = HISTORY_STATS_SLOT_HEIGHT,
         topBar = {
             StratumTopBar(
                 titleContent = {
@@ -100,24 +107,18 @@ fun WorkoutHistoryScreen(
                 },
             )
         },
-    ) { padding ->
+    ) { chrome ->
         when (state) {
             WorkoutHistoryUiState.Loading ->
                 Box(
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .padding(padding),
+                    modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) {
                     StratumText(text = "…", muted = true)
                 }
             WorkoutHistoryUiState.Error ->
                 Box(
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .padding(padding),
+                    modifier = Modifier.fillMaxSize(),
                 ) {
                     StratumFeatureErrorFallback(onRetry = onRetry)
                 }
@@ -132,7 +133,7 @@ fun WorkoutHistoryScreen(
                     modifier =
                         Modifier
                             .fillMaxSize()
-                            .padding(padding),
+                            .padding(top = chrome.top),
                 )
         }
     }
@@ -149,6 +150,16 @@ fun WorkoutHistoryScreen(
     }
 }
 
+/**
+ * The stats strip's fixed height (§12.8, STR-159): s12 vertical padding
+ * around a 24 dp content row (icon / bodyLarge line), pinned by the
+ * `.height` on the strip itself so the value is true by construction.
+ */
+private val HISTORY_STATS_STRIP_HEIGHT = 48.dp
+
+/** The history top bar's full bottom slot: the stats strip plus its 1 dp divider. */
+private val HISTORY_STATS_SLOT_HEIGHT = HISTORY_STATS_STRIP_HEIGHT + 1.dp
+
 @Composable
 private fun HistoryStatsStrip(
     weekStreak: Int,
@@ -159,6 +170,7 @@ private fun HistoryStatsStrip(
         modifier =
             modifier
                 .fillMaxWidth()
+                .height(HISTORY_STATS_STRIP_HEIGHT)
                 .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically,

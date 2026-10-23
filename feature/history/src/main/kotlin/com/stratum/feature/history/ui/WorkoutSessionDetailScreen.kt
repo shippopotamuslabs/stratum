@@ -31,10 +31,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.RirTargetBadge
+import com.stratum.core.ui.component.StratumDetailScaffold
 import com.stratum.core.ui.component.StratumFeatureErrorFallback
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumNumber
-import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTextButton
 import com.stratum.core.ui.component.StratumTopBar
@@ -76,7 +76,11 @@ fun WorkoutSessionDetailScreen(
         }
 
     Box(modifier = modifier.fillMaxSize()) {
-        StratumScaffold(
+        // Glass (§12.8, STR-159): under the route's glass host the top bar
+        // overlays and the detail column carries the top clearance inside its
+        // scroll, so the hero content clears the bar by the standard
+        // clearance and scrolls beneath it. Solid hosts keep the geometry.
+        StratumDetailScaffold(
             modifier = Modifier.fillMaxSize(),
             snackbarHostState = snackbarHostState,
             topBar = {
@@ -113,24 +117,18 @@ fun WorkoutSessionDetailScreen(
                     },
                 )
             },
-        ) { padding ->
+        ) { chrome ->
             when (state) {
                 WorkoutSessionDetailUiState.Loading ->
                     Box(
-                        modifier =
-                            Modifier
-                                .fillMaxSize()
-                                .padding(padding),
+                        modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center,
                     ) {
                         StratumText(text = "…", muted = true)
                     }
                 WorkoutSessionDetailUiState.Error ->
                     Box(
-                        modifier =
-                            Modifier
-                                .fillMaxSize()
-                                .padding(padding),
+                        modifier = Modifier.fillMaxSize(),
                     ) {
                         StratumFeatureErrorFallback(onRetry = onRetry)
                     }
@@ -142,9 +140,9 @@ fun WorkoutSessionDetailScreen(
                         modifier =
                             Modifier
                                 .fillMaxSize()
-                                .padding(padding)
                                 .verticalScroll(rememberScrollState())
-                                .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s16),
+                                .padding(horizontal = StratumSpacing.s16)
+                                .padding(top = StratumSpacing.s16 + chrome.top, bottom = StratumSpacing.s16),
                     )
             }
         }
