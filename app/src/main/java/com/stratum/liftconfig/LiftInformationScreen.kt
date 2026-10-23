@@ -37,9 +37,9 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stratum.core.ui.R as UiR
 import com.stratum.core.ui.component.RirTargetBadge
+import com.stratum.core.ui.component.StratumDetailScaffold
 import com.stratum.core.ui.component.StratumLiftImage
 import com.stratum.core.ui.component.StratumNumber
-import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumSegmentedControl
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
@@ -111,7 +111,10 @@ fun LiftInformationScreen(
             LiftInfoTab.Details to stringResource(UiR.string.lift_info_tab_details),
             LiftInfoTab.History to stringResource(UiR.string.lift_info_tab_history),
         )
-    StratumScaffold(
+    // Glass (§12.8, STR-160): under the route's glass host the top bar overlays
+    // and the tab column sits in the region beneath it. Solid hosts keep the
+    // in-flow geometry exactly.
+    StratumDetailScaffold(
         modifier = modifier,
         snackbarHostState = snackbarHostState,
         topBar = {
@@ -125,12 +128,12 @@ fun LiftInformationScreen(
                 },
             )
         },
-    ) { padding ->
+    ) { chrome ->
         Column(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .padding(padding)
+                    .padding(top = chrome.top)
                     .padding(horizontal = StratumSpacing.s16),
             verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
         ) {

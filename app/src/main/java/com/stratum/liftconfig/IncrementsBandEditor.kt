@@ -39,10 +39,10 @@ import com.stratum.core.ui.R as UiR
 import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumButton
 import com.stratum.core.ui.component.StratumConfirmDialog
+import com.stratum.core.ui.component.StratumDetailScaffold
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumNumber
 import com.stratum.core.ui.component.StratumOutlinedButton
-import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTextButton
 import com.stratum.core.ui.component.StratumTextField
@@ -159,7 +159,11 @@ internal fun IncrementEditorScreen(
     showStopsSheet: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    StratumScaffold(
+    // Glass (§12.8, STR-160): under the route's glass host the top bar overlays
+    // and the editor column carries the top clearance inside its scroll, so
+    // band content scrolls beneath the glass; the save dock below stays a
+    // scaffold bottom bar. Solid hosts keep the in-flow geometry exactly.
+    StratumDetailScaffold(
         modifier = modifier,
         topBar = {
             StratumTopBar(
@@ -212,15 +216,15 @@ internal fun IncrementEditorScreen(
                 }
             }
         },
-    ) { padding ->
+    ) { glass ->
         Column(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .padding(padding)
                     .padding(horizontal = StratumSpacing.s16)
                     .padding(bottom = StratumSpacing.s8)
-                    .verticalScroll(rememberScrollState()),
+                    .verticalScroll(rememberScrollState())
+                    .padding(top = glass.top),
         ) {
             if (chrome.contextText != null) {
                 EditorContextRow(
