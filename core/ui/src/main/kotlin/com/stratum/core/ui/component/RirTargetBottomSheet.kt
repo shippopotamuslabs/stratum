@@ -293,6 +293,18 @@ private fun RirSheetOption(
 
 private val RirOptionDefaultSize = 40.dp
 
+/**
+ * Round RIR badge. By default it carries the §12.5 split: a 48dp touch target
+ * outside, the [size] circle as the visual.
+ *
+ * [expandTouchTarget] exists for one caller, the set-log corner badge
+ * (STR-180): that badge is centered on the reps cell's corner, so a 48dp outer
+ * box both pulls the visual 13dp inside the cell and covers the cell's
+ * top-right with the badge's tap area (tapping the field to edit reps opened
+ * the RIR sheet). With expansion off, layout and tap area are the visual
+ * circle itself, so the badge floats on the corner as in the pre-STR-145
+ * goldens. Every standalone usage keeps the default 48dp target.
+ */
 @Composable
 fun RirTargetBadge(
     rirGoal: Int,
@@ -300,6 +312,7 @@ fun RirTargetBadge(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     size: Dp = RirTargetBadgeDefaultSize,
+    expandTouchTarget: Boolean = true,
 ) {
     val label = formatRirLabel(rirGoal)
     val background = StratumRirTargetColors.backgroundFor(rirGoal)
@@ -319,11 +332,18 @@ fun RirTargetBadge(
     // §12.5: same split as the sheet option — 48dp target outside, sized
     // circle as the visual, ripple clipped to the circle. The outer box is
     // always present so enabled and disabled badges keep the same footprint.
+    // With [expandTouchTarget] off the outer box collapses to the visual size.
     val interactionSource = remember { MutableInteractionSource() }
     Box(
         modifier =
             modifier
-                .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                .then(
+                    if (expandTouchTarget) {
+                        Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                    } else {
+                        Modifier.size(size)
+                    }
+                )
                 .then(
                     if (enabled) {
                         Modifier.clickable(
