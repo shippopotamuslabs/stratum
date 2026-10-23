@@ -20,8 +20,6 @@ class ScanIncrementTiersUseCaseTest {
     ): ScanIncrementTiersUseCase =
         ScanIncrementTiersUseCase(
             port,
-            ValidateIncrementTiersUseCase(),
-            ValidateMicroIncrementsUseCase(),
             loggingPort,
         )
 

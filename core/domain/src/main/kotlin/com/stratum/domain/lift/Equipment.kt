@@ -21,7 +21,7 @@ data class Equipment(
      * Micro-adjust (adder knob) stops as storage-pound offsets, non-zero only
      * (e.g. `[5, 10]` displays as `0 / 5 / 10` — knob-off, the bare stack load,
      * is always legal). Empty means the machine has no adder. Legal loads are
-     * major-lattice points plus a selected stop (see IncrementLattice.kt).
+     * major-lattice points plus a selected stop (see [IncrementLattice]).
      */
     val microIncrements: List<Weight> = emptyList(),
     /**
@@ -30,7 +30,19 @@ data class Equipment(
      * by-id lookups still return them.
      */
     val isDeleted: Boolean = false,
-)
+) {
+    /**
+     * The validated lattice these tiers and micro stops form (STR-165).
+     *
+     * Every write path constructs the lattice before persisting, so stored rows are
+     * lattices. Accessing this on a row whose stops are carried against replacement
+     * tiers (the fork destination-tier hand-off in `ForkEquipmentUseCase`, where the
+     * destination write validates them) throws until that write lands — the model
+     * owns that meaning here instead of each consumer re-deciding it.
+     */
+    val lattice: IncrementLattice
+        get() = IncrementLattice(incrementTiers, microIncrements)
+}
 
 /**
  * The single open band repositories persist when custom equipment is created without

@@ -64,7 +64,6 @@ class ApplyEquipmentIncrementProposalUseCaseTest {
         subject =
             ApplyEquipmentIncrementProposalUseCase(
                 equipmentRepository = equipmentRepo,
-                validate = ValidateIncrementTiersUseCase(),
                 loggingPort = logging,
             )
     }

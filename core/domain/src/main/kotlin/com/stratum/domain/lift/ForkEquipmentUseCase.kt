@@ -22,8 +22,6 @@ data class ForkedEquipment(
 )
 class ForkEquipmentUseCase @Inject constructor(
     private val equipmentRepository: EquipmentRepository,
-    private val validate: ValidateIncrementTiersUseCase,
-    private val validateMicro: ValidateMicroIncrementsUseCase,
     private val loggingPort: LoggingPort,
 ) {
     /**
@@ -51,19 +49,21 @@ class ForkEquipmentUseCase @Inject constructor(
             equipmentRepository.getEquipment(sourceEquipmentId)
                 ?: return Result.failure(IllegalArgumentException("Equipment not found"))
         val tiers = parent.incrementTiers
+        val resolvedMicro = micro ?: parent.microIncrements
+        // Constructing the lattice is the validation (STR-165). Tier rules always
+        // apply to the parent's bands; micro rules apply only on the source-check
+        // path (explicit stops for replacement tiers are validated at the
+        // destination write instead).
         if (tiers.isNotEmpty()) {
-            when (val result = validate(tiers)) {
-                is IncrementTiersValidationResult.Invalid ->
-                    return Result.failure(IncrementTiersInvalidException(result.errors))
-                IncrementTiersValidationResult.Valid -> Unit
+            val tierErrors = IncrementLattice.tierErrors(tiers)
+            if (tierErrors.isNotEmpty()) {
+                return Result.failure(IncrementTiersInvalidException(tierErrors))
             }
         }
-        val resolvedMicro = micro ?: parent.microIncrements
         if (validateMicroAgainstSource && resolvedMicro.isNotEmpty()) {
-            when (val result = validateMicro(tiers, resolvedMicro)) {
-                is MicroIncrementsValidationResult.Invalid ->
-                    return Result.failure(MicroIncrementsInvalidException(result.errors))
-                MicroIncrementsValidationResult.Valid -> Unit
+            val microErrors = IncrementLattice.microErrors(tiers, resolvedMicro)
+            if (microErrors.isNotEmpty()) {
+                return Result.failure(MicroIncrementsInvalidException(microErrors))
             }
         }
         return runCatchingLogged(loggingPort, TAG, "Failed to fork equipment") {

@@ -16,7 +16,8 @@ sealed interface ApplyEquipmentIncrementResult {
 }
 
 /**
- * Validates and persists a user-accepted [EquipmentIncrementRemedy] from post-workout proposals
+ * Validates (by constructing the [IncrementLattice]) and persists a user-accepted
+ * [EquipmentIncrementRemedy] from post-workout proposals
  * (or any caller that already ranked a fix).
  *
  * - [EquipmentIncrementRemedy.AmendEquipmentTiers] → equipment default tiers
@@ -26,7 +27,6 @@ sealed interface ApplyEquipmentIncrementResult {
  */
 class ApplyEquipmentIncrementProposalUseCase @Inject constructor(
     private val equipmentRepository: EquipmentRepository,
-    private val validate: ValidateIncrementTiersUseCase,
     private val loggingPort: LoggingPort,
 ) {
     /**
@@ -76,10 +76,11 @@ class ApplyEquipmentIncrementProposalUseCase @Inject constructor(
     private suspend fun validateRemedy(
         remedy: EquipmentIncrementRemedy,
     ): Result<ApplyEquipmentIncrementResult>? {
-        when (val result = validate(remedy.tiers())) {
-            is IncrementTiersValidationResult.Invalid ->
-                return Result.failure(IncrementTiersInvalidException(result.errors))
-            IncrementTiersValidationResult.Valid -> Unit
+        // Constructing the lattice is the validation (STR-165).
+        try {
+            IncrementLattice(remedy.tiers())
+        } catch (e: IncrementTiersInvalidException) {
+            return Result.failure(e)
         }
         // Fail clearly when the clustered equipment was deleted between propose and accept
         // (setIncrementTiers alone may no-op on a missing row). A missing row is an expected

@@ -7,8 +7,6 @@ import com.stratum.domain.lift.ForkEquipmentUseCase
 import com.stratum.domain.lift.ForkEquipmentWithTiersUseCase
 import com.stratum.domain.lift.SetEquipmentIncrementTiersUseCase
 import com.stratum.domain.lift.SetLiftEquipmentUseCase
-import com.stratum.domain.lift.ValidateIncrementTiersUseCase
-import com.stratum.domain.lift.ValidateMicroIncrementsUseCase
 
 /**
  * Shared fork use-case graph for ViewModel tests: fresh validators, one
@@ -22,14 +20,10 @@ fun testForkEquipmentWithTiers(
     ForkEquipmentWithTiersUseCase(
         ForkEquipmentUseCase(
             equipmentRepository,
-            ValidateIncrementTiersUseCase(),
-            ValidateMicroIncrementsUseCase(),
             FakeLoggingPort(),
         ),
         SetEquipmentIncrementTiersUseCase(
             equipmentRepository,
-            ValidateIncrementTiersUseCase(),
-            ValidateMicroIncrementsUseCase(),
             FakeLoggingPort(),
         ),
         SetLiftEquipmentUseCase(liftRepository, equipmentRepository, FakeLoggingPort()),
