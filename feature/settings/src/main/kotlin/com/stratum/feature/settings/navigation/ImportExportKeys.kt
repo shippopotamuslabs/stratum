@@ -39,11 +39,13 @@ fun EntryProviderScope<NavKey>.importDataEntry(
     onNavigateToImportProgram: () -> Unit,
 ) {
     entry<ImportDataKey> {
-        ImportDataScreen(
-            onBackClick = onBackClick,
-            onImportLogsClick = onNavigateToImportLogs,
-            onImportProgramClick = onNavigateToImportProgram,
-        )
+        SettingsGlassRoute {
+            ImportDataScreen(
+                onBackClick = onBackClick,
+                onImportLogsClick = onNavigateToImportLogs,
+                onImportProgramClick = onNavigateToImportProgram,
+            )
+        }
     }
 }
 
@@ -51,18 +53,20 @@ fun EntryProviderScope<NavKey>.importLogsEntry(onBackClick: () -> Unit) {
     entry<ImportLogsKey> {
         val viewModel: ImportLogsViewModel = hiltViewModel()
         val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-        ImportLogsScreen(
-            uiState = uiState,
-            onBackClick = onBackClick,
-            onBeginImportClick = viewModel::onBeginImportClick,
-            onWeightUnitConfirmed = viewModel::onWeightUnitConfirmed,
-            onWeightUnitPromptDismissed = viewModel::onWeightUnitPromptDismissed,
-            onFilePickerLaunched = viewModel::onFilePickerLaunched,
-            onFilesSelected = viewModel::onFilesSelected,
-            onReadFilesFailed = viewModel::onReadFilesFailed,
-            onCancelImport = viewModel::onCancelImport,
-            onRetry = viewModel::onRetryFromFailedFile,
-        )
+        SettingsGlassRoute {
+            ImportLogsScreen(
+                uiState = uiState,
+                onBackClick = onBackClick,
+                onBeginImportClick = viewModel::onBeginImportClick,
+                onWeightUnitConfirmed = viewModel::onWeightUnitConfirmed,
+                onWeightUnitPromptDismissed = viewModel::onWeightUnitPromptDismissed,
+                onFilePickerLaunched = viewModel::onFilePickerLaunched,
+                onFilesSelected = viewModel::onFilesSelected,
+                onReadFilesFailed = viewModel::onReadFilesFailed,
+                onCancelImport = viewModel::onCancelImport,
+                onRetry = viewModel::onRetryFromFailedFile,
+            )
+        }
     }
 }
 
@@ -70,12 +74,14 @@ fun EntryProviderScope<NavKey>.importProgramEntry(onBackClick: () -> Unit) {
     entry<ImportProgramKey> {
         val viewModel: ImportProgramViewModel = hiltViewModel()
         val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-        ImportProgramScreen(
-            uiState = uiState,
-            onBackClick = onBackClick,
-            onFileSelected = viewModel::onFileSelected,
-            onReadFilesFailed = viewModel::onReadFilesFailed,
-        )
+        SettingsGlassRoute {
+            ImportProgramScreen(
+                uiState = uiState,
+                onBackClick = onBackClick,
+                onFileSelected = viewModel::onFileSelected,
+                onReadFilesFailed = viewModel::onReadFilesFailed,
+            )
+        }
     }
 }
 
@@ -85,11 +91,13 @@ fun EntryProviderScope<NavKey>.exportDataEntry(
     onNavigateToExportPrograms: () -> Unit,
 ) {
     entry<ExportDataKey> {
-        ExportDataScreen(
-            onBackClick = onBackClick,
-            onExportLogsClick = onNavigateToExportLogs,
-            onExportProgramsClick = onNavigateToExportPrograms,
-        )
+        SettingsGlassRoute {
+            ExportDataScreen(
+                onBackClick = onBackClick,
+                onExportLogsClick = onNavigateToExportLogs,
+                onExportProgramsClick = onNavigateToExportPrograms,
+            )
+        }
     }
 }
 
@@ -103,13 +111,15 @@ fun EntryProviderScope<NavKey>.exportLogsEntry(onBackClick: () -> Unit) {
                 shareJsonExport(context, file)
             }
         }
-        ExportLogsScreen(
-            uiState = uiState,
-            onBackClick = onBackClick,
-            onRangePresetSelected = viewModel::onRangePresetSelected,
-            onCustomDatesChanged = viewModel::onCustomDatesChanged,
-            onExportClick = viewModel::onExportClick,
-        )
+        SettingsGlassRoute {
+            ExportLogsScreen(
+                uiState = uiState,
+                onBackClick = onBackClick,
+                onRangePresetSelected = viewModel::onRangePresetSelected,
+                onCustomDatesChanged = viewModel::onCustomDatesChanged,
+                onExportClick = viewModel::onExportClick,
+            )
+        }
     }
 }
 
@@ -123,13 +133,15 @@ fun EntryProviderScope<NavKey>.exportProgramsEntry(onBackClick: () -> Unit) {
                 shareJsonExport(context, file)
             }
         }
-        ExportProgramsScreen(
-            uiState = uiState,
-            onBackClick = onBackClick,
-            onToggleProgram = viewModel::onToggleProgram,
-            onSelectAll = viewModel::onSelectAll,
-            onClearSelection = viewModel::onClearSelection,
-            onExportClick = viewModel::onExportClick,
-        )
+        SettingsGlassRoute {
+            ExportProgramsScreen(
+                uiState = uiState,
+                onBackClick = onBackClick,
+                onToggleProgram = viewModel::onToggleProgram,
+                onSelectAll = viewModel::onSelectAll,
+                onClearSelection = viewModel::onClearSelection,
+                onExportClick = viewModel::onExportClick,
+            )
+        }
     }
 }

@@ -29,7 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stratum.core.ui.component.StratumButton
-import com.stratum.core.ui.component.StratumScaffold
+import com.stratum.core.ui.component.StratumDetailScaffold
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
 import com.stratum.core.ui.component.UserMessageEffect
@@ -212,9 +212,15 @@ private fun OnboardingWizard(
     modifier: Modifier = Modifier,
     snackbarHostState: SnackbarHostState? = null,
 ) {
-    StratumScaffold(
+    // Glass (§12.8, STR-161): under the route's glass host the top bar overlays
+    // and the wizard column sits in the region beneath it; the step screens
+    // inside are untouched, so their screenshot states stay stable. The bar's
+    // bottom slot (the stepper) is declared so the clearance covers the
+    // whole bar. Solid hosts keep the in-flow geometry exactly.
+    StratumDetailScaffold(
         modifier = modifier.fillMaxSize(),
         snackbarHostState = snackbarHostState,
+        topBarBottomSlotHeight = ONBOARDING_STEPPER_SLOT_HEIGHT,
         topBar = {
             StratumTopBar(
                 title = state.step.displayName,
@@ -231,8 +237,8 @@ private fun OnboardingWizard(
                 bottom = { Stepper(steps = state.steps, currentStepId = state.step.id) },
             )
         },
-    ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+    ) { chrome ->
+        Column(modifier = Modifier.fillMaxSize().padding(top = chrome.top)) {
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 when (state.step.id) {
                     WIZARD_STEP_PROFILE -> ProfileScreen(
@@ -299,10 +305,23 @@ private fun OnboardingWizard(
     }
 }
 
+/**
+ * The stepper's fixed height (§12.8, STR-161): s8 vertical padding around
+ * the 4 dp step bars, pinned by the `.height` on the stepper itself so the
+ * value is true by construction. Declared to the detail scaffold as the
+ * top bar's bottom-slot height so glass clearance covers the whole bar —
+ * the same construction as CheckIn's step indicator (STR-159).
+ */
+private val ONBOARDING_STEPPER_SLOT_HEIGHT = 20.dp
+
 @Composable
 private fun Stepper(steps: List<WizardStepUi>, currentStepId: String) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = StratumSpacing.s12, vertical = StratumSpacing.s8),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(ONBOARDING_STEPPER_SLOT_HEIGHT)
+                .padding(horizontal = StratumSpacing.s12, vertical = StratumSpacing.s8),
         horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
     ) {
         steps.forEach { entry ->

@@ -18,7 +18,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.StratumButton
-import com.stratum.core.ui.component.StratumScaffold
+import com.stratum.core.ui.component.StratumDetailScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
@@ -80,7 +80,10 @@ fun ImportProgramScreen(
             uiState.phase.programImportTimelineIndex(),
         )
 
-    StratumScaffold(
+    // Glass (§12.8, STR-161): under the route's glass host the top bar overlays
+    // and the content column carries the top clearance inside its scroll, so
+    // content scrolls beneath the glass. Solid hosts keep the in-flow geometry.
+    StratumDetailScaffold(
         modifier = modifier,
         topBar = {
             StratumTopBar(
@@ -93,14 +96,14 @@ fun ImportProgramScreen(
                 },
             )
         },
-    ) { padding ->
+    ) { chrome ->
         Column(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .padding(padding)
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s16),
+                    .padding(horizontal = StratumSpacing.s16)
+                    .padding(top = StratumSpacing.s16 + chrome.top, bottom = StratumSpacing.s16),
             verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
         ) {
             StratumText(
