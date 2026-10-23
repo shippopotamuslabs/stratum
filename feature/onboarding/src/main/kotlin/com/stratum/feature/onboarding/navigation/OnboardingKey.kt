@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
+import com.stratum.core.ui.component.StratumGlassHost
 import com.stratum.feature.onboarding.OnboardingRoute
 import kotlinx.serialization.Serializable
 
@@ -23,10 +24,14 @@ fun EntryProviderScope<NavKey>.onboardingEntry(
     modifier: Modifier = Modifier,
 ) {
     entry<OnboardingKey> {
-        OnboardingRoute(
-            onComplete = onComplete,
-            onBuildFromScratch = onBuildFromScratch,
-            modifier = modifier,
-        )
+        // Glass host (STR-161, §12.8): one HazeState for this route, provided
+        // at the detail-route level — same host pattern as the other routes.
+        StratumGlassHost {
+            OnboardingRoute(
+                onComplete = onComplete,
+                onBuildFromScratch = onBuildFromScratch,
+                modifier = modifier,
+            )
+        }
     }
 }
