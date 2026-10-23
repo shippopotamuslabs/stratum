@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.semantics.contentDescription
@@ -19,9 +20,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.runComposeUiTest
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
-import com.stratum.core.ui.component.workoutlog.RepsCellWithRirBadge
 import com.stratum.core.ui.component.workoutlog.RepsEntryMode
-import com.stratum.core.ui.component.workoutlog.RirCornerBadgeSize
 import com.stratum.core.ui.component.workoutlog.StratumInlineNumericCell
 import com.stratum.core.ui.component.workoutlog.StratumSplitRepsCell
 import com.stratum.core.ui.component.workoutlog.WorkoutLogSetColumnBadge
@@ -95,26 +94,28 @@ class TouchTargetBoundsTest {
     }
 
     /**
-     * STR-180 exception: the set-log corner badge deliberately reports only its
-     * visual bounds — a 48dp target there covers the reps cell it floats on.
-     * The lock is the placement: the badge's bounds are exactly the corner
-     * circle, centered on the cell's top-right corner (half in, half out).
+     * STR-180 exception: the set-log corner badge ([RirCornerBadge]) deliberately
+     * reports only its visual bounds — a 48dp target there covers the reps cell
+     * it floats on. The lock is the placement: rendered the way the set-log row
+     * renders it (aligned to the cell's top end), the badge's bounds are exactly
+     * the corner circle, centered on the cell's top-right corner (half in, half
+     * out). The row's golden panels pin the full composition.
      */
     @OptIn(ExperimentalTestApi::class)
     private fun ComposeUiTest.checkRirCornerBadge() {
         setContent {
             StratumTheme(darkTheme = true) {
-                RepsCellWithRirBadge(
-                    rir = 2,
-                    onBadgeClick = {},
-                    modifier = Modifier.width(120.dp),
+                Box(
+                    modifier =
+                        Modifier
+                            .width(120.dp)
+                            .height(48.dp)
+                            .semantics { contentDescription = "Reps cell" },
                 ) {
-                    Box(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .height(48.dp)
-                                .semantics { contentDescription = "Reps cell" },
+                    RirCornerBadge(
+                        rirGoal = 2,
+                        onClick = {},
+                        modifier = Modifier.align(Alignment.TopEnd),
                     )
                 }
             }
