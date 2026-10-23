@@ -68,6 +68,15 @@ data class Lift(
     val isDeleted: Boolean = false,
 ) {
     /**
+     * The validated lattice the effective tiers and micro stops form (STR-165).
+     * Effective tiers resolve from the linked equipment (a lattice by construction
+     * on every write path) or the global fallback tiers, so this constructs for
+     * every catalog-resolved lift. Explicit fail-fast function, not a property,
+     * so the validation is visible at the call site.
+     */
+    fun requireLattice(): IncrementLattice = IncrementLattice(incrementTiers, microIncrements)
+
+    /**
      * Multi-joint / Linear programming gate — **not** used for rest.
      *
      * True when the lift has **more than one** movement pattern **or** [hasCompoundFatigue]

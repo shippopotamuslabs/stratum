@@ -49,8 +49,6 @@ class ForkEquipmentUseCaseTest {
         subject =
             ForkEquipmentUseCase(
                 equipmentRepository = equipmentRepo,
-                validate = ValidateIncrementTiersUseCase(),
-                validateMicro = ValidateMicroIncrementsUseCase(),
                 loggingPort = FakeLoggingPort(),
             )
     }

@@ -13,8 +13,6 @@ import javax.inject.Inject
  */
 class RenameAndSetIncrementTiersUseCase @Inject constructor(
     private val repository: EquipmentRepository,
-    private val validate: ValidateIncrementTiersUseCase,
-    private val validateMicro: ValidateMicroIncrementsUseCase,
     private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(
@@ -27,16 +25,8 @@ class RenameAndSetIncrementTiersUseCase @Inject constructor(
         if (trimmed.isEmpty()) {
             return Result.failure(IllegalArgumentException("Equipment name is required"))
         }
-        when (val result = validate(tiers)) {
-            is IncrementTiersValidationResult.Invalid ->
-                return Result.failure(IncrementTiersInvalidException(result.errors))
-            IncrementTiersValidationResult.Valid -> Unit
-        }
-        when (val result = validateMicro(tiers, micro)) {
-            is MicroIncrementsValidationResult.Invalid ->
-                return Result.failure(MicroIncrementsInvalidException(result.errors))
-            MicroIncrementsValidationResult.Valid -> Unit
-        }
+        // Constructing the lattice is the validation (STR-165).
+        IncrementLattice.resultOf(tiers, micro).onFailure { return Result.failure(it) }
         return runCatchingLogged(loggingPort, TAG, "Failed to rename equipment and set increment tiers") {
             repository.renameAndSetIncrementTiers(id, trimmed, tiers, micro)
         }

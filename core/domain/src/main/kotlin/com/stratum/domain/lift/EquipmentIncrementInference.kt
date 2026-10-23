@@ -21,7 +21,10 @@ val INCREMENT_STEP_ALLOWLIST_KG: List<Double> =
 data class InferredIncrementLattice(
     val step: Double,
     val tiers: List<IncrementTier>,
-)
+) {
+    /** The proposed tiers as a validated lattice (STR-165); inference only builds valid tiers. */
+    fun requireLattice(): IncrementLattice = IncrementLattice(tiers)
+}
 
 /**
  * Bundled tiers + micro inference baseline.
@@ -49,7 +52,7 @@ private fun LatticeBaseline.isOnLattice(
 ): Boolean = tiers.isOnLattice(weight, loadType, epsilon, micro)
 
 /**
- * Infers a step size and a [ValidateIncrementTiersUseCase]-valid tier list from logged weights
+ * Infers a step size and an [IncrementLattice]-valid tier list from logged weights
  * that disagree with [currentTiers].
  *
  * Returns `null` when there is nothing to propose: bodyweight load, empty / near-zero sample
@@ -70,7 +73,7 @@ fun inferIncrementLattice(
     loadType: LoadType = LoadType.Weighted,
     epsilon: Double = LATTICE_EPSILON,
     validate: (List<IncrementTier>) -> IncrementTiersValidationResult =
-        { ValidateIncrementTiersUseCase()(it) },
+        { IncrementLattice.validateTiers(it) },
     micro: List<Weight> = emptyList(),
 ): InferredIncrementLattice? {
     val prepared =
@@ -213,7 +216,7 @@ fun buildProposedIncrementTiers(
     currentTiers: List<IncrementTier>,
     observedAmounts: Collection<Double>,
     validate: (List<IncrementTier>) -> IncrementTiersValidationResult =
-        { ValidateIncrementTiersUseCase()(it) },
+        { IncrementLattice.validateTiers(it) },
     epsilon: Double = LATTICE_EPSILON,
 ): List<IncrementTier> {
     require(step > 0.0) { "step must be positive" }
