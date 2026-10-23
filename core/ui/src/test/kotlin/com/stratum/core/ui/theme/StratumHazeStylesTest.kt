@@ -48,6 +48,22 @@ class StratumHazeStylesTest {
         assertEquals(StratumGlassChrome.topBarHeight + 35.dp, StratumGlassChrome.topClearance(35.dp))
     }
 
+    // STR-159: a top bar bottom slot (step indicator, stats strip) grows the
+    // bar past the canonical height — the declared slot height joins the
+    // formula, or content cleared by the bar height alone slides under the
+    // slot by exactly the slot's height.
+    @Test
+    fun topClearance_addsDeclaredBottomSlotHeight() {
+        assertEquals(
+            StratumGlassChrome.topBarHeight + 20.dp,
+            StratumGlassChrome.topClearance(0.dp, bottomSlotHeight = 20.dp),
+        )
+        assertEquals(
+            StratumGlassChrome.topBarHeight + 24.dp + 49.dp,
+            StratumGlassChrome.topClearance(24.dp, bottomSlotHeight = 49.dp),
+        )
+    }
+
     // STR-162: the dock offset is the FULL nav footprint — bar height PLUS the
     // system navigation-bar inset the glass bar spans. STR-156's formula
     // (bar height − s12, no inset) left most of the active-workout drawer

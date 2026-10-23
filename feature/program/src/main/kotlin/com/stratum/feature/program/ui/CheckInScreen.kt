@@ -70,6 +70,7 @@ fun CheckInScreen(
     // column carries the top clearance; the bottom action bar is unchanged.
     StratumDetailScaffold(
         modifier = modifier,
+        topBarBottomSlotHeight = CHECKIN_STEP_SLOT_HEIGHT,
         topBar = {
             StratumTopBar(
                 title = stringResource(R.string.checkin_sheet_title),
@@ -188,6 +189,16 @@ internal fun CheckInSwapPickerContent(
     }
 }
 
+/**
+ * The step indicator's fixed height (§12.8, STR-159): s8 vertical padding
+ * around the 4 dp bars, pinned by the `.height` on the indicator itself so
+ * the value is true by construction. Declared to the detail scaffold as the
+ * top bar's bottom-slot height so glass clearance covers the whole bar —
+ * without it, the first step's heading cleared only the canonical 64 dp
+ * and crowded the indicator (STR-158's golden, fixed here).
+ */
+private val CHECKIN_STEP_SLOT_HEIGHT = 20.dp
+
 @Composable
 private fun CheckInStepIndicator(
     stepCount: Int,
@@ -197,6 +208,7 @@ private fun CheckInStepIndicator(
         modifier =
             Modifier
                 .fillMaxWidth()
+                .height(CHECKIN_STEP_SLOT_HEIGHT)
                 .padding(horizontal = StratumSpacing.s12, vertical = StratumSpacing.s8),
         horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
     ) {

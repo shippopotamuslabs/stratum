@@ -13,6 +13,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
+import com.stratum.core.ui.component.StratumGlassHost
 import com.stratum.core.ui.component.UserMessageEffect
 import com.stratum.feature.history.EditHistoricalWorkoutViewModel
 import com.stratum.feature.history.HistoryDaySessionsViewModel
@@ -51,15 +52,28 @@ data class EditHistoricalWorkoutKey(
     val sessionId: String,
 ) : NavKey
 
+/**
+ * Glass host for one history entry (STR-159, §12.8): one HazeState for the
+ * route, provided at the detail-route level via [StratumGlassHost] — the
+ * same host pattern as the workout routes, shared by all four history
+ * entries so the placement lives in exactly one spot.
+ */
+@Composable
+private fun HistoryGlassRoute(content: @Composable () -> Unit) {
+    StratumGlassHost(content = content)
+}
+
 fun EntryProviderScope<NavKey>.workoutHistoryEntry(
     onBackClick: () -> Unit,
     onDayClick: (day: HistoryDayUi) -> Unit,
 ) {
     entry<WorkoutHistoryKey> {
-        WorkoutHistoryRoute(
-            onBackClick = onBackClick,
-            onDayClick = onDayClick,
-        )
+        HistoryGlassRoute {
+            WorkoutHistoryRoute(
+                onBackClick = onBackClick,
+                onDayClick = onDayClick,
+            )
+        }
     }
 }
 
@@ -68,11 +82,13 @@ fun EntryProviderScope<NavKey>.historyDaySessionsEntry(
     onSessionClick: (sessionId: String) -> Unit,
 ) {
     entry<HistoryDaySessionsKey> { key ->
-        HistoryDaySessionsRoute(
-            dateIso = key.dateIso,
-            onBackClick = onBackClick,
-            onSessionClick = onSessionClick,
-        )
+        HistoryGlassRoute {
+            HistoryDaySessionsRoute(
+                dateIso = key.dateIso,
+                onBackClick = onBackClick,
+                onSessionClick = onSessionClick,
+            )
+        }
     }
 }
 
@@ -81,11 +97,13 @@ fun EntryProviderScope<NavKey>.workoutSessionDetailEntry(
     onEditWorkoutClick: (sessionId: String) -> Unit,
 ) {
     entry<WorkoutSessionDetailKey> { key ->
-        WorkoutSessionDetailRoute(
-            sessionId = key.sessionId,
-            onBackClick = onBackClick,
-            onEditWorkoutClick = { onEditWorkoutClick(key.sessionId) },
-        )
+        HistoryGlassRoute {
+            WorkoutSessionDetailRoute(
+                sessionId = key.sessionId,
+                onBackClick = onBackClick,
+                onEditWorkoutClick = { onEditWorkoutClick(key.sessionId) },
+            )
+        }
     }
 }
 
@@ -93,10 +111,12 @@ fun EntryProviderScope<NavKey>.editHistoricalWorkoutEntry(
     onBackClick: () -> Unit,
 ) {
     entry<EditHistoricalWorkoutKey> { key ->
-        EditHistoricalWorkoutRoute(
-            sessionId = key.sessionId,
-            onBackClick = onBackClick,
-        )
+        HistoryGlassRoute {
+            EditHistoricalWorkoutRoute(
+                sessionId = key.sessionId,
+                onBackClick = onBackClick,
+            )
+        }
     }
 }
 
