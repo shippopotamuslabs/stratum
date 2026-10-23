@@ -1,7 +1,9 @@
 package com.stratum.liftconfig
 
+import androidx.compose.runtime.Composable
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
+import com.stratum.core.ui.component.StratumGlassHost
 import com.stratum.feature.workout.ui.ProposalEditContext
 import com.stratum.feature.workout.ui.ProposalTierArgs
 import kotlinx.serialization.Serializable
@@ -33,16 +35,29 @@ data class EquipmentIncrementsKey(
     val proposalContext: ProposalEditContext? = null,
 ) : NavKey
 
+/**
+ * Glass host for one lift-config entry (STR-160, §12.8): one HazeState for
+ * the route, provided at the detail-route level via [StratumGlassHost] —
+ * the same host pattern as the workout and history routes, shared by all
+ * four lift-config entries so the placement lives in exactly one spot.
+ */
+@Composable
+private fun LiftConfigGlassRoute(content: @Composable () -> Unit) {
+    StratumGlassHost(content = content)
+}
+
 fun EntryProviderScope<NavKey>.liftInformationEntry(
     onBackClick: () -> Unit,
     onChooseEquipment: () -> Unit,
 ) {
     entry<LiftInformationKey> { key ->
-        LiftInformationRoute(
-            liftId = key.liftId,
-            onBackClick = onBackClick,
-            onChooseEquipment = onChooseEquipment,
-        )
+        LiftConfigGlassRoute {
+            LiftInformationRoute(
+                liftId = key.liftId,
+                onBackClick = onBackClick,
+                onChooseEquipment = onChooseEquipment,
+            )
+        }
     }
 }
 
@@ -51,10 +66,12 @@ fun EntryProviderScope<NavKey>.createLiftEntry(
     onChooseEquipment: () -> Unit,
 ) {
     entry<CreateLiftKey> {
-        CreateLiftRoute(
-            onBackClick = onBackClick,
-            onChooseEquipment = onChooseEquipment,
-        )
+        LiftConfigGlassRoute {
+            CreateLiftRoute(
+                onBackClick = onBackClick,
+                onChooseEquipment = onChooseEquipment,
+            )
+        }
     }
 }
 
@@ -63,11 +80,13 @@ fun EntryProviderScope<NavKey>.manageEquipmentEntry(
     onOpenIncrements: (equipmentId: String) -> Unit,
 ) {
     entry<ManageEquipmentKey> { key ->
-        ManageEquipmentRoute(
-            selectionMode = key.selectionMode,
-            onBackClick = onBackClick,
-            onOpenIncrements = onOpenIncrements,
-        )
+        LiftConfigGlassRoute {
+            ManageEquipmentRoute(
+                selectionMode = key.selectionMode,
+                onBackClick = onBackClick,
+                onOpenIncrements = onOpenIncrements,
+            )
+        }
     }
 }
 
@@ -77,14 +96,16 @@ fun EntryProviderScope<NavKey>.equipmentIncrementsEntry(
     onChooseEquipmentForLift: (liftId: String) -> Unit = {},
 ) {
     entry<EquipmentIncrementsKey> { key ->
-        EquipmentIncrementsRoute(
-            equipmentId = key.equipmentId,
-            onBackClick = onBackClick,
-            sourceLiftId = key.sourceLiftId,
-            initialTiersLb = key.initialTiersLb,
-            proposalContext = key.proposalContext,
-            onNavigateToLift = onNavigateToLift,
-            onChooseEquipmentForLift = onChooseEquipmentForLift,
-        )
+        LiftConfigGlassRoute {
+            EquipmentIncrementsRoute(
+                equipmentId = key.equipmentId,
+                onBackClick = onBackClick,
+                sourceLiftId = key.sourceLiftId,
+                initialTiersLb = key.initialTiersLb,
+                proposalContext = key.proposalContext,
+                onNavigateToLift = onNavigateToLift,
+                onChooseEquipmentForLift = onChooseEquipmentForLift,
+            )
+        }
     }
 }
