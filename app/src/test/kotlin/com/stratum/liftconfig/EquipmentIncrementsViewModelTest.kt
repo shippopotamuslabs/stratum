@@ -23,9 +23,7 @@ import com.stratum.domain.lift.ObserveEquipmentCatalogUseCase
 import com.stratum.domain.lift.RenameAndSetIncrementTiersUseCase
 import com.stratum.domain.lift.ScanIncrementTiersUseCase
 import com.stratum.domain.lift.SetEquipmentIncrementTiersUseCase
-import com.stratum.domain.lift.ValidateMicroIncrementsUseCase
 import com.stratum.domain.lift.SetLiftEquipmentUseCase
-import com.stratum.domain.lift.ValidateIncrementTiersUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.EquipmentPickResult
@@ -92,19 +90,13 @@ class EquipmentIncrementsViewModelTest {
                 setEquipmentIncrementTiers =
                     SetEquipmentIncrementTiersUseCase(
                         fakeEquipmentRepository,
-                        ValidateIncrementTiersUseCase(),
-                        ValidateMicroIncrementsUseCase(),
                         FakeLoggingPort(),
                     ),
                 renameAndSetIncrementTiers =
                     RenameAndSetIncrementTiersUseCase(
                         fakeEquipmentRepository,
-                        ValidateIncrementTiersUseCase(),
-                        ValidateMicroIncrementsUseCase(),
                         FakeLoggingPort(),
                     ),
-                validateIncrementTiers = ValidateIncrementTiersUseCase(),
-                validateMicroIncrements = ValidateMicroIncrementsUseCase(),
                 forkEquipmentWithTiers =
                     testForkEquipmentWithTiers(fakeEquipmentRepository, fakeLiftRepository),
                 setLiftEquipment = SetLiftEquipmentUseCase(fakeLiftRepository, fakeEquipmentRepository, FakeLoggingPort()),
@@ -133,8 +125,6 @@ class EquipmentIncrementsViewModelTest {
                     IncrementScanDelegate(
                         ScanIncrementTiersUseCase(
                             FakeIncrementScanPort(),
-                            ValidateIncrementTiersUseCase(),
-                            ValidateMicroIncrementsUseCase(),
                             FakeLoggingPort(),
                         ),
                         ObserveIncrementsAiScanUseCase(fakeFeatureFlags),

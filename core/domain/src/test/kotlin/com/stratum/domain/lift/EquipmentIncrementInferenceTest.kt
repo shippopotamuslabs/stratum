@@ -14,7 +14,7 @@ class EquipmentIncrementInferenceTest {
     private val lb = Weight.WeightUnit.Lb
     private val kg = Weight.WeightUnit.Kg
     private val validate: (List<IncrementTier>) -> IncrementTiersValidationResult =
-        { ValidateIncrementTiersUseCase()(it) }
+        { IncrementLattice.validateTiers(it) }
 
     private fun openBand(step: Double, unit: Weight.WeightUnit = lb): List<IncrementTier> =
         listOf(

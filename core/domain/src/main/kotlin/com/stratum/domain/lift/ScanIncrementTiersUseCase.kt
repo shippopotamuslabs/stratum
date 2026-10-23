@@ -27,8 +27,6 @@ data class ScannedIncrementTiers(
  */
 class ScanIncrementTiersUseCase @Inject constructor(
     private val port: IncrementScanPort,
-    private val validateTiers: ValidateIncrementTiersUseCase,
-    private val validateMicro: ValidateMicroIncrementsUseCase,
     private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(photo: ScanPhoto): Result<ScannedIncrementTiers> {
@@ -43,26 +41,21 @@ class ScanIncrementTiersUseCase @Inject constructor(
             )
             return Result.failure(IncrementScanEmptyException())
         }
-        when (val validation = validateTiers(tiers)) {
-            is IncrementTiersValidationResult.Invalid -> {
-                loggingPort.warning(
-                    TAG,
-                    "incrementScanInvalid photoBytes=${photo.bytes.size} mimeType=${photo.mimeType} " +
-                        "tierCount=${tiers.size} errors=${validation.errors}",
-                )
-                return Result.failure(IncrementTiersInvalidException(validation.errors))
-            }
-            IncrementTiersValidationResult.Valid -> Unit
+        val tierErrors = IncrementLattice.tierErrors(tiers)
+        if (tierErrors.isNotEmpty()) {
+            loggingPort.warning(
+                TAG,
+                "incrementScanInvalid photoBytes=${photo.bytes.size} mimeType=${photo.mimeType} " +
+                    "tierCount=${tiers.size} errors=$tierErrors",
+            )
+            return Result.failure(IncrementTiersInvalidException(tierErrors))
         }
         val micro =
             scanned.microStops
                 .filter { it.isFinite() && it > 0.0 }
                 .map { Weight(toStorageLb(it, scanned.unit), Weight.WeightUnit.Lb) }
         val keptMicro =
-            when (validateMicro(tiers, micro)) {
-                MicroIncrementsValidationResult.Valid -> micro
-                is MicroIncrementsValidationResult.Invalid -> emptyList()
-            }
+            if (IncrementLattice.microErrors(tiers, micro).isEmpty()) micro else emptyList()
         return Result.success(ScannedIncrementTiers(tiers, keptMicro))
     }
 
