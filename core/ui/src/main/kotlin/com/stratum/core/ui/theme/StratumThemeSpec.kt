@@ -7,7 +7,6 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
@@ -176,7 +175,7 @@ private fun gospelStyle(
     letterSpacing: TextUnit = TextUnit.Unspecified,
 ): TextStyle =
     TextStyle(
-        fontFamily = FontFamily.Default,
+        fontFamily = RobotoFlexFontFamily,
         fontWeight = fontWeight,
         fontSize = fontSize,
         lineHeight = lineHeight,
@@ -205,14 +204,19 @@ internal val DefaultStratumTypography =
             ),
         dataLarge =
             TextStyle(
-                fontFamily = FontFamily.Monospace,
+                // Tabular figures via the tnum OpenType feature now that the
+                // family is Roboto Flex (STR-147); Monospace previously
+                // guaranteed fixed-width digits by construction. tnum is
+                // honored by Roboto Flex and by the default fallback alike.
+                fontFamily = RobotoFlexFontFamily,
+                fontFeatureSettings = "tnum",
                 fontWeight = FontWeight.Medium,
                 fontSize = 20.sp,
                 lineHeight = 24.sp,
             ),
         sectionLabel =
             TextStyle(
-                fontFamily = FontFamily.Default,
+                fontFamily = RobotoFlexFontFamily,
                 fontWeight = FontWeight.Medium,
                 fontSize = 13.sp,
                 lineHeight = 18.sp,
