@@ -16,6 +16,15 @@ data class StratumColors(
     val surfaceSunken: Color,
     val borderStrong: Color,
     val borderSubtle: Color,
+    /**
+     * Interactive boundary (WCAG 1.4.11 3:1 non-text bar): the border role for
+     * outlined controls, not a hairline. borderSubtle (#2A2E39: 1.06:1 on the
+     * sheet surfaceInset #272A33, 1.42:1 on bg-base) and dark borderStrong
+     * (1.26:1 on sheets) both fail that bar, so in Tonal this resolves to the
+     * text-faint ramp step (dark #6E7280, light #83868F). Consume this token —
+     * never the text ramp — so text-ramp edits cannot silently recolor borders.
+     */
+    val borderInteractive: Color,
     val textPrimary: Color,
     val textMuted: Color,
     /**
