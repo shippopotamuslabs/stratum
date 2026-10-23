@@ -15,6 +15,7 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
+import com.stratum.core.ui.component.StratumGlassHost
 import com.stratum.core.ui.component.UserMessageEffect
 import com.stratum.feature.settings.HealthConnectPermissionAction
 import com.stratum.feature.settings.HealthConnectPermissionRequestContract
@@ -34,6 +35,18 @@ data object SettingsKey : NavKey
 data object LegalKey : NavKey
 
 /**
+ * Glass host for one settings entry (STR-161, §12.8): one HazeState for the
+ * route, provided at the detail-route level via [StratumGlassHost] — the
+ * same host pattern as the workout, history, and lift-config routes, shared
+ * by all settings and import/export entries so the placement lives in
+ * exactly one spot.
+ */
+@Composable
+internal fun SettingsGlassRoute(content: @Composable () -> Unit) {
+    StratumGlassHost(content = content)
+}
+
+/**
  * Registers the Settings entry in a Nav3 [EntryProviderScope]. Back is handled by the app
  * shell via [onBackClick]; Legal / Import / Export hubs via navigation callbacks.
  */
@@ -45,13 +58,15 @@ fun EntryProviderScope<NavKey>.settingsEntry(
     onNavigateToPaywall: () -> Unit = {},
 ) {
     entry<SettingsKey> {
-        SettingsRoute(
-            onBackClick = onBackClick,
-            onNavigateToLegal = onNavigateToLegal,
-            onNavigateToImportData = onNavigateToImportData,
-            onNavigateToExportData = onNavigateToExportData,
-            onNavigateToPaywall = onNavigateToPaywall,
-        )
+        SettingsGlassRoute {
+            SettingsRoute(
+                onBackClick = onBackClick,
+                onNavigateToLegal = onNavigateToLegal,
+                onNavigateToImportData = onNavigateToImportData,
+                onNavigateToExportData = onNavigateToExportData,
+                onNavigateToPaywall = onNavigateToPaywall,
+            )
+        }
     }
 }
 
@@ -60,7 +75,9 @@ fun EntryProviderScope<NavKey>.legalEntry(
     onBackClick: () -> Unit,
 ) {
     entry<LegalKey> {
-        LegalScreen(onBackClick = onBackClick)
+        SettingsGlassRoute {
+            LegalScreen(onBackClick = onBackClick)
+        }
     }
 }
 
