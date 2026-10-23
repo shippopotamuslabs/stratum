@@ -20,8 +20,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.component.StratumButton
 import com.stratum.core.ui.component.StratumConfirmDialog
+import com.stratum.core.ui.component.StratumDetailScaffold
 import com.stratum.core.ui.component.StratumPreferenceRow
-import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumSegmentedControl
 import com.stratum.core.ui.component.StratumSwitch
 import com.stratum.core.ui.component.StratumText
@@ -58,7 +58,10 @@ fun SettingsScreen(
 ) {
     val accountBusy = uiState.isLoggingOut || uiState.isDeletingAccount
 
-    StratumScaffold(
+    // Glass (§12.8, STR-161): under the route's glass host the top bar overlays
+    // and the settings column carries the top clearance inside its scroll, so
+    // groups scroll beneath the glass. Solid hosts keep the in-flow geometry.
+    StratumDetailScaffold(
         snackbarHostState = snackbarHostState,
         topBar = {
             StratumTopBar(
@@ -71,13 +74,13 @@ fun SettingsScreen(
                 },
             )
         },
-    ) { padding ->
+    ) { chrome ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s16),
+                .padding(horizontal = StratumSpacing.s16)
+                .padding(top = StratumSpacing.s16 + chrome.top, bottom = StratumSpacing.s16),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             SettingsGroup(title = stringResource(R.string.settings_membership_section)) {

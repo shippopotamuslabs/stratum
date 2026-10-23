@@ -39,14 +39,15 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.stratum.core.ui.component.StratumActiveBadge
 import com.stratum.core.ui.component.StratumBrandFooter
 import com.stratum.core.ui.component.StratumButton
+import com.stratum.core.ui.component.StratumDetailScaffold
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumNumber
-import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTextButton
 import com.stratum.core.ui.component.StratumTopBar
@@ -75,7 +76,10 @@ fun PaywallScreen(
     val colors = StratumThemeAccessor.colors
     val closeLabel = stringResource(R.string.paywall_close)
 
-    StratumScaffold(
+    // Glass (§12.8, STR-161): under the route's glass host the top bar overlays
+    // and the paywall column carries the top clearance inside its scroll, so
+    // content scrolls beneath the glass. Solid hosts keep the in-flow geometry.
+    StratumDetailScaffold(
         modifier = modifier,
         snackbarHostState = snackbarHostState,
         topBar = {
@@ -96,13 +100,11 @@ fun PaywallScreen(
                 },
             )
         },
-    ) { paddingValues ->
+    ) { chrome ->
         when (uiState) {
             PaywallUiState.Loading -> {
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
+                    modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) {
                     CircularProgressIndicator(color = colors.accent)
@@ -114,7 +116,7 @@ fun PaywallScreen(
                     onRetryClick = onRetryClick,
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(paddingValues)
+                        .padding(top = chrome.top)
                         .padding(StratumSpacing.s24),
                 )
             }
@@ -126,7 +128,7 @@ fun PaywallScreen(
                         onRetryClick = onRetryClick,
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(paddingValues)
+                            .padding(top = chrome.top)
                             .padding(StratumSpacing.s24),
                     )
                 } else {
@@ -136,7 +138,7 @@ fun PaywallScreen(
                         onPurchaseClick = onPurchaseClick,
                         onRestorePurchasesClick = onRestorePurchasesClick,
                         onSelectProduct = onSelectProduct,
-                        modifier = Modifier.padding(paddingValues),
+                        topClearance = chrome.top,
                     )
                 }
             }
@@ -185,6 +187,7 @@ private fun PaywallContent(
     onPurchaseClick: () -> Unit,
     onRestorePurchasesClick: () -> Unit,
     onSelectProduct: (String) -> Unit,
+    topClearance: Dp = 0.dp,
     modifier: Modifier = Modifier,
 ) {
     val colors = StratumThemeAccessor.colors
@@ -196,7 +199,8 @@ private fun PaywallContent(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = StratumSpacing.s24, vertical = StratumSpacing.s16),
+            .padding(horizontal = StratumSpacing.s24)
+            .padding(top = StratumSpacing.s16 + topClearance, bottom = StratumSpacing.s16),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         if (trialDays > 0) {
