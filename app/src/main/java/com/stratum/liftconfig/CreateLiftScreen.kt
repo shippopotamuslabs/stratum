@@ -16,7 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stratum.core.ui.R as UiR
-import com.stratum.core.ui.component.StratumScaffold
+import com.stratum.core.ui.component.StratumDetailScaffold
 import com.stratum.core.ui.component.StratumTextField
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
@@ -86,7 +86,10 @@ fun CreateLiftScreen(
     modifier: Modifier = Modifier,
     snackbarHostState: SnackbarHostState? = null,
 ) {
-    StratumScaffold(
+    // Glass (§12.8, STR-160): under the route's glass host the top bar overlays
+    // and the form column sits in the region beneath it. Solid hosts keep the
+    // in-flow geometry exactly.
+    StratumDetailScaffold(
         modifier = modifier,
         snackbarHostState = snackbarHostState,
         topBar = {
@@ -107,12 +110,12 @@ fun CreateLiftScreen(
                 },
             )
         },
-    ) { padding ->
+    ) { chrome ->
         Column(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .padding(padding)
+                    .padding(top = chrome.top)
                     .padding(horizontal = StratumSpacing.s16),
             verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
         ) {

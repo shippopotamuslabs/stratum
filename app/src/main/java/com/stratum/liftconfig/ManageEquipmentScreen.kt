@@ -34,8 +34,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stratum.core.ui.R as UiR
 import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumButton
+import com.stratum.core.ui.component.StratumDetailScaffold
 import com.stratum.core.ui.component.StratumIconButton
-import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumSwipeToRevealRow
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTextField
@@ -135,7 +135,10 @@ fun ManageEquipmentScreen(
         } else {
             stringResource(UiR.string.manage_equipment_title)
         }
-    StratumScaffold(
+    // Glass (§12.8, STR-160): under the route's glass host the top bar overlays
+    // and the equipment list carries the top clearance as content padding, so
+    // rows scroll beneath the glass. Solid hosts keep the in-flow geometry.
+    StratumDetailScaffold(
         modifier = modifier,
         snackbarHostState = snackbarHostState,
         topBar = {
@@ -158,15 +161,18 @@ fun ManageEquipmentScreen(
                 },
             )
         },
-    ) { padding ->
+    ) { chrome ->
         LazyColumn(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .padding(padding)
                     .padding(horizontal = StratumSpacing.s16),
             verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
-            contentPadding = PaddingValues(top = StratumSpacing.s8, bottom = StratumSpacing.s24),
+            contentPadding =
+                PaddingValues(
+                    top = StratumSpacing.s8 + chrome.top,
+                    bottom = StratumSpacing.s24,
+                ),
         ) {
             item(key = "equipment-help") {
                 EquipmentHelpCard()

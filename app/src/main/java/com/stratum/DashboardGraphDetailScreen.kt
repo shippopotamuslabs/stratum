@@ -40,8 +40,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.stratum.core.ui.component.StratumDetailChart
+import com.stratum.core.ui.component.StratumDetailScaffold
 import com.stratum.core.ui.component.StratumFeatureErrorFallback
-import com.stratum.core.ui.component.StratumScaffold
+import com.stratum.core.ui.component.StratumGlassHost
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
@@ -69,23 +70,31 @@ fun DashboardGraphDetailHost(
             decorFitsSystemWindows = false,
         ),
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(StratumThemeAccessor.colors.surfaceBase)
-                .safeDrawingPadding(),
-        ) {
-            when (state) {
-                GraphDetailUiState.Hidden -> Unit
-                GraphDetailUiState.Loading -> GraphDetailLoading(onDismiss = onDismiss)
-                GraphDetailUiState.Empty -> GraphDetailEmpty(onDismiss = onDismiss)
-                GraphDetailUiState.Error -> GraphDetailError(onDismiss = onDismiss, onRetry = onRetry)
-                is GraphDetailUiState.Ready -> GraphDetailReady(
-                    state = state,
-                    onDismiss = onDismiss,
-                    onSelectMode = onSelectMode,
-                    onSelectRange = onSelectRange,
-                )
+        // Glass host inside the dialog window (§12.8, STR-160): the detail's
+        // bar takes the same glass material as the Dashboard bar behind it,
+        // so opening and dismissing the detail never flickers chrome. The
+        // host lives in the dialog because a Haze source cannot be sampled
+        // across windows — the frame's own content (inside this window) is
+        // the source; the shell's state stays untouched.
+        StratumGlassHost {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(StratumThemeAccessor.colors.surfaceBase)
+                    .safeDrawingPadding(),
+            ) {
+                when (state) {
+                    GraphDetailUiState.Hidden -> Unit
+                    GraphDetailUiState.Loading -> GraphDetailLoading(onDismiss = onDismiss)
+                    GraphDetailUiState.Empty -> GraphDetailEmpty(onDismiss = onDismiss)
+                    GraphDetailUiState.Error -> GraphDetailError(onDismiss = onDismiss, onRetry = onRetry)
+                    is GraphDetailUiState.Ready -> GraphDetailReady(
+                        state = state,
+                        onDismiss = onDismiss,
+                        onSelectMode = onSelectMode,
+                        onSelectRange = onSelectRange,
+                    )
+                }
             }
         }
     }
@@ -144,7 +153,11 @@ private fun GraphDetailFrame(
     onDismiss: () -> Unit,
     content: @Composable () -> Unit,
 ) {
-    StratumScaffold(
+    // Glass (§12.8, STR-160): hosted by the dialog's own glass host (see
+    // DashboardGraphDetailHost), the frame's bar overlays and the content
+    // sits in the region beneath it. Unhosted compositions (previews) keep
+    // the solid in-flow geometry exactly.
+    StratumDetailScaffold(
         topBar = {
             StratumTopBar(
                 title = title,
@@ -156,8 +169,8 @@ private fun GraphDetailFrame(
                 },
             )
         },
-    ) { padding ->
-        Box(Modifier.padding(padding)) {
+    ) { chrome ->
+        Box(Modifier.padding(top = chrome.top)) {
             content()
         }
     }
