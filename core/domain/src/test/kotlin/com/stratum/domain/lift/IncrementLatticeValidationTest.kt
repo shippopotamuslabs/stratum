@@ -314,6 +314,62 @@ class IncrementLatticeValidationTest {
         }
     }
 
+    @Nested
+    @DisplayName("canonical construction surfaces")
+    inner class ConstructionSurfaces {
+        @Test
+        @DisplayName("Given valid tiers when resultOf is used then success carries the lattice")
+        fun resultOfSuccess() {
+            val tiers = listOf(tier(0.0, null, 15.0))
+            val micro = listOf(stop(5.0))
+            val result = IncrementLattice.resultOf(tiers, micro)
+            assertTrue(result.isSuccess)
+            assertEquals(IncrementLattice(tiers, micro), result.getOrThrow())
+        }
+
+        @Test
+        @DisplayName("Given invalid tiers when resultOf is used then failure carries the tier exception")
+        fun resultOfTierFailure() {
+            val tiers = listOf(tier(0.0, 100.0, 5.0))
+            val result = IncrementLattice.resultOf(tiers)
+            assertTrue(result.exceptionOrNull() is IncrementTiersInvalidException)
+        }
+
+        @Test
+        @DisplayName("Given invalid micro when resultOf is used then failure carries the micro exception")
+        fun resultOfMicroFailure() {
+            val result = IncrementLattice.resultOf(listOf(tier(0.0, null, 15.0)), listOf(stop(20.0)))
+            assertTrue(result.exceptionOrNull() is MicroIncrementsInvalidException)
+        }
+
+        @Test
+        @DisplayName("Given stored equipment when requireLattice is called then the lattice is returned")
+        fun equipmentRequireLattice() {
+            val tiers = listOf(tier(0.0, null, 15.0))
+            val equipment =
+                Equipment(
+                    id = com.stratum.domain.lift.identity.EquipmentId("eq-1"),
+                    name = "Stack",
+                    incrementTiers = tiers,
+                    microIncrements = listOf(stop(5.0)),
+                )
+            assertEquals(IncrementLattice(tiers, listOf(stop(5.0))), equipment.requireLattice())
+        }
+
+        @Test
+        @DisplayName("Given stops carried against replacement tiers when requireLattice is called then it throws")
+        fun equipmentRequireLatticeThrowsOnHandOffState() {
+            val equipment =
+                Equipment(
+                    id = com.stratum.domain.lift.identity.EquipmentId("eq-2"),
+                    name = "Stack copy",
+                    incrementTiers = listOf(tier(0.0, null, 2.5)),
+                    microIncrements = listOf(stop(5.0)),
+                )
+            assertThrows<MicroIncrementsInvalidException> { equipment.requireLattice() }
+        }
+    }
+
     private fun assertInvalidTiers(
         tiers: List<IncrementTier>,
         expected: IncrementTiersValidationError,

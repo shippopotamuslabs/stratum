@@ -128,6 +128,17 @@ data class IncrementLattice(
         /** The empty lattice: no tiers, no adder. */
         val EMPTY: IncrementLattice = IncrementLattice(emptyList())
 
+        /**
+         * Canonical non-throwing construction for `Result`-returning write paths:
+         * success carries the lattice, failure carries the same
+         * [IncrementTiersInvalidException] / [MicroIncrementsInvalidException] the
+         * constructor throws.
+         */
+        fun resultOf(
+            tiers: List<IncrementTier>,
+            micro: List<Weight> = emptyList(),
+        ): Result<IncrementLattice> = runCatching { IncrementLattice(tiers, micro) }
+
         /** Non-throwing tier validation for drafts and other pre-construction checks. */
         fun validateTiers(tiers: List<IncrementTier>): IncrementTiersValidationResult {
             val errors = tierErrors(tiers)

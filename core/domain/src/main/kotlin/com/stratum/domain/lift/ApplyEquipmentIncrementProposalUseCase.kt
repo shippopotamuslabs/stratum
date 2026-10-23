@@ -77,11 +77,7 @@ class ApplyEquipmentIncrementProposalUseCase @Inject constructor(
         remedy: EquipmentIncrementRemedy,
     ): Result<ApplyEquipmentIncrementResult>? {
         // Constructing the lattice is the validation (STR-165).
-        try {
-            IncrementLattice(remedy.tiers())
-        } catch (e: IncrementTiersInvalidException) {
-            return Result.failure(e)
-        }
+        IncrementLattice.resultOf(remedy.tiers()).onFailure { return Result.failure(it) }
         // Fail clearly when the clustered equipment was deleted between propose and accept
         // (setIncrementTiers alone may no-op on a missing row). A missing row is an expected
         // race, not an operational fault: breadcrumb only, never a Crashlytics non-fatal.

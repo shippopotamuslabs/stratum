@@ -29,12 +29,8 @@ class AddCustomEquipmentUseCase @Inject constructor(
         // be rejected as MicroWithoutTiers here.
         val effectiveTiers = tiers.ifEmpty { defaultSingleTiers() }
         if (tiers.isNotEmpty() || micro.isNotEmpty()) {
-            try {
-                IncrementLattice(effectiveTiers, micro)
-            } catch (e: IncrementTiersInvalidException) {
-                return Result.failure(e)
-            } catch (e: MicroIncrementsInvalidException) {
-                return Result.failure(e)
+            IncrementLattice.resultOf(effectiveTiers, micro).onFailure {
+                return Result.failure(it)
             }
         }
         return runCatchingLogged(loggingPort, TAG, "Failed to add custom equipment") {
