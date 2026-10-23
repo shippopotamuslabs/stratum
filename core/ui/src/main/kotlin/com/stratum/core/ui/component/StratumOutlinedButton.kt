@@ -42,8 +42,18 @@ fun StratumOutlinedButton(
         when {
             destructive -> colors.error
             elevations.useHardShadow -> colors.borderStrong
-            // §12.3: outlined buttons carry the border-default color, no fill.
-            else -> colors.borderSubtle
+            // STR-181: an outlined button's border is an interactive boundary,
+            // not a hairline. §12.3's border-default (Stratum borderSubtle,
+            // #2A2E39) measures 1.06:1 against the sheet container
+            // (surfaceInset #272A33) and 1.42:1 on bg-base — the pill simply
+            // vanishes, leaving a floating label. borderStrong is no fix in
+            // dark (1.26:1 on sheets). textFaint is the ramp step that meets
+            // the palette gospel's 3:1 interactive-boundary bar in both
+            // themes (dark #6E7280: 2.99:1 on sheets, up to 4.03:1 on
+            // bg-base; light #83868F: 3.17–3.64:1, effectively the light
+            // borderStrong), and it already paints the sheet drag handle for
+            // the same reason (STR-175).
+            else -> colors.textFaint
         }
     val contentColor = if (destructive) colors.error else colors.accent
     val morph =
