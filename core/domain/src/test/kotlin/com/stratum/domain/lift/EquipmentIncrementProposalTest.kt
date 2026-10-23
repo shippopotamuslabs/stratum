@@ -343,7 +343,7 @@ class EquipmentIncrementProposalTest {
             val proposal = rankEquipmentIncrementProposal(baseInput())
             assertEquals(
                 IncrementTiersValidationResult.Valid,
-                ValidateIncrementTiersUseCase()(proposal.proposedTiers),
+                IncrementLattice.validateTiers(proposal.proposedTiers),
             )
         }
 
@@ -371,7 +371,7 @@ class EquipmentIncrementProposalTest {
                 )
             assertEquals(
                 IncrementTiersValidationResult.Valid,
-                ValidateIncrementTiersUseCase()(proposal.proposedTiers),
+                IncrementLattice.validateTiers(proposal.proposedTiers),
             )
             assertTrue(proposal.proposedTiers.isOnLattice(Weight(62.5, lb)))
             assertTrue(proposal.primary is EquipmentIncrementRemedy.ForkCustomEquipment)

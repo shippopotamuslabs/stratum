@@ -29,8 +29,6 @@ import com.stratum.domain.lift.ScannedTierRow
 import com.stratum.domain.lift.ScannedTiers
 import com.stratum.domain.lift.SetEquipmentIncrementTiersUseCase
 import com.stratum.domain.lift.SetLiftEquipmentUseCase
-import com.stratum.domain.lift.ValidateIncrementTiersUseCase
-import com.stratum.domain.lift.ValidateMicroIncrementsUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.EquipmentPickResult
@@ -96,31 +94,21 @@ class EquipmentIncrementsScanTest {
             setEquipmentIncrementTiers =
                 SetEquipmentIncrementTiersUseCase(
                     fakeEquipmentRepository,
-                    ValidateIncrementTiersUseCase(),
-                    ValidateMicroIncrementsUseCase(),
                     FakeLoggingPort(),
                 ),
             renameAndSetIncrementTiers =
                 RenameAndSetIncrementTiersUseCase(
                     fakeEquipmentRepository,
-                    ValidateIncrementTiersUseCase(),
-                    ValidateMicroIncrementsUseCase(),
                     FakeLoggingPort(),
                 ),
-            validateIncrementTiers = ValidateIncrementTiersUseCase(),
-            validateMicroIncrements = ValidateMicroIncrementsUseCase(),
             forkEquipmentWithTiers =
                 ForkEquipmentWithTiersUseCase(
                     ForkEquipmentUseCase(
                         fakeEquipmentRepository,
-                        ValidateIncrementTiersUseCase(),
-                        ValidateMicroIncrementsUseCase(),
                         FakeLoggingPort(),
                     ),
                     SetEquipmentIncrementTiersUseCase(
                         fakeEquipmentRepository,
-                        ValidateIncrementTiersUseCase(),
-                        ValidateMicroIncrementsUseCase(),
                         FakeLoggingPort(),
                     ),
                     SetLiftEquipmentUseCase(fakeLiftRepository, fakeEquipmentRepository, FakeLoggingPort()),
@@ -151,8 +139,6 @@ class EquipmentIncrementsScanTest {
                 IncrementScanDelegate(
                     ScanIncrementTiersUseCase(
                         scanPort,
-                        ValidateIncrementTiersUseCase(),
-                        ValidateMicroIncrementsUseCase(),
                         FakeLoggingPort(),
                     ),
                     ObserveIncrementsAiScanUseCase(fakeFeatureFlags),

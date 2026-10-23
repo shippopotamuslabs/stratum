@@ -11,8 +11,6 @@ import com.stratum.domain.lift.ScanIncrementTiersUseCase
 import com.stratum.domain.lift.ScanPhoto
 import com.stratum.domain.lift.ScannedTierRow
 import com.stratum.domain.lift.ScannedTiers
-import com.stratum.domain.lift.ValidateIncrementTiersUseCase
-import com.stratum.domain.lift.ValidateMicroIncrementsUseCase
 import com.stratum.domain.lift.Weight
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -48,8 +46,6 @@ class IncrementScanDelegateTest {
         IncrementScanDelegate(
             ScanIncrementTiersUseCase(
                 port,
-                ValidateIncrementTiersUseCase(),
-                ValidateMicroIncrementsUseCase(),
                 FakeLoggingPort(),
             ),
             ObserveIncrementsAiScanUseCase(fakeFeatureFlags),

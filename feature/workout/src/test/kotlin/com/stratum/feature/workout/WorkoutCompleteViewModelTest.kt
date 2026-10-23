@@ -30,7 +30,6 @@ import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
 import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
-import com.stratum.domain.lift.ValidateIncrementTiersUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
@@ -673,7 +672,6 @@ class WorkoutCompleteViewModelTest {
                 applyEquipmentIncrementProposal =
                     ApplyEquipmentIncrementProposalUseCase(
                         equipmentRepository = equipmentRepo,
-                        validate = ValidateIncrementTiersUseCase(),
                         loggingPort = logging,
                     ),
                 equipmentProposalPreferences = equipPrefs,
@@ -790,7 +788,6 @@ class WorkoutCompleteViewModelTest {
                 applyEquipmentIncrementProposal =
                     ApplyEquipmentIncrementProposalUseCase(
                         equipmentRepository = equipmentRepo,
-                        validate = ValidateIncrementTiersUseCase(),
                         loggingPort = logging,
                     ),
                 equipmentProposalPreferences = prefs,
@@ -907,7 +904,6 @@ class WorkoutCompleteViewModelTest {
             applyEquipmentIncrementProposal =
                 ApplyEquipmentIncrementProposalUseCase(
                     equipmentRepository = equipmentRepo,
-                    validate = ValidateIncrementTiersUseCase(),
                     loggingPort = logging,
                 ),
             equipmentProposalPreferences = prefs,

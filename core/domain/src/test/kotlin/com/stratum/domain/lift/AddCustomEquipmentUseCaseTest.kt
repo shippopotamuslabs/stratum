@@ -24,8 +24,6 @@ class AddCustomEquipmentUseCaseTest {
         subject =
             AddCustomEquipmentUseCase(
                 repository = equipmentRepo,
-                validate = ValidateIncrementTiersUseCase(),
-                validateMicro = ValidateMicroIncrementsUseCase(),
                 loggingPort = FakeLoggingPort(),
             )
     }

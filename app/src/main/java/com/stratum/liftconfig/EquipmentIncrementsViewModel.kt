@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.EquipmentAffectedLifts
 import com.stratum.domain.lift.ForkEquipmentWithTiersUseCase
+import com.stratum.domain.lift.IncrementLattice
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.IncrementTiersValidationResult
 import com.stratum.domain.lift.ObserveEquipmentAffectedLiftsUseCase
@@ -15,8 +16,6 @@ import com.stratum.domain.lift.ScanPhoto
 import com.stratum.domain.lift.RenameAndSetIncrementTiersUseCase
 import com.stratum.domain.lift.SetEquipmentIncrementTiersUseCase
 import com.stratum.domain.lift.SetLiftEquipmentUseCase
-import com.stratum.domain.lift.ValidateIncrementTiersUseCase
-import com.stratum.domain.lift.ValidateMicroIncrementsUseCase
 import com.stratum.domain.lift.DeleteCustomEquipmentUseCase
 import com.stratum.domain.lift.GetEquipmentDeleteImpactUseCase
 import com.stratum.domain.lift.SeedEquipmentIds
@@ -80,8 +79,6 @@ class EquipmentIncrementsViewModel @Inject constructor(
     private val observeEquipmentAffectedLifts: ObserveEquipmentAffectedLiftsUseCase,
     private val setEquipmentIncrementTiers: SetEquipmentIncrementTiersUseCase,
     private val renameAndSetIncrementTiers: RenameAndSetIncrementTiersUseCase,
-    private val validateIncrementTiers: ValidateIncrementTiersUseCase,
-    private val validateMicroIncrements: ValidateMicroIncrementsUseCase,
     private val forkEquipmentWithTiers: ForkEquipmentWithTiersUseCase,
     /** Owned by the quick-swap path: applies a picked equipment to the pending lift. */
     private val setLiftEquipment: SetLiftEquipmentUseCase,
@@ -636,7 +633,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
             validationOverride.value = "Enter valid numbers for all bands"
             return null
         }
-        when (val result = validateIncrementTiers(domainTiers)) {
+        when (val result = IncrementLattice.validateTiers(domainTiers)) {
             is IncrementTiersValidationResult.Invalid -> {
                 validationOverride.value = IncrementTierDraftOps.toUserMessage(result.errors)
                 return null
@@ -673,7 +670,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
     ): MicroCheck {
         val micro = IncrementTierDraftOps.microToDomainOrNull(microStops, unit)
             ?: return MicroCheck(null, "Enter valid numbers for adder stops")
-        return when (val result = validateMicroIncrements(domainTiers, micro)) {
+        return when (val result = IncrementLattice.validateMicro(domainTiers, micro)) {
             is MicroIncrementsValidationResult.Invalid ->
                 MicroCheck(null, IncrementTierDraftOps.toMicroUserMessage(result.errors))
             MicroIncrementsValidationResult.Valid -> MicroCheck(micro, null)
@@ -787,7 +784,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
         unit: Weight.WeightUnit,
     ): String? {
         val domain = IncrementTierDraftOps.toDomainOrNull(tiers, unit) ?: return null
-        when (val result = validateIncrementTiers(domain)) {
+        when (val result = IncrementLattice.validateTiers(domain)) {
             is IncrementTiersValidationResult.Invalid ->
                 return IncrementTierDraftOps.toUserMessage(result.errors)
             IncrementTiersValidationResult.Valid -> Unit

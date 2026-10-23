@@ -16,8 +16,6 @@ class SetEquipmentIncrementTiersUseCaseTest {
     private fun subject(repo: FakeEquipmentRepository): SetEquipmentIncrementTiersUseCase =
         SetEquipmentIncrementTiersUseCase(
             repo,
-            ValidateIncrementTiersUseCase(),
-            ValidateMicroIncrementsUseCase(),
             FakeLoggingPort(),
         )
 

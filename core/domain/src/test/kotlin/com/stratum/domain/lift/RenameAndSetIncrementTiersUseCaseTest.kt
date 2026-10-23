@@ -16,8 +16,6 @@ class RenameAndSetIncrementTiersUseCaseTest {
     private fun subject(repo: FakeEquipmentRepository): RenameAndSetIncrementTiersUseCase =
         RenameAndSetIncrementTiersUseCase(
             repo,
-            ValidateIncrementTiersUseCase(),
-            ValidateMicroIncrementsUseCase(),
             FakeLoggingPort(),
         )
 

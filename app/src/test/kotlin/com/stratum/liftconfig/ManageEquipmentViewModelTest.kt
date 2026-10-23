@@ -13,8 +13,6 @@ import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.ForkEquipmentUseCase
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.ObserveEquipmentCatalogUseCase
-import com.stratum.domain.lift.ValidateIncrementTiersUseCase
-import com.stratum.domain.lift.ValidateMicroIncrementsUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.EquipmentPickResult
@@ -78,22 +76,17 @@ class ManageEquipmentViewModelTest {
             ),
         )
         val logging = FakeLoggingPort()
-        val validate = ValidateIncrementTiersUseCase()
         subject =
             ManageEquipmentViewModel(
                 observeEquipmentCatalog = ObserveEquipmentCatalogUseCase(fakeEquipmentRepository),
                 addCustomEquipment =
                     AddCustomEquipmentUseCase(
                         fakeEquipmentRepository,
-                        validate,
-                        ValidateMicroIncrementsUseCase(),
                         logging,
                     ),
                 forkEquipment =
                     ForkEquipmentUseCase(
                         fakeEquipmentRepository,
-                        validate,
-                        ValidateMicroIncrementsUseCase(),
                         logging,
                     ),
                 deleteCustomEquipment =
@@ -337,15 +330,11 @@ class ManageEquipmentViewModelTest {
                 addCustomEquipment =
                     AddCustomEquipmentUseCase(
                         equipmentRepo,
-                        ValidateIncrementTiersUseCase(),
-                        ValidateMicroIncrementsUseCase(),
                         logging,
                     ),
                 forkEquipment =
                     ForkEquipmentUseCase(
                         equipmentRepo,
-                        ValidateIncrementTiersUseCase(),
-                        ValidateMicroIncrementsUseCase(),
                         logging,
                     ),
                 deleteCustomEquipment = DeleteCustomEquipmentUseCase(equipmentRepo, logging),
