@@ -12,6 +12,7 @@ Every task maps to binding contracts in `/contracts/`. Read the relevant contrac
 | Task type | Contract |
 |-----------|----------|
 | Compose UI, theme families, `Stratum*` components, colors, typography, previews | `UI_DESIGN.md` |
+| Adding or editing user-facing copy — labels, setting descriptions, buttons, empty states, errors, notifications, onboarding, paywall copy, dialog text | `WOMBO_GOSPEL.md` (read before writing any copy) |
 | Module structure, navigation, Scaffold, dependency graph, layer rules | `ARCHITECTURE.md` |
 | Kotlin style, Compose conventions, testing | `CODE_STYLE_RULES.md` (when added) |
 | Unit tests, fakes, Robolectric, golden examples | `UNIT_TESTING.md` |
