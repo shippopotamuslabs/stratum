@@ -52,14 +52,23 @@ data class EditHistoricalWorkoutKey(
     val sessionId: String,
 ) : NavKey
 
+/**
+ * Glass host for one history entry (STR-159, §12.8): one HazeState for the
+ * route, provided at the detail-route level via [StratumGlassHost] — the
+ * same host pattern as the workout routes, shared by all four history
+ * entries so the placement lives in exactly one spot.
+ */
+@Composable
+private fun HistoryGlassRoute(content: @Composable () -> Unit) {
+    StratumGlassHost(content = content)
+}
+
 fun EntryProviderScope<NavKey>.workoutHistoryEntry(
     onBackClick: () -> Unit,
     onDayClick: (day: HistoryDayUi) -> Unit,
 ) {
     entry<WorkoutHistoryKey> {
-        // Glass host (STR-159, §12.8): one HazeState for this route, provided at
-        // the detail-route level — same host pattern as the workout routes.
-        StratumGlassHost {
+        HistoryGlassRoute {
             WorkoutHistoryRoute(
                 onBackClick = onBackClick,
                 onDayClick = onDayClick,
@@ -73,8 +82,7 @@ fun EntryProviderScope<NavKey>.historyDaySessionsEntry(
     onSessionClick: (sessionId: String) -> Unit,
 ) {
     entry<HistoryDaySessionsKey> { key ->
-        // Glass host (STR-159, §12.8): same host pattern as the calendar route.
-        StratumGlassHost {
+        HistoryGlassRoute {
             HistoryDaySessionsRoute(
                 dateIso = key.dateIso,
                 onBackClick = onBackClick,
@@ -89,8 +97,7 @@ fun EntryProviderScope<NavKey>.workoutSessionDetailEntry(
     onEditWorkoutClick: (sessionId: String) -> Unit,
 ) {
     entry<WorkoutSessionDetailKey> { key ->
-        // Glass host (STR-159, §12.8): same host pattern as the calendar route.
-        StratumGlassHost {
+        HistoryGlassRoute {
             WorkoutSessionDetailRoute(
                 sessionId = key.sessionId,
                 onBackClick = onBackClick,
@@ -104,8 +111,7 @@ fun EntryProviderScope<NavKey>.editHistoricalWorkoutEntry(
     onBackClick: () -> Unit,
 ) {
     entry<EditHistoricalWorkoutKey> { key ->
-        // Glass host (STR-159, §12.8): same host pattern as the calendar route.
-        StratumGlassHost {
+        HistoryGlassRoute {
             EditHistoricalWorkoutRoute(
                 sessionId = key.sessionId,
                 onBackClick = onBackClick,
