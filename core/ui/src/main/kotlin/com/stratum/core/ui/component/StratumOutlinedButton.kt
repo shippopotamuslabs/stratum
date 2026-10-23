@@ -57,7 +57,7 @@ fun StratumOutlinedButton(
             modifier
                 .then(morph.scaleModifier)
                 .heightIn(min = DefaultHeight)
-                .stratumButtonHardShadow(enabled = enabled, shape = morph.shape),
+                .stratumButtonHardShadow(enabled = enabled, shape = morph.shape, faceHeight = DefaultHeight),
         enabled = enabled,
         shape = morph.shape,
         interactionSource = morph.interactionSource,
