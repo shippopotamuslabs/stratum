@@ -1,11 +1,15 @@
 package com.stratum.core.ui.component
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsNodeInteraction
@@ -15,7 +19,9 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.runComposeUiTest
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import com.stratum.core.ui.component.workoutlog.RepsCellWithRirBadge
 import com.stratum.core.ui.component.workoutlog.RepsEntryMode
+import com.stratum.core.ui.component.workoutlog.RirCornerBadgeSize
 import com.stratum.core.ui.component.workoutlog.StratumInlineNumericCell
 import com.stratum.core.ui.component.workoutlog.StratumSplitRepsCell
 import com.stratum.core.ui.component.workoutlog.WorkoutLogSetColumnBadge
@@ -31,7 +37,8 @@ import tech.apter.junit.jupiter.robolectric.RobolectricExtension
  * smaller than 48dp must still report >= 48dp touch bounds. Each component
  * here was a sub-48 target before the pass; if a future change drops a
  * sizeIn floor or the outer-target split, these bounds shrink and the test
- * fails.
+ * fails. One deliberate exception (STR-180): the set-log RIR corner badge,
+ * whose placement on the reps cell's corner is locked instead.
  *
  * All checks live in ONE test method as sequential runComposeUiTest blocks:
  * under this module's JUnit 5 + Robolectric setup a second compose test
@@ -66,6 +73,7 @@ class TouchTargetBoundsTest {
     @DisplayName("every custom interactive target is at least 48dp")
     fun allCustomTargetsAreAtLeast48dp() {
         runComposeUiTest { checkRirBadge() }
+        runComposeUiTest { checkRirCornerBadge() }
         runComposeUiTest { checkSetColumnBadge() }
         runComposeUiTest { checkInlineNumericCell() }
         runComposeUiTest { checkSplitRepsCell() }
@@ -84,6 +92,52 @@ class TouchTargetBoundsTest {
             }
         }
         assertTargetAtLeast48("RIR badge", onNode(hasClickAction()).boundsDp(density))
+    }
+
+    /**
+     * STR-180 exception: the set-log corner badge deliberately reports only its
+     * visual bounds — a 48dp target there covers the reps cell it floats on.
+     * The lock is the placement: the badge's bounds are exactly the corner
+     * circle, centered on the cell's top-right corner (half in, half out).
+     */
+    @OptIn(ExperimentalTestApi::class)
+    private fun ComposeUiTest.checkRirCornerBadge() {
+        setContent {
+            StratumTheme(darkTheme = true) {
+                RepsCellWithRirBadge(
+                    rir = 2,
+                    onBadgeClick = {},
+                    modifier = Modifier.width(120.dp),
+                ) {
+                    Box(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .height(48.dp)
+                                .semantics { contentDescription = "Reps cell" },
+                    )
+                }
+            }
+        }
+        val badge = onNode(hasClickAction()).boundsDp(density)
+        val cell = onNodeWithContentDescription("Reps cell").boundsDp(density)
+        val badgeDp = RirCornerBadgeSize.value
+        assertTrue(
+            kotlin.math.abs(badge.width - badgeDp) <= 1f,
+            "corner badge width: ${badge.width}dp, expected ${badgeDp}dp",
+        )
+        assertTrue(
+            kotlin.math.abs(badge.height - badgeDp) <= 1f,
+            "corner badge height: ${badge.height}dp, expected ${badgeDp}dp",
+        )
+        assertTrue(
+            kotlin.math.abs(badge.center.x - cell.right) <= 1f,
+            "corner badge center x: ${badge.center.x}dp, cell right: ${cell.right}dp",
+        )
+        assertTrue(
+            kotlin.math.abs(badge.center.y - cell.top) <= 1f,
+            "corner badge center y: ${badge.center.y}dp, cell top: ${cell.top}dp",
+        )
     }
 
     @OptIn(ExperimentalTestApi::class)
