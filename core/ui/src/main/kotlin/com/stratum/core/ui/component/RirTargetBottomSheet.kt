@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
@@ -294,16 +295,10 @@ private fun RirSheetOption(
 private val RirOptionDefaultSize = 40.dp
 
 /**
- * Round RIR badge. By default it carries the §12.5 split: a 48dp touch target
- * outside, the [size] circle as the visual.
- *
- * [expandTouchTarget] exists for one caller, the set-log corner badge
- * (STR-180): that badge is centered on the reps cell's corner, so a 48dp outer
- * box both pulls the visual 13dp inside the cell and covers the cell's
- * top-right with the badge's tap area (tapping the field to edit reps opened
- * the RIR sheet). With expansion off, layout and tap area are the visual
- * circle itself, so the badge floats on the corner as in the pre-STR-145
- * goldens. Every standalone usage keeps the default 48dp target.
+ * Round RIR badge carrying the §12.5 split: a 48dp touch target outside, the
+ * [size] circle as the visual, ripple clipped to the circle. For the set-log
+ * corner placement, where a 48dp target would swallow the host cell, use
+ * [RirCornerBadge] instead.
  */
 @Composable
 fun RirTargetBadge(
@@ -312,7 +307,92 @@ fun RirTargetBadge(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     size: Dp = RirTargetBadgeDefaultSize,
-    expandTouchTarget: Boolean = true,
+) {
+    // The outer box is always present so enabled and disabled badges keep
+    // the same footprint.
+    val interactionSource = remember { MutableInteractionSource() }
+    Box(
+        modifier =
+            modifier
+                .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                .then(
+                    if (enabled) {
+                        Modifier.clickable(
+                            interactionSource = interactionSource,
+                            indication = null,
+                            onClick = onClick,
+                        )
+                    } else {
+                        Modifier
+                    }
+                ),
+        contentAlignment = Alignment.Center,
+    ) {
+        RirBadgeCircle(
+            rirGoal = rirGoal,
+            size = size,
+            enabled = enabled,
+            interactionSource = interactionSource,
+        )
+    }
+}
+
+/**
+ * The set-log corner badge (STR-17 Choice D, STR-180): the same circle as
+ * [RirTargetBadge] at a smaller size, deliberately WITHOUT the 48dp touch
+ * expansion — it is centered on the reps cell's top-right corner, where an
+ * expanded box pulled the visual inside the cell and covered the cell's
+ * top-right with the badge's tap area (tapping the field to edit reps opened
+ * the RIR sheet). Layout and tap area are the circle itself.
+ *
+ * Anchoring is part of the component: the caller aligns it to the corner
+ * (e.g. `Modifier.align(Alignment.TopEnd)` inside a Box) and the badge
+ * offsets itself by half its size, so its center lands exactly on the
+ * corner and it floats half-out of the cell.
+ */
+@Composable
+fun RirCornerBadge(
+    rirGoal: Int,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    size: Dp = RirCornerBadgeSize,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    Box(
+        modifier =
+            modifier
+                .offset(x = size / 2, y = -size / 2)
+                .size(size)
+                .then(
+                    if (enabled) {
+                        Modifier.clickable(
+                            interactionSource = interactionSource,
+                            indication = null,
+                            onClick = onClick,
+                        )
+                    } else {
+                        Modifier
+                    }
+                ),
+        contentAlignment = Alignment.Center,
+    ) {
+        RirBadgeCircle(
+            rirGoal = rirGoal,
+            size = size,
+            enabled = enabled,
+            interactionSource = interactionSource,
+        )
+    }
+}
+
+/** The RIR circle itself: traffic-light fill, label, and (when enabled) the ripple. */
+@Composable
+private fun RirBadgeCircle(
+    rirGoal: Int,
+    size: Dp,
+    enabled: Boolean,
+    interactionSource: MutableInteractionSource,
 ) {
     val label = formatRirLabel(rirGoal)
     val background = StratumRirTargetColors.backgroundFor(rirGoal)
@@ -329,59 +409,33 @@ fun RirTargetBadge(
                 color = contentColor,
             )
         }
-    // §12.5: same split as the sheet option — 48dp target outside, sized
-    // circle as the visual, ripple clipped to the circle. The outer box is
-    // always present so enabled and disabled badges keep the same footprint.
-    // With [expandTouchTarget] off the outer box collapses to the visual size.
-    val interactionSource = remember { MutableInteractionSource() }
     Box(
         modifier =
-            modifier
-                .then(
-                    if (expandTouchTarget) {
-                        Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)
-                    } else {
-                        Modifier.size(size)
-                    }
-                )
+            Modifier
+                .size(size)
+                .clip(CircleShape)
+                .background(background)
                 .then(
                     if (enabled) {
-                        Modifier.clickable(
-                            interactionSource = interactionSource,
-                            indication = null,
-                            onClick = onClick,
-                        )
+                        Modifier.indication(interactionSource, ripple())
                     } else {
                         Modifier
                     }
                 ),
         contentAlignment = Alignment.Center,
     ) {
-        Box(
-            modifier =
-                Modifier
-                    .size(size)
-                    .clip(CircleShape)
-                    .background(background)
-                    .then(
-                        if (enabled) {
-                            Modifier.indication(interactionSource, ripple())
-                        } else {
-                            Modifier
-                        }
-                    ),
-            contentAlignment = Alignment.Center,
-        ) {
-            StratumNumber(
-                text = label,
-                style = labelStyle,
-            )
-        }
+        StratumNumber(
+            text = label,
+            style = labelStyle,
+        )
     }
 }
 
 /** Default diameter for [RirTargetBadge] (workout logging). Compact history uses a smaller size. */
 val RirTargetBadgeDefaultSize = 32.dp
+
+/** Diameter of [RirCornerBadge] on the set-log reps cell. */
+val RirCornerBadgeSize = 22.dp
 
 private val CompactRirBadgeFontSize = 11.sp
 private val CompactRirBadgeLineHeight = 12.sp
