@@ -22,8 +22,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumButton
+import com.stratum.core.ui.component.StratumDetailScaffold
 import com.stratum.core.ui.component.StratumOutlinedButton
-import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
@@ -58,7 +58,11 @@ fun EditHistoricalWorkoutScreen(
         showDiscardDialog = true
     }
 
-    StratumScaffold(
+    // Glass (§12.8, STR-159): under the route's glass host the top bar overlays
+    // and the set-logging region below carries the top clearance — the
+    // keyboard host and overlay dock inside it are untouched, so set fields
+    // never pass behind the glass. Solid hosts keep the in-flow geometry.
+    StratumDetailScaffold(
         modifier = modifier,
         snackbarHostState = snackbarHostState,
         topBar = {
@@ -96,24 +100,18 @@ fun EditHistoricalWorkoutScreen(
                 },
             )
         },
-    ) { padding ->
+    ) { chrome ->
         when (state) {
             EditHistoricalWorkoutUiState.Loading ->
                 Box(
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .padding(padding),
+                    modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) {
                     StratumText(text = "…", muted = true)
                 }
             EditHistoricalWorkoutUiState.Error ->
                 Box(
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .padding(padding),
+                    modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) {
                     StratumText(
@@ -129,7 +127,7 @@ fun EditHistoricalWorkoutScreen(
                     modifier =
                         Modifier
                             .fillMaxSize()
-                            .padding(padding)
+                            .padding(top = chrome.top)
                             .padding(vertical = StratumSpacing.s12),
                 ) { listModifier ->
                     val keyboardHost = LocalSetLogKeyboardHost.current
