@@ -31,6 +31,8 @@ object NeoBrutalistSpec {
                     surfaceSunken = Color(0xFF121212),
                     borderStrong = Color(0xFFA3A3A3),
                     borderSubtle = Color(0xFF3D3D3D),
+                    // Neo parity: interactive borders already resolve to borderStrong here.
+                    borderInteractive = Color(0xFFA3A3A3),
                     textPrimary = Color(0xFFF5F5F5),
                     textMuted = Color(0xFFA3A3A3),
                     // One neutral step below muted (500), same rule as light.
@@ -70,6 +72,8 @@ object NeoBrutalistSpec {
                     surfaceSunken = Color(0xFFD4D4D4),
                     borderStrong = Color(0xFF1A1A1A),
                     borderSubtle = Color(0xFF525252),
+                    // Neo parity: interactive borders already resolve to borderStrong here.
+                    borderInteractive = Color(0xFF1A1A1A),
                     textPrimary = Color(0xFF171717),
                     textMuted = Color(0xFF525252),
                     textFaint = Color(0xFF737373),

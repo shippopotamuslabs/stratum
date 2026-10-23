@@ -42,8 +42,8 @@ fun StratumOutlinedButton(
         when {
             destructive -> colors.error
             elevations.useHardShadow -> colors.borderStrong
-            // §12.3: outlined buttons carry the border-default color, no fill.
-            else -> colors.borderSubtle
+            // Interactive boundary (3:1) — see StratumColors.borderInteractive.
+            else -> colors.borderInteractive
         }
     val contentColor = if (destructive) colors.error else colors.accent
     val morph =
