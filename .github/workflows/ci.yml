@@ -8,7 +8,7 @@
 #
 # GitLab `workflow:rules` equivalence:
 #   - merge_request_event && target == default branch  -> pull_request: branches: [main]
-#     (stacked PRs targeting feature branches get no CI, STR-110 cost control)
+#     (stacked PRs run against their base branch; path gates keep the STR-110 cost control)
 #   - push to default branch                            -> push: branches: [main]
 #     (pushes to any other branch create no pipeline at all)
 #   - schedule                                          -> schedule: cron below
@@ -17,7 +17,7 @@ name: CI
 
 "on":
   pull_request:
-    branches: [main]
+    types: [opened, synchronize, reopened, edited]
   push:
     branches: [main]
   schedule:
@@ -81,7 +81,7 @@ jobs:
       contents: read
       pull-requests: read
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    if: (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' ) && (github.event.action != 'edited' || github.event.changes.base != null)
     outputs:
       ui: ${{ steps.filter.outputs.ui }}
       functions: ${{ steps.filter.outputs.functions }}
@@ -143,7 +143,7 @@ jobs:
   detekt:
     name: detekt
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' || github.event_name == 'schedule'
+    if: (github.event_name == 'pull_request' || github.event_name == 'schedule' ) && (github.event.action != 'edited' || github.event.changes.base != null)
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/android-setup
@@ -172,7 +172,7 @@ jobs:
   lint:
     name: lint
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' || github.event_name == 'schedule'
+    if: (github.event_name == 'pull_request' || github.event_name == 'schedule' ) && (github.event.action != 'edited' || github.event.changes.base != null)
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/android-setup
@@ -202,7 +202,7 @@ jobs:
     name: static-analysis
     runs-on: ubuntu-latest
     needs: [detekt, lint]
-    if: always() && (github.event_name == 'pull_request' || github.event_name == 'schedule')
+    if: always() && (github.event_name == 'pull_request' || github.event_name == 'schedule') && (github.event.action != 'edited' || github.event.changes.base != null)
     steps:
       - name: Verify detekt + lint passed
         run: |
@@ -217,7 +217,7 @@ jobs:
   unit-test-legs:
     name: unit-tests (${{ matrix.leg }})
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' || github.event_name == 'schedule'
+    if: (github.event_name == 'pull_request' || github.event_name == 'schedule' ) && (github.event.action != 'edited' || github.event.changes.base != null)
     permissions:
       contents: read
       checks: write
@@ -276,7 +276,7 @@ jobs:
     name: unit-tests
     runs-on: ubuntu-latest
     needs: [unit-test-legs]
-    if: always() && (github.event_name == 'pull_request' || github.event_name == 'schedule')
+    if: always() && (github.event_name == 'pull_request' || github.event_name == 'schedule') && (github.event.action != 'edited' || github.event.changes.base != null)
     steps:
       - name: Verify all unit-test legs passed
         run: |
@@ -347,7 +347,7 @@ jobs:
         github.event_name == 'schedule' ||
         github.event_name == 'pull_request' ||
         github.event_name == 'workflow_dispatch'
-      ) }}
+      ) && (github.event.action != 'edited' || github.event.changes.base != null) }}
     steps:
       - name: Verify screenshot legs passed (or were path-gated off)
         run: |
