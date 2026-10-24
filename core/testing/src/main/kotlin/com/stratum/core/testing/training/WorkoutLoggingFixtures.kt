@@ -42,7 +42,7 @@ object WorkoutLoggingFixtures {
     const val CHEST_BITMASK = 1
     const val TRICEPS_BITMASK = 256
     const val BENCH_WEIGHT_LB = 135.0
-    const val IMPORT_SESSION_DURATION_SECONDS = 3600L
+    const val FIXTURE_SESSION_DURATION_SECONDS = 3600L
 
     val programId = ProgramId(PROGRAM_ID)
     val workoutAId = WorkoutId(WORKOUT_A_ID)
@@ -65,7 +65,7 @@ object WorkoutLoggingFixtures {
         startedAt: Instant = Instant.parse("2025-01-01T10:00:00Z"),
         // Derived from startedAt so callers that move the start keep a legal
         // startedAt <= endedAt window (STR-166 constructor invariant).
-        endedAt: Instant? = startedAt.plusSeconds(IMPORT_SESSION_DURATION_SECONDS),
+        endedAt: Instant? = startedAt.plusSeconds(FIXTURE_SESSION_DURATION_SECONDS),
         sourceApp: String? = "liftlab",
     ): TrainingSession =
         ImportHistoryTrainingMapper.parseSession(
@@ -255,3 +255,15 @@ object WorkoutLoggingFixtures {
         ),
     )
 }
+
+/**
+ * This session moved to start at [startedAt], with the fixture one-hour window
+ * (start + [WorkoutLoggingFixtures.FIXTURE_SESSION_DURATION_SECONDS]). Use instead of a
+ * `copy(startedAt = ...)` that would leave a stale fixture `endedAt` behind and break
+ * the TrainingSession startedAt <= endedAt invariant (STR-166).
+ */
+fun TrainingSession.withStart(startedAt: Instant): TrainingSession =
+    copy(
+        startedAt = startedAt,
+        endedAt = startedAt.plusSeconds(WorkoutLoggingFixtures.FIXTURE_SESSION_DURATION_SECONDS),
+    )

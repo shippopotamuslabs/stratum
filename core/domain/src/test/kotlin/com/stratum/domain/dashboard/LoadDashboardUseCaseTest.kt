@@ -8,6 +8,7 @@ import com.stratum.core.testing.response.FakeMuscleWeeklyOutcomeIndexRepository
 import com.stratum.core.testing.response.FakeMuscleWeeklyStimulusRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
+import com.stratum.core.testing.training.withStart
 import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
@@ -425,10 +426,7 @@ class LoadDashboardUseCaseTest {
         val performanceRepo = FakeLiftWeeklyPerformanceRepository()
         performanceRepo.seed(listOf(performance(benchId, recentWeek, 100.0)))
         val trainingLog = FakeTrainingLogRepository()
-        val session = WorkoutLoggingFixtures.completedLiveSession(id = "s1").copy(
-            startedAt = firstSetAt,
-            endedAt = firstSetAt.plusSeconds(3600),
-        )
+        val session = WorkoutLoggingFixtures.completedLiveSession(id = "s1").withStart(firstSetAt)
         val set = WorkoutLoggingFixtures.loggedSet(id = "set-1", sessionId = session.id).copy(
             liftId = benchId,
             completedAt = firstSetAt,
