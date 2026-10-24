@@ -244,5 +244,10 @@ private fun segmentBackground(
     else -> colors.surfaceRaised
 }
 
-private val MinSegmentHeight = 48.dp
+/**
+ * Fixed height of the connected segment bar (§12.8): the bar is exactly this
+ * tall, so overlay hosts (STR-192) can reserve it in scrollable content
+ * padding without measuring.
+ */
+val MinSegmentHeight = 48.dp
 private val ModifiedDotSize = 6.dp

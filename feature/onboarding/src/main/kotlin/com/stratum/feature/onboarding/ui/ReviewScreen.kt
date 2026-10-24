@@ -20,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.stratum.core.ui.component.StratumButton
@@ -68,6 +69,10 @@ fun ReviewScreen(
     importProgramState: ImportProgramState,
     importMaxTimelineIndex: Int = 0,
     modifier: Modifier = Modifier,
+    // Glass (§12.8, STR-192): added inside the scroll (padding sits after
+    // verticalScroll in the chain), so content scrolls beneath the bar.
+    // 0 keeps other hosts unchanged.
+    topClearance: Dp = 0.dp,
 ) {
     val showGenerateCards = path == OnboardingPathUi.Generate
     val onImportPath = path == OnboardingPathUi.Import
@@ -93,7 +98,8 @@ fun ReviewScreen(
             modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12),
+                .padding(horizontal = StratumSpacing.s16)
+                .padding(top = StratumSpacing.s12 + topClearance, bottom = StratumSpacing.s12),
         verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
     ) {
         // Primary action pinned to the top so it's always visible without scrolling.

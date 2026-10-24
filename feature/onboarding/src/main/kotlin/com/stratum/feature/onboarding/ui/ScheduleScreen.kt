@@ -2,6 +2,8 @@ package com.stratum.feature.onboarding.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.trainingsetup.ScheduleDraftUi
 import com.stratum.core.ui.trainingsetup.SchedulePreferencesScreen
 
@@ -17,6 +19,9 @@ fun ScheduleScreen(
     modifier: Modifier = Modifier,
     onSixDayCycleLengthSelected: (Int) -> Unit = {},
     onTrainingSlotToggled: (Int) -> Unit = {},
+    // Glass (§12.8, STR-192): forwarded to the shared screen's in-scroll
+    // clearance. 0 keeps other hosts unchanged.
+    topClearance: Dp = 0.dp,
 ) {
     SchedulePreferencesScreen(
         draft = draft,
@@ -26,5 +31,6 @@ fun ScheduleScreen(
         onSixDayCycleLengthSelected = onSixDayCycleLengthSelected,
         onTrainingSlotToggled = onTrainingSlotToggled,
         modifier = modifier,
+        topClearance = topClearance,
     )
 }
