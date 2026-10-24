@@ -362,13 +362,16 @@ jobs:
   # GitLab: assemble-release (stage test; MR + main-push rules — feeds the
   # deploy lanes; also runnable in a dispatch run so deploy-internal can
   # chain after it, mirroring the GitLab manual pipeline)
+  # Retiered 2026-10-24 (Sean's CI philosophy): the signed release build
+  # is the pipeline's longest job (~20 min) and no longer gates PRs.
+  # It runs on main pushes (feeding the deploy lanes), nightly, and on
+  # manual dispatch. PRs stay compile-verified by the unit-test legs;
+  # a release-only break (signing/shrinking) surfaces on main within
+  # minutes of merge instead of blocking the PR.
   assemble-release:
     name: assemble-release
     runs-on: ubuntu-latest
-    if: >-
-      github.event_name == 'pull_request' ||
-      github.event_name == 'push' ||
-      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+    if: github.event_name == 'push' || github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/android-setup
