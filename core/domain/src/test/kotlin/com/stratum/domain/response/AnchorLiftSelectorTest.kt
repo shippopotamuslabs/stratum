@@ -1,5 +1,6 @@
 package com.stratum.domain.response
 
+import com.stratum.core.testing.training.withStart
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.response.fixtures.ResponseFixtures
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -67,17 +68,13 @@ class AnchorLiftSelectorTest {
             (0 until 8).map { index ->
                 ResponseFixtures.fixS4RichChest().sessions.first().copy(
                     id = com.stratum.domain.training.identity.TrainingSessionId("tie-bench-$index"),
-                    startedAt = ResponseFixtures.weekStart(2025, 1, 6).plus(index * 7L, ChronoUnit.DAYS),
-                    endedAt = ResponseFixtures.weekStart(2025, 1, 6).plus(index * 7L, ChronoUnit.DAYS).plus(1, ChronoUnit.HOURS),
-                )
+                ).withStart(ResponseFixtures.weekStart(2025, 1, 6).plus(index * 7L, ChronoUnit.DAYS))
             }
         val flySessions =
             (0 until 8).map { index ->
                 ResponseFixtures.fixS4RichChest().sessions.first().copy(
                     id = com.stratum.domain.training.identity.TrainingSessionId("tie-fly-$index"),
-                    startedAt = ResponseFixtures.weekStart(2025, 1, 6).plus(index * 7L, ChronoUnit.DAYS),
-                    endedAt = ResponseFixtures.weekStart(2025, 1, 6).plus(index * 7L, ChronoUnit.DAYS).plus(1, ChronoUnit.HOURS),
-                )
+                ).withStart(ResponseFixtures.weekStart(2025, 1, 6).plus(index * 7L, ChronoUnit.DAYS))
             }
         val sessions = benchSessions + flySessions
         val benchSets =

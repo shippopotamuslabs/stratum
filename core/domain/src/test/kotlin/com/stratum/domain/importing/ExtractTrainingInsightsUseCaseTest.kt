@@ -3,6 +3,7 @@ package com.stratum.domain.importing
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
+import com.stratum.core.testing.training.withStart
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
@@ -116,10 +117,8 @@ class ExtractTrainingInsightsUseCaseTest {
         }
         // Live history: 5 sessions of DB Curl (a different lift, so we can tell them apart).
         val liveSessions = (1..5).map { index ->
-            WorkoutLoggingFixtures.completedLiveSession(id = "live-$index").copy(
-                startedAt = t0.plusSeconds((index + 10) * 86_400L),
-                endedAt = t0.plusSeconds((index + 10) * 86_400L + 3600),
-            )
+            WorkoutLoggingFixtures.completedLiveSession(id = "live-$index")
+                .withStart(t0.plusSeconds((index + 10) * 86_400L))
         }
         val liveSets = buildList {
             liveSessions.forEachIndexed { sessionIndex, session ->

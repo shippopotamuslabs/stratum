@@ -15,6 +15,7 @@ import com.stratum.core.testing.response.FakeMuscleWeeklyStimulusRepository
 import com.stratum.core.testing.sync.FakeCloudSyncPort
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
+import com.stratum.core.testing.training.withStart
 import com.stratum.domain.dashboard.DashboardBoardTab
 import com.stratum.domain.dashboard.DashboardPreferences
 import com.stratum.domain.dashboard.LoadDashboardUseCase
@@ -191,10 +192,7 @@ class DashboardViewModelTest {
         )
         val firstSetAt = now.minus(70, ChronoUnit.DAYS)
         val trainingLog = FakeTrainingLogRepository()
-        val session = WorkoutLoggingFixtures.completedLiveSession(id = "s1").copy(
-            startedAt = firstSetAt,
-            endedAt = firstSetAt.plusSeconds(3600),
-        )
+        val session = WorkoutLoggingFixtures.completedLiveSession(id = "s1").withStart(firstSetAt)
         val set = WorkoutLoggingFixtures.loggedSet(id = "set-1", sessionId = session.id).copy(
             liftId = benchId,
             completedAt = firstSetAt,
