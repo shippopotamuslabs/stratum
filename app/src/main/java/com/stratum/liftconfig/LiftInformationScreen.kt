@@ -140,18 +140,22 @@ fun LiftInformationScreen(
         Box(modifier = Modifier.fillMaxSize()) {
             // Composed first so accessibility traversal reaches the switcher
             // before the list; zIndex keeps it painted above scrolling rows.
+            // STR-188: 2.dp gap below the top app bar so the switcher does not
+            // sit flush against its bottom border; the content clearance
+            // below follows it down so the s12 rhythm under the switcher
+            // (see segmentedSwitcherTopClearance) is preserved.
             StratumSegmentedControl(
                 modifier =
                     Modifier
                         .fillMaxWidth()
                         .padding(horizontal = StratumSpacing.s16)
-                        .padding(top = chrome.top)
+                        .padding(top = chrome.top + 2.dp)
                         .zIndex(1f),
                 segments = tabs.map { it.second },
                 selectedIndex = tabs.indexOfFirst { it.first == state.selectedTab }.coerceAtLeast(0),
                 onSelectedIndexChange = { index -> actions.onTabSelected(tabs[index].first) },
             )
-            val tabTopClearance = segmentedSwitcherTopClearance(chrome.top)
+            val tabTopClearance = segmentedSwitcherTopClearance(chrome.top) + 2.dp
             when (state.selectedTab) {
                 LiftInfoTab.Instructions -> InstructionsTab(state, topClearance = tabTopClearance)
                 LiftInfoTab.Details ->
