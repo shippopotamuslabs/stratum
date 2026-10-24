@@ -16,4 +16,8 @@ permissions:
 jobs:
   forge-review:
     uses: shippopotamuslabs/forge-reviewer/.github/workflows/forge-review.yml@feat/github-reusable-workflow
+    with:
+      # Pilot pin: the GitHub backend scripts live on the forge-reviewer
+      # port branch until it merges and a release tag replaces both pins.
+      forge_ref: feat/github-reusable-workflow
     secrets: inherit
