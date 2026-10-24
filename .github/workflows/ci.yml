@@ -672,40 +672,11 @@ jobs:
           path: test-lab-robo.log
           if-no-files-found: ignore
           retention-days: 14
-
   # ---------------------------------------------------------------------
-  # Forge consolidated review — PLACEHOLDER (T-7).
-  # GitLab ran forge:diff -> forge:review + forge:thermos-correctness +
-  # forge:thermos-structure -> forge:master as five lint-stage jobs from
-  # the included forge.gitlab-ci.yml template, all MR-only. On GitHub
-  # that whole chain becomes ONE reusable-workflow call into the
-  # re-platformed forge-reviewer repo, posting as the Forge app.
-  # The reusable workflow does not exist yet; this job is inert until
-  # T-7 lands it and the ref is pinned to its commit SHA.
-  #
-  # TOKEN REPLACEMENT (flagged, no value invented): PR_AGENT_GITLAB_TOKEN
-  # has no GitHub meaning. The Forge app's installation token replaces it
-  # for diff fetch + review posting (see PORT-NOTES.md).
+  # Forge review: REMOVED from this file until T-7. GitHub validates
+  # every `uses:` reusable-workflow reference at parse time, even on
+  # jobs gated off by `if:` — the placeholder ref failed the whole run
+  # before any job executed (PR #1, run 40102570633). The forge-review
+  # job returns in T-7, once shippopotamuslabs/forge-reviewer actually
+  # hosts .github/workflows/forge-review.yml to pin to.
   # ---------------------------------------------------------------------
-  forge-review:
-    name: forge-review
-    # NOTE: no runs-on — jobs that call a reusable workflow never declare
-    # one. Enablement gate: create the FORGE_ENABLED repository *variable*
-    # (Settings -> Secrets and variables -> Actions -> Variables) = "true";
-    # the workflow-level env of the same name does not reach job `if:`.
-    if: github.event_name == 'pull_request' && vars.FORGE_ENABLED == 'true'
-    permissions:
-      contents: read
-      pull-requests: write
-      checks: write
-    # TODO(T-7): pin to the forge-reviewer commit SHA once the reusable
-    # workflow exists; needs the FORGE_ENABLED repo variable set to true.
-    uses: shippopotamuslabs/forge-reviewer/.github/workflows/forge-review.yml@FORGE_REF_PIN_TBD
-    with:
-      pr-number: ${{ github.event.pull_request.number }}
-      forge-model: openrouter/meta/muse-spark-1.3-contributor
-    secrets:
-      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-      # FORGE_GITHUB_TOKEN: minted from the Forge GitHub App at runtime by
-      # the reusable workflow (actions/create-github-app-token) — no stored
-      # secret. Placeholder name only; wire in T-7.
