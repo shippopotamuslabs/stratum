@@ -40,11 +40,8 @@ class GetCompletedSessionForEditUseCase @Inject constructor(
                 TAG,
                 IllegalStateException("Training session ${sessionId.value} not found"),
             )
-        if (session.status != TrainingSessionStatus.COMPLETED) {
-            return loggingPort.expectedFailure(
-                TAG,
-                IllegalArgumentException("Training session ${sessionId.value} is not completed"),
-            )
+        runCatching { session.requireCompleted() }.getOrElse {
+            return loggingPort.expectedFailure(TAG, it)
         }
         val sets = loaded.second.sortedWith(compareBy({ it.setIndex }, { it.completedAt }))
         if (sets.isEmpty()) {

@@ -69,9 +69,8 @@ class GetLiftHistoryUseCase @Inject constructor(
                                 .takeIf { it.isNotBlank() }
                             ?: session?.sourceApp
                             ?: "Workout"
-                    val completedAt =
-                        session?.endedAt
-                            ?: ordered.maxOf { it.completedAt }
+                    val lastSetCompletedAt = ordered.maxOf { it.completedAt }
+                    val completedAt = session?.endOr(lastSetCompletedAt) ?: lastSetCompletedAt
                     LiftHistorySession(
                         sessionId = sessionId,
                         completedAt = completedAt,

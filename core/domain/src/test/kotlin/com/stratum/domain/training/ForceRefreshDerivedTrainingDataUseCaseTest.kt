@@ -10,6 +10,7 @@ import com.stratum.core.testing.response.FakeResponseModelingSchedulerPort
 import com.stratum.core.testing.response.FakeResponseProfilePersistencePort
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
+import com.stratum.core.testing.training.withStart
 import com.stratum.core.testing.training.localDerivedTrainingStages
 import com.stratum.domain.importing.ExtractTrainingInsightsUseCase
 import com.stratum.domain.importing.identity.LoggedSetId
@@ -47,7 +48,7 @@ class ForceRefreshDerivedTrainingDataUseCaseTest {
         repeat(3) { index ->
             val started = weekStart.plusSeconds(index * 86_400L)
             val session =
-                WorkoutLoggingFixtures.completedLiveSession(id = "s$index").copy(startedAt = started)
+                WorkoutLoggingFixtures.completedLiveSession(id = "s$index").withStart(started)
             logRepo.seedSession(session)
             repeat(3) { setIndex ->
                 logRepo.seedSet(
@@ -139,7 +140,7 @@ class ForceRefreshDerivedTrainingDataUseCaseTest {
         val weekStart = Instant.parse("2025-05-05T00:00:00Z")
         val liftId = LiftId("bench")
         liftRepo.seedLifts(listOf(lift(liftId, MuscleGroup.Chest)))
-        val session = WorkoutLoggingFixtures.completedLiveSession(id = "s1").copy(startedAt = weekStart)
+        val session = WorkoutLoggingFixtures.completedLiveSession(id = "s1").withStart(weekStart)
         logRepo.seedSession(session)
         logRepo.seedSet(
             LoggedSet(

@@ -12,9 +12,6 @@ import com.stratum.domain.training.LoggedLiftContextFactory
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.TrainingSession
 import com.stratum.domain.training.normalizedPartialReps
-import com.stratum.domain.training.TrainingSessionKind
-import com.stratum.domain.training.TrainingSessionOrigin
-import com.stratum.domain.training.TrainingSessionStatus
 import com.stratum.domain.training.identity.TrainingSessionId
 import java.time.Instant
 
@@ -27,22 +24,17 @@ object ImportHistoryTrainingMapper {
         endedAt: Instant?,
         sourceApp: String?,
     ): TrainingSession =
-        TrainingSession(
+        // Imported sessions are produced through the model factory (STR-166) so the
+        // imported shape — COMPLETED, end time possibly unknown — is owned by the model.
+        // No per-day workout title in the import schema; calendar shows DEFAULT ("Workout")
+        // via TrainingSessionDisplayName — never a lift name.
+        TrainingSession.imported(
             id = TrainingSessionId(id),
             programId = programId,
-            workoutId = null,
-            status = TrainingSessionStatus.COMPLETED,
-            kind = TrainingSessionKind.AD_HOC,
-            origin = TrainingSessionOrigin.IMPORT,
-            cycleNumberSnapshot = 1,
-            weekdaySnapshot = null,
             startedAt = startedAt,
             endedAt = endedAt,
             sourceApp = sourceApp,
             programNameSnapshot = "Import History",
-            // No per-day workout title in the import schema; calendar shows DEFAULT ("Workout")
-            // via TrainingSessionDisplayName — never a lift name.
-            workoutNameSnapshot = null,
         )
 
     fun parseSet(

@@ -27,19 +27,15 @@ class RecordWorkoutSkipUseCase @Inject constructor(
                 .firstOrNull { it.workout.id == workoutId }
                 ?.slotIndex
         val session =
-            TrainingSession(
+            TrainingSession.skipped(
                 id = TrainingSessionId(UUID.randomUUID().toString()),
                 programId = program.id,
                 workoutId = workoutId,
-                status = TrainingSessionStatus.COMPLETED,
                 kind = TrainingSessionKind.PROGRAM_WORKOUT,
-                origin = TrainingSessionOrigin.LIVE,
                 cycleNumberSnapshot = program.currentCycleNumber,
                 weekdaySnapshot = workout.weekday,
                 cycleSlotIndexSnapshot = slotIndex,
-                startedAt = now,
-                endedAt = now,
-                sourceApp = null,
+                at = now,
                 programNameSnapshot = program.name,
                 workoutNameSnapshot = workout.name,
             )

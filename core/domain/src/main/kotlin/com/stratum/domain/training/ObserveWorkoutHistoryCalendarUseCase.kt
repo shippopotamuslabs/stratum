@@ -19,7 +19,7 @@ import kotlinx.coroutines.flow.flow
  * logged set**. Zero-set rows (workout skips recorded as COMPLETED program workouts) are excluded
  * so they do not appear as training days or pollute streak / rest-day stats.
  *
- * Days are bucketed by local date of `endedAt ?: startedAt`.
+ * Days are bucketed by local date of [TrainingSession.completedAt].
  *
  * **Week streak:** consecutive ISO weeks (Mon–Sun) counting backward from the week containing
  * [today], each requiring ≥1 completed workout. The current week must have a workout or streak is 0.
@@ -70,7 +70,7 @@ class ObserveWorkoutHistoryCalendarUseCase @Inject constructor(
             val days =
                 completed
                     .map { session ->
-                        val completedAt = session.endedAt ?: session.startedAt
+                        val completedAt = session.completedAt
                         val date = completedAt.atZone(zoneId).toLocalDate()
                         HistoryDaySession(
                             sessionId = session.id,
