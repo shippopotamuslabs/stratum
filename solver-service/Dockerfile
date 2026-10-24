@@ -11,9 +11,13 @@
 
 FROM eclipse-temurin:25-jre-jammy
 
-# OR-Tools JNI uses OpenMP (libgomp).
+# OR-Tools JNI uses OpenMP (libgomp). ca-certificates and xz-utils are
+# named explicitly so apt upgrades them past the versions baked into the
+# base image (the two fixable findings from the OSV image scan,
+# 2026-10-24); naming an installed package upgrades it to the archive's
+# current version.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libgomp1 \
+    && apt-get install -y --no-install-recommends libgomp1 ca-certificates xz-utils \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
