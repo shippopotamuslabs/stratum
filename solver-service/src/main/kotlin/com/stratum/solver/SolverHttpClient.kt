@@ -50,8 +50,13 @@ class JdkSolverHttpClient(
         .connectTimeout(timeout)
         .build()
 
+    // Seam for tests: production fetches the ID token from the GCE metadata
+    // server (fetchIdToken); tests substitute a fixed token so the HTTP
+    // behavior tests run on any machine, not only on GCP.
+    internal var idTokenProvider: () -> String = { fetchIdToken() }
+
     override fun postSolveV1(requestJson: String): SolverHttpClient.SolveResponse {
-        val idToken = fetchIdToken()
+        val idToken = idTokenProvider()
         val request = HttpRequest.newBuilder(endpoint)
             .timeout(timeout)
             .header("Content-Type", "application/json")
