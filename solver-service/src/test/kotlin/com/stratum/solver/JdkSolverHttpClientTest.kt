@@ -28,7 +28,7 @@ class JdkSolverHttpClientTest {
     fun `posts stamped body to solve v1 as json`() {
         val seen = mutableMapOf<String, String>()
         val server = startServer(status = 200, body = """{"modelVersion":"v1"}""", seen = seen)
-        val client = JdkSolverHttpClient(baseUrl(server), timeoutMillis = 10_000L)
+        val client = testClient(baseUrl(server), timeoutMillis = 10_000L)
 
         val response = client.postSolveV1("""{"modelVersion":"v1","a":1}""")
 
@@ -46,7 +46,7 @@ class JdkSolverHttpClientTest {
     @Test
     fun `non-2xx status is returned not thrown`() {
         val server = startServer(status = 500, body = "boom")
-        val client = JdkSolverHttpClient(baseUrl(server), timeoutMillis = 10_000L)
+        val client = testClient(baseUrl(server), timeoutMillis = 10_000L)
 
         val response = client.postSolveV1("{}")
 
@@ -58,7 +58,7 @@ class JdkSolverHttpClientTest {
     fun `base url trailing slash does not double the slash`() {
         val seen = mutableMapOf<String, String>()
         val server = startServer(status = 200, body = "ok", seen = seen)
-        val client = JdkSolverHttpClient(baseUrl(server) + "/", timeoutMillis = 10_000L)
+        val client = testClient(baseUrl(server) + "/", timeoutMillis = 10_000L)
 
         client.postSolveV1("{}")
 
@@ -68,12 +68,19 @@ class JdkSolverHttpClientTest {
     @Test
     fun `hung solver hits the worker deadline`() {
         val server = startServer(status = 200, body = "too-late", delayMillis = 3_000L)
-        val client = JdkSolverHttpClient(baseUrl(server), timeoutMillis = 500L)
+        val client = testClient(baseUrl(server), timeoutMillis = 500L)
 
         assertThrows<IOException> {
             client.postSolveV1("{}")
         }
     }
+
+    // Off-GCP there is no metadata server, so the token fetch is stubbed;
+    // these tests cover HTTP behavior, not token acquisition.
+    private fun testClient(baseUrl: String, timeoutMillis: Long): JdkSolverHttpClient =
+        JdkSolverHttpClient(baseUrl, timeoutMillis).apply {
+            idTokenProvider = { "test-token" }
+        }
 
     private fun baseUrl(server: HttpServer): String =
         "http://localhost:${server.address.port}"
