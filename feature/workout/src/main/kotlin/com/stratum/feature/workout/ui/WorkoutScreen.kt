@@ -39,7 +39,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.zIndex
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -55,7 +54,7 @@ import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarTextButton
 import com.stratum.core.ui.theme.StratumThemeAccessor
-import com.stratum.core.ui.theme.stratumGlassStripSurface
+import com.stratum.core.ui.theme.rememberGlassHazeState
 import com.stratum.feature.workout.R
 import com.stratum.feature.workout.AfterSetLoggedDecision
 import com.stratum.feature.workout.decideAfterSetLogged
@@ -73,6 +72,16 @@ data class RestTimerChrome(
     val onSubtract10s: () -> Unit,
     val onSkip: () -> Unit,
 )
+
+/**
+ * Glass bottom-slot height (STR-203): under glass the navigator row lives in
+ * the top bar's bottom slot, so the clearance formula must cover the whole
+ * bar — the row plus its s12 rhythm above and below, pinned by construction
+ * on the slot composable (STR-159 idiom). Solid hosts ignore it (chrome.top
+ * is 0 there) and keep the in-flow Column geometry exactly.
+ */
+private val WORKOUT_NAVIGATOR_SLOT_HEIGHT =
+    StratumSpacing.s12 + LiftNavigatorRowHeight + StratumSpacing.s12
 
 /** Session actions for [WorkoutScreen] — kept as one bag for Detekt [LongParameterList]. */
 data class WorkoutScreenActions(
@@ -279,19 +288,21 @@ fun WorkoutScreen(
     }
 
     // Glass (§12.8, STR-157/STR-193) DIRECTED GEOMETRY: under the route's glass host
-    // the top bar overlays, the lift list fills the full viewport with the whole top
-    // clearance as content padding, and the navigator row overlays the list — so panels
-    // glaze beneath the glass AND beneath the navigator strip (STR-196: the strip
-    // carries its own top-bar-depth glass, separate from the bar — the bar's hairline
-    // stays between them, not below the navigator's selection underlines — so panels
-    // pass under blur, never raw through a transparent row). Never haze behind set-logging
-    // text: lift panels are opaque StratumEdgeToEdgeCard (surfaceRaised) containers, and
-    // auto-scroll pins panels BELOW the navigator + bar (pin target = beforeContentPadding),
-    // so editable set fields only cross the top edge transiently mid-scroll; the keyboard
-    // dock is untouched. Solid hosts (Neo, previews) keep the pre-STR-193 in-flow
-    // Column geometry exactly: the Box overlay makes the list viewport taller even
-    // when glass is inactive, revealing the Add Lift footer, so solid must not share
-    // the overlay path even though chrome.top is 0 there.
+    // the top bar (with the navigator row in its bottom slot, STR-203) overlays and
+    // the lift list fills the full viewport with the whole top clearance — bar plus
+    // slot — as content padding, so panels glaze beneath the glass bar AND the
+    // navigator. The bar's hairline stays between the bar and the slot, not below
+    // the navigator's selection underlines. The slot keeps the navigator outside
+    // the hazeSource subtree, so it never renders transparent the way the old
+    // in-source glazed strip did (STR-196 surface removed). Never haze behind
+    // set-logging text: lift panels are opaque StratumEdgeToEdgeCard (surfaceRaised)
+    // containers, and auto-scroll pins panels BELOW the navigator + bar (pin target
+    // = beforeContentPadding), so editable set fields only cross the top edge
+    // transiently mid-scroll; the keyboard dock is untouched. Solid hosts (Neo,
+    // previews) keep the pre-STR-193 in-flow Column geometry exactly: the glass
+    // overlay path would make the list viewport taller even when glass is
+    // inactive, revealing the Add Lift footer, so solid must not share it even
+    // though chrome.top is 0 there.
     val liftListActions =
         WorkoutLiftListActions(
             onLogSet = handleLogSet,
@@ -319,9 +330,29 @@ fun WorkoutScreen(
     StratumDetailScaffold(
         modifier = modifier,
         snackbarHostState = snackbarHostState,
+        topBarBottomSlotHeight = WORKOUT_NAVIGATOR_SLOT_HEIGHT,
         topBar = {
             StratumTopBar(
                 title = elapsedTimeStr,
+                bottom = {
+                    // Glass only: the navigator rides the bar's bottom slot —
+                    // outside the hazeSource subtree — so it glazes with the bar
+                    // instead of going transparent inside the source (STR-203).
+                    // Solid keeps the in-flow row below; no slot there.
+                    if (rememberGlassHazeState() != null) {
+                        LiftNavigatorRow(
+                            lifts = state.lifts,
+                            primaryLiftId = selectedLiftId,
+                            underlinedLiftIds = underlinedLiftIds,
+                            onLiftClick = scrollToLift,
+                            onAddLift = actions.onAddLift,
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = StratumSpacing.s12),
+                        )
+                    }
+                },
                 navigationIcon = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         StratumIconButton(onClick = actions.onNavigateBack) {
@@ -363,8 +394,9 @@ fun WorkoutScreen(
         },
     ) { chrome ->
         // Single definitions for both hosts: solid lays them out in a Column,
-        // glass overlays the row above the scrolling list. Same composables,
-        // same order, same modifiers per host — only the container differs.
+        // glass puts the row in the bar's bottom slot and the list fullscreen
+        // beneath the whole bar. Same composables, same order, same modifiers
+        // per host — only the container differs.
         val liftList: @Composable (Modifier) -> Unit = { listModifier ->
             WorkoutLiftList(
                 lifts = state.lifts,
@@ -374,12 +406,13 @@ fun WorkoutScreen(
                 failedLogSlotKey = failedLogSlotKey,
                 onFailedLogConsumed = onFailedLogConsumed,
                 displayUnitEpoch = state.displayUnitEpoch,
-                // Glass only: first panel top = chrome.top + s12 +
-                // navigator height + s12 (the old column's top pad, navigator,
-                // and inter-element gap, in that order). Solid keeps 0.
+                // Glass only: chrome.top already covers bar + slot
+                // (status + 64 + s12 + navigator + s12, STR-203), so the whole
+                // clearance is the list's top padding — the same absolute
+                // offset as before, re-expressed. Solid keeps 0.
                 topContentPadding =
                     if (chrome.active) {
-                        chrome.top + StratumSpacing.s12 + LiftNavigatorRowHeight + StratumSpacing.s12
+                        chrome.top
                     } else {
                         0.dp
                     },
@@ -413,33 +446,11 @@ fun WorkoutScreen(
                 )
             }
         } else {
-            Box(modifier = Modifier.fillMaxSize()) {
-                liftList(Modifier.fillMaxSize())
-
-                // STR-196: the navigator strip is its own glazed surface (top-bar
-                // depth, via stratumGlassStripSurface), NOT part of the top bar and
-                // NOT transparent: scrolling panels pass beneath it under blur. The
-                // strip spans the full clearance the list's top content padding
-                // already reserves (chrome.top + s12 + row + s12), starting directly
-                // under the bar so no unblurred gap shows between the two glazed
-                // surfaces; the s12 gaps live INSIDE the strip as vertical padding,
-                // so panel tops meet the strip's lower edge exactly. Declared after
-                // the list with zIndex so tabs stay tappable above it.
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .fillMaxWidth()
-                        .padding(top = chrome.top)
-                        .zIndex(1f)
-                        .stratumGlassStripSurface(),
-                ) {
-                    navigatorRow(
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = StratumSpacing.s12),
-                    )
-                }
-            }
+            // STR-203: the navigator lives in the bar's bottom slot now, so the
+            // glass list needs no overlay — it fills the viewport and clears
+            // the whole bar via chrome.top. First panel lands s12 below the
+            // navigator's underlines, as before.
+            liftList(Modifier.fillMaxSize())
         }
     }
 
