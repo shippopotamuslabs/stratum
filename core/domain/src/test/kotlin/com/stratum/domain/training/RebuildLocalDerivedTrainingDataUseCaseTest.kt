@@ -6,6 +6,7 @@ import com.stratum.core.testing.response.FakeResponseModelingSchedulerPort
 import com.stratum.core.testing.response.FakeResponseProfilePersistencePort
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
+import com.stratum.core.testing.training.withStart
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
@@ -31,7 +32,7 @@ class RebuildLocalDerivedTrainingDataUseCaseTest {
         liftRepo.seedLifts(listOf(lift(liftId, MuscleGroup.Chest)))
         val weekStart = Instant.parse("2025-05-05T00:00:00Z")
         val logRepo = FakeTrainingLogRepository()
-        val session = WorkoutLoggingFixtures.completedLiveSession(id = "s1").copy(startedAt = weekStart)
+        val session = WorkoutLoggingFixtures.completedLiveSession(id = "s1").withStart(weekStart)
         logRepo.seedSession(session)
         logRepo.seedSet(
             LoggedSet(

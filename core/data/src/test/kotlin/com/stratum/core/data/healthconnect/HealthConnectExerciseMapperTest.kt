@@ -302,11 +302,14 @@ class HealthConnectExerciseMapperTest {
 
         @Test
         fun invertedSessionBoundsFailFast() {
-            val inverted = completedSession().copy(
-                startedAt = sessionEnd,
-                endedAt = sessionStart,
-            )
+            // STR-166: the inverted shape is now unrepresentable — TrainingSession's
+            // constructor invariant rejects endedAt before startedAt, so the fail-fast
+            // happens at construction (the mapper's own require stays as a second guard).
             assertThrows<IllegalArgumentException> {
+                val inverted = completedSession().copy(
+                    startedAt = sessionEnd,
+                    endedAt = sessionStart,
+                )
                 HealthConnectExerciseMapper.buildSegments(
                     inverted,
                     listOf(

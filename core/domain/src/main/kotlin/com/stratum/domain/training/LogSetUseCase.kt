@@ -18,12 +18,7 @@ class LogSetUseCase @Inject constructor(
     private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(command: LogSetCommand): Result<LoggedSet> = runCatching {
-        val session =
-            trainingLogRepository.getSession(command.sessionId)
-                ?: throw IllegalArgumentException("Training session ${command.sessionId.value} not found")
-        if (session.status != TrainingSessionStatus.IN_PROGRESS) {
-            throw TrainingSessionNotInProgressException(command.sessionId, session.status)
-        }
+        trainingLogRepository.requireInProgressSession(command.sessionId)
 
         val lift =
             liftRepository.observeLifts().first().firstOrNull { it.id == command.liftId }

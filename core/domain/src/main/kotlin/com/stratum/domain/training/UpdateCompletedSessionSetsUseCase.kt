@@ -42,10 +42,8 @@ class UpdateCompletedSessionSetsUseCase @Inject constructor(
                 ?: return Result.failure(
                     IllegalArgumentException("Training session ${sessionId.value} not found"),
                 )
-        if (session.status != TrainingSessionStatus.COMPLETED) {
-            return Result.failure(
-                IllegalArgumentException("Training session ${sessionId.value} is not completed (status=${session.status})"),
-            )
+        runCatching { session.requireCompleted() }.getOrElse {
+            return Result.failure(it)
         }
         if (desiredSets.isEmpty()) {
             return Result.failure(
@@ -141,7 +139,7 @@ class UpdateCompletedSessionSetsUseCase @Inject constructor(
      */
     private suspend fun sessionWasInLastModelingRun(session: TrainingSession): Boolean {
         val lastExtracted = metadataRepository.get()?.lastExtractedAt ?: return false
-        val sessionAt = session.endedAt ?: session.startedAt
+        val sessionAt = session.completedAt
         return !sessionAt.isAfter(lastExtracted)
     }
 
