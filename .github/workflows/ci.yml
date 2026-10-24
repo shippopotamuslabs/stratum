@@ -136,9 +136,12 @@ jobs:
   # Repeated per Android job because Actions has no YAML anchors/extends.
   # ---------------------------------------------------------------------
 
-  # GitLab: static-analysis (stage lint, extends .android-job + .gate-rules)
-  static-analysis:
-    name: static-analysis
+  # GitLab: static-analysis (stage test, extends .android-job + .gate-rules).
+  # Split into detekt + lint jobs that run in PARALLEL on GitHub-hosted
+  # runners; the static-analysis job below aggregates them so the required
+  # status check keeps its name.
+  detekt:
+    name: detekt
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' || github.event_name == 'schedule'
     steps:
@@ -155,28 +158,90 @@ jobs:
           key: ${{ runner.os }}-gradle-deps-${{ hashFiles('gradle/libs.versions.toml') }}
           restore-keys: |
             ${{ runner.os }}-gradle-deps-
-      - name: detekt + lint
-        run: ./gradlew detekt lintDebug --continue
-      - name: Upload reports
+      - name: detekt
+        run: ./gradlew detekt
+      - name: Upload detekt reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: static-analysis-reports
-          path: |
-            **/build/reports/detekt/
-            **/build/reports/lint-results-debug.html
+          name: detekt-reports
+          path: "**/build/reports/detekt/"
           if-no-files-found: ignore
           retention-days: 7
 
-  # GitLab: unit-tests (stage test, extends .android-job + .gate-rules)
-  unit-tests:
-    name: unit-tests
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.event_name == 'schedule'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/android-setup
+        with:
+          google-services-json: ${{ secrets.GOOGLE_SERVICES_JSON }}
+      - name: Restore Gradle dependency cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            .ci-gradle-home/caches/modules-2
+            .ci-gradle-home/wrapper
+          key: ${{ runner.os }}-gradle-deps-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-deps-
+      - name: lint
+        run: ./gradlew lintDebug
+      - name: Upload lint reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-reports
+          path: "**/build/reports/lint-results-debug.html"
+          if-no-files-found: ignore
+          retention-days: 7
+
+  static-analysis:
+    name: static-analysis
+    runs-on: ubuntu-latest
+    needs: [detekt, lint]
+    if: always() && (github.event_name == 'pull_request' || github.event_name == 'schedule')
+    steps:
+      - name: Verify detekt + lint passed
+        run: |
+          echo "detekt: ${{ needs.detekt.result }} / lint: ${{ needs.lint.result }}"
+          test "${{ needs.detekt.result }}" = "success" && test "${{ needs.lint.result }}" = "success"
+
+
+  # GitLab: unit-tests (stage test, extends .android-job + .gate-rules).
+  # Split into per-area matrix legs that run in PARALLEL; the unit-tests job
+  # below aggregates them so the required status check keeps its name.
+  # fail-fast is off so one red leg never hides the others' results.
+  unit-test-legs:
+    name: unit-tests (${{ matrix.leg }})
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' || github.event_name == 'schedule'
     permissions:
       contents: read
       checks: write
       pull-requests: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - leg: app
+            tasks: ":app:testDebugUnitTest"
+          - leg: core-domain
+            tasks: ":core:domain:test"
+          - leg: core-data
+            tasks: ":core:data:testDebugUnitTest"
+          - leg: core-ui
+            tasks: ":core:ui:testDebugUnitTest"
+          - leg: core-misc
+            tasks: ":core:testing:test :core:inference:INF_TASK :detekt-rules:test"
+          - leg: features-a
+            tasks: ":feature:onboarding:testDebugUnitTest :feature:program:testDebugUnitTest :feature:subscription:testDebugUnitTest"
+          - leg: features-b
+            tasks: ":feature:workout:testDebugUnitTest :feature:history:testDebugUnitTest :feature:settings:testDebugUnitTest"
+          - leg: solver-service
+            tasks: ":solver-service:test"
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/android-setup
@@ -191,10 +256,8 @@ jobs:
           key: ${{ runner.os }}-gradle-deps-${{ hashFiles('gradle/libs.versions.toml') }}
           restore-keys: |
             ${{ runner.os }}-gradle-deps-
-      - name: JVM + module unit tests
-        run: ./gradlew testDebugUnitTest :core:domain:test
-      # GitLab publishes JUnit results natively; GitHub needs a reporter
-      # action for the same in-PR view. DECISION: keep or drop (PORT-NOTES).
+      - name: Unit tests (${{ matrix.leg }})
+        run: ./gradlew ${{ matrix.tasks }}
       - name: Publish test results
         if: always()
         uses: mikepenz/action-junit-report@v5
@@ -204,15 +267,30 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: unit-test-reports
+          name: unit-test-reports-${{ matrix.leg }}
           path: "**/build/reports/tests/"
           if-no-files-found: ignore
           retention-days: 14
 
+  unit-tests:
+    name: unit-tests
+    runs-on: ubuntu-latest
+    needs: [unit-test-legs]
+    if: always() && (github.event_name == 'pull_request' || github.event_name == 'schedule')
+    steps:
+      - name: Verify all unit-test legs passed
+        run: |
+          echo "unit-test legs: ${{ needs.unit-test-legs.result }}"
+          test "${{ needs.unit-test-legs.result }}" = "success"
+
+
   # GitLab: screenshot-tests (stage test, own changes-filtered rules;
-  # manual fallback on other MRs -> workflow_dispatch + force input)
-  screenshot-tests:
-    name: screenshot-tests
+  # manual fallback on other MRs -> workflow_dispatch + force input).
+  # Split into per-area matrix legs that run in PARALLEL; the
+  # screenshot-tests job below aggregates them (a path-gated skip counts
+  # as a pass, exactly like the single job's skip did).
+  screenshot-test-legs:
+    name: screenshot-tests (${{ matrix.leg }})
     runs-on: ubuntu-latest
     needs: [changes]
     if: >-
@@ -223,6 +301,18 @@ jobs:
       ) }}
     # GitLab's manual fallback run had allow_failure: true.
     continue-on-error: ${{ github.event_name == 'workflow_dispatch' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - leg: app-ui
+            tasks: ":app:validateDebugScreenshotTest :core:ui:validateDebugScreenshotTest"
+          - leg: workout-history
+            tasks: ":feature:workout:validateDebugScreenshotTest :feature:history:validateDebugScreenshotTest"
+          - leg: program-settings
+            tasks: ":feature:program:validateDebugScreenshotTest :feature:settings:validateDebugScreenshotTest"
+          - leg: onboarding-subscription
+            tasks: ":feature:onboarding:validateDebugScreenshotTest :feature:subscription:validateDebugScreenshotTest"
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/android-setup
@@ -237,16 +327,37 @@ jobs:
           key: ${{ runner.os }}-gradle-deps-${{ hashFiles('gradle/libs.versions.toml') }}
           restore-keys: |
             ${{ runner.os }}-gradle-deps-
-      - name: Validate screenshot goldens
-        run: ./gradlew :feature:workout:validateDebugScreenshotTest :feature:program:validateDebugScreenshotTest :app:validateDebugScreenshotTest :core:ui:validateDebugScreenshotTest :feature:settings:validateDebugScreenshotTest :feature:history:validateDebugScreenshotTest :feature:subscription:validateDebugScreenshotTest :feature:onboarding:validateDebugScreenshotTest
+      - name: Validate screenshot goldens (${{ matrix.leg }})
+        run: ./gradlew ${{ matrix.tasks }}
       - name: Upload screenshot reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: screenshot-test-reports
+          name: screenshot-test-reports-${{ matrix.leg }}
           path: "**/build/reports/screenshotTest/"
           if-no-files-found: ignore
           retention-days: 14
+
+  screenshot-tests:
+    name: screenshot-tests
+    runs-on: ubuntu-latest
+    needs: [screenshot-test-legs]
+    if: >-
+      ${{ always() && (
+        github.event_name == 'schedule' ||
+        github.event_name == 'pull_request' ||
+        github.event_name == 'workflow_dispatch'
+      ) }}
+    steps:
+      - name: Verify screenshot legs passed (or were path-gated off)
+        run: |
+          result="${{ needs.screenshot-test-legs.result }}"
+          echo "screenshot-test legs: $result"
+          case "$result" in
+            success|skipped) exit 0 ;;
+            *) echo "screenshot legs did not pass: $result" && exit 1 ;;
+          esac
+
 
   # GitLab: assemble-release (stage test; MR + main-push rules — feeds the
   # deploy lanes; also runnable in a dispatch run so deploy-internal can
