@@ -1,0 +1,689 @@
+# Stratum CI — GitHub Actions port of .gitlab-ci.yml (DRAFT, T-6).
+# See PORT-NOTES.md for the job-by-job mapping and every behavior delta.
+#
+# Gate model preserved (STR-154):
+#   - pull_request pipelines are the ONLY test gate.
+#   - push pipelines on main build + deploy only (no re-testing).
+#   - the nightly schedule runs the full suite as the safety net.
+#
+# GitLab `workflow:rules` equivalence:
+#   - merge_request_event && target == default branch  -> pull_request: branches: [main]
+#     (stacked PRs targeting feature branches get no CI, STR-110 cost control)
+#   - push to default branch                            -> push: branches: [main]
+#     (pushes to any other branch create no pipeline at all)
+#   - schedule                                          -> schedule: cron below
+#   - manual jobs (deploy-internal)                     -> workflow_dispatch
+name: CI
+
+"on":
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    # GitLab nightly was 02:00; Actions cron is UTC-only with no DST
+    # tracking. 06:00 UTC = 02:00 EDT (Mar–Nov) / 01:00 EST (winter).
+    # DECISION PENDING: accept the winter drift, or use 07:00 UTC
+    # (03:00 EDT / 02:00 EST). See PORT-NOTES.md.
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    inputs:
+      force_screenshot_tests:
+        description: "Run screenshot-tests even if no UI paths changed (GitLab manual fallback)"
+        type: boolean
+        default: false
+      force_solver_contract_tests:
+        description: "Run solver-contract-tests even if the contract surface did not change (GitLab manual fallback)"
+        type: boolean
+        default: false
+      force_osv_scan:
+        description: "Run osv-scan even if no dependency files changed (GitLab manual fallback)"
+        type: boolean
+        default: false
+
+# GitLab `default: interruptible: true` -> cancel superseded PR/push runs.
+# Schedule runs are never cancelled (nightly jobs set interruptible: false
+# in GitLab, STR-77); the event is part of the group so a push can never
+# cancel a nightly run either.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.event_name == 'push' }}
+
+permissions:
+  contents: read
+
+env:
+  # Same values as the GitLab `variables:` block. GRADLE_USER_HOME stays
+  # in-tree so the cache step below captures it, exactly as on GitLab.
+  GRADLE_USER_HOME: ${{ github.workspace }}/.ci-gradle-home
+  ANDROID_USER_HOME: ${{ github.workspace }}/../ci-home/android-home
+  GRADLE_OPTS: "-Dorg.gradle.caching=true"
+  OSV_SCANNER_VERSION: "2.6.0"
+  # Forge reviewer. FORGE_REF is the forge-reviewer pin; the SHA below is
+  # the GitLab-side commit (v1.0.12) and WILL differ in the rewritten
+  # GitHub mirror — update when the Forge reusable workflow lands (T-7).
+  FORGE_ENABLED: "true"
+  FORGE_REF: "fdc67ce8ca41c445d5a28375af1acdb9871001bb"
+
+jobs:
+  # ---------------------------------------------------------------------
+  # Path-filter detection (replaces GitLab per-job `changes:` rules).
+  # Runs on PR/dispatch only; filtered jobs treat a skipped `changes`
+  # job via the !cancelled() pattern in their `if:` conditions.
+  # ---------------------------------------------------------------------
+  changes:
+    name: changes
+    # dorny/paths-filter lists the PR's files through the API on
+    # pull_request events; fresh repos default GITHUB_TOKEN too narrow
+    # ("Resource not accessible by integration" on PR #1). Grant exactly
+    # what the job needs.
+    permissions:
+      contents: read
+      pull-requests: read
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    outputs:
+      ui: ${{ steps.filter.outputs.ui }}
+      functions: ${{ steps.filter.outputs.functions }}
+      solver_contract: ${{ steps.filter.outputs.solver_contract }}
+      osv: ${{ steps.filter.outputs.osv }}
+      osv_image: ${{ steps.filter.outputs.osv_image }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            ui:
+              - 'feature/*/src/**/*.kt'
+              - 'core/ui/**/*.kt'
+              - 'app/src/**/*.kt'
+              - '**/src/main/res/**/*'
+              - 'gradle/libs.versions.toml'
+              - '**/build.gradle.kts'
+              - 'build.gradle.kts'
+              - '.github/workflows/ci.yml'
+            functions:
+              - 'functions/**/*'
+            solver_contract:
+              - 'solver-contract/**/*'
+              - 'solver-python/**/*'
+              - 'solver-service/**/*'
+              - 'functions/**/*'
+              - 'functions-python/**/*'
+              - 'core/inference/**/*'
+              - 'docs/callable-function-versioning.md'
+              - '.github/workflows/ci.yml'
+            osv:
+              - 'functions/package-lock.json'
+              - 'functions-python/requirements.txt'
+              - 'gradle/libs.versions.toml'
+              - '**/build.gradle.kts'
+              - 'build.gradle.kts'
+              - 'settings.gradle.kts'
+              - 'scripts/generate-sbom.py'
+              - 'scripts/install-osv-scanner.sh'
+              - '.osv-scanner.toml'
+              - '.github/workflows/ci.yml'
+            osv_image:
+              - 'solver-service/**/*'
+              - 'scripts/scan-solver-image.sh'
+              - 'gradle/libs.versions.toml'
+
+  # ---------------------------------------------------------------------
+  # Shared Gradle dependency cache (port of the .android-job cache stanza:
+  # keyed on gradle/libs.versions.toml, jars + wrapper dists only).
+  # Repeated per Android job because Actions has no YAML anchors/extends.
+  # ---------------------------------------------------------------------
+
+  # GitLab: static-analysis (stage lint, extends .android-job + .gate-rules)
+  static-analysis:
+    name: static-analysis
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.event_name == 'schedule'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/android-setup
+        with:
+          google-services-json: ${{ secrets.GOOGLE_SERVICES_JSON }}
+      - name: Restore Gradle dependency cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            .ci-gradle-home/caches/modules-2
+            .ci-gradle-home/wrapper
+          key: ${{ runner.os }}-gradle-deps-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-deps-
+      - name: detekt + lint
+        run: ./gradlew detekt lintDebug --continue
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: static-analysis-reports
+          path: |
+            **/build/reports/detekt/
+            **/build/reports/lint-results-debug.html
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # GitLab: unit-tests (stage test, extends .android-job + .gate-rules)
+  unit-tests:
+    name: unit-tests
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.event_name == 'schedule'
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/android-setup
+        with:
+          google-services-json: ${{ secrets.GOOGLE_SERVICES_JSON }}
+      - name: Restore Gradle dependency cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            .ci-gradle-home/caches/modules-2
+            .ci-gradle-home/wrapper
+          key: ${{ runner.os }}-gradle-deps-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-deps-
+      - name: JVM + module unit tests
+        run: ./gradlew testDebugUnitTest :core:domain:test
+      # GitLab publishes JUnit results natively; GitHub needs a reporter
+      # action for the same in-PR view. DECISION: keep or drop (PORT-NOTES).
+      - name: Publish test results
+        if: always()
+        uses: mikepenz/action-junit-report@v5
+        with:
+          report_paths: "**/build/test-results/**/TEST-*.xml"
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-reports
+          path: "**/build/reports/tests/"
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # GitLab: screenshot-tests (stage test, own changes-filtered rules;
+  # manual fallback on other MRs -> workflow_dispatch + force input)
+  screenshot-tests:
+    name: screenshot-tests
+    runs-on: ubuntu-latest
+    needs: [changes]
+    if: >-
+      ${{ !cancelled() && (
+        github.event_name == 'schedule' ||
+        (github.event_name == 'pull_request' && needs.changes.outputs.ui == 'true') ||
+        (github.event_name == 'workflow_dispatch' && inputs.force_screenshot_tests)
+      ) }}
+    # GitLab's manual fallback run had allow_failure: true.
+    continue-on-error: ${{ github.event_name == 'workflow_dispatch' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/android-setup
+        with:
+          google-services-json: ${{ secrets.GOOGLE_SERVICES_JSON }}
+      - name: Restore Gradle dependency cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            .ci-gradle-home/caches/modules-2
+            .ci-gradle-home/wrapper
+          key: ${{ runner.os }}-gradle-deps-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-deps-
+      - name: Validate screenshot goldens
+        run: ./gradlew :feature:workout:validateDebugScreenshotTest :feature:program:validateDebugScreenshotTest :app:validateDebugScreenshotTest :core:ui:validateDebugScreenshotTest :feature:settings:validateDebugScreenshotTest :feature:history:validateDebugScreenshotTest :feature:subscription:validateDebugScreenshotTest :feature:onboarding:validateDebugScreenshotTest
+      - name: Upload screenshot reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshot-test-reports
+          path: "**/build/reports/screenshotTest/"
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # GitLab: assemble-release (stage test; MR + main-push rules — feeds the
+  # deploy lanes; also runnable in a dispatch run so deploy-internal can
+  # chain after it, mirroring the GitLab manual pipeline)
+  assemble-release:
+    name: assemble-release
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'pull_request' ||
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/android-setup
+        with:
+          google-services-json: ${{ secrets.GOOGLE_SERVICES_JSON }}
+      - name: Restore Gradle dependency cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            .ci-gradle-home/caches/modules-2
+            .ci-gradle-home/wrapper
+          key: ${{ runner.os }}-gradle-deps-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-deps-
+      - name: Keystore bootstrap (optional — unsigned without secrets)
+        uses: ./.github/actions/keystore-setup
+        with:
+          keystore-base64: ${{ secrets.KEYSTORE_BASE64 }}
+          store-password: ${{ secrets.STORE_PASSWORD }}
+          key-alias: ${{ secrets.KEY_ALIAS }}
+          key-password: ${{ secrets.KEY_PASSWORD }}
+          strict: "false"
+      - name: Assemble release
+        run: ./gradlew :app:assembleRelease
+      - name: Upload release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-apk
+          path: |
+            app/build/outputs/apk/release/*.apk
+            .keystore-signed-flag
+          # .keystore-signed-flag is a dotfile: upload-artifact v4 skips
+          # hidden files unless told otherwise. distribute-internal
+          # hard-fails without this flag, exactly as on GitLab.
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # GitLab: functions-tests (stage test, image node:24; MR changes-filtered
+  # + schedule)
+  functions-tests:
+    name: functions-tests
+    runs-on: ubuntu-latest
+    needs: [changes]
+    if: >-
+      ${{ !cancelled() && (
+        github.event_name == 'schedule' ||
+        (github.event_name == 'pull_request' && needs.changes.outputs.functions == 'true')
+      ) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          # Equivalent of the GitLab node_modules cache keyed on the
+          # lockfile, via the npm download cache instead (PORT-NOTES).
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+      - name: Build and test functions
+        working-directory: functions
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+          npm test
+
+  # GitLab: solver-contract-tests (stage test, image python:3.12-slim;
+  # schedule always, MR changes-filtered, manual fallback -> force input)
+  solver-contract-tests:
+    name: solver-contract-tests
+    runs-on: ubuntu-latest
+    needs: [changes]
+    if: >-
+      ${{ !cancelled() && (
+        github.event_name == 'schedule' ||
+        (github.event_name == 'pull_request' && needs.changes.outputs.solver_contract == 'true') ||
+        (github.event_name == 'workflow_dispatch' && inputs.force_solver_contract_tests)
+      ) }}
+    continue-on-error: ${{ github.event_name == 'workflow_dispatch' }}
+    env:
+      SOLVER_MODULE: solver
+      PYTHONPATH: ${{ github.workspace }}/solver-python
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Contract tests against the real solver
+        run: |
+          python3 -m venv "$GITHUB_WORKSPACE/.tmp/contract-env"
+          "$GITHUB_WORKSPACE/.tmp/contract-env/bin/pip" install --quiet -r solver-contract/tests/requirements.txt -r solver-python/requirements.txt
+          "$GITHUB_WORKSPACE/.tmp/contract-env/bin/python" -m pytest solver-contract/tests/ -q
+
+  # GitLab: osv-scan (stage lint; STR-174 — SIGNAL on MRs: changes-filtered
+  # + allow_failure, STRICT on schedule)
+  osv-scan:
+    name: osv-scan
+    runs-on: ubuntu-latest
+    needs: [changes]
+    if: >-
+      ${{ !cancelled() && (
+        github.event_name == 'schedule' ||
+        (github.event_name == 'pull_request' && needs.changes.outputs.osv == 'true') ||
+        (github.event_name == 'workflow_dispatch' && inputs.force_osv_scan)
+      ) }}
+    # allow_failure everywhere except the nightly, where it stays strict.
+    continue-on-error: ${{ github.event_name != 'schedule' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/android-setup
+        with:
+          google-services-json: ${{ secrets.GOOGLE_SERVICES_JSON }}
+      - name: Restore Gradle dependency cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            .ci-gradle-home/caches/modules-2
+            .ci-gradle-home/wrapper
+          key: ${{ runner.os }}-gradle-deps-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-deps-
+      - name: Generate SBOMs and scan
+        run: |
+          mkdir -p .tmp
+          ./scripts/install-osv-scanner.sh "$OSV_SCANNER_VERSION" "$GITHUB_WORKSPACE/.tmp/osv-scanner"
+          ./gradlew :app:dependencies --configuration releaseRuntimeClasspath -q > /tmp/gradle-app-deps.txt
+          python3 scripts/generate-sbom.py < /tmp/gradle-app-deps.txt > bom.cdx.json
+          ./gradlew :solver-service:dependencies --configuration runtimeClasspath -q > /tmp/gradle-solver-deps.txt
+          python3 scripts/generate-sbom.py --component-name stratum-solver < /tmp/gradle-solver-deps.txt > bom-solver.cdx.json
+          SCAN_ARGS="-L bom.cdx.json -L bom-solver.cdx.json --lockfile=functions/package-lock.json --lockfile=functions-python/requirements.txt"
+          if [ -f .osv-scanner.toml ]; then SCAN_ARGS="$SCAN_ARGS --config=.osv-scanner.toml"; fi
+          ./.tmp/osv-scanner scan source $SCAN_ARGS --format=table
+      - name: Upload SBOMs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: osv-sboms
+          path: |
+            bom.cdx.json
+            bom-solver.cdx.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # GitLab: osv-scan-image (stage lint; allow_failure: true permanently —
+  # informational control per the rollout note; MR changes-filtered + schedule)
+  osv-scan-image:
+    name: osv-scan-image
+    runs-on: ubuntu-latest
+    needs: [changes]
+    continue-on-error: true
+    if: >-
+      ${{ !cancelled() && (
+        github.event_name == 'schedule' ||
+        (github.event_name == 'pull_request' && needs.changes.outputs.osv_image == 'true')
+      ) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/android-setup
+        with:
+          google-services-json: ${{ secrets.GOOGLE_SERVICES_JSON }}
+      - name: Restore Gradle dependency cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            .ci-gradle-home/caches/modules-2
+            .ci-gradle-home/wrapper
+          key: ${{ runner.os }}-gradle-deps-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-deps-
+      # GitLab had to install a static Docker CLI against the host daemon;
+      # ubuntu-latest ships Docker, so that whole before_script block is
+      # gone — the scan script runs against the local daemon directly.
+      - name: Build solver image and scan
+        run: |
+          mkdir -p .tmp
+          ./scripts/install-osv-scanner.sh "$OSV_SCANNER_VERSION" "$GITHUB_WORKSPACE/.tmp/osv-scanner"
+          ./gradlew :solver-service:shadowJar
+          OSV_SCANNER_BIN="$GITHUB_WORKSPACE/.tmp/osv-scanner" ./scripts/scan-solver-image.sh stratum-solver:ci
+
+  # GitLab: emulator-tests (stage nightly; schedule only, allow_failure,
+  # timeout 2h). RUNNER DECISION: this job needs /dev/kvm. ubuntu-latest
+  # exposes KVM after the udev step below; on a self-hosted Katana runner
+  # that step is unnecessary but harmless. See PORT-NOTES.
+  emulator-tests:
+    name: emulator-tests
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+    continue-on-error: true
+    timeout-minutes: 120
+    env:
+      ANDROID_AVD_HOME: ${{ github.workspace }}/../ci-home/android-home/avd
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/android-setup
+        with:
+          google-services-json: ${{ secrets.GOOGLE_SERVICES_JSON }}
+      - name: Restore Gradle dependency cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            .ci-gradle-home/caches/modules-2
+            .ci-gradle-home/wrapper
+          key: ${{ runner.os }}-gradle-deps-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-deps-
+      - name: Enable KVM (GitHub-hosted runners only)
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Create AVD
+        run: |
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH"
+          sdkmanager "platform-tools" "platforms;android-35" "system-images;android-35;google_apis;x86_64" "emulator"
+          echo "no" | avdmanager create avd -n ci -k "system-images;android-35;google_apis;x86_64" --device "pixel_7" --force
+          test -f "$ANDROID_AVD_HOME/ci.ini" || (echo "AVD 'ci' was not created under $ANDROID_AVD_HOME" && exit 1)
+          grep "^disk.dataPartition.size=" "$ANDROID_AVD_HOME/ci.avd/config.ini" || echo "key absent originally"
+          sed -i '/^disk.dataPartition.size=/d' "$ANDROID_AVD_HOME/ci.avd/config.ini" && echo 'disk.dataPartition.size=2147483648' >> "$ANDROID_AVD_HOME/ci.avd/config.ini"
+          df -h "$GITHUB_WORKSPACE" /tmp 2>/dev/null || df -h
+          du -sh .git 2>/dev/null || true
+      - name: Boot emulator and run device tests
+        run: |
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH"
+          test -c /dev/kvm || (echo "KVM device missing in job container"; ls -la /dev/kvm* 2>/dev/null || true; exit 1)
+          timeout 90 "$ANDROID_HOME/emulator/emulator" -avd ci -no-window -gpu swiftshader_indirect -no-audio -no-snapshot -no-boot-anim -partition-size 2048 > /tmp/emu-probe.log 2>&1 || true
+          if grep -q "FATAL" /tmp/emu-probe.log; then echo "EMULATOR FATAL:"; grep "FATAL" /tmp/emu-probe.log | head -3; exit 1; fi
+          "$ANDROID_HOME/emulator/emulator" -avd ci -no-window -gpu swiftshader_indirect -no-audio -no-snapshot -no-boot-anim -partition-size 2048 &
+          timeout 1200 bash -c 'adb wait-for-device; while [[ -z $(adb shell getprop sys.boot_completed | tr -d "\r") ]]; do sleep 5; done'
+          ./gradlew :app:connectedDebugAndroidTest :core:data:connectedDebugAndroidTest
+      - name: Publish test results
+        if: always()
+        uses: mikepenz/action-junit-report@v5
+        with:
+          report_paths: "**/build/outputs/androidTest-results/connected/*.xml"
+      - name: Upload device test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: emulator-test-reports
+          path: |
+            **/build/reports/androidTests/
+            **/build/outputs/androidTest-results/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # GitLab: solver-tests-nightly (stage nightly; schedule only,
+  # allow_failure, timeout 30m)
+  solver-tests-nightly:
+    name: solver-tests-nightly
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+    continue-on-error: true
+    timeout-minutes: 30
+    env:
+      SOLVER_MODULE: solver
+      PYTHONPATH: ${{ github.workspace }}/solver-python
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Solver + contract suites
+        run: |
+          python3 -m venv "$GITHUB_WORKSPACE/.tmp/solver-env"
+          "$GITHUB_WORKSPACE/.tmp/solver-env/bin/pip" install --quiet -r solver-contract/tests/requirements.txt -r solver-python/requirements.txt
+          "$GITHUB_WORKSPACE/.tmp/solver-env/bin/python" -m pytest solver-python/tests/ solver-contract/tests/ -q --junitxml="$GITHUB_WORKSPACE/.tmp/solver-nightly-junit.xml"
+      - name: Publish test results
+        if: always()
+        uses: mikepenz/action-junit-report@v5
+        with:
+          report_paths: ".tmp/solver-nightly-junit.xml"
+
+  # ---------------------------------------------------------------------
+  # Deploy stage (main only). GitLab semantics: distribute-internal auto-
+  # runs on every main push; deploy-internal is a MANUAL job in the main
+  # pipeline; test-lab-robo runs on_success after deploy-internal.
+  # Actions has no manual job inside a push run, so deploy-internal +
+  # test-lab-robo live in workflow_dispatch runs of this same workflow:
+  # dispatch on main -> assemble-release -> deploy-internal -> test-lab-robo.
+  # ---------------------------------------------------------------------
+
+  # GitLab: distribute-internal (stage deploy; push pipelines on main only,
+  # never schedule — the event split enforces this by construction here)
+  distribute-internal:
+    name: distribute-internal
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    needs: [assemble-release]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download signed release APK
+        uses: actions/download-artifact@v4
+        with:
+          name: release-apk
+      - name: Materialize Firebase service account
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          test -n "$FIREBASE_SERVICE_ACCOUNT_JSON" || (echo "Missing FIREBASE_SERVICE_ACCOUNT_JSON secret" && exit 1)
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT_JSON" > "$RUNNER_TEMP/firebase-service-account.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firebase-service-account.json" >> "$GITHUB_ENV"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Distribute signed APK via Firebase App Distribution
+        run: |
+          test -f .keystore-signed-flag || (echo "APK was not signed — keystore secrets missing in assemble-release" && exit 1)
+          shopt -s nullglob
+          APK_FILES=(app/build/outputs/apk/release/*.apk)
+          shopt -u nullglob
+          if [ ${#APK_FILES[@]} -eq 0 ]; then echo "No APK found" && exit 1; fi
+          if [ ${#APK_FILES[@]} -gt 1 ]; then echo "Multiple APKs found: ${APK_FILES[*]}" && exit 1; fi
+          npx firebase-tools appdistribution:distribute "${APK_FILES[0]}" \
+            --app 1:531671963823:android:8d383c6410df9ce894dc5a \
+            --groups "Internal" \
+            --release-notes "Build ${GITHUB_SHA::7} from main" \
+            --non-interactive
+      - name: Upload distributed APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: distributed-apk
+          path: app/build/outputs/apk/release/*.apk
+          retention-days: 7
+
+  # GitLab: deploy-internal (stage deploy; manual, default branch only)
+  deploy-internal:
+    name: deploy-internal
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    needs: [assemble-release]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/android-setup
+        with:
+          google-services-json: ${{ secrets.GOOGLE_SERVICES_JSON }}
+      - name: Restore Gradle dependency cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            .ci-gradle-home/caches/modules-2
+            .ci-gradle-home/wrapper
+          key: ${{ runner.os }}-gradle-deps-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-deps-
+      - name: Keystore bootstrap (strict — this lane must be signed)
+        uses: ./.github/actions/keystore-setup
+        with:
+          keystore-base64: ${{ secrets.KEYSTORE_BASE64 }}
+          store-password: ${{ secrets.STORE_PASSWORD }}
+          key-alias: ${{ secrets.KEY_ALIAS }}
+          key-password: ${{ secrets.KEY_PASSWORD }}
+          strict: "true"
+      - name: Materialize Play publisher credentials
+        env:
+          PLAY_PUBLISHER_JSON: ${{ secrets.PLAY_PUBLISHER_JSON }}
+        run: |
+          test -n "$PLAY_PUBLISHER_JSON" || (echo "Missing PLAY_PUBLISHER_JSON secret" && exit 1)
+          printf '%s' "$PLAY_PUBLISHER_JSON" > "$RUNNER_TEMP/play-publisher.json"
+          echo "PLAY_PUBLISHER_JSON=$RUNNER_TEMP/play-publisher.json" >> "$GITHUB_ENV"
+      - name: Download signed release APK from assemble-release
+        uses: actions/download-artifact@v4
+        with:
+          name: release-apk
+      - name: Build signed AAB and upload to Play internal track
+        run: |
+          ./gradlew :app:bundleRelease
+          python3 -m venv /tmp/play-env
+          /tmp/play-env/bin/pip install --quiet google-api-python-client google-auth
+          /tmp/play-env/bin/python scripts/play-upload-internal.py app/build/outputs/bundle/release/app-release.aab
+      - name: Upload bundle and APK
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: play-internal-bundle
+          path: |
+            app/build/outputs/bundle/release/*.aab
+            app/build/outputs/apk/release/*.apk
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # GitLab: test-lab-robo (stage deploy; needs deploy-internal,
+  # allow_failure: true)
+  test-lab-robo:
+    name: test-lab-robo
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    needs: [deploy-internal]
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/android-setup
+        with:
+          google-services-json: ${{ secrets.GOOGLE_SERVICES_JSON }}
+      - name: Materialize Play publisher credentials
+        env:
+          PLAY_PUBLISHER_JSON: ${{ secrets.PLAY_PUBLISHER_JSON }}
+        run: |
+          test -n "$PLAY_PUBLISHER_JSON" || (echo "Missing PLAY_PUBLISHER_JSON secret" && exit 1)
+          printf '%s' "$PLAY_PUBLISHER_JSON" > "$RUNNER_TEMP/play-publisher.json"
+          echo "PLAY_PUBLISHER_JSON=$RUNNER_TEMP/play-publisher.json" >> "$GITHUB_ENV"
+      - name: Download APK from deploy-internal
+        uses: actions/download-artifact@v4
+        with:
+          name: play-internal-bundle
+      # ubuntu-latest ships the gcloud CLI; on the Katana shell runner this
+      # auth flow was host-provided. DECISION: keep raw gcloud (below) or
+      # switch to google-github-actions/auth — see PORT-NOTES.
+      - name: Firebase Test Lab robo run
+        run: |
+          gcloud auth activate-service-account --key-file="$PLAY_PUBLISHER_JSON"
+          PROJECT_ID=$(python3 -c "import json;print(json.load(open('app/google-services.json'))['project_info']['project_id'])")
+          APK=$(ls app/build/outputs/apk/release/*.apk | head -1)
+          gcloud --project="$PROJECT_ID" firebase test android run --type robo --app "$APK" \
+            --device model=MediumPhone.arm,version=35,locale=en,orientation=portrait --timeout 5m --results-bucket=gs://stratum-a1a5b-ftl-results 2>&1 | tee test-lab-robo.log
+      - name: Upload robo log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-lab-robo-log
+          path: test-lab-robo.log
+          if-no-files-found: ignore
+          retention-days: 14
+  # ---------------------------------------------------------------------
+  # Forge review: REMOVED from this file until T-7. GitHub validates
+  # every `uses:` reusable-workflow reference at parse time, even on
+  # jobs gated off by `if:` — the placeholder ref failed the whole run
+  # before any job executed (PR #1, run 40102570633). The forge-review
+  # job returns in T-7, once shippopotamuslabs/forge-reviewer actually
+  # hosts .github/workflows/forge-review.yml to pin to.
+  # ---------------------------------------------------------------------

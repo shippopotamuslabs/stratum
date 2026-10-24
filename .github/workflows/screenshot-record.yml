@@ -1,0 +1,53 @@
+# Stratum screenshot-record — GitHub Actions port (DRAFT, T-6).
+#
+# GitLab original: a `when: manual` job (extends .android-job) in the MR /
+# main pipelines that re-records Compose screenshot goldens and publishes
+# them as artifacts for a human/agent to review and commit — CI_JOB_TOKEN
+# could not push, so the download-review-commit loop was manual.
+#
+# Actions equivalent: a standalone workflow_dispatch workflow. Same loop:
+# run it, download the `recorded-goldens` artifact, eyeball every PNG,
+# commit the approved ones from a machine with write access.
+name: screenshot-record
+
+"on":
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GRADLE_USER_HOME: ${{ github.workspace }}/.ci-gradle-home
+  ANDROID_USER_HOME: ${{ github.workspace }}/../ci-home/android-home
+  GRADLE_OPTS: "-Dorg.gradle.caching=true"
+
+jobs:
+  screenshot-record:
+    name: screenshot-record
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/android-setup
+        with:
+          google-services-json: ${{ secrets.GOOGLE_SERVICES_JSON }}
+      - name: Restore Gradle dependency cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            .ci-gradle-home/caches/modules-2
+            .ci-gradle-home/wrapper
+          key: ${{ runner.os }}-gradle-deps-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-deps-
+      - name: Re-record screenshot goldens
+        run: |
+          ./gradlew :feature:workout:updateDebugScreenshotTest :feature:program:updateDebugScreenshotTest :app:updateDebugScreenshotTest :core:ui:updateDebugScreenshotTest :feature:settings:updateDebugScreenshotTest :feature:history:updateDebugScreenshotTest :feature:subscription:updateDebugScreenshotTest :feature:onboarding:updateDebugScreenshotTest
+          find . -type d -path '*/src/screenshotTestDebug/reference' | grep -v '/build/'
+      - name: Upload recorded goldens
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: recorded-goldens
+          path: "**/src/screenshotTestDebug/reference/"
+          if-no-files-found: ignore
+          retention-days: 7
