@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.ProgramGenerationLoadingContent
@@ -99,12 +100,13 @@ fun CreateProgramScreen(
         return
     }
 
-    // Glass (§12.8, STR-158): under the route's glass host the top bar overlays
-    // and the step region below carries the top clearance — the wizard steps
-    // and the editor own their internal scrolling, so the whole region sits
-    // beneath the glass and no form field is ever obscured by the bar. The
-    // per-step bottom bars and IME behavior are untouched; solid hosts keep
-    // the in-flow geometry exactly.
+    // Glass (§12.8, STR-158/STR-191): under the route's glass host the top
+    // bar overlays and each step carries the top clearance itself — the
+    // scrolling preference steps via in-scroll top padding, the static steps
+    // via top padding, the editor via its fixed tab column (its embedded
+    // list starts below the tabs, so no double clearance). The per-step
+    // bottom bars and IME behavior are untouched; solid hosts keep the
+    // in-flow geometry exactly.
     StratumDetailScaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
@@ -173,58 +175,64 @@ fun CreateProgramScreen(
             }
         },
     ) { chrome ->
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .padding(top = chrome.top),
-        ) {
-            if (state.loadErrorMessage != null) {
+        if (state.loadErrorMessage != null) {
+            // Glass: the error text clears the overlay bar like every other
+            // step. Solid hosts keep the in-flow geometry (chrome.top is 0).
+            Box(
+                modifier = Modifier.fillMaxSize().padding(top = chrome.top),
+                contentAlignment = Alignment.Center,
+            ) {
                 StratumText(
                     text = state.loadErrorMessage,
                     muted = true,
-                    modifier = Modifier.align(Alignment.Center).padding(StratumSpacing.s24),
+                    modifier = Modifier.padding(StratumSpacing.s24),
                 )
-            } else when (state.step) {
-                CreateProgramStep.ChoosePath ->
-                    ChooseCreatePathContent(
-                        onSelectGenerate = callbacks.onSelectGenerate,
-                        onSelectScratch = callbacks.onSelectScratch,
-                    )
-                CreateProgramStep.Specialization ->
-                    SpecializationPreferencesScreen(
-                        draft = state.specializationDraft,
-                        onMuscleToggled = callbacks.onMuscleToggled,
-                    )
-                CreateProgramStep.MinimumVolume ->
-                    MinimumVolumePreferencesScreen(
-                        draft = state.minimumVolumeDraft,
-                        onMuscleToggled = callbacks.onMinimumVolumeMuscleToggled,
-                        onSuggestedMuscleToggled = callbacks.onSuggestedMinimumVolumeToggled,
-                    )
-                CreateProgramStep.Schedule ->
-                    SchedulePreferencesScreen(
-                        draft = state.scheduleDraft,
-                        onTrainingDayCountChanged = callbacks.onTrainingDayCountChanged,
-                        onSessionPresetSelected = callbacks.onSessionPresetSelected,
-                        onCustomSessionMinutesChange = callbacks.onCustomSessionMinutesChange,
-                        onSixDayCycleLengthSelected = callbacks.onSixDayCycleLengthSelected,
-                        onTrainingSlotToggled = callbacks.onTrainingSlotToggled,
-                    )
-                CreateProgramStep.Generating ->
-                    GeneratingContent(
-                        progress = state.generateProgress,
-                        maxActiveIndex = state.generateMaxTimelineIndex,
-                        error = state.generateErrorMessage,
-                        isError = state.generateState == CreateProgramGenerateState.Error,
-                        onRetry = callbacks.onGenerate,
-                    )
-                CreateProgramStep.Editor ->
-                    CreateProgramEditorContent(
-                        state = state,
-                        callbacks = callbacks,
-                    )
             }
+        } else when (state.step) {
+            CreateProgramStep.ChoosePath ->
+                ChooseCreatePathContent(
+                    onSelectGenerate = callbacks.onSelectGenerate,
+                    onSelectScratch = callbacks.onSelectScratch,
+                    topClearance = chrome.top,
+                )
+            CreateProgramStep.Specialization ->
+                SpecializationPreferencesScreen(
+                    draft = state.specializationDraft,
+                    onMuscleToggled = callbacks.onMuscleToggled,
+                    topClearance = chrome.top,
+                )
+            CreateProgramStep.MinimumVolume ->
+                MinimumVolumePreferencesScreen(
+                    draft = state.minimumVolumeDraft,
+                    onMuscleToggled = callbacks.onMinimumVolumeMuscleToggled,
+                    onSuggestedMuscleToggled = callbacks.onSuggestedMinimumVolumeToggled,
+                    topClearance = chrome.top,
+                )
+            CreateProgramStep.Schedule ->
+                SchedulePreferencesScreen(
+                    draft = state.scheduleDraft,
+                    onTrainingDayCountChanged = callbacks.onTrainingDayCountChanged,
+                    onSessionPresetSelected = callbacks.onSessionPresetSelected,
+                    onCustomSessionMinutesChange = callbacks.onCustomSessionMinutesChange,
+                    onSixDayCycleLengthSelected = callbacks.onSixDayCycleLengthSelected,
+                    onTrainingSlotToggled = callbacks.onTrainingSlotToggled,
+                    topClearance = chrome.top,
+                )
+            CreateProgramStep.Generating ->
+                GeneratingContent(
+                    progress = state.generateProgress,
+                    maxActiveIndex = state.generateMaxTimelineIndex,
+                    error = state.generateErrorMessage,
+                    isError = state.generateState == CreateProgramGenerateState.Error,
+                    onRetry = callbacks.onGenerate,
+                    topClearance = chrome.top,
+                )
+            CreateProgramStep.Editor ->
+                CreateProgramEditorContent(
+                    state = state,
+                    callbacks = callbacks,
+                    topClearance = chrome.top,
+                )
         }
     }
 
@@ -316,12 +324,16 @@ fun CreateProgramScreen(
 private fun ChooseCreatePathContent(
     onSelectGenerate: () -> Unit,
     onSelectScratch: () -> Unit,
+    // Glass (§12.8, STR-191): static step — the cards clear the bar via top
+    // padding. 0 keeps solid hosts pixel-identical.
+    topClearance: Dp = 0.dp,
 ) {
     Column(
         modifier =
             Modifier
                 .fillMaxSize()
-                .padding(StratumSpacing.s12),
+                .padding(horizontal = StratumSpacing.s12)
+                .padding(top = StratumSpacing.s12 + topClearance, bottom = StratumSpacing.s12),
         verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
     ) {
         StratumText(
@@ -397,12 +409,16 @@ private fun GeneratingContent(
     error: String?,
     isError: Boolean,
     onRetry: () -> Unit,
+    // Glass (§12.8, STR-191): static step — clears the bar via top padding.
+    // 0 keeps solid hosts pixel-identical.
+    topClearance: Dp = 0.dp,
 ) {
     Column(
         modifier =
             Modifier
                 .fillMaxSize()
-                .padding(horizontal = StratumSpacing.s24, vertical = StratumSpacing.s16),
+                .padding(horizontal = StratumSpacing.s24)
+                .padding(top = StratumSpacing.s16 + topClearance, bottom = StratumSpacing.s16),
         verticalArrangement =
             if (isError) {
                 Arrangement.Center
@@ -431,8 +447,13 @@ private fun GeneratingContent(
 private fun CreateProgramEditorContent(
     state: CreateProgramUiState,
     callbacks: CreateProgramScreenCallbacks,
+    // Glass (§12.8, STR-191): the fixed day tabs / actions / volume rows sit
+    // in-flow above the embedded workout list, so they clear the bar via the
+    // column — the list viewport starts below them and keeps its s16 top
+    // (no double clearance). 0 keeps solid hosts pixel-identical.
+    topClearance: Dp = 0.dp,
 ) {
-    Column(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = Modifier.fillMaxSize().padding(top = topClearance)) {
         DayTabsRow(
             days = state.days,
             selectedDayId = state.selectedDayId,

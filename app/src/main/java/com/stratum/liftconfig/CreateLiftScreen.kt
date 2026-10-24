@@ -1,10 +1,7 @@
 package com.stratum.liftconfig
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -12,7 +9,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stratum.core.ui.R as UiR
@@ -22,7 +18,6 @@ import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
 import com.stratum.core.ui.component.StratumTopBarTextButton
 import com.stratum.core.ui.component.UserMessageEffect
-import com.stratum.core.ui.theme.StratumSpacing
 
 
 @Composable
@@ -86,9 +81,11 @@ fun CreateLiftScreen(
     modifier: Modifier = Modifier,
     snackbarHostState: SnackbarHostState? = null,
 ) {
-    // Glass (§12.8, STR-160): under the route's glass host the top bar overlays
-    // and the form column sits in the region beneath it. Solid hosts keep the
-    // in-flow geometry exactly.
+    // Glass (§12.8, STR-160/STR-192): under the route's glass host the top bar
+    // overlays and the whole form is one scrollable — the shared editor owns
+    // the geometry (STR-192): the name field rides as its header item and the
+    // bar clearance is the list's top content padding, so the form scrolls
+    // beneath the glass. Solid hosts reproduce the in-flow geometry exactly.
     StratumDetailScaffold(
         modifier = modifier,
         snackbarHostState = snackbarHostState,
@@ -111,26 +108,20 @@ fun CreateLiftScreen(
             )
         },
     ) { chrome ->
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .padding(top = chrome.top)
-                    .padding(horizontal = StratumSpacing.s16),
-            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
-        ) {
-            StratumTextField(
-                value = state.name,
-                onValueChange = onNameChange,
-                label = stringResource(UiR.string.create_lift_name_label),
-                placeholder = stringResource(UiR.string.create_lift_name_placeholder),
-                modifier = Modifier.fillMaxWidth(),
-            )
-            LiftDetailsEditor(
-                state = state.details,
-                actions = actions,
-                modifier = Modifier.weight(1f),
-            )
-        }
+        LiftDetailsEditor(
+            state = state.details,
+            actions = actions,
+            topClearance = chrome.top,
+            header = {
+                StratumTextField(
+                    value = state.name,
+                    onValueChange = onNameChange,
+                    label = stringResource(UiR.string.create_lift_name_label),
+                    placeholder = stringResource(UiR.string.create_lift_name_placeholder),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            },
+            modifier = Modifier.fillMaxSize(),
+        )
     }
 }

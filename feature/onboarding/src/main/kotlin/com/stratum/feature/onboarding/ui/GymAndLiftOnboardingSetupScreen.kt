@@ -31,6 +31,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R
 import com.stratum.core.ui.component.StratumBottomSheet
@@ -38,6 +39,7 @@ import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumSegmentedControl
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.theme.StratumSpacing
+import com.stratum.core.ui.trainingsetup.inScrollTopClearance
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.onboarding.GymLiftsDraftUi
 import com.stratum.feature.onboarding.GymPresetOptionUi
@@ -60,6 +62,10 @@ fun GymAndLiftOnboardingSetupScreen(
     appWeightUnitIsKg: Boolean = false,
     onAppWeightUnitSelected: (useKg: Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
+    // Glass (§12.8, STR-192): added inside the scroll (padding sits after
+    // verticalScroll in the chain), so content scrolls beneath the bar.
+    // 0 keeps other hosts unchanged.
+    topClearance: Dp = 0.dp,
 ) {
     val importActive = draft.importInProgress
     val importComplete = draft.importComplete
@@ -75,7 +81,8 @@ fun GymAndLiftOnboardingSetupScreen(
             modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12),
+                .padding(horizontal = StratumSpacing.s16)
+                .padding(top = inScrollTopClearance(topClearance), bottom = StratumSpacing.s12),
         verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
     ) {
         StratumText(
