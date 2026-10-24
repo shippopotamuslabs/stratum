@@ -17,6 +17,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.component.StratumChoiceGroup
+import com.stratum.core.ui.trainingsetup.inScrollTopClearance
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
@@ -45,7 +46,7 @@ fun ProfileScreen(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = StratumSpacing.s16)
-                .padding(top = StratumSpacing.s12 + topClearance, bottom = StratumSpacing.s12),
+                .padding(top = inScrollTopClearance(topClearance), bottom = StratumSpacing.s12),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         Section(label = stringResource(R.string.profile_training_age_heading)) {

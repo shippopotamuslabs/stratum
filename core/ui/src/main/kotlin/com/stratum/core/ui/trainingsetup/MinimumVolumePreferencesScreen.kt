@@ -42,7 +42,7 @@ fun MinimumVolumePreferencesScreen(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = StratumSpacing.s16)
-                .padding(top = StratumSpacing.s12 + topClearance, bottom = StratumSpacing.s12),
+                .padding(top = inScrollTopClearance(topClearance), bottom = StratumSpacing.s12),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         StratumText(

@@ -21,6 +21,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.component.StratumText
+import com.stratum.core.ui.trainingsetup.inScrollTopClearance
 import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.core.ui.theme.stratumCardHardShadow
@@ -52,7 +53,7 @@ internal fun ChoosePathScreen(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = StratumSpacing.s16)
-                .padding(top = StratumSpacing.s12 + topClearance, bottom = StratumSpacing.s12),
+                .padding(top = inScrollTopClearance(topClearance), bottom = StratumSpacing.s12),
         verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
     ) {
         StratumText(

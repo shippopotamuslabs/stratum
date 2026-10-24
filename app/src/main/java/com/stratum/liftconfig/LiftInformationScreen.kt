@@ -35,7 +35,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
-import com.stratum.core.ui.component.MinSegmentHeight
+import com.stratum.core.ui.component.segmentedSwitcherTopClearance
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stratum.core.ui.R as UiR
@@ -151,7 +151,7 @@ fun LiftInformationScreen(
                 selectedIndex = tabs.indexOfFirst { it.first == state.selectedTab }.coerceAtLeast(0),
                 onSelectedIndexChange = { index -> actions.onTabSelected(tabs[index].first) },
             )
-            val tabTopClearance = chrome.top + MinSegmentHeight + StratumSpacing.s12
+            val tabTopClearance = segmentedSwitcherTopClearance(chrome.top)
             when (state.selectedTab) {
                 LiftInfoTab.Instructions -> InstructionsTab(state, topClearance = tabTopClearance)
                 LiftInfoTab.Details ->

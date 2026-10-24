@@ -358,6 +358,40 @@ fun WorkoutScreen(
             )
         },
     ) { chrome ->
+        // Single definitions for both hosts: solid lays them out in a Column,
+        // glass overlays the row above the scrolling list. Same composables,
+        // same order, same modifiers per host — only the container differs.
+        val liftList: @Composable (Modifier) -> Unit = { listModifier ->
+            WorkoutLiftList(
+                lifts = state.lifts,
+                listState = listState,
+                liftHeightsPx = liftHeightsPx,
+                actions = liftListActions,
+                failedLogSlotKey = failedLogSlotKey,
+                onFailedLogConsumed = onFailedLogConsumed,
+                displayUnitEpoch = state.displayUnitEpoch,
+                // Glass only: first panel top = chrome.top + s12 +
+                // navigator height + s12 (the old column's top pad, navigator,
+                // and inter-element gap, in that order). Solid keeps 0.
+                topContentPadding =
+                    if (chrome.active) {
+                        chrome.top + StratumSpacing.s12 + LiftNavigatorRowHeight + StratumSpacing.s12
+                    } else {
+                        0.dp
+                    },
+                modifier = listModifier,
+            )
+        }
+        val navigatorRow: @Composable (Modifier) -> Unit = { rowModifier ->
+            LiftNavigatorRow(
+                lifts = state.lifts,
+                primaryLiftId = selectedLiftId,
+                underlinedLiftIds = underlinedLiftIds,
+                onLiftClick = scrollToLift,
+                onAddLift = actions.onAddLift,
+                modifier = rowModifier,
+            )
+        }
         if (!chrome.active) {
             Column(
                 modifier = Modifier
@@ -366,63 +400,27 @@ fun WorkoutScreen(
                     .padding(vertical = StratumSpacing.s12),
                 verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12)
             ) {
-                LiftNavigatorRow(
-                    lifts = state.lifts,
-                    primaryLiftId = selectedLiftId,
-                    underlinedLiftIds = underlinedLiftIds,
-                    onLiftClick = scrollToLift,
-                    onAddLift = actions.onAddLift,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                navigatorRow(Modifier.fillMaxWidth())
 
-                WorkoutLiftList(
-                    lifts = state.lifts,
-                    listState = listState,
-                    liftHeightsPx = liftHeightsPx,
-                    actions = liftListActions,
-                    failedLogSlotKey = failedLogSlotKey,
-                    onFailedLogConsumed = onFailedLogConsumed,
-                    displayUnitEpoch = state.displayUnitEpoch,
-                    modifier = Modifier
+                liftList(
+                    Modifier
                         .weight(1f)
                         .fillMaxWidth(),
                 )
             }
         } else {
-            // Rest geometry, glass only: first panel top = chrome.top + s12 +
-            // navigator height + s12 (the old column's top pad, navigator, and
-            // inter-element gap, in that order).
-            val navigatorTopPadding = chrome.top + StratumSpacing.s12
-            val listTopPadding =
-                navigatorTopPadding + LiftNavigatorRowHeight + StratumSpacing.s12
             Box(modifier = Modifier.fillMaxSize()) {
-                WorkoutLiftList(
-                    lifts = state.lifts,
-                    listState = listState,
-                    liftHeightsPx = liftHeightsPx,
-                    actions = liftListActions,
-                    failedLogSlotKey = failedLogSlotKey,
-                    onFailedLogConsumed = onFailedLogConsumed,
-                    displayUnitEpoch = state.displayUnitEpoch,
-                    topContentPadding = listTopPadding,
-                    modifier = Modifier.fillMaxSize(),
-                )
+                liftList(Modifier.fillMaxSize())
 
                 // Transparent row over scrolling panels (glaze-under-navigator is
                 // intended: tabs are opaque surfaceSunken/surfaceRaised containers, never
                 // raw text). Declared after the list with zIndex so it stays tappable above it.
-                LiftNavigatorRow(
-                    lifts = state.lifts,
-                    primaryLiftId = selectedLiftId,
-                    underlinedLiftIds = underlinedLiftIds,
-                    onLiftClick = scrollToLift,
-                    onAddLift = actions.onAddLift,
-                    modifier =
-                        Modifier
-                            .align(Alignment.TopStart)
-                            .fillMaxWidth()
-                            .padding(top = navigatorTopPadding)
-                            .zIndex(1f),
+                navigatorRow(
+                    Modifier
+                        .align(Alignment.TopStart)
+                        .fillMaxWidth()
+                        .padding(top = chrome.top + StratumSpacing.s12)
+                        .zIndex(1f),
                 )
             }
         }

@@ -176,8 +176,10 @@ fun CreateProgramScreen(
         },
     ) { chrome ->
         if (state.loadErrorMessage != null) {
+            // Glass: the error text clears the overlay bar like every other
+            // step. Solid hosts keep the in-flow geometry (chrome.top is 0).
             Box(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().padding(top = chrome.top),
                 contentAlignment = Alignment.Center,
             ) {
                 StratumText(
