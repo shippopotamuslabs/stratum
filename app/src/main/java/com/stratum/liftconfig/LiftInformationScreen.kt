@@ -50,6 +50,7 @@ import com.stratum.core.ui.component.StratumTopBarBackButton
 import com.stratum.core.ui.component.UserMessageEffect
 import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
+import com.stratum.core.ui.theme.stratumGlassStripSurface
 
 @Composable
 fun LiftInformationRoute(
@@ -144,17 +145,36 @@ fun LiftInformationScreen(
             // sit flush against its bottom border; the content clearance
             // below follows it down so the s12 rhythm under the switcher
             // (see segmentedSwitcherTopClearance) is preserved.
-            StratumSegmentedControl(
+            // STR-197: the band the switcher sits on is its own glazed strip
+            // (stratumGlassStripSurface, the STR-196 treatment) — NOT part of
+            // the top bar and NOT transparent: the strip spans the full top
+            // clearance the lists already reserve (chrome.top + 2.dp gap +
+            // 48.dp switcher + s12), starting directly under the bar so no
+            // unblurred seam shows between the two glazed surfaces, and the
+            // gaps live INSIDE the strip as padding, so the switcher and the
+            // list geometry do not move. The segments stay opaque; the strip
+            // shows only in the gap, the side margins, and the s12 band below
+            // the switcher. In solid hosts the surface is a no-op and the
+            // strip is invisible, exactly as before.
+            Box(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = StratumSpacing.s16)
-                        .padding(top = chrome.top + 2.dp)
-                        .zIndex(1f),
-                segments = tabs.map { it.second },
-                selectedIndex = tabs.indexOfFirst { it.first == state.selectedTab }.coerceAtLeast(0),
-                onSelectedIndexChange = { index -> actions.onTabSelected(tabs[index].first) },
-            )
+                        .padding(top = chrome.top)
+                        .zIndex(1f)
+                        .stratumGlassStripSurface(),
+            ) {
+                StratumSegmentedControl(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = StratumSpacing.s16)
+                            .padding(top = 2.dp, bottom = StratumSpacing.s12),
+                    segments = tabs.map { it.second },
+                    selectedIndex = tabs.indexOfFirst { it.first == state.selectedTab }.coerceAtLeast(0),
+                    onSelectedIndexChange = { index -> actions.onTabSelected(tabs[index].first) },
+                )
+            }
             val tabTopClearance = segmentedSwitcherTopClearance(chrome.top) + 2.dp
             when (state.selectedTab) {
                 LiftInfoTab.Instructions -> InstructionsTab(state, topClearance = tabTopClearance)
