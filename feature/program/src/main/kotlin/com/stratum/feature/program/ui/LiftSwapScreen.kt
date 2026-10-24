@@ -10,7 +10,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -33,6 +33,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -157,10 +158,12 @@ fun LiftSwapScreen(
         showSelectedPanel = false
     }
 
-    // Glass (§12.8, STR-158): under the route's glass host the top bar overlays
-    // and the panel region below carries the top clearance, so the picker
-    // panels (and their lists) start beneath the glass; the search bottom bar
-    // and IME behavior are untouched. Solid hosts keep the in-flow geometry.
+    // Glass (§12.8, STR-158/STR-191): under the route's glass host the top
+    // bar overlays and each branch carries the top clearance itself — the
+    // picker list (filters included, like GymScreen) via content padding so
+    // rows scroll beneath the glass, the selected panel via its fixed header
+    // column. The slide/fade transition, search bottom bar, and IME behavior
+    // are untouched. Solid hosts keep the in-flow geometry exactly.
     StratumDetailScaffold(
         modifier = modifier.fillMaxSize(),
         snackbarHostState = snackbarHostState,
@@ -227,10 +230,7 @@ fun LiftSwapScreen(
     ) { chrome ->
         AnimatedContent(
             targetState = showSelectedPanel && state.isAddMode,
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .padding(top = chrome.top),
+            modifier = Modifier.fillMaxSize(),
             transitionSpec = {
                 if (targetState) {
                     (slideInVertically { height -> height } + fadeIn()) togetherWith
@@ -247,6 +247,7 @@ fun LiftSwapScreen(
                     state = state,
                     onDeselectLift = onDeselectLift,
                     onAddAsSupersetChanged = onAddAsSupersetChanged,
+                    topClearance = chrome.top,
                     modifier =
                         Modifier
                             .fillMaxSize()
@@ -262,6 +263,7 @@ fun LiftSwapScreen(
                     onLiftClicked = onLiftClicked,
                     onFilterIntent = onFilterIntent,
                     onMuscleFilterClick = { showMuscleSheet = true },
+                    topClearance = chrome.top,
                     modifier =
                         Modifier
                             .fillMaxSize()
@@ -292,96 +294,52 @@ private fun LiftPickerContent(
     onLiftClicked: (LiftSwapOptionState) -> Unit,
     onFilterIntent: (LiftSwapFilterIntent) -> Unit,
     onMuscleFilterClick: () -> Unit,
+    // Glass (§12.8, STR-191): the whole picker — filters included, like
+    // GymScreen — is one LazyColumn carrying the top clearance as content
+    // padding, so rows scroll beneath the glass. The s8 bottom pads preserve
+    // the old column's s16 rhythm (arrangement s8 + pad s8). Solid hosts keep
+    // the in-flow geometry exactly (chrome.top is 0 there).
+    topClearance: Dp = 0.dp,
     modifier: Modifier = Modifier,
 ) {
-    Column(
+    LazyColumn(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
+        contentPadding = PaddingValues(top = topClearance),
+        verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
     ) {
-        FilterDropdownRow(
-            state = state,
-            onFilterIntent = onFilterIntent,
-            onMuscleFilterClick = onMuscleFilterClick,
-        )
+        item(key = "filters") {
+            FilterDropdownRow(
+                state = state,
+                onFilterIntent = onFilterIntent,
+                onMuscleFilterClick = onMuscleFilterClick,
+                modifier = Modifier.padding(bottom = StratumSpacing.s8),
+            )
+        }
 
-        SelectedMusclesRow(
-            selectedMuscles = state.selectedMuscles,
-            onMuscleToggled = { muscle -> onFilterIntent(LiftSwapFilterIntent.ToggleMuscle(muscle)) },
-        )
+        if (state.selectedMuscles.isNotEmpty()) {
+            item(key = "muscles") {
+                SelectedMusclesRow(
+                    selectedMuscles = state.selectedMuscles,
+                    onMuscleToggled = { muscle -> onFilterIntent(LiftSwapFilterIntent.ToggleMuscle(muscle)) },
+                    modifier = Modifier.padding(bottom = StratumSpacing.s8),
+                )
+            }
+        }
 
-        LazyColumn(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
-        ) {
-            if (isDefaultScreen && !state.isAddMode) {
-                val similarLifts = state.options.filter { it.similarity >= SIMILARITY_THRESHOLD }
-                val remainingLifts = state.options.filter { it.similarity < SIMILARITY_THRESHOLD }
+        if (isDefaultScreen && !state.isAddMode) {
+            val similarLifts = state.options.filter { it.similarity >= SIMILARITY_THRESHOLD }
+            val remainingLifts = state.options.filter { it.similarity < SIMILARITY_THRESHOLD }
 
-                if (similarLifts.isNotEmpty()) {
-                    item(key = "header-similar") {
-                        StratumText(
-                            text = "Similar Lifts",
-                            style = StratumThemeAccessor.typography.sectionLabel,
-                            muted = true,
-                            modifier = Modifier.padding(vertical = StratumSpacing.s8),
-                        )
-                    }
-                    items(similarLifts, key = { option -> option.id }) { option ->
-                        LiftSwapOptionRow(
-                            option = option,
-                            selected = option.id in selectedIds,
-                            onClick = { onLiftClicked(option) },
-                        )
-                    }
+            if (similarLifts.isNotEmpty()) {
+                item(key = "header-similar") {
+                    StratumText(
+                        text = "Similar Lifts",
+                        style = StratumThemeAccessor.typography.sectionLabel,
+                        muted = true,
+                        modifier = Modifier.padding(vertical = StratumSpacing.s8),
+                    )
                 }
-
-                if (remainingLifts.isNotEmpty()) {
-                    item(key = "header-all-lifts") {
-                        val rotation by animateFloatAsState(
-                            targetValue = if (allLiftsExpanded) 180f else 0f,
-                            label = "chevronRotation",
-                        )
-                        Row(
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .clickable { onAllLiftsExpandedChange(!allLiftsExpanded) }
-                                    .padding(vertical = StratumSpacing.s8),
-                            horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            StratumText(
-                                text = "All Lifts",
-                                style = StratumThemeAccessor.typography.sectionLabel,
-                                muted = true,
-                            )
-                            Icon(
-                                painter = painterResource(R.drawable.ic_chevron_down),
-                                contentDescription = null,
-                                tint = StratumThemeAccessor.colors.textMuted,
-                                modifier =
-                                    Modifier
-                                        .size(16.dp)
-                                        .rotate(rotation),
-                            )
-                        }
-                    }
-
-                    if (allLiftsExpanded) {
-                        items(remainingLifts, key = { option -> option.id }) { option ->
-                            LiftSwapOptionRow(
-                                option = option,
-                                selected = option.id in selectedIds,
-                                onClick = { onLiftClicked(option) },
-                            )
-                        }
-                    }
-                }
-            } else {
-                items(state.options, key = { option -> option.id }) { option ->
+                items(similarLifts, key = { option -> option.id }) { option ->
                     LiftSwapOptionRow(
                         option = option,
                         selected = option.id in selectedIds,
@@ -390,14 +348,65 @@ private fun LiftPickerContent(
                 }
             }
 
-            if (state.options.isEmpty()) {
-                item(key = "empty-state") {
-                    StratumText(
-                        text = stringResource(R.string.lift_swap_empty),
-                        muted = true,
-                        modifier = Modifier.padding(vertical = StratumSpacing.s24),
+            if (remainingLifts.isNotEmpty()) {
+                item(key = "header-all-lifts") {
+                    val rotation by animateFloatAsState(
+                        targetValue = if (allLiftsExpanded) 180f else 0f,
+                        label = "chevronRotation",
                     )
+                    Row(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable { onAllLiftsExpandedChange(!allLiftsExpanded) }
+                                .padding(vertical = StratumSpacing.s8),
+                        horizontalArrangement = Arrangement.spacedBy(StratumSpacing.s4),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        StratumText(
+                            text = "All Lifts",
+                            style = StratumThemeAccessor.typography.sectionLabel,
+                            muted = true,
+                        )
+                        Icon(
+                            painter = painterResource(R.drawable.ic_chevron_down),
+                            contentDescription = null,
+                            tint = StratumThemeAccessor.colors.textMuted,
+                            modifier =
+                                Modifier
+                                    .size(16.dp)
+                                    .rotate(rotation),
+                        )
+                    }
                 }
+
+                if (allLiftsExpanded) {
+                    items(remainingLifts, key = { option -> option.id }) { option ->
+                        LiftSwapOptionRow(
+                            option = option,
+                            selected = option.id in selectedIds,
+                            onClick = { onLiftClicked(option) },
+                        )
+                    }
+                }
+            }
+        } else {
+            items(state.options, key = { option -> option.id }) { option ->
+                LiftSwapOptionRow(
+                    option = option,
+                    selected = option.id in selectedIds,
+                    onClick = { onLiftClicked(option) },
+                )
+            }
+        }
+
+        if (state.options.isEmpty()) {
+            item(key = "empty-state") {
+                StratumText(
+                    text = stringResource(R.string.lift_swap_empty),
+                    muted = true,
+                    modifier = Modifier.padding(vertical = StratumSpacing.s24),
+                )
             }
         }
     }
@@ -408,12 +417,17 @@ private fun SelectedLiftsPanel(
     state: LiftSwapSheetState,
     onDeselectLift: (String) -> Unit,
     onAddAsSupersetChanged: (Boolean) -> Unit,
+    // Glass (§12.8, STR-191): forwarded to the panel's fixed header region
+    // (the switch + title sit in-flow above its list, so they clear the bar
+    // via the column — the list viewport starts below them).
+    topClearance: Dp = 0.dp,
     modifier: Modifier = Modifier,
 ) {
     SelectedLiftsListPanel(
         selectedOptions = state.selectedOptions,
         onDeselectLift = onDeselectLift,
         modifier = modifier,
+        topClearance = topClearance,
         header =
             if (state.isAddMode && state.selectedOptions.size >= 2) {
                 {

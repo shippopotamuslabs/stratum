@@ -212,11 +212,13 @@ private fun OnboardingWizard(
     modifier: Modifier = Modifier,
     snackbarHostState: SnackbarHostState? = null,
 ) {
-    // Glass (§12.8, STR-161): under the route's glass host the top bar overlays
-    // and the wizard column sits in the region beneath it; the step screens
-    // inside are untouched, so their screenshot states stay stable. The bar's
-    // bottom slot (the stepper) is declared so the clearance covers the
-    // whole bar. Solid hosts keep the in-flow geometry exactly.
+    // Glass (§12.8, STR-161/STR-192): under the route's glass host the top bar
+    // overlays and each step screen carries the top clearance itself, inside
+    // its own scroll (STR-191 idiom), so step content scrolls beneath the
+    // glass. The bar's bottom slot (the stepper) is declared so the clearance
+    // covers the whole bar; WizardControls stay fixed and
+    // ONBOARDING_STEPPER_SLOT_HEIGHT is unchanged. Solid hosts keep the
+    // in-flow geometry exactly.
     StratumDetailScaffold(
         modifier = modifier.fillMaxSize(),
         snackbarHostState = snackbarHostState,
@@ -238,13 +240,14 @@ private fun OnboardingWizard(
             )
         },
     ) { chrome ->
-        Column(modifier = Modifier.fillMaxSize().padding(top = chrome.top)) {
+        Column(modifier = Modifier.fillMaxSize()) {
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 when (state.step.id) {
                     WIZARD_STEP_PROFILE -> ProfileScreen(
                         draft = state.profileDraft,
                         onTrainingAgeSelected = profileSchedule.onTrainingAgeSelected,
                         onLastTrainedSelected = profileSchedule.onLastTrainedSelected,
+                        topClearance = chrome.top,
                     )
                     WIZARD_STEP_SCHEDULE -> ScheduleScreen(
                         draft = state.scheduleDraft,
@@ -253,15 +256,18 @@ private fun OnboardingWizard(
                         onCustomSessionMinutesChange = profileSchedule.onCustomSessionMinutesChange,
                         onSixDayCycleLengthSelected = profileSchedule.onSixDayCycleLengthSelected,
                         onTrainingSlotToggled = profileSchedule.onTrainingSlotToggled,
+                        topClearance = chrome.top,
                     )
                     WIZARD_STEP_SPECIALIZATION -> SpecializationScreen(
                         draft = state.specializationDraft,
                         onMuscleToggled = onMuscleToggled,
+                        topClearance = chrome.top,
                     )
                     WIZARD_STEP_MINIMUM_VOLUME -> MinimumVolumeScreen(
                         draft = state.minimumVolumeDraft,
                         onMuscleToggled = minimumVolume.onMuscleToggled,
                         onSuggestedMuscleToggled = minimumVolume.onSuggestedMuscleToggled,
+                        topClearance = chrome.top,
                     )
                     WIZARD_STEP_GYM_AND_LIFTS -> GymAndLiftOnboardingSetupScreen(
                         draft = state.gymLiftsDraft,
@@ -271,6 +277,7 @@ private fun OnboardingWizard(
                         onImportCancel = onImportCancel,
                         appWeightUnitIsKg = state.appWeightUnitIsKg,
                         onAppWeightUnitSelected = gymLifts.onAppWeightUnitSelected,
+                        topClearance = chrome.top,
                     )
                     WIZARD_STEP_REVIEW -> ReviewScreen(
                         draft = state.reviewDraft,
@@ -283,11 +290,13 @@ private fun OnboardingWizard(
                         generateErrorMessage = state.generateErrorMessage,
                         importProgramState = state.importProgramState,
                         importMaxTimelineIndex = state.importMaxTimelineIndex,
+                        topClearance = chrome.top,
                     )
                     WIZARD_STEP_CHOOSE_PATH -> ChoosePathScreen(
                         onSelectGenerate = pathHandlers.onSelectGenerate,
                         onSelectScratch = pathHandlers.onSelectScratch,
                         onSelectImport = pathHandlers.onSelectImport,
+                        topClearance = chrome.top,
                     )
                 }
             }

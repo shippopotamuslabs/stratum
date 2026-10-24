@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R
 import com.stratum.core.ui.component.InvalidDurationInput
@@ -59,13 +60,18 @@ fun SchedulePreferencesScreen(
     modifier: Modifier = Modifier,
     onSixDayCycleLengthSelected: (Int) -> Unit = {},
     onTrainingSlotToggled: (Int) -> Unit = {},
+    // Glass (§12.8): added inside the scroll (padding sits after
+    // verticalScroll in the chain), so content scrolls beneath the bar.
+    // 0 keeps other hosts (onboarding) unchanged.
+    topClearance: Dp = 0.dp,
 ) {
     Column(
         modifier =
             modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12),
+                .padding(horizontal = StratumSpacing.s16)
+                .padding(top = inScrollTopClearance(topClearance), bottom = StratumSpacing.s12),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         TrainingDayCountSection(

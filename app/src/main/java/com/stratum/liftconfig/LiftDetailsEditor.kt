@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R as UiR
 import com.stratum.core.ui.component.MuscleFilterBottomSheet
@@ -130,6 +131,14 @@ fun LiftDetailsEditor(
     state: LiftDetailsEditorState,
     actions: LiftDetailsEditorActions,
     modifier: Modifier = Modifier,
+    // Glass (§12.8, STR-192): one geometry decision shared by Lift
+    // Information (Details tab, header null) and Create Lift (name field as
+    // header). The clearance is the list's top content padding so the form
+    // scrolls beneath the glass bar; the header rides inside the first item
+    // (s12 rhythm) so the header-to-muscles gap matches the fixed-header
+    // geometry exactly. 0 / null keeps hosts unchanged.
+    topClearance: Dp = 0.dp,
+    header: @Composable (() -> Unit)? = null,
 ) {
     LiftDetailsEditorContent(
         state = state,
@@ -138,6 +147,8 @@ fun LiftDetailsEditor(
         onRemoveMuscle = actions.onRemoveMuscle,
         onOpenDetailEditor = actions.onOpenDetailEditor,
         modifier = modifier,
+        topClearance = topClearance,
+        header = header,
     )
 
     if (state.showAddMuscleSheet && state.canEdit) {
@@ -226,6 +237,8 @@ private fun LiftDetailsEditorContent(
     onRemoveMuscle: (MuscleGroup) -> Unit,
     onOpenDetailEditor: (LiftDetailEditField) -> Unit,
     modifier: Modifier = Modifier,
+    topClearance: Dp = 0.dp,
+    header: @Composable (() -> Unit)? = null,
 ) {
     val colors = StratumThemeAccessor.colors
     val shapes = StratumThemeAccessor.shapes
@@ -299,10 +312,17 @@ private fun LiftDetailsEditorContent(
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(20.dp),
-        contentPadding = PaddingValues(bottom = StratumSpacing.s24),
+        contentPadding =
+            PaddingValues(
+                start = StratumSpacing.s16,
+                end = StratumSpacing.s16,
+                top = topClearance,
+                bottom = StratumSpacing.s24,
+            ),
     ) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12)) {
+                header?.invoke()
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,

@@ -34,6 +34,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R
 import com.stratum.core.ui.theme.StratumColors
@@ -244,5 +245,18 @@ private fun segmentBackground(
     else -> colors.surfaceRaised
 }
 
+/**
+ * Fixed height of the connected segment bar (§12.8): the bar is exactly this
+ * tall, so overlay hosts (STR-192) can reserve it in scrollable content
+ * padding without measuring.
+ */
 private val MinSegmentHeight = 48.dp
 private val ModifiedDotSize = 6.dp
+
+/**
+ * In-scroll top clearance for content scrolled beneath an overlaid [StratumSegmentedControl]
+ * (§12.8, STR-192): glass bar clearance + the fixed switcher height + one rhythm step, so the
+ * first row starts below the switcher and glazes beneath the glass. Solid hosts keep the
+ * in-flow geometry exactly ([chromeTop] is 0 there).
+ */
+fun segmentedSwitcherTopClearance(chromeTop: Dp): Dp = chromeTop + MinSegmentHeight + StratumSpacing.s12

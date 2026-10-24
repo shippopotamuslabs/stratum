@@ -665,9 +665,14 @@ fun SelectedLiftsListPanel(
     onDeselectLift: (String) -> Unit,
     modifier: Modifier = Modifier,
     header: @Composable (() -> Unit)? = null,
+    // Glass (§12.8): top clearance for the panel's fixed header region. The
+    // header sits in-flow above the list, so the clearance belongs on the
+    // column — not the list's contentPadding — or the header would slide
+    // under the glass bar. 0 keeps solid hosts pixel-identical.
+    topClearance: Dp = 0.dp,
 ) {
     Column(
-        modifier = modifier,
+        modifier = modifier.padding(top = topClearance),
         verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
     ) {
         header?.invoke()

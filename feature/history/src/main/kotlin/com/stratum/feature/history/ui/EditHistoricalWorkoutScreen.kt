@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -58,10 +57,11 @@ fun EditHistoricalWorkoutScreen(
         showDiscardDialog = true
     }
 
-    // Glass (§12.8, STR-159): under the route's glass host the top bar overlays
-    // and the set-logging region below carries the top clearance — the
-    // keyboard host and overlay dock inside it are untouched, so set fields
-    // never pass behind the glass. Solid hosts keep the in-flow geometry.
+    // Glass (§12.8, STR-159/STR-189): under the route's glass host the top
+    // bar overlays and the set-logging LazyColumn carries the top clearance
+    // as content padding, so lift panels scroll beneath the glass. The
+    // keyboard host and overlay dock inside it are untouched. Solid hosts
+    // keep the in-flow geometry exactly (chrome.top is 0 there).
     StratumDetailScaffold(
         modifier = modifier,
         snackbarHostState = snackbarHostState,
@@ -124,11 +124,7 @@ fun EditHistoricalWorkoutScreen(
                 val deleteSetCd = stringResource(R.string.history_edit_delete_set)
                 val listState = rememberLazyListState()
                 ProvideSetLogKeyboardHost(
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .padding(top = chrome.top)
-                            .padding(vertical = StratumSpacing.s12),
+                    modifier = Modifier.fillMaxSize(),
                 ) { listModifier ->
                     val keyboardHost = LocalSetLogKeyboardHost.current
                     val dockHeightDp =
@@ -140,7 +136,11 @@ fun EditHistoricalWorkoutScreen(
                     LazyColumn(
                         state = listState,
                         modifier = listModifier,
-                        contentPadding = PaddingValues(bottom = dockHeightDp),
+                        contentPadding =
+                            PaddingValues(
+                                top = chrome.top + StratumSpacing.s12,
+                                bottom = dockHeightDp + StratumSpacing.s12,
+                            ),
                         verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
                     ) {
                         items(state.lifts, key = { it.key }) { lift ->

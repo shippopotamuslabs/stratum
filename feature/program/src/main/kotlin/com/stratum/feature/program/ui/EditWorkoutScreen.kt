@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.activity.compose.BackHandler
@@ -321,7 +322,7 @@ fun EditWorkoutScreen(
                         onRirClick = { set -> rirSheetSet = set },
                         onShowLiftActions = { liftId -> liftActionsLiftId = liftId },
                         onShowProgressionSchemeInfo = { showProgressionSchemeExplainer = true },
-                        modifier = Modifier.padding(top = chrome.top),
+                        topClearance = chrome.top,
                         dockHost = dockHost,
                         showStartWorkout = showStartWorkout,
                         isStarting = isStarting,
@@ -451,6 +452,10 @@ internal fun EditWorkoutEmbeddedContent(
     callbacks: EditWorkoutScreenCallbacks,
     modifier: Modifier = Modifier,
     showVolume: Boolean = false,
+    // Glass (§12.8): forwarded into the list's content padding so embedded
+    // content can scroll beneath an overlaying host bar. 0 keeps existing
+    // hosts (whose fixed chrome sits above the list) unchanged.
+    topClearance: Dp = 0.dp,
 ) {
     var rirSheetSet by remember { mutableStateOf<EditSetState?>(null) }
     var liftActionsLiftId by remember { mutableStateOf<String?>(null) }
@@ -477,6 +482,7 @@ internal fun EditWorkoutEmbeddedContent(
             modifier = listModifier,
             showVolume = showVolume,
             dockHost = dockHost,
+            topClearance = topClearance,
         )
     }
 
@@ -522,6 +528,11 @@ internal fun EditWorkoutContent(
     onShowProgressionSchemeInfo: () -> Unit,
     dockHost: EditWorkoutDockHostState,
     modifier: Modifier = Modifier,
+    // Glass (§12.8, STR-191): list carries the top clearance as content
+    // padding, so cards scroll beneath the glass. Solid hosts keep the
+    // in-flow geometry exactly (chrome.top is 0 there). Embedded hosts
+    // keep s16-only unless they pass their own clearance.
+    topClearance: Dp = 0.dp,
     showVolume: Boolean = true,
     showStartWorkout: Boolean = false,
     isStarting: Boolean = false,
@@ -543,7 +554,7 @@ internal fun EditWorkoutContent(
         modifier = modifier,
         contentPadding =
             PaddingValues(
-                top = StratumSpacing.s16,
+                top = StratumSpacing.s16 + topClearance,
                 bottom = StratumSpacing.s16 + dockHeightDp,
             ),
         verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),

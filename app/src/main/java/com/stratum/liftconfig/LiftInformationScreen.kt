@@ -32,7 +32,10 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
+import com.stratum.core.ui.component.segmentedSwitcherTopClearance
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stratum.core.ui.R as UiR
@@ -111,9 +114,14 @@ fun LiftInformationScreen(
             LiftInfoTab.Details to stringResource(UiR.string.lift_info_tab_details),
             LiftInfoTab.History to stringResource(UiR.string.lift_info_tab_history),
         )
-    // Glass (§12.8, STR-160): under the route's glass host the top bar overlays
-    // and the tab column sits in the region beneath it. Solid hosts keep the
-    // in-flow geometry exactly.
+    // Glass (§12.8, STR-160/STR-192): under the route's glass host the top bar
+    // overlays and each tab list owns the full viewport — the whole top
+    // clearance (bar + fixed switcher + rhythm) is the list's top content
+    // padding, so rows scroll beneath the glass bar AND the switcher. The
+    // switcher overlays the list (opaque segments, fixed 48.dp height, so
+    // nothing shows through and no measuring is needed) and stays fixed for
+    // tab switching. Solid hosts (chrome.top = 0) reproduce the in-flow
+    // geometry exactly.
     StratumDetailScaffold(
         modifier = modifier,
         snackbarHostState = snackbarHostState,
@@ -129,22 +137,23 @@ fun LiftInformationScreen(
             )
         },
     ) { chrome ->
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .padding(top = chrome.top)
-                    .padding(horizontal = StratumSpacing.s16),
-            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
-        ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Composed first so accessibility traversal reaches the switcher
+            // before the list; zIndex keeps it painted above scrolling rows.
             StratumSegmentedControl(
-                modifier = Modifier.fillMaxWidth(),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = StratumSpacing.s16)
+                        .padding(top = chrome.top)
+                        .zIndex(1f),
                 segments = tabs.map { it.second },
                 selectedIndex = tabs.indexOfFirst { it.first == state.selectedTab }.coerceAtLeast(0),
                 onSelectedIndexChange = { index -> actions.onTabSelected(tabs[index].first) },
             )
+            val tabTopClearance = segmentedSwitcherTopClearance(chrome.top)
             when (state.selectedTab) {
-                LiftInfoTab.Instructions -> InstructionsTab(state)
+                LiftInfoTab.Instructions -> InstructionsTab(state, topClearance = tabTopClearance)
                 LiftInfoTab.Details ->
                     LiftDetailsEditor(
                         state = state.details,
@@ -166,12 +175,14 @@ fun LiftInformationScreen(
                                 onRestDraftChange = actions.onRestDraftChange,
                                 onSaveDefaultRest = actions.onSaveDefaultRest,
                             ),
-                        modifier = Modifier.weight(1f),
+                        topClearance = tabTopClearance,
+                        modifier = Modifier.fillMaxSize(),
                     )
                 LiftInfoTab.History ->
                     HistoryTab(
                         state = state,
                         onSessionExpandedToggled = actions.onSessionExpandedToggled,
+                        topClearance = tabTopClearance,
                     )
             }
         }
@@ -179,11 +190,20 @@ fun LiftInformationScreen(
 }
 
 @Composable
-private fun InstructionsTab(state: LiftInformationUiState) {
+private fun InstructionsTab(
+    state: LiftInformationUiState,
+    topClearance: Dp = 0.dp,
+) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
-        contentPadding = PaddingValues(bottom = StratumSpacing.s24),
+        contentPadding =
+            PaddingValues(
+                start = StratumSpacing.s16,
+                end = StratumSpacing.s16,
+                top = topClearance,
+                bottom = StratumSpacing.s24,
+            ),
     ) {
         if (state.imageUrls.isEmpty()) {
             item {
@@ -232,13 +252,20 @@ private fun FormattedDescription(text: String) {
 private fun HistoryTab(
     state: LiftInformationUiState,
     onSessionExpandedToggled: (String) -> Unit,
+    topClearance: Dp = 0.dp,
 ) {
     val colors = StratumThemeAccessor.colors
     val shapes = StratumThemeAccessor.shapes
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
-        contentPadding = PaddingValues(bottom = StratumSpacing.s24),
+        contentPadding =
+            PaddingValues(
+                start = StratumSpacing.s16,
+                end = StratumSpacing.s16,
+                top = topClearance,
+                bottom = StratumSpacing.s24,
+            ),
     ) {
         item {
             HistoryPersonalRecordCard(personalRecord = state.personalRecord)

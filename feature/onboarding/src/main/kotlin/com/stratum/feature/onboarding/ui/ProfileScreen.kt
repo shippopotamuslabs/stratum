@@ -14,8 +14,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.component.StratumChoiceGroup
+import com.stratum.core.ui.trainingsetup.inScrollTopClearance
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
@@ -33,13 +35,18 @@ fun ProfileScreen(
     onTrainingAgeSelected: (String?) -> Unit,
     onLastTrainedSelected: (String?) -> Unit,
     modifier: Modifier = Modifier,
+    // Glass (§12.8, STR-192): added inside the scroll (padding sits after
+    // verticalScroll in the chain), so content scrolls beneath the bar.
+    // 0 keeps other hosts unchanged.
+    topClearance: Dp = 0.dp,
 ) {
     Column(
         modifier =
             modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12),
+                .padding(horizontal = StratumSpacing.s16)
+                .padding(top = inScrollTopClearance(topClearance), bottom = StratumSpacing.s12),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         Section(label = stringResource(R.string.profile_training_age_heading)) {
