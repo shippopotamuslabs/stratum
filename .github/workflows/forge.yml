@@ -1,0 +1,19 @@
+name: Forge Review
+
+# Forge consolidated code review (forge-reviewer reusable workflow).
+# One review per PR from PR-Agent + the two Thermos lenses, fused by
+# the master job; re-pushes run verification instead of a new review.
+# Requires repo secrets: OPENROUTER_API_KEY, FORGE_APP_PRIVATE_KEY.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  forge-review:
+    uses: shippopotamuslabs/forge-reviewer/.github/workflows/forge-review.yml@feat/github-reusable-workflow
+    secrets: inherit
