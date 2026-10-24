@@ -40,7 +40,7 @@ class RefreshWeeklySeriesUseCaseTest {
         liftRepo.seedLifts(listOf(lift(liftId, MuscleGroup.Chest)))
         val weekStart = Instant.parse("2025-05-05T00:00:00Z") // Monday
         val repo = FakeTrainingLogRepository()
-        val session = WorkoutLoggingFixtures.completedLiveSession(id = "s1").copy(startedAt = weekStart)
+        val session = WorkoutLoggingFixtures.completedLiveSession(id = "s1").copy(startedAt = weekStart, endedAt = weekStart.plusSeconds(3600))
         repo.seedSession(session)
         // A hard set (RIR 2) and a warmup (RIR 5) on the same day.
         repo.seedSet(set(liftId, "hard", session.id, weekStart, rir = 2, weight = 200.0))
@@ -76,7 +76,7 @@ class RefreshWeeklySeriesUseCaseTest {
         )
         val weekStart = Instant.parse("2025-05-05T00:00:00Z")
         val repo = FakeTrainingLogRepository()
-        val session = WorkoutLoggingFixtures.completedLiveSession(id = "s1").copy(startedAt = weekStart)
+        val session = WorkoutLoggingFixtures.completedLiveSession(id = "s1").copy(startedAt = weekStart, endedAt = weekStart.plusSeconds(3600))
         repo.seedSession(session)
         repo.seedSet(set(benchId, "set-1", session.id, weekStart, rir = 2, weight = 200.0))
         val useCase = buildUseCase(repo, liftRepo)
@@ -96,8 +96,8 @@ class RefreshWeeklySeriesUseCaseTest {
         val w1 = Instant.parse("2025-05-05T10:00:00Z") // Monday week 1
         val w2 = Instant.parse("2025-05-12T10:00:00Z") // Monday week 2
         val repo = FakeTrainingLogRepository()
-        val s1 = WorkoutLoggingFixtures.completedLiveSession(id = "s1").copy(startedAt = w1)
-        val s2 = WorkoutLoggingFixtures.completedLiveSession(id = "s2").copy(startedAt = w2)
+        val s1 = WorkoutLoggingFixtures.completedLiveSession(id = "s1").copy(startedAt = w1, endedAt = w1.plusSeconds(3600))
+        val s2 = WorkoutLoggingFixtures.completedLiveSession(id = "s2").copy(startedAt = w2, endedAt = w2.plusSeconds(3600))
         repo.seedSession(s1)
         repo.seedSession(s2)
         repo.seedSet(set(liftId, "a", s1.id, w1, rir = 2, weight = 200.0))
@@ -120,7 +120,7 @@ class RefreshWeeklySeriesUseCaseTest {
         liftRepo.seedLifts(listOf(lift(liftId, MuscleGroup.Chest)))
         val weekStart = Instant.parse("2025-05-05T00:00:00Z")
         val repo = FakeTrainingLogRepository()
-        val session = WorkoutLoggingFixtures.completedLiveSession(id = "s1").copy(startedAt = weekStart)
+        val session = WorkoutLoggingFixtures.completedLiveSession(id = "s1").copy(startedAt = weekStart, endedAt = weekStart.plusSeconds(3600))
         repo.seedSession(session)
         repo.seedSet(set(liftId, "set-1", session.id, weekStart, rir = 2, weight = 200.0))
         // Pre-seed some epochs to confirm replaceWeeklySeries doesn't clobber them.

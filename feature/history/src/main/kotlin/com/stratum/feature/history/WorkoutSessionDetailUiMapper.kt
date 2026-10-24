@@ -25,7 +25,7 @@ internal object WorkoutSessionDetailUiMapper {
         zoneId: ZoneId = ZoneId.systemDefault(),
     ): WorkoutSessionDetailUiState.Loaded {
         val startZoned = detail.startedAt.atZone(zoneId)
-        val endZoned = (detail.endedAt ?: detail.startedAt).atZone(zoneId)
+        val endZoned = detail.completedAt.atZone(zoneId)
         return WorkoutSessionDetailUiState.Loaded(
             workoutName = detail.workoutName,
             startDate = startZoned.toLocalDate(),

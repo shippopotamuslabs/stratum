@@ -29,7 +29,7 @@ object HealthConnectExerciseMapper {
         if (sets.isEmpty()) return emptyList()
 
         val sessionStart = session.startedAt
-        val sessionEnd = session.endedAt ?: sessionEndFallback
+        val sessionEnd = session.endOr(sessionEndFallback)
         require(sessionStart.isBefore(sessionEnd)) {
             "session startTime must be before endTime for Health Connect segments"
         }

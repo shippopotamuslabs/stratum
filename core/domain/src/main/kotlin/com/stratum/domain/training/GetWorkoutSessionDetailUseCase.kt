@@ -33,11 +33,8 @@ class GetWorkoutSessionDetailUseCase @Inject constructor(
                 TAG,
                 IllegalStateException("Training session ${sessionId.value} not found"),
             )
-        if (session.status != TrainingSessionStatus.COMPLETED) {
-            return loggingPort.expectedFailure(
-                TAG,
-                IllegalArgumentException("Training session ${sessionId.value} is not completed"),
-            )
+        runCatching { session.requireCompleted() }.getOrElse {
+            return loggingPort.expectedFailure(TAG, it)
         }
         val loggedSets = loaded.second.sortedWith(compareBy({ it.setIndex }, { it.completedAt }))
         if (loggedSets.isEmpty()) {
@@ -47,7 +44,7 @@ class GetWorkoutSessionDetailUseCase @Inject constructor(
             )
         }
         return runCatchingLogged(loggingPort, TAG, "Failed to load workout session detail") {
-            val completedAt = session.endedAt ?: session.startedAt
+            val completedAt = session.completedAt
             val durationMillis =
                 (completedAt.toEpochMilli() - session.startedAt.toEpochMilli()).coerceAtLeast(0)
             val program = programRepository.getProgram()

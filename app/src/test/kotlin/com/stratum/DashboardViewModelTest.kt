@@ -191,7 +191,10 @@ class DashboardViewModelTest {
         )
         val firstSetAt = now.minus(70, ChronoUnit.DAYS)
         val trainingLog = FakeTrainingLogRepository()
-        val session = WorkoutLoggingFixtures.completedLiveSession(id = "s1").copy(startedAt = firstSetAt)
+        val session = WorkoutLoggingFixtures.completedLiveSession(id = "s1").copy(
+            startedAt = firstSetAt,
+            endedAt = firstSetAt.plusSeconds(3600),
+        )
         val set = WorkoutLoggingFixtures.loggedSet(id = "set-1", sessionId = session.id).copy(
             liftId = benchId,
             completedAt = firstSetAt,

@@ -65,7 +65,7 @@ class HealthConnectManager @Inject constructor(
 
         val client = HealthConnectClient.getOrCreate(context)
         val startTime = session.startedAt
-        val endTime = session.endedAt ?: Instant.now()
+        val endTime = session.liveEnd()
         val zoneId = ZoneId.systemDefault()
         val startOffset = zoneId.rules.getOffset(startTime)
         val endOffset = zoneId.rules.getOffset(endTime)

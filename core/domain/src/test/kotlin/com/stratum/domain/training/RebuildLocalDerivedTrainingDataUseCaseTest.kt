@@ -31,7 +31,7 @@ class RebuildLocalDerivedTrainingDataUseCaseTest {
         liftRepo.seedLifts(listOf(lift(liftId, MuscleGroup.Chest)))
         val weekStart = Instant.parse("2025-05-05T00:00:00Z")
         val logRepo = FakeTrainingLogRepository()
-        val session = WorkoutLoggingFixtures.completedLiveSession(id = "s1").copy(startedAt = weekStart)
+        val session = WorkoutLoggingFixtures.completedLiveSession(id = "s1").copy(startedAt = weekStart, endedAt = weekStart.plusSeconds(3600))
         logRepo.seedSession(session)
         logRepo.seedSet(
             LoggedSet(

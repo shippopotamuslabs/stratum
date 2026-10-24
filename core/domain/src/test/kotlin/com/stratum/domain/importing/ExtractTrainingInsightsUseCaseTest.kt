@@ -118,6 +118,7 @@ class ExtractTrainingInsightsUseCaseTest {
         val liveSessions = (1..5).map { index ->
             WorkoutLoggingFixtures.completedLiveSession(id = "live-$index").copy(
                 startedAt = t0.plusSeconds((index + 10) * 86_400L),
+                endedAt = t0.plusSeconds((index + 10) * 86_400L + 3600),
             )
         }
         val liveSets = buildList {

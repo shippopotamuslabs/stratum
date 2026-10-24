@@ -89,8 +89,8 @@ class ResponseModelingWork @Inject constructor(
 
     companion object {
         /**
-         * Completed program/ad-hoc sessions strictly after [since] (by [TrainingSession.endedAt],
-         * falling back to [TrainingSession.startedAt]). Rest days do not count.
+         * Completed program/ad-hoc sessions strictly after [since] (by
+         * [TrainingSession.completedAt]). Rest days do not count.
          */
         fun countCompletedWorkoutsSince(
             sessions: List<TrainingSession>,
@@ -99,7 +99,7 @@ class ResponseModelingWork @Inject constructor(
             sessions.count { session ->
                 session.status == TrainingSessionStatus.COMPLETED &&
                     session.kind != TrainingSessionKind.REST_DAY &&
-                    (session.endedAt ?: session.startedAt).isAfter(since)
+                    session.completedAt.isAfter(since)
             }
     }
 }

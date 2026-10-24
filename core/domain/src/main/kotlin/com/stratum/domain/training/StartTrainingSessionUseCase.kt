@@ -45,36 +45,28 @@ class StartTrainingSessionUseCase @Inject constructor(
                                 .filterIsInstance<CycleSlot.Training>()
                                 .firstOrNull { it.workout.id == request.workoutId }
                                 ?.slotIndex
-                        TrainingSession(
+                        TrainingSession.started(
                             id = TrainingSessionId(UUID.randomUUID().toString()),
                             programId = program.id,
                             workoutId = request.workoutId,
-                            status = TrainingSessionStatus.IN_PROGRESS,
                             kind = TrainingSessionKind.PROGRAM_WORKOUT,
-                            origin = TrainingSessionOrigin.LIVE,
                             cycleNumberSnapshot = program.currentCycleNumber,
                             weekdaySnapshot = workout.weekday,
                             cycleSlotIndexSnapshot = slotIndex,
                             startedAt = now,
-                            endedAt = null,
-                            sourceApp = null,
                             programNameSnapshot = program.name,
                             workoutNameSnapshot = workout.name,
                         )
                     }
                     StartTrainingSessionRequest.AdHocEmpty ->
-                        TrainingSession(
+                        TrainingSession.started(
                             id = TrainingSessionId(UUID.randomUUID().toString()),
                             programId = program.id,
                             workoutId = null,
-                            status = TrainingSessionStatus.IN_PROGRESS,
                             kind = TrainingSessionKind.AD_HOC,
-                            origin = TrainingSessionOrigin.LIVE,
                             cycleNumberSnapshot = program.currentCycleNumber,
                             weekdaySnapshot = null,
                             startedAt = now,
-                            endedAt = null,
-                            sourceApp = null,
                             programNameSnapshot = program.name,
                             // Stable label for bar / history / notifications (no program workout row).
                             workoutNameSnapshot = AD_HOC_WORKOUT_NAME,

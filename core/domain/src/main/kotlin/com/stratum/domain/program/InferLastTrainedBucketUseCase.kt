@@ -22,7 +22,7 @@ class InferLastTrainedBucketUseCase @Inject constructor(
             trainingLogRepository.getAllSessions()
                 .asSequence()
                 .filter { session -> session.status == TrainingSessionStatus.COMPLETED }
-                .mapNotNull { session -> session.endedAt ?: session.startedAt }
+                .map { session -> session.completedAt }
                 .maxOrNull()
         if (latestEnded == null) {
             return fallback ?: LastTrainedBucket.Never
