@@ -39,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -232,11 +233,13 @@ fun WorkoutScreen(
         onSetLoggedConsumed()
     }
 
-    // Pick the lift whose top edge is closest to the list viewport top (not "first fully pinned").
+    // Pick the lift whose top edge is closest to the pin line (not "first fully pinned").
+    // The pin line is beforeContentPadding (STR-193): item offsets are physical, so under
+    // the navigator overlay the line sits one top-content-padding below zero.
     val primaryVisibleLiftId by remember(state.lifts) {
         derivedStateOf {
             val liftKeys = state.lifts.map { it.workoutLiftId }.toSet()
-            val threshold = listState.layoutInfo.viewportStartOffset
+            val threshold = listState.layoutInfo.beforeContentPadding
             primaryLiftIdFromScroll(
                 visibleItems = listState.layoutInfo.visibleItemsInfo.mapNotNull { info ->
                     val key = info.key as? String ?: return@mapNotNull null
@@ -274,11 +277,41 @@ fun WorkoutScreen(
         return
     }
 
-    // Glass (§12.8, STR-157): under the route's glass host the top bar overlays and
-    // the content column below carries the top clearance, so the navigator row and
-    // the lift list start beneath the glass; the list's own scroll geometry (pin
-    // math, dock padding) is untouched and set-logging text never passes behind
-    // the bar. Solid hosts (Neo, previews) keep the in-flow geometry exactly.
+    // Glass (§12.8, STR-157/STR-193) DIRECTED GEOMETRY: under the route's glass host
+    // the top bar overlays, the lift list fills the full viewport with the whole top
+    // clearance as content padding, and the navigator row overlays the list — so panels
+    // glaze beneath the glass AND beneath the navigator. Never haze behind set-logging
+    // text: lift panels are opaque StratumEdgeToEdgeCard (surfaceRaised) containers, and
+    // auto-scroll pins panels BELOW the navigator + bar (pin target = beforeContentPadding),
+    // so editable set fields only cross the top edge transiently mid-scroll; the keyboard
+    // dock is untouched. Solid hosts (Neo, previews) keep the pre-STR-193 in-flow
+    // Column geometry exactly: the Box overlay makes the list viewport taller even
+    // when glass is inactive, revealing the Add Lift footer, so solid must not share
+    // the overlay path even though chrome.top is 0 there.
+    val liftListActions =
+        WorkoutLiftListActions(
+            onLogSet = handleLogSet,
+            onUnlogSet = actions.onUnlogSet,
+            onAddSet = actions.onAddSet,
+            onDeleteSet = actions.onDeleteSet,
+            onSetSetKind = actions.onSetSetKind,
+            onShowLiftActions = {
+                liftSheetMode = LiftOptionsSheetMode.Options
+                liftActionsLiftId = it
+            },
+            onOpenManageNotes = { workoutLiftId, tab ->
+                liftSheetMode = LiftOptionsSheetMode.ManageNotes(tab)
+                liftActionsLiftId = workoutLiftId
+            },
+            // Pill tap only emits the card id; the route resolves the seeded
+            // request before navigating. Opening the editor leaves the chip
+            // visible: only the X affordance or a real tier save quiets it.
+            onAdjustEquipment = actions.onAdjustEquipmentTap,
+            onDismissEquipmentAdjust = actions.onDismissEquipmentAdjust,
+            onEquipmentSwapClick = actions.onEquipmentSwapClick,
+            onAddLift = actions.onAddLift,
+            onDiscardClick = { showDiscardDialog = true },
+        )
     StratumDetailScaffold(
         modifier = modifier,
         snackbarHostState = snackbarHostState,
@@ -325,57 +358,73 @@ fun WorkoutScreen(
             )
         },
     ) { chrome ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(top = chrome.top)
-                .padding(vertical = StratumSpacing.s12),
-            verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12)
-        ) {
-            LiftNavigatorRow(
-                lifts = state.lifts,
-                primaryLiftId = selectedLiftId,
-                underlinedLiftIds = underlinedLiftIds,
-                onLiftClick = scrollToLift,
-                onAddLift = actions.onAddLift,
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            WorkoutLiftList(
-                lifts = state.lifts,
-                listState = listState,
-                liftHeightsPx = liftHeightsPx,
-                actions =
-                    WorkoutLiftListActions(
-                        onLogSet = handleLogSet,
-                        onUnlogSet = actions.onUnlogSet,
-                        onAddSet = actions.onAddSet,
-                        onDeleteSet = actions.onDeleteSet,
-                        onSetSetKind = actions.onSetSetKind,
-                        onShowLiftActions = {
-                            liftSheetMode = LiftOptionsSheetMode.Options
-                            liftActionsLiftId = it
-                        },
-                        onOpenManageNotes = { workoutLiftId, tab ->
-                            liftSheetMode = LiftOptionsSheetMode.ManageNotes(tab)
-                            liftActionsLiftId = workoutLiftId
-                        },
-                        // Pill tap only emits the card id; the route resolves the seeded
-                        // request before navigating. Opening the editor leaves the chip
-                        // visible: only the X affordance or a real tier save quiets it.
-                        onAdjustEquipment = actions.onAdjustEquipmentTap,
-                        onDismissEquipmentAdjust = actions.onDismissEquipmentAdjust,
-                        onEquipmentSwapClick = actions.onEquipmentSwapClick,
-                        onAddLift = actions.onAddLift,
-                        onDiscardClick = { showDiscardDialog = true },
-                    ),
-                failedLogSlotKey = failedLogSlotKey,
-                onFailedLogConsumed = onFailedLogConsumed,
-                displayUnitEpoch = state.displayUnitEpoch,
+        if (!chrome.active) {
+            Column(
                 modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-            )
+                    .fillMaxSize()
+                    .padding(top = chrome.top)
+                    .padding(vertical = StratumSpacing.s12),
+                verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12)
+            ) {
+                LiftNavigatorRow(
+                    lifts = state.lifts,
+                    primaryLiftId = selectedLiftId,
+                    underlinedLiftIds = underlinedLiftIds,
+                    onLiftClick = scrollToLift,
+                    onAddLift = actions.onAddLift,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                WorkoutLiftList(
+                    lifts = state.lifts,
+                    listState = listState,
+                    liftHeightsPx = liftHeightsPx,
+                    actions = liftListActions,
+                    failedLogSlotKey = failedLogSlotKey,
+                    onFailedLogConsumed = onFailedLogConsumed,
+                    displayUnitEpoch = state.displayUnitEpoch,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                )
+            }
+        } else {
+            // Rest geometry, glass only: first panel top = chrome.top + s12 +
+            // navigator height + s12 (the old column's top pad, navigator, and
+            // inter-element gap, in that order).
+            val navigatorTopPadding = chrome.top + StratumSpacing.s12
+            val listTopPadding =
+                navigatorTopPadding + LiftNavigatorRowHeight + StratumSpacing.s12
+            Box(modifier = Modifier.fillMaxSize()) {
+                WorkoutLiftList(
+                    lifts = state.lifts,
+                    listState = listState,
+                    liftHeightsPx = liftHeightsPx,
+                    actions = liftListActions,
+                    failedLogSlotKey = failedLogSlotKey,
+                    onFailedLogConsumed = onFailedLogConsumed,
+                    displayUnitEpoch = state.displayUnitEpoch,
+                    topContentPadding = listTopPadding,
+                    modifier = Modifier.fillMaxSize(),
+                )
+
+                // Transparent row over scrolling panels (glaze-under-navigator is
+                // intended: tabs are opaque surfaceSunken/surfaceRaised containers, never
+                // raw text). Declared after the list with zIndex so it stays tappable above it.
+                LiftNavigatorRow(
+                    lifts = state.lifts,
+                    primaryLiftId = selectedLiftId,
+                    underlinedLiftIds = underlinedLiftIds,
+                    onLiftClick = scrollToLift,
+                    onAddLift = actions.onAddLift,
+                    modifier =
+                        Modifier
+                            .align(Alignment.TopStart)
+                            .fillMaxWidth()
+                            .padding(top = navigatorTopPadding)
+                            .zIndex(1f),
+                )
+            }
         }
     }
 

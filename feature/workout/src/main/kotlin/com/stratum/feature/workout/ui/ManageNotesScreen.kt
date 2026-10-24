@@ -2,11 +2,10 @@ package com.stratum.feature.workout.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.ui.draw.clip
@@ -152,10 +151,10 @@ fun ManageNotesScreen(
     val liftDirty = loadedLists?.let { noteDraftsDirty(it.lift, liftDrafts) } ?: false
     val isDirty = sessionDirty || workoutDirty || liftDirty
 
-    // Glass (§12.8, STR-157): hosted inside the session screen's composition, so
-    // the route's glass host reaches this screen too. Under glass the top bar
-    // overlays and the content column carries the top clearance, keeping the
-    // tab header beneath the glass; solid hosts keep the in-flow geometry.
+    // Glass (§12.8, STR-157/STR-193): hosted inside the session screen's composition,
+    // so the route's glass host reaches this screen too. Under glass the top bar
+    // overlays and the single LazyColumn carries the top clearance as content padding,
+    // keeping notes scrolling beneath the glass; solid hosts keep the in-flow geometry.
     StratumDetailScaffold(
         modifier = modifier,
         topBar = {
@@ -197,127 +196,138 @@ fun ManageNotesScreen(
             )
         },
     ) { chrome ->
-        Column(
+        // Glass (STR-193): one LazyColumn carries the top clearance as content padding,
+        // so notes scroll beneath the glass; the tab header rides as the first items
+        // (uniform s12 rhythm preserved) instead of a fixed overlay. Solid hosts keep
+        // the in-flow geometry exactly (chrome.top is 0 there). Bottom s12 rhythm is
+        // preserved as content padding.
+        LazyColumn(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .padding(top = chrome.top)
-                    .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12)
                     .imePadding(),
+            contentPadding =
+                PaddingValues(
+                    top = chrome.top + StratumSpacing.s12,
+                    start = StratumSpacing.s16,
+                    end = StratumSpacing.s16,
+                    bottom = StratumSpacing.s12,
+                ),
             verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
         ) {
-            StratumSegmentedControl(
-                segments =
-                    listOf(
-                        tabLabel(LiftNoteTab.Session, sessionDrafts.size),
-                        tabLabel(LiftNoteTab.Workout, workoutDrafts.size),
-                        tabLabel(LiftNoteTab.Lift, liftDrafts.size),
-                    ),
-                selectedIndex = selectedTab.ordinal,
-                onSelectedIndexChange = { index ->
-                    selectedTab = LiftNoteTab.entries[index]
-                    // A tab switch strands any unconsumed add-note focus request.
-                    pendingFocusKey = null
-                },
-                leadingIconRes = listOf(null, CoreUiR.drawable.ic_push_pin, CoreUiR.drawable.ic_push_pin),
-                modified = listOf(sessionDirty, workoutDirty, liftDirty),
-            )
-            StratumText(
-                text =
-                    when (selectedTab) {
-                        LiftNoteTab.Session -> stringResource(CoreUiR.string.lift_notes_caption_session)
-                        LiftNoteTab.Workout -> stringResource(CoreUiR.string.lift_notes_caption_workout)
-                        LiftNoteTab.Lift -> stringResource(CoreUiR.string.lift_notes_caption_lift)
+            item(key = "tabs") {
+                StratumSegmentedControl(
+                    segments =
+                        listOf(
+                            tabLabel(LiftNoteTab.Session, sessionDrafts.size),
+                            tabLabel(LiftNoteTab.Workout, workoutDrafts.size),
+                            tabLabel(LiftNoteTab.Lift, liftDrafts.size),
+                        ),
+                    selectedIndex = selectedTab.ordinal,
+                    onSelectedIndexChange = { index ->
+                        selectedTab = LiftNoteTab.entries[index]
+                        // A tab switch strands any unconsumed add-note focus request.
+                        pendingFocusKey = null
                     },
-                muted = true,
-            )
-            if (currentDrafts.isNotEmpty()) {
+                    leadingIconRes = listOf(null, CoreUiR.drawable.ic_push_pin, CoreUiR.drawable.ic_push_pin),
+                    modified = listOf(sessionDirty, workoutDirty, liftDirty),
+                )
+            }
+            item(key = "caption") {
                 StratumText(
-                    text = stringResource(CoreUiR.string.lift_notes_swipe_hint),
-                    style = StratumThemeAccessor.typography.sectionLabel,
+                    text =
+                        when (selectedTab) {
+                            LiftNoteTab.Session -> stringResource(CoreUiR.string.lift_notes_caption_session)
+                            LiftNoteTab.Workout -> stringResource(CoreUiR.string.lift_notes_caption_workout)
+                            LiftNoteTab.Lift -> stringResource(CoreUiR.string.lift_notes_caption_lift)
+                        },
                     muted = true,
                 )
             }
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
-            ) {
-                if (currentDrafts.isEmpty()) {
-                    item(key = "empty") {
-                        StratumText(
-                            text = stringResource(CoreUiR.string.lift_notes_summary_empty),
-                            muted = true,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
+            if (currentDrafts.isNotEmpty()) {
+                item(key = "swipe-hint") {
+                    StratumText(
+                        text = stringResource(CoreUiR.string.lift_notes_swipe_hint),
+                        style = StratumThemeAccessor.typography.sectionLabel,
+                        muted = true,
+                    )
                 }
-                items(currentDrafts, key = { it.key }) { draft ->
-                    val focusRequester = remember(draft.key) { FocusRequester() }
-                    StratumSwipeToRevealRow(
-                        onActionClick = {
-                            setDrafts(currentDrafts.filterNot { it.key == draft.key })
-                        },
-                        actionContentDescription =
-                            stringResource(CoreUiR.string.lift_notes_delete_note_cd),
-                        // Transparent so the red reveal shows through the corner notches where
-                        // the field's rounded outline curves away — otherwise a surfaceBase
-                        // sliver sits between the note edge and the red. Closed-state corner
-                        // notches fall outside the row clip below and stay invisible.
-                        contentBackgroundColor = Color.Transparent,
-                        // Clip to the field shape so the revealed red background conforms
-                        // to the note's rounded corners instead of peeking out square.
-                        modifier = Modifier.clip(StratumThemeAccessor.shapes.panel),
-                    ) {
-                        StratumTextField(
-                            value = draft.body,
-                            onValueChange = { value ->
-                                setDrafts(
-                                    currentDrafts.map { row ->
-                                        if (row.key == draft.key) {
-                                            row.copy(body = value.take(LIFT_NOTE_FIELD_MAX_LENGTH))
-                                        } else {
-                                            row
-                                        }
-                                    },
-                                )
-                            },
-                            // No floating label: its top strip sits outside the field container
-                            // and would leak the red reveal above the note. The placeholder
-                            // captions the empty state instead (still in the a11y tree).
-                            label = null,
-                            placeholder = stringResource(CoreUiR.string.lift_notes_field_label),
-                            singleLine = false,
-                            options =
-                                StratumTextFieldOptions(
-                                    minLines = 4,
-                                    maxLines = 8,
-                                    selectAllOnFocus = true,
-                                ),
-                            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .focusRequester(focusRequester),
-                        )
-                    }
-                    if (pendingFocusKey == draft.key) {
-                        LaunchedEffect(draft.key) {
-                            pendingFocusKey = null
-                            focusRequester.requestFocus()
-                        }
-                    }
-                }
-                item(key = "add") {
-                    StratumOutlinedButton(
-                        text = stringResource(CoreUiR.string.lift_notes_add_note),
-                        onClick = {
-                            val key = UUID.randomUUID().toString()
-                            setDrafts(currentDrafts + EditableNote(key = key))
-                            pendingFocusKey = key
-                        },
+            }
+            if (currentDrafts.isEmpty()) {
+                item(key = "empty") {
+                    StratumText(
+                        text = stringResource(CoreUiR.string.lift_notes_summary_empty),
+                        muted = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
+            }
+            items(currentDrafts, key = { it.key }) { draft ->
+                val focusRequester = remember(draft.key) { FocusRequester() }
+                StratumSwipeToRevealRow(
+                    onActionClick = {
+                        setDrafts(currentDrafts.filterNot { it.key == draft.key })
+                    },
+                    actionContentDescription =
+                        stringResource(CoreUiR.string.lift_notes_delete_note_cd),
+                    // Transparent so the red reveal shows through the corner notches where
+                    // the field's rounded outline curves away — otherwise a surfaceBase
+                    // sliver sits between the note edge and the red. Closed-state corner
+                    // notches fall outside the row clip below and stay invisible.
+                    contentBackgroundColor = Color.Transparent,
+                    // Clip to the field shape so the revealed red background conforms
+                    // to the note's rounded corners instead of peeking out square.
+                    modifier = Modifier.clip(StratumThemeAccessor.shapes.panel),
+                ) {
+                    StratumTextField(
+                        value = draft.body,
+                        onValueChange = { value ->
+                            setDrafts(
+                                currentDrafts.map { row ->
+                                    if (row.key == draft.key) {
+                                        row.copy(body = value.take(LIFT_NOTE_FIELD_MAX_LENGTH))
+                                    } else {
+                                        row
+                                    }
+                                },
+                            )
+                        },
+                        // No floating label: its top strip sits outside the field container
+                        // and would leak the red reveal above the note. The placeholder
+                        // captions the empty state instead (still in the a11y tree).
+                        label = null,
+                        placeholder = stringResource(CoreUiR.string.lift_notes_field_label),
+                        singleLine = false,
+                        options =
+                            StratumTextFieldOptions(
+                                minLines = 4,
+                                maxLines = 8,
+                                selectAllOnFocus = true,
+                            ),
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .focusRequester(focusRequester),
+                    )
+                }
+                if (pendingFocusKey == draft.key) {
+                    LaunchedEffect(draft.key) {
+                        pendingFocusKey = null
+                        focusRequester.requestFocus()
+                    }
+                }
+            }
+            item(key = "add") {
+                StratumOutlinedButton(
+                    text = stringResource(CoreUiR.string.lift_notes_add_note),
+                    onClick = {
+                        val key = UUID.randomUUID().toString()
+                        setDrafts(currentDrafts + EditableNote(key = key))
+                        pendingFocusKey = key
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         }
     }

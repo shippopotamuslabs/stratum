@@ -29,6 +29,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.theme.StratumSpacing
@@ -59,7 +60,11 @@ fun StratumReorderListScreen(
     confirmEnabled: Boolean = items.isNotEmpty(),
     snackbarHostState: SnackbarHostState? = null,
 ) {
-    StratumScaffold(
+    // Glass (§12.8, STR-190): the detail seam — the top bar overlays and the
+    // list carries the top clearance as content padding, so rows scroll
+    // beneath the glass. Solid hosts keep the in-flow geometry exactly
+    // (chrome.top is 0 there).
+    StratumDetailScaffold(
         modifier = modifier.fillMaxSize(),
         snackbarHostState = snackbarHostState,
         topBar = {
@@ -84,13 +89,13 @@ fun StratumReorderListScreen(
                 },
             )
         },
-    ) { padding ->
+    ) { chrome ->
         if (items.isEmpty()) {
             Box(
                 modifier =
                     Modifier
                         .fillMaxSize()
-                        .padding(padding),
+                        .padding(top = chrome.top),
                 contentAlignment = Alignment.Center,
             ) {
                 StratumText(text = emptyMessage, muted = true)
@@ -99,10 +104,8 @@ fun StratumReorderListScreen(
             StratumReorderList(
                 items = items,
                 onReorder = onReorder,
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .padding(padding),
+                modifier = Modifier.fillMaxSize(),
+                topClearance = chrome.top,
             )
         }
     }
@@ -113,6 +116,9 @@ private fun StratumReorderList(
     items: List<StratumReorderItem>,
     onReorder: (fromIndex: Int, toIndex: Int) -> Unit,
     modifier: Modifier = Modifier,
+    // Glass (§12.8, STR-190): overlay top-bar clearance. 0 keeps solid hosts
+    // pixel-identical (the pre-glass vertical s16 rhythm is preserved below).
+    topClearance: Dp = 0.dp,
 ) {
     var draggedIndex by remember { mutableIntStateOf(-1) }
     var dragOffset by remember { mutableFloatStateOf(0f) }
@@ -121,7 +127,13 @@ private fun StratumReorderList(
 
     LazyColumn(
         modifier = modifier,
-        contentPadding = PaddingValues(horizontal = StratumSpacing.s12, vertical = StratumSpacing.s16),
+        contentPadding =
+            PaddingValues(
+                start = StratumSpacing.s12,
+                end = StratumSpacing.s12,
+                top = StratumSpacing.s16 + topClearance,
+                bottom = StratumSpacing.s16,
+            ),
         verticalArrangement = Arrangement.spacedBy(StratumSpacing.s8),
     ) {
         itemsIndexed(items, key = { _, item -> item.id }) { index, item ->

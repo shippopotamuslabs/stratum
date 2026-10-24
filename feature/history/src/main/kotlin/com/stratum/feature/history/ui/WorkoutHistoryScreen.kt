@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -26,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumDetailScaffold
@@ -63,11 +65,12 @@ fun WorkoutHistoryScreen(
             else -> stringResource(R.string.history_mode_month)
         }
 
-    // Glass (§12.8, STR-159): under the route's glass host the top bar (with
-    // its stats strip) overlays and the calendar body sits in the region
-    // beneath it — the body owns its internal scrolling per calendar mode.
-    // Solid hosts keep the in-flow geometry exactly. The bar's bottom slot
-    // (strip + divider) is declared so the clearance covers the whole bar.
+    // Glass (§12.8, STR-159/STR-189): under the route's glass host the top
+    // bar (with its stats strip) overlays and each calendar LazyColumn
+    // carries the top clearance as content padding, so months scroll beneath
+    // the glass. Solid hosts keep the in-flow geometry exactly (chrome.top
+    // is 0 there). The bar's bottom slot (strip + divider) is declared so
+    // the clearance covers the whole bar.
     StratumDetailScaffold(
         modifier = modifier,
         topBarBottomSlotHeight = HISTORY_STATS_SLOT_HEIGHT,
@@ -130,10 +133,8 @@ fun WorkoutHistoryScreen(
                     onDayClick = onDayClick,
                     onScrollToMonthConsumed = onScrollToMonthConsumed,
                     onScrollToYearConsumed = onScrollToYearConsumed,
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .padding(top = chrome.top),
+                    topClearance = chrome.top,
+                    modifier = Modifier.fillMaxSize(),
                 )
         }
     }
@@ -214,6 +215,7 @@ private fun HistoryCalendarBody(
     onDayClick: (day: HistoryDayUi) -> Unit,
     onScrollToMonthConsumed: () -> Unit,
     onScrollToYearConsumed: () -> Unit,
+    topClearance: Dp = 0.dp,
     modifier: Modifier = Modifier,
 ) {
     when (state.mode) {
@@ -227,7 +229,11 @@ private fun HistoryCalendarBody(
                 }
                 onScrollToMonthConsumed()
             }
-            LazyColumn(modifier = modifier, state = listState) {
+            LazyColumn(
+                modifier = modifier,
+                state = listState,
+                contentPadding = PaddingValues(top = topClearance),
+            ) {
                 if (state.months.isEmpty() || state.months.all { month -> month.days.none { it.hasWorkout } }) {
                     item {
                         StratumText(
@@ -258,7 +264,11 @@ private fun HistoryCalendarBody(
                 }
                 onScrollToYearConsumed()
             }
-            LazyColumn(modifier = modifier, state = listState) {
+            LazyColumn(
+                modifier = modifier,
+                state = listState,
+                contentPadding = PaddingValues(top = topClearance),
+            ) {
                 items(
                     items = state.years,
                     key = { it.year },
@@ -271,7 +281,10 @@ private fun HistoryCalendarBody(
             }
         }
         HistoryCalendarMode.MultiYear -> {
-            LazyColumn(modifier = modifier) {
+            LazyColumn(
+                modifier = modifier,
+                contentPadding = PaddingValues(top = topClearance),
+            ) {
                 items(
                     items = state.years,
                     key = { it.year },
