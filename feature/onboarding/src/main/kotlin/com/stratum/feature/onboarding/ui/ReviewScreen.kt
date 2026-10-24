@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.stratum.core.ui.component.StratumButton
+import com.stratum.core.ui.trainingsetup.inScrollTopClearance
 import com.stratum.core.ui.component.StratumNumber
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.theme.StratumSpacing
@@ -99,7 +100,7 @@ fun ReviewScreen(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = StratumSpacing.s16)
-                .padding(top = StratumSpacing.s12 + topClearance, bottom = StratumSpacing.s12),
+                .padding(top = inScrollTopClearance(topClearance), bottom = StratumSpacing.s12),
         verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
     ) {
         // Primary action pinned to the top so it's always visible without scrolling.

@@ -139,7 +139,7 @@ fun EditHistoricalWorkoutScreen(
                         contentPadding =
                             PaddingValues(
                                 top = chrome.top + StratumSpacing.s12,
-                                bottom = dockHeightDp,
+                                bottom = dockHeightDp + StratumSpacing.s12,
                             ),
                         verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
                     ) {

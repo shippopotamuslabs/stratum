@@ -117,7 +117,7 @@ class LiftNavigatorScrollTest {
                 toIndex = 2,
                 itemHeightPx = { 100 },
                 spacingPx = 8,
-                pinOffsetPx = 100,
+                pin = PinGeometry(100),
             ),
         )
         // Down: content distance minus the pin offset.
@@ -129,7 +129,7 @@ class LiftNavigatorScrollTest {
                 toIndex = 3,
                 itemHeightPx = { heights[it] },
                 spacingPx = 10,
-                pinOffsetPx = 100,
+                pin = PinGeometry(100),
             ),
         )
         // Up: content distance minus the pin offset, from a physical offset.
@@ -141,7 +141,7 @@ class LiftNavigatorScrollTest {
                 toIndex = 0,
                 itemHeightPx = { heights[it] },
                 spacingPx = 10,
-                pinOffsetPx = 100,
+                pin = PinGeometry(100),
             ),
         )
     }
@@ -214,7 +214,7 @@ class LiftNavigatorScrollTest {
                 lastLiftHeightPx = 400,
                 footerHeightPx = 200,
                 listSpacingPx = 100,
-                topContentPaddingPx = 100,
+                pin = PinGeometry(100),
             ),
         )
         assertEquals(
@@ -224,7 +224,7 @@ class LiftNavigatorScrollTest {
                 lastLiftHeightPx = 400,
                 footerHeightPx = 200,
                 listSpacingPx = 16,
-                topContentPaddingPx = 300,
+                pin = PinGeometry(300),
             ),
         )
     }

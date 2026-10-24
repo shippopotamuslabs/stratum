@@ -39,6 +39,7 @@ import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumSegmentedControl
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.theme.StratumSpacing
+import com.stratum.core.ui.trainingsetup.inScrollTopClearance
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.onboarding.GymLiftsDraftUi
 import com.stratum.feature.onboarding.GymPresetOptionUi
@@ -81,7 +82,7 @@ fun GymAndLiftOnboardingSetupScreen(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = StratumSpacing.s16)
-                .padding(top = StratumSpacing.s12 + topClearance, bottom = StratumSpacing.s12),
+                .padding(top = inScrollTopClearance(topClearance), bottom = StratumSpacing.s12),
         verticalArrangement = Arrangement.spacedBy(StratumSpacing.s16),
     ) {
         StratumText(
