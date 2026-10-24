@@ -47,7 +47,7 @@ class ForceRefreshDerivedTrainingDataUseCaseTest {
         repeat(3) { index ->
             val started = weekStart.plusSeconds(index * 86_400L)
             val session =
-                WorkoutLoggingFixtures.completedLiveSession(id = "s$index").copy(startedAt = started)
+                WorkoutLoggingFixtures.completedLiveSession(id = "s$index").copy(startedAt = started, endedAt = started.plusSeconds(3600))
             logRepo.seedSession(session)
             repeat(3) { setIndex ->
                 logRepo.seedSet(
@@ -139,7 +139,7 @@ class ForceRefreshDerivedTrainingDataUseCaseTest {
         val weekStart = Instant.parse("2025-05-05T00:00:00Z")
         val liftId = LiftId("bench")
         liftRepo.seedLifts(listOf(lift(liftId, MuscleGroup.Chest)))
-        val session = WorkoutLoggingFixtures.completedLiveSession(id = "s1").copy(startedAt = weekStart)
+        val session = WorkoutLoggingFixtures.completedLiveSession(id = "s1").copy(startedAt = weekStart, endedAt = weekStart.plusSeconds(3600))
         logRepo.seedSession(session)
         logRepo.seedSet(
             LoggedSet(

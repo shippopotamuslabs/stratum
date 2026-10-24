@@ -63,19 +63,15 @@ fun materializeAutoConsumedRestSessions(
     return progress.autoConsumedRestSlotIndices.sorted().map { slotIndex ->
         val weekday =
             start?.let { anchor -> CycleProjection.projectedWeekday(anchor, slotIndex) }
-        TrainingSession(
+        TrainingSession.skipped(
             id = TrainingSessionId(UUID.randomUUID().toString()),
             programId = program.id,
             workoutId = null,
-            status = TrainingSessionStatus.COMPLETED,
             kind = TrainingSessionKind.REST_DAY,
-            origin = TrainingSessionOrigin.LIVE,
             cycleNumberSnapshot = program.currentCycleNumber,
             weekdaySnapshot = weekday,
             cycleSlotIndexSnapshot = slotIndex,
-            startedAt = now,
-            endedAt = now,
-            sourceApp = null,
+            at = now,
             programNameSnapshot = program.name,
             workoutNameSnapshot = null,
         )

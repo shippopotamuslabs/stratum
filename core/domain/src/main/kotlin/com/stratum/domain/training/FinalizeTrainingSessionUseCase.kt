@@ -36,8 +36,10 @@ class FinalizeTrainingSessionUseCase @Inject constructor(
                 ?: return Result.failure(
                     IllegalArgumentException("Training session ${sessionId.value} not found"),
                 )
-        if (session.status != TrainingSessionStatus.IN_PROGRESS) {
-            return Result.failure(TrainingSessionNotInProgressException(sessionId, session.status))
+        try {
+            session.requireInProgress()
+        } catch (error: TrainingSessionNotInProgressException) {
+            return Result.failure(error)
         }
 
         return runCatchingLogged(
@@ -45,11 +47,7 @@ class FinalizeTrainingSessionUseCase @Inject constructor(
             tag = TAG,
             message = "Failed to finalize training session ${sessionId.value}",
         ) {
-            val completed =
-                session.copy(
-                    status = TrainingSessionStatus.COMPLETED,
-                    endedAt = Instant.now(),
-                )
+            val completed = session.complete(at = Instant.now())
 
             val sessionSets = trainingLogRepository.getSetsForSession(sessionId)
             val computation = computePersonalRecords(sessionSets).getOrThrow()
@@ -82,7 +80,7 @@ class FinalizeTrainingSessionUseCase @Inject constructor(
                             sessionsWithMaterializedAutoRests(
                                 program = program,
                                 sessions = baseSessions,
-                                now = completed.endedAt ?: Instant.now(),
+                                now = completed.completedAt,
                             )
                         sessionsToPersist += autoRests
                         computeCycleAdvancement(program, ledger)

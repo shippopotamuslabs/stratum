@@ -59,7 +59,7 @@ class GetWorkoutSummaryUseCase @Inject constructor(
                 )
 
             val durationMillis = run {
-                val end = session.endedAt ?: java.time.Instant.now()
+                val end = session.liveEnd()
                 end.toEpochMilli() - session.startedAt.toEpochMilli()
             }
 

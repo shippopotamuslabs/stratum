@@ -42,6 +42,7 @@ object WorkoutLoggingFixtures {
     const val CHEST_BITMASK = 1
     const val TRICEPS_BITMASK = 256
     const val BENCH_WEIGHT_LB = 135.0
+    const val IMPORT_SESSION_DURATION_SECONDS = 3600L
 
     val programId = ProgramId(PROGRAM_ID)
     val workoutAId = WorkoutId(WORKOUT_A_ID)
@@ -62,7 +63,9 @@ object WorkoutLoggingFixtures {
     fun importTrainingSession(
         id: String = "ts-import-1",
         startedAt: Instant = Instant.parse("2025-01-01T10:00:00Z"),
-        endedAt: Instant? = Instant.parse("2025-01-01T11:00:00Z"),
+        // Derived from startedAt so callers that move the start keep a legal
+        // startedAt <= endedAt window (STR-166 constructor invariant).
+        endedAt: Instant? = startedAt.plusSeconds(IMPORT_SESSION_DURATION_SECONDS),
         sourceApp: String? = "liftlab",
     ): TrainingSession =
         ImportHistoryTrainingMapper.parseSession(

@@ -42,16 +42,11 @@ class UpdateCompletedSessionTimesUseCase @Inject constructor(
                 ?: return Result.failure(
                     IllegalArgumentException("Training session ${sessionId.value} not found"),
                 )
-        if (session.status != TrainingSessionStatus.COMPLETED) {
-            return Result.failure(
-                IllegalArgumentException("Training session ${sessionId.value} is not completed (status=${session.status})"),
-            )
-        }
-        if (startedAt.isAfter(endedAt)) {
-            return Result.failure(
-                IllegalArgumentException("Start time ($startedAt) cannot be after finish time ($endedAt)"),
-            )
-        }
+        // The completed guard and the start-after-finish rule are model rules (STR-166):
+        // retime() enforces both and returns the moved session.
+        val updatedSession =
+            runCatching { session.retime(newStartedAt = startedAt, newEndedAt = endedAt) }
+                .getOrElse { return Result.failure(it) }
 
         return runCatchingLogged(
             loggingPort = loggingPort,
@@ -66,19 +61,13 @@ class UpdateCompletedSessionTimesUseCase @Inject constructor(
                 shiftSetTimestamps(
                     sets = currentSets,
                     oldStartedAt = session.startedAt,
-                    oldEndedAt = session.endedAt,
+                    oldEndedAt = session.completedAt,
                     newStartedAt = startedAt,
                     newEndedAt = endedAt,
                 )
             } else {
                 emptyList()
             }
-
-        val updatedSession =
-            session.copy(
-                startedAt = startedAt,
-                endedAt = endedAt,
-            )
 
         trainingLogRepository.updateSessionAndSets(
             session = updatedSession,
@@ -114,14 +103,14 @@ class UpdateCompletedSessionTimesUseCase @Inject constructor(
     internal fun shiftSetTimestamps(
         sets: List<LoggedSet>,
         oldStartedAt: Instant,
-        oldEndedAt: Instant?,
+        oldEndedAt: Instant,
         newStartedAt: Instant,
         newEndedAt: Instant,
     ): List<LoggedSet> {
         if (sets.isEmpty()) return emptyList()
         val sortedSets = sets.sortedWith(compareBy({ it.setIndex }, { it.completedAt }))
         val oldStartMillis = oldStartedAt.toEpochMilli()
-        val oldEndMillis = (oldEndedAt ?: oldStartedAt).toEpochMilli()
+        val oldEndMillis = oldEndedAt.toEpochMilli()
         val oldDuration = (oldEndMillis - oldStartMillis).coerceAtLeast(0)
 
         val newStartMillis = newStartedAt.toEpochMilli()
@@ -150,7 +139,7 @@ class UpdateCompletedSessionTimesUseCase @Inject constructor(
 
     private suspend fun sessionWasInLastModelingRun(session: TrainingSession): Boolean {
         val lastExtracted = responseProfileMetadataRepository.get()?.lastExtractedAt ?: return false
-        val sessionAt = session.endedAt ?: session.startedAt
+        val sessionAt = session.completedAt
         return !sessionAt.isAfter(lastExtracted)
     }
 

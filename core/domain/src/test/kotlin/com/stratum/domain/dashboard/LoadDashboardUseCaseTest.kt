@@ -425,7 +425,10 @@ class LoadDashboardUseCaseTest {
         val performanceRepo = FakeLiftWeeklyPerformanceRepository()
         performanceRepo.seed(listOf(performance(benchId, recentWeek, 100.0)))
         val trainingLog = FakeTrainingLogRepository()
-        val session = WorkoutLoggingFixtures.completedLiveSession(id = "s1").copy(startedAt = firstSetAt)
+        val session = WorkoutLoggingFixtures.completedLiveSession(id = "s1").copy(
+            startedAt = firstSetAt,
+            endedAt = firstSetAt.plusSeconds(3600),
+        )
         val set = WorkoutLoggingFixtures.loggedSet(id = "set-1", sessionId = session.id).copy(
             liftId = benchId,
             completedAt = firstSetAt,

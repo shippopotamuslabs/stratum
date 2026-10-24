@@ -68,6 +68,7 @@ class AnchorLiftSelectorTest {
                 ResponseFixtures.fixS4RichChest().sessions.first().copy(
                     id = com.stratum.domain.training.identity.TrainingSessionId("tie-bench-$index"),
                     startedAt = ResponseFixtures.weekStart(2025, 1, 6).plus(index * 7L, ChronoUnit.DAYS),
+                    endedAt = ResponseFixtures.weekStart(2025, 1, 6).plus(index * 7L, ChronoUnit.DAYS).plus(1, ChronoUnit.HOURS),
                 )
             }
         val flySessions =
@@ -75,6 +76,7 @@ class AnchorLiftSelectorTest {
                 ResponseFixtures.fixS4RichChest().sessions.first().copy(
                     id = com.stratum.domain.training.identity.TrainingSessionId("tie-fly-$index"),
                     startedAt = ResponseFixtures.weekStart(2025, 1, 6).plus(index * 7L, ChronoUnit.DAYS),
+                    endedAt = ResponseFixtures.weekStart(2025, 1, 6).plus(index * 7L, ChronoUnit.DAYS).plus(1, ChronoUnit.HOURS),
                 )
             }
         val sessions = benchSessions + flySessions
