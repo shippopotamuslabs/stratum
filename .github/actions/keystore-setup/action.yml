@@ -1,0 +1,57 @@
+# Composite equivalent of the GitLab `.keystore-setup` YAML anchor plus its
+# two wrappers (.keystore-bootstrap = strict, .keystore-bootstrap-optional).
+#
+# GitLab difference: KEYSTORE_BASE64 there is a File variable (a path to a
+# file holding base64 text, decoded with `base64 -d "$KEYSTORE_BASE64"`).
+# Here the secret holds the base64 text itself, so it is piped to base64 -d.
+name: keystore-setup
+description: Reconstruct release signing from secrets (port of .keystore-setup)
+
+inputs:
+  keystore-base64:
+    description: Base64 of the release keystore (pass secrets.KEYSTORE_BASE64)
+    required: false
+    default: ""
+  store-password:
+    description: Pass secrets.STORE_PASSWORD
+    required: false
+    default: ""
+  key-alias:
+    description: Pass secrets.KEY_ALIAS
+    required: false
+    default: ""
+  key-password:
+    description: Pass secrets.KEY_PASSWORD
+    required: false
+    default: ""
+  strict:
+    description: "true = fail when secrets are missing (.keystore-bootstrap); false = build unsigned (.keystore-bootstrap-optional)"
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: Reconstruct keystore
+      shell: bash
+      env:
+        KEYSTORE_BASE64: ${{ inputs.keystore-base64 }}
+        STORE_PASSWORD: ${{ inputs.store-password }}
+        KEY_ALIAS: ${{ inputs.key-alias }}
+        KEY_PASSWORD: ${{ inputs.key-password }}
+        STRICT: ${{ inputs.strict }}
+      run: |
+        if [ -n "$KEYSTORE_BASE64" ] && [ -n "$STORE_PASSWORD" ] && [ -n "$KEY_ALIAS" ] && [ -n "$KEY_PASSWORD" ]; then
+          mkdir -p .keystore
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > .keystore/stratum_keystore.jks
+          printf 'storeFile=.keystore/stratum_keystore.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
+            "$STORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > keystore.properties
+          echo "SIGNED=true" > .keystore-signed-flag
+          echo "Keystore configured — building signed APK"
+        else
+          echo "Keystore secrets not available — building unsigned APK"
+          rm -f .keystore-signed-flag
+        fi
+        if [ "$STRICT" = "true" ]; then
+          test -f .keystore-signed-flag || (echo "Missing keystore secrets — see header of .gitlab-ci.yml" && exit 1)
+        fi
