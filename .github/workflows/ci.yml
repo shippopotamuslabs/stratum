@@ -235,7 +235,7 @@ jobs:
           - leg: core-ui
             tasks: ":core:ui:testDebugUnitTest"
           - leg: core-misc
-            tasks: ":core:testing:test :core:inference:INF_TASK :detekt-rules:test"
+            tasks: ":core:testing:test :core:inference:testDebugUnitTest :detekt-rules:test"
           - leg: features-a
             tasks: ":feature:onboarding:testDebugUnitTest :feature:program:testDebugUnitTest :feature:subscription:testDebugUnitTest"
           - leg: features-b
