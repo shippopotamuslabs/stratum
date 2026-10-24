@@ -42,10 +42,17 @@ runs:
     - name: Accept SDK licenses and install compile platform
       shell: bash
       run: |
+        # Actions runs bash with -eo pipefail: a `yes |` feeder dying of
+        # SIGPIPE would poison the pipeline status, so drop pipefail here
+        # and judge sdkmanager by the install result below instead.
+        set +o pipefail
         export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
         command -v sdkmanager || (echo "sdkmanager not found under $ANDROID_HOME" && exit 1)
-        # `yes` dies with SIGPIPE (141) once sdkmanager exits; tolerate only that.
-        yes | sdkmanager --licenses > /dev/null || [ $? -eq 141 ]
-        # The runner image pins an older SDK but the app compiles against 37,
-        # a preview-channel platform published only as android-37.0.
-        yes | sdkmanager --channel=3 "platforms;android-37.0" > /dev/null || [ $? -eq 141 ]
+        # Best-effort license acceptance (output kept out of the log); the
+        # install fails loudly if a license is genuinely missing.
+        yes | sdkmanager --licenses > /dev/null 2>&1 || true
+        # The app compiles against 37, published as android-37.0 on the
+        # preview channel (3); fall back to the default channel in case it
+        # has graduated. Output is NOT silenced — a failed install must
+        # say why in the log.
+        sdkmanager --channel=3 "platforms;android-37.0" || sdkmanager "platforms;android-37.0"
