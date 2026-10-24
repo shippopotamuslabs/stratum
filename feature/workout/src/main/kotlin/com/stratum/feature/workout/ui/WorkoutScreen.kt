@@ -55,6 +55,7 @@ import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarTextButton
 import com.stratum.core.ui.theme.StratumThemeAccessor
+import com.stratum.core.ui.theme.stratumGlassStripSurface
 import com.stratum.feature.workout.R
 import com.stratum.feature.workout.AfterSetLoggedDecision
 import com.stratum.feature.workout.decideAfterSetLogged
@@ -280,7 +281,10 @@ fun WorkoutScreen(
     // Glass (§12.8, STR-157/STR-193) DIRECTED GEOMETRY: under the route's glass host
     // the top bar overlays, the lift list fills the full viewport with the whole top
     // clearance as content padding, and the navigator row overlays the list — so panels
-    // glaze beneath the glass AND beneath the navigator. Never haze behind set-logging
+    // glaze beneath the glass AND beneath the navigator strip (STR-196: the strip
+    // carries its own top-bar-depth glass, separate from the bar — the bar's hairline
+    // stays between them, not below the navigator's selection underlines — so panels
+    // pass under blur, never raw through a transparent row). Never haze behind set-logging
     // text: lift panels are opaque StratumEdgeToEdgeCard (surfaceRaised) containers, and
     // auto-scroll pins panels BELOW the navigator + bar (pin target = beforeContentPadding),
     // so editable set fields only cross the top edge transiently mid-scroll; the keyboard
@@ -412,16 +416,29 @@ fun WorkoutScreen(
             Box(modifier = Modifier.fillMaxSize()) {
                 liftList(Modifier.fillMaxSize())
 
-                // Transparent row over scrolling panels (glaze-under-navigator is
-                // intended: tabs are opaque surfaceSunken/surfaceRaised containers, never
-                // raw text). Declared after the list with zIndex so it stays tappable above it.
-                navigatorRow(
-                    Modifier
+                // STR-196: the navigator strip is its own glazed surface (top-bar
+                // depth, via stratumGlassStripSurface), NOT part of the top bar and
+                // NOT transparent: scrolling panels pass beneath it under blur. The
+                // strip spans the full clearance the list's top content padding
+                // already reserves (chrome.top + s12 + row + s12), starting directly
+                // under the bar so no unblurred gap shows between the two glazed
+                // surfaces; the s12 gaps live INSIDE the strip as vertical padding,
+                // so panel tops meet the strip's lower edge exactly. Declared after
+                // the list with zIndex so tabs stay tappable above it.
+                Box(
+                    modifier = Modifier
                         .align(Alignment.TopStart)
                         .fillMaxWidth()
-                        .padding(top = chrome.top + StratumSpacing.s12)
-                        .zIndex(1f),
-                )
+                        .padding(top = chrome.top)
+                        .zIndex(1f)
+                        .stratumGlassStripSurface(),
+                ) {
+                    navigatorRow(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = StratumSpacing.s12),
+                    )
+                }
             }
         }
     }
