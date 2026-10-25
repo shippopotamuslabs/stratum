@@ -102,6 +102,10 @@ data class Program(
      * Appends [lift] to the workout it belongs to ([WorkoutLift.workoutId]).
      * The use case decides when a lift is added and constructs the lift (catalog rest
      * lookup, set shape); the aggregate owns where it lands and that the workout exists.
+     * The aggregate also owns the appended lift's position: it lands after the highest
+     * existing position, because stored workouts may carry position gaps (pruning drops
+     * lifts without renumbering), so a count-based position could collide with a
+     * survivor. The position on [lift] as passed in is superseded.
      */
     fun addWorkoutLift(lift: WorkoutLift): Program {
         var found = false
@@ -109,7 +113,8 @@ data class Program(
             workouts.map { workout ->
                 if (workout.id == lift.workoutId) {
                     found = true
-                    workout.copy(workoutLifts = workout.workoutLifts + lift)
+                    val appendPosition = (workout.workoutLifts.maxOfOrNull { it.position } ?: -1) + 1
+                    workout.copy(workoutLifts = workout.workoutLifts + lift.copy(position = appendPosition))
                 } else {
                     workout
                 }

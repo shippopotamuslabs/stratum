@@ -36,10 +36,11 @@ class AddWorkoutLiftUseCase @Inject constructor(
                 ?.resolvedDefaultRestSeconds()
                 ?: DEFAULT_LIFT_SET_REST_SECONDS
 
-        val workout = program.workouts.firstOrNull { it.id == workoutId }
-            ?: return Result.failure(
+        if (program.workouts.none { it.id == workoutId }) {
+            return Result.failure(
                 IllegalArgumentException("Workout with ID $workoutId not found in the program")
             )
+        }
 
         val newWorkoutLiftId = WorkoutLiftId(UUID.randomUUID().toString())
         val newSet = LiftSet(
@@ -58,7 +59,9 @@ class AddWorkoutLiftUseCase @Inject constructor(
             workoutId = workoutId,
             liftId = liftId,
             progressionScheme = ProgressionScheme.Double,
-            position = workout.workoutLifts.size,
+            // Placeholder: Program.addWorkoutLift owns append-position allocation
+            // (stored workouts may carry position gaps after pruning).
+            position = 0,
             sets = listOf(newSet),
             supersetGroupId = null,
             useRestTimerBetweenLifts = false,

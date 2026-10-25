@@ -209,6 +209,28 @@ class ProgramAggregateTest {
         }
 
         @Test
+        fun `addWorkoutLift appends after the highest position when gaps exist`() {
+            // Pruned-workout shape: survivors keep positions 0 and 2. A count-based
+            // append position (size = 2) would collide with the survivor at 2.
+            val gapped =
+                program(
+                    workouts =
+                        listOf(
+                            workout(
+                                "w-0",
+                                0,
+                                lifts = listOf(lift("wl-a", WorkoutId("w-0"), 0), lift("wl-b", WorkoutId("w-0"), 2)),
+                            ),
+                        ),
+                    cycleLength = 1,
+                )
+            val updated = gapped.addWorkoutLift(lift("wl-new", WorkoutId("w-0"), 0))
+            val lifts = updated.workouts.single().workoutLifts
+            assertEquals(listOf(0, 2, 3), lifts.map { it.position })
+            assertEquals("wl-new", lifts.last().id.value)
+        }
+
+        @Test
         fun `addWorkoutLift for an unknown workout is rejected`() {
             assertThrows<IllegalArgumentException> {
                 program().addWorkoutLift(lift("wl-new", WorkoutId("w-missing"), 0))
