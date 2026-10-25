@@ -390,6 +390,6 @@ Some docs carry history. Dates and migration notes sit at the top of the files t
 
 Stratum is in active development. The Android app in `app/build.gradle.kts` reads version 1.62.2, versionCode 75. Development runs in the open in this repo under the `shippopotamuslabs` org.
 
-No license file ships in this repo. Ask the maintainer before you reuse code.
+0BSD license. Do whatever you want with the code. Just don't expect it to work or sue me.
 
 Firebase config, signing keys, and provider secrets stay out of Git. A clone gives you the full source and a build that runs against your own Firebase project.
