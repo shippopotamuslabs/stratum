@@ -7,7 +7,7 @@
 [pr_reviewer]
 # Stratum-specific guidance appended to the reviewer's prompt.
 extra_instructions = """
-- Respect the contracts in /contracts/: never suggest changing files under /contracts/ themselves; flag any diff that touches them as needing an explicit Contract Waiver.
+- Respect the contracts in /contracts/: never suggest changing files under /contracts/ themselves; flag any diff that touches them as needing an explicit Contract Waiver. Exception: diffs under /contracts/gospel/ are pin bumps of the Shippopotamus gospels submodule — review them like a dependency update; they do not need a Contract Waiver.
 - Keep the com.stratum source package namespace; the Play applicationId is com.aether.stratum. Do not suggest renaming source trees to match it.
 - Clean architecture: dependencies point inward toward :core:domain. Domain must not depend on data, UI, app, or feature modules. Flag violations.
 - Tests use JUnit 5 + Turbine + fakes from :core:testing. MockK is allowed only at third-party SDK boundaries.
