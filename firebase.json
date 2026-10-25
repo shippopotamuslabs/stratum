@@ -20,6 +20,48 @@
           }
         ]
       }
+    ],
+    "redirects": [
+      {
+        "source": "/privacy",
+        "destination": "https://shippopotamuslabs.com/stratum/privacy",
+        "type": 301
+      },
+      {
+        "source": "/privacy/",
+        "destination": "https://shippopotamuslabs.com/stratum/privacy",
+        "type": 301
+      },
+      {
+        "source": "/terms",
+        "destination": "https://shippopotamuslabs.com/stratum/terms",
+        "type": 301
+      },
+      {
+        "source": "/terms/",
+        "destination": "https://shippopotamuslabs.com/stratum/terms",
+        "type": 301
+      },
+      {
+        "source": "/delete-account",
+        "destination": "https://shippopotamuslabs.com/stratum/delete-account",
+        "type": 301
+      },
+      {
+        "source": "/delete-account/",
+        "destination": "https://shippopotamuslabs.com/stratum/delete-account",
+        "type": 301
+      },
+      {
+        "source": "/licenses",
+        "destination": "https://shippopotamuslabs.com/stratum/licenses",
+        "type": 301
+      },
+      {
+        "source": "/licenses/",
+        "destination": "https://shippopotamuslabs.com/stratum/licenses",
+        "type": 301
+      }
     ]
   },
   "storage": [
