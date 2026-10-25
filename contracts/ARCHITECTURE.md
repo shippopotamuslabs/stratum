@@ -5,22 +5,20 @@ Non-negotiable module and layering rules. Enforce together with `UI_DESIGN.md` a
 
 Never modify this file without an explicit **"Contract Waiver"** from the user.
 
+The general Clean Architecture rules are canon in the Shippopotamus gospels repo,
+consumed in this repo as the `contracts/gospel/` submodule (see
+`contracts/gospel/ARCHITECTURE-GOSPEL.md`). This contract carries Stratum's module
+map, dependency graph, and local notes; the general-rule sections below are pointers
+to the gospel, at their original section numbers.
+
 ---
 
 ## 0. Clean Architecture — Zero Tolerance
 
-Stratum follows **Clean Architecture / ports-and-adapters**. Dependencies point **inward**
-toward `:core:domain`. Outer modules implement ports defined in domain.
-
-**The agent MUST NEVER:**
-
-- Violate the module dependency graph in §1.
-- Expose Android, Compose, Room, Hilt, or WorkManager types through `:core:domain` public APIs.
-- Pass domain models directly to Composables (map to presentation models in ViewModels).
-- Pass `NavController` into Composables (use callbacks hoisted to routes).
-- Put business logic in `:app` or composables.
-
-**Violation response:** Reply with exactly: `"Contract violation detected in [file]. Request explicit 'Contract Waiver' from user."` Then stop.
+Stratum follows **Clean Architecture / ports-and-adapters**. The supremacy rule, the
+MUST NEVER list, and the violation response are canon: see
+`contracts/gospel/ARCHITECTURE-GOSPEL.md` §0. Dependencies point **inward** toward
+`:core:domain`; Stratum's exact module graph is §1–§2 below.
 
 ---
 
@@ -56,6 +54,9 @@ or a clear ownership boundary.
 
 ## 2. Dependency Direction (Strict)
 
+The dependency-direction rules are canon: see `contracts/gospel/ARCHITECTURE-GOSPEL.md`
+§1. Stratum's exact module graph:
+
 ```text
 :app
   → :core:domain, :core:data, :core:ui, :feature:* (when present)
@@ -80,11 +81,6 @@ or a clear ownership boundary.
   → (isolated — not a runtime dependency of the app)
 ```
 
-**No reverse dependencies** into `:core:domain`.
-
-**Feature modules must not depend on other feature modules.** Cross-feature navigation is
-wired in `:app` via callbacks and shared routes.
-
 ```text
                     ┌─────────────┐
                     │    :app     │
@@ -102,68 +98,23 @@ wired in `:app` via callbacks and shared routes.
                    └─────────────┘
 ```
 
----
-
 ## 3. Layer Responsibilities
 
-### `:core:domain` (innermost)
-
-- Domain models and value types
-- Repository and service **ports** (interfaces)
-- Use cases / interactors
-- Pure Kotlin — **JVM module**, no Android SDK in production sources
-- Allowed deps: Kotlin stdlib, coroutines, `javax.inject`
-- Unit tests run on JVM without Robolectric; use fakes from `:core:testing`
+The general layer responsibilities are canon: see
+`contracts/gospel/ARCHITECTURE-GOSPEL.md` §3. Stratum's domain model policy notes and
+module instantiation notes follow; where a note and the gospel disagree on a general
+rule, the gospel wins.
 
 ### 3.1 Domain model policy: rich aggregates, honest projections
 
-Types in `:core:domain` fall into four classes, and the class decides how much
-behavior a type must carry:
-
-- **(A) Aggregates / domain models — rich.** We own the concept and are
-  authoritative about its validity (`Program`, `TrainingSession`, `Lift`,
-  `Equipment`, `LoggedSet`, `WorkoutOverlay`). They enforce their invariants at
-  construction (`init` or factory — `copy()` runs the constructor, so `init`
-  checks cannot be bypassed) and expose state transitions as named methods on
-  the type, never as raw `copy()` state edits in a use case.
-- **(B) Value objects — rich and small.** Immutable, validated at construction,
-  behavior attached (`Weight`, `IncrementTier`, typed ids). A collection that
-  carries rules is wrapped as a value object, not passed as a bare list.
-- **(C) Domain services — procedural by design.** Rules that span aggregates or
-  need full history live here (recommendation / progression / generation
-  engines, response modeling, `PlateCalculator`). They do not move onto an
-  arbitrarily chosen aggregate.
-- **(D) Read models / projections / results / wire types — data-only by
-  design.** Built by a mapper or engine, consumed read-only, never persisted
-  back as truth. No behavior is required; naming must make the class obvious.
+The domain model policy — rich aggregates, honest projections; the four type classes
+(aggregates, value objects, domain services, read models) and the rules that follow
+from them — is canon: see `contracts/gospel/ARCHITECTURE-GOSPEL.md` §3.1.
 
 The full classification of every data class in `:core:domain` is recorded in
 `docs/domain-model-classification-inventory.csv` (STR-164); every later refactor
 chunk cites its inventory rows. Only classes A and B get refactor chunks.
 
-Rules that follow from the classes:
-
-- **Impossible states are unrepresentable.** If a state genuinely cannot occur
-  (`LiftSet.repMin > repMax`, a cycle position outside the cycle), the
-  constructor forbids it, full stop.
-- **Legitimate states have exactly one owner of their meaning.** A state that
-  looks irregular is usually legitimate: a `COMPLETED` imported session with
-  `endedAt == null` means "finished, end time unknown". The model owns that
-  meaning in one place — a normalizing factory or named behavior on the type —
-  and no consumer re-decides it with a local `?:` fallback. Changing a producer
-  (the import mapper above all) to emit the normalized shape is part of the
-  same chunk as its model, never a reason to keep the rule off the model.
-- **Room entities stay rule-free.** Rules never live on `*Entity` classes in
-  `:core:data`; the mapper seam (`toDomain()` / `toEntity()`) is construction
-  only, not a home for logic.
-- **Kotlin-rich, not Java-rich.** No private-field / getter-setter encapsulation
-  theatre that fights data classes, Room mapping, or Compose immutability:
-  invariants in `init` / factories, behavior as member functions or extensions
-  in the model's own file.
-- **Use cases orchestrate.** They load, invoke domain behavior, persist, and
-  publish. A validity rule or a state-meaning rule implemented in a use case,
-  ViewModel, repository, or consumer fallback instead of on the owning domain
-  model is a contract violation.
 - **Ports belong to the layer that consumes them.** Repository and service
   ports serving use cases belong in the application layer and move with the
   use cases when that layer is extracted (STR-172); only a port consumed
@@ -210,56 +161,32 @@ Rules that follow from the classes:
 
 ## 4. Presentation Contract
 
+The presentation contract is canon: see `contracts/gospel/ARCHITECTURE-GOSPEL.md` §4
+(UI state, one-shot events, model mapping, ViewModel dependencies & Flow composition)
+and §5 (navigation & scaffold architecture).
+
 ### 4.1 UI state
 
-- Immutable `data class` per screen; updates via `copy()`
-- One `StateFlow<UiState>` per ViewModel
-- No Android framework types inside UI state
+See `contracts/gospel/ARCHITECTURE-GOSPEL.md` §4.1.
 
 ### 4.2 One-shot events
 
-- Prefer `Channel<Event>(Channel.BUFFERED)` exposed as `Flow<Event>` via `receiveAsFlow()`
-- Consume in `LaunchedEffect` at the screen level — not `SharedFlow` for one-shots
+See `contracts/gospel/ARCHITECTURE-GOSPEL.md` §4.2.
 
 ### 4.3 Model mapping
 
-- ViewModels map **domain → presentation** before Composables render
-- No repository or use-case calls inside Composables
-- Presentation models (`*UiState`, `*DraftUi`, `*ViewState`) must not embed domain types.
-  Map at the ViewModel/mapper boundary.
+See `contracts/gospel/ARCHITECTURE-GOSPEL.md` §4.3.
+
 - Detekt enforces via `ForbiddenDomainTypeInComposable` (public composables) and
   `ForbiddenDomainTypeInUiState` (presentation data classes).
 
 ### 4.4 ViewModel dependencies & Flow composition
 
-- **ViewModels depend on use cases, not repository or port interfaces.** A ViewModel
-  constructor injects `*UseCase` classes from `:core:domain`; it must not inject a
-  `*Repository` or `*Port` interface directly. Repository and service ports are consumed
-  by use cases, not by presentation.
-- **Feature-layer mappers must not accept use case parameters**; domain validation
-  aggregates belong in use cases (e.g. `GetOnboardingStepCapabilitiesUseCase`). Mappers
-  are pure domain/ephemeral → presentation transforms; ViewModels invoke use cases and
-  pass derived values into mappers.
-- **Use cases own multi-source `Flow` composition.** When a screen needs data from more
-  than one repository, add an interactor (e.g. `Get*StateUseCase`) in `:core:domain`
-  that combines the repository streams into a single domain read model (e.g. an
-  `*State` aggregate). The ViewModel then observes that one use case — it must not
-  write its own multi-source `combine` over repositories.
-- **Only transient/presentation state lives in the ViewModel.** Unsaved drafts (what the
-  user is typing before persisting), "reveal errors" flags, and one-shot UI events are
-  ViewModel-owned `MutableStateFlow`s overlaid on the domain read model. Anything that
-  represents a durable fact about the world belongs in the domain layer and is read
-  through a use case.
-- **Write paths go through use cases too.** A ViewModel persists state by calling a
-  use case (e.g. `Update*UseCase`), never by calling `repository.save(...)` directly.
-- Rationale: this keeps repository wiring out of presentation, prevents `combine` chains
-  from ballooning inside ViewModels, and gives every screen a single, testable domain
-  entry point.
+See `contracts/gospel/ARCHITECTURE-GOSPEL.md` §4.4.
 
 ### 4.5 Navigation
 
-- Each feature exposes `@Composable fun FeatureRoute(onNavigate…: () -> Unit, …)`
-- `:app` owns `NavHost` and passes lambdas — no `NavController` in feature composables
+See `contracts/gospel/ARCHITECTURE-GOSPEL.md` §5.
 
 ### 4.6 Scaffold ownership
 
@@ -270,17 +197,15 @@ Rules that follow from the classes:
 
 ## 5. Forbidden Imports (Summary)
 
-| Module | Must NOT import |
-|--------|-----------------|
-| `:core:domain` | Any `:app`, `:feature:*`, `:core:data`, `:core:ui` code; Android/Compose/Room/Hilt |
-| `:core:data` | Compose UI, feature modules |
-| `:core:ui` | `:core:testing` (test only), feature modules, `:app` |
-| `:feature:*` | Other `:feature:*` modules; raw Material (see `UI_DESIGN.md` + Detekt) |
-| `:app` | — (shell may reference all modules) |
-
----
+The forbidden-import principles are canon: see
+`contracts/gospel/ARCHITECTURE-GOSPEL.md` §2. Apply them to the modules in §1
+along the graph in §2.
 
 ## 6. Data & Background Work (Guidance)
+
+**Stratum-local guidance.** The gospels carry no data-layer canon —
+`DATA_LAYER_RULES.md` stays local in full — so this section is Stratum's own
+guidance and stays.
 
 - **Schema lock:** no new Room tables/columns without explicit authorization (see `AGENTS.md`)
 - **Schema version policy:** `StratumDatabase` is versioned with exported JSON checked in
