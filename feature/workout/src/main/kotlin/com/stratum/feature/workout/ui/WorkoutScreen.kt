@@ -54,7 +54,6 @@ import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarTextButton
 import com.stratum.core.ui.theme.StratumThemeAccessor
-import com.stratum.core.ui.theme.rememberGlassHazeState
 import com.stratum.feature.workout.R
 import com.stratum.feature.workout.AfterSetLoggedDecision
 import com.stratum.feature.workout.decideAfterSetLogged
@@ -73,15 +72,19 @@ data class RestTimerChrome(
     val onSkip: () -> Unit,
 )
 
+/** STR-203: single source for the navigator slot's vertical rhythm. */
+private val WORKOUT_NAVIGATOR_SLOT_PADDING = StratumSpacing.s12
+
 /**
  * Glass bottom-slot height (STR-203): under glass the navigator row lives in
  * the top bar's bottom slot, so the clearance formula must cover the whole
- * bar — the row plus its s12 rhythm above and below, pinned by construction
- * on the slot composable (STR-159 idiom). Solid hosts ignore it (chrome.top
- * is 0 there) and keep the in-flow Column geometry exactly.
+ * bar — the row plus its [WORKOUT_NAVIGATOR_SLOT_PADDING] rhythm above and
+ * below, pinned by construction on the slot composable (STR-159 idiom).
+ * Solid hosts ignore it (chrome.top is 0 there) and keep the in-flow Column
+ * geometry exactly.
  */
 private val WORKOUT_NAVIGATOR_SLOT_HEIGHT =
-    StratumSpacing.s12 + LiftNavigatorRowHeight + StratumSpacing.s12
+    WORKOUT_NAVIGATOR_SLOT_PADDING + LiftNavigatorRowHeight + WORKOUT_NAVIGATOR_SLOT_PADDING
 
 /** Session actions for [WorkoutScreen] — kept as one bag for Detekt [LongParameterList]. */
 data class WorkoutScreenActions(
@@ -327,6 +330,18 @@ fun WorkoutScreen(
             onAddLift = actions.onAddLift,
             onDiscardClick = { showDiscardDialog = true },
         )
+    // STR-203: one navigator definition for both hosts — glass invokes it
+    // from the bar's bottom slot, solid from the in-flow Column below.
+    val navigatorRow: @Composable (Modifier) -> Unit = { rowModifier ->
+        LiftNavigatorRow(
+            lifts = state.lifts,
+            primaryLiftId = selectedLiftId,
+            underlinedLiftIds = underlinedLiftIds,
+            onLiftClick = scrollToLift,
+            onAddLift = actions.onAddLift,
+            modifier = rowModifier,
+        )
+    }
     StratumDetailScaffold(
         modifier = modifier,
         snackbarHostState = snackbarHostState,
@@ -334,24 +349,18 @@ fun WorkoutScreen(
         topBar = {
             StratumTopBar(
                 title = elapsedTimeStr,
+                bottomRequiresGlass = true,
                 bottom = {
-                    // Glass only: the navigator rides the bar's bottom slot —
-                    // outside the hazeSource subtree — so it glazes with the bar
-                    // instead of going transparent inside the source (STR-203).
-                    // Solid keeps the in-flow row below; no slot there.
-                    if (rememberGlassHazeState() != null) {
-                        LiftNavigatorRow(
-                            lifts = state.lifts,
-                            primaryLiftId = selectedLiftId,
-                            underlinedLiftIds = underlinedLiftIds,
-                            onLiftClick = scrollToLift,
-                            onAddLift = actions.onAddLift,
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = StratumSpacing.s12),
-                        )
-                    }
+                    // Glass only (bottomRequiresGlass): the navigator rides
+                    // the bar's bottom slot — outside the hazeSource subtree —
+                    // so it glazes with the bar instead of going transparent
+                    // inside the source (STR-203). Solid keeps the in-flow
+                    // row below; the slot is not composed there.
+                    navigatorRow(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = WORKOUT_NAVIGATOR_SLOT_PADDING),
+                    )
                 },
                 navigationIcon = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -417,16 +426,6 @@ fun WorkoutScreen(
                         0.dp
                     },
                 modifier = listModifier,
-            )
-        }
-        val navigatorRow: @Composable (Modifier) -> Unit = { rowModifier ->
-            LiftNavigatorRow(
-                lifts = state.lifts,
-                primaryLiftId = selectedLiftId,
-                underlinedLiftIds = underlinedLiftIds,
-                onLiftClick = scrollToLift,
-                onAddLift = actions.onAddLift,
-                modifier = rowModifier,
             )
         }
         if (!chrome.active) {

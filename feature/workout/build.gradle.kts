@@ -59,10 +59,6 @@ dependencies {
     implementation(libs.androidx.navigation3.runtime)
     implementation(libs.hilt.android)
     implementation(libs.hilt.navigation.compose)
-    // Glass gate for the navigator bottom slot (STR-203): the topBar lambda
-    // reads rememberGlassHazeState(), whose HazeState type must be on this
-    // module's classpath — the same direct haze edge :app already carries.
-    implementation(libs.haze)
     ksp(libs.hilt.compiler)
     ksp(libs.kotlin.metadata.jvm)
 

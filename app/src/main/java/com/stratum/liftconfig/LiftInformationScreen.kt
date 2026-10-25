@@ -51,7 +51,6 @@ import com.stratum.core.ui.component.StratumTopBarBackButton
 import com.stratum.core.ui.component.UserMessageEffect
 import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
-import com.stratum.core.ui.theme.rememberGlassHazeState
 
 @Composable
 fun LiftInformationRoute(
@@ -102,16 +101,21 @@ fun LiftInformationRoute(
     )
 }
 
+/** STR-203: single sources for the switcher slot's vertical rhythm. */
+private val LIFT_INFO_SWITCHER_TOP_PADDING = StratumSpacing.s8
+private val LIFT_INFO_SWITCHER_BOTTOM_PADDING = StratumSpacing.s12
+
 /**
  * Glass bottom-slot height (STR-203): under glass the tab switcher lives in
  * the top bar's bottom slot, so the clearance formula must cover the whole
- * bar — the s8 gap below the hairline plus the fixed segment height plus the
- * s12 rhythm below, pinned by construction on the slot composable (STR-159
- * idiom). Solid hosts ignore it (chrome.top is 0 there) and keep the
- * content-side switcher geometry exactly.
+ * bar — the [LIFT_INFO_SWITCHER_TOP_PADDING] gap below the hairline plus the
+ * fixed segment height plus the [LIFT_INFO_SWITCHER_BOTTOM_PADDING] rhythm
+ * below, pinned by construction on the slot composable (STR-159 idiom).
+ * Solid hosts ignore it (chrome.top is 0 there) and keep the content-side
+ * switcher geometry exactly.
  */
 private val LIFT_INFO_SWITCHER_SLOT_HEIGHT =
-    StratumSpacing.s8 + MinSegmentHeight + StratumSpacing.s12
+    LIFT_INFO_SWITCHER_TOP_PADDING + MinSegmentHeight + LIFT_INFO_SWITCHER_BOTTOM_PADDING
 
 @Composable
 fun LiftInformationScreen(
@@ -136,6 +140,17 @@ fun LiftInformationScreen(
     // glazed strip did (STR-197 surface removed). Solid hosts (chrome.top =
     // 0) reproduce the content-side switcher geometry exactly.
     val selectedTabIndex = tabs.indexOfFirst { it.first == state.selectedTab }.coerceAtLeast(0)
+    // STR-203: one switcher definition for both hosts — glass invokes it
+    // from the bar's bottom slot, solid from the content-side Box below;
+    // only the modifier (top gap) differs.
+    val tabSwitcher: @Composable (Modifier) -> Unit = { switcherModifier ->
+        StratumSegmentedControl(
+            modifier = switcherModifier,
+            segments = tabs.map { it.second },
+            selectedIndex = selectedTabIndex,
+            onSelectedIndexChange = { index -> actions.onTabSelected(tabs[index].first) },
+        )
+    }
     StratumDetailScaffold(
         modifier = modifier,
         snackbarHostState = snackbarHostState,
@@ -149,23 +164,22 @@ fun LiftInformationScreen(
                         contentDescription = stringResource(UiR.string.lift_config_navigate_back),
                     )
                 },
+                bottomRequiresGlass = true,
                 bottom = {
-                    // Glass only: the switcher rides the bar's bottom slot with
-                    // an s8 gap below the hairline (STR-203) — the off-grid
-                    // 2.dp stays on the solid path. The s8 + segment + s12
-                    // stack pins LIFT_INFO_SWITCHER_SLOT_HEIGHT by construction.
-                    if (rememberGlassHazeState() != null) {
-                        StratumSegmentedControl(
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = StratumSpacing.s16)
-                                    .padding(top = StratumSpacing.s8, bottom = StratumSpacing.s12),
-                            segments = tabs.map { it.second },
-                            selectedIndex = selectedTabIndex,
-                            onSelectedIndexChange = { index -> actions.onTabSelected(tabs[index].first) },
-                        )
-                    }
+                    // Glass only (bottomRequiresGlass): the switcher rides
+                    // the bar's bottom slot with the top-padding gap below
+                    // the hairline (STR-203) — the off-grid 2.dp stays on
+                    // the solid path. The top + segment + bottom stack pins
+                    // LIFT_INFO_SWITCHER_SLOT_HEIGHT by construction.
+                    tabSwitcher(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = StratumSpacing.s16)
+                            .padding(
+                                top = LIFT_INFO_SWITCHER_TOP_PADDING,
+                                bottom = LIFT_INFO_SWITCHER_BOTTOM_PADDING,
+                            ),
+                    )
                 },
             )
         },
@@ -187,15 +201,11 @@ fun LiftInformationScreen(
                             .padding(top = chrome.top)
                             .zIndex(1f),
                 ) {
-                    StratumSegmentedControl(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = StratumSpacing.s16)
-                                .padding(top = 2.dp, bottom = StratumSpacing.s12),
-                        segments = tabs.map { it.second },
-                        selectedIndex = selectedTabIndex,
-                        onSelectedIndexChange = { index -> actions.onTabSelected(tabs[index].first) },
+                    tabSwitcher(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = StratumSpacing.s16)
+                            .padding(top = 2.dp, bottom = LIFT_INFO_SWITCHER_BOTTOM_PADDING),
                     )
                 }
             }

@@ -52,6 +52,12 @@ internal const val GLASS_BACKGROUND_FLOOR_ALPHA = 0.65f
  * beneath the bar but starts below the hairline — and without a slot it is
  * the column's lower edge, which is the same line. Solid bars carry no
  * hairline.
+ *
+ * @param bottomRequiresGlass When true, [bottom] is composed only under
+ * glass; on solid hosts it is not composed at all, so callers whose solid
+ * layout already renders the same content in-flow can declare the slot
+ * unconditionally without duplicating it. Defaults to false, which
+ * preserves the historical behaviour (the slot shows on glass and solid).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,6 +68,7 @@ fun StratumTopBar(
     actions: @Composable (androidx.compose.foundation.layout.RowScope.() -> Unit)? = null,
     bottom: @Composable (() -> Unit)? = null,
     containerColor: Color = StratumThemeAccessor.colors.surfaceBase,
+    bottomRequiresGlass: Boolean = false,
 ) {
     val haze = StratumThemeAccessor.haze
     val hazeState = rememberGlassHazeState()
@@ -77,6 +84,9 @@ fun StratumTopBar(
     val emptyNav: @Composable () -> Unit = {}
     val emptyActions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {}
 
+    // STR-203: opt-in glass-only slot — suppressed entirely on solid hosts.
+    val effectiveBottom: @Composable (() -> Unit)? =
+        if (bottomRequiresGlass && !glass) null else bottom
     val hairlineColor = StratumThemeAccessor.colors.borderSubtle.copy(alpha = GLASS_HAIRLINE_ALPHA)
     val floorColor = StratumThemeAccessor.colors.surfaceBase.copy(alpha = GLASS_BACKGROUND_FLOOR_ALPHA)
     // STR-203: the hairline is the bar's lower edge, not the column's. With a
@@ -102,32 +112,31 @@ fun StratumTopBar(
                         input = HazeInput.Sources(hazeState),
                         style = haze.topBar,
                     )
-            if (bottom != null) glazed else glazed.then(hairlineModifier)
+            if (effectiveBottom != null) glazed else glazed.then(hairlineModifier)
         } else {
             modifier
                 .fillMaxWidth()
                 .background(containerColor)
         }
 
+    // Single bar call site: the hairline placement branches around it.
+    val appBar: @Composable () -> Unit = {
+        CenterAlignedTopAppBar(
+            title = titleContent,
+            navigationIcon = navigationIcon ?: emptyNav,
+            actions = actions ?: emptyActions,
+            colors = colors,
+        )
+    }
     Column(modifier = columnModifier) {
-        if (glass && bottom != null) {
+        if (glass && effectiveBottom != null) {
             Box(modifier = hairlineModifier) {
-                CenterAlignedTopAppBar(
-                    title = titleContent,
-                    navigationIcon = navigationIcon ?: emptyNav,
-                    actions = actions ?: emptyActions,
-                    colors = colors,
-                )
+                appBar()
             }
-            bottom()
+            effectiveBottom()
         } else {
-            CenterAlignedTopAppBar(
-                title = titleContent,
-                navigationIcon = navigationIcon ?: emptyNav,
-                actions = actions ?: emptyActions,
-                colors = colors,
-            )
-            bottom?.invoke()
+            appBar()
+            effectiveBottom?.invoke()
         }
     }
 }
@@ -140,6 +149,7 @@ fun StratumTopBar(
     actions: @Composable (androidx.compose.foundation.layout.RowScope.() -> Unit)? = null,
     bottom: @Composable (() -> Unit)? = null,
     containerColor: Color = StratumThemeAccessor.colors.surfaceBase,
+    bottomRequiresGlass: Boolean = false,
 ) {
     StratumTopBar(
         titleContent = {
@@ -156,5 +166,6 @@ fun StratumTopBar(
         actions = actions,
         bottom = bottom,
         containerColor = containerColor,
+        bottomRequiresGlass = bottomRequiresGlass,
     )
 }
