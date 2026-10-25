@@ -319,21 +319,14 @@ class GenerateProgressionSnapshotUseCase @Inject constructor(
         val program = programRepository.getProgramById(programId)
             ?: programRepository.getProgram()
             ?: return
-        var changed = false
-        val updatedWorkouts = program.workouts.map { workout ->
-            workout.copy(
-                workoutLifts = workout.workoutLifts.map { lift ->
-                    if (lift.id == workoutLiftId && lift.progressionScheme != newScheme) {
-                        changed = true
-                        lift.copy(progressionScheme = newScheme)
-                    } else {
-                        lift
-                    }
-                },
+        val targetLift =
+            program.workouts
+                .flatMap { workout -> workout.workoutLifts }
+                .firstOrNull { lift -> lift.id == workoutLiftId }
+        if (targetLift != null && targetLift.progressionScheme != newScheme) {
+            programRepository.saveProgram(
+                program.replaceWorkoutLift(targetLift.copy(progressionScheme = newScheme)),
             )
-        }
-        if (changed) {
-            programRepository.saveProgram(program.copy(workouts = updatedWorkouts))
         }
     }
 }

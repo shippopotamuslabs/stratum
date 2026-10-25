@@ -113,9 +113,17 @@ class ResolveProgramTemplateLiftsUseCase @Inject constructor(
             val workoutId = WorkoutId(UUID.randomUUID().toString())
             // Group superset keys are scoped per-workout: equal keys within a workout share an id.
             val supersetIdByKey = mutableMapOf<String, WorkoutSupersetGroupId>()
-            val workoutLifts = templateWorkout.lifts.map { templateLift ->
+            val liftPositions =
+                normalizedTemplatePositions(templateWorkout.lifts.map { it.position })
+            val workoutLifts = templateWorkout.lifts.mapIndexed { liftIndex, templateLift ->
                 val workoutLiftId = WorkoutLiftId(UUID.randomUUID().toString())
                 val liftId = resolutionByLiftName.getValue(templateLift.name)
+                val setPositions =
+                    normalizedTemplatePositions(
+                        templateLift.sets.mapIndexed { setIndex, templateSet ->
+                            templateSet.position.coerceAtLeast(setIndex)
+                        },
+                    )
                 val supersetGroupId = templateLift.supersetGroupKey?.let { key ->
                     supersetIdByKey.getOrPut(key) {
                         WorkoutSupersetGroupId(UUID.randomUUID().toString())
@@ -126,12 +134,12 @@ class ResolveProgramTemplateLiftsUseCase @Inject constructor(
                     workoutId = workoutId,
                     liftId = liftId,
                     progressionScheme = ProgressionScheme.Double,
-                    position = templateLift.position,
+                    position = liftPositions[liftIndex],
                     sets = templateLift.sets.mapIndexed { setIndex, templateSet ->
                         LiftSet(
                             id = LiftSetId(UUID.randomUUID().toString()),
                             workoutLiftId = workoutLiftId,
-                            position = templateSet.position.coerceAtLeast(setIndex),
+                            position = setPositions[setIndex],
                             setType = mapSetType(templateSet.setTypeLabel),
                             myoRepKind = mapMyoRepKind(templateSet.setTypeLabel),
                             repMin = templateSet.repMin ?: DEFAULT_REP_MIN,
@@ -237,6 +245,19 @@ class ResolveProgramTemplateLiftsUseCase @Inject constructor(
             normalized.startsWith(day.name.lowercase().take(WEEKDAY_PREFIX_LEN))
         }
     }
+
+    /**
+     * STR-167 producer fix: template positions are external data and may repeat
+     * (providers commonly emit 0 for every row). The aggregate requires unique
+     * positions, so a non-unique or negative position list is normalized to the
+     * template's own row order; an already-valid list is kept as authored.
+     */
+    private fun normalizedTemplatePositions(raw: List<Int>): List<Int> =
+        if (raw.all { it >= 0 } && raw.distinct().size == raw.size) {
+            raw
+        } else {
+            raw.indices.toList()
+        }
 
     private companion object {
         const val DEFAULT_REP_MIN = 8

@@ -18,10 +18,7 @@ data class MaterializedCycleSpace(
     val restSlotIndices: Set<Int>,
 ) {
     init {
-        require(cycleLength > 0) { "cycleLength must be positive, was $cycleLength" }
-        require(restSlotIndices.all { index -> index in 0 until cycleLength }) {
-            "restSlotIndices $restSlotIndices must all lie in [0, $cycleLength)"
-        }
+        requireCycleGeometry(cycleLength, restSlotIndices)
     }
 
     val trainingSlotCount: Int get() = cycleLength - restSlotIndices.size

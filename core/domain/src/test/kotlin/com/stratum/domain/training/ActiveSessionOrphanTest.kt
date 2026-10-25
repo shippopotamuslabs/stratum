@@ -32,7 +32,14 @@ class ActiveSessionOrphanTest {
     @DisplayName("Program workout is orphaned when a different program is active")
     fun differentProgramIsOrphaned() {
         val session = WorkoutLoggingFixtures.inProgressSession()
-        val other = program.copy(id = ProgramId("other-program"))
+        val other =
+            program.copy(
+                id = ProgramId("other-program"),
+                workouts =
+                    program.workouts.map { workout ->
+                        workout.copy(programId = ProgramId("other-program"))
+                    },
+            )
         assertTrue(session.isOrphanedAgainstActiveProgram(other))
     }
 

@@ -15,7 +15,7 @@ class UpdateExistingProgramUseCaseTest {
     @Test
     @DisplayName("Persists program template without auto-abandoning sessions")
     fun savesProgramTemplate() = runTest {
-        val program = programWithLifts().copy(isActive = true)
+        val program = programWithLifts().activate()
         val programRepo = FakeProgramRepository(program)
         val useCase = UpdateExistingProgramUseCase(programRepo, FakeLoggingPort())
 

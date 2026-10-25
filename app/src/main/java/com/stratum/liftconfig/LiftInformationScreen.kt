@@ -35,6 +35,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import com.stratum.core.ui.component.MinSegmentHeight
 import com.stratum.core.ui.component.segmentedSwitcherTopClearance
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -50,7 +51,6 @@ import com.stratum.core.ui.component.StratumTopBarBackButton
 import com.stratum.core.ui.component.UserMessageEffect
 import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
-import com.stratum.core.ui.theme.stratumGlassStripSurface
 
 @Composable
 fun LiftInformationRoute(
@@ -101,6 +101,22 @@ fun LiftInformationRoute(
     )
 }
 
+/** STR-203: single sources for the switcher slot's vertical rhythm. */
+private val LIFT_INFO_SWITCHER_TOP_PADDING = StratumSpacing.s8
+private val LIFT_INFO_SWITCHER_BOTTOM_PADDING = StratumSpacing.s12
+
+/**
+ * Glass bottom-slot height (STR-203): under glass the tab switcher lives in
+ * the top bar's bottom slot, so the clearance formula must cover the whole
+ * bar — the [LIFT_INFO_SWITCHER_TOP_PADDING] gap below the hairline plus the
+ * fixed segment height plus the [LIFT_INFO_SWITCHER_BOTTOM_PADDING] rhythm
+ * below, pinned by construction on the slot composable (STR-159 idiom).
+ * Solid hosts ignore it (chrome.top is 0 there) and keep the content-side
+ * switcher geometry exactly.
+ */
+private val LIFT_INFO_SWITCHER_SLOT_HEIGHT =
+    LIFT_INFO_SWITCHER_TOP_PADDING + MinSegmentHeight + LIFT_INFO_SWITCHER_BOTTOM_PADDING
+
 @Composable
 fun LiftInformationScreen(
     state: LiftInformationUiState,
@@ -116,16 +132,29 @@ fun LiftInformationScreen(
             LiftInfoTab.History to stringResource(UiR.string.lift_info_tab_history),
         )
     // Glass (§12.8, STR-160/STR-192): under the route's glass host the top bar
-    // overlays and each tab list owns the full viewport — the whole top
-    // clearance (bar + fixed switcher + rhythm) is the list's top content
-    // padding, so rows scroll beneath the glass bar AND the switcher. The
-    // switcher overlays the list (opaque segments, fixed 48.dp height, so
-    // nothing shows through and no measuring is needed) and stays fixed for
-    // tab switching. Solid hosts (chrome.top = 0) reproduce the in-flow
-    // geometry exactly.
+    // (with the tab switcher in its bottom slot, STR-203) overlays and each
+    // tab list owns the full viewport — the whole top clearance (bar + slot)
+    // is the list's top content padding, so rows scroll beneath the glass bar
+    // AND the switcher. The slot keeps the switcher outside the hazeSource
+    // subtree, so it never renders transparent the way the old in-source
+    // glazed strip did (STR-197 surface removed). Solid hosts (chrome.top =
+    // 0) reproduce the content-side switcher geometry exactly.
+    val selectedTabIndex = tabs.indexOfFirst { it.first == state.selectedTab }.coerceAtLeast(0)
+    // STR-203: one switcher definition for both hosts — glass invokes it
+    // from the bar's bottom slot, solid from the content-side Box below;
+    // only the modifier (top gap) differs.
+    val tabSwitcher: @Composable (Modifier) -> Unit = { switcherModifier ->
+        StratumSegmentedControl(
+            modifier = switcherModifier,
+            segments = tabs.map { it.second },
+            selectedIndex = selectedTabIndex,
+            onSelectedIndexChange = { index -> actions.onTabSelected(tabs[index].first) },
+        )
+    }
     StratumDetailScaffold(
         modifier = modifier,
         snackbarHostState = snackbarHostState,
+        topBarBottomSlotHeight = LIFT_INFO_SWITCHER_SLOT_HEIGHT,
         topBar = {
             StratumTopBar(
                 title = state.liftName.ifBlank { stringResource(UiR.string.lift_info_title) },
@@ -135,47 +164,62 @@ fun LiftInformationScreen(
                         contentDescription = stringResource(UiR.string.lift_config_navigate_back),
                     )
                 },
+                bottomRequiresGlass = true,
+                bottom = {
+                    // Glass only (bottomRequiresGlass): the switcher rides
+                    // the bar's bottom slot with the top-padding gap below
+                    // the hairline (STR-203) — the off-grid 2.dp stays on
+                    // the solid path. The top + segment + bottom stack pins
+                    // LIFT_INFO_SWITCHER_SLOT_HEIGHT by construction.
+                    tabSwitcher(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = StratumSpacing.s16)
+                            .padding(
+                                top = LIFT_INFO_SWITCHER_TOP_PADDING,
+                                bottom = LIFT_INFO_SWITCHER_BOTTOM_PADDING,
+                            ),
+                    )
+                },
             )
         },
     ) { chrome ->
         Box(modifier = Modifier.fillMaxSize()) {
-            // Composed first so accessibility traversal reaches the switcher
-            // before the list; zIndex keeps it painted above scrolling rows.
-            // STR-188: 2.dp gap below the top app bar so the switcher does not
-            // sit flush against its bottom border; the content clearance
-            // below follows it down so the s12 rhythm under the switcher
-            // (see segmentedSwitcherTopClearance) is preserved.
-            // STR-197: the band the switcher sits on is its own glazed strip
-            // (stratumGlassStripSurface, the STR-196 treatment) — NOT part of
-            // the top bar and NOT transparent: the strip spans the full top
-            // clearance the lists already reserve (chrome.top + 2.dp gap +
-            // 48.dp switcher + s12), starting directly under the bar so no
-            // unblurred seam shows between the two glazed surfaces, and the
-            // gaps live INSIDE the strip as padding, so the switcher and the
-            // list geometry do not move. The segments stay opaque; the strip
-            // shows only in the gap, the side margins, and the s12 band below
-            // the switcher. In solid hosts the surface is a no-op and the
-            // strip is invisible, exactly as before.
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(top = chrome.top)
-                        .zIndex(1f)
-                        .stratumGlassStripSurface(),
-            ) {
-                StratumSegmentedControl(
+            // Solid only: the content-side switcher, composed first so
+            // accessibility traversal reaches it before the list; zIndex keeps
+            // it painted above scrolling rows. STR-188: 2.dp gap below the top
+            // app bar so the switcher does not sit flush against its bottom
+            // border; the content clearance below follows it down so the s12
+            // rhythm under the switcher (see segmentedSwitcherTopClearance)
+            // is preserved. Pixel-identical to the pre-STR-203 solid layout —
+            // the removed strip surface was a no-op without glass.
+            if (!chrome.active) {
+                Box(
                     modifier =
                         Modifier
                             .fillMaxWidth()
+                            .padding(top = chrome.top)
+                            .zIndex(1f),
+                ) {
+                    tabSwitcher(
+                        Modifier
+                            .fillMaxWidth()
                             .padding(horizontal = StratumSpacing.s16)
-                            .padding(top = 2.dp, bottom = StratumSpacing.s12),
-                    segments = tabs.map { it.second },
-                    selectedIndex = tabs.indexOfFirst { it.first == state.selectedTab }.coerceAtLeast(0),
-                    onSelectedIndexChange = { index -> actions.onTabSelected(tabs[index].first) },
-                )
+                            .padding(top = 2.dp, bottom = LIFT_INFO_SWITCHER_BOTTOM_PADDING),
+                    )
+                }
             }
-            val tabTopClearance = segmentedSwitcherTopClearance(chrome.top) + 2.dp
+            // Glass: chrome.top already covers bar + slot (status + 64 + s8 +
+            // segment + s12, STR-203), so the whole clearance is the lists'
+            // top padding — first rows land s12 below the switcher, the same
+            // rhythm as before, shifted +6dp by the wider s8 gap. Solid keeps
+            // the overlay formula with its 2.dp gap.
+            val tabTopClearance =
+                if (chrome.active) {
+                    chrome.top
+                } else {
+                    segmentedSwitcherTopClearance(chrome.top) + 2.dp
+                }
             when (state.selectedTab) {
                 LiftInfoTab.Instructions -> InstructionsTab(state, topClearance = tabTopClearance)
                 LiftInfoTab.Details ->

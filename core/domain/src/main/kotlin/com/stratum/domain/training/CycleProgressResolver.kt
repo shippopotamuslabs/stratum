@@ -51,7 +51,7 @@ object CycleProgressResolver {
 
     /**
      * Next unconsumed slot index, or [Program.cycleLength] / slot count when the cycle is complete
-     * (before [computeCycleAdvancement] resets to 0).
+     * (before [com.stratum.domain.program.Program.advanceCycle] resets to 0).
      */
     fun reconcileCyclePosition(
         program: Program,

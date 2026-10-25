@@ -1593,6 +1593,10 @@ class WorkoutViewModelTest {
             current.workouts.single().copy(
                 id = WorkoutId("w-other"),
                 name = "Other Day",
+                workoutLifts =
+                    current.workouts.single().workoutLifts.map { lift ->
+                        lift.copy(workoutId = WorkoutId("w-other"))
+                    },
             )
         programRepository.saveProgram(current.copy(workouts = listOf(otherWorkout)))
 

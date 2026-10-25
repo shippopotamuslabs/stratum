@@ -36,45 +36,38 @@ class AddWorkoutLiftUseCase @Inject constructor(
                 ?.resolvedDefaultRestSeconds()
                 ?: DEFAULT_LIFT_SET_REST_SECONDS
 
-        var found = false
-        val updatedWorkouts = program.workouts.map { workout ->
-            if (workout.id == workoutId) {
-                found = true
-                val newWorkoutLiftId = WorkoutLiftId(UUID.randomUUID().toString())
-                val newSet = LiftSet(
-                    id = LiftSetId(UUID.randomUUID().toString()),
-                    workoutLiftId = newWorkoutLiftId,
-                    position = 0,
-                    setType = SetType.Standard,
-                    repMin = 8,
-                    repMax = 12,
-                    rirGoal = 2,
-                    isTopSet = true,
-                    restSeconds = restSeconds,
-                )
-                val newWorkoutLift = WorkoutLift(
-                    id = newWorkoutLiftId,
-                    workoutId = workoutId,
-                    liftId = liftId,
-                    progressionScheme = ProgressionScheme.Double,
-                    position = workout.workoutLifts.size,
-                    sets = listOf(newSet),
-                    supersetGroupId = null,
-                    useRestTimerBetweenLifts = false,
-                )
-                workout.copy(workoutLifts = workout.workoutLifts + newWorkoutLift)
-            } else {
-                workout
-            }
-        }
-
-        if (!found) {
+        if (program.workouts.none { it.id == workoutId }) {
             return Result.failure(
                 IllegalArgumentException("Workout with ID $workoutId not found in the program")
             )
         }
 
-        val updatedProgram = program.copy(workouts = updatedWorkouts)
+        val newWorkoutLiftId = WorkoutLiftId(UUID.randomUUID().toString())
+        val newSet = LiftSet(
+            id = LiftSetId(UUID.randomUUID().toString()),
+            workoutLiftId = newWorkoutLiftId,
+            position = 0,
+            setType = SetType.Standard,
+            repMin = 8,
+            repMax = 12,
+            rirGoal = 2,
+            isTopSet = true,
+            restSeconds = restSeconds,
+        )
+        val newWorkoutLift = WorkoutLift(
+            id = newWorkoutLiftId,
+            workoutId = workoutId,
+            liftId = liftId,
+            progressionScheme = ProgressionScheme.Double,
+            // Placeholder: Program.addWorkoutLift owns append-position allocation
+            // (stored workouts may carry position gaps after pruning).
+            position = 0,
+            sets = listOf(newSet),
+            supersetGroupId = null,
+            useRestTimerBetweenLifts = false,
+        )
+
+        val updatedProgram = program.addWorkoutLift(newWorkoutLift)
         programRepository.saveProgram(updatedProgram)
         programChangeEventRepository.append(
             ProgramChangeEvent(

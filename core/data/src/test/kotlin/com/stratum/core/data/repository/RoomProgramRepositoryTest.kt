@@ -185,22 +185,22 @@ class RoomProgramRepositoryTest {
         @Test
         fun `saving a second active program keeps the first as library inventory`() = runTest {
             seedReferencedLifts()
-            repository.saveProgram(PROGRAM_P1.copy(isActive = true))
-            repository.saveProgram(PROGRAM_P2.copy(isActive = true))
+            repository.saveProgram(PROGRAM_P1.activate())
+            repository.saveProgram(PROGRAM_P2.activate())
 
             val active = repository.getProgram()
-            assertEquals(PROGRAM_P2.copy(isActive = true), active)
+            assertEquals(PROGRAM_P2.activate(), active)
             assertEquals(2, database.openHelper.writableDatabase.query("SELECT COUNT(*) FROM programs").use { c ->
                 c.moveToFirst(); c.getInt(0)
             })
             val library = repository.getProgramById(PROGRAM_P1.id)
-            assertEquals(PROGRAM_P1.copy(isActive = false), library)
+            assertEquals(PROGRAM_P1.deactivate(), library)
         }
 
         @Test
         fun `re-saving the same program id replaces only that program children`() = runTest {
             seedReferencedLifts()
-            repository.saveProgram(PROGRAM_P1.copy(isActive = true))
+            repository.saveProgram(PROGRAM_P1.activate())
             val slim =
                 PROGRAM_P1.copy(
                     isActive = true,
@@ -226,17 +226,17 @@ class RoomProgramRepositoryTest {
         @Test
         fun `saveToLibrary does not change the active program`() = runTest {
             seedReferencedLifts()
-            repository.saveProgram(PROGRAM_P1.copy(isActive = true))
+            repository.saveProgram(PROGRAM_P1.activate())
             repository.saveToLibrary(PROGRAM_P2)
 
-            assertEquals(PROGRAM_P1.copy(isActive = true), repository.getProgram())
-            assertEquals(PROGRAM_P2.copy(isActive = false), repository.getProgramById(PROGRAM_P2.id))
+            assertEquals(PROGRAM_P1.activate(), repository.getProgram())
+            assertEquals(PROGRAM_P2.deactivate(), repository.getProgramById(PROGRAM_P2.id))
         }
 
         @Test
         fun `deleteProgram keeps sessions and nulls soft refs`() = runTest {
             seedReferencedLifts()
-            repository.saveProgram(PROGRAM_P1.copy(isActive = true))
+            repository.saveProgram(PROGRAM_P1.activate())
             database.trainingSessionDao().upsert(
                 com.stratum.core.data.db.TrainingSessionEntity(
                     id = com.stratum.domain.training.identity.TrainingSessionId("ts-1"),
@@ -292,7 +292,7 @@ class RoomProgramRepositoryTest {
         @Test
         fun `deleteProgram enqueues program_change_events for cloud tombstone`() = runTest {
             seedReferencedLifts()
-            repository.saveProgram(PROGRAM_P1.copy(isActive = true))
+            repository.saveProgram(PROGRAM_P1.activate())
             database.programChangeEventDao().upsert(
                 com.stratum.core.data.db.ProgramChangeEventEntity(
                     id = com.stratum.domain.training.identity.ProgramChangeEventId("pce-1"),
@@ -322,7 +322,7 @@ class RoomProgramRepositoryTest {
         @Test
         fun `saveProgram rewrite preserves session workout soft refs`() = runTest {
             seedReferencedLifts()
-            repository.saveProgram(PROGRAM_P1.copy(isActive = true))
+            repository.saveProgram(PROGRAM_P1.activate())
             database.trainingSessionDao().upsert(
                 com.stratum.core.data.db.TrainingSessionEntity(
                     id = com.stratum.domain.training.identity.TrainingSessionId("ts-1"),

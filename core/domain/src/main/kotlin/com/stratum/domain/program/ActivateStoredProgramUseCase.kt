@@ -37,10 +37,7 @@ class ActivateStoredProgramUseCase @Inject constructor(
         return runCatchingLogged(loggingPort, TAG, "Failed to activate program") {
             if (existing.cycleStartEpochDay != resolvedStart || !existing.isActive) {
                 programRepository.saveProgram(
-                    existing.copy(
-                        isActive = true,
-                        cycleStartEpochDay = resolvedStart,
-                    ),
+                    existing.copy(cycleStartEpochDay = resolvedStart).activate(),
                 )
             } else {
                 programRepository.activateProgram(programId)

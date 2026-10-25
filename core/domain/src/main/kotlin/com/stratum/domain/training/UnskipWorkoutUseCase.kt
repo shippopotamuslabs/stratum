@@ -98,7 +98,7 @@ class UnskipWorkoutUseCase @Inject constructor(
         if (toDelete.isEmpty()) return
         val deleteIds = toDelete.map(TrainingSession::id).toSet()
         val remaining = sessions.filterNot { it.id in deleteIds }
-        val effects = computeCycleAdvancement(program, remaining)
+        val effects = program.advanceCycle(remaining)
         trainingLogRepository.deleteSessionsWithCycleEffects(
             sessionIds = deleteIds,
             cyclePointerUpdate = effects.pointerUpdate,

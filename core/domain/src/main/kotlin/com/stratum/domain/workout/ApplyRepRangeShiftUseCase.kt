@@ -107,21 +107,7 @@ class ApplyRepRangeShiftUseCase @Inject constructor(
                 repMin = proposedRepMin,
                 repMax = proposedRepMax,
             )
-        val updatedWorkouts =
-            program.workouts.map { workout ->
-                if (workout.id != parentWorkout.id) {
-                    workout
-                } else {
-                    workout.copy(
-                        workoutLifts =
-                            workout.workoutLifts.map { lift ->
-                                if (lift.id == workoutLiftId) updatedLift else lift
-                            },
-                    )
-                }
-            }
-
-        programRepository.saveProgram(program.copy(workouts = updatedWorkouts))
+        programRepository.saveProgram(program.replaceWorkoutLift(updatedLift))
         // Template is durable; event is audit-only — do not fail Accept if append breaks.
         runCatching {
             programChangeEventRepository.append(

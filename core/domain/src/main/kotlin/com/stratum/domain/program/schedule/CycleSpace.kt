@@ -10,16 +10,26 @@ import com.stratum.domain.program.Workout
  * Invariant: `workouts.size + restSlotIndices.size == cycleLength` and every rest index is in
  * `[0, cycleLength)`.
  */
+/**
+ * Shared cycle-geometry rule (STR-167): the one definition of a valid cycle shape,
+ * enforced by `Program`, [CycleSpace], `MaterializedCycleSpace`, and
+ * `GenerationCycleHints` alike — a positive [cycleLength] with every rest index
+ * inside the cycle.
+ */
+internal fun requireCycleGeometry(cycleLength: Int, restSlotIndices: Set<Int>) {
+    require(cycleLength > 0) { "cycleLength must be positive, was $cycleLength" }
+    require(restSlotIndices.all { index -> index in 0 until cycleLength }) {
+        "restSlotIndices $restSlotIndices must all lie in [0, $cycleLength)"
+    }
+}
+
 data class CycleSpace(
     val cycleLength: Int,
     val restSlotIndices: Set<Int>,
     val workouts: List<Workout>,
 ) {
     init {
-        require(cycleLength > 0) { "cycleLength must be positive, was $cycleLength" }
-        require(restSlotIndices.all { index -> index in 0 until cycleLength }) {
-            "restSlotIndices $restSlotIndices must all lie in [0, $cycleLength)"
-        }
+        requireCycleGeometry(cycleLength, restSlotIndices)
         val trainingSlots = cycleLength - restSlotIndices.size
         require(workouts.size == trainingSlots) {
             "workout count ${workouts.size} must equal training slots $trainingSlots " +

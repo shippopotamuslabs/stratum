@@ -208,4 +208,10 @@ object GenerationCycleDefaults {
 data class GenerationCycleHints(
     val cycleLength: Int,
     val restSlotIndices: Set<Int>,
-)
+) {
+    init {
+        // Partial hints are legitimate (generation input), but a supplied pair must
+        // still satisfy the shared cycle geometry (STR-167).
+        requireCycleGeometry(cycleLength, restSlotIndices)
+    }
+}
