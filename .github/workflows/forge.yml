@@ -9,7 +9,11 @@ name: Forge Review
 # workflow and the forge_ref scripts checkout are both pinned to the
 # full commit SHA of the forge-reviewer GitHub port, not a mutable
 # branch, and only the two secrets the reusable workflow declares are
-# passed — never `secrets: inherit`. When forge-reviewer PR #1 merges
+# passed — never `secrets: inherit`. Repinned 2026-10-24: the
+# timestamp-spread history rewrite orphaned the previous pin (the
+# object still exists but no ref reaches it, and reusable-workflow
+# resolution follows refs — every Forge run died at startup).
+# When forge-reviewer PR #1 merges
 # and cuts the v1.1.0 tag, swap both pins to that tag in one commit.
 
 on:
@@ -22,9 +26,9 @@ permissions:
 
 jobs:
   forge-review:
-    uses: shippopotamuslabs/forge-reviewer/.github/workflows/forge-review.yml@3cc611c15766029653a209b9de05822c678e4594
+    uses: shippopotamuslabs/forge-reviewer/.github/workflows/forge-review.yml@731ee5a8b83f1f2d6fdbdb84dbc9962c422c9f82
     with:
-      forge_ref: 3cc611c15766029653a209b9de05822c678e4594
+      forge_ref: 731ee5a8b83f1f2d6fdbdb84dbc9962c422c9f82
     secrets:
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
       FORGE_APP_PRIVATE_KEY: ${{ secrets.FORGE_APP_PRIVATE_KEY }}
