@@ -378,7 +378,7 @@ Manual dispatch inputs can force screenshot tests, solver contract tests, or an 
 - `contracts/UI_DESIGN.md`: themes, components, copy-adjacent UI rules.
 - `contracts/UNIT_TESTING.md`: test rules and examples.
 - `contracts/DATA_LAYER_RULES.md`: Room and repository rules.
-- `contracts/WOMBO_GOSPEL.md`: the voice contract for user-facing copy.
+- `contracts/gospel/WOMBO-GOSPEL.md`: the voice contract for user-facing copy (Shippopotamus gospels submodule — the shared canon for all Shippopotamus apps lives under `contracts/gospel/`).
 - `docs/synthesis-architecture.md`: how synthesis fits together, with a migration note at the top.
 - `docs/callable-function-versioning.md`: Callable Function version rules.
 - `docs/security-scanning.md`: OSV scanning and triage.
