@@ -9,7 +9,7 @@ name: Forge Review
 #
 # Supply-chain pinning (Forge review finding on this PR): the reusable
 # workflow and the forge_ref scripts checkout are both pinned to the
-# v1.1.3 release tag of forge-reviewer, not a mutable branch, and only
+# v1.1.4 release tag of forge-reviewer, not a mutable branch, and only
 # the secrets the reusable workflow declares are passed — never
 # `secrets: inherit`. (An interim full-SHA pin was orphaned once by a
 # history rewrite: the object survived but no ref reached it, and
@@ -26,9 +26,9 @@ permissions:
 
 jobs:
   forge-review:
-    uses: shippopotamuslabs/forge-reviewer/.github/workflows/forge-review.yml@v1.1.3
+    uses: shippopotamuslabs/forge-reviewer/.github/workflows/forge-review.yml@v1.1.4
     with:
-      forge_ref: v1.1.3
+      forge_ref: v1.1.4
     secrets:
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
       FORGE_APP_PRIVATE_KEY: ${{ secrets.FORGE_APP_PRIVATE_KEY }}

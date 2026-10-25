@@ -59,11 +59,6 @@ env:
   ANDROID_USER_HOME: ${{ github.workspace }}/../ci-home/android-home
   GRADLE_OPTS: "-Dorg.gradle.caching=true"
   OSV_SCANNER_VERSION: "2.6.0"
-  # Forge reviewer. FORGE_REF is the forge-reviewer pin; the SHA below is
-  # the GitLab-side commit (v1.0.12) and WILL differ in the rewritten
-  # GitHub mirror — update when the Forge reusable workflow lands (T-7).
-  FORGE_ENABLED: "true"
-  FORGE_REF: "fdc67ce8ca41c445d5a28375af1acdb9871001bb"
 
 jobs:
   # ---------------------------------------------------------------------
