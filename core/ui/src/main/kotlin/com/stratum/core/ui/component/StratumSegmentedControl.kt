@@ -248,9 +248,11 @@ private fun segmentBackground(
 /**
  * Fixed height of the connected segment bar (§12.8): the bar is exactly this
  * tall, so overlay hosts (STR-192) can reserve it in scrollable content
- * padding without measuring.
+ * padding without measuring. Public so screens declaring a top-bar bottom
+ * slot around a switcher (STR-203) can pin the slot height without
+ * duplicating the number.
  */
-private val MinSegmentHeight = 48.dp
+val MinSegmentHeight = 48.dp
 private val ModifiedDotSize = 6.dp
 
 /**
