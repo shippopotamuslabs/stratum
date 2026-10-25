@@ -31,7 +31,6 @@ golden-test-examples/
 *.jks
 *.keystore
 keystore.properties
-google-services.json
 
 # OS
 .DS_Store

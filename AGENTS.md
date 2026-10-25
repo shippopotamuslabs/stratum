@@ -144,7 +144,7 @@ program synthesis is deterministic domain logic, but the solver **runs server-si
 - **OpenRouter** is the v1 inference provider. **`OPENROUTER_API_KEY`** and **`OPENROUTER_MODEL`**
   are already in **Firebase Secret Manager** (maintainer-provisioned — do not ask to create).
   Model value: `deepseek/deepseek-v4-pro`.
-- Firebase Android config: **`app/google-services.json`** — gitignored; not an API key.
+- Firebase Android config: **`app/google-services.json`** — committed to the repo; not a secret. The Android API key is an identifier restricted in Google Cloud Console (Android app restriction to `com.aether.stratum` + SHA-1s, API restrictions); real protection is server-side (Firestore rules/App Check).
 - Android `:core:inference` is a **Firebase Functions / cloud-job client** — not a direct
   OpenRouter caller and not a solver host. See pocket-crew `OpenRouterInferenceServiceImpl`
   for server-side LLM patterns.
