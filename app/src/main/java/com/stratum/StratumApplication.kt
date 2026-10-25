@@ -86,8 +86,9 @@ class StratumApplication : Application(), Configuration.Provider {
 
     /**
      * Installs the variant-specific App Check provider (`src/debug` vs `src/release`).
-     * Monitor-only: no backend enforces App Check yet, so attested tokens attach
-     * automatically without changing any existing flow. Debug uses
+     * Enforced server-side: the AI callables enforce App Check in code and Cloud
+     * Firestore enforces it in the Firebase console (STR-202), so attested tokens
+     * attach automatically from process start. Debug uses
      * [com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory] (debug
      * dependency only); release uses Play Integrity. Register debug secrets in
      * Firebase Console → App Check → Manage debug tokens when using debug builds

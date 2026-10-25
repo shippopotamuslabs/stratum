@@ -90,8 +90,11 @@ service cloud.firestore {
     // User-owned syncable entity documents (client read/write when owner).
     // Hard deletes are denied — clients must write pure tombstones (deleted: true)
     // so other devices observe the delete via LWW rather than silent doc disappearance.
-    // App Check is enforced in the Firebase console (monitor → enforce); rules stay
-    // auth+envelope focused so emulator/dev without App Check tokens still work.
+    // App Check is enforced for Cloud Firestore in the Firebase console (STR-202,
+    // 2026-10-24); these rules stay auth+envelope focused. Every client flow must
+    // present a valid token: release builds attest via Play Integrity, debug builds
+    // via the debug provider once their debug secret is registered in the console.
+    // The local emulator never talks to production Firestore.
     match /users/{userId}/{collection}/{docId} {
       allow read: if isOwner(userId) && isSyncCollection(collection);
       allow create, update: if isOwner(userId) && isValidSyncWrite(collection);
