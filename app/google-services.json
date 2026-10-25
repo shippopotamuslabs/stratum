@@ -1,0 +1,63 @@
+{
+  "project_info": {
+    "project_number": "531671963823",
+    "project_id": "stratum-a1a5b",
+    "storage_bucket": "stratum-a1a5b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:531671963823:android:8d383c6410df9ce894dc5a",
+        "android_client_info": {
+          "package_name": "com.aether.stratum"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "531671963823-4c7mnvb3c8pk67hv8i0hfo7aei6443g0.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.aether.stratum",
+            "certificate_hash": "80170c86439655a77509f8da8c1663b74d1b29cc"
+          }
+        },
+        {
+          "client_id": "531671963823-9g6esekv3v2ldhc3kduiv9p9s9betpkn.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.aether.stratum",
+            "certificate_hash": "453d49ef4615c04d63b61369ec2b39e1faef764e"
+          }
+        },
+        {
+          "client_id": "531671963823-o61l91rol6ht9v9o51ifftdgpnanienq.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.aether.stratum",
+            "certificate_hash": "ac81dae3e7f41793a1391d5e2aebc0ffcc6acbb9"
+          }
+        },
+        {
+          "client_id": "531671963823-btuah1dmj7lg4s8an3qdiu4tp5680p4b.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDu7fMZF6YxNKH8LzXk4HbKqKOrTG3yalk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "531671963823-btuah1dmj7lg4s8an3qdiu4tp5680p4b.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
