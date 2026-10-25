@@ -126,7 +126,7 @@ class EditWorkoutProgramVolumeTest {
                             workoutLifts =
                                 listOf(
                                     persistedLift("wl-1", PUSH_WORKOUT_ID, "bench-press", setCount = 2),
-                                    persistedLift("wl-2", PUSH_WORKOUT_ID, "incline-press", setCount = 1),
+                                    persistedLift("wl-2", PUSH_WORKOUT_ID, "incline-press", setCount = 1, position = 1),
                                 ),
                         ),
                         Workout(
@@ -148,13 +148,14 @@ class EditWorkoutProgramVolumeTest {
             workoutId: String,
             liftId: String,
             setCount: Int,
+            position: Int = 0,
         ): WorkoutLift =
             WorkoutLift(
                 id = WorkoutLiftId(workoutLiftId),
                 workoutId = WorkoutId(workoutId),
                 liftId = LiftId(liftId),
                 progressionScheme = ProgressionScheme.Linear,
-                position = 0,
+                position = position,
                 sets =
                     (0 until setCount).map { index ->
                         LiftSet(

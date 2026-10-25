@@ -30,7 +30,7 @@ class ProgramLiftSanitizerTest {
                             workoutLifts =
                                 listOf(
                                     workoutLift("wl-1", "w-1", "known-lift"),
-                                    workoutLift("wl-2", "w-1", "unknown-lift"),
+                                    workoutLift("wl-2", "w-1", "unknown-lift", position = 1),
                                 ),
                         ),
                         Workout(
@@ -81,13 +81,14 @@ class ProgramLiftSanitizerTest {
         workoutLiftId: String,
         workoutId: String,
         liftId: String,
+        position: Int = 0,
     ): WorkoutLift =
         WorkoutLift(
             id = WorkoutLiftId(workoutLiftId),
             workoutId = WorkoutId(workoutId),
             liftId = LiftId(liftId),
             progressionScheme = ProgressionScheme.Linear,
-            position = 0,
+            position = position,
             sets =
                 listOf(
                     LiftSet(

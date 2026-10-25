@@ -48,7 +48,7 @@ class ProgramLibraryUiStateMapperTest {
                 createdAt = Instant.parse("2026-01-01T00:00:00Z"),
                 cycleLength = 8,
 
-                workouts = (0 until 5).map { index -> trainWorkout("w-$index", index) },
+                workouts = (0 until 5).map { index -> trainWorkout("w-$index", index, programId = "p-8") },
                 restSlotIndices = setOf(3, 5, 7),
             )
 
@@ -77,8 +77,8 @@ class ProgramLibraryUiStateMapperTest {
                 cycleLength = 2,
                 workouts =
                     listOf(
-                        trainWorkout("w-u", 0, weekday = Weekday.Monday, name = "Upper"),
-                        trainWorkout("w-l", 1, weekday = Weekday.Thursday, name = "Lower"),
+                        trainWorkout("w-u", 0, weekday = Weekday.Monday, name = "Upper", programId = "p-classic"),
+                        trainWorkout("w-l", 1, weekday = Weekday.Thursday, name = "Lower", programId = "p-classic"),
                     ),
                 restSlotIndices = emptySet(),
             )
@@ -95,10 +95,11 @@ class ProgramLibraryUiStateMapperTest {
         position: Int,
         weekday: Weekday? = null,
         name: String = "Day $id",
+        programId: String = "p",
     ): Workout =
         Workout(
             id = WorkoutId(id),
-            programId = ProgramId("p"),
+            programId = ProgramId(programId),
             name = name,
             weekday = weekday,
             position = position,

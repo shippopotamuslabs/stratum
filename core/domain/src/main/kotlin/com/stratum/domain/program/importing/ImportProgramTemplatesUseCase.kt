@@ -122,9 +122,9 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
                 for (item in prepared) {
                     val programId = item.program.id
                     if (item.activate) {
-                        repository.saveProgram(item.program.copy(isActive = true))
+                        repository.saveProgram(item.program.activate())
                     } else {
-                        repository.saveToLibrary(item.program.copy(isActive = false))
+                        repository.saveToLibrary(item.program.deactivate())
                     }
                     if (options.appendProgramRegeneratedEvent) {
                         programChangeEventRepository.append(
@@ -194,11 +194,12 @@ internal fun rebindProgramId(
     programId: ProgramId,
 ): com.stratum.domain.program.Program {
     if (program.id == programId && program.workouts.all { it.programId == programId }) {
-        return program.copy(isActive = false)
+        return program.deactivate()
     }
-    return program.copy(
-        id = programId,
-        isActive = false,
-        workouts = program.workouts.map { workout -> workout.copy(programId = programId) },
-    )
+    return program
+        .copy(
+            id = programId,
+            workouts = program.workouts.map { workout -> workout.copy(programId = programId) },
+        )
+        .deactivate()
 }

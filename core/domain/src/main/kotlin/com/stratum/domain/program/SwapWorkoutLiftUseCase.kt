@@ -65,31 +65,7 @@ class SwapWorkoutLiftUseCase @Inject constructor(
                 null
             }
 
-        var found = false
-        var previousLiftId: LiftId? = null
-        val updatedWorkouts = program.workouts.map { workout ->
-            val updatedLifts = workout.workoutLifts.map { lift ->
-                if (lift.id == workoutLiftId) {
-                    found = true
-                    previousLiftId = lift.liftId
-                    if (incomingNotes != null) {
-                        lift.copy(
-                            liftId = newLiftId,
-                            equipmentId = null,
-                            pinnedNote = incomingNotes.firstOrNull(),
-                            pinnedNotes = incomingNotes,
-                        )
-                    } else {
-                        lift.copy(liftId = newLiftId)
-                    }
-                } else {
-                    lift
-                }
-            }
-            workout.copy(workoutLifts = updatedLifts)
-        }
-
-        if (!found) {
+        if (targetLift == null) {
             // Expected stale-id outcome, not an operational fault: breadcrumb only.
             return loggingPort.expectedFailure(
                 TAG,
@@ -98,7 +74,19 @@ class SwapWorkoutLiftUseCase @Inject constructor(
             )
         }
 
-        val updatedProgram = program.copy(workouts = updatedWorkouts)
+        val previousLiftId = targetLift.liftId
+        val swappedLift =
+            if (incomingNotes != null) {
+                targetLift.copy(
+                    liftId = newLiftId,
+                    equipmentId = null,
+                    pinnedNote = incomingNotes.firstOrNull(),
+                    pinnedNotes = incomingNotes,
+                )
+            } else {
+                targetLift.copy(liftId = newLiftId)
+            }
+        val updatedProgram = program.replaceWorkoutLift(swappedLift)
         // STR-105 Scope 8: this save must not persist any tombstoned slot pointer.
         val orphaned =
             updatedProgram.workouts
@@ -122,7 +110,7 @@ class SwapWorkoutLiftUseCase @Inject constructor(
                     payload =
                         ProgramChangeEventPayload.LiftSwapped(
                             workoutLiftId = workoutLiftId,
-                            previousLiftId = requireNotNull(previousLiftId),
+                            previousLiftId = previousLiftId,
                             newLiftId = newLiftId,
                         ),
                 ),

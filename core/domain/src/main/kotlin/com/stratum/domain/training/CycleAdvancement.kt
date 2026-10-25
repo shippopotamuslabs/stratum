@@ -1,11 +1,6 @@
 package com.stratum.domain.training
 
-import com.stratum.domain.program.Program
 import com.stratum.domain.program.identity.ProgramId
-import com.stratum.domain.program.schedule.CycleProjection
-import com.stratum.domain.training.identity.ProgramChangeEventId
-import java.time.Instant
-import java.util.UUID
 
 data class CyclePointerUpdate(
     val programId: ProgramId,
@@ -15,45 +10,13 @@ data class CyclePointerUpdate(
     val cycleStartEpochDay: Long? = null,
 )
 
+/**
+ * Outcome of [com.stratum.domain.program.Program.advanceCycle]: the pointer update
+ * `:core:data` applies transactionally, plus the cycle-completed event when the
+ * cycle rolled (null otherwise). The advancement decision itself lives on
+ * `Program` (STR-167); this type is only its result.
+ */
 data class CycleAdvancementEffects(
     val pointerUpdate: CyclePointerUpdate,
     val cycleCompletedEvent: ProgramChangeEvent?,
 )
-
-fun computeCycleAdvancement(
-    program: Program,
-    sessions: List<TrainingSession>,
-): CycleAdvancementEffects {
-    val progress = CycleProgressResolver.reconcileSlotProgress(program, sessions)
-    val cycleComplete = progress.isComplete
-    val completedCycleNumber = program.currentCycleNumber
-    val nextCycleNumber = if (cycleComplete) completedCycleNumber + 1 else completedCycleNumber
-    val nextCyclePosition = if (cycleComplete) 0 else progress.cyclePosition
-    val nextCycleStart =
-        if (cycleComplete && program.cycleStartEpochDay != null) {
-            CycleProjection.nextCycleStartEpochDay(program.cycleStartEpochDay, program.cycleLength)
-        } else {
-            null
-        }
-    return CycleAdvancementEffects(
-        pointerUpdate =
-            CyclePointerUpdate(
-                programId = program.id,
-                currentCycleNumber = nextCycleNumber,
-                cyclePosition = nextCyclePosition,
-                cycleStartEpochDay = nextCycleStart,
-            ),
-        cycleCompletedEvent =
-            if (cycleComplete) {
-                ProgramChangeEvent(
-                    id = ProgramChangeEventId(UUID.randomUUID().toString()),
-                    programId = program.id,
-                    eventType = ProgramChangeEventType.CYCLE_COMPLETED,
-                    occurredAt = Instant.now(),
-                    payload = ProgramChangeEventPayload.CycleCompleted(completedCycleNumber),
-                )
-            } else {
-                null
-            },
-    )
-}

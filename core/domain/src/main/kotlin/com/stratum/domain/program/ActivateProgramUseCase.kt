@@ -28,10 +28,9 @@ class ActivateProgramUseCase @Inject constructor(
                 "Program must have at least one exercise"
             }
             val toActivate =
-                program.copy(
-                    isActive = true,
-                    cycleStartEpochDay = resolveInitialCycleStartEpochDay(program),
-                )
+                program
+                    .copy(cycleStartEpochDay = resolveInitialCycleStartEpochDay(program))
+                    .activate()
             programRepository.saveProgram(toActivate)
             programChangeEventRepository.append(
                 ProgramChangeEvent(

@@ -118,7 +118,7 @@ class OnboardingStatusViewModelTest {
     @DisplayName("Discard program deletes active template and reopens onboarding to ChoosePath")
     fun discardProgramDeletesActiveAndReopens() = runTest {
         val program = WorkoutLoggingFixtures.twoWorkoutProgram()
-        programRepository.saveProgram(program.copy(isActive = true))
+        programRepository.saveProgram(program.activate())
         fakeRepository.seed(
             OnboardingProgress(
                 currentStep = OnboardingStep.Review,

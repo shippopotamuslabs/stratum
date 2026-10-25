@@ -49,7 +49,7 @@ internal class CreateProgramActiveSessionGuard(
     ): Boolean {
         val resultingActive: Program? =
             when (mode) {
-                CreateProgramPersistMode.Activate -> draft.copy(isActive = true)
+                CreateProgramPersistMode.Activate -> draft.activate()
                 CreateProgramPersistMode.SavePreservingActive -> draft
                 CreateProgramPersistMode.SaveToLibrary -> {
                     // Library save of an inactive program does not rewrite the active template.

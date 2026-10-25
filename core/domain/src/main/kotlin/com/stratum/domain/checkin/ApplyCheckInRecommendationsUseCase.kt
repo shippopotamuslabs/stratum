@@ -59,36 +59,20 @@ class ApplyCheckInRecommendationsUseCase @Inject constructor(
         commands: List<CheckInApplyCommand>,
         now: Instant,
     ): Result<Pair<Program, List<ProgramChangeEvent>>> {
-        var workouts = program.workouts
+        var current = program
         val events = mutableListOf<ProgramChangeEvent>()
 
         for (command in commands) {
             when (command) {
                 is CheckInApplyCommand.Swap -> {
                     val hit =
-                        findWorkoutLift(workouts, command.workoutLiftId)
+                        findWorkoutLift(current.workouts, command.workoutLiftId)
                             ?: return Result.failure(
                                 IllegalArgumentException("Workout lift ${command.workoutLiftId.value} not found"),
                             )
                     val (workout, lift) = hit
                     val previousLiftId = lift.liftId
-                    workouts =
-                        workouts.map { w ->
-                            if (w.id != workout.id) {
-                                w
-                            } else {
-                                w.copy(
-                                    workoutLifts =
-                                        w.workoutLifts.map { wl ->
-                                            if (wl.id == command.workoutLiftId) {
-                                                wl.copy(liftId = command.newLiftId)
-                                            } else {
-                                                wl
-                                            }
-                                        },
-                                )
-                            }
-                        }
+                    current = current.replaceWorkoutLift(lift.copy(liftId = command.newLiftId))
                     events +=
                         ProgramChangeEvent(
                             id = ProgramChangeEventId(UUID.randomUUID().toString()),
@@ -106,32 +90,19 @@ class ApplyCheckInRecommendationsUseCase @Inject constructor(
                 is CheckInApplyCommand.SetWorkingSets -> {
                     if (command.targetSetCount >= 1) {
                         val hit =
-                            findWorkoutLift(workouts, command.workoutLiftId)
+                            findWorkoutLift(current.workouts, command.workoutLiftId)
                                 ?: return Result.failure(
                                     IllegalArgumentException("Workout lift ${command.workoutLiftId.value} not found"),
                                 )
                         val (workout, lift) = hit
                         if (lift.sets.size != command.targetSetCount) {
-                            workouts =
-                                workouts.map { w ->
-                                    if (w.id != workout.id) {
-                                        w
-                                    } else {
-                                        w.copy(
-                                            workoutLifts =
-                                                w.workoutLifts.map { wl ->
-                                                    if (wl.id == command.workoutLiftId) {
-                                                        WorkoutLiftSetAdjuster.withSetCount(
-                                                            wl,
-                                                            command.targetSetCount,
-                                                        )
-                                                    } else {
-                                                        wl
-                                                    }
-                                                },
-                                        )
-                                    }
-                                }
+                            current =
+                                current.replaceWorkoutLift(
+                                    WorkoutLiftSetAdjuster.withSetCount(
+                                        lift,
+                                        command.targetSetCount,
+                                    ),
+                                )
                             events +=
                                 ProgramChangeEvent(
                                     id = ProgramChangeEventId(UUID.randomUUID().toString()),
@@ -145,7 +116,7 @@ class ApplyCheckInRecommendationsUseCase @Inject constructor(
                 }
             }
         }
-        return Result.success(program.copy(workouts = workouts) to events)
+        return Result.success(current to events)
     }
 
     private fun findWorkoutLift(

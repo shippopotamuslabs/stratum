@@ -79,7 +79,7 @@ fun materializeAutoConsumedRestSessions(
 }
 
 /**
- * [sessions] plus newly materialised auto-rest rows. Use before [computeCycleAdvancement] on
+ * [sessions] plus newly materialised auto-rest rows. Use before [com.stratum.domain.program.Program.advanceCycle] on
  * program-workout complete/skip paths so the pointer sees persisted rests.
  */
 fun sessionsWithMaterializedAutoRests(

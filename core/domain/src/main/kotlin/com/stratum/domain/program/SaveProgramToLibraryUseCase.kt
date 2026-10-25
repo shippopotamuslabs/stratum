@@ -22,7 +22,7 @@ class SaveProgramToLibraryUseCase @Inject constructor(
             require(program.workouts.any { it.workoutLifts.isNotEmpty() }) {
                 "Program must have at least one exercise"
             }
-            val toSave = program.copy(isActive = false)
+            val toSave = program.deactivate()
             programRepository.saveToLibrary(toSave)
             programChangeEventRepository.append(
                 ProgramChangeEvent(
