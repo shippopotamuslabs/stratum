@@ -113,7 +113,7 @@ class RecordRestDaySkipUseCase @Inject constructor(
                 sessions = baseSessions,
                 now = now,
             )
-        val effects = computeCycleAdvancement(program = program, sessions = ledger)
+        val effects = program.advanceCycle(ledger)
         trainingLogRepository.persistSessionsWithCycleEffects(
             sessions = listOf(session) + autoRests,
             cyclePointerUpdate = effects.pointerUpdate,

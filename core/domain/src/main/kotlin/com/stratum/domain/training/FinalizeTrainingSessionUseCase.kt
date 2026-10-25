@@ -83,7 +83,7 @@ class FinalizeTrainingSessionUseCase @Inject constructor(
                                 now = completed.completedAt,
                             )
                         sessionsToPersist += autoRests
-                        computeCycleAdvancement(program, ledger)
+                        program.advanceCycle(ledger)
                     }
                 } else {
                     null

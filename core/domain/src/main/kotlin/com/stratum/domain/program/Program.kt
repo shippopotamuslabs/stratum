@@ -8,8 +8,19 @@ import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.program.identity.WorkoutSupersetGroupId
+import com.stratum.domain.program.schedule.CycleProjection
+import com.stratum.domain.program.schedule.requireCycleGeometry
+import com.stratum.domain.training.CycleAdvancementEffects
+import com.stratum.domain.training.CyclePointerUpdate
+import com.stratum.domain.training.CycleProgressResolver
+import com.stratum.domain.training.ProgramChangeEvent
+import com.stratum.domain.training.ProgramChangeEventPayload
+import com.stratum.domain.training.ProgramChangeEventType
+import com.stratum.domain.training.TrainingSession
+import com.stratum.domain.training.identity.ProgramChangeEventId
 import com.stratum.domain.workout.myorep.MyoRepKind
 import java.time.Instant
+import java.util.UUID
 
 /** Default inter-set rest (seconds) for generated and legacy persisted sets. */
 const val DEFAULT_LIFT_SET_REST_SECONDS = 120
@@ -57,7 +68,156 @@ data class Program(
      * derived from this field.
      */
     val cycleStartEpochDay: Long? = null,
-)
+) {
+    init {
+        // STR-167: cycle geometry is the aggregate's own rule (shared with CycleSpace /
+        // MaterializedCycleSpace / GenerationCycleHints via requireCycleGeometry).
+        requireCycleGeometry(cycleLength, restSlotIndices)
+        require(currentCycleNumber >= 1) {
+            "currentCycleNumber must be at least 1, was $currentCycleNumber"
+        }
+        require(cyclePosition in 0 until cycleLength) {
+            "cyclePosition $cyclePosition must lie in [0, $cycleLength)"
+        }
+        // Children are validated by the aggregate root: workout positions are unique
+        // (they are the training order) and every workout belongs to this program.
+        // Positions are NOT required to be dense 0..T-1: pruning a workout
+        // (ProgramLiftSanitizer) legitimately leaves a gap until a reorder /
+        // materialize pass re-densifies, and that state must stay constructible.
+        require(workouts.all { workout -> workout.programId == id }) {
+            "every workout must belong to program ${id.value}"
+        }
+        require(workouts.map { workout -> workout.position }.distinct().size == workouts.size) {
+            "workout positions must be unique within the program"
+        }
+    }
+
+    /** Makes this the active program. Cross-program demotion stays repository-enforced. */
+    fun activate(): Program = copy(isActive = true)
+
+    /** Demotes this program to inactive library inventory. */
+    fun deactivate(): Program = copy(isActive = false)
+
+    /**
+     * Appends [lift] to the workout it belongs to ([WorkoutLift.workoutId]).
+     * The use case decides when a lift is added and constructs the lift (catalog rest
+     * lookup, set shape); the aggregate owns where it lands and that the workout exists.
+     * The aggregate also owns the appended lift's position: it lands after the highest
+     * existing position, because stored workouts may carry position gaps (pruning drops
+     * lifts without renumbering), so a count-based position could collide with a
+     * survivor. The position on [lift] as passed in is superseded.
+     */
+    fun addWorkoutLift(lift: WorkoutLift): Program {
+        var found = false
+        val updated =
+            workouts.map { workout ->
+                if (workout.id == lift.workoutId) {
+                    found = true
+                    val appendPosition = (workout.workoutLifts.maxOfOrNull { it.position } ?: -1) + 1
+                    workout.copy(workoutLifts = workout.workoutLifts + lift.copy(position = appendPosition))
+                } else {
+                    workout
+                }
+            }
+        require(found) { "Workout with ID ${lift.workoutId.value} not found in program" }
+        return copy(workouts = updated)
+    }
+
+    /**
+     * Replaces the stored [WorkoutLift] that shares [updated]'s id, in the workout
+     * [updated] belongs to. Set-count adjustment, lift swaps, and check-in mutations
+     * all funnel through here instead of re-mapping the hierarchy in each use case.
+     */
+    fun replaceWorkoutLift(updated: WorkoutLift): Program {
+        var found = false
+        val updatedWorkouts =
+            workouts.map { workout ->
+                if (workout.id != updated.workoutId) {
+                    workout
+                } else {
+                    workout.copy(
+                        workoutLifts =
+                            workout.workoutLifts.map { lift ->
+                                if (lift.id == updated.id) {
+                                    found = true
+                                    updated
+                                } else {
+                                    lift
+                                }
+                            },
+                    )
+                }
+            }
+        require(found) { "Workout lift with ID ${updated.id.value} not found in program" }
+        return copy(workouts = updatedWorkouts)
+    }
+
+    /**
+     * Cycle advancement (STR-167, absorbed from the former `computeCycleAdvancement`
+     * free function): reconciles the session ledger against this program's cycle
+     * space and returns the pointer update plus the optional cycle-completed event
+     * that `:core:data` applies transactionally. The pointer-advance decision is the
+     * model's; [CycleProgressResolver] stays the ledger-reading service that reports
+     * slot progress, and this method decides what the pointer becomes.
+     */
+    fun advanceCycle(sessions: List<TrainingSession>): CycleAdvancementEffects {
+        val progress = CycleProgressResolver.reconcileSlotProgress(this, sessions)
+        val cycleComplete = progress.isComplete
+        val completedCycleNumber = currentCycleNumber
+        val nextCycleNumber = if (cycleComplete) completedCycleNumber + 1 else completedCycleNumber
+        val nextCyclePosition = if (cycleComplete) 0 else progress.cyclePosition
+        val nextCycleStart =
+            if (cycleComplete && cycleStartEpochDay != null) {
+                CycleProjection.nextCycleStartEpochDay(cycleStartEpochDay, cycleLength)
+            } else {
+                null
+            }
+        return CycleAdvancementEffects(
+            pointerUpdate =
+                CyclePointerUpdate(
+                    programId = id,
+                    currentCycleNumber = nextCycleNumber,
+                    cyclePosition = nextCyclePosition,
+                    cycleStartEpochDay = nextCycleStart,
+                ),
+            cycleCompletedEvent =
+                if (cycleComplete) {
+                    ProgramChangeEvent(
+                        id = ProgramChangeEventId(UUID.randomUUID().toString()),
+                        programId = id,
+                        eventType = ProgramChangeEventType.CYCLE_COMPLETED,
+                        occurredAt = Instant.now(),
+                        payload = ProgramChangeEventPayload.CycleCompleted(completedCycleNumber),
+                    )
+                } else {
+                    null
+                },
+        )
+    }
+}
+
+/*
+ * Template-mutation inventory (STR-167): which raw `copy(workouts = ...)` mutations
+ * moved onto the aggregate above, and which stay off it, with reasons.
+ *
+ * Moved: activation (activate/deactivate, every former copy(isActive = ...) site),
+ * AddWorkoutLiftUseCase (addWorkoutLift), AdjustWorkoutLiftSetCountUseCase /
+ * ApplyCheckInRecommendationsUseCase / SwapWorkoutLiftUseCase /
+ * ApplyRepRangeShiftUseCase / GenerateProgressionSnapshotUseCase's scheme change
+ * (replaceWorkoutLift, with WorkoutLiftSetAdjuster still owning set-shape math),
+ * cycle advancement (advanceCycle).
+ *
+ * Staying in use cases / services:
+ * - SaveWorkoutUseCase's whole-workout replacement — already the model's own
+ *   extension API (mergeWorkout in ProgramWorkoutMerge.kt).
+ * - Generation pipeline transforms (ProgramIntegration, CalendarLiftVariety,
+ *   HeuristicProgramNaming, withMaterializedCycleSpace): class C pipeline services
+ *   reshaping a not-yet-persisted draft program end to end; the draft is their
+ *   working type, not a persisted aggregate being edited in place.
+ * - ReorderProgramCycleDays: a schedule service that recomputes rest slots and the
+ *   cycle pointer together — cycle geometry spanning the whole aggregate, decided
+ *   by the reorder algorithm, not a single-workout edit.
+ */
 
 data class Workout(
     val id: WorkoutId,
@@ -71,7 +231,17 @@ data class Workout(
     /** Order among training sessions in the cycle (0..T-1), not calendar slot index. */
     val position: Int,
     val workoutLifts: List<WorkoutLift>,
-)
+) {
+    init {
+        require(position >= 0) { "workout position must be non-negative, was $position" }
+        require(workoutLifts.all { lift -> lift.workoutId == id }) {
+            "every workout lift must belong to workout ${id.value}"
+        }
+        require(workoutLifts.map { lift -> lift.position }.distinct().size == workoutLifts.size) {
+            "workout lift positions must be unique within the workout"
+        }
+    }
+}
 
 data class WorkoutLift(
     val id: WorkoutLiftId,
@@ -100,6 +270,16 @@ data class WorkoutLift(
      */
     val equipmentId: EquipmentId? = null,
 ) {
+    init {
+        require(position >= 0) { "workout lift position must be non-negative, was $position" }
+        require(sets.all { set -> set.workoutLiftId == id }) {
+            "every set must belong to workout lift ${id.value}"
+        }
+        require(sets.map { set -> set.position }.distinct().size == sets.size) {
+            "set positions must be unique within the workout lift"
+        }
+    }
+
     /**
      * Effective pinned notes: the list form wins, else the scalar. Storage reads leave
      * the list empty (scalar-authoritative), while template saves carry the list —
@@ -132,4 +312,10 @@ data class LiftSet(
      * Persisted on the program template (Room v2).
      */
     val myoRepKind: MyoRepKind? = null,
-)
+) {
+    init {
+        // Position only (STR-167 aggregate membership). Rep-band / RIR / rest rules are
+        // scheme-dependent and land with STR-168, not here.
+        require(position >= 0) { "set position must be non-negative, was $position" }
+    }
+}

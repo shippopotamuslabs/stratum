@@ -28,7 +28,7 @@ class FakeProgramRepository(
     private val failOnSave: Boolean = false,
 ) : ProgramRepository {
     private val programs = MutableStateFlow<Map<String, Program>>(
-        if (initial == null) emptyMap() else mapOf(initial.id.value to initial.copy(isActive = true)),
+        if (initial == null) emptyMap() else mapOf(initial.id.value to initial.activate()),
     )
     /**
      * Source of truth for workout note lists, keyed by (slot, lift) pair (STR-127);
@@ -144,7 +144,7 @@ class FakeProgramRepository(
         val previous = programs.value[program.id.value]
         val next = programs.value.toMutableMap()
         if (program.isActive) {
-            next.replaceAll { _, existing -> existing.copy(isActive = false) }
+            next.replaceAll { _, existing -> existing.deactivate() }
         }
         next[program.id.value] = program
         programs.value = next
@@ -188,7 +188,7 @@ class FakeProgramRepository(
     }
 
     override suspend fun saveToLibrary(program: Program) {
-        saveProgram(program.copy(isActive = false))
+        saveProgram(program.deactivate())
     }
 
     override suspend fun activateProgram(programId: ProgramId) {
@@ -198,8 +198,8 @@ class FakeProgramRepository(
             "Import-history program cannot be activated"
         }
         val next = programs.value.toMutableMap()
-        next.replaceAll { _, program -> program.copy(isActive = false) }
-        next[programId.value] = existing.copy(isActive = true)
+        next.replaceAll { _, program -> program.deactivate() }
+        next[programId.value] = existing.activate()
         programs.value = next
     }
 

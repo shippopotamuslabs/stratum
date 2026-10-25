@@ -36,21 +36,8 @@ class AdjustWorkoutLiftSetCountUseCase @Inject constructor(
                 )
         val (parentWorkout, targetLift) = hit
         val updatedLift = WorkoutLiftSetAdjuster.withDelta(targetLift, delta)
-        val updatedWorkouts =
-            program.workouts.map { workout ->
-                if (workout.id != parentWorkout.id) {
-                    workout
-                } else {
-                    workout.copy(
-                        workoutLifts =
-                            workout.workoutLifts.map { lift ->
-                                if (lift.id == workoutLiftId) updatedLift else lift
-                            },
-                    )
-                }
-            }
 
-        programRepository.saveProgram(program.copy(workouts = updatedWorkouts))
+        programRepository.saveProgram(program.replaceWorkoutLift(updatedLift))
         programChangeEventRepository.append(
             ProgramChangeEvent(
                 id = ProgramChangeEventId(UUID.randomUUID().toString()),

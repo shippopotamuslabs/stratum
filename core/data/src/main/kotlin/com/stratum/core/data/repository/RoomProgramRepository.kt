@@ -104,7 +104,7 @@ class RoomProgramRepository @Inject constructor(
     }
 
     override suspend fun saveToLibrary(program: Program) {
-        saveProgram(program.copy(isActive = false))
+        saveProgram(program.deactivate())
     }
 
     override suspend fun activateProgram(programId: ProgramId) {

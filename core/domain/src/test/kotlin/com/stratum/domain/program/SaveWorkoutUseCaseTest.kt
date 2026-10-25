@@ -99,9 +99,14 @@ class SaveWorkoutUseCaseTest {
                 name = "Library Split",
                 workouts =
                     TWO_WORKOUT_PROGRAM.workouts.map { workout ->
+                        val libraryWorkoutId = WorkoutId("lib-${workout.id.value}")
                         workout.copy(
-                            id = WorkoutId("lib-${workout.id.value}"),
+                            id = libraryWorkoutId,
                             programId = ProgramId("p-library"),
+                            workoutLifts =
+                                workout.workoutLifts.map { lift ->
+                                    lift.copy(workoutId = libraryWorkoutId)
+                                },
                         )
                     },
             )

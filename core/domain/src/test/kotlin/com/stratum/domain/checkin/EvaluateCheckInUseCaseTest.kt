@@ -177,9 +177,9 @@ class EvaluateCheckInUseCaseTest {
                     weekday = Weekday.Monday,
                     position = 0,
                     workoutLifts = listOf(
-                        workoutLift(wlSwapB, swapB.id, setCount = 3),
-                        workoutLift(wlCut, cutLift.id, setCount = 4),
-                        workoutLift(wlSwapA, swapA.id, setCount = 3),
+                        workoutLift(wlSwapB, swapB.id, setCount = 3, position = 0),
+                        workoutLift(wlCut, cutLift.id, setCount = 4, position = 1),
+                        workoutLift(wlSwapA, swapA.id, setCount = 3, position = 2),
                     ),
                 ),
             ),
@@ -291,8 +291,8 @@ class EvaluateCheckInUseCaseTest {
                             position = 0,
                             workoutLifts =
                                 listOf(
-                                    workoutLift(WorkoutLiftId("wl-h"), heavy.id, setCount = 5),
-                                    workoutLift(WorkoutLiftId("wl-l"), light.id, setCount = 2),
+                                    workoutLift(WorkoutLiftId("wl-h"), heavy.id, setCount = 5, position = 0),
+                                    workoutLift(WorkoutLiftId("wl-l"), light.id, setCount = 2, position = 1),
                                 ),
                         ),
                     ),
@@ -364,10 +364,10 @@ class EvaluateCheckInUseCaseTest {
                             position = 0,
                             workoutLifts =
                                 listOf(
-                                    workoutLift(WorkoutLiftId("wl-h"), heavy.id, setCount = 4),
+                                    workoutLift(WorkoutLiftId("wl-h"), heavy.id, setCount = 4, position = 0),
                                     // Light is "fresh": program-wide tenure from createdAt is long;
                                     // inject a recent swap onto light so tenure < 4.
-                                    workoutLift(WorkoutLiftId("wl-l"), light.id, setCount = 2),
+                                    workoutLift(WorkoutLiftId("wl-l"), light.id, setCount = 2, position = 1),
                                 ),
                         ),
                     ),
@@ -453,7 +453,7 @@ class EvaluateCheckInUseCaseTest {
             ),
         )
 
-    private fun workoutLift(id: WorkoutLiftId, liftId: LiftId, setCount: Int): WorkoutLift {
+    private fun workoutLift(id: WorkoutLiftId, liftId: LiftId, setCount: Int, position: Int = 0): WorkoutLift {
         val sets = (0 until setCount).map { index ->
             LiftSet(
                 id = LiftSetId("${id.value}-ls-$index"),
@@ -471,7 +471,7 @@ class EvaluateCheckInUseCaseTest {
             workoutId = WorkoutId("w-1"),
             liftId = liftId,
             progressionScheme = ProgressionScheme.Double,
-            position = 0,
+            position = position,
             sets = sets,
         )
     }

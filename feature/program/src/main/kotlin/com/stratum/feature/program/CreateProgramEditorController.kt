@@ -387,11 +387,11 @@ internal class CreateProgramEditorController(
         val draft = current.toDomainProgram(loadedProgramMeta)
         val result =
             when (mode) {
-                CreateProgramPersistMode.Activate -> activateProgram(draft.copy(isActive = true))
+                CreateProgramPersistMode.Activate -> activateProgram(draft.activate())
                 CreateProgramPersistMode.SavePreservingActive -> updateExistingProgram(draft)
                 CreateProgramPersistMode.SaveToLibrary ->
                     if (current.isEditingExisting) {
-                        updateExistingProgram(draft.copy(isActive = false))
+                        updateExistingProgram(draft.deactivate())
                     } else {
                         saveProgramToLibrary(draft)
                     }
@@ -402,11 +402,11 @@ internal class CreateProgramEditorController(
                     completeOnboarding(getUserTrainingProfile())
                 }
                 if (mode == CreateProgramPersistMode.Activate) {
-                    loadedProgramMeta = draft.copy(isActive = true).toLoadedProgramMeta()
+                    loadedProgramMeta = draft.activate().toLoadedProgramMeta()
                 } else if (mode == CreateProgramPersistMode.SavePreservingActive) {
                     loadedProgramMeta = draft.toLoadedProgramMeta()
                 } else if (current.isEditingExisting) {
-                    loadedProgramMeta = draft.copy(isActive = false).toLoadedProgramMeta()
+                    loadedProgramMeta = draft.deactivate().toLoadedProgramMeta()
                 }
                 state.update {
                     it.copy(
