@@ -5,6 +5,11 @@ Binding conventions for Kotlin, Gradle, and cross-layer patterns. Read alongside
 
 Never modify this file without an explicit **"Contract Waiver"** from the user.
 
+**Canon:** The shared Shippopotamus code style standards live in
+`contracts/gospel/CODE-STYLE-GOSPEL.md` (gospels submodule). This contract adopts
+them for shared standards; the Stratum text below governs wherever it differs or
+adds Stratum specifics.
+
 ---
 
 ## 1. Error handling

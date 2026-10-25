@@ -6,6 +6,11 @@ Golden reference implementations live in `golden-test-examples/` (Now in Android
 
 Never modify this file without an explicit **"Contract Waiver"** from the user.
 
+**Canon:** The shared Shippopotamus unit testing standards live in
+`contracts/gospel/UNIT-TESTING-GOSPEL.md` (gospels submodule). This contract
+adopts them for shared standards; the Stratum text below governs wherever it
+differs or adds Stratum specifics.
+
 ---
 
 ## 1. Core Principles (ALWAYS / NEVER)
