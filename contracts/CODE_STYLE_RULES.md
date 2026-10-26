@@ -22,7 +22,7 @@ Stratum uses **containment below, UI reaction above** — not try/catch/rethrow 
 |-------|---------|---------|
 | **Infrastructure adapter** (Firebase, credentials, Room-backed auth) | `runCatching { … }.onFailure { log; Result.failure(mapped) }` | `LoggingPort.error` once, with tag + context |
 | **Use case (orchestration)** | `runCatching` or propagate `Result`; return `Result<T>`, sealed types, or `Flow<Event>` | Only when adding context the adapter lacks (avoid duplicate logs) |
-| **Repository** | Plain `suspend` / `Flow`; let exceptions propagate to the caller's `runCatching` | No logging |
+| **Repository implementation** (infrastructure) | Plain `suspend` / `Flow`; let exceptions propagate to the caller's `runCatching` | No logging |
 | **ViewModel** | Branch on `Result` / sealed type / Flow event → `UiState` | No logging; map to user-visible strings |
 
 ### Return types
@@ -44,7 +44,7 @@ with `strings.xml`.
 
 ### LoggingPort
 
-- Single domain port: `com.stratum.domain.logging.LoggingPort`.
+- Single outbound application port: `com.stratum.domain.logging.LoggingPort` (`*Port` interface; in canon outbound ports live in the application layer — there are no domain ports).
 - Production adapter: `AndroidLoggingAdapter` in `:core:inference` — Logcat + Firebase Crashlytics
   non-fatals on `error(…, throwable)` (PII scrubbed via `TelemetryPiiScrubber` before breadcrumbs).
 - Future OpenTelemetry export should compose through the same port (composite adapter or extended
