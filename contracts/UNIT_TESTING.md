@@ -21,32 +21,21 @@ references, and §6.5 implementation mandate (§6.5.1 self-check).
 
 ## 1. Core Principles (ALWAYS / NEVER)
 
-| Rule | Description |
-| :--- | :--- |
-| **ALWAYS** Prefer Fakes | Use lightweight in-memory implementations of owned application outbound ports (`*Port`; `Repository` names an infrastructure implementation class only) (in `:core:testing` or module-local `Fake*`) instead of programming mock expectations. |
-| **ALWAYS** JUnit 5 | Use `org.junit.jupiter.api` (`@Test`, `@BeforeEach`, `@Nested`, `@DisplayName`). |
-| **ALWAYS** State-Based Assertions | Assert on *results* (StateFlow value, returned domain object, DB row) — not *process* ("was this method called"). |
-| **ALWAYS** Use Turbine | Test Kotlin `Flow` / `StateFlow` event-by-event with Turbine. |
-| **ALWAYS** MainDispatcherRule | Use `com.stratum.core.testing.MainDispatcherRule` (`@ExtendWith`) to swap `Dispatchers.Main` for a `TestDispatcher`. |
-| **ALWAYS** Copy Golden Patterns | Before inventing a test structure, open the matching file in `golden-test-examples/` (see §4). |
-| **NEVER** Mock Android Framework | Do not mock `Context`, `SharedPreferences`, or `Bundle`. Use Robolectric or fakes. |
-| **NEVER** Mock Owned Ports | Do not `mockk` owned application outbound `*Port` interfaces (in canon defined in the application layer; there are no domain ports). Use fakes from `:core:testing`. |
-| **NEVER** Use JUnit 4 in New Tests | Avoid `@Rule`, `@Before`, `@RunWith` in new tests. |
-| **NEVER** `verify()` ViewModels | Do not use MockK `verify` / `coVerify` in `*ViewModelTest.kt` — assert UI state instead (Detekt enforced). |
-| **NEVER** Await IO with `delay()` Polls | Inside `runTest`, `delay(N)` does not wait for real `Dispatchers.IO` work. Inject a `TestDispatcher` or `join()` background jobs (see §3.3). |
+The core principles are canon: see `contracts/gospel/TESTING-GOSPEL.md` §6.1
+(core principles, ALWAYS/NEVER) and §4 (test doubles rules).
+
+Stratum names preserved for code and Detekt citations of this section:
+`com.stratum.core.testing.MainDispatcherRule` (in `:core:testing`), and the
+Detekt rules `ForbiddenMockKInTests` and `ForbiddenVerifyInViewModelTests`.
+`Repository` names an infrastructure implementation class only; outbound ports
+are application `*Port` interfaces, and reusable fakes live in `:core:testing`.
 
 ---
 
 ## 2. Technical Stack
 
-| Tool | When |
-|------|------|
-| **JUnit 5** | All local unit tests (`src/test`) |
-| **Turbine** | All Flow / StateFlow assertions |
-| **Robolectric** | Room DAO, DataStore, Context-dependent code on JVM (`testDebugUnitTest`) |
-| **StandardTestDispatcher** | Coroutine tests with explicit `advanceUntilIdle()` |
-| **MockK** | Only when a Fake is impractical (third-party SDK, static Android APIs). Requires `@file:Suppress("ForbiddenMockKInTests")` with a one-line justification comment. |
-| **`:core:testing`** | Shared fakes, `MainDispatcherRule`, fixtures |
+The technical stack is canon: see `contracts/gospel/TESTING-GOSPEL.md` §6.2.
+Stratum's module-by-module instantiation follows.
 
 ### Test pyramid by module
 
@@ -129,8 +118,7 @@ then `advanceUntilIdle()`.
 
 ### 3.4 Self-check (anti reward-hacking)
 
-After writing a test, break the production code under test (wrong return value, skip persistence).
-The test **must fail**. If it still passes, the test is invalid — rewrite before marking work complete.
+See `contracts/gospel/TESTING-GOSPEL.md` §6.5.1 (self-check, anti reward-hacking).
 
 ---
 
@@ -154,14 +142,14 @@ never copy-paste imports from NIA into production modules.
 
 ## 5. Implementation Mandate
 
-Any agent creating or modifying production logic **must**:
+The implementation mandate is canon: see `contracts/gospel/TESTING-GOSPEL.md`
+§6.5 and `contracts/gospel/CODE-STYLE-GOSPEL.md` §8.1 (test coverage discipline).
 
-1. Read this contract and the relevant golden example.
-2. Add or extend tests in the module's `src/test/kotlin` (or `src/androidTest` when device-only).
-3. Run the narrowest test task during iteration, e.g.  
-   `./gradlew :core:domain:test --tests "*LogSetUseCaseTest*"`  
-   then `./gradlew testDebugUnitTest` before completion.
-4. Ensure `./gradlew detekt` passes (includes `ForbiddenMockKInTests` and `ForbiddenVerifyInViewModelTests`).
+Stratum-local enforcement: run the narrowest test task during iteration, e.g.
+`./gradlew :core:domain:test --tests "*LogSetUseCaseTest*"`, then
+`./gradlew testDebugUnitTest` before completion, and ensure
+`./gradlew detekt` passes (includes `ForbiddenMockKInTests` and
+`ForbiddenVerifyInViewModelTests`).
 
 ---
 

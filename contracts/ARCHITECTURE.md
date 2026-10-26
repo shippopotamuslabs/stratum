@@ -115,12 +115,7 @@ The full classification of every data class in `:core:domain` is recorded in
 `docs/domain-model-classification-inventory.csv` (STR-164); every later refactor
 chunk cites its inventory rows. Only classes A and B get refactor chunks.
 
-- **Outbound ports live in the application layer, full stop** (see
-  `contracts/gospel/ARCHITECTURE-GOSPEL.md` §4). Application owns outbound
-  `*Port` interfaces serving use cases; there are no domain ports — a pure
-  domain-to-domain interface is a domain service or policy, not a port.
-  `Repository` is an infrastructure implementation-class name only, never
-  interface vocabulary. The inventory records the consuming layer per port.
+- Outbound port ownership is canon: see `contracts/gospel/ARCHITECTURE-GOSPEL.md` §4. The inventory records the consuming layer per port.
 
 ### `:core:testing`
 
