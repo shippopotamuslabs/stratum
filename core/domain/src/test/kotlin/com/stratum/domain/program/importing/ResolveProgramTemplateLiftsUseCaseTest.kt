@@ -425,6 +425,50 @@ class ResolveProgramTemplateLiftsUseCaseTest {
         assertEquals(3, program.cycleLength)
     }
 
+    @Test
+    fun `impossible template set shapes are clamped into the LiftSet guardrails`() = runTest {
+        val liftRepo = FakeLiftRepository()
+        val useCase = ResolveProgramTemplateLiftsUseCase(liftRepo, FakeLiftNameResolverPort())
+
+        val template = NormalizedProgramTemplate(
+            programName = "Hostile",
+            cycleLength = 1,
+            workouts = listOf(
+                NormalizedProgramTemplateWorkout(
+                    name = "Day 1",
+                    weekday = null,
+                    position = 0,
+                    lifts = listOf(
+                        NormalizedProgramTemplateLift(
+                            name = "Barbell Squat",
+                            position = 0,
+                            sets = listOf(
+                                NormalizedProgramTemplateSet(
+                                    position = 0,
+                                    setTypeLabel = "Standard Set",
+                                    repMin = 12,
+                                    repMax = 5,
+                                    rirGoal = -1,
+                                    restSeconds = 0,
+                                    isTopSet = true,
+                                ),
+                            ),
+                            supersetGroupKey = null,
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        val set = useCase.invoke(template).workouts[0].workoutLifts[0].sets[0]
+        // Inverted band keeps the authored min and raises the max to meet it;
+        // negative RIR floors at 0; non-positive rest falls back to the default.
+        assertEquals(12, set.repMin)
+        assertEquals(12, set.repMax)
+        assertEquals(0, set.rirGoal)
+        assertEquals(com.stratum.domain.program.DEFAULT_LIFT_SET_REST_SECONDS, set.restSeconds)
+    }
+
     private fun supersetLift(name: String, key: String) = NormalizedProgramTemplateLift(
         name = name,
         position = 0,

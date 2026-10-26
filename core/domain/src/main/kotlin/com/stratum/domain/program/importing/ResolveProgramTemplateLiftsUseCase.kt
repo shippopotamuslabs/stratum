@@ -136,17 +136,23 @@ class ResolveProgramTemplateLiftsUseCase @Inject constructor(
                     progressionScheme = ProgressionScheme.Double,
                     position = liftPositions[liftIndex],
                     sets = templateLift.sets.mapIndexed { setIndex, templateSet ->
+                        // External template data is untrusted shape input: clamp
+                        // it into the LiftSet guardrails (STR-168) instead of
+                        // letting construction fail on an inverted band, a
+                        // negative RIR goal, or a non-positive rest.
+                        val repMin = (templateSet.repMin ?: DEFAULT_REP_MIN).coerceAtLeast(0)
                         LiftSet(
                             id = LiftSetId(UUID.randomUUID().toString()),
                             workoutLiftId = workoutLiftId,
                             position = setPositions[setIndex],
                             setType = mapSetType(templateSet.setTypeLabel),
                             myoRepKind = mapMyoRepKind(templateSet.setTypeLabel),
-                            repMin = templateSet.repMin ?: DEFAULT_REP_MIN,
-                            repMax = templateSet.repMax ?: DEFAULT_REP_MAX,
-                            rirGoal = templateSet.rirGoal ?: DEFAULT_RIR_GOAL,
+                            repMin = repMin,
+                            repMax = (templateSet.repMax ?: DEFAULT_REP_MAX).coerceAtLeast(repMin),
+                            rirGoal = (templateSet.rirGoal ?: DEFAULT_RIR_GOAL).coerceAtLeast(0),
                             isTopSet = templateSet.isTopSet,
-                            restSeconds = templateSet.restSeconds ?: DEFAULT_LIFT_SET_REST_SECONDS,
+                            restSeconds = templateSet.restSeconds?.takeIf { it > 0 }
+                                ?: DEFAULT_LIFT_SET_REST_SECONDS,
                         )
                     },
                     supersetGroupId = supersetGroupId,

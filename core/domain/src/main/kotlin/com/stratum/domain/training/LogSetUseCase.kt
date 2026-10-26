@@ -40,7 +40,8 @@ class LogSetUseCase @Inject constructor(
                 weight = command.weight,
                 reps = command.reps,
                 rir = command.rir,
-                partialReps = command.partialReps.normalizedPartialReps(),
+                // Raw value in; LoggedSet owns the normalization rule (STR-168).
+                partialReps = command.partialReps,
                 completedAt = command.completedAt,
                 liftContext = liftContext,
             )

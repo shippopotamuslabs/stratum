@@ -44,7 +44,7 @@ object PersonalRecordScoring {
 
     fun withComputedEstimatedOneRm(set: LoggedSet): LoggedSet {
         val e1Rm =
-            if (set.liftId != null && set.reps > 0) {
+            if (set.isPersonalRecordEligible) {
                 estimatedOneRmLb(set.weight, set.reps, set.rir)
             } else {
                 null

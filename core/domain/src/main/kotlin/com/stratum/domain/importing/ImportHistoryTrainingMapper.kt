@@ -11,7 +11,6 @@ import com.stratum.domain.training.LoggedLiftContext
 import com.stratum.domain.training.LoggedLiftContextFactory
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.TrainingSession
-import com.stratum.domain.training.normalizedPartialReps
 import com.stratum.domain.training.identity.TrainingSessionId
 import java.time.Instant
 
@@ -59,7 +58,8 @@ object ImportHistoryTrainingMapper {
             rir = rir,
             completedAt = completedAt,
             liftContext = placeholderLiftContext(exerciseNameRaw),
-            partialReps = partialReps.normalizedPartialReps(),
+            // Raw value in; LoggedSet owns the normalization rule (STR-168).
+            partialReps = partialReps,
         )
 
     fun enrichLiftContext(
