@@ -319,9 +319,7 @@ data class LiftSet(
         // The band rule is scheme-aware by construction: 0/0 is the legitimate
         // RIR-only back-off shape under Double, so only coherence is required here,
         // never a positive band.
-        requireRepBand(repMin, repMax)
-        requireRirGoal(rirGoal)
+        requireSetShape(repMin, repMax, rirGoal, setType, myoRepKind)
         require(restSeconds > 0) { "restSeconds must be positive, was $restSeconds" }
-        requireMyoRepKindConsistency(setType, myoRepKind)
     }
 }

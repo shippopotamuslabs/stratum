@@ -4,6 +4,7 @@ import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.program.requireOptionalRirGoal
 import com.stratum.domain.training.identity.TrainingSessionId
 import java.time.Instant
 
@@ -31,7 +32,7 @@ data class LoggedSet(
         // zero-rep imported sets and zero-weight bodyweight sets are legitimate
         // states whose meaning is owned by the predicates below.
         require(setIndex >= 0) { "setIndex must be non-negative, was $setIndex" }
-        require(rir == null || rir >= 0) { "rir must be non-negative when present, was $rir" }
+        requireOptionalRirGoal(rir)
     }
 
     /**

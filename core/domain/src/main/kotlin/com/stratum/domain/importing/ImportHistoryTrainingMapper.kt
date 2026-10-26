@@ -6,6 +6,7 @@ import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.program.clampRirGoal
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.training.LoggedLiftContext
 import com.stratum.domain.training.LoggedLiftContextFactory
@@ -52,10 +53,14 @@ object ImportHistoryTrainingMapper {
             sessionId = sessionId,
             exerciseNameRaw = exerciseNameRaw,
             liftId = null,
-            setIndex = setIndex,
+            // Imported history is untrusted input: heal a negative index / RIR
+            // into the LoggedSet guardrails (STR-168) instead of aborting the
+            // whole import on one bad row. The sanitizer still decides which
+            // healed sets are usable downstream.
+            setIndex = setIndex.coerceAtLeast(0),
             weight = weight,
             reps = reps,
-            rir = rir,
+            rir = rir?.let { clampRirGoal(it) },
             completedAt = completedAt,
             liftContext = placeholderLiftContext(exerciseNameRaw),
             // Raw value in; LoggedSet owns the normalization rule (STR-168).

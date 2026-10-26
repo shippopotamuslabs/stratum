@@ -14,6 +14,9 @@ import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.SetType
 import com.stratum.domain.program.Workout
 import com.stratum.domain.program.WorkoutLift
+import com.stratum.domain.program.clampRepBand
+import com.stratum.domain.program.clampRirGoal
+import com.stratum.domain.program.healedRestSeconds
 import com.stratum.domain.program.identity.LiftSetId
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
@@ -136,11 +139,16 @@ class ResolveProgramTemplateLiftsUseCase @Inject constructor(
                     progressionScheme = ProgressionScheme.Double,
                     position = liftPositions[liftIndex],
                     sets = templateLift.sets.mapIndexed { setIndex, templateSet ->
-                        // External template data is untrusted shape input: clamp
-                        // it into the LiftSet guardrails (STR-168) instead of
-                        // letting construction fail on an inverted band, a
+                        // External template data is untrusted shape input: heal
+                        // it into the LiftSet guardrails via the shared
+                        // untrusted-input path (STR-168, SetShapeRules) instead
+                        // of letting construction fail on an inverted band, a
                         // negative RIR goal, or a non-positive rest.
-                        val repMin = (templateSet.repMin ?: DEFAULT_REP_MIN).coerceAtLeast(0)
+                        val (repMin, repMax) =
+                            clampRepBand(
+                                templateSet.repMin ?: DEFAULT_REP_MIN,
+                                templateSet.repMax ?: DEFAULT_REP_MAX,
+                            )
                         LiftSet(
                             id = LiftSetId(UUID.randomUUID().toString()),
                             workoutLiftId = workoutLiftId,
@@ -148,11 +156,13 @@ class ResolveProgramTemplateLiftsUseCase @Inject constructor(
                             setType = mapSetType(templateSet.setTypeLabel),
                             myoRepKind = mapMyoRepKind(templateSet.setTypeLabel),
                             repMin = repMin,
-                            repMax = (templateSet.repMax ?: DEFAULT_REP_MAX).coerceAtLeast(repMin),
-                            rirGoal = (templateSet.rirGoal ?: DEFAULT_RIR_GOAL).coerceAtLeast(0),
+                            repMax = repMax,
+                            rirGoal = clampRirGoal(templateSet.rirGoal ?: DEFAULT_RIR_GOAL),
                             isTopSet = templateSet.isTopSet,
-                            restSeconds = templateSet.restSeconds?.takeIf { it > 0 }
-                                ?: DEFAULT_LIFT_SET_REST_SECONDS,
+                            restSeconds = healedRestSeconds(
+                                templateSet.restSeconds,
+                                DEFAULT_LIFT_SET_REST_SECONDS,
+                            ),
                         )
                     },
                     supersetGroupId = supersetGroupId,

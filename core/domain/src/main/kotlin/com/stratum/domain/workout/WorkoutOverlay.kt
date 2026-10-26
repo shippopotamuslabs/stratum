@@ -5,9 +5,8 @@ import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.SetType
-import com.stratum.domain.program.requireMyoRepKindConsistency
-import com.stratum.domain.program.requireRepBand
-import com.stratum.domain.program.requireRirGoal
+import com.stratum.domain.program.requireOptionalRirGoal
+import com.stratum.domain.program.requireSetShape
 import com.stratum.domain.training.normalizedPartialReps
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.program.identity.WorkoutSupersetGroupId
@@ -32,7 +31,7 @@ data class LoggedSetValue(
         // Live-logging guardrails follow LoggedSet (STR-168): RIR is
         // non-negative when present. reps/weight stay un-banned, mirroring
         // LoggedSet — a logged value is converted to a LoggedSet on finalize.
-        require(rir == null || rir >= 0) { "rir must be non-negative when present, was $rir" }
+        requireOptionalRirGoal(rir)
     }
 
     /** Partial reps as LoggedSet defines them: null when none were logged. */
@@ -84,9 +83,7 @@ data class SlotShapeOverride(
 ) {
     init {
         // Override shapes follow the LiftSet shape rules (STR-168 shared rule).
-        requireRepBand(repMin, repMax)
-        requireRirGoal(rirGoal)
-        requireMyoRepKindConsistency(setType, myoRepKind)
+        requireSetShape(repMin, repMax, rirGoal, setType, myoRepKind)
     }
 }
 

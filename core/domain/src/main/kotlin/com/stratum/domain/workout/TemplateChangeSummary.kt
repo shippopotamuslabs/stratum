@@ -2,9 +2,7 @@ package com.stratum.domain.workout
 
 import com.stratum.domain.program.LiftSet
 import com.stratum.domain.program.SetType
-import com.stratum.domain.program.requireMyoRepKindConsistency
-import com.stratum.domain.program.requireRepBand
-import com.stratum.domain.program.requireRirGoal
+import com.stratum.domain.program.requireSetShape
 import com.stratum.domain.workout.myorep.MyoRepKind
 
 /**
@@ -38,9 +36,7 @@ data class TemplateSetShape(
 ) {
     init {
         // Same set-shape rules as LiftSet (STR-168 shared shape rule).
-        requireRepBand(repMin, repMax)
-        requireRirGoal(rirGoal)
-        requireMyoRepKindConsistency(setType, myoRepKind)
+        requireSetShape(repMin, repMax, rirGoal, setType, myoRepKind)
     }
     companion object {
         /** Structural D2 template subset of [LiftSet] for old → new comparison. */
