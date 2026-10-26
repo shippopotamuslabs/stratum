@@ -23,7 +23,7 @@ Program generation runs a CP-SAT solver on a server. The solver picks the slots,
 
 Dependencies point inward. Feature and core modules use ports and models from `:core:domain`. The domain module holds the rules. Room entities hold storage shape and carry no rules. ViewModels map domain models to screen state.
 
-Read `contracts/ARCHITECTURE.md` for the binding rules. Read `AGENTS.md` before you write code in this repo. The contracts in `contracts/` govern UI, data, testing, and copy.
+Read contracts/gospel/ARCHITECTURE-GOSPEL.md for the binding Clean Architecture canon and contracts/ARCHITECTURE.md for Stratum's module graph. Read AGENTS.md before you write code in this repo.
 
 ### Modules
 
@@ -373,12 +373,12 @@ Manual dispatch inputs can force screenshot tests, solver contract tests, or an 
 
 ## Docs and contracts
 
-- `AGENTS.md`: repo rules for agents and contributors, commands, workflow.
-- `contracts/ARCHITECTURE.md`: module graph and layer rules.
-- `contracts/UI_DESIGN.md`: themes, components, copy-adjacent UI rules.
-- `contracts/UNIT_TESTING.md`: test rules and examples.
-- `contracts/DATA_LAYER_RULES.md`: Room and repository rules.
-- `contracts/gospel/WUMBO-GOSPEL.md`: the voice contract for user-facing copy (Shippopotamus gospels submodule — the shared canon for all Shippopotamus apps lives under `contracts/gospel/`).
+- AGENTS.md: repo rules for agents, commands, workflow. Canon: contracts/gospel/*.md (pinned submodule - ARCHITECTURE-GOSPEL, CODE-STYLE-GOSPEL, TESTING-GOSPEL, COMPOSE-GOSPEL, PALETTE, PALETTE-LIGHT, BUTTON-SHAPE-GOSPEL, GLASS-BARS-GOSPEL, WUMBO-GOSPEL).
+- contracts/ARCHITECTURE.md: Stratum module graph, package layout, Gradle conventions (canon pointers to ARCHITECTURE-GOSPEL.md).
+- contracts/CODE_STYLE_RULES.md: Stratum error handling and enforcement (canon: CODE-STYLE-GOSPEL.md).
+- contracts/UI_DESIGN.md: Stratum themes, Stratum* components, Detekt UI rules, gospel adoption register and Neo Brutalist carve-out (canon pointers at §§11-12).
+- contracts/UNIT_TESTING.md: Stratum test stack, worked examples, golden references (canon: TESTING-GOSPEL.md §6).
+- contracts/DATA_LAYER_RULES.md: Stratum Room and persistence rules (legacy filename; no gospel equivalent).
 - `docs/synthesis-architecture.md`: how synthesis fits together, with a migration note at the top.
 - `docs/callable-function-versioning.md`: Callable Function version rules.
 - `docs/security-scanning.md`: OSV scanning and triage.

@@ -8,7 +8,8 @@ Never modify this file without an explicit **"Contract Waiver"** from the user.
 **Canon:** The shared Shippopotamus code style standards live in
 `contracts/gospel/CODE-STYLE-GOSPEL.md` (gospels submodule). This contract adopts
 them for shared standards; the Stratum text below governs wherever it differs or
-adds Stratum specifics.
+adds Stratum specifics. General style is the gospel; this file carries Stratum
+examples and enforcement only (see CODE-STYLE-GOSPEL.md §Local material).
 
 ---
 

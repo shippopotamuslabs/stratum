@@ -1,7 +1,9 @@
 # Agent Routing Contract — Stratum
 
-Root source of truth for agent-facing repo instructions. Agent-specific files such as
-`CLAUDE.md` and `GEMINI.md` should only point here to avoid drift.
+Root source of truth for agent-facing repo instructions. Canon lives in
+contracts/gospel/*.md (pinned submodule); this file routes to it and to Stratum's
+local contracts in contracts/. Agent-specific files such as CLAUDE.md and GEMINI.md
+only point here to avoid drift.
 
 ---
 
@@ -9,15 +11,22 @@ Root source of truth for agent-facing repo instructions. Agent-specific files su
 
 Every task maps to binding contracts in `/contracts/`. Read the relevant contract(s) first.
 
-| Task type | Contract |
-|-----------|----------|
-| Compose UI, theme families, `Stratum*` components, colors, typography, previews | `UI_DESIGN.md` |
-| Adding or editing user-facing copy — labels, setting descriptions, buttons, empty states, errors, notifications, onboarding, paywall copy, dialog text | `gospel/WUMBO-GOSPEL.md` (read before writing any copy) |
-| Module structure, navigation, Scaffold, dependency graph, layer rules | `ARCHITECTURE.md` |
-| Kotlin style, Compose conventions, testing | `CODE_STYLE_RULES.md` (when added) |
-| Unit tests, fakes, Robolectric, golden examples | `UNIT_TESTING.md` |
-| Room, repositories, schema | `DATA_LAYER_RULES.md` |
-| Cloud Functions, callables, `functions/` TS, API versioning | `docs/callable-function-versioning.md` |
+| Task type | Read first |
+|-----------|------------|
+| Any user-facing copy | contracts/gospel/WUMBO-GOSPEL.md |
+| Clean Architecture, layers, ports, presentation contract (canon) | contracts/gospel/ARCHITECTURE-GOSPEL.md |
+| Module map, exact dependency graph, package layout, Gradle (Stratum) | contracts/ARCHITECTURE.md |
+| Kotlin/Compose style, naming, formatting, coroutines (canon) | contracts/gospel/CODE-STYLE-GOSPEL.md |
+| Error handling, LoggingPort, imports (Stratum examples/enforcement) | contracts/CODE_STYLE_RULES.md |
+| Testing pyramid, doubles, classical school (canon) | contracts/gospel/TESTING-GOSPEL.md |
+| Stratum test stack, worked examples, fakes, golden references | contracts/UNIT_TESTING.md |
+| Colours (canon) | contracts/gospel/PALETTE.md + contracts/gospel/PALETTE-LIGHT.md |
+| Compose system, spacing/type/components (canon) | contracts/gospel/COMPOSE-GOSPEL.md |
+| Button shape (canon) | contracts/gospel/BUTTON-SHAPE-GOSPEL.md |
+| Glass bars/Haze (canon) | contracts/gospel/GLASS-BARS-GOSPEL.md |
+| Theme families, Stratum* components, Detekt UI rules, adoption/carve-outs (Stratum) | contracts/UI_DESIGN.md |
+| Room, persistence, schema (Stratum; legacy filename) | contracts/DATA_LAYER_RULES.md |
+| Cloud Functions/callables | docs/callable-function-versioning.md |
 
 Never modify files in `/contracts/` without an explicit **"Contract Waiver"** from the user.
 
@@ -63,12 +72,9 @@ Main toolchain: Gradle Kotlin DSL, Kotlin, Jetpack Compose, Room, coroutines/Flo
 
 ### 4.1 Clean Architecture — Zero Tolerance
 
-See `contracts/ARCHITECTURE.md` for the full module graph and violation response. Summary:
-
-- `:core:domain` contains domain models, ports, use cases, and test fixtures. Keep framework dependencies out of domain APIs.
-- Dependency direction is inward toward `:core:domain`. Data, UI, app, and feature modules may depend on domain; domain must not depend on app, feature, data, or UI modules.
-- Domain models are **never** passed directly to composables. ViewModels map domain → presentation.
-- No `NavController` passed into composables. Navigation via pure callbacks hoisted to the route level.
+Clean Architecture is canon in contracts/gospel/ARCHITECTURE-GOSPEL.md §0, §1,
+§12-§13; Stratum's exact graph is contracts/ARCHITECTURE.md §§1-2. Do not restate
+the canon here.
 
 ### 4.2 Android Code — AndroJack Level 3 Protocol
 
@@ -87,26 +93,17 @@ For every Kotlin, XML, or Gradle code block generated:
 
 ### 4.3 UI Design — Stratum Theme Contract
 
-- Read `contracts/UI_DESIGN.md` before any Compose UI work.
-- Feature modules use `StratumTheme` and `Stratum*` components only — never raw Material chrome.
-- `./gradlew detekt` must pass with `maxIssues: 0` (custom rule set `stratum` in `:detekt-rules`).
-
-**Violation response:** Reply with exactly: `"Contract violation detected in [file]. Request explicit 'Contract Waiver' from user."` Then stop. Do not generate code.
+Read contracts/UI_DESIGN.md (Stratum theme/components/Detekt, §§1-10) and its
+gospel pointers at §§11-12 (PALETTE.md, PALETTE-LIGHT.md, COMPOSE-GOSPEL.md,
+BUTTON-SHAPE-GOSPEL.md, GLASS-BARS-GOSPEL.md) before any Compose UI work.
+./gradlew detekt must pass with maxIssues: 0.
 
 ### 4.4 Test Coverage — Mandatory
 
-Read `contracts/UNIT_TESTING.md` before writing any test. Sync golden examples with
-`./scripts/golden-test-examples-download.sh` after clone (reference patterns from Now in Android).
-
-Whenever production code is added or modified (new classes, public functions, logic in
-`:core:domain`, `:core:data`, ViewModels, repositories, mappers, or use cases):
-
-- Write or extend tests in the matching `src/test/kotlin` source set using **JUnit 5 + Turbine + fakes**.
-- Use fakes from `:core:testing` for Stratum-owned ports — **not MockK** (Detekt enforced).
-- MockK is allowed only for third-party SDK boundaries with an explicit suppress and comment.
-- Copy structure from the relevant file in `golden-test-examples/` (see `UNIT_TESTING.md` §4).
-- Tests must pass before declaring work complete.
-- Trivial styling-only or preview-only changes are exempt.
+Testing canon: contracts/gospel/TESTING-GOSPEL.md §6 and
+CODE-STYLE-GOSPEL.md §8.1. Stratum stack, examples, fakes and golden sync:
+contracts/UNIT_TESTING.md. Tests must pass before declaring work complete;
+trivial styling/preview-only changes are exempt.
 
 ### 4.5 Schema Lock
 
@@ -114,7 +111,8 @@ Whenever production code is added or modified (new classes, public functions, lo
 `is_editing`). Database schema changes require explicit developer authorization.
 Schema changes are versioned: bump `StratumDatabase`, check in the exported JSON under
 `core/data/schemas/`, prefer `AutoMigration` for additive changes, and add a manual
-migration plus a migration test when backfill or reshaping is needed.
+migration plus a migration test when backfill or reshaping is needed. Schema version
+policy: contracts/DATA_LAYER_RULES.md §7.
 
 ### 4.6 Intelligence — Deterministic Core, Cloud Execution, Cloud LLM
 

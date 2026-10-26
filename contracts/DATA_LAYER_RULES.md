@@ -4,6 +4,10 @@
 Binding rules for Room schema, repositories, and persistence patterns in `:core:data`.
 Cross-reference `ARCHITECTURE.md` §6 and `AGENTS.md` §4.5 (schema lock).
 
+Legacy filename retained because code, Detekt-adjacent docs and plans cite
+DATA_LAYER_RULES.md §§1-7; contents are Stratum persistence/infrastructure rules,
+canon vocabulary is infrastructure.
+
 Never modify this file without an explicit **"Contract Waiver"** from the user.
 
 ---

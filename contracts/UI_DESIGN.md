@@ -9,12 +9,13 @@ Read before generating or restyling any UI. Enforced by Detekt rule set `stratum
 
 Pair with `AGENTS.md` for architecture and validation commands.
 
-**§11–§12 embed the Shippopotamus gospels in full** — the Color Palette Gospel and the
-Android Jetpack Compose Gospel (declared canonical by Sean, 2026-10-19, for Bloviate,
-Stratum, Enclave, and all future Shippopotamus products), plus the Button Shape Gospel
-(declared canonical by Sean, 2026-10-20, embedded in §12.7 under his Contract Waiver for
-that edit) and the Glass Bars Gospel (Haze 2.0; declared canonical by Sean, 2026-10-20,
-embedded in §12.8 under the same waiver). They govern all UI work.
+**§11–§12 are pointer sections to the Shippopotamus gospels** in
+`contracts/gospel/` — the Color Palette Gospel and the Android Jetpack Compose
+Gospel (declared canonical by Sean, 2026-10-19, for Bloviate, Stratum, Enclave,
+and all future Shippopotamus products), plus the Button Shape Gospel (declared
+canonical by Sean, 2026-10-20; pointer at §12.7, added under his Contract Waiver
+for that edit) and the Glass Bars Gospel (Haze 2.0; declared canonical by Sean,
+2026-10-20; pointer at §12.8 under the same waiver). They govern all UI work.
 Where §§1–10 conflict with §§11–12, the gospels win. The STR-137 conflict
 register was **ratified by Sean on 2026-10-19**, executed in STR-138, and the STR-139
 gospel-alignment program (STR-141–STR-148, STR-175, STR-179) brought the shipped app to
