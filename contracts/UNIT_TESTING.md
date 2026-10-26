@@ -6,10 +6,16 @@ Golden reference implementations live in `golden-test-examples/` (Now in Android
 
 Never modify this file without an explicit **"Contract Waiver"** from the user.
 
-**Canon:** The shared Shippopotamus unit testing standards live in
-`contracts/gospel/UNIT-TESTING-GOSPEL.md` (gospels submodule). This contract
+**Canon:** The shared Shippopotamus testing standards live in
+`contracts/gospel/TESTING-GOSPEL.md` (gospels submodule). This contract
 adopts them for shared standards; the Stratum text below governs wherever it
-differs or adds Stratum specifics.
+differs or adds Stratum specifics. Canon pointers: the test pyramid is
+`TESTING-GOSPEL.md` §1 and the level-escalation decision test is
+`TESTING-GOSPEL.md` §2. The Android-specific rules formerly at §§1–5 of the
+renamed gospel are re-homed at `TESTING-GOSPEL.md` §6: §6.1 core principles,
+§6.2 technical stack, §6.3 patterns (§6.3.1 ViewModel, §6.3.2 fakes over
+mocks, §6.3.3 awaiting fire-and-forget persistence), §6.4 golden test
+references, and §6.5 implementation mandate (§6.5.1 self-check).
 
 ---
 
@@ -17,14 +23,14 @@ differs or adds Stratum specifics.
 
 | Rule | Description |
 | :--- | :--- |
-| **ALWAYS** Prefer Fakes | Use lightweight in-memory implementations of Stratum ports and repositories (in `:core:testing` or module-local `Fake*`) instead of programming mock expectations. |
+| **ALWAYS** Prefer Fakes | Use lightweight in-memory implementations of owned application outbound ports (`*Port`; `Repository` names an infrastructure implementation class only) (in `:core:testing` or module-local `Fake*`) instead of programming mock expectations. |
 | **ALWAYS** JUnit 5 | Use `org.junit.jupiter.api` (`@Test`, `@BeforeEach`, `@Nested`, `@DisplayName`). |
 | **ALWAYS** State-Based Assertions | Assert on *results* (StateFlow value, returned domain object, DB row) — not *process* ("was this method called"). |
 | **ALWAYS** Use Turbine | Test Kotlin `Flow` / `StateFlow` event-by-event with Turbine. |
 | **ALWAYS** MainDispatcherRule | Use `com.stratum.core.testing.MainDispatcherRule` (`@ExtendWith`) to swap `Dispatchers.Main` for a `TestDispatcher`. |
 | **ALWAYS** Copy Golden Patterns | Before inventing a test structure, open the matching file in `golden-test-examples/` (see §4). |
 | **NEVER** Mock Android Framework | Do not mock `Context`, `SharedPreferences`, or `Bundle`. Use Robolectric or fakes. |
-| **NEVER** Mock Owned Ports | Do not `mockk` Stratum repository or use-case ports defined in `:core:domain`. Use fakes from `:core:testing`. |
+| **NEVER** Mock Owned Ports | Do not `mockk` owned application outbound `*Port` interfaces (in canon defined in the application layer; there are no domain ports). Use fakes from `:core:testing`. |
 | **NEVER** Use JUnit 4 in New Tests | Avoid `@Rule`, `@Before`, `@RunWith` in new tests. |
 | **NEVER** `verify()` ViewModels | Do not use MockK `verify` / `coVerify` in `*ViewModelTest.kt` — assert UI state instead (Detekt enforced). |
 | **NEVER** Await IO with `delay()` Polls | Inside `runTest`, `delay(N)` does not wait for real `Dispatchers.IO` work. Inject a `TestDispatcher` or `join()` background jobs (see §3.3). |
@@ -46,8 +52,8 @@ differs or adds Stratum specifics.
 
 | Module | Runner | Doubles |
 |--------|--------|---------|
-| `:core:domain` | JVM (`test`) | Fakes implementing domain ports |
-| `:core:data` | Robolectric (`testDebugUnitTest`) | In-memory Room, real DAOs/mappers |
+| `:core:domain` | JVM (`test`) | Fakes implementing owned `*Port` interfaces |
+| `:core:data` (legacy name — in canon a persistence package inside `:core:infrastructure`) | Robolectric (`testDebugUnitTest`) | In-memory Room, real DAOs/mappers |
 | `:feature:*` ViewModels | JVM + `MainDispatcherRule` | Fakes from `:core:testing` |
 | Compose screens | Robolectric + `createComposeRule` (sparse) | Fake ViewModel state |
 | `:app` E2E | `@HiltAndroidTest` on device (rare) | Hilt `@BindValue` → fakes |
@@ -62,15 +68,15 @@ differs or adds Stratum specifics.
 @ExtendWith(MainDispatcherRule::class)
 class WorkoutViewModelTest {
 
-    private val fakeRepository = FakeWorkoutRepository()
+    private val fakePort = FakeWorkoutPort()
     private lateinit var viewModel: WorkoutViewModel
 
     @BeforeEach
     fun setup() {
-        fakeRepository.seed(emptyList())
+        fakePort.seed(emptyList())
         viewModel = WorkoutViewModel(
-            observeSessions = ObserveSessionsUseCase(fakeRepository),
-            logSession = LogSessionUseCase(fakeRepository),
+            observeSessions = ObserveSessionsUseCase(fakePort),
+            logSession = LogSessionUseCase(fakePort),
         )
     }
 
@@ -95,14 +101,14 @@ class WorkoutViewModelTest {
 **Wrong (brittle — reward hacking):**
 
 ```kotlin
-val mockRepo = mockk<WorkoutRepository>()
-coEvery { mockRepo.observeSessions() } returns flowOf(listOf(session))
+val mockPort = mockk<WorkoutPort>()
+coEvery { mockPort.observeSessions() } returns flowOf(listOf(session))
 ```
 
 **Right (robust fake):**
 
 ```kotlin
-class FakeWorkoutRepository : WorkoutRepository {
+class FakeWorkoutPort : WorkoutPort {
     private val sessions = MutableStateFlow<List<WorkoutSession>>(emptyList())
     override fun observeSessions(): Flow<List<WorkoutSession>> = sessions
     fun seed(list: List<WorkoutSession>) { sessions.value = list }
@@ -113,7 +119,7 @@ Place reusable fakes in `:core:testing`. Module-local fakes are OK when used in 
 
 ### 3.3 Awaiting fire-and-forget persistence
 
-Repositories that launch `scope.launch(Dispatchers.IO) { dao.insert(...) }` cannot be awaited
+Infrastructure repository implementations that launch `scope.launch(Dispatchers.IO) { dao.insert(...) }` cannot be awaited
 with `delay()` inside `runTest` — virtual time does not wait for real IO threads.
 
 **Preferred:** inject the IO `CoroutineDispatcher` and pass `StandardTestDispatcher()` in tests,
@@ -161,7 +167,7 @@ Any agent creating or modifying production logic **must**:
 
 ## 6. Adding New Fakes
 
-When a new domain port is introduced:
+When a new application outbound port (`*Port`) is introduced:
 
 1. Add `Fake<PortName>` to `:core:testing` (or feature-local if single-use).
 2. Fake must compile against the port and behave plausibly (not return hard-coded nulls).

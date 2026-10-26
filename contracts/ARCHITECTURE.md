@@ -109,29 +109,33 @@ rule, the gospel wins.
 
 The domain model policy — rich aggregates, honest projections; the four type classes
 (aggregates, value objects, domain services, read models) and the rules that follow
-from them — is canon: see `contracts/gospel/ARCHITECTURE-GOSPEL.md` §3.1.
+from them — is canon: see `contracts/gospel/ARCHITECTURE-GOSPEL.md` §3.7.
 
 The full classification of every data class in `:core:domain` is recorded in
 `docs/domain-model-classification-inventory.csv` (STR-164); every later refactor
 chunk cites its inventory rows. Only classes A and B get refactor chunks.
 
-- **Ports belong to the layer that consumes them.** Repository and service
-  ports serving use cases belong in the application layer and move with the
-  use cases when that layer is extracted (STR-172); only a port consumed
-  solely by a domain service stays defined in `:core:domain`. The inventory
-  records the consuming layer per port.
+- **Outbound ports live in the application layer, full stop** (see
+  `contracts/gospel/ARCHITECTURE-GOSPEL.md` §4). Application owns outbound
+  `*Port` interfaces serving use cases; there are no domain ports — a pure
+  domain-to-domain interface is a domain service or policy, not a port.
+  `Repository` is an infrastructure implementation-class name only, never
+  interface vocabulary. The inventory records the consuming layer per port.
 
 ### `:core:testing`
 
-- Hand-written fakes implementing domain ports
+- Hand-written fakes implementing application outbound `*Port` interfaces (`Fake*Port`)
 - `MainDispatcherRule` and shared test fixtures
 - Pure JVM — no Android SDK in production sources
 - Test modules (`:core:domain`, `:core:data`, `:feature:*`) depend on `:core:testing`; `:core:testing` depends only on `:core:domain`
 
 ### `:core:data`
 
+Legacy module name: in canon this is a persistence package inside
+`:core:infrastructure` (see `contracts/gospel/ARCHITECTURE-GOSPEL.md` §6).
+
 - Room entities, DAOs, database, schema exports under `core/data/schemas/`
-- Repository **implementations** of domain ports
+- Repository **implementations** (implementation-class name only) of application outbound `*Port` interfaces
 - Entity ↔ domain mappers
 - DataStore, WorkManager workers for background persistence and analysis jobs
 - **No Compose UI**
@@ -161,32 +165,32 @@ chunk cites its inventory rows. Only classes A and B get refactor chunks.
 
 ## 4. Presentation Contract
 
-The presentation contract is canon: see `contracts/gospel/ARCHITECTURE-GOSPEL.md` §4
-(UI state, one-shot events, model mapping, ViewModel dependencies & Flow composition)
-and §5 (navigation & scaffold architecture).
+The presentation contract is canon: see `contracts/gospel/ARCHITECTURE-GOSPEL.md` §12
+(UI state, one-shot events, model mapping, driving-adapter dependencies & Flow composition)
+and §13 (navigation & scaffold architecture).
 
 ### 4.1 UI state
 
-See `contracts/gospel/ARCHITECTURE-GOSPEL.md` §4.1.
+See `contracts/gospel/ARCHITECTURE-GOSPEL.md` §12.1.
 
 ### 4.2 One-shot events
 
-See `contracts/gospel/ARCHITECTURE-GOSPEL.md` §4.2.
+See `contracts/gospel/ARCHITECTURE-GOSPEL.md` §12.2.
 
 ### 4.3 Model mapping
 
-See `contracts/gospel/ARCHITECTURE-GOSPEL.md` §4.3.
+See `contracts/gospel/ARCHITECTURE-GOSPEL.md` §12.3.
 
 - Detekt enforces via `ForbiddenDomainTypeInComposable` (public composables) and
   `ForbiddenDomainTypeInUiState` (presentation data classes).
 
 ### 4.4 ViewModel dependencies & Flow composition
 
-See `contracts/gospel/ARCHITECTURE-GOSPEL.md` §4.4.
+See `contracts/gospel/ARCHITECTURE-GOSPEL.md` §12.4.
 
 ### 4.5 Navigation
 
-See `contracts/gospel/ARCHITECTURE-GOSPEL.md` §5.
+See `contracts/gospel/ARCHITECTURE-GOSPEL.md` §13.
 
 ### 4.6 Scaffold ownership
 
@@ -203,7 +207,9 @@ along the graph in §2.
 
 ## 6. Data & Background Work (Guidance)
 
-**Stratum-local guidance.** The gospels carry no data-layer canon —
+**Stratum-local guidance.** The gospel module map
+(`contracts/gospel/ARCHITECTURE-GOSPEL.md` §6) names `:core:data` a legacy
+label for a persistence package inside `:core:infrastructure`;
 `DATA_LAYER_RULES.md` stays local in full — so this section is Stratum's own
 guidance and stays.
 
