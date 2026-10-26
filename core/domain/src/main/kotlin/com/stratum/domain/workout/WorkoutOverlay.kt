@@ -5,6 +5,9 @@ import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.SetType
+import com.stratum.domain.program.requireOptionalRirGoal
+import com.stratum.domain.program.requireSetShape
+import com.stratum.domain.training.normalizedPartialReps
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.program.identity.WorkoutSupersetGroupId
 import com.stratum.domain.workout.myorep.MyoRepKind
@@ -23,7 +26,18 @@ data class LoggedSetValue(
      * match backoffs). [LoggedSet.setIndex] is kept in sync via reindex after structure changes.
      */
     val persistedLoggedSetId: String? = null,
-)
+) {
+    init {
+        // Live-logging guardrails follow LoggedSet (STR-168): RIR is
+        // non-negative when present. reps/weight stay un-banned, mirroring
+        // LoggedSet — a logged value is converted to a LoggedSet on finalize.
+        requireOptionalRirGoal(rir)
+    }
+
+    /** Partial reps as LoggedSet defines them: null when none were logged. */
+    val normalizedPartialReps: Int?
+        get() = partialReps.normalizedPartialReps()
+}
 
 /**
  * A lift added mid-session that is not part of the baseline template.
@@ -66,7 +80,12 @@ data class SlotShapeOverride(
     val repMin: Int,
     val repMax: Int,
     val rirGoal: Int,
-)
+) {
+    init {
+        // Override shapes follow the LiftSet shape rules (STR-168 shared rule).
+        requireSetShape(repMin, repMax, rirGoal, setType, myoRepKind)
+    }
+}
 
 /**
  * The overlay layer (D2, D9). Owned by the `WorkoutViewModel` as in-memory session

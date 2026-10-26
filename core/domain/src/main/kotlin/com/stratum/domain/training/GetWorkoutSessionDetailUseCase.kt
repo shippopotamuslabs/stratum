@@ -80,7 +80,7 @@ class GetWorkoutSessionDetailUseCase @Inject constructor(
                                     reps = set.reps,
                                     rir = set.rir,
                                     isPersonalRecord = set.isPersonalRecord,
-                                    partialReps = set.partialReps.normalizedPartialReps(),
+                                    partialReps = set.normalizedPartialReps,
                                 )
                             }
                         val bestLogged =

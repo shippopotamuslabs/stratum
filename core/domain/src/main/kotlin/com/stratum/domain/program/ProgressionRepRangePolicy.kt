@@ -40,7 +40,14 @@ object ProgressionRepRangePolicy {
         val repMin: Int,
         val repMax: Int,
         val isTopSet: Boolean,
-    )
+    ) {
+        init {
+            // Shared band rule (STR-168): specs carry coherent bands only.
+            // Healing raw input into a spec is [normalizeRange]'s job, done by
+            // the producer before construction (e.g. the generation post-pass).
+            requireRepBand(repMin, repMax)
+        }
+    }
 
     /**
      * Whether a set with [isTopSet] under [scheme] is allowed to show/store a rep range.

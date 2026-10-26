@@ -314,8 +314,12 @@ data class LiftSet(
     val myoRepKind: MyoRepKind? = null,
 ) {
     init {
-        // Position only (STR-167 aggregate membership). Rep-band / RIR / rest rules are
-        // scheme-dependent and land with STR-168, not here.
         require(position >= 0) { "set position must be non-negative, was $position" }
+        // Set-shape guardrails (STR-168): the shared shape rules — see SetShapeRules.
+        // The band rule is scheme-aware by construction: 0/0 is the legitimate
+        // RIR-only back-off shape under Double, so only coherence is required here,
+        // never a positive band.
+        requireSetShape(repMin, repMax, rirGoal, setType, myoRepKind)
+        require(restSeconds > 0) { "restSeconds must be positive, was $restSeconds" }
     }
 }

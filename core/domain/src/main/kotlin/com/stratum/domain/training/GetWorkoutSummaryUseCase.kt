@@ -116,7 +116,7 @@ class GetWorkoutSummaryUseCase @Inject constructor(
                             best.reps,
                             best.rir,
                         ),
-                partialReps = best.partialReps.normalizedPartialReps(),
+                partialReps = best.normalizedPartialReps,
             )
         }
 

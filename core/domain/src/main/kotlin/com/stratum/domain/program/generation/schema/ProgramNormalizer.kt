@@ -118,9 +118,21 @@ private fun normalizeSets(
             scheme = scheme,
             orderedSets =
                 drafts.map { draft ->
+                    // Drafts are raw generation output (class D): heal each band
+                    // through normalizeRange before it becomes a spec, since
+                    // WorkingSetRepSpec only carries coherent bands (STR-168).
+                    // normalize() below then re-derives the scheme shape from
+                    // these specs exactly as it did from the raw values.
+                    val (repMin, repMax) =
+                        ProgressionRepRangePolicy.normalizeRange(
+                            scheme = ProgressionScheme.Linear,
+                            isTopSet = true,
+                            repMin = draft.repMin,
+                            repMax = draft.repMax,
+                        )
                     ProgressionRepRangePolicy.WorkingSetRepSpec(
-                        repMin = draft.repMin,
-                        repMax = draft.repMax,
+                        repMin = repMin,
+                        repMax = repMax,
                         isTopSet = draft.isTopSet,
                     )
                 },

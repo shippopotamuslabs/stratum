@@ -14,7 +14,6 @@ import com.stratum.domain.program.importing.NormalizedProgramTemplateWorkout
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.TrainingSession
-import com.stratum.domain.training.normalizedPartialReps
 import java.time.Instant
 
 object StratumExportJson {
@@ -57,7 +56,7 @@ object StratumExportJson {
                     set.liftId?.let { fields += "liftId" to jsonString(it.value) }
                     set.equipmentId?.let { fields += "equipmentId" to jsonString(it.value) }
                     set.rir?.let { fields += "rir" to jsonNumber(it) }
-                    set.partialReps.normalizedPartialReps()?.let {
+                    set.normalizedPartialReps?.let {
                         fields += "partialReps" to jsonNumber(it)
                     }
                     jsonObject(fields)

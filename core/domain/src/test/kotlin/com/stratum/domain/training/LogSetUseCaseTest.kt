@@ -195,7 +195,7 @@ class LogSetUseCaseTest {
     }
 
     @Test
-    @DisplayName("partialReps persist; zero/empty become null")
+    @DisplayName("partialReps persist; zero/empty read back as none via the model")
     fun partialRepsNormalizedOnPersist() = runTest {
         val repo = FakeTrainingLogRepository()
         repo.seedSession(WorkoutLoggingFixtures.inProgressSession(id = "ts-live-1"))
@@ -203,13 +203,16 @@ class LogSetUseCaseTest {
 
         val withPartials = useCase(command().copy(partialReps = 2)).getOrThrow()
         assertEquals(2, withPartials.partialReps)
+        assertEquals(2, withPartials.normalizedPartialReps)
         assertEquals(
             2,
             repo.getSetsForSession(withPartials.sessionId).single().partialReps,
         )
 
+        // STR-168: the use case no longer normalizes ad hoc — the raw value is
+        // stored and LoggedSet owns the meaning (0 reads back as "none").
         val zero = useCase(command().copy(partialReps = 0)).getOrThrow()
-        assertNull(zero.partialReps)
+        assertNull(zero.normalizedPartialReps)
     }
 
     private fun buildUseCase(
