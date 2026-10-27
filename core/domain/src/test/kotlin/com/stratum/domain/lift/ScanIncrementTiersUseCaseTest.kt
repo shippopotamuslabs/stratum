@@ -111,6 +111,28 @@ class ScanIncrementTiersUseCaseTest {
     }
 
     @Test
+    @DisplayName("Given a dropped trailing row when invoked then the last kept tier stays closed and fails")
+    fun droppedTrailingRowKeepsFinalTierClosed() = runTest {
+        val port =
+            FakeIncrementScanPort(
+                Result.success(
+                    ScannedTiers(
+                        unit = Weight.WeightUnit.Lb,
+                        tiers =
+                            listOf(
+                                ScannedTierRow(5.0, 100.0, 5.0),
+                                ScannedTierRow(100.0, 200.0, 0.0),
+                            ),
+                    ),
+                ),
+            )
+        val result = subject(port).invoke(photo)
+
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull() is IncrementTiersInvalidException)
+    }
+
+    @Test
     @DisplayName("Given malformed rows when invoked then they are dropped and valid rows kept")
     fun dropsMalformedRows() = runTest {
         val port =

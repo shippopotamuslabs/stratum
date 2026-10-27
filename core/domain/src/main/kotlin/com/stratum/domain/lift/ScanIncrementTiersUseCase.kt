@@ -25,8 +25,10 @@ data class ScannedIncrementTiers(
  * dropped before validation. An empty or invalid tier list fails the whole result (never
  * prefill corrupt bands); invalid micro stops are dropped while tiers are kept.
  *
- * The final scanned band is normalized to open-ended before validation: labels print the
- * stack's closed top, but the lattice models the top band as open (STR-244).
+ * The final scanned band is normalized to open-ended before validation — but only when
+ * no scanned row was dropped in conversion: labels print the stack's closed top and the
+ * lattice models the top band as open (STR-244), while a dropped trailing row means the
+ * last kept band is not the top and must stay closed so the scan fails honestly.
  */
 class ScanIncrementTiersUseCase @Inject constructor(
     private val port: IncrementScanPort,
@@ -35,7 +37,12 @@ class ScanIncrementTiersUseCase @Inject constructor(
     suspend operator fun invoke(photo: ScanPhoto): Result<ScannedIncrementTiers> {
         val scanned = port.scanTiers(photo).getOrElse { return Result.failure(it) }
         val rawRowCount = scanned.tiers.size
-        val tiers = scanned.tiers.mapNotNull { it.toTier(scanned.unit) }.withOpenFinalTier()
+        val converted = scanned.tiers.mapNotNull { it.toTier(scanned.unit) }
+        // Opening the final tier is only sound when nothing was dropped: if trailing
+        // rows were lost in conversion, the last kept tier is not the stack top, and
+        // opening it would prefill an infinite band for a truncated scan instead of
+        // failing validation.
+        val tiers = if (converted.size == rawRowCount) converted.withOpenFinalTier() else converted
         if (tiers.isEmpty()) {
             loggingPort.warning(
                 TAG,
