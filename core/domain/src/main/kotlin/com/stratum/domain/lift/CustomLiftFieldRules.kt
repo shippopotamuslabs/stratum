@@ -7,7 +7,8 @@ import com.stratum.domain.onboarding.MuscleGroup
  *
  * [AddCustomLiftUseCase], [UpdateCustomLiftDetailsUseCase], and
  * [UpdateLiftMusclesUseCase] each re-encoded parts of these rules; they now
- * consume this single implementation:
+ * consume these single per-field implementations (each path calls only the
+ * rules for the fields it writes):
  *
  * - a lift needs at least one movement pattern and at least one primary muscle;
  * - a default rest override, when present, sits inside the same range
@@ -19,22 +20,24 @@ object CustomLiftFieldRules {
     const val MOVEMENT_PATTERNS_REQUIRED_MESSAGE: String = "At least one movement pattern is required"
     const val PRIMARY_MUSCLES_REQUIRED_MESSAGE: String = "At least one primary muscle is required"
 
-    /**
-     * Validates the fields the add/update paths share. A null [primaryMuscles]
-     * or [defaultRestSeconds] means that path does not write that field, so its
-     * rule is skipped rather than defaulted.
-     */
-    fun validate(
-        movementPatterns: Set<MovementPattern>,
-        primaryMuscles: Set<MuscleGroup>? = null,
-        defaultRestSeconds: Int? = null,
-    ): Result<Unit> {
+    /** The movement-pattern rule: a lift needs at least one pattern. */
+    fun validateMovementPatterns(movementPatterns: Set<MovementPattern>): Result<Unit> =
         if (movementPatterns.isEmpty()) {
-            return Result.failure(IllegalArgumentException(MOVEMENT_PATTERNS_REQUIRED_MESSAGE))
+            Result.failure(IllegalArgumentException(MOVEMENT_PATTERNS_REQUIRED_MESSAGE))
+        } else {
+            Result.success(Unit)
         }
-        if (primaryMuscles != null && primaryMuscles.isEmpty()) {
-            return Result.failure(IllegalArgumentException(PRIMARY_MUSCLES_REQUIRED_MESSAGE))
+
+    /** The primary-muscle rule: a lift needs at least one primary muscle. */
+    fun validatePrimaryMuscles(primaryMuscles: Set<MuscleGroup>): Result<Unit> =
+        if (primaryMuscles.isEmpty()) {
+            Result.failure(IllegalArgumentException(PRIMARY_MUSCLES_REQUIRED_MESSAGE))
+        } else {
+            Result.success(Unit)
         }
+
+    /** The rest rule: a present override sits inside the shared rest range; absent is fine. */
+    fun validateDefaultRestSeconds(defaultRestSeconds: Int?): Result<Unit> {
         if (defaultRestSeconds != null &&
             (defaultRestSeconds < SetLiftDefaultRestUseCase.MIN_REST_SECONDS ||
                 defaultRestSeconds > SetLiftDefaultRestUseCase.MAX_REST_SECONDS)

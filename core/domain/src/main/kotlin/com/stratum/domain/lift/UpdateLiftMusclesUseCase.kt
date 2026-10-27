@@ -21,11 +21,8 @@ class UpdateLiftMusclesUseCase @Inject constructor(
         primaryMuscles: Set<MuscleGroup>,
         secondaryMuscles: Set<MuscleGroup>,
     ): Result<Unit> {
-        if (primaryMuscles.isEmpty()) {
-            return Result.failure(
-                IllegalArgumentException(CustomLiftFieldRules.PRIMARY_MUSCLES_REQUIRED_MESSAGE),
-            )
-        }
+        CustomLiftFieldRules.validatePrimaryMuscles(primaryMuscles)
+            .onFailure { return Result.failure(it) }
         val lift =
             repository.observeLifts().first().firstOrNull { it.id == id }
                 ?: return Result.failure(IllegalArgumentException("Lift not found"))

@@ -34,13 +34,12 @@ class CatalogNamesTest {
     }
 
     @Test
-    @DisplayName("Untouched equipment draft has no message; touched-but-blank draft does")
-    fun draftMessageSemantics() {
-        assertNull(CatalogNames.equipmentDraftValidationMessage(null))
-        assertNull(CatalogNames.equipmentDraftValidationMessage(" Plates "))
+    @DisplayName("Validation message mapper: valid names have none, blank names carry the rule message")
+    fun validationMessageMapper() {
+        assertNull(CatalogNames.equipmentValidationMessage(" Plates "))
         assertEquals(
             EQUIPMENT_NAME_REQUIRED_MESSAGE,
-            CatalogNames.equipmentDraftValidationMessage("  "),
+            CatalogNames.equipmentValidationMessage("  "),
         )
     }
 

@@ -25,7 +25,7 @@ class GetRecentlyUsedEquipmentForLiftUseCase @Inject constructor(
             trainingLogRepository.getSetsForLift(liftId).mapNotNull { it.equipmentId }.distinct()
         for (id in orderedIds) {
             if (live.size >= limit) break
-            equipmentRepository.getEquipment(id)?.takeIf { it.isLive }?.let(live::add)
+            equipmentRepository.getEquipment(id)?.takeUnless { it.isTombstoned }?.let(live::add)
         }
         return live
     }

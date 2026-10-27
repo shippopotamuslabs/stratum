@@ -18,7 +18,7 @@ class UpdateCustomLiftDetailsUseCase @Inject constructor(
         id: LiftId,
         details: CustomLiftDetails,
     ): Result<Unit> {
-        CustomLiftFieldRules.validate(movementPatterns = details.movementPatterns)
+        CustomLiftFieldRules.validateMovementPatterns(details.movementPatterns)
             .onFailure { return Result.failure(it) }
         val lift =
             repository.observeLifts().first().firstOrNull { it.id == id }

@@ -16,11 +16,12 @@ class AddCustomLiftUseCase @Inject constructor(
     suspend operator fun invoke(definition: CustomLiftDefinition): Result<LiftId> {
         // Name rule and field rules are owned once on the domain side (STR-169).
         val name = CatalogNames.liftNameResult(definition.name).getOrElse { return Result.failure(it) }
-        CustomLiftFieldRules.validate(
-            movementPatterns = definition.movementPatterns,
-            primaryMuscles = definition.primaryMuscles,
-            defaultRestSeconds = definition.defaultRestSeconds,
-        ).onFailure { return Result.failure(it) }
+        CustomLiftFieldRules.validateMovementPatterns(definition.movementPatterns)
+            .onFailure { return Result.failure(it) }
+        CustomLiftFieldRules.validatePrimaryMuscles(definition.primaryMuscles)
+            .onFailure { return Result.failure(it) }
+        CustomLiftFieldRules.validateDefaultRestSeconds(definition.defaultRestSeconds)
+            .onFailure { return Result.failure(it) }
         val equipmentName = CatalogNames.normalizedEquipmentNameOrNull(definition.equipmentName)
         val secondary =
             CustomLiftFieldRules.distinctSecondaryMuscles(

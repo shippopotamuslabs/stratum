@@ -42,6 +42,13 @@ class ApplyEquipmentIncrementProposalUseCase @Inject constructor(
         remedy: EquipmentIncrementRemedy,
     ): Result<ApplyEquipmentIncrementResult> {
         validateRemedy(remedy)?.let { return it }
+        // The fork name is resolved to a value here (STR-169 name rule), not
+        // re-derived inside the write: an invalid name is a Result failure.
+        val forkName =
+            (remedy as? EquipmentIncrementRemedy.ForkCustomEquipment)?.let {
+                CatalogNames.equipmentNameResult(it.suggestedName)
+                    .getOrElse { error -> return Result.failure(error) }
+            }
         return runCatchingLogged(loggingPort, TAG, "Failed to apply equipment increment remedy") {
             when (remedy) {
                 is EquipmentIncrementRemedy.AmendEquipmentTiers -> {
@@ -49,8 +56,7 @@ class ApplyEquipmentIncrementProposalUseCase @Inject constructor(
                     ApplyEquipmentIncrementResult.Amended(remedy.equipmentId)
                 }
                 is EquipmentIncrementRemedy.ForkCustomEquipment -> {
-                    // Validated by validateRemedy before any write (STR-169 name rule).
-                    val name = CatalogNames.equipmentNameResult(remedy.suggestedName).getOrThrow()
+                    val name = requireNotNull(forkName)
                     val id =
                         equipmentRepository.createCustomEquipmentAndAssignLifts(
                             name = name,

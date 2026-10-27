@@ -134,14 +134,11 @@ data class Lift(
     /**
      * Tombstone meaning, named once (STR-169): the lift was deleted, its row is retained
      * so logged history keeps resolving it by id, and catalog/picker reads exclude it.
-     * Call sites check this (or [isLive]) instead of re-reading the raw [isDeleted] flag.
+     * Call sites check this instead of re-reading the raw [isDeleted] flag.
      */
     val isTombstoned: Boolean
         get() = isDeleted
 
-    /** True when this lift is a live catalog row (not [isTombstoned]). */
-    val isLive: Boolean
-        get() = !isDeleted
 }
 
 /** Default inter-set rest for High-fatigue lifts when no override is set. */

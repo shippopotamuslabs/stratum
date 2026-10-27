@@ -36,16 +36,12 @@ object CatalogNames {
     fun liftNameResult(raw: String?): Result<String> = resultOf(validateLiftName(raw))
 
     /**
-     * Validation message for an equipment name *draft* in an editor: a draft the
-     * user has not touched (null) carries no error yet, while a touched-but-blank
-     * draft blocks save with the same message the rename use case returns.
+     * The user-facing message for a raw equipment name, or null when the name is
+     * valid. Editors call this for a draft they know has been touched; whether a
+     * draft exists at all is the editor's own state, not this rule's concern.
      */
-    fun equipmentDraftValidationMessage(draftName: String?): String? =
-        if (draftName == null) {
-            null
-        } else {
-            (validateEquipmentName(draftName) as? Validation.Invalid)?.message
-        }
+    fun equipmentValidationMessage(raw: String): String? =
+        (validateEquipmentName(raw) as? Validation.Invalid)?.message
 
     /**
      * Optional-name form of the equipment rule: blank input means "no equipment

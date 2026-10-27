@@ -723,7 +723,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
             canDelete =
                 equipment != null &&
                     equipment.id !in SeedEquipmentIds.hiddenFromCatalog &&
-                    equipment.isLive,
+                    !equipment.isTombstoned,
             editor =
                 IncrementsEditorData(
                     tiers = tiers,
@@ -777,7 +777,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
 
     /** A touched-but-blank name draft blocks save, per the domain name rule (STR-169). */
     private fun nameValidationMessage(draftName: String?): String? =
-        CatalogNames.equipmentDraftValidationMessage(draftName)
+        draftName?.let { CatalogNames.equipmentValidationMessage(it) }
 
     private fun liveValidationMessage(
         tiers: List<IncrementTierDraft>,

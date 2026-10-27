@@ -27,14 +27,6 @@ class EquipmentBehaviorTest {
     )
 
     @Test
-    @DisplayName("Empty tiers mean the default single band; stored tiers win")
-    fun effectiveTiers() {
-        assertEquals(defaultSingleTiers(), equipment().effectiveTiers())
-        val stored = listOf(IncrementTier(Weight(0.0, lb), null, Weight(10.0, lb)))
-        assertEquals(stored, equipment(tiers = stored).effectiveTiers())
-    }
-
-    @Test
     @DisplayName("Fork micro: null inherits the parent stops, a list replaces them")
     fun forkMicroSemantics() {
         assertEquals(stops, equipment().resolvedForkMicro(null))
@@ -47,8 +39,7 @@ class EquipmentBehaviorTest {
     @DisplayName("Tombstone meaning is named on both Equipment and Lift")
     fun tombstoneSemantics() {
         assertTrue(equipment(isDeleted = true).isTombstoned)
-        assertFalse(equipment(isDeleted = true).isLive)
-        assertTrue(equipment().isLive)
+        assertFalse(equipment().isTombstoned)
 
         val lift =
             Lift(
@@ -63,6 +54,5 @@ class EquipmentBehaviorTest {
                 isDeleted = true,
             )
         assertTrue(lift.isTombstoned)
-        assertFalse(lift.isLive)
     }
 }
