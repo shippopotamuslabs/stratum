@@ -256,10 +256,11 @@ Where the facts come from:
 Bloviate mirrors this contract (BLO-173). When either repo changes the
 release rules, the other repo's `contracts/RELEASE.md` gets the same
 change in the same round of work, and the ticket for the change says so.
-One divergence is known at adoption: the tag rule (§4.1, §5). Bloviate's
-text fails the deploy run when its tag exists at another SHA; this
-contract makes a same-version redeploy a logged success, because
-Stratum dispatches fix builds under one versionName far more often.
-Bloviate's contract takes this wording in its next round of work.
+The tag rule (§4.1, §5) diverged briefly at adoption — Bloviate's text
+failed the deploy run when its tag existed at another SHA, where this
+contract makes a same-version redeploy a logged success — and converged
+the same week: BLO-209 ported the tag script, the one-reader rule, and
+this tag wording back to Bloviate, whose v1.0 redeploy failure under
+the old rule was the reason for the change.
 Facts that drift (package, tracks, secret names) get fixed here in the
 same PR that changes them.
