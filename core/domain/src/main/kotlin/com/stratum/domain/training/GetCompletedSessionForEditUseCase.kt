@@ -3,8 +3,6 @@ package com.stratum.domain.training
 import com.stratum.domain.lift.LiftRepository
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.identity.LiftId
-import com.stratum.domain.lift.isDoubleSidedPlateLoad
-import com.stratum.domain.lift.isPlateLoaded
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.logging.expectedFailure
 import com.stratum.domain.logging.runCatchingLogged

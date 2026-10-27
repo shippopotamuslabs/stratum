@@ -18,11 +18,8 @@ class UpdateCustomLiftDetailsUseCase @Inject constructor(
         id: LiftId,
         details: CustomLiftDetails,
     ): Result<Unit> {
-        if (details.movementPatterns.isEmpty()) {
-            return Result.failure(
-                IllegalArgumentException("At least one movement pattern is required"),
-            )
-        }
+        CustomLiftFieldRules.validate(movementPatterns = details.movementPatterns)
+            .onFailure { return Result.failure(it) }
         val lift =
             repository.observeLifts().first().firstOrNull { it.id == id }
                 ?: return Result.failure(IllegalArgumentException("Lift not found"))

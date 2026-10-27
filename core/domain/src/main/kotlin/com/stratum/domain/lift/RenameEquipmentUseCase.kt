@@ -11,10 +11,7 @@ class RenameEquipmentUseCase @Inject constructor(
     private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(id: EquipmentId, name: String): Result<Unit> {
-        val trimmed = name.trim()
-        if (trimmed.isEmpty()) {
-            return Result.failure(IllegalArgumentException("Equipment name is required"))
-        }
+        val trimmed = CatalogNames.equipmentNameResult(name).getOrElse { return Result.failure(it) }
         return runCatchingLogged(loggingPort, TAG, "Failed to rename equipment") {
             repository.renameEquipment(id, trimmed)
         }

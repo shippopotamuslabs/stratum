@@ -21,10 +21,7 @@ class RenameAndSetIncrementTiersUseCase @Inject constructor(
         tiers: List<IncrementTier>,
         micro: List<Weight> = emptyList(),
     ): Result<Unit> {
-        val trimmed = name.trim()
-        if (trimmed.isEmpty()) {
-            return Result.failure(IllegalArgumentException("Equipment name is required"))
-        }
+        val trimmed = CatalogNames.equipmentNameResult(name).getOrElse { return Result.failure(it) }
         // Constructing the lattice is the validation (STR-165).
         IncrementLattice.resultOf(tiers, micro).onFailure { return Result.failure(it) }
         return runCatchingLogged(loggingPort, TAG, "Failed to rename equipment and set increment tiers") {

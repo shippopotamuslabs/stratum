@@ -93,7 +93,7 @@ class SwapWorkoutLiftUseCase @Inject constructor(
                 .flatMap { it.workoutLifts }
                 .mapNotNull { it.equipmentId }
                 .distinct()
-                .filter { id -> equipmentRepository.getEquipment(id)?.isDeleted == true }
+                .filter { id -> equipmentRepository.getEquipment(id)?.isTombstoned == true }
         if (orphaned.isNotEmpty()) {
             return Result.failure(
                 IllegalStateException("Deleted equipment is still assigned; pick a live equipment first"),

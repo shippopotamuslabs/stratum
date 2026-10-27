@@ -19,7 +19,6 @@ import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.EquipmentPickResult
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.inferFatigueProfile
-import com.stratum.domain.lift.resolvedDefaultRestSeconds
 import com.stratum.domain.onboarding.MuscleGroup
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject

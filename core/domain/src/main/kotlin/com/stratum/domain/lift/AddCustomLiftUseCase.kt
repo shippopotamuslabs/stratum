@@ -14,37 +14,19 @@ class AddCustomLiftUseCase @Inject constructor(
     private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(definition: CustomLiftDefinition): Result<LiftId> {
-        val name = definition.name.trim()
-        if (name.isEmpty()) {
-            return Result.failure(IllegalArgumentException("Lift name is required"))
-        }
-        if (definition.movementPatterns.isEmpty()) {
-            return Result.failure(
-                IllegalArgumentException("At least one movement pattern is required"),
+        // Name rule and field rules are owned once on the domain side (STR-169).
+        val name = CatalogNames.liftNameResult(definition.name).getOrElse { return Result.failure(it) }
+        CustomLiftFieldRules.validate(
+            movementPatterns = definition.movementPatterns,
+            primaryMuscles = definition.primaryMuscles,
+            defaultRestSeconds = definition.defaultRestSeconds,
+        ).onFailure { return Result.failure(it) }
+        val equipmentName = CatalogNames.normalizedEquipmentNameOrNull(definition.equipmentName)
+        val secondary =
+            CustomLiftFieldRules.distinctSecondaryMuscles(
+                definition.primaryMuscles,
+                definition.secondaryMuscles,
             )
-        }
-        if (definition.primaryMuscles.isEmpty()) {
-            return Result.failure(
-                IllegalArgumentException("At least one primary muscle is required"),
-            )
-        }
-        val rest = definition.defaultRestSeconds
-        if (rest != null &&
-            (rest < SetLiftDefaultRestUseCase.MIN_REST_SECONDS ||
-                rest > SetLiftDefaultRestUseCase.MAX_REST_SECONDS)
-        ) {
-            return Result.failure(
-                IllegalArgumentException(
-                    "Rest must be between ${SetLiftDefaultRestUseCase.MIN_REST_SECONDS} and " +
-                        "${SetLiftDefaultRestUseCase.MAX_REST_SECONDS} seconds",
-                ),
-            )
-        }
-        val equipmentName =
-            definition.equipmentName
-                ?.trim()
-                ?.takeIf { it.isNotEmpty() }
-        val secondary = definition.secondaryMuscles - definition.primaryMuscles
         return runCatchingLogged(loggingPort, TAG, "Failed to add custom lift") {
             repository.addCustomLift(
                 definition.copy(

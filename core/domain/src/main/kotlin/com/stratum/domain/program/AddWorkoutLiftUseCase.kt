@@ -2,7 +2,6 @@ package com.stratum.domain.program
 
 import com.stratum.domain.lift.LiftRepository
 import com.stratum.domain.lift.identity.LiftId
-import com.stratum.domain.lift.resolvedDefaultRestSeconds
 import com.stratum.domain.program.identity.LiftSetId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId

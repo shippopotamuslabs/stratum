@@ -49,7 +49,8 @@ class ApplyEquipmentIncrementProposalUseCase @Inject constructor(
                     ApplyEquipmentIncrementResult.Amended(remedy.equipmentId)
                 }
                 is EquipmentIncrementRemedy.ForkCustomEquipment -> {
-                    val name = remedy.suggestedName.trim()
+                    // Validated by validateRemedy before any write (STR-169 name rule).
+                    val name = CatalogNames.equipmentNameResult(remedy.suggestedName).getOrThrow()
                     val id =
                         equipmentRepository.createCustomEquipmentAndAssignLifts(
                             name = name,
@@ -94,12 +95,14 @@ class ApplyEquipmentIncrementProposalUseCase @Inject constructor(
                 )
             }
         }
-        if (remedy is EquipmentIncrementRemedy.ForkCustomEquipment && remedy.suggestedName.isBlank()) {
-            return loggingPort.expectedFailure(
-                TAG,
-                IllegalArgumentException("Equipment name is required"),
-                "Equipment name is required for increment remedy",
-            )
+        if (remedy is EquipmentIncrementRemedy.ForkCustomEquipment) {
+            CatalogNames.equipmentNameResult(remedy.suggestedName).exceptionOrNull()?.let { error ->
+                return loggingPort.expectedFailure(
+                    TAG,
+                    error,
+                    "Equipment name is required for increment remedy",
+                )
+            }
         }
         return null
     }

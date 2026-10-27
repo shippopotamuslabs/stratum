@@ -1,7 +1,6 @@
 package com.stratum.feature.program
 
 import com.stratum.domain.lift.Lift
-import com.stratum.domain.lift.resolvedDefaultRestSeconds
 import com.stratum.domain.onboarding.CompleteOnboardingUseCase
 import com.stratum.domain.onboarding.GetUserTrainingProfileUseCase
 import com.stratum.domain.program.ActivateProgramUseCase

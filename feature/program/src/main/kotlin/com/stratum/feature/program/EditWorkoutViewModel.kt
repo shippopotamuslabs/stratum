@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
-import com.stratum.domain.lift.resolvedDefaultRestSeconds
 import com.stratum.domain.program.ComputeWorkoutMuscleVolumeUseCase
 import com.stratum.domain.program.EstimateWorkoutDurationMinutesUseCase
 import com.stratum.domain.program.ObserveProgramByIdUseCase
@@ -353,7 +352,7 @@ class EditWorkoutViewModel @Inject constructor(
         val updatedWorkoutPreview = loaded.lifts.toWorkout(baseline, WorkoutId(loaded.workoutId))
         val orphanedSlots =
             updatedWorkoutPreview.workoutLifts.filter { slot ->
-                slot.equipmentId?.let { id -> getEquipment(id)?.isDeleted } == true
+                slot.equipmentId?.let { id -> getEquipment(id)?.isTombstoned } == true
             }
         if (orphanedSlots.isNotEmpty()) {
             val names =

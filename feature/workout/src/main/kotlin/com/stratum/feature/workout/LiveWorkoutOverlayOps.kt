@@ -4,9 +4,6 @@ import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
-import com.stratum.domain.lift.isDoubleSidedPlateLoad
-import com.stratum.domain.lift.isPlateLoaded
-import com.stratum.domain.lift.resolvedDefaultRestSeconds
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.SetType
 import com.stratum.domain.program.identity.WorkoutLiftId
