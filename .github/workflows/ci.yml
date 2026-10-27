@@ -369,6 +369,10 @@ jobs:
     if: github.event_name == 'push' || github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history: the versionCode derives from the first-parent
+          # commit count (contracts/RELEASE.md section 1).
+          fetch-depth: 0
       - uses: ./.github/actions/android-setup
         with:
           google-services-json: ${{ secrets.GOOGLE_SERVICES_JSON }}
@@ -389,6 +393,8 @@ jobs:
           key-alias: ${{ secrets.KEY_ALIAS }}
           key-password: ${{ secrets.KEY_PASSWORD }}
           strict: "false"
+      - name: Print version for this checkout
+        run: ./gradlew :app:printVersion
       - name: Assemble release
         run: ./gradlew :app:assembleRelease
       - name: Upload release APK
@@ -696,8 +702,17 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     needs: [assemble-release]
+    # Writing the release tag (contracts/RELEASE.md section 4) is the
+    # only write this job makes; everything else stays read-only.
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history: the AAB built below derives its versionCode
+          # from the first-parent commit count, and the tag step checks
+          # for an existing release tag (contracts/RELEASE.md section 1).
+          fetch-depth: 0
       - uses: ./.github/actions/android-setup
         with:
           google-services-json: ${{ secrets.GOOGLE_SERVICES_JSON }}
@@ -735,6 +750,27 @@ jobs:
           python3 -m venv /tmp/play-env
           /tmp/play-env/bin/pip install --quiet google-api-python-client google-auth
           /tmp/play-env/bin/python scripts/play-upload-internal.py app/build/outputs/bundle/release/app-release.aab
+      # The tag records the FIRST deploy of a versionName
+      # (contracts/RELEASE.md sections 4-5): a same-version redeploy
+      # leaves the tag where it is and this step succeeds, logging both
+      # SHAs. Tags are never moved or force-pushed.
+      - name: Tag the deployed SHA
+        run: |
+          VERSION_NAME=$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts | head -1)
+          test -n "$VERSION_NAME" || (echo "Could not read versionName from app/build.gradle.kts" && exit 1)
+          TAG="v$VERSION_NAME"
+          if git rev-parse -q --verify "refs/tags/$TAG" > /dev/null; then
+            EXISTING=$(git rev-list -n 1 "$TAG")
+            if [ "$EXISTING" = "$GITHUB_SHA" ]; then
+              echo "Tag $TAG already points at the deployed SHA — nothing to do"
+            else
+              echo "Tag $TAG already exists at $EXISTING (this version's first deploy); this run deployed $GITHUB_SHA under the same versionName. Tag left in place per contracts/RELEASE.md."
+            fi
+            exit 0
+          fi
+          git tag "$TAG" "$GITHUB_SHA"
+          git push origin "refs/tags/$TAG"
+          echo "Tagged $GITHUB_SHA as $TAG"
       - name: Upload bundle and APK
         if: always()
         uses: actions/upload-artifact@v4

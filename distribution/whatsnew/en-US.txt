@@ -1,0 +1,1 @@
+Fixes plate-stack scanning. A stack with a single weight band now reads correctly instead of failing with a parse error.
