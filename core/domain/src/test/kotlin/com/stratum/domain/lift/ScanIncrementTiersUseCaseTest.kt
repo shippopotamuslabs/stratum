@@ -65,6 +65,74 @@ class ScanIncrementTiersUseCaseTest {
     }
 
     @Test
+    @DisplayName("Given a single closed band when invoked then it is kept as one open-ended tier")
+    fun singleClosedBandIsOpened() = runTest {
+        val port =
+            FakeIncrementScanPort(
+                Result.success(
+                    ScannedTiers(
+                        unit = Weight.WeightUnit.Lb,
+                        tiers = listOf(ScannedTierRow(5.0, 100.0, 5.0)),
+                    ),
+                ),
+            )
+        val result = subject(port).invoke(photo)
+
+        assertTrue(result.isSuccess)
+        assertEquals(listOf(tier(5.0, null, 5.0)), result.getOrThrow().tiers)
+    }
+
+    @Test
+    @DisplayName("Given a closed final band when invoked then only the final tier is opened")
+    fun closedFinalBandIsOpened() = runTest {
+        val port =
+            FakeIncrementScanPort(
+                Result.success(
+                    ScannedTiers(
+                        unit = Weight.WeightUnit.Lb,
+                        tiers =
+                            listOf(
+                                ScannedTierRow(0.0, 40.0, 5.0),
+                                ScannedTierRow(40.0, 100.0, 10.0),
+                            ),
+                    ),
+                ),
+            )
+        val result = subject(port).invoke(photo)
+
+        assertTrue(result.isSuccess)
+        assertEquals(
+            listOf(
+                tier(0.0, 40.0, 5.0),
+                tier(40.0, null, 10.0),
+            ),
+            result.getOrThrow().tiers,
+        )
+    }
+
+    @Test
+    @DisplayName("Given a dropped trailing row when invoked then the last kept tier stays closed and fails")
+    fun droppedTrailingRowKeepsFinalTierClosed() = runTest {
+        val port =
+            FakeIncrementScanPort(
+                Result.success(
+                    ScannedTiers(
+                        unit = Weight.WeightUnit.Lb,
+                        tiers =
+                            listOf(
+                                ScannedTierRow(5.0, 100.0, 5.0),
+                                ScannedTierRow(100.0, 200.0, 0.0),
+                            ),
+                    ),
+                ),
+            )
+        val result = subject(port).invoke(photo)
+
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull() is IncrementTiersInvalidException)
+    }
+
+    @Test
     @DisplayName("Given malformed rows when invoked then they are dropped and valid rows kept")
     fun dropsMalformedRows() = runTest {
         val port =

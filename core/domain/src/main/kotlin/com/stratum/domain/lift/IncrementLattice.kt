@@ -139,6 +139,25 @@ data class IncrementLattice(
             micro: List<Weight> = emptyList(),
         ): Result<IncrementLattice> = runCatching { IncrementLattice(tiers, micro) }
 
+        /**
+         * Prepares converted scan tiers for validation (STR-244). A scan reads a real
+         * stack, whose printed top band is closed (the maximum weight), while the
+         * lattice models the top band as open (tier rule 3). A complete read — no
+         * scanned rows dropped in conversion — therefore gets its final band opened.
+         * An incomplete read keeps its last band closed: that band is not the stack
+         * top, and leaving it closed lets validation fail the scan instead of
+         * prefilling an unbounded band the machine does not have.
+         */
+        fun prepareScannedTiers(
+            tiers: List<IncrementTier>,
+            complete: Boolean,
+        ): List<IncrementTier> {
+            if (!complete) return tiers
+            val finalTier = tiers.lastOrNull() ?: return tiers
+            if (finalTier.upperBound == null) return tiers
+            return tiers.dropLast(1) + finalTier.copy(upperBound = null)
+        }
+
         /** Non-throwing tier validation for drafts and other pre-construction checks. */
         fun validateTiers(tiers: List<IncrementTier>): IncrementTiersValidationResult {
             val errors = tierErrors(tiers)

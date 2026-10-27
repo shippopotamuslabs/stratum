@@ -24,6 +24,10 @@ data class ScannedIncrementTiers(
  * Malformed rows (non-finite / negative bounds, non-positive steps, inverted bands) are
  * dropped before validation. An empty or invalid tier list fails the whole result (never
  * prefill corrupt bands); invalid micro stops are dropped while tiers are kept.
+ *
+ * Converted tiers are prepared for validation by [IncrementLattice.prepareScannedTiers],
+ * which owns the final-band rule (STR-244); this use case only supplies the rows and
+ * whether the read was complete (no scanned row dropped in conversion).
  */
 class ScanIncrementTiersUseCase @Inject constructor(
     private val port: IncrementScanPort,
@@ -32,7 +36,9 @@ class ScanIncrementTiersUseCase @Inject constructor(
     suspend operator fun invoke(photo: ScanPhoto): Result<ScannedIncrementTiers> {
         val scanned = port.scanTiers(photo).getOrElse { return Result.failure(it) }
         val rawRowCount = scanned.tiers.size
-        val tiers = scanned.tiers.mapNotNull { it.toTier(scanned.unit) }
+        val converted = scanned.tiers.mapNotNull { it.toTier(scanned.unit) }
+        val tiers =
+            IncrementLattice.prepareScannedTiers(converted, complete = converted.size == rawRowCount)
         if (tiers.isEmpty()) {
             loggingPort.warning(
                 TAG,
