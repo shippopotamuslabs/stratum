@@ -396,6 +396,58 @@ class IncrementLatticeValidationTest {
         assertEquals(expectedErrors, thrown.errors)
     }
 
+    @Nested
+    @DisplayName("prepareScannedTiers (STR-244)")
+    inner class PrepareScannedTiers {
+        @Test
+        @DisplayName("Given a complete read with a closed final band when prepared then the final band is opened")
+        fun completeReadOpensFinalBand() {
+            val tiers = listOf(
+                tier(lower = 0.0, upper = 40.0, inc = 5.0),
+                tier(lower = 40.0, upper = 100.0, inc = 10.0),
+            )
+            val prepared = IncrementLattice.prepareScannedTiers(tiers, complete = true)
+            assertEquals(
+                listOf(
+                    tier(lower = 0.0, upper = 40.0, inc = 5.0),
+                    tier(lower = 40.0, upper = null, inc = 10.0),
+                ),
+                prepared,
+            )
+            assertEquals(IncrementTiersValidationResult.Valid, IncrementLattice.validateTiers(prepared))
+        }
+
+        @Test
+        @DisplayName("Given an incomplete read when prepared then the tiers are unchanged and stay invalid")
+        fun incompleteReadIsUnchanged() {
+            val tiers = listOf(tier(lower = 5.0, upper = 100.0, inc = 5.0))
+            val prepared = IncrementLattice.prepareScannedTiers(tiers, complete = false)
+            assertEquals(tiers, prepared)
+            assertEquals(
+                IncrementTiersValidationResult.Invalid(
+                    setOf(IncrementTiersValidationError.FinalTierMustBeOpenEnded),
+                ),
+                IncrementLattice.validateTiers(prepared),
+            )
+        }
+
+        @Test
+        @DisplayName("Given a complete read with an open final band when prepared then the tiers are unchanged")
+        fun completeOpenReadIsUnchanged() {
+            val tiers = listOf(tier(lower = 0.0, upper = null, inc = 5.0))
+            assertEquals(tiers, IncrementLattice.prepareScannedTiers(tiers, complete = true))
+        }
+
+        @Test
+        @DisplayName("Given no tiers when prepared then the result is empty")
+        fun emptyReadIsUnchanged() {
+            assertEquals(
+                emptyList<IncrementTier>(),
+                IncrementLattice.prepareScannedTiers(emptyList(), complete = true),
+            )
+        }
+    }
+
     private fun tier(lower: Double, upper: Double?, inc: Double): IncrementTier =
         IncrementTier(
             lowerBound = Weight(lower, Lb),

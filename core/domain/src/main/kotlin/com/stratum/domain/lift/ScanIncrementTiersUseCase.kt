@@ -25,10 +25,9 @@ data class ScannedIncrementTiers(
  * dropped before validation. An empty or invalid tier list fails the whole result (never
  * prefill corrupt bands); invalid micro stops are dropped while tiers are kept.
  *
- * The final scanned band is normalized to open-ended before validation — but only when
- * no scanned row was dropped in conversion: labels print the stack's closed top and the
- * lattice models the top band as open (STR-244), while a dropped trailing row means the
- * last kept band is not the top and must stay closed so the scan fails honestly.
+ * Converted tiers are prepared for validation by [IncrementLattice.prepareScannedTiers],
+ * which owns the final-band rule (STR-244); this use case only supplies the rows and
+ * whether the read was complete (no scanned row dropped in conversion).
  */
 class ScanIncrementTiersUseCase @Inject constructor(
     private val port: IncrementScanPort,
@@ -38,11 +37,8 @@ class ScanIncrementTiersUseCase @Inject constructor(
         val scanned = port.scanTiers(photo).getOrElse { return Result.failure(it) }
         val rawRowCount = scanned.tiers.size
         val converted = scanned.tiers.mapNotNull { it.toTier(scanned.unit) }
-        // Opening the final tier is only sound when nothing was dropped: if trailing
-        // rows were lost in conversion, the last kept tier is not the stack top, and
-        // opening it would prefill an infinite band for a truncated scan instead of
-        // failing validation.
-        val tiers = if (converted.size == rawRowCount) converted.withOpenFinalTier() else converted
+        val tiers =
+            IncrementLattice.prepareScannedTiers(converted, complete = converted.size == rawRowCount)
         if (tiers.isEmpty()) {
             loggingPort.warning(
                 TAG,
@@ -67,18 +63,6 @@ class ScanIncrementTiersUseCase @Inject constructor(
         val keptMicro =
             if (IncrementLattice.microErrors(tiers, micro).isEmpty()) micro else emptyList()
         return Result.success(ScannedIncrementTiers(tiers, keptMicro))
-    }
-
-    /**
-     * Drops the final tier's ceiling. Scanned labels print a closed top band (the stack's
-     * maximum weight); the lattice represents the top band as open-ended, so a faithful
-     * read of a finite stack would otherwise fail [IncrementLattice.tierErrors] with
-     * FinalTierMustBeOpenEnded on every scan.
-     */
-    private fun List<IncrementTier>.withOpenFinalTier(): List<IncrementTier> {
-        val finalTier = lastOrNull() ?: return this
-        if (finalTier.upperBound == null) return this
-        return dropLast(1) + finalTier.copy(upperBound = null)
     }
 
     private fun ScannedTierRow.toTier(unit: Weight.WeightUnit): IncrementTier? {
