@@ -42,6 +42,13 @@ class ApplyEquipmentIncrementProposalUseCase @Inject constructor(
         remedy: EquipmentIncrementRemedy,
     ): Result<ApplyEquipmentIncrementResult> {
         validateRemedy(remedy)?.let { return it }
+        // The fork name is resolved to a value here (STR-169 name rule), not
+        // re-derived inside the write: an invalid name is a Result failure.
+        val forkName =
+            (remedy as? EquipmentIncrementRemedy.ForkCustomEquipment)?.let {
+                CatalogNames.equipmentNameResult(it.suggestedName)
+                    .getOrElse { error -> return Result.failure(error) }
+            }
         return runCatchingLogged(loggingPort, TAG, "Failed to apply equipment increment remedy") {
             when (remedy) {
                 is EquipmentIncrementRemedy.AmendEquipmentTiers -> {
@@ -49,7 +56,7 @@ class ApplyEquipmentIncrementProposalUseCase @Inject constructor(
                     ApplyEquipmentIncrementResult.Amended(remedy.equipmentId)
                 }
                 is EquipmentIncrementRemedy.ForkCustomEquipment -> {
-                    val name = remedy.suggestedName.trim()
+                    val name = requireNotNull(forkName)
                     val id =
                         equipmentRepository.createCustomEquipmentAndAssignLifts(
                             name = name,
@@ -94,12 +101,14 @@ class ApplyEquipmentIncrementProposalUseCase @Inject constructor(
                 )
             }
         }
-        if (remedy is EquipmentIncrementRemedy.ForkCustomEquipment && remedy.suggestedName.isBlank()) {
-            return loggingPort.expectedFailure(
-                TAG,
-                IllegalArgumentException("Equipment name is required"),
-                "Equipment name is required for increment remedy",
-            )
+        if (remedy is EquipmentIncrementRemedy.ForkCustomEquipment) {
+            CatalogNames.equipmentNameResult(remedy.suggestedName).exceptionOrNull()?.let { error ->
+                return loggingPort.expectedFailure(
+                    TAG,
+                    error,
+                    "Equipment name is required for increment remedy",
+                )
+            }
         }
         return null
     }

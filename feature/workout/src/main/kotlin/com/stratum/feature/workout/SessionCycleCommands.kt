@@ -10,9 +10,6 @@ import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
-import com.stratum.domain.lift.isDoubleSidedPlateLoad
-import com.stratum.domain.lift.isPlateLoaded
-import com.stratum.domain.lift.resolvedDefaultRestSeconds
 import com.stratum.domain.lift.storageWeightFromDisplay
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.ProgressionScheme
@@ -74,8 +71,8 @@ internal suspend fun LiveWorkoutSessionRuntime.handleApplyCycleSnapshot(cmd: Ses
     liftNamesById = cmd.catalog.associate { lift -> lift.id to lift.name }
     liftsById = cmd.catalog.associateBy { lift -> lift.id }
     equipmentById = cmd.equipment.associateBy { equipment -> equipment.id }
-    tombstonedEquipmentIds = cmd.equipment.filter { it.isDeleted }.map { it.id }.toSet()
-    tombstonedLiftIds = cmd.catalog.filter { it.isDeleted }.map { it.id }.toSet()
+    tombstonedEquipmentIds = cmd.equipment.filter { it.isTombstoned }.map { it.id }.toSet()
+    tombstonedLiftIds = cmd.catalog.filter { it.isTombstoned }.map { it.id }.toSet()
 
     val program = cmd.program
     val session = cmd.session

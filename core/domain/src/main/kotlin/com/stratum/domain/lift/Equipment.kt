@@ -42,6 +42,25 @@ data class Equipment(
      * one place instead of each consumer re-deciding it.
      */
     fun requireLattice(): IncrementLattice = IncrementLattice(incrementTiers, microIncrements)
+
+    /**
+     * Fork semantics, owned by the model (STR-169): a fork (clone) of this equipment
+     * starts with this row's adder stops unless the caller passes an explicit
+     * replacement — null inherits the parent's stops, a non-null list (empty = no
+     * knob) replaces them. The destination write validates replacement stops
+     * against the new tiers; see `ForkEquipmentUseCase`.
+     */
+    fun resolvedForkMicro(explicit: List<Weight>?): List<Weight> = explicit ?: microIncrements
+
+    /**
+     * Tombstone meaning, named once (STR-169): the equipment was deleted, its row,
+     * name, and tiers are retained so history keeps resolving it by id, and
+     * catalog/picker reads exclude it. Call sites check this instead
+     * of re-reading the raw [isDeleted] flag.
+     */
+    val isTombstoned: Boolean
+        get() = isDeleted
+
 }
 
 /**

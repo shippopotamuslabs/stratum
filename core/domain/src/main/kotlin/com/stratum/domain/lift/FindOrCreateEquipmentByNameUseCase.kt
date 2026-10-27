@@ -15,10 +15,7 @@ class FindOrCreateEquipmentByNameUseCase @Inject constructor(
     private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(name: String): Result<EquipmentId> {
-        val trimmed = name.trim()
-        if (trimmed.isEmpty()) {
-            return Result.failure(IllegalArgumentException("Equipment name is required"))
-        }
+        val trimmed = CatalogNames.equipmentNameResult(name).getOrElse { return Result.failure(it) }
         return runCatchingLogged(loggingPort, TAG, "Failed to find or create equipment") {
             repository.findOrCreateByName(trimmed)
         }

@@ -14,7 +14,6 @@ import com.stratum.domain.lift.shouldShowLiveEquipmentAdjust
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
-import com.stratum.domain.lift.resolvedDefaultRestSeconds
 import com.stratum.domain.lift.storageWeightFromDisplay
 import com.stratum.domain.program.GetProgramByIdUseCase
 import com.stratum.domain.program.Program

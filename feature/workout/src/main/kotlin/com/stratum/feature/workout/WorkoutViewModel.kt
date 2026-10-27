@@ -678,7 +678,7 @@ class WorkoutViewModel @Inject constructor(
         val fetched =
             (referenced - known).mapNotNull { id ->
                 getEquipment(com.stratum.domain.lift.identity.EquipmentId(id))
-            }.filter { it.isDeleted }
+            }.filter { it.isTombstoned }
         if (fetched.isNotEmpty()) {
             retainedEquipment.value = retainedEquipment.value + fetched
         }
@@ -699,7 +699,7 @@ class WorkoutViewModel @Inject constructor(
         if (missing.isEmpty()) return
         val fetched =
             getLiftsByIds(missing.map { com.stratum.domain.lift.identity.LiftId(it) })
-                .filter { it.isDeleted }
+                .filter { it.isTombstoned }
         if (fetched.isNotEmpty()) {
             retainedLifts.value = retainedLifts.value + fetched
         }

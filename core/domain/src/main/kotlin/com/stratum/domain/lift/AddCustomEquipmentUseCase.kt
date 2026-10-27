@@ -19,10 +19,7 @@ class AddCustomEquipmentUseCase @Inject constructor(
         tiers: List<IncrementTier> = emptyList(),
         micro: List<Weight> = emptyList(),
     ): Result<EquipmentId> {
-        val trimmed = name.trim()
-        if (trimmed.isEmpty()) {
-            return Result.failure(IllegalArgumentException("Equipment name is required"))
-        }
+        val trimmed = CatalogNames.equipmentNameResult(name).getOrElse { return Result.failure(it) }
         // Constructing the lattice is the validation (STR-165). Micro validates
         // against the persisted context: empty tiers become the repository's default
         // single band on write, so stops legal for that band (e.g. ≤ 5 lb) must not

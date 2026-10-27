@@ -89,50 +89,60 @@ data class Lift(
      */
     val isCompound: Boolean
         get() = movementPatterns.size > 1 || hasCompoundFatigue
+
+    /**
+     * True when [fatigueProfile] is High or Medium (systemic multi-joint fatigue band).
+     * Used when pattern count must not promote Low accessories into "compound fatigue" logic.
+     * Member since STR-169 (previously a file extension in this file; same rule, one surface).
+     */
+    val hasCompoundFatigue: Boolean
+        get() =
+            fatigueProfile == FatigueProfile.High ||
+                fatigueProfile == FatigueProfile.Medium
+
+    /**
+     * True when the lift uses barbell/sleeve weight plates for loading.
+     * Gated strictly on [LoadType.Weighted] and plate equipment (Double or Single Weight Plates).
+     */
+    val isPlateLoaded: Boolean
+        get() =
+            loadType == LoadType.Weighted && (
+                equipmentId == SeedEquipmentIds.DoubleWeightPlates ||
+                    equipmentId == SeedEquipmentIds.SingleWeightPlate
+            )
+
+    /**
+     * True when plates are loaded on both sleeves. False for single-sleeve plate machines
+     * ([SeedEquipmentIds.SingleWeightPlate]). Meaningless when [isPlateLoaded] is false.
+     */
+    val isDoubleSidedPlateLoad: Boolean
+        get() = isPlateLoaded && equipmentId == SeedEquipmentIds.DoubleWeightPlates
+
+    /**
+     * Rest seconds to use when this lift is added or swapped into a workout. Prefer the stored
+     * [defaultRestSeconds] override; otherwise High → 180s, Medium and Low → 120s.
+     * Rest is driven by [fatigueProfile] only — never by [isCompound].
+     */
+    fun resolvedDefaultRestSeconds(): Int =
+        defaultRestSeconds
+            ?: if (fatigueProfile == FatigueProfile.High) {
+                DEFAULT_HIGH_FATIGUE_REST_SECONDS
+            } else {
+                DEFAULT_STANDARD_REST_SECONDS
+            }
+
+    /**
+     * Tombstone meaning, named once (STR-169): the lift was deleted, its row is retained
+     * so logged history keeps resolving it by id, and catalog/picker reads exclude it.
+     * Call sites check this instead of re-reading the raw [isDeleted] flag.
+     */
+    val isTombstoned: Boolean
+        get() = isDeleted
+
 }
-
-/**
- * True when [Lift.fatigueProfile] is High or Medium (systemic multi-joint fatigue band).
- * Used when pattern count must not promote Low accessories into “compound fatigue” logic.
- */
-val Lift.hasCompoundFatigue: Boolean
-    get() =
-        fatigueProfile == FatigueProfile.High ||
-            fatigueProfile == FatigueProfile.Medium
-
-/**
- * True when the lift uses barbell/sleeve weight plates for loading.
- * Gated strictly on [LoadType.Weighted] and plate equipment (Double or Single Weight Plates).
- */
-val Lift.isPlateLoaded: Boolean
-    get() =
-        loadType == LoadType.Weighted && (
-            equipmentId == SeedEquipmentIds.DoubleWeightPlates ||
-                equipmentId == SeedEquipmentIds.SingleWeightPlate
-        )
-
-/**
- * True when plates are loaded on both sleeves. False for single-sleeve plate machines
- * ([SeedEquipmentIds.SingleWeightPlate]). Meaningless when [isPlateLoaded] is false.
- */
-val Lift.isDoubleSidedPlateLoad: Boolean
-    get() = isPlateLoaded && equipmentId == SeedEquipmentIds.DoubleWeightPlates
 
 /** Default inter-set rest for High-fatigue lifts when no override is set. */
 const val DEFAULT_HIGH_FATIGUE_REST_SECONDS: Int = 180
 
 /** Default inter-set rest for Medium/Low fatigue lifts when no override is set. */
 const val DEFAULT_STANDARD_REST_SECONDS: Int = 120
-
-/**
- * Rest seconds to use when this lift is added or swapped into a workout. Prefer the stored
- * [Lift.defaultRestSeconds] override; otherwise High → 180s, Medium and Low → 120s.
- * Rest is driven by [Lift.fatigueProfile] only — never by [Lift.isCompound].
- */
-fun Lift.resolvedDefaultRestSeconds(): Int =
-    defaultRestSeconds
-        ?: if (fatigueProfile == FatigueProfile.High) {
-            DEFAULT_HIGH_FATIGUE_REST_SECONDS
-        } else {
-            DEFAULT_STANDARD_REST_SECONDS
-        }

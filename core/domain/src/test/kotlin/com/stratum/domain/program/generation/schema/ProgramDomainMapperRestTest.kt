@@ -4,7 +4,6 @@ import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.identity.LiftId
-import com.stratum.domain.lift.resolvedDefaultRestSeconds
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.SetType

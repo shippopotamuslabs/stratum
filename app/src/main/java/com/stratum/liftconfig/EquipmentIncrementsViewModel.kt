@@ -2,6 +2,7 @@ package com.stratum.liftconfig
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.stratum.domain.lift.CatalogNames
 import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.EquipmentAffectedLifts
 import com.stratum.domain.lift.ForkEquipmentWithTiersUseCase
@@ -722,7 +723,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
             canDelete =
                 equipment != null &&
                     equipment.id !in SeedEquipmentIds.hiddenFromCatalog &&
-                    !equipment.isDeleted,
+                    !equipment.isTombstoned,
             editor =
                 IncrementsEditorData(
                     tiers = tiers,
@@ -774,9 +775,9 @@ class EquipmentIncrementsViewModel @Inject constructor(
         saveSucceeded.value = false
     }
 
-    /** A touched-but-blank name draft blocks save, mirroring the rename use case. */
+    /** A touched-but-blank name draft blocks save, per the domain name rule (STR-169). */
     private fun nameValidationMessage(draftName: String?): String? =
-        if (draftName != null && draftName.isBlank()) "Equipment name is required" else null
+        draftName?.let { CatalogNames.equipmentValidationMessage(it) }
 
     private fun liveValidationMessage(
         tiers: List<IncrementTierDraft>,

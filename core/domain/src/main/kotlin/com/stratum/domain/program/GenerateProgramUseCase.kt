@@ -1,7 +1,6 @@
 package com.stratum.domain.program
 
 import com.stratum.domain.di.DefaultDispatcher
-import com.stratum.domain.lift.resolvedDefaultRestSeconds
 import com.stratum.domain.lift.LiftRepository
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.generation.integration.resolveAdjacentCalendarLiftCollisions

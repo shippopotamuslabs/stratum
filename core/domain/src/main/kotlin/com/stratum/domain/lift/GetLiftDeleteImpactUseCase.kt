@@ -22,7 +22,7 @@ class GetLiftDeleteImpactUseCase @Inject constructor(
 ) {
     suspend operator fun invoke(id: LiftId): LiftDeleteImpact? {
         val lift = liftRepository.getLiftsByIds(listOf(id)).firstOrNull() ?: return null
-        if (lift.isDeleted) return null
+        if (lift.isTombstoned) return null
 
         val programs = programRepository.getAllUserPrograms()
         val affectedWorkouts =

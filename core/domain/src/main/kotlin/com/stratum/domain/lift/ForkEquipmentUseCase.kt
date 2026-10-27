@@ -41,15 +41,13 @@ class ForkEquipmentUseCase @Inject constructor(
         micro: List<Weight>? = null,
         validateMicroAgainstSource: Boolean = true,
     ): Result<ForkedEquipment> {
-        val trimmed = newName.trim()
-        if (trimmed.isEmpty()) {
-            return Result.failure(IllegalArgumentException("Equipment name is required"))
-        }
+        val trimmed = CatalogNames.equipmentNameResult(newName).getOrElse { return Result.failure(it) }
         val parent =
             equipmentRepository.getEquipment(sourceEquipmentId)
                 ?: return Result.failure(IllegalArgumentException("Equipment not found"))
         val tiers = parent.incrementTiers
-        val resolvedMicro = micro ?: parent.microIncrements
+        // Fork semantics live on the model (STR-169): null inherits the parent's stops.
+        val resolvedMicro = parent.resolvedForkMicro(micro)
         // Constructing the lattice is the validation (STR-165). Tier rules always
         // apply to the parent's bands; micro rules apply only on the source-check
         // path (explicit stops for replacement tiers are validated at the

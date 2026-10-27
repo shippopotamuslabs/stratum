@@ -23,7 +23,7 @@ class SetLiftEquipmentUseCase @Inject constructor(
                 ?: return Result.failure(IllegalArgumentException("Lift not found"))
         // STR-105 Scope 8: a tombstoned assignment must never be (re-)persisted.
         // The caller must pick a live equipment or clear the assignment (null).
-        if (equipmentId != null && equipmentRepository.getEquipment(equipmentId)?.isDeleted == true) {
+        if (equipmentId != null && equipmentRepository.getEquipment(equipmentId)?.isTombstoned == true) {
             return Result.failure(
                 IllegalStateException("Equipment is deleted; pick a live equipment or clear the assignment"),
             )

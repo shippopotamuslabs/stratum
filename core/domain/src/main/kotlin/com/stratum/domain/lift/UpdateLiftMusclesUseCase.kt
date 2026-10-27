@@ -21,16 +21,15 @@ class UpdateLiftMusclesUseCase @Inject constructor(
         primaryMuscles: Set<MuscleGroup>,
         secondaryMuscles: Set<MuscleGroup>,
     ): Result<Unit> {
-        if (primaryMuscles.isEmpty()) {
-            return Result.failure(IllegalArgumentException("At least one primary muscle is required"))
-        }
+        CustomLiftFieldRules.validatePrimaryMuscles(primaryMuscles)
+            .onFailure { return Result.failure(it) }
         val lift =
             repository.observeLifts().first().firstOrNull { it.id == id }
                 ?: return Result.failure(IllegalArgumentException("Lift not found"))
         if (!lift.isCustom) {
             return Result.failure(IllegalStateException("Catalog lifts cannot be edited"))
         }
-        val secondary = secondaryMuscles - primaryMuscles
+        val secondary = CustomLiftFieldRules.distinctSecondaryMuscles(primaryMuscles, secondaryMuscles)
         return runCatchingLogged(loggingPort, TAG, "Failed to update lift muscles") {
             repository.updateLiftMuscles(id, primaryMuscles, secondary)
         }

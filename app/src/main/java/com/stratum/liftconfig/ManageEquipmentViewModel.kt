@@ -266,7 +266,7 @@ class ManageEquipmentViewModel @Inject constructor(
             name = name,
             tierChips = incrementTiers.map { it.toChipUi() },
             isCustom = isCustom,
-            canDelete = id !in SeedEquipmentIds.hiddenFromCatalog && !isDeleted,
+            canDelete = id !in SeedEquipmentIds.hiddenFromCatalog && !isTombstoned,
         )
 
     private fun IncrementTier.toChipUi(): EquipmentTierChipUi =

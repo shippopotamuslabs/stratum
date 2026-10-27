@@ -10,7 +10,6 @@ import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
-import com.stratum.domain.lift.resolvedDefaultRestSeconds
 import com.stratum.domain.lift.sanitizeLiftNoteBody
 import com.stratum.domain.lift.storageWeightFromDisplay
 import com.stratum.domain.program.Program
