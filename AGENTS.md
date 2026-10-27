@@ -26,6 +26,7 @@ Every task maps to binding contracts in `/contracts/`. Read the relevant contrac
 | Glass bars/Haze (canon) | contracts/gospel/GLASS-BARS-GOSPEL.md |
 | Theme families, Stratum* components, Detekt UI rules, adoption/carve-outs (Stratum) | contracts/UI_DESIGN.md |
 | Room, persistence, schema (Stratum; legacy filename) | contracts/DATA_LAYER_RULES.md |
+| Versioning, release prep, Play release notes, Play internal-track upload, the deploy job, release tags | contracts/RELEASE.md — read it *before* any release work; the derived `versionCode` rules and the release-prep PR gate in there bind every release |
 | Cloud Functions/callables | docs/callable-function-versioning.md |
 
 Never modify files in `/contracts/` without an explicit **"Contract Waiver"** from the user.
