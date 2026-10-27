@@ -751,26 +751,15 @@ jobs:
           /tmp/play-env/bin/pip install --quiet google-api-python-client google-auth
           /tmp/play-env/bin/python scripts/play-upload-internal.py app/build/outputs/bundle/release/app-release.aab
       # The tag records the FIRST deploy of a versionName
-      # (contracts/RELEASE.md sections 4-5): a same-version redeploy
-      # leaves the tag where it is and this step succeeds, logging both
-      # SHAs. Tags are never moved or force-pushed.
+      # (contracts/RELEASE.md sections 4-5). The versionName comes from
+      # :app:printVersion — the one canonical reader — and the branching
+      # lives in scripts/tag-release.sh, not in this YAML.
       - name: Tag the deployed SHA
         run: |
-          VERSION_NAME=$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts | head -1)
-          test -n "$VERSION_NAME" || (echo "Could not read versionName from app/build.gradle.kts" && exit 1)
-          TAG="v$VERSION_NAME"
-          if git rev-parse -q --verify "refs/tags/$TAG" > /dev/null; then
-            EXISTING=$(git rev-list -n 1 "$TAG")
-            if [ "$EXISTING" = "$GITHUB_SHA" ]; then
-              echo "Tag $TAG already points at the deployed SHA — nothing to do"
-            else
-              echo "Tag $TAG already exists at $EXISTING (this version's first deploy); this run deployed $GITHUB_SHA under the same versionName. Tag left in place per contracts/RELEASE.md."
-            fi
-            exit 0
-          fi
-          git tag "$TAG" "$GITHUB_SHA"
-          git push origin "refs/tags/$TAG"
-          echo "Tagged $GITHUB_SHA as $TAG"
+          PRINTED=$(./gradlew :app:printVersion --console=plain -q)
+          VERSION_NAME=$(printf '%s' "$PRINTED" | grep -o 'versionName=[^ ]*' | head -1 | cut -d= -f2)
+          test -n "$VERSION_NAME" || (echo "Could not parse versionName from printVersion output: $PRINTED" && exit 1)
+          scripts/tag-release.sh "$VERSION_NAME" "$GITHUB_SHA"
       - name: Upload bundle and APK
         if: always()
         uses: actions/upload-artifact@v4

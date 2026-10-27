@@ -177,7 +177,9 @@ Where the facts come from:
   - `deploy-internal` checks out the same SHA with full history, builds
     the signed AAB, hands it to the upload script, and, after the script
     verifies the release on Play, tags the deployed SHA
-    `v<versionName>` and pushes the tag. The tag records the **first**
+    `v<versionName>` via `scripts/tag-release.sh` (the versionName is
+    read from `:app:printVersion` output — the one canonical reader).
+    The tag records the **first**
     deploy of a versionName. A later dispatch under the same
     versionName ships a new build and leaves the tag where it is; the
     tag step logs both SHAs and succeeds. Tags are never moved and

@@ -61,14 +61,10 @@ def load_service_account_info() -> dict:
     return json.loads(ref)
 
 
-def main(aab_path: str) -> None:
-    release_notes = load_release_notes()
-    credentials = service_account.Credentials.from_service_account_info(
-        load_service_account_info(), scopes=SCOPES
-    )
-    service = build("androidpublisher", "v3", credentials=credentials,
-                    cache_discovery=False)
-    edits = service.edits()
+def upload_internal_release(edits, aab_path: str, release_notes: str) -> str:
+    """Upload the AAB in a fresh edit, set the Internal track release with
+    the notes, and commit. On any failure the open edit is deleted, so a
+    failed run leaves nothing on Play. Returns the uploaded versionCode."""
     edit_id = edits.insert(body={}, packageName=PACKAGE_NAME).execute()["id"]
     try:
         uploaded = edits.bundles().upload(
@@ -94,11 +90,14 @@ def main(aab_path: str) -> None:
     except Exception:
         edits.delete(packageName=PACKAGE_NAME, editId=edit_id).execute()
         raise
-    print(f"Uploaded versionCode {version_code} to the Internal track and committed.")
+    return version_code
 
-    # Verification read-back (contracts/RELEASE.md section 4): open a
-    # throwaway edit, read the track through it, then delete the edit so
-    # nothing is left open. The committed release is what gets read.
+
+def verify_internal_release(edits, version_code: str, release_notes: str) -> None:
+    """Read the Internal track back through a throwaway edit (deleted on
+    the way out, so nothing is left open) and require the uploaded
+    versionCode to sit there as a completed release carrying the same
+    en-US notes. Raises SystemExit on any mismatch."""
     verify_edit_id = edits.insert(body={}, packageName=PACKAGE_NAME).execute()["id"]
     try:
         track = edits.tracks().get(
@@ -128,6 +127,19 @@ def main(aab_path: str) -> None:
         f"Verification failed: versionCode {version_code} was committed but "
         "does not appear on the Internal track."
     )
+
+
+def main(aab_path: str) -> None:
+    release_notes = load_release_notes()
+    credentials = service_account.Credentials.from_service_account_info(
+        load_service_account_info(), scopes=SCOPES
+    )
+    service = build("androidpublisher", "v3", credentials=credentials,
+                    cache_discovery=False)
+    edits = service.edits()
+    version_code = upload_internal_release(edits, aab_path, release_notes)
+    print(f"Uploaded versionCode {version_code} to the Internal track and committed.")
+    verify_internal_release(edits, version_code, release_notes)
 
 
 if __name__ == "__main__":
