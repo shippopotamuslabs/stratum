@@ -39,7 +39,9 @@ export const INCREMENT_SCAN_SYSTEM_PROMPT = `You read a selectorized weight-stac
 
 Return ONLY what is printed on the label:
 - tiers: the labeled weight bands as {lower, upper, step} in ONE unit ("lb" or "kg", matching the label).
-  The top band is open-ended: use upper null for it.
+  The final (highest) band is always open-ended: return its upper as null, even though the
+  label prints a top weight. This is the one exception to transcribing what is printed —
+  the app cannot use a closed final band.
 - microStops: add-on / adder / plate-mate stop weights ONLY when such a pin or add-on weight
   is legible on the label; otherwise an empty array.
 

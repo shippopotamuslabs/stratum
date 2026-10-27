@@ -24,6 +24,9 @@ data class ScannedIncrementTiers(
  * Malformed rows (non-finite / negative bounds, non-positive steps, inverted bands) are
  * dropped before validation. An empty or invalid tier list fails the whole result (never
  * prefill corrupt bands); invalid micro stops are dropped while tiers are kept.
+ *
+ * The final scanned band is normalized to open-ended before validation: labels print the
+ * stack's closed top, but the lattice models the top band as open (STR-244).
  */
 class ScanIncrementTiersUseCase @Inject constructor(
     private val port: IncrementScanPort,
@@ -32,7 +35,7 @@ class ScanIncrementTiersUseCase @Inject constructor(
     suspend operator fun invoke(photo: ScanPhoto): Result<ScannedIncrementTiers> {
         val scanned = port.scanTiers(photo).getOrElse { return Result.failure(it) }
         val rawRowCount = scanned.tiers.size
-        val tiers = scanned.tiers.mapNotNull { it.toTier(scanned.unit) }
+        val tiers = scanned.tiers.mapNotNull { it.toTier(scanned.unit) }.withOpenFinalTier()
         if (tiers.isEmpty()) {
             loggingPort.warning(
                 TAG,
@@ -57,6 +60,18 @@ class ScanIncrementTiersUseCase @Inject constructor(
         val keptMicro =
             if (IncrementLattice.microErrors(tiers, micro).isEmpty()) micro else emptyList()
         return Result.success(ScannedIncrementTiers(tiers, keptMicro))
+    }
+
+    /**
+     * Drops the final tier's ceiling. Scanned labels print a closed top band (the stack's
+     * maximum weight); the lattice represents the top band as open-ended, so a faithful
+     * read of a finite stack would otherwise fail [IncrementLattice.tierErrors] with
+     * FinalTierMustBeOpenEnded on every scan.
+     */
+    private fun List<IncrementTier>.withOpenFinalTier(): List<IncrementTier> {
+        val finalTier = lastOrNull() ?: return this
+        if (finalTier.upperBound == null) return this
+        return dropLast(1) + finalTier.copy(upperBound = null)
     }
 
     private fun ScannedTierRow.toTier(unit: Weight.WeightUnit): IncrementTier? {
