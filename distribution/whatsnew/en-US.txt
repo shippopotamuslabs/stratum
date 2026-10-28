@@ -1,1 +1,11 @@
-Fixes plate-stack scanning. A stack with a single weight band now reads correctly instead of failing with a parse error.
+Five fixes.
+
+Save as New keeps the name you gave your equipment, adding (1), (2) only when the name is taken.
+
+Deleting equipment mid-workout with a replacement set moves the whole session to the replacement.
+
+After you log a set, the workout screen scrolls the next lift card to the top.
+
+Rep-match sets after a mini-set cluster now build off your top set.
+
+Signing in after an app restore pulls your current data down from the cloud.
