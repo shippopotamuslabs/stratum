@@ -24,25 +24,15 @@ class FakeOnboardingRepository(
 
     override suspend fun saveStep(step: OnboardingStep, selectedPath: OnboardingPath?) {
         val current = progress.value
-        progress.value =
-            current.copy(
-                currentStep = step,
-                completedAt = null,
-                selectedPath = selectedPath ?: current.selectedPath,
-            )
+        progress.value = current.advancedTo(step, selectedPath ?: current.selectedPath)
     }
 
     override suspend fun markComplete() {
-        progress.value = progress.value.copy(completedAt = COMPLETED_AT)
+        progress.value = progress.value.completed(COMPLETED_AT)
     }
 
     override suspend fun reopenWizard() {
-        progress.value =
-            progress.value.copy(
-                currentStep = OnboardingStep.ChoosePath,
-                completedAt = null,
-                selectedPath = null,
-            )
+        progress.value = progress.value.reopened()
     }
 
     /** Test hook: the current progress value. */

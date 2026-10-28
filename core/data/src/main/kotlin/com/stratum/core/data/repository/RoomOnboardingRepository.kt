@@ -24,16 +24,13 @@ class RoomOnboardingRepository @Inject constructor(
     override suspend fun saveStep(step: OnboardingStep, selectedPath: OnboardingPath?) {
         syncTouch.mutate {
             val existing = dao.getOrNull()?.toDomain()
-            val startedAt = existing?.startedAt ?: System.currentTimeMillis()
-            val path = selectedPath ?: existing?.selectedPath
-            dao.upsert(
-                OnboardingProgress(
-                    currentStep = step,
-                    startedAt = startedAt,
-                    completedAt = null,
-                    selectedPath = path,
-                ).toEntity(),
-            )
+            val progress = existing?.advancedTo(step, selectedPath ?: existing.selectedPath)
+                ?: OnboardingProgress.started(
+                    step = step,
+                    startedAtMillis = System.currentTimeMillis(),
+                    selectedPath = selectedPath,
+                )
+            dao.upsert(progress.toEntity())
             syncTouch.cancelDelete(
                 SyncCollection.OnboardingProgress,
                 OnboardingProgressId.Default.value,
@@ -43,17 +40,10 @@ class RoomOnboardingRepository @Inject constructor(
 
     override suspend fun markComplete() {
         syncTouch.mutate {
+            val now = System.currentTimeMillis()
             val current = dao.getOrNull()?.toDomain()
-            val startedAt = current?.startedAt ?: System.currentTimeMillis()
-            val step = current?.currentStep ?: OnboardingStep.Review
-            dao.upsert(
-                OnboardingProgress(
-                    currentStep = step,
-                    startedAt = startedAt,
-                    completedAt = System.currentTimeMillis(),
-                    selectedPath = current?.selectedPath,
-                ).toEntity(),
-            )
+                ?: OnboardingProgress.started(step = OnboardingStep.Review, startedAtMillis = now)
+            dao.upsert(current.completed(now).toEntity())
             syncTouch.cancelDelete(
                 SyncCollection.OnboardingProgress,
                 OnboardingProgressId.Default.value,
@@ -64,16 +54,12 @@ class RoomOnboardingRepository @Inject constructor(
     override suspend fun reopenWizard() {
         syncTouch.mutate {
             val current = dao.getOrNull()?.toDomain()
-            val startedAt = current?.startedAt ?: System.currentTimeMillis()
+                ?: OnboardingProgress.started(
+                    step = OnboardingStep.ChoosePath,
+                    startedAtMillis = System.currentTimeMillis(),
+                )
             // Return to Choose Path; clear durable path so Review cannot mis-route.
-            dao.upsert(
-                OnboardingProgress(
-                    currentStep = OnboardingStep.ChoosePath,
-                    startedAt = startedAt,
-                    completedAt = null,
-                    selectedPath = null,
-                ).toEntity(),
-            )
+            dao.upsert(current.reopened().toEntity())
             syncTouch.cancelDelete(
                 SyncCollection.OnboardingProgress,
                 OnboardingProgressId.Default.value,

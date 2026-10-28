@@ -98,20 +98,12 @@ class AdvanceOnboardingStepUseCase @Inject constructor(
                     OnboardingStep.MinimumVolume,
                 )
         val profileToSave = when {
-            isCommittingToImport ->
-                profile.copy(
-                    weekdays = emptySet(),
-                    sessionLengthMinutes = null,
-                    generationTrainingDayCount = null,
-                    generationCycleLength = null,
-                    generationRestSlotIndices = emptySet(),
-                )
+            isCommittingToImport -> profile.clearedScheduleIdentity()
             isGenerateScheduleFlush ->
-                profile.copy(
-                    weekdays = emptySet(),
-                    generationTrainingDayCount = trainingDayCount,
-                    generationCycleLength = cycleLength,
-                    generationRestSlotIndices = restSlotIndices.orEmpty(),
+                profile.withGenerateCycleSpace(
+                    trainingDayCount = trainingDayCount,
+                    cycleLength = cycleLength,
+                    restSlotIndices = restSlotIndices.orEmpty(),
                 )
             else -> profile
         }
