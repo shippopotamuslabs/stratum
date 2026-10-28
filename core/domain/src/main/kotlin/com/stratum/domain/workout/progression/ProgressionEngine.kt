@@ -386,16 +386,16 @@ fun projectBaselineAtTargetWeight(
     // The set carries no load information, so there is nothing to reproject: keep
     // the target weight and carry the performed reps as the expectation. Recorded,
     // never silent.
-    if (!e1rm.isUsableEstimatedOneRm()) {
-        diagnostics?.add(
-            ProgressionDiagnostic.BaselineSkipped(
-                liftId = slot.liftId,
-                slotPosition = slot.position,
-                historyWeight = prevSet.weight,
-                historyFailureReps = failureReps,
-                site = ProgressionDiagnostic.BaselineSkipped.Site.Reprojection,
-            ),
+    if (
+        diagnostics.recordBaselineSkipIfUnusable(
+            e1rm = e1rm,
+            liftId = slot.liftId,
+            slotPosition = slot.position,
+            historyWeight = prevSet.weight,
+            historyFailureReps = failureReps,
+            site = ProgressionDiagnostic.BaselineSkipped.Site.Reprojection,
         )
+    ) {
         return targetWeight to prevSet.reps.coerceAtLeast(1)
     }
     val capacityAtTarget =

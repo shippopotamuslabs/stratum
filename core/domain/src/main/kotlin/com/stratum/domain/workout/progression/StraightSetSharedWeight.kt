@@ -101,19 +101,19 @@ private fun tightenForBaselineSlot(
         WeightConversion.loadMagnitudeLb(set.weight),
         failureReps,
     )
-    // STR-250: a zero-load history set derives e1rm 0.0, which repsForWeight rejects.
-    // The set carries no load information, so skip tightening for this slot — and
-    // record the skip: a silent degradation is how this crash stayed invisible.
-    if (!e1rm.isUsableEstimatedOneRm()) {
-        diagnostics?.add(
-            ProgressionDiagnostic.BaselineSkipped(
-                liftId = slot.liftId,
-                slotPosition = slot.position,
-                historyWeight = set.weight,
-                historyFailureReps = failureReps,
-                site = ProgressionDiagnostic.BaselineSkipped.Site.Tightening,
-            ),
+    // STR-250: a zero-load history set derives e1rm 0.0, which repsForWeight
+    // rejects. The set carries no load information, so skip tightening for this
+    // slot — recorded, never silent.
+    if (
+        diagnostics.recordBaselineSkipIfUnusable(
+            e1rm = e1rm,
+            liftId = slot.liftId,
+            slotPosition = slot.position,
+            historyWeight = set.weight,
+            historyFailureReps = failureReps,
+            site = ProgressionDiagnostic.BaselineSkipped.Site.Tightening,
         )
+    ) {
         return candidateWeight
     }
     val atRir = capacityAtWeightNoFatigue(
@@ -158,20 +158,21 @@ private fun tightenForPartialTail(
 
     val e1rm = anchorE1rm(recentBlock, coveredCount) ?: return candidateWeight
 
-    // STR-250: an unusable anchor e1rm (zero-load anchor set) means the tail cannot
-    // be projected — behave exactly like the no-anchor path above and record it.
-    if (!e1rm.isUsableEstimatedOneRm()) {
-        val anchor = recentBlock.performances[coveredCount - 1]
-        val anchorSet = anchor.entry.loggedSet
-        diagnostics?.add(
-            ProgressionDiagnostic.BaselineSkipped(
-                liftId = lastSlot.liftId,
-                slotPosition = anchor.slotPosition,
-                historyWeight = anchorSet.weight,
-                historyFailureReps = (anchorSet.reps + (anchorSet.rir ?: 0)).coerceAtLeast(1),
-                site = ProgressionDiagnostic.BaselineSkipped.Site.PartialTailAnchor,
-            ),
+    // STR-250: an unusable anchor e1rm (zero-load anchor set) means the tail
+    // cannot be projected — behave exactly like the no-anchor path above, and
+    // record it.
+    val anchor = recentBlock.performances[coveredCount - 1]
+    val anchorSet = anchor.entry.loggedSet
+    if (
+        diagnostics.recordBaselineSkipIfUnusable(
+            e1rm = e1rm,
+            liftId = lastSlot.liftId,
+            slotPosition = anchor.slotPosition,
+            historyWeight = anchorSet.weight,
+            historyFailureReps = (anchorSet.reps + (anchorSet.rir ?: 0)).coerceAtLeast(1),
+            site = ProgressionDiagnostic.BaselineSkipped.Site.PartialTailAnchor,
         )
+    ) {
         return candidateWeight
     }
 

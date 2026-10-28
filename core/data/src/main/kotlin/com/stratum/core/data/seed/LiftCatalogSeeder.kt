@@ -69,18 +69,22 @@ class LiftCatalogSeeder(
             null
         }
 
-    /** Resistance-band exercise variants are excluded from the commercial seed catalog. */
-    private fun isBandVariantLift(id: String, name: String): Boolean {
-        val pattern = Regex("(^|[-\\s])band($|[-\\s])", RegexOption.IGNORE_CASE)
-        return pattern.containsMatchIn(id) || pattern.containsMatchIn(name)
-    }
-
     private fun mapDto(dto: LiftSeedDto): LiftEntity? =
         mapSeedDto(dto, equipmentTagsByLiftId)
 
     companion object {
         const val ASSET_PATH = "lifts/seed-lifts.json"
         private const val TAG = "LiftCatalogSeed"
+
+        /**
+         * Resistance-band exercise variants are excluded from the commercial seed
+         * catalog. Internal (not private) so catalog audit tests apply the exact
+         * production exclusion instead of mirroring the rule.
+         */
+        internal fun isBandVariantLift(id: String, name: String): Boolean {
+            val pattern = Regex("(^|[-\\s])band($|[-\\s])", RegexOption.IGNORE_CASE)
+            return pattern.containsMatchIn(id) || pattern.containsMatchIn(name)
+        }
 
         /**
          * Pure seed DTO → entity mapping (testable without DAO). Missing [LiftSeedDto.fatigueProfile]

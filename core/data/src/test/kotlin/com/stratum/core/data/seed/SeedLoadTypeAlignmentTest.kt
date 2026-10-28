@@ -44,11 +44,9 @@ class SeedLoadTypeAlignmentTest {
         AssetLiftEquipmentCatalog(application, loggingPort = FakeLoggingPort()).all()
     }
 
-    /** Mirrors the seeder's band-variant exclusion (resistance-band rows never seed). */
-    private fun isBandVariant(dto: LiftSeedDto): Boolean {
-        val pattern = Regex("(^|[-\\s])band($|[-\\s])", RegexOption.IGNORE_CASE)
-        return pattern.containsMatchIn(dto.id) || pattern.containsMatchIn(dto.name)
-    }
+    /** The seeder's own band-variant exclusion (resistance-band rows never seed). */
+    private fun isBandVariant(dto: LiftSeedDto): Boolean =
+        LiftCatalogSeeder.isBandVariantLift(dto.id, dto.name)
 
     @Test
     @DisplayName("every bundled seed row satisfies the load-type/equipment alignment invariant")

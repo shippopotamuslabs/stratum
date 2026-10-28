@@ -12,6 +12,35 @@ import com.stratum.domain.lift.identity.LiftId
 internal fun Double.isUsableEstimatedOneRm(): Boolean = this > 0.0
 
 /**
+ * The single usable-baseline guard for load-math steps (STR-250): when [e1rm]
+ * cannot anchor load math, records a [ProgressionDiagnostic.BaselineSkipped] on
+ * this collector and returns true so the caller skips its step, leaving its
+ * candidate unchanged. Returns false (and records nothing) when the baseline is
+ * usable. A null collector still skips — the skip is the safety behavior; the
+ * record is the visibility.
+ */
+internal fun MutableList<ProgressionDiagnostic>?.recordBaselineSkipIfUnusable(
+    e1rm: Double,
+    liftId: LiftId,
+    slotPosition: Int,
+    historyWeight: Weight,
+    historyFailureReps: Int,
+    site: ProgressionDiagnostic.BaselineSkipped.Site,
+): Boolean {
+    if (e1rm.isUsableEstimatedOneRm()) return false
+    this?.add(
+        ProgressionDiagnostic.BaselineSkipped(
+            liftId = liftId,
+            slotPosition = slotPosition,
+            historyWeight = historyWeight,
+            historyFailureReps = historyFailureReps,
+            site = site,
+        ),
+    )
+    return true
+}
+
+/**
  * A non-fatal progression-math event recorded while computing a snapshot (STR-250).
  *
  * Diagnostics are values, not logs: `:core:domain` never logs (CODE_STYLE_RULES.md §1),
