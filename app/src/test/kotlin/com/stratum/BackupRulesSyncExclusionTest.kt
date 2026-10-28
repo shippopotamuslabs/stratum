@@ -1,5 +1,6 @@
 package com.stratum
 
+import com.stratum.core.data.sync.CLOUD_SYNC_PREFS_FILE_NAME
 import java.io.File
 import javax.xml.parsers.DocumentBuilderFactory
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -9,11 +10,11 @@ import org.w3c.dom.Document
 import org.w3c.dom.Element
 
 /**
- * STR-206: `cloud_sync_prefs.json` (durable account owner, hydrate flags, pull
- * cursors, device id) must stay excluded from Auto Backup and device transfer —
- * restoring it once stranded a fresh sign-in on a months-old database because the
- * restored cursors claimed the install was already synced. These tests pin the
- * shipped rule files so an edit cannot silently drop the exclusion.
+ * STR-206: the production sync prefs file ([CLOUD_SYNC_PREFS_FILE_NAME]) must stay
+ * excluded from Auto Backup and device transfer — full rationale on
+ * `CloudSyncPrefsRecord`. The expected path is built from the production
+ * constant, so renaming the DataStore file in code fails this test until the
+ * rule files are updated to match.
  */
 class BackupRulesSyncExclusionTest {
     @Test
@@ -22,7 +23,7 @@ class BackupRulesSyncExclusionTest {
         val doc = parseXml(xmlFile("backup_rules.xml"))
         assertTrue(
             sectionExcludesSyncPrefs(doc.documentElement),
-            "full-backup-content must exclude datastore/cloud_sync_prefs.json",
+            "full-backup-content must exclude datastore/$CLOUD_SYNC_PREFS_FILE_NAME",
         )
     }
 
@@ -35,7 +36,7 @@ class BackupRulesSyncExclusionTest {
             assertTrue(sections.length == 1, "expected exactly one <$sectionName> section")
             assertTrue(
                 sectionExcludesSyncPrefs(sections.item(0) as Element),
-                "<$sectionName> must exclude datastore/cloud_sync_prefs.json",
+                "<$sectionName> must exclude datastore/$CLOUD_SYNC_PREFS_FILE_NAME",
             )
         }
     }
@@ -45,7 +46,7 @@ class BackupRulesSyncExclusionTest {
         return (0 until excludes.length).any { index ->
             val exclude = excludes.item(index) as Element
             exclude.getAttribute("domain") == "file" &&
-                exclude.getAttribute("path") == "datastore/cloud_sync_prefs.json"
+                exclude.getAttribute("path") == "datastore/$CLOUD_SYNC_PREFS_FILE_NAME"
         }
     }
 

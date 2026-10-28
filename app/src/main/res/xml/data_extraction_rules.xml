@@ -4,13 +4,10 @@
    See https://developer.android.com/about/versions/12/backup-restore#xml-changes
    for details.
 
-   STR-206: datastore/cloud_sync_prefs.json (durable account owner, hydrate
-   flags, pull cursors, device id) is install-scoped sync truth and must
-   never survive a restore or a device transfer — see backup_rules.xml for
-   the full rationale. Excluded, the new install boots with blank sync
-   state, the ownership policy wipes any restored Room rows before the
-   first upload, and the first sign-in full-pulls, converging local state
-   to the server.
+   STR-206: datastore/cloud_sync_prefs.json is install-scoped sync truth and
+   must never survive a restore or a device transfer — the full rationale
+   lives on CloudSyncPrefsRecord (core/data sync package) and in
+   backup_rules.xml.
 -->
 <data-extraction-rules>
     <cloud-backup>

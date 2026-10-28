@@ -73,7 +73,10 @@ object CloudSyncPrefsRecordSerializer : Serializer<CloudSyncPrefsRecord> {
     }
 }
 
+/** Backing file name for [CloudSyncPrefsRecord] under `files/datastore/`; backup rules exclude it (STR-206). */
+const val CLOUD_SYNC_PREFS_FILE_NAME = "cloud_sync_prefs.json"
+
 internal val Context.cloudSyncPrefsDataStore by dataStore(
-    fileName = "cloud_sync_prefs.json",
+    fileName = CLOUD_SYNC_PREFS_FILE_NAME,
     serializer = CloudSyncPrefsRecordSerializer,
 )

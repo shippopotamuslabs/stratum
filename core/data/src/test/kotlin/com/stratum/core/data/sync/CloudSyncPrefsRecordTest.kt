@@ -41,26 +41,19 @@ class CloudSyncPrefsRecordTest {
     }
 
     @Test
-    @DisplayName("default record is the untrusted state a backup-excluded restore boots into (STR-206)")
-    fun defaultRecordIsUntrustedPostRestoreState() {
+    @DisplayName("default record is the state a backup-excluded restore boots into (STR-206)")
+    fun defaultRecordIsPostRestoreState() {
         // backup_rules.xml / data_extraction_rules.xml exclude cloud_sync_prefs.json
         // from Auto Backup and device transfer, so a restored install boots with
-        // exactly this record no matter how stale the restored Room database is.
+        // exactly this record no matter how stale the restored Room database is:
+        // no device id, no owner, nothing hydrated, no cursors. That blank owner
+        // is what routes the first sign-in into the wipe + full-pull path —
+        // blank-owner-is-untrusted itself is pinned in AccountOwnershipPolicyTest.
         val fresh = CloudSyncPrefsRecord()
         assertEquals("", fresh.deviceId)
         assertEquals("", fresh.lastSyncedUserId)
         assertTrue(fresh.hydratedUserIds.isEmpty())
         assertTrue(fresh.collectionPullCursors.isEmpty())
-        // A blank durable owner is untrusted: the first sign-in wipes any restored
-        // Room rows before the first upload and full-pulls from empty cursors, so
-        // local state converges to the server instead of trusting the restore.
-        assertTrue(
-            AccountOwnershipPolicy.mustWipe(
-                durableOwner = fresh.lastSyncedUserId.ifBlank { null },
-                memoryOwner = null,
-                incomingUserId = "uid-any",
-            ),
-        )
     }
 
     @Test

@@ -11,10 +11,8 @@ import kotlinx.coroutines.flow.first
  * Persists stable [deviceId], durable per-user hydrate/cursor state, and last-account ownership.
  * Session teardown ([FirestoreCloudSyncAdapter.stop]) must not clear durable state.
  *
- * The backing file is excluded from Auto Backup / device transfer (STR-206 — see
- * [CloudSyncPrefsRecord]), so after a restore this store starts empty and the first
- * sign-in takes the untrusted-owner wipe + full-pull path instead of trusting
- * restored cursors against a stale restored database.
+ * The backing file is excluded from Auto Backup / device transfer (STR-206 — the
+ * full rationale lives on [CloudSyncPrefsRecord]).
  */
 @Singleton
 class FirestoreSyncStateStore @Inject constructor(
