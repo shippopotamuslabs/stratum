@@ -37,6 +37,12 @@ data class SlotProgressionRequest(
      * Per-lift increment bands from the catalog. Empty → engine uses its scheme default
      * (Double: 5 lb; Linear: [LinearProgressionConfig] values).
      */
+    /**
+     * Optional sink for non-fatal progression diagnostics (STR-250). The snapshot
+     * orchestrator passes one shared collector per computation; engines append
+     * [ProgressionDiagnostic] values instead of logging (domain stays log-free).
+     */
+    val diagnostics: MutableList<ProgressionDiagnostic>? = null,
     val incrementTiers: List<IncrementTier> = emptyList(),
     /**
      * Per-lift adder stops from the catalog (storage Lb). Threaded into every
@@ -284,6 +290,7 @@ private fun resolveDifferentWeightBaselineReps(
         incrementTiers = request.incrementTiers,
         loadType = request.loadType,
         micro = request.microIncrements,
+        diagnostics = request.diagnostics,
     )
     return applyFloorWeight(request, targetWeight, w) to r
 }
@@ -367,6 +374,7 @@ fun projectBaselineAtTargetWeight(
     incrementTiers: List<IncrementTier>,
     loadType: LoadType,
     micro: List<Weight> = emptyList(),
+    diagnostics: MutableList<ProgressionDiagnostic>? = null,
 ): Pair<Weight, Int> {
     val prevSet = baselineEntry.loggedSet
     val failureReps = (prevSet.reps + (prevSet.rir ?: 0)).coerceAtLeast(1)
@@ -374,6 +382,22 @@ fun projectBaselineAtTargetWeight(
         WeightConversion.loadMagnitudeLb(prevSet.weight),
         failureReps,
     )
+    // STR-250: a zero-load baseline derives e1rm 0.0, which repsForWeight rejects.
+    // The set carries no load information, so there is nothing to reproject: keep
+    // the target weight and carry the performed reps as the expectation. Recorded,
+    // never silent.
+    if (
+        diagnostics.recordBaselineSkipIfUnusable(
+            e1rm = e1rm,
+            liftId = slot.liftId,
+            slotPosition = slot.position,
+            historyWeight = prevSet.weight,
+            historyFailureReps = failureReps,
+            site = ProgressionDiagnostic.BaselineSkipped.Site.Reprojection,
+        )
+    ) {
+        return targetWeight to prevSet.reps.coerceAtLeast(1)
+    }
     val capacityAtTarget =
         EstimatedOneRm.repsForWeight(e1rm, WeightConversion.loadMagnitudeLb(targetWeight))
     return ensureRepFloorPreferWeightDrop(

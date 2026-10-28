@@ -149,7 +149,7 @@
   {
     "id": "barbell-side-split-squat",
     "equipment": [
-      "Bodyweight"
+      "Barbell"
     ]
   },
   {
@@ -228,7 +228,7 @@
   {
     "id": "bodyweight-walking-lunge",
     "equipment": [
-      "Dumbbell"
+      "Bodyweight"
     ]
   },
   {
@@ -384,7 +384,7 @@
   {
     "id": "chain-handle-extension",
     "equipment": [
-      "Bodyweight"
+      "CableStation"
     ]
   },
   {
@@ -435,7 +435,7 @@
   {
     "id": "close-grip-front-lat-pulldown",
     "equipment": [
-      "Bodyweight"
+      "LatPulldownMachine"
     ]
   },
   {
@@ -454,7 +454,7 @@
   {
     "id": "cross-body-hammer-curl",
     "equipment": [
-      "Bodyweight"
+      "Dumbbell"
     ]
   },
   {
@@ -529,7 +529,7 @@
   {
     "id": "donkey-calf-raise",
     "equipment": [
-      "Bodyweight"
+      "CalfRaiseMachine"
     ]
   },
   {
@@ -697,13 +697,13 @@
   {
     "id": "front-plate-raise",
     "equipment": [
-      "Bodyweight"
+      "Barbell"
     ]
   },
   {
     "id": "full-range-of-motion-lat-pulldown",
     "equipment": [
-      "Bodyweight"
+      "LatPulldownMachine"
     ]
   },
   {
@@ -747,7 +747,7 @@
   {
     "id": "incline-bench-pull",
     "equipment": [
-      "Bodyweight"
+      "Barbell"
     ]
   },
   {
@@ -786,13 +786,13 @@
   {
     "id": "incline-hammer-curls",
     "equipment": [
-      "Bodyweight"
+      "Dumbbell"
     ]
   },
   {
     "id": "incline-inner-biceps-curl",
     "equipment": [
-      "Bodyweight"
+      "Dumbbell"
     ]
   },
   {
@@ -1033,7 +1033,7 @@
   {
     "id": "one-arm-lat-pulldown",
     "equipment": [
-      "Bodyweight"
+      "LatPulldownMachine"
     ]
   },
   {
@@ -1070,7 +1070,7 @@
   {
     "id": "palms-down-wrist-curl-over-a-bench",
     "equipment": [
-      "Bodyweight"
+      "Barbell"
     ]
   },
   {
@@ -1144,7 +1144,7 @@
   {
     "id": "pull-through",
     "equipment": [
-      "Bodyweight"
+      "CableStation"
     ]
   },
   {
@@ -1180,7 +1180,7 @@
   {
     "id": "reverse-flyes",
     "equipment": [
-      "Bodyweight"
+      "Dumbbell"
     ]
   },
   {
@@ -1220,7 +1220,7 @@
   {
     "id": "seated-calf-raise",
     "equipment": [
-      "Bodyweight"
+      "CalfRaiseMachine"
     ]
   },
   {
@@ -1402,7 +1402,7 @@
   {
     "id": "standing-inner-biceps-curl",
     "equipment": [
-      "Bodyweight"
+      "Dumbbell"
     ]
   },
   {
@@ -1463,7 +1463,7 @@
   {
     "id": "straight-arm-pulldown",
     "equipment": [
-      "Bodyweight"
+      "CableStation"
     ]
   },
   {
@@ -1545,19 +1545,19 @@
   {
     "id": "v-bar-pullup",
     "equipment": [
-      "CableStation"
+      "Bodyweight"
     ]
   },
   {
     "id": "weighted-bench-dip",
     "equipment": [
-      "Bodyweight"
+      "Barbell"
     ]
   },
   {
     "id": "weighted-pull-ups",
     "equipment": [
-      "Bodyweight"
+      "Barbell"
     ]
   },
   {
@@ -1570,13 +1570,13 @@
   {
     "id": "wide-grip-lat-pulldown",
     "equipment": [
-      "Bodyweight"
+      "LatPulldownMachine"
     ]
   },
   {
     "id": "wide-grip-pulldown-behind-the-neck",
     "equipment": [
-      "Bodyweight"
+      "LatPulldownMachine"
     ]
   },
   {
@@ -1601,7 +1601,7 @@
   {
     "id": "wrist-roller",
     "equipment": [
-      "Bodyweight"
+      "Barbell"
     ]
   },
   {

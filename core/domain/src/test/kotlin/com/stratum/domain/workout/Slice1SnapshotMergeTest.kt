@@ -172,7 +172,7 @@ class Slice1SnapshotMergeTest {
 
         val result = useCase(request)
         assertTrue(result.isSuccess)
-        val snapshot = result.getOrThrow()
+        val snapshot = result.getOrThrow().snapshot
         assertEquals(lb(135.0), snapshot.bySlot[slotId]?.recommendedWeight)
         assertEquals(5, snapshot.bySlot[slotId]?.baselineExpectedReps)
 
@@ -323,7 +323,7 @@ class Slice1SnapshotMergeTest {
                 programRepository = com.stratum.core.testing.program.FakeProgramRepository(),
             )
         val snapshot = useCase(SnapshotRequest(programId, workoutId, oneLiftWorkout().workoutLifts))
-            .getOrThrow()
+            .getOrThrow().snapshot
         val rec = snapshot.bySlot[slotId]
         assertNotNull(rec)
         assertEquals(lb(185.0), rec!!.previousWeight, "Previous column must show imported weight")

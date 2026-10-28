@@ -15,6 +15,7 @@ import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.storageWeightFromDisplay
+import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.domain.program.GetProgramByIdUseCase
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.ProgressionScheme
@@ -62,6 +63,7 @@ import com.stratum.domain.workout.templateEquipmentIdForPair
 import com.stratum.domain.workout.WorkoutOverlay
 import com.stratum.domain.workout.WorkoutStructureProjection
 import com.stratum.domain.workout.intensifier.RestDefaultForTransition
+import com.stratum.domain.workout.progression.ProgressionDiagnostic
 import com.stratum.feature.workout.ui.TemplateChangeSummaryMapper
 import com.stratum.feature.workout.ui.TemplateChangeSummaryUi
 import com.stratum.feature.workout.ui.WorkoutUiEvent
@@ -99,6 +101,7 @@ internal class LiveWorkoutSessionRuntime(
     val observeLiftTrainingInsights: ObserveLiftTrainingInsightsUseCase,
     val manageWorkoutOverlay: ManageWorkoutOverlayUseCase,
     val getSessionPinnedNoteLists: GetSessionPinnedNoteListsUseCase,
+    val logError: LogErrorUseCase,
 ) {
     var activeWorkoutId: WorkoutId? = null
     var cachedProgramId: ProgramId? = null
@@ -573,9 +576,34 @@ internal class LiveWorkoutSessionRuntime(
                 microIncrementsById = stepsByLiftId.mapValues { it.value.microIncrements },
                 equipmentIdByWorkoutLiftId = sessionEquipmentByWorkoutLiftId(lifts),
             ),
-        ).onSuccess { snapshot ->
+        ).onSuccess { outcome ->
+            logProgressionDiagnostics(outcome.diagnostics)
+            val snapshot = outcome.snapshot
             if (snapshot.bySlot.isNotEmpty()) {
                 snapshotBySlot = snapshotBySlot + snapshot.bySlot
+            }
+        }
+    }
+
+    /**
+     * STR-250: reports each snapshot diagnostic exactly once through the session's
+     * existing error-logging wiring. Diagnostics are log-only — never surfaced in
+     * the UI.
+     */
+    internal fun logProgressionDiagnostics(diagnostics: List<ProgressionDiagnostic>) {
+        for (diagnostic in diagnostics) {
+            when (diagnostic) {
+                is ProgressionDiagnostic.BaselineSkipped ->
+                    logError(
+                        TAG,
+                        "Progression baseline skipped: " +
+                            "lift=${liftNamesById[diagnostic.liftId] ?: diagnostic.liftId.value} " +
+                            "slot=${diagnostic.slotPosition} site=${diagnostic.site} " +
+                            "history=${diagnostic.historyWeight.amount} ${diagnostic.historyWeight.unit} " +
+                            "failureReps=${diagnostic.historyFailureReps} — history set gives no " +
+                            "positive estimated 1RM; candidate weight left unchanged for that step.",
+                        null,
+                    )
             }
         }
     }
@@ -583,6 +611,8 @@ internal class LiveWorkoutSessionRuntime(
 
     companion object {
 
+        /** Same tag the owning actor logs under, so diagnostics land beside session errors. */
+        internal const val TAG = "LiveWorkoutSession"
         internal const val DEFAULT_LIFT_REST_SECONDS = 120
         internal const val MSG_LOG_SET_FAILED = "Couldn't save that set. Try again."
         internal const val MSG_UNLOG_SET_FAILED = "Couldn't remove that set. Try again."

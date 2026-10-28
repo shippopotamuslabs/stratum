@@ -35,3 +35,29 @@ fun LoadType.alignedWithEquipment(equipmentId: EquipmentId?): LoadType =
         this == LoadType.Bodyweight -> LoadType.Weighted
         else -> this
     }
+
+/**
+ * True when this load type can coexist with [equipmentId] — the pair is a fixed
+ * point of [alignedWithEquipment]. Bodyweight equipment forces [LoadType.Bodyweight];
+ * a [LoadType.Bodyweight] lift cannot sit on loaded equipment; [LoadType.Assisted]
+ * survives any loaded equipment. Null equipment imposes no constraint.
+ */
+fun LoadType.isAlignedWithEquipment(equipmentId: EquipmentId?): Boolean =
+    alignedWithEquipment(equipmentId) == this
+
+/**
+ * The lift-construction invariant behind [isAlignedWithEquipment] (STR-250): a lift
+ * whose equipment is the bodyweight station must be [LoadType.Bodyweight], and a
+ * bodyweight lift must not carry loaded equipment. Writers that assemble a lift from
+ * two independent signals (the seed catalog pairs a declared loadType with equipment
+ * tags) call this at construction so a contradictory pair is never persisted: which
+ * of the two signals is wrong is unknowable at write time, so the write fails
+ * instead of guessing. Throws [IllegalArgumentException] on violation.
+ */
+fun requireLoadTypeEquipmentAlignment(loadType: LoadType, equipmentId: EquipmentId?) {
+    require(loadType.isAlignedWithEquipment(equipmentId)) {
+        "LoadType $loadType contradicts equipment ${equipmentId?.value ?: "none"}: " +
+            "bodyweight equipment requires LoadType.Bodyweight and a Bodyweight lift " +
+            "cannot use loaded equipment"
+    }
+}

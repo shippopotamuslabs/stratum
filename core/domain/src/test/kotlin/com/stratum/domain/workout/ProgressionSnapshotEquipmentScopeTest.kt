@@ -174,7 +174,7 @@ class ProgressionSnapshotEquipmentScopeTest {
                 equipmentIdByWorkoutLiftId =
                     if (scoped) mapOf(workoutLiftId to equipmentId) else emptyMap(),
             )
-        return useCase(history)(request).getOrThrow()
+        return useCase(history)(request).getOrThrow().snapshot
             .bySlot.getValue(SetSlotId.Template(LiftSetId("ls-0")))
     }
 

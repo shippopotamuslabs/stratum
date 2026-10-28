@@ -22,6 +22,7 @@ import com.stratum.domain.workout.dropset.applyDropSetPrescriptions
 import com.stratum.domain.workout.progression.DoubleProgressionEngine
 import com.stratum.domain.workout.progression.LinearProgressionEngine
 import com.stratum.domain.workout.progression.ProgressionBaseline
+import com.stratum.domain.workout.progression.ProgressionDiagnostic
 import com.stratum.domain.workout.progression.ProgressionEngine
 import com.stratum.domain.workout.progression.SchemeTransitionEvent
 import com.stratum.domain.workout.progression.SlotProgressionRequest
@@ -102,8 +103,12 @@ class GenerateProgressionSnapshotUseCase @Inject constructor(
     private val programRepository: ProgramRepository,
     private val estimateDropSetWeight: EstimateDropSetWeightUseCase = EstimateDropSetWeightUseCase(),
 ) {
-    suspend operator fun invoke(request: SnapshotRequest): Result<ProgressionSnapshot> {
+    suspend operator fun invoke(request: SnapshotRequest): Result<ProgressionSnapshotOutcome> {
         val bySlot = mutableMapOf<SetSlotId, SlotRecommendation>()
+        // One diagnostics collector per computation (STR-250): load-math steps that
+        // lose their baseline to a zero-load history set record it here instead of
+        // throwing; the caller logs each entry once at the boundary.
+        val diagnostics = mutableListOf<ProgressionDiagnostic>()
         for (workoutLift in request.lifts) {
             var scheme = workoutLift.progressionScheme
             val sortedSets = workoutLift.sets.sortedBy { it.position }
@@ -182,6 +187,7 @@ class GenerateProgressionSnapshotUseCase @Inject constructor(
                     progressionBaseline = topBaseline,
                     incrementTiers = liftTiers,
                     microIncrements = liftMicro,
+                    diagnostics = diagnostics,
                 ),
             )
             val sharedWeight = resolveStraightSetSharedWeight(
@@ -193,6 +199,7 @@ class GenerateProgressionSnapshotUseCase @Inject constructor(
                 incrementTiers = liftTiers,
                 loadType = liftLoadType,
                 micro = liftMicro,
+                diagnostics = diagnostics,
             )
 
             // Emit every slot at the finalized shared weight with sequential priors so
@@ -219,6 +226,7 @@ class GenerateProgressionSnapshotUseCase @Inject constructor(
                         progressionBaseline = baselineForSlot(recentBlock, index),
                         incrementTiers = liftTiers,
                         microIncrements = liftMicro,
+                        diagnostics = diagnostics,
                     ),
                 )
                 orderedRecs.add(rec)
@@ -242,7 +250,12 @@ class GenerateProgressionSnapshotUseCase @Inject constructor(
                 bySlot[rec.slotId] = rec
             }
         }
-        return Result.success(ProgressionSnapshot(request.workoutId, bySlot))
+        return Result.success(
+            ProgressionSnapshotOutcome(
+                snapshot = ProgressionSnapshot(request.workoutId, bySlot),
+                diagnostics = diagnostics.toList(),
+            ),
+        )
     }
 
     /**

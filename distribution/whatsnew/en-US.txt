@@ -1,3 +1,3 @@
 Hotfix.
 
-Fixes a crash when opening the app if one of your sets had no rest time. Your saved data was never lost — the app just could not load it. Those programs open normally again.
+Fixes some workouts failing to start. If a workout opened to an error screen instead of your sets, it starts normally now. Your logged history was never lost — the app just could not prepare the session.
