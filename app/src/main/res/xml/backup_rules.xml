@@ -1,13 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?><!--
-   Sample backup rules file; uncomment and customize as necessary.
-   See https://developer.android.com/guide/topics/data/autobackup
-   for details.
-   Note: This file is ignored for devices older than API 31
-   See https://developer.android.com/about/versions/12/backup-restore
+   Auto Backup rules for pre-API 31 (fullBackupContent). API 31+ uses
+   data_extraction_rules.xml instead — keep the two in sync.
+   See https://developer.android.com/guide/topics/data/autobackup for details.
+
+   STR-206: datastore/cloud_sync_prefs.json is install-scoped sync truth —
+   the durable account owner, per-user hydrate flags, per-collection pull
+   cursors, and the device id. It must never be restored onto an install:
+   in October 2026 a channel switch restored it together with a months-old
+   Room database, the restored cursors/hydrate flag made the fresh sign-in
+   believe it was already up to date, and the newer Firestore state never
+   pulled down. With the file excluded, a restore boots with blank sync
+   state: the account-ownership policy treats a blank owner as untrusted,
+   wipes any restored Room rows before the first upload, and the first
+   sign-in full-pulls from empty cursors, so local state converges to the
+   server. The Room database itself stays backed up on purpose — with the
+   sync state gone it is wiped before use, and it remains the only backup
+   copy for never-signed-in local data.
 -->
 <full-backup-content>
-    <!--
-   <include domain="sharedpref" path="."/>
-   <exclude domain="sharedpref" path="device.xml"/>
--->
+    <exclude domain="file" path="datastore/cloud_sync_prefs.json" />
 </full-backup-content>

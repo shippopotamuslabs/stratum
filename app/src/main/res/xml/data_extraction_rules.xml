@@ -1,19 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?><!--
-   Sample data extraction rules file; uncomment and customize as necessary.
+   API 31+ backup / device-transfer rules. Pre-API 31 uses backup_rules.xml
+   instead — keep the two in sync.
    See https://developer.android.com/about/versions/12/backup-restore#xml-changes
    for details.
+
+   STR-206: datastore/cloud_sync_prefs.json (durable account owner, hydrate
+   flags, pull cursors, device id) is install-scoped sync truth and must
+   never survive a restore or a device transfer — see backup_rules.xml for
+   the full rationale. Excluded, the new install boots with blank sync
+   state, the ownership policy wipes any restored Room rows before the
+   first upload, and the first sign-in full-pulls, converging local state
+   to the server.
 -->
 <data-extraction-rules>
     <cloud-backup>
-        <!-- TODO: Use <include> and <exclude> to control what is backed up.
-        <include .../>
-        <exclude .../>
-        -->
+        <exclude domain="file" path="datastore/cloud_sync_prefs.json" />
     </cloud-backup>
-    <!--
     <device-transfer>
-        <include .../>
-        <exclude .../>
+        <exclude domain="file" path="datastore/cloud_sync_prefs.json" />
     </device-transfer>
-    -->
 </data-extraction-rules>
