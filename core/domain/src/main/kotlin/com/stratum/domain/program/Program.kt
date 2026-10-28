@@ -306,6 +306,12 @@ data class LiftSet(
     val repMax: Int,
     val rirGoal: Int,
     val isTopSet: Boolean,
+    /**
+     * Rest after this set, in seconds. Zero is a legitimate stored state meaning
+     * "no rest prescribed" — drop-set steps, legacy rows, and imported templates
+     * use it, and consumers (duration estimate, rest timer, overlays) already
+     * treat 0 as no rest. Only negative rest is impossible (STR-248).
+     */
     val restSeconds: Int = DEFAULT_LIFT_SET_REST_SECONDS,
     /**
      * Myo-rep sub-type when [setType] is [SetType.MyoRep]; null for Standard/Drop.
@@ -320,6 +326,6 @@ data class LiftSet(
         // RIR-only back-off shape under Double, so only coherence is required here,
         // never a positive band.
         requireSetShape(repMin, repMax, rirGoal, setType, myoRepKind)
-        require(restSeconds > 0) { "restSeconds must be positive, was $restSeconds" }
+        require(restSeconds >= 0) { "restSeconds must be non-negative, was $restSeconds" }
     }
 }

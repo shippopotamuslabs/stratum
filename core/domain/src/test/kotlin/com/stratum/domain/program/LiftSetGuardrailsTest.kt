@@ -61,9 +61,15 @@ class LiftSetGuardrailsTest {
     }
 
     @Test
-    @DisplayName("LiftSet rejects zero and negative rest")
-    fun liftSetRejectsNonPositiveRest() {
-        assertThrows<IllegalArgumentException> { liftSet(restSeconds = 0) }
+    @DisplayName("LiftSet accepts zero rest — the stored no-rest-prescribed state (STR-248)")
+    fun liftSetAcceptsZeroRest() {
+        val set = liftSet(restSeconds = 0)
+        assertEquals(0, set.restSeconds)
+    }
+
+    @Test
+    @DisplayName("LiftSet rejects negative rest")
+    fun liftSetRejectsNegativeRest() {
         assertThrows<IllegalArgumentException> { liftSet(restSeconds = -30) }
     }
 
