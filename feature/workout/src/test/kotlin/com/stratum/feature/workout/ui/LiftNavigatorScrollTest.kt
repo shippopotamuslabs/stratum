@@ -220,7 +220,7 @@ class LiftNavigatorScrollTest {
                 lastLiftHeightPx = 400,
                 footerHeightPx = 200,
                 listSpacingPx = 100,
-                pin = PinGeometry(100),
+                topContentPaddingPx = 100,
             ),
         )
         assertEquals(
@@ -230,7 +230,7 @@ class LiftNavigatorScrollTest {
                 lastLiftHeightPx = 400,
                 footerHeightPx = 200,
                 listSpacingPx = 16,
-                pin = PinGeometry(300),
+                topContentPaddingPx = 300,
             ),
         )
     }

@@ -37,6 +37,11 @@ import tech.apter.junit.jupiter.robolectric.RobolectricExtension
  * Robolectric display here is 320x470 px at density 1.0, so the viewport is 470px and
  * the top padding is 120px. Heights [150, 180, 150, 150] put item 2's top at offset
  * 330 (partially visible) and item 3 off-screen.
+ *
+ * All scenarios run inside ONE @Test method on purpose: in this Robolectric setup a
+ * class with two or more runComposeUiTest @Test methods wedges the test JVM on the
+ * second method (STR-162). Scenarios are separate helpers so a failure's stack and
+ * message still name the case.
  */
 @ExtendWith(RobolectricExtension::class)
 @DisplayName("Workout pin scroll landed position (STR-233)")
@@ -96,12 +101,22 @@ class WorkoutPinScrollTest {
         }
     }
 
-    private fun landedOffset(state: PinState, targetIndex: Int): Int? =
-        state.listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == targetIndex }?.offset
+    /** Fires a scroll to [targetIndex] in a fresh composition and asserts the landing. */
+    @OptIn(ExperimentalTestApi::class)
+    private fun runPinScenario(state: PinState, targetIndex: Int, expectedOffset: Int) =
+        runComposeUiTest {
+            setContent { PinList(state) }
+            runOnIdle {
+                state.requestTarget = targetIndex
+                state.requestNonce = 1
+            }
+            runOnIdle { assertLandedAt(state, targetIndex, expectedOffset) }
+        }
 
     private fun assertLandedAt(state: PinState, targetIndex: Int, expectedOffset: Int) {
         val info = state.listState.layoutInfo
-        val offset = landedOffset(state, targetIndex)
+        val offset =
+            info.visibleItemsInfo.firstOrNull { it.index == targetIndex }?.offset
         assertTrue(offset != null && abs(offset - expectedOffset) <= TOLERANCE_PX) {
             "target $targetIndex should land at offset $expectedOffset but was $offset " +
                 "(viewportStart=${info.viewportStartOffset}, beforePad=${info.beforeContentPadding}, " +
@@ -109,91 +124,76 @@ class WorkoutPinScrollTest {
         }
     }
 
-    @Test
-    @OptIn(ExperimentalTestApi::class)
-    @DisplayName("every landing path puts the target's top edge on the pin line (offset 0)")
-    fun pinLandings() {
-        // Baseline: target partially visible, static layout.
-        runComposeUiTest {
-            val state = PinState(heightsDp = listOf(150, 180, 150, 150), bottomPaddingDp = 100)
-            setContent { PinList(state) }
-            runOnIdle {
-                state.requestTarget = 2
-                state.requestNonce = 1
-            }
-            runOnIdle { assertLandedAt(state, 2, 0) }
-        }
+    /** Baseline: target partially visible, static layout. */
+    private fun scenarioBaseline() =
+        runPinScenario(
+            state = PinState(heightsDp = listOf(150, 180, 150, 150), bottomPaddingDp = 100),
+            targetIndex = 2,
+            expectedOffset = 0,
+        )
 
-        // The item above the target grows mid-animation (a just-logged set's row
-        // landing in the previous card after the delta was measured): the settle
-        // correction must still land the target on the pin line.
-        runComposeUiTest {
-            val state = PinState(heightsDp = listOf(150, 180, 150, 150), bottomPaddingDp = 100)
-            state.mutation = { it.heights = listOf(150, 480, 150, 150) }
-            setContent { PinList(state) }
-            runOnIdle {
-                state.requestTarget = 2
-                state.requestNonce = 1
-            }
-            runOnIdle { assertLandedAt(state, 2, 0) }
-        }
+    /**
+     * The item above the target grows mid-animation (a just-logged set's row landing
+     * in the previous card after the delta was measured): the settle correction must
+     * still land the target on the pin line.
+     */
+    private fun scenarioGrowAboveTarget() {
+        val state = PinState(heightsDp = listOf(150, 180, 150, 150), bottomPaddingDp = 100)
+        state.mutation = { it.heights = listOf(150, 480, 150, 150) }
+        runPinScenario(state, targetIndex = 2, expectedOffset = 0)
+    }
 
-        // The item above the target shrinks mid-animation (a completed card
-        // collapsing): no overshoot past the pin line either.
-        runComposeUiTest {
-            val state = PinState(heightsDp = listOf(150, 180, 150, 150), bottomPaddingDp = 100)
-            state.mutation = { it.heights = listOf(150, 80, 150, 150) }
-            setContent { PinList(state) }
-            runOnIdle {
-                state.requestTarget = 2
-                state.requestNonce = 1
-            }
-            runOnIdle { assertLandedAt(state, 2, 0) }
-        }
+    /** The item above the target shrinks mid-animation (a completed card collapsing). */
+    private fun scenarioShrinkAboveTarget() {
+        val state = PinState(heightsDp = listOf(150, 180, 150, 150), bottomPaddingDp = 100)
+        state.mutation = { it.heights = listOf(150, 80, 150, 150) }
+        runPinScenario(state, targetIndex = 2, expectedOffset = 0)
+    }
 
-        // Last lift: not composed, and the bottom (dock) padding collapses to the
-        // production pin spacer mid-animation — still lands on the pin line.
-        runComposeUiTest {
-            val state = PinState(heightsDp = listOf(150, 150, 150, 150), bottomPaddingDp = 480)
-            state.mutation = { it.bottomPaddingDp = 200 }
-            setContent { PinList(state) }
-            runOnIdle {
-                state.requestTarget = 3
-                state.requestNonce = 1
-            }
-            runOnIdle { assertLandedAt(state, 3, 0) }
-        }
+    /**
+     * Last lift: not composed, and the bottom (dock) padding collapses to the
+     * production pin spacer mid-animation — still lands on the pin line.
+     */
+    private fun scenarioLastLiftDockCollapseToSpacer() {
+        val state = PinState(heightsDp = listOf(150, 150, 150, 150), bottomPaddingDp = 480)
+        state.mutation = { it.bottomPaddingDp = 200 }
+        runPinScenario(state, targetIndex = 3, expectedOffset = 0)
+    }
 
-        // Last lift with the bottom padding collapsed BELOW the pin spacer: max
-        // scroll falls 120px short of the pin, so the closest physically reachable
-        // landing is offset 120 — the spacer sizing is the only guard for this case.
-        runComposeUiTest {
-            val state = PinState(heightsDp = listOf(150, 150, 150, 150), bottomPaddingDp = 480)
-            state.mutation = { it.bottomPaddingDp = 80 }
-            setContent { PinList(state) }
-            runOnIdle {
-                state.requestTarget = 3
-                state.requestNonce = 1
-            }
-            runOnIdle { assertLandedAt(state, 3, 120) }
-        }
+    /**
+     * Last lift with the bottom padding collapsed BELOW the pin spacer: max scroll
+     * falls 120px short of the pin, so the closest physically reachable landing is
+     * offset 120 — the spacer sizing is the only guard for this case.
+     */
+    private fun scenarioLastLiftDockCollapseBelowSpacer() {
+        val state = PinState(heightsDp = listOf(150, 150, 150, 150), bottomPaddingDp = 480)
+        state.mutation = { it.bottomPaddingDp = 80 }
+        runPinScenario(state, targetIndex = 3, expectedOffset = 120)
+    }
 
-        // Target above the current position: an upward jump lands on the pin line too.
-        runComposeUiTest {
-            val state =
+    /** Target above the current position: an upward jump lands on the pin line too. */
+    private fun scenarioUpwardJump() =
+        runPinScenario(
+            state =
                 PinState(
                     initialIndex = 2,
                     initialOffsetPx = 100,
                     heightsDp = listOf(150, 180, 150, 150),
                     bottomPaddingDp = 100,
-                )
-            setContent { PinList(state) }
-            runOnIdle {
-                state.requestTarget = 0
-                state.requestNonce = 1
-            }
-            runOnIdle { assertLandedAt(state, 0, 0) }
-        }
+                ),
+            targetIndex = 0,
+            expectedOffset = 0,
+        )
+
+    @Test
+    @DisplayName("every landing path puts the target's top edge on the pin line (offset 0)")
+    fun pinLandings() {
+        scenarioBaseline()
+        scenarioGrowAboveTarget()
+        scenarioShrinkAboveTarget()
+        scenarioLastLiftDockCollapseToSpacer()
+        scenarioLastLiftDockCollapseBelowSpacer()
+        scenarioUpwardJump()
     }
 
     private companion object {

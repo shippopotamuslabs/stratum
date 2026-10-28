@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListItemInfo
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.Icon
@@ -125,14 +126,13 @@ internal fun WorkoutLiftList(
     // The top content padding is itself scrollable content, so it contributes that
     // much pin travel and the spacer shrinks by exactly that amount — max scroll
     // then lands the last lift's top exactly on the pin line (item offset 0).
-    val pin = PinGeometry(with(density) { topContentPadding.roundToPx() })
     val bottomPinPaddingPx =
         bottomPinSpacerHeightPx(
             viewportHeightPx = viewportHeightPx,
             lastLiftHeightPx = measuredLastLiftPx,
             footerHeightPx = measuredFooterPx,
             listSpacingPx = listSpacingPx,
-            pin = pin,
+            topContentPaddingPx = with(density) { topContentPadding.roundToPx() },
         )
 
     ProvideSetLogKeyboardHost(modifier = modifier) { listModifier ->
@@ -419,22 +419,6 @@ internal fun LiveLiftSection(
 }
 
 /**
- * The list's top content padding inset, in pixels.
- *
- * Item offsets are content-space (see [animateScrollToLiftTop]): landings target offset
- * 0 under any top padding, so this inset never enters the landing math. Its one consumer
- * is [bottomPinSpacerHeightPx]: the top padding is itself scrollable content, so it
- * contributes that much pin travel and the bottom spacer shrinks by exactly that amount.
- * [Zero] for in-flow lists with no top padding.
- */
-@JvmInline
-internal value class PinGeometry(val pinOffsetPx: Int) {
-    companion object {
-        val Zero = PinGeometry(0)
-    }
-}
-
-/**
  * Among visible lift list items, select the one whose top edge is closest to [threshold]
  * (the pin line). Item offsets are content-space (see [animateScrollToLiftTop]): the
  * first item rests at offset 0 under any top content padding, so the pin line is the
@@ -526,43 +510,66 @@ internal suspend fun LazyListState.animateScrollToLiftTop(
         if (delta != 0) {
             animateScrollBy(delta.toFloat())
         }
+        settleOntoPinLine(targetIndex)
+        return
+    }
+
+    val anchor = visibleLiftItems.firstOrNull() ?: layoutInfo.visibleItemsInfo.firstOrNull()
+    if (anchor == null) {
+        // Nothing laid out yet — fall back to index scroll, then settle below.
+        animateScrollToItem(targetIndex)
     } else {
-        val anchor = visibleLiftItems.firstOrNull() ?: layoutInfo.visibleItemsInfo.firstOrNull()
-        if (anchor == null) {
-            // Nothing laid out yet — fall back to index scroll, then settle below.
-            animateScrollToItem(targetIndex)
-        } else {
-            val fromIndex = anchor.index.coerceIn(0, liftIds.lastIndex)
-            val knownHeights = itemHeightsPx.values
-            val estimatedHeight =
-                if (knownHeights.isNotEmpty()) {
-                    knownHeights.sum() / knownHeights.size
-                } else {
-                    DEFAULT_ESTIMATED_LIFT_HEIGHT_PX
-                }
-
-            fun heightFor(index: Int): Int {
-                if (index !in liftIds.indices) return estimatedHeight
-                itemHeightsPx[liftIds[index]]?.let { return it }
-                layoutInfo.visibleItemsInfo.firstOrNull { it.index == index }?.let { return it.size }
-                return estimatedHeight
-            }
-
-            val delta =
-                scrollDeltaToItemTopPx(
-                    fromIndex = fromIndex,
-                    fromItemOffset = anchor.offset,
-                    toIndex = targetIndex,
-                    itemHeightPx = ::heightFor,
-                    spacingPx = spacingPx,
-                )
-            if (delta != 0) {
-                animateScrollBy(delta.toFloat())
-            }
-        }
+        estimateAndScrollToItemTop(
+            anchor = anchor,
+            targetIndex = targetIndex,
+            liftIds = liftIds,
+            itemHeightsPx = itemHeightsPx,
+            spacingPx = spacingPx,
+        )
     }
 
     settleOntoPinLine(targetIndex)
+}
+
+/**
+ * Estimated jump to an uncomposed target: sums measured (or visible, or average)
+ * item heights between [anchor] and the target into one pixel animation. The
+ * estimate can be off — [settleOntoPinLine] verifies the actual landing.
+ */
+private suspend fun LazyListState.estimateAndScrollToItemTop(
+    anchor: LazyListItemInfo,
+    targetIndex: Int,
+    liftIds: List<String>,
+    itemHeightsPx: Map<String, Int>,
+    spacingPx: Int,
+) {
+    val fromIndex = anchor.index.coerceIn(0, liftIds.lastIndex)
+    val knownHeights = itemHeightsPx.values
+    val estimatedHeight =
+        if (knownHeights.isNotEmpty()) {
+            knownHeights.sum() / knownHeights.size
+        } else {
+            DEFAULT_ESTIMATED_LIFT_HEIGHT_PX
+        }
+
+    fun heightFor(index: Int): Int {
+        if (index !in liftIds.indices) return estimatedHeight
+        itemHeightsPx[liftIds[index]]?.let { return it }
+        layoutInfo.visibleItemsInfo.firstOrNull { it.index == index }?.let { return it.size }
+        return estimatedHeight
+    }
+
+    val delta =
+        scrollDeltaToItemTopPx(
+            fromIndex = fromIndex,
+            fromItemOffset = anchor.offset,
+            toIndex = targetIndex,
+            itemHeightPx = ::heightFor,
+            spacingPx = spacingPx,
+        )
+    if (delta != 0) {
+        animateScrollBy(delta.toFloat())
+    }
 }
 
 /**
@@ -599,18 +606,18 @@ private const val PIN_SETTLE_TOLERANCE_PX = 1
  * list item, so only one inter-item gap after the last lift). [footerHeightPx] is the
  * full session footer (Add Lift + Discard) measured as a single LazyList item.
  *
- * [pin] is the top content padding: it is itself scrollable content, so without
- * shrinking the spacer by it, max scroll would carry the last lift one padding past
- * the pin line (its top edge up under the overlay). [PinGeometry.Zero] in-flow.
+ * [topContentPaddingPx] is the list's top content padding: it is itself scrollable
+ * content, so without shrinking the spacer by it, max scroll would carry the last
+ * lift one padding past the pin line (its top edge up under the overlay). 0 in-flow.
  */
 internal fun bottomPinSpacerHeightPx(
     viewportHeightPx: Int,
     lastLiftHeightPx: Int,
     footerHeightPx: Int,
     listSpacingPx: Int,
-    pin: PinGeometry = PinGeometry.Zero,
+    topContentPaddingPx: Int = 0,
 ): Int {
     if (viewportHeightPx <= 0 || lastLiftHeightPx <= 0) return 0
-    return (viewportHeightPx - lastLiftHeightPx - footerHeightPx - listSpacingPx - pin.pinOffsetPx)
+    return (viewportHeightPx - lastLiftHeightPx - footerHeightPx - listSpacingPx - topContentPaddingPx)
         .coerceAtLeast(0)
 }
