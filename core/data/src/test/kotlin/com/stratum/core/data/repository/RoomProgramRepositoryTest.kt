@@ -4,7 +4,11 @@ import androidx.room.Room
 import app.cash.turbine.test
 import com.stratum.core.data.roomFirstEmissionTimeout
 import com.stratum.core.data.db.LiftEntity
+import com.stratum.core.data.db.LiftSetEntity
+import com.stratum.core.data.db.ProgramEntity
 import com.stratum.core.data.db.StratumDatabase
+import com.stratum.core.data.db.WorkoutEntity
+import com.stratum.core.data.db.WorkoutLiftEntity
 import com.stratum.core.data.sync.SyncCollection
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.WorkoutLiftNoteInput
@@ -82,6 +86,72 @@ class RoomProgramRepositoryTest {
                 assertNull(awaitItem())
                 cancelAndIgnoreRemainingEvents()
             }
+        }
+    }
+
+    @Nested
+    @DisplayName("Legacy rows (STR-248): rows the current editor would never write still load")
+    inner class LegacyRows {
+        @Test
+        fun `getProgram returns program whose stored set row has zero rest`() = runTest {
+            // Seed entities directly through the DAOs — going through saveProgram
+            // would build the rows from domain objects, which is exactly the path
+            // that never produced this legacy state. A rest_seconds of 0 is a
+            // legitimate stored state (no rest prescribed) written by older
+            // builds and imports; before the STR-248 fix, readProgram threw
+            // "restSeconds must be positive, was 0" here and the app
+            // crash-looped on launch.
+            seedReferencedLifts()
+            database.programDao().upsert(
+                ProgramEntity(
+                    id = ProgramId("p-legacy"),
+                    name = "Legacy",
+                    createdAt = "2026-01-01T00:00:00Z",
+                    cycleLength = 1,
+                    isActive = true,
+                ),
+            )
+            database.workoutDao().upsertAll(
+                listOf(
+                    WorkoutEntity(
+                        id = WorkoutId("w-legacy"),
+                        programId = ProgramId("p-legacy"),
+                        name = "Day 1",
+                        weekday = null,
+                        position = 0,
+                    ),
+                ),
+            )
+            database.workoutLiftDao().upsertAll(
+                listOf(
+                    WorkoutLiftEntity(
+                        id = WorkoutLiftId("wl-legacy"),
+                        workoutId = WorkoutId("w-legacy"),
+                        liftId = LiftId("bench-press"),
+                        progressionScheme = ProgressionScheme.Double,
+                        position = 0,
+                    ),
+                ),
+            )
+            database.liftSetDao().upsertAll(
+                listOf(
+                    LiftSetEntity(
+                        id = LiftSetId("set-legacy"),
+                        workoutLiftId = WorkoutLiftId("wl-legacy"),
+                        position = 0,
+                        setType = SetType.Standard,
+                        repMin = 8,
+                        repMax = 12,
+                        rirGoal = 2,
+                        isTopSet = true,
+                        restSeconds = 0,
+                    ),
+                ),
+            )
+
+            val program = repository.getProgram()
+
+            assertEquals(0, program!!.workouts[0].workoutLifts[0].sets[0].restSeconds)
         }
     }
 
