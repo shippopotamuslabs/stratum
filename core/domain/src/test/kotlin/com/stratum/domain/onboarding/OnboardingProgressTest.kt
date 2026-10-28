@@ -36,6 +36,18 @@ class OnboardingProgressTest {
             OnboardingPath.Import,
             progress.advancedTo(OnboardingStep.Review, OnboardingPath.Import).selectedPath,
         )
+        // An explicit null also keeps the path; only reopened() clears it.
+        assertEquals(
+            OnboardingPath.Generate,
+            progress.advancedTo(OnboardingStep.Schedule, null).selectedPath,
+        )
+    }
+
+    @Test
+    @DisplayName("completed clamps a regressed wall clock up to startedAt")
+    fun completedClampsRegressedClock() {
+        val progress = OnboardingProgress.started(OnboardingStep.Review, startedAtMillis = 100L)
+        assertEquals(100L, progress.completed(50L).completedAt)
     }
 
     @Test

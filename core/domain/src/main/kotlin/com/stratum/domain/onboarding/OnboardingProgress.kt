@@ -36,20 +36,26 @@ data class OnboardingProgress(
 
     /**
      * Moves to [step], clearing any completion (saving a step means the wizard is
-     * in progress again). A null [selectedPath] argument keeps the durable path;
-     * pass one explicitly to record a new path choice.
+     * in progress again). A null [selectedPath] keeps the durable path; pass one
+     * explicitly to record a new path choice. (Clearing the path is [reopened]'s job.)
      */
     fun advancedTo(
         step: OnboardingStep,
-        selectedPath: OnboardingPath? = this.selectedPath,
+        selectedPath: OnboardingPath? = null,
     ): OnboardingProgress = copy(
         currentStep = step,
         completedAt = null,
-        selectedPath = selectedPath,
+        selectedPath = selectedPath ?: this.selectedPath,
     )
 
-    /** Marks the wizard complete at [atMillis], keeping the current step and path. */
-    fun completed(atMillis: Long): OnboardingProgress = copy(completedAt = atMillis)
+    /**
+     * Marks the wizard complete at [atMillis], keeping the current step and path.
+     * Completion is monotonic: a wall clock that moved backwards since [startedAt]
+     * was persisted clamps to [startedAt] instead of producing the impossible
+     * completed-before-started shape.
+     */
+    fun completed(atMillis: Long): OnboardingProgress =
+        copy(completedAt = maxOf(atMillis, startedAt))
 
     /**
      * Reopens the wizard at [OnboardingStep.ChoosePath], clearing completion and the

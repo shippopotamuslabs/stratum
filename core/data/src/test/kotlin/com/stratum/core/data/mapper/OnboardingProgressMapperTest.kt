@@ -35,4 +35,16 @@ class OnboardingProgressMapperTest {
 
         assertEquals(progress, progress.toEntity().toDomain())
     }
+
+    @Test
+    @DisplayName("Given a legacy row completed before it started when mapped then completion clamps to the start")
+    fun legacyRegressedCompletionHeals() {
+        val entity = OnboardingProgress(
+            currentStep = OnboardingStep.Review,
+            startedAt = 200L,
+            completedAt = 200L,
+        ).toEntity().copy(completedAt = 150L)
+
+        assertEquals(200L, entity.toDomain().completedAt)
+    }
 }

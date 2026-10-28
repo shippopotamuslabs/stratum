@@ -24,7 +24,7 @@ class FakeOnboardingRepository(
 
     override suspend fun saveStep(step: OnboardingStep, selectedPath: OnboardingPath?) {
         val current = progress.value
-        progress.value = current.advancedTo(step, selectedPath ?: current.selectedPath)
+        progress.value = current.advancedTo(step, selectedPath)
     }
 
     override suspend fun markComplete() {

@@ -24,7 +24,7 @@ class RoomOnboardingRepository @Inject constructor(
     override suspend fun saveStep(step: OnboardingStep, selectedPath: OnboardingPath?) {
         syncTouch.mutate {
             val existing = dao.getOrNull()?.toDomain()
-            val progress = existing?.advancedTo(step, selectedPath ?: existing.selectedPath)
+            val progress = existing?.advancedTo(step, selectedPath)
                 ?: OnboardingProgress.started(
                     step = step,
                     startedAtMillis = System.currentTimeMillis(),
