@@ -138,7 +138,7 @@ class StraightSetRecommendationPolicy @Inject constructor(
             val loadOnTrack =
                 recommendationEngine.isOnTrackPerformance(
                     lastPerformed = lastPerformed,
-                    completedSlot = toSlot(lastPerformedSet),
+                    completedSlot = lastPerformedSet.toStructureSlot(),
                     completedPrescribed = completedPrescribedWeight,
                 )
             val shownMatch =
@@ -227,7 +227,11 @@ class StraightSetRecommendationPolicy @Inject constructor(
         // No prior coverage (e.g. first set of session): project with block-stable geometry.
         val geometry =
             stableBlockGeometry(setsByPosition)
-                ?: FatigueGeometry(block.performanceLogged, block.performanceOrdinal)
+                ?: FatigueGeometry(
+                    block.performanceLogged,
+                    block.performanceOrdinal,
+                    block.skipMinisInFatigueIndex,
+                )
         return projectStraightUpcoming(
             straightUpcoming = straightUpcoming,
             setsByPosition = setsByPosition,
@@ -253,8 +257,8 @@ class StraightSetRecommendationPolicy @Inject constructor(
         val sharedOutcome =
             recommendationEngine.recommendNextSet(
                 lastPerformed = block.performanceLogged,
-                completedSlot = toSlot(block.performanceAnchor),
-                targetSlot = toSlot(block.lastUpcoming),
+                completedSlot = block.performanceAnchor.toStructureSlot(),
+                targetSlot = block.lastUpcoming.toStructureSlot(),
                 currentWeight = block.lastUpcoming.recommendedWeight,
                 remainingCount = block.remainingCount,
                 incrementTiers = incrementTiers,
@@ -276,7 +280,12 @@ class StraightSetRecommendationPolicy @Inject constructor(
             straightUpcoming = straightUpcoming,
             setsByPosition = setsByPosition,
             sharedWeight = sharedWeight,
-            geometry = FatigueGeometry(block.performanceLogged, block.performanceOrdinal),
+            geometry =
+                FatigueGeometry(
+                    block.performanceLogged,
+                    block.performanceOrdinal,
+                    block.skipMinisInFatigueIndex,
+                ),
             fatigue = fatigue,
         )
     }
@@ -314,8 +323,10 @@ class StraightSetRecommendationPolicy @Inject constructor(
                     targetWeight = sharedWeight,
                     upcomingSetIndex =
                         fatigueSetIndex(
+                            setsByPosition = setsByPosition,
                             performanceOrdinal = geometry.indexOriginOrdinal,
                             targetOrdinal = targetOrdinal,
+                            skipMinisInFatigueIndex = geometry.skipMinisInFatigueIndex,
                         ),
                     repMax = set.repMax,
                     rirGoal = set.rirGoal,
@@ -336,6 +347,8 @@ class StraightSetRecommendationPolicy @Inject constructor(
     private data class FatigueGeometry(
         val capacityLogged: LoggedSetValue,
         val indexOriginOrdinal: Int,
+        /** STR-232 match-cluster geometry: minis consume no fatigue steps. */
+        val skipMinisInFatigueIndex: Boolean = false,
     )
 
     private fun matchesShownPrescription(
@@ -429,7 +442,8 @@ class StraightSetRecommendationPolicy @Inject constructor(
     /**
      * Shared straight-block geometry for weight + rep projection.
      * [remainingCount] and [fatigueSetIndex] both use ordinals so open minis/drops
-     * between activation and the last standard count the same way.
+     * between activation and the last standard count the same way — except under the
+     * STR-232 match-cluster anchor, where completed minis consume no steps.
      */
     /**
      * Bodyweight straight-set rep projections (STR-29). Weight is always zero for
@@ -461,9 +475,17 @@ class StraightSetRecommendationPolicy @Inject constructor(
         val geometry =
             if (isExactBodyweightPrescription(lastPerformedSet, lastPerformed, priorRecommendations)) {
                 stableBlockGeometry(setsByPosition)
-                    ?: FatigueGeometry(block.performanceLogged, block.performanceOrdinal)
+                    ?: FatigueGeometry(
+                        block.performanceLogged,
+                        block.performanceOrdinal,
+                        block.skipMinisInFatigueIndex,
+                    )
             } else {
-                FatigueGeometry(block.performanceLogged, block.performanceOrdinal)
+                FatigueGeometry(
+                    block.performanceLogged,
+                    block.performanceOrdinal,
+                    block.skipMinisInFatigueIndex,
+                )
             }
         return projectBodyweightSets(
             targets = straightUpcoming,
@@ -473,6 +495,7 @@ class StraightSetRecommendationPolicy @Inject constructor(
             originOrdinal = geometry.indexOriginOrdinal,
             fatigue = fatigue,
             zeroWeight = Weight(0.0, lastPerformed.weight.unit),
+            skipMinisInFatigueIndex = geometry.skipMinisInFatigueIndex,
         )
     }
 
@@ -545,6 +568,7 @@ class StraightSetRecommendationPolicy @Inject constructor(
         originOrdinal: Int,
         fatigue: FatigueDecay,
         zeroWeight: Weight,
+        skipMinisInFatigueIndex: Boolean = false,
     ): Map<SetSlotId, LiveSetRecommendation> =
         targets.associate { set ->
             val targetOrdinal = setsByPosition.indexOfFirst { it.slotId == set.slotId }
@@ -554,8 +578,10 @@ class StraightSetRecommendationPolicy @Inject constructor(
                     performedRir = baselineRir,
                     setIndex =
                         fatigueSetIndex(
+                            setsByPosition = setsByPosition,
                             performanceOrdinal = originOrdinal,
                             targetOrdinal = targetOrdinal,
+                            skipMinisInFatigueIndex = skipMinisInFatigueIndex,
                         ),
                     perLiftSlope = fatigue.slope,
                     perLiftIntercept = fatigue.intercept,
@@ -576,6 +602,8 @@ class StraightSetRecommendationPolicy @Inject constructor(
         val remainingCount: Int,
         /** True when a mini/drop sits after the e1RM anchor (open or completed). */
         val forceLiveWeight: Boolean,
+        /** True for the STR-232 match-cluster anchor: minis consume no fatigue steps. */
+        val skipMinisInFatigueIndex: Boolean = false,
     )
 
     private fun resolveStraightBlock(
@@ -586,8 +614,13 @@ class StraightSetRecommendationPolicy @Inject constructor(
         straightUpcoming: List<RenderedSet>,
     ): StraightBlock? {
         if (straightUpcoming.isEmpty()) return null
+        // STR-232: a just-completed rep-match mini cluster re-roots the block at the
+        // match activation (see resolveMatchClusterActivation); every other case keeps
+        // the latest straight-working anchor.
+        val matchActivation = resolveMatchClusterActivation(setsByPosition, lastPerformedSet)
         val performanceAnchor =
-            resolveStraightPerformanceAnchor(setsByPosition, lastPerformedSet)
+            matchActivation
+                ?: resolveStraightPerformanceAnchor(setsByPosition, lastPerformedSet)
         val performanceLogged = performanceAnchor.loggedValue ?: lastPerformed
         val performanceOrdinal =
             setsByPosition
@@ -598,10 +631,13 @@ class StraightSetRecommendationPolicy @Inject constructor(
             setsByPosition
                 .indexOfFirst { it.slotId == lastUpcoming.slotId }
                 .let { if (it < 0) performanceOrdinal + straightUpcoming.size else it }
+        val skipMinis = matchActivation != null
         val remainingCount =
             remainingCountAfterPerformanceAnchor(
+                setsByPosition = setsByPosition,
                 performanceOrdinal = performanceOrdinal,
                 lastUpcomingOrdinal = lastUpcomingOrdinal,
+                skipMinisInFatigueIndex = skipMinis,
             )
         val forceLiveWeight =
             mustForceLiveStraightWeight(
@@ -617,17 +653,9 @@ class StraightSetRecommendationPolicy @Inject constructor(
             lastUpcoming = lastUpcoming,
             remainingCount = remainingCount,
             forceLiveWeight = forceLiveWeight,
+            skipMinisInFatigueIndex = skipMinis,
         )
     }
-
-    private fun fatigueSetIndex(performanceOrdinal: Int, targetOrdinal: Int): Int =
-        (targetOrdinal - performanceOrdinal + 1).coerceAtLeast(1)
-
-    private fun remainingCountAfterPerformanceAnchor(
-        performanceOrdinal: Int,
-        lastUpcomingOrdinal: Int,
-    ): Int =
-        (fatigueSetIndex(performanceOrdinal, lastUpcomingOrdinal) - 1).coerceAtLeast(0)
 
     private fun mustForceLiveStraightWeight(
         performanceAnchor: RenderedSet,
@@ -690,21 +718,6 @@ class StraightSetRecommendationPolicy @Inject constructor(
         }
     }
 
-    private fun toSlot(rendered: RenderedSet): SetSlot =
-        SetSlot(
-            slotId = rendered.slotId,
-            workoutLiftId = rendered.workoutLiftId,
-            liftId = rendered.liftId,
-            position = rendered.position,
-            setType = rendered.setType,
-            isTopSet = rendered.isTopSet,
-            repMin = rendered.repMin,
-            repMax = rendered.repMax,
-            rirGoal = rendered.rirGoal,
-            restSeconds = rendered.restSeconds,
-            myoRepKind = rendered.myoRepKind,
-        )
-
     fun isStraightWorking(set: RenderedSet): Boolean =
         when (set.setType) {
             SetType.Standard -> true
@@ -714,11 +727,7 @@ class StraightSetRecommendationPolicy @Inject constructor(
             SetType.DropSet -> false
         }
 
-    fun isMyoMini(set: RenderedSet): Boolean {
-        if (set.setType != SetType.MyoRep) return false
-        val overlayId = set.slotId as? SetSlotId.Overlay ?: return false
-        return overlayId.instanceId.value.startsWith("mini-")
-    }
+    fun isMyoMini(set: RenderedSet): Boolean = set.isAutoGeneratedMyoMini()
 
     private fun isIntensifierSlot(set: RenderedSet): Boolean =
         isMyoMini(set) || set.setType == SetType.DropSet

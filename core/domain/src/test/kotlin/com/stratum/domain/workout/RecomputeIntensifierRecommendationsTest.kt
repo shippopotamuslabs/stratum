@@ -1017,6 +1017,102 @@ class RecomputeIntensifierRecommendationsTest {
         )
     }
 
+    @Test
+    @DisplayName(
+        "MATCH-CLUSTER-NEXT: first working set after a completed match mini cluster " +
+            "projects from the activation (top set), not the final mini (STR-232)",
+    )
+    fun matchClusterNextSetAnchorsOnActivationNotMini() {
+        // Sean's live scenario (Machine Crunch, rep-match): activation 140x15@2,
+        // backoff 140x10@0, its mini 140x5@0 (cluster total 15 = parity, cluster
+        // complete). The next backoff showed 135x5 — the gradient ran from the
+        // mini/backoff chain as if the 5-rep mini were the capacity anchor. It must
+        // project from the activation 140x15@2 with normal fatigue: the backoff and
+        // its completed cluster count as one normal set step, minis never count.
+        val act = "act"
+        val bo1 = "bo1"
+        val mini = "mini-bo1-1-aaaaaaaa"
+        val bo2 = "bo2"
+        val actId = SetSlotId.Template(LiftSetId(act))
+        val bo1Id = SetSlotId.Template(LiftSetId(bo1))
+        val bo2Id = SetSlotId.Template(LiftSetId(bo2))
+        val workout = rendered(
+            listOf(
+                set(
+                    act, 0, SetType.MyoRep, true, 140.0,
+                    LoggedSetValue(actId, lb(140.0), 15, 2),
+                    repMin = 10, repMax = 15, rirGoal = 2,
+                ).copy(myoRepKind = com.stratum.domain.workout.myorep.MyoRepKind.RepMatching),
+                set(
+                    bo1, 1, SetType.MyoRep, false, 140.0,
+                    LoggedSetValue(bo1Id, lb(140.0), 10, 0),
+                    repMin = 0, repMax = 0, rirGoal = 1,
+                ).copy(myoRepKind = com.stratum.domain.workout.myorep.MyoRepKind.RepMatching),
+                overlayMyo(
+                    mini, 2, weight = 140.0,
+                    logged = LoggedSetValue(
+                        SetSlotId.Overlay(OverlaySetInstanceId(mini)),
+                        lb(140.0),
+                        5,
+                        0,
+                    ),
+                ).copy(myoRepKind = com.stratum.domain.workout.myorep.MyoRepKind.RepMatching),
+                set(
+                    bo2, 3, SetType.MyoRep, false, 140.0,
+                    repMin = 0, repMax = 0, rirGoal = 2,
+                ).copy(myoRepKind = com.stratum.domain.workout.myorep.MyoRepKind.RepMatching),
+            ),
+        )
+        val recs = useCase(workout, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
+        val next = recs[bo2Id]
+        assertNotNull(next)
+        assertTrue(
+            next!!.weight.amount == 140.0 && next.reps == 11,
+            "next backoff must project from activation 140x15@2 with normal fatigue " +
+                "(expected 140x11), got ${next.weight.amount}x${next.reps}",
+        )
+    }
+
+    @Test
+    @DisplayName(
+        "MATCH-NO-CLUSTER: match backoff after a clean backoff (no minis) still " +
+            "anchors on that backoff — behavior unchanged (STR-232)",
+    )
+    fun matchBackoffWithoutClusterAnchorsOnBackoff() {
+        val act = "act"
+        val bo1 = "bo1"
+        val bo2 = "bo2"
+        val actId = SetSlotId.Template(LiftSetId(act))
+        val bo1Id = SetSlotId.Template(LiftSetId(bo1))
+        val bo2Id = SetSlotId.Template(LiftSetId(bo2))
+        val workout = rendered(
+            listOf(
+                set(
+                    act, 0, SetType.MyoRep, true, 140.0,
+                    LoggedSetValue(actId, lb(140.0), 15, 2),
+                    repMin = 10, repMax = 15, rirGoal = 2,
+                ).copy(myoRepKind = com.stratum.domain.workout.myorep.MyoRepKind.RepMatching),
+                set(
+                    bo1, 1, SetType.MyoRep, false, 140.0,
+                    LoggedSetValue(bo1Id, lb(140.0), 10, 0),
+                    repMin = 0, repMax = 0, rirGoal = 1,
+                ).copy(myoRepKind = com.stratum.domain.workout.myorep.MyoRepKind.RepMatching),
+                set(
+                    bo2, 2, SetType.MyoRep, false, 140.0,
+                    repMin = 0, repMax = 0, rirGoal = 2,
+                ).copy(myoRepKind = com.stratum.domain.workout.myorep.MyoRepKind.RepMatching),
+            ),
+        )
+        val recs = useCase(workout, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
+        val next = recs[bo2Id]
+        assertNotNull(next)
+        assertTrue(
+            next!!.weight.amount == 140.0 && next.reps == 6,
+            "clean backoff anchor (140x10@0, one normal step) must stay 140x6, " +
+                "got ${next.weight.amount}x${next.reps}",
+        )
+    }
+
     private fun overlayMyo(
         id: String,
         position: Int,
