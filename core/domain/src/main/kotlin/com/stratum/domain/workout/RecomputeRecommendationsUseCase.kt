@@ -35,6 +35,15 @@ import javax.inject.Inject
  * same [RecommendationEngine.recommendNextSet] with `keepSnapshotWhenOnTrack = false`
  * so last-set floor reduce always runs (no second weight path).
  *
+ * **Rep-match exception (STR-232):** when the just-logged set is a mini of a
+ * rep-match cluster, the anchor is the match activation (the top set) and the
+ * completed minis consume no fatigue steps — the backoff and its cluster count as
+ * the one normal set they replace, and the next match working set (which takes
+ * full normal rest) gets the normal FatigueDecay gradient from the top set. No
+ * mini-cluster fatigue coefficient is invented. RepFloor blocks are unchanged:
+ * their minis parent to the activation itself, so the anchor already is the top
+ * set, and following standards keep counting cluster volume.
+ *
  * **On-track (exact prescription):** when the engine returns `null` (matched load)
  * **and** the log matches the shown reps/RIR, the shared **weight** stays put and
  * fatigue uses **stable block geometry** (capacity + set indices from the first
