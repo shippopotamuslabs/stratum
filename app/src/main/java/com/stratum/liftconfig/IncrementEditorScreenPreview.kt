@@ -37,7 +37,7 @@ internal val PREVIEW_EQUIPMENT_CHROME =
                 onConfirm = {},
                 onDismiss = {},
             ),
-        forkSuggestion = "Cables (copy)",
+        forkSuggestion = "Cables (1)",
     )
 
 /** Equipment name field supplied through the screen's header slot (STR-135). */
@@ -56,7 +56,7 @@ private val PREVIEW_OVERRIDE_CHROME =
         onContextClick = null,
         saveText = "Save",
         saveConfirm = null,
-        forkSuggestion = "Cables (copy)",
+        forkSuggestion = "Cables (1)",
     )
 
 private fun previewPicker() = ScanPicker(ScanPickerState(), {}, {})

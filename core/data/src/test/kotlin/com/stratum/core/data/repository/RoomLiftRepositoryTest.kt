@@ -223,7 +223,7 @@ class RoomLiftRepositoryTest {
 
             val custom = firstLifts().single { it.id == id }
             // Shared uniqueifyForkEquipmentName policy: " (<n>)" suffix.
-            assertEquals("Landmine Press Stack (2)", custom.equipmentName)
+            assertEquals("Landmine Press Stack (1)", custom.equipmentName)
         }
 
         @Test

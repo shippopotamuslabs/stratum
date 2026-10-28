@@ -7,6 +7,7 @@ import com.stratum.domain.lift.DeleteCustomEquipmentUseCase
 import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.GetEquipmentDeleteImpactUseCase
 import com.stratum.domain.lift.ForkEquipmentUseCase
+import com.stratum.domain.lift.uniqueifyForkEquipmentName
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.ObserveEquipmentCatalogUseCase
 import com.stratum.domain.lift.SeedEquipmentIds
@@ -188,7 +189,9 @@ class ManageEquipmentViewModel @Inject constructor(
     }
 
     /**
-     * Opens the fork sheet with prefilled name `"{name} (copy)"`.
+     * Opens the fork sheet prefilled with the source's own name, uniqueified against
+     * the catalog (STR-246): unchanged when the name is free, otherwise the lowest
+     * free numbered suffix (`"Name (1)"`, `"Name (2)"`, …).
      */
     fun onStartFork(equipmentId: String) {
         val row = uiState.value.rows.firstOrNull { it.id == equipmentId } ?: return
@@ -196,7 +199,11 @@ class ManageEquipmentViewModel @Inject constructor(
             ForkDraft(
                 sourceId = equipmentId,
                 sourceName = row.name,
-                nameDraft = "${row.name}$FORK_NAME_SUFFIX",
+                nameDraft =
+                    uniqueifyForkEquipmentName(
+                        row.name,
+                        uiState.value.rows.map { it.name },
+                    ),
                 isForking = false,
             )
     }
@@ -348,6 +355,5 @@ class ManageEquipmentViewModel @Inject constructor(
         const val MSG_CREATE_FAILED = "Couldn't create equipment. Try again."
         const val MSG_FORK_FAILED = "Couldn't copy equipment. Try again."
         const val MSG_DELETE_FAILED = "Couldn't delete equipment. Try again."
-        const val FORK_NAME_SUFFIX = " (copy)"
     }
 }

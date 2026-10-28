@@ -116,7 +116,7 @@ fun EquipmentIncrementsRoute(
                         },
                         onDismiss = { showSaveConfirm = false },
                     ),
-                forkSuggestion = "${state.equipmentName.ifBlank { "Equipment" }} (copy)",
+                forkSuggestion = viewModel.forkNameSuggestion(),
             ),
         title =
             state.equipmentName.ifBlank {

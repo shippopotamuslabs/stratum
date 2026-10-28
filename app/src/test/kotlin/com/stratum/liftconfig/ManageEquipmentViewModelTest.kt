@@ -189,7 +189,7 @@ class ManageEquipmentViewModelTest {
     }
 
     @Test
-    @DisplayName("Given seed row when start fork then draft prefilled with copy name")
+    @DisplayName("Given seed row when start fork then draft prefilled with the numbered unique name")
     fun startForkPrefillsName() = runTest {
         subject.uiState.test {
             awaitCatalogState()
@@ -197,7 +197,7 @@ class ManageEquipmentViewModelTest {
             val state = awaitItem()
             assertEquals("cable", state.forkingFromId)
             assertEquals("Cables", state.forkingFromName)
-            assertEquals("Cables (copy)", state.forkNameDraft)
+            assertEquals("Cables (1)", state.forkNameDraft)
             cancelAndIgnoreRemainingEvents()
         }
     }
