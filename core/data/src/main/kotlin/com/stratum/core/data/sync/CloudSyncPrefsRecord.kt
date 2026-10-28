@@ -31,7 +31,9 @@ data class PullCursorRecord(
  * Firestore state never pulled down. A restore therefore boots with this record at
  * its defaults: blank owner (untrusted → restored Room rows are wiped before the
  * first upload, per [AccountOwnershipPolicy]), no hydrate flags, no cursors (first
- * sign-in full-pulls and converges local state to the server).
+ * sign-in full-pulls and converges local state to the server). The Room database
+ * deliberately stays in the backup set: without this sync state it is wiped
+ * before use, and it remains the only backup copy for never-signed-in local data.
  */
 @Serializable
 data class CloudSyncPrefsRecord(

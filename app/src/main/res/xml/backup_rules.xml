@@ -3,13 +3,7 @@
    data_extraction_rules.xml instead — keep the two in sync.
    See https://developer.android.com/guide/topics/data/autobackup for details.
 
-   STR-206: datastore/cloud_sync_prefs.json is install-scoped sync truth and
-   must never be restored onto an install — a restore that brings it back
-   alongside a stale Room database strands the fresh sign-in on that snapshot.
-   The full rationale lives on CloudSyncPrefsRecord (core/data sync package).
-   The Room database stays backed up on purpose; without the sync state it is
-   wiped before use, and it remains the only backup copy for never-signed-in
-   local data.
+   STR-206: exclude datastore/cloud_sync_prefs.json — rationale on CloudSyncPrefsRecord (core/data sync).
 -->
 <full-backup-content>
     <exclude domain="file" path="datastore/cloud_sync_prefs.json" />

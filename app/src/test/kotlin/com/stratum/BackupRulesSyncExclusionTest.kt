@@ -10,11 +10,8 @@ import org.w3c.dom.Document
 import org.w3c.dom.Element
 
 /**
- * STR-206: the production sync prefs file ([CLOUD_SYNC_PREFS_FILE_NAME]) must stay
- * excluded from Auto Backup and device transfer — full rationale on
- * `CloudSyncPrefsRecord`. The expected path is built from the production
- * constant, so renaming the DataStore file in code fails this test until the
- * rule files are updated to match.
+ * STR-206: pins the backup-rule exclusion of the production sync prefs file
+ * (path anchored to [CLOUD_SYNC_PREFS_FILE_NAME]; rationale on `CloudSyncPrefsRecord`).
  */
 class BackupRulesSyncExclusionTest {
     @Test

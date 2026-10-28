@@ -4,10 +4,7 @@
    See https://developer.android.com/about/versions/12/backup-restore#xml-changes
    for details.
 
-   STR-206: datastore/cloud_sync_prefs.json is install-scoped sync truth and
-   must never survive a restore or a device transfer — the full rationale
-   lives on CloudSyncPrefsRecord (core/data sync package) and in
-   backup_rules.xml.
+   STR-206: exclude datastore/cloud_sync_prefs.json — rationale on CloudSyncPrefsRecord (core/data sync).
 -->
 <data-extraction-rules>
     <cloud-backup>
