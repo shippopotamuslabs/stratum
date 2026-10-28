@@ -170,7 +170,8 @@ fun suggestForkEquipmentName(
  *
  * Collision is defined by [EquipmentNameMatching.normalizeKey] (not raw equality), matching
  * how free-text equipment resolution collapses punctuation/plurals. When the base name
- * collides, appends `" (2)"`, `" (3)"`, … until [normalizeKey] is unique among [existingNames].
+ * collides, appends `" (1)"`, `" (2)"`, … — the lowest number that is unique among
+ * [existingNames] (STR-246: numbered suffixes replace the old `"(copy)"` scheme).
  *
  * Deliberately unique-ifies rather than reassigning to the colliding custom row: Amend does
  * not reassign lifts, and silently amending a different machine is surprising.
@@ -188,7 +189,7 @@ fun uniqueifyForkEquipmentName(
 
     val base = suggestedName.trim().ifEmpty { "Custom stack" }
     var candidate = base
-    var suffix = 2
+    var suffix = 1
     while (EquipmentNameMatching.normalizeKey(candidate) in existingKeys) {
         candidate = "$base ($suffix)"
         suffix++

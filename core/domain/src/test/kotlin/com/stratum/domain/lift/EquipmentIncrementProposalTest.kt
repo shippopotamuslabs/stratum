@@ -245,7 +245,7 @@ class EquipmentIncrementProposalTest {
                     ),
                 )
             val fork = proposal.primary as EquipmentIncrementRemedy.ForkCustomEquipment
-            assertEquals("Lat pulldown stack (3)", fork.suggestedName)
+            assertEquals("Lat pulldown stack (1)", fork.suggestedName)
         }
     }
 
@@ -311,14 +311,37 @@ class EquipmentIncrementProposalTest {
         }
 
         @Test
-        @DisplayName("Given normalizeKey collision when uniqueified then appends (2)")
+        @DisplayName("Given normalizeKey collision when uniqueified then appends (1)")
         fun uniqueifyNormalizeKeyCollision() {
             val unique =
                 uniqueifyForkEquipmentName(
                     suggestedName = "Lat pulldown stack",
                     existingNames = listOf("lat-pulldown stack"),
                 )
+            assertEquals("Lat pulldown stack (1)", unique)
+        }
+
+        @Test
+        @DisplayName("Given base and (1) taken when uniqueified then picks the lowest free number (2)")
+        fun uniqueifyPicksLowestFreeNumber() {
+            val unique =
+                uniqueifyForkEquipmentName(
+                    suggestedName = "Lat pulldown stack",
+                    existingNames = listOf("Lat pulldown stack", "Lat pulldown stack (1)"),
+                )
             assertEquals("Lat pulldown stack (2)", unique)
+        }
+
+        @Test
+        @DisplayName("Given only the (1) name taken when uniqueified then the free base is unchanged")
+        fun uniqueifyBaseFreeDespiteNumberedSibling() {
+            assertEquals(
+                "Lat pulldown stack",
+                uniqueifyForkEquipmentName(
+                    suggestedName = "Lat pulldown stack",
+                    existingNames = listOf("Lat pulldown stack (1)", "Cables"),
+                ),
+            )
         }
 
         @Test

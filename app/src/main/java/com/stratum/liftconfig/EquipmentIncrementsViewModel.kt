@@ -570,9 +570,13 @@ class EquipmentIncrementsViewModel @Inject constructor(
         }
     }
 
-    /** Name prefill for the save-as-new sheet: `"<name> (copy)"`. */
+    /**
+     * Name prefill for the save-as-new sheet: the equipment's own name, unchanged
+     * (STR-246). A collision with an existing name is resolved at save time by
+     * [com.stratum.domain.lift.ForkEquipmentUseCase] with a numbered suffix.
+     */
     fun forkNameSuggestion(): String =
-        "${uiState.value.equipmentName.ifBlank { "Equipment" }} (copy)"
+        uiState.value.equipmentName.ifBlank { "Equipment" }
 
     /**
      * Forks the equipment under [copyName] (blank falls back to [forkNameSuggestion])

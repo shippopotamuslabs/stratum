@@ -284,7 +284,7 @@ class EquipmentIncrementsViewModelTest {
         val original = rows.single { it.id == cableId }
         assertEquals(openFive, original.incrementTiers)
         val copy = rows.single { it.id != cableId }
-        assertEquals("Cables (copy)", copy.name)
+        assertEquals("Cables (1)", copy.name)
         assertEquals(
             listOf(IncrementTier(Weight(0.0, lb), null, Weight(10.0, lb))),
             copy.incrementTiers,
@@ -652,7 +652,7 @@ class EquipmentIncrementsViewModelTest {
 
         val rows = fakeEquipmentRepository.current
         assertEquals(2, rows.size)
-        assertTrue(rows.any { it.name == "Cables (copy)" })
+        assertTrue(rows.any { it.name == "Cables (1)" })
         val untouched =
             fakeLiftRepository.getLiftsByIds(listOf(LiftId("lat-pulldown"))).single()
         assertEquals(cableId, untouched.equipmentId)

@@ -4,6 +4,7 @@ import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.logging.runCatchingLogged
 import javax.inject.Inject
+import kotlinx.coroutines.flow.first
 
 /**
  * Copies an existing equipment row's default tiers into a new custom equipment entry.
@@ -65,7 +66,14 @@ class ForkEquipmentUseCase @Inject constructor(
             }
         }
         return runCatchingLogged(loggingPort, TAG, "Failed to fork equipment") {
-            val id = equipmentRepository.addCustomEquipment(trimmed, tiers, resolvedMicro)
+            // STR-246: the saved name is the requested name when unique; on a collision
+            // the shared policy appends the lowest free numbered suffix — never "(copy)".
+            val liveNames =
+                equipmentRepository.observeEquipment().first()
+                    .filterNot { it.isTombstoned }
+                    .map { it.name }
+            val resolvedName = uniqueifyForkEquipmentName(trimmed, liveNames)
+            val id = equipmentRepository.addCustomEquipment(resolvedName, tiers, resolvedMicro)
             ForkedEquipment(id, resolvedMicro)
         }
     }

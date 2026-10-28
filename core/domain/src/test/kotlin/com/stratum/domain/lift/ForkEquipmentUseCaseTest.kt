@@ -86,6 +86,27 @@ class ForkEquipmentUseCaseTest {
     }
 
     @Test
+    @DisplayName("Given the source's own name when forked then the copy takes the (1) suffix (STR-246)")
+    fun forkWithCollidingNameGetsNumberedSuffix() = runTest {
+        val result = subject(cableId, "Cables")
+
+        assertTrue(result.isSuccess)
+        val forked = equipmentRepo.getEquipment(result.getOrThrow().id)!!
+        assertEquals("Cables (1)", forked.name)
+    }
+
+    @Test
+    @DisplayName("Given the base and (1) names taken when forked then the copy takes (2) (STR-246)")
+    fun forkWithTwoCollisionsGetsNextNumber() = runTest {
+        subject(cableId, "Cables")
+        val result = subject(cableId, "Cables")
+
+        assertTrue(result.isSuccess)
+        val forked = equipmentRepo.getEquipment(result.getOrThrow().id)!!
+        assertEquals("Cables (2)", forked.name)
+    }
+
+    @Test
     @DisplayName("Given blank name when forked then failure and no write")
     fun rejectsBlankName() = runTest {
         val before = equipmentRepo.current.size

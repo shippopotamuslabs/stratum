@@ -279,7 +279,7 @@ class AnalyzeSessionEquipmentProposalsUseCaseTest {
             val proposals = subject(sessionId).proposals
             assertEquals(1, proposals.size)
             val fork = proposals.single().primary as EquipmentIncrementRemedy.ForkCustomEquipment
-            assertEquals("Lat pulldown stack (2)", fork.suggestedName)
+            assertEquals("Lat pulldown stack (1)", fork.suggestedName)
         }
 
         @Test
