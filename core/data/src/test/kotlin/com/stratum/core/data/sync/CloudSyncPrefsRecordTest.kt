@@ -2,6 +2,7 @@ package com.stratum.core.data.sync
 
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import java.io.ByteArrayInputStream
@@ -37,6 +38,22 @@ class CloudSyncPrefsRecordTest {
         assertEquals("doc-xyz", cursor?.documentId)
         assertEquals("d", restored.deviceId)
         assertEquals("u", restored.lastSyncedUserId)
+    }
+
+    @Test
+    @DisplayName("default record is the state a backup-excluded restore boots into (STR-206)")
+    fun defaultRecordIsPostRestoreState() {
+        // backup_rules.xml / data_extraction_rules.xml exclude cloud_sync_prefs.json
+        // from Auto Backup and device transfer, so a restored install boots with
+        // exactly this record no matter how stale the restored Room database is:
+        // no device id, no owner, nothing hydrated, no cursors. That blank owner
+        // is what routes the first sign-in into the wipe + full-pull path —
+        // blank-owner-is-untrusted itself is pinned in AccountOwnershipPolicyTest.
+        val fresh = CloudSyncPrefsRecord()
+        assertEquals("", fresh.deviceId)
+        assertEquals("", fresh.lastSyncedUserId)
+        assertTrue(fresh.hydratedUserIds.isEmpty())
+        assertTrue(fresh.collectionPullCursors.isEmpty())
     }
 
     @Test

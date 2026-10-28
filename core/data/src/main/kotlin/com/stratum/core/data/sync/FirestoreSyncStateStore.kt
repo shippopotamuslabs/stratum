@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.first
 /**
  * Persists stable [deviceId], durable per-user hydrate/cursor state, and last-account ownership.
  * Session teardown ([FirestoreCloudSyncAdapter.stop]) must not clear durable state.
+ *
+ * The backing file is backup-excluded (STR-206; rationale on [CloudSyncPrefsRecord]).
  */
 @Singleton
 class FirestoreSyncStateStore @Inject constructor(

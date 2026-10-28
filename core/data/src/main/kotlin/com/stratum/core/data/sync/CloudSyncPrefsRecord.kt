@@ -21,6 +21,20 @@ data class PullCursorRecord(
     }
 }
 
+/**
+ * Durable sync truth for this install, persisted as `datastore/cloud_sync_prefs.json`.
+ *
+ * STR-206: this file is deliberately EXCLUDED from Android Auto Backup and device
+ * transfer (see `app/src/main/res/xml/backup_rules.xml` and `data_extraction_rules.xml`).
+ * Restoring it — owner, hydrate flags, pull cursors — alongside an older Room database
+ * once made a fresh sign-in trust the stale database as already synced, so newer
+ * Firestore state never pulled down. A restore therefore boots with this record at
+ * its defaults: blank owner (untrusted → restored Room rows are wiped before the
+ * first upload, per [AccountOwnershipPolicy]), no hydrate flags, no cursors (first
+ * sign-in full-pulls and converges local state to the server). The Room database
+ * deliberately stays in the backup set: without this sync state it is wiped
+ * before use, and it remains the only backup copy for never-signed-in local data.
+ */
 @Serializable
 data class CloudSyncPrefsRecord(
     val deviceId: String = "",
@@ -61,7 +75,10 @@ object CloudSyncPrefsRecordSerializer : Serializer<CloudSyncPrefsRecord> {
     }
 }
 
+/** Backing file name for [CloudSyncPrefsRecord] under `files/datastore/`; backup rules exclude it (STR-206). */
+const val CLOUD_SYNC_PREFS_FILE_NAME = "cloud_sync_prefs.json"
+
 internal val Context.cloudSyncPrefsDataStore by dataStore(
-    fileName = "cloud_sync_prefs.json",
+    fileName = CLOUD_SYNC_PREFS_FILE_NAME,
     serializer = CloudSyncPrefsRecordSerializer,
 )
