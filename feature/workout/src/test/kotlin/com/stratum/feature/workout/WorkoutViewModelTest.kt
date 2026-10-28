@@ -194,6 +194,7 @@ class WorkoutViewModelTest {
         set1Id: String = "hist-set-2-${historyLiftId.value}",
         set0Reps: Int = 5,
         set1Reps: Int = 8,
+        equipmentId: String? = null,
     ) {
         val session =
             TrainingSession(
@@ -218,6 +219,8 @@ class WorkoutViewModelTest {
                     sessionId = session.id,
                     exerciseNameRaw = name,
                     liftId = historyLiftId,
+                    equipmentId =
+                        equipmentId?.let { com.stratum.domain.lift.identity.EquipmentId(it) },
                     setIndex = 0,
                     weight = lb(topWeight),
                     reps = set0Reps,
@@ -243,6 +246,8 @@ class WorkoutViewModelTest {
                     sessionId = session.id,
                     exerciseNameRaw = name,
                     liftId = historyLiftId,
+                    equipmentId =
+                        equipmentId?.let { com.stratum.domain.lift.identity.EquipmentId(it) },
                     setIndex = 1,
                     weight = lb(topWeight),
                     reps = set1Reps,
@@ -3543,6 +3548,132 @@ class WorkoutViewModelTest {
         advanceUntilIdle()
         val quiet = viewModel.uiState.value as WorkoutUiState.Loaded
         assertFalse(quiet.lifts.first().showAdjustEquipmentChip)
+    }
+
+    @Test
+    @DisplayName("STR-235: mid-session equipment delete + reassignment re-derives recommendations from the replacement lattice")
+    fun midSessionEquipmentDeleteSwapRebuildsSnapshot() = runTest {
+        val dupId = com.stratum.domain.lift.identity.EquipmentId("y-dup")
+        val stackId = com.stratum.domain.lift.identity.EquipmentId("y-stack")
+        val dupTiers = openTier(2.5)
+        // Sean's surviving stack: 0–2.5 @ +2.5, then +5 steps (…37.5, 42.5, 47.5 — no 40).
+        val stackTiers =
+            listOf(
+                com.stratum.domain.lift.IncrementTier(lb(0.0), lb(2.5), lb(2.5)),
+                com.stratum.domain.lift.IncrementTier(lb(2.5), null, lb(5.0)),
+            )
+        equipmentRepository.seed(
+            listOf(
+                swapEquipment("y-dup", "Cable Y-Raise", tiers = dupTiers),
+                swapEquipment("y-stack", "Cable Y-Raise Stack", tiers = stackTiers),
+            ),
+        )
+        val liftRepository =
+            FakeLiftRepository(
+                initialLifts =
+                    listOf(
+                        catalogLift().copy(
+                            name = "Cable Y-Raise",
+                            equipmentId = dupId,
+                            incrementTiers = dupTiers,
+                        ),
+                        catalogLift2(),
+                    ),
+            )
+        // The same 37.5 lb performance history exists on both equipment pairs
+        // (STR-123 pair scoping): the progression increment lands on 40.0 under
+        // the duplicate's all-2.5 lattice.
+        seedHistoryForLift(
+            historyLiftId = liftId,
+            name = "Cable Y-Raise",
+            topWeight = 37.5,
+            sessionId = "s-history-dup",
+            set0Id = "hist-dup-0",
+            set1Id = "hist-dup-1",
+            set0Reps = 10,
+            set1Reps = 12,
+            equipmentId = "y-dup",
+        )
+        seedHistoryForLift(
+            historyLiftId = liftId,
+            name = "Cable Y-Raise",
+            topWeight = 37.5,
+            sessionId = "s-history-stack",
+            set0Id = "hist-stack-0",
+            set1Id = "hist-stack-1",
+            set0Reps = 10,
+            set1Reps = 12,
+            equipmentId = "y-stack",
+        )
+        setTemplateEquipment("y-dup")
+        val viewModel = buildViewModel(liftRepository = liftRepository)
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        val preDelete = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertEquals("y-dup", preDelete.lifts.first().sessionEquipmentId)
+        assertEquals(
+            40.0,
+            preDelete.lifts.first().sets.first().recommendedWeightAmount,
+            0.001,
+        )
+
+        // The delete flow's atomic sweep: the duplicate is tombstoned and the
+        // catalog lift + template slot are repointed at the surviving stack.
+        liftRepository.seedLifts(
+            listOf(
+                catalogLift().copy(
+                    name = "Cable Y-Raise",
+                    equipmentId = stackId,
+                    incrementTiers = stackTiers,
+                ),
+                catalogLift2(),
+            ),
+        )
+        setTemplateEquipment("y-stack")
+        equipmentRepository.seed(
+            listOf(
+                swapEquipment("y-dup", "Cable Y-Raise", tiers = dupTiers).copy(isDeleted = true),
+                swapEquipment("y-stack", "Cable Y-Raise Stack", tiers = stackTiers),
+            ),
+        )
+        advanceUntilIdle()
+
+        val postDelete = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertEquals("y-stack", postDelete.lifts.first().sessionEquipmentId)
+        assertEquals("Cable Y-Raise Stack", postDelete.lifts.first().sessionEquipmentName)
+        // 40 lb does not exist on the stack: the recommendation must re-derive
+        // from the replacement's lattice, not stay on the deleted duplicate's.
+        assertEquals(
+            42.5,
+            postDelete.lifts.first().sets.first().recommendedWeightAmount,
+            0.001,
+        )
+        // The editor seed reads the same single resolution: the replacement's tiers.
+        val seed = checkNotNull(viewModel.liveEquipmentSeed(workoutLiftId.value))
+        assertEquals(stackTiers, seed.currentTiers)
+    }
+
+    /** Repoints the active program's template slots at [equipmentId] (delete-sweep shape). */
+    private suspend fun setTemplateEquipment(equipmentId: String) {
+        val current = programRepository.getProgram()!!
+        val updatedWorkouts =
+            current.workouts.map { workout ->
+                if (workout.id != workoutId) {
+                    workout
+                } else {
+                    workout.copy(
+                        workoutLifts =
+                            workout.workoutLifts.map { lift ->
+                                lift.copy(
+                                    equipmentId =
+                                        com.stratum.domain.lift.identity.EquipmentId(equipmentId),
+                                )
+                            },
+                    )
+                }
+            }
+        programRepository.saveProgram(current.copy(workouts = updatedWorkouts))
     }
 
     @Test

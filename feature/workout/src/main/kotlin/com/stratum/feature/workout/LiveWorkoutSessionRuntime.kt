@@ -286,14 +286,28 @@ internal class LiveWorkoutSessionRuntime(
         }
     }
 
-    internal fun templateStructureFingerprint(workout: Workout): List<String> =
-        workout.workoutLifts.flatMap { lift ->
+    /**
+     * Identity of everything the structure projection and progression snapshot are
+     * derived from: lift/set shape AND each slot's resolved session equipment
+     * (STR-235). Equipment belongs here because the snapshot's lattices come from
+     * the equipment in use: a mid-session equipment delete + reassignment sweeps
+     * the catalog and template slots without changing any lift/set shape, and the
+     * session must rebuild (and re-derive recommendations from the replacement's
+     * lattice) exactly as it does for a template structure change. Resolution goes
+     * through [sessionEquipmentByWorkoutLiftId] — the same single source the
+     * snapshot request and the render merge use.
+     */
+    internal fun templateStructureFingerprint(workout: Workout): List<String> {
+        val equipmentByWorkoutLiftId = sessionEquipmentByWorkoutLiftId(workout.workoutLifts)
+        return workout.workoutLifts.flatMap { lift ->
             listOf("lift:${lift.id.value}:${lift.liftId.value}") +
+                listOf("equip:${equipmentByWorkoutLiftId[lift.id]?.value.orEmpty()}") +
                 lift.sets.map { set ->
                     "set:${set.id.value}:${set.position}:${set.setType.name}:" +
                         "${set.myoRepKind?.name.orEmpty()}:${set.isTopSet}"
                 }
         }
+    }
 
     /**
      * Copies stored note lists onto the current projection without rebuilding slots
