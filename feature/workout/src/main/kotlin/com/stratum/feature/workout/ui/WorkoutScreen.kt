@@ -247,19 +247,16 @@ fun WorkoutScreen(
     }
 
     // Pick the lift whose top edge is closest to the pin line (not "first fully pinned").
-    // The pin line is beforeContentPadding (STR-193): item offsets are physical, so under
-    // the navigator overlay the line sits one top-content-padding below zero.
+    // Item offsets are content-space, so the pin line is offset 0 (STR-233).
     val primaryVisibleLiftId by remember(state.lifts) {
         derivedStateOf {
             val liftKeys = state.lifts.map { it.workoutLiftId }.toSet()
-            val threshold = listState.layoutInfo.beforeContentPadding
             primaryLiftIdFromScroll(
                 visibleItems = listState.layoutInfo.visibleItemsInfo.mapNotNull { info ->
                     val key = info.key as? String ?: return@mapNotNull null
                     key to info.offset
                 },
                 liftKeys = liftKeys,
-                threshold = threshold,
             )
         }
     }
@@ -300,7 +297,7 @@ fun WorkoutScreen(
     // in-source glazed strip did (STR-196 surface removed). Never haze behind
     // set-logging text: lift panels are opaque StratumEdgeToEdgeCard (surfaceRaised)
     // containers, and auto-scroll pins panels BELOW the navigator + bar (pin target
-    // = beforeContentPadding), so editable set fields only cross the top edge
+    // = item offset 0, the content-area top), so editable set fields only cross the top edge
     // transiently mid-scroll; the keyboard dock is untouched. Solid hosts (Neo,
     // previews) keep the pre-STR-193 in-flow Column geometry exactly: the glass
     // overlay path would make the list viewport taller even when glass is

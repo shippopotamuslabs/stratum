@@ -105,67 +105,72 @@ class LiftNavigatorScrollTest {
     }
 
     @Test
-    @DisplayName("scroll delta with pin offset lands the target at the pin line, not zero")
-    fun scrollDeltaWithPinOffset() {
+    @DisplayName("scroll delta targets content offset zero, the pin line in item-offset space")
+    fun scrollDeltaTargetsContentOrigin() {
         val heights = listOf(100, 200, 300, 400)
-        // Same index: scroll up by exactly the pin offset.
+        // Same index: the delta is the item's own offset — scrolling by it puts the
+        // item's top at offset 0 (the pin line), whatever the top content padding is.
         assertEquals(
-            -60,
+            40,
             scrollDeltaToItemTopPx(
                 fromIndex = 2,
                 fromItemOffset = 40,
                 toIndex = 2,
                 itemHeightPx = { 100 },
                 spacingPx = 8,
-                pin = PinGeometry(100),
             ),
         )
-        // Down: content distance minus the pin offset.
+        // Down: the full content distance, no padding subtraction.
         assertEquals(
-            520 - 100,
+            520,
             scrollDeltaToItemTopPx(
                 fromIndex = 1,
                 fromItemOffset = 0,
                 toIndex = 3,
                 itemHeightPx = { heights[it] },
                 spacingPx = 10,
-                pin = PinGeometry(100),
             ),
         )
-        // Up: content distance minus the pin offset, from a physical offset.
+        // Up: the full content distance plus the current (negative) offset.
         assertEquals(
-            -(100 + 10 + 200 + 10 + 300 + 10) - 20 - 100,
+            -(100 + 10 + 200 + 10 + 300 + 10) - 20,
             scrollDeltaToItemTopPx(
                 fromIndex = 3,
                 fromItemOffset = -20,
                 toIndex = 0,
                 itemHeightPx = { heights[it] },
                 spacingPx = 10,
-                pin = PinGeometry(100),
             ),
         )
     }
 
     @Test
-    @DisplayName("pin threshold selects the lift closest to the overlay pin line")
-    fun pinThresholdUnderOverlay() {
+    @DisplayName("pin threshold at content origin selects the lift closest to offset zero")
+    fun pinThresholdAtContentOrigin() {
         val liftKeys = setOf("a", "b")
-        // Top padding 100: at rest the first lift sits at offset 100 == pin line.
+        // Item offsets are content-space: at rest the first lift sits at offset 0,
+        // exactly on the pin line, under any top content padding (STR-233).
         assertEquals(
             "a",
             primaryLiftIdFromScroll(
-                visibleItems = listOf("a" to 100, "b" to 500),
+                visibleItems = listOf("a" to 0, "b" to 400),
                 liftKeys = liftKeys,
-                threshold = 100,
             ),
         )
-        // Scrolled 60px: "a" (40) is past the line, "b" (440) far below → "a" still wins.
+        // Scrolled 60px: "a" (-60) is past the line, "b" (340) far below → "a" wins.
         assertEquals(
             "a",
             primaryLiftIdFromScroll(
-                visibleItems = listOf("a" to 40, "b" to 440),
+                visibleItems = listOf("a" to -60, "b" to 340),
                 liftKeys = liftKeys,
-                threshold = 100,
+            ),
+        )
+        // Scrolled far enough that "b" is closest to the line → "b" wins.
+        assertEquals(
+            "b",
+            primaryLiftIdFromScroll(
+                visibleItems = listOf("a" to -300, "b" to 100),
+                liftKeys = liftKeys,
             ),
         )
     }
@@ -205,8 +210,9 @@ class LiftNavigatorScrollTest {
     @Test
     @DisplayName("bottom pin spacer shrinks by the top content padding under an overlay")
     fun bottomPinSpacerWithTopPadding() {
-        // Top padding steals pin travel: max scroll otherwise lands the last lift
-        // at the physical viewport top (under the overlay).
+        // The top padding is scrollable content, so it contributes pin travel:
+        // without shrinking the spacer by it, max scroll would carry the last lift
+        // one padding past the pin line (its top edge up under the overlay).
         assertEquals(
             200,
             bottomPinSpacerHeightPx(
