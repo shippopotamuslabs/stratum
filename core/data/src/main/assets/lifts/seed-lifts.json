@@ -24,7 +24,8 @@
       "SpinalFlexion"
     ],
     "mainstream": false,
-    "fatigueProfile": "Low"
+    "fatigueProfile": "Low",
+    "loadType": "Bodyweight"
   },
   {
     "id": "alternate-incline-dumbbell-curl",
@@ -2764,7 +2765,8 @@
     ],
     "mainstream": true,
     "secondaryMuscles": [],
-    "fatigueProfile": "Low"
+    "fatigueProfile": "Low",
+    "loadType": "Bodyweight"
   },
   {
     "id": "floor-press",
@@ -2951,7 +2953,8 @@
     ],
     "mainstream": true,
     "secondaryMuscles": [],
-    "fatigueProfile": "Low"
+    "fatigueProfile": "Low",
+    "loadType": "Bodyweight"
   },
   {
     "id": "high-cable-curls",
@@ -3374,7 +3377,8 @@
       "HipExtension"
     ],
     "mainstream": false,
-    "fatigueProfile": "Medium"
+    "fatigueProfile": "Medium",
+    "loadType": "Bodyweight"
   },
   {
     "id": "leg-over-floor-press",
@@ -5318,7 +5322,8 @@
       "HipExtension"
     ],
     "mainstream": true,
-    "fatigueProfile": "Medium"
+    "fatigueProfile": "Medium",
+    "loadType": "Bodyweight"
   },
   {
     "id": "single-leg-high-box-squat",
@@ -5896,7 +5901,8 @@
       "SquatPattern"
     ],
     "mainstream": false,
-    "fatigueProfile": "Medium"
+    "fatigueProfile": "Medium",
+    "loadType": "Bodyweight"
   },
   {
     "id": "straight-arm-dumbbell-pullover",

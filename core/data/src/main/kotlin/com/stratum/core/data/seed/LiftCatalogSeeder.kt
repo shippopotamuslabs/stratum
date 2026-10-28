@@ -11,6 +11,7 @@ import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MuscleLengthBias
+import com.stratum.domain.lift.requireLoadTypeEquipmentAlignment
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.logging.LoggingPort
@@ -104,6 +105,12 @@ class LiftCatalogSeeder(
                         liftId = id,
                         tags = equipmentTagsByLiftId[id].orEmpty(),
                     )
+            // STR-250: the seed's two signals (declared loadType, equipment tags)
+            // must agree under the domain alignment rule. A contradictory row fails
+            // the seed loudly here — which of the two signals is wrong is unknowable
+            // at import time, so the row is never persisted and never silently
+            // skipped. The exception propagates out of seed(); DataModule logs it.
+            requireLoadTypeEquipmentAlignment(loadType, equipmentId)
             val lift =
                 LiftEntity(
                     id = id,

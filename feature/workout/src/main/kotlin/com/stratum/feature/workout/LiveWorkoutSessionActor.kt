@@ -90,6 +90,7 @@ internal class LiveWorkoutSessionActor(
             observeLiftTrainingInsights = observeLiftTrainingInsights,
             manageWorkoutOverlay = manageWorkoutOverlay,
             getSessionPinnedNoteLists = getSessionPinnedNoteLists,
+            logError = logError,
         )
 
     init {

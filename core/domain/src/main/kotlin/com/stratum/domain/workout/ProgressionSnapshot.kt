@@ -2,6 +2,7 @@ package com.stratum.domain.workout
 
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.program.identity.WorkoutId
+import com.stratum.domain.workout.progression.ProgressionDiagnostic
 
 /**
  * Snapshot-layer recommendation for a single [SetSlot] (D1, D3). Computed once per
@@ -28,4 +29,15 @@ data class SlotRecommendation(
 data class ProgressionSnapshot(
     val workoutId: WorkoutId,
     val bySlot: Map<SetSlotId, SlotRecommendation>,
+)
+
+/**
+ * A computed [ProgressionSnapshot] plus the non-fatal [ProgressionDiagnostic]s
+ * recorded while computing it (STR-250). Diagnostics are data: the domain never
+ * logs, so the caller at the application boundary reports each one exactly once
+ * through its logging port. They are never surfaced in the UI.
+ */
+data class ProgressionSnapshotOutcome(
+    val snapshot: ProgressionSnapshot,
+    val diagnostics: List<ProgressionDiagnostic> = emptyList(),
 )

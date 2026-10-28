@@ -932,6 +932,46 @@ class WorkoutViewModelTest {
     }
 
     @Test
+    @DisplayName("STR-250: zero-load history on a weighted lift starts and logs each skipped baseline once")
+    fun zeroLoadHistoryStartsAndLogsSkippedBaselines() = runTest {
+        // Replace the setUp history (135 lb) with the Ab Roller shape: the catalog
+        // lift is Weighted-typed, but every performed set was logged at 0 lb.
+        progressionHistory = FakeProgressionHistoryRepository()
+        seedHistoryForLift(
+            historyLiftId = liftId,
+            name = "Squat",
+            topWeight = 0.0,
+            sessionId = "s-zero-load",
+            set0Id = "zero-set-1",
+            set1Id = "zero-set-2",
+            set0Reps = 10,
+            set1Reps = 8,
+        )
+        val fakeLogging = FakeLoggingPort()
+        val viewModel = buildViewModel(fakeLogging = fakeLogging)
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        // Pre-fix this start died in the session actor with
+        // IllegalArgumentException "estimatedOneRm must be positive" and the UI
+        // landed on the terminal error state.
+        val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertTrue(loaded.lifts.isNotEmpty())
+        assertTrue(
+            fakeLogging.errors.none { it.message.contains("Session command failed") },
+            "session start must not fail: ${fakeLogging.errors}",
+        )
+        // One log per recorded diagnostic: tightening lost both covered slots'
+        // baselines and the backoff slot's reprojection lost its baseline.
+        val skips = fakeLogging.errors.filter {
+            it.message.contains("Progression baseline skipped")
+        }
+        assertEquals(3, skips.size, "expected one log per skip, got: $skips")
+        assertTrue(skips.all { it.tag == "LiveWorkoutSession" })
+        assertTrue(skips.all { it.message.contains("lift=Squat") })
+    }
+
+    @Test
     @DisplayName("bodyweight catalog lift hides weight column and does not require weight to complete")
     fun bodyweightCatalogLiftHidesWeightColumn() = runTest {
         val viewModel = buildViewModelWithProgram(

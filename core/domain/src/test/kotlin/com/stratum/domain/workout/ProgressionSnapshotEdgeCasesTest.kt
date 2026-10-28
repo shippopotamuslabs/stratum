@@ -210,7 +210,7 @@ class ProgressionSnapshotEdgeCasesTest {
         val lift = fiveSlotLift(ProgressionScheme.Double).copy(
             sets = fiveSlotLift(ProgressionScheme.Double).sets.take(3),
         )
-        val snapshot = useCase(history)(SnapshotRequest(programId, workoutId, listOf(lift))).getOrThrow()
+        val snapshot = useCase(history)(SnapshotRequest(programId, workoutId, listOf(lift))).getOrThrow().snapshot
 
         val r0 = snapshot.bySlot.getValue(SetSlotId.Template(LiftSetId("ls-0")))
         val r1 = snapshot.bySlot.getValue(SetSlotId.Template(LiftSetId("ls-1")))
@@ -251,7 +251,7 @@ class ProgressionSnapshotEdgeCasesTest {
 
         val snapshot = useCase(history)(
             SnapshotRequest(programId, workoutId, listOf(fiveSlotLift(ProgressionScheme.Double))),
-        ).getOrThrow()
+        ).getOrThrow().snapshot
 
         val r0 = snapshot.bySlot.getValue(SetSlotId.Template(LiftSetId("ls-0")))
         val r1 = snapshot.bySlot.getValue(SetSlotId.Template(LiftSetId("ls-1")))
@@ -295,7 +295,7 @@ class ProgressionSnapshotEdgeCasesTest {
 
         val snapshot = useCase(history)(
             SnapshotRequest(programId, workoutId, listOf(fiveSlotLift(ProgressionScheme.Double))),
-        ).getOrThrow()
+        ).getOrThrow().snapshot
 
         val recs = (0 until 5).map { i ->
             snapshot.bySlot.getValue(SetSlotId.Template(LiftSetId("ls-$i")))
@@ -335,7 +335,7 @@ class ProgressionSnapshotEdgeCasesTest {
 
         val snapshot = useCase(history)(
             SnapshotRequest(programId, workoutId, listOf(fiveSlotLift(ProgressionScheme.Double))),
-        ).getOrThrow()
+        ).getOrThrow().snapshot
 
         val recs = (0 until 5).map { i ->
             snapshot.bySlot.getValue(SetSlotId.Template(LiftSetId("ls-$i")))
@@ -366,7 +366,7 @@ class ProgressionSnapshotEdgeCasesTest {
 
         val snapshot = useCase(history)(
             SnapshotRequest(programId, workoutId, listOf(fiveSlotLift(ProgressionScheme.Double))),
-        ).getOrThrow()
+        ).getOrThrow().snapshot
 
         val recs = (0 until 5).map { i ->
             snapshot.bySlot.getValue(SetSlotId.Template(LiftSetId("ls-$i")))
@@ -394,7 +394,7 @@ class ProgressionSnapshotEdgeCasesTest {
         }
         val snapshot = useCase(history)(
             SnapshotRequest(programId, workoutId, listOf(fiveSlotLift(ProgressionScheme.Double))),
-        ).getOrThrow()
+        ).getOrThrow().snapshot
         val recs = recsFor(snapshot, 5)
         assertEquals(240.0, recs[0].recommendedWeight.amount, 0.01)
         assertSharedAndMonotonic(recs)
@@ -414,7 +414,7 @@ class ProgressionSnapshotEdgeCasesTest {
 
         val snapshot = useCase(history)(
             SnapshotRequest(programId, workoutId, listOf(fiveSlotLift(ProgressionScheme.Double))),
-        ).getOrThrow()
+        ).getOrThrow().snapshot
         val recs = recsFor(snapshot, 5)
         val shared = recs[0].recommendedWeight.amount
         assertTrue(shared < 20.0, "look-ahead must not leave advanced 20 lb if unsustainable, was $shared")
@@ -438,7 +438,7 @@ class ProgressionSnapshotEdgeCasesTest {
 
         val snapshot = useCase(history)(
             SnapshotRequest(programId, workoutId, listOf(fiveSlotLift(ProgressionScheme.Double))),
-        ).getOrThrow()
+        ).getOrThrow().snapshot
         val recs = recsFor(snapshot, 5)
         assertTrue(recs[0].recommendedWeight.amount <= 15.0)
         assertTrue(recs[0].recommendedWeight.amount > 0.0)
@@ -456,7 +456,7 @@ class ProgressionSnapshotEdgeCasesTest {
         val history = FakeProgressionHistoryRepository()
         val snapshot = useCase(history)(
             SnapshotRequest(programId, workoutId, listOf(fiveSlotLift(ProgressionScheme.Double))),
-        ).getOrThrow()
+        ).getOrThrow().snapshot
         val recs = recsFor(snapshot, 5)
         // No history → 0 lb candidate path; all slots share it; reps ≥ floor
         recs.forEach {
@@ -480,7 +480,7 @@ class ProgressionSnapshotEdgeCasesTest {
 
         val snapshot = useCase(history)(
             SnapshotRequest(programId, workoutId, listOf(fiveSlotLift(ProgressionScheme.Linear))),
-        ).getOrThrow()
+        ).getOrThrow().snapshot
         val recs = recsFor(snapshot, 5)
         assertTrue(recs[0].recommendedWeight.amount < 15.0)
         assertSharedAndMonotonic(recs)
@@ -504,7 +504,7 @@ class ProgressionSnapshotEdgeCasesTest {
                 listOf(fiveSlotLift(ProgressionScheme.Double)),
                 incrementTiersById = mapOf(liftId to fiveLbTiers),
             ),
-        ).getOrThrow()
+        ).getOrThrow().snapshot
         val recs = recsFor(snapshot, 5)
         val shared = recs[0].recommendedWeight.amount
         assertTrue(shared < 15.0, "must reduce, was $shared")
@@ -541,7 +541,7 @@ class ProgressionSnapshotEdgeCasesTest {
         )
         val snapshot = useCase(history, insights = steepInsights)(
             SnapshotRequest(programId, workoutId, listOf(fiveSlotLift(ProgressionScheme.Double))),
-        ).getOrThrow()
+        ).getOrThrow().snapshot
         val recs = recsFor(snapshot, 5)
         assertTrue(
             recs[0].recommendedWeight.amount < 100.0,
@@ -567,7 +567,7 @@ class ProgressionSnapshotEdgeCasesTest {
         }
         val snapshot = useCase(history)(
             SnapshotRequest(programId, workoutId, listOf(fiveSlotLift(ProgressionScheme.Double))),
-        ).getOrThrow()
+        ).getOrThrow().snapshot
         val recs = recsFor(snapshot, 5)
         assertTrue(recs[0].recommendedWeight.amount < 15.0)
         assertSharedAndMonotonic(recs)
@@ -585,7 +585,7 @@ class ProgressionSnapshotEdgeCasesTest {
 
         val snapshot = useCase(history)(
             SnapshotRequest(programId, workoutId, listOf(fiveSlotLift(ProgressionScheme.Double))),
-        ).getOrThrow()
+        ).getOrThrow().snapshot
         val recs = recsFor(snapshot, 5)
         val startLb =
             com.stratum.domain.lift.WeightConversion.amountInLb(
@@ -607,7 +607,7 @@ class ProgressionSnapshotEdgeCasesTest {
         val lift = nSlotLift(ProgressionScheme.Double, n = 1)
         val snapshot = useCase(history)(
             SnapshotRequest(programId, workoutId, listOf(lift)),
-        ).getOrThrow()
+        ).getOrThrow().snapshot
         val r0 = snapshot.bySlot.getValue(SetSlotId.Template(LiftSetId("ls-0")))
         assertTrue(r0.recommendedWeight.amount < 15.0)
         assertTrue(r0.baselineExpectedReps >= 5)
@@ -628,7 +628,7 @@ class ProgressionSnapshotEdgeCasesTest {
 
         val snapshot = useCase(history)(
             SnapshotRequest(programId, workoutId, listOf(lift)),
-        ).getOrThrow()
+        ).getOrThrow().snapshot
         val recs = recsFor(snapshot, 4)
         // Straight-set inherit uses top recommended weight for all when currentTopSetWeight set
         val topW = recs[1].recommendedWeight.amount
@@ -652,7 +652,7 @@ class ProgressionSnapshotEdgeCasesTest {
         val lift = nSlotLift(ProgressionScheme.Double, n = 3)
         val snapshot = useCase(history)(
             SnapshotRequest(programId, workoutId, listOf(lift)),
-        ).getOrThrow()
+        ).getOrThrow().snapshot
         val recs = recsFor(snapshot, 3)
         // UI prev stays positional
         assertEquals(100.0, recs[0].previousWeight!!.amount, 0.01)
@@ -693,7 +693,7 @@ class ProgressionSnapshotEdgeCasesTest {
         val lift = nSlotLift(ProgressionScheme.Double, n = 3)
         val snapshot = useCase(history)(
             SnapshotRequest(programId, workoutId, listOf(lift)),
-        ).getOrThrow()
+        ).getOrThrow().snapshot
         val recs = recsFor(snapshot, 3)
         // Math from s0 only (50 lb block size 1) — must not use 90
         assertTrue(
@@ -722,7 +722,7 @@ class ProgressionSnapshotEdgeCasesTest {
         val lift = nSlotLift(ProgressionScheme.Double, n = 2)
         val snapshot = useCase(history)(
             SnapshotRequest(programId, workoutId, listOf(lift)),
-        ).getOrThrow()
+        ).getOrThrow().snapshot
         val r0 = snapshot.bySlot.getValue(SetSlotId.Template(LiftSetId("ls-0")))
         val r1 = snapshot.bySlot.getValue(SetSlotId.Template(LiftSetId("ls-1")))
         assertTrue(
@@ -746,7 +746,7 @@ class ProgressionSnapshotEdgeCasesTest {
         val lift = nSlotLift(ProgressionScheme.Double, n = 3)
         val snapshot = useCase(history)(
             SnapshotRequest(programId, workoutId, listOf(lift)),
-        ).getOrThrow()
+        ).getOrThrow().snapshot
         val recs = recsFor(snapshot, 3)
         val shared = recs[0].recommendedWeight.amount
         assertTrue(shared < 15.0, "expect shared reduce, was $shared")
@@ -803,7 +803,7 @@ class ProgressionSnapshotEdgeCasesTest {
         val programRepo = FakeProgramRepository(programWithLift(lift))
         val snapshot = useCase(history, events, programRepo)(
             SnapshotRequest(programId, workoutId, listOf(lift)),
-        ).getOrThrow()
+        ).getOrThrow().snapshot
         val rec = snapshot.bySlot.getValue(SetSlotId.Template(LiftSetId("ls-0")))
         // After transition, Double engine runs: stall history does not meet top-of-range, so
         // weight does not increment. Capacity 4@2 is below the global floor of 5, so a small
@@ -825,7 +825,7 @@ class ProgressionSnapshotEdgeCasesTest {
         val doubleLift = lift.copy(progressionScheme = ProgressionScheme.Double)
         useCase(history, events, programRepo)(
             SnapshotRequest(programId, workoutId, listOf(doubleLift)),
-        ).getOrThrow()
+        ).getOrThrow().snapshot
         assertEquals(
             1,
             events.getEventsForProgram(programId).count { it.eventType == ProgramChangeEventType.SCHEME_CHANGED },

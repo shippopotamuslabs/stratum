@@ -134,11 +134,14 @@ internal suspend fun LiveWorkoutSessionRuntime.handleApplyCycleSnapshot(cmd: Ses
                     equipmentIdByWorkoutLiftId = sessionEquipmentByWorkoutLiftId(workout.workoutLifts),
                 ),
             )
-        val snapshot =
+        val snapshotOutcome =
             snapshotResult.getOrDefault(
-                com.stratum.domain.workout.ProgressionSnapshot(workout.id, emptyMap()),
+                com.stratum.domain.workout.ProgressionSnapshotOutcome(
+                    com.stratum.domain.workout.ProgressionSnapshot(workout.id, emptyMap()),
+                ),
             )
-        snapshotBySlot = snapshot.bySlot
+        logProgressionDiagnostics(snapshotOutcome.diagnostics)
+        snapshotBySlot = snapshotOutcome.snapshot.bySlot
 
         if (isInitialLoad) {
             installRestoredOverlay(
