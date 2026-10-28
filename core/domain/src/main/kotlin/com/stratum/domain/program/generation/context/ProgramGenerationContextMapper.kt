@@ -77,8 +77,7 @@ object ProgramGenerationContextMapper {
         if (cycleLength != null && restSlotIndices != null && cycleLength > restSlotIndices.size) {
             return cycleLength - restSlotIndices.size
         }
-        profile.generationTrainingDayCount?.takeIf { count -> count > 0 }?.let { return it }
-        if (profile.weekdays.isNotEmpty()) return profile.weekdays.size
+        profile.resolvedTrainingDayCount()?.let { return it }
         error(
             "ProgramGenerationContext requires cycleLength+restSlotIndices, " +
                 "generationTrainingDayCount, or legacy weekdays — got none",

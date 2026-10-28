@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 
-class EntitlementResolverTest {
+class EntitlementStateTest {
 
     private val user = AuthState.Authenticated(
         UserProfile("uid-1", "Ada", "ada@example.com", null),
@@ -26,7 +26,7 @@ class EntitlementResolverTest {
     fun loading() {
         assertEquals(
             EntitlementState.Loading,
-            resolveEntitlement(AuthState.Loading, complimentary = true, purchases = listOf(playPurchase)),
+            EntitlementState.resolve(AuthState.Loading, complimentary = true, purchases = listOf(playPurchase)),
         )
     }
 
@@ -36,11 +36,11 @@ class EntitlementResolverTest {
         val expected = EntitlementState.NotEntitled("Not authenticated")
         assertEquals(
             expected,
-            resolveEntitlement(AuthState.Unauthenticated, complimentary = true, purchases = listOf(playPurchase)),
+            EntitlementState.resolve(AuthState.Unauthenticated, complimentary = true, purchases = listOf(playPurchase)),
         )
         assertEquals(
             expected,
-            resolveEntitlement(AuthState.Error("nope"), complimentary = true, purchases = listOf(playPurchase)),
+            EntitlementState.resolve(AuthState.Error("nope"), complimentary = true, purchases = listOf(playPurchase)),
         )
     }
 
@@ -49,7 +49,7 @@ class EntitlementResolverTest {
     fun complimentaryWins() {
         assertEquals(
             EntitlementState.Entitled(EntitlementSource.ComplimentaryAccess),
-            resolveEntitlement(user, complimentary = true, purchases = listOf(playPurchase)),
+            EntitlementState.resolve(user, complimentary = true, purchases = listOf(playPurchase)),
         )
     }
 
@@ -58,7 +58,7 @@ class EntitlementResolverTest {
     fun playEntitled() {
         assertEquals(
             EntitlementState.Entitled(EntitlementSource.GooglePlaySubscription),
-            resolveEntitlement(user, complimentary = false, purchases = listOf(playPurchase)),
+            EntitlementState.resolve(user, complimentary = false, purchases = listOf(playPurchase)),
         )
     }
 
@@ -68,7 +68,7 @@ class EntitlementResolverTest {
         val unknown = playPurchase.copy(productIds = listOf("some_other_sku"))
         assertEquals(
             EntitlementState.NotEntitled(),
-            resolveEntitlement(user, complimentary = false, purchases = listOf(unknown)),
+            EntitlementState.resolve(user, complimentary = false, purchases = listOf(unknown)),
         )
     }
 
@@ -77,7 +77,7 @@ class EntitlementResolverTest {
     fun neither() {
         assertEquals(
             EntitlementState.NotEntitled(),
-            resolveEntitlement(user, complimentary = false, purchases = emptyList()),
+            EntitlementState.resolve(user, complimentary = false, purchases = emptyList()),
         )
     }
 }

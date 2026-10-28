@@ -14,7 +14,10 @@ fun OnboardingProgressEntity.toDomain(): OnboardingProgress =
     OnboardingProgress(
         currentStep = currentStep,
         startedAt = startedAt,
-        completedAt = completedAt,
+        // Heal rows written before the completedAt >= startedAt invariant existed
+        // (a wall-clock rollback between start and completion could persist one):
+        // completion clamps up to the start, matching OnboardingProgress.completed().
+        completedAt = completedAt?.let { maxOf(it, startedAt) },
         selectedPath = selectedPath,
     )
 

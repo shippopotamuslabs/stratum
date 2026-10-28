@@ -79,8 +79,3 @@ object OnboardingPathResolver {
     }
 }
 
-/** Persisted cycle-space fields set when leaving the Generate Schedule step. */
-fun UserTrainingProfile.hasPersistedGenerateCycleSpace(): Boolean =
-    generationTrainingDayCount != null ||
-        generationCycleLength != null ||
-        generationRestSlotIndices.isNotEmpty()

@@ -9,7 +9,6 @@ import com.stratum.domain.subscription.EntitlementRepository
 import com.stratum.domain.subscription.EntitlementState
 import com.stratum.domain.subscription.PlayEntitlementSyncPort
 import com.stratum.domain.subscription.SubscriptionPurchase
-import com.stratum.domain.subscription.resolveEntitlement
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
@@ -40,7 +39,7 @@ class SubscriptionRepositoryImpl @Inject constructor(
                 AuthState.Loading,
                 AuthState.Unauthenticated,
                 is AuthState.Error -> flowOf(
-                    resolveEntitlement(auth, complimentary = false, purchases = emptyList()),
+                    EntitlementState.resolve(auth, complimentary = false, purchases = emptyList()),
                 )
                 is AuthState.Authenticated -> combine(
                     complimentaryAccessStore.observeComplimentaryAccess(auth.user.uid),
@@ -48,7 +47,7 @@ class SubscriptionRepositoryImpl @Inject constructor(
                         syncActivePurchaseTokens(purchases)
                     },
                 ) { complimentary, purchases ->
-                    resolveEntitlement(auth, complimentary, purchases)
+                    EntitlementState.resolve(auth, complimentary, purchases)
                 }
             }
         }.distinctUntilChanged()
@@ -74,7 +73,7 @@ class SubscriptionRepositoryImpl @Inject constructor(
             if (auth is AuthState.Authenticated) {
                 syncActivePurchaseTokens(purchases)
             }
-            resolveEntitlement(auth, complimentary, purchases)
+            EntitlementState.resolve(auth, complimentary, purchases)
         }
     }
 

@@ -27,8 +27,7 @@ class ValidateScheduleStepUseCase @Inject constructor() {
                 trainingDayCount = trainingDayCount,
                 cycleLength = cycleLength,
                 restSlotIndices = restSlotIndices,
-                profileGenerationTrainCount = profile.generationTrainingDayCount,
-                profileWeekdayCount = profile.weekdays.size,
+                profileTrainingDayCount = profile.resolvedTrainingDayCount(),
             )
         val errors = buildSet {
             if (n < 1) add(ScheduleValidationError.WeekdaysRequired)
@@ -55,16 +54,13 @@ class ValidateScheduleStepUseCase @Inject constructor() {
         trainingDayCount: Int?,
         cycleLength: Int?,
         restSlotIndices: Set<Int>?,
-        profileGenerationTrainCount: Int?,
-        profileWeekdayCount: Int,
+        profileTrainingDayCount: Int?,
     ): Int {
-        // Prefer explicit N / persisted generate N / legacy weekdays over deriving from rests so
+        // Prefer explicit N / the profile's own resolved count (persisted generate N, else
+        // legacy weekdays — UserTrainingProfile owns that order) over deriving from rests so
         // invalid rest patterns still validate against the user's intended train count.
         if (trainingDayCount != null && trainingDayCount > 0) return trainingDayCount
-        if (profileGenerationTrainCount != null && profileGenerationTrainCount > 0) {
-            return profileGenerationTrainCount
-        }
-        if (profileWeekdayCount > 0) return profileWeekdayCount
+        if (profileTrainingDayCount != null) return profileTrainingDayCount
         if (cycleLength != null && restSlotIndices != null && cycleLength > restSlotIndices.size) {
             return cycleLength - restSlotIndices.size
         }

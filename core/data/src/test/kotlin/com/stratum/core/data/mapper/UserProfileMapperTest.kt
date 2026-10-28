@@ -76,4 +76,27 @@ class UserProfileMapperTest {
         assertEquals(LastTrainedBucket.WithinLastThreeMonths, domain.lastTrained)
         assertEquals(setOf(Weekday.Monday, Weekday.Friday), domain.weekdays)
     }
+    @Test
+    @DisplayName("Given a legacy row with non-positive values when mapped then they hydrate as absent")
+    fun legacyNonPositiveValuesHealToAbsent() {
+        val entity = UserTrainingProfile(
+            sessionLengthMinutes = 60,
+            generationTrainingDayCount = 4,
+            generationCycleLength = 7,
+            generationRestSlotIndices = setOf(6),
+        ).toEntity().copy(
+            sessionLengthMinutes = 0,
+            generationTrainingDayCount = -1,
+            generationCycleLength = 0,
+            generationRestSlotIndices = setOf(-2, 6),
+        )
+
+        val healed = entity.toDomain()
+
+        assertNull(healed.sessionLengthMinutes)
+        assertNull(healed.generationTrainingDayCount)
+        assertNull(healed.generationCycleLength)
+        // Cycle length healed to absent, so only the non-negative rest survives.
+        assertEquals(setOf(6), healed.generationRestSlotIndices)
+    }
 }
