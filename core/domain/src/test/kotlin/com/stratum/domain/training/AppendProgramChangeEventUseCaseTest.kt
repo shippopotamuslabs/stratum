@@ -1,49 +1,69 @@
 package com.stratum.domain.training
 
 import com.stratum.core.testing.training.FakeProgramChangeEventRepository
+import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.identity.ProgramId
-import com.stratum.domain.training.identity.ProgramChangeEventId
-import java.time.Instant
+import com.stratum.domain.program.identity.WorkoutLiftId
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class AppendProgramChangeEventUseCaseTest {
     @Test
-    fun `appended event is stored for its program`() = runTest {
+    fun `appendSchemeChanged stores a SCHEME_CHANGED event with the scheme payload`() = runTest {
         val repository = FakeProgramChangeEventRepository()
         val useCase = AppendProgramChangeEventUseCase(repository)
-        val event =
-            ProgramChangeEvent(
-                id = ProgramChangeEventId("event-1"),
-                programId = ProgramId("program-1"),
-                eventType = ProgramChangeEventType.WORKOUT_EDITED,
-                occurredAt = Instant.parse("2026-10-29T00:00:00Z"),
-                payload = ProgramChangeEventPayload.WorkoutEdited(
-                    workoutId = com.stratum.domain.program.identity.WorkoutId("workout-1"),
-                ),
-            )
 
-        useCase(event)
+        useCase.appendSchemeChanged(
+            programId = ProgramId("program-1"),
+            workoutLiftId = WorkoutLiftId("wl-1"),
+            liftId = LiftId("bench-press"),
+            previous = ProgressionScheme.Linear,
+            current = ProgressionScheme.Double,
+        )
 
-        assertEquals(listOf(event), repository.getEventsForProgram(ProgramId("program-1")))
+        val events = repository.getEventsForProgram(ProgramId("program-1"))
+        assertEquals(1, events.size)
+        val event = events.single()
+        assertEquals(ProgramChangeEventType.SCHEME_CHANGED, event.eventType)
+        assertEquals(
+            ProgramChangeEventPayload.SchemeChanged(
+                workoutLiftId = WorkoutLiftId("wl-1"),
+                liftId = LiftId("bench-press"),
+                previous = ProgressionScheme.Linear,
+                current = ProgressionScheme.Double,
+            ),
+            event.payload,
+        )
+        assertTrue(event.id.value.isNotBlank())
     }
 
     @Test
-    fun `events for other programs are not returned`() = runTest {
+    fun `appendLiftSwapped stores a LIFT_SWAPPED event with the lift payload`() = runTest {
         val repository = FakeProgramChangeEventRepository()
         val useCase = AppendProgramChangeEventUseCase(repository)
-        val event =
-            ProgramChangeEvent(
-                id = ProgramChangeEventId("event-1"),
-                programId = ProgramId("program-1"),
-                eventType = ProgramChangeEventType.PROGRAM_REGENERATED,
-                occurredAt = Instant.parse("2026-10-29T00:00:00Z"),
-                payload = ProgramChangeEventPayload.ProgramRegenerated,
-            )
 
-        useCase(event)
+        useCase.appendLiftSwapped(
+            programId = ProgramId("program-1"),
+            workoutLiftId = WorkoutLiftId("wl-1"),
+            previousLiftId = LiftId("bench-press"),
+            newLiftId = LiftId("incline-press"),
+        )
 
+        val events = repository.getEventsForProgram(ProgramId("program-1"))
+        assertEquals(1, events.size)
+        val event = events.single()
+        assertEquals(ProgramChangeEventType.LIFT_SWAPPED, event.eventType)
+        assertEquals(
+            ProgramChangeEventPayload.LiftSwapped(
+                workoutLiftId = WorkoutLiftId("wl-1"),
+                previousLiftId = LiftId("bench-press"),
+                newLiftId = LiftId("incline-press"),
+            ),
+            event.payload,
+        )
         assertEquals(emptyList<ProgramChangeEvent>(), repository.getEventsForProgram(ProgramId("program-2")))
     }
 }

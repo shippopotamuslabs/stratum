@@ -18,9 +18,7 @@ import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.training.AbandonTrainingSessionUseCase
 import com.stratum.domain.training.ObserveCycleProgressUseCase
-import com.stratum.domain.training.ProgramChangeEventPayload
 import com.stratum.domain.training.AppendProgramChangeEventUseCase
-import com.stratum.domain.training.ProgramChangeEventType
 import com.stratum.domain.training.StartTrainingSessionUseCase
 import com.stratum.domain.workout.ManageWorkoutOverlayUseCase
 import com.stratum.domain.workout.SlotLiftPair
@@ -413,21 +411,12 @@ class EditWorkoutViewModel @Inject constructor(
             }
         }
         for ((previous, updatedLift) in changed) {
-            appendProgramChangeEvent(
-                com.stratum.domain.training.ProgramChangeEvent(
-                    id = com.stratum.domain.training.identity.ProgramChangeEventId(
-                        java.util.UUID.randomUUID().toString(),
-                    ),
-                    programId = program.id,
-                    eventType = ProgramChangeEventType.SCHEME_CHANGED,
-                    occurredAt = java.time.Instant.now(),
-                    payload = ProgramChangeEventPayload.SchemeChanged(
-                        workoutLiftId = updatedLift.id,
-                        liftId = updatedLift.liftId,
-                        previous = previous,
-                        current = updatedLift.progressionScheme,
-                    ),
-                ),
+            appendProgramChangeEvent.appendSchemeChanged(
+                programId = program.id,
+                workoutLiftId = updatedLift.id,
+                liftId = updatedLift.liftId,
+                previous = previous,
+                current = updatedLift.progressionScheme,
             )
         }
     }
@@ -447,20 +436,11 @@ class EditWorkoutViewModel @Inject constructor(
             }
         }
         for ((previous, updatedLift) in changed) {
-            appendProgramChangeEvent(
-                com.stratum.domain.training.ProgramChangeEvent(
-                    id = com.stratum.domain.training.identity.ProgramChangeEventId(
-                        java.util.UUID.randomUUID().toString(),
-                    ),
-                    programId = program.id,
-                    eventType = ProgramChangeEventType.LIFT_SWAPPED,
-                    occurredAt = java.time.Instant.now(),
-                    payload = ProgramChangeEventPayload.LiftSwapped(
-                        workoutLiftId = updatedLift.id,
-                        previousLiftId = previous,
-                        newLiftId = updatedLift.liftId,
-                    ),
-                ),
+            appendProgramChangeEvent.appendLiftSwapped(
+                programId = program.id,
+                workoutLiftId = updatedLift.id,
+                previousLiftId = previous,
+                newLiftId = updatedLift.liftId,
             )
         }
     }
