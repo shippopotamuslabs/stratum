@@ -21,7 +21,7 @@ Program generation runs a CP-SAT solver on a server. The solver picks the slots,
 
 ## Architecture
 
-Dependencies point inward. Feature and core modules use ports and models from `:core:domain`. The domain module holds the rules. Room entities hold storage shape and carry no rules. ViewModels map domain models to screen state.
+Dependencies point inward. `:core:domain` holds the models and the rules: aggregates, value types, domain services, and engines. `:core:application` holds the use cases and the outbound ports they call. Domain decides whether; application decides when. Feature modules call use cases from `:core:application` and render models from `:core:domain`. Room entities hold storage shape and carry no rules. ViewModels map domain models to screen state.
 
 Read contracts/gospel/ARCHITECTURE-GOSPEL.md for the binding Clean Architecture canon and contracts/ARCHITECTURE.md for Stratum's module graph. Read AGENTS.md before you write code in this repo.
 
@@ -30,10 +30,11 @@ Read contracts/gospel/ARCHITECTURE-GOSPEL.md for the binding Clean Architecture 
 | Module | Type | What it holds |
 |---|---|---|
 | `:app` | Android app | Shell, `MainActivity`, navigation host, Hilt wiring, app resources, signing |
-| `:core:domain` | JVM library | Domain models, value types, ports, use cases, program generation logic, synthesis wire codec |
+| `:core:domain` | JVM library | Domain models, value types, domain services and engines (progression, recommendation, program-generation rules), synthesis wire codec |
+| `:core:application` | JVM library | Use cases, orchestration, outbound ports (the repository and service interfaces use cases call) |
 | `:core:data` | Android library | Room database and schemas, repositories, DataStore, WorkManager, Firestore sync, Health Connect |
 | `:core:ui` | Android library | `StratumTheme`, theme families, shared `Stratum*` components, charts |
-| `:core:testing` | JVM library | Hand-written fakes for domain ports, `MainDispatcherRule`, test fixtures |
+| `:core:testing` | JVM library | Hand-written fakes for application ports, `MainDispatcherRule`, test fixtures |
 | `:core:inference` | Android library | Firebase Callable clients for synthesis, import, scan, and entitlement work |
 | `:detekt-rules` | JVM library | Custom detekt rules that enforce the UI contract |
 | `:feature:onboarding` | Android library | First-run setup, gym and lift setup, history import flow |
@@ -44,7 +45,7 @@ Read contracts/gospel/ARCHITECTURE-GOSPEL.md for the binding Clean Architecture 
 | `:feature:subscription` | Android library | Paywall and Play Billing state |
 | `:solver-service` | JVM app | Cloud Run worker. Claims synthesis jobs from Firestore, sends them to the Python solver, writes results to Cloud Storage |
 
-Feature modules use `:core:domain` and `:core:ui`. Feature modules stay out of each other. `:app` wires cross-feature navigation.
+Feature modules use `:core:application`, `:core:domain`, and `:core:ui`. `:core:application` depends only on `:core:domain`; `:core:data` and `:core:ui` depend on both. Feature modules stay out of each other. `:app` wires cross-feature navigation.
 
 Names to keep straight:
 
