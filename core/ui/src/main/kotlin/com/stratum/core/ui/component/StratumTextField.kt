@@ -191,15 +191,21 @@ private fun stratumTextFieldColors(isError: Boolean): TextFieldColors =
         unfocusedTextColor = StratumThemeAccessor.colors.textPrimary,
         disabledTextColor = StratumThemeAccessor.colors.textMuted,
         // §12.3: outlined fields are transparent (the border carries the chrome).
+        // Disabled matches: a sunken container fill made a disabled field render
+        // as a different surface than its enabled siblings on sheets (STR-245).
         focusedContainerColor = Color.Transparent,
         unfocusedContainerColor = Color.Transparent,
-        disabledContainerColor = StratumThemeAccessor.colors.surfaceSunken,
+        disabledContainerColor = Color.Transparent,
         cursorColor = StratumThemeAccessor.colors.accent,
         errorCursorColor = StratumThemeAccessor.colors.error,
         selectionColors = null,
         focusedBorderColor = StratumThemeAccessor.colors.accent,
-        unfocusedBorderColor = StratumThemeAccessor.colors.borderSubtle,
-        disabledBorderColor = StratumThemeAccessor.colors.borderSubtle,
+        // borderInteractive is the outlined-control border role (WCAG 1.4.11
+        // 3:1 on sheet surfaces). borderSubtle sits at 1.06:1 on the sheet
+        // surfaceInset, so unfocused and disabled fields vanished into sheets
+        // and read as plain text until tapped (STR-245).
+        unfocusedBorderColor = StratumThemeAccessor.colors.borderInteractive,
+        disabledBorderColor = StratumThemeAccessor.colors.borderInteractive,
         errorBorderColor = StratumThemeAccessor.colors.error,
         focusedLabelColor = StratumThemeAccessor.colors.accent,
         unfocusedLabelColor = StratumThemeAccessor.colors.textMuted,
