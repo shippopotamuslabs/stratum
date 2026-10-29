@@ -1,6 +1,7 @@
 package com.stratum.domain.program.schedule
 
 import com.stratum.domain.program.Workout
+import com.stratum.domain.onboarding.Weekday
 
 /**
  * One index in a program's cycle space of length [com.stratum.domain.program.Program.cycleLength].

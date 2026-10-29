@@ -6,9 +6,9 @@ import com.stratum.domain.lift.incrementFor
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.workout.SetSlot
-import com.stratum.domain.workout.SlotHistoryEntry
 import com.stratum.domain.workout.SlotRecommendation
 import javax.inject.Inject
+import com.stratum.domain.workout.SlotHistoryEntry
 
 /**
  * Linear-progression engine for true beginners. Per-session increment is GATED by RIR

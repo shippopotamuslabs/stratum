@@ -2,7 +2,7 @@ package com.stratum.core.testing.workout
 
 import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.domain.workout.WorkoutOverlay
-import com.stratum.domain.workout.WorkoutOverlayStore
+import com.stratum.application.workout.WorkoutOverlayStore
 
 /**
  * In-memory fake for [WorkoutOverlayStore] (UNIT_TESTING.md §6 — fakes over MockK for

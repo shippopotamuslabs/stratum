@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.stratum.domain.program.identity.WorkoutSupersetGroupId
 
 sealed interface EditSessionEvent {
     data class LiftSelected(

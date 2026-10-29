@@ -1,5 +1,6 @@
 package com.stratum.domain.onboarding
 
+
 /**
  * Single source of truth for onboarding Generate vs Import path resolution.
  *

@@ -12,11 +12,11 @@ import com.stratum.domain.logging.USER_VISIBLE_ERROR_EVENT
 import com.stratum.domain.subscription.BillingPurchaseResult
 import com.stratum.domain.subscription.EntitlementSource
 import com.stratum.domain.subscription.EntitlementState
-import com.stratum.domain.subscription.GetSubscriptionProductsUseCase
-import com.stratum.domain.subscription.ObserveBillingPurchaseResultsUseCase
-import com.stratum.domain.subscription.ObserveEntitlementUseCase
-import com.stratum.domain.subscription.PurchaseSubscriptionUseCase
-import com.stratum.domain.subscription.RestorePurchasesUseCase
+import com.stratum.application.subscription.GetSubscriptionProductsUseCase
+import com.stratum.application.subscription.ObserveBillingPurchaseResultsUseCase
+import com.stratum.application.subscription.ObserveEntitlementUseCase
+import com.stratum.application.subscription.PurchaseSubscriptionUseCase
+import com.stratum.application.subscription.RestorePurchasesUseCase
 import com.stratum.domain.subscription.SubscriptionCatalog
 import com.stratum.domain.subscription.annualSavingsPercent
 import com.stratum.domain.subscription.monthlyEquivalentMicros

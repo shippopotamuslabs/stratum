@@ -1,5 +1,6 @@
 package com.stratum.domain.program
 
+
 /**
  * Client-visible phases during on-device program generation. Emitted locally by
  * [GenerateProgramUseCase] and the domain pipeline — no server polling.

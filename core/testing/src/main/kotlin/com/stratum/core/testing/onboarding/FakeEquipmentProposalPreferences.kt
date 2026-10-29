@@ -1,6 +1,6 @@
 package com.stratum.core.testing.onboarding
 
-import com.stratum.domain.lift.EquipmentProposalPreferences
+import com.stratum.application.lift.EquipmentProposalPreferences
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow

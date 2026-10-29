@@ -2,6 +2,7 @@ package com.stratum.domain.program
 
 import com.stratum.domain.program.identity.LiftSetId
 import java.util.UUID
+import com.stratum.domain.program.identity.WorkoutLiftId
 
 /**
  * Pure set-list mutations for a [WorkoutLift] template. Used by single-lift and batch check-in

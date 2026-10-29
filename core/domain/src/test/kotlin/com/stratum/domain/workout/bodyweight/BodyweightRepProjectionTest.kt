@@ -3,6 +3,7 @@ package com.stratum.domain.workout.bodyweight
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import com.stratum.domain.workout.fatigue.projectReps
 
 /**
  * Unit tests for [BodyweightRepProjection] (STR-29): the load-free fatigue projection

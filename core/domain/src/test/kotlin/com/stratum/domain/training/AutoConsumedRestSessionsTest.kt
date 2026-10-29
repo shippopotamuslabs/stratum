@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import com.stratum.domain.training.identity.TrainingSessionId
 
 class AutoConsumedRestSessionsTest {
     private val now = Instant.parse("2025-06-01T12:00:00Z")

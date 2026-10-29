@@ -4,8 +4,8 @@ import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
-import com.stratum.domain.export.ExportProgramsUseCase
-import com.stratum.domain.export.PreviewExportProgramsUseCase
+import com.stratum.application.export.ExportProgramsUseCase
+import com.stratum.application.export.PreviewExportProgramsUseCase
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.LiftSet
 import com.stratum.domain.program.Program

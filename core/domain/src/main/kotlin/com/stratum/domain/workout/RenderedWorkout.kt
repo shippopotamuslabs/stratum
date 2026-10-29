@@ -10,6 +10,7 @@ import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.program.identity.WorkoutSupersetGroupId
 import com.stratum.domain.workout.myorep.MyoRepKind
+import com.stratum.domain.lift.Equipment
 
 /** Merge-result read model for a single set (D1). */
 data class RenderedSet(

@@ -1,7 +1,7 @@
 package com.stratum.domain.export
 
-import com.stratum.domain.export.ExportTestFixtures.CLOCK_INSTANT
-import com.stratum.domain.export.ExportTestFixtures.ZONE_NY
+import com.stratum.core.testing.export.ExportTestFixtures.CLOCK_INSTANT
+import com.stratum.core.testing.export.ExportTestFixtures.ZONE_NY
 import java.time.LocalDate
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull

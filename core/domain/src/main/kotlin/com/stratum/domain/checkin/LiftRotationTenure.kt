@@ -7,6 +7,7 @@ import com.stratum.domain.training.ProgramChangeEventPayload
 import com.stratum.domain.training.ProgramChangeEventType
 import java.time.Duration
 import java.time.Instant
+import com.stratum.domain.workout.LiftSwapped
 
 /**
  * Weeks the current variation has been in rotation for [workoutLiftId].

@@ -1,6 +1,6 @@
 package com.stratum.core.testing.lift
 
-import com.stratum.domain.lift.LiftNotesRepository
+import com.stratum.application.lift.LiftNotesRepository
 import com.stratum.domain.lift.LiftSessionNote
 import com.stratum.domain.lift.PastSessionLiftNote
 import com.stratum.domain.lift.SessionNoteInput

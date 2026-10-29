@@ -1,6 +1,6 @@
 package com.stratum.core.testing.workout
 
-import com.stratum.domain.workout.RepRangeShiftProposalPreferences
+import com.stratum.application.workout.RepRangeShiftProposalPreferences
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow

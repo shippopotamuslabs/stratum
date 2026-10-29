@@ -10,11 +10,11 @@ import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.workout.dropset.DropSetConstraintResult
 import com.stratum.domain.workout.dropset.DropSetConstraintValidator
 import com.stratum.domain.workout.dropset.DropSetConstraintViolation
-import com.stratum.domain.workout.dropset.EstimateDropSetWeightUseCase
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import com.stratum.domain.workout.dropset.EstimateDropSetWeightUseCase
 
 /**
  * Slice 6 — Drop sets. Fixed 20% reduction + must-follow constraint.

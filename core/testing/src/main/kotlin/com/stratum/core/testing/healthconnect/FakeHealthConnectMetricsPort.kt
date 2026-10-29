@@ -1,6 +1,6 @@
 package com.stratum.core.testing.healthconnect
 
-import com.stratum.domain.healthconnect.HealthConnectMetricsPort
+import com.stratum.application.healthconnect.HealthConnectMetricsPort
 import com.stratum.domain.healthconnect.HealthMetricType
 import com.stratum.domain.healthconnect.HealthMetricsRequest
 import com.stratum.domain.healthconnect.HealthMetricsSnapshot

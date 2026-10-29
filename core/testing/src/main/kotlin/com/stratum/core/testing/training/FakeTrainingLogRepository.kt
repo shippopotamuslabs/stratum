@@ -5,13 +5,13 @@ import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.identity.ProgramId
-import com.stratum.domain.program.ProgramRepository
+import com.stratum.application.program.ProgramRepository
 import com.stratum.domain.response.MuscleSetQueryBits
 import com.stratum.domain.training.CyclePointerUpdate
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.ProgramChangeEvent
-import com.stratum.domain.training.ProgramChangeEventRepository
-import com.stratum.domain.training.TrainingLogRepository
+import com.stratum.application.training.ProgramChangeEventRepository
+import com.stratum.application.training.TrainingLogRepository
 import com.stratum.domain.training.TrainingSession
 import com.stratum.domain.training.TrainingSessionOrigin
 import com.stratum.domain.training.TrainingSessionStatus

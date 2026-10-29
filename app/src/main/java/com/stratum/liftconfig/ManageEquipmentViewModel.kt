@@ -2,14 +2,14 @@ package com.stratum.liftconfig
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.stratum.domain.lift.AddCustomEquipmentUseCase
-import com.stratum.domain.lift.DeleteCustomEquipmentUseCase
+import com.stratum.application.lift.AddCustomEquipmentUseCase
+import com.stratum.application.lift.DeleteCustomEquipmentUseCase
 import com.stratum.domain.lift.Equipment
-import com.stratum.domain.lift.GetEquipmentDeleteImpactUseCase
-import com.stratum.domain.lift.ForkEquipmentUseCase
+import com.stratum.application.lift.GetEquipmentDeleteImpactUseCase
+import com.stratum.application.lift.ForkEquipmentUseCase
 import com.stratum.domain.lift.uniqueifyForkEquipmentName
 import com.stratum.domain.lift.IncrementTier
-import com.stratum.domain.lift.ObserveEquipmentCatalogUseCase
+import com.stratum.application.lift.ObserveEquipmentCatalogUseCase
 import com.stratum.domain.lift.SeedEquipmentIds
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.EquipmentPickResult

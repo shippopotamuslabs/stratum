@@ -1,8 +1,8 @@
 package com.stratum.core.ui.trainingsetup
 
-import com.stratum.domain.onboarding.ValidateMinimumVolumeStepUseCase
-import com.stratum.domain.onboarding.ValidateScheduleStepUseCase
-import com.stratum.domain.onboarding.ValidateSpecializationStepUseCase
+import com.stratum.application.onboarding.ValidateMinimumVolumeStepUseCase
+import com.stratum.application.onboarding.ValidateScheduleStepUseCase
+import com.stratum.application.onboarding.ValidateSpecializationStepUseCase
 
 /**
  * Domain validation bounds surfaced to training-setup presentation (onboarding + create program)

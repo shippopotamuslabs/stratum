@@ -2,7 +2,7 @@ package com.stratum.core.testing.training
 
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.training.ProgramChangeEvent
-import com.stratum.domain.training.ProgramChangeEventRepository
+import com.stratum.application.training.ProgramChangeEventRepository
 import java.time.Instant
 
 class FakeProgramChangeEventRepository : ProgramChangeEventRepository {

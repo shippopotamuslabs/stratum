@@ -1,9 +1,6 @@
 package com.stratum.domain.lift
 
 import com.stratum.domain.lift.identity.EquipmentId
-import com.stratum.domain.program.ProgramRepository
-import javax.inject.Inject
-import kotlinx.coroutines.flow.first
 
 /** One workout whose template slots point at the equipment being deleted. */
 data class AffectedTemplateWorkout(
@@ -18,6 +15,7 @@ data class AffectedTemplateWorkout(
  * One canonical computation shared by both delete surfaces (Manage Equipment
  * swipe and the increments-editor Delete button).
  */
+
 data class EquipmentDeleteImpact(
     val equipmentId: EquipmentId,
     val equipmentName: String,
@@ -39,38 +37,3 @@ data class EquipmentDeleteImpact(
  * affected slots span every program (active + library), and candidates are
  * the live catalog minus the deleted row and the hidden system rows.
  */
-class GetEquipmentDeleteImpactUseCase @Inject constructor(
-    private val equipmentRepository: EquipmentRepository,
-    private val liftRepository: LiftRepository,
-    private val programRepository: ProgramRepository,
-) {
-    suspend operator fun invoke(id: EquipmentId): EquipmentDeleteImpact? {
-        val equipment = equipmentRepository.getEquipment(id) ?: return null
-        val lifts = liftRepository.observeLifts().first()
-        val affected = filterEquipmentAffectedLifts(id, lifts)
-        val affectedWorkouts =
-            programRepository.getAllUserPrograms()
-                .flatMap { program ->
-                    program.workouts.map { workout -> program.name to workout }
-                }
-                .mapNotNull { (programName, workout) ->
-                    val count = workout.workoutLifts.count { it.equipmentId == id }
-                    if (count == 0) {
-                        null
-                    } else {
-                        AffectedTemplateWorkout(programName, workout.name, count)
-                    }
-                }
-                .sortedWith(compareBy({ it.workoutName.lowercase() }, { it.programName.lowercase() }))
-        val candidates =
-            equipmentRepository.observeEquipment().first()
-                .filter { it.id != id && it.id !in SeedEquipmentIds.hiddenFromCatalog }
-        return EquipmentDeleteImpact(
-            equipmentId = id,
-            equipmentName = equipment.name,
-            affectedLifts = affected.lifts,
-            affectedWorkouts = affectedWorkouts,
-            replacementCandidates = candidates,
-        )
-    }
-}

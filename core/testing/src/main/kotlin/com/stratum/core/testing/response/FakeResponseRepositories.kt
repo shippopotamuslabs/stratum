@@ -2,18 +2,18 @@ package com.stratum.core.testing.response
 
 import com.stratum.domain.response.Epoch
 import com.stratum.domain.response.ExperimentBlock
-import com.stratum.domain.response.ExperimentBlockRepository
+import com.stratum.application.response.ExperimentBlockRepository
 import com.stratum.domain.response.LiftEffectivenessObservation
-import com.stratum.domain.response.LiftEffectivenessObservationRepository
-import com.stratum.domain.response.LiftWeeklyPerformanceRepository
-import com.stratum.domain.response.MuscleWeeklyOutcomeIndexRepository
-import com.stratum.domain.response.MuscleWeeklyStimulusRepository
-import com.stratum.domain.response.ResponseEpochRepository
-import com.stratum.domain.response.ResponseModelingSchedulerPort
+import com.stratum.application.response.LiftEffectivenessObservationRepository
+import com.stratum.application.response.LiftWeeklyPerformanceRepository
+import com.stratum.application.response.MuscleWeeklyOutcomeIndexRepository
+import com.stratum.application.response.MuscleWeeklyStimulusRepository
+import com.stratum.application.response.ResponseEpochRepository
+import com.stratum.application.response.ResponseModelingSchedulerPort
 import com.stratum.domain.response.ResponseProfileMetadata
-import com.stratum.domain.response.ResponseProfileMetadataRepository
+import com.stratum.application.response.ResponseProfileMetadataRepository
 import com.stratum.domain.response.VolumeResponseObservation
-import com.stratum.domain.response.VolumeResponseObservationRepository
+import com.stratum.application.response.VolumeResponseObservationRepository
 import com.stratum.domain.response.modeling.LiftWeeklyPerformance
 import com.stratum.domain.response.modeling.MuscleWeeklyOutcomeIndex
 import com.stratum.domain.response.modeling.MuscleWeeklyStimulus

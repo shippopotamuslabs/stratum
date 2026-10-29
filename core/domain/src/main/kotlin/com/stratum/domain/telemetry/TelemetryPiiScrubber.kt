@@ -1,5 +1,7 @@
 package com.stratum.domain.telemetry
 
+import com.stratum.domain.logging.LoggingPort
+
 /**
  * Scrubs common PII patterns from telemetry text before Crashlytics breadcrumbs or future
  * OpenTelemetry export via [com.stratum.domain.logging.LoggingPort].

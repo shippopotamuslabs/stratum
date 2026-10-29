@@ -2,8 +2,8 @@ package com.stratum.navigation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.stratum.domain.onboarding.ObserveOnboardingCompleteUseCase
-import com.stratum.domain.subscription.ObserveEntitlementUseCase
+import com.stratum.application.onboarding.ObserveOnboardingCompleteUseCase
+import com.stratum.application.subscription.ObserveEntitlementUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi

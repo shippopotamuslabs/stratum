@@ -1,7 +1,7 @@
 package com.stratum.domain.checkin
 
-import com.stratum.domain.lift.ScoredLift
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.lift.ScoredLift
 
 /**
  * Auto-swap only when similarity is high enough to stay on-pattern/muscle, but not a near-clone

@@ -1,6 +1,6 @@
 package com.stratum.liftconfig
 
-import com.stratum.domain.lift.IncrementScanPort
+import com.stratum.application.lift.IncrementScanPort
 import com.stratum.domain.lift.ScanPhoto
 import com.stratum.domain.lift.ScannedTiers
 import kotlinx.coroutines.CompletableDeferred

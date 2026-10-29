@@ -1,6 +1,9 @@
 package com.stratum.domain.program
 
 import com.stratum.domain.workout.myorep.MyoRepKind
+import com.stratum.domain.program.generation.reference.clampBackOffRir
+import com.stratum.domain.workout.SlotShapeOverride
+import com.stratum.domain.workout.TemplateSetShape
 
 /**
  * Shared set-shape rules (STR-168): the one encoding of what a constructible set

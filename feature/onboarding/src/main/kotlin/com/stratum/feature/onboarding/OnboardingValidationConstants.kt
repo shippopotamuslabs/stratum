@@ -1,7 +1,7 @@
 package com.stratum.feature.onboarding
 
 import com.stratum.core.ui.trainingsetup.TrainingSetupValidationConstants
-import com.stratum.domain.lift.ValidateGymLiftsStepUseCase
+import com.stratum.application.lift.ValidateGymLiftsStepUseCase
 
 /**
  * Domain validation bounds for onboarding presentation. Training-setup caps come from shared

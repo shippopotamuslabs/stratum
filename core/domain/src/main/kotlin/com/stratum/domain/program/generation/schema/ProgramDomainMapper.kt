@@ -15,6 +15,7 @@ import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import java.time.Instant
 import java.util.UUID
+import com.stratum.domain.lift.Lift
 
 /**
  * Maps a normalized generation output to a domain [Program], assigning UUID ids client-side (D1).

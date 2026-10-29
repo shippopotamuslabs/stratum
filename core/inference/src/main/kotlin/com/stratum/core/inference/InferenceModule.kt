@@ -2,15 +2,15 @@ package com.stratum.core.inference
 
 import android.content.Context
 import com.google.firebase.functions.FirebaseFunctions
-import com.stratum.domain.auth.AccountDeletionPort
+import com.stratum.application.auth.AccountDeletionPort
 import com.stratum.domain.featureflag.AppFeatureFlag
-import com.stratum.domain.featureflag.FeatureFlagRepository
-import com.stratum.domain.importing.CustomLiftInferencePort
-import com.stratum.domain.importing.HistoricalImportPort
-import com.stratum.domain.importing.HistoricalImportRunnerPort
-import com.stratum.domain.importing.ImportEquipmentInferencePort
-import com.stratum.domain.importing.LiftNameEmbeddingPort
-import com.stratum.domain.lift.IncrementScanPort
+import com.stratum.application.featureflag.FeatureFlagRepository
+import com.stratum.application.importing.CustomLiftInferencePort
+import com.stratum.application.importing.HistoricalImportPort
+import com.stratum.application.importing.HistoricalImportRunnerPort
+import com.stratum.application.importing.ImportEquipmentInferencePort
+import com.stratum.application.importing.LiftNameEmbeddingPort
+import com.stratum.application.lift.IncrementScanPort
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.telemetry.ClientLogBuffer
 import com.stratum.domain.telemetry.PendingClientLogStore
@@ -21,10 +21,10 @@ import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import com.stratum.domain.program.generation.synthesis.FlagGatedProgramSynthesisPort
+import com.stratum.application.program.generation.synthesis.FlagGatedProgramSynthesisPort
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisPort
-import com.stratum.domain.program.importing.ProgramTemplateImportPort
-import com.stratum.domain.subscription.PlayEntitlementSyncPort
+import com.stratum.application.program.importing.ProgramTemplateImportPort
+import com.stratum.application.subscription.PlayEntitlementSyncPort
 import com.stratum.domain.telemetry.AnalyticsPort
 import com.stratum.domain.telemetry.CrashTelemetryPort
 import dagger.Binds

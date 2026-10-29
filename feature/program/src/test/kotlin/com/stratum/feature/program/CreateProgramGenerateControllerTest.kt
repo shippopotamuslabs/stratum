@@ -30,11 +30,11 @@ import com.stratum.domain.telemetry.SynthesisTelemetry.Companion.PARAM_STAGE
 import com.stratum.domain.logging.PARAM_ACTION
 import com.stratum.domain.logging.PARAM_SCREEN
 import com.stratum.domain.logging.USER_VISIBLE_ERROR_EVENT
-import com.stratum.domain.onboarding.GetUserTrainingProfileUseCase
-import com.stratum.domain.onboarding.UpdateSpecializationUseCase
-import com.stratum.domain.onboarding.UpdateUserTrainingProfileUseCase
-import com.stratum.domain.program.GenerateProgramUseCase
-import com.stratum.domain.program.InferLastTrainedBucketUseCase
+import com.stratum.application.onboarding.GetUserTrainingProfileUseCase
+import com.stratum.application.onboarding.UpdateSpecializationUseCase
+import com.stratum.application.onboarding.UpdateUserTrainingProfileUseCase
+import com.stratum.application.program.GenerateProgramUseCase
+import com.stratum.application.program.InferLastTrainedBucketUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle

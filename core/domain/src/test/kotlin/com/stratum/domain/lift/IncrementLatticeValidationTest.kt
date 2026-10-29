@@ -7,6 +7,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import com.stratum.domain.lift.identity.EquipmentId
 
 /**
  * STR-165: the tier and micro rules that used to live in the deleted validator use

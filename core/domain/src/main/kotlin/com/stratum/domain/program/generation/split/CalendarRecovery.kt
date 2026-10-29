@@ -1,6 +1,8 @@
 package com.stratum.domain.program.generation.split
 
 import com.stratum.domain.program.generation.slots.SessionTypeId
+import com.stratum.domain.program.Workout
+import com.stratum.domain.program.generation.structure.SessionRegionFilter
 
 /**
  * Presentation-only name → [SessionTypeId] heuristic.

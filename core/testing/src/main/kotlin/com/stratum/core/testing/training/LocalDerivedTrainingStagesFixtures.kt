@@ -7,12 +7,12 @@ import com.stratum.core.testing.importing.FakeSupersetAffinityRepository
 import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.response.FakeResponseProfilePersistencePort
-import com.stratum.domain.importing.ExtractTrainingInsightsUseCase
-import com.stratum.domain.lift.LiftRepository
+import com.stratum.application.importing.ExtractTrainingInsightsUseCase
+import com.stratum.application.lift.LiftRepository
 import com.stratum.domain.logging.LoggingPort
-import com.stratum.domain.training.LocalDerivedTrainingStages
-import com.stratum.domain.training.RefreshWeeklySeriesUseCase
-import com.stratum.domain.training.TrainingLogRepository
+import com.stratum.application.training.LocalDerivedTrainingStages
+import com.stratum.application.training.RefreshWeeklySeriesUseCase
+import com.stratum.application.training.TrainingLogRepository
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 

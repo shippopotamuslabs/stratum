@@ -16,6 +16,10 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import com.stratum.domain.program.generation.prescription.repRangeFromFatigue
+import com.stratum.domain.response.POPULATION_FATIGUE_DECAY_SLOPE
+import com.stratum.domain.workout.fatigue.FatigueModel
+import com.stratum.domain.workout.fatigue.projectReps
 
 class TrainingInsightsExtractorTest {
     @Test

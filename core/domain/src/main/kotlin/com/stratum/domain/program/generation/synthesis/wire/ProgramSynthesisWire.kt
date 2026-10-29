@@ -12,6 +12,11 @@ import com.stratum.domain.program.generation.split.ResolvedSessionPlan
 import com.stratum.domain.program.generation.structure.SessionRegionFilter
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisResult
 import com.stratum.domain.program.generation.volume.WeeklyVolumeTargets
+import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.program.generation.context.LiftContext
+import com.stratum.domain.program.generation.prescription.SessionSlotPlan
+import com.stratum.domain.program.generation.prescription.SynthesisObjectiveBreakdown
+import com.stratum.domain.program.generation.synthesis.ProgramSynthesisPort
 
 /**
  * Decoded synthesis request envelope for cloud CP-SAT (request body).

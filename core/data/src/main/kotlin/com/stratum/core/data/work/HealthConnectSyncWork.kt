@@ -1,10 +1,10 @@
 package com.stratum.core.data.work
 
-import com.stratum.domain.healthconnect.HealthConnectPreferencesPort
-import com.stratum.domain.healthconnect.HealthConnectSyncPort
-import com.stratum.domain.healthconnect.HealthConnectSyncStatusPort
+import com.stratum.application.healthconnect.HealthConnectPreferencesPort
+import com.stratum.application.healthconnect.HealthConnectSyncPort
+import com.stratum.application.healthconnect.HealthConnectSyncStatusPort
 import com.stratum.domain.healthconnect.isTerminalHealthConnectFailure
-import com.stratum.domain.training.TrainingLogRepository
+import com.stratum.application.training.TrainingLogRepository
 import com.stratum.domain.training.identity.TrainingSessionId
 import javax.inject.Inject
 

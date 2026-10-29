@@ -3,13 +3,13 @@ package com.stratum.domain.checkin
 import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
-import com.stratum.domain.lift.ScoredLift
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import com.stratum.domain.lift.ScoredLift
 
 class CheckInSwapSelectionTest {
 

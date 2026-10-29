@@ -2,6 +2,7 @@ package com.stratum.domain.lift.identity
 
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.training.identity.TrainingSessionId
+import com.stratum.domain.lift.LiftSessionNote
 
 /**
  * Type-safe identifier for a [com.stratum.domain.lift.LiftSessionNote] row.

@@ -2,10 +2,10 @@ package com.stratum.feature.history
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
+import com.stratum.application.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.Weight
-import com.stratum.domain.training.GetWorkoutSessionDetailUseCase
-import com.stratum.domain.training.UpdateCompletedSessionTimesUseCase
+import com.stratum.application.training.GetWorkoutSessionDetailUseCase
+import com.stratum.application.training.UpdateCompletedSessionTimesUseCase
 import com.stratum.domain.training.WorkoutSessionDetail
 import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.feature.history.ui.WorkoutSessionDetailUiState

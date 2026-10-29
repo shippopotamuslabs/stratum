@@ -6,7 +6,7 @@ import com.stratum.core.data.mapper.toEntity
 import com.stratum.core.data.sync.SyncCollection
 import com.stratum.core.data.sync.SyncTouch
 import com.stratum.domain.onboarding.UserTrainingProfile
-import com.stratum.domain.onboarding.UserTrainingProfileRepository
+import com.stratum.application.onboarding.UserTrainingProfileRepository
 import com.stratum.domain.onboarding.identity.UserProfileId
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow

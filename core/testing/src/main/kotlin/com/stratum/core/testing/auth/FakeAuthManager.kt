@@ -1,6 +1,6 @@
 package com.stratum.core.testing.auth
 
-import com.stratum.domain.auth.AuthManager
+import com.stratum.application.auth.AuthManager
 import com.stratum.domain.auth.AuthState
 import com.stratum.domain.auth.UserProfile
 import kotlinx.coroutines.flow.MutableStateFlow

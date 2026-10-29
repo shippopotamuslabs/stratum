@@ -1,7 +1,7 @@
 package com.stratum.core.testing.checkin
 
 import com.stratum.domain.checkin.CheckInPreferences
-import com.stratum.domain.checkin.CheckInPreferencesRepository
+import com.stratum.application.checkin.CheckInPreferencesRepository
 import java.time.Instant
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow

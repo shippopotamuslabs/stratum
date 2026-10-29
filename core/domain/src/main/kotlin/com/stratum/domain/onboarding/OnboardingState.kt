@@ -1,5 +1,6 @@
 package com.stratum.domain.onboarding
 
+
 /**
  * Read model for the onboarding wizard's persisted state — everything the UI needs to
  * render the current step and seed the Profile/Schedule drafts.

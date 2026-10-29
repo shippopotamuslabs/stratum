@@ -1,7 +1,7 @@
 package com.stratum.feature.workout
 
 import com.stratum.domain.di.ApplicationScope
-import com.stratum.domain.training.AbandonTrainingSessionUseCase
+import com.stratum.application.training.AbandonTrainingSessionUseCase
 import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.feature.workout.notification.LiveWorkoutSurfaces
 import javax.inject.Inject

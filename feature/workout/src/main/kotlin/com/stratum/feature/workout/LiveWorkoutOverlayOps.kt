@@ -10,7 +10,7 @@ import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.program.identity.WorkoutSupersetGroupId
 import com.stratum.domain.workout.AddedLiftDefaults
 import com.stratum.domain.workout.LoggedSetValue
-import com.stratum.domain.workout.MergeRenderedWorkoutUseCase
+import com.stratum.application.workout.MergeRenderedWorkoutUseCase
 import com.stratum.domain.workout.OverlayAddedLift
 import com.stratum.domain.workout.OverlaySetInstanceId
 import com.stratum.domain.workout.ProgressionSnapshot

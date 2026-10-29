@@ -1,6 +1,7 @@
 package com.stratum.domain.training
 
 import com.stratum.domain.program.SetType
+import com.stratum.domain.workout.myorep.MyoRepLifecycle
 
 /**
  * Whether a logged set should count toward **within-session main-block** fatigue math

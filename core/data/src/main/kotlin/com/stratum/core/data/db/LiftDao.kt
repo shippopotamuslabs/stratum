@@ -35,7 +35,7 @@ interface LiftDao {
      * bitmask (`1 shl MovementPattern.ordinal`), so a bitwise AND is the positional-safe filter:
      * the caller passes `bit = 1 shl pattern.ordinal`, and any lift carrying that pattern yields
      * a non-zero AND result. This is the SQL-predicate read backing
-     * [com.stratum.domain.lift.LiftRepository.observeLiftsContainingPattern] — equivalent to
+     * [com.stratum.application.lift.LiftRepository.observeLiftsContainingPattern] — equivalent to
      * `observeLifts().map { it.filter { l -> pattern in l.movementPatterns } }` but executed by
      * the database (DATA_LAYER_RULES.md §5).
      */
@@ -48,7 +48,7 @@ interface LiftDao {
 
     /**
      * Snapshot of lifts with tiers for the given ids only — backs
-     * [com.stratum.domain.lift.LiftRepository.getLiftsByIds]. Room expands empty [ids] poorly;
+     * [com.stratum.application.lift.LiftRepository.getLiftsByIds]. Room expands empty [ids] poorly;
      * the repository short-circuits empty collections.
      */
     @Query("SELECT * FROM lifts WHERE id IN (:ids)")

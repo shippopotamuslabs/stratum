@@ -4,23 +4,23 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.domain.lift.CatalogNames
 import com.stratum.domain.lift.Equipment
-import com.stratum.domain.lift.EquipmentAffectedLifts
-import com.stratum.domain.lift.ForkEquipmentWithTiersUseCase
+import com.stratum.application.lift.EquipmentAffectedLifts
+import com.stratum.application.lift.ForkEquipmentWithTiersUseCase
 import com.stratum.domain.lift.IncrementLattice
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.IncrementTiersValidationResult
-import com.stratum.domain.lift.ObserveEquipmentAffectedLiftsUseCase
-import com.stratum.domain.lift.ObserveEquipmentCatalogUseCase
-import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
+import com.stratum.application.lift.ObserveEquipmentAffectedLiftsUseCase
+import com.stratum.application.lift.ObserveEquipmentCatalogUseCase
+import com.stratum.application.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.MicroIncrementsValidationResult
 import com.stratum.domain.lift.ScanPhoto
-import com.stratum.domain.lift.RenameAndSetIncrementTiersUseCase
-import com.stratum.domain.lift.SetEquipmentIncrementTiersUseCase
-import com.stratum.domain.lift.SetLiftEquipmentUseCase
-import com.stratum.domain.lift.DeleteCustomEquipmentUseCase
-import com.stratum.domain.lift.GetEquipmentDeleteImpactUseCase
+import com.stratum.application.lift.RenameAndSetIncrementTiersUseCase
+import com.stratum.application.lift.SetEquipmentIncrementTiersUseCase
+import com.stratum.application.lift.SetLiftEquipmentUseCase
+import com.stratum.application.lift.DeleteCustomEquipmentUseCase
+import com.stratum.application.lift.GetEquipmentDeleteImpactUseCase
 import com.stratum.domain.lift.SeedEquipmentIds
-import com.stratum.domain.lift.DismissEquipmentProposalUseCase
+import com.stratum.application.lift.DismissEquipmentProposalUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.EquipmentPickResult
@@ -573,7 +573,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
     /**
      * Name prefill for the save-as-new sheet: the equipment's own name, unchanged
      * (STR-246). A collision with an existing name is resolved at save time by
-     * [com.stratum.domain.lift.ForkEquipmentUseCase] with a numbered suffix.
+     * [com.stratum.application.lift.ForkEquipmentUseCase] with a numbered suffix.
      */
     fun forkNameSuggestion(): String =
         uiState.value.equipmentName.ifBlank { "Equipment" }

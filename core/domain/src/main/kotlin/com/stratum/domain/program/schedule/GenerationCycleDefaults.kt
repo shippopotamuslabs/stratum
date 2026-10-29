@@ -1,12 +1,13 @@
 package com.stratum.domain.program.schedule
 
+
 /**
  * Generation cycle-space defaults for program gen.
  *
  * **Single source of default values** for train count N + rest count R.
  * Application of these defaults for generated programs happens only in
  * [materializeGeneratedCycleSpace] when UX does not supply an explicit rest pattern —
- * context mappers and [com.stratum.domain.program.GenerateProgramUseCase] pass raw UX
+ * context mappers and [com.stratum.application.program.GenerateProgramUseCase] pass raw UX
  * hints through and do not re-resolve defaults.
  *
  * No schedule-mode enum — only [cycleLength] + [restSlotIndices].

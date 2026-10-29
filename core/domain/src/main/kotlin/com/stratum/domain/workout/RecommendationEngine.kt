@@ -11,6 +11,7 @@ import com.stratum.domain.workout.fatigue.FatigueModel
 import com.stratum.domain.workout.fatigue.defaultLoadBumpAmount
 import com.stratum.domain.workout.fatigue.reduceWeightForLastSetFloor as sharedReduceWeightForLastSetFloor
 import javax.inject.Inject
+import com.stratum.domain.lift.Lift
 
 /**
  * Overlay-only recommendation engine (D4). **Single** Hold-vs-reduce path for remaining

@@ -12,27 +12,27 @@ import com.stratum.core.testing.response.FakeVolumeResponseObservationRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.domain.auth.AuthState
 import com.stratum.domain.auth.UserProfile
-import com.stratum.domain.importing.CancelHistoricalImportUseCase
-import com.stratum.domain.importing.ExecuteHistoricalImportUseCase
+import com.stratum.application.importing.CancelHistoricalImportUseCase
+import com.stratum.application.importing.ExecuteHistoricalImportUseCase
 import com.stratum.domain.importing.ExtractTrainingInsightsSummary
 import com.stratum.domain.importing.HistoricalImportEvent
 import com.stratum.domain.importing.ImportAnalysisMetadata
-import com.stratum.domain.importing.ImportAnalysisMetadataRepository
+import com.stratum.application.importing.ImportAnalysisMetadataRepository
 import com.stratum.domain.importing.ImportFailureKind
 import com.stratum.domain.importing.ImportHistoryPersistPolicy
 import com.stratum.domain.importing.LiftTrainingInsights
-import com.stratum.domain.importing.LiftTrainingInsightsRepository
-import com.stratum.domain.importing.LoadHistoricalImportSummaryUseCase
+import com.stratum.application.importing.LiftTrainingInsightsRepository
+import com.stratum.application.importing.LoadHistoricalImportSummaryUseCase
 import com.stratum.domain.importing.MergeImportStats
 import com.stratum.domain.importing.MuscleVolumeBaseline
-import com.stratum.domain.importing.MuscleVolumeBaselineRepository
-import com.stratum.domain.importing.ReconcileHistoricalImportUseCase
-import com.stratum.domain.importing.RefreshPersistedImportStateUseCase
-import com.stratum.domain.importing.RollbackHistoricalImportUseCase
-import com.stratum.domain.importing.RunHistoricalImportUseCase
+import com.stratum.application.importing.MuscleVolumeBaselineRepository
+import com.stratum.application.importing.ReconcileHistoricalImportUseCase
+import com.stratum.application.importing.RefreshPersistedImportStateUseCase
+import com.stratum.application.importing.RollbackHistoricalImportUseCase
+import com.stratum.application.importing.RunHistoricalImportUseCase
 import com.stratum.domain.importing.SupersetAffinity
-import com.stratum.domain.importing.SupersetAffinityRepository
-import com.stratum.domain.importing.ValidateImportFilesUseCase
+import com.stratum.application.importing.SupersetAffinityRepository
+import com.stratum.application.importing.ValidateImportFilesUseCase
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.core.testing.telemetry.FakeAnalyticsPort
 import com.stratum.domain.logging.LogAnalyticsEventUseCase
@@ -167,7 +167,7 @@ class ImportLogsViewModelTest {
             logError = LogErrorUseCase(loggingPort),
             logAnalytics = LogAnalyticsEventUseCase(analytics),
             observeWeightDisplayPreferences =
-                com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase(
+                com.stratum.application.lift.ObserveWeightDisplayPreferencesUseCase(
                     com.stratum.core.testing.lift.FakeWeightDisplayPreferencesRepository(),
                 ),
         )

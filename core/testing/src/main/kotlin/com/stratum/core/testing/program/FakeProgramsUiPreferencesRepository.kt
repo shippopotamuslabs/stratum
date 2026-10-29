@@ -1,7 +1,7 @@
 package com.stratum.core.testing.program
 
 import com.stratum.domain.program.ProgramsUiPreferences
-import com.stratum.domain.program.ProgramsUiPreferencesRepository
+import com.stratum.application.program.ProgramsUiPreferencesRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow

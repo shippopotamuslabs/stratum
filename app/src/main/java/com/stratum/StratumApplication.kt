@@ -7,7 +7,7 @@ import com.google.firebase.FirebaseApp
 import com.google.firebase.appcheck.FirebaseAppCheck
 import com.stratum.app.AppCheckInstaller
 import com.stratum.domain.di.ApplicationScope
-import com.stratum.domain.featureflag.FeatureFlagRepository
+import com.stratum.application.featureflag.FeatureFlagRepository
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.logging.ProcessErrorSafetyNet
 import com.stratum.domain.telemetry.ClientLogBuffer

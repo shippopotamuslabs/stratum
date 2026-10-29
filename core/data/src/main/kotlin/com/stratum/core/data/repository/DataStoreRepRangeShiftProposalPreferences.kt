@@ -4,7 +4,7 @@ import android.content.Context
 import com.stratum.core.data.prefs.DismissedFingerprintStore
 import com.stratum.core.data.workout.repRangeShiftProposalPreferencesDataStore
 import com.stratum.domain.workout.MAX_DISMISSED_REP_RANGE_SHIFT_FINGERPRINTS
-import com.stratum.domain.workout.RepRangeShiftProposalPreferences
+import com.stratum.application.workout.RepRangeShiftProposalPreferences
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton

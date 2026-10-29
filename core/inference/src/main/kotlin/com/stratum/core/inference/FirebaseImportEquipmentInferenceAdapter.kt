@@ -3,7 +3,7 @@ package com.stratum.core.inference
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.functions.FirebaseFunctions
 import com.stratum.domain.importing.GymEquipment
-import com.stratum.domain.importing.ImportEquipmentInferencePort
+import com.stratum.application.importing.ImportEquipmentInferencePort
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.tasks.await

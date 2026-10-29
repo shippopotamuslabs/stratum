@@ -5,7 +5,7 @@ import com.stratum.domain.importing.ImportCatalogProgressStep
 import com.stratum.domain.importing.ImportFileValidationResult
 import com.stratum.domain.importing.ImportProgress
 import com.stratum.domain.importing.ImportProgressPhase
-import com.stratum.domain.importing.RefreshPersistedImportStateResult
+import com.stratum.application.importing.RefreshPersistedImportStateResult
 
 internal fun ImportProgress.toUi(): ImportProgressUi = ImportProgressUi(
     phase = phase.toUi(),

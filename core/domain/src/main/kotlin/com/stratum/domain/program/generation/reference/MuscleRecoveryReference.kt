@@ -3,6 +3,7 @@
 package com.stratum.domain.program.generation.reference
 
 import kotlin.math.ceil
+import com.stratum.domain.onboarding.Weekday
 
 /**
  * Literature-informed minimum **calendar day-index gaps** between sessions that

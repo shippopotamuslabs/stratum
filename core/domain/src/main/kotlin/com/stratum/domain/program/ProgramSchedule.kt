@@ -5,6 +5,7 @@ import com.stratum.domain.program.generation.split.MuscleSessionExposure
 import com.stratum.domain.program.generation.reference.MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE
 import com.stratum.domain.program.generation.slots.SessionTypeId
 import com.stratum.domain.program.generation.slots.primaryMusclesForSessionType
+import com.stratum.domain.program.schedule.CycleProjection
 
 private const val MAX_SESSION_LETTER_INDEX = 25
 

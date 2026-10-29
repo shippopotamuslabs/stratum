@@ -1,5 +1,6 @@
 package com.stratum.domain.program.schedule
 
+
 /**
  * Converts planned **cycle** volume into **weekly-equivalent** units for landmarks / check-in
  * ceilings (MV/PV/RC are weekly).

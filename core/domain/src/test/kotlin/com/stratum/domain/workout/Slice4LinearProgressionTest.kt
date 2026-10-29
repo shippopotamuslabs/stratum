@@ -35,6 +35,10 @@ import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import com.stratum.domain.lift.LoadType
+import com.stratum.domain.program.identity.ProgramId
+import com.stratum.domain.program.identity.WorkoutId
+import com.stratum.domain.workout.fatigue.FatigueModel
 
 /**
  * Slice 4 — Linear progression (Greyskull-style hybrid). 16 scenarios (S4-*).

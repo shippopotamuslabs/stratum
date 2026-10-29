@@ -2,6 +2,8 @@ package com.stratum.domain.program
 
 import com.stratum.domain.program.schedule.CycleSlot
 import com.stratum.domain.program.schedule.resolvedCycleSlots
+import com.stratum.domain.training.CycleProgressResolver
+import com.stratum.domain.training.TrainingSession
 
 /**
  * Stable id for a [CycleSlot] while reordering. Training slots use workout id; rest slots use a

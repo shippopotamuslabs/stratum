@@ -4,9 +4,9 @@ import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.incrementFor
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.workout.SetSlot
-import com.stratum.domain.workout.SlotHistoryEntry
 import com.stratum.domain.workout.SlotRecommendation
 import javax.inject.Inject
+import com.stratum.domain.workout.SlotHistoryEntry
 
 /**
  * Double-progression engine (D8 primary). Increments load when failure capacity meets

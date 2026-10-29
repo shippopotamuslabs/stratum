@@ -1,5 +1,7 @@
 package com.stratum.domain.onboarding
 
+
+
 /**
  * Captured during the Profile and Schedule onboarding steps (OS-2). All fields are
  * nullable so a draft can be persisted incrementally as the user advances and navigates

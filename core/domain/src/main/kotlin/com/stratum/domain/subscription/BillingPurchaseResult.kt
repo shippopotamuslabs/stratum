@@ -1,5 +1,6 @@
 package com.stratum.domain.subscription
 
+
 sealed interface BillingPurchaseResult {
     data object Purchased : BillingPurchaseResult
 

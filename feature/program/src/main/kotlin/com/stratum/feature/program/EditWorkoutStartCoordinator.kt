@@ -2,12 +2,12 @@ package com.stratum.feature.program
 
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
-import com.stratum.domain.training.AbandonTrainingSessionUseCase
-import com.stratum.domain.training.ObserveCycleProgressUseCase
+import com.stratum.application.training.AbandonTrainingSessionUseCase
+import com.stratum.application.training.ObserveCycleProgressUseCase
 import com.stratum.domain.training.StartTrainingSessionRequest
 import com.stratum.domain.training.StartTrainingSessionResult
-import com.stratum.domain.training.StartTrainingSessionUseCase
-import com.stratum.domain.workout.ManageWorkoutOverlayUseCase
+import com.stratum.application.training.StartTrainingSessionUseCase
+import com.stratum.application.workout.ManageWorkoutOverlayUseCase
 import com.stratum.feature.program.ui.EditWorkoutUiState
 import kotlinx.coroutines.flow.first
 

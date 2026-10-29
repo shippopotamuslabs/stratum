@@ -1,5 +1,7 @@
 package com.stratum.domain.onboarding
 
+
+
 /**
  * Typed reasons the Specialization step fails validation. Not display strings —
  * presentation layers map them to user-facing copy (ARCHITECTURE.md §4.3).

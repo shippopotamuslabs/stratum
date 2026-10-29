@@ -10,15 +10,15 @@ import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.program.SCENARIO_LIFT_CATALOG
 import com.stratum.core.testing.program.scenarioContext
 import com.stratum.core.testing.program.testProgramGenerationPipeline
-import com.stratum.domain.lift.ApplyGymPresetUseCase
-import com.stratum.domain.lift.SetSelectedPresetUseCase
+import com.stratum.application.lift.ApplyGymPresetUseCase
+import com.stratum.application.lift.SetSelectedPresetUseCase
 import com.stratum.domain.lift.identity.LiftId
-import com.stratum.domain.onboarding.CompleteOnboardingUseCase
+import com.stratum.application.onboarding.CompleteOnboardingUseCase
 import com.stratum.domain.onboarding.TrainingAge
 import com.stratum.domain.onboarding.UserTrainingProfile
-import com.stratum.domain.program.GenerateProgramUseCase
+import com.stratum.application.program.GenerateProgramUseCase
 import com.stratum.core.testing.program.FixedProgramGenerationContextLoader
-import com.stratum.domain.program.ProgramGenerationContextLoader
+import com.stratum.application.program.ProgramGenerationContextLoader
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -160,14 +160,14 @@ class OnboardingGenerateViewModelTest {
             } else {
                 FixedProgramGenerationContextLoader(context = scenarioContext(days = 3, specialization = emptyMap()))
             }
-        val validateCurrentStep = com.stratum.domain.onboarding.ValidateCurrentOnboardingStepUseCase(
-            validateProfileStep = com.stratum.domain.onboarding.ValidateProfileStepUseCase(),
-            validateScheduleStep = com.stratum.domain.onboarding.ValidateScheduleStepUseCase(),
-            validateSpecializationStep = com.stratum.domain.onboarding.ValidateSpecializationStepUseCase(),
-            validateMinimumVolumeStep = com.stratum.domain.onboarding.ValidateMinimumVolumeStepUseCase(),
-            validateGymLiftsStep = com.stratum.domain.lift.ValidateGymLiftsStepUseCase(),
+        val validateCurrentStep = com.stratum.application.onboarding.ValidateCurrentOnboardingStepUseCase(
+            validateProfileStep = com.stratum.application.onboarding.ValidateProfileStepUseCase(),
+            validateScheduleStep = com.stratum.application.onboarding.ValidateScheduleStepUseCase(),
+            validateSpecializationStep = com.stratum.application.onboarding.ValidateSpecializationStepUseCase(),
+            validateMinimumVolumeStep = com.stratum.application.onboarding.ValidateMinimumVolumeStepUseCase(),
+            validateGymLiftsStep = com.stratum.application.lift.ValidateGymLiftsStepUseCase(),
         )
-        val rollbackHistoricalImport = com.stratum.domain.importing.RollbackHistoricalImportUseCase(
+        val rollbackHistoricalImport = com.stratum.application.importing.RollbackHistoricalImportUseCase(
             com.stratum.core.testing.training.FakeTrainingLogRepository(),
             com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository(),
             com.stratum.core.testing.importing.FakeSupersetAffinityRepository(),
@@ -176,12 +176,12 @@ class OnboardingGenerateViewModelTest {
             com.stratum.core.testing.response.FakeResponseProfilePersistencePort(),
             com.stratum.core.testing.onboarding.FakeLiftRepository(),
         )
-        val refreshPersistedImportState = com.stratum.domain.importing.RefreshPersistedImportStateUseCase(
-            reconcileHistoricalImport = com.stratum.domain.importing.ReconcileHistoricalImportUseCase(
+        val refreshPersistedImportState = com.stratum.application.importing.RefreshPersistedImportStateUseCase(
+            reconcileHistoricalImport = com.stratum.application.importing.ReconcileHistoricalImportUseCase(
                 com.stratum.core.testing.importing.FakeImportAnalysisMetadataRepository(),
                 rollbackHistoricalImport,
             ),
-            loadHistoricalImportSummary = com.stratum.domain.importing.LoadHistoricalImportSummaryUseCase(
+            loadHistoricalImportSummary = com.stratum.application.importing.LoadHistoricalImportSummaryUseCase(
                 com.stratum.core.testing.importing.FakeImportAnalysisMetadataRepository(),
                 com.stratum.core.testing.importing.FakeMuscleVolumeBaselineRepository(),
                 com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository(),
@@ -209,53 +209,53 @@ class OnboardingGenerateViewModelTest {
         )
         val weightDisplayPreferences = com.stratum.core.testing.lift.FakeWeightDisplayPreferencesRepository()
         val viewModel = OnboardingViewModel(
-            getOnboardingWizardState = com.stratum.domain.onboarding.GetOnboardingWizardStateUseCase(
-                getOnboardingState = com.stratum.domain.onboarding.GetOnboardingStateUseCase(
+            getOnboardingWizardState = com.stratum.application.onboarding.GetOnboardingWizardStateUseCase(
+                getOnboardingState = com.stratum.application.onboarding.GetOnboardingStateUseCase(
                     onboardingRepo,
                     profileRepo,
                 ),
-                observeSpecialization = com.stratum.domain.onboarding.ObserveSpecializationUseCase(
+                observeSpecialization = com.stratum.application.onboarding.ObserveSpecializationUseCase(
                     com.stratum.core.testing.onboarding.FakeSpecializationPreferenceRepository(),
                 ),
-                observeLiftCatalog = com.stratum.domain.lift.ObserveLiftCatalogUseCase(
+                observeLiftCatalog = com.stratum.application.lift.ObserveLiftCatalogUseCase(
                     com.stratum.core.testing.onboarding.FakeLiftRepository(),
                 ),
-                observeSelectedPreset = com.stratum.domain.lift.ObserveSelectedPresetUseCase(
+                observeSelectedPreset = com.stratum.application.lift.ObserveSelectedPresetUseCase(
                     com.stratum.core.testing.onboarding.FakeLiftRepository(),
                 ),
-                observeUsedHistoricalImport = com.stratum.domain.lift.ObserveUsedHistoricalImportUseCase(
+                observeUsedHistoricalImport = com.stratum.application.lift.ObserveUsedHistoricalImportUseCase(
                     com.stratum.core.testing.onboarding.FakeLiftRepository(),
                 ),
             ),
-            advanceOnboardingStep = com.stratum.domain.onboarding.AdvanceOnboardingStepUseCase(
+            advanceOnboardingStep = com.stratum.application.onboarding.AdvanceOnboardingStepUseCase(
                 validateCurrentStep = validateCurrentStep,
-                updateUserTrainingProfile = com.stratum.domain.onboarding.UpdateUserTrainingProfileUseCase(profileRepo),
-                updateSpecialization = com.stratum.domain.onboarding.UpdateSpecializationUseCase(
+                updateUserTrainingProfile = com.stratum.application.onboarding.UpdateUserTrainingProfileUseCase(profileRepo),
+                updateSpecialization = com.stratum.application.onboarding.UpdateSpecializationUseCase(
                     com.stratum.core.testing.onboarding.FakeSpecializationPreferenceRepository(),
                 ),
-                saveOnboardingProgress = com.stratum.domain.onboarding.SaveOnboardingProgressUseCase(onboardingRepo),
+                saveOnboardingProgress = com.stratum.application.onboarding.SaveOnboardingProgressUseCase(onboardingRepo),
                 loggingPort = com.stratum.core.testing.logging.FakeLoggingPort(),
             ),
-            getOnboardingStepCapabilities = com.stratum.domain.onboarding.GetOnboardingStepCapabilitiesUseCase(
+            getOnboardingStepCapabilities = com.stratum.application.onboarding.GetOnboardingStepCapabilitiesUseCase(
                 validateCurrentStep,
             ),
             applyGymPreset = ApplyGymPresetUseCase(com.stratum.core.testing.onboarding.FakeLiftRepository()),
             setSelectedPreset = SetSelectedPresetUseCase(com.stratum.core.testing.onboarding.FakeLiftRepository()),
-            executeHistoricalImport = com.stratum.domain.importing.ExecuteHistoricalImportUseCase(
-                validateImportFiles = com.stratum.domain.importing.ValidateImportFilesUseCase(),
-                runHistoricalImport = com.stratum.domain.importing.RunHistoricalImportUseCase(
+            executeHistoricalImport = com.stratum.application.importing.ExecuteHistoricalImportUseCase(
+                validateImportFiles = com.stratum.application.importing.ValidateImportFilesUseCase(),
+                runHistoricalImport = com.stratum.application.importing.RunHistoricalImportUseCase(
                     com.stratum.core.testing.importing.FakeHistoricalImportRunnerPort(),
                 ),
                 refreshPersistedImportState = refreshPersistedImportState,
             ),
-            cancelHistoricalImport = com.stratum.domain.importing.CancelHistoricalImportUseCase(
+            cancelHistoricalImport = com.stratum.application.importing.CancelHistoricalImportUseCase(
                 rollbackHistoricalImport,
                 refreshPersistedImportState,
                 com.stratum.core.testing.importing.FakeImportJobRepository(),
             ),
             refreshPersistedImportState = refreshPersistedImportState,
-            updateUserTrainingProfile = com.stratum.domain.onboarding.UpdateUserTrainingProfileUseCase(profileRepo),
-            updateSpecialization = com.stratum.domain.onboarding.UpdateSpecializationUseCase(
+            updateUserTrainingProfile = com.stratum.application.onboarding.UpdateUserTrainingProfileUseCase(profileRepo),
+            updateSpecialization = com.stratum.application.onboarding.UpdateSpecializationUseCase(
                 com.stratum.core.testing.onboarding.FakeSpecializationPreferenceRepository(),
             ),
             generateProgram = GenerateProgramUseCase(
@@ -264,14 +264,14 @@ class OnboardingGenerateViewModelTest {
                 liftRepository = liftRepo,
                 generationDispatcher = generationDispatcher,
             ),
-            activateProgram = com.stratum.domain.program.ActivateProgramUseCase(
+            activateProgram = com.stratum.application.program.ActivateProgramUseCase(
                 programRepository = programRepo,
                 programChangeEventRepository = com.stratum.core.testing.training.NoOpProgramChangeEventRepository(),
             ),
             completeOnboarding = CompleteOnboardingUseCase(onboardingRepo, profileRepo),
-            importProgramTemplate = com.stratum.domain.program.importing.ImportProgramTemplateUseCase(
+            importProgramTemplate = com.stratum.application.program.importing.ImportProgramTemplateUseCase(
                 importPort = com.stratum.core.testing.importing.FakeProgramTemplateImportPort(),
-                resolver = com.stratum.domain.program.importing.ResolveProgramTemplateLiftsUseCase(
+                resolver = com.stratum.application.program.importing.ResolveProgramTemplateLiftsUseCase(
                     liftRepository = liftRepo,
                     liftNameResolver = com.stratum.core.testing.importing.FakeLiftNameResolverPort(),
                 ),
@@ -286,11 +286,11 @@ class OnboardingGenerateViewModelTest {
                     analytics,
                 ),
             observeWeightDisplayPreferences =
-                com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase(
+                com.stratum.application.lift.ObserveWeightDisplayPreferencesUseCase(
                     weightDisplayPreferences,
                 ),
             setWeightDisplayUnit =
-                com.stratum.domain.lift.SetWeightDisplayUnitUseCase(
+                com.stratum.application.lift.SetWeightDisplayUnitUseCase(
                     weightDisplayPreferences,
                     com.stratum.core.testing.logging.FakeLoggingPort(),
                 ),

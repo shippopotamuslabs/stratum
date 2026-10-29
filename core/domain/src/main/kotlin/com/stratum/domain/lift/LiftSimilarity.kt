@@ -1,5 +1,7 @@
 package com.stratum.domain.lift
 
+import com.stratum.domain.program.generation.selection.scoreLift
+
 /**
  * Pure pairwise biomechanical similarity between two lifts, on a `0.0`–`1.0` scale.
  *

@@ -6,6 +6,8 @@ import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
 import java.time.Instant
 import java.time.ZoneId
+import com.stratum.domain.response.modeling.MuscleWeeklyOutcomeIndex
+import com.stratum.domain.response.modeling.VolumePosture
 
 /**
  * Top-level dashboard read model over a bounded window (default ~3 months). Answers

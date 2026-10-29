@@ -1,6 +1,6 @@
 package com.stratum.feature.workout.notification
 
-import com.stratum.domain.training.ObserveCycleProgressUseCase
+import com.stratum.application.training.ObserveCycleProgressUseCase
 import com.stratum.domain.training.TrainingSession
 import com.stratum.domain.training.TrainingSessionDisplayName
 import com.stratum.domain.training.liveWorkoutRouteId

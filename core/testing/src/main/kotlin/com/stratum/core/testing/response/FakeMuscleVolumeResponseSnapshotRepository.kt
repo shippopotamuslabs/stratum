@@ -1,6 +1,6 @@
 package com.stratum.core.testing.response
 
-import com.stratum.domain.response.MuscleVolumeResponseSnapshotRepository
+import com.stratum.application.response.MuscleVolumeResponseSnapshotRepository
 import com.stratum.domain.response.modeling.MuscleVolumeResponseSnapshot
 
 class FakeMuscleVolumeResponseSnapshotRepository : MuscleVolumeResponseSnapshotRepository {

@@ -5,8 +5,8 @@ import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.domain.export.ExportLogRange
-import com.stratum.domain.export.ExportTrainingLogsUseCase
-import com.stratum.domain.export.PreviewExportTrainingLogsUseCase
+import com.stratum.application.export.ExportTrainingLogsUseCase
+import com.stratum.application.export.PreviewExportTrainingLogsUseCase
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.training.LoggedLiftContext

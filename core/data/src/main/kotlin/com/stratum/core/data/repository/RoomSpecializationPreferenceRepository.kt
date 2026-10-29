@@ -8,7 +8,7 @@ import com.stratum.core.data.mapper.toEntities
 import com.stratum.core.data.sync.SyncCollection
 import com.stratum.core.data.sync.SyncTouch
 import com.stratum.domain.onboarding.SpecializationPreference
-import com.stratum.domain.onboarding.SpecializationPreferenceRepository
+import com.stratum.application.onboarding.SpecializationPreferenceRepository
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map

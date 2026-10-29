@@ -14,6 +14,7 @@ import com.stratum.domain.program.generation.structure.allowedRegionFiltersForPa
 import com.stratum.domain.program.generation.universe.SynthesisSlot
 import com.stratum.domain.program.generation.volume.TrainingDomain
 import com.stratum.domain.program.generation.volume.muscleTrainingDomain
+import com.stratum.domain.program.generation.prescription.SynthesisObjectiveBreakdown
 
 
 private fun patternFromSynthesis(pattern: String): MovementPattern =

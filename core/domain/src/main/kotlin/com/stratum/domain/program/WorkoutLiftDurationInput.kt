@@ -1,5 +1,7 @@
 package com.stratum.domain.program
 
+
+
 /**
  * One prescribed set for [EstimateWorkoutDurationMinutesUseCase].
  * [repMin]/[repMax] are raw band values (Double back-offs may be `0/0`).

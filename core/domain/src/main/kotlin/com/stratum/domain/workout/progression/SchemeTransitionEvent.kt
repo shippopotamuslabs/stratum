@@ -3,6 +3,7 @@ package com.stratum.domain.workout.progression
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.identity.WorkoutLiftId
+import com.stratum.domain.training.ProgramChangeEvent
 
 /**
  * Auto-transition event. Emitted when a Linear lift hits

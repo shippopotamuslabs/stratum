@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import com.stratum.domain.lift.Lift
 
 /**
  * Pins the Stratum-tuned rep/RIR bands and the [repRirForSlot] lookup. The bands guarantee a

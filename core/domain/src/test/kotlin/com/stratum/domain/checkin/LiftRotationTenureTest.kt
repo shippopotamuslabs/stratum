@@ -12,6 +12,7 @@ import java.time.temporal.ChronoUnit
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import com.stratum.domain.workout.LiftSwapped
 
 class LiftRotationTenureTest {
 

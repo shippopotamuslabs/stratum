@@ -11,11 +11,11 @@ import com.stratum.core.ui.trainingsetup.withTrainingSlotToggled
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.SpecializationLevel
 import com.stratum.domain.onboarding.SpecializationPreference
-import com.stratum.domain.onboarding.GetUserTrainingProfileUseCase
-import com.stratum.domain.onboarding.UpdateSpecializationUseCase
-import com.stratum.domain.onboarding.UpdateUserTrainingProfileUseCase
-import com.stratum.domain.program.GenerateProgramUseCase
-import com.stratum.domain.program.InferLastTrainedBucketUseCase
+import com.stratum.application.onboarding.GetUserTrainingProfileUseCase
+import com.stratum.application.onboarding.UpdateSpecializationUseCase
+import com.stratum.application.onboarding.UpdateUserTrainingProfileUseCase
+import com.stratum.application.program.GenerateProgramUseCase
+import com.stratum.application.program.InferLastTrainedBucketUseCase
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.ProgramGenerationProgress
 import com.stratum.domain.program.ProgramGenerationProgressPhase

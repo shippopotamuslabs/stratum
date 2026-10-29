@@ -1,7 +1,7 @@
 package com.stratum.core.testing.sync
 
 import com.stratum.domain.sync.CloudSessionState
-import com.stratum.domain.sync.CloudSyncPort
+import com.stratum.application.sync.CloudSyncPort
 import com.stratum.domain.sync.SyncStatus
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

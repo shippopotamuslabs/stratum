@@ -1,6 +1,6 @@
 package com.stratum.core.testing.program
 
-import com.stratum.domain.program.ProgramGenerationContextLoader
+import com.stratum.application.program.ProgramGenerationContextLoader
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 
 /** Test double that always returns a fixed [ProgramGenerationContext]. */

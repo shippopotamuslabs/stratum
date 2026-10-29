@@ -7,6 +7,8 @@ import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.training.identity.ProgramChangeEventId
 import java.time.Instant
+import com.stratum.domain.program.WorkoutLift
+import com.stratum.domain.workout.LiftSwapped
 
 enum class ProgramChangeEventType {
     LIFT_SWAPPED,

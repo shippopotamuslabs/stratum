@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import com.stratum.domain.lift.Equipment
 
 class LoggedResultTest {
     private val fakeLogging = FakeLoggingPort()

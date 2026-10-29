@@ -1,7 +1,7 @@
 package com.stratum.core.data.seed
 
 import android.content.Context
-import com.stratum.domain.importing.LiftEmbeddingCatalogPort
+import com.stratum.application.importing.LiftEmbeddingCatalogPort
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.logging.LoggingPort
 import java.nio.ByteBuffer

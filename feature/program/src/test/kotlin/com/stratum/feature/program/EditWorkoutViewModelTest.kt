@@ -9,7 +9,7 @@ import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.workout.FakeWorkoutOverlayStore
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
-import com.stratum.domain.lift.ObserveLiftCatalogUseCase
+import com.stratum.application.lift.ObserveLiftCatalogUseCase
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.Weekday
@@ -19,25 +19,25 @@ import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.SetType
 import com.stratum.domain.program.Workout
 import com.stratum.domain.program.WorkoutLift
-import com.stratum.domain.program.ComputeWorkoutMuscleVolumeUseCase
-import com.stratum.domain.program.EstimateWorkoutDurationMinutesUseCase
-import com.stratum.domain.program.ObserveProgramUseCase
+import com.stratum.application.program.ComputeWorkoutMuscleVolumeUseCase
+import com.stratum.application.program.EstimateWorkoutDurationMinutesUseCase
+import com.stratum.application.program.ObserveProgramUseCase
 import com.stratum.domain.program.identity.LiftSetId
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
-import com.stratum.domain.program.SaveWorkoutUseCase
-import com.stratum.domain.training.AbandonTrainingSessionUseCase
-import com.stratum.domain.training.ObserveCycleProgressUseCase
+import com.stratum.application.program.SaveWorkoutUseCase
+import com.stratum.application.training.AbandonTrainingSessionUseCase
+import com.stratum.application.training.ObserveCycleProgressUseCase
 import com.stratum.domain.training.ProgramChangeEventPayload
 import com.stratum.domain.training.ProgramChangeEventType
-import com.stratum.domain.training.StartTrainingSessionUseCase
+import com.stratum.application.training.StartTrainingSessionUseCase
 import com.stratum.domain.training.TrainingSession
 import com.stratum.domain.training.TrainingSessionKind
 import com.stratum.domain.training.TrainingSessionOrigin
 import com.stratum.domain.training.TrainingSessionStatus
 import com.stratum.domain.training.identity.TrainingSessionId
-import com.stratum.domain.workout.ManageWorkoutOverlayUseCase
+import com.stratum.application.workout.ManageWorkoutOverlayUseCase
 import com.stratum.domain.workout.WorkoutEditSession
 import com.stratum.core.ui.component.SupersetLinkDirection
 import com.stratum.feature.program.ui.EditWorkoutUiEvent
@@ -1067,7 +1067,7 @@ class EditWorkoutViewModelTest {
     }
 
     private fun buildViewModel(
-        programChangeEvents: com.stratum.domain.training.ProgramChangeEventRepository =
+        programChangeEvents: com.stratum.application.training.ProgramChangeEventRepository =
             com.stratum.core.testing.training.NoOpProgramChangeEventRepository(),
     ): EditWorkoutViewModel {
         val liftRepository =
@@ -1080,20 +1080,20 @@ class EditWorkoutViewModelTest {
             )
         return EditWorkoutViewModel(
             observeProgram = ObserveProgramUseCase(repository),
-            observeProgramById = com.stratum.domain.program.ObserveProgramByIdUseCase(repository),
+            observeProgramById = com.stratum.application.program.ObserveProgramByIdUseCase(repository),
             observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
             saveWorkoutUseCase = SaveWorkoutUseCase(repository, programChangeEvents, logging),
             computeWorkoutMuscleVolume = ComputeWorkoutMuscleVolumeUseCase(),
             estimateWorkoutDurationMinutes = EstimateWorkoutDurationMinutesUseCase(),
-            appendProgramChangeEvent = com.stratum.domain.training.AppendProgramChangeEventUseCase(programChangeEvents),
+            appendProgramChangeEvent = com.stratum.application.training.AppendProgramChangeEventUseCase(programChangeEvents),
             workoutEditSession = workoutEditSession,
             startTrainingSession = StartTrainingSessionUseCase(trainingLog, repository, logging),
             observeCycleProgress = ObserveCycleProgressUseCase(repository, trainingLog),
             abandonTrainingSession = AbandonTrainingSessionUseCase(trainingLog, logging),
             manageWorkoutOverlay = ManageWorkoutOverlayUseCase(FakeWorkoutOverlayStore(), logging),
-            observeEquipmentCatalog = com.stratum.domain.lift.ObserveEquipmentCatalogUseCase(equipmentRepository),
-            getEquipment = com.stratum.domain.lift.GetEquipmentUseCase(equipmentRepository),
-            getRecentlyUsedEquipment = com.stratum.domain.lift.GetRecentlyUsedEquipmentForLiftUseCase(
+            observeEquipmentCatalog = com.stratum.application.lift.ObserveEquipmentCatalogUseCase(equipmentRepository),
+            getEquipment = com.stratum.application.lift.GetEquipmentUseCase(equipmentRepository),
+            getRecentlyUsedEquipment = com.stratum.application.lift.GetRecentlyUsedEquipmentForLiftUseCase(
                 trainingLog,
                 equipmentRepository,
             ),

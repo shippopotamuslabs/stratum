@@ -5,10 +5,10 @@ import androidx.lifecycle.viewModelScope
 import com.stratum.core.ui.component.LiftSwapFilterIntent
 import com.stratum.core.ui.component.LiftSwapOptionState
 import com.stratum.core.ui.component.LiftSwapSheetState
-import com.stratum.domain.lift.RankSwapCandidatesUseCase
+import com.stratum.application.lift.RankSwapCandidatesUseCase
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.logging.LogErrorUseCase
-import com.stratum.domain.program.SwapWorkoutLiftUseCase
+import com.stratum.application.program.SwapWorkoutLiftUseCase
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.workout.WorkoutEditSession
 import com.stratum.feature.program.navigation.LiftSwapCommitMode

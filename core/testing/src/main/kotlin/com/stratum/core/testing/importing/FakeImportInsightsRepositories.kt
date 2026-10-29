@@ -1,13 +1,13 @@
 package com.stratum.core.testing.importing
 
 import com.stratum.domain.importing.ImportAnalysisMetadata
-import com.stratum.domain.importing.ImportAnalysisMetadataRepository
+import com.stratum.application.importing.ImportAnalysisMetadataRepository
 import com.stratum.domain.importing.LiftTrainingInsights
-import com.stratum.domain.importing.LiftTrainingInsightsRepository
+import com.stratum.application.importing.LiftTrainingInsightsRepository
 import com.stratum.domain.importing.MuscleVolumeBaseline
-import com.stratum.domain.importing.MuscleVolumeBaselineRepository
+import com.stratum.application.importing.MuscleVolumeBaselineRepository
 import com.stratum.domain.importing.SupersetAffinity
-import com.stratum.domain.importing.SupersetAffinityRepository
+import com.stratum.application.importing.SupersetAffinityRepository
 import com.stratum.domain.lift.identity.LiftId
 
 /**

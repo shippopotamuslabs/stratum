@@ -7,12 +7,12 @@ import com.stratum.core.testing.onboarding.FakeOnboardingRepository
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
-import com.stratum.domain.onboarding.ObserveOnboardingCompleteUseCase
+import com.stratum.application.onboarding.ObserveOnboardingCompleteUseCase
 import com.stratum.domain.onboarding.OnboardingProgress
 import com.stratum.domain.onboarding.OnboardingStep
-import com.stratum.domain.onboarding.ReopenOnboardingWizardUseCase
-import com.stratum.domain.program.DeleteProgramUseCase
-import com.stratum.domain.program.DiscardActiveProgramUseCase
+import com.stratum.application.onboarding.ReopenOnboardingWizardUseCase
+import com.stratum.application.program.DeleteProgramUseCase
+import com.stratum.application.program.DiscardActiveProgramUseCase
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse

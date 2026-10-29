@@ -2,7 +2,7 @@ package com.stratum.feature.history
 
 import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.training.FakeTrainingLogRepository
-import com.stratum.domain.training.ObserveWorkoutHistoryCalendarUseCase
+import com.stratum.application.training.ObserveWorkoutHistoryCalendarUseCase
 import com.stratum.feature.history.ui.WorkoutHistoryUiState
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle

@@ -7,6 +7,8 @@ import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.requireOptionalRirGoal
 import com.stratum.domain.training.identity.TrainingSessionId
 import java.time.Instant
+import com.stratum.domain.importing.ImportedHistorySanitizer
+import com.stratum.domain.lift.Equipment
 
 data class LoggedSet(
     val id: LoggedSetId,

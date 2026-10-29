@@ -2,12 +2,12 @@ package com.stratum.feature.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.stratum.domain.auth.AuthManager
+import com.stratum.application.auth.AuthManager
 import com.stratum.domain.auth.AuthState
-import com.stratum.domain.program.importing.ImportProgramTemplatesUseCase
+import com.stratum.application.program.importing.ImportProgramTemplatesUseCase
 import com.stratum.domain.program.importing.ProgramImportActivation
 import com.stratum.domain.program.importing.ProgramTemplateImportOptions
-import com.stratum.domain.program.importing.ProgramTemplateRejectedException
+import com.stratum.application.program.importing.ProgramTemplateRejectedException
 import com.stratum.domain.logging.LogAnalyticsEventUseCase
 import com.stratum.domain.logging.PARAM_ACTION
 import com.stratum.domain.logging.PARAM_SCREEN

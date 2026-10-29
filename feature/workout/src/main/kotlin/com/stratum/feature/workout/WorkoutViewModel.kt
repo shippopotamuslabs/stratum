@@ -3,17 +3,17 @@ package com.stratum.feature.workout
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.core.ui.component.SupersetLinkDirection
-import com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase
+import com.stratum.application.importing.ObserveLiftTrainingInsightsUseCase
 import com.stratum.core.ui.component.EquipmentSwapOption
 import com.stratum.core.ui.component.EquipmentSwapSheetState
 import com.stratum.domain.lift.CatalogNoteInput
 import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.EquipmentPickResult
-import com.stratum.domain.lift.GetLiftNoteListsUseCase
-import com.stratum.domain.lift.ObserveEquipmentCatalogUseCase
-import com.stratum.domain.lift.GetPastSessionNotesForLiftUseCase
+import com.stratum.application.lift.GetLiftNoteListsUseCase
+import com.stratum.application.lift.ObserveEquipmentCatalogUseCase
+import com.stratum.application.lift.GetPastSessionNotesForLiftUseCase
 import com.stratum.domain.lift.EquipmentPickAwaiter
-import com.stratum.domain.lift.GetRecentlyUsedEquipmentForLiftUseCase
+import com.stratum.application.lift.GetRecentlyUsedEquipmentForLiftUseCase
 import com.stratum.domain.lift.SessionNoteInput
 import com.stratum.domain.lift.WorkoutLiftNoteInput
 import com.stratum.domain.lift.identity.LiftCatalogNoteId
@@ -22,36 +22,36 @@ import com.stratum.domain.program.identity.WorkoutLiftNoteId
 import com.stratum.feature.workout.ui.LiftNoteListsSaveRequest
 import com.stratum.feature.workout.ui.NoteDraftUi
 import com.stratum.feature.workout.ui.NoteListsUi
-import com.stratum.domain.lift.ObserveLiftCatalogUseCase
-import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
+import com.stratum.application.lift.ObserveLiftCatalogUseCase
+import com.stratum.application.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.OptionalNoteEdit
 import com.stratum.domain.lift.SaveLiftNotesCommand
-import com.stratum.domain.lift.SaveLiftNotesUseCase
+import com.stratum.application.lift.SaveLiftNotesUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.logging.LogErrorUseCase
-import com.stratum.domain.program.GetProgramByIdUseCase
-import com.stratum.domain.program.SaveWorkoutUseCase
+import com.stratum.application.program.GetProgramByIdUseCase
+import com.stratum.application.program.SaveWorkoutUseCase
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
-import com.stratum.domain.training.DeleteLoggedSetUseCase
-import com.stratum.domain.training.FinalizeTrainingSessionUseCase
-import com.stratum.domain.training.GetLoggedSetsForSessionUseCase
-import com.stratum.domain.training.LogSetUseCase
-import com.stratum.domain.training.ObserveCycleProgressUseCase
-import com.stratum.domain.training.RewriteSessionLiftEquipmentUseCase
-import com.stratum.domain.training.UpdateLoggedSetUseCase
-import com.stratum.domain.workout.ApplyOverlayToWorkoutUseCase
-import com.stratum.domain.workout.ComputeTemplateChangeSummaryUseCase
-import com.stratum.domain.workout.GetSessionPinnedNoteListsUseCase
+import com.stratum.application.training.DeleteLoggedSetUseCase
+import com.stratum.application.training.FinalizeTrainingSessionUseCase
+import com.stratum.application.training.GetLoggedSetsForSessionUseCase
+import com.stratum.application.training.LogSetUseCase
+import com.stratum.application.training.ObserveCycleProgressUseCase
+import com.stratum.application.training.RewriteSessionLiftEquipmentUseCase
+import com.stratum.application.training.UpdateLoggedSetUseCase
+import com.stratum.application.workout.ApplyOverlayToWorkoutUseCase
+import com.stratum.application.workout.ComputeTemplateChangeSummaryUseCase
+import com.stratum.application.workout.GetSessionPinnedNoteListsUseCase
 import com.stratum.domain.workout.EditSessionEvent
-import com.stratum.domain.workout.EstimateAddedSetRepsUseCase
-import com.stratum.domain.workout.GenerateProgressionSnapshotUseCase
-import com.stratum.domain.workout.ManageWorkoutOverlayUseCase
-import com.stratum.domain.workout.MergeRenderedWorkoutUseCase
-import com.stratum.domain.workout.ProjectWorkoutStructureUseCase
-import com.stratum.domain.workout.RecomputeRecommendationsUseCase
+import com.stratum.application.workout.EstimateAddedSetRepsUseCase
+import com.stratum.application.workout.GenerateProgressionSnapshotUseCase
+import com.stratum.application.workout.ManageWorkoutOverlayUseCase
+import com.stratum.application.workout.MergeRenderedWorkoutUseCase
+import com.stratum.application.workout.ProjectWorkoutStructureUseCase
+import com.stratum.application.workout.RecomputeRecommendationsUseCase
 import com.stratum.domain.workout.SetSlotId
 import com.stratum.domain.workout.WorkoutEditSession
 import com.stratum.feature.workout.notification.LiveWorkoutSurfaces
@@ -104,7 +104,7 @@ class WorkoutViewModel @Inject constructor(
     logSetUseCase: LogSetUseCase,
     updateLoggedSet: UpdateLoggedSetUseCase,
     private val observeLiftCatalog: ObserveLiftCatalogUseCase,
-    private val getLiftsByIds: com.stratum.domain.lift.GetLiftsByIdsUseCase,
+    private val getLiftsByIds: com.stratum.application.lift.GetLiftsByIdsUseCase,
     getLoggedSetsForSession: GetLoggedSetsForSessionUseCase,
     deleteLoggedSet: DeleteLoggedSetUseCase,
     private val processScopedAbandon: ProcessScopedAbandonTrainingSession,
@@ -124,7 +124,7 @@ class WorkoutViewModel @Inject constructor(
     private val getLiftNoteLists: GetLiftNoteListsUseCase,
     getSessionPinnedNoteLists: GetSessionPinnedNoteListsUseCase,
     private val observeEquipmentCatalog: ObserveEquipmentCatalogUseCase,
-    private val getEquipment: com.stratum.domain.lift.GetEquipmentUseCase,
+    private val getEquipment: com.stratum.application.lift.GetEquipmentUseCase,
     private val getRecentlyUsedEquipment: GetRecentlyUsedEquipmentForLiftUseCase,
     private val equipmentPickResult: EquipmentPickResult,
     private val rewriteSessionLiftEquipment: RewriteSessionLiftEquipmentUseCase,

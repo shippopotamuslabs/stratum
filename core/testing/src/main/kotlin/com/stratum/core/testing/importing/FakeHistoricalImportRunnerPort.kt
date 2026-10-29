@@ -2,7 +2,7 @@ package com.stratum.core.testing.importing
 
 import com.stratum.domain.importing.ExtractTrainingInsightsSummary
 import com.stratum.domain.importing.HistoricalImportEvent
-import com.stratum.domain.importing.HistoricalImportRunnerPort
+import com.stratum.application.importing.HistoricalImportRunnerPort
 import com.stratum.domain.importing.HistoricalImportResumeState
 import com.stratum.domain.importing.ImportFileInput
 import com.stratum.domain.importing.ImportHistoryPersistPolicy

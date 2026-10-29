@@ -1,10 +1,10 @@
 package com.stratum.core.testing.subscription
 
-import com.stratum.domain.subscription.BillingPort
+import com.stratum.application.subscription.BillingPort
 import com.stratum.domain.subscription.BillingPurchaseResult
-import com.stratum.domain.subscription.EntitlementRepository
+import com.stratum.application.subscription.EntitlementRepository
 import com.stratum.domain.subscription.EntitlementState
-import com.stratum.domain.subscription.PlayEntitlementSyncPort
+import com.stratum.application.subscription.PlayEntitlementSyncPort
 import com.stratum.domain.subscription.SubscriptionCatalog
 import com.stratum.domain.subscription.SubscriptionProduct
 import com.stratum.domain.subscription.SubscriptionPurchase

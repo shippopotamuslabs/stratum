@@ -2,7 +2,7 @@ package com.stratum.core.inference
 
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.functions.FirebaseFunctions
-import com.stratum.domain.importing.LiftNameEmbeddingPort
+import com.stratum.application.importing.LiftNameEmbeddingPort
 import com.stratum.domain.logging.LoggingPort
 import javax.inject.Inject
 import javax.inject.Singleton

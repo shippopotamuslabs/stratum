@@ -2,7 +2,7 @@ package com.stratum.core.testing.onboarding
 
 import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.EquipmentNameMatching
-import com.stratum.domain.lift.EquipmentRepository
+import com.stratum.application.lift.EquipmentRepository
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.Weight

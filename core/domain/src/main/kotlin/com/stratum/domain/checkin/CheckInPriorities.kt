@@ -1,5 +1,6 @@
 package com.stratum.domain.checkin
 
+
 /**
  * Shared sort priority for check-in actions (lower = more urgent / listed first).
  * Used by batch contender order, display order, and [CheckInDecisionEngine.recommendationComparator].

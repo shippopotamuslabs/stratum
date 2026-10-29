@@ -2,7 +2,7 @@ package com.stratum.core.data.seed
 
 import android.content.Context
 import com.stratum.domain.importing.GymEquipment
-import com.stratum.domain.importing.LiftEquipmentCatalogPort
+import com.stratum.application.importing.LiftEquipmentCatalogPort
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.logging.LoggingPort
 import kotlinx.serialization.json.Json

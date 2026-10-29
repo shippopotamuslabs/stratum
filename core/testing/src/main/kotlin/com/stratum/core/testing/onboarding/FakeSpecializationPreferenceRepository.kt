@@ -1,7 +1,7 @@
 package com.stratum.core.testing.onboarding
 
 import com.stratum.domain.onboarding.SpecializationPreference
-import com.stratum.domain.onboarding.SpecializationPreferenceRepository
+import com.stratum.application.onboarding.SpecializationPreferenceRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 

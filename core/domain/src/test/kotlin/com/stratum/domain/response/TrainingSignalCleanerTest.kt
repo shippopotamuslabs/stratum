@@ -1,6 +1,6 @@
 package com.stratum.domain.response
 
-import com.stratum.domain.response.fixtures.ResponseFixtures
+import com.stratum.core.testing.response.ResponseFixtures
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.onboarding.MuscleGroup
 import org.junit.jupiter.api.Assertions.assertEquals

@@ -1,6 +1,8 @@
 package com.stratum.domain.workout.myorep
 
 import kotlin.math.roundToInt
+import com.stratum.domain.importing.FatigueDecay
+import com.stratum.domain.workout.intensifier.RestDefaultForTransition
 
 /**
  * Literature-based default rep projection for myo-rep mini-sets under short rest

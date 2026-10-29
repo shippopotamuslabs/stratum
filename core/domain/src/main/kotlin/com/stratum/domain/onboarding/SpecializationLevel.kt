@@ -1,5 +1,6 @@
 package com.stratum.domain.onboarding
 
+
 /**
  * How strongly a [MuscleGroup] is prioritized in the generated program.
  *

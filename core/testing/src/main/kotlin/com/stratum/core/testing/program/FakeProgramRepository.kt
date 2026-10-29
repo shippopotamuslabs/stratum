@@ -5,7 +5,7 @@ import com.stratum.domain.lift.WorkoutLiftNoteInput
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.sanitizeLiftNoteBody
 import com.stratum.domain.program.Program
-import com.stratum.domain.program.ProgramRepository
+import com.stratum.application.program.ProgramRepository
 import com.stratum.domain.program.WorkoutLift
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutLiftId

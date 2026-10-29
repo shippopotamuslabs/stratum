@@ -1,7 +1,7 @@
 package com.stratum.telemetry
 
 import com.stratum.domain.auth.AuthState
-import com.stratum.domain.auth.GetAuthStateUseCase
+import com.stratum.application.auth.GetAuthStateUseCase
 import com.stratum.domain.di.ApplicationScope
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.logging.collectLatestRestarting

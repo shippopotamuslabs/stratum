@@ -3,6 +3,7 @@ package com.stratum.domain.workout
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
+import com.stratum.domain.workout.fatigue.LAST_SET_REP_FLOOR
 
 /**
  * Max rep-range shift cards per completed session (product decision; matches equipment cap).

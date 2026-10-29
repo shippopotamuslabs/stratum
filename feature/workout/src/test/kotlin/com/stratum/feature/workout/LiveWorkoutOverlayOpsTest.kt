@@ -9,7 +9,7 @@ import com.stratum.domain.program.identity.LiftSetId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.program.identity.WorkoutSupersetGroupId
-import com.stratum.domain.workout.MergeRenderedWorkoutUseCase
+import com.stratum.application.workout.MergeRenderedWorkoutUseCase
 import com.stratum.domain.workout.OverlayAddedLift
 import com.stratum.domain.workout.OverlaySetInstanceId
 import com.stratum.domain.workout.SetSlot
@@ -236,7 +236,7 @@ class LiveWorkoutOverlayOpsTest {
             snapshotBySlot = emptyMap(),
             liftsById = liftsById,
             liftNamesById = liftsById.mapValues { it.value.name },
-            mergeRenderedWorkout = com.stratum.domain.workout.MergeRenderedWorkoutUseCase(),
+            mergeRenderedWorkout = com.stratum.application.workout.MergeRenderedWorkoutUseCase(),
         )
 
         assertEquals(1, rendered.lifts.size)

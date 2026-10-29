@@ -2,7 +2,7 @@ package com.stratum.feature.onboarding
 
 import com.stratum.domain.program.ProgramGenerationProgress
 import com.stratum.domain.program.importing.ProgramTemplateImportPhase
-import com.stratum.domain.program.importing.ProgramTemplateRejectedException
+import com.stratum.application.program.importing.ProgramTemplateRejectedException
 
 /**
  * Pure generate / program-import progress and error mapping for [OnboardingViewModel].

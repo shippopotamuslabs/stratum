@@ -1,5 +1,12 @@
 package com.stratum.domain.program.importing
 
+import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.onboarding.Weekday
+import com.stratum.domain.program.Workout
+import com.stratum.domain.program.generation.schema.NormalizedProgram
+import com.stratum.domain.program.identity.WorkoutSupersetGroupId
+
+
 /**
  * Type-safe identifier for a program-template import job. The value is generated client-side
  * (UUID) and echoed in the Firestore job path `users/{uid}/programImportJobs/{id}`.
@@ -12,7 +19,7 @@ value class ProgramTemplateImportJobId(val value: String)
  * server's deterministic parser and consumed by the client.
  *
  * Lifts are **name-keyed** (`[ProgramTemplateLift.name]`) — the client resolves them to catalog
- * `LiftId`s via [com.stratum.domain.importing.LiftNameResolverPort], creating custom lifts for any
+ * `LiftId`s via [com.stratum.application.importing.LiftNameResolverPort], creating custom lifts for any
  * unmatched names. This mirrors how the historical-import pipeline treats `exerciseNameRaw`.
  *
  * Distinct from `com.stratum.domain.program.generation.schema.NormalizedProgram` (which is the

@@ -1,8 +1,8 @@
 package com.stratum.feature.program
 
 import com.stratum.domain.program.Program
-import com.stratum.domain.training.AbandonTrainingSessionUseCase
-import com.stratum.domain.training.ObserveActiveSessionUseCase
+import com.stratum.application.training.AbandonTrainingSessionUseCase
+import com.stratum.application.training.ObserveActiveSessionUseCase
 import com.stratum.domain.training.TrainingSession
 import com.stratum.domain.training.TrainingSessionStatus
 import com.stratum.domain.training.isOrphanedAgainstActiveProgram

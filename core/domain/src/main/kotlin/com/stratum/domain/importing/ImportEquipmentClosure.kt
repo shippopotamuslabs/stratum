@@ -2,6 +2,7 @@ package com.stratum.domain.importing
 
 import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.lift.Equipment
 
 /**
  * Pure equipment-closure + gym-type derivation used transiently by [ResolveImportLiftsUseCase] for

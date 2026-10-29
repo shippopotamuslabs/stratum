@@ -3,7 +3,7 @@ package com.stratum.core.testing.onboarding
 import com.stratum.core.testing.lift.FakeLiftNotesRepository
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
-import com.stratum.domain.lift.MergeLiftsPort
+import com.stratum.application.lift.MergeLiftsPort
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.Workout

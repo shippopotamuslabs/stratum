@@ -2,7 +2,7 @@ package com.stratum.core.testing.onboarding
 
 import com.stratum.domain.onboarding.OnboardingPath
 import com.stratum.domain.onboarding.OnboardingProgress
-import com.stratum.domain.onboarding.OnboardingRepository
+import com.stratum.application.onboarding.OnboardingRepository
 import com.stratum.domain.onboarding.OnboardingStep
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow

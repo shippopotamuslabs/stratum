@@ -2,15 +2,15 @@ package com.stratum.feature.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.stratum.domain.auth.AuthManager
+import com.stratum.application.auth.AuthManager
 import com.stratum.domain.auth.AuthState
-import com.stratum.domain.importing.CancelHistoricalImportUseCase
-import com.stratum.domain.importing.ExecuteHistoricalImportUseCase
-import com.stratum.domain.importing.HistoricalImportOrchestrationEvent
+import com.stratum.application.importing.CancelHistoricalImportUseCase
+import com.stratum.application.importing.ExecuteHistoricalImportUseCase
+import com.stratum.application.importing.HistoricalImportOrchestrationEvent
 import com.stratum.domain.importing.HistoricalImportResumeState
 import com.stratum.domain.importing.ImportFileInput
 import com.stratum.domain.importing.ImportHistoryPersistPolicy
-import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
+import com.stratum.application.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.logging.LogAnalyticsEventUseCase
 import com.stratum.domain.logging.LogErrorUseCase

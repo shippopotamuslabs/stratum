@@ -1,5 +1,7 @@
 package com.stratum.domain.telemetry
 
+import com.stratum.domain.logging.LoggingPort
+
 /**
  * Domain port for Crashlytics/telemetry session attribution, screen tracking, and user context.
  * Separated from [com.stratum.domain.logging.LoggingPort] to keep log levels decoupled from

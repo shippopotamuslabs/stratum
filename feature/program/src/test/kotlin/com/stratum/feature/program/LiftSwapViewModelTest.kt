@@ -9,14 +9,14 @@ import com.stratum.core.testing.training.NoOpProgramChangeEventRepository
 import com.stratum.core.ui.component.LiftSwapSheetState
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
-import com.stratum.domain.lift.RankSwapCandidatesUseCase
+import com.stratum.application.lift.RankSwapCandidatesUseCase
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.ProgressionScheme
-import com.stratum.domain.program.SwapWorkoutLiftUseCase
+import com.stratum.application.program.SwapWorkoutLiftUseCase
 import com.stratum.domain.program.Workout
 import com.stratum.domain.program.WorkoutLift
 import com.stratum.domain.program.identity.ProgramId

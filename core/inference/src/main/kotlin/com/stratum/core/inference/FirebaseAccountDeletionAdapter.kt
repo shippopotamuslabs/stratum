@@ -2,7 +2,7 @@ package com.stratum.core.inference
 
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.functions.FirebaseFunctions
-import com.stratum.domain.auth.AccountDeletionPort
+import com.stratum.application.auth.AccountDeletionPort
 import com.stratum.domain.logging.LoggingPort
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject

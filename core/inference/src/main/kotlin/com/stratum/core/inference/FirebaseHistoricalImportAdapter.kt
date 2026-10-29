@@ -3,7 +3,7 @@ package com.stratum.core.inference
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.storage.FirebaseStorage
-import com.stratum.domain.importing.HistoricalImportPort
+import com.stratum.application.importing.HistoricalImportPort
 import com.stratum.domain.importing.ImportJobSnapshot
 import com.stratum.domain.importing.ImportProgressPhase
 import com.stratum.domain.importing.RemoteImportJobStatus

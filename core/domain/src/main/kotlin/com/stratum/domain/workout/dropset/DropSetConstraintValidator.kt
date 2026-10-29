@@ -26,6 +26,7 @@ sealed interface DropSetConstraintResult {
  * Enforces the must-follow constraint. A drop set MUST immediately follow another
  * set of the same lift — i.e. a `DropSet` slot may not occupy position 0. Pure.
  */
+
 class DropSetConstraintValidator @Inject constructor() {
     operator fun invoke(lift: WorkoutLiftProjection): DropSetConstraintResult {
         val firstIsDrop = lift.slots.firstOrNull()?.setType == SetType.DropSet
@@ -44,6 +45,7 @@ class DropSetConstraintValidator @Inject constructor() {
  *
  * Replaces the old fatigue-percent primary formula.
  */
+
 class EstimateDropSetWeightUseCase @Inject constructor() {
     operator fun invoke(
         precedingWeight: Weight,

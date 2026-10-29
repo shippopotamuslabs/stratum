@@ -4,6 +4,8 @@ import com.stratum.domain.program.LiftSet
 import com.stratum.domain.program.SetType
 import com.stratum.domain.program.requireSetShape
 import com.stratum.domain.workout.myorep.MyoRepKind
+import com.stratum.domain.lift.Equipment
+import com.stratum.domain.lift.identity.EquipmentId
 
 /**
  * Categories for the end-of-workout template change summary (STR-125).

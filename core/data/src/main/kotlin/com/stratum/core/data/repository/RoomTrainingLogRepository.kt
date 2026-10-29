@@ -20,7 +20,7 @@ import com.stratum.domain.response.MuscleSetQueryBits
 import com.stratum.domain.training.CyclePointerUpdate
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.ProgramChangeEvent
-import com.stratum.domain.training.TrainingLogRepository
+import com.stratum.application.training.TrainingLogRepository
 import com.stratum.domain.training.TrainingSession
 import com.stratum.domain.training.TrainingSessionStatus
 import com.stratum.domain.training.identity.TrainingSessionId

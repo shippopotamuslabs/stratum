@@ -1,6 +1,6 @@
 package com.stratum.core.testing.importing
 
-import com.stratum.domain.importing.HistoricalImportPort
+import com.stratum.application.importing.HistoricalImportPort
 import com.stratum.domain.importing.ImportJobSnapshot
 import com.stratum.domain.importing.ImportProgressPhase
 import com.stratum.domain.importing.RemoteImportJobStatus

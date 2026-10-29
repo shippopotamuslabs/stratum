@@ -5,7 +5,7 @@ import com.stratum.core.testing.auth.FakeAuthManager
 import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.telemetry.FakeCrashTelemetryPort
 import com.stratum.domain.auth.AuthState
-import com.stratum.domain.auth.GetAuthStateUseCase
+import com.stratum.application.auth.GetAuthStateUseCase
 import com.stratum.domain.auth.UserProfile
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi

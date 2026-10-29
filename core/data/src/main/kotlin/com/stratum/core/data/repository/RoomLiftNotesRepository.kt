@@ -8,7 +8,7 @@ import com.stratum.core.data.db.StratumDatabase
 import com.stratum.core.data.sync.SyncCollection
 import com.stratum.core.data.sync.SyncFlags
 import com.stratum.core.data.sync.SyncTouch
-import com.stratum.domain.lift.LiftNotesRepository
+import com.stratum.application.lift.LiftNotesRepository
 import com.stratum.domain.lift.LiftSessionNote
 import com.stratum.domain.lift.PastSessionLiftNote
 import com.stratum.domain.lift.SessionNoteInput

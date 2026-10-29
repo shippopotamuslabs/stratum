@@ -1,5 +1,6 @@
 package com.stratum.domain.importing
 
+
 sealed interface ImportFileValidationResult {
     data object Valid : ImportFileValidationResult
 

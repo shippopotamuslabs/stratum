@@ -9,6 +9,8 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.program.generation.reference.RpRepProfile
 
 /**
  * FPR-S4-001 / FPR-S4-005 / FPR-S4-007 — Accessory hard rename for slot roles and allow-lists.

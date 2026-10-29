@@ -12,6 +12,8 @@ import com.stratum.domain.lift.MAJOR_COMPOUND_PATTERNS
 import com.stratum.domain.program.generation.reference.MIN_SPECIALIZED_DIRECT_SETS
 import com.stratum.domain.program.generation.reference.sessionTrimHardSetsForLength
 import com.stratum.domain.program.generation.volume.WeeklyVolumeTarget
+import com.stratum.domain.program.generation.build.assembleWorkouts
+import com.stratum.domain.program.generation.draft.ProgramLiftDraft
 
 private const val LOWER_ANCHOR_MIN_SETS = 2
 

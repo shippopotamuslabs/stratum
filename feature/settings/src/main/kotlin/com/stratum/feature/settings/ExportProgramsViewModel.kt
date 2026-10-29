@@ -3,8 +3,8 @@ package com.stratum.feature.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.domain.export.ExportFileResult
-import com.stratum.domain.export.ExportProgramsUseCase
-import com.stratum.domain.export.PreviewExportProgramsUseCase
+import com.stratum.application.export.ExportProgramsUseCase
+import com.stratum.application.export.PreviewExportProgramsUseCase
 import com.stratum.domain.program.identity.ProgramId
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject

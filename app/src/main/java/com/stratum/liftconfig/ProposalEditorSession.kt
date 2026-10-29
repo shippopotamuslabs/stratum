@@ -1,6 +1,6 @@
 package com.stratum.liftconfig
 
-import com.stratum.domain.lift.DismissEquipmentProposalUseCase
+import com.stratum.application.lift.DismissEquipmentProposalUseCase
 import com.stratum.feature.workout.ui.ProposalEditContext
 import com.stratum.feature.workout.ui.ProposalTierArgs
 import kotlinx.coroutines.flow.MutableStateFlow

@@ -1,5 +1,7 @@
 package com.stratum.domain.onboarding
 
+import com.stratum.domain.lift.MovementPattern
+
 /**
  * The muscles Stratum tracks volume against — the unit a user *specializes* (OS-3) and the
  * unit each lift contributes volume to (OS-4 / OS-6). Named `MuscleGroup` rather than the

@@ -4,6 +4,8 @@ import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.WeightConversion
 import com.stratum.domain.training.EstimatedOneRm
 import kotlin.math.roundToInt
+import com.stratum.domain.importing.FatigueDecay
+import com.stratum.domain.workout.intensifier.RestDefaultForTransition
 
 /**
  * Zero-rest drop-set rep projection.

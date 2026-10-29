@@ -1,5 +1,7 @@
 package com.stratum.domain.lift.identity
 
+import com.stratum.domain.lift.Equipment
+
 /**
  * Type-safe identifier for an [com.stratum.domain.lift.Equipment] row.
  *

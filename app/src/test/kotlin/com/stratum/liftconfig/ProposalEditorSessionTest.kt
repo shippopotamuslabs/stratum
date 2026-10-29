@@ -2,7 +2,7 @@ package com.stratum.liftconfig
 
 import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeEquipmentProposalPreferences
-import com.stratum.domain.lift.DismissEquipmentProposalUseCase
+import com.stratum.application.lift.DismissEquipmentProposalUseCase
 import com.stratum.feature.workout.ui.ProposalEditContext
 import com.stratum.feature.workout.ui.ProposalTierArgs
 import com.stratum.feature.workout.ui.samplesLb

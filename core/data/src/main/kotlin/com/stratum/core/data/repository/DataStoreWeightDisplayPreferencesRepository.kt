@@ -6,7 +6,7 @@ import com.stratum.core.data.weightdisplay.toRecord
 import com.stratum.core.data.weightdisplay.weightDisplayPreferencesDataStore
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.WeightDisplayPreferences
-import com.stratum.domain.lift.WeightDisplayPreferencesRepository
+import com.stratum.application.lift.WeightDisplayPreferencesRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton

@@ -1,7 +1,7 @@
 package com.stratum.domain.response
 
 import com.stratum.domain.onboarding.MuscleGroup
-import com.stratum.domain.response.fixtures.ResponseFixtures
+import com.stratum.core.testing.response.ResponseFixtures
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertNotNull

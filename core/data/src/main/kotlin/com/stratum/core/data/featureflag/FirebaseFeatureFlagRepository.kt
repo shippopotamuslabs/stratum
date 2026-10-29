@@ -7,7 +7,7 @@ import com.google.firebase.remoteconfig.FirebaseRemoteConfigException
 import com.google.firebase.remoteconfig.FirebaseRemoteConfigFetchThrottledException
 import com.stratum.domain.di.IoDispatcher
 import com.stratum.domain.featureflag.FeatureFlag
-import com.stratum.domain.featureflag.FeatureFlagRepository
+import com.stratum.application.featureflag.FeatureFlagRepository
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.telemetry.AnalyticsPort
 import com.stratum.domain.telemetry.CrashTelemetryPort

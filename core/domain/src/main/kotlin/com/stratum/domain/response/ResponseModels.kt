@@ -11,6 +11,7 @@ import com.stratum.domain.response.identity.ExperimentId
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.TrainingSession
 import java.time.Instant
+import com.stratum.domain.response.modeling.ResponseModelingOutput
 
 enum class EpochSplitReason {
     SessionGap,

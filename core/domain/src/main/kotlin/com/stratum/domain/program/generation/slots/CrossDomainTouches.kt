@@ -10,6 +10,7 @@ import com.stratum.domain.program.generation.reference.RpRepProfile
 import com.stratum.domain.program.generation.volume.TrainingDomain
 import com.stratum.domain.program.generation.volume.availablePatternsByMuscle
 import com.stratum.domain.program.generation.volume.sessionTrainingDomain
+import com.stratum.domain.program.generation.universe.buildSlotUniverse
 
 /** Preferred isolation movement patterns per muscle for cross-domain touch slots. */
 private val TOUCH_ISOLATION_PATTERNS: Map<String, List<String>> = mapOf(

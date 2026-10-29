@@ -1,6 +1,9 @@
 package com.stratum.domain.workout.bodyweight
 
 import com.stratum.domain.workout.fatigue.applyFatigueDecay
+import com.stratum.domain.importing.TrainingInsightsExtractor
+import com.stratum.domain.training.EstimatedOneRm
+import com.stratum.domain.workout.fatigue.projectReps
 
 /**
  * Load-free rep projection for bodyweight straight sets (STR-29).

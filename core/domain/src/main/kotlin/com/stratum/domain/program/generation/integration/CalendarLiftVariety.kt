@@ -24,6 +24,9 @@ import com.stratum.domain.program.schedule.CycleSlot
 import com.stratum.domain.program.schedule.MaterializedCycleSpace
 import com.stratum.domain.program.schedule.TrainingTimeline
 import com.stratum.domain.program.schedule.resolvedCycleSlots
+import com.stratum.domain.lift.Lift
+import com.stratum.domain.program.generation.validation.computeWorkoutMuscleSessionStress
+import com.stratum.domain.program.generation.validation.computeWorkoutMuscleVolume
 
 private val LOWER_FORBIDDEN_PRIMARY_PATTERNS = setOf(
     MovementPattern.VerticalPull,

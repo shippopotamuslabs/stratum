@@ -1,5 +1,7 @@
 package com.stratum.domain.lift.identity
 
+import com.stratum.domain.lift.Lift
+
 /**
  * Type-safe identifier for a [com.stratum.domain.lift.Lift]. Stable slug ids identify
  * bundled seed lifts (e.g. `"leg-press"`) so seeding stays deterministic across installs;

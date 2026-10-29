@@ -5,12 +5,12 @@ import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.onboarding.FakeOnboardingRepository
 import com.stratum.core.testing.subscription.FakeEntitlementRepository
-import com.stratum.domain.onboarding.ObserveOnboardingCompleteUseCase
+import com.stratum.application.onboarding.ObserveOnboardingCompleteUseCase
 import com.stratum.domain.onboarding.OnboardingProgress
 import com.stratum.domain.onboarding.OnboardingStep
 import com.stratum.domain.subscription.EntitlementSource
 import com.stratum.domain.subscription.EntitlementState
-import com.stratum.domain.subscription.ObserveEntitlementUseCase
+import com.stratum.application.subscription.ObserveEntitlementUseCase
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest

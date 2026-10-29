@@ -1,5 +1,6 @@
 package com.stratum.domain.subscription
 
+
 object SubscriptionCatalog {
     const val ANNUAL_PRODUCT_ID = "stratum_membership_annual"
     const val MONTHLY_PRODUCT_ID = "stratum_membership_monthly"

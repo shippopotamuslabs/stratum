@@ -19,7 +19,7 @@ class ForbiddenPortInViewModel(config: Config) : Rule(config) {
             severity = Severity.CodeSmell,
             description =
                 "ViewModels must not take *Port constructor parameters. " +
-                    "Inject *UseCase from :core:domain instead.",
+                    "Inject *UseCase from :core:application instead.",
             debt = Debt.FIVE_MINS,
         )
 
@@ -49,7 +49,7 @@ class ForbiddenPortInViewModel(config: Config) : Rule(config) {
                     entity = Entity.from(parameter),
                     message =
                         "ViewModel `$className` must not depend on `$typeText`. " +
-                            "Inject a *UseCase from :core:domain instead. See contracts/ARCHITECTURE.md §4.4.",
+                            "Inject a *UseCase from :core:application instead. See contracts/ARCHITECTURE.md §4.4.",
                 ),
             )
         }

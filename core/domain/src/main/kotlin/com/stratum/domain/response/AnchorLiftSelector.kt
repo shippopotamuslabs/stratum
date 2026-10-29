@@ -3,6 +3,7 @@ package com.stratum.domain.response
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
 import java.time.temporal.ChronoUnit
+import com.stratum.domain.program.generation.selection.scoreLift
 
 object AnchorLiftSelector {
     fun select(

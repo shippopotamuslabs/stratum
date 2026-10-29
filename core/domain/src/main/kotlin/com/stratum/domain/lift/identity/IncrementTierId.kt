@@ -2,6 +2,8 @@ package com.stratum.domain.lift.identity
 
 import java.util.Locale
 import kotlin.math.roundToLong
+import com.stratum.domain.lift.Equipment
+import com.stratum.domain.lift.Lift
 
 /**
  * Typed id for a single weight-band increment tier row.

@@ -1,5 +1,7 @@
 package com.stratum.domain.telemetry
 
+import com.stratum.domain.logging.LoggingPort
+
 /**
  * Severity tiers for queryable client logs (STR-27 tier 2).
  *

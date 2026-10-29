@@ -19,7 +19,7 @@ class ForbiddenRepositoryInViewModel(config: Config) : Rule(config) {
             severity = Severity.CodeSmell,
             description =
                 "ViewModels must not take *Repository constructor parameters. " +
-                    "Inject use cases from :core:domain instead.",
+                    "Inject use cases from :core:application instead.",
             debt = Debt.FIVE_MINS,
         )
 
@@ -49,7 +49,7 @@ class ForbiddenRepositoryInViewModel(config: Config) : Rule(config) {
                     entity = Entity.from(parameter),
                     message =
                         "ViewModel `$className` must not depend on `$typeText`. " +
-                            "Inject a use case from :core:domain. See contracts/ARCHITECTURE.md.",
+                            "Inject a use case from :core:application. See contracts/ARCHITECTURE.md.",
                 ),
             )
         }

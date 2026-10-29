@@ -22,12 +22,12 @@ import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.domain.workout.BACKOFF_REP_FLOOR
 import com.stratum.domain.workout.SetSlot
 import com.stratum.domain.workout.SetSlotId
-import com.stratum.domain.workout.SlotHistoryEntry
 import java.time.Instant
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import com.stratum.domain.workout.SlotHistoryEntry
 
 /**
  * Pins [projectBaselineAtTargetWeight]: after shared-weight look-ahead drops load below

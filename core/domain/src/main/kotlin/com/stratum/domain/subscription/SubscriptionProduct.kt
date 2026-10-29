@@ -1,5 +1,6 @@
 package com.stratum.domain.subscription
 
+
 data class SubscriptionProduct(
     val productId: String,
     val basePlanId: String,

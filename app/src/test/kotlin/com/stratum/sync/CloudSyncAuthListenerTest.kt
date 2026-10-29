@@ -5,10 +5,10 @@ import com.stratum.core.testing.auth.FakeAuthManager
 import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.sync.FakeCloudSyncPort
 import com.stratum.domain.auth.AuthState
-import com.stratum.domain.auth.GetAuthStateUseCase
+import com.stratum.application.auth.GetAuthStateUseCase
 import com.stratum.domain.auth.UserProfile
-import com.stratum.domain.sync.StartCloudSyncUseCase
-import com.stratum.domain.sync.StopCloudSyncUseCase
+import com.stratum.application.sync.StartCloudSyncUseCase
+import com.stratum.application.sync.StopCloudSyncUseCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel

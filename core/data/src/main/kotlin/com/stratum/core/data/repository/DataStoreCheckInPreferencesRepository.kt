@@ -5,7 +5,7 @@ import com.stratum.core.data.checkin.checkInPreferencesDataStore
 import com.stratum.core.data.checkin.toDomain
 import com.stratum.core.data.checkin.toRecord
 import com.stratum.domain.checkin.CheckInPreferences
-import com.stratum.domain.checkin.CheckInPreferencesRepository
+import com.stratum.application.checkin.CheckInPreferencesRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.Instant
 import javax.inject.Inject

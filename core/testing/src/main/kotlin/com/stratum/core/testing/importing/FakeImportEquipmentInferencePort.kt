@@ -1,7 +1,7 @@
 package com.stratum.core.testing.importing
 
 import com.stratum.domain.importing.GymEquipment
-import com.stratum.domain.importing.ImportEquipmentInferencePort
+import com.stratum.application.importing.ImportEquipmentInferencePort
 
 /**
  * In-memory [ImportEquipmentInferencePort] for domain tests. Returns a fixed name -> equipment

@@ -1,5 +1,7 @@
 package com.stratum.domain.importing
 
+import com.stratum.domain.lift.Equipment
+
 /**
  * Normalizes imported exercise names for catalog matching and custom-lift deduplication.
  *

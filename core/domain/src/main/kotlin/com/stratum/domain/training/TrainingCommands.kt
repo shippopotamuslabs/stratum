@@ -8,6 +8,7 @@ import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.training.identity.TrainingSessionId
 import java.time.Instant
+import com.stratum.domain.lift.Equipment
 
 sealed class StartTrainingSessionRequest {
     data class ProgramWorkout(val workoutId: WorkoutId) : StartTrainingSessionRequest()

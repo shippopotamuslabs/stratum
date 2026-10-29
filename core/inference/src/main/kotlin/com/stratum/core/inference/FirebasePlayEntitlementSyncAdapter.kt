@@ -3,7 +3,7 @@ package com.stratum.core.inference
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.functions.FirebaseFunctions
 import com.stratum.domain.logging.LoggingPort
-import com.stratum.domain.subscription.PlayEntitlementSyncPort
+import com.stratum.application.subscription.PlayEntitlementSyncPort
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton

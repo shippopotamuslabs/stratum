@@ -3,7 +3,7 @@ package com.stratum.core.data.repository
 import android.content.Context
 import com.stratum.core.data.healthconnect.healthConnectPreferencesDataStore
 import com.stratum.domain.healthconnect.HealthConnectPreferences
-import com.stratum.domain.healthconnect.HealthConnectPreferencesPort
+import com.stratum.application.healthconnect.HealthConnectPreferencesPort
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.logging.runCatchingLogged
 import dagger.hilt.android.qualifiers.ApplicationContext

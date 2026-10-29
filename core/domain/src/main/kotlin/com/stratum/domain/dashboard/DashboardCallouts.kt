@@ -1,6 +1,7 @@
 package com.stratum.domain.dashboard
 
 import kotlin.math.abs
+import com.stratum.domain.lift.Lift
 
 /**
  * A high-signal dashboard highlight: only surfaces when the trend is strong *and* the fit is clean

@@ -4,7 +4,7 @@ import android.content.Context
 import com.stratum.core.data.program.programsUiPreferencesDataStore
 import com.stratum.core.data.program.toDomain
 import com.stratum.domain.program.ProgramsUiPreferences
-import com.stratum.domain.program.ProgramsUiPreferencesRepository
+import com.stratum.application.program.ProgramsUiPreferencesRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton

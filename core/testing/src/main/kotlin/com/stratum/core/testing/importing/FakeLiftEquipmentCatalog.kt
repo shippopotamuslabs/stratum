@@ -1,7 +1,7 @@
 package com.stratum.core.testing.importing
 
 import com.stratum.domain.importing.GymEquipment
-import com.stratum.domain.importing.LiftEquipmentCatalogPort
+import com.stratum.application.importing.LiftEquipmentCatalogPort
 import com.stratum.domain.lift.identity.LiftId
 
 /**

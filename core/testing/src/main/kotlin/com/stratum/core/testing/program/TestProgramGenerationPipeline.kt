@@ -1,11 +1,11 @@
 package com.stratum.core.testing.program
 
-import com.stratum.domain.program.generation.BuildProgramWorkoutsUseCase
-import com.stratum.domain.program.generation.IntegrateAndValidateProgramUseCase
-import com.stratum.domain.program.generation.PlanWeeklyVolumeUseCase
+import com.stratum.application.program.generation.BuildProgramWorkoutsUseCase
+import com.stratum.application.program.generation.IntegrateAndValidateProgramUseCase
+import com.stratum.application.program.generation.PlanWeeklyVolumeUseCase
 import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.domain.program.ProgramGenerationTelemetryLogger
-import com.stratum.domain.program.generation.pipeline.ProgramGenerationPipeline
+import com.stratum.application.program.generation.pipeline.ProgramGenerationPipeline
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisPort
 
 /**

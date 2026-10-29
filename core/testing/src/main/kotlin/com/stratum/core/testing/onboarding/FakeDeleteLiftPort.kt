@@ -1,7 +1,7 @@
 package com.stratum.core.testing.onboarding
 
 import com.stratum.core.testing.program.FakeProgramRepository
-import com.stratum.domain.lift.DeleteLiftPort
+import com.stratum.application.lift.DeleteLiftPort
 import com.stratum.domain.lift.identity.LiftId
 
 /**

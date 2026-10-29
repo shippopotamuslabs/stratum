@@ -1,7 +1,7 @@
 package com.stratum.core.testing.healthconnect
 
 import com.stratum.domain.healthconnect.HealthConnectPreferences
-import com.stratum.domain.healthconnect.HealthConnectPreferencesPort
+import com.stratum.application.healthconnect.HealthConnectPreferencesPort
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 

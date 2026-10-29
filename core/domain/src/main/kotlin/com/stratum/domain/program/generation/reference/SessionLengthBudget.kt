@@ -4,6 +4,7 @@ package com.stratum.domain.program.generation.reference
 
 import com.stratum.domain.program.generation.context.MINUTES_PER_HARD_SET
 import kotlin.math.floor
+import com.stratum.domain.onboarding.UserTrainingProfile
 
 /**
  * Soft aim + hard max session duration for program generation.

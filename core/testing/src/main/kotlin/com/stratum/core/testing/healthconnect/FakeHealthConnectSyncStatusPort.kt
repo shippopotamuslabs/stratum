@@ -1,6 +1,6 @@
 package com.stratum.core.testing.healthconnect
 
-import com.stratum.domain.healthconnect.HealthConnectSyncStatusPort
+import com.stratum.application.healthconnect.HealthConnectSyncStatusPort
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged

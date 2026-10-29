@@ -1,6 +1,5 @@
 package com.stratum.domain.workout
 
-import com.stratum.domain.importing.FatigueDecay
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.Weight
@@ -10,6 +9,7 @@ import com.stratum.domain.training.EstimatedOneRm
 import com.stratum.domain.workout.bodyweight.BodyweightRepProjection
 import com.stratum.domain.workout.fatigue.FatigueModel
 import javax.inject.Inject
+import com.stratum.domain.importing.FatigueDecay
 
 /**
  * Straight-set live recommendation policy: exact-match freeze vs adaptive re-anchor,

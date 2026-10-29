@@ -1,7 +1,7 @@
 package com.stratum.core.data.repository
 
-import com.stratum.domain.healthconnect.HealthConnectPreferencesPort
-import com.stratum.domain.healthconnect.HealthConnectSyncStatusPort
+import com.stratum.application.healthconnect.HealthConnectPreferencesPort
+import com.stratum.application.healthconnect.HealthConnectSyncStatusPort
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow

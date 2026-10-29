@@ -4,7 +4,7 @@ import android.content.Context
 import androidx.credentials.CredentialManager
 import com.google.firebase.auth.FirebaseAuth
 import com.stratum.core.data.auth.FirebaseGoogleAuthManager
-import com.stratum.domain.auth.AuthManager
+import com.stratum.application.auth.AuthManager
 import com.stratum.domain.di.ApplicationScope
 import com.stratum.domain.logging.ProcessErrorSafetyNet
 import dagger.Binds

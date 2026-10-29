@@ -5,14 +5,14 @@ import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeEquipmentRepository
 import com.stratum.core.testing.onboarding.FakeLiftRepository
-import com.stratum.domain.lift.AddCustomLiftUseCase
+import com.stratum.application.lift.AddCustomLiftUseCase
 import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.MuscleLengthBias
-import com.stratum.domain.lift.ObserveEquipmentCatalogUseCase
+import com.stratum.application.lift.ObserveEquipmentCatalogUseCase
 import com.stratum.domain.lift.SeedEquipmentIds
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId

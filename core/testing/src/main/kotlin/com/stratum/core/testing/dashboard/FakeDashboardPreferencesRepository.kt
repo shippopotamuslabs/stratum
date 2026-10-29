@@ -2,7 +2,7 @@ package com.stratum.core.testing.dashboard
 
 import com.stratum.domain.dashboard.DashboardBoardTab
 import com.stratum.domain.dashboard.DashboardPreferences
-import com.stratum.domain.dashboard.DashboardPreferencesRepository
+import com.stratum.application.dashboard.DashboardPreferencesRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow

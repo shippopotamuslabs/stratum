@@ -2,11 +2,11 @@ package com.stratum.core.inference
 
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.functions.FirebaseFunctions
-import com.stratum.domain.importing.CustomLiftInferencePort
+import com.stratum.application.importing.CustomLiftInferencePort
 import com.stratum.domain.importing.ImportStubLiftGuesser
 import com.stratum.domain.importing.InferredCustomLiftMetadata
 import com.stratum.domain.importing.InferredEquipmentLoading
-import com.stratum.domain.importing.UnmatchedExerciseCandidate
+import com.stratum.application.importing.UnmatchedExerciseCandidate
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.SeedEquipmentIds
 import com.stratum.domain.logging.LoggingPort

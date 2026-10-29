@@ -5,7 +5,7 @@ import com.stratum.core.data.db.LiftDao
 import com.stratum.core.data.db.StratumDatabase
 import com.stratum.core.data.sync.SyncCollection
 import com.stratum.core.data.sync.SyncTouch
-import com.stratum.domain.lift.DeleteLiftPort
+import com.stratum.application.lift.DeleteLiftPort
 import com.stratum.domain.lift.identity.LiftId
 import javax.inject.Inject
 import javax.inject.Singleton

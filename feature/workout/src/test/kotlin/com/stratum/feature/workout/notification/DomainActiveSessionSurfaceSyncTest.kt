@@ -4,7 +4,7 @@ import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.domain.program.identity.WorkoutId
-import com.stratum.domain.training.ObserveCycleProgressUseCase
+import com.stratum.application.training.ObserveCycleProgressUseCase
 import com.stratum.domain.training.TrainingSession
 import com.stratum.domain.training.TrainingSessionKind
 import com.stratum.domain.training.TrainingSessionOrigin

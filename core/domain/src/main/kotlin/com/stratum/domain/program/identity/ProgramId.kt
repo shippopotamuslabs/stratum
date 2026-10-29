@@ -1,6 +1,9 @@
 package com.stratum.domain.program.identity
 
 import com.stratum.domain.lift.identity.EntityId
+import com.stratum.domain.program.LiftSet
+import com.stratum.domain.program.Workout
+import com.stratum.domain.program.WorkoutLift
 
 /** Type-safe identifier for a [com.stratum.domain.program.Program]. */
 @JvmInline

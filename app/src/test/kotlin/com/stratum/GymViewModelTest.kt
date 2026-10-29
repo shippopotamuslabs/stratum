@@ -13,15 +13,15 @@ import com.stratum.core.testing.workout.FakeWorkoutOverlayStore
 import com.stratum.core.ui.component.LiftLibraryFilter
 import com.stratum.core.ui.component.LiftSwapFilterIntent
 import com.stratum.domain.lift.Lift
-import com.stratum.domain.lift.MergeLiftsUseCase
+import com.stratum.application.lift.MergeLiftsUseCase
 import com.stratum.domain.lift.MuscleLengthBias
-import com.stratum.domain.lift.ObserveLiftCatalogUseCase
-import com.stratum.domain.lift.SetLiftEnabledUseCase
+import com.stratum.application.lift.ObserveLiftCatalogUseCase
+import com.stratum.application.lift.SetLiftEnabledUseCase
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
-import com.stratum.domain.training.ComputePersonalRecordsUseCase
-import com.stratum.domain.training.RebuildLocalDerivedTrainingDataUseCase
-import com.stratum.domain.training.RefreshWeeklySeriesUseCase
+import com.stratum.application.training.ComputePersonalRecordsUseCase
+import com.stratum.application.training.RebuildLocalDerivedTrainingDataUseCase
+import com.stratum.application.training.RefreshWeeklySeriesUseCase
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -111,7 +111,7 @@ class GymViewModelTest {
                         loggingPort = logging,
                     ),
                 deleteLift =
-                    com.stratum.domain.lift.DeleteLiftUseCase(
+                    com.stratum.application.lift.DeleteLiftUseCase(
                         deleteLiftPort =
                             com.stratum.core.testing.onboarding.FakeDeleteLiftPort(
                                 fakeLiftRepository,
@@ -130,7 +130,7 @@ class GymViewModelTest {
                         loggingPort = logging,
                     ),
                 getLiftDeleteImpact =
-                    com.stratum.domain.lift.GetLiftDeleteImpactUseCase(
+                    com.stratum.application.lift.GetLiftDeleteImpactUseCase(
                         fakeLiftRepository,
                         fakeProgramRepository,
                         fakeLogRepository,
