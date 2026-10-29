@@ -1085,7 +1085,7 @@ class EditWorkoutViewModelTest {
             saveWorkoutUseCase = SaveWorkoutUseCase(repository, programChangeEvents, logging),
             computeWorkoutMuscleVolume = ComputeWorkoutMuscleVolumeUseCase(),
             estimateWorkoutDurationMinutes = EstimateWorkoutDurationMinutesUseCase(),
-            programChangeEventRepository = programChangeEvents,
+            appendProgramChangeEvent = com.stratum.domain.training.AppendProgramChangeEventUseCase(programChangeEvents),
             workoutEditSession = workoutEditSession,
             startTrainingSession = StartTrainingSessionUseCase(trainingLog, repository, logging),
             observeCycleProgress = ObserveCycleProgressUseCase(repository, trainingLog),

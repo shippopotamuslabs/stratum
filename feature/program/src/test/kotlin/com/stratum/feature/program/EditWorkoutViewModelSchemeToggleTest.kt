@@ -245,7 +245,7 @@ class EditWorkoutViewModelSchemeToggleTest {
             saveWorkoutUseCase = SaveWorkoutUseCase(repository, programChangeEventRepository, logging),
             computeWorkoutMuscleVolume = ComputeWorkoutMuscleVolumeUseCase(),
             estimateWorkoutDurationMinutes = EstimateWorkoutDurationMinutesUseCase(),
-            programChangeEventRepository = programChangeEventRepository,
+            appendProgramChangeEvent = com.stratum.domain.training.AppendProgramChangeEventUseCase(programChangeEventRepository),
             workoutEditSession = workoutEditSession,
             startTrainingSession =
                 com.stratum.domain.training.StartTrainingSessionUseCase(trainingLog, repository, logging),

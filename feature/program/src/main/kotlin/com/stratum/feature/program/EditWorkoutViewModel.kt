@@ -19,7 +19,7 @@ import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.training.AbandonTrainingSessionUseCase
 import com.stratum.domain.training.ObserveCycleProgressUseCase
 import com.stratum.domain.training.ProgramChangeEventPayload
-import com.stratum.domain.training.ProgramChangeEventRepository
+import com.stratum.domain.training.AppendProgramChangeEventUseCase
 import com.stratum.domain.training.ProgramChangeEventType
 import com.stratum.domain.training.StartTrainingSessionUseCase
 import com.stratum.domain.workout.ManageWorkoutOverlayUseCase
@@ -59,11 +59,9 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
 @HiltViewModel
-// Slice 8 (D11): no AppendProgramChangeEventUseCase wrapper exists; SchemeChanged is
-// appended directly via the repository port (spec API-contracts note).
 // Start pipeline + set/superset/scheme mutations keep this façade large; start body lives in
 // EditWorkoutStartCoordinator.
-@Suppress("ForbiddenRepositoryInViewModel", "TooManyFunctions", "LargeClass")
+@Suppress("TooManyFunctions", "LargeClass")
 class EditWorkoutViewModel @Inject constructor(
     private val observeProgram: ObserveProgramUseCase,
     private val observeProgramById: ObserveProgramByIdUseCase,
@@ -71,7 +69,7 @@ class EditWorkoutViewModel @Inject constructor(
     private val saveWorkoutUseCase: SaveWorkoutUseCase,
     private val computeWorkoutMuscleVolume: ComputeWorkoutMuscleVolumeUseCase,
     private val estimateWorkoutDurationMinutes: EstimateWorkoutDurationMinutesUseCase,
-    private val programChangeEventRepository: ProgramChangeEventRepository,
+    private val appendProgramChangeEvent: AppendProgramChangeEventUseCase,
     private val workoutEditSession: WorkoutEditSession,
     private val observeEquipmentCatalog: ObserveEquipmentCatalogUseCase,
     private val getEquipment: com.stratum.domain.lift.GetEquipmentUseCase,
@@ -415,7 +413,7 @@ class EditWorkoutViewModel @Inject constructor(
             }
         }
         for ((previous, updatedLift) in changed) {
-            programChangeEventRepository.append(
+            appendProgramChangeEvent(
                 com.stratum.domain.training.ProgramChangeEvent(
                     id = com.stratum.domain.training.identity.ProgramChangeEventId(
                         java.util.UUID.randomUUID().toString(),
@@ -449,7 +447,7 @@ class EditWorkoutViewModel @Inject constructor(
             }
         }
         for ((previous, updatedLift) in changed) {
-            programChangeEventRepository.append(
+            appendProgramChangeEvent(
                 com.stratum.domain.training.ProgramChangeEvent(
                     id = com.stratum.domain.training.identity.ProgramChangeEventId(
                         java.util.UUID.randomUUID().toString(),
