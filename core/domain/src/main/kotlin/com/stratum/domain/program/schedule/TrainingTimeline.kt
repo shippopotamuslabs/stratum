@@ -1,5 +1,6 @@
 package com.stratum.domain.program.schedule
 
+
 /**
  * Recovery / structure geometry for program generation: training slots on a ring of
  * [cycleLength] (train + rest). Rest slots are not listed; they only affect [gap] by

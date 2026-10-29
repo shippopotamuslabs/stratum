@@ -4,8 +4,8 @@ import com.stratum.core.data.subscription.ComplimentaryAccessStore
 import com.stratum.core.data.subscription.FirestoreEntitlementDataSource
 import com.stratum.core.data.subscription.PlayBillingDataSource
 import com.stratum.core.data.subscription.SubscriptionRepositoryImpl
-import com.stratum.domain.subscription.BillingPort
-import com.stratum.domain.subscription.EntitlementRepository
+import com.stratum.application.subscription.BillingPort
+import com.stratum.application.subscription.EntitlementRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn

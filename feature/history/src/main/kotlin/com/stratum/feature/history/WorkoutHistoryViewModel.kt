@@ -2,7 +2,7 @@ package com.stratum.feature.history
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.stratum.domain.training.ObserveWorkoutHistoryCalendarUseCase
+import com.stratum.application.training.ObserveWorkoutHistoryCalendarUseCase
 import com.stratum.feature.history.ui.HistoryCalendarMode
 import com.stratum.feature.history.ui.WorkoutHistoryUiState
 import dagger.hilt.android.lifecycle.HiltViewModel

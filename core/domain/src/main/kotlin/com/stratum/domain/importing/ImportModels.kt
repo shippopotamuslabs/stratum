@@ -8,6 +8,7 @@ import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.onboarding.MuscleGroup
 import java.time.Instant
+import com.stratum.domain.lift.Equipment
 
 enum class ImportJobStatus {
     Pending,

@@ -3,10 +3,10 @@ package com.stratum.core.testing.lift
 import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeEquipmentRepository
 import com.stratum.core.testing.onboarding.FakeLiftRepository
-import com.stratum.domain.lift.ForkEquipmentUseCase
-import com.stratum.domain.lift.ForkEquipmentWithTiersUseCase
-import com.stratum.domain.lift.SetEquipmentIncrementTiersUseCase
-import com.stratum.domain.lift.SetLiftEquipmentUseCase
+import com.stratum.application.lift.ForkEquipmentUseCase
+import com.stratum.application.lift.ForkEquipmentWithTiersUseCase
+import com.stratum.application.lift.SetEquipmentIncrementTiersUseCase
+import com.stratum.application.lift.SetLiftEquipmentUseCase
 
 /**
  * Shared fork use-case graph for ViewModel tests: fresh validators, one

@@ -15,7 +15,7 @@ import com.stratum.core.data.sync.SyncFlags
 import com.stratum.core.data.sync.SyncTouch
 import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.EquipmentNameMatching
-import com.stratum.domain.lift.EquipmentRepository
+import com.stratum.application.lift.EquipmentRepository
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.alignedWithEquipment
 import com.stratum.domain.lift.uniqueifyForkEquipmentName

@@ -7,7 +7,7 @@ import com.stratum.core.data.mapper.toEntity
 import com.stratum.core.data.sync.SyncTouch
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.training.ProgramChangeEvent
-import com.stratum.domain.training.ProgramChangeEventRepository
+import com.stratum.application.training.ProgramChangeEventRepository
 import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton

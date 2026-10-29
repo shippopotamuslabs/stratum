@@ -13,12 +13,12 @@ import com.stratum.core.testing.response.FakeResponseProfilePersistencePort
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
 import com.stratum.domain.importing.identity.LoggedSetId
-import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
+import com.stratum.application.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.Weight
-import com.stratum.domain.training.ComputeLoggedSessionMuscleVolumeUseCase
-import com.stratum.domain.training.GetWorkoutSessionDetailUseCase
+import com.stratum.application.training.ComputeLoggedSessionMuscleVolumeUseCase
+import com.stratum.application.training.GetWorkoutSessionDetailUseCase
 import com.stratum.domain.training.LoggedSet
-import com.stratum.domain.training.UpdateCompletedSessionTimesUseCase
+import com.stratum.application.training.UpdateCompletedSessionTimesUseCase
 import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.feature.history.ui.WorkoutSessionDetailUiState
 import com.stratum.feature.history.ui.toShareContent

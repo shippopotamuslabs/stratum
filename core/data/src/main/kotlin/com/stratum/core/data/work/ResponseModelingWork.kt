@@ -1,11 +1,11 @@
 package com.stratum.core.data.work
 
-import com.stratum.domain.checkin.MarkCheckInPendingUseCase
-import com.stratum.domain.importing.InsightsAnalysisScope
-import com.stratum.domain.response.ExtractResponseProfileUseCase
+import com.stratum.application.checkin.MarkCheckInPendingUseCase
+import com.stratum.application.importing.InsightsAnalysisScope
+import com.stratum.application.response.ExtractResponseProfileUseCase
 import com.stratum.domain.response.RE_EXTRACT_MIN_COMPLETED_WORKOUTS
-import com.stratum.domain.response.ResponseProfileMetadataRepository
-import com.stratum.domain.training.TrainingLogRepository
+import com.stratum.application.response.ResponseProfileMetadataRepository
+import com.stratum.application.training.TrainingLogRepository
 import com.stratum.domain.training.TrainingSession
 import com.stratum.domain.training.TrainingSessionKind
 import com.stratum.domain.training.TrainingSessionStatus

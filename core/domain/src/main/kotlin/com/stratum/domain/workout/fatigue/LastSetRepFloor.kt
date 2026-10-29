@@ -2,6 +2,9 @@ package com.stratum.domain.workout.fatigue
 
 import kotlin.math.abs
 import kotlin.math.round
+import com.stratum.domain.program.generation.prescription.LAST_SET_FLOOR
+import com.stratum.domain.program.generation.prescription.REP_RANGE_CEILING_CAP
+import com.stratum.domain.workout.BACKOFF_REP_FLOOR
 
 /**
  * Absolute last-set floor (reps). Aligns with

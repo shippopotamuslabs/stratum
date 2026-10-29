@@ -9,17 +9,17 @@ import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeProgramChangeEventRepository
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
-import com.stratum.domain.lift.ObserveLiftCatalogUseCase
+import com.stratum.application.lift.ObserveLiftCatalogUseCase
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.Weekday
-import com.stratum.domain.program.ComputeWorkoutMuscleVolumeUseCase
-import com.stratum.domain.program.EstimateWorkoutDurationMinutesUseCase
+import com.stratum.application.program.ComputeWorkoutMuscleVolumeUseCase
+import com.stratum.application.program.EstimateWorkoutDurationMinutesUseCase
 import com.stratum.domain.program.LiftSet
-import com.stratum.domain.program.ObserveProgramUseCase
+import com.stratum.application.program.ObserveProgramUseCase
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.ProgressionScheme
-import com.stratum.domain.program.SaveWorkoutUseCase
+import com.stratum.application.program.SaveWorkoutUseCase
 import com.stratum.domain.program.SetType
 import com.stratum.domain.program.Workout
 import com.stratum.domain.program.WorkoutLift
@@ -240,34 +240,34 @@ class EditWorkoutViewModelSchemeToggleTest {
             com.stratum.core.testing.training.FakeTrainingLogRepository(programRepository = repository)
         return EditWorkoutViewModel(
             observeProgram = ObserveProgramUseCase(repository),
-            observeProgramById = com.stratum.domain.program.ObserveProgramByIdUseCase(repository),
+            observeProgramById = com.stratum.application.program.ObserveProgramByIdUseCase(repository),
             observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
             saveWorkoutUseCase = SaveWorkoutUseCase(repository, programChangeEventRepository, logging),
             computeWorkoutMuscleVolume = ComputeWorkoutMuscleVolumeUseCase(),
             estimateWorkoutDurationMinutes = EstimateWorkoutDurationMinutesUseCase(),
-            appendProgramChangeEvent = com.stratum.domain.training.AppendProgramChangeEventUseCase(programChangeEventRepository),
+            appendProgramChangeEvent = com.stratum.application.training.AppendProgramChangeEventUseCase(programChangeEventRepository),
             workoutEditSession = workoutEditSession,
             startTrainingSession =
-                com.stratum.domain.training.StartTrainingSessionUseCase(trainingLog, repository, logging),
+                com.stratum.application.training.StartTrainingSessionUseCase(trainingLog, repository, logging),
             observeCycleProgress =
-                com.stratum.domain.training.ObserveCycleProgressUseCase(repository, trainingLog),
+                com.stratum.application.training.ObserveCycleProgressUseCase(repository, trainingLog),
             abandonTrainingSession =
-                com.stratum.domain.training.AbandonTrainingSessionUseCase(trainingLog, logging),
+                com.stratum.application.training.AbandonTrainingSessionUseCase(trainingLog, logging),
             manageWorkoutOverlay =
-                com.stratum.domain.workout.ManageWorkoutOverlayUseCase(
+                com.stratum.application.workout.ManageWorkoutOverlayUseCase(
                     com.stratum.core.testing.workout.FakeWorkoutOverlayStore(),
                     logging,
                 ),
             observeEquipmentCatalog =
-                com.stratum.domain.lift.ObserveEquipmentCatalogUseCase(
+                com.stratum.application.lift.ObserveEquipmentCatalogUseCase(
                     com.stratum.core.testing.onboarding.FakeEquipmentRepository(),
                 ),
             getEquipment =
-                com.stratum.domain.lift.GetEquipmentUseCase(
+                com.stratum.application.lift.GetEquipmentUseCase(
                     com.stratum.core.testing.onboarding.FakeEquipmentRepository(),
                 ),
             getRecentlyUsedEquipment =
-                com.stratum.domain.lift.GetRecentlyUsedEquipmentForLiftUseCase(
+                com.stratum.application.lift.GetRecentlyUsedEquipmentForLiftUseCase(
                     trainingLog,
                     com.stratum.core.testing.onboarding.FakeEquipmentRepository(),
                 ),

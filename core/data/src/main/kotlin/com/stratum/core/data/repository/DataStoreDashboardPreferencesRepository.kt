@@ -6,7 +6,7 @@ import com.stratum.core.data.dashboard.toDomain
 import com.stratum.core.data.dashboard.toStorageName
 import com.stratum.domain.dashboard.DashboardBoardTab
 import com.stratum.domain.dashboard.DashboardPreferences
-import com.stratum.domain.dashboard.DashboardPreferencesRepository
+import com.stratum.application.dashboard.DashboardPreferencesRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton

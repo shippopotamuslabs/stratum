@@ -1,6 +1,7 @@
 package com.stratum.domain.training
 
 import com.stratum.domain.program.Program
+import com.stratum.domain.program.Workout
 
 /**
  * Resolves a human-readable **workout** title (e.g. "Upper A"), never a lift name as the

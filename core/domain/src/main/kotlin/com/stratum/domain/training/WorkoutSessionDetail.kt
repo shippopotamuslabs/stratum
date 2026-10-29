@@ -1,9 +1,9 @@
 package com.stratum.domain.training
 
 import com.stratum.domain.lift.Weight
-import com.stratum.domain.program.MuscleVolumeSummary
 import com.stratum.domain.training.identity.TrainingSessionId
 import java.time.Instant
+import com.stratum.domain.program.MuscleVolumeSummary
 
 /** Full read model for the workout history session detail screen. */
 data class WorkoutSessionDetail(

@@ -1,5 +1,7 @@
 package com.stratum.domain.lift.identity
 
+import com.stratum.domain.program.identity.ProgramId
+
 /**
  * Marker for type-safe entity identifiers (the pocket-crew identity pattern).
  *

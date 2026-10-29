@@ -2,6 +2,7 @@ package com.stratum.domain.response
 
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.importing.CustomLiftMusclePolicy
 
 /**
  * Bitmasks for SQL set queries that must stay aligned with

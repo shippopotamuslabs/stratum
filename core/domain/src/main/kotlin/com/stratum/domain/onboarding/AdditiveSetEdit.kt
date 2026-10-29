@@ -1,5 +1,6 @@
 package com.stratum.domain.onboarding
 
+
 /**
  * Tracks additive edits to a set-valued field against a persisted base. Used for weekday
  * toggles (profile) and muscle toggles (specialization) so back/forward navigation composes

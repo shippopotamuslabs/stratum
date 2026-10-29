@@ -5,9 +5,9 @@ import com.stratum.core.testing.featureflag.FakeFeatureFlagRepository
 import com.stratum.core.testing.lift.FakeIncrementScanPort
 import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.domain.featureflag.AppFeatureFlag
-import com.stratum.domain.featureflag.ObserveIncrementsAiScanUseCase
-import com.stratum.domain.lift.IncrementScanPort
-import com.stratum.domain.lift.ScanIncrementTiersUseCase
+import com.stratum.application.featureflag.ObserveIncrementsAiScanUseCase
+import com.stratum.application.lift.IncrementScanPort
+import com.stratum.application.lift.ScanIncrementTiersUseCase
 import com.stratum.domain.lift.ScanPhoto
 import com.stratum.domain.lift.ScannedTierRow
 import com.stratum.domain.lift.ScannedTiers

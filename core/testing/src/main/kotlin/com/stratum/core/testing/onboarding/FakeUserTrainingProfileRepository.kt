@@ -1,7 +1,7 @@
 package com.stratum.core.testing.onboarding
 
 import com.stratum.domain.onboarding.UserTrainingProfile
-import com.stratum.domain.onboarding.UserTrainingProfileRepository
+import com.stratum.application.onboarding.UserTrainingProfileRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 

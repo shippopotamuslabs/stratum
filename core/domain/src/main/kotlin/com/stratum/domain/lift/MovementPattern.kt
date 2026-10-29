@@ -1,5 +1,6 @@
 package com.stratum.domain.lift
 
+
 /**
  * How a [Lift] moves — the categorical slot a lift occupies (squat pattern, horizontal push,
  * etc.). Values are grouped logically: lower body, then upper-body compound, then isolation.

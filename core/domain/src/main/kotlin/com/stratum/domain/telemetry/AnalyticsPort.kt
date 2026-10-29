@@ -1,5 +1,7 @@
 package com.stratum.domain.telemetry
 
+import com.stratum.domain.logging.LoggingPort
+
 /**
  * Domain port for product analytics events (Firebase Analytics).
  *

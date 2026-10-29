@@ -1,0 +1,40 @@
+package com.stratum.application.featureflag
+
+import com.stratum.core.testing.featureflag.FakeFeatureFlagRepository
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.Test
+import com.stratum.domain.featureflag.AppFeatureFlag
+
+class AppFeatureFlagTest {
+
+    private val fakeFlags = FakeFeatureFlagRepository()
+
+    @BeforeEach
+    fun setUp() {
+        fakeFlags.clear()
+    }
+
+    @Test
+    @DisplayName("Given the scan flag when read then its key matches the Remote Config parameter")
+    fun scanFlagKeyMatchesRemoteConfigParameter() {
+        assertEquals("increments_ai_scan", AppFeatureFlag.INCREMENTS_AI_SCAN.key)
+    }
+
+    @Test
+    @DisplayName("Given a fresh repository when the scan flag is checked then it is disabled")
+    fun scanFlagIsDisabledByDefault() {
+        assertFalse(fakeFlags.isEnabled(AppFeatureFlag.INCREMENTS_AI_SCAN))
+    }
+
+    @Test
+    @DisplayName("Given the scan flag enabled when checked then it is enabled")
+    fun scanFlagIsEnabledWhenSet() {
+        fakeFlags.setFlag(AppFeatureFlag.INCREMENTS_AI_SCAN, true)
+
+        assertTrue(fakeFlags.isEnabled(AppFeatureFlag.INCREMENTS_AI_SCAN))
+    }
+}

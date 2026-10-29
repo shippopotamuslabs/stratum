@@ -1,7 +1,7 @@
 package com.stratum.core.testing.importing
 
 import com.stratum.domain.importing.LiftNameMatchEvaluation
-import com.stratum.domain.importing.LiftNameResolverPort
+import com.stratum.application.importing.LiftNameResolverPort
 import com.stratum.domain.lift.identity.LiftId
 
 /**

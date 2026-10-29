@@ -5,9 +5,9 @@ import androidx.work.Data
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
-import com.stratum.domain.healthconnect.HealthConnectPreferencesPort
-import com.stratum.domain.healthconnect.HealthConnectSchedulerPort
-import com.stratum.domain.healthconnect.HealthConnectSyncPort
+import com.stratum.application.healthconnect.HealthConnectPreferencesPort
+import com.stratum.application.healthconnect.HealthConnectSchedulerPort
+import com.stratum.application.healthconnect.HealthConnectSyncPort
 import com.stratum.domain.training.identity.TrainingSessionId
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject

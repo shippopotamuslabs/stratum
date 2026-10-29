@@ -7,6 +7,9 @@ import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.context.SECONDARY_SET_CREDIT
+import com.stratum.domain.program.generation.selection.AntagonistMetadataBalance
+import com.stratum.domain.program.generation.validation.computeWorkoutMuscleVolume
+import com.stratum.domain.response.POPULATION_FATIGUE_DECAY_SLOPE
 
 /** Max hard sets per muscle per workout before junk-volume territory (Stratum default). */
 const val SESSION_MUSCLE_SET_CAP = 11

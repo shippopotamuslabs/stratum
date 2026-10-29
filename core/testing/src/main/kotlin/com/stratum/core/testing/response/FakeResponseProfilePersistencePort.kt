@@ -1,7 +1,7 @@
 package com.stratum.core.testing.response
 
 import com.stratum.domain.response.ExtractedResponseProfile
-import com.stratum.domain.response.ResponseProfilePersistencePort
+import com.stratum.application.response.ResponseProfilePersistencePort
 import com.stratum.domain.response.modeling.LiftWeeklyPerformance
 import com.stratum.domain.response.modeling.MuscleWeeklyStimulus
 

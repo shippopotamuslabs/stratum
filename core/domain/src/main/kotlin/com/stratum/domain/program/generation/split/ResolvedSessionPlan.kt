@@ -3,6 +3,8 @@ package com.stratum.domain.program.generation.split
 import com.stratum.domain.program.generation.slots.SessionComposition
 import com.stratum.domain.program.generation.slots.SessionTypeId
 import com.stratum.domain.program.generation.slots.WorkoutSlotTemplate
+import com.stratum.domain.program.generation.prescription.SessionSlotPlan
+import com.stratum.domain.program.generation.structure.SessionRegionFilter
 
 /**
  * Dual-write companion to [com.stratum.domain.program.generation.prescription.SessionSlotPlan]

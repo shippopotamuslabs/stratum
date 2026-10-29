@@ -34,6 +34,10 @@ import com.stratum.domain.program.generation.split.trainingWeekdayIndices
 import com.stratum.domain.program.generation.volume.WeeklyVolumeTarget
 import com.stratum.domain.program.generation.volume.resolveMuscleWeeklyTarget
 import kotlin.math.max
+import com.stratum.domain.program.Workout
+import com.stratum.domain.program.generation.prescription.SessionSlotPlan
+import com.stratum.domain.program.generation.selection.SelectedSlotLift
+import com.stratum.domain.program.generation.selection.candidatesForSlot
 
 enum class ValidationSeverity {
     Error,

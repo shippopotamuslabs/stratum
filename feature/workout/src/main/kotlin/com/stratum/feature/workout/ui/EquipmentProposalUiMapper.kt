@@ -2,7 +2,7 @@ package com.stratum.feature.workout.ui
 
 import com.stratum.core.ui.component.formatIncrementAmount
 import com.stratum.core.ui.component.formatIncrementTierSummary
-import com.stratum.domain.lift.ApplyEquipmentIncrementResult
+import com.stratum.application.lift.ApplyEquipmentIncrementResult
 import com.stratum.domain.lift.EquipmentIncrementProposal
 import com.stratum.domain.lift.EquipmentIncrementRemedy
 import com.stratum.domain.lift.IncrementTier

@@ -13,6 +13,8 @@ import com.stratum.domain.lift.MAJOR_COMPOUND_PATTERNS
 import com.stratum.domain.program.generation.reference.TOP_SET_RIR
 import com.stratum.domain.program.generation.reference.clampBackOffRir
 import com.stratum.domain.program.generation.reference.schemeForTrainingAge
+import com.stratum.domain.lift.Lift
+import com.stratum.domain.program.Workout
 
 /**
  * Validate + deterministically normalize the parsed model payload.

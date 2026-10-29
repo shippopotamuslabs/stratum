@@ -2,13 +2,16 @@ package com.stratum.domain.response
 
 import com.stratum.core.testing.training.withStart
 import com.stratum.domain.onboarding.MuscleGroup
-import com.stratum.domain.response.fixtures.ResponseFixtures
+import com.stratum.core.testing.response.ResponseFixtures
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import java.time.temporal.ChronoUnit
+import com.stratum.domain.importing.identity.LoggedSetId
+import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.training.identity.TrainingSessionId
 
 class AnchorLiftSelectorTest {
     @Test

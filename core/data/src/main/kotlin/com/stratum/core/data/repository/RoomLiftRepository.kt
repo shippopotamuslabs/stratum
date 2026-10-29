@@ -23,7 +23,7 @@ import com.stratum.domain.lift.CatalogNoteInput
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.LiftCatalogNote
-import com.stratum.domain.lift.LiftRepository
+import com.stratum.application.lift.LiftRepository
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.Weight

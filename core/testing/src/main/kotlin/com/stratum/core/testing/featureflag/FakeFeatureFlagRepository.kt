@@ -1,7 +1,7 @@
 package com.stratum.core.testing.featureflag
 
 import com.stratum.domain.featureflag.FeatureFlag
-import com.stratum.domain.featureflag.FeatureFlagRepository
+import com.stratum.application.featureflag.FeatureFlagRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow

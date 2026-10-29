@@ -21,6 +21,13 @@ import com.stratum.domain.training.identity.ProgramChangeEventId
 import com.stratum.domain.workout.myorep.MyoRepKind
 import java.time.Instant
 import java.util.UUID
+import com.stratum.domain.lift.Equipment
+import com.stratum.domain.onboarding.TrainingAge
+import com.stratum.domain.program.schedule.CycleSpace
+import com.stratum.domain.program.schedule.GenerationCycleHints
+import com.stratum.domain.program.schedule.MaterializedCycleSpace
+import com.stratum.domain.response.Epoch
+import com.stratum.domain.workout.WorkoutOverlay
 
 /** Default inter-set rest (seconds) for generated and legacy persisted sets. */
 const val DEFAULT_LIFT_SET_REST_SECONDS = 120

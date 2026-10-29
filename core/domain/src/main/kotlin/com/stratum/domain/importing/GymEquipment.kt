@@ -1,5 +1,8 @@
 package com.stratum.domain.importing
 
+import com.stratum.domain.lift.Equipment
+
+
 /**
  * Closed equipment vocabulary used transiently during historical import to drive Tier B lift
  * enablement (equipment closure) and the sparse-import gym-type fallback.

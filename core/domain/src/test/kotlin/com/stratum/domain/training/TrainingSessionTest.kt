@@ -12,6 +12,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import com.stratum.domain.program.Workout
 
 @DisplayName("TrainingSession lifecycle (STR-166)")
 class TrainingSessionTest {

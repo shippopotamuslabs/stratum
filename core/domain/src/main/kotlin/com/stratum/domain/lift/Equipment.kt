@@ -1,6 +1,7 @@
 package com.stratum.domain.lift
 
 import com.stratum.domain.lift.identity.EquipmentId
+import com.stratum.domain.importing.GymEquipment
 
 /**
  * Shared equipment used to default weight-increment bands across many lifts.

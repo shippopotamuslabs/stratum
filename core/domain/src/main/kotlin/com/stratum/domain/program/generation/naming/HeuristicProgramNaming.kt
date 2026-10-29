@@ -12,6 +12,10 @@ import com.stratum.domain.program.generation.draft.ProgramWorkoutDraft
 import java.time.Clock
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import com.stratum.domain.lift.Lift
+import com.stratum.domain.program.Workout
+import com.stratum.domain.program.generation.structure.SessionRegionFilter
+import com.stratum.domain.program.generation.volume.TrainingDomain
 
 private const val REGION_THRESHOLD = 0.70
 

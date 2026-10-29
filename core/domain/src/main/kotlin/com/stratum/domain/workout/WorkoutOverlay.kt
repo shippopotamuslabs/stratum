@@ -11,6 +11,10 @@ import com.stratum.domain.training.normalizedPartialReps
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.program.identity.WorkoutSupersetGroupId
 import com.stratum.domain.workout.myorep.MyoRepKind
+import com.stratum.domain.importing.identity.LoggedSetId
+import com.stratum.domain.program.LiftSet
+import com.stratum.domain.program.Workout
+import com.stratum.domain.training.LoggedSet
 
 /** A logged value for a single slot (D2). Overlay layer — the only mutable layer. */
 data class LoggedSetValue(

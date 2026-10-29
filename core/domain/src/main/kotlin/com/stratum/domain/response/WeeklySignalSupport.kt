@@ -7,7 +7,7 @@ import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.temporal.TemporalAdjusters
 
-internal object WeeklySignalSupport {
+object WeeklySignalSupport {
     fun weekStartFor(instant: Instant): Instant {
         val monday =
             instant.atZone(ZoneOffset.UTC)

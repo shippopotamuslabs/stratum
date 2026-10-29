@@ -19,6 +19,8 @@ import com.stratum.domain.response.WeeklySetRange
 import com.stratum.domain.response.identity.EpochId
 import java.time.Instant
 import java.time.temporal.ChronoUnit
+import com.stratum.domain.response.EpochSplitReason
+import com.stratum.domain.response.WeeklySignalSupport
 
 object ResponseModelingPipeline {
     fun run(

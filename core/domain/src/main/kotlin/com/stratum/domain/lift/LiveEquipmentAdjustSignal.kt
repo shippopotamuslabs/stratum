@@ -1,5 +1,6 @@
 package com.stratum.domain.lift
 
+
 /**
  * Live, per-lift off-lattice signal for the workout screen's "Adjust Equipment" chip.
  *

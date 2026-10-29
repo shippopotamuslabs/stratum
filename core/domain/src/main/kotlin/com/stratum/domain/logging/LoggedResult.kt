@@ -31,7 +31,7 @@ suspend inline fun <T> runCatchingLogged(
  * Use for validation outside [runCatchingLogged] blocks. Pass [message] only when the
  * breadcrumb must differ from the throwable message.
  */
-internal fun LoggingPort.expectedFailure(
+fun LoggingPort.expectedFailure(
     tag: String,
     throwable: Throwable,
     message: String = throwable.message ?: "Expected failure",

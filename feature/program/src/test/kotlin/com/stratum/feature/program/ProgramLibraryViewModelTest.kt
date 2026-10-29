@@ -9,15 +9,15 @@ import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
-import com.stratum.domain.lift.ObserveLiftCatalogUseCase
+import com.stratum.application.lift.ObserveLiftCatalogUseCase
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.Weekday
-import com.stratum.domain.program.ActivateStoredProgramUseCase
-import com.stratum.domain.program.DeleteProgramUseCase
+import com.stratum.application.program.ActivateStoredProgramUseCase
+import com.stratum.application.program.DeleteProgramUseCase
 import com.stratum.domain.program.LiftSet
-import com.stratum.domain.program.ObserveLibraryProgramsUseCase
-import com.stratum.domain.program.ObserveProgramUseCase
+import com.stratum.application.program.ObserveLibraryProgramsUseCase
+import com.stratum.application.program.ObserveProgramUseCase
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.SetType
@@ -27,7 +27,7 @@ import com.stratum.domain.program.identity.LiftSetId
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
-import com.stratum.domain.training.ObserveActiveSessionUseCase
+import com.stratum.application.training.ObserveActiveSessionUseCase
 import java.time.Instant
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -291,7 +291,7 @@ class ProgramLibraryViewModelTest {
             observeActiveSession = ObserveActiveSessionUseCase(trainingLog),
             activateStoredProgram = ActivateStoredProgramUseCase(programRepo, FakeLoggingPort()),
             abandonTrainingSession =
-                com.stratum.domain.training.AbandonTrainingSessionUseCase(
+                com.stratum.application.training.AbandonTrainingSessionUseCase(
                     trainingLog,
                     FakeLoggingPort(),
                 ),

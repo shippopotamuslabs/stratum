@@ -1,5 +1,6 @@
 package com.stratum.domain.importing
 
+
 data class MergeImportStats(
     val sessionsInserted: Int,
     val setsInserted: Int,

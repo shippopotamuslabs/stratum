@@ -4,8 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.domain.export.ExportFileResult
 import com.stratum.domain.export.ExportLogRange
-import com.stratum.domain.export.ExportTrainingLogsUseCase
-import com.stratum.domain.export.PreviewExportTrainingLogsUseCase
+import com.stratum.application.export.ExportTrainingLogsUseCase
+import com.stratum.application.export.PreviewExportTrainingLogsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.LocalDate
 import java.time.ZoneId

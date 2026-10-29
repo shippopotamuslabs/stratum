@@ -8,6 +8,7 @@ import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.SpecializationLevel
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.reference.RpRepProfile
+import com.stratum.domain.program.generation.reference.PATTERN_SECONDARY_MUSCLE_CREDITS
 
 enum class SlotRole {
     Anchor,

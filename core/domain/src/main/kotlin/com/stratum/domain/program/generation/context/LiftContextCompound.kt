@@ -1,6 +1,7 @@
 package com.stratum.domain.program.generation.context
 
 import com.stratum.domain.lift.FatigueProfile
+import com.stratum.domain.lift.Lift
 
 /**
  * High or Medium fatigue band — systemic multi-joint cost without promoting multi-pattern Low.

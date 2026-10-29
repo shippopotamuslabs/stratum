@@ -5,6 +5,7 @@ import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.identity.TrainingSessionId
+import com.stratum.domain.lift.WeightConversion
 
 object TrainingSignalCleaner {
     fun clean(input: ResponseExtractionInput): List<CleanTrainingSet> {

@@ -3,10 +3,10 @@ package com.stratum.telemetry
 import com.stratum.domain.di.ApplicationScope
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.logging.collectLatestRestarting
-import com.stratum.domain.subscription.ObserveEntitlementUseCase
+import com.stratum.application.subscription.ObserveEntitlementUseCase
 import com.stratum.domain.telemetry.CrashTelemetryPort
 import com.stratum.domain.telemetry.toTelemetryTier
-import com.stratum.domain.training.ObserveActiveSessionUseCase
+import com.stratum.application.training.ObserveActiveSessionUseCase
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope

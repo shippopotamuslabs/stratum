@@ -3,7 +3,7 @@ package com.stratum.core.testing.theme
 import com.stratum.domain.theme.ColorMode
 import com.stratum.domain.theme.ThemeFamily
 import com.stratum.domain.theme.ThemePreferences
-import com.stratum.domain.theme.ThemePreferencesRepository
+import com.stratum.application.theme.ThemePreferencesRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow

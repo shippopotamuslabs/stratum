@@ -1,7 +1,5 @@
 package com.stratum.domain.auth
 
-import kotlinx.coroutines.flow.StateFlow
-
 data class UserProfile(
     val uid: String,
     val displayName: String?,
@@ -21,12 +19,4 @@ sealed interface AuthState {
     ) : AuthState
 
     data object Loading : AuthState
-}
-
-interface AuthManager {
-    val authState: StateFlow<AuthState>
-
-    suspend fun signInWithGoogle(): Result<UserProfile>
-
-    suspend fun signOut(): Result<Unit>
 }

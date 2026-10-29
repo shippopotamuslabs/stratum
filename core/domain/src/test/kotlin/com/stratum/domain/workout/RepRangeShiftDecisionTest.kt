@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import com.stratum.domain.program.identity.WorkoutLiftId
 
 @DisplayName("evaluateRepRangeShift")
 class RepRangeShiftDecisionTest {

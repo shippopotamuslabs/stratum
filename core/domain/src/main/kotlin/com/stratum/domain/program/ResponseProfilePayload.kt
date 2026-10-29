@@ -7,6 +7,9 @@ import com.stratum.domain.response.LiftEffectivenessObservation
 import com.stratum.domain.response.ResponseEvidenceMerger
 import com.stratum.domain.response.VolumeResponseObservation
 import java.time.Instant
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.onboarding.MuscleGroup
 
 data class VolumeResponseInfluence(
     val muscle: com.stratum.domain.onboarding.MuscleGroup,

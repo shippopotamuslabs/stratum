@@ -2,7 +2,7 @@ package com.stratum.feature.program.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.stratum.domain.program.ReorderProgramCycleDaysUseCase
+import com.stratum.application.program.ReorderProgramCycleDaysUseCase
 import com.stratum.domain.program.identity.ProgramId
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject

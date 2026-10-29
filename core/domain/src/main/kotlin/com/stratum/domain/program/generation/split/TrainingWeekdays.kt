@@ -1,6 +1,7 @@
 package com.stratum.domain.program.generation.split
 
 import com.stratum.domain.program.schedule.TrainingTimeline
+import com.stratum.domain.onboarding.Weekday
 
 private val WEEKDAY_ORDER =
     listOf(

@@ -1,12 +1,12 @@
 package com.stratum.sync
 
 import com.stratum.domain.auth.AuthState
-import com.stratum.domain.auth.GetAuthStateUseCase
+import com.stratum.application.auth.GetAuthStateUseCase
 import com.stratum.domain.di.ApplicationScope
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.logging.collectLatestRestarting
-import com.stratum.domain.sync.StartCloudSyncUseCase
-import com.stratum.domain.sync.StopCloudSyncUseCase
+import com.stratum.application.sync.StartCloudSyncUseCase
+import com.stratum.application.sync.StopCloudSyncUseCase
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope

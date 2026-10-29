@@ -1,6 +1,6 @@
 package com.stratum.core.data.repository
 
-import com.stratum.domain.lift.MAX_DISMISSED_EQUIPMENT_PROPOSAL_FINGERPRINTS
+import com.stratum.application.lift.MAX_DISMISSED_EQUIPMENT_PROPOSAL_FINGERPRINTS
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue

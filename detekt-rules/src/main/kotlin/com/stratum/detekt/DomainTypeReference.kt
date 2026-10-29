@@ -4,6 +4,12 @@ import org.jetbrains.kotlin.psi.KtImportDirective
 
 internal object DomainTypeReference {
     const val DOMAIN_PACKAGE_PREFIX = "com.stratum.domain"
+    const val APPLICATION_PACKAGE_PREFIX = "com.stratum.application"
+
+    // STR-172: use cases, ports, and their outcomes moved from :core:domain to
+    // :core:application. UI state and composables must stay free of BOTH layers'
+    // types, so the "domain type" checks cover the application package as well.
+    private val LAYER_PACKAGE_PREFIXES = listOf(DOMAIN_PACKAGE_PREFIX, APPLICATION_PACKAGE_PREFIX)
 
     private val ALLOWED_SIMPLE_TYPES =
         setOf(
@@ -23,7 +29,7 @@ internal object DomainTypeReference {
 
     fun collectDomainImportedTypes(importDirective: KtImportDirective, current: Set<String>): Set<String> {
         val importPath = importDirective.importPath?.pathStr ?: return current
-        if (!importPath.startsWith(DOMAIN_PACKAGE_PREFIX)) {
+        if (LAYER_PACKAGE_PREFIXES.none { importPath.startsWith(it) }) {
             return current
         }
         val simpleName =
@@ -47,7 +53,7 @@ internal object DomainTypeReference {
                 .map { it.trim() }
                 .filter { it.isNotEmpty() }
         return tokens.any { token ->
-            token.startsWith(DOMAIN_PACKAGE_PREFIX) || token in domainTypes
+            LAYER_PACKAGE_PREFIXES.any { token.startsWith(it) } || token in domainTypes
         }
     }
 

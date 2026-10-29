@@ -1,5 +1,6 @@
 package com.stratum.domain.lift
 
+
 /**
  * Deterministic fatigue classification for custom / inferred lifts when the catalog has no
  * explicit profile (import LLM does not return fatigue; [CustomLiftDefinition] must not

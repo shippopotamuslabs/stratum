@@ -1,7 +1,7 @@
 package com.stratum.core.testing.healthconnect
 
 import com.stratum.domain.healthconnect.HealthConnectPermissionDeniedException
-import com.stratum.domain.healthconnect.HealthConnectSyncPort
+import com.stratum.application.healthconnect.HealthConnectSyncPort
 import com.stratum.domain.healthconnect.HealthConnectUnavailableException
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.TrainingSession

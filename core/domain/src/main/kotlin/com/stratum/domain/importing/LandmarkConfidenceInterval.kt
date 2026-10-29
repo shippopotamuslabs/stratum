@@ -1,5 +1,8 @@
 package com.stratum.domain.importing
 
+import com.stratum.domain.response.modeling.EpochBlockedBootstrap
+import com.stratum.domain.response.modeling.SqrtDoseResponseFit
+
 /**
  * A confidence interval around an estimated dose–response anchor (typically PV).
  *

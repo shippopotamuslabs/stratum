@@ -14,6 +14,8 @@ import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.TrainingSession
 import com.stratum.domain.training.identity.TrainingSessionId
 import java.time.Instant
+import com.stratum.domain.program.Workout
+import com.stratum.domain.training.TrainingSessionDisplayName
 
 object ImportHistoryTrainingMapper {
     val programId: ProgramId = ProgramId("import-history")

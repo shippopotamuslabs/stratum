@@ -1,5 +1,7 @@
 package com.stratum.domain.program
 
+import com.stratum.domain.workout.BACKOFF_REP_FLOOR
+
 /**
  * Canonical scheme-aware rep-range / top-set conventions for working sets
  * (`docs/onboarding-vertical-slices.md` §2.3).

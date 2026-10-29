@@ -9,6 +9,7 @@ import com.stratum.domain.response.identity.EpochId
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import com.stratum.domain.lift.Lift
 
 class EffectiveLiftSummaryBuilderTest {
     @Test

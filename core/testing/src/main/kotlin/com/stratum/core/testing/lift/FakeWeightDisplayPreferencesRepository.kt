@@ -2,7 +2,7 @@ package com.stratum.core.testing.lift
 
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.WeightDisplayPreferences
-import com.stratum.domain.lift.WeightDisplayPreferencesRepository
+import com.stratum.application.lift.WeightDisplayPreferencesRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow

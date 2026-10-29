@@ -1,12 +1,14 @@
 package com.stratum.domain.response.modeling
 
 import com.stratum.domain.onboarding.MuscleGroup
-import com.stratum.domain.response.fixtures.ResponseFixtures
+import com.stratum.core.testing.response.ResponseFixtures
 import java.time.temporal.ChronoUnit
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import com.stratum.domain.importing.CustomLiftMusclePolicy
+import com.stratum.domain.response.TrainingSignalCleaner
 
 class MuscleOutcomeIndexBuilderTest {
     @Test

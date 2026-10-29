@@ -2,7 +2,7 @@ package com.stratum.core.testing.importing
 
 import com.stratum.domain.program.importing.ProgramTemplateImportJobId
 import com.stratum.domain.program.importing.ProgramTemplateImportPhase
-import com.stratum.domain.program.importing.ProgramTemplateImportPort
+import com.stratum.application.program.importing.ProgramTemplateImportPort
 import com.stratum.domain.program.importing.ProgramTemplateJobSnapshot
 import com.stratum.domain.program.importing.RemoteProgramTemplateJobStatus
 

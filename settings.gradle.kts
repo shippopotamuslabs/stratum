@@ -28,6 +28,7 @@ rootProject.name = "Stratum"
 
 include(":app")
 include(":core:domain")
+include(":core:application")
 include(":core:data")
 include(":core:ui")
 include(":core:testing")

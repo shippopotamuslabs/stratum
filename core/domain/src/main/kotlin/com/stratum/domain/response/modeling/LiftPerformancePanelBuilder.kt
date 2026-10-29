@@ -10,6 +10,7 @@ import com.stratum.domain.response.OutlierGuard
 import com.stratum.domain.response.TrainingSignalQualityFlag
 import com.stratum.domain.response.WeeklySignalSupport
 import kotlin.math.ln
+import com.stratum.domain.response.WeeklyTrainingSignal
 
 object LiftPerformancePanelBuilder {
     fun build(

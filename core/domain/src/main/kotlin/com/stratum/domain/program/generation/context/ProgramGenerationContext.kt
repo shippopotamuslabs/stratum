@@ -8,6 +8,10 @@ import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.SpecializationLevel
+import com.stratum.domain.lift.Lift
+import com.stratum.domain.program.generation.reference.RP_REP_RIR_BANDS
+import com.stratum.domain.program.generation.volume.targetableMuscles
+import com.stratum.domain.program.schedule.materializeGeneratedCycleSpace
 
 enum class MuscleLengthBias {
     Lengthened,

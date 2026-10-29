@@ -3,24 +3,24 @@ package com.stratum.feature.program
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.domain.lift.Lift
-import com.stratum.domain.lift.ObserveLiftCatalogUseCase
-import com.stratum.domain.program.ComputeWorkoutMuscleVolumeUseCase
-import com.stratum.domain.program.EstimateWorkoutDurationMinutesUseCase
-import com.stratum.domain.program.ObserveProgramByIdUseCase
-import com.stratum.domain.program.ObserveProgramUseCase
+import com.stratum.application.lift.ObserveLiftCatalogUseCase
+import com.stratum.application.program.ComputeWorkoutMuscleVolumeUseCase
+import com.stratum.application.program.EstimateWorkoutDurationMinutesUseCase
+import com.stratum.application.program.ObserveProgramByIdUseCase
+import com.stratum.application.program.ObserveProgramUseCase
 import com.stratum.domain.program.Program
-import com.stratum.domain.program.SaveWorkoutUseCase
+import com.stratum.application.program.SaveWorkoutUseCase
 import com.stratum.domain.program.mergeWorkout
 import com.stratum.domain.program.Workout
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.program.ProgressionScheme
-import com.stratum.domain.training.AbandonTrainingSessionUseCase
-import com.stratum.domain.training.ObserveCycleProgressUseCase
-import com.stratum.domain.training.AppendProgramChangeEventUseCase
-import com.stratum.domain.training.StartTrainingSessionUseCase
-import com.stratum.domain.workout.ManageWorkoutOverlayUseCase
+import com.stratum.application.training.AbandonTrainingSessionUseCase
+import com.stratum.application.training.ObserveCycleProgressUseCase
+import com.stratum.application.training.AppendProgramChangeEventUseCase
+import com.stratum.application.training.StartTrainingSessionUseCase
+import com.stratum.application.workout.ManageWorkoutOverlayUseCase
 import com.stratum.domain.workout.SlotLiftPair
 import com.stratum.domain.workout.WorkoutEditSession
 import com.stratum.domain.workout.EditSessionEvent
@@ -32,8 +32,8 @@ import com.stratum.core.ui.component.isSupersetPairMember
 import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.EquipmentPickResult
 import com.stratum.domain.lift.EquipmentPickAwaiter
-import com.stratum.domain.lift.GetRecentlyUsedEquipmentForLiftUseCase
-import com.stratum.domain.lift.ObserveEquipmentCatalogUseCase
+import com.stratum.application.lift.GetRecentlyUsedEquipmentForLiftUseCase
+import com.stratum.application.lift.ObserveEquipmentCatalogUseCase
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.feature.program.formatEstimatedWorkoutDuration
 import com.stratum.feature.program.ui.DEFAULT_REST_SECONDS
@@ -70,7 +70,7 @@ class EditWorkoutViewModel @Inject constructor(
     private val appendProgramChangeEvent: AppendProgramChangeEventUseCase,
     private val workoutEditSession: WorkoutEditSession,
     private val observeEquipmentCatalog: ObserveEquipmentCatalogUseCase,
-    private val getEquipment: com.stratum.domain.lift.GetEquipmentUseCase,
+    private val getEquipment: com.stratum.application.lift.GetEquipmentUseCase,
     private val getRecentlyUsedEquipment: GetRecentlyUsedEquipmentForLiftUseCase,
     private val equipmentPickResult: EquipmentPickResult,
     startTrainingSession: StartTrainingSessionUseCase,

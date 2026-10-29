@@ -1,7 +1,7 @@
 package com.stratum.core.testing.importing
 
 import com.stratum.domain.importing.ImportJob
-import com.stratum.domain.importing.ImportJobRepository
+import com.stratum.application.importing.ImportJobRepository
 import com.stratum.domain.importing.ImportJobStatus
 import com.stratum.domain.importing.identity.ImportJobId
 import java.time.Instant

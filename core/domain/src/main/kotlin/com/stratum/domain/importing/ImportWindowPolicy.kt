@@ -3,6 +3,7 @@ package com.stratum.domain.importing
 import com.stratum.domain.training.LoggedSet
 import java.time.Instant
 import java.time.temporal.ChronoUnit
+import com.stratum.domain.lift.Lift
 
 /**
  * Import uses the full converted history for insights (volume landmarks, efficacy, fatigue).

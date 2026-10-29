@@ -8,11 +8,11 @@ import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.Weight
-import com.stratum.domain.training.ComputeLoggedSessionMuscleVolumeUseCase
-import com.stratum.domain.training.GetWorkoutSessionDetailUseCase
+import com.stratum.application.training.ComputeLoggedSessionMuscleVolumeUseCase
+import com.stratum.application.training.GetWorkoutSessionDetailUseCase
 import com.stratum.domain.training.LoggedSet
-import com.stratum.domain.training.ObserveWorkoutHistoryCalendarUseCase
-import com.stratum.domain.training.TrainingLogRepository
+import com.stratum.application.training.ObserveWorkoutHistoryCalendarUseCase
+import com.stratum.application.training.TrainingLogRepository
 import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.feature.history.ui.HistoryDaySessionsUiState
 import java.time.Instant

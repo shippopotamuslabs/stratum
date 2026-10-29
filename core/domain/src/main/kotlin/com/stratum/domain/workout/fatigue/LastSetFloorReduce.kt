@@ -9,6 +9,8 @@ import com.stratum.domain.lift.roundToIncrement
 import com.stratum.domain.lift.toStorageLb
 import com.stratum.domain.workout.BACKOFF_REP_FLOOR
 import kotlin.math.max
+import com.stratum.domain.workout.RecommendationEngine
+import com.stratum.domain.workout.progression.resolveStraightSetSharedWeight
 
 /**
  * Shared last-set floor reduce oracle used by live [com.stratum.domain.workout.RecommendationEngine]

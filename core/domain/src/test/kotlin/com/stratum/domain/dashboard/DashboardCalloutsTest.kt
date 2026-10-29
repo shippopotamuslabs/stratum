@@ -9,6 +9,7 @@ import java.time.temporal.ChronoUnit
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import com.stratum.domain.lift.Lift
 
 class DashboardCalloutsTest {
 

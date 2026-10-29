@@ -3,7 +3,7 @@ package com.stratum.core.inference
 import android.util.Base64
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.functions.FirebaseFunctions
-import com.stratum.domain.lift.IncrementScanPort
+import com.stratum.application.lift.IncrementScanPort
 import com.stratum.domain.lift.ScanPhoto
 import com.stratum.domain.lift.ScannedTiers
 import com.stratum.domain.logging.LoggingPort

@@ -15,11 +15,11 @@ import com.android.billingclient.api.QueryPurchasesParams
 import com.android.billingclient.api.acknowledgePurchase
 import com.android.billingclient.api.queryProductDetails
 import com.android.billingclient.api.queryPurchasesAsync
-import com.stratum.domain.auth.AuthManager
+import com.stratum.application.auth.AuthManager
 import com.stratum.domain.auth.AuthState
 import com.stratum.domain.di.ApplicationScope
 import com.stratum.domain.logging.LoggingPort
-import com.stratum.domain.subscription.BillingPort
+import com.stratum.application.subscription.BillingPort
 import com.stratum.domain.subscription.BillingPurchaseResult
 import com.stratum.domain.subscription.SubscriptionCatalog
 import com.stratum.domain.subscription.SubscriptionProduct

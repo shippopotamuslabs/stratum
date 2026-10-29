@@ -12,6 +12,8 @@ import com.stratum.domain.program.LiftWithInsights
 import com.stratum.domain.program.LiteratureVolumeDefaultsProvider
 import com.stratum.domain.program.ResponseProfilePayload
 import com.stratum.domain.response.modeling.VolumePosture
+import com.stratum.domain.program.LiteratureVolumeDefaults
+import com.stratum.domain.program.schedule.materializeGeneratedCycleSpace
 
 object ProgramGenerationContextMapper {
     fun map(

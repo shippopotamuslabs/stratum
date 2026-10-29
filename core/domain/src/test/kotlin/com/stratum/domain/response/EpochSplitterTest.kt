@@ -1,11 +1,12 @@
 package com.stratum.domain.response
 
-import com.stratum.domain.response.fixtures.ResponseFixtures
+import com.stratum.core.testing.response.ResponseFixtures
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import java.time.temporal.ChronoUnit
+import com.stratum.domain.importing.identity.LoggedSetId
 
 class EpochSplitterTest {
     @Test

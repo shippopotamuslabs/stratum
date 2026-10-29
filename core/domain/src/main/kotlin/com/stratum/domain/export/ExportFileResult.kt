@@ -1,5 +1,6 @@
 package com.stratum.domain.export
 
+
 /**
  * Share-ready export payload produced by domain export use cases.
  * No Android types ([android.net.Uri], Context, Intent).

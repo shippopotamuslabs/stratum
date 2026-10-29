@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import java.time.Instant
+import com.stratum.domain.training.LoggedLiftContext
 
 class MuscleVolumeCreditTest {
     @Test

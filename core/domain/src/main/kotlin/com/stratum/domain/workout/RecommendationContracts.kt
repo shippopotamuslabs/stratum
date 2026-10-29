@@ -1,6 +1,7 @@
 package com.stratum.domain.workout
 
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.workout.fatigue.FatigueModel
 
 /**
  * Global floor for weighted progression **recommended reps** (D4). Applies to top sets and

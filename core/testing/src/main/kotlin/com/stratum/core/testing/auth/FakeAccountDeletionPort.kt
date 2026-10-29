@@ -1,6 +1,6 @@
 package com.stratum.core.testing.auth
 
-import com.stratum.domain.auth.AccountDeletionPort
+import com.stratum.application.auth.AccountDeletionPort
 
 class FakeAccountDeletionPort : AccountDeletionPort {
     var deleteDataCount: Int = 0

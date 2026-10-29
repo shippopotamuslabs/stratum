@@ -20,6 +20,8 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import java.util.stream.Stream
+import com.stratum.domain.lift.WeightConversion
+import com.stratum.domain.workout.fatigue.FatigueModel
 
 /**
  * Pre-computed recommendation scenarios (RIR-aware math). Expected values use

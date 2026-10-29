@@ -12,6 +12,7 @@ import com.stratum.domain.program.generation.draft.ProgramWorkoutDraft
 import com.stratum.domain.program.generation.prescription.classifyLiftStressClass
 import com.stratum.domain.program.generation.prescription.dominantStressClass
 import com.stratum.domain.program.generation.prescription.recoveryStressClassForContributor
+import com.stratum.domain.program.schedule.TrainingTimeline
 
 /**
  * Dominant [LiftStressClass] for [muscle] in a session using lift metadata truth. Contributors

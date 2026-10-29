@@ -10,7 +10,7 @@ import com.stratum.core.data.db.OnboardingProgressDao
 import com.stratum.core.data.db.SpecializationPreferenceDao
 import com.stratum.core.data.db.StratumDatabase
 import com.stratum.core.data.db.withProductionMigrations
-import com.stratum.domain.onboarding.UserTrainingProfileRepository
+import com.stratum.application.onboarding.UserTrainingProfileRepository
 import com.stratum.core.data.db.UserProfileDao
 import com.stratum.core.data.repository.RoomEquipmentRepository
 import com.stratum.core.data.repository.RoomLiftRepository
@@ -24,11 +24,11 @@ import com.stratum.core.data.seed.AssetLiftEquipmentCatalog
 import com.stratum.core.data.seed.EquipmentCatalogSeeder
 import com.stratum.core.data.seed.LiftCatalogSeeder
 import com.stratum.domain.logging.LoggingPort
-import com.stratum.domain.lift.EquipmentRepository
-import com.stratum.domain.lift.LiftRepository
-import com.stratum.domain.lift.MergeLiftsPort
-import com.stratum.domain.onboarding.OnboardingRepository
-import com.stratum.domain.onboarding.SpecializationPreferenceRepository
+import com.stratum.application.lift.EquipmentRepository
+import com.stratum.application.lift.LiftRepository
+import com.stratum.application.lift.MergeLiftsPort
+import com.stratum.application.onboarding.OnboardingRepository
+import com.stratum.application.onboarding.SpecializationPreferenceRepository
 import com.stratum.core.data.db.ImportAnalysisMetadataDao
 import com.stratum.core.data.db.ImportJobDao
 import com.stratum.core.data.db.ExperimentBlockDao
@@ -58,10 +58,10 @@ import com.stratum.core.data.repository.RoomImportJobRepository
 import com.stratum.core.data.repository.RoomProgramChangeEventRepository
 import com.stratum.core.data.repository.RoomTrainingLogRepository
 import com.stratum.core.data.repository.ProgressionHistoryRepository
-import com.stratum.domain.training.ProgramChangeEventRepository
-import com.stratum.domain.training.TrainingLogRepository
-import com.stratum.domain.workout.ProgressionHistoryPort
-import com.stratum.domain.workout.WorkoutOverlayStore
+import com.stratum.application.training.ProgramChangeEventRepository
+import com.stratum.application.training.TrainingLogRepository
+import com.stratum.application.workout.ProgressionHistoryPort
+import com.stratum.application.workout.WorkoutOverlayStore
 import com.stratum.core.data.repository.DataStoreCheckInPreferencesRepository
 import com.stratum.core.data.repository.DataStoreDashboardPreferencesRepository
 import com.stratum.core.data.repository.DataStoreEquipmentProposalPreferences
@@ -71,13 +71,13 @@ import com.stratum.core.data.repository.DataStoreThemePreferencesRepository
 import com.stratum.core.data.repository.DataStoreWeightDisplayPreferencesRepository
 import com.stratum.core.data.repository.DataStoreWorkoutOverlayStore
 import com.stratum.core.data.repository.RoomLiftTrainingInsightsRepository
-import com.stratum.domain.checkin.CheckInPreferencesRepository
-import com.stratum.domain.dashboard.DashboardPreferencesRepository
-import com.stratum.domain.lift.EquipmentProposalPreferences
-import com.stratum.domain.lift.WeightDisplayPreferencesRepository
-import com.stratum.domain.program.ProgramsUiPreferencesRepository
-import com.stratum.domain.theme.ThemePreferencesRepository
-import com.stratum.domain.workout.RepRangeShiftProposalPreferences
+import com.stratum.application.checkin.CheckInPreferencesRepository
+import com.stratum.application.dashboard.DashboardPreferencesRepository
+import com.stratum.application.lift.EquipmentProposalPreferences
+import com.stratum.application.lift.WeightDisplayPreferencesRepository
+import com.stratum.application.program.ProgramsUiPreferencesRepository
+import com.stratum.application.theme.ThemePreferencesRepository
+import com.stratum.application.workout.RepRangeShiftProposalPreferences
 import com.stratum.core.data.repository.RoomMuscleVolumeResponseSnapshotRepository
 import com.stratum.core.data.repository.RoomMuscleWeeklyOutcomeIndexRepository
 import com.stratum.core.data.repository.RoomMuscleWeeklyStimulusRepository
@@ -88,37 +88,37 @@ import com.stratum.core.data.repository.HealthConnectSyncStatusRepository
 import com.stratum.core.data.healthconnect.HealthConnectManager
 import com.stratum.core.data.healthconnect.HealthConnectMetricsReader
 import com.stratum.core.data.work.WorkManagerHealthConnectScheduler
-import com.stratum.domain.healthconnect.HealthConnectMetricsPort
-import com.stratum.domain.healthconnect.HealthConnectPreferencesPort
-import com.stratum.domain.healthconnect.HealthConnectSchedulerPort
-import com.stratum.domain.healthconnect.HealthConnectSyncPort
-import com.stratum.domain.healthconnect.HealthConnectSyncStatusPort
-import com.stratum.domain.importing.Bm25LiftNameResolver
-import com.stratum.domain.importing.HybridLiftNameResolver
-import com.stratum.domain.importing.ImportAnalysisMetadataRepository
-import com.stratum.domain.importing.ImportJobRepository
-import com.stratum.domain.importing.LiftEmbeddingCatalogPort
-import com.stratum.domain.importing.LiftEquipmentCatalogPort
-import com.stratum.domain.importing.LiftNameEmbeddingPort
-import com.stratum.domain.importing.LiftNameResolverPort
-import com.stratum.domain.importing.LiftTrainingInsightsRepository
-import com.stratum.domain.importing.MuscleVolumeBaselineRepository
-import com.stratum.domain.importing.SupersetAffinityRepository
+import com.stratum.application.healthconnect.HealthConnectMetricsPort
+import com.stratum.application.healthconnect.HealthConnectPreferencesPort
+import com.stratum.application.healthconnect.HealthConnectSchedulerPort
+import com.stratum.application.healthconnect.HealthConnectSyncPort
+import com.stratum.application.healthconnect.HealthConnectSyncStatusPort
+import com.stratum.application.importing.Bm25LiftNameResolver
+import com.stratum.application.importing.HybridLiftNameResolver
+import com.stratum.application.importing.ImportAnalysisMetadataRepository
+import com.stratum.application.importing.ImportJobRepository
+import com.stratum.application.importing.LiftEmbeddingCatalogPort
+import com.stratum.application.importing.LiftEquipmentCatalogPort
+import com.stratum.application.importing.LiftNameEmbeddingPort
+import com.stratum.application.importing.LiftNameResolverPort
+import com.stratum.application.importing.LiftTrainingInsightsRepository
+import com.stratum.application.importing.MuscleVolumeBaselineRepository
+import com.stratum.application.importing.SupersetAffinityRepository
 import com.stratum.domain.response.DefaultResponseObservationExtractor
-import com.stratum.domain.response.EmptyExperimentRegistry
-import com.stratum.domain.response.ExperimentBlockRepository
-import com.stratum.domain.response.ExperimentRegistry
-import com.stratum.domain.response.LiftEffectivenessObservationRepository
-import com.stratum.domain.response.LiftWeeklyPerformanceRepository
-import com.stratum.domain.response.MuscleWeeklyOutcomeIndexRepository
-import com.stratum.domain.response.MuscleWeeklyStimulusRepository
-import com.stratum.domain.response.ResponseEpochRepository
-import com.stratum.domain.response.ResponseModelingSchedulerPort
+import com.stratum.application.response.EmptyExperimentRegistry
+import com.stratum.application.response.ExperimentBlockRepository
+import com.stratum.application.response.ExperimentRegistry
+import com.stratum.application.response.LiftEffectivenessObservationRepository
+import com.stratum.application.response.LiftWeeklyPerformanceRepository
+import com.stratum.application.response.MuscleWeeklyOutcomeIndexRepository
+import com.stratum.application.response.MuscleWeeklyStimulusRepository
+import com.stratum.application.response.ResponseEpochRepository
+import com.stratum.application.response.ResponseModelingSchedulerPort
 import com.stratum.domain.response.ResponseObservationExtractor
-import com.stratum.domain.response.ResponseProfileMetadataRepository
-import com.stratum.domain.response.MuscleVolumeResponseSnapshotRepository
-import com.stratum.domain.response.ResponseProfilePersistencePort
-import com.stratum.domain.response.VolumeResponseObservationRepository
+import com.stratum.application.response.ResponseProfileMetadataRepository
+import com.stratum.application.response.MuscleVolumeResponseSnapshotRepository
+import com.stratum.application.response.ResponseProfilePersistencePort
+import com.stratum.application.response.VolumeResponseObservationRepository
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -409,7 +409,7 @@ abstract class RepositoryModule {
     @Singleton
     abstract fun bindLiftNotesRepository(
         impl: com.stratum.core.data.repository.RoomLiftNotesRepository,
-    ): com.stratum.domain.lift.LiftNotesRepository
+    ): com.stratum.application.lift.LiftNotesRepository
 
     @Binds
     @Singleton
@@ -417,7 +417,7 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
-    abstract fun bindDeleteLiftPort(impl: RoomDeleteLiftPort): com.stratum.domain.lift.DeleteLiftPort
+    abstract fun bindDeleteLiftPort(impl: RoomDeleteLiftPort): com.stratum.application.lift.DeleteLiftPort
 
     @Binds
     @Singleton
@@ -537,8 +537,8 @@ abstract class RepositoryModule {
 
     @Binds
     abstract fun bindForceRefreshDerivedTrainingData(
-        impl: com.stratum.domain.training.ForceRefreshDerivedTrainingDataUseCase,
-    ): com.stratum.domain.training.ForceRefreshDerivedTrainingData
+        impl: com.stratum.application.training.ForceRefreshDerivedTrainingDataUseCase,
+    ): com.stratum.application.training.ForceRefreshDerivedTrainingData
 
     @Binds
     @Singleton
@@ -556,13 +556,13 @@ abstract class RepositoryModule {
     @Singleton
     abstract fun bindProgramRepository(
         impl: com.stratum.core.data.repository.RoomProgramRepository,
-    ): com.stratum.domain.program.ProgramRepository
+    ): com.stratum.application.program.ProgramRepository
 
     @Binds
     @Singleton
     abstract fun bindProgramGenerationContextLoader(
-        impl: com.stratum.domain.program.LoadProgramGenerationContextUseCase,
-    ): com.stratum.domain.program.ProgramGenerationContextLoader
+        impl: com.stratum.application.program.LoadProgramGenerationContextUseCase,
+    ): com.stratum.application.program.ProgramGenerationContextLoader
 
     @Binds
     @Singleton

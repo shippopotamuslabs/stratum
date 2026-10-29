@@ -8,6 +8,7 @@ import com.stratum.domain.program.schedule.resolvedCycleSlots
 import com.stratum.domain.training.identity.TrainingSessionId
 import java.time.Instant
 import java.util.UUID
+import com.stratum.domain.program.identity.WorkoutId
 
 /**
  * Builds [TrainingSessionKind.REST_DAY] ledger rows for mid-cycle rests that pure math would

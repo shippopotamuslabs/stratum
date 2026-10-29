@@ -2,7 +2,7 @@ package com.stratum.liftconfig
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.stratum.domain.lift.AddCustomLiftUseCase
+import com.stratum.application.lift.AddCustomLiftUseCase
 import com.stratum.domain.lift.CustomLiftDefinition
 import com.stratum.domain.lift.DEFAULT_STANDARD_REST_SECONDS
 import com.stratum.domain.lift.Equipment
@@ -11,9 +11,9 @@ import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.MuscleLengthBias
-import com.stratum.domain.lift.ObserveEquipmentCatalogUseCase
+import com.stratum.application.lift.ObserveEquipmentCatalogUseCase
 import com.stratum.domain.lift.SeedEquipmentIds
-import com.stratum.domain.lift.SetLiftDefaultRestUseCase
+import com.stratum.application.lift.SetLiftDefaultRestUseCase
 import com.stratum.domain.lift.alignedWithEquipment
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.EquipmentPickResult

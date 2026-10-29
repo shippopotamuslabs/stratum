@@ -8,6 +8,7 @@ import com.stratum.domain.dashboard.TrendPoint
 import com.stratum.domain.dashboard.olsFit
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import com.stratum.domain.onboarding.MuscleGroup
 
 /** Weeks on the same variation before a plateaued / soft lift is considered stale (swap path). */
 const val STALE_LIFT_TENURE_WEEKS = 4

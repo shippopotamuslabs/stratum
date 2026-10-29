@@ -8,7 +8,7 @@ import androidx.work.WorkerParameters
 import com.stratum.core.data.sync.CloudSyncFeatureGate
 import com.stratum.core.data.sync.CloudSyncResidualException
 import com.stratum.domain.logging.LoggingPort
-import com.stratum.domain.sync.CloudSyncPort
+import com.stratum.application.sync.CloudSyncPort
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 

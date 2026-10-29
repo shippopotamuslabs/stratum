@@ -3,6 +3,7 @@ package com.stratum.domain.response
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.training.LoggedSet
 
 object StimulusSeriesBuilder {
     fun weeklyHardSetsByMuscle(

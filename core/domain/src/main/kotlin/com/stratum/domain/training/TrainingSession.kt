@@ -5,6 +5,7 @@ import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.training.identity.TrainingSessionId
 import java.time.Instant
+import com.stratum.domain.program.Workout
 
 enum class TrainingSessionStatus {
     IN_PROGRESS,

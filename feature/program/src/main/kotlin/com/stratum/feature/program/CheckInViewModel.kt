@@ -2,14 +2,14 @@ package com.stratum.feature.program
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.stratum.domain.checkin.ApplyCheckInRecommendationsUseCase
+import com.stratum.application.checkin.ApplyCheckInRecommendationsUseCase
 import com.stratum.domain.checkin.CheckInSubjectiveFeedback
-import com.stratum.domain.checkin.EvaluateCheckInUseCase
-import com.stratum.domain.checkin.GetCheckInMuscleGroupsUseCase
-import com.stratum.domain.checkin.ObservePendingCheckInUseCase
+import com.stratum.application.checkin.EvaluateCheckInUseCase
+import com.stratum.application.checkin.GetCheckInMuscleGroupsUseCase
+import com.stratum.application.checkin.ObservePendingCheckInUseCase
 import com.stratum.domain.checkin.RecoverySignal
-import com.stratum.domain.checkin.SkipCheckInUseCase
-import com.stratum.domain.lift.RankSwapCandidatesUseCase
+import com.stratum.application.checkin.SkipCheckInUseCase
+import com.stratum.application.lift.RankSwapCandidatesUseCase
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.feature.program.ui.CheckInMuscleOptionUi

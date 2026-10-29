@@ -2,12 +2,14 @@ package com.stratum.domain.response.modeling
 
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.response.EpochSplitReason
-import com.stratum.domain.response.fixtures.ResponseFixtures
+import com.stratum.core.testing.response.ResponseFixtures
 import com.stratum.domain.response.identity.EpochId
 import java.time.Instant
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import com.stratum.domain.response.Epoch
+import com.stratum.domain.response.TrainingSignalCleaner
 
 class LaggedDoseResponsePairerTest {
     @Test

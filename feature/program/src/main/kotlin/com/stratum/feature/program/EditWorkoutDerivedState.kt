@@ -3,9 +3,9 @@ package com.stratum.feature.program
 import com.stratum.core.ui.component.toLowerVolumeCards
 import com.stratum.core.ui.component.toUpperVolumeCards
 import com.stratum.domain.lift.Lift
-import com.stratum.domain.program.ComputeWorkoutMuscleVolumeUseCase
+import com.stratum.application.program.ComputeWorkoutMuscleVolumeUseCase
 import com.stratum.domain.program.DurationSetInput
-import com.stratum.domain.program.EstimateWorkoutDurationMinutesUseCase
+import com.stratum.application.program.EstimateWorkoutDurationMinutesUseCase
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.WorkoutLiftVolumeInput
 import com.stratum.domain.program.WorkoutLiftDurationInput

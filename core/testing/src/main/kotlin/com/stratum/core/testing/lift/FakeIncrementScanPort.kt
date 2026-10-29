@@ -1,6 +1,6 @@
 package com.stratum.core.testing.lift
 
-import com.stratum.domain.lift.IncrementScanPort
+import com.stratum.application.lift.IncrementScanPort
 import com.stratum.domain.lift.ScanPhoto
 import com.stratum.domain.lift.ScannedTiers
 import com.stratum.domain.lift.Weight

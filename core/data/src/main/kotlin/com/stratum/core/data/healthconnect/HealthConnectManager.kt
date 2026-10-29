@@ -8,7 +8,7 @@ import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.metadata.Device
 import androidx.health.connect.client.records.metadata.Metadata
 import com.stratum.domain.healthconnect.HealthConnectPermissionDeniedException
-import com.stratum.domain.healthconnect.HealthConnectSyncPort
+import com.stratum.application.healthconnect.HealthConnectSyncPort
 import com.stratum.domain.healthconnect.HealthConnectUnavailableException
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.TrainingSession

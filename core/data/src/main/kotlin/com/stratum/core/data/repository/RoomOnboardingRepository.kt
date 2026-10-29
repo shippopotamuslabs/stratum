@@ -7,7 +7,7 @@ import com.stratum.core.data.sync.SyncCollection
 import com.stratum.core.data.sync.SyncTouch
 import com.stratum.domain.onboarding.OnboardingPath
 import com.stratum.domain.onboarding.OnboardingProgress
-import com.stratum.domain.onboarding.OnboardingRepository
+import com.stratum.application.onboarding.OnboardingRepository
 import com.stratum.domain.onboarding.OnboardingStep
 import com.stratum.domain.onboarding.identity.OnboardingProgressId
 import javax.inject.Inject

@@ -5,6 +5,7 @@ package com.stratum.domain.response.modeling
 import com.stratum.domain.importing.VolumeDosePoint
 import kotlin.math.abs
 import kotlin.math.sqrt
+import com.stratum.domain.response.Epoch
 
 /**
  * Weekly dose–response fit: `response ≈ intercept + slope × √volume`.

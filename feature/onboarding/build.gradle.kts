@@ -38,6 +38,7 @@ android {
 
 dependencies {
     implementation(project(":core:domain"))
+    implementation(project(":core:application"))
     implementation(project(":core:ui"))
     implementation(project(":core:inference"))
 

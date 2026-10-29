@@ -9,6 +9,7 @@ import com.stratum.domain.program.generation.reference.RpRepProfile
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import com.stratum.domain.lift.Lift
 
 class LiftStressClassificationTest {
 

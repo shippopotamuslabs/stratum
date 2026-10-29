@@ -3,6 +3,7 @@ package com.stratum.domain.importing
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.response.EvidenceLevel
+import com.stratum.domain.response.modeling.VolumePosture
 
 data class HistoricalImportSummary(
     val totalSessions: Int,

@@ -16,6 +16,8 @@ import com.stratum.domain.program.generation.slots.librarySlotKey
 import com.stratum.domain.program.generation.slots.promoteSpecializedSlots
 import com.stratum.domain.program.generation.structure.allowedRegionFiltersForSlot
 import com.stratum.domain.program.generation.volume.WeeklyVolumeTargets
+import com.stratum.domain.program.generation.slots.SessionTypeId
+import com.stratum.domain.program.generation.volume.availablePatternsByMuscle
 
 private const val MAX_UNIVERSE_SLOTS = 80
 

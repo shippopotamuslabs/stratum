@@ -2,6 +2,7 @@ package com.stratum.domain.workout.progression
 
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.training.EstimatedOneRm
 
 /**
  * True when [this] estimated 1RM can anchor load math. `EstimatedOneRm.repsForWeight`

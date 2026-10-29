@@ -1,7 +1,7 @@
 package com.stratum.core.testing.importing
 
-import com.stratum.domain.importing.LiftEmbeddingCatalogPort
-import com.stratum.domain.importing.LiftNameEmbeddingPort
+import com.stratum.application.importing.LiftEmbeddingCatalogPort
+import com.stratum.application.importing.LiftNameEmbeddingPort
 import com.stratum.domain.lift.identity.LiftId
 
 class FakeLiftEmbeddingCatalog(

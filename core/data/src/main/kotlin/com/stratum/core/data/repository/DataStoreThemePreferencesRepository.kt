@@ -7,7 +7,7 @@ import com.stratum.core.data.theme.toRecord
 import com.stratum.domain.theme.ColorMode
 import com.stratum.domain.theme.ThemeFamily
 import com.stratum.domain.theme.ThemePreferences
-import com.stratum.domain.theme.ThemePreferencesRepository
+import com.stratum.application.theme.ThemePreferencesRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton

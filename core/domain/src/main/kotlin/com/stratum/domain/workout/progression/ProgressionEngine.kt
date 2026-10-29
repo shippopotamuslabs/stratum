@@ -9,9 +9,10 @@ import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.training.EstimatedOneRm
 import com.stratum.domain.workout.BACKOFF_REP_FLOOR
 import com.stratum.domain.workout.SetSlot
-import com.stratum.domain.workout.SlotHistoryEntry
 import com.stratum.domain.workout.SlotRecommendation
 import com.stratum.domain.workout.fatigue.projectReps
+import com.stratum.domain.workout.SlotHistoryEntry
+import com.stratum.domain.workout.fatigue.FatigueModel
 
 /** Request for a [ProgressionEngine] per-slot recommendation. */
 data class SlotProgressionRequest(

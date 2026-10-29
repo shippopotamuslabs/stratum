@@ -12,6 +12,7 @@ import com.stratum.domain.program.generation.slots.SlotRole
 import com.stratum.domain.program.generation.slots.WorkoutSlotTemplate
 import org.junit.jupiter.api.Test
 import java.io.File
+import com.stratum.domain.program.generation.reference.RpRepProfile
 
 class LiftSelectionTuningTest {
 

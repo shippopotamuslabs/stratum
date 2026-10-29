@@ -5,9 +5,9 @@ import com.stratum.core.data.work.CloudSyncScheduler
 import com.stratum.domain.di.IoDispatcher
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.sync.CloudSessionState
-import com.stratum.domain.sync.CloudSyncPort
+import com.stratum.application.sync.CloudSyncPort
 import com.stratum.domain.sync.SyncStatus
-import com.stratum.domain.training.RebuildLocalDerivedTrainingDataUseCase
+import com.stratum.application.training.RebuildLocalDerivedTrainingDataUseCase
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import javax.inject.Singleton

@@ -1,5 +1,6 @@
 package com.stratum.domain.json
 
+
 /**
  * Minimal JSON AST for hand-rolled encode/decode in `:core:domain`.
  * Shared by import templates and program-synthesis wire formats so the module stays free of

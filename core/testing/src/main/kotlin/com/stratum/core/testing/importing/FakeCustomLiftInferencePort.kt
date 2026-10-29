@@ -1,8 +1,8 @@
 package com.stratum.core.testing.importing
 
-import com.stratum.domain.importing.CustomLiftInferencePort
+import com.stratum.application.importing.CustomLiftInferencePort
 import com.stratum.domain.importing.InferredCustomLiftMetadata
-import com.stratum.domain.importing.UnmatchedExerciseCandidate
+import com.stratum.application.importing.UnmatchedExerciseCandidate
 
 class FakeCustomLiftInferencePort(
     private val results: List<InferredCustomLiftMetadata> = emptyList(),

@@ -2,6 +2,7 @@ package com.stratum.domain.workout
 
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.training.SetEquipmentSource
 
 /**
  * Resolves the equipment in use for a template lift this session.

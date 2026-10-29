@@ -10,20 +10,20 @@ import com.stratum.core.testing.onboarding.FakeEquipmentProposalPreferences
 import com.stratum.core.testing.onboarding.FakeEquipmentRepository
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
-import com.stratum.domain.featureflag.ObserveIncrementsAiScanUseCase
-import com.stratum.domain.lift.DeleteCustomEquipmentUseCase
-import com.stratum.domain.lift.GetEquipmentDeleteImpactUseCase
-import com.stratum.domain.lift.DismissEquipmentProposalUseCase
+import com.stratum.application.featureflag.ObserveIncrementsAiScanUseCase
+import com.stratum.application.lift.DeleteCustomEquipmentUseCase
+import com.stratum.application.lift.GetEquipmentDeleteImpactUseCase
+import com.stratum.application.lift.DismissEquipmentProposalUseCase
 import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
-import com.stratum.domain.lift.ObserveEquipmentAffectedLiftsUseCase
-import com.stratum.domain.lift.ObserveEquipmentCatalogUseCase
-import com.stratum.domain.lift.RenameAndSetIncrementTiersUseCase
-import com.stratum.domain.lift.ScanIncrementTiersUseCase
-import com.stratum.domain.lift.SetEquipmentIncrementTiersUseCase
-import com.stratum.domain.lift.SetLiftEquipmentUseCase
+import com.stratum.application.lift.ObserveEquipmentAffectedLiftsUseCase
+import com.stratum.application.lift.ObserveEquipmentCatalogUseCase
+import com.stratum.application.lift.RenameAndSetIncrementTiersUseCase
+import com.stratum.application.lift.ScanIncrementTiersUseCase
+import com.stratum.application.lift.SetEquipmentIncrementTiersUseCase
+import com.stratum.application.lift.SetLiftEquipmentUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.EquipmentPickResult
@@ -118,7 +118,7 @@ class EquipmentIncrementsViewModelTest {
                     ),
                 equipmentPickResult = equipmentPickResult,
                 observeWeightDisplayPreferences =
-                    com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase(
+                    com.stratum.application.lift.ObserveWeightDisplayPreferencesUseCase(
                         com.stratum.core.testing.lift.FakeWeightDisplayPreferencesRepository(),
                     ),
                 scanDelegate =

@@ -1,7 +1,7 @@
 package com.stratum.core.testing.workout
 
 import com.stratum.domain.training.TrainingSessionStatus
-import com.stratum.domain.workout.ProgressionHistoryPort
+import com.stratum.application.workout.ProgressionHistoryPort
 import com.stratum.domain.workout.SlotHistoryEntry
 import com.stratum.domain.workout.SlotHistoryRequest
 

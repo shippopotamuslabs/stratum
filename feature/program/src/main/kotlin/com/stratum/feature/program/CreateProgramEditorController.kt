@@ -1,15 +1,15 @@
 package com.stratum.feature.program
 
 import com.stratum.domain.lift.Lift
-import com.stratum.domain.onboarding.CompleteOnboardingUseCase
-import com.stratum.domain.onboarding.GetUserTrainingProfileUseCase
-import com.stratum.domain.program.ActivateProgramUseCase
-import com.stratum.domain.program.ComputeWorkoutMuscleVolumeUseCase
-import com.stratum.domain.program.EstimateWorkoutDurationMinutesUseCase
+import com.stratum.application.onboarding.CompleteOnboardingUseCase
+import com.stratum.application.onboarding.GetUserTrainingProfileUseCase
+import com.stratum.application.program.ActivateProgramUseCase
+import com.stratum.application.program.ComputeWorkoutMuscleVolumeUseCase
+import com.stratum.application.program.EstimateWorkoutDurationMinutesUseCase
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.ProgressionScheme
-import com.stratum.domain.program.SaveProgramToLibraryUseCase
-import com.stratum.domain.program.UpdateExistingProgramUseCase
+import com.stratum.application.program.SaveProgramToLibraryUseCase
+import com.stratum.application.program.UpdateExistingProgramUseCase
 import com.stratum.domain.workout.WorkoutEditSession
 import com.stratum.feature.program.ui.DEFAULT_REST_SECONDS
 import com.stratum.feature.program.ui.EditLiftState

@@ -1,5 +1,7 @@
 package com.stratum.domain.program
 
+import com.stratum.domain.onboarding.TrainingAge
+
 /**
  * The kind of a [LiftSet]. OS-7 v1 supports straight sets, myo-reps, and drop sets. This maps
  * the §2.4 set-type taxonomy into the persistence + generation schemas.

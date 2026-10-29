@@ -3,8 +3,8 @@ package com.stratum.core.data.repository
 import android.content.Context
 import com.stratum.core.data.equipment.equipmentProposalPreferencesDataStore
 import com.stratum.core.data.prefs.DismissedFingerprintStore
-import com.stratum.domain.lift.EquipmentProposalPreferences
-import com.stratum.domain.lift.MAX_DISMISSED_EQUIPMENT_PROPOSAL_FINGERPRINTS
+import com.stratum.application.lift.EquipmentProposalPreferences
+import com.stratum.application.lift.MAX_DISMISSED_EQUIPMENT_PROPOSAL_FINGERPRINTS
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton

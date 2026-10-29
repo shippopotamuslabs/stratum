@@ -3,6 +3,7 @@ package com.stratum.domain.lift
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.importing.CustomLiftMusclePolicy
 
 /**
  * A lift in the catalog — the primary catalog entity (program, log, filter). A [Lift] carries

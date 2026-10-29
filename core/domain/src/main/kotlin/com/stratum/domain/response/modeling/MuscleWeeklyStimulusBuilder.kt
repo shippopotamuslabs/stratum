@@ -10,6 +10,8 @@ import com.stratum.domain.response.TrainingSignalQualityFlag
 import com.stratum.domain.response.WeeklySignalSupport
 import java.time.Instant
 import kotlin.math.roundToInt
+import com.stratum.domain.importing.CustomLiftMusclePolicy
+import com.stratum.domain.importing.ImportStubLiftGuesser
 
 object MuscleWeeklyStimulusBuilder {
     fun build(

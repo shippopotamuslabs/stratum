@@ -5,6 +5,7 @@ import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.toMovementPatternSet
 import java.time.Instant
+import com.stratum.domain.program.generation.selection.scoreLift
 
 object LiftEffectivenessAnalyzer {
     fun analyze(

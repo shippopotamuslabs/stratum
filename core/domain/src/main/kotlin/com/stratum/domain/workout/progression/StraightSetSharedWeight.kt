@@ -10,6 +10,7 @@ import com.stratum.domain.workout.BACKOFF_REP_FLOOR
 import com.stratum.domain.workout.SetSlot
 import com.stratum.domain.workout.fatigue.capacityAtRirWithProjectReps
 import com.stratum.domain.workout.fatigue.reduceWeightForLastSetFloor
+import com.stratum.domain.workout.fatigue.projectReps
 
 /**
  * Resolves one shared straight-set load for a lift after the scheme gate has chosen a
@@ -26,7 +27,7 @@ import com.stratum.domain.workout.fatigue.reduceWeightForLastSetFloor
  *
  * **Drop sets are excluded** from the floor gate — their reduced load / zero-rest history
  * must not crush the shared straight-set prescription. Callers re-emit slots at the shared
- * weight, then [com.stratum.domain.workout.dropset.applyDropSetPrescriptions] rewrites drops.
+ * weight, then [com.stratum.application.workout.dropset.applyDropSetPrescriptions] rewrites drops.
  */
 fun resolveStraightSetSharedWeight(
     candidateWeight: Weight,

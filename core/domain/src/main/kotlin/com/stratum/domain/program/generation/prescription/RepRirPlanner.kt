@@ -16,6 +16,8 @@ import com.stratum.domain.workout.fatigue.LAST_SET_REP_FLOOR
 import com.stratum.domain.workout.fatigue.REP_RANGE_CEILING
 import com.stratum.domain.workout.fatigue.fatigueDropReps
 import kotlin.math.roundToInt
+import com.stratum.domain.lift.IncrementTier
+import com.stratum.domain.workout.fatigue.projectReps
 
 private val LOWER_FREE_WEIGHT_PATTERNS = setOf(MovementPattern.SquatPattern, MovementPattern.HipHinge)
 

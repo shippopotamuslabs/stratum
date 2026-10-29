@@ -4,6 +4,7 @@ import com.stratum.domain.program.Program
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.temporal.TemporalAdjusters
+import com.stratum.domain.onboarding.Weekday
 
 /**
  * Resolves the calendar anchor (epoch day of cycle slot 0) for projection labels.

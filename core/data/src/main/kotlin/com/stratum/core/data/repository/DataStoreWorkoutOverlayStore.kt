@@ -6,7 +6,7 @@ import com.stratum.core.data.workoutoverlay.toDto
 import com.stratum.core.data.workoutoverlay.workoutOverlayDataStore
 import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.domain.workout.WorkoutOverlay
-import com.stratum.domain.workout.WorkoutOverlayStore
+import com.stratum.application.workout.WorkoutOverlayStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject

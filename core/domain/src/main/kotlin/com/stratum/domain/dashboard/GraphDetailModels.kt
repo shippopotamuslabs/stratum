@@ -6,6 +6,7 @@ import com.stratum.domain.response.DayBucketSupport
 import java.time.Instant
 import java.time.Period
 import java.time.ZoneId
+import com.stratum.domain.lift.Lift
 
 /**
  * Subject for a fullscreen graph detail load — one lift, one muscle (weekly), or daily muscle volume.

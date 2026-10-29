@@ -6,7 +6,7 @@ import com.google.firebase.storage.FirebaseStorage
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.program.importing.ProgramTemplateImportJobId
 import com.stratum.domain.program.importing.ProgramTemplateImportPhase
-import com.stratum.domain.program.importing.ProgramTemplateImportPort
+import com.stratum.application.program.importing.ProgramTemplateImportPort
 import com.stratum.domain.program.importing.ProgramTemplateJobSnapshot
 import com.stratum.domain.program.importing.RemoteProgramTemplateJobStatus
 import javax.inject.Inject

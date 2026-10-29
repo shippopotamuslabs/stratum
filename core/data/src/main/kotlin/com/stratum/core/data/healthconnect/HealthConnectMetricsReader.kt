@@ -12,7 +12,7 @@ import androidx.health.connect.client.request.AggregateGroupByPeriodRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import com.stratum.domain.healthconnect.DailyStepCount
-import com.stratum.domain.healthconnect.HealthConnectMetricsPort
+import com.stratum.application.healthconnect.HealthConnectMetricsPort
 import com.stratum.domain.healthconnect.HealthMetricType
 import com.stratum.domain.healthconnect.HealthMetricsRequest
 import com.stratum.domain.healthconnect.HealthMetricsSnapshot

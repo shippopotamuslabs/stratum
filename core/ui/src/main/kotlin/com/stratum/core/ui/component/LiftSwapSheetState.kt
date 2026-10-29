@@ -7,7 +7,7 @@ import com.stratum.domain.onboarding.MuscleGroup
 
 /**
  * Immutable view state for [StratumLiftSwapBottomSheet]. Built by the feature ViewModel from
- * the [com.stratum.domain.lift.RankSwapCandidatesUseCase] stream, with filter and search state
+ * the [com.stratum.application.lift.RankSwapCandidatesUseCase] stream, with filter and search state
  * overlaid (ARCHITECTURE.md §4.4 — only transient state lives in the ViewModel).
  *
  * The sheet itself holds no state; it is a pure function of this object plus the callbacks in

@@ -1,0 +1,131 @@
+package com.stratum.application.program
+
+import com.stratum.domain.lift.WorkoutLiftNote
+import com.stratum.domain.lift.WorkoutLiftNoteInput
+import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.program.identity.ProgramId
+import com.stratum.domain.program.identity.WorkoutLiftId
+import kotlinx.coroutines.flow.Flow
+import com.stratum.domain.program.Program
+import com.stratum.domain.program.Workout
+import com.stratum.application.lift.LiftNotesRepository
+
+/**
+ * Reads and writes [Program] templates. Supports multiple user programs (library + one active).
+ *
+ * - [observeProgram] / [getProgram] expose the **active** training program only.
+ * - [saveProgram] upserts a full hierarchy for that program id without deleting other programs.
+ * - [saveToLibrary] persists inactive; [activateProgram] promotes a program and demotes the prior
+ *   active. Save/activate never destroy sibling programs.
+ * - [deleteProgram] is the only path that permanently removes a user program hierarchy.
+ */
+interface ProgramRepository {
+    fun observeProgram(): Flow<Program?>
+
+    /** Observes a single program (active or library) by id; emits null when missing. */
+    fun observeProgramById(programId: ProgramId): Flow<Program?>
+
+    suspend fun getProgram(): Program?
+
+    suspend fun getProgramById(programId: ProgramId): Program?
+
+    /**
+     * All user programs (active + library), excluding the import-history sentinel.
+     * Used when re-pointing template lift ids before catalog delete (merge lifts).
+     */
+    suspend fun getAllUserPrograms(): List<Program>
+
+    /** Upserts the full hierarchy for [program]. When [Program.isActive] is true, demotes others. */
+    suspend fun saveProgram(program: Program)
+
+    /** Persists [program] as inactive library inventory (never activates it). */
+    suspend fun saveToLibrary(program: Program)
+
+    /**
+     * Makes [programId] the sole active user program. No-op delete of other programs — prior active
+     * becomes library inventory.
+     */
+    suspend fun activateProgram(programId: ProgramId)
+
+    /**
+     * Permanently removes the program **template** hierarchy (workouts/lifts/sets). Training
+     * sessions and logged sets are retained: session soft refs are cleared explicitly
+     * (not Room FKs). Must refuse `import-history`.
+     */
+    suspend fun deleteProgram(programId: ProgramId)
+
+    /** Inactive user programs (excludes active and import-history). */
+    fun observeLibraryPrograms(): Flow<List<Program>>
+
+    /**
+     * Targeted pin-note write for one template slot. Returns false when no `workout_lifts`
+     * row exists (overlay-added / ad-hoc slot — caller should persist on the overlay).
+     */
+    suspend fun setWorkoutLiftPinnedNote(id: WorkoutLiftId, note: String?): Boolean
+
+    /**
+     * Pair-scoped form of [setWorkoutLiftPinnedNote] (STR-127): the single-note
+     * write lands on the (slot, [liftId]) pair — a note edited while a swapped-in
+     * lift occupies the slot must not overwrite the template pair's notes or its
+     * legacy mirror (the mirror updates only when [liftId] is the slot's lift).
+     */
+    suspend fun setWorkoutLiftPinnedNote(
+        id: WorkoutLiftId,
+        liftId: LiftId,
+        note: String?,
+    ): Boolean
+
+    /**
+     * All workout notes for one template slot, display order (position ascending).
+     *
+     * Client lazy-migrate: when the slot carries only a legacy `pinned_note`
+     * and no rows, implementations persist it as the position-0 row before
+     * returning, so this read can dirty the store. Callers must treat it as a
+     * read-write operation, not a pure query.
+     */
+    suspend fun getWorkoutLiftPinnedNotes(id: WorkoutLiftId): List<WorkoutLiftNote>
+
+    /**
+     * Replaces the whole workout note list for one template slot. Returns false when
+     * no `workout_lifts` row exists (overlay fallback). See
+     * [com.stratum.application.lift.LiftNotesRepository.replaceSessionNotes] for id semantics.
+     */
+    suspend fun setWorkoutLiftPinnedNotes(
+        id: WorkoutLiftId,
+        notes: List<WorkoutLiftNoteInput>,
+    ): Boolean
+
+    /**
+     * Workout notes for one (slot, lift) pair (STR-127): slot pinned notes belong to
+     * the lift that occupied the slot when they were written, so a swapped-in lift
+     * reads its own pair's notes — never the previous lift's. Unscoped legacy rows
+     * count as the slot's current lift pair only.
+     */
+    suspend fun getWorkoutLiftPinnedNotes(
+        id: WorkoutLiftId,
+        liftId: LiftId,
+    ): List<WorkoutLiftNote>
+
+    /**
+     * Pair-scoped form of [setWorkoutLiftPinnedNotes]: replaces only the
+     * (slot, [liftId]) pair's list; other pairs of the same slot stay stashed.
+     * The legacy first-note mirror is updated only when [liftId] is the lift
+     * currently on the slot.
+     */
+    suspend fun setWorkoutLiftPinnedNotes(
+        id: WorkoutLiftId,
+        liftId: LiftId,
+        notes: List<WorkoutLiftNoteInput>,
+    ): Boolean
+
+    /**
+     * @param cycleStartEpochDay when non-null, updates the cycle projection anchor (typically on
+     * cycle rollover). When null, leaves the stored anchor unchanged.
+     */
+    suspend fun updateCyclePointer(
+        programId: ProgramId,
+        currentCycleNumber: Int,
+        cyclePosition: Int,
+        cycleStartEpochDay: Long? = null,
+    )
+}

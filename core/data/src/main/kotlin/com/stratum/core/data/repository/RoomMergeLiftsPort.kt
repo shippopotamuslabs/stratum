@@ -8,7 +8,7 @@ import com.stratum.core.data.db.TrainingLoggedSetDao
 import com.stratum.core.data.db.WorkoutLiftDao
 import com.stratum.core.data.sync.SyncCollection
 import com.stratum.core.data.sync.SyncTouch
-import com.stratum.domain.lift.MergeLiftsPort
+import com.stratum.application.lift.MergeLiftsPort
 import com.stratum.domain.lift.identity.LiftId
 import javax.inject.Inject
 import javax.inject.Singleton

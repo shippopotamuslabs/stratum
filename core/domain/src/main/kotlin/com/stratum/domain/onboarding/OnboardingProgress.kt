@@ -1,5 +1,6 @@
 package com.stratum.domain.onboarding
 
+
 /**
  * Persisted progress through the onboarding wizard.
  *

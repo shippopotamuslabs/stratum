@@ -44,7 +44,7 @@ import com.stratum.core.ui.component.defaultMuscleFilterTiers
 import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.domain.lift.FatigueProfile
-import com.stratum.domain.lift.SetLiftDefaultRestUseCase
+import com.stratum.application.lift.SetLiftDefaultRestUseCase
 import com.stratum.domain.onboarding.MuscleGroup
 
 enum class MuscleRoleFilter {

@@ -1,7 +1,7 @@
 package com.stratum.liftconfig
 
-import com.stratum.domain.featureflag.ObserveIncrementsAiScanUseCase
-import com.stratum.domain.lift.ScanIncrementTiersUseCase
+import com.stratum.application.featureflag.ObserveIncrementsAiScanUseCase
+import com.stratum.application.lift.ScanIncrementTiersUseCase
 import com.stratum.domain.lift.ScanPhoto
 import com.stratum.domain.lift.Weight
 import javax.inject.Inject

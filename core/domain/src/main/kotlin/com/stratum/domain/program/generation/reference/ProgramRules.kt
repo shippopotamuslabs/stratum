@@ -4,6 +4,7 @@ package com.stratum.domain.program.generation.reference
 
 import com.stratum.domain.onboarding.LastTrainedBucket
 import com.stratum.domain.onboarding.TrainingAge
+import com.stratum.domain.lift.MAJOR_COMPOUND_PATTERNS
 
 // MAJOR_COMPOUND_PATTERNS lives in domain.lift (canonical) — import from there.
 

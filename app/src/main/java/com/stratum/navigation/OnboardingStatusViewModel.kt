@@ -2,9 +2,9 @@ package com.stratum.navigation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.stratum.domain.onboarding.ObserveOnboardingCompleteUseCase
-import com.stratum.domain.onboarding.ReopenOnboardingWizardUseCase
-import com.stratum.domain.program.DiscardActiveProgramUseCase
+import com.stratum.application.onboarding.ObserveOnboardingCompleteUseCase
+import com.stratum.application.onboarding.ReopenOnboardingWizardUseCase
+import com.stratum.application.program.DiscardActiveProgramUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted

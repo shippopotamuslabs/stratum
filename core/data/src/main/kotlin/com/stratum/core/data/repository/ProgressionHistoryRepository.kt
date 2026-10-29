@@ -4,7 +4,7 @@ import com.stratum.core.data.db.TrainingLoggedSetDao
 import com.stratum.core.data.db.TrainingSessionDao
 import com.stratum.core.data.mapper.toDomain
 import com.stratum.core.data.mapper.toTrainingDomain
-import com.stratum.domain.workout.ProgressionHistoryPort
+import com.stratum.application.workout.ProgressionHistoryPort
 import com.stratum.domain.workout.SlotHistoryEntry
 import com.stratum.domain.workout.SlotHistoryRequest
 import javax.inject.Inject

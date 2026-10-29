@@ -7,6 +7,9 @@ import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.program.identity.WorkoutSupersetGroupId
+import com.stratum.domain.lift.Lift
+import com.stratum.domain.program.LiftSet
+import com.stratum.domain.program.WorkoutLift
 
 /** A projected lift within a [WorkoutStructureProjection]. */
 data class WorkoutLiftProjection(

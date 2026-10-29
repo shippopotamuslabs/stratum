@@ -6,7 +6,7 @@ import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.domain.program.Program
-import com.stratum.domain.program.ReorderProgramCycleDaysUseCase
+import com.stratum.application.program.ReorderProgramCycleDaysUseCase
 import com.stratum.domain.program.Workout
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId

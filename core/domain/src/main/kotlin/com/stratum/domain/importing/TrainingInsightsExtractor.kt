@@ -13,6 +13,13 @@ import java.time.Duration
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import kotlin.math.abs
+import com.stratum.domain.program.generation.prescription.repRangeFromFatigue
+import com.stratum.domain.response.MuscleVolumeCredit
+import com.stratum.domain.response.POPULATION_FATIGUE_DECAY_INTERCEPT
+import com.stratum.domain.response.POPULATION_FATIGUE_DECAY_SLOPE
+import com.stratum.domain.response.REGRESSION_DENOM_EPSILON
+import com.stratum.domain.workout.fatigue.FatigueModel
+import com.stratum.domain.workout.fatigue.projectReps
 
 /**
  * Pure analytics over normalized history. Computes metrics only — persistence is the use case's job.

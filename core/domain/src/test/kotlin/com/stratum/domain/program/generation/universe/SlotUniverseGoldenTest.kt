@@ -9,6 +9,13 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import java.util.stream.Stream
+import com.stratum.domain.program.generation.slots.LOWER_ACCESSORIES
+import com.stratum.domain.program.generation.slots.LOWER_ANCHORS
+import com.stratum.domain.program.generation.slots.UPPER_ACCESSORIES
+import com.stratum.domain.program.generation.slots.UPPER_PRESS
+import com.stratum.domain.program.generation.slots.UPPER_PULL
+import com.stratum.domain.program.generation.slots.baseSlotLibrary
+import com.stratum.domain.program.generation.slots.librarySlotKey
 
 /**
  * Golden snapshots of universe slot keys for representative scenarios.
