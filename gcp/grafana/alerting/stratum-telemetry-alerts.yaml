@@ -13,21 +13,21 @@ groups:
     rules:
       - uid: stratum-expected-failure-burn
         title: "Stratum: expected-failure burn over baseline"
-        condition: burn
+        condition: volume
         data:
           - refId: volume
-            datasourceUid: __BIGQUERY_DS_UID__
+            datasourceUid: ${DS_BIGQUERY}
             model:
               rawSql: >-
-                SELECT TIMESTAMP_TRUNC(timestamp, MINUTE) AS time,
+                SELECT TIMESTAMP_SECONDS(5 * 60 * DIV(UNIX_SECONDS(timestamp), 5 * 60)) AS time,
                 jsonPayload.tag AS use_case,
                 SUM(IF(jsonPayload.outcome = 'expected_failure', 1, 0)) AS failures,
                 COUNT(*) AS total
-                FROM `PROJECT.CLIENT_LOG_DATASET`
+                FROM `PROJECT.DATASET.client_log_sink`
                 WHERE $__timeFilter(timestamp)
                 AND jsonPayload.source = 'stratum-client-log'
                 AND jsonPayload.severity = 'OUTCOME'
-                GROUP BY time, use_case ORDER BY time
+                GROUP BY time, use_case HAVING COUNT(*) >= 20 ORDER BY time
         annotations:
           summary: "Expected-failure volume for a use case exceeds 3x its trailing-hour baseline (min 20 outcomes/5m)."
           runbook: "gcp/grafana/README.md#alerts"
@@ -40,13 +40,13 @@ groups:
         condition: errors
         data:
           - refId: errors
-            datasourceUid: __BIGQUERY_DS_UID__
+            datasourceUid: ${DS_BIGQUERY}
             model:
               rawSql: >-
                 SELECT TIMESTAMP_TRUNC(timestamp, MINUTE) AS time, COUNT(*) AS n
-                FROM `PROJECT.FUNCTIONS_LOG_DATASET`
+                FROM `PROJECT.DATASET.all_app_logs`
                 WHERE $__timeFilter(timestamp)
-                AND jsonPayload.message CONTAINS 'ingestClientLogs'
+                AND CONTAINS_SUBSTR(jsonPayload.message, 'ingestClientLogs')
                 AND severity = 'ERROR'
                 GROUP BY time ORDER BY time
         annotations:
@@ -61,7 +61,7 @@ groups:
         condition: spike
         data:
           - refId: spike
-            datasourceUid: __BIGQUERY_DS_UID__
+            datasourceUid: ${DS_BIGQUERY}
             model:
               rawSql: >-
                 SELECT TIMESTAMP_TRUNC(TIMESTAMP_MICROS(event_timestamp), MINUTE) AS time, COUNT(*) AS n

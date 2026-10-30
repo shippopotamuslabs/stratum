@@ -5,7 +5,7 @@
   "timezone": "utc",
   "schemaVersion": 39,
   "version": 1,
-  "description": "Outcome series (OTel-shaped, via the authenticated collector into the client-log BigQuery sink), exceptional-occurrence counter (Analytics BigQuery export), and Crashlytics issue velocity (Crashlytics BigQuery export). Import: Grafana Dashboards > Import, paste this file. Replace PROJECT./DATASET placeholders per gcp/grafana/README.md.",
+  "description": "Outcome series (OTel-shaped, via the authenticated collector into the client-log BigQuery sink), exceptional-occurrence counter (Analytics BigQuery export), and Crashlytics issue velocity (Crashlytics BigQuery export). Import: Grafana Dashboards > Import, paste this file. Replace the PROJECT./DATASET/PROPERTY placeholders per gcp/grafana/README.md (single vocabulary: PROJECT.DATASET.client_log_sink, PROJECT.analytics_PROPERTY).",
   "panels": [
     {
       "id": 1,
@@ -14,7 +14,7 @@
       "datasource": "${DS_BIGQUERY}",
       "targets": [
         {
-          "rawSql": "SELECT TIMESTAMP_TRUNC(timestamp, MINUTE) AS time, jsonPayload.tag AS use_case, jsonPayload.outcome AS outcome, COUNT(*) AS n FROM `PROJECT.CLIENT_LOG_DATASET` WHERE $__timeFilter(timestamp) AND jsonPayload.source = 'stratum-client-log' AND jsonPayload.severity = 'OUTCOME' GROUP BY time, use_case, outcome ORDER BY time",
+          "rawSql": "SELECT TIMESTAMP_TRUNC(timestamp, MINUTE) AS time, jsonPayload.tag AS use_case, jsonPayload.outcome AS outcome, COUNT(*) AS n FROM `PROJECT.DATASET.client_log_sink` WHERE $__timeFilter(timestamp) AND jsonPayload.source = 'stratum-client-log' AND jsonPayload.severity = 'OUTCOME' GROUP BY time, use_case, outcome ORDER BY time",
           "format": "time_series"
         }
       ]
@@ -26,7 +26,7 @@
       "datasource": "${DS_BIGQUERY}",
       "targets": [
         {
-          "rawSql": "SELECT TIMESTAMP_TRUNC(timestamp, MINUTE) AS time, jsonPayload.tag AS use_case, SUM(IF(jsonPayload.outcome = 'expected_failure', 1, 0)) / COUNT(*) AS failure_rate FROM `PROJECT.CLIENT_LOG_DATASET` WHERE $__timeFilter(timestamp) AND jsonPayload.source = 'stratum-client-log' AND jsonPayload.severity = 'OUTCOME' GROUP BY time, use_case ORDER BY time",
+          "rawSql": "SELECT TIMESTAMP_TRUNC(timestamp, MINUTE) AS time, jsonPayload.tag AS use_case, SUM(IF(jsonPayload.outcome = 'expected_failure', 1, 0)) / COUNT(*) AS failure_rate FROM `PROJECT.DATASET.client_log_sink` WHERE $__timeFilter(timestamp) AND jsonPayload.source = 'stratum-client-log' AND jsonPayload.severity = 'OUTCOME' GROUP BY time, use_case ORDER BY time",
           "format": "time_series"
         }
       ]
@@ -52,7 +52,7 @@
       "datasource": "${DS_BIGQUERY}",
       "targets": [
         {
-          "rawSql": "SELECT TIMESTAMP_DIFF(CURRENT_TIMESTAMP(), MAX(timestamp), MINUTE) AS minutes_since_last_outcome FROM `PROJECT.CLIENT_LOG_DATASET` WHERE jsonPayload.source = 'stratum-client-log' AND jsonPayload.severity = 'OUTCOME'",
+          "rawSql": "SELECT TIMESTAMP_DIFF(CURRENT_TIMESTAMP(), MAX(timestamp), MINUTE) AS minutes_since_last_outcome FROM `PROJECT.DATASET.client_log_sink` WHERE jsonPayload.source = 'stratum-client-log' AND jsonPayload.severity = 'OUTCOME'",
           "format": "table"
         }
       ]

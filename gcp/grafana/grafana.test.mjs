@@ -9,6 +9,13 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  CLIENT_LOG_TABLE,
+  OUTCOME_SOURCE_FILTER,
+  OUTCOME_SEVERITY_FILTER,
+  COLLECTOR_MESSAGE_FILTER,
+  EXCEPTIONAL_EVENT_FILTER,
+} from "./queries.mjs";
 
 const DIR = dirname(fileURLToPath(import.meta.url));
 const dashboard = JSON.parse(readFileSync(join(DIR, "dashboards", "stratum-telemetry.json"), "utf8"));
@@ -84,6 +91,123 @@ describe("phase-1 alerts", () => {
   it("counter and collector rules query the documented exports", () => {
     assert.match(alerts, /event_name = 'exceptional_occurred'/);
     assert.match(alerts, /ingestClientLogs/);
+  });
+});
+
+describe("provisioning correctness (slice-3 review H1-H3)", () => {
+  it("every rule's condition names an existing data refId", () => {
+    const blocks = alerts
+      .split(/(?=-\s*uid:\s*stratum-)/g)
+      .filter((b) => b.includes("uid:"));
+    assert.equal(blocks.length, 3);
+    for (const block of blocks) {
+      const condition = block.match(/condition:\s*(\S+)/)[1];
+      const refIds = [...block.matchAll(/refId:\s*(\S+)/g)].map((m) => m[1]);
+      assert.ok(
+        refIds.includes(condition),
+        `condition '${condition}' matches a data refId (${refIds})`,
+      );
+    }
+  });
+
+  it("burn rule aggregates 5-minute buckets with the min-20 gate", () => {
+    const burn = alerts.slice(alerts.indexOf("stratum-expected-failure-burn"));
+    assert.match(burn, /DIV\(UNIX_SECONDS\(timestamp\), 5 \* 60\)/);
+    assert.match(burn, /HAVING COUNT\(\*\) >= 20/);
+  });
+
+  it("every BigQuery table ref is three-part project.dataset.table", () => {
+    for (const [name, text] of [
+      ["dashboard", JSON.stringify(dashboard)],
+      ["alerts", alerts],
+    ]) {
+      for (const m of text.matchAll(/FROM `([^`]+)`/g)) {
+        assert.equal(
+          m[1].split(".").length,
+          3,
+          `${name}: '${m[1]}' is not project.dataset.table`,
+        );
+      }
+    }
+  });
+
+  it("collector rule uses CONTAINS_SUBSTR, not infix CONTAINS", () => {
+    assert.match(
+      alerts,
+      /CONTAINS_SUBSTR\(jsonPayload\.message, 'ingestClientLogs'\)/,
+    );
+    assert.doesNotMatch(alerts, /message CONTAINS '/);
+  });
+});
+
+describe("single placeholder vocabulary (slice-3 review M5)", () => {
+  it("one datasource placeholder across dashboard and alerts", () => {
+    assert.match(JSON.stringify(dashboard), /\$\{DS_BIGQUERY\}/);
+    assert.match(alerts, /\$\{DS_BIGQUERY\}/);
+    assert.doesNotMatch(alerts, /__BIGQUERY_DS_UID__/);
+    assert.doesNotMatch(JSON.stringify(dashboard), /__BIGQUERY_DS_UID__/);
+  });
+
+  it("no retired dataset placeholders remain", () => {
+    for (const text of [JSON.stringify(dashboard), alerts]) {
+      assert.doesNotMatch(text, /CLIENT_LOG_DATASET/);
+      assert.doesNotMatch(text, /FUNCTIONS_LOG_DATASET/);
+    }
+  });
+});
+
+describe("shared fragments (slice-3 review M4/M6)", () => {
+  const norm = (s) => s.replace(/\s+/g, " ");
+  const panelSql = (id) =>
+    norm(dashboard.panels.find((p) => p.id === id).targets[0].rawSql);
+  const ruleSql = (uid) => {
+    const start = alerts.indexOf(uid);
+    const next = alerts.indexOf("- uid: stratum-", start + 1);
+    return norm(alerts.slice(start, next === -1 ? undefined : next));
+  };
+  const docs = norm(
+    readFileSync(join(DIR, "..", "..", "docs", "structured-logging.md"), "utf8"),
+  );
+
+  it("outcome filters are identical in panels 1/2/4, the burn rule, and the docs", () => {
+    for (const [name, sql] of [
+      ["panel 1", panelSql(1)],
+      ["panel 2", panelSql(2)],
+      ["panel 4", panelSql(4)],
+      ["burn rule", ruleSql("stratum-expected-failure-burn")],
+      ["structured-logging.md", docs],
+    ]) {
+      assert.ok(sql.includes(OUTCOME_SOURCE_FILTER), `${name} source filter`);
+      assert.ok(sql.includes(OUTCOME_SEVERITY_FILTER), `${name} severity filter`);
+    }
+  });
+
+  it("outcome queries read the shared client-log sink table", () => {
+    for (const [name, sql] of [
+      ["panel 1", panelSql(1)],
+      ["panel 2", panelSql(2)],
+      ["panel 4", panelSql(4)],
+      ["burn rule", ruleSql("stratum-expected-failure-burn")],
+      ["structured-logging.md", docs],
+    ]) {
+      assert.ok(sql.includes(CLIENT_LOG_TABLE), `${name} sink table`);
+    }
+  });
+
+  it("exceptional filter is shared by panel 3 and the spike rule", () => {
+    for (const [name, sql] of [
+      ["panel 3", panelSql(3)],
+      ["spike rule", ruleSql("stratum-exceptional-rate-spike")],
+    ]) {
+      assert.ok(sql.includes(EXCEPTIONAL_EVENT_FILTER), `${name} event filter`);
+    }
+  });
+
+  it("collector rule carries the shared message filter", () => {
+    assert.ok(
+      ruleSql("stratum-collector-errors").includes(COLLECTOR_MESSAGE_FILTER),
+      "collector rule message filter",
+    );
   });
 });
 
