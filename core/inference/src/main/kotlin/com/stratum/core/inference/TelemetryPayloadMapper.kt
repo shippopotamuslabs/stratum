@@ -27,6 +27,8 @@ internal object TelemetryPayloadMapper {
             put(PAYLOAD_CLIENT_TIMESTAMP_MS, entry.clientTimestampMs)
             entry.sessionId?.let { put(PAYLOAD_SESSION_ID, it) }
             entry.durationMs?.let { put(PAYLOAD_DURATION_MS, it) }
+            entry.outcome?.let { put(PAYLOAD_OUTCOME, it) }
+            entry.reasonCode?.let { put(PAYLOAD_REASON_CODE, it) }
         }
 
     private const val PAYLOAD_PLATFORM = "platform"
@@ -39,4 +41,6 @@ internal object TelemetryPayloadMapper {
     private const val PAYLOAD_CLIENT_TIMESTAMP_MS = "clientTimestampMs"
     private const val PAYLOAD_SESSION_ID = "sessionId"
     private const val PAYLOAD_DURATION_MS = "durationMs"
+    private const val PAYLOAD_OUTCOME = "outcome"
+    private const val PAYLOAD_REASON_CODE = "reasonCode"
 }

@@ -23,6 +23,8 @@ data class PendingClientLogEntryRecord(
     val clientTimestampMs: Long = 0L,
     val sessionId: String? = null,
     val durationMs: Long? = null,
+    val outcome: String? = null,
+    val reasonCode: String? = null,
 )
 
 @Serializable
@@ -67,6 +69,8 @@ internal fun ClientLogEntry.toRecord() =
         clientTimestampMs = clientTimestampMs,
         sessionId = sessionId,
         durationMs = durationMs,
+        outcome = outcome,
+        reasonCode = reasonCode,
     )
 
 internal fun PendingClientLogEntryRecord.toDomain(): ClientLogEntry? {
@@ -82,5 +86,7 @@ internal fun PendingClientLogEntryRecord.toDomain(): ClientLogEntry? {
         clientTimestampMs = clientTimestampMs,
         sessionId = sessionId,
         durationMs = durationMs,
+        outcome = outcome,
+        reasonCode = reasonCode,
     )
 }

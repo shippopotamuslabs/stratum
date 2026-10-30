@@ -53,11 +53,43 @@ class ClientLogBuffer(
     private var lastFailureMs = 0L
     private var tickerStarted = false
 
+    /**
+     * Typed boundary for the countable outcome series (STR-242).
+     *
+     * Takes the closed-vocabulary [OutcomeTelemetry] fact instead of raw
+     * strings, so the severity/outcome cross-field invariant is constructed
+     * here — not hand-assembled at each emitter. All rendered strings come
+     * from validated closed vocabularies, so no PII scrubbing is needed.
+     */
+    fun recordOutcome(outcome: OutcomeTelemetry) {
+        val result = outcome.result
+        val reasonCode = (result as? OutcomeResult.ExpectedFailure)?.reasonCode
+        val message =
+            buildString {
+                append("outcome=")
+                append(result.wireName)
+                if (reasonCode != null) {
+                    append(" reason=")
+                    append(reasonCode)
+                }
+            }
+        record(
+            severity = ClientLogSeverity.OUTCOME,
+            tag = outcome.useCase,
+            message = message,
+            durationMs = outcome.durationMs,
+            outcome = result.wireName,
+            reasonCode = reasonCode,
+        )
+    }
+
     fun record(
         severity: ClientLogSeverity,
         tag: String,
         message: String,
         durationMs: Long? = null,
+        outcome: String? = null,
+        reasonCode: String? = null,
     ) {
         val truncatedTag = tag.take(policy.maxTagLength)
         val truncatedMessage = message.take(policy.maxMessageLength)
@@ -75,6 +107,8 @@ class ClientLogBuffer(
                 clientTimestampMs = clock(),
                 sessionId = sessionId,
                 durationMs = durationMs?.coerceAtLeast(0L),
+                outcome = outcome,
+                reasonCode = reasonCode,
             )
         val shouldFlush =
             synchronized(lock) {

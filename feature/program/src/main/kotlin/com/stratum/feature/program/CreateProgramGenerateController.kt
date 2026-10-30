@@ -26,7 +26,12 @@ import com.stratum.domain.logging.PARAM_SCREEN
 import com.stratum.domain.logging.USER_VISIBLE_ERROR_EVENT
 import com.stratum.domain.telemetry.ClientStage
 import com.stratum.domain.telemetry.ClientStageCorrelation
+import com.stratum.domain.telemetry.OutcomeResult
+import com.stratum.domain.telemetry.OutcomeTelemetry
+import com.stratum.domain.telemetry.OutcomeTelemetry.Companion.USE_CASE_PROGRAM_GENERATION
 import com.stratum.domain.telemetry.SynthesisTelemetry
+import com.stratum.domain.telemetry.TelemetryRouter
+import com.stratum.domain.telemetry.classifyGenerateOutcome
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -51,6 +56,7 @@ internal class CreateProgramGenerateController(
     private val logError: LogErrorUseCase,
     private val logAnalytics: LogAnalyticsEventUseCase,
     private val synthesisTelemetry: SynthesisTelemetry,
+    private val telemetryRouter: TelemetryRouter,
 ) {
     private var generateJob: Job? = null
 
@@ -217,11 +223,31 @@ internal class CreateProgramGenerateController(
                 editorTimer.stop()
                 // STR-13 trace: program handed to the editor for rendering.
                 synthesisTelemetry.synthesisRendered(sessionId = session.id, startMs = tapMs)
+                // STR-242: terminal boundary emits the countable outcome; the success
+                // side is not optional (rates need a denominator).
+                telemetryRouter.emitOutcome(
+                    OutcomeTelemetry(
+                        useCase = USE_CASE_PROGRAM_GENERATION,
+                        result = OutcomeResult.Success,
+                        // Wall-clock clamp: a backward clock adjustment
+                        // mid-generation must not throw in OutcomeTelemetry
+                        // (same clamp as ClientLogBuffer.record).
+                        durationMs = (synthesisTelemetry.nowMs() - tapMs).coerceAtLeast(0L),
+                    ),
+                )
             }
     }
 
     private fun publishGenerateFailure(error: Throwable) {
-        logError(GENERATE_LOG_TAG, "program generation failed: ${error.message}", error)
+        // STR-242: one home per class — the expected-vs-exceptional split lives
+        // in classifyGenerateOutcome; anything without an outcome home stays on
+        // the Crashlytics path until slice 2 routes it through the router.
+        val outcome = classifyGenerateOutcome(error)
+        if (outcome != null) {
+            telemetryRouter.emitOutcome(outcome)
+        } else {
+            logError(GENERATE_LOG_TAG, "program generation failed: ${error.message}", error)
+        }
         logAnalytics(
             USER_VISIBLE_ERROR_EVENT,
             mapOf(PARAM_SCREEN to "create_program", PARAM_ACTION to "generate_program"),

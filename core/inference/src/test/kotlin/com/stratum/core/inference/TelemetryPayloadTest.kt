@@ -48,4 +48,31 @@ class TelemetryPayloadTest {
         assertFalse(entries[1].containsKey("durationMs"))
     }
 
+    @Test
+    @DisplayName("outcome entries carry flat outcome columns; legacy entries omit them")
+    fun outcomeColumns() {
+        val outcomeEntry =
+            ClientLogEntry(
+                severity = ClientLogSeverity.OUTCOME,
+                tag = "program_generation",
+                message = "outcome=expected_failure reason=synthesis_failed",
+                clientTimestampMs = 2_000L,
+                sessionId = "run-2",
+                durationMs = 77L,
+                outcome = "expected_failure",
+                reasonCode = "synthesis_failed",
+            )
+
+        val mapped = TelemetryPayloadMapper.buildEntry(outcomeEntry)
+
+        assertEquals("OUTCOME", mapped["severity"])
+        assertEquals("expected_failure", mapped["outcome"])
+        assertEquals("synthesis_failed", mapped["reasonCode"])
+        assertEquals(77L, mapped["durationMs"])
+
+        val legacy = TelemetryPayloadMapper.buildEntry(entry("warn"))
+        assertFalse(legacy.containsKey("outcome"))
+        assertFalse(legacy.containsKey("reasonCode"))
+    }
+
 }

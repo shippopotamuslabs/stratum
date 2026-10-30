@@ -27,6 +27,7 @@ import com.stratum.application.program.importing.ProgramTemplateImportPort
 import com.stratum.application.subscription.PlayEntitlementSyncPort
 import com.stratum.domain.telemetry.AnalyticsPort
 import com.stratum.domain.telemetry.CrashTelemetryPort
+import com.stratum.domain.telemetry.OutcomeTelemetrySink
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -157,6 +158,10 @@ abstract class InferenceModule {
     @Binds
     @Singleton
     abstract fun bindTelemetryUploadPort(impl: FirebaseTelemetryUploadAdapter): TelemetryUploadPort
+
+    @Binds
+    @Singleton
+    abstract fun bindOutcomeTelemetrySink(impl: ClientLogOutcomeSink): OutcomeTelemetrySink
 
     @Binds
     @Singleton

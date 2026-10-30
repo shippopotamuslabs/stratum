@@ -2,6 +2,8 @@ package com.stratum.domain.telemetry
 
 import com.stratum.core.testing.telemetry.FakePendingClientLogStore
 import com.stratum.core.testing.telemetry.FakeTelemetryUploadPort
+import com.stratum.domain.telemetry.OutcomeTelemetry.Companion.REASON_SYNTHESIS_FAILED
+import com.stratum.domain.telemetry.OutcomeTelemetry.Companion.USE_CASE_PROGRAM_GENERATION
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceTimeBy
@@ -380,6 +382,41 @@ class ClientLogBufferTest {
                 assertEquals(2, uploaded.size)
                 assertEquals(listOf("n0", "n1", "n2"), uploaded[1].entries.map { it.message })
                 assertEquals(3, uploaded[1].droppedEntryCount)
+            }
+    }
+
+    @Nested
+    @DisplayName("recordOutcome")
+    inner class RecordOutcome {
+        @Test
+        @DisplayName("typed outcome fact records an OUTCOME entry with flat columns")
+        fun recordsTypedOutcome() =
+            runTest {
+                val buffer =
+                    ClientLogBuffer(
+                        scope = this,
+                        upload = upload,
+                        pendingStore = store,
+                        clock = { nowMs },
+                        appVersion = APP_VERSION,
+                    )
+                buffer.recordOutcome(
+                    OutcomeTelemetry(
+                        useCase = USE_CASE_PROGRAM_GENERATION,
+                        result = OutcomeResult.ExpectedFailure(REASON_SYNTHESIS_FAILED),
+                        durationMs = 50L,
+                    ),
+                )
+
+                buffer.flush()
+
+                val entry = upload.uploadedBatches.single().entries.single()
+                assertEquals(ClientLogSeverity.OUTCOME, entry.severity)
+                assertEquals(USE_CASE_PROGRAM_GENERATION, entry.tag)
+                assertEquals("outcome=expected_failure reason=$REASON_SYNTHESIS_FAILED", entry.message)
+                assertEquals("expected_failure", entry.outcome)
+                assertEquals(REASON_SYNTHESIS_FAILED, entry.reasonCode)
+                assertEquals(50L, entry.durationMs)
             }
     }
 
