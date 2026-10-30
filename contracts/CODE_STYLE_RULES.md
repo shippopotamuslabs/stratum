@@ -52,12 +52,19 @@ with `strings.xml`.
   `AndroidLoggingAdapter`), mirroring pocket-crew.
 - Tests use `FakeLoggingPort` from `:core:testing`.
 
+### Partial success: diagnostics as values
+
+Canon: `contracts/gospel/CODE-STYLE-GOSPEL.md` §10 (Partial Success: Diagnostics as Values). In Stratum terms: a computation that degrades without failing returns typed diagnostics on its outcome inside the use case's `Result`; the boundary drains them through the wiring above (`LoggingPort` / `LogErrorUseCase`), each exactly once; diagnostics never reach the UI. (Contract Waiver for this section and the anti-pattern below: granted by Sean, 2026-10-30, STR-251; canon ratified by his merge of gospels PR #9.)
+
+**Reference implementation (STR-250).** `ProgressionDiagnostic` (`:core:domain`, `workout/progression/ProgressionDiagnostic.kt`): `BaselineSkipped` records the lift, the slot, the offending history input, and which load-math step lost its baseline. `GenerateProgressionSnapshotUseCase` (`:core:application`) collects diagnostics through the computation and returns them on `ProgressionSnapshotOutcome` inside its `Result`. `LiveWorkoutSessionRuntime.logProgressionDiagnostics` (`:feature:workout`) drains them through the session's `LogErrorUseCase` wiring. `ProgressionZeroLoadHistoryTest` asserts the diagnostics as values.
+
 ### Anti-patterns
 
 - Logging the same failure at every layer.
 - Rethrowing through repositories/use cases for the ViewModel to catch.
 - Passing raw `Throwable` or domain exceptions to Composables.
 - Swallowing failures without `Result`, event, or UI state.
+- Degrading silently: skipping, dropping, or defaulting without a diagnostic, a `Result`, or modeled state.
 
 ---
 
