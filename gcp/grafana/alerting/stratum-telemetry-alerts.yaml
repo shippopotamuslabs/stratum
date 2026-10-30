@@ -1,3 +1,5 @@
+# GENERATED from gcp/grafana/queries.mjs by gcp/grafana/build-grafana-bundle.mjs — do not hand-edit.
+# Regenerate: node gcp/grafana/build-grafana-bundle.mjs
 # Grafana unified alerting, phase 1 (STR-242 slice 3).
 # Provisioning format: Grafana file provisioning, apiVersion 1. Drop this file
 # into the Grafana provisioning alerting directory, or recreate the rules by

@@ -35,6 +35,11 @@ const OUT = process.argv[2] ?? REPO;
 
 const DS_BIGQUERY = "${DS_BIGQUERY}";
 
+// Provenance stamp emitted into every generated artifact so a reader (or
+// reviewer) can tell builder output from hand-written text without guessing.
+const GENERATION_NOTICE =
+  "GENERATED from gcp/grafana/queries.mjs by gcp/grafana/build-grafana-bundle.mjs — do not hand-edit.";
+
 const dashboard = {
   uid: "stratum-telemetry",
   title: "Stratum telemetry (STR-242)",
@@ -43,7 +48,7 @@ const dashboard = {
   schemaVersion: 39,
   version: 1,
   description:
-    "Outcome series (OTel-shaped, via the authenticated collector into the client-log BigQuery sink), exceptional-occurrence counter (Analytics BigQuery export), and Crashlytics issue velocity (Crashlytics BigQuery export). Import: Grafana Dashboards > Import, paste this file. Replace the PROJECT./DATASET/PROPERTY placeholders per gcp/grafana/README.md (single vocabulary: PROJECT.DATASET.client_log_sink, PROJECT.analytics_PROPERTY).",
+    `${GENERATION_NOTICE} Outcome series (OTel-shaped, via the authenticated collector into the client-log BigQuery sink), exceptional-occurrence counter (Analytics BigQuery export), and Crashlytics issue velocity (Crashlytics BigQuery export). Import: Grafana Dashboards > Import, paste this file. Replace the PROJECT./DATASET/PROPERTY placeholders per gcp/grafana/README.md (single vocabulary: PROJECT.DATASET.client_log_sink, PROJECT.analytics_PROPERTY).`,
   panels: [
     {
       id: 1,
@@ -95,7 +100,9 @@ const indent16 = (sql) =>
     .map((line) => `                ${line}`)
     .join("\n");
 
-const alertsYaml = `# Grafana unified alerting, phase 1 (STR-242 slice 3).
+const alertsYaml = `# ${GENERATION_NOTICE}
+# Regenerate: node gcp/grafana/build-grafana-bundle.mjs
+# Grafana unified alerting, phase 1 (STR-242 slice 3).
 # Provisioning format: Grafana file provisioning, apiVersion 1. Drop this file
 # into the Grafana provisioning alerting directory, or recreate the rules by
 # hand from the SQL/thresholds below. Contact point and BigQuery datasource

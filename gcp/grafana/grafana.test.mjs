@@ -155,6 +155,31 @@ describe("single placeholder vocabulary (slice-3 review M5)", () => {
 });
 
 describe("generated bundle (slice-3 review M4)", () => {
+  it("every committed artifact carries the builder provenance stamp", () => {
+    const stamp =
+      "GENERATED from gcp/grafana/queries.mjs by gcp/grafana/build-grafana-bundle.mjs";
+    assert.ok(
+      dashboard.description.startsWith(stamp),
+      "dashboard JSON is stamped builder output",
+    );
+    assert.ok(
+      alerts.startsWith(`# ${stamp}`),
+      "alerts YAML is stamped builder output",
+    );
+    const docs = readFileSync(
+      join(DIR, "..", "..", "docs", "structured-logging.md"),
+      "utf8",
+    );
+    assert.ok(
+      docs.includes("grafana-generated:begin outcome-queries"),
+      "docs outcome block is stamped builder output",
+    );
+    assert.ok(
+      readme.includes("grafana-generated:begin verify-query"),
+      "README verify block is stamped builder output",
+    );
+  });
+
   it("checked-in artifacts match the builder output", () => {
     const tmp = mkdtempSync(join(tmpdir(), "grafana-bundle-"));
     execFileSync(process.execPath, [join(DIR, "build-grafana-bundle.mjs"), tmp], {

@@ -5,7 +5,7 @@
   "timezone": "utc",
   "schemaVersion": 39,
   "version": 1,
-  "description": "Outcome series (OTel-shaped, via the authenticated collector into the client-log BigQuery sink), exceptional-occurrence counter (Analytics BigQuery export), and Crashlytics issue velocity (Crashlytics BigQuery export). Import: Grafana Dashboards > Import, paste this file. Replace the PROJECT./DATASET/PROPERTY placeholders per gcp/grafana/README.md (single vocabulary: PROJECT.DATASET.client_log_sink, PROJECT.analytics_PROPERTY).",
+  "description": "GENERATED from gcp/grafana/queries.mjs by gcp/grafana/build-grafana-bundle.mjs — do not hand-edit. Outcome series (OTel-shaped, via the authenticated collector into the client-log BigQuery sink), exceptional-occurrence counter (Analytics BigQuery export), and Crashlytics issue velocity (Crashlytics BigQuery export). Import: Grafana Dashboards > Import, paste this file. Replace the PROJECT./DATASET/PROPERTY placeholders per gcp/grafana/README.md (single vocabulary: PROJECT.DATASET.client_log_sink, PROJECT.analytics_PROPERTY).",
   "panels": [
     {
       "id": 1,
