@@ -4,11 +4,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
+import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumTheme
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.core.ui.theme.StratumThemeId
@@ -121,16 +123,27 @@ internal fun PlateMiniDrawerPreviewContent(
 
 /**
  * Pins the sheet body inline: dialog windows are uncapturable in screenshot goldens
- * (STR-89 pattern).
+ * (STR-89 pattern). The body is painted on surfaceInset with the sheet chrome's
+ * padding, matching StratumBottomSheet's container: without the surface the golden
+ * renders dark-theme content on the harness's white canvas, which hides exactly
+ * the sheet-contrast class of bug STR-245 reported.
  */
 @Composable
 internal fun PlateSheetPreviewContent(family: StratumThemeId) {
     StratumTheme(themeId = family) {
-        StratumPlateCalculatorSheetContent(
-            initialTargetWeight = 225.0,
-            unitLabel = "lb",
-            onDismissRequest = {},
-            onApplyWeight = { _, _ -> },
-        )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(StratumThemeAccessor.colors.surfaceInset)
+                .padding(horizontal = StratumSpacing.s12)
+                .padding(top = StratumSpacing.s4, bottom = StratumSpacing.s32),
+        ) {
+            StratumPlateCalculatorSheetContent(
+                initialTargetWeight = 225.0,
+                unitLabel = "lb",
+                onDismissRequest = {},
+                onApplyWeight = { _, _ -> },
+            )
+        }
     }
 }

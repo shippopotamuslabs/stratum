@@ -62,6 +62,15 @@ internal fun TextFieldPreviewGrid(family: StratumThemeId) {
                 errorText = "Must be at least 13.",
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             )
+            // Disabled state pinned: on sheets this is the last band's
+            // "Ends at" field, the one whose fill diverged in STR-245.
+            StratumTextField(
+                value = "28",
+                onValueChange = {},
+                label = "Age",
+                enabled = false,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            )
             StratumTextField(
                 value = "Keep elbows tucked on the bench.",
                 onValueChange = {},
