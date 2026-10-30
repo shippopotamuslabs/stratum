@@ -102,6 +102,45 @@ describe("parseIngestClientLogs", () => {
     expectInvalid(request({ entries: [entry({ outcome: 42 })] }), /outcome/);
     expectInvalid(request({ entries: [entry({ reasonCode: "Quota Exceeded" })] }), /reasonCode/);
     expectInvalid(request({ entries: [entry({ reasonCode: "" })] }), /reasonCode/);
+    expectInvalid(
+      request({ entries: [entry({ outcome: "x".repeat(33) })] }),
+      /outcome/,
+    );
+    expectInvalid(
+      request({ entries: [entry({ reasonCode: "r".repeat(65) })] }),
+      /reasonCode/,
+    );
+  });
+
+  it("rejects outcome columns on WARNING/ERROR and OUTCOME without an outcome", () => {
+    expectInvalid(
+      request({ entries: [entry({ severity: "WARNING", outcome: "success" })] }),
+      /OUTCOME/,
+    );
+    expectInvalid(
+      request({ entries: [entry({ severity: "ERROR", reasonCode: "sync_not_started" })] }),
+      /OUTCOME/,
+    );
+    expectInvalid(request({ entries: [entry({ severity: "OUTCOME" })] }), /outcome/);
+  });
+
+  it("accepts OUTCOME success without a reasonCode", () => {
+    const parsed = parseIngestClientLogs(
+      request({
+        entries: [
+          entry({
+            severity: "OUTCOME",
+            tag: "cloud_sync",
+            message: "outcome=success",
+            outcome: "success",
+          }),
+        ],
+      }),
+      NOW,
+    );
+    assert.equal(parsed.entries[0].severity, "OUTCOME");
+    assert.equal(parsed.entries[0].outcome, "success");
+    assert.equal(parsed.entries[0].reasonCode, null);
   });
 
   it("rejects non-objects, empty entries, and oversized batches", () => {

@@ -47,27 +47,52 @@ class CloudSyncWorker @AssistedInject constructor(
 }
 
 /**
+ * Single discriminant for a sync [Result] (STR-242): the one place that maps
+ * the exception hierarchy to a class. Both the countable-outcome classifier
+ * ([classifySyncOutcome]) and the WorkManager mapping
+ * ([mapCloudSyncWorkResult]) consume this, so adding or re-homing a failure
+ * class is a one-branch edit that cannot drift between the two paths.
+ */
+internal sealed interface SyncWorkClassification {
+    data object Success : SyncWorkClassification
+
+    data object NotStarted : SyncWorkClassification
+
+    data object ResidualBacklog : SyncWorkClassification
+
+    data class Unexpected(val error: Throwable?) : SyncWorkClassification
+}
+
+internal fun classifySyncWork(outcome: kotlin.Result<Unit>): SyncWorkClassification =
+    when {
+        outcome.isSuccess -> SyncWorkClassification.Success
+        outcome.exceptionOrNull() is CloudSyncNotStartedException -> SyncWorkClassification.NotStarted
+        outcome.exceptionOrNull() is CloudSyncResidualException -> SyncWorkClassification.ResidualBacklog
+        else -> SyncWorkClassification.Unexpected(outcome.exceptionOrNull())
+    }
+
+/**
  * Maps a sync [Result] to its countable outcome fact, or null when the failure
  * is exceptional (Crashlytics home, not the outcome stream).
  */
 internal fun classifySyncOutcome(outcome: kotlin.Result<Unit>): OutcomeTelemetry? =
-    when {
-        outcome.isSuccess ->
+    when (classifySyncWork(outcome)) {
+        SyncWorkClassification.Success ->
             OutcomeTelemetry(
                 useCase = USE_CASE_CLOUD_SYNC,
                 result = OutcomeResult.Success,
             )
-        outcome.exceptionOrNull() is CloudSyncNotStartedException ->
+        SyncWorkClassification.NotStarted ->
             OutcomeTelemetry(
                 useCase = USE_CASE_CLOUD_SYNC,
                 result = OutcomeResult.ExpectedFailure(REASON_SYNC_NOT_STARTED),
             )
-        outcome.exceptionOrNull() is CloudSyncResidualException ->
+        SyncWorkClassification.ResidualBacklog ->
             OutcomeTelemetry(
                 useCase = USE_CASE_CLOUD_SYNC,
                 result = OutcomeResult.ExpectedFailure(REASON_SYNC_RESIDUAL_BACKLOG),
             )
-        else -> null
+        is SyncWorkClassification.Unexpected -> null
     }
 
 internal const val CLOUD_SYNC_WORKER_TAG = "CloudSyncWorker"
@@ -80,21 +105,21 @@ internal fun mapCloudSyncWorkResult(
     outcome: kotlin.Result<Unit>,
     runAttemptCount: Int,
     loggingPort: LoggingPort,
-): ListenableWorker.Result {
-    if (outcome.isSuccess) return ListenableWorker.Result.success()
-    return when (val error = outcome.exceptionOrNull()) {
-        is CloudSyncNotStartedException -> ListenableWorker.Result.success()
-        is CloudSyncResidualException -> ListenableWorker.Result.retry()
-        else ->
+): ListenableWorker.Result =
+    when (val classification = classifySyncWork(outcome)) {
+        SyncWorkClassification.Success,
+        SyncWorkClassification.NotStarted,
+        -> ListenableWorker.Result.success()
+        SyncWorkClassification.ResidualBacklog -> ListenableWorker.Result.retry()
+        is SyncWorkClassification.Unexpected ->
             retryOrGiveUp(
                 runAttemptCount = runAttemptCount,
                 tag = CLOUD_SYNC_WORKER_TAG,
                 taskDescription = "Cloud sync",
-                error = error,
+                error = classification.error,
                 loggingPort = loggingPort,
             )
     }
-}
 
 /** Thrown by [CloudSyncPort.requestSync] when no active session; worker treats as no-op success. */
 class CloudSyncNotStartedException : IllegalStateException("Cloud sync not started")

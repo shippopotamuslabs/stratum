@@ -90,4 +90,25 @@ class DataStorePendingClientLogStoreTest {
         assertNull(record.sessionId)
         assertNull(record.durationMs)
     }
+
+    @Test
+    @DisplayName("OUTCOME round-trips the flat outcome columns")
+    fun outcomeRoundTrip() =
+        runTest {
+            val outcomeEntry =
+                ClientLogEntry(
+                    severity = ClientLogSeverity.OUTCOME,
+                    tag = "program_generation",
+                    message = "outcome=expected_failure reason=synthesis_failed",
+                    clientTimestampMs = 1_000L,
+                    sessionId = "run-1",
+                    durationMs = 77L,
+                    outcome = "expected_failure",
+                    reasonCode = "synthesis_failed",
+                )
+
+            store.savePending(listOf(outcomeEntry))
+
+            assertEquals(listOf(outcomeEntry), store.loadPending())
+        }
 }

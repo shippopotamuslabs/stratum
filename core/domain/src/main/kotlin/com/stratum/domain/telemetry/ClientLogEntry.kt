@@ -42,7 +42,19 @@ data class ClientLogEntry(
     val durationMs: Long? = null,
     val outcome: String? = null,
     val reasonCode: String? = null,
-)
+) {
+    init {
+        // The flat outcome columns exist only on the countable OUTCOME series;
+        // legacy WARNING/ERROR entries must not carry them, and an OUTCOME
+        // entry without an outcome class would be ungroupable in SQL.
+        require((outcome != null) == (severity == ClientLogSeverity.OUTCOME)) {
+            "outcome must be present iff severity is OUTCOME (severity=$severity, outcome=$outcome)"
+        }
+        require(severity == ClientLogSeverity.OUTCOME || reasonCode == null) {
+            "reasonCode must be null unless severity is OUTCOME (severity=$severity)"
+        }
+    }
+}
 
 /**
  * Upload envelope: the entries plus client-side accounting the server cannot

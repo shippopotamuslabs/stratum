@@ -24,15 +24,14 @@ import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.domain.logging.PARAM_ACTION
 import com.stratum.domain.logging.PARAM_SCREEN
 import com.stratum.domain.logging.USER_VISIBLE_ERROR_EVENT
-import com.stratum.domain.program.generation.synthesis.ProgramSynthesisException
 import com.stratum.domain.telemetry.ClientStage
 import com.stratum.domain.telemetry.ClientStageCorrelation
 import com.stratum.domain.telemetry.OutcomeResult
 import com.stratum.domain.telemetry.OutcomeTelemetry
-import com.stratum.domain.telemetry.OutcomeTelemetry.Companion.REASON_SYNTHESIS_FAILED
 import com.stratum.domain.telemetry.OutcomeTelemetry.Companion.USE_CASE_PROGRAM_GENERATION
 import com.stratum.domain.telemetry.SynthesisTelemetry
 import com.stratum.domain.telemetry.TelemetryRouter
+import com.stratum.domain.telemetry.classifyGenerateOutcome
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -230,24 +229,22 @@ internal class CreateProgramGenerateController(
                     OutcomeTelemetry(
                         useCase = USE_CASE_PROGRAM_GENERATION,
                         result = OutcomeResult.Success,
-                        durationMs = synthesisTelemetry.nowMs() - tapMs,
+                        // Wall-clock clamp: a backward clock adjustment
+                        // mid-generation must not throw in OutcomeTelemetry
+                        // (same clamp as ClientLogBuffer.record).
+                        durationMs = (synthesisTelemetry.nowMs() - tapMs).coerceAtLeast(0L),
                     ),
                 )
             }
     }
 
     private fun publishGenerateFailure(error: Throwable) {
-        // STR-242: one home per class. A translated synthesis failure is expected
-        // (adapter-mapped provider condition) and lives only in the outcome
-        // stream; anything else stays on the Crashlytics path until slice 2
-        // routes it through the router.
-        if (error is ProgramSynthesisException) {
-            telemetryRouter.emitOutcome(
-                OutcomeTelemetry(
-                    useCase = USE_CASE_PROGRAM_GENERATION,
-                    result = OutcomeResult.ExpectedFailure(REASON_SYNTHESIS_FAILED),
-                ),
-            )
+        // STR-242: one home per class — the expected-vs-exceptional split lives
+        // in classifyGenerateOutcome; anything without an outcome home stays on
+        // the Crashlytics path until slice 2 routes it through the router.
+        val outcome = classifyGenerateOutcome(error)
+        if (outcome != null) {
+            telemetryRouter.emitOutcome(outcome)
         } else {
             logError(GENERATE_LOG_TAG, "program generation failed: ${error.message}", error)
         }

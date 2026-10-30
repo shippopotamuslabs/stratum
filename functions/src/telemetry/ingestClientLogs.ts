@@ -27,6 +27,8 @@ export const MAX_APP_VERSION_LENGTH = 32;
 export const MAX_PAYLOAD_BYTES = 262144;
 export const MAX_ENTRIES_PER_USER_PER_DAY = 2000;
 export const MAX_FUTURE_SKEW_MS = 3600000;
+const MAX_OUTCOME_LENGTH = 32;
+const MAX_REASON_CODE_LENGTH = 64;
 
 export type ClientLogSeverity = "WARNING" | "ERROR" | "OUTCOME";
 
@@ -88,7 +90,7 @@ function parseEntry(raw: unknown, nowMs: number): ParsedClientLogEntry {
   }
   const severity = raw["severity"];
   if (typeof severity !== "string" || !SEVERITIES.has(severity)) {
-    throw invalid("Entry severity must be WARNING or ERROR.");
+    throw invalid("Entry severity must be WARNING, ERROR, or OUTCOME.");
   }
   const tag = raw["tag"];
   if (typeof tag !== "string" || tag.length === 0 || tag.length > MAX_TAG_LENGTH) {
@@ -122,6 +124,15 @@ function parseEntry(raw: unknown, nowMs: number): ParsedClientLogEntry {
   }
   const outcome = parseOptionalOutcome(raw["outcome"]);
   const reasonCode = parseOptionalReasonCode(raw["reasonCode"]);
+  // The flat outcome columns exist only on the countable OUTCOME series;
+  // legacy WARNING/ERROR entries must not carry them, and an OUTCOME entry
+  // without an outcome class would be ungroupable in SQL.
+  if (severity !== "OUTCOME" && (outcome !== null || reasonCode !== null)) {
+    throw invalid("Entry outcome and reasonCode must be null unless severity is OUTCOME.");
+  }
+  if (severity === "OUTCOME" && outcome === null) {
+    throw invalid("Entry outcome must be present when severity is OUTCOME.");
+  }
   return {
     severity: severity as ClientLogSeverity,
     tag,
@@ -135,23 +146,25 @@ function parseEntry(raw: unknown, nowMs: number): ParsedClientLogEntry {
 }
 
 function parseOptionalOutcome(value: unknown): OutcomeName | null {
-  if (value === undefined || value === null) {
+  const raw = parseOptionalString(value, "outcome", MAX_OUTCOME_LENGTH);
+  if (raw === null) {
     return null;
   }
-  if (typeof value !== "string" || !OUTCOMES.has(value) || !OUTCOME_PATTERN.test(value)) {
+  if (!OUTCOMES.has(raw) || !OUTCOME_PATTERN.test(raw)) {
     throw invalid('Entry outcome must be "success" or "expected_failure".');
   }
-  return value as OutcomeName;
+  return raw as OutcomeName;
 }
 
 function parseOptionalReasonCode(value: unknown): string | null {
-  if (value === undefined || value === null) {
+  const raw = parseOptionalString(value, "reasonCode", MAX_REASON_CODE_LENGTH);
+  if (raw === null) {
     return null;
   }
-  if (typeof value !== "string" || !REASON_CODE_PATTERN.test(value)) {
+  if (!REASON_CODE_PATTERN.test(raw)) {
     throw invalid("Entry reasonCode must match [a-z][a-z0-9_]{0,63}.");
   }
-  return value;
+  return raw;
 }
 
 export function parseIngestClientLogs(data: unknown, nowMs: number): ParsedIngestRequest {
