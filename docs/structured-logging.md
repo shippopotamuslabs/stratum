@@ -99,6 +99,7 @@ Filter on `jsonPayload.severity = 'OUTCOME'` — the top-level log severity is
 `INFO` for every collector row by design (expected outcomes never trip Error
 Reporting), so filtering top-level severity would match the whole sink.
 
+<!-- grafana-generated:begin outcome-queries (do not hand-edit; edit gcp/grafana/queries.mjs and re-run build-grafana-bundle.mjs) -->
 ```sql
 -- Outcome volume by use case and outcome (Grafana panel 1)
 SELECT TIMESTAMP_TRUNC(timestamp, MINUTE) AS time,
@@ -125,6 +126,7 @@ FROM `PROJECT.DATASET.client_log_sink`
 WHERE jsonPayload.source = 'stratum-client-log'
   AND jsonPayload.severity = 'OUTCOME';
 ```
+<!-- grafana-generated:end outcome-queries -->
 
 ## 5. Cost controls
 

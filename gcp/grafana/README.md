@@ -11,7 +11,8 @@ issue feed converge here; Crashlytics stays the capture mechanism.
 | `dashboards/stratum-telemetry.json` | Dashboard import: outcome volume/rate, counter rate, pipeline freshness, Crashlytics velocity (template) |
 | `alerting/stratum-telemetry-alerts.yaml` | Phase-1 alert rules (file-provisioning format): burn, collector errors, exceptional spike |
 | `grafana.test.mjs` | Structural validation (`node --test gcp/grafana/grafana.test.mjs`, no dependencies) |
-| `queries.mjs` | Shared SQL fragments (single source of truth; the test fails if any artifact drifts from them) |
+| `queries.mjs` | Canonical SQL source: every BigQuery string in the dashboard, alerts, and docs query blocks is defined exactly once here |
+| `build-grafana-bundle.mjs` | Generator: renders `queries.mjs` into the dashboard JSON, alerts YAML, and docs query blocks (`node gcp/grafana/build-grafana-bundle.mjs`, no dependencies) |
 
 ## Placeholders (single vocabulary)
 
@@ -53,11 +54,13 @@ Analytics export if not already on. Tables appear as
 
 Verify:
 
+<!-- grafana-generated:begin verify-query (do not hand-edit; edit gcp/grafana/queries.mjs and re-run build-grafana-bundle.mjs) -->
 ```sql
 SELECT event_name, COUNT(*) FROM `PROJECT.analytics_PROPERTY.events_*`
 WHERE _TABLE_SUFFIX >= FORMAT_DATE('%Y%m%d', DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY))
 AND event_name = 'exceptional_occurred' GROUP BY 1;
 ```
+<!-- grafana-generated:end verify-query -->
 
 ### 3. Crashlytics BigQuery export (exception stream)
 

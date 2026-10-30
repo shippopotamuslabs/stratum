@@ -3,19 +3,17 @@
 // Config-shape validation, mirroring gcp/monitoring/monitoring.test.mjs:
 // dashboard JSON must query the right series, alerts must name real rules
 // with thresholds, and the README must carry the manual console steps plus
-// the phase-2 entry criteria (ticket items 5-8).
+// the phase-2 entry criteria (ticket items 5-8). All BigQuery strings live
+// exactly once in queries.mjs; build-grafana-bundle.mjs renders the artifacts
+// below, and the generated-bundle suite fails if the checked-in files drift
+// from a fresh generation.
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  CLIENT_LOG_TABLE,
-  OUTCOME_SOURCE_FILTER,
-  OUTCOME_SEVERITY_FILTER,
-  COLLECTOR_MESSAGE_FILTER,
-  EXCEPTIONAL_EVENT_FILTER,
-} from "./queries.mjs";
 
 const DIR = dirname(fileURLToPath(import.meta.url));
 const dashboard = JSON.parse(readFileSync(join(DIR, "dashboards", "stratum-telemetry.json"), "utf8"));
@@ -156,57 +154,31 @@ describe("single placeholder vocabulary (slice-3 review M5)", () => {
   });
 });
 
-describe("shared fragments (slice-3 review M4/M6)", () => {
-  const norm = (s) => s.replace(/\s+/g, " ");
-  const panelSql = (id) =>
-    norm(dashboard.panels.find((p) => p.id === id).targets[0].rawSql);
-  const ruleSql = (uid) => {
-    const start = alerts.indexOf(uid);
-    const next = alerts.indexOf("- uid: stratum-", start + 1);
-    return norm(alerts.slice(start, next === -1 ? undefined : next));
-  };
-  const docs = norm(
-    readFileSync(join(DIR, "..", "..", "docs", "structured-logging.md"), "utf8"),
-  );
-
-  it("outcome filters are identical in panels 1/2/4, the burn rule, and the docs", () => {
-    for (const [name, sql] of [
-      ["panel 1", panelSql(1)],
-      ["panel 2", panelSql(2)],
-      ["panel 4", panelSql(4)],
-      ["burn rule", ruleSql("stratum-expected-failure-burn")],
-      ["structured-logging.md", docs],
+describe("generated bundle (slice-3 review M4)", () => {
+  it("checked-in artifacts match the builder output", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "grafana-bundle-"));
+    execFileSync(process.execPath, [join(DIR, "build-grafana-bundle.mjs"), tmp], {
+      encoding: "utf8",
+    });
+    for (const f of [
+      "dashboards/stratum-telemetry.json",
+      "alerting/stratum-telemetry-alerts.yaml",
     ]) {
-      assert.ok(sql.includes(OUTCOME_SOURCE_FILTER), `${name} source filter`);
-      assert.ok(sql.includes(OUTCOME_SEVERITY_FILTER), `${name} severity filter`);
+      const expected = readFileSync(join(tmp, f), "utf8");
+      const actual = readFileSync(join(DIR, f), "utf8");
+      assert.equal(actual, expected, `${f} drifted from build-grafana-bundle.mjs output`);
     }
-  });
-
-  it("outcome queries read the shared client-log sink table", () => {
-    for (const [name, sql] of [
-      ["panel 1", panelSql(1)],
-      ["panel 2", panelSql(2)],
-      ["panel 4", panelSql(4)],
-      ["burn rule", ruleSql("stratum-expected-failure-burn")],
-      ["structured-logging.md", docs],
-    ]) {
-      assert.ok(sql.includes(CLIENT_LOG_TABLE), `${name} sink table`);
-    }
-  });
-
-  it("exceptional filter is shared by panel 3 and the spike rule", () => {
-    for (const [name, sql] of [
-      ["panel 3", panelSql(3)],
-      ["spike rule", ruleSql("stratum-exceptional-rate-spike")],
-    ]) {
-      assert.ok(sql.includes(EXCEPTIONAL_EVENT_FILTER), `${name} event filter`);
-    }
-  });
-
-  it("collector rule carries the shared message filter", () => {
+    const docs = readFileSync(
+      join(DIR, "..", "..", "docs", "structured-logging.md"),
+      "utf8",
+    );
     assert.ok(
-      ruleSql("stratum-collector-errors").includes(COLLECTOR_MESSAGE_FILTER),
-      "collector rule message filter",
+      docs.includes(readFileSync(join(tmp, "outcome-queries-block.md"), "utf8")),
+      "docs outcome block drifted from build-grafana-bundle.mjs output",
+    );
+    assert.ok(
+      readme.includes(readFileSync(join(tmp, "readme-verify-block.md"), "utf8")),
+      "README verify block drifted from build-grafana-bundle.mjs output",
     );
   });
 });
