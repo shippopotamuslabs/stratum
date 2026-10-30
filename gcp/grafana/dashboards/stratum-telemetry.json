@@ -1,0 +1,74 @@
+{
+  "uid": "stratum-telemetry",
+  "title": "Stratum telemetry (STR-242)",
+  "tags": ["stratum", "telemetry", "str-242"],
+  "timezone": "utc",
+  "schemaVersion": 39,
+  "version": 1,
+  "description": "GENERATED from gcp/grafana/queries.mjs by gcp/grafana/build-grafana-bundle.mjs — do not hand-edit. Outcome series (OTel-shaped, via the authenticated collector into the client-log BigQuery sink), exceptional-occurrence counter (Analytics BigQuery export), and Crashlytics issue velocity (Crashlytics BigQuery export). Import: Grafana Dashboards > Import, paste this file. Replace the PROJECT./DATASET/PROPERTY placeholders per gcp/grafana/README.md (single vocabulary: PROJECT.DATASET.client_log_sink, PROJECT.analytics_PROPERTY).",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Outcome volume by use case and outcome",
+      "type": "timeseries",
+      "datasource": "${DS_BIGQUERY}",
+      "targets": [
+        {
+          "rawSql": "SELECT TIMESTAMP_TRUNC(timestamp, MINUTE) AS time, jsonPayload.tag AS use_case, jsonPayload.outcome AS outcome, COUNT(*) AS n FROM `PROJECT.DATASET.client_log_sink` WHERE $__timeFilter(timestamp) AND jsonPayload.source = 'stratum-client-log' AND jsonPayload.severity = 'OUTCOME' GROUP BY time, use_case, outcome ORDER BY time",
+          "format": "time_series"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Expected-failure rate by use case",
+      "type": "timeseries",
+      "datasource": "${DS_BIGQUERY}",
+      "targets": [
+        {
+          "rawSql": "SELECT TIMESTAMP_TRUNC(timestamp, MINUTE) AS time, jsonPayload.tag AS use_case, SUM(IF(jsonPayload.outcome = 'expected_failure', 1, 0)) / COUNT(*) AS failure_rate FROM `PROJECT.DATASET.client_log_sink` WHERE $__timeFilter(timestamp) AND jsonPayload.source = 'stratum-client-log' AND jsonPayload.severity = 'OUTCOME' GROUP BY time, use_case ORDER BY time",
+          "format": "time_series"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Exceptional-occurrence counter rate (Analytics export)",
+      "description": "Bare exceptional_occurred counts for real-time exceptional-rate alerting; issue detail lives in Crashlytics (panel 5).",
+      "type": "timeseries",
+      "datasource": "${DS_BIGQUERY}",
+      "targets": [
+        {
+          "rawSql": "SELECT TIMESTAMP_TRUNC(TIMESTAMP_MICROS(event_timestamp), MINUTE) AS time, (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'boundary') AS boundary, COUNT(*) AS n FROM `PROJECT.analytics_PROPERTY.events_*` WHERE _TABLE_SUFFIX BETWEEN FORMAT_DATE('%Y%m%d', DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)) AND FORMAT_DATE('%Y%m%d', CURRENT_DATE()) AND event_name = 'exceptional_occurred' GROUP BY time, boundary ORDER BY time",
+          "format": "time_series"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Outcome pipeline freshness",
+      "description": "Minutes since the newest OUTCOME row. A rising value means the collector path (not necessarily the app) needs attention; compare with the CollectorErrors alert before paging.",
+      "type": "stat",
+      "datasource": "${DS_BIGQUERY}",
+      "targets": [
+        {
+          "rawSql": "SELECT TIMESTAMP_DIFF(CURRENT_TIMESTAMP(), MAX(timestamp), MINUTE) AS minutes_since_last_outcome FROM `PROJECT.DATASET.client_log_sink` WHERE jsonPayload.source = 'stratum-client-log' AND jsonPayload.severity = 'OUTCOME'",
+          "format": "table"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Crashlytics issue velocity (fill in after export enablement)",
+      "description": "TEMPLATE: enable the Crashlytics BigQuery export, list the dataset tables, and replace CRASHLYTICS_DATASET plus the table/columns below. Grafana sees issue-level rows (grouping happens in Crashlytics before export).",
+      "type": "table",
+      "datasource": "${DS_BIGQUERY}",
+      "targets": [
+        {
+          "rawSql": "SELECT issue_id, issue_title, event_count, user_count FROM `PROJECT.CRASHLYTICS_DATASET.CRASHLYTICS_TABLE` WHERE $__timeFilter(event_timestamp) ORDER BY event_count DESC LIMIT 50",
+          "format": "table"
+        }
+      ]
+    }
+  ]
+}
