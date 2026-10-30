@@ -91,6 +91,41 @@ GROUP BY 1 ORDER BY n DESC;
 
 Replace `PROJECT.DATASET.*` with the sink destination table names.
 
+### Outcome series (STR-242)
+
+`OUTCOME` entries carry the countable vocabulary as flat columns
+(`jsonPayload.outcome`, `jsonPayload.reasonCode`, `jsonPayload.tag` = use case).
+Filter on `jsonPayload.severity = 'OUTCOME'` — the top-level log severity is
+`INFO` for every collector row by design (expected outcomes never trip Error
+Reporting), so filtering top-level severity would match the whole sink.
+
+```sql
+-- Outcome volume by use case and outcome (Grafana panel 1)
+SELECT TIMESTAMP_TRUNC(timestamp, MINUTE) AS time,
+       jsonPayload.tag AS use_case, jsonPayload.outcome AS outcome,
+       COUNT(*) AS n
+FROM `PROJECT.DATASET.client_log_sink`
+WHERE jsonPayload.source = 'stratum-client-log'
+  AND jsonPayload.severity = 'OUTCOME'
+GROUP BY time, use_case, outcome ORDER BY time;
+
+-- Expected-failure share by use case with reason split (burn-alert input)
+SELECT jsonPayload.tag AS use_case, jsonPayload.reasonCode AS reason,
+       SUM(IF(jsonPayload.outcome = 'expected_failure', 1, 0)) AS failures,
+       COUNT(*) AS total
+FROM `PROJECT.DATASET.client_log_sink`
+WHERE jsonPayload.source = 'stratum-client-log'
+  AND jsonPayload.severity = 'OUTCOME'
+GROUP BY use_case, reason ORDER BY failures DESC;
+
+-- Pipeline freshness (Grafana panel 4; alert input is the collector-error rule)
+SELECT TIMESTAMP_DIFF(CURRENT_TIMESTAMP(), MAX(timestamp), MINUTE)
+       AS minutes_since_last_outcome
+FROM `PROJECT.DATASET.client_log_sink`
+WHERE jsonPayload.source = 'stratum-client-log'
+  AND jsonPayload.severity = 'OUTCOME';
+```
+
 ## 5. Cost controls
 
 - One line per lifecycle milestone, not per retry/poll. Success paths log

@@ -1,0 +1,77 @@
+# Grafana unified alerting, phase 1 (STR-242 slice 3).
+# Provisioning format: Grafana file provisioning, apiVersion 1. Drop this file
+# into the Grafana provisioning alerting directory, or recreate the rules by
+# hand from the SQL/thresholds below. Contact point and BigQuery datasource
+# UID are filled at import (see ../README.md). Thresholds are phase-1 starting
+# points for a low-volume beta — tighten them once the dashboard shows baselines.
+apiVersion: 1
+groups:
+  - orgId: 1
+    name: stratum-telemetry-phase1
+    folder: Stratum
+    interval: 1m
+    rules:
+      - uid: stratum-expected-failure-burn
+        title: "Stratum: expected-failure burn over baseline"
+        condition: burn
+        data:
+          - refId: volume
+            datasourceUid: __BIGQUERY_DS_UID__
+            model:
+              rawSql: >-
+                SELECT TIMESTAMP_TRUNC(timestamp, MINUTE) AS time,
+                jsonPayload.tag AS use_case,
+                SUM(IF(jsonPayload.outcome = 'expected_failure', 1, 0)) AS failures,
+                COUNT(*) AS total
+                FROM `PROJECT.CLIENT_LOG_DATASET`
+                WHERE $__timeFilter(timestamp)
+                AND jsonPayload.source = 'stratum-client-log'
+                AND jsonPayload.severity = 'OUTCOME'
+                GROUP BY time, use_case ORDER BY time
+        annotations:
+          summary: "Expected-failure volume for a use case exceeds 3x its trailing-hour baseline (min 20 outcomes/5m)."
+          runbook: "gcp/grafana/README.md#alerts"
+        labels:
+          severity: warning
+          ticket: str-242
+
+      - uid: stratum-collector-errors
+        title: "Stratum: ingestClientLogs collector errors"
+        condition: errors
+        data:
+          - refId: errors
+            datasourceUid: __BIGQUERY_DS_UID__
+            model:
+              rawSql: >-
+                SELECT TIMESTAMP_TRUNC(timestamp, MINUTE) AS time, COUNT(*) AS n
+                FROM `PROJECT.FUNCTIONS_LOG_DATASET`
+                WHERE $__timeFilter(timestamp)
+                AND jsonPayload.message CONTAINS 'ingestClientLogs'
+                AND severity = 'ERROR'
+                GROUP BY time ORDER BY time
+        annotations:
+          summary: "The authenticated collector callable logged errors in the last 15 minutes — outcomes may be dropping."
+          runbook: "gcp/grafana/README.md#alerts"
+        labels:
+          severity: critical
+          ticket: str-242
+
+      - uid: stratum-exceptional-rate-spike
+        title: "Stratum: exceptional-occurrence rate spike"
+        condition: spike
+        data:
+          - refId: spike
+            datasourceUid: __BIGQUERY_DS_UID__
+            model:
+              rawSql: >-
+                SELECT TIMESTAMP_TRUNC(TIMESTAMP_MICROS(event_timestamp), MINUTE) AS time, COUNT(*) AS n
+                FROM `PROJECT.analytics_PROPERTY.events_*`
+                WHERE _TABLE_SUFFIX BETWEEN FORMAT_DATE('%Y%m%d', DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)) AND FORMAT_DATE('%Y%m%d', CURRENT_DATE())
+                AND event_name = 'exceptional_occurred'
+                GROUP BY time ORDER BY time
+        annotations:
+          summary: "Bare exceptional counter 15-minute rate exceeds 5x its 24-hour baseline (min 5 events/15m)."
+          runbook: "gcp/grafana/README.md#alerts"
+        labels:
+          severity: critical
+          ticket: str-242
