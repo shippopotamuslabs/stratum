@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.util.Log
 import com.google.firebase.analytics.FirebaseAnalytics
 import com.stratum.domain.telemetry.TelemetryPiiScrubber
+import com.stratum.domain.telemetry.TelemetryRouter
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
@@ -83,5 +84,22 @@ class AndroidAnalyticsAdapterTest {
         every { FirebaseAnalytics.getInstance(any()) } throws RuntimeException("Firebase not initialized")
 
         assertDoesNotThrow { adapter.logEvent("flag_exposure") }
+    }
+
+    @Test
+    @DisplayName("Given the exceptional counter when logged then boundary and class pass through intact")
+    fun exceptionalCounterPassesThrough() {
+        val bundle = slot<Bundle>()
+        adapter.logEvent(
+            TelemetryRouter.EVENT_EXCEPTIONAL_OCCURRED,
+            mapOf(
+                TelemetryRouter.PARAM_BOUNDARY to "cloud_sync_worker",
+                TelemetryRouter.PARAM_CLASS to "IllegalStateException",
+            ),
+        )
+
+        verify { analytics.logEvent(TelemetryRouter.EVENT_EXCEPTIONAL_OCCURRED, capture(bundle)) }
+        assertEquals("cloud_sync_worker", bundle.captured.getString(TelemetryRouter.PARAM_BOUNDARY))
+        assertEquals("IllegalStateException", bundle.captured.getString(TelemetryRouter.PARAM_CLASS))
     }
 }

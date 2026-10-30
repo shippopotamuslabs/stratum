@@ -1,7 +1,6 @@
 package com.stratum.feature.program
 
 import com.stratum.core.testing.MainDispatcherRule
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.ui.trainingsetup.SESSION_BAND_KEY_MEDIUM
 import com.stratum.core.ui.trainingsetup.ScheduleDraftUi
 import com.stratum.core.ui.trainingsetup.isReadyForGeneration
@@ -18,7 +17,7 @@ import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.logging.LogAnalyticsEventUseCase
-import com.stratum.domain.logging.LogErrorUseCase
+import com.stratum.core.testing.telemetry.FakeCrashTelemetryPort
 import com.stratum.core.testing.telemetry.FakeOutcomeTelemetrySink
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisException
 import com.stratum.domain.telemetry.ClientStage
@@ -57,6 +56,7 @@ class CreateProgramGenerateControllerTest {
     fun `generate failure records analytics and surfaces error state`() = runTest {
         val analytics = FakeAnalyticsPort()
         val outcomes = FakeOutcomeTelemetrySink()
+        val crash = FakeCrashTelemetryPort()
         val profileRepo = FakeUserTrainingProfileRepository()
         val state =
             MutableStateFlow(
@@ -84,10 +84,9 @@ class CreateProgramGenerateControllerTest {
                 getUserTrainingProfile = GetUserTrainingProfileUseCase(profileRepo),
                 inferLastTrained = InferLastTrainedBucketUseCase(FakeTrainingLogRepository()),
                 onProgramGenerated = {},
-                logError = LogErrorUseCase(FakeLoggingPort()),
                 logAnalytics = LogAnalyticsEventUseCase(analytics),
                 synthesisTelemetry = SynthesisTelemetry(analytics::logEvent),
-                telemetryRouter = TelemetryRouter(outcomes),
+                telemetryRouter = TelemetryRouter(outcomes, crash, analytics),
             )
 
         assertTrue(
@@ -101,19 +100,24 @@ class CreateProgramGenerateControllerTest {
         advanceUntilIdle()
 
         assertEquals(CreateProgramGenerateState.Error, state.value.generateState)
-        val event = analytics.events.single()
-        assertEquals(USER_VISIBLE_ERROR_EVENT, event.name)
-        assertEquals("create_program", event.params[PARAM_SCREEN])
-        assertEquals("generate_program", event.params[PARAM_ACTION])
-        // Unexpected failure: Crashlytics home, not the outcome stream.
+        val byName = analytics.events.groupBy { it.name }
+        val event = byName[USER_VISIBLE_ERROR_EVENT]?.single()
+        assertEquals("create_program", event?.params?.get(PARAM_SCREEN))
+        assertEquals("generate_program", event?.params?.get(PARAM_ACTION))
+        // Unexpected failure: recorded once through the router (non-fatal +
+        // bare counter), never in the outcome stream.
         assertTrue(outcomes.outcomes.isEmpty())
+        assertEquals("IllegalStateException", crash.recordedExceptions.single()::class.simpleName)
+        val counter = byName[TelemetryRouter.EVENT_EXCEPTIONAL_OCCURRED]?.single()
+        assertEquals("CreateProgramGenerate", counter?.params?.get(TelemetryRouter.PARAM_BOUNDARY))
+        assertEquals("IllegalStateException", counter?.params?.get(TelemetryRouter.PARAM_CLASS))
     }
 
     @Test
     fun `translated synthesis failure emits expected outcome without error log`() = runTest {
         val analytics = FakeAnalyticsPort()
         val outcomes = FakeOutcomeTelemetrySink()
-        val logging = FakeLoggingPort()
+        val crash = FakeCrashTelemetryPort()
         val profileRepo = FakeUserTrainingProfileRepository()
         val state =
             MutableStateFlow(
@@ -144,10 +148,9 @@ class CreateProgramGenerateControllerTest {
                 getUserTrainingProfile = GetUserTrainingProfileUseCase(profileRepo),
                 inferLastTrained = InferLastTrainedBucketUseCase(FakeTrainingLogRepository()),
                 onProgramGenerated = {},
-                logError = LogErrorUseCase(logging),
                 logAnalytics = LogAnalyticsEventUseCase(analytics),
                 synthesisTelemetry = SynthesisTelemetry(analytics::logEvent),
-                telemetryRouter = TelemetryRouter(outcomes),
+                telemetryRouter = TelemetryRouter(outcomes, crash, analytics),
             )
 
         controller.generate()
@@ -161,13 +164,18 @@ class CreateProgramGenerateControllerTest {
             OutcomeResult.ExpectedFailure(OutcomeTelemetry.REASON_SYNTHESIS_FAILED),
             outcome.result,
         )
-        assertTrue(logging.errors.isEmpty(), "expected failure must not touch the error path")
+        assertTrue(crash.recordedExceptions.isEmpty(), "expected failure must not touch the crash path")
+        assertTrue(
+            analytics.events.none { it.name == TelemetryRouter.EVENT_EXCEPTIONAL_OCCURRED },
+            "expected failure must not increment the exceptional counter",
+        )
     }
 
     @Test
     fun `generate success emits client stage timings and rendered event`() = runTest {
         val analytics = FakeAnalyticsPort()
         val outcomes = FakeOutcomeTelemetrySink()
+        val crash = FakeCrashTelemetryPort()
         val profileRepo = FakeUserTrainingProfileRepository()
         val state =
             MutableStateFlow(
@@ -214,10 +222,9 @@ class CreateProgramGenerateControllerTest {
                 getUserTrainingProfile = GetUserTrainingProfileUseCase(profileRepo),
                 inferLastTrained = InferLastTrainedBucketUseCase(FakeTrainingLogRepository()),
                 onProgramGenerated = { program -> generatedProgram = program },
-                logError = LogErrorUseCase(FakeLoggingPort()),
                 logAnalytics = LogAnalyticsEventUseCase(analytics),
                 synthesisTelemetry = SynthesisTelemetry(analytics::logEvent),
-                telemetryRouter = TelemetryRouter(outcomes),
+                telemetryRouter = TelemetryRouter(outcomes, crash, analytics),
             )
 
         controller.generate()
@@ -256,5 +263,10 @@ class CreateProgramGenerateControllerTest {
         assertEquals(OutcomeResult.Success, outcome.result)
         val outcomeDuration = outcome.durationMs
         assertTrue(outcomeDuration != null && outcomeDuration >= 0, "outcome duration must be present")
+        assertTrue(crash.recordedExceptions.isEmpty())
+        assertTrue(
+            analytics.events.none { it.name == TelemetryRouter.EVENT_EXCEPTIONAL_OCCURRED },
+            "success must not increment the exceptional counter",
+        )
     }
 }

@@ -119,4 +119,39 @@ class CloudSyncWorkResultTest {
     fun `unexpected failure has no outcome home`() {
         assertNull(classifySyncOutcome(Result.failure(IllegalStateException("permission denied"))))
     }
+
+    @Test
+    fun `give up with terminal hook records instead of logging`() {
+        val error = IllegalStateException("permission denied")
+        val recorded = mutableListOf<Throwable>()
+
+        val result =
+            mapCloudSyncWorkResult(
+                outcome = Result.failure(error),
+                runAttemptCount = DEFAULT_WORKER_MAX_RETRIES,
+                loggingPort = fakeLogging,
+                onTerminalExceptional = recorded::add,
+            )
+
+        assertEquals(ListenableWorker.Result.failure(), result)
+        assertEquals(listOf(error), recorded)
+        assertTrue(fakeLogging.errors.isEmpty(), "terminal record replaces the give-up error log")
+    }
+
+    @Test
+    fun `retry attempt with terminal hook still retries without recording`() {
+        val error = IllegalStateException("permission denied")
+        val recorded = mutableListOf<Throwable>()
+
+        val result =
+            mapCloudSyncWorkResult(
+                outcome = Result.failure(error),
+                runAttemptCount = 1,
+                loggingPort = fakeLogging,
+                onTerminalExceptional = recorded::add,
+            )
+
+        assertEquals(ListenableWorker.Result.retry(), result)
+        assertTrue(recorded.isEmpty(), "intermediate retries are not terminal")
+    }
 }

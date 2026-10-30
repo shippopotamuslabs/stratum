@@ -2,6 +2,7 @@ package com.stratum.domain.logging
 
 import com.stratum.domain.telemetry.TelemetryPiiScrubber
 import com.stratum.domain.telemetry.TelemetryThrowableSanitizer
+import com.stratum.domain.telemetry.TelemetryRouter
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.system.exitProcess
@@ -17,6 +18,7 @@ import kotlinx.coroutines.CoroutineExceptionHandler
 @Singleton
 class ProcessErrorSafetyNet @Inject constructor(
     private val loggingPort: LoggingPort,
+    private val telemetryRouter: TelemetryRouter,
 ) {
     /**
      * Logs the throwable without a Crashlytics non-fatal, then delegates to the previous default
@@ -47,15 +49,13 @@ class ProcessErrorSafetyNet @Inject constructor(
     /**
      * Handler for process-lifetime scopes ([com.stratum.domain.di.ApplicationScope]).
      * Does not rethrow — a SupervisorJob parent keeps siblings alive; the failure is recorded.
+     *
+     * Terminal boundary: records through [TelemetryRouter] instead of [LoggingPort]
+     * so the exceptional fact has exactly one record (non-fatal + bare counter).
      */
     fun applicationCoroutineExceptionHandler(): CoroutineExceptionHandler =
         CoroutineExceptionHandler { _, throwable ->
-            val message = TelemetryPiiScrubber.scrub(throwable.message) ?: "no message"
-            loggingPort.error(
-                TAG_APPLICATION_SCOPE,
-                "Unhandled coroutine failure: $message",
-                throwable,
-            )
+            telemetryRouter.recordExceptional(TAG_APPLICATION_SCOPE, throwable)
         }
 
     private companion object {
