@@ -28,9 +28,19 @@ export const MAX_PAYLOAD_BYTES = 262144;
 export const MAX_ENTRIES_PER_USER_PER_DAY = 2000;
 export const MAX_FUTURE_SKEW_MS = 3600000;
 
-export type ClientLogSeverity = "WARNING" | "ERROR";
+export type ClientLogSeverity = "WARNING" | "ERROR" | "OUTCOME";
 
-const SEVERITIES: ReadonlySet<string> = new Set(["WARNING", "ERROR"]);
+// OUTCOME carries the STR-242 countable outcome series (flat outcome/reasonCode
+// columns for Grafana grouping). The tier-2 pipeline is reused explicitly as
+// the authenticated collector transport for outcomes.
+const SEVERITIES: ReadonlySet<string> = new Set(["WARNING", "ERROR", "OUTCOME"]);
+
+export type OutcomeName = "success" | "expected_failure";
+
+const OUTCOMES: ReadonlySet<string> = new Set(["success", "expected_failure"]);
+
+const OUTCOME_PATTERN = /^[a-z][a-z0-9_]{0,31}$/;
+const REASON_CODE_PATTERN = /^[a-z][a-z0-9_]{0,63}$/;
 
 export interface ParsedClientLogEntry {
   severity: ClientLogSeverity;
@@ -39,6 +49,8 @@ export interface ParsedClientLogEntry {
   clientTimestampMs: number;
   sessionId: string | null;
   durationMs: number | null;
+  outcome: OutcomeName | null;
+  reasonCode: string | null;
 }
 
 export interface ParsedIngestRequest {
@@ -108,6 +120,8 @@ function parseEntry(raw: unknown, nowMs: number): ParsedClientLogEntry {
     }
     durationMs = durationRaw;
   }
+  const outcome = parseOptionalOutcome(raw["outcome"]);
+  const reasonCode = parseOptionalReasonCode(raw["reasonCode"]);
   return {
     severity: severity as ClientLogSeverity,
     tag,
@@ -115,7 +129,29 @@ function parseEntry(raw: unknown, nowMs: number): ParsedClientLogEntry {
     clientTimestampMs,
     sessionId,
     durationMs,
+    outcome,
+    reasonCode,
   };
+}
+
+function parseOptionalOutcome(value: unknown): OutcomeName | null {
+  if (value === undefined || value === null) {
+    return null;
+  }
+  if (typeof value !== "string" || !OUTCOMES.has(value) || !OUTCOME_PATTERN.test(value)) {
+    throw invalid('Entry outcome must be "success" or "expected_failure".');
+  }
+  return value as OutcomeName;
+}
+
+function parseOptionalReasonCode(value: unknown): string | null {
+  if (value === undefined || value === null) {
+    return null;
+  }
+  if (typeof value !== "string" || !REASON_CODE_PATTERN.test(value)) {
+    throw invalid("Entry reasonCode must match [a-z][a-z0-9_]{0,63}.");
+  }
+  return value;
 }
 
 export function parseIngestClientLogs(data: unknown, nowMs: number): ParsedIngestRequest {
@@ -234,6 +270,8 @@ export const ingestClientLogs = onCall({ enforceAppCheck: true }, async (request
       clientTimestampMs: entry.clientTimestampMs,
       receivedAt,
       durationMs: entry.durationMs,
+      outcome: entry.outcome,
+      reasonCode: entry.reasonCode,
       appVersion: parsed.appVersion,
       platform: parsed.platform,
       droppedEntryCount: parsed.droppedEntryCount,

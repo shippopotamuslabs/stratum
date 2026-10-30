@@ -58,6 +58,8 @@ class ClientLogBuffer(
         tag: String,
         message: String,
         durationMs: Long? = null,
+        outcome: String? = null,
+        reasonCode: String? = null,
     ) {
         val truncatedTag = tag.take(policy.maxTagLength)
         val truncatedMessage = message.take(policy.maxMessageLength)
@@ -75,6 +77,8 @@ class ClientLogBuffer(
                 clientTimestampMs = clock(),
                 sessionId = sessionId,
                 durationMs = durationMs?.coerceAtLeast(0L),
+                outcome = outcome,
+                reasonCode = reasonCode,
             )
         val shouldFlush =
             synchronized(lock) {

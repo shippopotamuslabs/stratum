@@ -6,6 +6,7 @@ import com.stratum.application.lift.ObserveLiftCatalogUseCase
 import com.stratum.domain.logging.LogAnalyticsEventUseCase
 import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.domain.telemetry.SynthesisTelemetry
+import com.stratum.domain.telemetry.TelemetryRouter
 import com.stratum.application.onboarding.CompleteOnboardingUseCase
 import com.stratum.application.onboarding.GetUserTrainingProfileUseCase
 import com.stratum.application.onboarding.UpdateSpecializationUseCase
@@ -63,6 +64,7 @@ class CreateProgramViewModel @Inject constructor(
     abandonTrainingSession: AbandonTrainingSessionUseCase,
     logError: LogErrorUseCase,
     logAnalytics: LogAnalyticsEventUseCase,
+    telemetryRouter: TelemetryRouter,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
@@ -113,6 +115,7 @@ class CreateProgramViewModel @Inject constructor(
             logError = logError,
             logAnalytics = logAnalytics,
             synthesisTelemetry = SynthesisTelemetry(logAnalytics::invoke),
+            telemetryRouter = telemetryRouter,
         )
 
     init {

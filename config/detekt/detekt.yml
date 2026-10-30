@@ -102,6 +102,18 @@ style:
     max: 5
   WildcardImport:
     active: false
+  ForbiddenImport:
+    active: true
+    # STR-242: the telemetry router owns the class-to-store mapping. Only its
+    # backends may touch these SDKs; any other reference fails the build.
+    # The OTel exporter has no allowlist entry yet — the first exporter import
+    # must land in the router backend with an excludes entry added here.
+    imports:
+      - 'com.google.firebase.crashlytics.FirebaseCrashlytics'
+      - 'io.opentelemetry.*'
+    excludes:
+      - '**/core/inference/src/main/**/AndroidCrashTelemetryAdapter.kt'
+      - '**/core/inference/src/test/**'
 
 complexity:
   active: true

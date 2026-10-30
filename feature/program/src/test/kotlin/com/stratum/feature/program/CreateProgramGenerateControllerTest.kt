@@ -19,8 +19,13 @@ import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.logging.LogAnalyticsEventUseCase
 import com.stratum.domain.logging.LogErrorUseCase
+import com.stratum.core.testing.telemetry.FakeOutcomeTelemetrySink
+import com.stratum.domain.program.generation.synthesis.ProgramSynthesisException
 import com.stratum.domain.telemetry.ClientStage
+import com.stratum.domain.telemetry.OutcomeResult
+import com.stratum.domain.telemetry.OutcomeTelemetry
 import com.stratum.domain.telemetry.SynthesisTelemetry
+import com.stratum.domain.telemetry.TelemetryRouter
 import com.stratum.domain.telemetry.SynthesisTelemetry.Companion.EVENT_SYNTHESIS_CLIENT_STAGE
 import com.stratum.domain.telemetry.SynthesisTelemetry.Companion.EVENT_SYNTHESIS_RENDERED
 import com.stratum.domain.telemetry.SynthesisTelemetry.Companion.PARAM_DURATION_MS
@@ -51,6 +56,7 @@ class CreateProgramGenerateControllerTest {
     @Test
     fun `generate failure records analytics and surfaces error state`() = runTest {
         val analytics = FakeAnalyticsPort()
+        val outcomes = FakeOutcomeTelemetrySink()
         val profileRepo = FakeUserTrainingProfileRepository()
         val state =
             MutableStateFlow(
@@ -81,6 +87,7 @@ class CreateProgramGenerateControllerTest {
                 logError = LogErrorUseCase(FakeLoggingPort()),
                 logAnalytics = LogAnalyticsEventUseCase(analytics),
                 synthesisTelemetry = SynthesisTelemetry(analytics::logEvent),
+                telemetryRouter = TelemetryRouter(outcomes),
             )
 
         assertTrue(
@@ -98,11 +105,69 @@ class CreateProgramGenerateControllerTest {
         assertEquals(USER_VISIBLE_ERROR_EVENT, event.name)
         assertEquals("create_program", event.params[PARAM_SCREEN])
         assertEquals("generate_program", event.params[PARAM_ACTION])
+        // Unexpected failure: Crashlytics home, not the outcome stream.
+        assertTrue(outcomes.outcomes.isEmpty())
+    }
+
+    @Test
+    fun `translated synthesis failure emits expected outcome without error log`() = runTest {
+        val analytics = FakeAnalyticsPort()
+        val outcomes = FakeOutcomeTelemetrySink()
+        val logging = FakeLoggingPort()
+        val profileRepo = FakeUserTrainingProfileRepository()
+        val state =
+            MutableStateFlow(
+                CreateProgramUiState(
+                    scheduleDraft =
+                        ScheduleDraftUi(
+                            sessionLengthSelection = SESSION_BAND_KEY_MEDIUM,
+                        ),
+                ),
+            )
+        val controller =
+            CreateProgramGenerateController(
+                state = state,
+                scope = backgroundScope,
+                generateProgram =
+                    GenerateProgramUseCase(
+                        loadContext =
+                            FixedProgramGenerationContextLoader(
+                                error = { throw ProgramSynthesisException("quota exhausted") },
+                            ),
+                        pipeline = testProgramGenerationPipeline(),
+                        liftRepository = com.stratum.core.testing.onboarding.FakeLiftRepository(),
+                        generationDispatcher = UnconfinedTestDispatcher(testScheduler),
+                    ),
+                updateUserTrainingProfile = UpdateUserTrainingProfileUseCase(profileRepo),
+                updateSpecialization =
+                    UpdateSpecializationUseCase(FakeSpecializationPreferenceRepository()),
+                getUserTrainingProfile = GetUserTrainingProfileUseCase(profileRepo),
+                inferLastTrained = InferLastTrainedBucketUseCase(FakeTrainingLogRepository()),
+                onProgramGenerated = {},
+                logError = LogErrorUseCase(logging),
+                logAnalytics = LogAnalyticsEventUseCase(analytics),
+                synthesisTelemetry = SynthesisTelemetry(analytics::logEvent),
+                telemetryRouter = TelemetryRouter(outcomes),
+            )
+
+        controller.generate()
+        testScheduler.runCurrent()
+        advanceUntilIdle()
+
+        assertEquals(CreateProgramGenerateState.Error, state.value.generateState)
+        val outcome = outcomes.outcomes.single()
+        assertEquals(OutcomeTelemetry.USE_CASE_PROGRAM_GENERATION, outcome.useCase)
+        assertEquals(
+            OutcomeResult.ExpectedFailure(OutcomeTelemetry.REASON_SYNTHESIS_FAILED),
+            outcome.result,
+        )
+        assertTrue(logging.errors.isEmpty(), "expected failure must not touch the error path")
     }
 
     @Test
     fun `generate success emits client stage timings and rendered event`() = runTest {
         val analytics = FakeAnalyticsPort()
+        val outcomes = FakeOutcomeTelemetrySink()
         val profileRepo = FakeUserTrainingProfileRepository()
         val state =
             MutableStateFlow(
@@ -152,6 +217,7 @@ class CreateProgramGenerateControllerTest {
                 logError = LogErrorUseCase(FakeLoggingPort()),
                 logAnalytics = LogAnalyticsEventUseCase(analytics),
                 synthesisTelemetry = SynthesisTelemetry(analytics::logEvent),
+                telemetryRouter = TelemetryRouter(outcomes),
             )
 
         controller.generate()
@@ -184,5 +250,11 @@ class CreateProgramGenerateControllerTest {
         // GenerateProgramUseCase, so job_id must be omitted, never overloaded.
         assertTrue(!renderedParams[PARAM_SESSION_ID].isNullOrBlank(), "session_id must be present")
         assertNull(renderedParams[PARAM_JOB_ID], "job_id must not carry a session id")
+        // STR-242: success outcome on the countable stream for the rate denominator.
+        val outcome = outcomes.outcomes.single()
+        assertEquals(OutcomeTelemetry.USE_CASE_PROGRAM_GENERATION, outcome.useCase)
+        assertEquals(OutcomeResult.Success, outcome.result)
+        val outcomeDuration = outcome.durationMs
+        assertTrue(outcomeDuration != null && outcomeDuration >= 0, "outcome duration must be present")
     }
 }

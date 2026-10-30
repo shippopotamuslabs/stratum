@@ -3,7 +3,10 @@ package com.stratum.core.data.work
 import androidx.work.ListenableWorker
 import com.stratum.core.data.sync.CloudSyncResidualException
 import com.stratum.core.testing.logging.FakeLoggingPort
+import com.stratum.domain.telemetry.OutcomeResult
+import com.stratum.domain.telemetry.OutcomeTelemetry
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -71,5 +74,49 @@ class CloudSyncWorkResultTest {
         assertEquals(1, fakeLogging.warnings.size)
         assertEquals(1, fakeLogging.errors.size)
         assertEquals(error, fakeLogging.errors.single().throwable)
+    }
+
+    @Test
+    fun `successful sync classifies to success outcome`() {
+        val outcome = classifySyncOutcome(Result.success(Unit))
+
+        assertEquals(
+            OutcomeTelemetry(
+                useCase = OutcomeTelemetry.USE_CASE_CLOUD_SYNC,
+                result = OutcomeResult.Success,
+            ),
+            outcome,
+        )
+    }
+
+    @Test
+    fun `not started classifies to expected failure`() {
+        val outcome = classifySyncOutcome(Result.failure(CloudSyncNotStartedException()))
+
+        assertEquals(
+            OutcomeTelemetry(
+                useCase = OutcomeTelemetry.USE_CASE_CLOUD_SYNC,
+                result = OutcomeResult.ExpectedFailure(OutcomeTelemetry.REASON_SYNC_NOT_STARTED),
+            ),
+            outcome,
+        )
+    }
+
+    @Test
+    fun `residual backlog classifies to expected failure`() {
+        val outcome = classifySyncOutcome(Result.failure(CloudSyncResidualException("dirty")))
+
+        assertEquals(
+            OutcomeTelemetry(
+                useCase = OutcomeTelemetry.USE_CASE_CLOUD_SYNC,
+                result = OutcomeResult.ExpectedFailure(OutcomeTelemetry.REASON_SYNC_RESIDUAL_BACKLOG),
+            ),
+            outcome,
+        )
+    }
+
+    @Test
+    fun `unexpected failure has no outcome home`() {
+        assertNull(classifySyncOutcome(Result.failure(IllegalStateException("permission denied"))))
     }
 }

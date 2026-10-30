@@ -8,6 +8,12 @@ import androidx.work.WorkerParameters
 import com.stratum.core.data.sync.CloudSyncFeatureGate
 import com.stratum.core.data.sync.CloudSyncResidualException
 import com.stratum.domain.logging.LoggingPort
+import com.stratum.domain.telemetry.OutcomeResult
+import com.stratum.domain.telemetry.OutcomeTelemetry
+import com.stratum.domain.telemetry.OutcomeTelemetry.Companion.REASON_SYNC_NOT_STARTED
+import com.stratum.domain.telemetry.OutcomeTelemetry.Companion.REASON_SYNC_RESIDUAL_BACKLOG
+import com.stratum.domain.telemetry.OutcomeTelemetry.Companion.USE_CASE_CLOUD_SYNC
+import com.stratum.domain.telemetry.TelemetryRouter
 import com.stratum.application.sync.CloudSyncPort
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -23,10 +29,15 @@ class CloudSyncWorker @AssistedInject constructor(
     private val cloudSyncPort: CloudSyncPort,
     private val featureGate: CloudSyncFeatureGate,
     private val loggingPort: LoggingPort,
+    private val telemetryRouter: TelemetryRouter,
 ) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         if (!featureGate.isEnabled()) return Result.success()
         val outcome = cloudSyncPort.requestSync()
+        // STR-242: terminal boundary emits the countable outcome. Unexpected
+        // failures return null here and stay on the Crashlytics path via
+        // mapCloudSyncWorkResult until slice 2 routes them through the router.
+        classifySyncOutcome(outcome)?.let(telemetryRouter::emitOutcome)
         return mapCloudSyncWorkResult(
             outcome = outcome,
             runAttemptCount = runAttemptCount,
@@ -34,6 +45,30 @@ class CloudSyncWorker @AssistedInject constructor(
         )
     }
 }
+
+/**
+ * Maps a sync [Result] to its countable outcome fact, or null when the failure
+ * is exceptional (Crashlytics home, not the outcome stream).
+ */
+internal fun classifySyncOutcome(outcome: kotlin.Result<Unit>): OutcomeTelemetry? =
+    when {
+        outcome.isSuccess ->
+            OutcomeTelemetry(
+                useCase = USE_CASE_CLOUD_SYNC,
+                result = OutcomeResult.Success,
+            )
+        outcome.exceptionOrNull() is CloudSyncNotStartedException ->
+            OutcomeTelemetry(
+                useCase = USE_CASE_CLOUD_SYNC,
+                result = OutcomeResult.ExpectedFailure(REASON_SYNC_NOT_STARTED),
+            )
+        outcome.exceptionOrNull() is CloudSyncResidualException ->
+            OutcomeTelemetry(
+                useCase = USE_CASE_CLOUD_SYNC,
+                result = OutcomeResult.ExpectedFailure(REASON_SYNC_RESIDUAL_BACKLOG),
+            )
+        else -> null
+    }
 
 internal const val CLOUD_SYNC_WORKER_TAG = "CloudSyncWorker"
 
