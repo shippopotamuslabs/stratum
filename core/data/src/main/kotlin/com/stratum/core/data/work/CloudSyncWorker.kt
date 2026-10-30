@@ -34,14 +34,17 @@ class CloudSyncWorker @AssistedInject constructor(
     override suspend fun doWork(): Result {
         if (!featureGate.isEnabled()) return Result.success()
         val outcome = cloudSyncPort.requestSync()
-        // STR-242: terminal boundary emits the countable outcome. Unexpected
-        // failures return null here and stay on the Crashlytics path via
-        // mapCloudSyncWorkResult until slice 2 routes them through the router.
+        // STR-242: terminal boundary for the sync flow. Classified outcomes go
+        // to the countable stream; an unexpected failure that exhausted retries
+        // goes through the router exactly once (non-fatal + bare counter).
         classifySyncOutcome(outcome)?.let(telemetryRouter::emitOutcome)
         return mapCloudSyncWorkResult(
             outcome = outcome,
             runAttemptCount = runAttemptCount,
             loggingPort = loggingPort,
+            onTerminalExceptional = { error ->
+                telemetryRouter.recordExceptional(CLOUD_SYNC_WORKER_TAG, error)
+            },
         )
     }
 }
@@ -100,11 +103,17 @@ internal const val CLOUD_SYNC_WORKER_TAG = "CloudSyncWorker"
 /**
  * Residual backlog keeps retrying with WorkManager backoff. Other failures use the bounded
  * [retryOrGiveUp] policy. UI/scheduler retries must enqueue outside [CloudSyncWorker.doWork].
+ *
+ * @param onTerminalExceptional records an unexpected failure that exhausted retries.
+ * When present, it replaces the give-up [LoggingPort.error] for that fact so the
+ * exceptional record exists exactly once (STR-242); when null, the legacy error
+ * log applies.
  */
 internal fun mapCloudSyncWorkResult(
     outcome: kotlin.Result<Unit>,
     runAttemptCount: Int,
     loggingPort: LoggingPort,
+    onTerminalExceptional: ((Throwable) -> Unit)? = null,
 ): ListenableWorker.Result =
     when (val classification = classifySyncWork(outcome)) {
         SyncWorkClassification.Success,
@@ -118,6 +127,7 @@ internal fun mapCloudSyncWorkResult(
                 taskDescription = "Cloud sync",
                 error = classification.error,
                 loggingPort = loggingPort,
+                onTerminalError = onTerminalExceptional,
             )
     }
 

@@ -1,6 +1,10 @@
 package com.stratum.domain.logging
 
 import com.stratum.core.testing.logging.FakeLoggingPort
+import com.stratum.core.testing.telemetry.FakeAnalyticsPort
+import com.stratum.core.testing.telemetry.FakeCrashTelemetryPort
+import com.stratum.core.testing.telemetry.FakeOutcomeTelemetrySink
+import com.stratum.domain.telemetry.TelemetryRouter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
@@ -16,7 +20,10 @@ import org.junit.jupiter.api.Test
 
 class ProcessErrorSafetyNetTest {
     private val fakeLogging = FakeLoggingPort()
-    private val safetyNet = ProcessErrorSafetyNet(fakeLogging)
+    private val sink = FakeOutcomeTelemetrySink()
+    private val crash = FakeCrashTelemetryPort()
+    private val analytics = FakeAnalyticsPort()
+    private val safetyNet = ProcessErrorSafetyNet(fakeLogging, TelemetryRouter(sink, crash, analytics))
     private var previousHandler: Thread.UncaughtExceptionHandler? = null
 
     @BeforeEach
@@ -74,7 +81,7 @@ class ProcessErrorSafetyNetTest {
     }
 
     @Test
-    @DisplayName("application CoroutineExceptionHandler logs unhandled child failures")
+    @DisplayName("application CoroutineExceptionHandler routes unhandled child failures once")
     fun applicationScopeHandlerLogs() = runTest {
         val scope = CoroutineScope(
             SupervisorJob() + safetyNet.applicationCoroutineExceptionHandler(),
@@ -82,9 +89,12 @@ class ProcessErrorSafetyNetTest {
         val failure = RuntimeException("async boom")
         scope.launch { throw failure }.join()
 
-        assertEquals(1, fakeLogging.errors.size)
-        assertEquals("ApplicationScope", fakeLogging.errors.single().tag)
-        assertSame(failure, fakeLogging.errors.single().throwable)
-        assertTrue(fakeLogging.errors.single().message.contains("async boom"))
+        assertTrue(fakeLogging.errors.isEmpty(), "terminal boundary must not use the logging port")
+        assertSame(failure, crash.recordedExceptions.single())
+        val counter = analytics.events.single()
+        assertEquals(TelemetryRouter.EVENT_EXCEPTIONAL_OCCURRED, counter.name)
+        assertEquals("ApplicationScope", counter.params[TelemetryRouter.PARAM_BOUNDARY])
+        assertEquals("RuntimeException", counter.params[TelemetryRouter.PARAM_CLASS])
+        assertTrue(sink.outcomes.isEmpty())
     }
 }

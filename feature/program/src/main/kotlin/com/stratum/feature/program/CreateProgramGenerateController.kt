@@ -20,7 +20,6 @@ import com.stratum.domain.program.Program
 import com.stratum.domain.program.ProgramGenerationProgress
 import com.stratum.domain.program.ProgramGenerationProgressPhase
 import com.stratum.domain.logging.LogAnalyticsEventUseCase
-import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.domain.logging.PARAM_ACTION
 import com.stratum.domain.logging.PARAM_SCREEN
 import com.stratum.domain.logging.USER_VISIBLE_ERROR_EVENT
@@ -53,7 +52,6 @@ internal class CreateProgramGenerateController(
     private val getUserTrainingProfile: GetUserTrainingProfileUseCase,
     private val inferLastTrained: InferLastTrainedBucketUseCase,
     private val onProgramGenerated: (Program) -> Unit,
-    private val logError: LogErrorUseCase,
     private val logAnalytics: LogAnalyticsEventUseCase,
     private val synthesisTelemetry: SynthesisTelemetry,
     private val telemetryRouter: TelemetryRouter,
@@ -246,7 +244,10 @@ internal class CreateProgramGenerateController(
         if (outcome != null) {
             telemetryRouter.emitOutcome(outcome)
         } else {
-            logError(GENERATE_LOG_TAG, "program generation failed: ${error.message}", error)
+            // Terminal boundary: recorded once through the router (non-fatal +
+            // bare counter) instead of the logging port, so the exceptional
+            // fact has exactly one record.
+            telemetryRouter.recordExceptional(GENERATE_LOG_TAG, error)
         }
         logAnalytics(
             USER_VISIBLE_ERROR_EVENT,
