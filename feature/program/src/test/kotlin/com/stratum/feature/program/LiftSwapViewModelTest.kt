@@ -310,6 +310,41 @@ class LiftSwapViewModelTest {
     }
 
     @Test
+    @DisplayName("Given PersistToProgram when notes read fails then swap still succeeds and the diagnostic is logged once")
+    fun persistToProgramDrainsNotesDiagnosticOnce() = runTest {
+        programRepository.pinnedNotesReadError = IllegalStateException("notes boom")
+        viewModel.initialize(
+            workoutId = WORKOUT_ID,
+            workoutLiftId = "wl-1",
+            liftId = "bench-press",
+            liftName = "Barbell Bench Press",
+            commitMode = LiftSwapCommitMode.PersistToProgram,
+        )
+
+        viewModel.liftSwapState.test {
+            val state = awaitNonNullState()
+            val incline = state.options.first { it.id == "incline-press" }
+            var completed = false
+            viewModel.onLiftClicked(incline) { completed = true }
+            advanceUntilIdle()
+            assertTrue(completed)
+            assertEquals(null, viewModel.userMessage.value)
+            val updated =
+                programRepository.getProgram()
+                    ?.workouts
+                    ?.first()
+                    ?.workoutLifts
+                    ?.first()
+            assertEquals(LiftId("incline-press"), updated?.liftId)
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        val drained = fakeLoggingPort.errors.filter { it.message.contains("pinned notes could not be read") }
+        assertEquals(1, drained.size)
+        assertTrue(drained.single().throwable is IllegalStateException)
+    }
+
+    @Test
     @DisplayName("Given PersistToProgram when swap fails then user message is shown and error is logged")
     fun persistToProgramLogsErrorWhenSwapFails() = runTest {
         viewModel.initialize(

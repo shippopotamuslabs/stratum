@@ -14,11 +14,18 @@ import com.stratum.core.ui.component.LiftLibraryFilter
 import com.stratum.core.ui.component.LiftSwapFilterIntent
 import com.stratum.domain.lift.Lift
 import com.stratum.application.lift.MergeLiftsUseCase
+import com.stratum.application.training.TrainingLogRepository
 import com.stratum.domain.lift.MuscleLengthBias
+import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.application.lift.ObserveLiftCatalogUseCase
 import com.stratum.application.lift.SetLiftEnabledUseCase
+import com.stratum.domain.importing.identity.LoggedSetId
+import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.training.LoggedLiftContext
+import com.stratum.domain.training.LoggedSet
+import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.application.training.ComputePersonalRecordsUseCase
 import com.stratum.application.training.RebuildLocalDerivedTrainingDataUseCase
 import com.stratum.application.training.RefreshWeeklySeriesUseCase
@@ -136,6 +143,7 @@ class GymViewModelTest {
                         fakeLogRepository,
                         FakeWorkoutOverlayStore(),
                     ),
+                logError = LogErrorUseCase(logging),
             )
     }
 
@@ -255,6 +263,99 @@ class GymViewModelTest {
     }
 
     @Test
+    @DisplayName("Given PR recompute fails during confirmMerge then merge still succeeds and the diagnostic is logged once")
+    fun confirmMergeDrainsPrDiagnosticOnce() = runTest {
+        fakeLogRepository.seedSet(
+            LoggedSet(
+                id = LoggedSetId("set-1"),
+                sessionId = TrainingSessionId("session-1"),
+                exerciseNameRaw = "Bench Press",
+                liftId = LiftId("1"),
+                setIndex = 0,
+                weight = Weight(100.0, Weight.WeightUnit.Lb),
+                reps = 5,
+                rir = 1,
+                completedAt = java.time.Instant.parse("2026-03-01T10:30:00Z"),
+                liftContext = LoggedLiftContext(liftName = "Bench Press"),
+                isPersonalRecord = true,
+                estimatedOneRm = 115.0,
+            ),
+        )
+        val failingMerge =
+            MergeLiftsUseCase(
+                liftRepository = fakeLiftRepository,
+                trainingLogRepository = fakeLogRepository,
+                mergeLiftsPort = mergePort,
+                computePersonalRecords = ComputePersonalRecordsUseCase(FailingPrReadRepository(fakeLogRepository)),
+                rebuildLocalDerived =
+                    RebuildLocalDerivedTrainingDataUseCase(
+                        localDerivedStages =
+                            com.stratum.core.testing.training.localDerivedTrainingStages(
+                                trainingLog = fakeLogRepository,
+                                liftRepository = fakeLiftRepository,
+                            ),
+                        responseModelingScheduler = FakeResponseModelingSchedulerPort(),
+                        loggingPort = logging,
+                    ),
+                workoutOverlayStore = FakeWorkoutOverlayStore(),
+                loggingPort = logging,
+            )
+        val failingSubject =
+            GymViewModel(
+                observeLiftCatalog = ObserveLiftCatalogUseCase(fakeLiftRepository),
+                setLiftEnabled = SetLiftEnabledUseCase(fakeLiftRepository, logging),
+                mergeLifts = failingMerge,
+                deleteLift =
+                    com.stratum.application.lift.DeleteLiftUseCase(
+                        deleteLiftPort =
+                            com.stratum.core.testing.onboarding.FakeDeleteLiftPort(
+                                fakeLiftRepository,
+                                fakeProgramRepository,
+                            ),
+                        rebuildDerived =
+                            RebuildLocalDerivedTrainingDataUseCase(
+                                localDerivedStages =
+                                    com.stratum.core.testing.training.localDerivedTrainingStages(
+                                        trainingLog = fakeLogRepository,
+                                        liftRepository = fakeLiftRepository,
+                                    ),
+                                responseModelingScheduler = FakeResponseModelingSchedulerPort(),
+                                loggingPort = logging,
+                            ),
+                        loggingPort = logging,
+                    ),
+                getLiftDeleteImpact =
+                    com.stratum.application.lift.GetLiftDeleteImpactUseCase(
+                        fakeLiftRepository,
+                        fakeProgramRepository,
+                        fakeLogRepository,
+                        FakeWorkoutOverlayStore(),
+                    ),
+                logError = LogErrorUseCase(logging),
+            )
+        val errorsBefore = logging.errors.size
+
+        failingSubject.uiState.test {
+            val catalog = skipInitialCatalog()
+            val custom = catalog.sheet.options.first { it.id == "3" }
+            failingSubject.enterMergeMode("1")
+            awaitItem()
+            failingSubject.toggleMergeSelection(custom)
+            awaitItem()
+            failingSubject.confirmMerge("1")
+            advanceUntilIdle()
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        assertEquals("Lifts merged", failingSubject.userMessage.value)
+        assertFalse(failingSubject.uiState.value.isMergeMode)
+        val drained = logging.errors.drop(errorsBefore)
+        assertEquals(1, drained.size)
+        assertTrue(drained.single().message.contains("personal records were not recomputed"))
+        assertTrue(drained.single().throwable is IllegalStateException)
+    }
+
+    @Test
     @DisplayName("Given confirmMerge already running when confirm again then second call is ignored")
     fun doubleConfirmIsSingleFlight() = runTest {
         subject.uiState.test {
@@ -362,6 +463,18 @@ class GymViewModelTest {
             assertEquals(null, subject.uiState.value.pendingDelete)
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    /**
+     * Delegates every [TrainingLogRepository] call except the PR recompute read,
+     * which throws — forces the merge's recompute step to fail while the merge's
+     * own reads (via the raw fake) keep succeeding.
+     */
+    private class FailingPrReadRepository(
+        delegate: TrainingLogRepository,
+    ) : TrainingLogRepository by delegate {
+        override suspend fun getSetsForLift(liftId: LiftId): List<LoggedSet> =
+            throw IllegalStateException("PR read boom")
     }
 
     private suspend fun app.cash.turbine.ReceiveTurbine<GymUiState>.skipInitialCatalog(): GymUiState {

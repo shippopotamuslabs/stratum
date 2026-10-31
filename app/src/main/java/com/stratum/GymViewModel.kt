@@ -16,7 +16,9 @@ import com.stratum.application.lift.GetLiftDeleteImpactUseCase
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.LiftCategory
 import com.stratum.domain.lift.LiftDeleteImpact
+import com.stratum.application.lift.MergeLiftsDiagnostic
 import com.stratum.application.lift.MergeLiftsUseCase
+import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.application.lift.ObserveLiftCatalogUseCase
 import com.stratum.application.lift.SetLiftEnabledUseCase
@@ -93,6 +95,7 @@ class GymViewModel @Inject constructor(
     private val mergeLifts: MergeLiftsUseCase,
     private val deleteLift: DeleteLiftUseCase,
     private val getLiftDeleteImpact: GetLiftDeleteImpactUseCase,
+    private val logError: LogErrorUseCase,
 ) : ViewModel() {
 
     private val filters = MutableStateFlow(GymFilters())
@@ -243,7 +246,8 @@ class GymViewModel @Inject constructor(
                 mergeLifts(
                     targetLiftId = LiftId(targetLiftId),
                     sourceLiftIds = sourceIds,
-                ).onSuccess {
+                ).onSuccess { outcome ->
+                    logMergeDiagnostics(outcome.diagnostics)
                     mergeSelection.value = MergeSelection()
                     _userMessage.value = MSG_MERGE_SUCCESS
                 }.onFailure {
@@ -301,7 +305,29 @@ class GymViewModel @Inject constructor(
         }
     }
 
+    /**
+     * STR-255: reports each merge diagnostic exactly once through the screen's
+     * existing error-logging wiring. Diagnostics are log-only — never surfaced in
+     * the UI. Error level (not warning) so the bound failure travels attached,
+     * mirroring the STR-250 drain shape: `LoggingPort.warning` carries no
+     * throwable and ViewModels must not inject `LoggingPort` directly.
+     */
+    internal fun logMergeDiagnostics(diagnostics: List<MergeLiftsDiagnostic>) {
+        for (diagnostic in diagnostics) {
+            when (diagnostic) {
+                is MergeLiftsDiagnostic.PersonalRecordsNotRecomputed ->
+                    logError(
+                        TAG,
+                        "Merge succeeded but personal records were not recomputed: " +
+                            "target=${diagnostic.targetLiftId.value} — PR flags may be stale.",
+                        diagnostic.cause,
+                    )
+            }
+        }
+    }
+
     private companion object {
+        const val TAG = "GymViewModel"
         const val MSG_TOGGLE_FAILED = "Couldn't update that lift. Try again."
         const val MSG_MERGE_SUCCESS = "Lifts merged"
         const val MSG_MERGE_FAILED = "Couldn't merge those lifts. Try again."

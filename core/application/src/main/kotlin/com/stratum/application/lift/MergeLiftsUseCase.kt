@@ -39,7 +39,7 @@ class MergeLiftsUseCase @Inject constructor(
     suspend operator fun invoke(
         targetLiftId: LiftId,
         sourceLiftIds: Set<LiftId>,
-    ): Result<Unit> {
+    ): Result<MergeLiftsOutcome> {
         if (sourceLiftIds.isEmpty()) {
             return Result.failure(IllegalArgumentException("At least one source lift is required"))
         }
@@ -72,7 +72,7 @@ class MergeLiftsUseCase @Inject constructor(
                 targetLiftId = targetLiftId,
             )
 
-            recomputePersonalRecords(targetLiftId)
+            val prDiagnostic = recomputePersonalRecords(targetLiftId)
 
             rebuildLocalDerived().onFailure { error ->
                 loggingPort.warning(
@@ -80,6 +80,7 @@ class MergeLiftsUseCase @Inject constructor(
                     "Merge succeeded but derived training rebuild failed: ${error.message}",
                 )
             }
+            MergeLiftsOutcome(diagnostics = listOfNotNull(prDiagnostic))
         }
     }
 
@@ -95,15 +96,29 @@ class MergeLiftsUseCase @Inject constructor(
         }
     }
 
-    private suspend fun recomputePersonalRecords(targetLiftId: LiftId) {
+    /**
+     * Recomputes PR flags for the survivor's history. A recompute failure does not
+     * fail the merge — it is returned as a diagnostic on the outcome (STR-255).
+     * Throws from the surrounding reads/writes still propagate and fail the merge.
+     */
+    private suspend fun recomputePersonalRecords(targetLiftId: LiftId): MergeLiftsDiagnostic? {
         val allForTarget = trainingLogRepository.getSetsForLift(targetLiftId)
-        if (allForTarget.isEmpty()) return
+        if (allForTarget.isEmpty()) return null
 
-        val prResult = computePersonalRecords(allForTarget).getOrElse { return }
-        val toPersist = prResult.updatedIncomingSets + prResult.oldPrSetsToUpdate
+        val prResult = computePersonalRecords(allForTarget)
+        val failure = prResult.exceptionOrNull()
+        if (failure != null) {
+            return MergeLiftsDiagnostic.PersonalRecordsNotRecomputed(
+                targetLiftId = targetLiftId,
+                cause = failure,
+            )
+        }
+        val computed = prResult.getOrThrow()
+        val toPersist = computed.updatedIncomingSets + computed.oldPrSetsToUpdate
         if (toPersist.isNotEmpty()) {
             trainingLogRepository.updateSets(toPersist)
         }
+        return null
     }
 
     private companion object {

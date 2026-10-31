@@ -8,6 +8,7 @@ import com.stratum.core.ui.component.LiftSwapSheetState
 import com.stratum.application.lift.RankSwapCandidatesUseCase
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.logging.LogErrorUseCase
+import com.stratum.application.program.SwapWorkoutLiftDiagnostic
 import com.stratum.application.program.SwapWorkoutLiftUseCase
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.workout.WorkoutEditSession
@@ -229,7 +230,10 @@ class LiftSwapViewModel @Inject constructor(
                 persistSwapJob =
                     viewModelScope.launch {
                         swapWorkoutLift(WorkoutLiftId(workoutLiftId), LiftId(newLiftId))
-                            .onSuccess { onComplete() }
+                            .onSuccess { outcome ->
+                                logSwapDiagnostics(outcome.diagnostics)
+                                onComplete()
+                            }
                             .onFailure { error ->
                                 logError(TAG, "Failed to persist lift swap in program: ${error.message}", error)
                                 _userMessage.value = MSG_SWAP_FAILED
@@ -239,6 +243,28 @@ class LiftSwapViewModel @Inject constructor(
             LiftSwapCommitMode.EditSession -> {
                 workoutEditSession.selectLift(workoutId, workoutLiftId, newLiftId)
                 onComplete()
+            }
+        }
+    }
+
+    /**
+     * STR-255: reports each swap diagnostic exactly once through the screen's
+     * existing error-logging wiring. Diagnostics are log-only — never surfaced in
+     * the UI. Error level (not warning) so the bound failure travels attached,
+     * mirroring the STR-250 drain shape: `LoggingPort.warning` carries no
+     * throwable and ViewModels must not inject `LoggingPort` directly.
+     */
+    internal fun logSwapDiagnostics(diagnostics: List<SwapWorkoutLiftDiagnostic>) {
+        for (diagnostic in diagnostics) {
+            when (diagnostic) {
+                is SwapWorkoutLiftDiagnostic.PinnedNotesUnreadable ->
+                    logError(
+                        TAG,
+                        "Swap succeeded but pinned notes could not be read: " +
+                            "slot=${diagnostic.workoutLiftId.value} " +
+                            "newLift=${diagnostic.newLiftId.value} — proceeded with empty notes.",
+                        diagnostic.cause,
+                    )
             }
         }
     }

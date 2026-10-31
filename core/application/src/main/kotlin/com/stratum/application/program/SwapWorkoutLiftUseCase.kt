@@ -28,7 +28,10 @@ class SwapWorkoutLiftUseCase @Inject constructor(
     private val equipmentRepository: com.stratum.application.lift.EquipmentRepository,
     private val loggingPort: LoggingPort,
 ) {
-    suspend operator fun invoke(workoutLiftId: WorkoutLiftId, newLiftId: LiftId): Result<Unit> {
+    suspend operator fun invoke(
+        workoutLiftId: WorkoutLiftId,
+        newLiftId: LiftId,
+    ): Result<SwapWorkoutLiftOutcome> {
         val program =
             try {
                 programRepository.getProgram()
@@ -58,12 +61,26 @@ class SwapWorkoutLiftUseCase @Inject constructor(
             program.workouts
                 .flatMap { it.workoutLifts }
                 .firstOrNull { it.id == workoutLiftId }
-        val incomingNotes =
+        // A notes-read failure does not fail the swap — it is recorded as a
+        // diagnostic and the swap proceeds with empty notes (STR-255). Cancellation
+        // still propagates: it is not a degradation of this computation.
+        var notesDiagnostic: SwapWorkoutLiftDiagnostic? = null
+        val incomingNotes: List<String>? =
             if (targetLift != null && targetLift.liftId != newLiftId) {
-                runCatching {
+                try {
                     programRepository.getWorkoutLiftPinnedNotes(workoutLiftId, newLiftId)
                         .map { it.body }
-                }.getOrDefault(emptyList())
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (error: Throwable) {
+                    notesDiagnostic =
+                        SwapWorkoutLiftDiagnostic.PinnedNotesUnreadable(
+                            workoutLiftId = workoutLiftId,
+                            newLiftId = newLiftId,
+                            cause = error,
+                        )
+                    emptyList()
+                }
             } else {
                 null
             }
@@ -118,6 +135,7 @@ class SwapWorkoutLiftUseCase @Inject constructor(
                         ),
                 ),
             )
+            SwapWorkoutLiftOutcome(diagnostics = listOfNotNull(notesDiagnostic))
         }
     }
 
