@@ -202,14 +202,37 @@ fun buildWeeklySchedule(program: Program): List<ScheduleDayItem> {
  * Note: [buildWeeklySchedule] succeeds with seven rest days when workouts exist but none are
  * weekday-bound (empty [Program.effectiveTrainingWeekdays]). That silent all-rest result is
  * treated as incomplete binding and falls back so callers still see the workouts.
+ *
+ * The returned [WeeklyScheduleOutcome] carries a [ScheduleDiagnostic.FallbackScheduleUsed]
+ * whenever the fallback path is taken, so callers can distinguish a real schedule (empty
+ * [WeeklyScheduleOutcome.diagnostics]) from a synthesized one. Fallback items are identical
+ * to the previous positional fallback.
  */
-fun buildWeeklyScheduleOrFallback(program: Program): List<ScheduleDayItem> {
+fun buildWeeklyScheduleOrFallback(program: Program): WeeklyScheduleOutcome {
     val training = program.effectiveTrainingWeekdays()
     if (program.workouts.isNotEmpty() && training.isEmpty()) {
-        return fallbackScheduleFromWorkouts(program)
+        return WeeklyScheduleOutcome(
+            items = fallbackScheduleFromWorkouts(program),
+            diagnostics =
+                listOf(
+                    ScheduleDiagnostic.FallbackScheduleUsed(FallbackReason.NoWeekdayBoundWorkouts),
+                ),
+        )
     }
-    return runCatching { buildWeeklySchedule(program) }
-        .getOrElse { fallbackScheduleFromWorkouts(program) }
+    return runCatching { buildWeeklySchedule(program) }.fold(
+        onSuccess = { items -> WeeklyScheduleOutcome(items = items) },
+        onFailure = { cause ->
+            WeeklyScheduleOutcome(
+                items = fallbackScheduleFromWorkouts(program),
+                diagnostics =
+                    listOf(
+                        ScheduleDiagnostic.FallbackScheduleUsed(
+                            FallbackReason.StrictBuildFailed(cause),
+                        ),
+                    ),
+            )
+        },
+    )
 }
 
 private fun fallbackScheduleFromWorkouts(program: Program): List<ScheduleDayItem> =

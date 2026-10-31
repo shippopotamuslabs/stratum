@@ -180,18 +180,93 @@ class ProgramScheduleTest {
                     ),
             )
 
-        val schedule = buildWeeklyScheduleOrFallback(program)
+        val outcome = buildWeeklyScheduleOrFallback(program)
 
-        assertEquals(2, schedule.size)
-        assertTrue(schedule.all { item -> item is ScheduleDayItem.WorkoutDay })
+        assertEquals(2, outcome.items.size)
+        assertTrue(outcome.items.all { item -> item is ScheduleDayItem.WorkoutDay })
         assertEquals(
             listOf("w-0", "w-1"),
-            schedule.filterIsInstance<ScheduleDayItem.WorkoutDay>().map { item -> item.workout.id.value },
+            outcome.items.filterIsInstance<ScheduleDayItem.WorkoutDay>().map { item -> item.workout.id.value },
+        )
+        // Fallback items are byte-for-byte the positional fallback (Monday placeholder).
+        assertEquals(
+            program.workouts.map { workout ->
+                ScheduleDayItem.WorkoutDay(weekday = Weekday.Monday, workout = workout)
+            },
+            outcome.items,
+        )
+        // No weekday-bound workouts and no metadata: path (a) diagnostic.
+        assertEquals(
+            listOf(
+                ScheduleDiagnostic.FallbackScheduleUsed(FallbackReason.NoWeekdayBoundWorkouts),
+            ),
+            outcome.diagnostics,
         )
         // Strict builder still produces all rest for empty training (invariant for active UI).
         val strict = buildWeeklySchedule(program)
         assertEquals(7, strict.size)
         assertTrue(strict.all { item -> item is ScheduleDayItem.RestDay })
+    }
+
+    @Test
+    @DisplayName("buildWeeklyScheduleOrFallback carries the strict failure cause when bindings are stale")
+    fun buildWeeklyScheduleOrFallback_strictFailureCarriesCause() {
+        val program =
+            Program(
+                id = ProgramId("p-1"),
+                name = "Stale",
+                createdAt = Instant.parse("2026-06-26T12:00:00Z"),
+                cycleLength = 2,
+                // Stale metadata: no workout carries a weekday, so the strict builder throws
+                // "Missing workout for training weekday Monday".
+                trainingWeekdays = setOf(Weekday.Monday),
+                workouts =
+                    listOf(
+                        workout("w-0", 0),
+                        workout("w-1", 1),
+                    ),
+            )
+
+        val outcome = buildWeeklyScheduleOrFallback(program)
+
+        // Fallback items are byte-for-byte the positional fallback (Monday placeholder).
+        assertEquals(
+            program.workouts.map { workout ->
+                ScheduleDayItem.WorkoutDay(weekday = Weekday.Monday, workout = workout)
+            },
+            outcome.items,
+        )
+        // Strict builder threw: path (b) diagnostic carrying the cause.
+        assertEquals(1, outcome.diagnostics.size)
+        val diagnostic = outcome.diagnostics.single()
+        assertTrue(diagnostic is ScheduleDiagnostic.FallbackScheduleUsed)
+        val reason = (diagnostic as ScheduleDiagnostic.FallbackScheduleUsed).reason
+        assertTrue(reason is FallbackReason.StrictBuildFailed)
+        val cause = (reason as FallbackReason.StrictBuildFailed).cause
+        assertTrue(cause is IllegalStateException)
+        assertTrue(cause.message?.contains("Missing workout for training weekday Monday") == true)
+    }
+
+    @Test
+    @DisplayName("buildWeeklyScheduleOrFallback returns the real schedule with zero diagnostics")
+    fun buildWeeklyScheduleOrFallback_realScheduleHasNoDiagnostics() {
+        val program =
+            assignProgramSchedule(
+                program =
+                    Program(
+                        id = ProgramId("p-1"),
+                        name = "Test",
+                        createdAt = Instant.parse("2026-06-26T12:00:00Z"),
+                        cycleLength = 2,
+                        workouts = listOf(workout("w-0", 0), workout("w-1", 1)),
+                    ),
+                trainingWeekdays = listOf(Weekday.Monday, Weekday.Thursday),
+            )
+
+        val outcome = buildWeeklyScheduleOrFallback(program)
+
+        assertEquals(buildWeeklySchedule(program), outcome.items)
+        assertTrue(outcome.diagnostics.isEmpty())
     }
 
     private fun workout(id: String, position: Int) =
