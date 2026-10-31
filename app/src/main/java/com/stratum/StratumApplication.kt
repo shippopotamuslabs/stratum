@@ -12,6 +12,7 @@ import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.logging.ProcessErrorSafetyNet
 import com.stratum.domain.telemetry.ClientLogBuffer
 import com.stratum.feature.workout.notification.WorkoutNotificationCoordinator
+import com.stratum.subscription.EntitlementDiagnosticsListener
 import com.stratum.sync.CloudSyncAuthListener
 import com.stratum.telemetry.TelemetryAuthListener
 import com.stratum.telemetry.TelemetryContextListener
@@ -54,6 +55,9 @@ class StratumApplication : Application(), Configuration.Provider {
     lateinit var telemetryContextListener: TelemetryContextListener
 
     @Inject
+    lateinit var entitlementDiagnosticsListener: EntitlementDiagnosticsListener
+
+    @Inject
     lateinit var featureFlagRepository: FeatureFlagRepository
 
     @Inject
@@ -74,6 +78,7 @@ class StratumApplication : Application(), Configuration.Provider {
         cloudSyncAuthListener.start()
         telemetryAuthListener.start()
         telemetryContextListener.start()
+        entitlementDiagnosticsListener.start()
         applicationScope.launch {
             featureFlagRepository.syncFlags()
         }

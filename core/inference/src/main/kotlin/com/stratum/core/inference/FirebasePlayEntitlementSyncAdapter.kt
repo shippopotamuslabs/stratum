@@ -2,7 +2,6 @@ package com.stratum.core.inference
 
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.functions.FirebaseFunctions
-import com.stratum.domain.logging.LoggingPort
 import com.stratum.application.subscription.PlayEntitlementSyncPort
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -12,11 +11,14 @@ import kotlinx.coroutines.tasks.await
 /**
  * Thin Firebase Callable client for `syncPlayEntitlement`.
  * Never logs the raw Play purchase token.
+ *
+ * Failures are returned as [Result] and surfaced by the caller as
+ * entitlement diagnostic values drained exactly once at the app boundary,
+ * so this adapter deliberately does not log (avoids logging the same
+ * failure at two layers).
  */
 @Singleton
-class FirebasePlayEntitlementSyncAdapter @Inject constructor(
-    private val loggingPort: LoggingPort,
-) : PlayEntitlementSyncPort {
+class FirebasePlayEntitlementSyncAdapter @Inject constructor() : PlayEntitlementSyncPort {
     private val functions: FirebaseFunctions = FirebaseFunctions.getInstance()
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
 
@@ -30,17 +32,9 @@ class FirebasePlayEntitlementSyncAdapter @Inject constructor(
                     .withTimeout(CALLABLE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
             val result = callable.call(mapOf("purchaseToken" to purchaseToken)).await()
             parsePlayEntitlementSyncResponse(result.data)
-        }.onFailure { error ->
-            FirebaseCallableErrorLogger.logFailure(
-                loggingPort,
-                TAG,
-                CALLABLE_NAME,
-                error,
-            )
         }
 
     private companion object {
-        private const val TAG = "StratumPlayEntitlement"
         const val CALLABLE_NAME = "syncPlayEntitlement"
         const val CALLABLE_TIMEOUT_SECONDS = 120L
     }

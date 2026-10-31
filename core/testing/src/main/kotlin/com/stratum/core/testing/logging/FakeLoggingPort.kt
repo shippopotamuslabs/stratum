@@ -16,10 +16,13 @@ class FakeLoggingPort : LoggingPort {
         val message: String,
     )
 
+    val debugs = mutableListOf<LogEntry>()
     val warnings = mutableListOf<LogEntry>()
     val errors = mutableListOf<ErrorEntry>()
 
-    override fun debug(tag: String, message: String) = Unit
+    override fun debug(tag: String, message: String) {
+        debugs += LogEntry(tag, message)
+    }
 
     override fun info(tag: String, message: String) = Unit
 

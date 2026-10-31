@@ -28,13 +28,14 @@ class TelemetryContextListenerTest {
     private val entitlementRepository = FakeEntitlementRepository()
     private val trainingLog = FakeTrainingLogRepository()
     private val fakeTelemetry = FakeCrashTelemetryPort()
+    private val loggingPort = FakeLoggingPort()
 
     private fun createListener(scope: CoroutineScope) =
         TelemetryContextListener(
             observeEntitlement = ObserveEntitlementUseCase(entitlementRepository),
             observeActiveSession = ObserveActiveSessionUseCase(trainingLog),
             crashTelemetryPort = fakeTelemetry,
-            loggingPort = FakeLoggingPort(),
+            loggingPort = loggingPort,
             scope = scope,
         )
 
@@ -97,6 +98,27 @@ class TelemetryContextListenerTest {
             )
 
             assertEquals("play_subscription", fakeTelemetry.subscriptionTier)
+            scope.cancel()
+        }
+
+    @Test
+    fun `entitlement changes are debug-logged exactly once per change`() =
+        runTest {
+            val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+            val listener = createListener(scope)
+            listener.start()
+
+            val initial = EntitlementState.NotEntitled()
+            assertEquals(1, loggingPort.debugs.size)
+            assertEquals("SubscriptionRepo", loggingPort.debugs[0].tag)
+            assertEquals("Entitlement changed: $initial", loggingPort.debugs[0].message)
+
+            val entitled = EntitlementState.Entitled(EntitlementSource.ComplimentaryAccess)
+            entitlementRepository.setState(entitled)
+
+            assertEquals(2, loggingPort.debugs.size)
+            assertEquals("SubscriptionRepo", loggingPort.debugs[1].tag)
+            assertEquals("Entitlement changed: $entitled", loggingPort.debugs[1].message)
             scope.cancel()
         }
 }

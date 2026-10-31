@@ -3,13 +3,25 @@ package com.stratum.application.subscription
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
 import com.stratum.domain.subscription.BillingPurchaseResult
+import com.stratum.domain.subscription.EntitlementDiagnostic
 import com.stratum.domain.subscription.EntitlementState
 import com.stratum.domain.subscription.SubscriptionProduct
+
+/** Shared log tag for entitlement boundary drains. */
+const val SUBSCRIPTION_REPO_TAG = "SubscriptionRepo"
 
 class ObserveEntitlementUseCase @Inject constructor(
     private val repository: EntitlementRepository,
 ) {
-    operator fun invoke(): Flow<EntitlementState> = repository.observeEntitlement()
+    operator fun invoke(): Flow<EntitlementState> =
+        repository.observeEntitlement()
+}
+
+class ObserveEntitlementDiagnosticsUseCase @Inject constructor(
+    private val repository: EntitlementRepository,
+) {
+    operator fun invoke(): Flow<EntitlementDiagnostic> =
+        repository.observeEntitlementDiagnostics()
 }
 
 class GetSubscriptionProductsUseCase @Inject constructor(
