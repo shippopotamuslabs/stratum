@@ -183,9 +183,14 @@ data class DailyVitalSample(
 data class SleepNight(
     val start: Instant,
     val end: Instant,
-    val duration: Duration,
     val zones: SleepZones? = null,
-)
+) {
+    /** Session span (time in bed): [start] to [end], awake time included. */
+    val span: Duration = Duration.between(start, end)
+
+    /** Time asleep: [span] with awake time taken out (STR-264). */
+    val duration: Duration = zones?.asleepWithin(span) ?: span
+}
 
 data class SleepZones(
     val light: Duration,
@@ -194,6 +199,18 @@ data class SleepZones(
     val awake: Duration,
 ) {
     val total: Duration = light + deep + rem + awake
+
+    /**
+     * Time asleep within a sleep-session [span] that produced these zones: the span
+     * minus awake time (STR-264). The awake bucket folds in out-of-bed time, so both
+     * come out. Generic Sleeping/Unknown stage time and unstaged gaps inside the span
+     * stay counted — a sleep session's non-awake time is sleep. Clamped at zero: stage
+     * data claiming more awake time than the span can never make a night negative.
+     */
+    fun asleepWithin(span: Duration): Duration {
+        val asleep = span - awake
+        return if (asleep.isNegative) Duration.ZERO else asleep
+    }
 
     operator fun plus(other: SleepZones): SleepZones =
         SleepZones(
@@ -206,6 +223,10 @@ data class SleepZones(
 
 data class NightlySleepDuration(
     val dayStart: Instant,
-    val duration: Duration,
+    /** Session span for the night (time in bed), awake time included. */
+    val span: Duration,
     val zones: SleepZones? = null,
-)
+) {
+    /** Time asleep: [span] with awake time taken out (STR-264). */
+    val duration: Duration = zones?.asleepWithin(span) ?: span
+}

@@ -103,8 +103,8 @@ class DashboardHealthUiTest {
             recovery = RecoveryMetrics(
                 lastNight = SleepNight(
                     start = Instant.parse("2026-08-11T22:30:00Z"),
-                    end = Instant.parse("2026-08-12T06:42:00Z"),
-                    duration = Duration.ofHours(7).plusMinutes(12),
+                    // Span 7h 55m with 43m awake: time asleep is 7h 12m (STR-264).
+                    end = Instant.parse("2026-08-12T06:25:00Z"),
                     zones = SleepZones(
                         light = Duration.ofHours(3).plusMinutes(14),
                         deep = Duration.ofHours(1).plusMinutes(35),
@@ -115,7 +115,8 @@ class DashboardHealthUiTest {
                 nightlyDurations = listOf(
                     NightlySleepDuration(
                         dayStart = dayStart,
-                        duration = Duration.ofHours(7).plusMinutes(12),
+                        // Span 8h with 48m awake: time asleep is 7h 12m (STR-264).
+                        span = Duration.ofHours(8),
                         zones = SleepZones(
                             light = Duration.ofHours(3),
                             deep = Duration.ofHours(2),
@@ -149,12 +150,12 @@ class DashboardHealthUiTest {
                 nightlyDurations = listOf(
                     NightlySleepDuration(
                         dayStart = Instant.parse("2026-08-11T00:00:00Z"),
-                        duration = Duration.ofHours(6).plusMinutes(48),
+                        span = Duration.ofHours(6).plusMinutes(48),
                         zones = null,
                     ),
                     NightlySleepDuration(
                         dayStart = Instant.parse("2026-08-12T00:00:00Z"),
-                        duration = Duration.ofHours(7).plusMinutes(5),
+                        span = Duration.ofHours(7).plusMinutes(5),
                         zones = null,
                     ),
                 ),

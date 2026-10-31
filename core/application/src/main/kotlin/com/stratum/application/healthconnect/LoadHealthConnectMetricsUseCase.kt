@@ -294,7 +294,7 @@ internal fun fillNightlySleep(
     val byDay = sessions.groupBy { it.end.atZone(request.zone).toLocalDate() }
     return request.windowDays().map { (date, start) ->
         val summary = summarizeSleepSessions(byDay[date].orEmpty())
-        NightlySleepDuration(dayStart = start, duration = summary.duration, zones = summary.zones)
+        NightlySleepDuration(dayStart = start, span = summary.span, zones = summary.zones)
     }
 }
 
@@ -305,20 +305,24 @@ internal fun fillNightlySleep(
  * overlapping duplicates prefer staged; leftover blocks do not add.
  */
 internal data class SleepDaySummary(
-    val duration: Duration,
+    /** Session span for the day (time in bed), awake time included. */
+    val span: Duration,
     val zones: SleepZones?,
     val start: Instant? = null,
     val end: Instant? = null,
-)
+) {
+    /** Time asleep: [span] with awake time taken out (STR-264). */
+    val duration: Duration = zones?.asleepWithin(span) ?: span
+}
 
 internal fun summarizeSleepSessions(sessions: List<SleepSessionSample>): SleepDaySummary {
-    if (sessions.isEmpty()) return SleepDaySummary(duration = Duration.ZERO, zones = null)
+    if (sessions.isEmpty()) return SleepDaySummary(span = Duration.ZERO, zones = null)
     val originBlocks = clusterSleepSessionsByOrigin(sessions).map(::summarizeSleepCluster)
     val resolvedDuplicates = clusterConnected(originBlocks) { left, right ->
         left.overlaps(right)
     }.map(::preferredSleepSummary)
     return resolvedDuplicates.maxByOrNull { it.duration }
-        ?: SleepDaySummary(duration = Duration.ZERO, zones = null)
+        ?: SleepDaySummary(span = Duration.ZERO, zones = null)
 }
 
 internal fun clusterSleepSessionsByOrigin(
@@ -333,12 +337,12 @@ internal fun clusterSleepSessionsByOrigin(
 
 internal fun summarizeSleepCluster(cluster: List<SleepSessionSample>): SleepDaySummary {
     val selected = selectNonOverlappingSessions(cluster)
-    if (selected.isEmpty()) return SleepDaySummary(duration = Duration.ZERO, zones = null)
+    if (selected.isEmpty()) return SleepDaySummary(span = Duration.ZERO, zones = null)
     val start = selected.minOf { it.start }
     val end = selected.maxOf { it.end }
     val zones = selected.mapNotNull { it.stages.toSleepZones() }.reduceOrNull { acc, next -> acc + next }
     return SleepDaySummary(
-        duration = Duration.between(start, end),
+        span = Duration.between(start, end),
         zones = zones,
         start = start,
         end = end,
@@ -365,7 +369,7 @@ internal fun selectNonOverlappingSessions(
 internal fun preferredSleepSummary(group: List<SleepDaySummary>): SleepDaySummary =
     group.maxWithOrNull(
         compareBy<SleepDaySummary> { it.zones != null }.thenBy { it.duration },
-    ) ?: SleepDaySummary(duration = Duration.ZERO, zones = null)
+    ) ?: SleepDaySummary(span = Duration.ZERO, zones = null)
 
 internal fun <T> clusterConnected(
     items: List<T>,
@@ -439,7 +443,6 @@ internal fun lastNightFromNightly(
     return SleepNight(
         start = start,
         end = end,
-        duration = summary.duration,
         zones = summary.zones,
     )
 }
