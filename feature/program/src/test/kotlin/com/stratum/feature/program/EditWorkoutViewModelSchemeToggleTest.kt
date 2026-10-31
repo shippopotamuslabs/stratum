@@ -130,7 +130,7 @@ class EditWorkoutViewModelSchemeToggleTest {
             viewModel.saveWorkout()
             awaitItem()
 
-            val events = programChangeEventRepository.getEventsForProgram(programId)
+            val events = programChangeEventRepository.getEventsForProgram(programId).events
             val schemeEvents = events.filter { it.eventType == ProgramChangeEventType.SCHEME_CHANGED }
             assertEquals(1, schemeEvents.size, "exactly one SCHEME_CHANGED event must be appended")
             val event = schemeEvents.single()
@@ -157,7 +157,7 @@ class EditWorkoutViewModelSchemeToggleTest {
             viewModel.saveWorkout()
             awaitItem()
 
-            val events = programChangeEventRepository.getEventsForProgram(programId)
+            val events = programChangeEventRepository.getEventsForProgram(programId).events
             val schemeEvents = events.filter { it.eventType == ProgramChangeEventType.SCHEME_CHANGED }
             assertTrue(
                 schemeEvents.isEmpty(),

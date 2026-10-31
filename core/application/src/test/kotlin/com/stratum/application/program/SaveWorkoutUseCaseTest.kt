@@ -228,7 +228,7 @@ class SaveWorkoutUseCaseTest {
 
         useCase(com.stratum.core.testing.training.WorkoutLoggingFixtures.workoutAId, program.workouts.first()).getOrThrow()
 
-        val appended = events.getEventsForProgram(com.stratum.core.testing.training.WorkoutLoggingFixtures.programId)
+        val appended = events.getEventsForProgram(com.stratum.core.testing.training.WorkoutLoggingFixtures.programId).events
         assertEquals(1, appended.size)
         assertEquals(com.stratum.domain.training.ProgramChangeEventType.WORKOUT_EDITED, appended.single().eventType)
         val payload = appended.single().payload as com.stratum.domain.training.ProgramChangeEventPayload.WorkoutEdited
@@ -263,7 +263,7 @@ class SaveWorkoutUseCaseTest {
             com.stratum.core.testing.training.WorkoutLoggingFixtures.twoWorkoutProgram().workouts.first(),
         ).getOrThrow()
 
-        val all = events.getEventsForProgram(com.stratum.core.testing.training.WorkoutLoggingFixtures.programId)
+        val all = events.getEventsForProgram(com.stratum.core.testing.training.WorkoutLoggingFixtures.programId).events
         assertEquals(2, all.size)
         assertEquals(com.stratum.domain.training.identity.ProgramChangeEventId("evt-1"), all.first().id)
     }

@@ -167,7 +167,7 @@ class SwapWorkoutLiftUseCaseTest {
 
         useCase(WorkoutLiftId("wl-bench"), LiftId("lift-squat")).getOrThrow()
 
-        val appended = events.getEventsForProgram(ProgramId("p-1"))
+        val appended = events.getEventsForProgram(ProgramId("p-1")).events
         assertEquals(1, appended.size)
         assertEquals(com.stratum.domain.training.ProgramChangeEventType.LIFT_SWAPPED, appended.single().eventType)
         val payload = appended.single().payload as com.stratum.domain.training.ProgramChangeEventPayload.LiftSwapped

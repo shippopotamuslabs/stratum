@@ -71,7 +71,7 @@ class ApplyRepRangeShiftUseCaseTest {
         assertEquals(0, updated.sets[1].repMin)
         assertEquals(false, updated.sets[1].isTopSet)
         assertEquals(LiftSetId("ls-0"), updated.sets[0].id)
-        val appended = events.getEventsForProgram(WorkoutLoggingFixtures.programId)
+        val appended = events.getEventsForProgram(WorkoutLoggingFixtures.programId).events
         assertEquals(1, appended.size)
         assertEquals(ProgramChangeEventType.WORKOUT_EDITED, appended.single().eventType)
     }

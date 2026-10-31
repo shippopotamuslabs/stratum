@@ -817,7 +817,7 @@ class ProgressionSnapshotEdgeCasesTest {
         // floor-driven weight drop is OK (never a classic 10% greyskull deload / increment).
         assertTrue(rec.recommendedWeight.amount <= 200.0)
         assertTrue(rec.baselineExpectedReps >= 5)
-        val stored = events.getEventsForProgram(programId)
+        val stored = events.getEventsForProgram(programId).events
         assertTrue(
             stored.any { it.eventType == ProgramChangeEventType.SCHEME_CHANGED },
             "two consecutive stalls must append SCHEME_CHANGED (Linear → Double)",
@@ -835,7 +835,7 @@ class ProgressionSnapshotEdgeCasesTest {
         ).getOrThrow().snapshot
         assertEquals(
             1,
-            events.getEventsForProgram(programId).count { it.eventType == ProgramChangeEventType.SCHEME_CHANGED },
+            events.getEventsForProgram(programId).events.count { it.eventType == ProgramChangeEventType.SCHEME_CHANGED },
             "already-Double lift must not re-append SCHEME_CHANGED",
         )
     }

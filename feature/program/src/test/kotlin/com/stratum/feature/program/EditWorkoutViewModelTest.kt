@@ -1369,7 +1369,7 @@ class EditWorkoutViewModelTest {
             awaitItem() // Consume saved state change
 
             // Verify LIFT_SWAPPED event is appended
-            val appended = events.getEventsForProgram(ProgramId("p-1"))
+            val appended = events.getEventsForProgram(ProgramId("p-1")).events
             val swapEvent = appended.firstOrNull { it.eventType == ProgramChangeEventType.LIFT_SWAPPED }
             assertNotNull(swapEvent)
             val payload = swapEvent?.payload as ProgramChangeEventPayload.LiftSwapped

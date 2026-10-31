@@ -37,7 +37,7 @@ class WorkoutLoggingProgramChangeEventTest {
 
         useCase(WorkoutLoggingFixtures.workoutBId).getOrThrow()
 
-        val appended = events.getEventsForProgram(WorkoutLoggingFixtures.programId)
+        val appended = events.getEventsForProgram(WorkoutLoggingFixtures.programId).events
         assertEquals(1, appended.size)
         assertEquals(ProgramChangeEventType.CYCLE_COMPLETED, appended.single().eventType)
         val payload = appended.single().payload as ProgramChangeEventPayload.CycleCompleted

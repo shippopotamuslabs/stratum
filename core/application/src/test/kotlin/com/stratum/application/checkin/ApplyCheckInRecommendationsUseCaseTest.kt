@@ -67,7 +67,7 @@ class ApplyCheckInRecommendationsUseCaseTest {
         assertEquals(LiftId("incline"), lift.liftId)
         assertEquals(4, lift.sets.size)
         assertNull(prefs.current.pendingSinceExtractedAt)
-        val eventTypes = events.getEventsForProgram(programId).map { it.eventType }
+        val eventTypes = events.getEventsForProgram(programId).events.map { it.eventType }
         assertTrue(ProgramChangeEventType.LIFT_SWAPPED in eventTypes)
         assertTrue(ProgramChangeEventType.WORKOUT_EDITED in eventTypes)
     }

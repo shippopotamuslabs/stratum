@@ -11,6 +11,7 @@ import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.application.response.LiftWeeklyPerformanceRepository
 import com.stratum.application.response.MuscleVolumeResponseSnapshotRepository
 import com.stratum.application.training.ProgramChangeEventRepository
+import com.stratum.domain.logging.LoggingPort
 import java.time.Instant
 import java.time.Period
 import javax.inject.Inject
@@ -58,6 +59,7 @@ class EvaluateCheckInUseCase @Inject constructor(
     private val liftRepository: LiftRepository,
     private val liftWeeklyPerformanceRepository: LiftWeeklyPerformanceRepository,
     private val programChangeEventRepository: ProgramChangeEventRepository,
+    private val loggingPort: LoggingPort,
     private val rankSwapCandidates: RankSwapCandidatesUseCase,
     private val computeProgramMuscleVolume: ComputeProgramMuscleVolumeUseCase,
     private val muscleVolumeResponseSnapshotRepository: MuscleVolumeResponseSnapshotRepository,
@@ -72,7 +74,19 @@ class EvaluateCheckInUseCase @Inject constructor(
         val windowStart = now.minus(Period.ofWeeks(DASHBOARD_PERFORMANCE_WINDOW_WEEKS))
         val performance = liftWeeklyPerformanceRepository.getSince(windowStart)
         val performanceByLift = performance.groupBy { it.liftId }
-        val events = programChangeEventRepository.getEventsForProgram(program.id)
+        val eventRead = programChangeEventRepository.getEventsForProgram(program.id)
+        // Diagnostics as values: the repository returns undecodable-row skips
+        // on the read instead of logging them. This use case is the drain
+        // boundary — its only caller is the CheckIn ViewModel and diagnostics
+        // never reach the UI — so each skipped row is logged exactly once here.
+        eventRead.skippedRows.forEach { skipped ->
+            loggingPort.warning(
+                PROGRAM_CHANGE_EVENTS_TAG,
+                "Skipping undecodable program_change_event " +
+                    "id=${skipped.id.value} type=${skipped.eventType}",
+            )
+        }
+        val events = eventRead.events
 
         val cycleVolume =
             CycleHardSetVolume(
@@ -283,3 +297,5 @@ class EvaluateCheckInUseCase @Inject constructor(
         val decision: CheckInCoreDecision,
     )
 }
+
+private const val PROGRAM_CHANGE_EVENTS_TAG = "ProgramChangeEvents"
