@@ -1,5 +1,8 @@
 package com.stratum.domain.healthconnect
 
+/** Shared log tag for Health Connect preference-write drain boundaries. */
+const val HEALTH_CONNECT_PREFS_TAG = "HealthConnectPrefs"
+
 /**
  * User preferences for Health Connect synchronization.
  *

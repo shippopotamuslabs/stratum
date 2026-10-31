@@ -3,6 +3,7 @@ package com.stratum.application.healthconnect
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.Flow
+import com.stratum.domain.healthconnect.HEALTH_CONNECT_PREFS_TAG
 import com.stratum.domain.healthconnect.HealthConnectPreferences
 import com.stratum.domain.healthconnect.HealthConnectUnavailableException
 import com.stratum.domain.logging.LoggingPort
