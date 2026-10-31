@@ -6,6 +6,7 @@ import com.stratum.core.data.repository.RoomLiftEffectivenessObservationReposito
 import com.stratum.core.data.repository.RoomResponseEpochRepository
 import com.stratum.core.data.repository.RoomResponseProfileMetadataRepository
 import com.stratum.core.data.repository.RoomVolumeResponseObservationRepository
+import com.stratum.core.infrastructure.db.StratumDatabase
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup

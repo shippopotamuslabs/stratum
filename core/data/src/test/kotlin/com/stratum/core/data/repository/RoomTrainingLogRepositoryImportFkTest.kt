@@ -1,9 +1,9 @@
 package com.stratum.core.data.repository
 
 import androidx.room.Room
-import com.stratum.core.data.db.ProgramEntity
-import com.stratum.core.data.db.StratumDatabase
-import com.stratum.core.data.db.WorkoutEntity
+import com.stratum.core.infrastructure.db.ProgramEntity
+import com.stratum.core.infrastructure.db.StratumDatabase
+import com.stratum.core.infrastructure.db.WorkoutEntity
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
 import com.stratum.core.testing.training.WorkoutLoggingFixtures.importLoggedSet
 import com.stratum.core.testing.training.WorkoutLoggingFixtures.importTrainingSession

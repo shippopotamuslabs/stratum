@@ -1,12 +1,12 @@
 package com.stratum.core.data.repository
 
 import androidx.room.Room
-import com.stratum.core.data.db.EquipmentEntity
-import com.stratum.core.data.db.LiftEntity
-import com.stratum.core.data.db.StratumDatabase
-import com.stratum.core.data.mapper.toBitmask
-import com.stratum.core.data.mapper.toPresetCsv
-import com.stratum.core.data.sync.SyncFlags
+import com.stratum.core.infrastructure.db.EquipmentEntity
+import com.stratum.core.infrastructure.db.LiftEntity
+import com.stratum.core.infrastructure.db.StratumDatabase
+import com.stratum.core.infrastructure.mapper.toBitmask
+import com.stratum.core.infrastructure.mapper.toPresetCsv
+import com.stratum.core.infrastructure.sync.SyncFlags
 import com.stratum.core.data.sync.testSyncTouch
 import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.IncrementTier
@@ -308,7 +308,7 @@ class RoomEquipmentRepositoryTombstoneTest {
         val replacement = equipmentRepository.addCustomEquipment(name = "New Stack")
         seedLift(LiftId("lift-a"), "Lift A", deleted)
         database.trainingSessionDao().upsert(
-            com.stratum.core.data.db.TrainingSessionEntity(
+            com.stratum.core.infrastructure.db.TrainingSessionEntity(
                 id = com.stratum.domain.training.identity.TrainingSessionId("ts-1"),
                 programId = null,
                 workoutId = null,
@@ -323,7 +323,7 @@ class RoomEquipmentRepositoryTombstoneTest {
             ),
         )
         database.trainingLoggedSetDao().upsert(
-            com.stratum.core.data.db.LoggedSetEntity(
+            com.stratum.core.infrastructure.db.LoggedSetEntity(
                 id = com.stratum.domain.importing.identity.LoggedSetId("set-1"),
                 sessionId = com.stratum.domain.training.identity.TrainingSessionId("ts-1"),
                 exerciseNameRaw = "Lift A",
@@ -383,7 +383,7 @@ class RoomEquipmentRepositoryTombstoneTest {
 
     private suspend fun seedProgramWithSlots(equipmentId: EquipmentId) {
         database.programDao().upsert(
-            com.stratum.core.data.db.ProgramEntity(
+            com.stratum.core.infrastructure.db.ProgramEntity(
                 id = com.stratum.domain.program.identity.ProgramId("p-1"),
                 name = "Main",
                 createdAt = "2026-01-01T00:00:00Z",
@@ -393,7 +393,7 @@ class RoomEquipmentRepositoryTombstoneTest {
         )
         database.workoutDao().upsertAll(
             listOf(
-                com.stratum.core.data.db.WorkoutEntity(
+                com.stratum.core.infrastructure.db.WorkoutEntity(
                     id = com.stratum.domain.program.identity.WorkoutId("w-1"),
                     programId = com.stratum.domain.program.identity.ProgramId("p-1"),
                     name = "Push",
@@ -404,7 +404,7 @@ class RoomEquipmentRepositoryTombstoneTest {
         )
         database.workoutLiftDao().upsertAll(
             listOf(
-                com.stratum.core.data.db.WorkoutLiftEntity(
+                com.stratum.core.infrastructure.db.WorkoutLiftEntity(
                     id = com.stratum.domain.program.identity.WorkoutLiftId("wl-1"),
                     workoutId = com.stratum.domain.program.identity.WorkoutId("w-1"),
                     liftId = LiftId("lift-a"),
@@ -412,7 +412,7 @@ class RoomEquipmentRepositoryTombstoneTest {
                     progressionScheme = com.stratum.domain.program.ProgressionScheme.Double,
                     position = 0,
                 ),
-                com.stratum.core.data.db.WorkoutLiftEntity(
+                com.stratum.core.infrastructure.db.WorkoutLiftEntity(
                     id = com.stratum.domain.program.identity.WorkoutLiftId("wl-2"),
                     workoutId = com.stratum.domain.program.identity.WorkoutId("w-1"),
                     liftId = LiftId("lift-b"),
@@ -420,7 +420,7 @@ class RoomEquipmentRepositoryTombstoneTest {
                     progressionScheme = com.stratum.domain.program.ProgressionScheme.Double,
                     position = 1,
                 ),
-                com.stratum.core.data.db.WorkoutLiftEntity(
+                com.stratum.core.infrastructure.db.WorkoutLiftEntity(
                     id = com.stratum.domain.program.identity.WorkoutLiftId("wl-3"),
                     workoutId = com.stratum.domain.program.identity.WorkoutId("w-1"),
                     liftId = LiftId("lift-b"),

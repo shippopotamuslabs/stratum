@@ -2,16 +2,16 @@ package com.stratum.di
 
 import android.content.Context
 import androidx.room.Room
-import com.stratum.core.data.db.EquipmentDao
-import com.stratum.core.data.db.GymPreferenceDao
-import com.stratum.core.data.db.IncrementTierDao
-import com.stratum.core.data.db.LiftDao
-import com.stratum.core.data.db.OnboardingProgressDao
-import com.stratum.core.data.db.SpecializationPreferenceDao
-import com.stratum.core.data.db.StratumDatabase
-import com.stratum.core.data.db.withProductionMigrations
+import com.stratum.core.infrastructure.db.EquipmentDao
+import com.stratum.core.infrastructure.db.GymPreferenceDao
+import com.stratum.core.infrastructure.db.IncrementTierDao
+import com.stratum.core.infrastructure.db.LiftDao
+import com.stratum.core.infrastructure.db.OnboardingProgressDao
+import com.stratum.core.infrastructure.db.SpecializationPreferenceDao
+import com.stratum.core.infrastructure.db.StratumDatabase
+import com.stratum.core.infrastructure.db.withProductionMigrations
 import com.stratum.application.onboarding.UserTrainingProfileRepository
-import com.stratum.core.data.db.UserProfileDao
+import com.stratum.core.infrastructure.db.UserProfileDao
 import com.stratum.core.data.repository.RoomEquipmentRepository
 import com.stratum.core.data.repository.RoomLiftRepository
 import com.stratum.core.data.repository.RoomDeleteLiftPort
@@ -19,32 +19,32 @@ import com.stratum.core.data.repository.RoomMergeLiftsPort
 import com.stratum.core.data.repository.RoomOnboardingRepository
 import com.stratum.core.data.repository.RoomSpecializationPreferenceRepository
 import com.stratum.core.data.repository.RoomUserTrainingProfileRepository
-import com.stratum.core.data.seed.AssetLiftEmbeddingCatalog
-import com.stratum.core.data.seed.AssetLiftEquipmentCatalog
-import com.stratum.core.data.seed.EquipmentCatalogSeeder
-import com.stratum.core.data.seed.LiftCatalogSeeder
+import com.stratum.core.infrastructure.seed.AssetLiftEmbeddingCatalog
+import com.stratum.core.infrastructure.seed.AssetLiftEquipmentCatalog
+import com.stratum.core.infrastructure.seed.EquipmentCatalogSeeder
+import com.stratum.core.infrastructure.seed.LiftCatalogSeeder
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.application.lift.EquipmentRepository
 import com.stratum.application.lift.LiftRepository
 import com.stratum.application.lift.MergeLiftsPort
 import com.stratum.application.onboarding.OnboardingRepository
 import com.stratum.application.onboarding.SpecializationPreferenceRepository
-import com.stratum.core.data.db.ImportAnalysisMetadataDao
-import com.stratum.core.data.db.ImportJobDao
-import com.stratum.core.data.db.ExperimentBlockDao
-import com.stratum.core.data.db.LiftEffectivenessObservationDao
-import com.stratum.core.data.db.LiftTrainingInsightsDao
-import com.stratum.core.data.db.LiftWeeklyPerformanceDao
-import com.stratum.core.data.db.MuscleDoseResponsePointDao
-import com.stratum.core.data.db.MuscleResponseModelDiagnosticDao
-import com.stratum.core.data.db.MuscleVolumeBaselineDao
-import com.stratum.core.data.db.MuscleVolumeResponseSnapshotDao
-import com.stratum.core.data.db.MuscleWeeklyOutcomeIndexDao
-import com.stratum.core.data.db.MuscleWeeklyStimulusDao
-import com.stratum.core.data.db.ResponseEpochDao
-import com.stratum.core.data.db.ResponseProfileMetadataDao
-import com.stratum.core.data.db.SupersetAffinityDao
-import com.stratum.core.data.db.VolumeResponseObservationDao
+import com.stratum.core.infrastructure.db.ImportAnalysisMetadataDao
+import com.stratum.core.infrastructure.db.ImportJobDao
+import com.stratum.core.infrastructure.db.ExperimentBlockDao
+import com.stratum.core.infrastructure.db.LiftEffectivenessObservationDao
+import com.stratum.core.infrastructure.db.LiftTrainingInsightsDao
+import com.stratum.core.infrastructure.db.LiftWeeklyPerformanceDao
+import com.stratum.core.infrastructure.db.MuscleDoseResponsePointDao
+import com.stratum.core.infrastructure.db.MuscleResponseModelDiagnosticDao
+import com.stratum.core.infrastructure.db.MuscleVolumeBaselineDao
+import com.stratum.core.infrastructure.db.MuscleVolumeResponseSnapshotDao
+import com.stratum.core.infrastructure.db.MuscleWeeklyOutcomeIndexDao
+import com.stratum.core.infrastructure.db.MuscleWeeklyStimulusDao
+import com.stratum.core.infrastructure.db.ResponseEpochDao
+import com.stratum.core.infrastructure.db.ResponseProfileMetadataDao
+import com.stratum.core.infrastructure.db.SupersetAffinityDao
+import com.stratum.core.infrastructure.db.VolumeResponseObservationDao
 import com.stratum.core.data.repository.RoomExperimentBlockRepository
 import com.stratum.core.data.repository.RoomLiftEffectivenessObservationRepository
 import com.stratum.core.data.repository.RoomLiftWeeklyPerformanceRepository
@@ -243,31 +243,31 @@ object DatabaseModule {
     fun provideImportJobDao(database: StratumDatabase): ImportJobDao = database.importJobDao()
 
     @Provides
-    fun provideTrainingSessionDao(database: StratumDatabase): com.stratum.core.data.db.TrainingSessionDao =
+    fun provideTrainingSessionDao(database: StratumDatabase): com.stratum.core.infrastructure.db.TrainingSessionDao =
         database.trainingSessionDao()
 
     @Provides
-    fun provideTrainingLoggedSetDao(database: StratumDatabase): com.stratum.core.data.db.TrainingLoggedSetDao =
+    fun provideTrainingLoggedSetDao(database: StratumDatabase): com.stratum.core.infrastructure.db.TrainingLoggedSetDao =
         database.trainingLoggedSetDao()
 
     @Provides
-    fun provideProgramChangeEventDao(database: StratumDatabase): com.stratum.core.data.db.ProgramChangeEventDao =
+    fun provideProgramChangeEventDao(database: StratumDatabase): com.stratum.core.infrastructure.db.ProgramChangeEventDao =
         database.programChangeEventDao()
 
     @Provides
-    fun providePendingCloudDeleteDao(database: StratumDatabase): com.stratum.core.data.db.PendingCloudDeleteDao =
+    fun providePendingCloudDeleteDao(database: StratumDatabase): com.stratum.core.infrastructure.db.PendingCloudDeleteDao =
         database.pendingCloudDeleteDao()
 
     @Provides
-    fun provideLiftSessionNoteDao(database: StratumDatabase): com.stratum.core.data.db.LiftSessionNoteDao =
+    fun provideLiftSessionNoteDao(database: StratumDatabase): com.stratum.core.infrastructure.db.LiftSessionNoteDao =
         database.liftSessionNoteDao()
 
     @Provides
-    fun provideLiftNoteDao(database: StratumDatabase): com.stratum.core.data.db.LiftNoteDao =
+    fun provideLiftNoteDao(database: StratumDatabase): com.stratum.core.infrastructure.db.LiftNoteDao =
         database.liftNoteDao()
 
     @Provides
-    fun provideWorkoutLiftNoteDao(database: StratumDatabase): com.stratum.core.data.db.WorkoutLiftNoteDao =
+    fun provideWorkoutLiftNoteDao(database: StratumDatabase): com.stratum.core.infrastructure.db.WorkoutLiftNoteDao =
         database.workoutLiftNoteDao()
 
     @Provides
@@ -317,19 +317,19 @@ object DatabaseModule {
 @InstallIn(SingletonComponent::class)
 object ProgramDatabaseModule {
     @Provides
-    fun provideProgramDao(database: StratumDatabase): com.stratum.core.data.db.ProgramDao =
+    fun provideProgramDao(database: StratumDatabase): com.stratum.core.infrastructure.db.ProgramDao =
         database.programDao()
 
     @Provides
-    fun provideWorkoutDao(database: StratumDatabase): com.stratum.core.data.db.WorkoutDao =
+    fun provideWorkoutDao(database: StratumDatabase): com.stratum.core.infrastructure.db.WorkoutDao =
         database.workoutDao()
 
     @Provides
-    fun provideWorkoutLiftDao(database: StratumDatabase): com.stratum.core.data.db.WorkoutLiftDao =
+    fun provideWorkoutLiftDao(database: StratumDatabase): com.stratum.core.infrastructure.db.WorkoutLiftDao =
         database.workoutLiftDao()
 
     @Provides
-    fun provideLiftSetDao(database: StratumDatabase): com.stratum.core.data.db.LiftSetDao =
+    fun provideLiftSetDao(database: StratumDatabase): com.stratum.core.infrastructure.db.LiftSetDao =
         database.liftSetDao()
 }
 

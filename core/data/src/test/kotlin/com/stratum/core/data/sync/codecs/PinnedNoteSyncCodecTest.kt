@@ -1,10 +1,10 @@
 package com.stratum.core.data.sync.codecs
 
-import com.stratum.core.data.db.LiftEntity
-import com.stratum.core.data.db.LiftNoteEntity
-import com.stratum.core.data.db.LiftSessionNoteEntity
-import com.stratum.core.data.db.WorkoutLiftEntity
-import com.stratum.core.data.db.WorkoutLiftNoteEntity
+import com.stratum.core.infrastructure.db.LiftEntity
+import com.stratum.core.infrastructure.db.LiftNoteEntity
+import com.stratum.core.infrastructure.db.LiftSessionNoteEntity
+import com.stratum.core.infrastructure.db.WorkoutLiftEntity
+import com.stratum.core.infrastructure.db.WorkoutLiftNoteEntity
 import com.stratum.core.data.sync.FirestoreSyncMetadata
 import com.stratum.domain.lift.identity.LiftCatalogNoteId
 import com.stratum.domain.lift.identity.LiftId

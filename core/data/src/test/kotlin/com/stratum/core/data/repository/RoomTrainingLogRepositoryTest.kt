@@ -2,8 +2,8 @@ package com.stratum.core.data.repository
 
 import androidx.room.Room
 import app.cash.turbine.test
-import com.stratum.core.data.roomFirstEmissionTimeout
-import com.stratum.core.data.db.StratumDatabase
+import com.stratum.core.testing.roomFirstEmissionTimeout
+import com.stratum.core.infrastructure.db.StratumDatabase
 import com.stratum.domain.training.TrainingSessionStatus
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
 import com.stratum.domain.training.identity.TrainingSessionId
@@ -43,7 +43,7 @@ class RoomTrainingLogRepositoryTest {
         )
         runBlocking {
             database.programDao().upsert(
-                com.stratum.core.data.db.ProgramEntity(
+                com.stratum.core.infrastructure.db.ProgramEntity(
                     id = WorkoutLoggingFixtures.programId,
                     name = "Test Program",
                     createdAt = "2025-01-01T00:00:00Z",
@@ -52,14 +52,14 @@ class RoomTrainingLogRepositoryTest {
             )
             database.workoutDao().upsertAll(
                 listOf(
-                    com.stratum.core.data.db.WorkoutEntity(
+                    com.stratum.core.infrastructure.db.WorkoutEntity(
                         id = WorkoutLoggingFixtures.workoutAId,
                         programId = WorkoutLoggingFixtures.programId,
                         name = "Workout A",
                         weekday = com.stratum.domain.onboarding.Weekday.Monday,
                         position = 0,
                     ),
-                    com.stratum.core.data.db.WorkoutEntity(
+                    com.stratum.core.infrastructure.db.WorkoutEntity(
                         id = WorkoutLoggingFixtures.workoutBId,
                         programId = WorkoutLoggingFixtures.programId,
                         name = "Workout B",
@@ -173,7 +173,7 @@ class RoomTrainingLogRepositoryTest {
         val session = WorkoutLoggingFixtures.inProgressSession(id = "ts-live-1")
         repository.insertSession(session)
         database.liftSessionNoteDao().upsert(
-            com.stratum.core.data.db.LiftSessionNoteEntity(
+            com.stratum.core.infrastructure.db.LiftSessionNoteEntity(
                 id = com.stratum.domain.lift.identity.LiftSessionNoteId("n-1"),
                 sessionId = TrainingSessionId("ts-live-1"),
                 liftId = com.stratum.domain.lift.identity.LiftId("squat"),

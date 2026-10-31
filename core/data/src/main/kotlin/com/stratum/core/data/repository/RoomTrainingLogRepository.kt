@@ -1,16 +1,16 @@
 package com.stratum.core.data.repository
 
 import androidx.room.withTransaction
-import com.stratum.core.data.db.LiftSessionNoteDao
-import com.stratum.core.data.db.ProgramChangeEventDao
-import com.stratum.core.data.db.ProgramDao
-import com.stratum.core.data.db.StratumDatabase
-import com.stratum.core.data.db.TrainingLoggedSetDao
-import com.stratum.core.data.db.TrainingSessionDao
-import com.stratum.core.data.mapper.importHistoryProgramEntity
-import com.stratum.core.data.mapper.toDomain
-import com.stratum.core.data.mapper.toEntity
-import com.stratum.core.data.mapper.toTrainingDomain
+import com.stratum.core.infrastructure.db.LiftSessionNoteDao
+import com.stratum.core.infrastructure.db.ProgramChangeEventDao
+import com.stratum.core.infrastructure.db.ProgramDao
+import com.stratum.core.infrastructure.db.StratumDatabase
+import com.stratum.core.infrastructure.db.TrainingLoggedSetDao
+import com.stratum.core.infrastructure.db.TrainingSessionDao
+import com.stratum.core.infrastructure.mapper.importHistoryProgramEntity
+import com.stratum.core.infrastructure.mapper.toDomain
+import com.stratum.core.infrastructure.mapper.toEntity
+import com.stratum.core.infrastructure.mapper.toTrainingDomain
 import com.stratum.core.data.sync.SyncCollection
 import com.stratum.core.data.sync.SyncTouch
 import com.stratum.domain.importing.identity.LoggedSetId

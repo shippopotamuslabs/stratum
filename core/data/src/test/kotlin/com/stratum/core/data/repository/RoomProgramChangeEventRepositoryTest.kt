@@ -1,9 +1,9 @@
 package com.stratum.core.data.repository
 
 import androidx.room.Room
-import com.stratum.core.data.db.ProgramChangeEventEntity
-import com.stratum.core.data.db.ProgramEntity
-import com.stratum.core.data.db.StratumDatabase
+import com.stratum.core.infrastructure.db.ProgramChangeEventEntity
+import com.stratum.core.infrastructure.db.ProgramEntity
+import com.stratum.core.infrastructure.db.StratumDatabase
 import com.stratum.core.data.sync.testSyncTouch
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.training.ProgramChangeEvent

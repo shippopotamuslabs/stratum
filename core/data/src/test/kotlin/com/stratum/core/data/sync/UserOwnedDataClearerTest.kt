@@ -1,13 +1,13 @@
 package com.stratum.core.data.sync
 
 import androidx.room.Room
-import com.stratum.core.data.db.EquipmentEntity
-import com.stratum.core.data.db.IncrementTierEntity
-import com.stratum.core.data.db.LiftEntity
-import com.stratum.core.data.db.StratumDatabase
-import com.stratum.core.data.seed.AssetLiftEquipmentCatalog
-import com.stratum.core.data.seed.EquipmentCatalogSeeder
-import com.stratum.core.data.seed.LiftCatalogSeeder
+import com.stratum.core.infrastructure.db.EquipmentEntity
+import com.stratum.core.infrastructure.db.IncrementTierEntity
+import com.stratum.core.infrastructure.db.LiftEntity
+import com.stratum.core.infrastructure.db.StratumDatabase
+import com.stratum.core.infrastructure.seed.AssetLiftEquipmentCatalog
+import com.stratum.core.infrastructure.seed.EquipmentCatalogSeeder
+import com.stratum.core.infrastructure.seed.LiftCatalogSeeder
 import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.identity.EquipmentId

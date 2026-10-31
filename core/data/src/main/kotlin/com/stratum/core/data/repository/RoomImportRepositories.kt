@@ -1,12 +1,12 @@
 package com.stratum.core.data.repository
 
-import com.stratum.core.data.db.ImportAnalysisMetadataDao
-import com.stratum.core.data.db.ImportJobDao
-import com.stratum.core.data.db.LiftTrainingInsightsDao
-import com.stratum.core.data.db.MuscleVolumeBaselineDao
-import com.stratum.core.data.db.SupersetAffinityDao
-import com.stratum.core.data.mapper.toDomain
-import com.stratum.core.data.mapper.toEntity
+import com.stratum.core.infrastructure.db.ImportAnalysisMetadataDao
+import com.stratum.core.infrastructure.db.ImportJobDao
+import com.stratum.core.infrastructure.db.LiftTrainingInsightsDao
+import com.stratum.core.infrastructure.db.MuscleVolumeBaselineDao
+import com.stratum.core.infrastructure.db.SupersetAffinityDao
+import com.stratum.core.infrastructure.mapper.toDomain
+import com.stratum.core.infrastructure.mapper.toEntity
 import com.stratum.domain.importing.ImportAnalysisMetadata
 import com.stratum.application.importing.ImportAnalysisMetadataRepository
 import com.stratum.domain.importing.ImportJob

@@ -1,6 +1,7 @@
 package com.stratum.core.data.sync
+import com.stratum.core.infrastructure.sync.SyncFlags
 
-import com.stratum.core.data.mapper.toEntity
+import com.stratum.core.infrastructure.mapper.toEntity
 import com.stratum.domain.onboarding.OnboardingProgress
 import com.stratum.domain.onboarding.OnboardingStep
 import com.stratum.domain.onboarding.UserTrainingProfile

@@ -1,7 +1,7 @@
 package com.stratum.core.data.sync.appliers
 
-import com.stratum.core.data.db.EquipmentDao
-import com.stratum.core.data.db.IncrementTierDao
+import com.stratum.core.infrastructure.db.EquipmentDao
+import com.stratum.core.infrastructure.db.IncrementTierDao
 import com.stratum.core.data.sync.codecs.SyncEntityDecoders
 
 /**

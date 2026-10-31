@@ -1,7 +1,7 @@
 package com.stratum.core.data.sync.codecs
 
-import com.stratum.core.data.mapper.parseMicroJson
-import com.stratum.core.data.mapper.toMicroJsonArray
+import com.stratum.core.infrastructure.mapper.parseMicroJson
+import com.stratum.core.infrastructure.mapper.toMicroJsonArray
 
 /**
  * Wire conversion for adder-stop columns (`micro_options_json`).

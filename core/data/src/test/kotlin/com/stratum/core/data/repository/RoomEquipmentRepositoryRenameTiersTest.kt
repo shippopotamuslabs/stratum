@@ -1,9 +1,9 @@
 package com.stratum.core.data.repository
 
 import androidx.room.Room
-import com.stratum.core.data.db.EquipmentEntity
-import com.stratum.core.data.db.StratumDatabase
-import com.stratum.core.data.sync.SyncFlags
+import com.stratum.core.infrastructure.db.EquipmentEntity
+import com.stratum.core.infrastructure.db.StratumDatabase
+import com.stratum.core.infrastructure.sync.SyncFlags
 import com.stratum.core.data.sync.testSyncTouch
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.Weight

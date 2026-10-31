@@ -1,10 +1,10 @@
 package com.stratum.core.data.repository
 
 import androidx.room.Room
-import com.stratum.core.data.db.LiftSessionNoteEntity
-import com.stratum.core.data.db.StratumDatabase
-import com.stratum.core.data.db.TrainingSessionEntity
-import com.stratum.core.data.sync.SyncFlags
+import com.stratum.core.infrastructure.db.LiftSessionNoteEntity
+import com.stratum.core.infrastructure.db.StratumDatabase
+import com.stratum.core.infrastructure.db.TrainingSessionEntity
+import com.stratum.core.infrastructure.sync.SyncFlags
 import com.stratum.core.data.sync.SyncCollection
 import com.stratum.domain.lift.LiftSessionNote
 import com.stratum.domain.lift.SessionNoteInput

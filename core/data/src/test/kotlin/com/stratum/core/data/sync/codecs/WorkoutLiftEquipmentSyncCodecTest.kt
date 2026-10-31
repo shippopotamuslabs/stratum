@@ -1,6 +1,6 @@
 package com.stratum.core.data.sync.codecs
 
-import com.stratum.core.data.db.WorkoutLiftEntity
+import com.stratum.core.infrastructure.db.WorkoutLiftEntity
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.ProgressionScheme

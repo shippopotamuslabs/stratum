@@ -21,7 +21,7 @@ import com.stratum.domain.workout.WorkoutOverlay
 /**
  * Maps [WorkoutOverlay] ↔ [WorkoutOverlayDto]. The domain model stays annotation-free
  * (ARCHITECTURE.md §5); these extensions are the single conversion boundary, mirroring the
- * `com.stratum.core.data.mapper.*` convention.
+ * `com.stratum.core.infrastructure.mapper.*` convention.
  *
  * Defensive parsing: every domain id value class forbids blank strings in its `init`, so the
  * `...orNull` helpers here skip any DTO entry whose id string is blank (e.g. from a

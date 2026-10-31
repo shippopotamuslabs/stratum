@@ -1,8 +1,8 @@
 package com.stratum.core.data.repository
 
 import androidx.room.withTransaction
-import com.stratum.core.data.db.LiftDao
-import com.stratum.core.data.db.StratumDatabase
+import com.stratum.core.infrastructure.db.LiftDao
+import com.stratum.core.infrastructure.db.StratumDatabase
 import com.stratum.core.data.sync.SyncCollection
 import com.stratum.core.data.sync.SyncTouch
 import com.stratum.application.lift.DeleteLiftPort

@@ -1,0 +1,23 @@
+package com.stratum.core.infrastructure.seed
+
+import com.stratum.core.testing.logging.FakeLoggingPort
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
+import org.robolectric.RuntimeEnvironment
+import tech.apter.junit.jupiter.robolectric.RobolectricExtension
+
+@ExtendWith(RobolectricExtension::class)
+class AssetLiftEmbeddingCatalogTest {
+    @Test
+    fun `loads bundled catalog embeddings`() {
+        val context = RuntimeEnvironment.getApplication()
+        val catalog = AssetLiftEmbeddingCatalog(context, loggingPort = FakeLoggingPort())
+
+        assertEquals(384, catalog.dimensions)
+        assertTrue(catalog.allVectors().size >= 200)
+        val anyVector = catalog.allVectors().values.first()
+        assertEquals(384, anyVector.size)
+    }
+}

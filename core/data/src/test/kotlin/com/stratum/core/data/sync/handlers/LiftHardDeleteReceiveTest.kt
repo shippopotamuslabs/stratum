@@ -1,11 +1,11 @@
 package com.stratum.core.data.sync.handlers
 
 import androidx.room.Room
-import com.stratum.core.data.db.LiftEntity
-import com.stratum.core.data.db.ProgramEntity
-import com.stratum.core.data.db.StratumDatabase
-import com.stratum.core.data.db.WorkoutEntity
-import com.stratum.core.data.db.WorkoutLiftEntity
+import com.stratum.core.infrastructure.db.LiftEntity
+import com.stratum.core.infrastructure.db.ProgramEntity
+import com.stratum.core.infrastructure.db.StratumDatabase
+import com.stratum.core.infrastructure.db.WorkoutEntity
+import com.stratum.core.infrastructure.db.WorkoutLiftEntity
 import com.stratum.core.data.sync.SyncCollection
 import com.stratum.core.data.sync.appliers.LiftRemoteApplier
 import com.stratum.core.data.sync.appliers.LoggedSetRemoteApplier

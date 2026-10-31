@@ -1,7 +1,7 @@
 package com.stratum.core.data.sync.codecs
 
-import com.stratum.core.data.db.EquipmentEntity
-import com.stratum.core.data.db.LiftEntity
+import com.stratum.core.infrastructure.db.EquipmentEntity
+import com.stratum.core.infrastructure.db.LiftEntity
 import com.stratum.core.data.sync.FirestoreSyncMetadata
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
