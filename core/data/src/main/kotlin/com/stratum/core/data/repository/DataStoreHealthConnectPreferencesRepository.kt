@@ -1,6 +1,7 @@
 package com.stratum.core.data.repository
 
 import android.content.Context
+import com.stratum.core.data.healthconnect.HealthConnectPreferencesRecord
 import com.stratum.core.data.healthconnect.healthConnectPreferencesDataStore
 import com.stratum.domain.healthconnect.HealthConnectPreferences
 import com.stratum.application.healthconnect.HealthConnectPreferencesPort
@@ -24,22 +25,16 @@ class DataStoreHealthConnectPreferencesRepository @Inject constructor(
         context.healthConnectPreferencesDataStore.data.first().toDomain()
 
     override suspend fun setEnabled(enabled: Boolean): Result<Unit> =
-        try {
-            context.healthConnectPreferencesDataStore.updateData { current ->
-                current.copy(enabled = enabled)
-            }
-            Result.success(Unit)
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (error: Exception) {
-            Result.failure(error)
-        }
+        writePreferences { current -> current.copy(enabled = enabled) }
 
     override suspend fun setPendingSyncError(message: String?): Result<Unit> =
+        writePreferences { current -> current.copy(pendingSyncError = message) }
+
+    private suspend fun writePreferences(
+        transform: suspend (HealthConnectPreferencesRecord) -> HealthConnectPreferencesRecord,
+    ): Result<Unit> =
         try {
-            context.healthConnectPreferencesDataStore.updateData { current ->
-                current.copy(pendingSyncError = message)
-            }
+            context.healthConnectPreferencesDataStore.updateData(transform)
             Result.success(Unit)
         } catch (cancelled: CancellationException) {
             throw cancelled

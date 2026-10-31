@@ -180,8 +180,10 @@ class HealthConnectUseCasesTest {
         val cause = IllegalStateException("datastore blip")
         syncStatus.failure = cause
 
-        clearUseCase()
+        val result = clearUseCase()
 
+        assertTrue(result.isFailure)
+        assertSame(cause, result.exceptionOrNull())
         assertEquals(1, clearLogging.errors.size)
         val entry = clearLogging.errors.single()
         assertEquals("HealthConnectPrefs", entry.tag)
@@ -196,8 +198,9 @@ class HealthConnectUseCasesTest {
         val clearLogging = FakeLoggingPort()
         val clearUseCase = ClearHealthConnectSyncErrorUseCase(syncStatus, clearLogging)
 
-        clearUseCase()
+        val result = clearUseCase()
 
+        assertTrue(result.isSuccess)
         assertTrue(clearLogging.errors.isEmpty())
     }
 }

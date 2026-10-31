@@ -6,10 +6,10 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.stratum.application.healthconnect.HEALTH_CONNECT_PREFS_TAG
 import com.stratum.domain.logging.LoggingPort
+import com.stratum.domain.logging.onFailureLogged
 import com.stratum.domain.training.identity.TrainingSessionId
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
-import kotlin.coroutines.cancellation.CancellationException
 
 @HiltWorker
 class HealthConnectSyncWorker @AssistedInject constructor(
@@ -67,14 +67,11 @@ class HealthConnectSyncWorker @AssistedInject constructor(
      * drain boundary, so each failure is logged exactly once here.
      */
     private suspend fun reportStickySyncError(message: String) {
-        work.reportTerminalFailure(message).onFailure { error ->
-            if (error is CancellationException) throw error
-            loggingPort.error(
-                HEALTH_CONNECT_PREFS_TAG,
-                "Failed to set Health Connect sync error: ${error.message}",
-                error,
-            )
-        }
+        work.reportTerminalFailure(message).onFailureLogged(
+            loggingPort,
+            HEALTH_CONNECT_PREFS_TAG,
+            "Failed to set Health Connect sync error",
+        )
     }
 
     private companion object {

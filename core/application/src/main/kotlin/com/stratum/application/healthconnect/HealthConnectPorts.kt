@@ -9,6 +9,9 @@ import com.stratum.domain.healthconnect.HealthMetricType
 import com.stratum.domain.healthconnect.HealthMetricsRequest
 import com.stratum.domain.healthconnect.HealthMetricsSnapshot
 
+/** Shared log tag for Health Connect preference-write drain boundaries. */
+const val HEALTH_CONNECT_PREFS_TAG = "HealthConnectPrefs"
+
 /** Port for reading and persisting Health Connect integration preferences. */
 interface HealthConnectPreferencesPort {
     fun observePreferences(): Flow<HealthConnectPreferences>

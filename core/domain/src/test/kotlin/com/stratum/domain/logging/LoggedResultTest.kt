@@ -65,6 +65,43 @@ class LoggedResultTest {
     }
 
     @Test
+    fun `onFailureLogged passes success through without logging`() {
+        val result: Result<Int> = Result.success(7)
+            .onFailureLogged(fakeLogging, "Repo", "Write failed")
+
+        assertTrue(result.isSuccess)
+        assertEquals(7, result.getOrNull())
+        assertTrue(fakeLogging.errors.isEmpty())
+    }
+
+    @Test
+    fun `onFailureLogged logs failure exactly once and returns the same failure`() {
+        val failure = IllegalStateException("cause-message")
+        val result: Result<Int> = Result.failure<Int>(failure)
+            .onFailureLogged(fakeLogging, "Repo", "message")
+
+        assertTrue(result.isFailure)
+        assertSame(failure, result.exceptionOrNull())
+        assertEquals(1, fakeLogging.errors.size)
+        val entry = fakeLogging.errors.single()
+        assertEquals("Repo", entry.tag)
+        assertEquals("message: cause-message", entry.message)
+        assertSame(failure, entry.throwable)
+    }
+
+    @Test
+    fun `onFailureLogged rethrows CancellationException without logging`() {
+        val cancellation = kotlinx.coroutines.CancellationException("cancelled")
+        val result: Result<Int> = Result.failure(cancellation)
+
+        org.junit.jupiter.api.assertThrows<kotlinx.coroutines.CancellationException> {
+            result.onFailureLogged(fakeLogging, "Repo", "message")
+        }
+
+        assertTrue(fakeLogging.errors.isEmpty())
+    }
+
+    @Test
     fun `runCatchingLogged rethrows CancellationException without logging`() = runTest {
         org.junit.jupiter.api.assertThrows<kotlinx.coroutines.CancellationException> {
             runCatchingLogged(fakeLogging, "Repo", "Fetch failed") {
