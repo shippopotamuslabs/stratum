@@ -15,6 +15,7 @@ import com.stratum.domain.training.identity.ProgramChangeEventId
 import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -24,6 +25,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import com.stratum.domain.program.importing.ProgramImportActivation
 import com.stratum.application.program.importing.ProgramImportDedupe
 import com.stratum.domain.program.importing.ProgramTemplateImportJobId
+import com.stratum.domain.program.importing.ProgramImportRollbackDiagnostic
 import com.stratum.domain.program.importing.ProgramTemplateImportOptions
 import com.stratum.domain.program.importing.ProgramTemplateImportPhase
 import com.stratum.domain.program.importing.ProgramTemplateImportResult
@@ -36,6 +38,31 @@ typealias ProgramTemplateImportProgressCallback = suspend (ProgramTemplateImport
 
 /** Thrown when the server rejects the uploaded file as not a workout program. */
 class ProgramTemplateRejectedException(message: String) : Exception(message)
+
+/**
+ * Phase-2 persist failure where at least one rollback delete also failed (STR-256).
+ *
+ * The rollback shape stays fire-and-forget per id: every persisted id still gets its delete
+ * attempt. When one or more deletes fail, the evidence rides this failure object instead of
+ * being discarded: [message] is exactly the primary persist failure's message and [cause] is
+ * the primary itself, so user-facing copy derived from the failure is unchanged; [diagnostics]
+ * carries each failed delete with its program id. Each delete cause is also attached via
+ * [addSuppressed] so boundaries that log the failure object emit the full evidence in that
+ * single emission. Thrown only when at least one rollback failed — a clean rollback rethrows
+ * the primary bare. A [CancellationException] primary is never wrapped: it is rethrown as-is
+ * with the rollback causes suppressed on it.
+ */
+class ProgramImportRollbackException(
+    cause: Throwable,
+    val diagnostics: List<ProgramImportRollbackDiagnostic>,
+) : Exception(cause.message, cause) {
+    init {
+        require(diagnostics.isNotEmpty()) {
+            "ProgramImportRollbackException requires at least one rollback diagnostic."
+        }
+        diagnostics.forEach { addSuppressed(it.cause) }
+    }
+}
 
 /**
  * Core program-import pipeline: upload → poll → download → parse (single or multi) →
@@ -55,8 +82,12 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
         fileName: String,
         options: ProgramTemplateImportOptions,
         onProgress: ProgramTemplateImportProgressCallback = {},
-    ): Result<ProgramTemplateImportResult> = runCatching {
-        withContext(importDispatcher) {
+    ): Result<ProgramTemplateImportResult> {
+        // Rollback diagnostics collected inside; re-attached below when the surfaced
+        // failure is a cancellation the platform normalized (see below).
+        val rollbackFailures = mutableListOf<ProgramImportRollbackDiagnostic>()
+        val result = runCatching {
+            withContext(importDispatcher) {
             onProgress(ProgramTemplateImportPhase.Uploading)
             val jobId = ProgramTemplateImportJobId(UUID.randomUUID().toString())
             importPort.uploadAndStart(jobId, bytes, fileName).getOrThrow()
@@ -150,10 +181,7 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
                     importedIds += programId
                 }
             } catch (error: Throwable) {
-                for (id in importedIds) {
-                    runCatching { repository.deleteProgram(id) }
-                }
-                throw error
+                throw resolveRollbackThrow(error, importedIds, rollbackFailures)
             }
 
             if (options.completeOnboarding && importedIds.isNotEmpty()) {
@@ -165,7 +193,68 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
                 importedProgramIds = importedIds,
                 skippedProgramCount = skipped,
             )
+            }
         }
+        val surfaced = result.exceptionOrNull()
+        if (surfaced is CancellationException) {
+            rollbackFailures.forEach { diagnostic ->
+                if (surfaced.suppressed.none { it === diagnostic.cause }) {
+                    surfaced.addSuppressed(diagnostic.cause)
+                }
+            }
+        }
+        return result
+    }
+
+    /**
+     * Decides what the Phase-2 rollback catch propagates (STR-256): every persisted id gets
+     * its delete attempt via [collectRollbackFailures], then a [CancellationException] primary
+     * is returned as-is with the rollback causes attached (never wrapped), a persist failure
+     * with failed deletes becomes a [ProgramImportRollbackException], and a clean rollback
+     * returns the primary bare. The in-catch attach is repeated after runCatching because
+     * coroutine machinery may normalize the rethrown instance (message-only copy) once the
+     * block has suspended — the in-catch attach alone would be silently dropped in practice.
+     */
+    private suspend fun resolveRollbackThrow(
+        error: Throwable,
+        importedIds: List<ProgramId>,
+        rollbackFailures: MutableList<ProgramImportRollbackDiagnostic>,
+    ): Throwable {
+        rollbackFailures += collectRollbackFailures(importedIds)
+        if (error is CancellationException) {
+            rollbackFailures.forEach { error.addSuppressed(it.cause) }
+            return error
+        }
+        return if (rollbackFailures.isNotEmpty()) {
+            ProgramImportRollbackException(cause = error, diagnostics = rollbackFailures.toList())
+        } else {
+            error
+        }
+    }
+
+    /**
+     * Attempts the rollback delete for every id persisted in this batch (STR-256), collecting
+     * each failure as typed data instead of discarding it. A [CancellationException] from a
+     * delete aborts the remaining attempts and propagates — cancellation wins.
+     */
+    private suspend fun collectRollbackFailures(
+        importedIds: List<ProgramId>,
+    ): List<ProgramImportRollbackDiagnostic> {
+        val failures = mutableListOf<ProgramImportRollbackDiagnostic>()
+        for (id in importedIds) {
+            try {
+                repository.deleteProgram(id)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (rollbackError: Throwable) {
+                failures +=
+                    ProgramImportRollbackDiagnostic.RollbackDeleteFailed(
+                        programId = id,
+                        cause = rollbackError,
+                    )
+            }
+        }
+        return failures
     }
 
     private suspend fun pollUntilTerminal(

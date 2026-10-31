@@ -3,9 +3,11 @@ package com.stratum.application.auth
 import com.stratum.core.testing.auth.FakeAccountDeletionPort
 import com.stratum.core.testing.auth.FakeAuthManager
 import com.stratum.core.testing.sync.FakeCloudSyncPort
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertInstanceOf
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -73,6 +75,59 @@ class DeleteAccountUseCaseTest {
         assertEquals(listOf("stop", "start"), port.callOrder)
         assertEquals(0, auth.signOutCount)
         assertTrue(auth.authState.value is AuthState.Authenticated)
+        assertTrue(result.exceptionOrNull()!!.suppressed.isEmpty())
+    }
+
+    @Test
+    @DisplayName("Given remote data fails and restart fails when delete then primary carries restart suppressed")
+    fun remoteDataFailureAndRestartFailureAttachesSuppressed() = runTest {
+        val user = UserProfile("uid-1", "A", "a@example.com", null)
+        val auth = FakeAuthManager(AuthState.Authenticated(user))
+        val remoteError = IllegalStateException("cloud failed")
+        val remote = FakeAccountDeletionPort().apply {
+            deleteDataResult = Result.failure(remoteError)
+        }
+        val restartError = IllegalStateException("restart failed")
+        val port = FakeCloudSyncPort().apply {
+            startResult = Result.failure(restartError)
+        }
+        val subject = buildSubject(auth, remote, port)
+
+        val result = subject()
+
+        assertTrue(result.isFailure)
+        assertSame(remoteError, result.exceptionOrNull())
+        assertEquals(listOf(restartError), result.exceptionOrNull()!!.suppressed.toList())
+        assertEquals(1, remote.deleteDataCount)
+        assertEquals(0, remote.deleteAuthCount)
+        assertEquals(0, auth.signOutCount)
+        assertTrue(auth.authState.value is AuthState.Authenticated)
+    }
+
+    @Test
+    @DisplayName("Given restart throws cancellation when delete then cancellation propagates")
+    fun restartCancellationPropagates() = runTest {
+        val user = UserProfile("uid-1", "A", "a@example.com", null)
+        val auth = FakeAuthManager(AuthState.Authenticated(user))
+        val remote = FakeAccountDeletionPort().apply {
+            deleteDataResult = Result.failure(IllegalStateException("cloud failed"))
+        }
+        val port = FakeCloudSyncPort().apply {
+            startThrowable = CancellationException("restart cancelled")
+        }
+        val subject = buildSubject(auth, remote, port)
+
+        var thrown: Throwable? = null
+        try {
+            subject()
+        } catch (error: CancellationException) {
+            thrown = error
+        }
+
+        assertTrue(thrown is CancellationException)
+        assertEquals("restart cancelled", thrown?.message)
+        assertEquals(1, remote.deleteDataCount)
+        assertEquals(0, remote.deleteAuthCount)
     }
 
     @Test
