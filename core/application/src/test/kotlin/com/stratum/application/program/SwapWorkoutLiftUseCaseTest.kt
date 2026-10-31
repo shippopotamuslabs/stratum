@@ -232,6 +232,71 @@ class SwapWorkoutLiftUseCaseTest {
         )
     }
 
+    @Test
+    @DisplayName("Given pinned-notes read fails when swapped then succeeds carrying the bound diagnostic")
+    fun notesReadFailureSurfacedAsDiagnostic() = runTest {
+        val slot = WorkoutLiftId("wl-1")
+        val repository = FakeProgramRepository(pairProgram())
+        val failure = IllegalStateException("notes boom")
+        repository.pinnedNotesReadError = failure
+        val useCase =
+            SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository(), com.stratum.core.testing.onboarding.FakeEquipmentRepository(), FakeLoggingPort())
+
+        val result = useCase(slot, LiftId("lift-ohp"))
+
+        assertTrue(result.isSuccess)
+        val outcome = result.getOrThrow()
+        assertEquals(1, outcome.diagnostics.size)
+        val diagnostic = outcome.diagnostics.single() as SwapWorkoutLiftDiagnostic.PinnedNotesUnreadable
+        assertEquals(slot, diagnostic.workoutLiftId)
+        assertEquals(LiftId("lift-ohp"), diagnostic.newLiftId)
+        assertTrue(diagnostic.cause === failure)
+        // The swap itself still applied, proceeding with empty notes.
+        val swapped = repository.getProgram()!!.workouts.single().workoutLifts.single()
+        assertEquals(LiftId("lift-ohp"), swapped.liftId)
+        assertEquals(emptyList<String>(), swapped.pinnedNotes)
+        assertEquals(null, swapped.equipmentId)
+    }
+
+    @Test
+    @DisplayName("Given readable pinned notes when swapped then no diagnostic is recorded")
+    fun readableNotesCarryNoDiagnostic() = runTest {
+        val slot = WorkoutLiftId("wl-1")
+        val repository = FakeProgramRepository(pairProgram())
+        repository.setWorkoutLiftPinnedNotes(
+            slot,
+            listOf(com.stratum.domain.lift.WorkoutLiftNoteInput(body = "bench cue")),
+        )
+        val useCase =
+            SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository(), com.stratum.core.testing.onboarding.FakeEquipmentRepository(), FakeLoggingPort())
+
+        val outcome = useCase(slot, LiftId("lift-ohp")).getOrThrow()
+
+        assertTrue(outcome.diagnostics.isEmpty())
+    }
+
+    @Test
+    @DisplayName("Given pinned-notes read is cancelled when swapped then cancellation propagates")
+    fun notesReadCancellationPropagates() = runTest {
+        val slot = WorkoutLiftId("wl-1")
+        val repository = FakeProgramRepository(pairProgram())
+        repository.pinnedNotesReadError = kotlinx.coroutines.CancellationException("cancelled")
+        val useCase =
+            SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository(), com.stratum.core.testing.onboarding.FakeEquipmentRepository(), FakeLoggingPort())
+
+        var propagated: kotlinx.coroutines.CancellationException? = null
+        try {
+            useCase(slot, LiftId("lift-ohp"))
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            propagated = cancelled
+        }
+
+        assertTrue(propagated != null)
+        // The cancelled swap persisted nothing.
+        val untouched = repository.getProgram()!!.workouts.single().workoutLifts.single()
+        assertEquals(LiftId("lift-bench"), untouched.liftId)
+    }
+
     private fun pairProgram(): Program =
         Program(
             id = ProgramId("p-1"),

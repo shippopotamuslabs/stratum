@@ -34,11 +34,13 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
+import kotlin.coroutines.cancellation.CancellationException
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import com.stratum.application.training.ComputePersonalRecordsUseCase
 import com.stratum.application.training.RebuildLocalDerivedTrainingDataUseCase
+import com.stratum.application.training.TrainingLogRepository
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.MuscleLengthBias
@@ -56,6 +58,8 @@ class MergeLiftsUseCaseTest {
     private lateinit var programRepo: FakeProgramRepository
     private lateinit var mergePort: FakeMergeLiftsPort
     private lateinit var overlayStore: FakeWorkoutOverlayStore
+    private lateinit var logging: FakeLoggingPort
+    private lateinit var rebuildLocalDerived: RebuildLocalDerivedTrainingDataUseCase
     private lateinit var subject: MergeLiftsUseCase
 
     private val targetLift =
@@ -94,23 +98,24 @@ class MergeLiftsUseCaseTest {
         programRepo = FakeProgramRepository()
         mergePort = FakeMergeLiftsPort(liftRepo, logRepo, programRepo)
         overlayStore = FakeWorkoutOverlayStore()
-        val logging = FakeLoggingPort()
+        logging = FakeLoggingPort()
+        rebuildLocalDerived =
+            RebuildLocalDerivedTrainingDataUseCase(
+                localDerivedStages =
+                    com.stratum.core.testing.training.localDerivedTrainingStages(
+                        trainingLog = logRepo,
+                        liftRepository = liftRepo,
+                    ),
+                responseModelingScheduler = FakeResponseModelingSchedulerPort(),
+                loggingPort = logging,
+            )
         subject =
             MergeLiftsUseCase(
                 liftRepository = liftRepo,
                 trainingLogRepository = logRepo,
                 mergeLiftsPort = mergePort,
                 computePersonalRecords = ComputePersonalRecordsUseCase(logRepo),
-                rebuildLocalDerived =
-                    RebuildLocalDerivedTrainingDataUseCase(
-                        localDerivedStages =
-                            com.stratum.core.testing.training.localDerivedTrainingStages(
-                                trainingLog = logRepo,
-                                liftRepository = liftRepo,
-                            ),
-                        responseModelingScheduler = FakeResponseModelingSchedulerPort(),
-                        loggingPort = logging,
-                    ),
+                rebuildLocalDerived = rebuildLocalDerived,
                 workoutOverlayStore = overlayStore,
                 loggingPort = logging,
             )
@@ -419,6 +424,62 @@ class MergeLiftsUseCaseTest {
     }
 
     @Test
+    @DisplayName("Given PR recompute fails when merged then succeeds carrying the bound diagnostic")
+    fun prRecomputeFailureSurfacedAsDiagnostic() = runTest {
+        logRepo.seedSession(completedSession())
+        logRepo.seedSet(
+            loggedSet(
+                id = "set-target",
+                liftId = targetId,
+                name = targetLift.name,
+                weight = 90.0,
+                isPr = true,
+            ),
+        )
+        val failingSubject =
+            MergeLiftsUseCase(
+                liftRepository = liftRepo,
+                trainingLogRepository = logRepo,
+                mergeLiftsPort = mergePort,
+                computePersonalRecords = ComputePersonalRecordsUseCase(FailingPrReadRepository(logRepo)),
+                rebuildLocalDerived = rebuildLocalDerived,
+                workoutOverlayStore = overlayStore,
+                loggingPort = logging,
+            )
+
+        val result = failingSubject(targetLiftId = targetId, sourceLiftIds = setOf(sourceAId))
+
+        assertTrue(result.isSuccess)
+        val outcome = result.getOrThrow()
+        assertEquals(1, outcome.diagnostics.size)
+        val diagnostic = outcome.diagnostics.single() as MergeLiftsDiagnostic.PersonalRecordsNotRecomputed
+        assertEquals(targetId, diagnostic.targetLiftId)
+        assertTrue(diagnostic.cause is IllegalStateException)
+        // The structural merge itself still applied.
+        assertNull(liftRepo.currentLifts.firstOrNull { it.id == sourceAId })
+    }
+
+    @Test
+    @DisplayName("Given healthy PR recompute when merged then diagnostics are empty")
+    fun happyPathCarriesNoDiagnostics() = runTest {
+        logRepo.seedSession(completedSession())
+        logRepo.seedSet(
+            loggedSet(
+                id = "set-target",
+                liftId = targetId,
+                name = targetLift.name,
+                weight = 90.0,
+                isPr = true,
+            ),
+        )
+
+        val result = subject(targetLiftId = targetId, sourceLiftIds = setOf(sourceAId))
+
+        assertTrue(result.isSuccess)
+        assertTrue(result.getOrThrow().diagnostics.isEmpty())
+    }
+
+    @Test
     @DisplayName("Given empty sources when invoked then fails")
     fun rejectsEmptySources() = runTest {
         val result = subject(targetLiftId = targetId, sourceLiftIds = emptySet())
@@ -491,6 +552,68 @@ class MergeLiftsUseCaseTest {
             endedAt = null,
             sourceApp = null,
         )
+
+    @Test
+    @DisplayName("Given PR recompute cancelled when merged then cancellation propagates")
+    fun prRecomputeCancellationPropagates() = runTest {
+        logRepo.seedSession(completedSession())
+        logRepo.seedSet(
+            loggedSet(
+                id = "set-target",
+                liftId = targetId,
+                name = targetLift.name,
+                weight = 90.0,
+                isPr = true,
+            ),
+        )
+        val cancellingSubject =
+            MergeLiftsUseCase(
+                liftRepository = liftRepo,
+                trainingLogRepository = logRepo,
+                mergeLiftsPort = mergePort,
+                computePersonalRecords =
+                    ComputePersonalRecordsUseCase(
+                        CancellingPrReadRepository(logRepo),
+                    ),
+                rebuildLocalDerived = rebuildLocalDerived,
+                workoutOverlayStore = overlayStore,
+                loggingPort = logging,
+            )
+
+        var propagated: CancellationException? = null
+        try {
+            cancellingSubject(targetLiftId = targetId, sourceLiftIds = setOf(sourceAId))
+        } catch (cancelled: CancellationException) {
+            propagated = cancelled
+        }
+
+        assertTrue(propagated != null)
+    }
+
+    /**
+     * Delegates every [TrainingLogRepository] call except the PR recompute read,
+     * which throws — forces [ComputePersonalRecordsUseCase] to fail while the
+     * merge's own reads (via the raw fake) keep succeeding.
+     */
+    private class FailingPrReadRepository(
+        delegate: TrainingLogRepository,
+    ) : TrainingLogRepository by delegate {
+        override suspend fun getSetsForLift(liftId: LiftId): List<LoggedSet> =
+            throw IllegalStateException("PR read boom")
+    }
+
+    /**
+     * Same delegation as [FailingPrReadRepository], but the PR recompute read
+     * throws [CancellationException] — forces [ComputePersonalRecordsUseCase]
+     * (plain `runCatching`) to return it as `Result.failure` so the merge must
+     * rethrow it instead of recording a diagnostic.
+     */
+    private class CancellingPrReadRepository(
+        delegate: TrainingLogRepository,
+    ) : TrainingLogRepository by delegate {
+        override suspend fun getSetsForLift(liftId: LiftId): List<LoggedSet> =
+            throw CancellationException("PR recompute cancelled")
+    }
 
     private fun loggedSet(
         id: String,

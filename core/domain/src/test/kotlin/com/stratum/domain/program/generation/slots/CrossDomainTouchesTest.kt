@@ -6,6 +6,7 @@ import com.stratum.core.testing.program.GenerationContextTestFixtures
 import com.stratum.domain.program.generation.context.LiftContext
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -74,6 +75,51 @@ class CrossDomainTouchesTest {
                 sessionPosition = 1,
             )
         assertTrue(upperPush.any { it.isCrossDomainTouch && it.primaryMuscle == MuscleGroup.Calf })
+    }
+
+    @Test
+    fun `unrecognized touch pattern records CrossDomainTouchSkipped and omits the slot`() {
+        val diagnostics = mutableListOf<SlotGenerationDiagnostic>()
+
+        val parsed = diagnostics.parseTouchPatternOrRecord("NotAPattern", MuscleGroup.Bicep)
+
+        assertNull(parsed)
+        assertEquals(
+            listOf(SlotGenerationDiagnostic.CrossDomainTouchSkipped("NotAPattern", MuscleGroup.Bicep)),
+            diagnostics,
+        )
+    }
+
+    @Test
+    fun `recognized touch pattern parses without recording a diagnostic`() {
+        val diagnostics = mutableListOf<SlotGenerationDiagnostic>()
+
+        val parsed = diagnostics.parseTouchPatternOrRecord("ElbowFlexion", MuscleGroup.Bicep)
+
+        assertEquals(MovementPattern.ElbowFlexion, parsed)
+        assertTrue(diagnostics.isEmpty())
+    }
+
+    @Test
+    fun `touch injection with valid patterns records no diagnostics`() {
+        val context =
+            GenerationContextTestFixtures.contextWith(
+                specialization = mapOf("Calf" to "Specialize"),
+                provenLifts = touchTestLifts,
+                literatureVolumeSnapshots = GenerationContextTestFixtures.volumePlannerSnapshots,
+            )
+        val diagnostics = mutableListOf<SlotGenerationDiagnostic>()
+
+        val upperPush =
+            slotsForSessionType(
+                sessionType = SessionTypeId.UpperPush,
+                context = context,
+                sessionPosition = 1,
+                diagnostics = diagnostics,
+            )
+
+        assertTrue(upperPush.any { it.isCrossDomainTouch && it.primaryMuscle == MuscleGroup.Calf })
+        assertTrue(diagnostics.isEmpty())
     }
 
     @Test
