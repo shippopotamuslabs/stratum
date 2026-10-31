@@ -11,6 +11,7 @@ import kotlin.coroutines.cancellation.CancellationException
 import com.stratum.domain.healthconnect.ActivityMetrics
 import com.stratum.domain.healthconnect.DailyStepCount
 import com.stratum.domain.healthconnect.DailyVitalSample
+import com.stratum.domain.healthconnect.HealthConnectDiagnostic
 import com.stratum.domain.healthconnect.HealthMetricType
 import com.stratum.domain.healthconnect.HealthMetricsPages
 import com.stratum.domain.healthconnect.HealthMetricsRequest
@@ -40,14 +41,24 @@ class LoadHealthConnectMetricsUseCase @Inject constructor(
         val granted = metricsPort.grantedReadTypes()
         if (granted.isEmpty()) return HealthMetricsPages.Hidden
         val request = HealthMetricsRequest(zone = zone, now = now)
+        // A read failure does not fail the load — it is recorded as a diagnostic and the
+        // pages are assembled from an empty snapshot (STR-257). Cancellation still
+        // propagates: it is not a degradation of this computation.
+        var readDiagnostic: HealthConnectDiagnostic? = null
         val snapshot = try {
             metricsPort.readSnapshot(request)
         } catch (e: CancellationException) {
             throw e
-        } catch (_: Throwable) {
+        } catch (error: Throwable) {
+            readDiagnostic = HealthConnectDiagnostic.SnapshotReadFailed(cause = error)
             HealthMetricsSnapshot(grantedTypes = granted)
         }
-        return assembleHealthMetricsPages(granted, snapshot, request)
+        return assembleHealthMetricsPages(
+            granted,
+            snapshot,
+            request,
+            diagnostics = listOfNotNull(readDiagnostic),
+        )
     }
 }
 
@@ -55,6 +66,7 @@ internal fun assembleHealthMetricsPages(
     granted: Set<HealthMetricType>,
     snapshot: HealthMetricsSnapshot,
     request: HealthMetricsRequest,
+    diagnostics: List<HealthConnectDiagnostic> = emptyList(),
 ): HealthMetricsPages {
     if (granted.isEmpty()) return HealthMetricsPages.Hidden
     return HealthMetricsPages(
@@ -62,6 +74,7 @@ internal fun assembleHealthMetricsPages(
         activity = assembleActivity(granted, snapshot, request),
         weight = assembleWeight(granted, snapshot, request),
         recovery = assembleRecovery(granted, snapshot, request),
+        diagnostics = diagnostics,
     )
 }
 

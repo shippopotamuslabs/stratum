@@ -12,14 +12,18 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import com.stratum.domain.healthconnect.DailyStepCount
 import com.stratum.domain.healthconnect.HEALTH_METRICS_DAY_COUNT
+import com.stratum.domain.healthconnect.HealthConnectDiagnostic
 import com.stratum.domain.healthconnect.HealthConnectPreferences
 import com.stratum.domain.healthconnect.HealthMetricType
+import kotlin.coroutines.cancellation.CancellationException
 import com.stratum.domain.healthconnect.HealthMetricsRequest
 import com.stratum.domain.healthconnect.HealthMetricsSnapshot
 import com.stratum.domain.healthconnect.HeartRateSample
@@ -780,6 +784,56 @@ class LoadHealthConnectMetricsUseCaseTest {
             ),
         )
         assertNull(stages.toSleepZones())
+    }
+
+    @Test
+    @DisplayName("STR-257: snapshot read failure carries a diagnostic and assembles empty pages")
+    fun readFailureCarriesDiagnosticWithEmptyPages() = runTest {
+        prefs.setPreferences(HealthConnectPreferences(enabled = true))
+        val granted = setOf(HealthMetricType.Steps, HealthMetricType.Weight)
+        metrics.granted = granted
+        val cause = IllegalStateException("sdk blip")
+        metrics.readSnapshotFailure = cause
+
+        val pages = load(zone, now)
+
+        assertTrue(pages.visible)
+        assertEquals(1, pages.diagnostics.size)
+        val diagnostic = pages.diagnostics.single()
+        assertTrue(diagnostic is HealthConnectDiagnostic.SnapshotReadFailed)
+        assertSame(cause, (diagnostic as HealthConnectDiagnostic.SnapshotReadFailed).cause)
+        val expected = assembleHealthMetricsPages(
+            granted = granted,
+            snapshot = HealthMetricsSnapshot(grantedTypes = granted),
+            request = HealthMetricsRequest(zone = zone, now = now),
+        )
+        assertEquals(expected, pages.copy(diagnostics = emptyList()))
+    }
+
+    @Test
+    @DisplayName("STR-257: happy path carries no diagnostics")
+    fun happyPathHasNoDiagnostics() = runTest {
+        prefs.setPreferences(HealthConnectPreferences(enabled = true))
+        metrics.granted = setOf(HealthMetricType.Steps)
+        val todayStart = today.atStartOfDay().toInstant(zone)
+        metrics.snapshot = HealthMetricsSnapshot(
+            dailySteps = listOf(DailyStepCount(todayStart, 8_432L)),
+        )
+
+        val pages = load(zone, now)
+
+        assertTrue(pages.visible)
+        assertTrue(pages.diagnostics.isEmpty())
+    }
+
+    @Test
+    @DisplayName("STR-257: cancellation is not converted to a diagnostic")
+    fun cancellationPropagates() = runTest {
+        prefs.setPreferences(HealthConnectPreferences(enabled = true))
+        metrics.granted = setOf(HealthMetricType.Steps)
+        metrics.readSnapshotFailure = CancellationException("cancelled")
+
+        assertThrows<CancellationException> { load(zone, now) }
     }
 
     private fun kg(amount: Double): Weight = Weight(amount, Weight.WeightUnit.Kg)

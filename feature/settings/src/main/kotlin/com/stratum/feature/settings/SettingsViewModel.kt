@@ -12,7 +12,9 @@ import com.stratum.application.checkin.SetCheckInEnabledUseCase
 import com.stratum.application.healthconnect.ClearHealthConnectSyncErrorUseCase
 import com.stratum.application.healthconnect.ObserveHealthConnectPreferencesUseCase
 import com.stratum.application.healthconnect.ObserveHealthConnectSyncErrorsUseCase
+import com.stratum.application.healthconnect.ApplyGrantedPermissionsDiagnostic
 import com.stratum.application.healthconnect.SetHealthConnectEnabledUseCase
+import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.domain.subscription.EntitlementSource
 import com.stratum.domain.subscription.EntitlementState
 import com.stratum.application.subscription.ObserveEntitlementUseCase
@@ -29,7 +31,6 @@ import com.stratum.domain.theme.ThemeFamily
 import com.stratum.application.training.ForceRefreshDerivedTrainingData
 import com.stratum.application.workout.ObserveRepRangeShiftProposalsEnabledUseCase
 import com.stratum.application.workout.SetRepRangeShiftProposalsEnabledUseCase
-import com.stratum.domain.logging.LogErrorUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Instant
 import javax.inject.Inject
@@ -66,12 +67,12 @@ class SettingsViewModel @Inject constructor(
     private val setRepRangeShiftProposalsEnabled: SetRepRangeShiftProposalsEnabledUseCase,
     private val setWeightDisplayUnit: SetWeightDisplayUnitUseCase,
     private val setHealthConnectEnabled: SetHealthConnectEnabledUseCase,
+    private val logError: LogErrorUseCase,
     private val clearHealthConnectSyncError: ClearHealthConnectSyncErrorUseCase,
     private val markCheckInPending: MarkCheckInPendingUseCase,
     private val forceRefreshDerived: ForceRefreshDerivedTrainingData,
     private val logout: LogoutUseCase,
     private val deleteAccount: DeleteAccountUseCase,
-    private val logError: LogErrorUseCase,
 ) : ViewModel() {
 
     private val debugStatusMessage = MutableStateFlow<String?>(null)
@@ -182,6 +183,7 @@ class SettingsViewModel @Inject constructor(
     fun onHealthConnectPermissionSheetClosed() {
         viewModelScope.launch {
             setHealthConnectEnabled.applyGrantedPermissions(HealthConnectLaunchPermissions.all)
+                .onSuccess { outcome -> logPermissionDiagnostics(outcome.diagnostics) }
                 .onFailure { error ->
                     _userMessage.value = error.message ?: MSG_PREFS_FAILED
                 }
@@ -204,6 +206,7 @@ class SettingsViewModel @Inject constructor(
                 .getOrElse { requested }
             if (missing.isEmpty()) {
                 setHealthConnectEnabled.applyGrantedPermissions(HealthConnectLaunchPermissions.all)
+                    .onSuccess { outcome -> logPermissionDiagnostics(outcome.diagnostics) }
                     .onFailure { error ->
                         _userMessage.value = error.message ?: MSG_PREFS_FAILED
                     }
@@ -451,7 +454,27 @@ class SettingsViewModel @Inject constructor(
         data object DeletingAccount : AccountUi()
     }
 
+    /**
+     * STR-257: reports each permission-query diagnostic exactly once through the screen's
+     * error-logging wiring. Diagnostics are log-only — never surfaced in the UI. Error
+     * level (not warning) so the bound failure travels attached: `LoggingPort.warning`
+     * carries no throwable and ViewModels must not inject `LoggingPort` directly.
+     */
+    internal fun logPermissionDiagnostics(diagnostics: List<ApplyGrantedPermissionsDiagnostic>) {
+        for (diagnostic in diagnostics) {
+            when (diagnostic) {
+                is ApplyGrantedPermissionsDiagnostic.PermissionQueryFailed ->
+                    logError(
+                        TAG,
+                        "Health Connect permission query failed — preference left unchanged.",
+                        diagnostic.cause,
+                    )
+            }
+        }
+    }
+
     private companion object {
+        const val TAG = "SettingsViewModel"
         const val TAG_AUTH = "SettingsAuth"
         const val MSG_SYNC_RESTART_FAILED_LOGOUT =
             "Cloud sync restart failed after sign-out failure."
