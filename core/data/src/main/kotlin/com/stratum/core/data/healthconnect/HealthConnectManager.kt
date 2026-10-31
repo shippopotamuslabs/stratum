@@ -90,7 +90,10 @@ class HealthConnectManager @Inject constructor(
         client.insertRecords(listOf(record))
     }.fold(
         onSuccess = { Result.success(it) },
-        onFailure = { Result.failure(it.toHealthSyncFailure()) },
+        onFailure = {
+            if (it is CancellationException) throw it
+            Result.failure(it.toHealthSyncFailure())
+        },
     )
 
     private fun buildSessionRecord(

@@ -117,6 +117,18 @@ class HealthConnectSyncWorkTest {
     }
 
     @Test
+    @DisplayName("cancellation from push propagates instead of becoming a retryable failure")
+    fun cancellationFromPushPropagates() = runTest {
+        seedCompletedSession()
+        preferences.setPreferences(HealthConnectPreferences(enabled = true))
+        syncPort.pushThrows = kotlinx.coroutines.CancellationException("cancelled")
+
+        org.junit.jupiter.api.assertThrows<kotlinx.coroutines.CancellationException> {
+            work.run(TrainingSessionId("ts-hc-1"))
+        }
+    }
+
+    @Test
     @DisplayName("Given enabled prefs when run succeeds then pushes session")
     fun successPushesSession() = runTest {
         seedCompletedSession()

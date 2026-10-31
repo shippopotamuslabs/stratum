@@ -11,6 +11,7 @@ class FakeHealthConnectSyncPort : HealthConnectSyncPort {
     var granted: Set<String> = emptySet()
     var grantedPermissionsFailure: Throwable? = null
     var pushFailure: Throwable? = null
+    var pushThrows: Throwable? = null
     val pushedSessions = mutableListOf<Pair<TrainingSession, List<LoggedSet>>>()
 
     override suspend fun isAvailable(): Boolean = isAvailable
@@ -35,6 +36,7 @@ class FakeHealthConnectSyncPort : HealthConnectSyncPort {
         if (!hasPermission) {
             return Result.failure(HealthSyncFailure.permissionDenied())
         }
+        pushThrows?.let { throw it }
         pushFailure?.let { return Result.failure(it) }
         pushedSessions.add(session to sets)
         return Result.success(Unit)

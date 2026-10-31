@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import com.stratum.application.healthconnect.HEALTH_CONNECT_PREFS_TAG
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.logging.onFailureLogged
 import com.stratum.domain.training.identity.TrainingSessionId
@@ -75,6 +76,5 @@ class HealthConnectSyncWorker @AssistedInject constructor(
 
     private companion object {
         const val TAG = "HealthConnectSyncWorker"
-        const val HEALTH_CONNECT_PREFS_TAG = "HealthConnectPrefs"
     }
 }

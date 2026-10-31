@@ -5,14 +5,10 @@ import com.stratum.application.healthconnect.HealthSyncFailureKind
 import kotlin.coroutines.cancellation.CancellationException
 
 /** Health Connect SDK is missing or not usable on this device — not worth retrying. */
-internal class HealthConnectUnavailableException(
-    message: String = "Health Connect SDK is not available on this device",
-) : IllegalStateException(message)
+internal class HealthConnectUnavailableException : IllegalStateException()
 
 /** Write permission missing or revoked — not worth retrying until the user re-grants. */
-internal class HealthConnectPermissionDeniedException(
-    message: String = "Health Connect write permission is not granted",
-) : IllegalStateException(message)
+internal class HealthConnectPermissionDeniedException : IllegalStateException()
 
 /**
  * Maps vendor SDK-state failures to the agnostic application-port classification

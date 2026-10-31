@@ -7,7 +7,7 @@ import com.stratum.domain.healthconnect.HealthConnectPreferences
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.logging.onFailureLogged
 
-private const val HEALTH_CONNECT_PREFS_TAG = "HealthConnectPrefs"
+const val HEALTH_CONNECT_PREFS_TAG = "HealthConnectPrefs"
 
 class ObserveHealthConnectPreferencesUseCase @Inject constructor(
     private val preferencesPort: HealthConnectPreferencesPort,
