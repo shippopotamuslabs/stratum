@@ -31,6 +31,7 @@ import com.stratum.domain.healthconnect.HrvSample
 import com.stratum.domain.healthconnect.SleepSessionSample
 import com.stratum.domain.healthconnect.SleepStageSample
 import com.stratum.domain.healthconnect.SleepStageType
+import com.stratum.domain.healthconnect.SleepZones
 import com.stratum.domain.healthconnect.VitalRange
 import com.stratum.domain.healthconnect.WeightSample
 
@@ -645,6 +646,140 @@ class LoadHealthConnectMetricsUseCaseTest {
         assertEquals(Duration.ofHours(8), nightly.last().duration)
         assertEquals(Duration.ofHours(8), nightly.last().zones?.light)
         assertEquals(Duration.ZERO, nightly.last().zones?.rem)
+    }
+
+    @Test
+    @DisplayName("STR-264: awake time is not counted as sleep")
+    fun awakeTimeIsNotCountedAsSleep() {
+        val request = HealthMetricsRequest(zone = zone, now = now)
+        // Sean's 2026-10-30/31 night as Google Health reports it: 8h in bed, of which
+        // 14m awake; stages partition the session.
+        val night = SleepSessionSample(
+            start = today.minusDays(1).atTime(21, 56).toInstant(zone),
+            end = today.atTime(5, 56).toInstant(zone),
+            originPackage = WATCH_ORIGIN,
+            stages = listOf(
+                SleepStageSample(
+                    start = today.minusDays(1).atTime(21, 56).toInstant(zone),
+                    end = today.atTime(1, 54).toInstant(zone),
+                    stage = SleepStageType.Light,
+                ),
+                SleepStageSample(
+                    start = today.atTime(1, 54).toInstant(zone),
+                    end = today.atTime(3, 25).toInstant(zone),
+                    stage = SleepStageType.Deep,
+                ),
+                SleepStageSample(
+                    start = today.atTime(3, 25).toInstant(zone),
+                    end = today.atTime(5, 42).toInstant(zone),
+                    stage = SleepStageType.Rem,
+                ),
+                SleepStageSample(
+                    start = today.atTime(5, 42).toInstant(zone),
+                    end = today.atTime(5, 56).toInstant(zone),
+                    stage = SleepStageType.Awake,
+                ),
+            ),
+        )
+
+        val nightly = fillNightlySleep(listOf(night), request)
+
+        val todayNight = nightly.last()
+        assertEquals(Duration.ofHours(7).plusMinutes(46), todayNight.duration)
+        assertEquals(Duration.ofHours(3).plusMinutes(58), todayNight.zones?.light)
+        assertEquals(Duration.ofHours(1).plusMinutes(31), todayNight.zones?.deep)
+        assertEquals(Duration.ofHours(2).plusMinutes(17), todayNight.zones?.rem)
+        assertEquals(Duration.ofMinutes(14), todayNight.zones?.awake)
+    }
+
+    @Test
+    @DisplayName("STR-264: out-of-bed time is not counted as sleep either")
+    fun outOfBedTimeIsNotCountedAsSleep() {
+        val request = HealthMetricsRequest(zone = zone, now = now)
+        val night = SleepSessionSample(
+            start = today.minusDays(1).atTime(22, 0).toInstant(zone),
+            end = today.atTime(6, 0).toInstant(zone),
+            originPackage = WATCH_ORIGIN,
+            stages = listOf(
+                SleepStageSample(
+                    start = today.minusDays(1).atTime(22, 0).toInstant(zone),
+                    end = today.atTime(4, 0).toInstant(zone),
+                    stage = SleepStageType.Light,
+                ),
+                SleepStageSample(
+                    start = today.atTime(4, 0).toInstant(zone),
+                    end = today.atTime(4, 30).toInstant(zone),
+                    stage = SleepStageType.Awake,
+                ),
+                SleepStageSample(
+                    start = today.atTime(4, 30).toInstant(zone),
+                    end = today.atTime(5, 0).toInstant(zone),
+                    stage = SleepStageType.OutOfBed,
+                ),
+                SleepStageSample(
+                    start = today.atTime(5, 0).toInstant(zone),
+                    end = today.atTime(6, 0).toInstant(zone),
+                    stage = SleepStageType.Rem,
+                ),
+            ),
+        )
+
+        val nightly = fillNightlySleep(listOf(night), request)
+
+        val todayNight = nightly.last()
+        assertEquals(Duration.ofHours(7), todayNight.duration)
+        // The zones awake bucket folds out-of-bed in, so both half-hours come out.
+        assertEquals(Duration.ofHours(1), todayNight.zones?.awake)
+    }
+
+    @Test
+    @DisplayName("STR-264: last night duration excludes awake time")
+    fun lastNightDurationExcludesAwake() = runTest {
+        prefs.setPreferences(HealthConnectPreferences(enabled = true))
+        metrics.granted = setOf(HealthMetricType.Sleep)
+        val night = SleepSessionSample(
+            start = today.minusDays(1).atTime(22, 0).toInstant(zone),
+            end = today.atTime(6, 0).toInstant(zone),
+            stages = listOf(
+                SleepStageSample(
+                    start = today.minusDays(1).atTime(22, 0).toInstant(zone),
+                    end = today.atTime(2, 0).toInstant(zone),
+                    stage = SleepStageType.Light,
+                ),
+                SleepStageSample(
+                    start = today.atTime(2, 0).toInstant(zone),
+                    end = today.atTime(2, 30).toInstant(zone),
+                    stage = SleepStageType.Awake,
+                ),
+                SleepStageSample(
+                    start = today.atTime(2, 30).toInstant(zone),
+                    end = today.atTime(6, 0).toInstant(zone),
+                    stage = SleepStageType.Deep,
+                ),
+            ),
+        )
+        metrics.snapshot = HealthMetricsSnapshot(sleepSessions = listOf(night))
+
+        val pages = load(zone, now)
+
+        assertEquals(Duration.ofHours(7).plusMinutes(30), pages.recovery.lastNight?.duration)
+        assertEquals(
+            pages.recovery.nightlyDurations.last().duration,
+            pages.recovery.lastNight?.duration,
+        )
+    }
+
+    @Test
+    @DisplayName("STR-264: asleep duration never goes negative and unstaged spans stand")
+    fun asleepDurationClampsAtZero() {
+        val zones = SleepZones(
+            light = Duration.ofHours(1),
+            deep = Duration.ZERO,
+            rem = Duration.ZERO,
+            awake = Duration.ofHours(2),
+        )
+        assertEquals(Duration.ZERO, asleepDuration(span = Duration.ofHours(1), zones = zones))
+        assertEquals(Duration.ofHours(8), asleepDuration(span = Duration.ofHours(8), zones = null))
     }
 
     @Test

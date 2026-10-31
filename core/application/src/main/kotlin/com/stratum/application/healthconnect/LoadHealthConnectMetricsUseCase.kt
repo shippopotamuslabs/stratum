@@ -338,11 +338,25 @@ internal fun summarizeSleepCluster(cluster: List<SleepSessionSample>): SleepDayS
     val end = selected.maxOf { it.end }
     val zones = selected.mapNotNull { it.stages.toSleepZones() }.reduceOrNull { acc, next -> acc + next }
     return SleepDaySummary(
-        duration = Duration.between(start, end),
+        duration = asleepDuration(span = Duration.between(start, end), zones = zones),
         zones = zones,
         start = start,
         end = end,
     )
+}
+
+/**
+ * Time asleep within a session [span]: the span minus awake time (STR-264). The zones
+ * awake bucket already folds in out-of-bed stages (see [toSleepZones]), so both come
+ * out here. Generic Sleeping/Unknown stage time and unstaged gaps inside the span stay
+ * counted — a sleep session's non-awake time is sleep. With no stage data there is no
+ * awake time to subtract, so the span stands. Clamped at zero: stage data that claims
+ * more awake time than the span can never make a night negative.
+ */
+internal fun asleepDuration(span: Duration, zones: SleepZones?): Duration {
+    val awake = zones?.awake ?: return span
+    val asleep = span - awake
+    return if (asleep.isNegative) Duration.ZERO else asleep
 }
 
 internal fun selectNonOverlappingSessions(
