@@ -23,6 +23,7 @@ import com.stratum.application.importing.ExtractTrainingInsightsUseCase
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.application.lift.AnalyzeSessionEquipmentProposalsUseCase
 import com.stratum.application.lift.ApplyEquipmentIncrementProposalUseCase
+import com.stratum.application.lift.EquipmentProposalDiagnostic
 import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.Lift
@@ -40,6 +41,8 @@ import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.application.workout.AnalyzeSessionRepRangeShiftProposalsUseCase
 import com.stratum.application.workout.ApplyRepRangeShiftUseCase
+import com.stratum.application.workout.RepRangeShiftDiagnostic
+import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.feature.workout.ui.EquipmentEditorDestination
 import com.stratum.feature.workout.ui.WorkoutCompleteEvent
 import com.stratum.feature.workout.ui.WorkoutCompleteUiState
@@ -52,6 +55,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -667,7 +671,6 @@ class WorkoutCompleteViewModelTest {
                         liftRepository = liftRepo,
                         equipmentRepository = equipmentRepo,
                         preferences = equipPrefs,
-                        loggingPort = logging,
                     ),
                 applyEquipmentIncrementProposal =
                     ApplyEquipmentIncrementProposalUseCase(
@@ -693,7 +696,6 @@ class WorkoutCompleteViewModelTest {
                                 importAnalysisMetadataRepository =
                                     FakeImportAnalysisMetadataRepository(),
                             ),
-                        loggingPort = logging,
                     ),
                 applyRepRangeShift =
                     ApplyRepRangeShiftUseCase(
@@ -702,6 +704,7 @@ class WorkoutCompleteViewModelTest {
                         loggingPort = logging,
                     ),
                 repRangeShiftProposalPreferences = repRangePrefs,
+                logError = LogErrorUseCase(logging),
                 observeWeightDisplayPreferences =
                     ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
                 observeHealthConnectSyncErrors =
@@ -783,7 +786,6 @@ class WorkoutCompleteViewModelTest {
                         liftRepository = liftRepo,
                         equipmentRepository = equipmentRepo,
                         preferences = prefs,
-                        loggingPort = logging,
                     ),
                 applyEquipmentIncrementProposal =
                     ApplyEquipmentIncrementProposalUseCase(
@@ -809,7 +811,6 @@ class WorkoutCompleteViewModelTest {
                                 importAnalysisMetadataRepository =
                                     FakeImportAnalysisMetadataRepository(),
                             ),
-                        loggingPort = logging,
                     ),
                 applyRepRangeShift =
                     ApplyRepRangeShiftUseCase(
@@ -818,6 +819,7 @@ class WorkoutCompleteViewModelTest {
                         loggingPort = logging,
                     ),
                 repRangeShiftProposalPreferences = repRangePrefs,
+                logError = LogErrorUseCase(logging),
                 observeWeightDisplayPreferences =
                     ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
                 observeHealthConnectSyncErrors =
@@ -847,6 +849,105 @@ class WorkoutCompleteViewModelTest {
             completedAt = Instant.parse("2025-01-01T10:05:00Z"),
             liftContext = WorkoutLoggingFixtures.importLiftContext(),
         )
+
+    @Test
+    @DisplayName("Analyzer diagnostics drain exactly once with the bound cause attached")
+    fun analyzerDiagnosticsDrainOnce() = runTest {
+        val (viewModel, logging) = buildDrainHarness()
+        val sessionId = TrainingSessionId("ts-1")
+        val equipmentCause = IllegalStateException("equipment boom")
+        val repRangeCause = IllegalStateException("rep-range boom")
+
+        viewModel.logEquipmentDiagnostics(
+            listOf(EquipmentProposalDiagnostic.AnalysisFailed(sessionId, equipmentCause)),
+        )
+        viewModel.logRepRangeDiagnostics(
+            listOf(RepRangeShiftDiagnostic.AnalysisFailed(sessionId, repRangeCause)),
+        )
+
+        assertEquals(2, logging.errors.size)
+        assertSame(equipmentCause, logging.errors[0].throwable)
+        assertSame(repRangeCause, logging.errors[1].throwable)
+    }
+
+    @Test
+    @DisplayName("Empty analyzer diagnostics drain to zero log writes")
+    fun emptyDiagnosticsDrainSilently() = runTest {
+        val (viewModel, logging) = buildDrainHarness()
+
+        viewModel.logEquipmentDiagnostics(emptyList())
+        viewModel.logRepRangeDiagnostics(emptyList())
+
+        assertTrue(logging.errors.isEmpty())
+    }
+
+    private fun buildDrainHarness(): Pair<WorkoutCompleteViewModel, FakeLoggingPort> {
+        val programRepo = FakeProgramRepository(WorkoutLoggingFixtures.twoWorkoutProgram())
+        val logRepo = FakeTrainingLogRepository(programRepository = programRepo)
+        val liftRepo = FakeLiftRepository(initialLifts = listOf(benchLift()))
+        val equipmentRepo = FakeEquipmentRepository()
+        val prefs = FakeEquipmentProposalPreferences()
+        val repRangePrefs = FakeRepRangeShiftProposalPreferences()
+        val logging = FakeLoggingPort()
+        val insightsRepo = FakeLiftTrainingInsightsRepository()
+        val healthConnectSyncStatus = FakeHealthConnectSyncStatusPort()
+        val viewModel =
+            WorkoutCompleteViewModel(
+                getWorkoutSummary =
+                    GetWorkoutSummaryUseCase(
+                        logRepo,
+                        programRepo,
+                        ObserveLiftCatalogUseCase(liftRepo),
+                        logging,
+                    ),
+                analyzeSessionEquipmentProposals =
+                    AnalyzeSessionEquipmentProposalsUseCase(
+                        trainingLogRepository = logRepo,
+                        liftRepository = liftRepo,
+                        equipmentRepository = equipmentRepo,
+                        preferences = prefs,
+                    ),
+                applyEquipmentIncrementProposal =
+                    ApplyEquipmentIncrementProposalUseCase(
+                        equipmentRepository = equipmentRepo,
+                        loggingPort = logging,
+                    ),
+                equipmentProposalPreferences = prefs,
+                analyzeSessionRepRangeShiftProposals =
+                    AnalyzeSessionRepRangeShiftProposalsUseCase(
+                        trainingLogRepository = logRepo,
+                        programRepository = programRepo,
+                        liftTrainingInsightsRepository = insightsRepo,
+                        liftRepository = liftRepo,
+                        preferences = repRangePrefs,
+                        extractTrainingInsights =
+                            ExtractTrainingInsightsUseCase(
+                                trainingLogRepository = logRepo,
+                                liftTrainingInsightsRepository = insightsRepo,
+                                supersetAffinityRepository = FakeSupersetAffinityRepository(),
+                                muscleVolumeBaselineRepository = FakeMuscleVolumeBaselineRepository(),
+                                liftRepository = liftRepo,
+                                importAnalysisMetadataRepository =
+                                    FakeImportAnalysisMetadataRepository(),
+                            ),
+                    ),
+                applyRepRangeShift =
+                    ApplyRepRangeShiftUseCase(
+                        programRepository = programRepo,
+                        programChangeEventRepository = FakeProgramChangeEventRepository(),
+                        loggingPort = logging,
+                    ),
+                repRangeShiftProposalPreferences = repRangePrefs,
+                logError = LogErrorUseCase(logging),
+                observeWeightDisplayPreferences =
+                    ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
+                observeHealthConnectSyncErrors =
+                    ObserveHealthConnectSyncErrorsUseCase(healthConnectSyncStatus),
+                clearHealthConnectSyncError =
+                    ClearHealthConnectSyncErrorUseCase(healthConnectSyncStatus),
+            )
+        return viewModel to logging
+    }
 
     private fun buildViewModelWithBenchSet(
         weight: Double,
@@ -899,7 +1000,6 @@ class WorkoutCompleteViewModelTest {
                     liftRepository = liftRepo,
                     equipmentRepository = equipmentRepo,
                     preferences = prefs,
-                    loggingPort = logging,
                 ),
             applyEquipmentIncrementProposal =
                 ApplyEquipmentIncrementProposalUseCase(
@@ -924,7 +1024,6 @@ class WorkoutCompleteViewModelTest {
                             importAnalysisMetadataRepository =
                                 FakeImportAnalysisMetadataRepository(),
                         ),
-                    loggingPort = logging,
                 ),
             applyRepRangeShift =
                 ApplyRepRangeShiftUseCase(
@@ -933,6 +1032,7 @@ class WorkoutCompleteViewModelTest {
                     loggingPort = logging,
                 ),
             repRangeShiftProposalPreferences = repRangePrefs,
+            logError = LogErrorUseCase(logging),
             observeWeightDisplayPreferences =
                 ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
             observeHealthConnectSyncErrors =

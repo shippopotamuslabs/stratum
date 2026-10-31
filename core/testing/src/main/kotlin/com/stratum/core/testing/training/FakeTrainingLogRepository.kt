@@ -150,7 +150,12 @@ class FakeTrainingLogRepository(
 
     private val liftFilterCatalog = mutableMapOf<LiftId, LiftFilterTags>()
 
-    override suspend fun getSession(id: TrainingSessionId): TrainingSession? = sessions[id]
+    var getSessionError: Throwable? = null
+
+    override suspend fun getSession(id: TrainingSessionId): TrainingSession? {
+        getSessionError?.let { throw it }
+        return sessions[id]
+    }
 
     override suspend fun getSetsForSession(sessionId: TrainingSessionId): List<LoggedSet> =
         setsBySession[sessionId]?.values?.toList().orEmpty()
@@ -226,14 +231,21 @@ class FakeTrainingLogRepository(
         setsBySession.values.forEach { bucket -> bucket.remove(id) }
     }
 
+    var getPersonalRecordError: Throwable? = null
+
     override suspend fun getPersonalRecordForLift(liftId: com.stratum.domain.lift.identity.LiftId): LoggedSet? {
+        getPersonalRecordError?.let { throw it }
         return getAllSets().firstOrNull { it.liftId == liftId && it.isPersonalRecord }
     }
 
-    override suspend fun getSetsForLift(liftId: LiftId): List<LoggedSet> =
-        getAllSets()
+    var getSetsForLiftError: Throwable? = null
+
+    override suspend fun getSetsForLift(liftId: LiftId): List<LoggedSet> {
+        getSetsForLiftError?.let { throw it }
+        return getAllSets()
             .filter { it.liftId == liftId }
             .sortedByDescending { it.completedAt }
+    }
 
     override suspend fun getSetsForLifts(liftIds: Collection<LiftId>): List<LoggedSet> {
         if (liftIds.isEmpty()) return emptyList()

@@ -4,7 +4,6 @@ import com.stratum.core.testing.importing.FakeImportAnalysisMetadataRepository
 import com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository
 import com.stratum.core.testing.importing.FakeMuscleVolumeBaselineRepository
 import com.stratum.core.testing.importing.FakeSupersetAffinityRepository
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
@@ -27,12 +26,15 @@ import com.stratum.domain.training.TrainingSessionOrigin
 import com.stratum.domain.training.TrainingSessionStatus
 import com.stratum.domain.training.identity.TrainingSessionId
 import java.time.Instant
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.application.importing.ExtractTrainingInsightsUseCase
 import com.stratum.domain.program.Program
@@ -76,7 +78,6 @@ class AnalyzeSessionRepRangeShiftProposalsUseCaseTest {
                         importAnalysisMetadataRepository = FakeImportAnalysisMetadataRepository(),
                         liftRepository = liftRepo,
                     ),
-                loggingPort = FakeLoggingPort(),
             )
     }
 
@@ -85,7 +86,7 @@ class AnalyzeSessionRepRangeShiftProposalsUseCaseTest {
     fun steepSlopeProposesShift() = runTest {
         seedFatigueHistoryAndCurrentSession(lastSetReps = 3)
 
-        val proposals = subject(sessionId)
+        val proposals = subject(sessionId).proposals
         assertEquals(1, proposals.size)
         val p = proposals.single()
         assertEquals(wlId, p.workoutLiftId)
@@ -111,7 +112,7 @@ class AnalyzeSessionRepRangeShiftProposalsUseCaseTest {
     @DisplayName("strong last set (≥ floor) → silence even with steep slope")
     fun strongLastSetSilent() = runTest {
         seedFatigueHistoryAndCurrentSession(lastSetReps = 8)
-        assertTrue(subject(sessionId).isEmpty())
+        assertTrue(subject(sessionId).proposals.isEmpty())
     }
 
     @Test
@@ -137,7 +138,7 @@ class AnalyzeSessionRepRangeShiftProposalsUseCaseTest {
             ),
         )
         assertTrue(
-            subject(sessionId).isEmpty(),
+            subject(sessionId).proposals.isEmpty(),
             "mini cluster reps must not drive rep-range shift",
         )
     }
@@ -146,10 +147,10 @@ class AnalyzeSessionRepRangeShiftProposalsUseCaseTest {
     @DisplayName("dismissed fingerprint is filtered")
     fun dismissedFiltered() = runTest {
         seedFatigueHistoryAndCurrentSession(lastSetReps = 3)
-        val before = subject(sessionId)
+        val before = subject(sessionId).proposals
         assertEquals(1, before.size)
         prefs.dismiss(before.single().id)
-        assertTrue(subject(sessionId).isEmpty())
+        assertTrue(subject(sessionId).proposals.isEmpty())
     }
 
     @Test
@@ -159,7 +160,7 @@ class AnalyzeSessionRepRangeShiftProposalsUseCaseTest {
         logRepo.seedSession(
             currentSession().copy(origin = TrainingSessionOrigin.IMPORT),
         )
-        assertTrue(subject(sessionId).isEmpty())
+        assertTrue(subject(sessionId).proposals.isEmpty())
     }
 
     @Test
@@ -167,7 +168,7 @@ class AnalyzeSessionRepRangeShiftProposalsUseCaseTest {
     fun softUnlinkNoProposal() = runTest {
         seedFatigueHistoryAndCurrentSession(lastSetReps = 3)
         logRepo.seedSession(currentSession().copy(programId = null))
-        assertTrue(subject(sessionId).isEmpty())
+        assertTrue(subject(sessionId).proposals.isEmpty())
     }
 
     @Test
@@ -175,7 +176,7 @@ class AnalyzeSessionRepRangeShiftProposalsUseCaseTest {
     fun adHocNoProposal() = runTest {
         seedFatigueHistoryAndCurrentSession(lastSetReps = 3)
         logRepo.seedSession(currentSession().copy(kind = TrainingSessionKind.AD_HOC))
-        assertTrue(subject(sessionId).isEmpty())
+        assertTrue(subject(sessionId).proposals.isEmpty())
     }
 
     @Test
@@ -183,7 +184,7 @@ class AnalyzeSessionRepRangeShiftProposalsUseCaseTest {
     fun featureDisabledNoProposal() = runTest {
         seedFatigueHistoryAndCurrentSession(lastSetReps = 3)
         prefs.seedEnabled(false)
-        assertTrue(subject(sessionId).isEmpty())
+        assertTrue(subject(sessionId).proposals.isEmpty())
     }
 
     @Test
@@ -209,7 +210,7 @@ class AnalyzeSessionRepRangeShiftProposalsUseCaseTest {
                 workoutLiftId = null,
             ),
         )
-        assertTrue(subject(sessionId).isEmpty())
+        assertTrue(subject(sessionId).proposals.isEmpty())
     }
 
     private suspend fun seedFatigueHistoryAndCurrentSession(lastSetReps: Int) {
@@ -312,6 +313,43 @@ class AnalyzeSessionRepRangeShiftProposalsUseCaseTest {
                     rirGoal = rirGoal,
                 ),
         )
+
+    @Test
+    @DisplayName("repository failure → empty outcome carrying the exact diagnostic")
+    fun repositoryFailureCarriesDiagnostic() = runTest {
+        seedFatigueHistoryAndCurrentSession(lastSetReps = 3)
+        val cause = IllegalStateException("boom")
+        logRepo.getSessionError = cause
+
+        val outcome = subject(sessionId)
+
+        assertTrue(outcome.proposals.isEmpty())
+        assertEquals(1, outcome.diagnostics.size)
+        val diagnostic = outcome.diagnostics.single() as RepRangeShiftDiagnostic.AnalysisFailed
+        assertEquals(sessionId, diagnostic.sessionId)
+        assertSame(cause, diagnostic.cause)
+    }
+
+    @Test
+    @DisplayName("feature disabled → empty outcome with zero diagnostics")
+    fun featureDisabledCarriesNoDiagnostic() = runTest {
+        seedFatigueHistoryAndCurrentSession(lastSetReps = 3)
+        prefs.seedEnabled(false)
+
+        val outcome = subject(sessionId)
+
+        assertTrue(outcome.proposals.isEmpty())
+        assertTrue(outcome.diagnostics.isEmpty())
+    }
+
+    @Test
+    @DisplayName("cancellation propagates instead of becoming a diagnostic")
+    fun cancellationPropagates() = runTest {
+        seedFatigueHistoryAndCurrentSession(lastSetReps = 3)
+        logRepo.getSessionError = CancellationException("cancelled")
+
+        assertThrows<CancellationException> { subject(sessionId) }
+    }
 
     private fun programWithFourSetDouble() =
         WorkoutLoggingFixtures.twoWorkoutProgram(

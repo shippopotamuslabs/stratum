@@ -10,15 +10,18 @@ import com.stratum.application.healthconnect.ClearHealthConnectSyncErrorUseCase
 import com.stratum.application.healthconnect.ObserveHealthConnectSyncErrorsUseCase
 import com.stratum.application.lift.AnalyzeSessionEquipmentProposalsUseCase
 import com.stratum.application.lift.ApplyEquipmentIncrementProposalUseCase
+import com.stratum.application.lift.EquipmentProposalDiagnostic
 import com.stratum.domain.lift.EquipmentIncrementRemedy
 import com.stratum.application.lift.EquipmentProposalPreferences
 import com.stratum.application.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.application.training.GetWorkoutSummaryUseCase
 import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.application.workout.AnalyzeSessionRepRangeShiftProposalsUseCase
+import com.stratum.application.workout.RepRangeShiftDiagnostic
 import com.stratum.domain.workout.ApplyRepRangeShiftResult
 import com.stratum.application.workout.ApplyRepRangeShiftUseCase
 import com.stratum.application.workout.RepRangeShiftProposalPreferences
+import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.feature.workout.ui.EquipmentProposalUiMapper
 import com.stratum.feature.workout.ui.LiftBestSetUi
 import com.stratum.feature.workout.ui.RepRangeShiftUiMapper
@@ -57,6 +60,7 @@ class WorkoutCompleteViewModel @Inject constructor(
     private val analyzeSessionRepRangeShiftProposals: AnalyzeSessionRepRangeShiftProposalsUseCase,
     private val applyRepRangeShift: ApplyRepRangeShiftUseCase,
     private val repRangeShiftProposalPreferences: RepRangeShiftProposalPreferences,
+    private val logError: LogErrorUseCase,
     private val observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
     observeHealthConnectSyncErrors: ObserveHealthConnectSyncErrorsUseCase,
     private val clearHealthConnectSyncError: ClearHealthConnectSyncErrorUseCase,
@@ -99,8 +103,9 @@ class WorkoutCompleteViewModel @Inject constructor(
                     result.fold(
                         onSuccess = { summary ->
                             val trainingSessionId = TrainingSessionId(sessionId)
-                            // Parallel analyze; each use case fails soft to empty list.
-                            val (equipmentProposals, repRangeProposals) =
+                            // Parallel analyze; each use case degrades to an empty
+                            // outcome carrying diagnostics, drained once below.
+                            val (equipmentOutcome, repRangeOutcome) =
                                 coroutineScope {
                                     val equipmentDeferred =
                                         async {
@@ -112,13 +117,17 @@ class WorkoutCompleteViewModel @Inject constructor(
                                         }
                                     equipmentDeferred.await() to repRangeDeferred.await()
                                 }
+                            logEquipmentDiagnostics(equipmentOutcome.diagnostics)
+                            logRepRangeDiagnostics(repRangeOutcome.diagnostics)
+                            val equipmentProposals = equipmentOutcome.proposals
+                            val repRangeProposals = repRangeOutcome.proposals
                             if (generation != loadGeneration) {
                                 return@fold _uiState.value
                             }
                             val equipmentSnap =
                                 equipmentSession.load(
-                                    equipmentProposals.proposals,
-                                    equipmentProposals.baselineMicroByProposalId,
+                                    equipmentProposals,
+                                    equipmentOutcome.baselineMicroByProposalId,
                                 )
                             val repRangeSnap = repRangeSession.load(repRangeProposals)
                             pendingUserMessages.clear()
@@ -265,13 +274,14 @@ class WorkoutCompleteViewModel @Inject constructor(
         // Guarded like loadSummary: a newer load wins over this refresh.
         val generation = loadGeneration
         viewModelScope.launch {
-            val analysis =
+            val outcome =
                 analyzeSessionEquipmentProposals(TrainingSessionId(sessionId))
+            logEquipmentDiagnostics(outcome.diagnostics)
             if (generation == loadGeneration) {
                 applyEquipmentSnapshot(
                     equipmentSession.load(
-                        analysis.proposals,
-                        analysis.baselineMicroByProposalId,
+                        outcome.proposals,
+                        outcome.baselineMicroByProposalId,
                     ),
                 )
             }
@@ -392,6 +402,52 @@ class WorkoutCompleteViewModel @Inject constructor(
         updateLoaded { loaded ->
             loaded.copy(repRangeProposals = snap.cards)
         }
+    }
+
+    /**
+     * STR-259: reports each analyzer diagnostic exactly once through the screen's
+     * existing error-logging wiring. Diagnostics are log-only — never surfaced in
+     * the UI. Error level (not warning) so the bound failure travels attached,
+     * mirroring the STR-255 drain shape: `LoggingPort.warning` carries no
+     * throwable and ViewModels must not inject `LoggingPort` directly.
+     */
+    internal fun logEquipmentDiagnostics(diagnostics: List<EquipmentProposalDiagnostic>) {
+        for (diagnostic in diagnostics) {
+            when (diagnostic) {
+                is EquipmentProposalDiagnostic.AnalysisFailed ->
+                    logError(
+                        TAG,
+                        "Session equipment analysis failed for ${diagnostic.sessionId.value} " +
+                            "— showing no proposals.",
+                        diagnostic.cause,
+                    )
+            }
+        }
+    }
+
+    /**
+     * STR-259: reports each analyzer diagnostic exactly once through the screen's
+     * existing error-logging wiring. Diagnostics are log-only — never surfaced in
+     * the UI. Error level (not warning) so the bound failure travels attached,
+     * mirroring the STR-255 drain shape: `LoggingPort.warning` carries no
+     * throwable and ViewModels must not inject `LoggingPort` directly.
+     */
+    internal fun logRepRangeDiagnostics(diagnostics: List<RepRangeShiftDiagnostic>) {
+        for (diagnostic in diagnostics) {
+            when (diagnostic) {
+                is RepRangeShiftDiagnostic.AnalysisFailed ->
+                    logError(
+                        TAG,
+                        "Session rep-range shift analysis failed for ${diagnostic.sessionId.value} " +
+                            "— showing no proposals.",
+                        diagnostic.cause,
+                    )
+            }
+        }
+    }
+
+    private companion object {
+        const val TAG = "WorkoutCompleteViewModel"
     }
 
     private fun updateLoaded(
