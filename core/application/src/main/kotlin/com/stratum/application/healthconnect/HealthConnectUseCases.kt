@@ -5,6 +5,10 @@ import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.Flow
 import com.stratum.domain.healthconnect.HealthConnectPreferences
 import com.stratum.domain.healthconnect.HealthConnectUnavailableException
+import com.stratum.domain.logging.LoggingPort
+
+/** Shared log tag for Health Connect preference-write drain boundaries. */
+const val HEALTH_CONNECT_PREFS_TAG = "HealthConnectPrefs"
 
 class ObserveHealthConnectPreferencesUseCase @Inject constructor(
     private val preferencesPort: HealthConnectPreferencesPort,
@@ -15,12 +19,25 @@ class ObserveHealthConnectPreferencesUseCase @Inject constructor(
 class SetHealthConnectEnabledUseCase @Inject constructor(
     private val preferencesPort: HealthConnectPreferencesPort,
     private val syncPort: HealthConnectSyncPort,
+    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(enabled: Boolean): Result<Unit> {
         if (enabled && !syncPort.isAvailable()) {
             return Result.failure(HealthConnectUnavailableException())
         }
-        return preferencesPort.setEnabled(enabled)
+        // The preferences repository returns write failures as values without
+        // logging them. This use case is the drain boundary — its only callers
+        // are the Settings ViewModel (which maps the Result to UI state) and
+        // applyGrantedPermissions below — so each failure is logged exactly
+        // once here.
+        return preferencesPort.setEnabled(enabled).onFailure { error ->
+            if (error is CancellationException) throw error
+            loggingPort.error(
+                HEALTH_CONNECT_PREFS_TAG,
+                "Failed to set Health Connect enabled: ${error.message}",
+                error,
+            )
+        }
     }
 
     /**
@@ -63,8 +80,21 @@ class ObserveHealthConnectSyncErrorsUseCase @Inject constructor(
 
 class ClearHealthConnectSyncErrorUseCase @Inject constructor(
     private val syncStatusPort: HealthConnectSyncStatusPort,
+    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke() {
-        syncStatusPort.clearPendingSyncError()
+        // The sync-status repository returns write failures as values without
+        // logging them. This use case is the drain boundary — its only callers
+        // are the Settings and Workout-complete ViewModels (which do not log)
+        // — so each failure is logged exactly once here. The Unit signature is
+        // kept so both ViewModels compile unchanged.
+        syncStatusPort.clearPendingSyncError().onFailure { error ->
+            if (error is CancellationException) throw error
+            loggingPort.error(
+                HEALTH_CONNECT_PREFS_TAG,
+                "Failed to set Health Connect sync error: ${error.message}",
+                error,
+            )
+        }
     }
 }

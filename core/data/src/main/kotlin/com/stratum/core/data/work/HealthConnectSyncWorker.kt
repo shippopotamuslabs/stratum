@@ -4,10 +4,12 @@ import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import com.stratum.application.healthconnect.HEALTH_CONNECT_PREFS_TAG
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.training.identity.TrainingSessionId
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import kotlin.coroutines.cancellation.CancellationException
 
 @HiltWorker
 class HealthConnectSyncWorker @AssistedInject constructor(
@@ -33,7 +35,7 @@ class HealthConnectSyncWorker @AssistedInject constructor(
                     "Health Connect sync terminal failure: ${outcome.error.message}",
                     outcome.error,
                 )
-                work.reportTerminalFailure(
+                reportStickySyncError(
                     outcome.error.message ?: "Failed to sync workout to Health Connect",
                 )
                 Result.failure()
@@ -50,12 +52,28 @@ class HealthConnectSyncWorker @AssistedInject constructor(
                         loggingPort = loggingPort,
                     )
                 if (result == Result.failure()) {
-                    work.reportTerminalFailure(
+                    reportStickySyncError(
                         outcome.error.message ?: "Failed to sync workout to Health Connect",
                     )
                 }
                 result
             }
+        }
+    }
+
+    /**
+     * Persists the sticky sync error for UI surfacing. The work layer returns
+     * the write failure as a value without logging it; this worker is the
+     * drain boundary, so each failure is logged exactly once here.
+     */
+    private suspend fun reportStickySyncError(message: String) {
+        work.reportTerminalFailure(message).onFailure { error ->
+            if (error is CancellationException) throw error
+            loggingPort.error(
+                HEALTH_CONNECT_PREFS_TAG,
+                "Failed to set Health Connect sync error: ${error.message}",
+                error,
+            )
         }
     }
 

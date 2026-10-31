@@ -710,7 +710,7 @@ class WorkoutCompleteViewModelTest {
                 observeHealthConnectSyncErrors =
                     ObserveHealthConnectSyncErrorsUseCase(healthConnectSyncStatus),
                 clearHealthConnectSyncError =
-                    ClearHealthConnectSyncErrorUseCase(healthConnectSyncStatus),
+                    ClearHealthConnectSyncErrorUseCase(healthConnectSyncStatus, logging),
             )
         return RepRangeHarness(viewModel, programRepo, repRangePrefs, sessionId)
     }
@@ -825,7 +825,7 @@ class WorkoutCompleteViewModelTest {
                 observeHealthConnectSyncErrors =
                     ObserveHealthConnectSyncErrorsUseCase(healthConnectSyncStatus),
                 clearHealthConnectSyncError =
-                    ClearHealthConnectSyncErrorUseCase(healthConnectSyncStatus),
+                    ClearHealthConnectSyncErrorUseCase(healthConnectSyncStatus, logging),
             )
         return CableHarness(viewModel, prefs, equipmentRepo, liftRepo, sessionId)
     }
@@ -944,7 +944,7 @@ class WorkoutCompleteViewModelTest {
                 observeHealthConnectSyncErrors =
                     ObserveHealthConnectSyncErrorsUseCase(healthConnectSyncStatus),
                 clearHealthConnectSyncError =
-                    ClearHealthConnectSyncErrorUseCase(healthConnectSyncStatus),
+                    ClearHealthConnectSyncErrorUseCase(healthConnectSyncStatus, logging),
             )
         return viewModel to logging
     }
@@ -1038,7 +1038,7 @@ class WorkoutCompleteViewModelTest {
             observeHealthConnectSyncErrors =
                 ObserveHealthConnectSyncErrorsUseCase(healthConnectSyncStatus),
             clearHealthConnectSyncError =
-                ClearHealthConnectSyncErrorUseCase(healthConnectSyncStatus),
+                ClearHealthConnectSyncErrorUseCase(healthConnectSyncStatus, logging),
         )
     }
 

@@ -127,8 +127,22 @@ class HealthConnectSyncWorkTest {
     @Test
     @DisplayName("reportTerminalFailure records sticky sync error for UI")
     fun reportTerminalFailurePersistsError() = runTest {
-        work.reportTerminalFailure("sync blew up")
+        val result = work.reportTerminalFailure("sync blew up")
 
+        assertTrue(result.isSuccess)
         assertEquals("sync blew up", syncStatus.currentPendingError)
+    }
+
+    @Test
+    @DisplayName("STR-263: failing sticky write returns failure as a value")
+    fun reportTerminalFailureForwardsFailure() = runTest {
+        val cause = IllegalStateException("datastore blip")
+        syncStatus.failure = cause
+
+        val result = work.reportTerminalFailure("sync blew up")
+
+        assertTrue(result.isFailure)
+        assertSame(cause, result.exceptionOrNull())
+        assertEquals(null, syncStatus.currentPendingError)
     }
 }

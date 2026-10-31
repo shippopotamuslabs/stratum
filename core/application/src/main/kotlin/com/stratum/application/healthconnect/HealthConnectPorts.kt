@@ -38,8 +38,8 @@ interface HealthConnectSchedulerPort {
 /** Port for durable sync-error surfacing to UI (sticky until cleared). */
 interface HealthConnectSyncStatusPort {
     fun observePendingSyncErrors(): Flow<String>
-    suspend fun reportSyncError(message: String)
-    suspend fun clearPendingSyncError()
+    suspend fun reportSyncError(message: String): Result<Unit>
+    suspend fun clearPendingSyncError(): Result<Unit>
 }
 
 /** Port for reading Health Connect metrics for the dashboard pager. */

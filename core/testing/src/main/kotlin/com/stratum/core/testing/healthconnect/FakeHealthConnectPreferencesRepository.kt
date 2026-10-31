@@ -8,16 +8,22 @@ import kotlinx.coroutines.flow.MutableStateFlow
 class FakeHealthConnectPreferencesRepository : HealthConnectPreferencesPort {
     private val preferences = MutableStateFlow(HealthConnectPreferences())
 
+    /** When non-null, writes fail with this error without mutating state. */
+    var setEnabledFailure: Throwable? = null
+    var setPendingSyncErrorFailure: Throwable? = null
+
     override fun observePreferences(): Flow<HealthConnectPreferences> = preferences
 
     override suspend fun getPreferences(): HealthConnectPreferences = preferences.value
 
     override suspend fun setEnabled(enabled: Boolean): Result<Unit> {
+        setEnabledFailure?.let { return Result.failure(it) }
         preferences.value = preferences.value.copy(enabled = enabled)
         return Result.success(Unit)
     }
 
     override suspend fun setPendingSyncError(message: String?): Result<Unit> {
+        setPendingSyncErrorFailure?.let { return Result.failure(it) }
         preferences.value = preferences.value.copy(pendingSyncError = message)
         return Result.success(Unit)
     }

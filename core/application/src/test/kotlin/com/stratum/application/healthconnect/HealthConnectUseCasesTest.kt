@@ -2,6 +2,8 @@ package com.stratum.application.healthconnect
 
 import com.stratum.core.testing.healthconnect.FakeHealthConnectPreferencesRepository
 import com.stratum.core.testing.healthconnect.FakeHealthConnectSyncPort
+import com.stratum.core.testing.healthconnect.FakeHealthConnectSyncStatusPort
+import com.stratum.core.testing.logging.FakeLoggingPort
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.assertThrows
@@ -18,13 +20,15 @@ class HealthConnectUseCasesTest {
 
     private lateinit var preferencesRepo: FakeHealthConnectPreferencesRepository
     private lateinit var syncPort: FakeHealthConnectSyncPort
+    private lateinit var loggingPort: FakeLoggingPort
     private lateinit var setEnabledUseCase: SetHealthConnectEnabledUseCase
 
     @BeforeEach
     fun setup() {
         preferencesRepo = FakeHealthConnectPreferencesRepository()
         syncPort = FakeHealthConnectSyncPort()
-        setEnabledUseCase = SetHealthConnectEnabledUseCase(preferencesRepo, syncPort)
+        loggingPort = FakeLoggingPort()
+        setEnabledUseCase = SetHealthConnectEnabledUseCase(preferencesRepo, syncPort, loggingPort)
     }
 
     @Test
@@ -123,5 +127,77 @@ class HealthConnectUseCasesTest {
         val result = setEnabledUseCase.grantedPermissions()
 
         assertEquals(setOf("write", "read_steps"), result.getOrThrow())
+    }
+
+    @Test
+    @DisplayName("STR-263: failing prefs write returns failure and logs exactly once")
+    fun setEnabledFailureLogsOnce() = runTest {
+        syncPort.isAvailable = true
+        val cause = IllegalStateException("datastore blip")
+        preferencesRepo.setEnabledFailure = cause
+
+        val result = setEnabledUseCase(true)
+
+        assertTrue(result.isFailure)
+        assertSame(cause, result.exceptionOrNull())
+        assertEquals(false, preferencesRepo.getPreferences().enabled)
+        assertEquals(1, loggingPort.errors.size)
+        val entry = loggingPort.errors.single()
+        assertEquals("HealthConnectPrefs", entry.tag)
+        assertTrue(entry.message.startsWith("Failed to set Health Connect enabled"))
+        assertSame(cause, entry.throwable)
+    }
+
+    @Test
+    @DisplayName("STR-263: SDK-unavailable short-circuit fails without logging")
+    fun setEnabledUnavailableShortCircuitDoesNotLog() = runTest {
+        syncPort.isAvailable = false
+
+        val result = setEnabledUseCase(true)
+
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull() is HealthConnectUnavailableException)
+        assertTrue(loggingPort.errors.isEmpty())
+    }
+
+    @Test
+    @DisplayName("STR-263: successful write logs nothing")
+    fun setEnabledSuccessDoesNotLog() = runTest {
+        syncPort.isAvailable = true
+
+        val result = setEnabledUseCase(false)
+
+        assertTrue(result.isSuccess)
+        assertTrue(loggingPort.errors.isEmpty())
+    }
+
+    @Test
+    @DisplayName("STR-263: clear failure logs exactly once with the sync-error message")
+    fun clearSyncErrorFailureLogsOnce() = runTest {
+        val syncStatus = FakeHealthConnectSyncStatusPort()
+        val clearLogging = FakeLoggingPort()
+        val clearUseCase = ClearHealthConnectSyncErrorUseCase(syncStatus, clearLogging)
+        val cause = IllegalStateException("datastore blip")
+        syncStatus.failure = cause
+
+        clearUseCase()
+
+        assertEquals(1, clearLogging.errors.size)
+        val entry = clearLogging.errors.single()
+        assertEquals("HealthConnectPrefs", entry.tag)
+        assertTrue(entry.message.startsWith("Failed to set Health Connect sync error"))
+        assertSame(cause, entry.throwable)
+    }
+
+    @Test
+    @DisplayName("STR-263: clear success logs nothing")
+    fun clearSyncErrorSuccessDoesNotLog() = runTest {
+        val syncStatus = FakeHealthConnectSyncStatusPort()
+        val clearLogging = FakeLoggingPort()
+        val clearUseCase = ClearHealthConnectSyncErrorUseCase(syncStatus, clearLogging)
+
+        clearUseCase()
+
+        assertTrue(clearLogging.errors.isEmpty())
     }
 }

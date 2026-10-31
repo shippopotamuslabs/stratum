@@ -148,10 +148,14 @@ class SettingsViewModelTest {
             setWeightDisplayUnit =
                 SetWeightDisplayUnitUseCase(fakeWeightDisplayPreferences, FakeLoggingPort()),
             setHealthConnectEnabled =
-                SetHealthConnectEnabledUseCase(fakeHealthConnectPreferences, fakeHealthConnectSync),
+                SetHealthConnectEnabledUseCase(
+                    fakeHealthConnectPreferences,
+                    fakeHealthConnectSync,
+                    FakeLoggingPort(),
+                ),
             logError = LogErrorUseCase(loggingPort),
             clearHealthConnectSyncError =
-                ClearHealthConnectSyncErrorUseCase(fakeHealthConnectSyncStatus),
+                ClearHealthConnectSyncErrorUseCase(fakeHealthConnectSyncStatus, FakeLoggingPort()),
             markCheckInPending = MarkCheckInPendingUseCase(fakeCheckInPreferences, FakeLoggingPort()),
             forceRefreshDerived = forceRefresh,
             logout = LogoutUseCase(
