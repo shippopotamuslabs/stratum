@@ -22,11 +22,9 @@ class HealthConnectSyncStatusRepository @Inject constructor(
             .mapNotNull { prefs -> prefs.pendingSyncError }
             .distinctUntilChanged()
 
-    override suspend fun reportSyncError(message: String) {
+    override suspend fun reportSyncError(message: String): Result<Unit> =
         preferencesPort.setPendingSyncError(message)
-    }
 
-    override suspend fun clearPendingSyncError() {
+    override suspend fun clearPendingSyncError(): Result<Unit> =
         preferencesPort.setPendingSyncError(null)
-    }
 }

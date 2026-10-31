@@ -58,7 +58,6 @@ class HealthConnectSyncWork @Inject constructor(
         )
     }
 
-    suspend fun reportTerminalFailure(message: String) {
+    suspend fun reportTerminalFailure(message: String): Result<Unit> =
         healthConnectSyncStatusPort.reportSyncError(message)
-    }
 }
