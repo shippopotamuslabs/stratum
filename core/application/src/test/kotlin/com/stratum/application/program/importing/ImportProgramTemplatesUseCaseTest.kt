@@ -402,27 +402,30 @@ class ImportProgramTemplatesUseCaseTest {
             FakeProgramTemplateImportPort(
                 templateJson = multiProgramJson(listOf("prog-a", "prog-b")),
             )
-        val result =
+        // Cancellation must propagate as cancellation, never as Result.failure:
+        // invoke rethrows the CancellationException instead of returning it.
+        var thrown: Throwable? = null
+        try {
             buildUseCase(failingRepo, onboardingRepo, port, testScheduler)(
                 bytes = byteArrayOf(1),
                 fileName = "p.json",
                 options = libraryOnly,
             )
-        assertTrue(result.isFailure)
-        // Never wrapped in a non-cancellation failure: the failure still surfaces
-        // as a CancellationException carrying the primary's message. Coroutine
+        } catch (cancelled: CancellationException) {
+            thrown = cancelled
+        }
+        // Never wrapped in a non-cancellation failure: invoke throws a
+        // CancellationException carrying the primary's message. Coroutine
         // machinery may normalize the rethrown instance (message-only copy) once the
         // block has suspended, so identity is not asserted — the use case rethrows
         // the caught instance as-is and re-attaches the rollback causes to whatever
         // instance surfaces.
-        val actual = result.exceptionOrNull()
+        val actual = requireNotNull(thrown) { "invoke must throw CancellationException" }
         assertFalse(actual is ProgramImportRollbackException)
         assertTrue(actual is CancellationException)
-        assertEquals("save cancelled", actual?.message)
-        assertEquals(1, actual!!.suppressed.size)
+        assertEquals("save cancelled", actual.message)
+        assertEquals(1, actual.suppressed.size)
         assertSame(failingRepo.deleteCauses.single(), actual.suppressed.single())
-        assertFalse(onboardingRepo.current.isComplete)
-        assertEquals(1, result.exceptionOrNull()!!.suppressed.size)
         assertFalse(onboardingRepo.current.isComplete)
     }
 }

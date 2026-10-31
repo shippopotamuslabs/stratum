@@ -202,6 +202,7 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
                     surfaced.addSuppressed(diagnostic.cause)
                 }
             }
+            throw surfaced
         }
         return result
     }
