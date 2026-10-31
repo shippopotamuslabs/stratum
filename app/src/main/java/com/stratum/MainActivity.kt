@@ -18,8 +18,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stratum.app.MainViewModel
 import com.stratum.app.ShellUiState
 import com.stratum.app.ui.SignInScreen
-import com.stratum.core.data.auth.SignInHostContext
-import com.stratum.core.data.subscription.BillingHostContext
+import com.stratum.core.infrastructure.auth.SignInHostContext
+import com.stratum.core.infrastructure.subscription.BillingHostContext
 import com.stratum.core.ui.component.LocalUiRenderErrorReporter
 import com.stratum.core.ui.component.UiRenderErrorReporter
 import com.stratum.core.ui.theme.StratumTheme

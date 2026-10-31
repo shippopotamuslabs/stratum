@@ -1,9 +1,9 @@
 package com.stratum.core.data.di
 
-import com.stratum.core.data.subscription.ComplimentaryAccessStore
-import com.stratum.core.data.subscription.FirestoreEntitlementDataSource
-import com.stratum.core.data.subscription.PlayBillingDataSource
-import com.stratum.core.data.subscription.SubscriptionRepositoryImpl
+import com.stratum.core.infrastructure.subscription.ComplimentaryAccessStore
+import com.stratum.core.infrastructure.subscription.FirestoreEntitlementDataSource
+import com.stratum.core.infrastructure.subscription.PlayBillingDataSource
+import com.stratum.core.infrastructure.subscription.SubscriptionRepositoryImpl
 import com.stratum.application.subscription.BillingPort
 import com.stratum.application.subscription.EntitlementRepository
 import dagger.Binds
