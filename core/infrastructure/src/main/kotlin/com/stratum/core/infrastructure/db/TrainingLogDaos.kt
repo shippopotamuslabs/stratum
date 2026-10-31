@@ -176,7 +176,7 @@ interface TrainingLoggedSetDao {
      * sessions (live program workouts **and** imported history). Intentionally does **not**
      * filter by program id — imported sessions use sentinel program `import-history`, and
      * soft-unlinked sessions may have a null program id after template delete. Ordering is
-     * applied in [com.stratum.core.data.repository.ProgressionHistoryRepository].
+     * applied in [com.stratum.core.infrastructure.repository.ProgressionHistoryRepository].
      */
     /**
      * Completed sessions only — in-progress live logs must not appear as "previous"

@@ -1,7 +1,7 @@
 package com.stratum.core.data.sync.handlers
 
 import com.stratum.core.data.sync.LocalSyncMeta
-import com.stratum.core.data.sync.SyncCollection
+import com.stratum.core.infrastructure.sync.SyncCollection
 import com.stratum.core.infrastructure.sync.SyncFlags
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals

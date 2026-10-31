@@ -6,7 +6,7 @@ import com.stratum.core.infrastructure.db.ProgramEntity
 import com.stratum.core.infrastructure.db.StratumDatabase
 import com.stratum.core.infrastructure.db.WorkoutEntity
 import com.stratum.core.infrastructure.db.WorkoutLiftEntity
-import com.stratum.core.data.sync.SyncCollection
+import com.stratum.core.infrastructure.sync.SyncCollection
 import com.stratum.core.data.sync.appliers.LiftRemoteApplier
 import com.stratum.core.data.sync.appliers.LoggedSetRemoteApplier
 import com.stratum.core.data.sync.appliers.ProgramRemoteApplier

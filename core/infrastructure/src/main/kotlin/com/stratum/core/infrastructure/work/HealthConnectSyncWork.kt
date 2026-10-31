@@ -1,0 +1,64 @@
+package com.stratum.core.infrastructure.work
+
+import com.stratum.application.healthconnect.HealthConnectPreferencesPort
+import com.stratum.application.healthconnect.HealthConnectSyncPort
+import com.stratum.application.healthconnect.HealthConnectSyncStatusPort
+import com.stratum.application.healthconnect.isTerminalHealthSyncFailure
+import com.stratum.domain.healthconnect.HealthFailureKind
+import com.stratum.application.training.TrainingLogRepository
+import com.stratum.domain.training.identity.TrainingSessionId
+import javax.inject.Inject
+
+/**
+ * Pure orchestration for Health Connect session sync. Extracted from [HealthConnectSyncWorker]
+ * so unit tests can exercise prefs gating and terminal vs retryable failures without WorkManager.
+ */
+class HealthConnectSyncWork @Inject constructor(
+    private val trainingLogRepository: TrainingLogRepository,
+    private val preferencesPort: HealthConnectPreferencesPort,
+    private val healthConnectSyncPort: HealthConnectSyncPort,
+    private val healthConnectSyncStatusPort: HealthConnectSyncStatusPort,
+) {
+    sealed interface Outcome {
+        /** User disabled sync, or write was not granted — do not write and do not error. */
+        data object SkippedDisabled : Outcome
+
+        data object Success : Outcome
+
+        /** Permanent failure; report once and do not retry. */
+        data class TerminalFailure(val error: Throwable) : Outcome
+
+        /** Transient failure; WorkManager may retry without emitting yet. */
+        data class RetryableFailure(val error: Throwable) : Outcome
+    }
+
+    suspend fun run(sessionId: TrainingSessionId): Outcome {
+        if (!preferencesPort.getPreferences().enabled) {
+            return Outcome.SkippedDisabled
+        }
+        if (!healthConnectSyncPort.hasWritePermission()) {
+            return Outcome.SkippedDisabled
+        }
+
+        val session = trainingLogRepository.getSession(sessionId)
+            ?: return Outcome.TerminalFailure(
+                IllegalStateException("Training session ${sessionId.value} not found"),
+            )
+
+        val sets = trainingLogRepository.getSetsForSession(sessionId)
+        val syncResult = healthConnectSyncPort.pushSession(session, sets)
+        return syncResult.fold(
+            onSuccess = { Outcome.Success },
+            onFailure = { error ->
+                if (error.isTerminalHealthSyncFailure()) {
+                    Outcome.TerminalFailure(error)
+                } else {
+                    Outcome.RetryableFailure(error)
+                }
+            },
+        )
+    }
+
+    suspend fun reportTerminalFailure(kind: HealthFailureKind): Result<Unit> =
+        healthConnectSyncStatusPort.reportSyncError(kind)
+}

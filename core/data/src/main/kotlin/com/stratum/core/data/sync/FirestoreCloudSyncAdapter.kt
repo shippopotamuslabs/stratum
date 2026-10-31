@@ -1,7 +1,10 @@
 package com.stratum.core.data.sync
+import com.stratum.core.infrastructure.sync.CloudSyncResidualException
+import com.stratum.core.infrastructure.sync.UserOwnedWriteCoordinator
+import com.stratum.core.infrastructure.sync.CloudSyncFeatureGate
 
-import com.stratum.core.data.work.CloudSyncNotStartedException
-import com.stratum.core.data.work.CloudSyncScheduler
+import com.stratum.core.infrastructure.work.CloudSyncNotStartedException
+import com.stratum.core.infrastructure.work.CloudSyncScheduler
 import com.stratum.domain.di.IoDispatcher
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.sync.CloudSessionState

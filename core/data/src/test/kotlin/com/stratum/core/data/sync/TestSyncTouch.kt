@@ -2,7 +2,11 @@ package com.stratum.core.data.sync
 
 import android.content.Context
 import com.stratum.core.infrastructure.db.PendingCloudDeleteDao
-import com.stratum.core.data.work.CloudSyncScheduler
+import com.stratum.core.infrastructure.sync.CloudDeleteQueue
+import com.stratum.core.infrastructure.sync.DefaultCloudSyncFeatureGate
+import com.stratum.core.infrastructure.sync.SyncTouch
+import com.stratum.core.infrastructure.sync.UserOwnedWriteCoordinator
+import com.stratum.core.infrastructure.work.CloudSyncScheduler
 
 /** Builds a no-network [SyncTouch] for Robolectric repository tests. */
 fun testSyncTouch(context: Context, pendingDao: PendingCloudDeleteDao): SyncTouch {

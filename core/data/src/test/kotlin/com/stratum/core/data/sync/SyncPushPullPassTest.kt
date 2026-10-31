@@ -1,4 +1,5 @@
 package com.stratum.core.data.sync
+import com.stratum.core.infrastructure.sync.CloudSyncResidualException
 
 import com.stratum.domain.sync.SyncStatus
 import kotlinx.coroutines.test.runTest

@@ -1,4 +1,5 @@
 package com.stratum.core.data.sync
+import com.stratum.core.infrastructure.sync.UserOwnedWriteCoordinator
 
 import android.content.Context
 import com.stratum.core.infrastructure.db.StratumDatabase

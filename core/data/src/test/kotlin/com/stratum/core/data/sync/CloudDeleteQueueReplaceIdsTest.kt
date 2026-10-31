@@ -1,4 +1,6 @@
 package com.stratum.core.data.sync
+import com.stratum.core.infrastructure.sync.CloudDeleteQueue
+import com.stratum.core.infrastructure.sync.SyncCollection
 
 import androidx.room.Room
 import com.stratum.core.infrastructure.db.StratumDatabase

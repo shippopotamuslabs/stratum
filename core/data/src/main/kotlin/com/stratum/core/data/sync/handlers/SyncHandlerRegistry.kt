@@ -1,6 +1,6 @@
 package com.stratum.core.data.sync.handlers
 
-import com.stratum.core.data.sync.SyncCollection
+import com.stratum.core.infrastructure.sync.SyncCollection
 import javax.inject.Inject
 import javax.inject.Singleton
 
