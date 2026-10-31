@@ -113,12 +113,17 @@ data class HrvSample(
     val rmssdMillis: Double,
 )
 
-/** Assembled pager pages. [visible] is false when the dashboard should keep today's chrome. */
+/**
+ * Assembled pager pages. [visible] is false when the dashboard should keep today's chrome.
+ * [diagnostics] records non-fatal degradations the load tolerated (STR-257) — empty on
+ * every hidden or fully successful load. Log-only at the boundary; never UI state.
+ */
 data class HealthMetricsPages(
     val visible: Boolean,
     val activity: ActivityMetrics = ActivityMetrics(),
     val weight: WeightMetrics = WeightMetrics(),
     val recovery: RecoveryMetrics = RecoveryMetrics(),
+    val diagnostics: List<HealthConnectDiagnostic> = emptyList(),
 ) {
     companion object {
         val Hidden: HealthMetricsPages = HealthMetricsPages(visible = false)

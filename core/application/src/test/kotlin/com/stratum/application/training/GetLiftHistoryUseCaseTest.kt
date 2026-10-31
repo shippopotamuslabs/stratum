@@ -1,6 +1,5 @@
 package com.stratum.application.training
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.domain.importing.identity.LoggedSetId
@@ -12,11 +11,15 @@ import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.training.identity.TrainingSessionId
 import java.time.Instant
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertSame
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import com.stratum.domain.training.LoggedLiftContext
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.TrainingSession
@@ -37,7 +40,7 @@ class GetLiftHistoryUseCaseTest {
             GetLiftHistoryUseCase(
                 trainingLogRepository = FakeTrainingLogRepository(),
                 programRepository = FakeProgramRepository(),
-             FakeLoggingPort())
+            )
 
         val history = useCase(liftId)
 
@@ -122,7 +125,7 @@ class GetLiftHistoryUseCaseTest {
             GetLiftHistoryUseCase(
                 trainingLogRepository = logRepo,
                 programRepository = FakeProgramRepository(program),
-             FakeLoggingPort())
+            )
 
         val history = useCase(liftId)
 
@@ -134,6 +137,56 @@ class GetLiftHistoryUseCaseTest {
         assertEquals(olderSession.id, history.sessions[1].sessionId)
         assertEquals(olderWeak.id, history.sessions[1].bestSet.id)
         assertEquals(2, history.sessions[1].sets.size)
+    }
+
+    @Test
+    @DisplayName("Given repository failure when loaded then empty history carries exact diagnostic")
+    fun repositoryFailureCarriesDiagnostic() = runTest {
+        val logRepo = FakeTrainingLogRepository()
+        val cause = IllegalStateException("boom")
+        logRepo.getPersonalRecordError = cause
+        val useCase =
+            GetLiftHistoryUseCase(
+                trainingLogRepository = logRepo,
+                programRepository = FakeProgramRepository(),
+            )
+
+        val history = useCase(liftId)
+
+        assertNull(history.personalRecord)
+        assertEquals(emptyList<LiftHistorySession>(), history.sessions)
+        assertEquals(1, history.diagnostics.size)
+        val diagnostic = history.diagnostics.single() as LiftHistoryDiagnostic.LoadFailed
+        assertEquals(liftId, diagnostic.liftId)
+        assertSame(cause, diagnostic.cause)
+    }
+
+    @Test
+    @DisplayName("Given no sets when loaded then empty history carries no diagnostic")
+    fun emptyHistoryCarriesNoDiagnostic() = runTest {
+        val useCase =
+            GetLiftHistoryUseCase(
+                trainingLogRepository = FakeTrainingLogRepository(),
+                programRepository = FakeProgramRepository(),
+            )
+
+        val history = useCase(liftId)
+
+        assertTrue(history.diagnostics.isEmpty())
+    }
+
+    @Test
+    @DisplayName("Given cancellation when loaded then propagates instead of diagnostic")
+    fun cancellationPropagates() = runTest {
+        val logRepo = FakeTrainingLogRepository()
+        logRepo.getPersonalRecordError = CancellationException("cancelled")
+        val useCase =
+            GetLiftHistoryUseCase(
+                trainingLogRepository = logRepo,
+                programRepository = FakeProgramRepository(),
+            )
+
+        assertThrows<CancellationException> { useCase(liftId) }
     }
 
     @Test
@@ -177,7 +230,6 @@ class GetLiftHistoryUseCaseTest {
             GetLiftHistoryUseCase(
                 trainingLogRepository = logRepo,
                 programRepository = FakeProgramRepository(),
-                FakeLoggingPort(),
             )
 
         val history = useCase(liftId)

@@ -27,6 +27,7 @@ import com.stratum.application.healthconnect.ObserveHealthConnectPreferencesUseC
 import com.stratum.domain.healthconnect.WeightSample
 import com.stratum.application.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.domain.lift.WeightDisplayPreferences
 import com.stratum.application.sync.ObserveCloudSyncStatusUseCase
 import com.stratum.application.sync.RequestCloudSyncUseCase
@@ -39,6 +40,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -216,12 +218,41 @@ class DashboardHealthViewModelTest {
         assertEquals(false, viewModel.isRefreshing.value)
     }
 
+    @Test
+    @DisplayName("STR-257: snapshot read failure logs one diagnostic and still publishes empty pages")
+    fun readFailureLogsDiagnosticOnceAndPublishesEmptyPages() = runTest {
+        val healthPrefs = FakeHealthConnectPreferencesRepository()
+        healthPrefs.setPreferences(HealthConnectPreferences(enabled = true))
+        val metrics = FakeHealthConnectMetricsPort()
+        metrics.granted = setOf(HealthMetricType.Steps)
+        val cause = IllegalStateException("sdk blip")
+        metrics.readSnapshotFailure = cause
+        val loggingPort = FakeLoggingPort()
+        val viewModel = buildViewModel(
+            healthConnectPreferences = healthPrefs,
+            healthConnectMetrics = metrics,
+            loggingPort = loggingPort,
+        )
+        advanceUntilIdle()
+        // Init settles its own loads; one explicit load must drain its diagnostic exactly once.
+        loggingPort.errors.clear()
+        viewModel.load()
+        advanceUntilIdle()
+
+        assertEquals(1, loggingPort.errors.size)
+        assertSame(cause, loggingPort.errors.single().throwable)
+        // The failure is log-only: empty pages still publish and carry no diagnostic in UI state.
+        assertEquals(true, viewModel.healthUiState.value.visible)
+        assertEquals(null, viewModel.healthUiState.value.activity.todayStepsText)
+    }
+
     private fun buildViewModel(
         healthConnectPreferences: FakeHealthConnectPreferencesRepository =
             FakeHealthConnectPreferencesRepository(),
         healthConnectMetrics: FakeHealthConnectMetricsPort = FakeHealthConnectMetricsPort(),
         weightDisplayPreferences: FakeWeightDisplayPreferencesRepository =
             FakeWeightDisplayPreferencesRepository(),
+        loggingPort: FakeLoggingPort = FakeLoggingPort(),
         now: Instant? = null,
     ): DashboardViewModel {
         val program = WorkoutLoggingFixtures.twoWorkoutProgram()
@@ -259,6 +290,7 @@ class DashboardHealthViewModelTest {
                 healthConnectPreferences,
             ),
             requestCloudSync = RequestCloudSyncUseCase(FakeCloudSyncPort()),
+            logError = LogErrorUseCase(loggingPort),
             zone = testZone,
             clock = { now ?: Instant.now() },
         )

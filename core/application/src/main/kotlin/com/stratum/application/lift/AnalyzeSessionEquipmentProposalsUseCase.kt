@@ -13,12 +13,11 @@ import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.screenLatticeWeights
-import com.stratum.domain.logging.LoggingPort
-import com.stratum.domain.logging.runCatchingLogged
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.domain.training.isEligibleCompletedLiveSession
 import javax.inject.Inject
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.abs
 import kotlinx.coroutines.flow.first
 import com.stratum.domain.lift.inferIncrementLattice
@@ -41,16 +40,34 @@ class AnalyzeSessionEquipmentProposalsUseCase @Inject constructor(
     private val liftRepository: LiftRepository,
     private val equipmentRepository: EquipmentRepository,
     private val preferences: EquipmentProposalPreferences,
-    private val loggingPort: LoggingPort,
 ) {
-    suspend operator fun invoke(sessionId: TrainingSessionId): EquipmentProposalAnalysis =
-        runCatchingLogged(
-            loggingPort = loggingPort,
-            tag = TAG,
-            message = "Failed to analyze session equipment proposals for ${sessionId.value}",
-        ) {
-            analyze(sessionId)
-        }.getOrElse { EquipmentProposalAnalysis() }
+    /**
+     * Analyzes the session for equipment-increment proposals. An unexpected
+     * failure degrades to an empty outcome carrying the failure as a
+     * diagnostic (STR-259) — nothing is logged below the boundary; the feature
+     * boundary drains [AnalyzeSessionEquipmentProposalsOutcome.diagnostics]
+     * exactly once. Cancellation propagates.
+     */
+    suspend operator fun invoke(sessionId: TrainingSessionId): AnalyzeSessionEquipmentProposalsOutcome =
+        try {
+            val analysis = analyze(sessionId)
+            AnalyzeSessionEquipmentProposalsOutcome(
+                proposals = analysis.proposals,
+                baselineMicroByProposalId = analysis.baselineMicroByProposalId,
+            )
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            AnalyzeSessionEquipmentProposalsOutcome(
+                diagnostics =
+                    listOf(
+                        EquipmentProposalDiagnostic.AnalysisFailed(
+                            sessionId = sessionId,
+                            cause = error,
+                        ),
+                    ),
+            )
+        }
 
     private suspend fun analyze(sessionId: TrainingSessionId): EquipmentProposalAnalysis {
         if (!preferences.isEnabled()) return EquipmentProposalAnalysis()
@@ -219,9 +236,6 @@ class AnalyzeSessionEquipmentProposalsUseCase @Inject constructor(
     private fun <T> resolveBaseline(equipmentValues: List<T>?, fallback: List<T>): List<T> =
         equipmentValues?.takeIf { it.isNotEmpty() } ?: fallback
 
-    private companion object {
-        const val TAG = "AnalyzeSessionEquipmentProposals"
-    }
 }
 
 // isEligibleCompletedLiveSession lives in training/CompletedLiveSessionEligibility.kt

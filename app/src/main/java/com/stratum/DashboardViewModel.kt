@@ -19,9 +19,11 @@ import com.stratum.application.dashboard.SetDashboardBoardTabUseCase
 import com.stratum.domain.dashboard.TrendPoint
 import com.stratum.domain.dashboard.olsSlope
 import com.stratum.domain.dashboard.slopeToDirection
+import com.stratum.domain.healthconnect.HealthConnectDiagnostic
 import com.stratum.domain.healthconnect.HealthMetricsPages
 import com.stratum.application.healthconnect.LoadHealthConnectMetricsUseCase
 import com.stratum.application.healthconnect.ObserveHealthConnectPreferencesUseCase
+import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.application.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.WeightConversion
@@ -54,6 +56,7 @@ class DashboardViewModel(
     observeHealthConnectPreferences: ObserveHealthConnectPreferencesUseCase,
     private val loadHealthConnectMetrics: LoadHealthConnectMetricsUseCase,
     private val requestCloudSync: RequestCloudSyncUseCase,
+    private val logError: LogErrorUseCase,
     /**
      * Device calendar zone for 7-Day buckets + labels. Captured once so load and presentation
      * cannot drift. Unit tests pass a fixed zone via the primary constructor.
@@ -77,6 +80,7 @@ class DashboardViewModel(
         observeHealthConnectPreferences: ObserveHealthConnectPreferencesUseCase,
         loadHealthConnectMetrics: LoadHealthConnectMetricsUseCase,
         requestCloudSync: RequestCloudSyncUseCase,
+        logError: LogErrorUseCase,
     ) : this(
         loadDashboard,
         loadGraphDetail,
@@ -87,6 +91,7 @@ class DashboardViewModel(
         observeHealthConnectPreferences,
         loadHealthConnectMetrics,
         requestCloudSync,
+        logError,
         ZoneId.systemDefault(),
         Instant::now,
     )
@@ -275,8 +280,28 @@ class DashboardViewModel(
         healthJob = viewModelScope.launch {
             val pages = loadHealthConnectMetrics(zone = zone, now = clock())
             if (!healthEnabled.value) return@launch
+            logHealthDiagnostics(pages.diagnostics)
             lastHealthPages = pages
             publishHealth(pages)
+        }
+    }
+
+    /**
+     * STR-257: reports each metrics-load diagnostic exactly once through the screen's
+     * error-logging wiring. Diagnostics are log-only — never surfaced in the UI. Error
+     * level (not warning) so the bound failure travels attached: `LoggingPort.warning`
+     * carries no throwable and ViewModels must not inject `LoggingPort` directly.
+     */
+    internal fun logHealthDiagnostics(diagnostics: List<HealthConnectDiagnostic>) {
+        for (diagnostic in diagnostics) {
+            when (diagnostic) {
+                is HealthConnectDiagnostic.SnapshotReadFailed ->
+                    logError(
+                        TAG,
+                        "Health Connect snapshot read failed — dashboard shows empty metrics.",
+                        diagnostic.cause,
+                    )
+            }
         }
     }
 
@@ -358,6 +383,10 @@ class DashboardViewModel(
             now = clock(),
             displayUnit = displayUnit.value,
         )
+    }
+
+    private companion object {
+        const val TAG = "DashboardViewModel"
     }
 }
 

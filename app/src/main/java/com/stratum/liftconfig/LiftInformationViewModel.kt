@@ -24,6 +24,8 @@ import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.application.training.GetLiftHistoryUseCase
 import com.stratum.application.training.LiftHistory
+import com.stratum.application.training.LiftHistoryDiagnostic
+import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.domain.training.LoggedSet
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Instant
@@ -108,6 +110,7 @@ class LiftInformationViewModel @Inject constructor(
     private val setLiftDefaultRest: SetLiftDefaultRestUseCase,
     private val setLiftEquipment: SetLiftEquipmentUseCase,
     private val getLiftHistory: GetLiftHistoryUseCase,
+    private val logError: LogErrorUseCase,
     private val equipmentPickResult: EquipmentPickResult,
 ) : ViewModel() {
 
@@ -217,8 +220,11 @@ class LiftInformationViewModel @Inject constructor(
         draftMovementPatterns.value = emptySet()
         restDraftSeconds.value = DEFAULT_STANDARD_REST_DISPLAY
         viewModelScope.launch {
-            history.value = getLiftHistory(LiftId(id))
-            // getLiftHistory logs failures and returns empty; no UI toast required.
+            val outcome = getLiftHistory(LiftId(id))
+            // Degraded loads ride the failure as diagnostics, drained once here;
+            // no UI toast required.
+            logHistoryDiagnostics(outcome.diagnostics)
+            history.value = outcome
         }
     }
 
@@ -567,7 +573,29 @@ class LiftInformationViewModel @Inject constructor(
     private fun formatDate(instant: Instant): String =
         DATE_FORMAT.format(instant.atZone(ZoneId.systemDefault()))
 
+    /**
+     * STR-259: reports each history diagnostic exactly once through the screen's
+     * existing error-logging wiring. Diagnostics are log-only — never surfaced in
+     * the UI. Error level (not warning) so the bound failure travels attached,
+     * mirroring the STR-255 drain shape: `LoggingPort.warning` carries no
+     * throwable and ViewModels must not inject `LoggingPort` directly.
+     */
+    internal fun logHistoryDiagnostics(diagnostics: List<LiftHistoryDiagnostic>) {
+        for (diagnostic in diagnostics) {
+            when (diagnostic) {
+                is LiftHistoryDiagnostic.LoadFailed ->
+                    logError(
+                        TAG,
+                        "Lift history failed to load for ${diagnostic.liftId.value} " +
+                            "— showing empty history.",
+                        diagnostic.cause,
+                    )
+            }
+        }
+    }
+
     private companion object {
+        const val TAG = "LiftInformationViewModel"
         val DATE_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy")
         const val DEFAULT_STANDARD_REST_DISPLAY = 120
         const val MSG_SAVE_FAILED = "Couldn't save lift changes. Try again."

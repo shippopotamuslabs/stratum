@@ -6,8 +6,6 @@ import com.stratum.domain.importing.LiftTrainingInsights
 import com.stratum.application.importing.LiftTrainingInsightsRepository
 import com.stratum.application.lift.LiftRepository
 import com.stratum.domain.lift.identity.LiftId
-import com.stratum.domain.logging.LoggingPort
-import com.stratum.domain.logging.runCatchingLogged
 import com.stratum.domain.program.Program
 import com.stratum.application.program.ProgramRepository
 import com.stratum.domain.program.ProgressionRepRangePolicy
@@ -23,6 +21,7 @@ import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.domain.training.isEligibleCompletedLiveSession
 import com.stratum.domain.workout.fatigue.LAST_SET_REP_FLOOR
 import javax.inject.Inject
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.first
 import com.stratum.domain.workout.RepRangeShiftInput
 import com.stratum.domain.workout.RepRangeShiftProposal
@@ -42,7 +41,7 @@ import com.stratum.domain.workout.MAX_SESSION_REP_RANGE_SHIFT_PROPOSALS
  * reps so strong sessions stay quiet.
  *
  * Only lifts with a stamped [com.stratum.domain.training.LoggedLiftContext.workoutLiftId]
- * are considered (no ambiguous catalog-id first-match). Failures log and return empty.
+ * are considered (no ambiguous catalog-id first-match).
  */
 class AnalyzeSessionRepRangeShiftProposalsUseCase @Inject constructor(
     private val trainingLogRepository: TrainingLogRepository,
@@ -51,16 +50,30 @@ class AnalyzeSessionRepRangeShiftProposalsUseCase @Inject constructor(
     private val liftRepository: LiftRepository,
     private val preferences: RepRangeShiftProposalPreferences,
     private val extractTrainingInsights: ExtractTrainingInsightsUseCase,
-    private val loggingPort: LoggingPort,
 ) {
-    suspend operator fun invoke(sessionId: TrainingSessionId): List<RepRangeShiftProposal> =
-        runCatchingLogged(
-            loggingPort = loggingPort,
-            tag = TAG,
-            message = "Failed to analyze session rep-range shift proposals for ${sessionId.value}",
-        ) {
-            analyze(sessionId)
-        }.getOrElse { emptyList() }
+    /**
+     * Analyzes the session for rep-range shift proposals. An unexpected failure
+     * degrades to an empty outcome carrying the failure as a diagnostic (STR-259)
+     * — nothing is logged below the boundary; the feature boundary drains
+     * [AnalyzeSessionRepRangeShiftProposalsOutcome.diagnostics] exactly once.
+     * Cancellation propagates.
+     */
+    suspend operator fun invoke(sessionId: TrainingSessionId): AnalyzeSessionRepRangeShiftProposalsOutcome =
+        try {
+            AnalyzeSessionRepRangeShiftProposalsOutcome(proposals = analyze(sessionId))
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            AnalyzeSessionRepRangeShiftProposalsOutcome(
+                diagnostics =
+                    listOf(
+                        RepRangeShiftDiagnostic.AnalysisFailed(
+                            sessionId = sessionId,
+                            cause = error,
+                        ),
+                    ),
+            )
+        }
 
     private suspend fun analyze(sessionId: TrainingSessionId): List<RepRangeShiftProposal> {
         if (!preferences.isEnabled()) {
@@ -222,7 +235,4 @@ class AnalyzeSessionRepRangeShiftProposalsUseCase @Inject constructor(
         return ProgressionRepRangePolicy.resolveSharedBand(specs)
     }
 
-    private companion object {
-        const val TAG = "AnalyzeSessionRepRangeShift"
-    }
 }
