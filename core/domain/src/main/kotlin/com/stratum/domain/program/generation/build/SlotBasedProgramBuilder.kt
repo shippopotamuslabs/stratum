@@ -8,6 +8,7 @@ import com.stratum.domain.program.generation.draft.ProgramWorkoutDraft
 import com.stratum.domain.program.generation.prescription.SessionSlotPlan
 import com.stratum.domain.program.generation.prescription.SynthesisObjectiveBreakdown
 import com.stratum.domain.program.generation.selection.LiftSelectionState
+import com.stratum.domain.program.generation.slots.SlotGenerationDiagnostic
 import com.stratum.domain.program.generation.selection.SelectedSlotLift
 import com.stratum.domain.program.generation.selection.selectLiftForSlot
 import com.stratum.domain.program.generation.synthesis.PLACEHOLDER_PROGRAM_NAME
@@ -32,6 +33,8 @@ data class BuildProgramResult(
     val selectionsBySession: List<List<SelectedSlotLift>>,
     val cycleSlotIndexByPosition: List<Int>,
     val synthesisObjective: SynthesisObjectiveBreakdown,
+    /** Slot-build diagnostics carried from synthesis (STR-254); drained once by the pipeline. */
+    val diagnostics: List<SlotGenerationDiagnostic> = emptyList(),
 )
 
 suspend fun buildProgramWithSelections(
@@ -110,5 +113,6 @@ suspend fun buildProgramWithSelections(
         selectionsBySession = selectionsBySession,
         cycleSlotIndexByPosition = synthesis.cycleSlotIndexByPosition,
         synthesisObjective = synthesis.objective,
+        diagnostics = synthesis.diagnostics,
     )
 }

@@ -19,6 +19,7 @@ import com.stratum.domain.program.generation.slots.MuscleLengthBiasPreference
 import com.stratum.domain.program.generation.split.ResolvedSessionPlan
 import com.stratum.domain.program.generation.slots.SessionComposition
 import com.stratum.domain.program.generation.slots.SessionTypeId
+import com.stratum.domain.program.generation.slots.SlotGenerationDiagnostic
 import com.stratum.domain.program.generation.slots.SiblingVariant
 import com.stratum.domain.program.generation.slots.SlotRole
 import com.stratum.domain.program.generation.slots.WorkoutSlotTemplate
@@ -167,6 +168,61 @@ private fun decodeFatigueProfileSet(value: JsonValue?): Set<FatigueProfile>? {
         arr.values.mapNotNull { decodeFatigueProfileOrNull(it.asStringOrNull()) }.toSet()
     return profiles.ifEmpty { null }
 }
+
+/**
+ * Slot-build diagnostics (STR-254). The key is optional on decode — pre-diagnostics cloud
+ * results carry no entry and decode to empty — and unknown future kinds are dropped rather
+ * than failing the whole result (same rolling-deploy philosophy as region filters).
+ */
+internal fun encodeSlotDiagnostic(diagnostic: SlotGenerationDiagnostic): String =
+    when (diagnostic) {
+        is SlotGenerationDiagnostic.CrossDomainTouchSkipped ->
+            jsonObject(
+                "kind" to jsonString("CrossDomainTouchSkipped"),
+                "patternName" to jsonString(diagnostic.patternName),
+                "muscle" to jsonString(diagnostic.muscle.name),
+            )
+        is SlotGenerationDiagnostic.SpecFocusSlotSkipped ->
+            jsonObject(
+                "kind" to jsonString("SpecFocusSlotSkipped"),
+                "patternName" to jsonString(diagnostic.patternName),
+                "muscle" to jsonString(diagnostic.muscle.name),
+            )
+        is SlotGenerationDiagnostic.SpecFocusMuscleUnrecognized ->
+            jsonObject(
+                "kind" to jsonString("SpecFocusMuscleUnrecognized"),
+                "muscleName" to jsonString(diagnostic.muscleName),
+                "patternName" to jsonString(diagnostic.patternName),
+            )
+    }
+
+internal fun decodeSlotDiagnostics(value: JsonValue?): List<SlotGenerationDiagnostic> {
+    if (value == null || value.isNull()) return emptyList()
+    val arr = value.asArrayOrNull() ?: return emptyList()
+    return arr.values.mapNotNull {
+        runCatching { decodeSlotDiagnosticOrNull(it.requireAsObject("diagnostic")) }.getOrNull()
+    }
+}
+
+private fun decodeSlotDiagnosticOrNull(obj: JsonObject): SlotGenerationDiagnostic? =
+    when (obj.requireString("kind")) {
+        "CrossDomainTouchSkipped" ->
+            SlotGenerationDiagnostic.CrossDomainTouchSkipped(
+                patternName = obj.requireString("patternName"),
+                muscle = enumValueOf(obj.requireString("muscle")),
+            )
+        "SpecFocusSlotSkipped" ->
+            SlotGenerationDiagnostic.SpecFocusSlotSkipped(
+                patternName = obj.requireString("patternName"),
+                muscle = enumValueOf(obj.requireString("muscle")),
+            )
+        "SpecFocusMuscleUnrecognized" ->
+            SlotGenerationDiagnostic.SpecFocusMuscleUnrecognized(
+                muscleName = obj.requireString("muscleName"),
+                patternName = obj.requireString("patternName"),
+            )
+        else -> null
+    }
 
 internal fun encodeObjective(objective: SynthesisObjectiveBreakdown): String =
     jsonObject(

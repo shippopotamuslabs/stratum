@@ -7,6 +7,7 @@ import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.SpecializationLevel
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.selection.candidatesForSlot
+import com.stratum.domain.program.generation.slots.SlotGenerationDiagnostic
 import com.stratum.domain.program.generation.slots.SlotRole
 import com.stratum.domain.program.generation.slots.WorkoutSlotTemplate
 import com.stratum.domain.program.generation.slots.baseSlotLibrary
@@ -38,6 +39,7 @@ private const val MAX_UNIVERSE_SLOTS = 80
 fun buildSlotUniverse(
     context: ProgramGenerationContext,
     weeklyTargets: WeeklyVolumeTargets,
+    diagnostics: MutableList<SlotGenerationDiagnostic>? = null,
 ): List<SynthesisSlot> {
     val priorityMuscles =
         context.specialization
@@ -54,7 +56,7 @@ fun buildSlotUniverse(
 
     val base = baseSlotLibrary()
     val withVariants = specializedVariants(base, context)
-    val touches = crossDomainTouches(context)
+    val touches = crossDomainTouches(context, diagnostics)
 
     val raw = linkedMapOf<String, WorkoutSlotTemplate>()
     for (slot in withVariants + touches) {

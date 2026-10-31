@@ -23,6 +23,7 @@ import com.stratum.domain.program.generation.slots.SessionComposition
 import com.stratum.domain.program.generation.slots.SessionTypeId
 import com.stratum.domain.program.generation.slots.SiblingVariant
 import com.stratum.domain.program.generation.slots.SlotRole
+import com.stratum.domain.program.generation.slots.SlotGenerationDiagnostic
 import com.stratum.domain.program.generation.slots.WorkoutSlotTemplate
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisResult
 import com.stratum.domain.program.generation.structure.SessionRegionFilter
@@ -92,6 +93,96 @@ class ProgramSynthesisWireTest {
         assertEquals(result.objective, decoded.objective)
         assertEquals(result.activeSlotIdsBySession, decoded.activeSlotIdsBySession)
         assertEquals(result.regionFilterBySession, decoded.regionFilterBySession)
+    }
+
+    @Test
+    fun `result round-trip preserves slot diagnostics`() {
+        val result =
+            minimalResult().copy(
+                diagnostics =
+                    listOf(
+                        SlotGenerationDiagnostic.CrossDomainTouchSkipped("NotAPattern", MuscleGroup.Bicep),
+                        SlotGenerationDiagnostic.SpecFocusSlotSkipped("AlsoNotAPattern", MuscleGroup.Chest),
+                        SlotGenerationDiagnostic.SpecFocusMuscleUnrecognized(
+                            "NotAMuscle",
+                            "ElbowFlexion",
+                        ),
+                    ),
+            )
+
+        val encoded = ProgramSynthesisWire.encodeResult(result)
+        val decoded = ProgramSynthesisWire.decodeResult(encoded)
+
+        assertEquals(result.diagnostics, decoded.diagnostics)
+    }
+
+    @Test
+    fun `decodeResult without diagnostics defaults to empty`() {
+        val encoded = ProgramSynthesisWire.encodeResult(minimalResult())
+        // Strip the new field to simulate a pre-diagnostics cloud result.
+        val legacyJson =
+            encoded.replace(
+                Regex(""",\s*"diagnostics"\s*:\s*\[[^\]]*\]"""),
+                "",
+            )
+        assertTrue(!legacyJson.contains("diagnostics"), "precondition: field stripped")
+
+        val decoded = ProgramSynthesisWire.decodeResult(legacyJson)
+
+        assertTrue(decoded.diagnostics.isEmpty())
+        assertEquals(minimalResult().sessions, decoded.sessions)
+    }
+
+    @Test
+    fun `decodeResult drops unknown diagnostic kinds`() {
+        val encoded = ProgramSynthesisWire.encodeResult(minimalResult())
+        val withUnknown =
+            encoded.replace(
+                "\"diagnostics\":[]",
+                "\"diagnostics\":[{\"kind\":\"FutureKind\",\"patternName\":\"X\"}]",
+            )
+        assertTrue(withUnknown.contains("FutureKind"), "precondition: unknown kind injected")
+
+        val decoded = ProgramSynthesisWire.decodeResult(withUnknown)
+
+        assertTrue(decoded.diagnostics.isEmpty())
+    }
+
+    @Test
+    fun `decodeResult drops malformed diagnostic entries but keeps valid ones`() {
+        val encoded = ProgramSynthesisWire.encodeResult(minimalResult())
+        val withMixed =
+            encoded.replace(
+                "\"diagnostics\":[]",
+                "\"diagnostics\":[" +
+                    "{\"kind\":\"CrossDomainTouchSkipped\",\"patternName\":\"X\",\"muscle\":\"Chest\"}," +
+                    "{\"kind\":\"CrossDomainTouchSkipped\",\"patternName\":\"X\",\"muscle\":\"NotAMuscle\"}," +
+                    "\"not-an-object\"," +
+                    "{\"kind\":\"FutureKind\",\"patternName\":\"X\"}" +
+                    "]",
+            )
+        assertTrue(withMixed.contains("NotAMuscle"), "precondition: malformed entry injected")
+
+        val decoded = ProgramSynthesisWire.decodeResult(withMixed)
+
+        assertEquals(
+            listOf(
+                SlotGenerationDiagnostic.CrossDomainTouchSkipped("X", MuscleGroup.Chest),
+            ),
+            decoded.diagnostics,
+        )
+        assertEquals(minimalResult().sessions, decoded.sessions)
+    }
+
+    @Test
+    fun `decodeResult with non-array diagnostics decodes to empty`() {
+        val encoded = ProgramSynthesisWire.encodeResult(minimalResult())
+        val withNonArray = encoded.replace("\"diagnostics\":[]", "\"diagnostics\":\"oops\"")
+
+        val decoded = ProgramSynthesisWire.decodeResult(withNonArray)
+
+        assertTrue(decoded.diagnostics.isEmpty())
+        assertEquals(minimalResult().sessions, decoded.sessions)
     }
 
     @Test

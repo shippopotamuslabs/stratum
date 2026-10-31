@@ -2,7 +2,6 @@
 
 package com.stratum.domain.program.generation.slots
 
-import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.SpecializationLevel
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
@@ -42,6 +41,7 @@ internal fun injectCrossDomainTouchSlots(
     context: ProgramGenerationContext,
     sessionPosition: Int? = null,
     composition: SessionComposition? = null,
+    diagnostics: MutableList<SlotGenerationDiagnostic>? = null,
 ) {
     injectCrossDomainTouchSlots(
         slots = slots,
@@ -50,6 +50,7 @@ internal fun injectCrossDomainTouchSlots(
         sessionPosition = sessionPosition,
         composition = composition,
         touchSlotId = { muscle -> "touch-${muscle.name.lowercase()}-${sessionType.name.lowercase()}" },
+        diagnostics = diagnostics,
     )
 }
 
@@ -64,6 +65,7 @@ internal fun injectCrossDomainTouchSlots(
     sessionPosition: Int? = null,
     composition: SessionComposition? = null,
     touchSlotId: (MuscleGroup) -> String = { muscle -> "touch-${muscle.name.lowercase()}" },
+    diagnostics: MutableList<SlotGenerationDiagnostic>? = null,
 ) {
     val sessionPrimaries = slots.map { it.primaryMuscle }.toSet()
     val patternsByMuscle = availablePatternsByMuscle(context)
@@ -81,19 +83,19 @@ internal fun injectCrossDomainTouchSlots(
         if (touchCount >= touchBudget) break
         if (slots.any { it.isCrossDomainTouch && it.primaryMuscle == muscle }) continue
 
-        val pattern = resolveTouchPattern(muscle.name, patternsByMuscle) ?: continue
+        val patternName = resolveTouchPattern(muscle.name, patternsByMuscle) ?: continue
         val slotId = touchSlotId(muscle)
         if (slots.any { it.slotId == slotId }) continue
 
         val touchSlot = WorkoutSlotTemplate(
             slotId = slotId,
             role = SlotRole.Accessory,
-            pattern = runCatching { MovementPattern.valueOf(pattern) }.getOrNull() ?: continue,
+            pattern = diagnostics.parseTouchPatternOrRecord(patternName, muscle) ?: continue,
             primaryMuscle = muscle,
             repProfile = RpRepProfile.Isolation,
             isCrossDomainTouch = true,
         )
-        val insertAt = touchSlotInsertIndex(slots, muscle.name, pattern)
+        val insertAt = touchSlotInsertIndex(slots, muscle.name, patternName)
         slots.add(insertAt, touchSlot)
         touchCount++
     }
@@ -109,6 +111,7 @@ internal fun injectCrossDomainTouchSlots(
  */
 internal fun crossDomainTouches(
     context: ProgramGenerationContext,
+    diagnostics: MutableList<SlotGenerationDiagnostic>? = null,
 ): List<WorkoutSlotTemplate> {
     // Shells mirror the five former source catalogs + compositions used by buildSlotUniverse.
     data class DomainShell(
@@ -138,6 +141,7 @@ internal fun crossDomainTouches(
             sessionPosition = shell.sessionPosition,
             composition = shell.composition,
             touchSlotId = { muscle -> "touch-${muscle.name.lowercase()}" },
+            diagnostics = diagnostics,
         )
         for (slot in shellSlots) {
             if (!slot.isCrossDomainTouch) continue
