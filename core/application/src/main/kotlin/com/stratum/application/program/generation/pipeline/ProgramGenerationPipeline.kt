@@ -66,6 +66,9 @@ open class ProgramGenerationPipeline @Inject constructor(
                 },
             )
         telemetryLogger.logSynthesisComplete(context, buildResult)
+        // STR-254: drain slot-build diagnostics exactly once per generation through the
+        // pipeline's existing logging wiring. Diagnostics never reach the UI.
+        telemetryLogger.logGenerationDiagnostics(buildResult.diagnostics)
 
         val draft =
             ProgramDraft(

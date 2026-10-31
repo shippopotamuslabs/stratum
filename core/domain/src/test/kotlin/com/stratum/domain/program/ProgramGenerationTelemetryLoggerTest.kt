@@ -1,10 +1,14 @@
 package com.stratum.domain.program
 
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.program.scenarioContext
 import com.stratum.domain.logging.LoggingPort
+import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.generation.build.BuildProgramResult
 import com.stratum.domain.program.generation.build.BuiltProgram
 import com.stratum.domain.program.generation.prescription.SynthesisObjectiveBreakdown
+import com.stratum.domain.program.generation.slots.SlotGenerationDiagnostic
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -47,6 +51,42 @@ class ProgramGenerationTelemetryLoggerTest {
                     message.contains("objectiveTotal=42")
             },
         )
+    }
+
+    @Test
+    @DisplayName("Given slot diagnostics when drained then each logs exactly one warning")
+    fun `drains each slot diagnostic exactly once at warning level`() {
+        val loggingPort = FakeLoggingPort()
+        val logger = ProgramGenerationTelemetryLogger(loggingPort)
+        val diagnostics =
+            listOf(
+                SlotGenerationDiagnostic.CrossDomainTouchSkipped("NotAPattern", MuscleGroup.Bicep),
+                SlotGenerationDiagnostic.SpecFocusMuscleUnrecognized("NotAMuscle", "ElbowFlexion"),
+            )
+
+        logger.logGenerationDiagnostics(diagnostics)
+
+        assertEquals(diagnostics.size, loggingPort.warnings.size)
+        assertTrue(
+            loggingPort.warnings[0].message.contains("NotAPattern") &&
+                loggingPort.warnings[0].message.contains("Bicep"),
+        )
+        assertTrue(
+            loggingPort.warnings[1].message.contains("NotAMuscle") &&
+                loggingPort.warnings[1].message.contains("ElbowFlexion"),
+        )
+    }
+
+    @Test
+    @DisplayName("Given no slot diagnostics when drained then nothing is logged")
+    fun `drains nothing when diagnostics are empty`() {
+        val loggingPort = FakeLoggingPort()
+        val logger = ProgramGenerationTelemetryLogger(loggingPort)
+
+        logger.logGenerationDiagnostics(emptyList())
+
+        assertTrue(loggingPort.warnings.isEmpty())
+        assertTrue(loggingPort.errors.isEmpty())
     }
 
     private class RecordingLoggingPort : LoggingPort {

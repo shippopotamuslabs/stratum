@@ -303,6 +303,7 @@ fun slotsForSessionType(
     siblingIndex: Int = 0,
     sessionPosition: Int? = null,
     composition: SessionComposition? = null,
+    diagnostics: MutableList<SlotGenerationDiagnostic>? = null,
 ): List<WorkoutSlotTemplate> {
     val base = when {
         sessionType == SessionTypeId.FullBody && siblingIndex % 2 == 1 ->
@@ -314,10 +315,10 @@ fun slotsForSessionType(
 
     promoteSpecializedSlots(base, context)
     when (composition) {
-        SessionComposition.UpperSpecFocused -> applySpecFocusedUpperSlots(base, context)
+        SessionComposition.UpperSpecFocused -> applySpecFocusedUpperSlots(base, context, diagnostics)
         else -> injectSpecializedVariantSlots(base, context)
     }
-    injectCrossDomainTouchSlots(sessionType, base, context, sessionPosition, composition)
+    injectCrossDomainTouchSlots(sessionType, base, context, sessionPosition, composition, diagnostics)
     return base
 }
 
