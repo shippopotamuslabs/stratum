@@ -1,11 +1,12 @@
 package com.stratum.core.data.healthconnect
 
 import androidx.health.connect.client.records.SleepSessionRecord
-import com.stratum.domain.healthconnect.SleepStageType
+import com.stratum.domain.health.SleepStageType
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -38,18 +39,16 @@ class HealthConnectMetricsMapperTest {
                 HealthConnectMetricsMapper.sleepStageType(SleepSessionRecord.STAGE_TYPE_REM),
             )
             assertEquals(
-                SleepStageType.Sleeping,
-                HealthConnectMetricsMapper.sleepStageType(SleepSessionRecord.STAGE_TYPE_SLEEPING),
-            )
-            assertEquals(
-                SleepStageType.OutOfBed,
+                SleepStageType.Awake,
                 HealthConnectMetricsMapper.sleepStageType(SleepSessionRecord.STAGE_TYPE_OUT_OF_BED),
             )
-            assertEquals(
-                SleepStageType.Unknown,
+            assertNull(
+                HealthConnectMetricsMapper.sleepStageType(SleepSessionRecord.STAGE_TYPE_SLEEPING),
+            )
+            assertNull(
                 HealthConnectMetricsMapper.sleepStageType(SleepSessionRecord.STAGE_TYPE_UNKNOWN),
             )
-            assertEquals(SleepStageType.Unknown, HealthConnectMetricsMapper.sleepStageType(99))
+            assertNull(HealthConnectMetricsMapper.sleepStageType(99))
         }
     }
 
@@ -103,7 +102,7 @@ class HealthConnectMetricsMapperTest {
             HealthConnectRequestedPermissions.writeExercise,
         )
         assertEquals(
-            setOf(com.stratum.domain.healthconnect.HealthMetricType.Steps),
+            setOf(com.stratum.domain.health.HealthMetricType.Steps),
             HealthConnectRequestedPermissions.grantedTypes(granted),
         )
     }

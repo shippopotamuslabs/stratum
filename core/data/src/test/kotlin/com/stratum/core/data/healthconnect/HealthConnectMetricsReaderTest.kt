@@ -13,8 +13,8 @@ import androidx.health.connect.client.request.AggregateGroupByPeriodRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.response.ReadRecordsResponse
 import com.stratum.core.testing.logging.FakeLoggingPort
-import com.stratum.domain.healthconnect.HealthMetricType
-import com.stratum.domain.healthconnect.HealthMetricsRequest
+import com.stratum.domain.health.HealthMetricType
+import com.stratum.domain.health.HealthMetricsRequest
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk

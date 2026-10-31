@@ -1,5 +1,6 @@
-package com.stratum.domain.healthconnect
+package com.stratum.domain.health
 
+import com.stratum.domain.healthconnect.HealthConnectDiagnostic
 import com.stratum.domain.lift.Weight
 import java.time.Duration
 import java.time.Instant
@@ -7,7 +8,7 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 
-/** Health Connect record types the dashboard may read. */
+/** Metric kinds the dashboard may read. */
 enum class HealthMetricType {
     Steps,
     Weight,
@@ -51,7 +52,7 @@ data class HealthMetricsRequest(
     val localWindowEnd: LocalDateTime = today.plusDays(1).atStartOfDay()
 }
 
-/** Raw Health Connect samples for one dashboard load. No Android types. */
+/** Raw samples for one dashboard load. No Android types. */
 data class HealthMetricsSnapshot(
     val grantedTypes: Set<HealthMetricType> = emptySet(),
     val dailySteps: List<DailyStepCount> = emptyList(),
@@ -98,9 +99,6 @@ enum class SleepStageType {
     Light,
     Deep,
     Rem,
-    Sleeping,
-    OutOfBed,
-    Unknown,
 }
 
 data class HeartRateSample(
@@ -202,10 +200,9 @@ data class SleepZones(
 
     /**
      * Time asleep within a sleep-session [span] that produced these zones: the span
-     * minus awake time (STR-264). The awake bucket folds in out-of-bed time, so both
-     * come out. Generic Sleeping/Unknown stage time and unstaged gaps inside the span
-     * stay counted — a sleep session's non-awake time is sleep. Clamped at zero: stage
-     * data claiming more awake time than the span can never make a night negative.
+     * minus awake time (STR-264). Unstaged gaps inside the span stay counted as
+     * sleep. Clamped at zero: stage data claiming more awake time than the span
+     * can never make a night negative.
      */
     fun asleepWithin(span: Duration): Duration {
         val asleep = span - awake

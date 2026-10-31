@@ -1,4 +1,4 @@
-package com.stratum.domain.healthconnect
+package com.stratum.domain.health
 
 import java.time.Duration
 import java.time.Instant

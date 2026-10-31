@@ -5,9 +5,9 @@ import com.stratum.domain.training.TrainingSession
 import com.stratum.domain.training.identity.TrainingSessionId
 import kotlinx.coroutines.flow.Flow
 import com.stratum.domain.healthconnect.HealthConnectPreferences
-import com.stratum.domain.healthconnect.HealthMetricType
-import com.stratum.domain.healthconnect.HealthMetricsRequest
-import com.stratum.domain.healthconnect.HealthMetricsSnapshot
+import com.stratum.domain.health.HealthMetricType
+import com.stratum.domain.health.HealthMetricsRequest
+import com.stratum.domain.health.HealthMetricsSnapshot
 
 /** Port for reading and persisting Health Connect integration preferences. */
 interface HealthConnectPreferencesPort {
