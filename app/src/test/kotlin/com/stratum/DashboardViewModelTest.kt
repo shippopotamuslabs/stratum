@@ -30,6 +30,7 @@ import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.response.TrainingSignalQualityFlag
 import com.stratum.domain.response.modeling.LiftWeeklyPerformance
@@ -651,6 +652,7 @@ class DashboardViewModelTest {
         healthConnectPreferences: FakeHealthConnectPreferencesRepository =
             FakeHealthConnectPreferencesRepository(),
         healthConnectMetrics: FakeHealthConnectMetricsPort = FakeHealthConnectMetricsPort(),
+        loggingPort: FakeLoggingPort = FakeLoggingPort(),
         zone: ZoneId = testZone,
         now: Instant? = null,
     ): DashboardViewModel {
@@ -709,6 +711,7 @@ class DashboardViewModelTest {
                 healthConnectPreferences,
             ),
             requestCloudSync = RequestCloudSyncUseCase(cloudSync),
+            logError = LogErrorUseCase(loggingPort),
             zone = zone,
             clock = { now ?: Instant.now() },
         )
