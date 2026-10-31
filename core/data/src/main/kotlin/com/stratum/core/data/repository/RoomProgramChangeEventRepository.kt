@@ -1,10 +1,10 @@
 package com.stratum.core.data.repository
 
-import android.util.Log
 import com.stratum.core.data.db.ProgramChangeEventDao
 import com.stratum.core.data.mapper.toDomain
 import com.stratum.core.data.mapper.toEntity
 import com.stratum.core.data.sync.SyncTouch
+import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.training.ProgramChangeEvent
 import com.stratum.application.training.ProgramChangeEventRepository
@@ -16,6 +16,7 @@ import javax.inject.Singleton
 class RoomProgramChangeEventRepository @Inject constructor(
     private val dao: ProgramChangeEventDao,
     private val syncTouch: SyncTouch,
+    private val loggingPort: LoggingPort,
 ) : ProgramChangeEventRepository {
     override suspend fun append(event: ProgramChangeEvent) {
         syncTouch.withWriteLock {
@@ -32,7 +33,7 @@ class RoomProgramChangeEventRepository @Inject constructor(
             // rows are logged so history gaps stay observable instead of silent.
             .mapNotNull { entity ->
                 entity.toDomain() ?: run {
-                    Log.w(
+                    loggingPort.warning(
                         TAG,
                         "Skipping undecodable program_change_event " +
                             "id=${entity.id.value} type=${entity.eventType}",
