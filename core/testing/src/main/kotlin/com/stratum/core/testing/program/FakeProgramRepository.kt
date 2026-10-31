@@ -238,10 +238,17 @@ class FakeProgramRepository(
         return getWorkoutLiftPinnedNotes(id, slot.liftId)
     }
 
+    /**
+     * When non-null, pair-scoped pinned-notes reads throw this instead of reading
+     * (STR-255 test hook for the unreadable-notes diagnostic path).
+     */
+    var pinnedNotesReadError: Throwable? = null
+
     override suspend fun getWorkoutLiftPinnedNotes(
         id: WorkoutLiftId,
         liftId: LiftId,
     ): List<WorkoutLiftNote> {
+        pinnedNotesReadError?.let { throw it }
         notesMutex.withLock {
             val key = pairKey(id, liftId)
             workoutNotes.value[key]?.let { return it }
