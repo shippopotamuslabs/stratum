@@ -12,8 +12,10 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import app.cash.turbine.test
 import com.stratum.application.healthconnect.ApplyGrantedPermissionsDiagnostic
 import com.stratum.domain.healthconnect.HealthConnectPreferences
+import com.stratum.domain.healthconnect.HealthFailureKind
 
 class HealthConnectUseCasesTest {
 
@@ -176,6 +178,19 @@ class HealthConnectUseCasesTest {
 
         assertTrue(result.isSuccess)
         assertTrue(loggingPort.errors.isEmpty())
+    }
+
+    @Test
+    @DisplayName("STR-268: observe sync errors emits the reported kind")
+    fun observeSyncErrorsEmitsReportedKind() = runTest {
+        val syncStatus = FakeHealthConnectSyncStatusPort()
+        val observeUseCase = ObserveHealthConnectSyncErrorsUseCase(syncStatus)
+
+        observeUseCase().test {
+            syncStatus.reportSyncError(HealthFailureKind.PermissionDenied)
+            assertEquals(HealthFailureKind.PermissionDenied, awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     @Test

@@ -9,6 +9,7 @@ import com.stratum.core.testing.training.WorkoutLoggingFixtures
 import com.stratum.application.healthconnect.HealthSyncFailure
 import com.stratum.application.healthconnect.HealthSyncFailureKind
 import com.stratum.domain.healthconnect.HealthConnectPreferences
+import com.stratum.domain.healthconnect.HealthFailureKind
 import com.stratum.domain.training.identity.TrainingSessionId
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -156,10 +157,10 @@ class HealthConnectSyncWorkTest {
     @Test
     @DisplayName("reportTerminalFailure records sticky sync error for UI")
     fun reportTerminalFailurePersistsError() = runTest {
-        val result = work.reportTerminalFailure("sync blew up")
+        val result = work.reportTerminalFailure(HealthFailureKind.Unavailable)
 
         assertTrue(result.isSuccess)
-        assertEquals("sync blew up", syncStatus.currentPendingError)
+        assertEquals(HealthFailureKind.Unavailable, syncStatus.currentPendingError)
     }
 
     @Test
@@ -168,7 +169,7 @@ class HealthConnectSyncWorkTest {
         val cause = IllegalStateException("datastore blip")
         syncStatus.failure = cause
 
-        val result = work.reportTerminalFailure("sync blew up")
+        val result = work.reportTerminalFailure(HealthFailureKind.Unavailable)
 
         assertTrue(result.isFailure)
         assertSame(cause, result.exceptionOrNull())

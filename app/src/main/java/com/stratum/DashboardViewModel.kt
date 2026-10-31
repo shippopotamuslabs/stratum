@@ -23,7 +23,6 @@ import com.stratum.domain.healthconnect.HealthConnectDiagnostic
 import com.stratum.domain.health.HealthMetricsPages
 import com.stratum.application.healthconnect.LoadHealthConnectMetricsUseCase
 import com.stratum.application.healthconnect.ObserveHealthConnectPreferencesUseCase
-import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.application.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.WeightConversion
@@ -56,7 +55,6 @@ class DashboardViewModel(
     observeHealthConnectPreferences: ObserveHealthConnectPreferencesUseCase,
     private val loadHealthConnectMetrics: LoadHealthConnectMetricsUseCase,
     private val requestCloudSync: RequestCloudSyncUseCase,
-    private val logError: LogErrorUseCase,
     /**
      * Device calendar zone for 7-Day buckets + labels. Captured once so load and presentation
      * cannot drift. Unit tests pass a fixed zone via the primary constructor.
@@ -80,7 +78,6 @@ class DashboardViewModel(
         observeHealthConnectPreferences: ObserveHealthConnectPreferencesUseCase,
         loadHealthConnectMetrics: LoadHealthConnectMetricsUseCase,
         requestCloudSync: RequestCloudSyncUseCase,
-        logError: LogErrorUseCase,
     ) : this(
         loadDashboard,
         loadGraphDetail,
@@ -91,7 +88,6 @@ class DashboardViewModel(
         observeHealthConnectPreferences,
         loadHealthConnectMetrics,
         requestCloudSync,
-        logError,
         ZoneId.systemDefault(),
         Instant::now,
     )
@@ -287,20 +283,18 @@ class DashboardViewModel(
     }
 
     /**
-     * STR-257: reports each metrics-load diagnostic exactly once through the screen's
-     * error-logging wiring. Diagnostics are log-only — never surfaced in the UI. Error
-     * level (not warning) so the bound failure travels attached: `LoggingPort.warning`
-     * carries no throwable and ViewModels must not inject `LoggingPort` directly.
+     * STR-257: single drain for metrics-load diagnostics. Diagnostics are log-only —
+     * never surfaced in the UI. `SnapshotReadFailed` is intentionally not logged here:
+     * the cause was already logged once where it was caught, in the use-case catch
+     * (STR-268 AQ1), so a second error here would double-report the same failure.
+     * The drain call site stays for future variants.
      */
     internal fun logHealthDiagnostics(diagnostics: List<HealthConnectDiagnostic>) {
         for (diagnostic in diagnostics) {
             when (diagnostic) {
-                is HealthConnectDiagnostic.SnapshotReadFailed ->
-                    logError(
-                        TAG,
-                        "Health Connect snapshot read failed — dashboard shows empty metrics.",
-                        diagnostic.cause,
-                    )
+                // STR-268 AQ1: cause + empty-metrics context already logged once at the
+                // catch; nothing further to log for this variant.
+                is HealthConnectDiagnostic.SnapshotReadFailed -> Unit
             }
         }
     }
@@ -383,10 +377,6 @@ class DashboardViewModel(
             now = clock(),
             displayUnit = displayUnit.value,
         )
-    }
-
-    private companion object {
-        const val TAG = "DashboardViewModel"
     }
 }
 

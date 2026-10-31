@@ -12,6 +12,8 @@ import com.stratum.domain.health.ActivityMetrics
 import com.stratum.domain.health.DailyStepCount
 import com.stratum.domain.health.DailyVitalSample
 import com.stratum.domain.healthconnect.HealthConnectDiagnostic
+import com.stratum.domain.healthconnect.HealthFailureKind
+import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.health.HealthMetricType
 import com.stratum.domain.health.HealthMetricsPages
 import com.stratum.domain.health.HealthMetricsRequest
@@ -33,6 +35,7 @@ import com.stratum.domain.health.VITALS_RANGE_MIN_HISTORY_DAYS
 class LoadHealthConnectMetricsUseCase @Inject constructor(
     private val metricsPort: HealthConnectMetricsPort,
     private val preferencesPort: HealthConnectPreferencesPort,
+    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(zone: ZoneId, now: Instant): HealthMetricsPages {
         val prefs = preferencesPort.getPreferences()
@@ -50,7 +53,17 @@ class LoadHealthConnectMetricsUseCase @Inject constructor(
         } catch (e: CancellationException) {
             throw e
         } catch (error: Throwable) {
-            readDiagnostic = HealthConnectDiagnostic.SnapshotReadFailed(cause = error)
+            // The adapter throws raw vendor failures this use case cannot classify, so the
+            // kind is honestly Unknown. Logged exactly once here with the Throwable attached
+            // (STR-268 AQ1); the dashboard drain records the kind but logs nothing further.
+            loggingPort.error(
+                HEALTH_CONNECT_METRICS_TAG,
+                "Failed to read Health Connect snapshot — dashboard shows empty metrics",
+                error,
+            )
+            readDiagnostic = HealthConnectDiagnostic.SnapshotReadFailed(
+                kind = HealthFailureKind.Unknown,
+            )
             HealthMetricsSnapshot(grantedTypes = granted)
         }
         return assembleHealthMetricsPages(

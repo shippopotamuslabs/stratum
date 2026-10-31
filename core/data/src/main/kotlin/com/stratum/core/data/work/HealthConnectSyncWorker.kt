@@ -5,6 +5,9 @@ import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.stratum.application.healthconnect.HEALTH_CONNECT_PREFS_TAG
+import com.stratum.application.healthconnect.HealthSyncFailure
+import com.stratum.application.healthconnect.toHealthFailureKind
+import com.stratum.domain.healthconnect.HealthFailureKind
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.logging.onFailureLogged
 import com.stratum.domain.training.identity.TrainingSessionId
@@ -35,9 +38,7 @@ class HealthConnectSyncWorker @AssistedInject constructor(
                     "Health Connect sync terminal failure: ${outcome.error.message}",
                     outcome.error,
                 )
-                reportStickySyncError(
-                    outcome.error.message ?: "Failed to sync workout to Health Connect",
-                )
+                reportStickySyncError(outcome.error.toHealthFailureKind())
                 Result.failure()
             }
 
@@ -52,9 +53,7 @@ class HealthConnectSyncWorker @AssistedInject constructor(
                         loggingPort = loggingPort,
                     )
                 if (result == Result.failure()) {
-                    reportStickySyncError(
-                        outcome.error.message ?: "Failed to sync workout to Health Connect",
-                    )
+                    reportStickySyncError(outcome.error.toHealthFailureKind())
                 }
                 result
             }
@@ -66,8 +65,8 @@ class HealthConnectSyncWorker @AssistedInject constructor(
      * the write failure as a value without logging it; this worker is the
      * drain boundary, so each failure is logged exactly once here.
      */
-    private suspend fun reportStickySyncError(message: String) {
-        work.reportTerminalFailure(message).onFailureLogged(
+    private suspend fun reportStickySyncError(kind: HealthFailureKind) {
+        work.reportTerminalFailure(kind).onFailureLogged(
             loggingPort,
             HEALTH_CONNECT_PREFS_TAG,
             "Failed to set Health Connect sync error",
@@ -78,3 +77,10 @@ class HealthConnectSyncWorker @AssistedInject constructor(
         const val TAG = "HealthConnectSyncWorker"
     }
 }
+
+/**
+ * Derives the sticky kind from the outcome error (D8): classified application
+ * failures map by kind; unclassified throwables persist as [HealthFailureKind.Unknown].
+ */
+internal fun Throwable.toHealthFailureKind(): HealthFailureKind =
+    (this as? HealthSyncFailure)?.kind?.toHealthFailureKind() ?: HealthFailureKind.Unknown

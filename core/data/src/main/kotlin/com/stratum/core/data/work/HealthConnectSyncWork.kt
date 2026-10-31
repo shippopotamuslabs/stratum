@@ -4,6 +4,7 @@ import com.stratum.application.healthconnect.HealthConnectPreferencesPort
 import com.stratum.application.healthconnect.HealthConnectSyncPort
 import com.stratum.application.healthconnect.HealthConnectSyncStatusPort
 import com.stratum.application.healthconnect.isTerminalHealthSyncFailure
+import com.stratum.domain.healthconnect.HealthFailureKind
 import com.stratum.application.training.TrainingLogRepository
 import com.stratum.domain.training.identity.TrainingSessionId
 import javax.inject.Inject
@@ -58,6 +59,6 @@ class HealthConnectSyncWork @Inject constructor(
         )
     }
 
-    suspend fun reportTerminalFailure(message: String): Result<Unit> =
-        healthConnectSyncStatusPort.reportSyncError(message)
+    suspend fun reportTerminalFailure(kind: HealthFailureKind): Result<Unit> =
+        healthConnectSyncStatusPort.reportSyncError(kind)
 }

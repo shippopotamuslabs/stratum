@@ -1,5 +1,7 @@
 package com.stratum.application.healthconnect
 
+import com.stratum.domain.healthconnect.HealthFailureKind
+
 /**
  * Agnostic classification of a Health Connect sync failure at the application port.
  *
@@ -54,6 +56,19 @@ class HealthSyncFailure(
             )
     }
 }
+
+/**
+ * Maps the application-port sync classification to the agnostic domain kind that
+ * persists as the sticky sync error (STR-268). The only Terminal source today is
+ * the unavailable factory and the only UserActionable source is the
+ * permission-denied factory, so the mapping is lossless against today's texts.
+ */
+fun HealthSyncFailureKind.toHealthFailureKind(): HealthFailureKind =
+    when (this) {
+        HealthSyncFailureKind.Terminal -> HealthFailureKind.Unavailable
+        HealthSyncFailureKind.UserActionable -> HealthFailureKind.PermissionDenied
+        HealthSyncFailureKind.Transient -> HealthFailureKind.Unknown
+    }
 
 /**
  * Retry decision for sync work: true when the failure is terminal or only
