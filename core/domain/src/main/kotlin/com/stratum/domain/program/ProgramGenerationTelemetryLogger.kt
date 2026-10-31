@@ -4,6 +4,7 @@ import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.program.generation.build.BuildProgramResult
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.prescription.SynthesisObjectiveBreakdown
+import com.stratum.domain.program.generation.slots.SlotGenerationDiagnostic
 import javax.inject.Inject
 
 /**
@@ -45,6 +46,30 @@ class ProgramGenerationTelemetryLogger @Inject constructor(
         append("${label}PushPull=${objective.pushPullImbalance} ")
         append("${label}SessionFill=${objective.sessionFillShortfall}")
     }
+
+    /**
+     * STR-254: reports each slot-build diagnostic exactly once at warning level through
+     * the pipeline's existing logging wiring. Diagnostics are log-only — never surfaced
+     * in the UI.
+     */
+    fun logGenerationDiagnostics(diagnostics: List<SlotGenerationDiagnostic>) {
+        for (diagnostic in diagnostics) {
+            loggingPort.warning(TAG, diagnostic.describe())
+        }
+    }
+
+    private fun SlotGenerationDiagnostic.describe(): String =
+        when (this) {
+            is SlotGenerationDiagnostic.CrossDomainTouchSkipped ->
+                "Cross-domain touch skipped: pattern=\"$patternName\" is not a known " +
+                    "MovementPattern — touch slot for muscle=$muscle omitted."
+            is SlotGenerationDiagnostic.SpecFocusSlotSkipped ->
+                "Spec-focus slot skipped: pattern=\"$patternName\" is not a known " +
+                    "MovementPattern — isolation slot for muscle=$muscle dropped."
+            is SlotGenerationDiagnostic.SpecFocusMuscleUnrecognized ->
+                "Spec-focus lift excluded: muscle=\"$muscleName\" is not a known " +
+                    "MuscleGroup — every lift rejected for pattern=\"$patternName\"."
+        }
 
     private companion object {
         const val TAG = "StratumProgramGeneration"

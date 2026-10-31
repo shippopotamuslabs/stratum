@@ -5,6 +5,7 @@ import com.stratum.domain.program.generation.prescription.SessionSlotPlan
 import com.stratum.domain.program.generation.prescription.SynthesisObjectiveBreakdown
 import com.stratum.domain.program.generation.split.ResolvedSessionPlan
 import com.stratum.domain.program.generation.slots.SessionTypeId
+import com.stratum.domain.program.generation.slots.SlotGenerationDiagnostic
 import com.stratum.domain.program.generation.structure.SessionRegionFilter
 import com.stratum.domain.program.generation.volume.WeeklyVolumeTargets
 
@@ -20,6 +21,13 @@ data class ProgramSynthesisResult(
      * mapped from this list at materialize time (not structure).
      */
     val regionFilterBySession: List<SessionRegionFilter>,
+    /**
+     * Slot-build diagnostics recorded while constructing the universe (STR-254). Empty on
+     * the cloud path — the solver service owns synthesis there and emits no slot
+     * diagnostics; populated by on-device universe construction (tests via
+     * `FakeProgramSynthesisPort`). Drained once by the generation pipeline.
+     */
+    val diagnostics: List<SlotGenerationDiagnostic> = emptyList(),
 )
 
 interface ProgramSynthesisPort {

@@ -64,6 +64,9 @@ data class ProgramSynthesisWireRequest(
  * - `regionFilterBySession`: array of [SessionRegionFilter] enum name strings
  *   (optional on **decode** for rolling-deploy compatibility with pre-field solvers;
  *   inferred from legacy `sessions[].sessionType` when absent/empty)
+ * - `diagnostics`: array of slot-build diagnostic objects (STR-254), each with a `kind`
+ *   plus kind-specific fields (optional on **decode** — absent means no diagnostics;
+ *   unknown kinds are dropped)
  *
  * Enums serialize as **enum name** strings (`MuscleGroup.Chest` → `"Chest"`).
  *
@@ -124,6 +127,8 @@ object ProgramSynthesisWire {
                 ),
             "regionFilterBySession" to
                 jsonArray(result.regionFilterBySession.map { jsonString(it.name) }),
+            "diagnostics" to
+                jsonArray(result.diagnostics.map { encodeSlotDiagnostic(it) }),
         )
 
     fun decodeResult(json: String): ProgramSynthesisResult =
@@ -153,6 +158,7 @@ object ProgramSynthesisWire {
                         }.toSet()
                     },
                 regionFilterBySession = decodeRegionFilterBySession(root, sessions),
+                diagnostics = decodeSlotDiagnostics(root["diagnostics"]),
             )
         }
 }
