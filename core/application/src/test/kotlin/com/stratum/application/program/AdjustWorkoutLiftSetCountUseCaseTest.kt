@@ -41,7 +41,7 @@ class AdjustWorkoutLiftSetCountUseCaseTest {
         assertEquals(false, sets.last().isTopSet)
         assertEquals(
             1,
-            events.getEventsForProgram(ProgramId("p-1")).count {
+            events.getEventsForProgram(ProgramId("p-1")).events.count {
                 it.eventType == ProgramChangeEventType.WORKOUT_EDITED
             },
         )

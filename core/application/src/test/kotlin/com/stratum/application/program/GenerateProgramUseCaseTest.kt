@@ -208,7 +208,7 @@ class GenerateProgramUseCaseTest {
 
         assertNotNull(repo.current)
         assertTrue(repo.current!!.isActive)
-        val appended = events.getEventsForProgram(repo.current!!.id)
+        val appended = events.getEventsForProgram(repo.current!!.id).events
         assertEquals(1, appended.size)
         assertEquals(
             com.stratum.domain.training.ProgramChangeEventType.PROGRAM_REGENERATED,

@@ -89,7 +89,7 @@ class FinalizeTrainingSessionUseCaseTest {
 
         useCase(TrainingSessionId("ts-live-1")).getOrThrow()
 
-        assertEquals(0, events.getEventsForProgram(WorkoutLoggingFixtures.programId).size)
+        assertEquals(0, events.getEventsForProgram(WorkoutLoggingFixtures.programId).events.size)
     }
 
     @Test

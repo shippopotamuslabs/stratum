@@ -5,11 +5,11 @@ import com.stratum.core.data.db.ProgramChangeEventEntity
 import com.stratum.core.data.db.ProgramEntity
 import com.stratum.core.data.db.StratumDatabase
 import com.stratum.core.data.sync.testSyncTouch
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.training.ProgramChangeEvent
 import com.stratum.domain.training.ProgramChangeEventPayload
 import com.stratum.domain.training.ProgramChangeEventType
+import com.stratum.domain.training.SkippedProgramChangeEventRow
 import com.stratum.domain.training.identity.ProgramChangeEventId
 import java.time.Instant
 import kotlinx.coroutines.test.runTest
@@ -24,13 +24,14 @@ import org.robolectric.RuntimeEnvironment
 import tech.apter.junit.jupiter.robolectric.RobolectricExtension
 
 /**
- * [RoomProgramChangeEventRepository] skip-logging tests (STR-260). Runs with Robolectric
- * so a real in-memory [StratumDatabase] backs the DAO.
+ * [RoomProgramChangeEventRepository] undecodable-row tests (STR-260). Runs with
+ * Robolectric so a real in-memory [StratumDatabase] backs the DAO. The repository
+ * returns skipped rows as diagnostic values on the read (CODE_STYLE_RULES:
+ * repository implementations never log); draining them is the caller's job.
  */
 @ExtendWith(RobolectricExtension::class)
 class RoomProgramChangeEventRepositoryTest {
     private lateinit var database: StratumDatabase
-    private lateinit var fakeLogging: FakeLoggingPort
     private lateinit var repository: RoomProgramChangeEventRepository
 
     private val programId = ProgramId("prog-1")
@@ -41,11 +42,9 @@ class RoomProgramChangeEventRepositoryTest {
             RuntimeEnvironment.getApplication(),
             StratumDatabase::class.java,
         ).allowMainThreadQueries().build()
-        fakeLogging = FakeLoggingPort()
         repository = RoomProgramChangeEventRepository(
             dao = database.programChangeEventDao(),
             syncTouch = testSyncTouch(RuntimeEnvironment.getApplication(), database.pendingCloudDeleteDao()),
-            loggingPort = fakeLogging,
         )
     }
 
@@ -66,8 +65,8 @@ class RoomProgramChangeEventRepositoryTest {
     }
 
     @Test
-    @DisplayName("undecodable row is skipped and logged via LoggingPort with identical tag and message")
-    fun undecodableRowSkippedAndLogged() = runTest {
+    @DisplayName("undecodable row is skipped and returned as a diagnostic value")
+    fun undecodableRowSkippedAndReturnedAsDiagnostic() = runTest {
         seedProgram()
         val good = ProgramChangeEvent(
             id = ProgramChangeEventId("evt-good"),
@@ -88,20 +87,23 @@ class RoomProgramChangeEventRepositoryTest {
             ),
         )
 
-        val events = repository.getEventsForProgram(programId, since = null)
+        val read = repository.getEventsForProgram(programId, since = null)
 
-        assertEquals(listOf(good.id), events.map { it.id })
-        assertEquals(1, fakeLogging.warnings.size)
-        assertEquals("ProgramChangeEvents", fakeLogging.warnings.single().tag)
+        assertEquals(listOf(good.id), read.events.map { it.id })
         assertEquals(
-            "Skipping undecodable program_change_event id=evt-bad type=SCHEME_CHANGED",
-            fakeLogging.warnings.single().message,
+            listOf(
+                SkippedProgramChangeEventRow(
+                    id = ProgramChangeEventId("evt-bad"),
+                    eventType = ProgramChangeEventType.SCHEME_CHANGED,
+                ),
+            ),
+            read.skippedRows,
         )
     }
 
     @Test
-    @DisplayName("decodable rows produce no warning")
-    fun decodableRowsProduceNoWarning() = runTest {
+    @DisplayName("decodable rows produce no diagnostics")
+    fun decodableRowsProduceNoDiagnostics() = runTest {
         seedProgram()
         repository.append(
             ProgramChangeEvent(
@@ -113,9 +115,9 @@ class RoomProgramChangeEventRepositoryTest {
             ),
         )
 
-        val events = repository.getEventsForProgram(programId, since = null)
+        val read = repository.getEventsForProgram(programId, since = null)
 
-        assertEquals(1, events.size)
-        assertTrue(fakeLogging.warnings.isEmpty())
+        assertEquals(1, read.events.size)
+        assertTrue(read.skippedRows.isEmpty())
     }
 }

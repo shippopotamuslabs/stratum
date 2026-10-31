@@ -28,7 +28,7 @@ class AppendProgramChangeEventUseCaseTest {
             current = ProgressionScheme.Double,
         )
 
-        val events = repository.getEventsForProgram(ProgramId("program-1"))
+        val events = repository.getEventsForProgram(ProgramId("program-1")).events
         assertEquals(1, events.size)
         val event = events.single()
         assertEquals(ProgramChangeEventType.SCHEME_CHANGED, event.eventType)
@@ -56,7 +56,7 @@ class AppendProgramChangeEventUseCaseTest {
             newLiftId = LiftId("incline-press"),
         )
 
-        val events = repository.getEventsForProgram(ProgramId("program-1"))
+        val events = repository.getEventsForProgram(ProgramId("program-1")).events
         assertEquals(1, events.size)
         val event = events.single()
         assertEquals(ProgramChangeEventType.LIFT_SWAPPED, event.eventType)
@@ -68,6 +68,6 @@ class AppendProgramChangeEventUseCaseTest {
             ),
             event.payload,
         )
-        assertEquals(emptyList<ProgramChangeEvent>(), repository.getEventsForProgram(ProgramId("program-2")))
+        assertEquals(emptyList<ProgramChangeEvent>(), repository.getEventsForProgram(ProgramId("program-2")).events)
     }
 }
