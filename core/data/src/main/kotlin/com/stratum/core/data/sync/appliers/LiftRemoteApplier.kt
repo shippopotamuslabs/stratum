@@ -4,7 +4,7 @@ import androidx.room.withTransaction
 import com.stratum.core.infrastructure.db.LiftDao
 import com.stratum.core.infrastructure.db.LiftEntity
 import com.stratum.core.infrastructure.db.StratumDatabase
-import com.stratum.core.data.repository.sweepLiftTemplateReferences
+import com.stratum.core.infrastructure.repository.sweepLiftTemplateReferences
 import com.stratum.core.data.sync.FirestoreSyncMetadata
 import com.stratum.core.infrastructure.sync.SyncFlags
 import com.stratum.core.data.sync.codecs.SyncEntityDecoders

@@ -1,4 +1,6 @@
 package com.stratum.core.data.sync
+import com.stratum.core.infrastructure.sync.UserOwnedWriteCoordinator
+import com.stratum.core.infrastructure.sync.SyncCollection
 
 import android.database.sqlite.SQLiteConstraintException
 import com.google.firebase.firestore.DocumentSnapshot

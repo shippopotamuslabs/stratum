@@ -1,4 +1,5 @@
 package com.stratum.core.data.sync
+import com.stratum.core.infrastructure.sync.SyncCollection
 
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext

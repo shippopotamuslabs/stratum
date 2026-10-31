@@ -65,7 +65,7 @@ class CompleteCheckInUseCase @Inject constructor(
 
 /**
  * Marks a pending coach check-in after a successful response-modeling **re-extract**.
- * Called from [com.stratum.core.data.work.ResponseModelingWork] only when there was a prior
+ * Called from [com.stratum.core.infrastructure.work.ResponseModelingWork] only when there was a prior
  * extract and the ≥20-workout gate passed.
  */
 class MarkCheckInPendingUseCase @Inject constructor(

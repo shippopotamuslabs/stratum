@@ -1,8 +1,8 @@
 package com.stratum.core.data.di
 
 import com.google.firebase.firestore.FirebaseFirestore
-import com.stratum.core.data.sync.CloudSyncFeatureGate
-import com.stratum.core.data.sync.DefaultCloudSyncFeatureGate
+import com.stratum.core.infrastructure.sync.CloudSyncFeatureGate
+import com.stratum.core.infrastructure.sync.DefaultCloudSyncFeatureGate
 import com.stratum.core.data.sync.FirestoreCloudSyncAdapter
 import com.stratum.application.sync.CloudSyncPort
 import dagger.Binds

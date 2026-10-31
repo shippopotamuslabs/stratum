@@ -20,12 +20,12 @@ import com.stratum.core.infrastructure.db.TrainingSessionDao
 import com.stratum.core.infrastructure.db.UserProfileDao
 import com.stratum.core.infrastructure.db.WorkoutDao
 import com.stratum.core.infrastructure.db.WorkoutLiftDao
-import com.stratum.core.data.repository.sweepLiftTemplateReferences
+import com.stratum.core.infrastructure.repository.sweepLiftTemplateReferences
 import com.stratum.core.data.sync.FirestoreSyncMetadata
 import com.stratum.core.data.sync.FirestoreSyncRemoteApplyPolicy
 import com.stratum.core.data.sync.LocalSyncMeta
-import com.stratum.core.data.sync.SyncCollection
-import com.stratum.core.data.sync.SyncTouch
+import com.stratum.core.infrastructure.sync.SyncCollection
+import com.stratum.core.infrastructure.sync.SyncTouch
 import com.stratum.core.data.sync.appliers.IncrementTierRemoteApplier
 import com.stratum.core.data.sync.appliers.LiftRemoteApplier
 import com.stratum.core.data.sync.appliers.LoggedSetRemoteApplier

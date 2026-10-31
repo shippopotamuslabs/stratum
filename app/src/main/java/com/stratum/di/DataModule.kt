@@ -12,13 +12,13 @@ import com.stratum.core.infrastructure.db.StratumDatabase
 import com.stratum.core.infrastructure.db.withProductionMigrations
 import com.stratum.application.onboarding.UserTrainingProfileRepository
 import com.stratum.core.infrastructure.db.UserProfileDao
-import com.stratum.core.data.repository.RoomEquipmentRepository
-import com.stratum.core.data.repository.RoomLiftRepository
-import com.stratum.core.data.repository.RoomDeleteLiftPort
-import com.stratum.core.data.repository.RoomMergeLiftsPort
-import com.stratum.core.data.repository.RoomOnboardingRepository
-import com.stratum.core.data.repository.RoomSpecializationPreferenceRepository
-import com.stratum.core.data.repository.RoomUserTrainingProfileRepository
+import com.stratum.core.infrastructure.repository.RoomEquipmentRepository
+import com.stratum.core.infrastructure.repository.RoomLiftRepository
+import com.stratum.core.infrastructure.repository.RoomDeleteLiftPort
+import com.stratum.core.infrastructure.repository.RoomMergeLiftsPort
+import com.stratum.core.infrastructure.repository.RoomOnboardingRepository
+import com.stratum.core.infrastructure.repository.RoomSpecializationPreferenceRepository
+import com.stratum.core.infrastructure.repository.RoomUserTrainingProfileRepository
 import com.stratum.core.infrastructure.seed.AssetLiftEmbeddingCatalog
 import com.stratum.core.infrastructure.seed.AssetLiftEquipmentCatalog
 import com.stratum.core.infrastructure.seed.EquipmentCatalogSeeder
@@ -45,32 +45,32 @@ import com.stratum.core.infrastructure.db.ResponseEpochDao
 import com.stratum.core.infrastructure.db.ResponseProfileMetadataDao
 import com.stratum.core.infrastructure.db.SupersetAffinityDao
 import com.stratum.core.infrastructure.db.VolumeResponseObservationDao
-import com.stratum.core.data.repository.RoomExperimentBlockRepository
-import com.stratum.core.data.repository.RoomLiftEffectivenessObservationRepository
-import com.stratum.core.data.repository.RoomLiftWeeklyPerformanceRepository
-import com.stratum.core.data.work.WorkManagerResponseModelingScheduler
-import com.stratum.core.data.repository.RoomResponseEpochRepository
-import com.stratum.core.data.repository.RoomResponseProfileMetadataRepository
-import com.stratum.core.data.repository.RoomResponseProfilePersistenceRepository
-import com.stratum.core.data.repository.RoomVolumeResponseObservationRepository
-import com.stratum.core.data.repository.RoomImportAnalysisMetadataRepository
-import com.stratum.core.data.repository.RoomImportJobRepository
-import com.stratum.core.data.repository.RoomProgramChangeEventRepository
-import com.stratum.core.data.repository.RoomTrainingLogRepository
-import com.stratum.core.data.repository.ProgressionHistoryRepository
+import com.stratum.core.infrastructure.repository.RoomExperimentBlockRepository
+import com.stratum.core.infrastructure.repository.RoomLiftEffectivenessObservationRepository
+import com.stratum.core.infrastructure.repository.RoomLiftWeeklyPerformanceRepository
+import com.stratum.core.infrastructure.work.WorkManagerResponseModelingScheduler
+import com.stratum.core.infrastructure.repository.RoomResponseEpochRepository
+import com.stratum.core.infrastructure.repository.RoomResponseProfileMetadataRepository
+import com.stratum.core.infrastructure.repository.RoomResponseProfilePersistenceRepository
+import com.stratum.core.infrastructure.repository.RoomVolumeResponseObservationRepository
+import com.stratum.core.infrastructure.repository.RoomImportAnalysisMetadataRepository
+import com.stratum.core.infrastructure.repository.RoomImportJobRepository
+import com.stratum.core.infrastructure.repository.RoomProgramChangeEventRepository
+import com.stratum.core.infrastructure.repository.RoomTrainingLogRepository
+import com.stratum.core.infrastructure.repository.ProgressionHistoryRepository
 import com.stratum.application.training.ProgramChangeEventRepository
 import com.stratum.application.training.TrainingLogRepository
 import com.stratum.application.workout.ProgressionHistoryPort
 import com.stratum.application.workout.WorkoutOverlayStore
-import com.stratum.core.data.repository.DataStoreCheckInPreferencesRepository
-import com.stratum.core.data.repository.DataStoreDashboardPreferencesRepository
-import com.stratum.core.data.repository.DataStoreEquipmentProposalPreferences
-import com.stratum.core.data.repository.DataStoreProgramsUiPreferencesRepository
-import com.stratum.core.data.repository.DataStoreRepRangeShiftProposalPreferences
-import com.stratum.core.data.repository.DataStoreThemePreferencesRepository
-import com.stratum.core.data.repository.DataStoreWeightDisplayPreferencesRepository
-import com.stratum.core.data.repository.DataStoreWorkoutOverlayStore
-import com.stratum.core.data.repository.RoomLiftTrainingInsightsRepository
+import com.stratum.core.infrastructure.repository.DataStoreCheckInPreferencesRepository
+import com.stratum.core.infrastructure.repository.DataStoreDashboardPreferencesRepository
+import com.stratum.core.infrastructure.repository.DataStoreEquipmentProposalPreferences
+import com.stratum.core.infrastructure.repository.DataStoreProgramsUiPreferencesRepository
+import com.stratum.core.infrastructure.repository.DataStoreRepRangeShiftProposalPreferences
+import com.stratum.core.infrastructure.repository.DataStoreThemePreferencesRepository
+import com.stratum.core.infrastructure.repository.DataStoreWeightDisplayPreferencesRepository
+import com.stratum.core.infrastructure.repository.DataStoreWorkoutOverlayStore
+import com.stratum.core.infrastructure.repository.RoomLiftTrainingInsightsRepository
 import com.stratum.application.checkin.CheckInPreferencesRepository
 import com.stratum.application.dashboard.DashboardPreferencesRepository
 import com.stratum.application.lift.EquipmentProposalPreferences
@@ -78,16 +78,16 @@ import com.stratum.application.lift.WeightDisplayPreferencesRepository
 import com.stratum.application.program.ProgramsUiPreferencesRepository
 import com.stratum.application.theme.ThemePreferencesRepository
 import com.stratum.application.workout.RepRangeShiftProposalPreferences
-import com.stratum.core.data.repository.RoomMuscleVolumeResponseSnapshotRepository
-import com.stratum.core.data.repository.RoomMuscleWeeklyOutcomeIndexRepository
-import com.stratum.core.data.repository.RoomMuscleWeeklyStimulusRepository
-import com.stratum.core.data.repository.RoomMuscleVolumeBaselineRepository
-import com.stratum.core.data.repository.RoomSupersetAffinityRepository
+import com.stratum.core.infrastructure.repository.RoomMuscleVolumeResponseSnapshotRepository
+import com.stratum.core.infrastructure.repository.RoomMuscleWeeklyOutcomeIndexRepository
+import com.stratum.core.infrastructure.repository.RoomMuscleWeeklyStimulusRepository
+import com.stratum.core.infrastructure.repository.RoomMuscleVolumeBaselineRepository
+import com.stratum.core.infrastructure.repository.RoomSupersetAffinityRepository
 import com.stratum.core.data.repository.DataStoreHealthConnectPreferencesRepository
-import com.stratum.core.data.repository.HealthConnectSyncStatusRepository
+import com.stratum.core.infrastructure.repository.HealthConnectSyncStatusRepository
 import com.stratum.core.data.healthconnect.HealthConnectManager
 import com.stratum.core.data.healthconnect.HealthConnectMetricsReader
-import com.stratum.core.data.work.WorkManagerHealthConnectScheduler
+import com.stratum.core.infrastructure.work.WorkManagerHealthConnectScheduler
 import com.stratum.application.healthconnect.HealthConnectMetricsPort
 import com.stratum.application.healthconnect.HealthConnectPreferencesPort
 import com.stratum.application.healthconnect.HealthConnectSchedulerPort
@@ -408,7 +408,7 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindLiftNotesRepository(
-        impl: com.stratum.core.data.repository.RoomLiftNotesRepository,
+        impl: com.stratum.core.infrastructure.repository.RoomLiftNotesRepository,
     ): com.stratum.application.lift.LiftNotesRepository
 
     @Binds
@@ -555,7 +555,7 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindProgramRepository(
-        impl: com.stratum.core.data.repository.RoomProgramRepository,
+        impl: com.stratum.core.infrastructure.repository.RoomProgramRepository,
     ): com.stratum.application.program.ProgramRepository
 
     @Binds

@@ -1,4 +1,6 @@
 package com.stratum.core.data.sync
+import com.stratum.core.infrastructure.sync.UserOwnedWriteCoordinator
+import com.stratum.core.infrastructure.sync.SyncCollection
 
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions

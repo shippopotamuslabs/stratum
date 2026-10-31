@@ -16,6 +16,14 @@ android {
         minSdk = 34
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // Kill-switch for Firestore cloud sync (client + WorkManager). Flip false for emergency.
+        // Moved with the sync code in the STR-228 fold; :core:data keeps its own copy until
+        // the module is deleted, and both must stay in step until then.
+        buildConfigField("boolean", "CLOUD_SYNC_ENABLED", "true")
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     compileOptions {
@@ -65,6 +73,10 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
+    implementation(libs.androidx.datastore)
+    implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.androidx.hilt.work)
+    ksp(libs.androidx.hilt.compiler)
 
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.kotlin.test.junit5)
