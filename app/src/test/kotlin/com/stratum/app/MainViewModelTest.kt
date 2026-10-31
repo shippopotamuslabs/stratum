@@ -3,6 +3,7 @@ package com.stratum.app
 import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.auth.FakeAuthManager
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.sync.FakeCloudSyncPort
 import com.stratum.core.testing.theme.FakeThemePreferencesRepository
 import com.stratum.domain.auth.AuthState
@@ -10,6 +11,7 @@ import com.stratum.application.auth.GetAuthStateUseCase
 import com.stratum.application.auth.LoginWithGoogleUseCase
 import com.stratum.application.auth.LogoutUseCase
 import com.stratum.domain.auth.UserProfile
+import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.domain.sync.CloudSessionState
 import com.stratum.application.sync.EndSessionAndWipeUseCase
 import com.stratum.application.sync.ObserveCloudSessionStateUseCase
@@ -34,12 +36,14 @@ class MainViewModelTest {
     private val fakeAuth = FakeAuthManager(AuthState.Unauthenticated)
     private val fakeCloudSync = FakeCloudSyncPort()
     private val fakeTheme = FakeThemePreferencesRepository()
+    private val loggingPort = FakeLoggingPort()
     private lateinit var subject: MainViewModel
 
     @BeforeEach
     fun setup() {
         fakeTheme.seed(ThemePreferences())
         fakeCloudSync.setSessionState(CloudSessionState.Inactive)
+        loggingPort.errors.clear()
         subject = buildViewModel()
     }
 
@@ -56,6 +60,7 @@ class MainViewModelTest {
             startCloudSync = StartCloudSyncUseCase(fakeCloudSync),
             observeSessionState = ObserveCloudSessionStateUseCase(fakeCloudSync),
             observeThemePreferences = ObserveThemePreferencesUseCase(fakeTheme),
+            logError = LogErrorUseCase(loggingPort),
         )
 
     @Test
@@ -163,6 +168,25 @@ class MainViewModelTest {
             assertEquals(ShellUiState.SignedOut, awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    @Test
+    @DisplayName("When sign-out and restart fail then restart is logged once and shell stays generic")
+    fun signOutAndRestartFailureLogsRestartOnce() = runTest {
+        fakeAuth.setState(
+            AuthState.Authenticated(UserProfile("uid-1", "A", "a@x.com", null)),
+        )
+        fakeCloudSync.wipeResult = Result.failure(IllegalStateException("wipe failed"))
+        val restartError = IllegalStateException("restart failed")
+        fakeCloudSync.startResult = Result.failure(restartError)
+        subject = buildViewModel()
+        advanceUntilIdle()
+
+        subject.onSignOutFromShell()
+        advanceUntilIdle()
+
+        assertEquals(1, loggingPort.errors.size)
+        assertEquals(restartError, loggingPort.errors.single().throwable)
     }
 
     @Test
