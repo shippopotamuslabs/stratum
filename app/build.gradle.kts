@@ -123,7 +123,7 @@ dependencies {
     implementation(project(":core:application"))
     implementation(project(":core:data"))
     implementation(project(":core:ui"))
-    implementation(project(":core:inference"))
+    implementation(project(":core:infrastructure"))
     implementation(project(":feature:onboarding"))
     implementation(project(":feature:program"))
     implementation(project(":feature:settings"))
