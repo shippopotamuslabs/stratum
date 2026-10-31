@@ -3,11 +3,13 @@ package com.stratum.core.testing.subscription
 import com.stratum.application.subscription.BillingPort
 import com.stratum.domain.subscription.BillingPurchaseResult
 import com.stratum.application.subscription.EntitlementRepository
+import com.stratum.domain.subscription.EntitlementDiagnostic
 import com.stratum.domain.subscription.EntitlementState
 import com.stratum.application.subscription.PlayEntitlementSyncPort
 import com.stratum.domain.subscription.SubscriptionCatalog
 import com.stratum.domain.subscription.SubscriptionProduct
 import com.stratum.domain.subscription.SubscriptionPurchase
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,6 +19,7 @@ import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.flow.receiveAsFlow
 
 class FakeBillingPort(
     initialPurchases: List<SubscriptionPurchase> = emptyList(),
@@ -98,6 +101,12 @@ class FakeEntitlementRepository(
         check(failures.tryEmit(error)) { "Failed to emit entitlement collector failure" }
     }
 
+    private val diagnosticsChannel = Channel<EntitlementDiagnostic>(Channel.BUFFERED)
+
+    fun emitDiagnostic(diagnostic: EntitlementDiagnostic) {
+        check(diagnosticsChannel.trySend(diagnostic).isSuccess) { "Failed to emit entitlement diagnostic" }
+    }
+
     override fun observeEntitlement(): Flow<EntitlementState> =
         flow {
             throwOnSubscribe?.let { error ->
@@ -116,6 +125,9 @@ class FakeEntitlementRepository(
 
     override suspend fun refreshEntitlement(): Result<EntitlementState> =
         refreshResult ?: Result.success(state.value)
+
+    override fun observeEntitlementDiagnostics(): Flow<EntitlementDiagnostic> =
+        diagnosticsChannel.receiveAsFlow()
 }
 
 class FakePlayEntitlementSyncPort : PlayEntitlementSyncPort {

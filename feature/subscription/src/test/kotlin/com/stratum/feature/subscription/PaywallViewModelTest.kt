@@ -2,6 +2,7 @@ package com.stratum.feature.subscription
 
 import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.subscription.FakeBillingPort
 import com.stratum.core.testing.subscription.FakeEntitlementRepository
 import com.stratum.core.testing.telemetry.FakeAnalyticsPort
@@ -52,7 +53,7 @@ class PaywallViewModelTest {
             getSubscriptionProducts = GetSubscriptionProductsUseCase(fakeBilling),
             purchaseSubscription = PurchaseSubscriptionUseCase(fakeBilling),
             restorePurchases = RestorePurchasesUseCase(fakeBilling, fakeRepo),
-            observeEntitlement = ObserveEntitlementUseCase(fakeRepo),
+            observeEntitlement = ObserveEntitlementUseCase(fakeRepo, FakeLoggingPort()),
             observeBillingPurchaseResults = ObserveBillingPurchaseResultsUseCase(fakeBilling),
             logAnalytics = LogAnalyticsEventUseCase(analytics),
         )

@@ -31,7 +31,7 @@ class TelemetryContextListenerTest {
 
     private fun createListener(scope: CoroutineScope) =
         TelemetryContextListener(
-            observeEntitlement = ObserveEntitlementUseCase(entitlementRepository),
+            observeEntitlement = ObserveEntitlementUseCase(entitlementRepository, FakeLoggingPort()),
             observeActiveSession = ObserveActiveSessionUseCase(trainingLog),
             crashTelemetryPort = fakeTelemetry,
             loggingPort = FakeLoggingPort(),
