@@ -1,8 +1,7 @@
 package com.stratum.core.testing.healthconnect
 
-import com.stratum.domain.healthconnect.HealthConnectPermissionDeniedException
 import com.stratum.application.healthconnect.HealthConnectSyncPort
-import com.stratum.domain.healthconnect.HealthConnectUnavailableException
+import com.stratum.application.healthconnect.HealthSyncFailure
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.TrainingSession
 
@@ -21,7 +20,7 @@ class FakeHealthConnectSyncPort : HealthConnectSyncPort {
     override suspend fun grantedPermissions(): Result<Set<String>> {
         grantedPermissionsFailure?.let { return Result.failure(it) }
         if (!isAvailable) {
-            return Result.failure(HealthConnectUnavailableException())
+            return Result.failure(HealthSyncFailure.unavailable())
         }
         return Result.success(granted)
     }
@@ -31,10 +30,10 @@ class FakeHealthConnectSyncPort : HealthConnectSyncPort {
         sets: List<LoggedSet>,
     ): Result<Unit> {
         if (!isAvailable) {
-            return Result.failure(HealthConnectUnavailableException())
+            return Result.failure(HealthSyncFailure.unavailable())
         }
         if (!hasPermission) {
-            return Result.failure(HealthConnectPermissionDeniedException())
+            return Result.failure(HealthSyncFailure.permissionDenied())
         }
         pushFailure?.let { return Result.failure(it) }
         pushedSessions.add(session to sets)

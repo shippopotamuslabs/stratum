@@ -14,7 +14,6 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import com.stratum.application.healthconnect.ApplyGrantedPermissionsDiagnostic
 import com.stratum.domain.healthconnect.HealthConnectPreferences
-import com.stratum.domain.healthconnect.HealthConnectUnavailableException
 
 class HealthConnectUseCasesTest {
 
@@ -50,7 +49,13 @@ class HealthConnectUseCasesTest {
         val result = setEnabledUseCase(true)
 
         assertTrue(result.isFailure)
-        assertTrue(result.exceptionOrNull() is HealthConnectUnavailableException)
+        val unavailable = result.exceptionOrNull()
+        assertTrue(unavailable is HealthSyncFailure)
+        assertEquals(HealthSyncFailureKind.Terminal, (unavailable as HealthSyncFailure).kind)
+        assertEquals(
+            "Health Connect SDK is not available on this device",
+            unavailable.message,
+        )
         assertEquals(false, preferencesRepo.getPreferences().enabled)
     }
 
@@ -156,7 +161,9 @@ class HealthConnectUseCasesTest {
         val result = setEnabledUseCase(true)
 
         assertTrue(result.isFailure)
-        assertTrue(result.exceptionOrNull() is HealthConnectUnavailableException)
+        val shortCircuit = result.exceptionOrNull()
+        assertTrue(shortCircuit is HealthSyncFailure)
+        assertEquals(HealthSyncFailureKind.Terminal, (shortCircuit as HealthSyncFailure).kind)
         assertTrue(loggingPort.errors.isEmpty())
     }
 

@@ -6,8 +6,9 @@ import com.stratum.core.testing.healthconnect.FakeHealthConnectSyncStatusPort
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
+import com.stratum.application.healthconnect.HealthSyncFailure
+import com.stratum.application.healthconnect.HealthSyncFailureKind
 import com.stratum.domain.healthconnect.HealthConnectPreferences
-import com.stratum.domain.healthconnect.HealthConnectUnavailableException
 import com.stratum.domain.training.identity.TrainingSessionId
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -82,7 +83,23 @@ class HealthConnectSyncWorkTest {
 
         assertTrue(outcome is HealthConnectSyncWork.Outcome.TerminalFailure)
         val terminal = outcome as HealthConnectSyncWork.Outcome.TerminalFailure
-        assertTrue(terminal.error is HealthConnectUnavailableException)
+        assertTrue(terminal.error is HealthSyncFailure)
+        assertEquals(HealthSyncFailureKind.Terminal, (terminal.error as HealthSyncFailure).kind)
+    }
+
+    @Test
+    @DisplayName("Given user-actionable push failure when run then returns terminal failure")
+    fun userActionableFailureIsTerminal() = runTest {
+        seedCompletedSession()
+        preferences.setPreferences(HealthConnectPreferences(enabled = true))
+        syncPort.pushFailure = HealthSyncFailure.permissionDenied()
+
+        val outcome = work.run(TrainingSessionId("ts-hc-1"))
+
+        assertTrue(outcome is HealthConnectSyncWork.Outcome.TerminalFailure)
+        val terminal = outcome as HealthConnectSyncWork.Outcome.TerminalFailure
+        assertTrue(terminal.error is HealthSyncFailure)
+        assertEquals(HealthSyncFailureKind.UserActionable, (terminal.error as HealthSyncFailure).kind)
     }
 
     @Test
