@@ -11,7 +11,7 @@ import java.io.IOException
  * Maps Google / Credential Manager failures to short, user-facing copy.
  *
  * Never returns exception class names, stack-ish text, or developer config jargon.
- * Technical detail stays in logs ([com.stratum.core.data.auth.FirebaseGoogleAuthManager]).
+ * Technical detail stays in logs ([com.stratum.core.infrastructure.auth.FirebaseGoogleAuthManager]).
  */
 fun Throwable.toGoogleSignInMessage(): String {
     val chain = generateSequence(this) { it.cause }.toList()

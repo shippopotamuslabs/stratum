@@ -3,7 +3,7 @@ package com.stratum.core.data.di
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig
 import com.google.firebase.remoteconfig.FirebaseRemoteConfigSettings
 import com.stratum.core.data.BuildConfig
-import com.stratum.core.data.featureflag.FirebaseFeatureFlagRepository
+import com.stratum.core.infrastructure.featureflag.FirebaseFeatureFlagRepository
 import com.stratum.domain.featureflag.AppFeatureFlag
 import com.stratum.application.featureflag.FeatureFlagRepository
 import dagger.Binds

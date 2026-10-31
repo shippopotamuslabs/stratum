@@ -83,10 +83,10 @@ import com.stratum.core.infrastructure.repository.RoomMuscleWeeklyOutcomeIndexRe
 import com.stratum.core.infrastructure.repository.RoomMuscleWeeklyStimulusRepository
 import com.stratum.core.infrastructure.repository.RoomMuscleVolumeBaselineRepository
 import com.stratum.core.infrastructure.repository.RoomSupersetAffinityRepository
-import com.stratum.core.data.repository.DataStoreHealthConnectPreferencesRepository
+import com.stratum.core.infrastructure.repository.DataStoreHealthConnectPreferencesRepository
 import com.stratum.core.infrastructure.repository.HealthConnectSyncStatusRepository
-import com.stratum.core.data.healthconnect.HealthConnectManager
-import com.stratum.core.data.healthconnect.HealthConnectMetricsReader
+import com.stratum.core.infrastructure.healthconnect.HealthConnectManager
+import com.stratum.core.infrastructure.healthconnect.HealthConnectMetricsReader
 import com.stratum.core.infrastructure.work.WorkManagerHealthConnectScheduler
 import com.stratum.application.healthconnect.HealthConnectMetricsPort
 import com.stratum.application.healthconnect.HealthConnectPreferencesPort
