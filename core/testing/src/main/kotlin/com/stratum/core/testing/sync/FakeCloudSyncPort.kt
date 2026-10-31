@@ -32,6 +32,8 @@ class FakeCloudSyncPort : CloudSyncPort {
         private set
 
     var startResult: Result<Unit> = Result.success(Unit)
+    /** When non-null, [start] throws this instead of returning [startResult]. */
+    var startThrowable: Throwable? = null
     var requestResult: Result<Unit> = Result.success(Unit)
     var wipeResult: Result<Unit> = Result.success(Unit)
 
@@ -50,6 +52,7 @@ class FakeCloudSyncPort : CloudSyncPort {
         startCount++
         callOrder += "start"
         startedUserId = userId
+        startThrowable?.let { throw it }
         _sessionState.value = CloudSessionState.Establishing(userId)
         _syncStatus.value = SyncStatus.Syncing
         return startResult.also {

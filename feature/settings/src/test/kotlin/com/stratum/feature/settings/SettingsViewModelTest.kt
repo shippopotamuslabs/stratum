@@ -17,6 +17,7 @@ import com.stratum.application.auth.DeleteAccountUseCase
 import com.stratum.application.auth.LogoutUseCase
 import com.stratum.domain.auth.UserProfile
 import com.stratum.domain.checkin.CheckInPreferences
+import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.application.checkin.MarkCheckInPendingUseCase
 import com.stratum.application.checkin.ObserveCheckInPreferencesUseCase
 import com.stratum.application.checkin.SetCheckInEnabledUseCase
@@ -65,7 +66,6 @@ import com.stratum.application.healthconnect.SetHealthConnectEnabledUseCase
 import com.stratum.domain.subscription.EntitlementSource
 import com.stratum.domain.subscription.EntitlementState
 import com.stratum.application.subscription.ObserveEntitlementUseCase
-import com.stratum.domain.logging.LogErrorUseCase
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @ExtendWith(MainDispatcherRule::class)
@@ -83,6 +83,7 @@ class SettingsViewModelTest {
     private lateinit var fakeAuth: FakeAuthManager
     private lateinit var fakeCloudSync: FakeCloudSyncPort
     private lateinit var fakeAccountDeletion: FakeAccountDeletionPort
+    private lateinit var loggingPort: FakeLoggingPort
     private lateinit var subject: SettingsViewModel
     private var forceRefreshCalls = 0
     private var forceRefreshResult: Result<Unit> = Result.success(Unit)
@@ -109,6 +110,7 @@ class SettingsViewModelTest {
         )
         fakeCloudSync = FakeCloudSyncPort()
         fakeAccountDeletion = FakeAccountDeletionPort()
+        loggingPort = FakeLoggingPort()
         subject = buildViewModel()
     }
 
@@ -119,7 +121,7 @@ class SettingsViewModelTest {
                 forceRefreshGate?.await()
                 forceRefreshResult
             },
-        loggingPort: FakeLoggingPort = FakeLoggingPort(),
+        loggingPort: FakeLoggingPort = this.loggingPort,
     ): SettingsViewModel =
         SettingsViewModel(
             observeThemePreferences = ObserveThemePreferencesUseCase(fakeThemePreferences),
@@ -440,6 +442,27 @@ class SettingsViewModelTest {
         assertEquals(0, fakeAuth.signOutCount)
         assertEquals("Couldn't sign out. Try again.", subject.userMessage.value)
         assertFalse(subject.uiState.value.isLoggingOut)
+        // Clean restart: nothing extra is logged.
+        assertTrue(loggingPort.errors.isEmpty())
+    }
+
+    @Test
+    @DisplayName("When logout and restart fail then restart is logged once and message stays generic")
+    fun logoutAndRestartFailureLogsRestartOnce() = runTest {
+        val restartError = IllegalStateException("restart failed")
+        fakeCloudSync.wipeResult = Result.failure(IllegalStateException("wipe failed"))
+        fakeCloudSync.startResult = Result.failure(restartError)
+        subject = buildViewModel()
+
+        subject.onLogoutClick()
+        subject.onLogoutConfirmed()
+        advanceUntilIdle()
+
+        assertEquals(0, fakeAuth.signOutCount)
+        assertEquals("Couldn't sign out. Try again.", subject.userMessage.value)
+        assertEquals(1, loggingPort.errors.size)
+        assertEquals(restartError, loggingPort.errors.single().throwable)
+        assertFalse(subject.uiState.value.isLoggingOut)
     }
 
     @Test
@@ -543,6 +566,27 @@ class SettingsViewModelTest {
         assertEquals(0, fakeAccountDeletion.deleteAuthCount)
         assertEquals(0, fakeAuth.signOutCount)
         assertEquals("Couldn't delete account. Try again.", subject.userMessage.value)
+        assertFalse(subject.uiState.value.isDeletingAccount)
+        assertTrue(loggingPort.errors.isEmpty())
+    }
+
+    @Test
+    @DisplayName("When delete and restart fail then restart is logged once and message stays generic")
+    fun deleteAccountAndRestartFailureLogsRestartOnce() = runTest {
+        val restartError = IllegalStateException("restart failed")
+        fakeAccountDeletion.deleteDataResult = Result.failure(IllegalStateException("cloud failed"))
+        fakeCloudSync.startResult = Result.failure(restartError)
+        subject = buildViewModel()
+
+        subject.onDeleteAccountClick()
+        subject.onDeleteAccountConfirmed()
+        advanceUntilIdle()
+
+        assertEquals(1, fakeAccountDeletion.deleteDataCount)
+        assertEquals(0, fakeAuth.signOutCount)
+        assertEquals("Couldn't delete account. Try again.", subject.userMessage.value)
+        assertEquals(1, loggingPort.errors.size)
+        assertEquals(restartError, loggingPort.errors.single().throwable)
         assertFalse(subject.uiState.value.isDeletingAccount)
     }
 

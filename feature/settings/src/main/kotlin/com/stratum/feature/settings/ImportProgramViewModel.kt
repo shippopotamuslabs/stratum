@@ -6,14 +6,18 @@ import com.stratum.application.auth.AuthManager
 import com.stratum.domain.auth.AuthState
 import com.stratum.application.program.importing.ImportProgramTemplatesUseCase
 import com.stratum.domain.program.importing.ProgramImportActivation
+import com.stratum.domain.program.importing.ProgramImportRollbackDiagnostic
 import com.stratum.domain.program.importing.ProgramTemplateImportOptions
+import com.stratum.application.program.importing.ProgramImportRollbackException
 import com.stratum.application.program.importing.ProgramTemplateRejectedException
 import com.stratum.domain.logging.LogAnalyticsEventUseCase
+import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.domain.logging.PARAM_ACTION
 import com.stratum.domain.logging.PARAM_SCREEN
 import com.stratum.domain.logging.USER_VISIBLE_ERROR_EVENT
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -36,6 +40,7 @@ class ImportProgramViewModel @Inject constructor(
     private val importPrograms: ImportProgramTemplatesUseCase,
     private val authManager: AuthManager,
     private val logAnalytics: LogAnalyticsEventUseCase,
+    private val logError: LogErrorUseCase,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ImportProgramUiState())
     val uiState: StateFlow<ImportProgramUiState> = _uiState.asStateFlow()
@@ -111,6 +116,23 @@ class ImportProgramViewModel @Inject constructor(
                     }
                 },
                 onFailure = { error ->
+                    // Cancellation is never a user-visible import error: rethrow before
+                    // any analytics logging or uiState update so the coroutine cancels.
+                    if (error is CancellationException) throw error
+                    // STR-256: a failed orphan rollback rides the failure as diagnostics and
+                    // is drained here exactly once. User copy still derives from the primary
+                    // message via userFacingImportError below.
+                    (error as? ProgramImportRollbackException)?.diagnostics?.forEach { diagnostic ->
+                        when (diagnostic) {
+                            is ProgramImportRollbackDiagnostic.RollbackDeleteFailed ->
+                                logError(
+                                    TAG_IMPORT_ROLLBACK,
+                                    "Program import rollback delete failed: " +
+                                        "program=${diagnostic.programId.value}",
+                                    diagnostic.cause,
+                                )
+                        }
+                    }
                     logAnalytics(
                         USER_VISIBLE_ERROR_EVENT,
                         mapOf(PARAM_SCREEN to "import_program", PARAM_ACTION to "import_templates"),
@@ -125,6 +147,10 @@ class ImportProgramViewModel @Inject constructor(
                 },
             )
         }
+    }
+
+    private companion object {
+        const val TAG_IMPORT_ROLLBACK = "ProgramTemplateImport"
     }
 
     /** Surfaces SAF permission/read failures from the UI layer (off main-thread load). */
