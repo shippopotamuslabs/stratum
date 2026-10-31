@@ -145,7 +145,7 @@ object DatabaseModule {
     @Singleton
     fun provideStratumDatabase(
         @ApplicationContext context: Context,
-        seedGate: com.stratum.core.data.sync.LiftCatalogSeedGate,
+        seedGate: com.stratum.core.infrastructure.sync.LiftCatalogSeedGate,
         loggingPort: LoggingPort,
     ): StratumDatabase {
         // Manual migrations (v4→v5, v7→v8, v8→v9, v9→v10) are registered centrally via
