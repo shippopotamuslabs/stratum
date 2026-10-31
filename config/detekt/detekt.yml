@@ -112,8 +112,8 @@ style:
       - 'com.google.firebase.crashlytics.FirebaseCrashlytics'
       - 'io.opentelemetry.*'
     excludes:
-      - '**/core/inference/src/main/**/AndroidCrashTelemetryAdapter.kt'
-      - '**/core/inference/src/test/**'
+      - '**/core/infrastructure/src/main/**/AndroidCrashTelemetryAdapter.kt'
+      - '**/core/infrastructure/src/test/**'
 
 complexity:
   active: true
