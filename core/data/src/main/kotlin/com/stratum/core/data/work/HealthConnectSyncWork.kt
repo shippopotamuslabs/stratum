@@ -3,7 +3,7 @@ package com.stratum.core.data.work
 import com.stratum.application.healthconnect.HealthConnectPreferencesPort
 import com.stratum.application.healthconnect.HealthConnectSyncPort
 import com.stratum.application.healthconnect.HealthConnectSyncStatusPort
-import com.stratum.domain.healthconnect.isTerminalHealthConnectFailure
+import com.stratum.application.healthconnect.isTerminalHealthSyncFailure
 import com.stratum.application.training.TrainingLogRepository
 import com.stratum.domain.training.identity.TrainingSessionId
 import javax.inject.Inject
@@ -49,7 +49,7 @@ class HealthConnectSyncWork @Inject constructor(
         return syncResult.fold(
             onSuccess = { Outcome.Success },
             onFailure = { error ->
-                if (isTerminalHealthConnectFailure(error)) {
+                if (error.isTerminalHealthSyncFailure()) {
                     Outcome.TerminalFailure(error)
                 } else {
                     Outcome.RetryableFailure(error)

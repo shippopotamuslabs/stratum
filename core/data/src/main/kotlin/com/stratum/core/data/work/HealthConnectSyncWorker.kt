@@ -4,7 +4,7 @@ import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.stratum.domain.healthconnect.HEALTH_CONNECT_PREFS_TAG
+import com.stratum.application.healthconnect.HEALTH_CONNECT_PREFS_TAG
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.logging.onFailureLogged
 import com.stratum.domain.training.identity.TrainingSessionId

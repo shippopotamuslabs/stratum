@@ -3,11 +3,11 @@ package com.stratum.application.healthconnect
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.Flow
-import com.stratum.domain.healthconnect.HEALTH_CONNECT_PREFS_TAG
 import com.stratum.domain.healthconnect.HealthConnectPreferences
-import com.stratum.domain.healthconnect.HealthConnectUnavailableException
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.logging.onFailureLogged
+
+const val HEALTH_CONNECT_PREFS_TAG = "HealthConnectPrefs"
 
 class ObserveHealthConnectPreferencesUseCase @Inject constructor(
     private val preferencesPort: HealthConnectPreferencesPort,
@@ -22,7 +22,7 @@ class SetHealthConnectEnabledUseCase @Inject constructor(
 ) {
     suspend operator fun invoke(enabled: Boolean): Result<Unit> {
         if (enabled && !syncPort.isAvailable()) {
-            return Result.failure(HealthConnectUnavailableException())
+            return Result.failure(HealthSyncFailure.unavailable())
         }
         // The preferences repository returns write failures as values without
         // logging them. This use case is the drain boundary — its only callers

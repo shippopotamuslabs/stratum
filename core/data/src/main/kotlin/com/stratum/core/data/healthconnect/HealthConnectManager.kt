@@ -7,9 +7,7 @@ import androidx.health.connect.client.records.ExerciseSegment
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.metadata.Device
 import androidx.health.connect.client.records.metadata.Metadata
-import com.stratum.domain.healthconnect.HealthConnectPermissionDeniedException
 import com.stratum.application.healthconnect.HealthConnectSyncPort
-import com.stratum.domain.healthconnect.HealthConnectUnavailableException
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.TrainingSession
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -39,7 +37,7 @@ class HealthConnectManager @Inject constructor(
 
     override suspend fun grantedPermissions(): Result<Set<String>> {
         if (!isAvailable()) {
-            return Result.failure(HealthConnectUnavailableException())
+            return Result.failure(HealthConnectUnavailableException().toHealthSyncFailure())
         }
         return try {
             Result.success(
@@ -48,14 +46,14 @@ class HealthConnectManager @Inject constructor(
         } catch (e: CancellationException) {
             throw e
         } catch (error: Throwable) {
-            Result.failure(error)
+            Result.failure(error.toHealthSyncFailure())
         }
     }
 
     override suspend fun pushSession(
         session: TrainingSession,
         sets: List<LoggedSet>,
-    ): Result<Unit> = runCatching {
+    ): Result<Unit> = runCatching<Unit> {
         if (!isAvailable()) {
             throw HealthConnectUnavailableException()
         }
@@ -90,7 +88,13 @@ class HealthConnectManager @Inject constructor(
         )
 
         client.insertRecords(listOf(record))
-    }
+    }.fold(
+        onSuccess = { Result.success(it) },
+        onFailure = {
+            if (it is CancellationException) throw it
+            Result.failure(it.toHealthSyncFailure())
+        },
+    )
 
     private fun buildSessionRecord(
         startTime: Instant,
