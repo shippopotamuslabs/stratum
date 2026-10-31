@@ -1,6 +1,8 @@
 package com.stratum.core.data.repository
 
+import app.cash.turbine.test
 import com.stratum.core.testing.healthconnect.FakeHealthConnectPreferencesRepository
+import com.stratum.domain.healthconnect.HealthFailureKind
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertSame
@@ -23,10 +25,13 @@ class HealthConnectSyncStatusRepositoryTest {
     @Test
     @DisplayName("reportSyncError forwards success without logging")
     fun reportSyncErrorForwards() = runTest {
-        val result = repository.reportSyncError("sync blew up")
+        val result = repository.reportSyncError(HealthFailureKind.Unavailable)
 
         assertTrue(result.isSuccess)
-        assertEquals("sync blew up", preferences.getPreferences().pendingSyncError)
+        assertEquals(
+            HealthFailureKind.Unavailable,
+            preferences.getPreferences().pendingSyncError,
+        )
     }
 
     @Test
@@ -35,7 +40,7 @@ class HealthConnectSyncStatusRepositoryTest {
         val cause = IllegalStateException("datastore blip")
         preferences.setPendingSyncErrorFailure = cause
 
-        val result = repository.reportSyncError("sync blew up")
+        val result = repository.reportSyncError(HealthFailureKind.Unavailable)
 
         assertTrue(result.isFailure)
         assertSame(cause, result.exceptionOrNull())
@@ -43,9 +48,24 @@ class HealthConnectSyncStatusRepositoryTest {
     }
 
     @Test
+    @DisplayName("same kind re-reported after clear emits again")
+    fun sameKindReemitsAfterClear() = runTest {
+        repository.observePendingSyncErrors().test {
+            repository.reportSyncError(HealthFailureKind.Unknown)
+            assertEquals(HealthFailureKind.Unknown, awaitItem())
+            repository.clearPendingSyncError()
+            // The clear emits nothing (nulls are filtered), but it breaks the
+            // distinct chain so the same kind re-reports.
+            repository.reportSyncError(HealthFailureKind.Unknown)
+            assertEquals(HealthFailureKind.Unknown, awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     @DisplayName("clearPendingSyncError forwards failure as a value")
     fun clearPendingSyncErrorForwardsFailure() = runTest {
-        preferences.setPendingSyncError("sync blew up")
+        preferences.setPendingSyncError(HealthFailureKind.PermissionDenied)
         val cause = IllegalStateException("datastore blip")
         preferences.setPendingSyncErrorFailure = cause
 
@@ -53,6 +73,9 @@ class HealthConnectSyncStatusRepositoryTest {
 
         assertTrue(result.isFailure)
         assertSame(cause, result.exceptionOrNull())
-        assertEquals("sync blew up", preferences.getPreferences().pendingSyncError)
+        assertEquals(
+            HealthFailureKind.PermissionDenied,
+            preferences.getPreferences().pendingSyncError,
+        )
     }
 }

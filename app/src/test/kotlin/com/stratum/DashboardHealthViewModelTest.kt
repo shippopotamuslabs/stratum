@@ -27,7 +27,6 @@ import com.stratum.application.healthconnect.ObserveHealthConnectPreferencesUseC
 import com.stratum.domain.health.WeightSample
 import com.stratum.application.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.Weight
-import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.domain.lift.WeightDisplayPreferences
 import com.stratum.application.sync.ObserveCloudSyncStatusUseCase
 import com.stratum.application.sync.RequestCloudSyncUseCase
@@ -219,28 +218,36 @@ class DashboardHealthViewModelTest {
     }
 
     @Test
-    @DisplayName("STR-257: snapshot read failure logs one diagnostic and still publishes empty pages")
-    fun readFailureLogsDiagnosticOnceAndPublishesEmptyPages() = runTest {
+    @DisplayName("STR-268 AQ1: snapshot read failure logs once at the catch; the drain logs nothing")
+    fun readFailureLogsOnceAtCatchAndDrainLogsNothing() = runTest {
         val healthPrefs = FakeHealthConnectPreferencesRepository()
         healthPrefs.setPreferences(HealthConnectPreferences(enabled = true))
         val metrics = FakeHealthConnectMetricsPort()
         metrics.granted = setOf(HealthMetricType.Steps)
         val cause = IllegalStateException("sdk blip")
         metrics.readSnapshotFailure = cause
-        val loggingPort = FakeLoggingPort()
+        val metricsLogging = FakeLoggingPort()
         val viewModel = buildViewModel(
             healthConnectPreferences = healthPrefs,
             healthConnectMetrics = metrics,
-            loggingPort = loggingPort,
+            metricsLogging = metricsLogging,
         )
         advanceUntilIdle()
-        // Init settles its own loads; one explicit load must drain its diagnostic exactly once.
-        loggingPort.errors.clear()
+        // Init settles its own loads; one explicit load must log exactly once, at the catch.
+        metricsLogging.errors.clear()
         viewModel.load()
         advanceUntilIdle()
 
-        assertEquals(1, loggingPort.errors.size)
-        assertSame(cause, loggingPort.errors.single().throwable)
+        // STR-268 AQ1: the drain produces no log for SnapshotReadFailed; the single error
+        // is the use-case catch log carrying the cause.
+        assertEquals(1, metricsLogging.errors.size)
+        val logged = metricsLogging.errors.single()
+        assertEquals("HealthConnectMetrics", logged.tag)
+        assertEquals(
+            "Failed to read Health Connect snapshot — dashboard shows empty metrics",
+            logged.message,
+        )
+        assertSame(cause, logged.throwable)
         // The failure is log-only: empty pages still publish and carry no diagnostic in UI state.
         assertEquals(true, viewModel.healthUiState.value.visible)
         assertEquals(null, viewModel.healthUiState.value.activity.todayStepsText)
@@ -252,7 +259,7 @@ class DashboardHealthViewModelTest {
         healthConnectMetrics: FakeHealthConnectMetricsPort = FakeHealthConnectMetricsPort(),
         weightDisplayPreferences: FakeWeightDisplayPreferencesRepository =
             FakeWeightDisplayPreferencesRepository(),
-        loggingPort: FakeLoggingPort = FakeLoggingPort(),
+        metricsLogging: FakeLoggingPort = FakeLoggingPort(),
         now: Instant? = null,
     ): DashboardViewModel {
         val program = WorkoutLoggingFixtures.twoWorkoutProgram()
@@ -288,9 +295,9 @@ class DashboardHealthViewModelTest {
             loadHealthConnectMetrics = LoadHealthConnectMetricsUseCase(
                 healthConnectMetrics,
                 healthConnectPreferences,
+                metricsLogging,
             ),
             requestCloudSync = RequestCloudSyncUseCase(FakeCloudSyncPort()),
-            logError = LogErrorUseCase(loggingPort),
             zone = testZone,
             clock = { now ?: Instant.now() },
         )

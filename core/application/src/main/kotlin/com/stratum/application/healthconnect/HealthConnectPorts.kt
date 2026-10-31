@@ -5,6 +5,7 @@ import com.stratum.domain.training.TrainingSession
 import com.stratum.domain.training.identity.TrainingSessionId
 import kotlinx.coroutines.flow.Flow
 import com.stratum.domain.healthconnect.HealthConnectPreferences
+import com.stratum.domain.healthconnect.HealthFailureKind
 import com.stratum.domain.health.HealthMetricType
 import com.stratum.domain.health.HealthMetricsRequest
 import com.stratum.domain.health.HealthMetricsSnapshot
@@ -14,7 +15,7 @@ interface HealthConnectPreferencesPort {
     fun observePreferences(): Flow<HealthConnectPreferences>
     suspend fun getPreferences(): HealthConnectPreferences
     suspend fun setEnabled(enabled: Boolean): Result<Unit>
-    suspend fun setPendingSyncError(message: String?): Result<Unit>
+    suspend fun setPendingSyncError(kind: HealthFailureKind?): Result<Unit>
 }
 
 /** Port for interacting with Health Connect SDK (pushing exercise records & permission checks). */
@@ -37,8 +38,8 @@ interface HealthConnectSchedulerPort {
 
 /** Port for durable sync-error surfacing to UI (sticky until cleared). */
 interface HealthConnectSyncStatusPort {
-    fun observePendingSyncErrors(): Flow<String>
-    suspend fun reportSyncError(message: String): Result<Unit>
+    fun observePendingSyncErrors(): Flow<HealthFailureKind>
+    suspend fun reportSyncError(kind: HealthFailureKind): Result<Unit>
     suspend fun clearPendingSyncError(): Result<Unit>
 }
 

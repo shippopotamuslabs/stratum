@@ -1,6 +1,7 @@
 package com.stratum.core.testing.healthconnect
 
 import com.stratum.domain.healthconnect.HealthConnectPreferences
+import com.stratum.domain.healthconnect.HealthFailureKind
 import com.stratum.application.healthconnect.HealthConnectPreferencesPort
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,9 +23,9 @@ class FakeHealthConnectPreferencesRepository : HealthConnectPreferencesPort {
         return Result.success(Unit)
     }
 
-    override suspend fun setPendingSyncError(message: String?): Result<Unit> {
+    override suspend fun setPendingSyncError(kind: HealthFailureKind?): Result<Unit> {
         setPendingSyncErrorFailure?.let { return Result.failure(it) }
-        preferences.value = preferences.value.copy(pendingSyncError = message)
+        preferences.value = preferences.value.copy(pendingSyncError = kind)
         return Result.success(Unit)
     }
 

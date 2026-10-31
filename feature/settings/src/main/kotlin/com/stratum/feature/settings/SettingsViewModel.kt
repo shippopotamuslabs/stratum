@@ -12,6 +12,7 @@ import com.stratum.application.checkin.SetCheckInEnabledUseCase
 import com.stratum.application.healthconnect.ClearHealthConnectSyncErrorUseCase
 import com.stratum.application.healthconnect.ObserveHealthConnectPreferencesUseCase
 import com.stratum.application.healthconnect.ObserveHealthConnectSyncErrorsUseCase
+import com.stratum.domain.healthconnect.HealthFailureKind
 import com.stratum.application.healthconnect.ApplyGrantedPermissionsDiagnostic
 import com.stratum.application.healthconnect.SetHealthConnectEnabledUseCase
 import com.stratum.domain.logging.LogErrorUseCase
@@ -92,8 +93,8 @@ class SettingsViewModel @Inject constructor(
 
     init {
         observeHealthConnectSyncErrors()
-            .onEach { error ->
-                _userMessage.value = error
+            .onEach { kind ->
+                _userMessage.value = kind.toUserMessage()
                 clearHealthConnectSyncError()
             }
             .launchIn(viewModelScope)
@@ -455,6 +456,17 @@ class SettingsViewModel @Inject constructor(
     }
 
     /**
+     * Translates the sticky sync-error kind to the existing shipped user text (STR-268).
+     * The strings are the HealthSyncFailure factory wordings — no new copy.
+     */
+    private fun HealthFailureKind.toUserMessage(): String =
+        when (this) {
+            HealthFailureKind.Unavailable -> MSG_HEALTH_SYNC_UNAVAILABLE
+            HealthFailureKind.PermissionDenied -> MSG_HEALTH_SYNC_PERMISSION
+            HealthFailureKind.Unknown -> MSG_HEALTH_SYNC_FAILED
+        }
+
+    /**
      * STR-257: reports each permission-query diagnostic exactly once through the screen's
      * error-logging wiring. Diagnostics are log-only — never surfaced in the UI. Error
      * level (not warning) so the bound failure travels attached: `LoggingPort.warning`
@@ -482,6 +494,11 @@ class SettingsViewModel @Inject constructor(
             "Cloud sync restart failed after account deletion failure."
         const val FORCE_REFRESH_COOLDOWN_MS = 120_000L
         const val MSG_PREFS_FAILED = "Couldn't save that setting. Try again."
+        const val MSG_HEALTH_SYNC_UNAVAILABLE =
+            "Health Connect SDK is not available on this device"
+        const val MSG_HEALTH_SYNC_PERMISSION =
+            "Health Connect write permission is not granted"
+        const val MSG_HEALTH_SYNC_FAILED = "Failed to sync workout to Health Connect"
         const val MSG_HEALTH_CONNECT_SETTINGS =
             "Couldn't open Health Connect. Is it available on this device?"
         const val MSG_FORCE_REFRESH_QUEUED =
@@ -624,3 +641,4 @@ private fun ThemeFamilyUi.toDomain(): ThemeFamily =
         ThemeFamilyUi.Stratum -> ThemeFamily.Tonal
         ThemeFamilyUi.NeoBrutalist -> ThemeFamily.NeoBrutalist
     }
+

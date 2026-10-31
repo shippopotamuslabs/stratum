@@ -8,6 +8,7 @@ import com.stratum.core.ui.component.formatWeightAmountForDisplay
 import com.stratum.core.ui.component.formatWorkoutDuration
 import com.stratum.application.healthconnect.ClearHealthConnectSyncErrorUseCase
 import com.stratum.application.healthconnect.ObserveHealthConnectSyncErrorsUseCase
+import com.stratum.domain.healthconnect.HealthFailureKind
 import com.stratum.application.lift.AnalyzeSessionEquipmentProposalsUseCase
 import com.stratum.application.lift.ApplyEquipmentIncrementProposalUseCase
 import com.stratum.application.lift.EquipmentProposalDiagnostic
@@ -82,8 +83,8 @@ class WorkoutCompleteViewModel @Inject constructor(
 
     init {
         observeHealthConnectSyncErrors()
-            .onEach { error ->
-                enqueueUserMessage(error)
+            .onEach { kind ->
+                enqueueUserMessage(kind.toUserMessage())
                 publishNextUserMessage()
                 clearHealthConnectSyncError()
             }
@@ -445,6 +446,20 @@ class WorkoutCompleteViewModel @Inject constructor(
             }
         }
     }
+
+    /**
+     * Translates the sticky sync-error kind to the existing shipped user text (STR-268).
+     * The strings are the HealthSyncFailure factory wordings — no new copy. Kept as
+     * literals here following this screen's precedent (mapper/inline message text).
+     */
+    private fun HealthFailureKind.toUserMessage(): String =
+        when (this) {
+            HealthFailureKind.Unavailable ->
+                "Health Connect SDK is not available on this device"
+            HealthFailureKind.PermissionDenied ->
+                "Health Connect write permission is not granted"
+            HealthFailureKind.Unknown -> "Failed to sync workout to Health Connect"
+        }
 
     private companion object {
         const val TAG = "WorkoutCompleteViewModel"

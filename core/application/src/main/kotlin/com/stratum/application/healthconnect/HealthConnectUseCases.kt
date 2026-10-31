@@ -4,10 +4,12 @@ import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.Flow
 import com.stratum.domain.healthconnect.HealthConnectPreferences
+import com.stratum.domain.healthconnect.HealthFailureKind
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.logging.onFailureLogged
 
 const val HEALTH_CONNECT_PREFS_TAG = "HealthConnectPrefs"
+const val HEALTH_CONNECT_METRICS_TAG = "HealthConnectMetrics"
 
 class ObserveHealthConnectPreferencesUseCase @Inject constructor(
     private val preferencesPort: HealthConnectPreferencesPort,
@@ -71,7 +73,7 @@ class SetHealthConnectEnabledUseCase @Inject constructor(
 class ObserveHealthConnectSyncErrorsUseCase @Inject constructor(
     private val syncStatusPort: HealthConnectSyncStatusPort,
 ) {
-    operator fun invoke(): Flow<String> = syncStatusPort.observePendingSyncErrors()
+    operator fun invoke(): Flow<HealthFailureKind> = syncStatusPort.observePendingSyncErrors()
 }
 
 class ClearHealthConnectSyncErrorUseCase @Inject constructor(

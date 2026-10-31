@@ -39,6 +39,7 @@ import com.stratum.domain.training.EstimatedOneRm
 import com.stratum.application.training.GetWorkoutSummaryUseCase
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.identity.TrainingSessionId
+import com.stratum.domain.healthconnect.HealthFailureKind
 import com.stratum.application.workout.AnalyzeSessionRepRangeShiftProposalsUseCase
 import com.stratum.application.workout.ApplyRepRangeShiftUseCase
 import com.stratum.application.workout.RepRangeShiftDiagnostic
@@ -96,6 +97,56 @@ class WorkoutCompleteViewModelTest {
         assertEquals("1", bestSet.rirLabel)
         assertEquals(expectedOneRmLabel(185.0, 3, 1), bestSet.estimatedOneRmLabel)
         assertTrue(loaded.equipmentProposals.isEmpty())
+    }
+
+    @Test
+    @DisplayName("Sticky sync error surfaces the mapped text and clears")
+    fun stickySyncErrorSurfacesMappedTextAndClears() = runTest {
+        val syncStatus = FakeHealthConnectSyncStatusPort()
+        val viewModel =
+            buildViewModelWithBenchSet(
+                weight = 135.0,
+                reps = 5,
+                rir = 2,
+                healthConnectSyncStatus = syncStatus,
+            )
+
+        viewModel.loadSummary("ts-1")
+        advanceUntilIdle()
+
+        syncStatus.reportSyncError(HealthFailureKind.Unavailable)
+        advanceUntilIdle()
+
+        var loaded = viewModel.uiState.value as WorkoutCompleteUiState.Loaded
+        assertEquals(
+            "Health Connect SDK is not available on this device",
+            loaded.userMessage,
+        )
+        assertEquals(null, syncStatus.currentPendingError)
+        viewModel.userMessageShown()
+        advanceUntilIdle()
+
+        syncStatus.reportSyncError(HealthFailureKind.PermissionDenied)
+        advanceUntilIdle()
+
+        loaded = viewModel.uiState.value as WorkoutCompleteUiState.Loaded
+        assertEquals(
+            "Health Connect write permission is not granted",
+            loaded.userMessage,
+        )
+        assertEquals(null, syncStatus.currentPendingError)
+        viewModel.userMessageShown()
+        advanceUntilIdle()
+
+        syncStatus.reportSyncError(HealthFailureKind.Unknown)
+        advanceUntilIdle()
+
+        loaded = viewModel.uiState.value as WorkoutCompleteUiState.Loaded
+        assertEquals(
+            "Failed to sync workout to Health Connect",
+            loaded.userMessage,
+        )
+        assertEquals(null, syncStatus.currentPendingError)
     }
 
     @Test
@@ -955,6 +1006,7 @@ class WorkoutCompleteViewModelTest {
         rir: Int?,
         partialReps: Int? = null,
         isPersonalRecord: Boolean = false,
+        healthConnectSyncStatus: FakeHealthConnectSyncStatusPort = FakeHealthConnectSyncStatusPort(),
     ): WorkoutCompleteViewModel {
         val programRepo = FakeProgramRepository(WorkoutLoggingFixtures.twoWorkoutProgram())
         val session = WorkoutLoggingFixtures.completedLiveSession(id = "ts-1")
@@ -985,7 +1037,6 @@ class WorkoutCompleteViewModelTest {
         val repRangePrefs = FakeRepRangeShiftProposalPreferences()
         val logging = FakeLoggingPort()
         val insightsRepo = FakeLiftTrainingInsightsRepository()
-        val healthConnectSyncStatus = FakeHealthConnectSyncStatusPort()
         return WorkoutCompleteViewModel(
             getWorkoutSummary =
                 GetWorkoutSummaryUseCase(

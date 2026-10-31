@@ -60,6 +60,7 @@ import com.stratum.core.testing.healthconnect.FakeHealthConnectSyncStatusPort
 import com.stratum.core.testing.subscription.FakeEntitlementRepository
 import com.stratum.application.healthconnect.ClearHealthConnectSyncErrorUseCase
 import com.stratum.domain.healthconnect.HealthConnectPreferences
+import com.stratum.domain.healthconnect.HealthFailureKind
 import com.stratum.application.healthconnect.ObserveHealthConnectPreferencesUseCase
 import com.stratum.application.healthconnect.ObserveHealthConnectSyncErrorsUseCase
 import com.stratum.application.healthconnect.SetHealthConnectEnabledUseCase
@@ -848,9 +849,23 @@ class SettingsViewModelTest {
     fun healthConnectSyncErrorSurfacesInUserMessage() = runTest {
         subject.userMessage.test {
             assertEquals(null, awaitItem())
-            fakeHealthConnectSyncStatus.reportSyncError("Health Connect write failed")
+            fakeHealthConnectSyncStatus.reportSyncError(HealthFailureKind.Unavailable)
             advanceUntilIdle()
-            assertEquals("Health Connect write failed", awaitItem())
+            assertEquals(
+                "Health Connect SDK is not available on this device",
+                awaitItem(),
+            )
+            assertEquals(null, fakeHealthConnectSyncStatus.currentPendingError)
+            fakeHealthConnectSyncStatus.reportSyncError(HealthFailureKind.PermissionDenied)
+            advanceUntilIdle()
+            assertEquals(
+                "Health Connect write permission is not granted",
+                awaitItem(),
+            )
+            assertEquals(null, fakeHealthConnectSyncStatus.currentPendingError)
+            fakeHealthConnectSyncStatus.reportSyncError(HealthFailureKind.Unknown)
+            advanceUntilIdle()
+            assertEquals("Failed to sync workout to Health Connect", awaitItem())
             assertEquals(null, fakeHealthConnectSyncStatus.currentPendingError)
             cancelAndIgnoreRemainingEvents()
         }

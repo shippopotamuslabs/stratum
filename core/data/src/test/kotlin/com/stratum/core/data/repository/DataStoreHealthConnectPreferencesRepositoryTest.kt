@@ -1,7 +1,11 @@
 package com.stratum.core.data.repository
 
+import com.stratum.core.data.healthconnect.HealthConnectPreferencesRecordSerializer
+import com.stratum.domain.healthconnect.HealthFailureKind
+import java.io.ByteArrayInputStream
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -38,22 +42,70 @@ class DataStoreHealthConnectPreferencesRepositoryTest {
     }
 
     @Test
-    @DisplayName("setPendingSyncError returns success and persists the sticky error")
+    @DisplayName("setPendingSyncError returns success and persists the sticky kind")
     fun setPendingSyncErrorPersists() = runTest {
-        val result = repository.setPendingSyncError("sync blew up")
+        val result =
+            repository.setPendingSyncError(HealthFailureKind.PermissionDenied)
 
         assertTrue(result.isSuccess)
-        assertEquals("sync blew up", repository.getPreferences().pendingSyncError)
+        assertEquals(
+            HealthFailureKind.PermissionDenied,
+            repository.getPreferences().pendingSyncError,
+        )
     }
 
     @Test
     @DisplayName("clearing the sticky error with null persists null")
     fun clearPendingSyncErrorPersists() = runTest {
-        repository.setPendingSyncError("sync blew up")
+        repository.setPendingSyncError(HealthFailureKind.Unavailable)
 
         val result = repository.setPendingSyncError(null)
 
         assertTrue(result.isSuccess)
         assertEquals(null, repository.getPreferences().pendingSyncError)
+    }
+
+    @Test
+    @DisplayName("legacy free-text record decodes with enabled preserved and no pending error")
+    fun legacyFreeTextRecordDropsErrorKeepsEnabled() = runTest {
+        val legacy =
+            """{"enabled":true,"pendingSyncError":"<vendor text>"}"""
+
+        val record =
+            HealthConnectPreferencesRecordSerializer.readFrom(
+                ByteArrayInputStream(legacy.toByteArray()),
+            )
+        val prefs = record.toDomain()
+
+        assertEquals(true, prefs.enabled)
+        assertNull(prefs.pendingSyncError)
+    }
+
+    @Test
+    @DisplayName("unrecognized pendingSyncErrorKind maps to Unknown")
+    fun unknownKindNameMapsToUnknown() = runTest {
+        val record =
+            HealthConnectPreferencesRecordSerializer.readFrom(
+                ByteArrayInputStream(
+                    """{"enabled":false,"pendingSyncErrorKind":"Bogus"}""".toByteArray(),
+                ),
+            )
+
+        assertEquals(HealthFailureKind.Unknown, record.toDomain().pendingSyncError)
+    }
+
+    @Test
+    @DisplayName("recognized pendingSyncErrorKind round-trips the kind")
+    fun knownKindNameMapsToKind() = runTest {
+        val record =
+            HealthConnectPreferencesRecordSerializer.readFrom(
+                ByteArrayInputStream(
+                    """{"enabled":true,"pendingSyncErrorKind":"Unavailable"}""".toByteArray(),
+                ),
+            )
+        val prefs = record.toDomain()
+
+        assertEquals(true, prefs.enabled)
+        assertEquals(HealthFailureKind.Unavailable, prefs.pendingSyncError)
     }
 }
