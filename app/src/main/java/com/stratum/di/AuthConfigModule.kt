@@ -2,7 +2,7 @@ package com.stratum.di
 
 import android.content.Context
 import com.stratum.R
-import com.stratum.core.data.auth.GoogleServerClientId
+import com.stratum.core.infrastructure.auth.GoogleServerClientId
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
