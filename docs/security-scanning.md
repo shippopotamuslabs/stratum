@@ -66,10 +66,23 @@ installs at the **group** level:
 
 ## OSV-Scanner (CI gate)
 
-The `osv-scan` job runs in the `lint` stage on every MR and on `main`:
+OSV scanning runs in two shapes (STR-277):
+
+- **Pull requests — diff-only** (`osv-scan` in `.github/workflows/ci.yml`):
+  the scan below runs against both the PR tree and the base-branch tree,
+  and the job fails only on (vulnerability, package) findings the PR
+  newly introduces (compared with `scripts/osv-diff.py`). Standing
+  findings that predate the PR are tracked in STR-277 and do not fail
+  PRs.
+- **Nightly on `main` — full scan** (`.github/workflows/osv-nightly.yml`,
+  06:30 UTC, or manual dispatch): the unfiltered scan below, strict —
+  any reported vulnerability fails the run. That failure is how newly
+  published CVEs against dependencies we already ship surface.
+
+The scan itself:
 
 1. Downloads the pinned OSV-Scanner release (see `OSV_SCANNER_VERSION` in
-   `.gitlab-ci.yml`; bump it when new releases land).
+   `.github/workflows/ci.yml`; bump it when new releases land).
 2. Resolves the `:app` `releaseRuntimeClasspath` — the exact dependency set
    shipped in the APK — and converts it to a CycloneDX SBOM with
    `scripts/generate-sbom.py` (`bom.cdx.json`, kept as a job artifact).
@@ -83,9 +96,9 @@ The `osv-scan` job runs in the `lint` stage on every MR and on `main`:
 4. Runs `osv-scanner scan source` against both SBOMs plus
    `functions/package-lock.json` and `functions-python/requirements.txt`.
 
-The job **fails (exit 1) when OSV reports any known vulnerability**, so a CVE in
-a new dependency blocks the MR before merge. On `main` it guards against
-vulnerabilities published against dependencies we already ship.
+On PRs the job **fails only on findings the PR introduces**, so a CVE in
+a new dependency is flagged before merge while pre-existing findings
+stay visible in the nightly full scan instead of re-failing every PR.
 
 Container-image coverage: the solver's production *container image* (the
 `eclipse-temurin:17-jre-jammy` base plus `libgomp1` from apt) is scanned by
@@ -95,8 +108,9 @@ cannot see — SBOMs cover only the JVM dependency graph. The base image is
 also tracked for *updates* by Renovate's `dockerfile` manager.
 The image job exits 1 on any known CVE, matching the `osv-scan`
 failure code; triage follows the same path below (suppressions in
-`.osv-scanner.toml` apply via `--config`). The job runs `allow_failure: true`
-as an informational control, not a merge blocker — see baseline.
+`.osv-scanner.toml` apply via `--config`). The job runs nightly from
+`osv-nightly.yml` as an informational control (`continue-on-error`),
+not a merge blocker — see baseline.
 
 ### Image baseline (2026-09-21, first Docker run on the home-server runner)
 

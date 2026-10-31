@@ -1,0 +1,107 @@
+# Full OSV vulnerability scan — nightly on main (STR-277).
+#
+# PR-time scanning lives in ci.yml's `osv-scan` job and is DIFF-ONLY: it
+# fails only on findings the PR newly introduces, so standing findings
+# never block or noise up a PR. This workflow is the other half: the
+# FULL, unfiltered scan of everything we ship, run on a schedule so
+# vulnerabilities published against already-shipped dependencies (and
+# base-image CVEs) surface in exactly one place. Its failures are the
+# standing-findings signal tracked in STR-277.
+name: OSV Nightly
+
+"on":
+  schedule:
+    # 06:30 UTC — just after the main CI nightly (06:00 UTC, ci.yml).
+    - cron: "30 6 * * *"
+  workflow_dispatch:
+
+# Nightly runs are never cancelled (same rule as ci.yml's schedule runs).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  # Mirrors ci.yml's env block; keep OSV_SCANNER_VERSION in step with
+  # ci.yml when bumping the pinned scanner.
+  GRADLE_USER_HOME: ${{ github.workspace }}/.ci-gradle-home
+  ANDROID_USER_HOME: ${{ github.workspace }}/../ci-home/android-home
+  GRADLE_OPTS: "-Dorg.gradle.caching=true"
+  OSV_SCANNER_VERSION: "2.6.0"
+
+jobs:
+  # Full dependency scan: both Gradle SBOMs plus the functions lockfiles,
+  # unfiltered. STRICT — any reported vulnerability fails the run; that
+  # failure is the signal (STR-277 tracks the standing findings).
+  osv-scan:
+    name: osv-scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/android-setup
+        with:
+          google-services-json: ${{ secrets.GOOGLE_SERVICES_JSON }}
+      - name: Restore Gradle dependency cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            .ci-gradle-home/caches/modules-2
+            .ci-gradle-home/wrapper
+          key: ${{ runner.os }}-gradle-deps-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-deps-
+      - name: Generate SBOMs and scan
+        run: |
+          mkdir -p .tmp
+          ./scripts/install-osv-scanner.sh "$OSV_SCANNER_VERSION" "$GITHUB_WORKSPACE/.tmp/osv-scanner"
+          ./gradlew :app:dependencies --configuration releaseRuntimeClasspath -q > /tmp/gradle-app-deps.txt
+          python3 scripts/generate-sbom.py < /tmp/gradle-app-deps.txt > bom.cdx.json
+          ./gradlew :solver-service:dependencies --configuration runtimeClasspath -q > /tmp/gradle-solver-deps.txt
+          python3 scripts/generate-sbom.py --component-name stratum-solver < /tmp/gradle-solver-deps.txt > bom-solver.cdx.json
+          SCAN_ARGS="-L bom.cdx.json -L bom-solver.cdx.json --lockfile=functions/package-lock.json --lockfile=functions-python/requirements.txt"
+          if [ -f .osv-scanner.toml ]; then SCAN_ARGS="$SCAN_ARGS --config=.osv-scanner.toml"; fi
+          ./.tmp/osv-scanner scan source $SCAN_ARGS --format=table
+      - name: Upload SBOMs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: osv-sboms
+          path: |
+            bom.cdx.json
+            bom-solver.cdx.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # Full solver-image scan. Informational (continue-on-error), as it was
+  # in ci.yml: the base image carries OS-package findings with no fix
+  # path today, so a hard gate would stay red forever — see the image
+  # baseline in docs/security-scanning.md. The findings still print in
+  # the run log on every nightly.
+  osv-scan-image:
+    name: osv-scan-image
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/android-setup
+        with:
+          google-services-json: ${{ secrets.GOOGLE_SERVICES_JSON }}
+      - name: Restore Gradle dependency cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            .ci-gradle-home/caches/modules-2
+            .ci-gradle-home/wrapper
+          key: ${{ runner.os }}-gradle-deps-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-deps-
+      # ubuntu-latest ships Docker, so the scan script runs against the
+      # local daemon directly.
+      - name: Build solver image and scan
+        run: |
+          mkdir -p .tmp
+          ./scripts/install-osv-scanner.sh "$OSV_SCANNER_VERSION" "$GITHUB_WORKSPACE/.tmp/osv-scanner"
+          ./gradlew :solver-service:shadowJar
+          OSV_SCANNER_BIN="$GITHUB_WORKSPACE/.tmp/osv-scanner" ./scripts/scan-solver-image.sh stratum-solver:ci
