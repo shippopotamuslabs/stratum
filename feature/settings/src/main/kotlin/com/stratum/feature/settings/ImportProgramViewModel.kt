@@ -17,6 +17,7 @@ import com.stratum.domain.logging.PARAM_SCREEN
 import com.stratum.domain.logging.USER_VISIBLE_ERROR_EVENT
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -115,6 +116,9 @@ class ImportProgramViewModel @Inject constructor(
                     }
                 },
                 onFailure = { error ->
+                    // Cancellation is never a user-visible import error: rethrow before
+                    // any analytics logging or uiState update so the coroutine cancels.
+                    if (error is CancellationException) throw error
                     // STR-256: a failed orphan rollback rides the failure as diagnostics and
                     // is drained here exactly once. User copy still derives from the primary
                     // message via userFacingImportError below.

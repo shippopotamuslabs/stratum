@@ -195,6 +195,19 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
             )
             }
         }
+        return surfaceCancellationWithRollbackEvidence(result, rollbackFailures)
+    }
+
+    /**
+     * Re-attaches rollback evidence to a surfaced cancellation (STR-256): coroutine
+     * machinery may normalize the rethrown instance (message-only copy) once the block has
+     * suspended, so the in-catch attach in [resolveRollbackThrow] alone would be silently
+     * dropped in practice. Non-cancellations pass through untouched.
+     */
+    private fun surfaceCancellationWithRollbackEvidence(
+        result: Result<ProgramTemplateImportResult>,
+        rollbackFailures: List<ProgramImportRollbackDiagnostic>,
+    ): Result<ProgramTemplateImportResult> {
         val surfaced = result.exceptionOrNull()
         if (surfaced is CancellationException) {
             rollbackFailures.forEach { diagnostic ->

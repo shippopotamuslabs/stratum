@@ -28,6 +28,7 @@ import com.stratum.domain.program.importing.ProgramTemplateImportOptions
 import com.stratum.application.program.importing.ProgramTemplateImportProgressCallback
 import com.stratum.domain.program.importing.ProgramTemplateImportResult
 import com.stratum.application.program.importing.ResolveProgramTemplateLiftsUseCase
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -229,6 +230,33 @@ class ImportProgramViewModelTest {
         assertTrue(logging.errors.single().message.contains("prog-a"))
         // Analytics breadcrumb still recorded once.
         assertEquals(1, analytics.events.size)
+    }
+
+    @Test
+    @DisplayName("STR-256 Cancellation failure rethrows, never a user-visible import error")
+    fun str256_cancellationFailureRethrowsWithoutUserVisibleError() = runTest {
+        val auth =
+            FakeAuthManager(AuthState.Authenticated(UserProfile("u1", "U", "u@e.com", null)))
+        val useCase =
+            RecordingImportProgramTemplatesUseCase(
+                result = Result.failure(CancellationException("cancelled")),
+            )
+        val analytics = FakeAnalyticsPort()
+        val logging = FakeLoggingPort()
+        val vm =
+            ImportProgramViewModel(
+                useCase,
+                auth,
+                LogAnalyticsEventUseCase(analytics),
+                LogErrorUseCase(logging),
+            )
+        vm.onFileSelected(byteArrayOf(1), "p.json")
+        advanceUntilIdle()
+
+        // Rethrown before any analytics logging, error logging, or uiState update.
+        assertEquals(null, vm.uiState.value.errorMessage)
+        assertTrue(analytics.events.isEmpty())
+        assertTrue(logging.errors.isEmpty())
     }
 
     @Test
