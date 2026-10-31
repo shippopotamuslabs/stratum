@@ -2,21 +2,19 @@ package com.stratum.application.subscription
 
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.onEach
-import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.subscription.BillingPurchaseResult
 import com.stratum.domain.subscription.EntitlementDiagnostic
 import com.stratum.domain.subscription.EntitlementState
 import com.stratum.domain.subscription.SubscriptionProduct
 
+/** Shared log tag for entitlement boundary drains. */
+const val SUBSCRIPTION_REPO_TAG = "SubscriptionRepo"
+
 class ObserveEntitlementUseCase @Inject constructor(
     private val repository: EntitlementRepository,
-    private val loggingPort: LoggingPort,
 ) {
     operator fun invoke(): Flow<EntitlementState> =
-        repository.observeEntitlement().onEach { state ->
-            loggingPort.debug(TAG, "Entitlement changed: $state")
-        }
+        repository.observeEntitlement()
 }
 
 class ObserveEntitlementDiagnosticsUseCase @Inject constructor(
@@ -25,8 +23,6 @@ class ObserveEntitlementDiagnosticsUseCase @Inject constructor(
     operator fun invoke(): Flow<EntitlementDiagnostic> =
         repository.observeEntitlementDiagnostics()
 }
-
-private const val TAG = "SubscriptionRepo"
 
 class GetSubscriptionProductsUseCase @Inject constructor(
     private val billingPort: BillingPort,

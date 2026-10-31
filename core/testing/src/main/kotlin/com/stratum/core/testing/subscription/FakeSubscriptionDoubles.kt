@@ -101,7 +101,9 @@ class FakeEntitlementRepository(
         check(failures.tryEmit(error)) { "Failed to emit entitlement collector failure" }
     }
 
-    private val diagnosticsChannel = Channel<EntitlementDiagnostic>(Channel.BUFFERED)
+    // Diagnostics must never be silently dropped for capacity: the single app-boundary
+    // drain starts at process start and sync failures are rare.
+    private val diagnosticsChannel = Channel<EntitlementDiagnostic>(Channel.UNLIMITED)
 
     fun emitDiagnostic(diagnostic: EntitlementDiagnostic) {
         check(diagnosticsChannel.trySend(diagnostic).isSuccess) { "Failed to emit entitlement diagnostic" }

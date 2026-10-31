@@ -1,7 +1,6 @@
 package com.stratum.application.subscription
 
 import app.cash.turbine.test
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.subscription.FakeBillingPort
 import com.stratum.core.testing.subscription.FakeEntitlementRepository
 import kotlinx.coroutines.test.runTest
@@ -17,11 +16,10 @@ import com.stratum.domain.subscription.SubscriptionCatalog
 class SubscriptionUseCasesTest {
     private val fakeBilling = FakeBillingPort()
     private val fakeRepo = FakeEntitlementRepository()
-    private val fakeLogging = FakeLoggingPort()
 
     @Test
     fun `observe entitlement emits current state`() = runTest {
-        val useCase = ObserveEntitlementUseCase(fakeRepo, fakeLogging)
+        val useCase = ObserveEntitlementUseCase(fakeRepo)
         useCase().test {
             assertEquals(EntitlementState.NotEntitled(), awaitItem())
             fakeRepo.setState(EntitlementState.Entitled(EntitlementSource.ComplimentaryAccess))
@@ -95,26 +93,6 @@ class SubscriptionUseCasesTest {
             assertEquals(BillingPurchaseResult.Canceled, awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
-    }
-
-    @Test
-    fun `observe entitlement drains entitlement-change debug exactly once per emission`() = runTest {
-        val logging = FakeLoggingPort()
-        val useCase = ObserveEntitlementUseCase(fakeRepo, logging)
-        useCase().test {
-            val first = awaitItem()
-            assertEquals(EntitlementState.NotEntitled(), first)
-            val entitled = EntitlementState.Entitled(EntitlementSource.ComplimentaryAccess)
-            fakeRepo.setState(entitled)
-            assertEquals(entitled, awaitItem())
-            cancelAndIgnoreRemainingEvents()
-        }
-        assertEquals(2, logging.debugs.size)
-        assertEquals("SubscriptionRepo", logging.debugs[0].tag)
-        assertEquals("Entitlement changed: ${EntitlementState.NotEntitled()}", logging.debugs[0].message)
-        val entitled = EntitlementState.Entitled(EntitlementSource.ComplimentaryAccess)
-        assertEquals("SubscriptionRepo", logging.debugs[1].tag)
-        assertEquals("Entitlement changed: $entitled", logging.debugs[1].message)
     }
 
     @Test

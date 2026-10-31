@@ -34,7 +34,9 @@ class SubscriptionRepositoryImpl @Inject constructor(
     @ApplicationScope private val applicationScope: CoroutineScope,
 ) : EntitlementRepository {
 
-    private val diagnosticsChannel = Channel<EntitlementDiagnostic>(Channel.BUFFERED)
+    // Diagnostics must never be silently dropped for capacity: the single app-boundary
+    // drain starts at process start and sync failures are rare.
+    private val diagnosticsChannel = Channel<EntitlementDiagnostic>(Channel.UNLIMITED)
 
     override fun observeEntitlementDiagnostics(): Flow<EntitlementDiagnostic> =
         diagnosticsChannel.receiveAsFlow()

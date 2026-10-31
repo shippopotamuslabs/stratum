@@ -3,7 +3,6 @@ package com.stratum.navigation
 import app.cash.turbine.ReceiveTurbine
 import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeOnboardingRepository
 import com.stratum.core.testing.subscription.FakeEntitlementRepository
 import com.stratum.application.onboarding.ObserveOnboardingCompleteUseCase
@@ -40,7 +39,7 @@ class EntitlementGateViewModelTest {
         loadingTimeoutMs: Long = EntitlementGateViewModel.DEFAULT_GATE_LOADING_TIMEOUT_MS,
     ): EntitlementGateViewModel =
         EntitlementGateViewModel(
-            observeEntitlement = ObserveEntitlementUseCase(fakeEntitlement, FakeLoggingPort()),
+            observeEntitlement = ObserveEntitlementUseCase(fakeEntitlement),
             observeOnboardingComplete = ObserveOnboardingCompleteUseCase(fakeOnboarding),
             loadingTimeoutMs = loadingTimeoutMs,
         )

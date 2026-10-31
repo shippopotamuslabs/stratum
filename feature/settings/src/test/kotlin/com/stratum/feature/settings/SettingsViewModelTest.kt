@@ -137,7 +137,7 @@ class SettingsViewModelTest {
             observeHealthConnectSyncErrors =
                 ObserveHealthConnectSyncErrorsUseCase(fakeHealthConnectSyncStatus),
             observeEntitlement =
-                ObserveEntitlementUseCase(fakeEntitlementRepository, FakeLoggingPort()),
+                ObserveEntitlementUseCase(fakeEntitlementRepository),
             setThemeFamily = SetThemeFamilyUseCase(fakeThemePreferences, FakeLoggingPort()),
             setColorMode = SetColorModeUseCase(fakeThemePreferences, FakeLoggingPort()),
             setCheckInEnabled = SetCheckInEnabledUseCase(fakeCheckInPreferences, FakeLoggingPort()),
