@@ -1,3 +1,5 @@
-Under-the-hood release.
+Sleep on the Recovery dashboard reports time asleep. The Sleep total, the 7-day average, and last night leave out awake time inside a sleep session.
 
-Stratum's internals were rebuilt: training rules now live in one module and screen workflows in another, with a hard boundary between them. No screens changed and your data is untouched. This build puts the new structure on real devices before the next feature work lands on it.
+Text fields in bottom sheets have a contrasting border.
+
+Under the hood, failures across the app travel as structured diagnostics, and a telemetry router counts the exceptional ones.
