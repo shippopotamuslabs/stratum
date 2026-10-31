@@ -23,29 +23,17 @@ data class WeeklyScheduleOutcome(
  */
 sealed interface ScheduleDiagnostic {
     /**
-     * The strict weekday-bound schedule could not be shown, so the fallback bound
-     * workouts by [Workout.position] (using each workout's weekday when present,
-     * otherwise a non-calendar placeholder). [reason] records which fallback path
-     * was taken and why.
-     */
-    data class FallbackScheduleUsed(
-        val reason: FallbackReason,
-    ) : ScheduleDiagnostic
-}
-
-/**
- * Which fallback path [ScheduleDiagnostic.FallbackScheduleUsed] was taken through.
- */
-sealed interface FallbackReason {
-    /**
      * Workouts exist but none carries a weekday binding and no training-weekday
      * metadata remains, so the strict builder would silently produce seven rest
-     * days; the fallback shows the workouts instead.
+     * days; the positional fallback shows the workouts instead.
      */
-    data object NoWeekdayBoundWorkouts : FallbackReason
+    data object FallbackNoWeekdayBoundWorkouts : ScheduleDiagnostic
 
-    /** The strict weekday-bound builder threw; the fallback shows the workouts instead. */
-    data class StrictBuildFailed(
+    /**
+     * The strict weekday-bound builder threw; the positional fallback shows the
+     * workouts instead. [cause] records the strict builder's failure.
+     */
+    data class FallbackStrictBuildFailed(
         val cause: Throwable,
-    ) : FallbackReason
+    ) : ScheduleDiagnostic
 }

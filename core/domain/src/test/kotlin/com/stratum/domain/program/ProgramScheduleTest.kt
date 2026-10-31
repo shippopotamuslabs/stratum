@@ -198,7 +198,7 @@ class ProgramScheduleTest {
         // No weekday-bound workouts and no metadata: path (a) diagnostic.
         assertEquals(
             listOf(
-                ScheduleDiagnostic.FallbackScheduleUsed(FallbackReason.NoWeekdayBoundWorkouts),
+                ScheduleDiagnostic.FallbackNoWeekdayBoundWorkouts,
             ),
             outcome.diagnostics,
         )
@@ -239,10 +239,8 @@ class ProgramScheduleTest {
         // Strict builder threw: path (b) diagnostic carrying the cause.
         assertEquals(1, outcome.diagnostics.size)
         val diagnostic = outcome.diagnostics.single()
-        assertTrue(diagnostic is ScheduleDiagnostic.FallbackScheduleUsed)
-        val reason = (diagnostic as ScheduleDiagnostic.FallbackScheduleUsed).reason
-        assertTrue(reason is FallbackReason.StrictBuildFailed)
-        val cause = (reason as FallbackReason.StrictBuildFailed).cause
+        assertTrue(diagnostic is ScheduleDiagnostic.FallbackStrictBuildFailed)
+        val cause = (diagnostic as ScheduleDiagnostic.FallbackStrictBuildFailed).cause
         assertTrue(cause is IllegalStateException)
         assertTrue(cause.message?.contains("Missing workout for training weekday Monday") == true)
     }

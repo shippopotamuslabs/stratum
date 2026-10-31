@@ -203,7 +203,7 @@ fun buildWeeklySchedule(program: Program): List<ScheduleDayItem> {
  * weekday-bound (empty [Program.effectiveTrainingWeekdays]). That silent all-rest result is
  * treated as incomplete binding and falls back so callers still see the workouts.
  *
- * The returned [WeeklyScheduleOutcome] carries a [ScheduleDiagnostic.FallbackScheduleUsed]
+ * The returned [WeeklyScheduleOutcome] carries a [ScheduleDiagnostic]
  * whenever the fallback path is taken, so callers can distinguish a real schedule (empty
  * [WeeklyScheduleOutcome.diagnostics]) from a synthesized one. Fallback items are identical
  * to the previous positional fallback.
@@ -215,7 +215,7 @@ fun buildWeeklyScheduleOrFallback(program: Program): WeeklyScheduleOutcome {
             items = fallbackScheduleFromWorkouts(program),
             diagnostics =
                 listOf(
-                    ScheduleDiagnostic.FallbackScheduleUsed(FallbackReason.NoWeekdayBoundWorkouts),
+                    ScheduleDiagnostic.FallbackNoWeekdayBoundWorkouts,
                 ),
         )
     }
@@ -226,9 +226,7 @@ fun buildWeeklyScheduleOrFallback(program: Program): WeeklyScheduleOutcome {
                 items = fallbackScheduleFromWorkouts(program),
                 diagnostics =
                     listOf(
-                        ScheduleDiagnostic.FallbackScheduleUsed(
-                            FallbackReason.StrictBuildFailed(cause),
-                        ),
+                        ScheduleDiagnostic.FallbackStrictBuildFailed(cause),
                     ),
             )
         },
