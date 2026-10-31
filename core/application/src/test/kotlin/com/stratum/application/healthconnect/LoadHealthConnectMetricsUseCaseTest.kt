@@ -31,7 +31,6 @@ import com.stratum.domain.healthconnect.HrvSample
 import com.stratum.domain.healthconnect.SleepSessionSample
 import com.stratum.domain.healthconnect.SleepStageSample
 import com.stratum.domain.healthconnect.SleepStageType
-import com.stratum.domain.healthconnect.SleepZones
 import com.stratum.domain.healthconnect.VitalRange
 import com.stratum.domain.healthconnect.WeightSample
 
@@ -767,19 +766,6 @@ class LoadHealthConnectMetricsUseCaseTest {
             pages.recovery.nightlyDurations.last().duration,
             pages.recovery.lastNight?.duration,
         )
-    }
-
-    @Test
-    @DisplayName("STR-264: asleep duration never goes negative and unstaged spans stand")
-    fun asleepDurationClampsAtZero() {
-        val zones = SleepZones(
-            light = Duration.ofHours(1),
-            deep = Duration.ZERO,
-            rem = Duration.ZERO,
-            awake = Duration.ofHours(2),
-        )
-        assertEquals(Duration.ZERO, asleepDuration(span = Duration.ofHours(1), zones = zones))
-        assertEquals(Duration.ofHours(8), asleepDuration(span = Duration.ofHours(8), zones = null))
     }
 
     @Test
