@@ -1,7 +1,6 @@
 package com.stratum.application.lift
 
 import com.stratum.core.testing.lift.PinAdderCatalogFixtures
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeEquipmentProposalPreferences
 import com.stratum.core.testing.onboarding.FakeEquipmentRepository
 import com.stratum.core.testing.onboarding.FakeLiftRepository
@@ -16,14 +15,17 @@ import com.stratum.domain.training.TrainingSessionOrigin
 import com.stratum.domain.training.TrainingSessionStatus
 import com.stratum.domain.training.identity.TrainingSessionId
 import java.time.Instant
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import com.stratum.domain.lift.EQUIPMENT_INCREMENT_FORK_THRESHOLD_K
 import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.EquipmentIncrementRemedy
@@ -72,7 +74,6 @@ class AnalyzeSessionEquipmentProposalsUseCaseTest {
                 liftRepository = liftRepo,
                 equipmentRepository = equipmentRepo,
                 preferences = prefs,
-                loggingPort = FakeLoggingPort(),
             )
     }
 
@@ -442,6 +443,47 @@ class AnalyzeSessionEquipmentProposalsUseCaseTest {
                 pinMicro,
                 analysis.baselineMicroByProposalId[proposals.single().id],
             )
+        }
+
+        @Test
+        @DisplayName("Given repository failure when analyzed then empty outcome carries exact diagnostic")
+        fun repositoryFailureCarriesDiagnostic() = runTest {
+            seedCableCatalogWithInheritors(inheritorCount = 12)
+            logRepo.seedSession(WorkoutLoggingFixtures.completedLiveSession(sessionId.value))
+            val cause = IllegalStateException("boom")
+            logRepo.getSessionError = cause
+
+            val outcome = subject(sessionId)
+
+            assertTrue(outcome.proposals.isEmpty())
+            assertTrue(outcome.baselineMicroByProposalId.isEmpty())
+            assertEquals(1, outcome.diagnostics.size)
+            val diagnostic = outcome.diagnostics.single() as EquipmentProposalDiagnostic.AnalysisFailed
+            assertEquals(sessionId, diagnostic.sessionId)
+            assertSame(cause, diagnostic.cause)
+        }
+
+        @Test
+        @DisplayName("Given feature disabled when analyzed then empty outcome carries no diagnostic")
+        fun featureDisabledCarriesNoDiagnostic() = runTest {
+            seedCableCatalogWithInheritors(inheritorCount = 12)
+            logRepo.seedSession(WorkoutLoggingFixtures.completedLiveSession(sessionId.value))
+            prefs.seedEnabled(false)
+
+            val outcome = subject(sessionId)
+
+            assertTrue(outcome.proposals.isEmpty())
+            assertTrue(outcome.diagnostics.isEmpty())
+        }
+
+        @Test
+        @DisplayName("Given cancellation when analyzed then propagates instead of diagnostic")
+        fun cancellationPropagates() = runTest {
+            seedCableCatalogWithInheritors(inheritorCount = 12)
+            logRepo.seedSession(WorkoutLoggingFixtures.completedLiveSession(sessionId.value))
+            logRepo.getSessionError = CancellationException("cancelled")
+
+            assertThrows<CancellationException> { subject(sessionId) }
         }
     }
 
