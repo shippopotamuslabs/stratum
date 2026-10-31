@@ -29,6 +29,7 @@ import com.stratum.domain.theme.ThemeFamily
 import com.stratum.application.training.ForceRefreshDerivedTrainingData
 import com.stratum.application.workout.ObserveRepRangeShiftProposalsEnabledUseCase
 import com.stratum.application.workout.SetRepRangeShiftProposalsEnabledUseCase
+import com.stratum.domain.logging.LogErrorUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Instant
 import javax.inject.Inject
@@ -70,6 +71,7 @@ class SettingsViewModel @Inject constructor(
     private val forceRefreshDerived: ForceRefreshDerivedTrainingData,
     private val logout: LogoutUseCase,
     private val deleteAccount: DeleteAccountUseCase,
+    private val logError: LogErrorUseCase,
 ) : ViewModel() {
 
     private val debugStatusMessage = MutableStateFlow<String?>(null)
@@ -359,7 +361,12 @@ class SettingsViewModel @Inject constructor(
         if (!claimed) return
         viewModelScope.launch {
             try {
-                logout().onFailure {
+                logout().onFailure { error ->
+                    // STR-256: the primary stays UI-only; a failed compensating sync restart
+                    // rides it as suppressed and is drained here exactly once.
+                    error.suppressed.forEach { restartError ->
+                        logError(TAG_AUTH, MSG_SYNC_RESTART_FAILED_LOGOUT, restartError)
+                    }
                     _userMessage.value = MSG_LOGOUT_FAILED
                 }
             } finally {
@@ -395,6 +402,11 @@ class SettingsViewModel @Inject constructor(
             try {
                 deleteAccount()
                     .onFailure { error ->
+                        // STR-256: the primary stays UI-only; a failed compensating sync restart
+                        // rides it as suppressed and is drained here exactly once.
+                        error.suppressed.forEach { restartError ->
+                            logError(TAG_AUTH, MSG_SYNC_RESTART_FAILED_DELETE, restartError)
+                        }
                         _userMessage.value =
                             when (error) {
                                 is LocalCleanupAfterAccountDeletionException ->
@@ -440,6 +452,11 @@ class SettingsViewModel @Inject constructor(
     }
 
     private companion object {
+        const val TAG_AUTH = "SettingsAuth"
+        const val MSG_SYNC_RESTART_FAILED_LOGOUT =
+            "Cloud sync restart failed after sign-out failure."
+        const val MSG_SYNC_RESTART_FAILED_DELETE =
+            "Cloud sync restart failed after account deletion failure."
         const val FORCE_REFRESH_COOLDOWN_MS = 120_000L
         const val MSG_PREFS_FAILED = "Couldn't save that setting. Try again."
         const val MSG_HEALTH_CONNECT_SETTINGS =

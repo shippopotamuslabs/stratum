@@ -44,21 +44,50 @@ class LogoutUseCase @Inject constructor(
             Result.success(Unit)
         }
         if (wipeOrStopResult.isFailure) {
-            if (uid != null && authManager.authState.value is AuthState.Authenticated) {
-                runCatching { startCloudSync(uid) }
+            val primary = wipeOrStopResult.exceptionOrNull()
+            if (uid != null && primary != null &&
+                authManager.authState.value is AuthState.Authenticated
+            ) {
+                startCloudSync.restartSyncAfterFailure(uid, primary)
             }
             return wipeOrStopResult
         }
 
         val signOutResult = authManager.signOut()
         if (signOutResult.isFailure) {
-            if (uid != null && authManager.authState.value is AuthState.Authenticated) {
-                runCatching { startCloudSync(uid) }
+            val primary = signOutResult.exceptionOrNull()
+            if (uid != null && primary != null &&
+                authManager.authState.value is AuthState.Authenticated
+            ) {
+                startCloudSync.restartSyncAfterFailure(uid, primary)
             }
             return signOutResult
         }
         return Result.success(Unit)
     }
+}
+
+/**
+ * Best-effort sync restart after a logout/account-deletion failure left sync stopped for a
+ * still-authenticated user (STR-256). The restart stays fire-and-forget: a restart failure is
+ * attached to [primary] via [addSuppressed] so the terminal boundary (Settings, shell) emits it
+ * exactly once alongside the primary — the primary is never wrapped or retyped, so callers
+ * pattern-matching [LocalCleanupAfterAccountDeletionException] or
+ * [AuthDeleteAfterAccountWipeException] are unaffected. [CancellationException] from the restart
+ * is rethrown, never attached.
+ */
+private suspend fun StartCloudSyncUseCase.restartSyncAfterFailure(
+    uid: String,
+    primary: Throwable,
+) {
+    val restartError: Throwable? =
+        try {
+            invoke(uid).exceptionOrNull()
+        } catch (error: Throwable) {
+            error
+        }
+    if (restartError is CancellationException) throw restartError
+    if (restartError != null) primary.addSuppressed(restartError)
 }
 
 /**
@@ -110,8 +139,11 @@ class DeleteAccountUseCase @Inject constructor(
         stopCloudSync()
         val deleteRemoteResult = accountDeletionPort.deleteRemoteUserData()
         if (deleteRemoteResult.isFailure) {
-            if (authManager.authState.value is AuthState.Authenticated) {
-                runCatching { startCloudSync(uid) }
+            val primary = deleteRemoteResult.exceptionOrNull()
+            // Runs before the NonCancellable block below, so a restart CancellationException
+            // propagates to the caller instead of being swallowed.
+            if (primary != null && authManager.authState.value is AuthState.Authenticated) {
+                startCloudSync.restartSyncAfterFailure(uid, primary)
             }
             return deleteRemoteResult
         }

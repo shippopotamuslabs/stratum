@@ -13,6 +13,7 @@ import com.stratum.domain.sync.CloudSessionState
 import com.stratum.application.sync.ObserveCloudSessionStateUseCase
 import com.stratum.application.sync.StartCloudSyncUseCase
 import com.stratum.application.theme.ObserveThemePreferencesUseCase
+import com.stratum.domain.logging.LogErrorUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,6 +32,7 @@ class MainViewModel @Inject constructor(
     private val startCloudSync: StartCloudSyncUseCase,
     observeSessionState: ObserveCloudSessionStateUseCase,
     observeThemePreferences: ObserveThemePreferencesUseCase,
+    private val logError: LogErrorUseCase,
 ) : ViewModel() {
     private val signInError = MutableStateFlow<String?>(null)
     private val authenticatedUserId = MutableStateFlow<String?>(null)
@@ -110,11 +112,21 @@ class MainViewModel @Inject constructor(
     fun onSignOutFromShell() {
         viewModelScope.launch {
             signInError.value = null
-            logout().onFailure {
-                // Keep shell copy non-technical; detail is logged by the auth layer.
+            logout().onFailure { error ->
+                // STR-256: the primary stays UI-only; a failed compensating sync restart
+                // rides it as suppressed and is drained here exactly once.
+                error.suppressed.forEach { restartError ->
+                    logError(TAG_AUTH, MSG_SYNC_RESTART_FAILED, restartError)
+                }
+                // Keep shell copy non-technical.
                 signInError.value = "Couldn't sign out. Try again."
             }
         }
+    }
+
+    private companion object {
+        const val TAG_AUTH = "ShellAuth"
+        const val MSG_SYNC_RESTART_FAILED = "Cloud sync restart failed after sign-out failure."
     }
 
     private fun mapShellState(

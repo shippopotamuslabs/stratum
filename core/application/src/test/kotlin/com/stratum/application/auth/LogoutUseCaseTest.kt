@@ -3,8 +3,10 @@ package com.stratum.application.auth
 import com.stratum.core.testing.auth.FakeAuthManager
 import com.stratum.core.testing.sync.FakeCloudSyncPort
 import com.stratum.domain.sync.CloudSessionState
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -67,6 +69,7 @@ class LogoutUseCaseTest {
         assertEquals(0, auth.signOutCount)
         assertTrue(auth.authState.value is AuthState.Authenticated)
         assertTrue(port.sessionState.value is CloudSessionState.Ready)
+        assertTrue(result.exceptionOrNull()!!.suppressed.isEmpty())
     }
 
     @Test
@@ -86,6 +89,74 @@ class LogoutUseCaseTest {
         assertEquals(1, auth.signOutCount)
         assertTrue(auth.authState.value is AuthState.Authenticated)
         assertTrue(port.sessionState.value is CloudSessionState.Ready)
+        assertTrue(result.exceptionOrNull()!!.suppressed.isEmpty())
+    }
+
+    @Test
+    @DisplayName("Given wipe fails and restart fails when logout then primary carries restart suppressed")
+    fun wipeFailureAndRestartFailureAttachesSuppressed() = runTest {
+        val user = UserProfile("uid-1", "A", "a@example.com", null)
+        val auth = FakeAuthManager(AuthState.Authenticated(user))
+        val wipeError = IllegalStateException("wipe failed")
+        val restartError = IllegalStateException("restart failed")
+        val port = FakeCloudSyncPort().apply {
+            wipeResult = Result.failure(wipeError)
+            startResult = Result.failure(restartError)
+        }
+        val subject = buildSubject(auth, port)
+
+        val result = subject()
+
+        assertTrue(result.isFailure)
+        assertSame(wipeError, result.exceptionOrNull())
+        assertEquals(listOf(restartError), result.exceptionOrNull()!!.suppressed.toList())
+        assertEquals(0, auth.signOutCount)
+        assertTrue(auth.authState.value is AuthState.Authenticated)
+    }
+
+    @Test
+    @DisplayName("Given sign-out fails and restart fails when logout then primary carries restart suppressed")
+    fun signOutFailureAndRestartFailureAttachesSuppressed() = runTest {
+        val user = UserProfile("uid-1", "A", "a@example.com", null)
+        val signOutError = IllegalStateException("sign-out failed")
+        val auth = FakeAuthManager(AuthState.Authenticated(user)).apply {
+            signOutResult = Result.failure(signOutError)
+        }
+        val restartError = IllegalStateException("restart failed")
+        val port = FakeCloudSyncPort().apply {
+            startResult = Result.failure(restartError)
+        }
+        val subject = buildSubject(auth, port)
+
+        val result = subject()
+
+        assertTrue(result.isFailure)
+        assertSame(signOutError, result.exceptionOrNull())
+        assertEquals(listOf(restartError), result.exceptionOrNull()!!.suppressed.toList())
+        assertTrue(auth.authState.value is AuthState.Authenticated)
+    }
+
+    @Test
+    @DisplayName("Given restart throws cancellation when logout then cancellation propagates")
+    fun restartCancellationPropagates() = runTest {
+        val user = UserProfile("uid-1", "A", "a@example.com", null)
+        val auth = FakeAuthManager(AuthState.Authenticated(user))
+        val port = FakeCloudSyncPort().apply {
+            wipeResult = Result.failure(IllegalStateException("wipe failed"))
+            startThrowable = CancellationException("restart cancelled")
+        }
+        val subject = buildSubject(auth, port)
+
+        var thrown: Throwable? = null
+        try {
+            subject()
+        } catch (error: CancellationException) {
+            thrown = error
+        }
+
+        assertTrue(thrown is CancellationException)
+        assertEquals("restart cancelled", thrown?.message)
+        assertEquals(0, auth.signOutCount)
     }
 
     private fun buildSubject(

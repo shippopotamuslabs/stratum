@@ -2,8 +2,10 @@ package com.stratum.feature.settings
 
 import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.auth.FakeAuthManager
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.telemetry.FakeAnalyticsPort
 import com.stratum.domain.logging.LogAnalyticsEventUseCase
+import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.domain.logging.PARAM_ACTION
 import com.stratum.domain.logging.PARAM_SCREEN
 import com.stratum.domain.logging.USER_VISIBLE_ERROR_EVENT
@@ -19,11 +21,14 @@ import com.stratum.domain.auth.UserProfile
 import com.stratum.application.onboarding.CompleteOnboardingUseCase
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.application.program.importing.ImportProgramTemplatesUseCase
+import com.stratum.application.program.importing.ProgramImportRollbackException
 import com.stratum.domain.program.importing.ProgramImportActivation
+import com.stratum.domain.program.importing.ProgramImportRollbackDiagnostic
 import com.stratum.domain.program.importing.ProgramTemplateImportOptions
 import com.stratum.application.program.importing.ProgramTemplateImportProgressCallback
 import com.stratum.domain.program.importing.ProgramTemplateImportResult
 import com.stratum.application.program.importing.ResolveProgramTemplateLiftsUseCase
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -84,7 +89,12 @@ class ImportProgramViewModelTest {
     fun ieS7_005_signedOut() = runTest {
         val auth = FakeAuthManager(AuthState.Unauthenticated)
         val useCase = RecordingImportProgramTemplatesUseCase()
-        val vm = ImportProgramViewModel(useCase, auth, LogAnalyticsEventUseCase(FakeAnalyticsPort()))
+        val vm = ImportProgramViewModel(
+            useCase,
+            auth,
+            LogAnalyticsEventUseCase(FakeAnalyticsPort()),
+            LogErrorUseCase(FakeLoggingPort()),
+        )
         vm.onFileSelected(byteArrayOf(1), "p.json")
         advanceUntilIdle()
         assertTrue(vm.uiState.value.signedOutGuidanceVisible)
@@ -97,7 +107,12 @@ class ImportProgramViewModelTest {
         val auth =
             FakeAuthManager(AuthState.Authenticated(UserProfile("u1", "U", "u@e.com", null)))
         val useCase = RecordingImportProgramTemplatesUseCase()
-        val vm = ImportProgramViewModel(useCase, auth, LogAnalyticsEventUseCase(FakeAnalyticsPort()))
+        val vm = ImportProgramViewModel(
+            useCase,
+            auth,
+            LogAnalyticsEventUseCase(FakeAnalyticsPort()),
+            LogErrorUseCase(FakeLoggingPort()),
+        )
         vm.onFileSelected(byteArrayOf(1), "p.json")
         advanceUntilIdle()
         val options = useCase.lastOptions!!
@@ -112,7 +127,12 @@ class ImportProgramViewModelTest {
         val auth =
             FakeAuthManager(AuthState.Authenticated(UserProfile("u1", "U", "u@e.com", null)))
         val useCase = RecordingImportProgramTemplatesUseCase()
-        val vm = ImportProgramViewModel(useCase, auth, LogAnalyticsEventUseCase(FakeAnalyticsPort()))
+        val vm = ImportProgramViewModel(
+            useCase,
+            auth,
+            LogAnalyticsEventUseCase(FakeAnalyticsPort()),
+            LogErrorUseCase(FakeLoggingPort()),
+        )
         vm.onFileSelected(byteArrayOf(1), "p.json")
         advanceUntilIdle()
         assertEquals(ImportProgramPhaseUi.Complete, vm.uiState.value.phase)
@@ -128,7 +148,12 @@ class ImportProgramViewModelTest {
             FakeAuthManager(AuthState.Authenticated(UserProfile("u1", "U", "u@e.com", null)))
         val useCase = RecordingImportProgramTemplatesUseCase()
         val analytics = FakeAnalyticsPort()
-        val vm = ImportProgramViewModel(useCase, auth, LogAnalyticsEventUseCase(analytics))
+        val vm = ImportProgramViewModel(
+            useCase,
+            auth,
+            LogAnalyticsEventUseCase(analytics),
+            LogErrorUseCase(FakeLoggingPort()),
+        )
         vm.onReadFilesFailed("Could not open document")
         advanceUntilIdle()
         assertEquals("Could not open document", vm.uiState.value.errorMessage)
@@ -150,7 +175,12 @@ class ImportProgramViewModelTest {
                 result = Result.failure(RuntimeException("boom")),
             )
         val analytics = FakeAnalyticsPort()
-        val vm = ImportProgramViewModel(useCase, auth, LogAnalyticsEventUseCase(analytics))
+        val vm = ImportProgramViewModel(
+            useCase,
+            auth,
+            LogAnalyticsEventUseCase(analytics),
+            LogErrorUseCase(FakeLoggingPort()),
+        )
         vm.onFileSelected(byteArrayOf(1), "p.json")
         advanceUntilIdle()
         assertEquals(false, vm.uiState.value.isImporting)
@@ -158,6 +188,75 @@ class ImportProgramViewModelTest {
         assertEquals(USER_VISIBLE_ERROR_EVENT, event.name)
         assertEquals("import_program", event.params[PARAM_SCREEN])
         assertEquals("import_templates", event.params[PARAM_ACTION])
+    }
+
+    @Test
+    @DisplayName("STR-256 Rollback failure logs each orphan delete once, UI copy uses primary message")
+    fun str256_rollbackFailureDrainsDiagnosticsOnce() = runTest {
+        val auth =
+            FakeAuthManager(AuthState.Authenticated(UserProfile("u1", "U", "u@e.com", null)))
+        val deleteCause = IllegalStateException("delete failed")
+        val primary = IllegalStateException("save failed")
+        val wrapper =
+            ProgramImportRollbackException(
+                cause = primary,
+                diagnostics =
+                    listOf(
+                        ProgramImportRollbackDiagnostic.RollbackDeleteFailed(
+                            programId = ProgramId("prog-a"),
+                            cause = deleteCause,
+                        ),
+                    ),
+            )
+        val useCase = RecordingImportProgramTemplatesUseCase(result = Result.failure(wrapper))
+        val analytics = FakeAnalyticsPort()
+        val logging = FakeLoggingPort()
+        val vm =
+            ImportProgramViewModel(
+                useCase,
+                auth,
+                LogAnalyticsEventUseCase(analytics),
+                LogErrorUseCase(logging),
+            )
+        vm.onFileSelected(byteArrayOf(1), "p.json")
+        advanceUntilIdle()
+
+        assertEquals(false, vm.uiState.value.isImporting)
+        // User-facing copy derives from the primary message, diagnostics never reach the UI.
+        assertEquals("save failed", vm.uiState.value.errorMessage)
+        // Each orphan delete emitted exactly once.
+        assertEquals(1, logging.errors.size)
+        assertEquals(deleteCause, logging.errors.single().throwable)
+        assertTrue(logging.errors.single().message.contains("prog-a"))
+        // Analytics breadcrumb still recorded once.
+        assertEquals(1, analytics.events.size)
+    }
+
+    @Test
+    @DisplayName("STR-256 Cancellation failure rethrows, never a user-visible import error")
+    fun str256_cancellationFailureRethrowsWithoutUserVisibleError() = runTest {
+        val auth =
+            FakeAuthManager(AuthState.Authenticated(UserProfile("u1", "U", "u@e.com", null)))
+        val useCase =
+            RecordingImportProgramTemplatesUseCase(
+                result = Result.failure(CancellationException("cancelled")),
+            )
+        val analytics = FakeAnalyticsPort()
+        val logging = FakeLoggingPort()
+        val vm =
+            ImportProgramViewModel(
+                useCase,
+                auth,
+                LogAnalyticsEventUseCase(analytics),
+                LogErrorUseCase(logging),
+            )
+        vm.onFileSelected(byteArrayOf(1), "p.json")
+        advanceUntilIdle()
+
+        // Rethrown before any analytics logging, error logging, or uiState update.
+        assertEquals(null, vm.uiState.value.errorMessage)
+        assertTrue(analytics.events.isEmpty())
+        assertTrue(logging.errors.isEmpty())
     }
 
     @Test
