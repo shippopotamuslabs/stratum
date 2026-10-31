@@ -2,8 +2,8 @@ package com.stratum.core.data.repository
 
 import androidx.room.Room
 import app.cash.turbine.test
-import com.stratum.core.data.roomFirstEmissionTimeout
-import com.stratum.core.data.db.StratumDatabase
+import com.stratum.core.testing.roomFirstEmissionTimeout
+import com.stratum.core.infrastructure.db.StratumDatabase
 import com.stratum.domain.onboarding.OnboardingStep
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach

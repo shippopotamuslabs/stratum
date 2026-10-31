@@ -1,6 +1,6 @@
 package com.stratum.core.data.sync.codecs
 
-import com.stratum.core.data.db.LoggedSetEntity
+import com.stratum.core.infrastructure.db.LoggedSetEntity
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId

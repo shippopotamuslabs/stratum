@@ -1,10 +1,10 @@
 package com.stratum.core.data.sync.appliers
 
 import androidx.room.Room
-import com.stratum.core.data.db.ProgramEntity
-import com.stratum.core.data.db.StratumDatabase
+import com.stratum.core.infrastructure.db.ProgramEntity
+import com.stratum.core.infrastructure.db.StratumDatabase
 import com.stratum.core.data.sync.FirestoreSyncMetadata
-import com.stratum.core.data.sync.SyncFlags
+import com.stratum.core.infrastructure.sync.SyncFlags
 import com.stratum.core.data.sync.codecs.SyncEntityDecoders
 import com.stratum.domain.program.identity.ProgramId
 import kotlinx.coroutines.test.runTest

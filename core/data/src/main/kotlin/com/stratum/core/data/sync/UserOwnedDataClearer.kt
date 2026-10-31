@@ -1,9 +1,9 @@
 package com.stratum.core.data.sync
 
 import android.content.Context
-import com.stratum.core.data.db.StratumDatabase
-import com.stratum.core.data.seed.EquipmentCatalogSeeder
-import com.stratum.core.data.seed.LiftCatalogSeeder
+import com.stratum.core.infrastructure.db.StratumDatabase
+import com.stratum.core.infrastructure.seed.EquipmentCatalogSeeder
+import com.stratum.core.infrastructure.seed.LiftCatalogSeeder
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton

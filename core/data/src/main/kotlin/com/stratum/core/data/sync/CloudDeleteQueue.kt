@@ -1,7 +1,7 @@
 package com.stratum.core.data.sync
 
-import com.stratum.core.data.db.PendingCloudDeleteDao
-import com.stratum.core.data.db.PendingCloudDeleteEntity
+import com.stratum.core.infrastructure.db.PendingCloudDeleteDao
+import com.stratum.core.infrastructure.db.PendingCloudDeleteEntity
 import javax.inject.Inject
 import javax.inject.Singleton
 

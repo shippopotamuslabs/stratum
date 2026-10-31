@@ -1,4 +1,5 @@
 package com.stratum.core.data.sync
+import com.stratum.core.infrastructure.sync.SyncFlags
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue

@@ -2,8 +2,8 @@ package com.stratum.core.data.sync
 
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
-import com.stratum.core.data.db.PendingCloudDeleteDao
-import com.stratum.core.data.db.PendingCloudDeleteEntity
+import com.stratum.core.infrastructure.db.PendingCloudDeleteDao
+import com.stratum.core.infrastructure.db.PendingCloudDeleteEntity
 import com.stratum.core.data.sync.handlers.SyncHandlerRegistry
 import com.stratum.domain.logging.LoggingPort
 import javax.inject.Inject

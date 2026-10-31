@@ -1,6 +1,6 @@
 package com.stratum.core.data.sync.codecs
 
-import com.stratum.core.data.mapper.toEntity
+import com.stratum.core.infrastructure.mapper.toEntity
 import com.stratum.core.data.sync.FirestoreSyncMetadata
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.ProgressionScheme

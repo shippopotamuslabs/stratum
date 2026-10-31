@@ -14,12 +14,36 @@ android {
 
     defaultConfig {
         minSdk = 34
+
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+        }
+    }
+
+    sourceSets {
+        getByName("test") {
+            assets.directories.addAll(
+                listOf(
+                    "$projectDir/schemas",
+                    "$projectDir/src/main/assets",
+                ),
+            )
+        }
+    }
+}
+
+// Room schema export config — export schemas under core/infrastructure/schemas/ for golden migrations.
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 dependencies {
@@ -38,13 +62,24 @@ dependencies {
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
     ksp(libs.kotlin.metadata.jvm)
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
 
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.kotlin.test.junit5)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.turbine)
     testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.androidx.junit)
     testImplementation(libs.apter.junit5.robolectric.extension)
+    testImplementation(libs.androidx.room.testing)
     testImplementation(libs.mockk)
     testImplementation(project(":core:testing"))
     testRuntimeOnly(libs.junit.platform.launcher)
+
+    androidTestImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.test.core)
+    androidTestImplementation(libs.androidx.junit)
 }

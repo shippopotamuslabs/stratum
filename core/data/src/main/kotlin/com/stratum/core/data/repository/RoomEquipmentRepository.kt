@@ -1,17 +1,17 @@
 package com.stratum.core.data.repository
 
 import androidx.room.withTransaction
-import com.stratum.core.data.db.EquipmentDao
-import com.stratum.core.data.db.EquipmentEntity
-import com.stratum.core.data.db.IncrementTierDao
-import com.stratum.core.data.db.IncrementTierEntity
-import com.stratum.core.data.db.LiftDao
-import com.stratum.core.data.db.StratumDatabase
-import com.stratum.core.data.mapper.toDomain
-import com.stratum.core.data.mapper.toMicroJsonOrNull
-import com.stratum.core.data.seed.GymEquipmentToEquipmentId
+import com.stratum.core.infrastructure.db.EquipmentDao
+import com.stratum.core.infrastructure.db.EquipmentEntity
+import com.stratum.core.infrastructure.db.IncrementTierDao
+import com.stratum.core.infrastructure.db.IncrementTierEntity
+import com.stratum.core.infrastructure.db.LiftDao
+import com.stratum.core.infrastructure.db.StratumDatabase
+import com.stratum.core.infrastructure.mapper.toDomain
+import com.stratum.core.infrastructure.mapper.toMicroJsonOrNull
+import com.stratum.core.infrastructure.seed.GymEquipmentToEquipmentId
 import com.stratum.core.data.sync.SyncCollection
-import com.stratum.core.data.sync.SyncFlags
+import com.stratum.core.infrastructure.sync.SyncFlags
 import com.stratum.core.data.sync.SyncTouch
 import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.EquipmentNameMatching

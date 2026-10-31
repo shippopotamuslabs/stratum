@@ -2,13 +2,13 @@ package com.stratum.core.data.repository
 
 import androidx.room.Room
 import app.cash.turbine.test
-import com.stratum.core.data.roomFirstEmissionTimeout
-import com.stratum.core.data.db.LiftEntity
-import com.stratum.core.data.db.LiftSetEntity
-import com.stratum.core.data.db.ProgramEntity
-import com.stratum.core.data.db.StratumDatabase
-import com.stratum.core.data.db.WorkoutEntity
-import com.stratum.core.data.db.WorkoutLiftEntity
+import com.stratum.core.testing.roomFirstEmissionTimeout
+import com.stratum.core.infrastructure.db.LiftEntity
+import com.stratum.core.infrastructure.db.LiftSetEntity
+import com.stratum.core.infrastructure.db.ProgramEntity
+import com.stratum.core.infrastructure.db.StratumDatabase
+import com.stratum.core.infrastructure.db.WorkoutEntity
+import com.stratum.core.infrastructure.db.WorkoutLiftEntity
 import com.stratum.core.data.sync.SyncCollection
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.WorkoutLiftNoteInput
@@ -308,7 +308,7 @@ class RoomProgramRepositoryTest {
             seedReferencedLifts()
             repository.saveProgram(PROGRAM_P1.activate())
             database.trainingSessionDao().upsert(
-                com.stratum.core.data.db.TrainingSessionEntity(
+                com.stratum.core.infrastructure.db.TrainingSessionEntity(
                     id = com.stratum.domain.training.identity.TrainingSessionId("ts-1"),
                     programId = PROGRAM_P1.id,
                     workoutId = WorkoutId("w-1"),
@@ -325,7 +325,7 @@ class RoomProgramRepositoryTest {
                 ),
             )
             database.trainingLoggedSetDao().upsert(
-                com.stratum.core.data.db.LoggedSetEntity(
+                com.stratum.core.infrastructure.db.LoggedSetEntity(
                     id = com.stratum.domain.importing.identity.LoggedSetId("set-1"),
                     sessionId = com.stratum.domain.training.identity.TrainingSessionId("ts-1"),
                     exerciseNameRaw = "Bench",
@@ -364,7 +364,7 @@ class RoomProgramRepositoryTest {
             seedReferencedLifts()
             repository.saveProgram(PROGRAM_P1.activate())
             database.programChangeEventDao().upsert(
-                com.stratum.core.data.db.ProgramChangeEventEntity(
+                com.stratum.core.infrastructure.db.ProgramChangeEventEntity(
                     id = com.stratum.domain.training.identity.ProgramChangeEventId("pce-1"),
                     programId = PROGRAM_P1.id,
                     eventType = com.stratum.domain.training.ProgramChangeEventType.CYCLE_COMPLETED,
@@ -394,7 +394,7 @@ class RoomProgramRepositoryTest {
             seedReferencedLifts()
             repository.saveProgram(PROGRAM_P1.activate())
             database.trainingSessionDao().upsert(
-                com.stratum.core.data.db.TrainingSessionEntity(
+                com.stratum.core.infrastructure.db.TrainingSessionEntity(
                     id = com.stratum.domain.training.identity.TrainingSessionId("ts-1"),
                     programId = PROGRAM_P1.id,
                     workoutId = WorkoutId("w-1"),

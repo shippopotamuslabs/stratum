@@ -1,12 +1,12 @@
 package com.stratum.core.data.sync.appliers
 
 import androidx.room.withTransaction
-import com.stratum.core.data.db.LiftDao
-import com.stratum.core.data.db.LiftEntity
-import com.stratum.core.data.db.StratumDatabase
+import com.stratum.core.infrastructure.db.LiftDao
+import com.stratum.core.infrastructure.db.LiftEntity
+import com.stratum.core.infrastructure.db.StratumDatabase
 import com.stratum.core.data.repository.sweepLiftTemplateReferences
 import com.stratum.core.data.sync.FirestoreSyncMetadata
-import com.stratum.core.data.sync.SyncFlags
+import com.stratum.core.infrastructure.sync.SyncFlags
 import com.stratum.core.data.sync.codecs.SyncEntityDecoders
 import com.stratum.core.data.sync.codecs.SyncEntityEncoders
 import com.stratum.core.data.sync.codecs.microWireList

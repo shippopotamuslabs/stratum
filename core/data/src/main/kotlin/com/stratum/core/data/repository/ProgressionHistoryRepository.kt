@@ -1,9 +1,9 @@
 package com.stratum.core.data.repository
 
-import com.stratum.core.data.db.TrainingLoggedSetDao
-import com.stratum.core.data.db.TrainingSessionDao
-import com.stratum.core.data.mapper.toDomain
-import com.stratum.core.data.mapper.toTrainingDomain
+import com.stratum.core.infrastructure.db.TrainingLoggedSetDao
+import com.stratum.core.infrastructure.db.TrainingSessionDao
+import com.stratum.core.infrastructure.mapper.toDomain
+import com.stratum.core.infrastructure.mapper.toTrainingDomain
 import com.stratum.application.workout.ProgressionHistoryPort
 import com.stratum.domain.workout.SlotHistoryEntry
 import com.stratum.domain.workout.SlotHistoryRequest

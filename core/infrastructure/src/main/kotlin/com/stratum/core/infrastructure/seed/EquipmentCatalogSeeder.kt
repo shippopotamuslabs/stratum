@@ -1,0 +1,86 @@
+package com.stratum.core.infrastructure.seed
+
+import android.content.Context
+import com.stratum.core.infrastructure.db.EquipmentDao
+import com.stratum.core.infrastructure.db.EquipmentEntity
+import com.stratum.core.infrastructure.db.IncrementTierDao
+import com.stratum.core.infrastructure.db.IncrementTierEntity
+import com.stratum.core.infrastructure.mapper.toMicroJsonArray
+import com.stratum.core.infrastructure.sync.SyncFlags
+import com.stratum.domain.lift.identity.EquipmentId
+import com.stratum.domain.lift.identity.IncrementTierId
+import com.stratum.domain.logging.LoggingPort
+import kotlinx.serialization.json.Json
+
+/**
+ * Loads bundled equipment + default increment tiers. Run **before** [LiftCatalogSeeder] so
+ * lift FKs resolve. Idempotent upsert by stable seed id; never clears custom equipment.
+ */
+class EquipmentCatalogSeeder(
+    private val equipmentDao: EquipmentDao,
+    private val incrementTierDao: IncrementTierDao,
+    private val loggingPort: LoggingPort,
+) {
+    private val json = Json {
+        ignoreUnknownKeys = true
+        isLenient = true
+        coerceInputValues = true
+    }
+
+    suspend fun seed(context: Context, assetPath: String = ASSET_PATH): Int {
+        val dtos = decode(context, assetPath) ?: return 0
+        if (dtos.isEmpty()) return 0
+        for (dto in dtos) {
+            val id = EquipmentId(dto.id)
+            // STR-105 Scope 7: never resurrect a tombstoned seed row — skip it
+            // entirely (flag and retained tiers are its history).
+            if (equipmentDao.getById(id)?.isDeleted == true) continue
+            equipmentDao.upsert(
+                EquipmentEntity(
+                    id = id,
+                    name = dto.name,
+                    isCustom = false,
+                    // Seed stops are storage-lb doubles by DTO contract; knob-off 0 is
+                    // always admitted downstream, so zero stops are noise — drop them
+                    // and encode the rest with the canonical doubles grammar.
+                    microOptionsJson = dto.microIncrements
+                        .filter { it != 0.0 }
+                        .takeIf { it.isNotEmpty() }
+                        ?.toMicroJsonArray(),
+                    updatedAtEpochMillis = 0L,
+                    pendingSync = SyncFlags.CLEAN,
+                ),
+            )
+            incrementTierDao.deleteForEquipment(id)
+            val tiers =
+                dto.incrementTiers.map { t ->
+                    IncrementTierEntity(
+                        id = IncrementTierId.forEquipmentBand(id, t.lowerBound),
+                        equipmentId = id,
+                        lowerBound = t.lowerBound,
+                        upperBound = t.upperBound,
+                        increment = t.increment,
+                        updatedAtEpochMillis = 0L,
+                        pendingSync = SyncFlags.CLEAN,
+                    )
+                }
+            if (tiers.isNotEmpty()) incrementTierDao.upsertAll(tiers)
+        }
+        return dtos.size
+    }
+
+    private fun decode(context: Context, assetPath: String): List<EquipmentSeedDto>? =
+        runCatching {
+            context.assets.open(assetPath).use { stream ->
+                json.decodeFromString<List<EquipmentSeedDto>>(stream.readBytes().decodeToString())
+            }
+        }.getOrElse { error ->
+            loggingPort.error(TAG, "Failed to decode equipment catalog seed: ${error.message}", error)
+            null
+        }
+
+    companion object {
+        const val ASSET_PATH = "lifts/seed-equipment.json"
+        private const val TAG = "EquipmentCatalogSeed"
+    }
+}

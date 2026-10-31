@@ -1,6 +1,6 @@
 package com.stratum.core.data.sync.appliers
 
-import com.stratum.core.data.db.TrainingLoggedSetDao
+import com.stratum.core.infrastructure.db.TrainingLoggedSetDao
 import com.stratum.core.data.sync.codecs.SyncEntityDecoders
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -10,7 +10,7 @@ import javax.inject.Singleton
  *
  * **Invariant side-effects of applying a remote winner mark PENDING so they upload and heal
  * cloud.** When the remote set is a personal record, demotes any existing local PR for that
- * (lift, equipment) pair with [com.stratum.core.data.sync.SyncFlags.PENDING_UPSERT] so the unique
+ * (lift, equipment) pair with [com.stratum.core.infrastructure.sync.SyncFlags.PENDING_UPSERT] so the unique
  * PR index cannot permanently stall pull and dual-PR cloud state heals. Same rule as program
  * demotion in [ProgramRemoteApplier].
  */

@@ -1,18 +1,18 @@
 package com.stratum.core.data.repository
 
 import androidx.room.Room
-import com.stratum.core.data.db.LiftEntity
-import com.stratum.core.data.db.LiftSessionNoteEntity
-import com.stratum.core.data.db.LiftSetEntity
-import com.stratum.core.data.db.LoggedSetEntity
-import com.stratum.core.data.db.ProgramEntity
-import com.stratum.core.data.db.StratumDatabase
-import com.stratum.core.data.db.TrainingSessionEntity
-import com.stratum.core.data.db.WorkoutEntity
-import com.stratum.core.data.db.WorkoutLiftEntity
+import com.stratum.core.infrastructure.db.LiftEntity
+import com.stratum.core.infrastructure.db.LiftSessionNoteEntity
+import com.stratum.core.infrastructure.db.LiftSetEntity
+import com.stratum.core.infrastructure.db.LoggedSetEntity
+import com.stratum.core.infrastructure.db.ProgramEntity
+import com.stratum.core.infrastructure.db.StratumDatabase
+import com.stratum.core.infrastructure.db.TrainingSessionEntity
+import com.stratum.core.infrastructure.db.WorkoutEntity
+import com.stratum.core.infrastructure.db.WorkoutLiftEntity
 import com.stratum.domain.lift.identity.LiftSessionNoteId
 import com.stratum.core.data.sync.SyncCollection
-import com.stratum.core.data.sync.SyncFlags
+import com.stratum.core.infrastructure.sync.SyncFlags
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.ProgressionScheme
@@ -230,14 +230,14 @@ class RoomMergeLiftsPortTest {
         val noteDao = database.workoutLiftNoteDao()
         noteDao.upsertAll(
             listOf(
-                com.stratum.core.data.db.WorkoutLiftNoteEntity(
+                com.stratum.core.infrastructure.db.WorkoutLiftNoteEntity(
                     id = com.stratum.domain.program.identity.WorkoutLiftNoteId("wn-stash"),
                     workoutLiftId = WorkoutLiftId("wl-target"),
                     liftId = seedSourceId,
                     body = "source cue stashed on target slot",
                     position = 0,
                 ),
-                com.stratum.core.data.db.WorkoutLiftNoteEntity(
+                com.stratum.core.infrastructure.db.WorkoutLiftNoteEntity(
                     id = com.stratum.domain.program.identity.WorkoutLiftNoteId("wn-target"),
                     workoutLiftId = WorkoutLiftId("wl-target"),
                     liftId = targetId,

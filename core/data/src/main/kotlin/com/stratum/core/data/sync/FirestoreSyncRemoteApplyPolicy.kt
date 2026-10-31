@@ -1,4 +1,5 @@
 package com.stratum.core.data.sync
+import com.stratum.core.infrastructure.sync.SyncFlags
 
 /**
  * Unified remote-apply decision for every collection (dirty preserve + LWW).

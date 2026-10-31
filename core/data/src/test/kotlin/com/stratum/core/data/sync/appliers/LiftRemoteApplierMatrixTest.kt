@@ -1,10 +1,10 @@
 package com.stratum.core.data.sync.appliers
 
 import androidx.room.Room
-import com.stratum.core.data.db.LiftEntity
-import com.stratum.core.data.db.StratumDatabase
+import com.stratum.core.infrastructure.db.LiftEntity
+import com.stratum.core.infrastructure.db.StratumDatabase
 import com.stratum.core.data.sync.FirestoreSyncMetadata
-import com.stratum.core.data.sync.SyncFlags
+import com.stratum.core.infrastructure.sync.SyncFlags
 import com.stratum.core.data.sync.codecs.SyncEntityDecoders
 import com.stratum.core.data.sync.codecs.SyncEntityEncoders
 import com.stratum.domain.lift.MovementPattern
@@ -293,7 +293,7 @@ class LiftRemoteApplierMatrixTest {
 
     private suspend fun seedProgramWithSlot(liftId: String) {
         database.programDao().upsert(
-            com.stratum.core.data.db.ProgramEntity(
+            com.stratum.core.infrastructure.db.ProgramEntity(
                 id = com.stratum.domain.program.identity.ProgramId("p-1"),
                 name = "Main",
                 createdAt = "2026-01-01T00:00:00Z",
@@ -303,7 +303,7 @@ class LiftRemoteApplierMatrixTest {
         )
         database.workoutDao().upsertAll(
             listOf(
-                com.stratum.core.data.db.WorkoutEntity(
+                com.stratum.core.infrastructure.db.WorkoutEntity(
                     id = com.stratum.domain.program.identity.WorkoutId("w-1"),
                     programId = com.stratum.domain.program.identity.ProgramId("p-1"),
                     name = "Push",
@@ -314,7 +314,7 @@ class LiftRemoteApplierMatrixTest {
         )
         database.workoutLiftDao().upsertAll(
             listOf(
-                com.stratum.core.data.db.WorkoutLiftEntity(
+                com.stratum.core.infrastructure.db.WorkoutLiftEntity(
                     id = com.stratum.domain.program.identity.WorkoutLiftId("wl-1"),
                     workoutId = com.stratum.domain.program.identity.WorkoutId("w-1"),
                     liftId = LiftId(liftId),

@@ -1,6 +1,6 @@
 package com.stratum.core.data.repository
 
-import com.stratum.core.data.db.StratumDatabase
+import com.stratum.core.infrastructure.db.StratumDatabase
 import com.stratum.domain.lift.identity.LiftId
 
 /** Ids of the template rows a lift-reference sweep removed (for sync delete records). */

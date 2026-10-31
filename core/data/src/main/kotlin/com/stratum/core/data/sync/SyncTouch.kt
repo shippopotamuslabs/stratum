@@ -1,4 +1,5 @@
 package com.stratum.core.data.sync
+import com.stratum.core.infrastructure.sync.SyncFlags
 
 import com.stratum.core.data.work.CloudSyncScheduler
 import javax.inject.Inject

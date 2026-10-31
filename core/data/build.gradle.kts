@@ -56,6 +56,9 @@ ksp {
 dependencies {
     implementation(project(":core:domain"))
     implementation(project(":core:application"))
+    // Transitional (STR-228 fold): the bottom layers (db, mapper) already live in
+    // :core:infrastructure; this dependency dies with the module in the final chunk.
+    implementation(project(":core:infrastructure"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.coroutines.core)

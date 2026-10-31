@@ -1,15 +1,15 @@
 package com.stratum.core.data.sync.handlers
 
 import androidx.room.Room
-import com.stratum.core.data.db.LiftEntity
-import com.stratum.core.data.db.LiftSessionNoteEntity
-import com.stratum.core.data.db.StratumDatabase
-import com.stratum.core.data.db.TrainingSessionEntity
+import com.stratum.core.infrastructure.db.LiftEntity
+import com.stratum.core.infrastructure.db.LiftSessionNoteEntity
+import com.stratum.core.infrastructure.db.StratumDatabase
+import com.stratum.core.infrastructure.db.TrainingSessionEntity
 import com.stratum.core.data.sync.CloudDeleteQueue
 import com.stratum.core.data.sync.DefaultCloudSyncFeatureGate
 import com.stratum.core.data.sync.FirestoreSyncMetadata
 import com.stratum.core.data.sync.SyncCollection
-import com.stratum.core.data.sync.SyncFlags
+import com.stratum.core.infrastructure.sync.SyncFlags
 import com.stratum.core.data.sync.SyncTouch
 import com.stratum.core.data.sync.UserOwnedWriteCoordinator
 import com.stratum.core.data.sync.appliers.LiftRemoteApplier

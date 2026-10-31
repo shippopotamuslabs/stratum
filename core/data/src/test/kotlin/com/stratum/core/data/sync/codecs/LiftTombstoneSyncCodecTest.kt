@@ -1,6 +1,6 @@
 package com.stratum.core.data.sync.codecs
 
-import com.stratum.core.data.db.LiftEntity
+import com.stratum.core.infrastructure.db.LiftEntity
 import com.stratum.domain.lift.identity.LiftId
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse

@@ -1,12 +1,12 @@
 package com.stratum.core.data.repository
 
 import androidx.room.withTransaction
-import com.stratum.core.data.db.LiftSessionNoteDao
-import com.stratum.core.data.db.LiftSessionNoteEntity
-import com.stratum.core.data.db.LiftSessionNoteWithSession
-import com.stratum.core.data.db.StratumDatabase
+import com.stratum.core.infrastructure.db.LiftSessionNoteDao
+import com.stratum.core.infrastructure.db.LiftSessionNoteEntity
+import com.stratum.core.infrastructure.db.LiftSessionNoteWithSession
+import com.stratum.core.infrastructure.db.StratumDatabase
 import com.stratum.core.data.sync.SyncCollection
-import com.stratum.core.data.sync.SyncFlags
+import com.stratum.core.infrastructure.sync.SyncFlags
 import com.stratum.core.data.sync.SyncTouch
 import com.stratum.application.lift.LiftNotesRepository
 import com.stratum.domain.lift.LiftSessionNote

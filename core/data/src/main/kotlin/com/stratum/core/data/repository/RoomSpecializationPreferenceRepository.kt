@@ -1,10 +1,10 @@
 package com.stratum.core.data.repository
 
 import androidx.room.withTransaction
-import com.stratum.core.data.db.StratumDatabase
-import com.stratum.core.data.db.SpecializationPreferenceDao
-import com.stratum.core.data.mapper.toDomain
-import com.stratum.core.data.mapper.toEntities
+import com.stratum.core.infrastructure.db.StratumDatabase
+import com.stratum.core.infrastructure.db.SpecializationPreferenceDao
+import com.stratum.core.infrastructure.mapper.toDomain
+import com.stratum.core.infrastructure.mapper.toEntities
 import com.stratum.core.data.sync.SyncCollection
 import com.stratum.core.data.sync.SyncTouch
 import com.stratum.domain.onboarding.SpecializationPreference

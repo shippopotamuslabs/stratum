@@ -1,7 +1,7 @@
 package com.stratum.core.data.sync.codecs
 
-import com.stratum.core.data.db.LiftEntity
-import com.stratum.core.data.db.LoggedSetEntity
+import com.stratum.core.infrastructure.db.LiftEntity
+import com.stratum.core.infrastructure.db.LoggedSetEntity
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.identity.LiftId

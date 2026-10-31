@@ -1,7 +1,7 @@
 package com.stratum.core.data.sync
 
 import androidx.room.Room
-import com.stratum.core.data.db.StratumDatabase
+import com.stratum.core.infrastructure.db.StratumDatabase
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals

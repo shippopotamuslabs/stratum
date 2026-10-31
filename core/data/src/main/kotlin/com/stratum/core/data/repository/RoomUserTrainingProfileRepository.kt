@@ -1,8 +1,8 @@
 package com.stratum.core.data.repository
 
-import com.stratum.core.data.db.UserProfileDao
-import com.stratum.core.data.mapper.toDomain
-import com.stratum.core.data.mapper.toEntity
+import com.stratum.core.infrastructure.db.UserProfileDao
+import com.stratum.core.infrastructure.mapper.toDomain
+import com.stratum.core.infrastructure.mapper.toEntity
 import com.stratum.core.data.sync.SyncCollection
 import com.stratum.core.data.sync.SyncTouch
 import com.stratum.domain.onboarding.UserTrainingProfile

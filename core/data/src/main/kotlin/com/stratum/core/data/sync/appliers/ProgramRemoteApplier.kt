@@ -1,6 +1,6 @@
 package com.stratum.core.data.sync.appliers
 
-import com.stratum.core.data.db.ProgramDao
+import com.stratum.core.infrastructure.db.ProgramDao
 import com.stratum.core.data.sync.codecs.SyncEntityDecoders
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -10,7 +10,7 @@ import javax.inject.Singleton
  *
  * **Invariant side-effects of applying a remote winner mark PENDING so they upload and heal
  * cloud.** When the remote program is active, other local actives are demoted with a
- * non-regressing clock + [com.stratum.core.data.sync.SyncFlags.PENDING_UPSERT] so dual-active
+ * non-regressing clock + [com.stratum.core.infrastructure.sync.SyncFlags.PENDING_UPSERT] so dual-active
  * cloud state (e.g. two devices each activating a different program) is corrected on the next
  * upload pass. Same rule as PR demotion in [LoggedSetRemoteApplier].
  */
