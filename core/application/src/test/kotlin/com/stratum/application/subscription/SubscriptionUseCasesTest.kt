@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import com.stratum.domain.subscription.BillingPurchaseResult
+import com.stratum.domain.subscription.EntitlementDiagnostic
 import com.stratum.domain.subscription.EntitlementSource
 import com.stratum.domain.subscription.EntitlementState
 import com.stratum.domain.subscription.SubscriptionCatalog
@@ -90,6 +91,19 @@ class SubscriptionUseCasesTest {
         useCase().test {
             fakeBilling.emitPurchaseResult(BillingPurchaseResult.Canceled)
             assertEquals(BillingPurchaseResult.Canceled, awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `observe entitlement diagnostics forwards repository values`() = runTest {
+        val useCase = ObserveEntitlementDiagnosticsUseCase(fakeRepo)
+        useCase().test {
+            val boom = IllegalStateException("sync boom")
+            fakeRepo.emitDiagnostic(EntitlementDiagnostic.PlaySyncFailed(boom))
+            val diagnostic = awaitItem()
+            assertTrue(diagnostic is EntitlementDiagnostic.PlaySyncFailed)
+            assertEquals("sync boom", (diagnostic as EntitlementDiagnostic.PlaySyncFailed).cause.message)
             cancelAndIgnoreRemainingEvents()
         }
     }

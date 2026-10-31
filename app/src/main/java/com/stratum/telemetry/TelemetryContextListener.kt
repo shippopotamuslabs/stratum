@@ -4,6 +4,7 @@ import com.stratum.domain.di.ApplicationScope
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.logging.collectLatestRestarting
 import com.stratum.application.subscription.ObserveEntitlementUseCase
+import com.stratum.application.subscription.SUBSCRIPTION_REPO_TAG
 import com.stratum.domain.telemetry.CrashTelemetryPort
 import com.stratum.domain.telemetry.toTelemetryTier
 import com.stratum.application.training.ObserveActiveSessionUseCase
@@ -34,7 +35,11 @@ class TelemetryContextListener @Inject constructor(
             scope.launch {
                 supervisorScope {
                     launch {
+                        // Single drain point for the entitlement-changed debug: the repository
+                        // flow is distinctUntilChanged, and diagnostics/sync errors are drained
+                        // by EntitlementDiagnosticsListener — do not add another collector.
                         observeEntitlement().collectLatestRestarting(loggingPort, TAG) { state ->
+                            loggingPort.debug(SUBSCRIPTION_REPO_TAG, "Entitlement changed: $state")
                             crashTelemetryPort.setSubscriptionTier(state.toTelemetryTier())
                         }
                     }
