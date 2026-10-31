@@ -8,6 +8,7 @@ import com.stratum.application.training.RebuildLocalDerivedTrainingDataUseCase
 import com.stratum.application.training.TrainingLogRepository
 import com.stratum.application.workout.WorkoutOverlayStore
 import javax.inject.Inject
+import kotlin.coroutines.cancellation.CancellationException
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.program.Program
 
@@ -108,6 +109,8 @@ class MergeLiftsUseCase @Inject constructor(
         val prResult = computePersonalRecords(allForTarget)
         val failure = prResult.exceptionOrNull()
         if (failure != null) {
+            // Cancellation is not a degraded recompute — it must cancel the merge.
+            if (failure is CancellationException) throw failure
             return MergeLiftsDiagnostic.PersonalRecordsNotRecomputed(
                 targetLiftId = targetLiftId,
                 cause = failure,

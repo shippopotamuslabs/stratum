@@ -34,6 +34,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
+import kotlin.coroutines.cancellation.CancellationException
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -552,6 +553,43 @@ class MergeLiftsUseCaseTest {
             sourceApp = null,
         )
 
+    @Test
+    @DisplayName("Given PR recompute cancelled when merged then cancellation propagates")
+    fun prRecomputeCancellationPropagates() = runTest {
+        logRepo.seedSession(completedSession())
+        logRepo.seedSet(
+            loggedSet(
+                id = "set-target",
+                liftId = targetId,
+                name = targetLift.name,
+                weight = 90.0,
+                isPr = true,
+            ),
+        )
+        val cancellingSubject =
+            MergeLiftsUseCase(
+                liftRepository = liftRepo,
+                trainingLogRepository = logRepo,
+                mergeLiftsPort = mergePort,
+                computePersonalRecords =
+                    ComputePersonalRecordsUseCase(
+                        CancellingPrReadRepository(logRepo),
+                    ),
+                rebuildLocalDerived = rebuildLocalDerived,
+                workoutOverlayStore = overlayStore,
+                loggingPort = logging,
+            )
+
+        var propagated: CancellationException? = null
+        try {
+            cancellingSubject(targetLiftId = targetId, sourceLiftIds = setOf(sourceAId))
+        } catch (cancelled: CancellationException) {
+            propagated = cancelled
+        }
+
+        assertTrue(propagated != null)
+    }
+
     /**
      * Delegates every [TrainingLogRepository] call except the PR recompute read,
      * which throws — forces [ComputePersonalRecordsUseCase] to fail while the
@@ -562,6 +600,19 @@ class MergeLiftsUseCaseTest {
     ) : TrainingLogRepository by delegate {
         override suspend fun getSetsForLift(liftId: LiftId): List<LoggedSet> =
             throw IllegalStateException("PR read boom")
+    }
+
+    /**
+     * Same delegation as [FailingPrReadRepository], but the PR recompute read
+     * throws [CancellationException] — forces [ComputePersonalRecordsUseCase]
+     * (plain `runCatching`) to return it as `Result.failure` so the merge must
+     * rethrow it instead of recording a diagnostic.
+     */
+    private class CancellingPrReadRepository(
+        delegate: TrainingLogRepository,
+    ) : TrainingLogRepository by delegate {
+        override suspend fun getSetsForLift(liftId: LiftId): List<LoggedSet> =
+            throw CancellationException("PR recompute cancelled")
     }
 
     private fun loggedSet(
