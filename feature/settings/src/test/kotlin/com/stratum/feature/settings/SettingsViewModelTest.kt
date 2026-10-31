@@ -46,6 +46,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -64,6 +65,7 @@ import com.stratum.application.healthconnect.SetHealthConnectEnabledUseCase
 import com.stratum.domain.subscription.EntitlementSource
 import com.stratum.domain.subscription.EntitlementState
 import com.stratum.application.subscription.ObserveEntitlementUseCase
+import com.stratum.domain.logging.LogErrorUseCase
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @ExtendWith(MainDispatcherRule::class)
@@ -117,6 +119,7 @@ class SettingsViewModelTest {
                 forceRefreshGate?.await()
                 forceRefreshResult
             },
+        loggingPort: FakeLoggingPort = FakeLoggingPort(),
     ): SettingsViewModel =
         SettingsViewModel(
             observeThemePreferences = ObserveThemePreferencesUseCase(fakeThemePreferences),
@@ -144,6 +147,7 @@ class SettingsViewModelTest {
                 SetWeightDisplayUnitUseCase(fakeWeightDisplayPreferences, FakeLoggingPort()),
             setHealthConnectEnabled =
                 SetHealthConnectEnabledUseCase(fakeHealthConnectPreferences, fakeHealthConnectSync),
+            logError = LogErrorUseCase(loggingPort),
             clearHealthConnectSyncError =
                 ClearHealthConnectSyncErrorUseCase(fakeHealthConnectSyncStatus),
             markCheckInPending = MarkCheckInPendingUseCase(fakeCheckInPreferences, FakeLoggingPort()),
@@ -667,6 +671,23 @@ class SettingsViewModelTest {
             assertTrue(subject.uiState.value.healthConnectEnabled)
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    @Test
+    @DisplayName("STR-257: permission sheet query failure logs one diagnostic, no user message")
+    fun permissionSheetQueryFailureLogsDiagnosticOnce() = runTest {
+        val loggingPort = FakeLoggingPort()
+        val viewModel = buildViewModel(loggingPort = loggingPort)
+        val cause = IllegalStateException("sdk blip")
+        fakeHealthConnectSync.grantedPermissionsFailure = cause
+        viewModel.onHealthConnectPermissionSheetClosed()
+        advanceUntilIdle()
+
+        assertEquals(1, loggingPort.errors.size)
+        assertSame(cause, loggingPort.errors.single().throwable)
+        // The failure is log-only: no user-facing message and the preference is unchanged.
+        assertNull(viewModel.userMessage.value)
+        assertEquals(false, fakeHealthConnectPreferences.getPreferences().enabled)
     }
 
     @Test

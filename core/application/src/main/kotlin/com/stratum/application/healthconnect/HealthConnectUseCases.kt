@@ -1,6 +1,7 @@
 package com.stratum.application.healthconnect
 
 import javax.inject.Inject
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.Flow
 import com.stratum.domain.healthconnect.HealthConnectPreferences
 import com.stratum.domain.healthconnect.HealthConnectUnavailableException
@@ -24,11 +25,22 @@ class SetHealthConnectEnabledUseCase @Inject constructor(
 
     /**
      * After the permission sheet closes, opt in from the current SDK grant set. A query failure
-     * leaves the preference unchanged so Back / cancel cannot turn an enabled switch off.
+     * leaves the preference unchanged so Back / cancel cannot turn an enabled switch off — the
+     * failure rides along as a diagnostic on the success outcome (STR-257).
      */
-    suspend fun applyGrantedPermissions(requested: Set<String>): Result<Unit> {
-        val granted = syncPort.grantedPermissions().getOrElse { return Result.success(Unit) }
-        return invoke(granted.any { it in requested })
+    suspend fun applyGrantedPermissions(requested: Set<String>): Result<ApplyGrantedPermissionsOutcome> {
+        val granted = syncPort.grantedPermissions().getOrElse { error ->
+            // Cancellation is not a degraded query — it must cancel the caller.
+            if (error is CancellationException) throw error
+            return Result.success(
+                ApplyGrantedPermissionsOutcome(
+                    diagnostics = listOf(
+                        ApplyGrantedPermissionsDiagnostic.PermissionQueryFailed(cause = error),
+                    ),
+                ),
+            )
+        }
+        return invoke(granted.any { it in requested }).map { ApplyGrantedPermissionsOutcome() }
     }
 
     /**
