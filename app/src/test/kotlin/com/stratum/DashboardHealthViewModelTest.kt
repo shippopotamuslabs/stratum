@@ -18,13 +18,13 @@ import com.stratum.application.dashboard.LoadDashboardUseCase
 import com.stratum.application.dashboard.LoadGraphDetailUseCase
 import com.stratum.application.dashboard.ObserveDashboardPreferencesUseCase
 import com.stratum.application.dashboard.SetDashboardBoardTabUseCase
-import com.stratum.domain.healthconnect.DailyStepCount
+import com.stratum.domain.health.DailyStepCount
 import com.stratum.domain.healthconnect.HealthConnectPreferences
-import com.stratum.domain.healthconnect.HealthMetricType
-import com.stratum.domain.healthconnect.HealthMetricsSnapshot
+import com.stratum.domain.health.HealthMetricType
+import com.stratum.domain.health.HealthMetricsSnapshot
 import com.stratum.application.healthconnect.LoadHealthConnectMetricsUseCase
 import com.stratum.application.healthconnect.ObserveHealthConnectPreferencesUseCase
-import com.stratum.domain.healthconnect.WeightSample
+import com.stratum.domain.health.WeightSample
 import com.stratum.application.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.logging.LogErrorUseCase

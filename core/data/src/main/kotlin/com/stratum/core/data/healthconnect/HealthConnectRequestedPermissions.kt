@@ -7,7 +7,7 @@ import androidx.health.connect.client.records.RestingHeartRateRecord
 import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.WeightRecord
-import com.stratum.domain.healthconnect.HealthMetricType
+import com.stratum.domain.health.HealthMetricType
 
 /**
  * Canonical Health Connect permission strings for dashboard reads + workout write.

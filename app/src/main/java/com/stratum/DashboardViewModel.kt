@@ -20,7 +20,7 @@ import com.stratum.domain.dashboard.TrendPoint
 import com.stratum.domain.dashboard.olsSlope
 import com.stratum.domain.dashboard.slopeToDirection
 import com.stratum.domain.healthconnect.HealthConnectDiagnostic
-import com.stratum.domain.healthconnect.HealthMetricsPages
+import com.stratum.domain.health.HealthMetricsPages
 import com.stratum.application.healthconnect.LoadHealthConnectMetricsUseCase
 import com.stratum.application.healthconnect.ObserveHealthConnectPreferencesUseCase
 import com.stratum.domain.logging.LogErrorUseCase

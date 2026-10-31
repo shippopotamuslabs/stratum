@@ -8,27 +8,27 @@ import java.time.LocalDate
 import java.time.ZoneId
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
-import com.stratum.domain.healthconnect.ActivityMetrics
-import com.stratum.domain.healthconnect.DailyStepCount
-import com.stratum.domain.healthconnect.DailyVitalSample
+import com.stratum.domain.health.ActivityMetrics
+import com.stratum.domain.health.DailyStepCount
+import com.stratum.domain.health.DailyVitalSample
 import com.stratum.domain.healthconnect.HealthConnectDiagnostic
-import com.stratum.domain.healthconnect.HealthMetricType
-import com.stratum.domain.healthconnect.HealthMetricsPages
-import com.stratum.domain.healthconnect.HealthMetricsRequest
-import com.stratum.domain.healthconnect.HealthMetricsSnapshot
-import com.stratum.domain.healthconnect.NightlySleepDuration
-import com.stratum.domain.healthconnect.RecoveryMetrics
-import com.stratum.domain.healthconnect.SleepNight
-import com.stratum.domain.healthconnect.SleepSessionSample
-import com.stratum.domain.healthconnect.SleepStageSample
-import com.stratum.domain.healthconnect.SleepStageType
-import com.stratum.domain.healthconnect.SleepZones
-import com.stratum.domain.healthconnect.VitalRange
-import com.stratum.domain.healthconnect.WeightMetrics
-import com.stratum.domain.healthconnect.WeightSample
+import com.stratum.domain.health.HealthMetricType
+import com.stratum.domain.health.HealthMetricsPages
+import com.stratum.domain.health.HealthMetricsRequest
+import com.stratum.domain.health.HealthMetricsSnapshot
+import com.stratum.domain.health.NightlySleepDuration
+import com.stratum.domain.health.RecoveryMetrics
+import com.stratum.domain.health.SleepNight
+import com.stratum.domain.health.SleepSessionSample
+import com.stratum.domain.health.SleepStageSample
+import com.stratum.domain.health.SleepStageType
+import com.stratum.domain.health.SleepZones
+import com.stratum.domain.health.VitalRange
+import com.stratum.domain.health.WeightMetrics
+import com.stratum.domain.health.WeightSample
 import com.stratum.domain.dashboard.windowStart
-import com.stratum.domain.healthconnect.HEALTH_METRICS_DAY_COUNT
-import com.stratum.domain.healthconnect.VITALS_RANGE_MIN_HISTORY_DAYS
+import com.stratum.domain.health.HEALTH_METRICS_DAY_COUNT
+import com.stratum.domain.health.VITALS_RANGE_MIN_HISTORY_DAYS
 
 class LoadHealthConnectMetricsUseCase @Inject constructor(
     private val metricsPort: HealthConnectMetricsPort,
@@ -459,8 +459,7 @@ internal fun List<SleepStageSample>.toSleepZones(): SleepZones? {
             SleepStageType.Light -> light += length
             SleepStageType.Deep -> deep += length
             SleepStageType.Rem -> rem += length
-            SleepStageType.Awake, SleepStageType.OutOfBed -> awake += length
-            SleepStageType.Sleeping, SleepStageType.Unknown -> Unit
+            SleepStageType.Awake -> awake += length
         }
     }
     val zones = SleepZones(light = light, deep = deep, rem = rem, awake = awake)

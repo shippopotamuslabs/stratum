@@ -1,9 +1,9 @@
 package com.stratum.core.testing.healthconnect
 
 import com.stratum.application.healthconnect.HealthConnectMetricsPort
-import com.stratum.domain.healthconnect.HealthMetricType
-import com.stratum.domain.healthconnect.HealthMetricsRequest
-import com.stratum.domain.healthconnect.HealthMetricsSnapshot
+import com.stratum.domain.health.HealthMetricType
+import com.stratum.domain.health.HealthMetricsRequest
+import com.stratum.domain.health.HealthMetricsSnapshot
 import kotlinx.coroutines.CompletableDeferred
 
 class FakeHealthConnectMetricsPort : HealthConnectMetricsPort {

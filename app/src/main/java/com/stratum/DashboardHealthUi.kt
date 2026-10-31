@@ -2,16 +2,16 @@ package com.stratum
 
 import com.stratum.core.ui.component.TrendBandUi
 import com.stratum.core.ui.component.TrendPointUi
-import com.stratum.domain.healthconnect.ActivityMetrics
-import com.stratum.domain.healthconnect.DailyVitalSample
-import com.stratum.domain.healthconnect.HEALTH_METRICS_DAY_COUNT
-import com.stratum.domain.healthconnect.HealthMetricsPages
-import com.stratum.domain.healthconnect.NightlySleepDuration
-import com.stratum.domain.healthconnect.RecoveryMetrics
-import com.stratum.domain.healthconnect.SleepZones
-import com.stratum.domain.healthconnect.VitalRange
-import com.stratum.domain.healthconnect.WeightMetrics
-import com.stratum.domain.healthconnect.WeightSample
+import com.stratum.domain.health.ActivityMetrics
+import com.stratum.domain.health.DailyVitalSample
+import com.stratum.domain.health.HEALTH_METRICS_DAY_COUNT
+import com.stratum.domain.health.HealthMetricsPages
+import com.stratum.domain.health.NightlySleepDuration
+import com.stratum.domain.health.RecoveryMetrics
+import com.stratum.domain.health.SleepZones
+import com.stratum.domain.health.VitalRange
+import com.stratum.domain.health.WeightMetrics
+import com.stratum.domain.health.WeightSample
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.WeightConversion
 import com.stratum.domain.lift.shortLabel

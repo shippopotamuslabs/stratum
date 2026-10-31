@@ -11,16 +11,16 @@ import androidx.health.connect.client.records.WeightRecord
 import androidx.health.connect.client.request.AggregateGroupByPeriodRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
-import com.stratum.domain.healthconnect.DailyStepCount
+import com.stratum.domain.health.DailyStepCount
 import com.stratum.application.healthconnect.HealthConnectMetricsPort
-import com.stratum.domain.healthconnect.HealthMetricType
-import com.stratum.domain.healthconnect.HealthMetricsRequest
-import com.stratum.domain.healthconnect.HealthMetricsSnapshot
-import com.stratum.domain.healthconnect.HeartRateSample
-import com.stratum.domain.healthconnect.HrvSample
-import com.stratum.domain.healthconnect.SleepSessionSample
-import com.stratum.domain.healthconnect.SleepStageSample
-import com.stratum.domain.healthconnect.WeightSample
+import com.stratum.domain.health.HealthMetricType
+import com.stratum.domain.health.HealthMetricsRequest
+import com.stratum.domain.health.HealthMetricsSnapshot
+import com.stratum.domain.health.HeartRateSample
+import com.stratum.domain.health.HrvSample
+import com.stratum.domain.health.SleepSessionSample
+import com.stratum.domain.health.SleepStageSample
+import com.stratum.domain.health.WeightSample
 import com.stratum.domain.logging.LoggingPort
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.Period
@@ -155,12 +155,14 @@ class HealthConnectMetricsReader @Inject constructor(
                 start = record.startTime,
                 end = record.endTime,
                 originPackage = record.metadata.dataOrigin.packageName,
-                stages = record.stages.map { stage ->
-                    SleepStageSample(
-                        start = stage.startTime,
-                        end = stage.endTime,
-                        stage = HealthConnectMetricsMapper.sleepStageType(stage.stage),
-                    )
+                stages = record.stages.mapNotNull { stage ->
+                    HealthConnectMetricsMapper.sleepStageType(stage.stage)?.let { mapped ->
+                        SleepStageSample(
+                            start = stage.startTime,
+                            end = stage.endTime,
+                            stage = mapped,
+                        )
+                    }
                 },
             )
         }

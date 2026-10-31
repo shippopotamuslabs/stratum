@@ -18,21 +18,21 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import com.stratum.domain.healthconnect.DailyStepCount
-import com.stratum.domain.healthconnect.HEALTH_METRICS_DAY_COUNT
+import com.stratum.domain.health.DailyStepCount
+import com.stratum.domain.health.HEALTH_METRICS_DAY_COUNT
 import com.stratum.domain.healthconnect.HealthConnectDiagnostic
 import com.stratum.domain.healthconnect.HealthConnectPreferences
-import com.stratum.domain.healthconnect.HealthMetricType
+import com.stratum.domain.health.HealthMetricType
 import kotlin.coroutines.cancellation.CancellationException
-import com.stratum.domain.healthconnect.HealthMetricsRequest
-import com.stratum.domain.healthconnect.HealthMetricsSnapshot
-import com.stratum.domain.healthconnect.HeartRateSample
-import com.stratum.domain.healthconnect.HrvSample
-import com.stratum.domain.healthconnect.SleepSessionSample
-import com.stratum.domain.healthconnect.SleepStageSample
-import com.stratum.domain.healthconnect.SleepStageType
-import com.stratum.domain.healthconnect.VitalRange
-import com.stratum.domain.healthconnect.WeightSample
+import com.stratum.domain.health.HealthMetricsRequest
+import com.stratum.domain.health.HealthMetricsSnapshot
+import com.stratum.domain.health.HeartRateSample
+import com.stratum.domain.health.HrvSample
+import com.stratum.domain.health.SleepSessionSample
+import com.stratum.domain.health.SleepStageSample
+import com.stratum.domain.health.SleepStageType
+import com.stratum.domain.health.VitalRange
+import com.stratum.domain.health.WeightSample
 
 class LoadHealthConnectMetricsUseCaseTest {
 
@@ -542,13 +542,6 @@ class LoadHealthConnectMetricsUseCaseTest {
             start = today.minusDays(1).atTime(22, 0).toInstant(zone),
             end = today.atTime(6, 0).toInstant(zone),
             originPackage = WATCH_ORIGIN,
-            stages = listOf(
-                SleepStageSample(
-                    start = today.minusDays(1).atTime(22, 0).toInstant(zone),
-                    end = today.atTime(6, 0).toInstant(zone),
-                    stage = SleepStageType.Sleeping,
-                ),
-            ),
         )
         val leftover = SleepSessionSample(
             start = today.atTime(6, 20).toInstant(zone),
@@ -713,7 +706,7 @@ class LoadHealthConnectMetricsUseCaseTest {
                 SleepStageSample(
                     start = today.atTime(4, 30).toInstant(zone),
                     end = today.atTime(5, 0).toInstant(zone),
-                    stage = SleepStageType.OutOfBed,
+                    stage = SleepStageType.Awake,
                 ),
                 SleepStageSample(
                     start = today.atTime(5, 0).toInstant(zone),
@@ -727,7 +720,7 @@ class LoadHealthConnectMetricsUseCaseTest {
 
         val todayNight = nightly.last()
         assertEquals(Duration.ofHours(7), todayNight.duration)
-        // The zones awake bucket folds out-of-bed in, so both half-hours come out.
+        // Both half-hours are awake (the mapper folds out-of-bed into awake), so both come out.
         assertEquals(Duration.ofHours(1), todayNight.zones?.awake)
     }
 
@@ -895,15 +888,9 @@ class LoadHealthConnectMetricsUseCaseTest {
     }
 
     @Test
-    @DisplayName("generic sleep stages do not produce a zone bar")
-    fun genericStagesSkipZones() {
-        val stages = listOf(
-            SleepStageSample(
-                start = Instant.parse("2026-08-12T02:00:00Z"),
-                end = Instant.parse("2026-08-12T06:00:00Z"),
-                stage = SleepStageType.Sleeping,
-            ),
-        )
+    @DisplayName("empty stages do not produce a zone bar")
+    fun emptyStagesSkipZones() {
+        val stages = emptyList<SleepStageSample>()
         assertNull(stages.toSleepZones())
     }
 
