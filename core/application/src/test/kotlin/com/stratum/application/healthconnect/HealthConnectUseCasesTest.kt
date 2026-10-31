@@ -4,10 +4,13 @@ import com.stratum.core.testing.healthconnect.FakeHealthConnectPreferencesReposi
 import com.stratum.core.testing.healthconnect.FakeHealthConnectSyncPort
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import com.stratum.application.healthconnect.ApplyGrantedPermissionsDiagnostic
 import com.stratum.domain.healthconnect.HealthConnectPreferences
 import com.stratum.domain.healthconnect.HealthConnectUnavailableException
 
@@ -55,19 +58,41 @@ class HealthConnectUseCasesTest {
         val result = setEnabledUseCase.applyGrantedPermissions(setOf("write", "read_steps"))
 
         assertTrue(result.isSuccess)
+        assertTrue(result.getOrThrow().diagnostics.isEmpty())
         assertEquals(true, preferencesRepo.getPreferences().enabled)
     }
 
     @Test
-    @DisplayName("applyGrantedPermissions leaves prefs unchanged when the grant query fails")
-    fun applyGrantedPermissionsQueryFailureKeepsState() = runTest {
+    @DisplayName("STR-257: grant query failure returns a success outcome with a diagnostic")
+    fun applyGrantedPermissionsQueryFailureCarriesDiagnostic() = runTest {
         preferencesRepo.setPreferences(HealthConnectPreferences(enabled = true))
-        syncPort.grantedPermissionsFailure = IllegalStateException("sdk blip")
+        val cause = IllegalStateException("sdk blip")
+        syncPort.grantedPermissionsFailure = cause
 
         val result = setEnabledUseCase.applyGrantedPermissions(setOf("write"))
 
         assertTrue(result.isSuccess)
+        val outcome = result.getOrThrow()
+        assertEquals(1, outcome.diagnostics.size)
+        val diagnostic = outcome.diagnostics.single()
+        assertTrue(diagnostic is ApplyGrantedPermissionsDiagnostic.PermissionQueryFailed)
+        assertSame(
+            cause,
+            (diagnostic as ApplyGrantedPermissionsDiagnostic.PermissionQueryFailed).cause,
+        )
         assertEquals(true, preferencesRepo.getPreferences().enabled)
+    }
+
+    @Test
+    @DisplayName("STR-257: grant query cancellation rethrows without touching the preference")
+    fun applyGrantedPermissionsCancellationPropagates() = runTest {
+        val cancellation = kotlinx.coroutines.CancellationException("cancelled")
+        syncPort.grantedPermissionsFailure = cancellation
+
+        assertThrows<kotlinx.coroutines.CancellationException> {
+            setEnabledUseCase.applyGrantedPermissions(setOf("write"))
+        }
+        assertEquals(false, preferencesRepo.getPreferences().enabled)
     }
 
     @Test
