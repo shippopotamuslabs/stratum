@@ -21,13 +21,16 @@ import sys
 
 
 def load_findings(path):
-    """Return {(vuln_id, package_name): detail} plus per-package alias ids."""
+    """Return {(vuln_id, package_name): detail} plus per-package alias ids.
+
+    Raises OSError/ValueError on unreadable input; main() turns that into
+    exit code 2 so this module stays importable and unit-testable.
+    """
     try:
         with open(path, encoding="utf-8") as fh:
             doc = json.load(fh)
     except (OSError, json.JSONDecodeError) as exc:
-        print(f"osv-diff: cannot read scan result {path}: {exc}", file=sys.stderr)
-        sys.exit(2)
+        raise ValueError(f"cannot read scan result {path}: {exc}") from exc
     findings = {}
     package_ids = {}
     for result in doc.get("results", []):
@@ -67,8 +70,12 @@ def main(argv):
     if len(argv) != 3:
         print(__doc__, file=sys.stderr)
         return 2
-    baseline, baseline_pkg_ids = load_findings(argv[1])
-    current, _ = load_findings(argv[2])
+    try:
+        baseline, baseline_pkg_ids = load_findings(argv[1])
+        current, _ = load_findings(argv[2])
+    except (OSError, ValueError) as exc:
+        print(f"osv-diff: {exc}", file=sys.stderr)
+        return 2
     print(
         f"osv-diff: baseline findings: {len(baseline)}, "
         f"PR findings: {len(current)} (unique (vuln, package) pairs)"

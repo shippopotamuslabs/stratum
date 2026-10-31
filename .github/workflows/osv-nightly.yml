@@ -56,13 +56,9 @@ jobs:
         run: |
           mkdir -p .tmp
           ./scripts/install-osv-scanner.sh "$OSV_SCANNER_VERSION" "$GITHUB_WORKSPACE/.tmp/osv-scanner"
-          ./gradlew :app:dependencies --configuration releaseRuntimeClasspath -q > /tmp/gradle-app-deps.txt
-          python3 scripts/generate-sbom.py < /tmp/gradle-app-deps.txt > bom.cdx.json
-          ./gradlew :solver-service:dependencies --configuration runtimeClasspath -q > /tmp/gradle-solver-deps.txt
-          python3 scripts/generate-sbom.py --component-name stratum-solver < /tmp/gradle-solver-deps.txt > bom-solver.cdx.json
-          SCAN_ARGS="-L bom.cdx.json -L bom-solver.cdx.json --lockfile=functions/package-lock.json --lockfile=functions-python/requirements.txt"
-          if [ -f .osv-scanner.toml ]; then SCAN_ARGS="$SCAN_ARGS --config=.osv-scanner.toml"; fi
-          ./.tmp/osv-scanner scan source $SCAN_ARGS --format=table
+          # Table format + scanner exit code: any finding fails the run.
+          ./scripts/osv-scan-source.sh "$GITHUB_WORKSPACE/.tmp/osv-scanner" "$GITHUB_WORKSPACE/bom" . \
+            --config=.osv-scanner.toml --format=table
       - name: Upload SBOMs
         if: always()
         uses: actions/upload-artifact@v4

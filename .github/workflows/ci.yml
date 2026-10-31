@@ -118,6 +118,7 @@ jobs:
               - 'scripts/generate-sbom.py'
               - 'scripts/install-osv-scanner.sh'
               - 'scripts/osv-diff.py'
+              - 'scripts/osv-scan-source.sh'
               - '.osv-scanner.toml'
               - '.github/workflows/ci.yml'
 
@@ -501,33 +502,42 @@ jobs:
           key: ${{ runner.os }}-gradle-deps-${{ hashFiles('gradle/libs.versions.toml') }}
           restore-keys: |
             ${{ runner.os }}-gradle-deps-
-      - name: Generate SBOMs and scan (PR tree)
+      # Gate tooling is pinned to the BASELINE tree: the scan helper (and
+      # through it the SBOM generator), the diff script, and the
+      # .osv-scanner.toml applied to BOTH scans all come from
+      # .tmp/baseline, so a PR cannot weaken the check that judges it by
+      # editing its own copies. Bootstrap: a baseline that predates these
+      # scripts (e.g. the PR that introduced them) falls back to the PR
+      # tree's copies for this run; every later baseline has them.
+      - name: Install osv-scanner
         run: |
           mkdir -p .tmp
-          ./scripts/install-osv-scanner.sh "$OSV_SCANNER_VERSION" "$GITHUB_WORKSPACE/.tmp/osv-scanner"
-          ./gradlew :app:dependencies --configuration releaseRuntimeClasspath -q > /tmp/gradle-app-deps.txt
-          python3 scripts/generate-sbom.py < /tmp/gradle-app-deps.txt > bom.cdx.json
-          ./gradlew :solver-service:dependencies --configuration runtimeClasspath -q > /tmp/gradle-solver-deps.txt
-          python3 scripts/generate-sbom.py --component-name stratum-solver < /tmp/gradle-solver-deps.txt > bom-solver.cdx.json
-          SCAN_ARGS="-L bom.cdx.json -L bom-solver.cdx.json --lockfile=functions/package-lock.json --lockfile=functions-python/requirements.txt"
-          if [ -f .osv-scanner.toml ]; then SCAN_ARGS="$SCAN_ARGS --config=.osv-scanner.toml"; fi
-          # Exit 1 just means "findings present"; the diff step decides.
-          ./.tmp/osv-scanner scan source $SCAN_ARGS --format=json --output-file=osv-pr.json || true
-      - name: Generate SBOMs and scan (baseline tree)
+          INSTALL=.tmp/baseline/scripts/install-osv-scanner.sh
+          [ -f "$INSTALL" ] || INSTALL=scripts/install-osv-scanner.sh
+          "$INSTALL" "$OSV_SCANNER_VERSION" "$GITHUB_WORKSPACE/.tmp/osv-scanner"
+      - name: Scan PR tree (JSON)
+        run: |
+          HELPER=.tmp/baseline/scripts/osv-scan-source.sh
+          [ -f "$HELPER" ] || HELPER=scripts/osv-scan-source.sh
+          # Scanner exit 1 just means "findings present"; the diff decides.
+          "$HELPER" "$GITHUB_WORKSPACE/.tmp/osv-scanner" "$GITHUB_WORKSPACE/bom" . \
+            --config="$GITHUB_WORKSPACE/.tmp/baseline/.osv-scanner.toml" \
+            --format=json --output-file="$GITHUB_WORKSPACE/osv-pr.json" || true
+      - name: Scan baseline tree (JSON)
         run: |
           # android-setup materialized google-services.json for the PR
           # tree only; :app configuration in the baseline tree needs it too.
           cp app/google-services.json .tmp/baseline/app/google-services.json
-          cd .tmp/baseline
-          ./gradlew :app:dependencies --configuration releaseRuntimeClasspath -q > /tmp/gradle-app-deps-baseline.txt
-          python3 scripts/generate-sbom.py < /tmp/gradle-app-deps-baseline.txt > "$GITHUB_WORKSPACE/bom-baseline.cdx.json"
-          ./gradlew :solver-service:dependencies --configuration runtimeClasspath -q > /tmp/gradle-solver-deps-baseline.txt
-          python3 scripts/generate-sbom.py --component-name stratum-solver < /tmp/gradle-solver-deps-baseline.txt > "$GITHUB_WORKSPACE/bom-solver-baseline.cdx.json"
-          SCAN_ARGS="-L $GITHUB_WORKSPACE/bom-baseline.cdx.json -L $GITHUB_WORKSPACE/bom-solver-baseline.cdx.json --lockfile=functions/package-lock.json --lockfile=functions-python/requirements.txt"
-          if [ -f .osv-scanner.toml ]; then SCAN_ARGS="$SCAN_ARGS --config=.osv-scanner.toml"; fi
-          "$GITHUB_WORKSPACE/.tmp/osv-scanner" scan source $SCAN_ARGS --format=json --output-file="$GITHUB_WORKSPACE/osv-baseline.json" || true
+          HELPER=.tmp/baseline/scripts/osv-scan-source.sh
+          [ -f "$HELPER" ] || HELPER=scripts/osv-scan-source.sh
+          "$HELPER" "$GITHUB_WORKSPACE/.tmp/osv-scanner" "$GITHUB_WORKSPACE/bom-baseline" .tmp/baseline \
+            --config="$GITHUB_WORKSPACE/.tmp/baseline/.osv-scanner.toml" \
+            --format=json --output-file="$GITHUB_WORKSPACE/osv-baseline.json" || true
       - name: Fail only on newly introduced findings
-        run: python3 scripts/osv-diff.py osv-baseline.json osv-pr.json
+        run: |
+          DIFF=.tmp/baseline/scripts/osv-diff.py
+          [ -f "$DIFF" ] || DIFF=scripts/osv-diff.py
+          python3 "$DIFF" osv-baseline.json osv-pr.json
       - name: Upload scan artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -537,7 +547,7 @@ jobs:
             bom.cdx.json
             bom-solver.cdx.json
             bom-baseline.cdx.json
-            bom-solver-baseline.cdx.json
+            bom-baseline-solver.cdx.json
             osv-pr.json
             osv-baseline.json
           if-no-files-found: ignore
