@@ -30,7 +30,7 @@ MUST NEVER list, and the violation response are canon: see
 |--------|------|-----------|---------|
 | `:app` | Application | `com.stratum` | Shell: `Application`, `MainActivity`, NavHost, DI composition |
 | `:core:domain` | JVM library | `com.stratum.domain` | Models, ports, use cases — no Android framework |
-| `:core:data` | Android library | `com.stratum.core.data` | Room, repositories, DataStore, WorkManager, mappers |
+| `:core:infrastructure` | Android library | `com.stratum.core.infrastructure` | Room, repositories, sync, platform services, DI |
 | `:core:ui` | Android library | `com.stratum.core.ui` | `StratumTheme`, theme specs, shared `Stratum*` components |
 | `:core:testing` | JVM library | `com.stratum.core.testing` | Shared fakes, `MainDispatcherRule`, test fixtures |
 | `:detekt-rules` | JVM library | `com.stratum.detekt` | Custom static analysis (not part of app runtime) |
@@ -45,7 +45,6 @@ MUST NEVER list, and the violation response are canon: see
 | `:feature:history` | Session history, trends, personal records |
 | `:feature:settings` | Theme, equipment profile, preferences |
 | `:feature:insights` | “What actually worked” dashboard, pattern mining UI |
-| `:core:inference` or `:feature:inference` | On-device LLM — **no Compose** in inference module |
 
 Do **not** create empty feature modules preemptively. Add one when a journey has **2+ screens**
 or a clear ownership boundary.
@@ -59,13 +58,13 @@ The dependency-direction rules are canon: see `contracts/gospel/ARCHITECTURE-GOS
 
 ```text
 :app
-  → :core:domain, :core:data, :core:ui, :feature:* (when present)
+  → :core:domain, :core:infrastructure, :core:ui, :feature:* (when present)
 
 :feature:*
   → :core:domain, :core:ui
-  → :core:data only when declared in that feature's build.gradle.kts
+  → :core:infrastructure only when declared in that feature's build.gradle.kts
 
-:core:data
+:core:infrastructure
   → :core:domain
 
 :core:ui
@@ -82,20 +81,20 @@ The dependency-direction rules are canon: see `contracts/gospel/ARCHITECTURE-GOS
 ```
 
 ```text
-                    ┌─────────────┐
-                    │    :app     │
-                    └──────┬──────┘
-           ┌───────────────┼───────────────┐
-           ▼               ▼               ▼
-    ┌────────────┐  ┌────────────┐  ┌────────────┐
-    │ :feature:* │  │ :core:data │  │ :core:ui   │
-    └─────┬──────┘  └─────┬──────┘  └─────┬──────┘
-          │               │               │
-          └───────────────┼───────────────┘
-                          ▼
-                   ┌─────────────┐
-                   │:core:domain │
-                   └─────────────┘
+                      ┌─────────────┐
+                      │    :app     │
+                      └──────┬──────┘
+       ┌─────────────────────┼─────────────────────┐
+       ▼                     ▼                     ▼
+┌─────────────┐  ┌───────────────────────┐  ┌─────────────┐
+│  :feature:* │  │  :core:infrastructure │  │   :core:ui  │
+└──────┬──────┘  └───────────┬───────────┘  └──────┬──────┘
+       │                     │                     │
+       └─────────────────────┼─────────────────────┘
+                             ▼
+                      ┌─────────────┐
+                      │:core:domain │
+                      └─────────────┘
 ```
 
 ## 3. Layer Responsibilities
@@ -122,17 +121,19 @@ chunk cites its inventory rows. Only classes A and B get refactor chunks.
 - Hand-written fakes implementing application outbound `*Port` interfaces (`Fake*Port`)
 - `MainDispatcherRule` and shared test fixtures
 - Pure JVM — no Android SDK in production sources
-- Test modules (`:core:domain`, `:core:data`, `:feature:*`) depend on `:core:testing`; `:core:testing` depends only on `:core:domain`
+- Test modules (`:core:domain`, `:core:infrastructure`, `:feature:*`) depend on `:core:testing`; `:core:testing` depends only on `:core:domain`
 
-### `:core:data`
+### `:core:infrastructure`
 
-Legacy module name: in canon this is a persistence package inside
-`:core:infrastructure` (see `contracts/gospel/ARCHITECTURE-GOSPEL.md` §6).
+`:core:data` and `:core:inference` were folded into this module under STR-228
+(chunks STR-269 through STR-275). Neither module remains.
 
-- Room entities, DAOs, database, schema exports under `core/data/schemas/`
+- Room entities, DAOs, database, schema exports under `core/infrastructure/schemas/`
 - Repository **implementations** (implementation-class name only) of application outbound `*Port` interfaces
 - Entity ↔ domain mappers
 - DataStore, WorkManager workers for background persistence and analysis jobs
+- Platform services (auth, cloud sync, subscriptions, feature flags, telemetry) and their Hilt modules
+- Cloud inference client (Firebase callable) — no on-device model and no Compose
 - **No Compose UI**
 
 ### `:core:ui`
@@ -202,20 +203,20 @@ along the graph in §2.
 
 ## 6. Data & Background Work (Guidance)
 
-**Stratum-local guidance.** The gospel module map
-(`contracts/gospel/ARCHITECTURE-GOSPEL.md` §6) names `:core:data` a legacy
-label for a persistence package inside `:core:infrastructure`;
+**Stratum-local guidance.** Persistence, sync, and platform services live in
+`:core:infrastructure`. `:core:data` and `:core:inference` were folded into that
+module under STR-228 (chunks STR-269 through STR-275) and no longer exist.
 `DATA_LAYER_RULES.md` stays local in full — so this section is Stratum's own
 guidance and stays.
 
 - **Schema lock:** no new Room tables/columns without explicit authorization (see `AGENTS.md`)
 - **Schema version policy:** `StratumDatabase` is versioned with exported JSON checked in
-  under `core/data/schemas/`. Apply entity changes by bumping the version: pure additive
+  under `core/infrastructure/schemas/`. Apply entity changes by bumping the version: pure additive
   changes via `AutoMigration`, backfill/reshaping via a manual migration plus a migration
   test. Post-release, migrations are additive only (see `DATA_LAYER_RULES.md` §7).
 - **Local-first:** persistence and intelligence default to on-device; sync is opt-in later
-- **WorkManager** for periodic analysis (phase detection, insight generation) lives in `:core:data`
-- **On-device LLM** in a dedicated inference module with no Compose — deterministic core stays in domain/data
+- **WorkManager** for periodic analysis (phase detection, insight generation) lives in `:core:infrastructure`
+- **Cloud inference client** (Firebase callable) lives in `:core:infrastructure` — no on-device model and no Compose. Deterministic core stays in domain
 
 ### Persistence design rules
 
@@ -232,11 +233,11 @@ See `DATA_LAYER_RULES.md` for the full contract. Summary:
 ## 7. Package Layout
 
 ```text
-com.stratum                          → :app
-com.stratum.domain.*                 → :core:domain
-com.stratum.core.data.*              → :core:data
-com.stratum.core.ui.*                → :core:ui
-com.stratum.feature.<name>.*         → :feature:<name> (when added)
+com.stratum                        → :app
+com.stratum.domain.*               → :core:domain
+com.stratum.core.infrastructure.*  → :core:infrastructure
+com.stratum.core.ui.*              → :core:ui
+com.stratum.feature.<name>.*       → :feature:<name> (when added)
 ```
 
 ### 7.1 Namespace convention
@@ -248,7 +249,7 @@ is mirrored in Kotlin package names.
 | Layer | Module | Package | Rationale |
 |-------|--------|---------|-----------|
 | Domain (innermost) | `:core:domain` | `com.stratum.domain.*` | Short imports at the center of the graph; domain is the layer name, not a Gradle bucket |
-| Data | `:core:data` | `com.stratum.core.data.*` | Disambiguates persistence/mappers from domain ports |
+| Infrastructure | `:core:infrastructure` | `com.stratum.core.infrastructure.*` | Disambiguates persistence, sync, and platform services from domain ports |
 | Shared UI | `:core:ui` | `com.stratum.core.ui.*` | Disambiguates Compose components from feature screens |
 | Features | `:feature:<name>` | `com.stratum.feature.<name>.*` | One package subtree per vertical slice |
 
@@ -263,7 +264,7 @@ symmetry — the omission of `core` in the domain package is intentional. New co
 - **JDK 17**, `minSdk 34`, `compileSdk 36` (adjust in version catalog as platform evolves)
 - `./gradlew detekt` — `maxIssues: 0` before merge
 - `./gradlew :app:assembleDebug` — compile smoke for app + all runtime modules
-- Room schema directory: `core/data/schemas/` (checked in when entities exist; enable KSP + Room deps in `core/data/build.gradle.kts` at that time)
+- Room schema directory: `core/infrastructure/schemas/` (KSP `room.schemaLocation` in `core/infrastructure/build.gradle.kts`)
 
 ---
 
