@@ -40,18 +40,18 @@
     </plurals>
 
     <!-- Coach check-in -->
-    <string name="checkin_banner_title">Checkin Ready — tap to review progress</string>
+    <string name="checkin_banner_title">Check-in ready. Tap to review progress.</string>
     <string name="checkin_banner_subtitle">Progress review available</string>
     <string name="checkin_skip">Skip</string>
     <string name="checkin_sheet_title">Check-in</string>
     <string name="checkin_back">Back</string>
     <string name="checkin_next">Next</string>
     <string name="checkin_overall_recovery_label">How is your recovery overall?</string>
-    <string name="checkin_overall_recovery_hint">Systemic fatigue — sleep, energy, readiness.</string>
+    <string name="checkin_overall_recovery_hint">Systemic fatigue: sleep, energy, readiness.</string>
     <string name="checkin_localized_question">Any muscles not fully recovering, or with joint pain?</string>
     <string name="checkin_localized_question_hint">Most weeks the answer is no. Only dig in when something is off.</string>
-    <string name="checkin_localized_no">No — I feel fine</string>
-    <string name="checkin_localized_yes">Yes — I\'ll pick muscles</string>
+    <string name="checkin_localized_no">No. I feel fine</string>
+    <string name="checkin_localized_yes">Yes. I\'ll pick muscles</string>
     <string name="checkin_pick_muscles_title">Which muscles?</string>
     <string name="checkin_pick_muscles_hint">Select one or more, then choose what\'s wrong for each.</string>
     <string name="checkin_recovery_good">Good</string>
@@ -60,7 +60,7 @@
     <string name="checkin_recovery_joint">Joint pain</string>
     <string name="checkin_evaluating">Evaluating…</string>
     <string name="checkin_recommendations_hint">Accepted changes apply on finish. Use the swap icon to pick a different lift.</string>
-    <string name="checkin_no_changes">Looking good — no program changes recommended.</string>
+    <string name="checkin_no_changes">Looking good. No program changes recommended.</string>
     <string name="checkin_apply">Apply and finish</string>
     <string name="checkin_applying">Applying…</string>
     <string name="checkin_accepted">Accepted</string>
@@ -71,10 +71,10 @@
     <string name="checkin_rec_title_swap">Swap %1$s → %2$s</string>
     <string name="checkin_rec_title_increase">Add %1$d set to %2$s</string>
     <string name="checkin_rec_title_cut">Remove %1$d set(s) from %2$s</string>
-    <string name="checkin_rec_title_cut_floor">%1$s already at 1 set — manage load in-session</string>
+    <string name="checkin_rec_title_cut_floor">%1$s is already at 1 set. Manage load in-session.</string>
 
     <!-- Coach check-in rationales -->
-    <string name="checkin_rationale_climbing">e1RM climbing — keep %1$s as programmed</string>
+    <string name="checkin_rationale_climbing">e1RM climbing. Keep %1$s as programmed.</string>
     <string name="checkin_rationale_no_clear_change">No clear change needed for %1$s</string>
     <string name="checkin_rationale_soft_stale_swap_flat">e1RM flat, lift %1$dw on rotation → swap</string>
     <string name="checkin_rationale_soft_stale_swap_dropping">e1RM soft/dropping, lift %1$dw on rotation → swap</string>
@@ -82,15 +82,15 @@
     <string name="checkin_rationale_soft_fresh_increase_dropping">e1RM soft/dropping, variation still fresh (%1$dw) → add 1 set</string>
     <string name="checkin_rationale_soft_stale_no_candidate_flat">e1RM flat, stale but no free swap → add 1 set</string>
     <string name="checkin_rationale_soft_stale_no_candidate_dropping">e1RM soft/dropping, stale but no free swap → add 1 set</string>
-    <string name="checkin_rationale_dropping_mild_hold">e1RM dropping with mild soreness — hold %1$s; prioritize recovery</string>
-    <string name="checkin_rationale_soft_fresh_at_ceiling">e1RM soft but weekly volume already high — no extra set on %1$s</string>
-    <string name="checkin_rationale_soft_stale_no_candidate_ceiling">No good swap for %1$s and volume already high — hold</string>
-    <string name="checkin_rationale_muscle_lever_taken">Another change already targets this muscle — leave %1$s for now</string>
+    <string name="checkin_rationale_dropping_mild_hold">e1RM dropping with mild soreness. Hold %1$s and prioritize recovery.</string>
+    <string name="checkin_rationale_soft_fresh_at_ceiling">e1RM soft, and weekly volume is already high. No extra set on %1$s.</string>
+    <string name="checkin_rationale_soft_stale_no_candidate_ceiling">No good swap for %1$s, and volume is already high. Hold.</string>
+    <string name="checkin_rationale_muscle_lever_taken">Another change already targets this muscle. Leave %1$s for now.</string>
     <string name="checkin_rationale_joint_cut">Joint pain reported → strongly recommend cutting ~%1$d%% sets</string>
-    <string name="checkin_rationale_joint_floor">Joint pain reported — already at 1 set; manage load in-session</string>
+    <string name="checkin_rationale_joint_floor">Joint pain reported. Already at 1 set; manage load in-session.</string>
     <string name="checkin_rationale_severe_cut">Severe under-recovery → strongly recommend cutting ~%1$d%% sets</string>
-    <string name="checkin_rationale_severe_floor">Under-recovered — already at 1 set; manage load in-session</string>
-    <string name="checkin_rationale_already_floor">Already at 1 set — no set cut; manage load in-session</string>
+    <string name="checkin_rationale_severe_floor">Under-recovered. Already at 1 set; manage load in-session.</string>
+    <string name="checkin_rationale_already_floor">Already at 1 set. No set cut; manage load in-session.</string>
 
     <!-- Create Program wizard -->
     <string name="create_program_title">Create Program</string>
@@ -180,7 +180,7 @@
     <string name="edit_workout_rir_sheet_title">RIR targets</string>
     <string name="edit_workout_rir_info_content_description">About RIR targets</string>
     <string name="edit_workout_rir_info_close">Close RIR description</string>
-    <string name="edit_workout_rir_info_body">RIR stands for Reps in Reserve — how many additional reps you think you could have done. This is a way to track how challenging a set felt to you.\n\nA lower RIR means you were closer to failure and pushed your limit. A higher one means it felt easier and you had a lot left in the tank.</string>
+    <string name="edit_workout_rir_info_body">RIR stands for Reps in Reserve: how many more reps you think you could have done. This is a way to track how challenging a set felt to you.\n\nA lower RIR means you were closer to failure and pushed your limit. A higher one means it felt easier and you had a lot left in the tank.</string>
     <string name="edit_workout_rest_sheet_title">Rest time</string>
     <string name="edit_workout_mini_rest_title">Mini rest</string>
     <string name="edit_workout_mini_rest_hint">Rest between myo mini-sets. After the last mini, the timer uses the lift default rest.</string>

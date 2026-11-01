@@ -142,7 +142,7 @@ internal class EditWorkoutStartCoordinator(
         const val MSG_ABANDON_FAILED = "Couldn't cancel the workout. Try again."
         const val MSG_START_BLOCKED_PLACEHOLDER =
             "Choose an exercise for each new lift before starting."
-        const val MSG_START_BUSY = "Still working — try again in a moment."
+        const val MSG_START_BUSY = "Still working. Try again in a moment."
         const val MSG_START_DIRTY_UNRESOLVED =
             "Save or discard your edits before starting the workout."
 
