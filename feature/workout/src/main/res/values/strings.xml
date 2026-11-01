@@ -28,7 +28,7 @@
     <string name="workout_sheet_continue_workout">Continue Workout</string>
     <string name="workout_sheet_complete_workout">Complete Workout</string>
     <string name="workout_sheet_all_sets_done_title">All sets logged</string>
-    <string name="workout_sheet_all_sets_done_message">Nice work — finish the session when you\'re ready.</string>
+    <string name="workout_sheet_all_sets_done_message">Nice work. Finish the session when you\'re ready.</string>
     <string name="workout_screen_lift_complete_cd">Lift complete</string>
     <string name="workout_live_adjust_equipment">Adjust Equipment</string>
     <string name="workout_live_adjust_equipment_dismiss_cd">Dismiss equipment suggestion</string>
@@ -85,7 +85,7 @@
 
     <!-- Equipment increment proposals (post-workout only) -->
     <string name="workout_complete_equipment_section">Equipment updates</string>
-    <string name="workout_complete_equipment_section_hint">Optional — match weight steps to what you logged.</string>
+    <string name="workout_complete_equipment_section_hint">Optional: match weight steps to what you logged.</string>
     <string name="workout_complete_proposal_tiers">Tiers: %1$s</string>
     <string name="workout_complete_proposal_lifts">Lifts: %1$s</string>
     <string name="workout_complete_proposal_blast_hint">Affects %1$d lifts using these defaults.</string>
@@ -96,11 +96,11 @@
 
     <!-- Rep-range shift proposals (post-workout only) -->
     <string name="workout_complete_rep_range_section">Rep range</string>
-    <string name="workout_complete_rep_range_section_hint">Optional — based on your recent fatigue pattern, raise the band so last sets stay productive.</string>
+    <string name="workout_complete_rep_range_section_hint">Optional: based on your recent fatigue pattern, raise the band so last sets stay productive.</string>
     <string name="workout_complete_rep_range_band">Range: %1$s</string>
     <string name="workout_complete_rep_range_accept">Shift range</string>
     <string name="workout_complete_rep_range_title">Shift %1$s to %2$s?</string>
-    <string name="workout_complete_rep_range_subtitle">Fatigue across sets is steep — at %1$s the last set tends to fall under %2$d reps.</string>
+    <string name="workout_complete_rep_range_subtitle">Fatigue across sets is steep. At %1$s, the last set tends to fall under %2$d reps.</string>
     <string name="workout_complete_rep_range_success">Updated %1$s to %2$s.</string>
     <string name="workout_complete_rep_range_apply_failed">Couldn\'t update rep range.</string>
 
