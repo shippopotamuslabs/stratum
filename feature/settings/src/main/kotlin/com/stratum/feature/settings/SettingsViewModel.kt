@@ -295,7 +295,7 @@ class SettingsViewModel @Inject constructor(
                 _userMessage.value = MSG_PREFS_FAILED
                 return@launch
             }
-            debugStatusMessage.value = "Check-in pending — open Programs"
+            debugStatusMessage.value = "Check-in pending. Open Programs."
         }
     }
 

@@ -280,11 +280,11 @@ object IncrementValidationMessages {
             MicroIncrementsValidationError.UnsortedOrDuplicate ->
                 "Adder stops must be in order with no duplicates"
             MicroIncrementsValidationError.MeaninglessZero ->
-                "A lone 0 stop is meaningless — clear the stops for no adder"
+                "A lone 0 stop is meaningless. Clear the stops for no adder."
             MicroIncrementsValidationError.ExceedsLargestIncrement ->
                 "Each adder stop must fit within the largest band step"
             MicroIncrementsValidationError.MicroWithoutTiers ->
-                "Adder stops need bands — add a tier first"
+                "Adder stops need bands. Add a tier first."
         }
 
     fun join(messages: List<String>): String = messages.joinToString(separator = ". ")

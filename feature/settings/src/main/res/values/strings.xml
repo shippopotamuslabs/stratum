@@ -137,7 +137,7 @@
     <string name="export_programs_exporting">Exporting…</string>
 
     <string name="import_logs_title">Import logs</string>
-    <string name="import_logs_description">Import workout history from Stratum or another training app. Existing sessions stay put — duplicates are skipped.</string>
+    <string name="import_logs_description">Import workout history from Stratum or another training app. Existing sessions stay put. Duplicates are skipped.</string>
     <string name="import_logs_formats_title">Supported files</string>
     <string name="import_logs_formats_body">Stratum JSON export, plus common CSV and spreadsheet exports (Hevy, Strong, MacroFactor, Alpha Progression, and more).</string>
     <string name="import_logs_merge_safe_note">Safe merge: matching sessions are skipped so nothing is overwritten.</string>
