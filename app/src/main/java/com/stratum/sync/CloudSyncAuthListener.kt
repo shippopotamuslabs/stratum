@@ -17,7 +17,7 @@ import kotlinx.coroutines.launch
  * Starts cloud sync when Firebase auth becomes [AuthState.Authenticated] and stops on sign-out.
  *
  * Domain use cases only — feature gate, WorkManager retry, and ownership wipe live inside
- * [com.stratum.core.data.sync.FirestoreCloudSyncAdapter].
+ * [com.stratum.core.infrastructure.sync.FirestoreCloudSyncAdapter].
  */
 @Singleton
 class CloudSyncAuthListener @Inject constructor(

@@ -1,6 +1,6 @@
 package com.stratum
 
-import com.stratum.core.data.sync.CLOUD_SYNC_PREFS_FILE_NAME
+import com.stratum.core.infrastructure.sync.CLOUD_SYNC_PREFS_FILE_NAME
 import java.io.File
 import javax.xml.parsers.DocumentBuilderFactory
 import org.junit.jupiter.api.Assertions.assertTrue

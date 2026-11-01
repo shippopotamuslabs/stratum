@@ -15,7 +15,7 @@ import com.stratum.domain.workout.SlotHistoryRequest
  * same-lift-other-workout, each group sorted by `session.startedAt` descending (newest
  * first). Same-workout entries precede other-workout entries. **Program id is ignored** so
  * imported history (sentinel program `import-history`) is visible to live program sessions
- * — mirrors [com.stratum.core.data.repository.ProgressionHistoryRepository].
+ * — mirrors [com.stratum.core.infrastructure.repository.ProgressionHistoryRepository].
  *
  * Only [TrainingSessionStatus.COMPLETED] entries are returned (matches Room history query).
  *
