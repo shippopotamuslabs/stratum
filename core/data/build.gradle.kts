@@ -103,3 +103,11 @@ dependencies {
     androidTestImplementation(libs.androidx.test.core)
     androidTestImplementation(libs.androidx.junit)
 }
+
+// Transitional (STR-274): every unit test moved to :core:infrastructure with the
+// sync fold, so this module legitimately discovers zero tests until STR-275
+// deletes it outright. The schemas test-assets source set still counts as test
+// sources present, which would otherwise trip failOnNoDiscoveredTests.
+tasks.withType<Test>().configureEach {
+    failOnNoDiscoveredTests = false
+}
