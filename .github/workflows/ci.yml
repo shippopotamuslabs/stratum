@@ -621,32 +621,10 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-  # GitLab: solver-tests-nightly (stage nightly; schedule only,
-  # allow_failure, timeout 30m)
-  solver-tests-nightly:
-    name: solver-tests-nightly
-    runs-on: ubuntu-latest
-    if: github.event_name == 'schedule'
-    continue-on-error: true
-    timeout-minutes: 30
-    env:
-      SOLVER_MODULE: solver
-      PYTHONPATH: ${{ github.workspace }}/solver-python
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Solver + contract suites
-        run: |
-          python3 -m venv "$GITHUB_WORKSPACE/.tmp/solver-env"
-          "$GITHUB_WORKSPACE/.tmp/solver-env/bin/pip" install --quiet -r solver-contract/tests/requirements.txt -r solver-python/requirements.txt
-          "$GITHUB_WORKSPACE/.tmp/solver-env/bin/python" -m pytest solver-python/tests/ solver-contract/tests/ -q --junitxml="$GITHUB_WORKSPACE/.tmp/solver-nightly-junit.xml"
-      - name: Publish test results
-        if: always()
-        uses: mikepenz/action-junit-report@v5
-        with:
-          report_paths: ".tmp/solver-nightly-junit.xml"
+  # solver-tests-nightly moved to .github/workflows/solver-nightly.yml
+  # (STR-278): the suites are schedule-only, so they run as their own
+  # nightly workflow with a visible failure signal instead of as an
+  # allow_failure job inside this one.
 
   # ---------------------------------------------------------------------
   # Deploy stage (main only). GitLab semantics: distribute-internal auto-
