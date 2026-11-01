@@ -1,0 +1,56 @@
+# Solver test suites — nightly on main (STR-278).
+#
+# Split out of ci.yml's `solver-tests-nightly` job. That job was
+# schedule-only and carried continue-on-error (GitLab allow_failure
+# semantics), so a solver failure surfaced as one soft-failed job
+# inside a green CI run — effectively invisible. As its own workflow
+# the suites get their own schedule, their own run entry in the
+# Actions list, their own dispatch/re-run, and a failure that reads
+# as a failure. Same pattern as osv-nightly.yml (STR-277).
+#
+# PR-time solver coverage stays in ci.yml's `solver-contract-tests`
+# job (changes-filtered). This workflow runs BOTH suites in full:
+# solver-python/tests + solver-contract/tests.
+name: Solver Nightly
+
+"on":
+  schedule:
+    # 06:45 UTC — after the CI nightly (06:00 UTC, ci.yml) and the
+    # OSV nightly (06:30 UTC, osv-nightly.yml).
+    - cron: "45 6 * * *"
+  workflow_dispatch:
+
+# Nightly runs are never cancelled (same rule as ci.yml's schedule runs).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  # No continue-on-error, deliberately: the standalone run IS the
+  # failure signal. In ci.yml the job was allow_failure, which is
+  # exactly what made its failures invisible.
+  solver-tests-nightly:
+    name: solver-tests-nightly
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SOLVER_MODULE: solver
+      PYTHONPATH: ${{ github.workspace }}/solver-python
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Solver + contract suites
+        run: |
+          python3 -m venv "$GITHUB_WORKSPACE/.tmp/solver-env"
+          "$GITHUB_WORKSPACE/.tmp/solver-env/bin/pip" install --quiet -r solver-contract/tests/requirements.txt -r solver-python/requirements.txt
+          "$GITHUB_WORKSPACE/.tmp/solver-env/bin/python" -m pytest solver-python/tests/ solver-contract/tests/ -q --junitxml="$GITHUB_WORKSPACE/.tmp/solver-nightly-junit.xml"
+      - name: Publish test results
+        if: always()
+        uses: mikepenz/action-junit-report@v5
+        with:
+          report_paths: ".tmp/solver-nightly-junit.xml"
