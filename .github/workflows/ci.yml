@@ -82,7 +82,6 @@ jobs:
       functions: ${{ steps.filter.outputs.functions }}
       solver_contract: ${{ steps.filter.outputs.solver_contract }}
       osv: ${{ steps.filter.outputs.osv }}
-      osv_image: ${{ steps.filter.outputs.osv_image }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -118,12 +117,10 @@ jobs:
               - 'settings.gradle.kts'
               - 'scripts/generate-sbom.py'
               - 'scripts/install-osv-scanner.sh'
+              - 'scripts/osv-diff.py'
+              - 'scripts/osv-scan-source.sh'
               - '.osv-scanner.toml'
               - '.github/workflows/ci.yml'
-            osv_image:
-              - 'solver-service/**/*'
-              - 'scripts/scan-solver-image.sh'
-              - 'gradle/libs.versions.toml'
 
   # ---------------------------------------------------------------------
   # Shared Gradle dependency cache (port of the .android-job cache stanza:
@@ -467,20 +464,32 @@ jobs:
 
   # GitLab: osv-scan (stage lint; STR-174 — SIGNAL on MRs: changes-filtered
   # + allow_failure, STRICT on schedule)
+  # STR-277 rework: the PR job is DIFF-ONLY. It scans the PR tree and the
+  # base-branch tree and fails only on (vuln, package) findings the PR
+  # newly introduces (scripts/osv-diff.py), so the standing pre-existing
+  # findings tracked in STR-277 stop re-failing every PR. The full
+  # unfiltered scan (dependencies + solver image) lives in
+  # .github/workflows/osv-nightly.yml, scheduled nightly on main.
+  # The check stays non-required: red here means exactly "this PR
+  # introduces a known vulnerability".
   osv-scan:
     name: osv-scan
     runs-on: ubuntu-latest
     needs: [changes]
     if: >-
       ${{ !cancelled() && (
-        github.event_name == 'schedule' ||
         (github.event_name == 'pull_request' && needs.changes.outputs.osv == 'true') ||
         (github.event_name == 'workflow_dispatch' && inputs.force_osv_scan)
       ) }}
-    # allow_failure everywhere except the nightly, where it stays strict.
-    continue-on-error: ${{ github.event_name != 'schedule' }}
     steps:
       - uses: actions/checkout@v4
+      # Baseline tree for the diff: the PR's base at review time. On
+      # workflow_dispatch there is no PR, so diff against the default
+      # branch (dispatching from main diffs main against itself -> green).
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha || github.event.repository.default_branch }}
+          path: .tmp/baseline
       - uses: ./.github/actions/android-setup
         with:
           google-services-json: ${{ secrets.GOOGLE_SERVICES_JSON }}
@@ -493,63 +502,60 @@ jobs:
           key: ${{ runner.os }}-gradle-deps-${{ hashFiles('gradle/libs.versions.toml') }}
           restore-keys: |
             ${{ runner.os }}-gradle-deps-
-      - name: Generate SBOMs and scan
+      # Gate tooling is pinned to the BASELINE tree: the scan helper (and
+      # through it the SBOM generator), the diff script, and the
+      # .osv-scanner.toml applied to BOTH scans all come from
+      # .tmp/baseline, so a PR cannot weaken the check that judges it by
+      # editing its own copies. Bootstrap: a baseline that predates these
+      # scripts (e.g. the PR that introduced them) falls back to the PR
+      # tree's copies for this run; every later baseline has them.
+      - name: Install osv-scanner
         run: |
           mkdir -p .tmp
-          ./scripts/install-osv-scanner.sh "$OSV_SCANNER_VERSION" "$GITHUB_WORKSPACE/.tmp/osv-scanner"
-          ./gradlew :app:dependencies --configuration releaseRuntimeClasspath -q > /tmp/gradle-app-deps.txt
-          python3 scripts/generate-sbom.py < /tmp/gradle-app-deps.txt > bom.cdx.json
-          ./gradlew :solver-service:dependencies --configuration runtimeClasspath -q > /tmp/gradle-solver-deps.txt
-          python3 scripts/generate-sbom.py --component-name stratum-solver < /tmp/gradle-solver-deps.txt > bom-solver.cdx.json
-          SCAN_ARGS="-L bom.cdx.json -L bom-solver.cdx.json --lockfile=functions/package-lock.json --lockfile=functions-python/requirements.txt"
-          if [ -f .osv-scanner.toml ]; then SCAN_ARGS="$SCAN_ARGS --config=.osv-scanner.toml"; fi
-          ./.tmp/osv-scanner scan source $SCAN_ARGS --format=table
-      - name: Upload SBOMs
+          INSTALL=.tmp/baseline/scripts/install-osv-scanner.sh
+          [ -f "$INSTALL" ] || INSTALL=scripts/install-osv-scanner.sh
+          "$INSTALL" "$OSV_SCANNER_VERSION" "$GITHUB_WORKSPACE/.tmp/osv-scanner"
+      - name: Scan PR tree (JSON)
+        run: |
+          HELPER=.tmp/baseline/scripts/osv-scan-source.sh
+          [ -f "$HELPER" ] || HELPER=scripts/osv-scan-source.sh
+          # Scanner exit 1 just means "findings present"; the diff decides.
+          "$HELPER" "$GITHUB_WORKSPACE/.tmp/osv-scanner" "$GITHUB_WORKSPACE/bom" . \
+            --config="$GITHUB_WORKSPACE/.tmp/baseline/.osv-scanner.toml" \
+            --format=json --output-file="$GITHUB_WORKSPACE/osv-pr.json" || true
+      - name: Scan baseline tree (JSON)
+        run: |
+          # android-setup materialized google-services.json for the PR
+          # tree only; :app configuration in the baseline tree needs it too.
+          cp app/google-services.json .tmp/baseline/app/google-services.json
+          HELPER=.tmp/baseline/scripts/osv-scan-source.sh
+          [ -f "$HELPER" ] || HELPER=scripts/osv-scan-source.sh
+          "$HELPER" "$GITHUB_WORKSPACE/.tmp/osv-scanner" "$GITHUB_WORKSPACE/bom-baseline" .tmp/baseline \
+            --config="$GITHUB_WORKSPACE/.tmp/baseline/.osv-scanner.toml" \
+            --format=json --output-file="$GITHUB_WORKSPACE/osv-baseline.json" || true
+      - name: Fail only on newly introduced findings
+        run: |
+          DIFF=.tmp/baseline/scripts/osv-diff.py
+          [ -f "$DIFF" ] || DIFF=scripts/osv-diff.py
+          python3 "$DIFF" osv-baseline.json osv-pr.json
+      - name: Upload scan artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: osv-sboms
+          name: osv-scan-diff
           path: |
             bom.cdx.json
             bom-solver.cdx.json
+            bom-baseline.cdx.json
+            bom-baseline-solver.cdx.json
+            osv-pr.json
+            osv-baseline.json
           if-no-files-found: ignore
           retention-days: 14
 
-  # GitLab: osv-scan-image (stage lint; allow_failure: true permanently —
-  # informational control per the rollout note; MR changes-filtered + schedule)
-  osv-scan-image:
-    name: osv-scan-image
-    runs-on: ubuntu-latest
-    needs: [changes]
-    continue-on-error: true
-    if: >-
-      ${{ !cancelled() && (
-        github.event_name == 'schedule' ||
-        (github.event_name == 'pull_request' && needs.changes.outputs.osv_image == 'true')
-      ) }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/android-setup
-        with:
-          google-services-json: ${{ secrets.GOOGLE_SERVICES_JSON }}
-      - name: Restore Gradle dependency cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            .ci-gradle-home/caches/modules-2
-            .ci-gradle-home/wrapper
-          key: ${{ runner.os }}-gradle-deps-${{ hashFiles('gradle/libs.versions.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-deps-
-      # GitLab had to install a static Docker CLI against the host daemon;
-      # ubuntu-latest ships Docker, so that whole before_script block is
-      # gone — the scan script runs against the local daemon directly.
-      - name: Build solver image and scan
-        run: |
-          mkdir -p .tmp
-          ./scripts/install-osv-scanner.sh "$OSV_SCANNER_VERSION" "$GITHUB_WORKSPACE/.tmp/osv-scanner"
-          ./gradlew :solver-service:shadowJar
-          OSV_SCANNER_BIN="$GITHUB_WORKSPACE/.tmp/osv-scanner" ./scripts/scan-solver-image.sh stratum-solver:ci
+  # osv-scan-image moved to .github/workflows/osv-nightly.yml (STR-277):
+  # the solver image scan is a full scan, so it runs nightly on main
+  # alongside the unfiltered dependency scan instead of on PRs.
 
   # GitLab: emulator-tests (stage nightly; schedule only, allow_failure,
   # timeout 2h). RUNNER DECISION: this job needs /dev/kvm. ubuntu-latest
