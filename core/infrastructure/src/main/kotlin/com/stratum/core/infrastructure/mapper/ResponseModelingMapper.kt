@@ -17,7 +17,7 @@ import com.stratum.domain.response.modeling.MuscleWeeklyOutcomeIndex
 import com.stratum.domain.response.modeling.MuscleWeeklyStimulus
 import java.time.Instant
 
-fun MuscleWeeklyStimulusEntity.toDomain(): MuscleWeeklyStimulus =
+internal fun MuscleWeeklyStimulusEntity.toDomain(): MuscleWeeklyStimulus =
     MuscleWeeklyStimulus(
         muscle = muscle,
         weekStart = Instant.ofEpochMilli(weekStartEpochMillis),
@@ -30,7 +30,7 @@ fun MuscleWeeklyStimulusEntity.toDomain(): MuscleWeeklyStimulus =
         qualityFlags = qualityFlagsCsv.splitCsvToQualityFlags(),
     )
 
-fun MuscleWeeklyStimulus.toEntity(): MuscleWeeklyStimulusEntity =
+internal fun MuscleWeeklyStimulus.toEntity(): MuscleWeeklyStimulusEntity =
     MuscleWeeklyStimulusEntity(
         muscle = muscle,
         weekStartEpochMillis = weekStart.toEpochMilli(),
@@ -43,7 +43,7 @@ fun MuscleWeeklyStimulus.toEntity(): MuscleWeeklyStimulusEntity =
         qualityFlagsCsv = qualityFlags.joinToCsv(),
     )
 
-fun LiftWeeklyPerformanceEntity.toDomain(): LiftWeeklyPerformance =
+internal fun LiftWeeklyPerformanceEntity.toDomain(): LiftWeeklyPerformance =
     LiftWeeklyPerformance(
         liftId = LiftId(liftId),
         weekStart = Instant.ofEpochMilli(weekStartEpochMillis),
@@ -57,7 +57,7 @@ fun LiftWeeklyPerformanceEntity.toDomain(): LiftWeeklyPerformance =
         qualityFlags = qualityFlagsCsv.splitCsvToQualityFlags(),
     )
 
-fun LiftWeeklyPerformance.toEntity(): LiftWeeklyPerformanceEntity =
+internal fun LiftWeeklyPerformance.toEntity(): LiftWeeklyPerformanceEntity =
     LiftWeeklyPerformanceEntity(
         liftId = liftId.value,
         weekStartEpochMillis = weekStart.toEpochMilli(),
@@ -71,7 +71,7 @@ fun LiftWeeklyPerformance.toEntity(): LiftWeeklyPerformanceEntity =
         qualityFlagsCsv = qualityFlags.joinToCsv(),
     )
 
-fun MuscleWeeklyOutcomeIndexEntity.toDomain(): MuscleWeeklyOutcomeIndex =
+internal fun MuscleWeeklyOutcomeIndexEntity.toDomain(): MuscleWeeklyOutcomeIndex =
     MuscleWeeklyOutcomeIndex(
         muscle = muscle,
         weekStart = Instant.ofEpochMilli(weekStartEpochMillis),
@@ -85,7 +85,7 @@ fun MuscleWeeklyOutcomeIndexEntity.toDomain(): MuscleWeeklyOutcomeIndex =
         qualityFlags = qualityFlagsCsv.splitCsvToQualityFlags(),
     )
 
-fun MuscleWeeklyOutcomeIndex.toEntity(): MuscleWeeklyOutcomeIndexEntity =
+internal fun MuscleWeeklyOutcomeIndex.toEntity(): MuscleWeeklyOutcomeIndexEntity =
     MuscleWeeklyOutcomeIndexEntity(
         muscle = muscle,
         weekStartEpochMillis = weekStart.toEpochMilli(),
@@ -99,7 +99,7 @@ fun MuscleWeeklyOutcomeIndex.toEntity(): MuscleWeeklyOutcomeIndexEntity =
         qualityFlagsCsv = qualityFlags.joinToCsv(),
     )
 
-fun MuscleDoseResponsePointEntity.toDomain(): MuscleDoseResponsePoint =
+internal fun MuscleDoseResponsePointEntity.toDomain(): MuscleDoseResponsePoint =
     MuscleDoseResponsePoint(
         muscle = muscle,
         weekStart = Instant.ofEpochMilli(weekStartEpochMillis),
@@ -109,7 +109,7 @@ fun MuscleDoseResponsePointEntity.toDomain(): MuscleDoseResponsePoint =
         responseWindowWeeks = responseWindowWeeks,
     )
 
-fun MuscleDoseResponsePoint.toEntity(): MuscleDoseResponsePointEntity =
+internal fun MuscleDoseResponsePoint.toEntity(): MuscleDoseResponsePointEntity =
     MuscleDoseResponsePointEntity(
         muscle = muscle,
         weekStartEpochMillis = weekStart.toEpochMilli(),
@@ -119,7 +119,7 @@ fun MuscleDoseResponsePoint.toEntity(): MuscleDoseResponsePointEntity =
         responseWindowWeeks = responseWindowWeeks,
     )
 
-fun MuscleVolumeResponseSnapshotEntity.toDomain(): MuscleVolumeResponseSnapshot =
+internal fun MuscleVolumeResponseSnapshotEntity.toDomain(): MuscleVolumeResponseSnapshot =
     MuscleVolumeResponseSnapshot(
         muscle = muscle,
         retentionFloorMv = retentionFloorMv,
@@ -138,7 +138,7 @@ fun MuscleVolumeResponseSnapshotEntity.toDomain(): MuscleVolumeResponseSnapshot 
         diagnosticAnchorLiftId = diagnosticAnchorLiftId?.let(::LiftId),
     )
 
-fun MuscleVolumeResponseSnapshot.toEntity(): MuscleVolumeResponseSnapshotEntity =
+internal fun MuscleVolumeResponseSnapshot.toEntity(): MuscleVolumeResponseSnapshotEntity =
     MuscleVolumeResponseSnapshotEntity(
         muscle = muscle,
         retentionFloorMv = retentionFloorMv,
@@ -159,7 +159,7 @@ fun MuscleVolumeResponseSnapshot.toEntity(): MuscleVolumeResponseSnapshotEntity 
         diagnosticAnchorLiftId = diagnosticAnchorLiftId?.value,
     )
 
-fun MuscleResponseModelDiagnosticEntity.toDomain(): MuscleResponseModelDiagnostic =
+internal fun MuscleResponseModelDiagnosticEntity.toDomain(): MuscleResponseModelDiagnostic =
     MuscleResponseModelDiagnostic(
         muscle = muscle,
         selectedLagWeeks = selectedLagWeeks,
@@ -176,7 +176,7 @@ fun MuscleResponseModelDiagnosticEntity.toDomain(): MuscleResponseModelDiagnosti
         confidenceScore = confidenceScore,
     )
 
-fun MuscleResponseModelDiagnostic.toEntity(): MuscleResponseModelDiagnosticEntity =
+internal fun MuscleResponseModelDiagnostic.toEntity(): MuscleResponseModelDiagnosticEntity =
     MuscleResponseModelDiagnosticEntity(
         muscle = muscle,
         selectedLagWeeks = selectedLagWeeks,

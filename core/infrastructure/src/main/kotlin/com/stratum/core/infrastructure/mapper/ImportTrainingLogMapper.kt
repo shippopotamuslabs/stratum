@@ -5,7 +5,7 @@ import com.stratum.core.infrastructure.sync.SyncFlags
 import com.stratum.domain.importing.ImportHistoryTrainingMapper
 import java.time.Instant
 
-fun importHistoryProgramEntity(): ProgramEntity =
+internal fun importHistoryProgramEntity(): ProgramEntity =
     ProgramEntity(
         id = ImportHistoryTrainingMapper.programId,
         name = "Imported History",

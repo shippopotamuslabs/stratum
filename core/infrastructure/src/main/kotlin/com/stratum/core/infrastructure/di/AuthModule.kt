@@ -1,4 +1,4 @@
-package com.stratum.core.data.di
+package com.stratum.core.infrastructure.di
 
 import android.content.Context
 import androidx.credentials.CredentialManager

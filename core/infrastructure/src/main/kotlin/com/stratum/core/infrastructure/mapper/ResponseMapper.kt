@@ -19,7 +19,7 @@ import com.stratum.domain.response.identity.EpochId
 import com.stratum.domain.response.identity.ExperimentId
 import java.time.Instant
 
-fun ResponseEpochEntity.toDomain(): Epoch =
+internal fun ResponseEpochEntity.toDomain(): Epoch =
     Epoch(
         id = id,
         start = Instant.ofEpochMilli(startEpochMillis),
@@ -28,7 +28,7 @@ fun ResponseEpochEntity.toDomain(): Epoch =
         splitReason = splitReason,
     )
 
-fun Epoch.toEntity(): ResponseEpochEntity =
+internal fun Epoch.toEntity(): ResponseEpochEntity =
     ResponseEpochEntity(
         id = id,
         startEpochMillis = start.toEpochMilli(),
@@ -37,7 +37,7 @@ fun Epoch.toEntity(): ResponseEpochEntity =
         splitReason = splitReason,
     )
 
-fun VolumeResponseObservationEntity.toDomain(): VolumeResponseObservation =
+internal fun VolumeResponseObservationEntity.toDomain(): VolumeResponseObservation =
     VolumeResponseObservation(
         muscle = muscle,
         epochId = EpochId(epochId),
@@ -78,7 +78,7 @@ fun VolumeResponseObservationEntity.toDomain(): VolumeResponseObservation =
             },
     )
 
-fun VolumeResponseObservation.toEntity(): VolumeResponseObservationEntity =
+internal fun VolumeResponseObservation.toEntity(): VolumeResponseObservationEntity =
     VolumeResponseObservationEntity(
         muscle = muscle,
         epochId = epochId.value,
@@ -109,7 +109,7 @@ fun VolumeResponseObservation.toEntity(): VolumeResponseObservationEntity =
         bestObservedMaxWeeklySets = bestObservedWeeklySetRange?.max,
     )
 
-fun LiftEffectivenessObservationEntity.toDomain(): LiftEffectivenessObservation =
+internal fun LiftEffectivenessObservationEntity.toDomain(): LiftEffectivenessObservation =
     LiftEffectivenessObservation(
         pattern = pattern,
         liftId = LiftId(liftId),
@@ -121,7 +121,7 @@ fun LiftEffectivenessObservationEntity.toDomain(): LiftEffectivenessObservation 
         confidenceScore = confidenceScore,
     )
 
-fun LiftEffectivenessObservation.toEntity(): LiftEffectivenessObservationEntity =
+internal fun LiftEffectivenessObservation.toEntity(): LiftEffectivenessObservationEntity =
     LiftEffectivenessObservationEntity(
         pattern = pattern,
         liftId = liftId.value,
@@ -133,7 +133,7 @@ fun LiftEffectivenessObservation.toEntity(): LiftEffectivenessObservationEntity 
         confidenceScore = confidenceScore,
     )
 
-fun ExperimentBlockEntity.toDomain(): ExperimentBlock =
+internal fun ExperimentBlockEntity.toDomain(): ExperimentBlock =
     ExperimentBlock(
         id = id,
         prescribed =
@@ -152,7 +152,7 @@ fun ExperimentBlockEntity.toDomain(): ExperimentBlock =
         status = status,
     )
 
-fun ExperimentBlock.toEntity(): ExperimentBlockEntity =
+internal fun ExperimentBlock.toEntity(): ExperimentBlockEntity =
     ExperimentBlockEntity(
         id = id,
         prescribedEpochId = prescribed.epochId?.value,
@@ -168,7 +168,7 @@ fun ExperimentBlock.toEntity(): ExperimentBlockEntity =
         status = status,
     )
 
-fun ResponseProfileMetadataEntity.toDomain(): ResponseProfileMetadata =
+internal fun ResponseProfileMetadataEntity.toDomain(): ResponseProfileMetadata =
     ResponseProfileMetadata(
         epochsAnalyzed = epochsAnalyzed,
         analysisWindowStart = Instant.ofEpochMilli(analysisWindowStartEpochMillis),
@@ -177,7 +177,7 @@ fun ResponseProfileMetadataEntity.toDomain(): ResponseProfileMetadata =
         pipelineVersion = pipelineVersion,
     )
 
-fun ResponseProfileMetadata.toEntity(): ResponseProfileMetadataEntity =
+internal fun ResponseProfileMetadata.toEntity(): ResponseProfileMetadataEntity =
     ResponseProfileMetadataEntity(
         epochsAnalyzed = epochsAnalyzed,
         analysisWindowStartEpochMillis = analysisWindowStart.toEpochMilli(),

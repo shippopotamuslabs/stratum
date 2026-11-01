@@ -4,7 +4,7 @@ import com.stratum.core.infrastructure.db.StratumDatabase
 import com.stratum.domain.lift.identity.LiftId
 
 /** Ids of the template rows a lift-reference sweep removed (for sync delete records). */
-data class LiftReferenceSweep(
+internal data class LiftReferenceSweep(
     val slotIds: List<String>,
     val setIds: List<String>,
     val noteIds: List<String>,
@@ -26,7 +26,7 @@ data class LiftReferenceSweep(
  * run this inside their own transaction; ids are captured before deletion so
  * the local-delete caller can enqueue sync delete records for the swept rows.
  */
-suspend fun sweepLiftTemplateReferences(
+internal suspend fun sweepLiftTemplateReferences(
     database: StratumDatabase,
     liftId: LiftId,
 ): LiftReferenceSweep {

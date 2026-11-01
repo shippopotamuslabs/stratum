@@ -222,8 +222,6 @@ jobs:
             tasks: ":app:testDebugUnitTest"
           - leg: core-domain
             tasks: ":core:domain:test"
-          - leg: core-data
-            tasks: ":core:data:testDebugUnitTest"
           - leg: core-ui
             tasks: ":core:ui:testDebugUnitTest"
           - leg: core-misc
@@ -606,7 +604,7 @@ jobs:
           if grep -q "FATAL" /tmp/emu-probe.log; then echo "EMULATOR FATAL:"; grep "FATAL" /tmp/emu-probe.log | head -3; exit 1; fi
           "$ANDROID_HOME/emulator/emulator" -avd ci -no-window -gpu swiftshader_indirect -no-audio -no-snapshot -no-boot-anim -partition-size 2048 &
           timeout 1200 bash -c 'adb wait-for-device; while [[ -z $(adb shell getprop sys.boot_completed | tr -d "\r") ]]; do sleep 5; done'
-          ./gradlew :app:connectedDebugAndroidTest :core:data:connectedDebugAndroidTest
+          ./gradlew :app:connectedDebugAndroidTest :core:infrastructure:connectedDebugAndroidTest
       - name: Publish test results
         if: always()
         uses: mikepenz/action-junit-report@v5
