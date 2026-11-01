@@ -555,71 +555,11 @@ jobs:
   # the solver image scan is a full scan, so it runs nightly on main
   # alongside the unfiltered dependency scan instead of on PRs.
 
-  # GitLab: emulator-tests (stage nightly; schedule only, allow_failure,
-  # timeout 2h). RUNNER DECISION: this job needs /dev/kvm. ubuntu-latest
-  # exposes KVM after the udev step below; on a self-hosted Katana runner
-  # that step is unnecessary but harmless. See PORT-NOTES.
-  emulator-tests:
-    name: emulator-tests
-    runs-on: ubuntu-latest
-    if: github.event_name == 'schedule'
-    continue-on-error: true
-    timeout-minutes: 120
-    env:
-      ANDROID_AVD_HOME: ${{ github.workspace }}/../ci-home/android-home/avd
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/android-setup
-        with:
-          google-services-json: ${{ secrets.GOOGLE_SERVICES_JSON }}
-      - name: Restore Gradle dependency cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            .ci-gradle-home/caches/modules-2
-            .ci-gradle-home/wrapper
-          key: ${{ runner.os }}-gradle-deps-${{ hashFiles('gradle/libs.versions.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-deps-
-      - name: Enable KVM (GitHub-hosted runners only)
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-      - name: Create AVD
-        run: |
-          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH"
-          sdkmanager "platform-tools" "platforms;android-35" "system-images;android-35;google_apis;x86_64" "emulator"
-          echo "no" | avdmanager create avd -n ci -k "system-images;android-35;google_apis;x86_64" --device "pixel_7" --force
-          test -f "$ANDROID_AVD_HOME/ci.ini" || (echo "AVD 'ci' was not created under $ANDROID_AVD_HOME" && exit 1)
-          grep "^disk.dataPartition.size=" "$ANDROID_AVD_HOME/ci.avd/config.ini" || echo "key absent originally"
-          sed -i '/^disk.dataPartition.size=/d' "$ANDROID_AVD_HOME/ci.avd/config.ini" && echo 'disk.dataPartition.size=2147483648' >> "$ANDROID_AVD_HOME/ci.avd/config.ini"
-          df -h "$GITHUB_WORKSPACE" /tmp 2>/dev/null || df -h
-          du -sh .git 2>/dev/null || true
-      - name: Boot emulator and run device tests
-        run: |
-          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH"
-          test -c /dev/kvm || (echo "KVM device missing in job container"; ls -la /dev/kvm* 2>/dev/null || true; exit 1)
-          timeout 90 "$ANDROID_HOME/emulator/emulator" -avd ci -no-window -gpu swiftshader_indirect -no-audio -no-snapshot -no-boot-anim -partition-size 2048 > /tmp/emu-probe.log 2>&1 || true
-          if grep -q "FATAL" /tmp/emu-probe.log; then echo "EMULATOR FATAL:"; grep "FATAL" /tmp/emu-probe.log | head -3; exit 1; fi
-          "$ANDROID_HOME/emulator/emulator" -avd ci -no-window -gpu swiftshader_indirect -no-audio -no-snapshot -no-boot-anim -partition-size 2048 &
-          timeout 1200 bash -c 'adb wait-for-device; while [[ -z $(adb shell getprop sys.boot_completed | tr -d "\r") ]]; do sleep 5; done'
-          ./gradlew :app:connectedDebugAndroidTest :core:infrastructure:connectedDebugAndroidTest
-      - name: Publish test results
-        if: always()
-        uses: mikepenz/action-junit-report@v5
-        with:
-          report_paths: "**/build/outputs/androidTest-results/connected/*.xml"
-      - name: Upload device test reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: emulator-test-reports
-          path: |
-            **/build/reports/androidTests/
-            **/build/outputs/androidTest-results/
-          if-no-files-found: ignore
-          retention-days: 14
+  # emulator-tests moved to .github/workflows/emulator-nightly.yml
+  # (STR-279): the device tests are schedule-only, so they run as
+  # their own nightly workflow with a visible failure signal instead
+  # of as an allow_failure job inside this one. With this move every
+  # schedule-only job lives in its own nightly workflow.
 
   # solver-tests-nightly moved to .github/workflows/solver-nightly.yml
   # (STR-278): the suites are schedule-only, so they run as their own

@@ -1,0 +1,105 @@
+# Emulator device tests — nightly on main (STR-279).
+#
+# Split out of ci.yml's `emulator-tests` job, the last schedule-only
+# job that was still living in ci.yml. It carried continue-on-error
+# (GitLab allow_failure semantics), so a device-test failure surfaced
+# as one soft-failed job inside a green CI run. As its own workflow
+# the tests get their own schedule, their own run entry in the
+# Actions list, their own dispatch/re-run, and a failure that reads
+# as a failure. Same pattern as osv-nightly.yml (STR-277) and
+# solver-nightly.yml (STR-278); with this split, every schedule-only
+# job lives in its own nightly workflow and ci.yml holds only the
+# PR gate plus the push/dispatch deploy chain.
+name: Emulator Nightly
+
+"on":
+  schedule:
+    # 07:00 UTC — after the CI nightly (06:00 UTC, ci.yml), the OSV
+    # nightly (06:30 UTC) and the Solver nightly (06:45 UTC). This
+    # job can run up to 2h, so it goes last.
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+
+# Nightly runs are never cancelled (same rule as ci.yml's schedule runs).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  # Mirrors ci.yml's env block; the Gradle cache path and the
+  # android-setup action depend on these. Keep in step with ci.yml.
+  GRADLE_USER_HOME: ${{ github.workspace }}/.ci-gradle-home
+  ANDROID_USER_HOME: ${{ github.workspace }}/../ci-home/android-home
+  GRADLE_OPTS: "-Dorg.gradle.caching=true"
+
+jobs:
+  # No continue-on-error, deliberately (same call as STR-278): the
+  # standalone run IS the failure signal. Emulator infra flakes are
+  # the known counter-argument — the run log and the JUnit report
+  # still separate a boot/KVM failure from real test failures.
+  #
+  # This job needs /dev/kvm. ubuntu-latest exposes KVM after the
+  # udev step below; on a self-hosted Katana runner that step is
+  # unnecessary but harmless. See ci.yml's PORT-NOTES.
+  emulator-tests:
+    name: emulator-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      ANDROID_AVD_HOME: ${{ github.workspace }}/../ci-home/android-home/avd
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/android-setup
+        with:
+          google-services-json: ${{ secrets.GOOGLE_SERVICES_JSON }}
+      - name: Restore Gradle dependency cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            .ci-gradle-home/caches/modules-2
+            .ci-gradle-home/wrapper
+          key: ${{ runner.os }}-gradle-deps-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-deps-
+      - name: Enable KVM (GitHub-hosted runners only)
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Create AVD
+        run: |
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH"
+          sdkmanager "platform-tools" "platforms;android-35" "system-images;android-35;google_apis;x86_64" "emulator"
+          echo "no" | avdmanager create avd -n ci -k "system-images;android-35;google_apis;x86_64" --device "pixel_7" --force
+          test -f "$ANDROID_AVD_HOME/ci.ini" || (echo "AVD 'ci' was not created under $ANDROID_AVD_HOME" && exit 1)
+          grep "^disk.dataPartition.size=" "$ANDROID_AVD_HOME/ci.avd/config.ini" || echo "key absent originally"
+          sed -i '/^disk.dataPartition.size=/d' "$ANDROID_AVD_HOME/ci.avd/config.ini" && echo 'disk.dataPartition.size=2147483648' >> "$ANDROID_AVD_HOME/ci.avd/config.ini"
+          df -h "$GITHUB_WORKSPACE" /tmp 2>/dev/null || df -h
+          du -sh .git 2>/dev/null || true
+      - name: Boot emulator and run device tests
+        run: |
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH"
+          test -c /dev/kvm || (echo "KVM device missing in job container"; ls -la /dev/kvm* 2>/dev/null || true; exit 1)
+          timeout 90 "$ANDROID_HOME/emulator/emulator" -avd ci -no-window -gpu swiftshader_indirect -no-audio -no-snapshot -no-boot-anim -partition-size 2048 > /tmp/emu-probe.log 2>&1 || true
+          if grep -q "FATAL" /tmp/emu-probe.log; then echo "EMULATOR FATAL:"; grep "FATAL" /tmp/emu-probe.log | head -3; exit 1; fi
+          "$ANDROID_HOME/emulator/emulator" -avd ci -no-window -gpu swiftshader_indirect -no-audio -no-snapshot -no-boot-anim -partition-size 2048 &
+          timeout 1200 bash -c 'adb wait-for-device; while [[ -z $(adb shell getprop sys.boot_completed | tr -d "\r") ]]; do sleep 5; done'
+          ./gradlew :app:connectedDebugAndroidTest :core:infrastructure:connectedDebugAndroidTest
+      - name: Publish test results
+        if: always()
+        uses: mikepenz/action-junit-report@v5
+        with:
+          report_paths: "**/build/outputs/androidTest-results/connected/*.xml"
+      - name: Upload device test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: emulator-test-reports
+          path: |
+            **/build/reports/androidTests/
+            **/build/outputs/androidTest-results/
+          if-no-files-found: ignore
+          retention-days: 14
