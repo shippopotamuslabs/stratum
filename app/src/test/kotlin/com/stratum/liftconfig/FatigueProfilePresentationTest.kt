@@ -59,15 +59,15 @@ class FatigueProfilePresentationTest {
             "inline fatigue help blob must be removed from Details",
         )
         assertEquals(
-            "Heavy free-weight compounds — squat, deadlift, barbell row",
+            "Heavy free-weight compounds: squat, deadlift, barbell row",
             extractStringValue(strings, "lift_info_fatigue_desc_high"),
         )
         assertEquals(
-            "Supported multi-joint work — machine press, iso-lateral row",
+            "Supported multi-joint work: machine press, iso-lateral row",
             extractStringValue(strings, "lift_info_fatigue_desc_medium"),
         )
         assertEquals(
-            "Accessories — fly, curl, raise, extension",
+            "Accessories: fly, curl, raise, extension",
             extractStringValue(strings, "lift_info_fatigue_desc_low"),
         )
     }
