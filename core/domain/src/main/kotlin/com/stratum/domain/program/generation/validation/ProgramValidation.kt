@@ -246,7 +246,7 @@ fun validateWorkoutMuscleVolume(
                     code = "WORKOUT_VOLUME_IMBALANCED",
                     severity = ValidationSeverity.Warning,
                     message = "$muscle: ${(share * 100).toInt()}% of weekly volume is in workout " +
-                        "\"${workout.name ?: workoutIndex}\" — distribute across sessions.",
+                        "\"${workout.name ?: workoutIndex}\": distribute across sessions.",
                     details = mapOf(
                         "muscle" to muscle.name,
                         "workoutIndex" to workoutIndex,
