@@ -75,7 +75,7 @@
     <string name="specialization_saturated_warning">Your logs show %1$s is already at high weekly volume. You can still specialize it, but extra sets may not add much growth.</string>
 
     <!-- Minimum volume -->
-    <string name="minimum_volume_intro">Optionally pick up to %1$d muscle groups to hold at maintenance volume — the bare minimum to keep size. This frees volume for your focus muscles.</string>
+    <string name="minimum_volume_intro">Optionally pick up to %1$d muscle groups to hold at maintenance volume, the bare minimum to keep size. This frees volume for your focus muscles.</string>
     <string name="minimum_volume_suggestions_heading">Suggested from your import (low historical volume)</string>
 
     <!-- Gym & Lifts -->
@@ -89,7 +89,7 @@
     <string name="gym_lifts_import_description">Upload workout exports (up to 5 files). MacroFactor, Alpha Progression, Hevy, and Strong are converted directly; other formats may use AI as a fallback. We then derive insights from your combined history.</string>
     <string name="gym_lifts_import_learn_more">How import works</string>
     <string name="gym_lifts_import_details_title">How import works</string>
-    <string name="gym_lifts_import_details_ai">Exports from MacroFactor, Alpha Progression, Hevy, and Strong are mapped with built-in converters — no AI required for those. For other file shapes, AI builds a one-time mapper. Either way, your exercises, sets, and weights land in Stratum\'s format without manual spreadsheet work.</string>
+    <string name="gym_lifts_import_details_ai">Exports from MacroFactor, Alpha Progression, Hevy, and Strong are mapped with built-in converters. For other file shapes, AI builds a one-time mapper. Either way, your exercises, sets, and weights land in Stratum\'s format without manual spreadsheet work.</string>
     <string name="gym_lifts_import_details_intro">After conversion, we match lifts to the catalog. AI may only fill in muscle groups and equipment for custom lifts that aren\'t already in Stratum. Then we analyze how you actually train to shape your program.</string>
     <string name="gym_lifts_import_benefits">From your history we estimate working 1RMs, how fatigue builds across sets, lifts you often superset, and which movements you rely on so program generation starts from real data.</string>
     <string name="gym_lifts_import_format_hint">Select up to 5 CSV, JSON, or XLSX exports (MacroFactor, Alpha Progression, Hevy, Strong, and similar apps).</string>
@@ -110,7 +110,7 @@
     <string name="gym_lifts_import_timeline_convert">Convert</string>
     <string name="gym_lifts_import_timeline_catalog">Catalog</string>
     <string name="gym_lifts_import_timeline_analyze">Analyze</string>
-    <string name="gym_lifts_import_resume_hint">File %1$d of %2$d failed. Tap to retry from the failed file — earlier files are already converted.</string>
+    <string name="gym_lifts_import_resume_hint">File %1$d of %2$d failed. Tap to retry from the failed file. Earlier files are already converted.</string>
     <string name="gym_lifts_import_cancel">Cancel import</string>
     <string name="gym_lifts_import_subtitle_loading_converted">Loading converted data…</string>
     <string name="gym_lifts_import_subtitle_merging">Merging %1$d files…</string>
@@ -138,7 +138,7 @@
     <string name="gym_lifts_import_summary_extracted_responses">Volume response signals for %1$d muscle groups</string>
     <string name="gym_lifts_import_summary_landmarks_empty">Not enough logged volume to estimate dose–response yet.</string>
     <string name="gym_lifts_import_summary_landmarks_intro">Weekly fractional sets from your logs. Tap a muscle for PV range and confidence.</string>
-    <string name="gym_lifts_import_summary_landmarks_defaults_note">Matching MV, PV, and RC across muscles means we are still using population defaults — we need more varied weekly volume in your logs to personalize each muscle.</string>
+    <string name="gym_lifts_import_summary_landmarks_defaults_note">Matching MV, PV, and RC across muscles means we are still using population defaults. We need more varied weekly volume in your logs to personalize each muscle.</string>
     <string name="gym_lifts_import_summary_landmarks_logged_range">Logged weekly volume: %1$s sets</string>
     <string name="gym_lifts_import_summary_landmarks_logged_volume_title">Your logged volume (fractional sets/week)</string>
     <string name="gym_lifts_import_summary_landmarks_logged_volume_low">Low</string>
@@ -163,10 +163,10 @@
     <string name="gym_lifts_import_summary_mrv_header">RC</string>
     <string name="gym_lifts_import_summary_headroom_header">Headroom</string>
     <string name="gym_lifts_import_summary_pv_header">PV</string>
-    <string name="gym_lifts_import_summary_mev_tooltip">Maintenance Volume (MV) — the weekly fractional sets needed to hold muscle. Population default is 4 sets (5–6 for more advanced lifters); your logs may nudge this per muscle.</string>
-    <string name="gym_lifts_import_summary_mav_tooltip">Pareto Volume (PV) — growth before obvious diminishing returns. Estimated from your √ dose–response curve; roughly 13 sets/week at the global prior.</string>
-    <string name="gym_lifts_import_summary_mrv_tooltip">Recoverability Ceiling (RC) — the highest weekly fractional sets you can plan before recovery becomes the limiter. Not a measured hypertrophy peak; default planning cap is 20 sets.</string>
-    <string name="gym_lifts_import_summary_headroom_tooltip">Headroom — whether your logged volume looks like there is room to add sets (room to grow), you are in a steady range, you may already be near your useful weekly max, or we need more data to tell.</string>
+    <string name="gym_lifts_import_summary_mev_tooltip">Maintenance Volume (MV): the weekly fractional sets needed to hold muscle. Population default is 4 sets (5–6 for more advanced lifters); your logs may nudge this per muscle.</string>
+    <string name="gym_lifts_import_summary_mav_tooltip">Pareto Volume (PV): growth before obvious diminishing returns. Estimated from your √ dose–response curve; roughly 13 sets/week at the global prior.</string>
+    <string name="gym_lifts_import_summary_mrv_tooltip">Recoverability Ceiling (RC): the highest weekly fractional sets you can plan before recovery becomes the limiter. Not a measured hypertrophy peak; default planning cap is 20 sets.</string>
+    <string name="gym_lifts_import_summary_headroom_tooltip">Headroom: whether your logged volume looks like there is room to add sets (room to grow), you are in a steady range, you may already be near your useful weekly max, or we need more data to tell.</string>
     <string name="gym_lifts_import_summary_header_tooltip_a11y">Learn about %1$s</string>
     <string name="gym_lifts_import_summary_landmark_interval_a11y">%1$s estimated range: %2$s sets</string>
     <string name="gym_lifts_import_summary_efficacy_empty">Not enough progression data to rank lift efficacy yet.</string>
