@@ -16,7 +16,7 @@ import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
 import java.time.Instant
 
-fun ImportJobEntity.toDomain(): ImportJob = ImportJob(
+internal fun ImportJobEntity.toDomain(): ImportJob = ImportJob(
     id = id,
     status = status,
     sampleRef = sampleRef,
@@ -27,7 +27,7 @@ fun ImportJobEntity.toDomain(): ImportJob = ImportJob(
     updatedAt = Instant.ofEpochMilli(updatedAtEpochMillis),
 )
 
-fun ImportJob.toEntity(): ImportJobEntity = ImportJobEntity(
+internal fun ImportJob.toEntity(): ImportJobEntity = ImportJobEntity(
     id = id,
     status = status,
     sampleRef = sampleRef,
@@ -38,7 +38,7 @@ fun ImportJob.toEntity(): ImportJobEntity = ImportJobEntity(
     updatedAtEpochMillis = updatedAt.toEpochMilli(),
 )
 
-fun LiftTrainingInsightsEntity.toDomain(): LiftTrainingInsights = LiftTrainingInsights(
+internal fun LiftTrainingInsightsEntity.toDomain(): LiftTrainingInsights = LiftTrainingInsights(
     liftId = liftId,
     estimatedOneRm = estimatedOneRm?.let { amount ->
         Weight(amount, weightUnit?.let(Weight.WeightUnit::parse) ?: Weight.WeightUnit.Lb)
@@ -50,7 +50,7 @@ fun LiftTrainingInsightsEntity.toDomain(): LiftTrainingInsights = LiftTrainingIn
     lastPerformedAt = lastPerformedAtEpochMillis?.let(Instant::ofEpochMilli),
 )
 
-fun LiftTrainingInsights.toEntity(): LiftTrainingInsightsEntity = LiftTrainingInsightsEntity(
+internal fun LiftTrainingInsights.toEntity(): LiftTrainingInsightsEntity = LiftTrainingInsightsEntity(
     liftId = liftId,
     estimatedOneRm = estimatedOneRm?.amount,
     weightUnit = estimatedOneRm?.unit?.name,
@@ -61,7 +61,7 @@ fun LiftTrainingInsights.toEntity(): LiftTrainingInsightsEntity = LiftTrainingIn
     lastPerformedAtEpochMillis = lastPerformedAt?.toEpochMilli(),
 )
 
-fun SupersetAffinityEntity.toDomain(): SupersetAffinity = SupersetAffinity(
+internal fun SupersetAffinityEntity.toDomain(): SupersetAffinity = SupersetAffinity(
     liftA = LiftId(liftA),
     liftB = LiftId(liftB),
     medianRestSeconds = medianRestSeconds,
@@ -69,7 +69,7 @@ fun SupersetAffinityEntity.toDomain(): SupersetAffinity = SupersetAffinity(
     confidence = confidence,
 )
 
-fun SupersetAffinity.toEntity(): SupersetAffinityEntity {
+internal fun SupersetAffinity.toEntity(): SupersetAffinityEntity {
     // Canonical pair ordering (liftA < liftB lexicographically) so the unique index on (liftA, liftB) is stable.
     val (first, second) = if (liftA.value <= liftB.value) liftA to liftB else liftB to liftA
     return SupersetAffinityEntity(
@@ -81,21 +81,21 @@ fun SupersetAffinity.toEntity(): SupersetAffinityEntity {
     )
 }
 
-fun MuscleVolumeBaselineEntity.toDomain(): MuscleVolumeBaseline = MuscleVolumeBaseline(
+internal fun MuscleVolumeBaselineEntity.toDomain(): MuscleVolumeBaseline = MuscleVolumeBaseline(
     muscle = muscle,
     meanWeeklyHardSets = meanWeeklyHardSets,
     p90WeeklyHardSets = p90WeeklyHardSets,
     trendSlope = trendSlope,
 )
 
-fun MuscleVolumeBaseline.toEntity(): MuscleVolumeBaselineEntity = MuscleVolumeBaselineEntity(
+internal fun MuscleVolumeBaseline.toEntity(): MuscleVolumeBaselineEntity = MuscleVolumeBaselineEntity(
     muscle = muscle,
     meanWeeklyHardSets = meanWeeklyHardSets,
     p90WeeklyHardSets = p90WeeklyHardSets,
     trendSlope = trendSlope,
 )
 
-fun ImportAnalysisMetadataEntity.toDomain(): ImportAnalysisMetadata = ImportAnalysisMetadata(
+internal fun ImportAnalysisMetadataEntity.toDomain(): ImportAnalysisMetadata = ImportAnalysisMetadata(
     windowStart = Instant.ofEpochMilli(windowStartEpochMillis),
     windowEnd = Instant.ofEpochMilli(windowEndEpochMillis),
     provenLiftIds = provenLiftIdsCsv.toLiftIdList(),
@@ -110,7 +110,7 @@ fun ImportAnalysisMetadataEntity.toDomain(): ImportAnalysisMetadata = ImportAnal
     pipelineVersion = pipelineVersion,
 )
 
-fun ImportAnalysisMetadata.toEntity(): ImportAnalysisMetadataEntity = ImportAnalysisMetadataEntity(
+internal fun ImportAnalysisMetadata.toEntity(): ImportAnalysisMetadataEntity = ImportAnalysisMetadataEntity(
     windowStartEpochMillis = windowStart.toEpochMilli(),
     windowEndEpochMillis = windowEnd.toEpochMilli(),
     provenLiftIdsCsv = provenLiftIds.joinToString(",") { it.value },

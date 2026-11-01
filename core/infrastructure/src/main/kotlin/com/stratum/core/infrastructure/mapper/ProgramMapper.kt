@@ -17,7 +17,7 @@ import java.time.Instant
  * entities. `Program.createdAt` ↔ stored ISO-8601 string; [Weekday] is typed on [WorkoutEntity]
  * via [com.stratum.core.infrastructure.db.EnumConverters]. Typed ids round-trip via `EnumConverters` and stay typed in the entity layer.
  */
-fun ProgramEntity.toDomain(workouts: List<Workout>): Program = Program(
+internal fun ProgramEntity.toDomain(workouts: List<Workout>): Program = Program(
     id = id,
     name = name,
     // STR-129: never throw on malformed timestamps — fall back to epoch so a single
@@ -33,7 +33,7 @@ fun ProgramEntity.toDomain(workouts: List<Workout>): Program = Program(
     cycleStartEpochDay = cycleStartEpochDay,
 )
 
-fun WorkoutEntity.toDomain(workoutLifts: List<WorkoutLift>): Workout = Workout(
+internal fun WorkoutEntity.toDomain(workoutLifts: List<WorkoutLift>): Workout = Workout(
     id = id,
     programId = programId,
     name = name,
@@ -42,7 +42,7 @@ fun WorkoutEntity.toDomain(workoutLifts: List<WorkoutLift>): Workout = Workout(
     workoutLifts = workoutLifts,
 )
 
-fun WorkoutLiftEntity.toDomain(sets: List<LiftSet>): WorkoutLift = WorkoutLift(
+internal fun WorkoutLiftEntity.toDomain(sets: List<LiftSet>): WorkoutLift = WorkoutLift(
     id = id,
     workoutId = workoutId,
     liftId = liftId,
@@ -55,7 +55,7 @@ fun WorkoutLiftEntity.toDomain(sets: List<LiftSet>): WorkoutLift = WorkoutLift(
     pinnedNote = pinnedNote,
 )
 
-fun LiftSetEntity.toDomain(): LiftSet = LiftSet(
+internal fun LiftSetEntity.toDomain(): LiftSet = LiftSet(
     id = id,
     workoutLiftId = workoutLiftId,
     position = position,
@@ -68,7 +68,7 @@ fun LiftSetEntity.toDomain(): LiftSet = LiftSet(
     myoRepKind = myoRepKind,
 )
 
-fun Program.toEntity(
+internal fun Program.toEntity(
     nowMillis: Long = System.currentTimeMillis(),
 ): ProgramEntity = ProgramEntity(
     id = id,
@@ -85,7 +85,7 @@ fun Program.toEntity(
     pendingSync = SyncFlags.PENDING_UPSERT,
 )
 
-fun Workout.toEntity(
+internal fun Workout.toEntity(
     nowMillis: Long = System.currentTimeMillis(),
 ): WorkoutEntity = WorkoutEntity(
     id = id,
@@ -97,7 +97,7 @@ fun Workout.toEntity(
     pendingSync = SyncFlags.PENDING_UPSERT,
 )
 
-fun WorkoutLift.toEntity(
+internal fun WorkoutLift.toEntity(
     nowMillis: Long = System.currentTimeMillis(),
 ): WorkoutLiftEntity = WorkoutLiftEntity(
     id = id,
@@ -113,7 +113,7 @@ fun WorkoutLift.toEntity(
     pendingSync = SyncFlags.PENDING_UPSERT,
 )
 
-fun LiftSet.toEntity(
+internal fun LiftSet.toEntity(
     nowMillis: Long = System.currentTimeMillis(),
 ): LiftSetEntity = LiftSetEntity(
     id = id,
@@ -135,7 +135,7 @@ fun LiftSet.toEntity(
  * Keeps the entity-traversal out of the repository so [RoomProgramRepository] stays clean of
  * mapping detail. DAO results are pre-loaded and passed in so this is a pure function over data.
  */
-fun rejoinProgram(
+internal fun rejoinProgram(
     programEntity: ProgramEntity,
     workouts: List<WorkoutEntity>,
     workoutLiftsByWorkout: Map<String, List<WorkoutLiftEntity>>,

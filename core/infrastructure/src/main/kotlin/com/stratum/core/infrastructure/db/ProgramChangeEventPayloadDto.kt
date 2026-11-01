@@ -63,7 +63,7 @@ sealed interface ProgramChangeEventPayloadDto {
 }
 
 /** The [ProgramChangeEventType] a [ProgramChangeEventPayloadDto] subtype carries. */
-fun ProgramChangeEventPayloadDto.eventType(): ProgramChangeEventType =
+internal fun ProgramChangeEventPayloadDto.eventType(): ProgramChangeEventType =
     when (this) {
         is ProgramChangeEventPayloadDto.LiftSwapped -> ProgramChangeEventType.LIFT_SWAPPED
         is ProgramChangeEventPayloadDto.WorkoutEdited -> ProgramChangeEventType.WORKOUT_EDITED
@@ -73,7 +73,7 @@ fun ProgramChangeEventPayloadDto.eventType(): ProgramChangeEventType =
     }
 
 /** Exhaustive domain → DTO. Cannot fail: every field is non-null on the domain side. */
-fun ProgramChangeEventPayload.toDto(): ProgramChangeEventPayloadDto =
+internal fun ProgramChangeEventPayload.toDto(): ProgramChangeEventPayloadDto =
     when (this) {
         is ProgramChangeEventPayload.LiftSwapped ->
             ProgramChangeEventPayloadDto.LiftSwapped(
@@ -101,7 +101,7 @@ fun ProgramChangeEventPayload.toDto(): ProgramChangeEventPayloadDto =
  * rejection) so readers skip the row instead of crashing — see the uniform null contract in
  * `ProgramChangeEventMapper.toDomain`.
  */
-fun ProgramChangeEventPayloadDto.toDomainPayload(): ProgramChangeEventPayload? =
+internal fun ProgramChangeEventPayloadDto.toDomainPayload(): ProgramChangeEventPayload? =
     runCatching {
         when (this) {
             is ProgramChangeEventPayloadDto.LiftSwapped ->

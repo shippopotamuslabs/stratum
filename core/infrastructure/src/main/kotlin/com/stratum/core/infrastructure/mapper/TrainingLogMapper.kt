@@ -7,7 +7,7 @@ import com.stratum.domain.training.LoggedLiftContext
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.TrainingSession
 
-fun TrainingSessionEntity.toDomain(): TrainingSession = TrainingSession(
+internal fun TrainingSessionEntity.toDomain(): TrainingSession = TrainingSession(
     id = id,
     programId = programId,
     workoutId = workoutId,
@@ -24,7 +24,7 @@ fun TrainingSessionEntity.toDomain(): TrainingSession = TrainingSession(
     workoutNameSnapshot = workoutNameSnapshot,
 )
 
-fun TrainingSession.toEntity(
+internal fun TrainingSession.toEntity(
     nowMillis: Long = System.currentTimeMillis(),
 ): TrainingSessionEntity = TrainingSessionEntity(
     id = id,
@@ -45,7 +45,7 @@ fun TrainingSession.toEntity(
     pendingSync = SyncFlags.PENDING_UPSERT,
 )
 
-fun LoggedSetEntity.toTrainingDomain(): LoggedSet = LoggedSet(
+internal fun LoggedSetEntity.toTrainingDomain(): LoggedSet = LoggedSet(
     id = id,
     sessionId = sessionId,
     exerciseNameRaw = exerciseNameRaw,
@@ -83,7 +83,7 @@ fun LoggedSetEntity.toTrainingDomain(): LoggedSet = LoggedSet(
     estimatedOneRm = estimatedOneRm,
 )
 
-fun LoggedSet.toEntity(
+internal fun LoggedSet.toEntity(
     nowMillis: Long = System.currentTimeMillis(),
 ): LoggedSetEntity = LoggedSetEntity(
     id = id,

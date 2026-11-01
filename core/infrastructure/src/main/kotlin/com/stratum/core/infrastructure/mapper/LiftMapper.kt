@@ -185,7 +185,7 @@ private val MICRO_JSON = Json { ignoreUnknownKeys = true }
  * Parses an adder-stop JSON payload (`micro_options_json` grammar, owned here);
  * null on corrupt input so callers can fail open. `"[]"` parses to empty.
  */
-fun String.parseMicroJson(): List<Double>? =
+internal fun String.parseMicroJson(): List<Double>? =
     runCatching { MICRO_JSON.decodeFromString(ListSerializer(Double.serializer()), this.trim()) }
         .getOrNull()
 
@@ -203,7 +203,7 @@ private fun String?.toMicroIncrements(): List<Weight> =
  * one grammar instead of hand-rolling brackets. No empty handling here — callers own
  * their null-vs-empty contract explicitly.
  */
-fun List<Double>.toMicroJsonArray(): String =
+internal fun List<Double>.toMicroJsonArray(): String =
     MICRO_JSON.encodeToString(ListSerializer(Double.serializer()), this)
 
 /**
@@ -211,7 +211,7 @@ fun List<Double>.toMicroJsonArray(): String =
  * (no adder) so equipment rows stay null-clean. Internal so repositories can write
  * the column without round-tripping through domain mapping.
  */
-fun List<Weight>.toMicroJsonOrNull(): String? {
+internal fun List<Weight>.toMicroJsonOrNull(): String? {
     if (isEmpty()) return null
     return map { WeightConversion.convertAmount(it.amount, it.unit, Weight.WeightUnit.Lb) }
         .toMicroJsonArray()

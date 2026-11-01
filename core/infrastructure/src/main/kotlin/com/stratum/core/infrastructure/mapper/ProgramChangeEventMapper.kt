@@ -24,15 +24,15 @@ private val eventPayloadJson = Json {
     coerceInputValues = true
 }
 
-fun ProgramChangeEventPayloadDto.encodeToString(): String =
+internal fun ProgramChangeEventPayloadDto.encodeToString(): String =
     eventPayloadJson.encodeToString(ProgramChangeEventPayloadDto.serializer(), this)
 
-fun decodeEventPayloadDto(raw: String): ProgramChangeEventPayloadDto? =
+internal fun decodeEventPayloadDto(raw: String): ProgramChangeEventPayloadDto? =
     runCatching {
         eventPayloadJson.decodeFromString(ProgramChangeEventPayloadDto.serializer(), raw)
     }.getOrNull()
 
-fun ProgramChangeEvent.toEntity(
+internal fun ProgramChangeEvent.toEntity(
     nowMillis: Long = System.currentTimeMillis(),
 ): ProgramChangeEventEntity {
     // Exhaustive over the sealed payload: a new subtype without a toDto() branch is a
@@ -65,7 +65,7 @@ fun ProgramChangeEvent.toEntity(
  * corruption is fatal, and previously crashed the coaching check-in path
  * (`NotImplementedError` on `SCHEME_CHANGED`).
  */
-fun ProgramChangeEventEntity.toDomain(): ProgramChangeEvent? {
+internal fun ProgramChangeEventEntity.toDomain(): ProgramChangeEvent? {
     val payload = payloadFromJson() ?: payloadFromLegacyColumns() ?: return null
     return ProgramChangeEvent(
         id = id,
@@ -115,7 +115,7 @@ private fun ProgramChangeEventEntity.payloadFromLegacyColumns(): ProgramChangeEv
  * Frozen — new event types are JSON-only on the wire for new readers and are simply
  * skipped by old ones.
  */
-data class LegacyEventPayloadColumns(
+internal data class LegacyEventPayloadColumns(
     val workoutLiftId: String?,
     val previousLiftId: String?,
     val newLiftId: String?,
@@ -123,7 +123,7 @@ data class LegacyEventPayloadColumns(
     val completedCycleNumber: Int?,
 )
 
-fun ProgramChangeEventPayloadDto.toLegacyColumns(): LegacyEventPayloadColumns =
+internal fun ProgramChangeEventPayloadDto.toLegacyColumns(): LegacyEventPayloadColumns =
     when (this) {
         is ProgramChangeEventPayloadDto.LiftSwapped ->
             LegacyEventPayloadColumns(

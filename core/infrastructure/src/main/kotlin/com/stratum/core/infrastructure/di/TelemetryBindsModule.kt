@@ -1,4 +1,4 @@
-package com.stratum.core.data.di
+package com.stratum.core.infrastructure.di
 
 import com.stratum.core.infrastructure.telemetry.DataStorePendingClientLogStore
 import com.stratum.domain.telemetry.PendingClientLogStore

@@ -1,4 +1,4 @@
-package com.stratum.core.data.di
+package com.stratum.core.infrastructure.di
 
 import com.google.firebase.firestore.FirebaseFirestore
 import com.stratum.core.infrastructure.sync.CloudSyncFeatureGate

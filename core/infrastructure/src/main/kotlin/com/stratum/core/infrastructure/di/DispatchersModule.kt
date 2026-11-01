@@ -1,4 +1,4 @@
-package com.stratum.core.data.di
+package com.stratum.core.infrastructure.di
 
 import com.stratum.domain.di.DefaultDispatcher
 import com.stratum.domain.di.IoDispatcher
