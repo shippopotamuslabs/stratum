@@ -6,6 +6,7 @@ import com.stratum.core.testing.subscription.FakeBillingPort
 import com.stratum.core.testing.subscription.FakePlayEntitlementSyncPort
 import com.stratum.domain.auth.AuthState
 import com.stratum.domain.auth.UserProfile
+import com.stratum.domain.subscription.ComplimentaryAccess
 import com.stratum.domain.subscription.EntitlementDiagnostic
 import com.stratum.domain.subscription.EntitlementSource
 import com.stratum.domain.subscription.EntitlementState
@@ -38,7 +39,7 @@ class SubscriptionRepositoryImplTest {
     @BeforeEach
     fun setup() {
         fakeAuthManager.setState(AuthState.Unauthenticated)
-        fakeComplimentary.access.value = false
+        fakeComplimentary.access.value = ComplimentaryAccess.NotGranted
         fakeBilling.setPurchases(emptyList())
         fakePlaySync.syncedTokens.clear()
         fakePlaySync.syncResult = Result.success(true)
@@ -67,7 +68,7 @@ class SubscriptionRepositoryImplTest {
     @DisplayName("authenticated complimentary access is Entitled ComplimentaryAccess")
     fun complimentary() = runTest {
         fakeAuthManager.setState(authenticated("uid-dev"))
-        fakeComplimentary.access.value = true
+        fakeComplimentary.access.value = ComplimentaryAccess.Granted
 
         repository.observeEntitlement().test {
             assertEquals(
@@ -82,7 +83,7 @@ class SubscriptionRepositoryImplTest {
     @DisplayName("authenticated known Play SKU is Entitled GooglePlaySubscription")
     fun playEntitled() = runTest {
         fakeAuthManager.setState(authenticated("uid-subscriber"))
-        fakeComplimentary.access.value = false
+        fakeComplimentary.access.value = ComplimentaryAccess.NotGranted
         fakeBilling.setPurchases(listOf(knownPlayPurchase()))
 
         repository.observeEntitlement().test {
@@ -99,7 +100,7 @@ class SubscriptionRepositoryImplTest {
     @DisplayName("authenticated with neither complimentary nor known Play SKU is NotEntitled")
     fun neither() = runTest {
         fakeAuthManager.setState(authenticated("uid-free"))
-        fakeComplimentary.access.value = false
+        fakeComplimentary.access.value = ComplimentaryAccess.NotGranted
         fakeBilling.setPurchases(emptyList())
 
         repository.observeEntitlement().test {
@@ -135,7 +136,7 @@ class SubscriptionRepositoryImplTest {
     @DisplayName("complimentary access wins over a known Play purchase")
     fun complimentaryWinsOverPlay() = runTest {
         fakeAuthManager.setState(authenticated("uid-dev"))
-        fakeComplimentary.access.value = true
+        fakeComplimentary.access.value = ComplimentaryAccess.Granted
         fakeBilling.setPurchases(listOf(knownPlayPurchase()))
 
         repository.observeEntitlement().test {
@@ -151,6 +152,59 @@ class SubscriptionRepositoryImplTest {
             Result.success(EntitlementState.Entitled(EntitlementSource.ComplimentaryAccess)),
             refreshed,
         )
+    }
+
+    @Test
+    @DisplayName("a failed complimentary read is Loading, never the paywall state")
+    fun unknownComplimentaryIsLoading() = runTest {
+        fakeAuthManager.setState(authenticated("uid-dev"))
+        fakeComplimentary.access.value = ComplimentaryAccess.Unknown
+
+        repository.observeEntitlement().test {
+            assertEquals(EntitlementState.Loading, awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("refresh fails when the complimentary read failed and no Play purchase entitles")
+    fun refreshUnknownComplimentaryFails() = runTest {
+        fakeAuthManager.setState(authenticated("uid-dev"))
+        fakeComplimentary.access.value = ComplimentaryAccess.Unknown
+
+        val refreshed = repository.refreshEntitlement()
+        assertTrue(refreshed.isFailure)
+    }
+
+    @Test
+    @DisplayName("refresh still succeeds on a known Play purchase when the complimentary read failed")
+    fun refreshUnknownComplimentaryKeepsPlayEntitlement() = runTest {
+        fakeAuthManager.setState(authenticated("uid-subscriber"))
+        fakeComplimentary.access.value = ComplimentaryAccess.Unknown
+        fakeBilling.setPurchases(listOf(knownPlayPurchase()))
+
+        val refreshed = repository.refreshEntitlement()
+        assertEquals(
+            Result.success(EntitlementState.Entitled(EntitlementSource.GooglePlaySubscription)),
+            refreshed,
+        )
+    }
+
+    @Test
+    @DisplayName("entitlement recovers when a failed complimentary read later succeeds")
+    fun unknownComplimentaryRecovers() = runTest {
+        fakeAuthManager.setState(authenticated("uid-dev"))
+        fakeComplimentary.access.value = ComplimentaryAccess.Unknown
+
+        repository.observeEntitlement().test {
+            assertEquals(EntitlementState.Loading, awaitItem())
+            fakeComplimentary.access.value = ComplimentaryAccess.Granted
+            assertEquals(
+                EntitlementState.Entitled(EntitlementSource.ComplimentaryAccess),
+                awaitItem(),
+            )
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     @Test
@@ -223,10 +277,10 @@ class SubscriptionRepositoryImplTest {
     )
 
     private class FakeComplimentaryAccessStore : ComplimentaryAccessStore {
-        val access = MutableStateFlow(false)
+        val access = MutableStateFlow(ComplimentaryAccess.NotGranted)
 
-        override fun observeComplimentaryAccess(userId: String): Flow<Boolean> = access.asStateFlow()
+        override fun observeComplimentaryAccess(userId: String): Flow<ComplimentaryAccess> = access.asStateFlow()
 
-        override suspend fun getComplimentaryAccess(userId: String): Boolean = access.value
+        override suspend fun getComplimentaryAccess(userId: String): ComplimentaryAccess = access.value
     }
 }

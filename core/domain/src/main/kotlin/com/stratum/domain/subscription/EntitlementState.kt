@@ -26,22 +26,27 @@ sealed interface EntitlementState {
          * auth + complimentary access + purchases, never stored raw and never re-derived
          * by consumers. A null [NotEntitled.reason] is a plain not-entitled outcome
          * rather than an error.
+         *
+         * [ComplimentaryAccess.Unknown] means the override read failed, which is not
+         * evidence of no access: with no qualifying Play purchase the outcome stays
+         * [Loading] instead of paywalling the user on a transient read failure (STR-280).
          */
         fun resolve(
             auth: AuthState,
-            complimentary: Boolean,
+            complimentary: ComplimentaryAccess,
             purchases: List<SubscriptionPurchase>,
         ): EntitlementState = when (auth) {
             AuthState.Loading -> Loading
             AuthState.Unauthenticated,
             is AuthState.Error -> NotEntitled("Not authenticated")
             is AuthState.Authenticated -> when {
-                complimentary -> Entitled(
+                complimentary == ComplimentaryAccess.Granted -> Entitled(
                     source = EntitlementSource.ComplimentaryAccess,
                 )
                 purchases.any(SubscriptionCatalog::purchaseHasKnownProduct) -> Entitled(
                     source = EntitlementSource.GooglePlaySubscription,
                 )
+                complimentary == ComplimentaryAccess.Unknown -> Loading
                 else -> NotEntitled()
             }
         }
