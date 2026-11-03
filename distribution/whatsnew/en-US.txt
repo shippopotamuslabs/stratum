@@ -1,5 +1,3 @@
-Sleep on the Recovery dashboard reports time asleep. The Sleep total, the 7-day average, and last night leave out awake time inside a sleep session.
+Fixed a bug where a brief sign-in or connection hiccup could show the paywall to members with active access. Entitlement checks now retry on their own and hold any paywall decision until access is confirmed.
 
-Text fields in bottom sheets have a contrasting border.
-
-Under the hood, failures across the app travel as structured diagnostics, and a telemetry router counts the exceptional ones.
+In-app wording got a cleanup pass.
