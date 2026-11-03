@@ -79,7 +79,14 @@ class SubscriptionRepositoryImpl @Inject constructor(
             if (auth is AuthState.Authenticated) {
                 syncActivePurchaseTokens(purchases)
             }
-            EntitlementState.resolve(auth, complimentary, purchases)
+            val state = EntitlementState.resolve(auth, complimentary, purchases)
+            // A one-shot refresh must answer definitively: when the complimentary read
+            // failed and no Play purchase entitles, Loading would tell the caller the
+            // restore found nothing. Fail instead so the caller can show a retry (STR-280).
+            check(state !is EntitlementState.Loading || auth !is AuthState.Authenticated) {
+                "Entitlement refresh could not verify complimentary access"
+            }
+            state
         }
     }
 

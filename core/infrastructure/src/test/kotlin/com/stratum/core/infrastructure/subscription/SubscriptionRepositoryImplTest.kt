@@ -164,9 +164,30 @@ class SubscriptionRepositoryImplTest {
             assertEquals(EntitlementState.Loading, awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    @Test
+    @DisplayName("refresh fails when the complimentary read failed and no Play purchase entitles")
+    fun refreshUnknownComplimentaryFails() = runTest {
+        fakeAuthManager.setState(authenticated("uid-dev"))
+        fakeComplimentary.access.value = ComplimentaryAccess.Unknown
 
         val refreshed = repository.refreshEntitlement()
-        assertEquals(Result.success(EntitlementState.Loading), refreshed)
+        assertTrue(refreshed.isFailure)
+    }
+
+    @Test
+    @DisplayName("refresh still succeeds on a known Play purchase when the complimentary read failed")
+    fun refreshUnknownComplimentaryKeepsPlayEntitlement() = runTest {
+        fakeAuthManager.setState(authenticated("uid-subscriber"))
+        fakeComplimentary.access.value = ComplimentaryAccess.Unknown
+        fakeBilling.setPurchases(listOf(knownPlayPurchase()))
+
+        val refreshed = repository.refreshEntitlement()
+        assertEquals(
+            Result.success(EntitlementState.Entitled(EntitlementSource.GooglePlaySubscription)),
+            refreshed,
+        )
     }
 
     @Test
