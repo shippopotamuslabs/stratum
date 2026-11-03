@@ -26,7 +26,7 @@ class EntitlementStateTest {
     fun loading() {
         assertEquals(
             EntitlementState.Loading,
-            EntitlementState.resolve(AuthState.Loading, complimentary = true, purchases = listOf(playPurchase)),
+            EntitlementState.resolve(AuthState.Loading, complimentary = ComplimentaryAccess.Granted, purchases = listOf(playPurchase)),
         )
     }
 
@@ -36,11 +36,11 @@ class EntitlementStateTest {
         val expected = EntitlementState.NotEntitled("Not authenticated")
         assertEquals(
             expected,
-            EntitlementState.resolve(AuthState.Unauthenticated, complimentary = true, purchases = listOf(playPurchase)),
+            EntitlementState.resolve(AuthState.Unauthenticated, complimentary = ComplimentaryAccess.Granted, purchases = listOf(playPurchase)),
         )
         assertEquals(
             expected,
-            EntitlementState.resolve(AuthState.Error("nope"), complimentary = true, purchases = listOf(playPurchase)),
+            EntitlementState.resolve(AuthState.Error("nope"), complimentary = ComplimentaryAccess.Granted, purchases = listOf(playPurchase)),
         )
     }
 
@@ -49,7 +49,7 @@ class EntitlementStateTest {
     fun complimentaryWins() {
         assertEquals(
             EntitlementState.Entitled(EntitlementSource.ComplimentaryAccess),
-            EntitlementState.resolve(user, complimentary = true, purchases = listOf(playPurchase)),
+            EntitlementState.resolve(user, complimentary = ComplimentaryAccess.Granted, purchases = listOf(playPurchase)),
         )
     }
 
@@ -58,7 +58,7 @@ class EntitlementStateTest {
     fun playEntitled() {
         assertEquals(
             EntitlementState.Entitled(EntitlementSource.GooglePlaySubscription),
-            EntitlementState.resolve(user, complimentary = false, purchases = listOf(playPurchase)),
+            EntitlementState.resolve(user, complimentary = ComplimentaryAccess.NotGranted, purchases = listOf(playPurchase)),
         )
     }
 
@@ -68,7 +68,25 @@ class EntitlementStateTest {
         val unknown = playPurchase.copy(productIds = listOf("some_other_sku"))
         assertEquals(
             EntitlementState.NotEntitled(),
-            EntitlementState.resolve(user, complimentary = false, purchases = listOf(unknown)),
+            EntitlementState.resolve(user, complimentary = ComplimentaryAccess.NotGranted, purchases = listOf(unknown)),
+        )
+    }
+
+    @Test
+    @DisplayName("a failed complimentary read is Loading, never NotEntitled")
+    fun unknownComplimentaryIsLoading() {
+        assertEquals(
+            EntitlementState.Loading,
+            EntitlementState.resolve(user, complimentary = ComplimentaryAccess.Unknown, purchases = emptyList()),
+        )
+    }
+
+    @Test
+    @DisplayName("a failed complimentary read does not hide a known Play purchase")
+    fun unknownComplimentaryKeepsPlayEntitlement() {
+        assertEquals(
+            EntitlementState.Entitled(EntitlementSource.GooglePlaySubscription),
+            EntitlementState.resolve(user, complimentary = ComplimentaryAccess.Unknown, purchases = listOf(playPurchase)),
         )
     }
 
@@ -77,7 +95,7 @@ class EntitlementStateTest {
     fun neither() {
         assertEquals(
             EntitlementState.NotEntitled(),
-            EntitlementState.resolve(user, complimentary = false, purchases = emptyList()),
+            EntitlementState.resolve(user, complimentary = ComplimentaryAccess.NotGranted, purchases = emptyList()),
         )
     }
 }

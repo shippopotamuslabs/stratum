@@ -5,6 +5,7 @@ import com.stratum.domain.auth.AuthState
 import com.stratum.domain.di.ApplicationScope
 import com.stratum.application.subscription.BillingPort
 import com.stratum.application.subscription.EntitlementRepository
+import com.stratum.domain.subscription.ComplimentaryAccess
 import com.stratum.domain.subscription.EntitlementDiagnostic
 import com.stratum.domain.subscription.EntitlementState
 import com.stratum.application.subscription.PlayEntitlementSyncPort
@@ -47,7 +48,7 @@ class SubscriptionRepositoryImpl @Inject constructor(
                 AuthState.Loading,
                 AuthState.Unauthenticated,
                 is AuthState.Error -> flowOf(
-                    EntitlementState.resolve(auth, complimentary = false, purchases = emptyList()),
+                    EntitlementState.resolve(auth, complimentary = ComplimentaryAccess.NotGranted, purchases = emptyList()),
                 )
                 is AuthState.Authenticated -> combine(
                     complimentaryAccessStore.observeComplimentaryAccess(auth.user.uid),
@@ -73,7 +74,7 @@ class SubscriptionRepositoryImpl @Inject constructor(
             val complimentary = if (auth is AuthState.Authenticated) {
                 complimentaryAccessStore.getComplimentaryAccess(auth.user.uid)
             } else {
-                false
+                ComplimentaryAccess.NotGranted
             }
             if (auth is AuthState.Authenticated) {
                 syncActivePurchaseTokens(purchases)
