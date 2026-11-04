@@ -3,6 +3,7 @@ package com.stratum.core.infrastructure.healthconnect
 import android.content.Context
 import androidx.datastore.core.Serializer
 import androidx.datastore.dataStore
+import com.stratum.domain.coroutines.runCatchingCancellable
 import java.io.InputStream
 import java.io.OutputStream
 import kotlinx.serialization.json.Json
@@ -19,7 +20,7 @@ internal object HealthConnectPreferencesRecordSerializer : Serializer<HealthConn
     override suspend fun readFrom(input: InputStream): HealthConnectPreferencesRecord {
         val text = input.bufferedReader().use { it.readText() }
         if (text.isBlank()) return defaultValue
-        return runCatching {
+        return runCatchingCancellable {
             healthConnectPrefsJson.decodeFromString(HealthConnectPreferencesRecord.serializer(), text)
         }.getOrDefault(defaultValue)
     }

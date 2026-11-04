@@ -3,6 +3,7 @@ package com.stratum.core.infrastructure.theme
 import android.content.Context
 import androidx.datastore.core.Serializer
 import androidx.datastore.dataStore
+import com.stratum.domain.coroutines.runCatchingCancellable
 import kotlinx.serialization.json.Json
 import java.io.InputStream
 import java.io.OutputStream
@@ -24,7 +25,7 @@ object ThemePreferencesRecordSerializer : Serializer<ThemePreferencesRecord> {
     override suspend fun readFrom(input: InputStream): ThemePreferencesRecord {
         val text = input.bufferedReader().use { it.readText() }
         if (text.isBlank()) return defaultValue
-        return runCatching {
+        return runCatchingCancellable {
             themePrefsJson.decodeFromString(ThemePreferencesRecord.serializer(), text)
         }.getOrDefault(defaultValue)
     }

@@ -107,7 +107,7 @@ class FirestoreCloudSyncAdapter @Inject constructor(
                         _syncStatus.value = SyncStatus.Error(error.message ?: "sync start failed")
                         try {
                             cloudSyncScheduler.enqueueSoon()
-                        } catch (scheduleError: Exception) {
+                        } catch (scheduleError: Throwable) {
                             loggingPort.error(
                                 TAG,
                                 "start recovery enqueue failed: ${scheduleError.message}",

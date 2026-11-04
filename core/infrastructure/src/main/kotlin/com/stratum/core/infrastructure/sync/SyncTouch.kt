@@ -5,7 +5,6 @@ import com.stratum.core.infrastructure.work.CloudSyncScheduler
 import com.stratum.domain.logging.LoggingPort
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * Single write-side entry for syncable Room mutations:
@@ -46,8 +45,6 @@ class SyncTouch @Inject constructor(
         // scheduling failure is recorded once here instead of being discarded (STR-239).
         try {
             cloudSyncScheduler.enqueueSoon()
-        } catch (cancelled: CancellationException) {
-            throw cancelled
         } catch (error: Throwable) {
             loggingPort.error(TAG, "Failed to schedule cloud sync: ${error.message}", error)
         }

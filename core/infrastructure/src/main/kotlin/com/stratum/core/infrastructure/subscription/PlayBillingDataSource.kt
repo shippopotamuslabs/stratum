@@ -29,7 +29,6 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.coroutines.cancellation.CancellationException
 import kotlin.coroutines.resume
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
@@ -82,14 +81,10 @@ class PlayBillingDataSource @Inject constructor(
 
     init {
         scope.launch {
-            try {
+            warnOnRefreshFailure("Initial purchase query failed") {
                 if (ensureConnected()) {
                     queryAndPublishActivePurchases()
                 }
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (error: Throwable) {
-                loggingPort.warning(TAG, "Initial purchase query failed: ${error.message}")
             }
         }
     }
@@ -97,12 +92,8 @@ class PlayBillingDataSource @Inject constructor(
     override fun onPurchasesUpdated(billingResult: BillingResult, purchases: List<Purchase>?) {
         emitPurchaseResult(billingResult, purchases)
         scope.launch {
-            try {
+            warnOnRefreshFailure("Failed refreshing purchases after update") {
                 queryAndPublishActivePurchases()
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (error: Throwable) {
-                loggingPort.warning(TAG, "Failed refreshing purchases after update: ${error.message}")
             }
         }
     }
@@ -211,6 +202,15 @@ class PlayBillingDataSource @Inject constructor(
         }
     }
 
+    /**
+     * Runs a purchase-refresh [block], recording a failure once as a warning with
+     * [message] as the prefix. Cancellation propagates (runCatchingCancellable).
+     */
+    private suspend fun warnOnRefreshFailure(message: String, block: suspend () -> Unit) {
+        runCatchingCancellable { block() }
+            .onFailure { error -> loggingPort.warning(TAG, "$message: ${error.message}") }
+    }
+
     private suspend fun queryAndPublishActivePurchases() {
         if (!ensureConnected()) {
             error("Failed to connect to Google Play Billing service")
@@ -297,14 +297,10 @@ class PlayBillingDataSource @Inject constructor(
                     resumeOnce(false)
                     scope.launch {
                         delay(RECONNECT_DELAY_MS)
-                        try {
+                        warnOnRefreshFailure("Reconnect purchase refresh failed") {
                             if (ensureConnected()) {
                                 queryAndPublishActivePurchases()
                             }
-                        } catch (cancelled: CancellationException) {
-                            throw cancelled
-                        } catch (error: Throwable) {
-                            loggingPort.warning(TAG, "Reconnect purchase refresh failed: ${error.message}")
                         }
                     }
                 }

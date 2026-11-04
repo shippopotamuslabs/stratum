@@ -45,7 +45,8 @@ class WorkManagerHealthConnectScheduler @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: Throwable) {
-            // Never throws — finalize treats this as fire-and-forget.
+            // Operational failures never throw; cancellation still propagates —
+            // finalize treats this as fire-and-forget.
         }
     }
 

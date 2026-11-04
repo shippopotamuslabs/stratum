@@ -17,8 +17,10 @@ import com.stratum.domain.workout.WorkoutOverlay
  * single use case rather than three (ARCHITECTURE.md §4.4: ViewModels depend on use cases,
  * not repository ports).
  *
- * [save] / [clear] failures are best-effort: logged once and returned as [Result] so the
- * live workout UI is never crashed by overlay persistence.
+ * [save] / [clear] failures are best-effort: operational failures are logged once and
+ * returned as a failure [Result] so the live workout UI is never crashed by overlay
+ * persistence. Coroutine cancellation propagates — it is neither logged nor returned
+ * as a failure.
  */
 class ManageWorkoutOverlayUseCase @Inject constructor(
     private val store: WorkoutOverlayStore,
@@ -27,7 +29,10 @@ class ManageWorkoutOverlayUseCase @Inject constructor(
     /** The persisted overlay for [sessionId], or `null` when nothing matching is stored. */
     suspend fun load(sessionId: TrainingSessionId): WorkoutOverlay? = store.load(sessionId)
 
-    /** Overwrites the stored overlay for [sessionId]. Failure is logged; does not throw. */
+    /**
+     * Overwrites the stored overlay for [sessionId]. An operational failure is logged
+     * and returned as a failure [Result]; coroutine cancellation propagates.
+     */
     suspend fun save(sessionId: TrainingSessionId, overlay: WorkoutOverlay): Result<Unit> =
         runCatchingCancellable { store.save(sessionId, overlay) }
             .onFailure { error ->
