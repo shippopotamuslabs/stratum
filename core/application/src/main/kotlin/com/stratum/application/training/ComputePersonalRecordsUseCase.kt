@@ -1,5 +1,6 @@
 package com.stratum.application.training
 
+import com.stratum.domain.coroutines.runCatchingCancellable
 import javax.inject.Inject
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.PersonalRecordScoring
@@ -15,7 +16,7 @@ class ComputePersonalRecordsUseCase @Inject constructor(
     suspend operator fun invoke(
         newOrUpdatedSets: List<LoggedSet>,
         excludeSetIds: Set<String> = emptySet(),
-    ): Result<ComputationResult> = runCatching {
+    ): Result<ComputationResult> = runCatchingCancellable {
         val updatedIncoming = mutableListOf<LoggedSet>()
         val oldPrSetsToUpdate = mutableMapOf<String, LoggedSet>()
 

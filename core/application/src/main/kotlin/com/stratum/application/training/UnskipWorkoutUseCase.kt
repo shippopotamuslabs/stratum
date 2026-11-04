@@ -1,5 +1,6 @@
 package com.stratum.application.training
 
+import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.Program
 import com.stratum.application.program.ProgramRepository
@@ -33,7 +34,7 @@ class UnskipWorkoutUseCase @Inject constructor(
         val program =
             programRepository.getProgram()
                 ?: return Result.failure(IllegalStateException("No active program found to unskip workout"))
-        return runCatching {
+        return runCatchingCancellable {
             val sessions = trainingLogRepository.getAllSessions()
             val workoutSessions = sessions.filter { session ->
                 session.programId == program.id &&
@@ -63,7 +64,7 @@ class UnskipWorkoutUseCase @Inject constructor(
         val program =
             programRepository.getProgram()
                 ?: return Result.failure(IllegalStateException("No active program found to unskip rest day"))
-        return runCatching {
+        return runCatchingCancellable {
             val sessions = trainingLogRepository.getAllSessions()
             val toDelete = sessions.filter { session ->
                 session.programId == program.id &&
@@ -81,7 +82,7 @@ class UnskipWorkoutUseCase @Inject constructor(
         val program =
             programRepository.getProgram()
                 ?: return Result.failure(IllegalStateException("No active program found to unskip rest day"))
-        return runCatching {
+        return runCatchingCancellable {
             val sessions = trainingLogRepository.getAllSessions()
             val toDelete = sessions.filter { session ->
                 session.programId == program.id &&

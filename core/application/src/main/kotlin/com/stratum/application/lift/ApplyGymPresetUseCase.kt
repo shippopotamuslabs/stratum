@@ -1,5 +1,6 @@
 package com.stratum.application.lift
 
+import com.stratum.domain.coroutines.runCatchingCancellable
 import javax.inject.Inject
 import com.stratum.domain.lift.GymPreset
 
@@ -12,7 +13,7 @@ class ApplyGymPresetUseCase @Inject constructor(
     private val repository: LiftRepository,
 ) {
     suspend operator fun invoke(preset: GymPreset): Result<Unit> =
-        runCatching {
+        runCatchingCancellable {
             repository.applyPreset(preset)
             repository.setSelectedPreset(preset)
         }

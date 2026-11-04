@@ -1,5 +1,6 @@
 package com.stratum.application.importing
 
+import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.Lift
 import com.stratum.application.lift.LiftRepository
@@ -76,7 +77,7 @@ class ExtractTrainingInsightsUseCase @Inject constructor(
     suspend operator fun invoke(
         provenLiftIds: Set<LiftId> = emptySet(),
         scope: InsightsAnalysisScope = InsightsAnalysisScope.ImportOnly,
-    ): Result<ExtractTrainingInsightsSummary> = runCatching {
+    ): Result<ExtractTrainingInsightsSummary> = runCatchingCancellable {
         // A live refresh over All history must not clobber proven-lift provenance recorded at
         // import time — re-read the previously persisted metadata and carry its proven ids forward.
         // ImportOnly callers always pass an explicit provenLiftIds set (from lift resolution).
@@ -682,7 +683,7 @@ class StartHistoricalImportUseCase @Inject constructor(
      * still `pending_agent`/`agent_running` — that path used to surface "Import job is already
      * running" / "Another import is already in progress."
      */
-    suspend operator fun invoke(): Result<ImportJob> = runCatching {
+    suspend operator fun invoke(): Result<ImportJob> = runCatchingCancellable {
         failActiveImportJobs(
             importJobRepository = importJobRepository,
             errorMessage = "Superseded by a new import.",
@@ -731,7 +732,7 @@ class PersistImportedHistoryUseCase @Inject constructor(
         sourceKind: ImportDedupeSourceKind,
         stableIdSessionIds: Set<String>,
         zone: java.time.ZoneId,
-    ): Result<ExtractTrainingInsightsSummary> = runCatching {
+    ): Result<ExtractTrainingInsightsSummary> = runCatchingCancellable {
         val (sanitizedSessions, sanitizedSets) = ImportedHistorySanitizer.sanitize(sessions, sets)
         require(sanitizedSessions.all { it.origin == TrainingSessionOrigin.IMPORT }) {
             "Import persist requires all sessions to have origin IMPORT."
@@ -760,7 +761,7 @@ class PersistImportedHistoryUseCase @Inject constructor(
             // misconfigured insights pipeline fails closed without wiping prior IMPORT rows.
             // Fresh-empty device → summary zeros without extract.
             if (existingSessions.isEmpty()) {
-                return@runCatching ExtractTrainingInsightsSummary(
+                return@runCatchingCancellable ExtractTrainingInsightsSummary(
                     liftsWithInsights = 0,
                     supersetPairs = 0,
                     musclesWithBaselines = 0,
@@ -773,7 +774,7 @@ class PersistImportedHistoryUseCase @Inject constructor(
                     catalogStep = ImportCatalogProgressStep.AnalyzingPatterns,
                 ),
             )
-            return@runCatching extractTrainingInsights()
+            return@runCatchingCancellable extractTrainingInsights()
                 .getOrThrow()
                 .copy(mergeStats = mergeStats)
         }
@@ -861,7 +862,7 @@ class PersistImportedHistoryUseCase @Inject constructor(
         sessions: List<TrainingSession>,
         sets: List<LoggedSet>,
         onProgress: ImportProgressCallback,
-    ): Result<ExtractTrainingInsightsSummary> = runCatching {
+    ): Result<ExtractTrainingInsightsSummary> = runCatchingCancellable {
         val (sessions, sanitizedSets) = ImportedHistorySanitizer.sanitize(sessions, sets)
         require(sessions.all { it.origin == TrainingSessionOrigin.IMPORT }) {
             "Import persist requires all sessions to have origin IMPORT."

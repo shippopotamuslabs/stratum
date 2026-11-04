@@ -1,5 +1,6 @@
 package com.stratum.application.program.importing
 
+import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.di.DefaultDispatcher
 import com.stratum.application.onboarding.CompleteOnboardingUseCase
 import com.stratum.domain.onboarding.UserTrainingProfile
@@ -86,7 +87,8 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
         // Rollback diagnostics collected inside; re-attached below when the surfaced
         // failure is a cancellation the platform normalized (see below).
         val rollbackFailures = mutableListOf<ProgramImportRollbackDiagnostic>()
-        val result = runCatching {
+        val result = try {
+            runCatchingCancellable {
             withContext(importDispatcher) {
             onProgress(ProgramTemplateImportPhase.Uploading)
             val jobId = ProgramTemplateImportJobId(UUID.randomUUID().toString())
@@ -195,29 +197,27 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
             )
             }
         }
-        return surfaceCancellationWithRollbackEvidence(result, rollbackFailures)
+        } catch (cancelled: CancellationException) {
+            throw cancelled.withRollbackEvidence(rollbackFailures)
+        }
+        return result
     }
 
     /**
      * Re-attaches rollback evidence to a surfaced cancellation (STR-256): coroutine
      * machinery may normalize the rethrown instance (message-only copy) once the block has
      * suspended, so the in-catch attach in [resolveRollbackThrow] alone would be silently
-     * dropped in practice. Non-cancellations pass through untouched.
+     * dropped in practice. Non-cancellations never reach this catch.
      */
-    private fun surfaceCancellationWithRollbackEvidence(
-        result: Result<ProgramTemplateImportResult>,
+    private fun CancellationException.withRollbackEvidence(
         rollbackFailures: List<ProgramImportRollbackDiagnostic>,
-    ): Result<ProgramTemplateImportResult> {
-        val surfaced = result.exceptionOrNull()
-        if (surfaced is CancellationException) {
-            rollbackFailures.forEach { diagnostic ->
-                if (surfaced.suppressed.none { it === diagnostic.cause }) {
-                    surfaced.addSuppressed(diagnostic.cause)
-                }
+    ): CancellationException {
+        rollbackFailures.forEach { diagnostic ->
+            if (suppressed.none { it === diagnostic.cause }) {
+                addSuppressed(diagnostic.cause)
             }
-            throw surfaced
         }
-        return result
+        return this
     }
 
     /**
@@ -225,7 +225,7 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
      * its delete attempt via [collectRollbackFailures], then a [CancellationException] primary
      * is returned as-is with the rollback causes attached (never wrapped), a persist failure
      * with failed deletes becomes a [ProgramImportRollbackException], and a clean rollback
-     * returns the primary bare. The in-catch attach is repeated after runCatching because
+     * returns the primary bare. The in-catch attach is repeated after runCatchingCancellable because
      * coroutine machinery may normalize the rethrown instance (message-only copy) once the
      * block has suspended — the in-catch attach alone would be silently dropped in practice.
      */
@@ -274,7 +274,7 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
     private suspend fun pollUntilTerminal(
         jobId: ProgramTemplateImportJobId,
         onProgress: ProgramTemplateImportProgressCallback,
-    ): Result<ProgramTemplateJobSnapshot> = runCatching {
+    ): Result<ProgramTemplateJobSnapshot> = runCatchingCancellable {
         val terminal = withTimeoutOrNull(POLL_TIMEOUT_MS) {
             var snapshot: ProgramTemplateJobSnapshot? = null
             while (snapshot == null || !snapshot.status.isTerminal()) {

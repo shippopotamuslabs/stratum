@@ -1,5 +1,6 @@
 package com.stratum.application.workout
 
+import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.training.identity.TrainingSessionId
 import javax.inject.Inject
@@ -28,14 +29,14 @@ class ManageWorkoutOverlayUseCase @Inject constructor(
 
     /** Overwrites the stored overlay for [sessionId]. Failure is logged; does not throw. */
     suspend fun save(sessionId: TrainingSessionId, overlay: WorkoutOverlay): Result<Unit> =
-        runCatching { store.save(sessionId, overlay) }
+        runCatchingCancellable { store.save(sessionId, overlay) }
             .onFailure { error ->
                 loggingPort.error(TAG, "Failed to persist workout overlay: ${error.message}", error)
             }
 
     /** Drops any stored overlay regardless of session id (call on finalize / abandon). */
     suspend fun clear(): Result<Unit> =
-        runCatching { store.clear() }
+        runCatchingCancellable { store.clear() }
             .onFailure { error ->
                 loggingPort.error(TAG, "Failed to clear workout overlay: ${error.message}", error)
             }

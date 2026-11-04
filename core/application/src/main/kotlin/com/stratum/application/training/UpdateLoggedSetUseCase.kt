@@ -1,5 +1,6 @@
 package com.stratum.application.training
 
+import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.logging.LoggingPort
 import javax.inject.Inject
 import com.stratum.domain.training.LoggedSet
@@ -12,7 +13,7 @@ class UpdateLoggedSetUseCase @Inject constructor(
     private val trainingLogRepository: TrainingLogRepository,
     private val loggingPort: LoggingPort,
 ) {
-    suspend operator fun invoke(set: LoggedSet): Result<Unit> = runCatching {
+    suspend operator fun invoke(set: LoggedSet): Result<Unit> = runCatchingCancellable {
         trainingLogRepository.requireInProgressSession(set.sessionId)
         trainingLogRepository.updateSet(set)
     }.onFailure { error ->

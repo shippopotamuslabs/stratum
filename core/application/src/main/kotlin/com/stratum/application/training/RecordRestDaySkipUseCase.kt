@@ -1,5 +1,6 @@
 package com.stratum.application.training
 
+import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.application.program.ProgramRepository
 import com.stratum.domain.program.schedule.CycleProjection
@@ -37,7 +38,7 @@ class RecordRestDaySkipUseCase @Inject constructor(
             program.cycleStartEpochDay?.let { start ->
                 CycleProjection.projectedWeekday(start, restSlot.slotIndex)
             }
-        return runCatching {
+        return runCatchingCancellable {
             persistRestSession(
                 programId = program.id,
                 programName = program.name,
@@ -76,7 +77,7 @@ class RecordRestDaySkipUseCase @Inject constructor(
                 null
             } ?: restCandidates.firstOrNull()
                 ?: return Result.failure(NoSuchElementException("No unconsumed rest slot to mark for $weekday"))
-        return runCatching {
+        return runCatchingCancellable {
             persistRestSession(
                 programId = program.id,
                 programName = program.name,
