@@ -33,18 +33,6 @@ data class Equipment(
     val isDeleted: Boolean = false,
 ) {
     /**
-     * The validated lattice these tiers and micro stops form (STR-165).
-     *
-     * Every write path constructs the lattice before persisting, so stored rows are
-     * lattices. This is an explicit fail-fast function, not a property: a row whose
-     * stops are carried against replacement tiers (the fork destination-tier
-     * hand-off in `ForkEquipmentUseCase`, where the destination write validates
-     * them) throws here until that write lands — the model owns that meaning in
-     * one place instead of each consumer re-deciding it.
-     */
-    fun requireLattice(): IncrementLattice = IncrementLattice(incrementTiers, microIncrements)
-
-    /**
      * Fork semantics, owned by the model (STR-169): a fork (clone) of this equipment
      * starts with this row's adder stops unless the caller passes an explicit
      * replacement — null inherits the parent's stops, a non-null list (empty = no
