@@ -171,6 +171,7 @@ class SettingsViewModelTest {
                 stopCloudSync = StopCloudSyncUseCase(fakeCloudSync),
                 startCloudSync = StartCloudSyncUseCase(fakeCloudSync),
                 endSessionAndWipe = EndSessionAndWipeUseCase(fakeCloudSync),
+                loggingPort = FakeLoggingPort(),
             ),
         )
 

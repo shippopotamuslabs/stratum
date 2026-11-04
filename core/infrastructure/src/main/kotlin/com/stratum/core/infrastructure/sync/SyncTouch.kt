@@ -2,8 +2,10 @@ package com.stratum.core.infrastructure.sync
 import com.stratum.core.infrastructure.sync.SyncFlags
 
 import com.stratum.core.infrastructure.work.CloudSyncScheduler
+import com.stratum.domain.logging.LoggingPort
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * Single write-side entry for syncable Room mutations:
@@ -21,6 +23,7 @@ class SyncTouch @Inject constructor(
     private val cloudSyncScheduler: CloudSyncScheduler,
     private val featureGate: CloudSyncFeatureGate,
     private val writeCoordinator: UserOwnedWriteCoordinator,
+    private val loggingPort: LoggingPort,
 ) {
     /** Run a user-owned write under the same lock as account switch wipe. */
     suspend fun <T> withWriteLock(block: suspend () -> T): T = writeCoordinator.withWriteLock(block)
@@ -39,7 +42,15 @@ class SyncTouch @Inject constructor(
 
     fun markDirty() {
         if (!featureGate.isEnabled()) return
-        runCatching { cloudSyncScheduler.enqueueSoon() }
+        // Scheduling stays fire-and-forget (WorkManager retry is the recovery), but a
+        // scheduling failure is recorded once here instead of being discarded (STR-239).
+        try {
+            cloudSyncScheduler.enqueueSoon()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            loggingPort.error(TAG, "Failed to schedule cloud sync: ${error.message}", error)
+        }
     }
 
     suspend fun replaceIds(
@@ -81,5 +92,9 @@ class SyncTouch @Inject constructor(
         entityId: String,
     ) {
         cloudDeleteQueue.cancel(collection, entityId)
+    }
+
+    private companion object {
+        const val TAG = "SyncTouch"
     }
 }

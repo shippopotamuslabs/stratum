@@ -2,6 +2,7 @@ package com.stratum.application.auth
 
 import com.stratum.core.testing.auth.FakeAccountDeletionPort
 import com.stratum.core.testing.auth.FakeAuthManager
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.sync.FakeCloudSyncPort
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
@@ -184,12 +185,14 @@ class DeleteAccountUseCaseTest {
     @DisplayName("Given signOut fails after auth delete when delete then still success")
     fun signOutFailureAfterAuthDeleteIsBestEffort() = runTest {
         val user = UserProfile("uid-1", "A", "a@example.com", null)
+        val signOutFailure = IllegalStateException("credential clear failed")
         val auth = FakeAuthManager(AuthState.Authenticated(user)).apply {
-            signOutResult = Result.failure(IllegalStateException("credential clear failed"))
+            signOutResult = Result.failure(signOutFailure)
         }
         val remote = FakeAccountDeletionPort()
         val port = FakeCloudSyncPort()
-        val subject = buildSubject(auth, remote, port)
+        val logging = FakeLoggingPort()
+        val subject = buildSubject(auth, remote, port, logging)
 
         val result = subject()
 
@@ -197,12 +200,16 @@ class DeleteAccountUseCaseTest {
         assertEquals(1, remote.deleteAuthCount)
         assertEquals(1, auth.signOutCount)
         assertEquals(listOf("stop", "wipe"), port.callOrder)
+        // The best-effort failure no longer vanishes: recorded once at the boundary (STR-239).
+        assertEquals(1, logging.errors.size)
+        assertSame(signOutFailure, logging.errors.single().throwable)
     }
 
     private fun buildSubject(
         auth: FakeAuthManager,
         remote: FakeAccountDeletionPort,
         port: FakeCloudSyncPort,
+        logging: FakeLoggingPort = FakeLoggingPort(),
     ): DeleteAccountUseCase =
         DeleteAccountUseCase(
             authManager = auth,
@@ -210,5 +217,6 @@ class DeleteAccountUseCaseTest {
             stopCloudSync = StopCloudSyncUseCase(port),
             startCloudSync = StartCloudSyncUseCase(port),
             endSessionAndWipe = EndSessionAndWipeUseCase(port),
+            loggingPort = logging,
         )
 }

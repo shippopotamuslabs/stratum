@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 import com.stratum.domain.auth.AuthState
 import com.stratum.domain.auth.UserProfile
+import com.stratum.domain.logging.LoggingPort
 import com.stratum.application.sync.CloudSyncPort
 
 class GetAuthStateUseCase @Inject constructor(
@@ -131,6 +132,7 @@ class DeleteAccountUseCase @Inject constructor(
     private val stopCloudSync: StopCloudSyncUseCase,
     private val startCloudSync: StartCloudSyncUseCase,
     private val endSessionAndWipe: EndSessionAndWipeUseCase,
+    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(): Result<Unit> {
         val uid = (authManager.authState.value as? AuthState.Authenticated)?.user?.uid
@@ -161,8 +163,29 @@ class DeleteAccountUseCase @Inject constructor(
                 )
             }
             // Auth user is already gone; clear local session/credentials if possible.
-            runCatching { authManager.signOut() }
+            // Best-effort: deletion has already succeeded, so a sign-out failure never
+            // retypes the outcome — but it must not vanish either. Captured in the
+            // STR-256 shape (returned failure or throw, cancellation rethrown) and
+            // recorded once at this boundary (STR-239).
+            val signOutError: Throwable? =
+                try {
+                    authManager.signOut().exceptionOrNull()
+                } catch (error: Throwable) {
+                    error
+                }
+            if (signOutError is CancellationException) throw signOutError
+            if (signOutError != null) {
+                loggingPort.error(
+                    TAG,
+                    "Sign-out after account deletion failed: ${signOutError.message}",
+                    signOutError,
+                )
+            }
             Result.success(Unit)
         }
+    }
+
+    private companion object {
+        const val TAG = "DeleteAccount"
     }
 }
