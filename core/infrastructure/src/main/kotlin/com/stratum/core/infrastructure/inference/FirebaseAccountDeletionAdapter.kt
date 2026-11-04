@@ -3,6 +3,7 @@ package com.stratum.core.infrastructure.inference
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.functions.FirebaseFunctions
 import com.stratum.application.auth.AccountDeletionPort
+import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.logging.LoggingPort
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -27,7 +28,7 @@ class FirebaseAccountDeletionAdapter @Inject constructor(
         callPhase(PHASE_AUTH)
 
     private suspend fun callPhase(phase: String): Result<Unit> =
-        runCatching {
+        runCatchingCancellable {
             checkNotNull(auth.currentUser) { "Sign-in required to delete account." }
             val callable =
                 functions

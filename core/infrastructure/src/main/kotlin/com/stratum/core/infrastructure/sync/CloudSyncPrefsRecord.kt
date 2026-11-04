@@ -3,6 +3,7 @@ package com.stratum.core.infrastructure.sync
 import android.content.Context
 import androidx.datastore.core.Serializer
 import androidx.datastore.dataStore
+import com.stratum.domain.coroutines.runCatchingCancellable
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.io.InputStream
@@ -64,7 +65,7 @@ object CloudSyncPrefsRecordSerializer : Serializer<CloudSyncPrefsRecord> {
     override suspend fun readFrom(input: InputStream): CloudSyncPrefsRecord {
         val text = input.bufferedReader().use { it.readText() }
         if (text.isBlank()) return defaultValue
-        return runCatching {
+        return runCatchingCancellable {
             cloudSyncJson.decodeFromString(CloudSyncPrefsRecord.serializer(), text)
         }.getOrDefault(defaultValue)
     }

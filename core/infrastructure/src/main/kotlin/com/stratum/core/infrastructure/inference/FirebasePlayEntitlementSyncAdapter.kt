@@ -3,6 +3,7 @@ package com.stratum.core.infrastructure.inference
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.functions.FirebaseFunctions
 import com.stratum.application.subscription.PlayEntitlementSyncPort
+import com.stratum.domain.coroutines.runCatchingCancellable
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -23,7 +24,7 @@ class FirebasePlayEntitlementSyncAdapter @Inject constructor() : PlayEntitlement
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
 
     override suspend fun syncPurchaseToken(purchaseToken: String): Result<Boolean> =
-        runCatching {
+        runCatchingCancellable {
             checkNotNull(auth.currentUser) { "Sign-in required to sync Play entitlement." }
             check(purchaseToken.isNotBlank()) { "purchaseToken is required." }
             val callable =

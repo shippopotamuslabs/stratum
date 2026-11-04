@@ -4,6 +4,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.storage.FirebaseStorage
 import com.stratum.application.importing.HistoricalImportPort
+import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.importing.ImportJobSnapshot
 import com.stratum.domain.importing.ImportProgressPhase
 import com.stratum.domain.importing.RemoteImportJobStatus
@@ -23,7 +24,7 @@ class FirebaseHistoricalImportAdapter @Inject constructor() : HistoricalImportPo
         jobId: ImportJobId,
         bytes: ByteArray,
         fileName: String,
-    ): Result<UploadRefs> = runCatching {
+    ): Result<UploadRefs> = runCatchingCancellable {
         val uid = requireUid()
         val rawPath = "imports/$uid/${jobId.value}/raw/$fileName"
         val samplePath = "imports/$uid/${jobId.value}/sample/$fileName"
@@ -37,7 +38,7 @@ class FirebaseHistoricalImportAdapter @Inject constructor() : HistoricalImportPo
         jobId: ImportJobId,
         refs: UploadRefs,
         fallbackWeightUnit: com.stratum.domain.lift.Weight.WeightUnit,
-    ): Result<Unit> = runCatching {
+    ): Result<Unit> = runCatchingCancellable {
         val callable = functions.getHttpsCallable("startImport")
         callable.call(
             mapOf(
@@ -49,7 +50,7 @@ class FirebaseHistoricalImportAdapter @Inject constructor() : HistoricalImportPo
         ).await()
     }
 
-    override suspend fun pollJobStatus(jobId: ImportJobId): Result<ImportJobSnapshot> = runCatching {
+    override suspend fun pollJobStatus(jobId: ImportJobId): Result<ImportJobSnapshot> = runCatchingCancellable {
         val callable = functions.getHttpsCallable("getImportJobStatus")
         val result = callable.call(mapOf("jobId" to jobId.value)).await()
         val map = result.data as? Map<*, *> ?: error("Invalid getImportJobStatus response")
@@ -64,7 +65,7 @@ class FirebaseHistoricalImportAdapter @Inject constructor() : HistoricalImportPo
         )
     }
 
-    override suspend fun downloadConversion(storagePath: String): Result<String> = runCatching {
+    override suspend fun downloadConversion(storagePath: String): Result<String> = runCatchingCancellable {
         val bytes = storage.reference.child(storagePath).getBytes(MAX_DOWNLOAD_BYTES).await()
         bytes.decodeToString()
     }

@@ -2,6 +2,7 @@ package com.stratum.core.infrastructure.subscription
 
 import com.stratum.application.auth.AuthManager
 import com.stratum.domain.auth.AuthState
+import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.di.ApplicationScope
 import com.stratum.application.subscription.BillingPort
 import com.stratum.application.subscription.EntitlementRepository
@@ -68,7 +69,7 @@ class SubscriptionRepositoryImpl @Inject constructor(
                 restoreResult.exceptionOrNull() ?: IllegalStateException("Failed to restore purchases"),
             )
         }
-        return runCatching {
+        return runCatchingCancellable {
             val auth = authManager.authState.value
             val purchases = billingPort.activePurchases.first()
             val complimentary = if (auth is AuthState.Authenticated) {

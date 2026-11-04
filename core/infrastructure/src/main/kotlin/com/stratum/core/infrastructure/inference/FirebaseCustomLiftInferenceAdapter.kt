@@ -3,6 +3,7 @@ package com.stratum.core.infrastructure.inference
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.functions.FirebaseFunctions
 import com.stratum.application.importing.CustomLiftInferencePort
+import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.importing.ImportStubLiftGuesser
 import com.stratum.domain.importing.InferredCustomLiftMetadata
 import com.stratum.domain.importing.InferredEquipmentLoading
@@ -31,7 +32,7 @@ class FirebaseCustomLiftInferenceAdapter @Inject constructor(
 
     override suspend fun inferMetadata(
         candidates: List<UnmatchedExerciseCandidate>,
-    ): Result<List<InferredCustomLiftMetadata>> = runCatching {
+    ): Result<List<InferredCustomLiftMetadata>> = runCatchingCancellable {
         requireAuth()
         val callable =
             functions

@@ -54,14 +54,14 @@ class ResponseModelingWork @Inject constructor(
     }
 
     suspend fun run(forceHistoryInvalidation: Boolean = false): Outcome =
-        runCatching {
+        try {
             val lastExtracted = metadataRepository.get()?.lastExtractedAt
             val isReExtract = lastExtracted != null
             if (!forceHistoryInvalidation && lastExtracted != null) {
                 val sessions = trainingLogRepository.getAllSessions()
                 val newWorkouts = countCompletedWorkoutsSince(sessions, lastExtracted)
                 if (newWorkouts < RE_EXTRACT_MIN_COMPLETED_WORKOUTS) {
-                    return@runCatching Outcome.Skipped
+                    return Outcome.Skipped
                 }
             }
             // Null metadata, enough new workouts, or forced history invalidation → full All-history extract.
@@ -80,10 +80,9 @@ class ResponseModelingWork @Inject constructor(
                 },
                 onFailure = { Outcome.Failed(it) },
             )
-        }.getOrElse { error ->
-            if (error is CancellationException) {
-                throw error
-            }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Throwable) {
             Outcome.Failed(error)
         }
 

@@ -4,6 +4,7 @@ import android.util.Base64
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.functions.FirebaseFunctions
 import com.stratum.application.lift.IncrementScanPort
+import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.lift.ScanPhoto
 import com.stratum.domain.lift.ScannedTiers
 import com.stratum.domain.logging.LoggingPort
@@ -29,7 +30,7 @@ class FirebaseIncrementScanAdapter @Inject constructor(
     private val auth: FirebaseAuth,
 ) : IncrementScanPort {
     override suspend fun scanTiers(photo: ScanPhoto): Result<ScannedTiers> =
-        runCatching {
+        runCatchingCancellable {
             requireAuth()
             val callable =
                 functions
