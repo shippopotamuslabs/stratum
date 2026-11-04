@@ -7,7 +7,6 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import com.stratum.domain.lift.identity.EquipmentId
 
 /**
  * STR-165: the tier and micro rules that used to live in the deleted validator use
@@ -343,32 +342,6 @@ class IncrementLatticeValidationTest {
             assertTrue(result.exceptionOrNull() is MicroIncrementsInvalidException)
         }
 
-        @Test
-        @DisplayName("Given stored equipment when requireLattice is called then the lattice is returned")
-        fun equipmentRequireLattice() {
-            val tiers = listOf(tier(0.0, null, 15.0))
-            val equipment =
-                Equipment(
-                    id = com.stratum.domain.lift.identity.EquipmentId("eq-1"),
-                    name = "Stack",
-                    incrementTiers = tiers,
-                    microIncrements = listOf(stop(5.0)),
-                )
-            assertEquals(IncrementLattice(tiers, listOf(stop(5.0))), equipment.requireLattice())
-        }
-
-        @Test
-        @DisplayName("Given stops carried against replacement tiers when requireLattice is called then it throws")
-        fun equipmentRequireLatticeThrowsOnHandOffState() {
-            val equipment =
-                Equipment(
-                    id = com.stratum.domain.lift.identity.EquipmentId("eq-2"),
-                    name = "Stack copy",
-                    incrementTiers = listOf(tier(0.0, null, 2.5)),
-                    microIncrements = listOf(stop(5.0)),
-                )
-            assertThrows<MicroIncrementsInvalidException> { equipment.requireLattice() }
-        }
     }
 
     private fun assertInvalidTiers(

@@ -21,10 +21,7 @@ val INCREMENT_STEP_ALLOWLIST_KG: List<Double> =
 data class InferredIncrementLattice(
     val step: Double,
     val tiers: List<IncrementTier>,
-) {
-    /** The proposed tiers as a validated lattice (STR-165); inference only builds valid tiers. */
-    fun requireLattice(): IncrementLattice = IncrementLattice(tiers)
-}
+)
 
 /**
  * Bundled tiers + micro inference baseline.
