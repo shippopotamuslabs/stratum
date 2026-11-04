@@ -1,0 +1,60 @@
+# Plain-runCatching allowlist for scripts/ci/check-runcatching-gate.sh (STR-239).
+# One entry per line: <repo-relative .kt path> <reason>. Blank lines and lines
+# starting with # are ignored. Later stack tickets (STR-240/241/243) shrink this
+# list as they convert sites; the gate fails on stale entries.
+#
+# --- :core:domain — enum/parse getOrNull sites, non-suspend (STR-240 owns) ---
+core/domain/src/main/kotlin/com/stratum/domain/importing/GlobalVolumePriors.kt # enum valueOf parse, non-suspend (STR-240)
+core/domain/src/main/kotlin/com/stratum/domain/program/generation/build/WorkoutAssembler.kt # enum valueOf parses, non-suspend (STR-240)
+core/domain/src/main/kotlin/com/stratum/domain/program/generation/reference/MuscleRecoveryScheduling.kt # enum valueOf parse, non-suspend (STR-240)
+core/domain/src/main/kotlin/com/stratum/domain/program/generation/schema/ProgramDomainMapper.kt # enum valueOf parse, non-suspend (STR-240)
+core/domain/src/main/kotlin/com/stratum/domain/program/generation/schema/ProgramNormalizer.kt # enum valueOf parses, non-suspend (STR-240)
+core/domain/src/main/kotlin/com/stratum/domain/program/generation/slots/SlotGenerationDiagnostic.kt # enum valueOf parses, non-suspend (STR-240)
+core/domain/src/main/kotlin/com/stratum/domain/program/generation/structure/SlotRegionCompatibility.kt # enum valueOf parse, non-suspend (STR-240)
+core/domain/src/main/kotlin/com/stratum/domain/program/generation/synthesis/PlaceholderSessionNames.kt # enum valueOf parse, non-suspend (STR-240)
+core/domain/src/main/kotlin/com/stratum/domain/program/generation/synthesis/SynthesisMaterializer.kt # enum valueOf parses, non-suspend (STR-240)
+core/domain/src/main/kotlin/com/stratum/domain/program/generation/synthesis/wire/ContextWireCodec.kt # enumValueOf decode-or-null, non-suspend (STR-240)
+core/domain/src/main/kotlin/com/stratum/domain/program/generation/synthesis/wire/ResultWireCodec.kt # enumValueOf/decode-or-null, non-suspend (STR-240)
+core/domain/src/main/kotlin/com/stratum/domain/program/generation/volume/VolumeTargetPlanner.kt # enum valueOf parse, non-suspend (STR-240)
+# --- :core:domain — non-suspend, result consumed by the caller ---
+core/domain/src/main/kotlin/com/stratum/domain/lift/IncrementLattice.kt # constructor-validation-as-Result, non-suspend, result consumed
+core/domain/src/main/kotlin/com/stratum/domain/program/ProgramSchedule.kt # fallback computation, non-suspend, result consumed via fold
+core/domain/src/main/kotlin/com/stratum/domain/program/schedule/ProgramCycleSpace.kt # invariant-failure-to-empty, non-suspend, result consumed via getOrDefault
+core/domain/src/main/kotlin/com/stratum/domain/telemetry/TelemetryThrowableSanitizer.kt # best-effort reflection reconstruction, non-suspend
+#
+# --- :core:infrastructure — DataStore serializers: suspend readFrom, pure decode block (no suspension point inside the wrap) ---
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/checkin/CheckInPreferencesRecordSerializer.kt # serializer decode-to-default, pure block
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/dashboard/DashboardPreferencesRecordSerializer.kt # serializer decode-to-default, pure block
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/equipment/EquipmentProposalPrefsRecordSerializer.kt # serializer decode-to-default, pure block
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/healthconnect/HealthConnectPreferencesRecordSerializer.kt # serializer decode-to-default, pure block
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/program/ProgramsUiPreferencesRecordSerializer.kt # serializer decode-to-default, pure block
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/telemetry/PendingClientLogRecord.kt # serializer decode-to-default, pure block; plus enum parse site
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/theme/ThemePreferencesRecordSerializer.kt # serializer decode-to-default, pure block
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/weightdisplay/WeightDisplayPreferencesRecordSerializer.kt # serializer decode-to-default, pure block
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/workout/RepRangeShiftProposalPrefsRecordSerializer.kt # serializer decode-to-default, pure block
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/workoutoverlay/WorkoutOverlayRecordSerializer.kt # serializer decode-to-default, pure block
+# --- :core:infrastructure — enum/decode control flow, non-suspend ---
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/db/EnumConverters.kt # Room @TypeConverter enum/ID decodes via getOrNull, non-suspend
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/db/ProgramChangeEventPayloadDto.kt # payload decode-or-null, non-suspend
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/db/WeekdaySetConverter.kt # enum decode via getOrNull, non-suspend
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/healthconnect/HealthConnectPreferencesRecord.kt # enum valueOf parse, non-suspend
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/mapper/LiftMapper.kt # enum/JSON decode-or-null, non-suspend
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/mapper/ProgramChangeEventMapper.kt # payload decode-or-null, non-suspend
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/mapper/ProgramMapper.kt # Instant.parse with EPOCH fallback, non-suspend
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/mapper/ResponseModelingMapper.kt # enum decode via getOrNull, non-suspend
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/sync/appliers/LiftRemoteApplier.kt # ID construction via getOrNull, non-suspend
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/sync/codecs/SyncEntityDecoders.kt # synchronous entity decode helpers
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/workoutoverlay/WorkoutOverlayMapper.kt # Weight construction via getOrNull, non-suspend
+# --- :core:infrastructure — asset/seed decode helpers, non-suspend ---
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/seed/AssetLiftEmbeddingCatalog.kt # asset decode in private non-suspend fun
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/seed/AssetLiftEquipmentCatalog.kt # asset decode in private non-suspend fun; plus enum parse site
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/seed/EquipmentCatalogSeeder.kt # asset decode in private non-suspend fun
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/seed/LiftCatalogSeeder.kt # asset decode in private non-suspend fun; plus enum parse helper
+# --- :core:infrastructure — fire-and-forget telemetry wrappers, non-suspend ---
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/inference/AndroidAnalyticsAdapter.kt # non-suspend telemetry wrapper
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/inference/AndroidCrashTelemetryAdapter.kt # non-suspend telemetry wrappers
+# --- :core:infrastructure — mixed files: suspend bodies converted by STR-239, one non-suspend parse site remains ---
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/inference/FirebaseCustomLiftInferenceAdapter.kt # remaining site is an enum valueOf parse in a non-suspend helper
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/inference/FirebaseImportEquipmentInferenceAdapter.kt # remaining site is an enum valueOf parse in a non-suspend helper
+# --- :core:infrastructure — DI wiring, non-suspend ---
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/inference/InferenceModule.kt # @Provides versionName lookup via getOrNull, non-suspend

@@ -87,8 +87,7 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
         // Rollback diagnostics collected inside; re-attached below when the surfaced
         // failure is a cancellation the platform normalized (see below).
         val rollbackFailures = mutableListOf<ProgramImportRollbackDiagnostic>()
-        val result = try {
-            runCatchingCancellable {
+        val result = runImportBlock(rollbackFailures) {
             withContext(importDispatcher) {
             onProgress(ProgramTemplateImportPhase.Uploading)
             val jobId = ProgramTemplateImportJobId(UUID.randomUUID().toString())
@@ -197,11 +196,23 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
             )
             }
         }
+        return result
+    }
+
+    /**
+     * Runs [block] as the import's Result envelope (STR-239): ordinary failures return
+     * as a [Result]; a cancellation propagates as a throw with the rollback evidence
+     * re-attached (STR-256, see [withRollbackEvidence]).
+     */
+    private suspend fun <T> runImportBlock(
+        rollbackFailures: List<ProgramImportRollbackDiagnostic>,
+        block: suspend () -> T,
+    ): Result<T> =
+        try {
+            runCatchingCancellable(block)
         } catch (cancelled: CancellationException) {
             throw cancelled.withRollbackEvidence(rollbackFailures)
         }
-        return result
-    }
 
     /**
      * Re-attaches rollback evidence to a surfaced cancellation (STR-256): coroutine
