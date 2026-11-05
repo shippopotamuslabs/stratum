@@ -57,4 +57,10 @@ interface ProgramSynthesisPort {
 class ProgramSynthesisException(
     message: String,
     cause: Throwable? = null,
-) : RuntimeException(message, cause)
+) : RuntimeException(message, cause) {
+    companion object {
+        /** User-facing copy for a synthesis refusal while the feature gate is paused. */
+        const val MESSAGE_SYNTHESIS_PAUSED =
+            "Program generation is temporarily unavailable. Please try again later."
+    }
+}

@@ -11,6 +11,7 @@ import com.stratum.domain.training.identity.TrainingSessionId
 import javax.inject.Inject
 import kotlinx.coroutines.flow.first
 import com.stratum.domain.training.LoggedSet
+import com.stratum.domain.training.TrainingSession
 import com.stratum.domain.training.TrainingSessionDisplayName
 import com.stratum.domain.training.TrainingSessionStatus
 
@@ -44,9 +45,7 @@ class GetCompletedSessionForEditUseCase @Inject constructor(
         if (session.status != TrainingSessionStatus.COMPLETED) {
             return loggingPort.expectedFailure(
                 TAG,
-                IllegalArgumentException(
-                    "Training session ${session.id.value} is not completed (status=${session.status})",
-                ),
+                TrainingSession.notCompletedException(session),
             )
         }
         val sets = loaded.second.sortedWith(compareBy({ it.setIndex }, { it.completedAt }))

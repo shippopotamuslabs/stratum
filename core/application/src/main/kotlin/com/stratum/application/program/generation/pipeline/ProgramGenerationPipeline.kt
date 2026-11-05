@@ -83,7 +83,7 @@ open class ProgramGenerationPipeline @Inject constructor(
                         },
                     )
             ) {
-                is BuildProgramOutcome.Built -> buildOutcome.result
+                is BuildProgramOutcome.Completed -> buildOutcome.result
                 is BuildProgramOutcome.SynthesisRefused ->
                     return ProgramGenerationPipelineResult.SynthesisRefused(buildOutcome.refusal)
             }

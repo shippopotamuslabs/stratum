@@ -50,16 +50,12 @@ class UpdateCompletedSessionTimesUseCase @Inject constructor(
         // pre-checks both so the expected failures are returned as values, never thrown.
         if (session.status != TrainingSessionStatus.COMPLETED) {
             return Result.failure(
-                IllegalArgumentException(
-                    "Training session ${session.id.value} is not completed (status=${session.status})",
-                ),
+                TrainingSession.notCompletedException(session),
             )
         }
         if (startedAt.isAfter(endedAt)) {
             return Result.failure(
-                IllegalArgumentException(
-                    "Start time ($startedAt) cannot be after finish time ($endedAt)",
-                ),
+                TrainingSession.startAfterFinishException(startedAt, endedAt),
             )
         }
         val updatedSession = session.retime(newStartedAt = startedAt, newEndedAt = endedAt)

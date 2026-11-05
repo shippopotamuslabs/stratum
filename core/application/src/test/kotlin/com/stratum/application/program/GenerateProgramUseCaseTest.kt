@@ -20,6 +20,8 @@ import com.stratum.domain.program.generation.schema.NormalizedProgram
 import com.stratum.domain.program.generation.schema.NormalizedSet
 import com.stratum.domain.program.generation.schema.NormalizedWorkout
 import com.stratum.domain.program.generation.schema.ProgramNormalizationRequest
+import com.stratum.domain.program.generation.synthesis.ProgramSynthesisException
+import com.stratum.domain.program.generation.synthesis.ProgramSynthesisRefusal
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
@@ -133,6 +135,22 @@ class GenerateProgramUseCaseTest {
     }
 
     @Nested
+    @DisplayName("Synthesis refusal maps to the paused failure value")
+    inner class SynthesisRefusalPath {
+        @Test
+        fun `invoke returns ProgramSynthesisException with paused message on SynthesisRefused FeatureDisabled`() = runTest {
+            val useCase = buildUseCase(this, pipeline = SynthesisRefusedPipeline())
+
+            val result = useCase.invoke()
+
+            assertTrue(result.isFailure)
+            val error = result.exceptionOrNull()
+            assertTrue(error is ProgramSynthesisException)
+            assertEquals(ProgramSynthesisException.MESSAGE_SYNTHESIS_PAUSED, error?.message)
+        }
+    }
+
+    @Nested
     @DisplayName("PROG-GEN-206 progress callbacks report orchestration phases")
     inner class ProgressPath {
         @Test
@@ -172,11 +190,12 @@ class GenerateProgramUseCaseTest {
                 context = scenarioContext(days = 3, specialization = emptyMap()),
             ),
         enabledLiftIds: Set<LiftId> = SCENARIO_LIFT_CATALOG.map { LiftId(it.id) }.toSet(),
+        pipeline: ProgramGenerationPipeline = testProgramGenerationPipeline(),
     ): GenerateProgramUseCase {
         programRepository = FakeProgramRepository()
         return GenerateProgramUseCase(
             loadContext = contextLoader,
-            pipeline = testProgramGenerationPipeline(),
+            pipeline = pipeline,
             liftRepository = FakeLiftRepository(
                 initialLifts =
                     enabledLiftIds.map { id ->
@@ -313,4 +332,23 @@ private class FixedNormalizedProgramPipeline(
         normalizationRequest: ProgramNormalizationRequest,
         options: PipelineOptions,
     ): ProgramGenerationPipelineResult = ProgramGenerationPipelineResult.Success(fixed)
+}
+
+/**
+ * Test double: returns a synthesis refusal so the refusal-mapping test exercises
+ * [GenerateProgramUseCase]'s branch without full synthesis.
+ */
+private class SynthesisRefusedPipeline : ProgramGenerationPipeline(
+    planWeeklyVolume = PlanWeeklyVolumeUseCase(),
+    buildProgramWorkouts = BuildProgramWorkoutsUseCase(),
+    integrateAndValidate = IntegrateAndValidateProgramUseCase(),
+    programSynthesisPort = FakeProgramSynthesisPort(),
+    telemetryLogger = ProgramGenerationTelemetryLogger(FakeLoggingPort()),
+) {
+    override suspend fun generate(
+        context: ProgramGenerationContext,
+        normalizationRequest: ProgramNormalizationRequest,
+        options: PipelineOptions,
+    ): ProgramGenerationPipelineResult =
+        ProgramGenerationPipelineResult.SynthesisRefused(ProgramSynthesisRefusal.FeatureDisabled)
 }

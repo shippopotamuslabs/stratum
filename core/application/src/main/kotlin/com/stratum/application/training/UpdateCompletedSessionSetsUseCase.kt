@@ -50,9 +50,7 @@ class UpdateCompletedSessionSetsUseCase @Inject constructor(
                 )
         if (session.status != TrainingSessionStatus.COMPLETED) {
             return Result.failure(
-                IllegalArgumentException(
-                    "Training session ${session.id.value} is not completed (status=${session.status})",
-                ),
+                TrainingSession.notCompletedException(session),
             )
         }
         if (desiredSets.isEmpty()) {

@@ -44,9 +44,7 @@ class GetWorkoutSessionDetailUseCase @Inject constructor(
         if (session.status != TrainingSessionStatus.COMPLETED) {
             return loggingPort.expectedFailure(
                 TAG,
-                IllegalArgumentException(
-                    "Training session ${session.id.value} is not completed (status=${session.status})",
-                ),
+                TrainingSession.notCompletedException(session),
             )
         }
         val loggedSets = loaded.second.sortedWith(compareBy({ it.setIndex }, { it.completedAt }))

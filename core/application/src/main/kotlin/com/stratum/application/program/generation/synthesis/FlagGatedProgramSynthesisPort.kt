@@ -32,9 +32,4 @@ class FlagGatedProgramSynthesisPort(
         }
         return delegate.synthesize(weeklyTargets, context)
     }
-
-    companion object {
-        const val MESSAGE_SYNTHESIS_PAUSED =
-            "Program generation is temporarily unavailable. Please try again later."
-    }
 }
