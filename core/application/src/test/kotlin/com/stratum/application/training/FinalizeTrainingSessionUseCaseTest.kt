@@ -53,7 +53,7 @@ class FinalizeTrainingSessionUseCaseTest {
 
         val result = useCase(TrainingSessionId("ts-live-1"))
 
-        val session = result.getOrThrow()
+        val session = (result as FinalizeTrainingSessionResult.Success).session
         assertEquals(TrainingSessionStatus.COMPLETED, session.status)
         assertNotNull(session.endedAt)
     }
@@ -64,7 +64,7 @@ class FinalizeTrainingSessionUseCaseTest {
         val programRepo = FakeProgramRepository(WorkoutLoggingFixtures.twoWorkoutProgram(cyclePosition = 0))
         val useCase = buildUseCase(programRepo)
 
-        useCase(TrainingSessionId("ts-live-1")).getOrThrow()
+        useCase(TrainingSessionId("ts-live-1"))
 
         assertEquals(1, programRepo.getProgram()?.cyclePosition)
     }
@@ -75,7 +75,7 @@ class FinalizeTrainingSessionUseCaseTest {
         val programRepo = FakeProgramRepository(WorkoutLoggingFixtures.twoWorkoutProgram(cyclePosition = 0))
         val useCase = buildUseCase(programRepo)
 
-        useCase(TrainingSessionId("ts-adhoc")).getOrThrow()
+        useCase(TrainingSessionId("ts-adhoc"))
 
         assertEquals(0, programRepo.getProgram()?.cyclePosition)
         assertEquals(1, programRepo.getProgram()?.currentCycleNumber)
@@ -87,7 +87,7 @@ class FinalizeTrainingSessionUseCaseTest {
         val events = FakeProgramChangeEventRepository()
         val useCase = buildUseCase(eventRepository = events)
 
-        useCase(TrainingSessionId("ts-live-1")).getOrThrow()
+        useCase(TrainingSessionId("ts-live-1"))
 
         assertEquals(0, events.getEventsForProgram(WorkoutLoggingFixtures.programId).events.size)
     }
@@ -117,7 +117,7 @@ class FinalizeTrainingSessionUseCaseTest {
             refreshScope = CoroutineScope(Dispatchers.Unconfined),
         )
 
-        useCase(TrainingSessionId("ts-live-hc")).getOrThrow()
+        useCase(TrainingSessionId("ts-live-hc"))
 
         assertEquals(1, scheduler.enqueuedSessionIds.size)
         assertEquals(TrainingSessionId("ts-live-hc"), scheduler.enqueuedSessionIds.first())
@@ -152,8 +152,8 @@ class FinalizeTrainingSessionUseCaseTest {
 
         val result = useCase(TrainingSessionId("ts-live-hc-fail"))
 
-        assertTrue(result.isSuccess)
-        assertEquals(TrainingSessionStatus.COMPLETED, result.getOrThrow().status)
+        assertTrue(result is FinalizeTrainingSessionResult.Success)
+        assertEquals(TrainingSessionStatus.COMPLETED, (result as FinalizeTrainingSessionResult.Success).session.status)
     }
 
     @Test
@@ -195,7 +195,7 @@ class FinalizeTrainingSessionUseCaseTest {
             refreshScope = CoroutineScope(Dispatchers.Unconfined),
         )
 
-        useCase(TrainingSessionId("ts-live-1")).getOrThrow()
+        useCase(TrainingSessionId("ts-live-1"))
 
         val updatedSets = repo.getSetsForSession(TrainingSessionId("ts-live-1"))
         assertEquals(1, updatedSets.size)
@@ -275,7 +275,7 @@ class FinalizeTrainingSessionUseCaseTest {
             )
 
         val result = useCase(TrainingSessionId("ts-live-1"))
-        assertTrue(result.isSuccess, result.exceptionOrNull()?.message)
+        assertTrue(result is FinalizeTrainingSessionResult.Success)
         assertTrue(
             repo.getSetsForSession(TrainingSessionId("ts-live-1")).single().isPersonalRecord,
         )
@@ -315,8 +315,8 @@ class FinalizeTrainingSessionUseCaseTest {
 
         // invoke() must return before the refresh runs (dispatcher hasn't advanced).
         val result = useCase(TrainingSessionId("ts-live-1"))
-        assertTrue(result.isSuccess)
-        assertEquals(TrainingSessionStatus.COMPLETED, result.getOrThrow().status)
+        assertTrue(result is FinalizeTrainingSessionResult.Success)
+        assertEquals(TrainingSessionStatus.COMPLETED, (result as FinalizeTrainingSessionResult.Success).session.status)
         assertTrue(insights.metadataRepo.saved == null, "refresh must not have run before the scheduler advances")
         // Modeling enqueue is synchronous schedule-only (not on refreshDispatcher) and must not block.
         assertEquals(1, modelingScheduler.enqueueCount, "dose-response work enqueued without awaiting")
@@ -361,29 +361,69 @@ class FinalizeTrainingSessionUseCaseTest {
 
         val result = useCase(TrainingSessionId("ts-live-1"))
 
-        assertTrue(result.isSuccess, "finalize must succeed even if insights refresh fails")
-        assertEquals(TrainingSessionStatus.COMPLETED, result.getOrThrow().status)
+        assertTrue(result is FinalizeTrainingSessionResult.Success, "finalize must succeed even if insights refresh fails")
+        assertEquals(TrainingSessionStatus.COMPLETED, (result as FinalizeTrainingSessionResult.Success).session.status)
     }
 
     @Test
-    @DisplayName("Returns failure when session not found")
+    @DisplayName("Returns SessionNotFound when session not found")
     fun returnsFailureWhenSessionNotFound() = runTest {
         val useCase = buildUseCase()
         val result = useCase(TrainingSessionId("missing"))
-        assertTrue(result.isFailure)
-        assertTrue(result.exceptionOrNull() is IllegalArgumentException)
+        assertEquals(
+            FinalizeTrainingSessionResult.SessionNotFound(TrainingSessionId("missing")),
+            result,
+        )
     }
 
     @Test
-    @DisplayName("Returns failure when session is not in progress")
+    @DisplayName("Returns SessionNotInProgress when session is not in progress")
     fun returnsFailureWhenSessionNotInProgress() = runTest {
         val programRepo = FakeProgramRepository(WorkoutLoggingFixtures.twoWorkoutProgram())
         val repo = FakeTrainingLogRepository(programRepository = programRepo)
         repo.seedSession(WorkoutLoggingFixtures.completedLiveSession(id = "ts-completed"))
         val useCase = buildUseCase(programRepo = programRepo, repo = repo)
         val result = useCase(TrainingSessionId("ts-completed"))
-        assertTrue(result.isFailure)
-        assertTrue(result.exceptionOrNull() is TrainingSessionNotInProgressException)
+        assertEquals(
+            FinalizeTrainingSessionResult.SessionNotInProgress(
+                TrainingSessionId("ts-completed"),
+                TrainingSessionStatus.COMPLETED,
+            ),
+            result,
+        )
+    }
+
+    @Test
+    @DisplayName("Operational session load failure returns PersistenceFailed and logs once (STR-243)")
+    fun operationalLoadFailureReturnsPersistenceFailed() = runTest {
+        val programRepo = FakeProgramRepository(WorkoutLoggingFixtures.twoWorkoutProgram())
+        val repo = FakeTrainingLogRepository(programRepository = programRepo)
+        repo.getSessionError = IllegalStateException("room load failed")
+        val logging = FakeLoggingPort()
+        val useCase =
+            FinalizeTrainingSessionUseCase(
+                trainingLogRepository = repo,
+                programRepository = programRepo,
+                computePersonalRecords = ComputePersonalRecordsUseCase(repo),
+                localDerivedStages =
+                    localDerivedTrainingStages(
+                        trainingLog = repo,
+                        extractTrainingInsights = buildInsightsComponents(repo).useCase,
+                        refreshWeeklySeries =
+                            RefreshWeeklySeriesUseCase(repo, FakeLiftRepository(), FakeResponseProfilePersistencePort()),
+                    ),
+                loggingPort = logging,
+                refreshScope = CoroutineScope(Dispatchers.Unconfined),
+            )
+
+        val result = useCase(TrainingSessionId("ts-live-1"))
+
+        assertEquals(FinalizeTrainingSessionResult.PersistenceFailed, result)
+        assertEquals(1, logging.errors.size)
+        assertEquals(
+            "Failed to finalize training session ts-live-1: room load failed",
+            logging.errors.single().message,
+        )
     }
 
     private suspend fun buildUseCase(

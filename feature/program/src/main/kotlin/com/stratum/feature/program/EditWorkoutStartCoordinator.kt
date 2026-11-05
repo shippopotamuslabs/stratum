@@ -2,6 +2,7 @@ package com.stratum.feature.program
 
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
+import com.stratum.application.training.AbandonTrainingSessionResult
 import com.stratum.application.training.AbandonTrainingSessionUseCase
 import com.stratum.application.training.ObserveCycleProgressUseCase
 import com.stratum.domain.training.StartTrainingSessionRequest
@@ -114,7 +115,9 @@ internal class EditWorkoutStartCoordinator(
 
     private suspend fun abandonActiveSessionOrNull(): String? {
         val session = observeCycleProgress().first().activeSession ?: return null
-        if (abandonTrainingSession(session.id).isFailure) return MSG_ABANDON_FAILED
+        if (abandonTrainingSession(session.id) != AbandonTrainingSessionResult.Success) {
+            return MSG_ABANDON_FAILED
+        }
         manageWorkoutOverlay.clear()
         return null
     }

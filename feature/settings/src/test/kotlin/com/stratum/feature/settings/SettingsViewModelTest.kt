@@ -37,6 +37,7 @@ import com.stratum.application.theme.SetThemeFamilyUseCase
 import com.stratum.domain.theme.ThemeFamily
 import com.stratum.domain.theme.ThemePreferences
 import com.stratum.application.training.ForceRefreshDerivedTrainingData
+import com.stratum.application.training.ForceRefreshDerivedTrainingDataResult
 import com.stratum.application.workout.ObserveRepRangeShiftProposalsEnabledUseCase
 import com.stratum.application.workout.SetRepRangeShiftProposalsEnabledUseCase
 import kotlinx.coroutines.CompletableDeferred
@@ -87,13 +88,14 @@ class SettingsViewModelTest {
     private lateinit var loggingPort: FakeLoggingPort
     private lateinit var subject: SettingsViewModel
     private var forceRefreshCalls = 0
-    private var forceRefreshResult: Result<Unit> = Result.success(Unit)
+    private var forceRefreshResult: ForceRefreshDerivedTrainingDataResult =
+        ForceRefreshDerivedTrainingDataResult.Success
     private var forceRefreshGate: CompletableDeferred<Unit>? = null
 
     @BeforeEach
     fun setup() {
         forceRefreshCalls = 0
-        forceRefreshResult = Result.success(Unit)
+        forceRefreshResult = ForceRefreshDerivedTrainingDataResult.Success
         forceRefreshGate = null
         fakeThemePreferences.seed(ThemePreferences())
         fakeCheckInPreferences.seed(CheckInPreferences())
@@ -357,7 +359,7 @@ class SettingsViewModelTest {
     @Test
     @DisplayName("rebuild progress failure surfaces message without cooldown")
     fun rebuildProgressFailure() = runTest {
-        forceRefreshResult = Result.failure(IllegalStateException("boom"))
+        forceRefreshResult = ForceRefreshDerivedTrainingDataResult.PersistenceFailed
         subject = buildViewModel()
 
         subject.uiState.test {

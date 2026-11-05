@@ -34,6 +34,7 @@ import com.stratum.application.theme.SetThemeFamilyUseCase
 import com.stratum.application.theme.ThemePreferenceResult
 import com.stratum.domain.theme.ThemeFamily
 import com.stratum.application.training.ForceRefreshDerivedTrainingData
+import com.stratum.application.training.ForceRefreshDerivedTrainingDataResult
 import com.stratum.application.workout.ObserveRepRangeShiftProposalsEnabledUseCase
 import com.stratum.application.workout.RepRangeShiftPreferenceResult
 import com.stratum.application.workout.SetRepRangeShiftProposalsEnabledUseCase
@@ -332,8 +333,8 @@ class SettingsViewModel @Inject constructor(
         }
         rebuildProgressUi.update { it.copy(showConfirm = false, isRunning = true) }
         viewModelScope.launch {
-            forceRefreshDerived()
-                .onSuccess {
+            when (forceRefreshDerived()) {
+                ForceRefreshDerivedTrainingDataResult.Success -> {
                     rebuildProgressUi.update {
                         it.copy(
                             isRunning = false,
@@ -343,10 +344,11 @@ class SettingsViewModel @Inject constructor(
                     }
                     _userMessage.value = MSG_FORCE_REFRESH_QUEUED
                 }
-                .onFailure {
+                ForceRefreshDerivedTrainingDataResult.PersistenceFailed -> {
                     rebuildProgressUi.update { it.copy(isRunning = false) }
                     _userMessage.value = MSG_FORCE_REFRESH_FAILED
                 }
+            }
         }
     }
 

@@ -41,6 +41,8 @@ import com.stratum.application.training.FinalizeTrainingSessionUseCase
 import com.stratum.application.training.GetLoggedSetsForSessionUseCase
 import com.stratum.application.training.LogSetUseCase
 import com.stratum.application.training.ObserveCycleProgressUseCase
+import com.stratum.application.training.AbandonTrainingSessionResult
+import com.stratum.application.training.RewriteSessionLiftEquipmentResult
 import com.stratum.application.training.RewriteSessionLiftEquipmentUseCase
 import com.stratum.application.training.UpdateLoggedSetUseCase
 import com.stratum.application.workout.ApplyOverlayToWorkoutUseCase
@@ -651,7 +653,7 @@ class WorkoutViewModel @Inject constructor(
                     newEquipmentId = EquipmentId(prompt.newId),
                 )
             rewriteInFlight = false
-            if (result.isSuccess) {
+            if (result == RewriteSessionLiftEquipmentResult.Success) {
                 swapEquipment(WorkoutLiftId(prompt.workoutLiftId), EquipmentId(prompt.newId))
                 _equipmentRewritePrompt.value = null
             } else {
@@ -915,7 +917,7 @@ class WorkoutViewModel @Inject constructor(
             session.send(SessionCommand.BeginAbandon)
             processScopedAbandon.abandon(trainingSessionId) { result ->
                 viewModelScope.launch {
-                    if (result.isFailure) {
+                    if (result != AbandonTrainingSessionResult.Success) {
                         session.send(SessionCommand.CancelAbandon)
                         retainLoadedUiForExit = false
                         _userMessage.value = MSG_ABANDON_FAILED

@@ -3,7 +3,6 @@ package com.stratum.application.training
 import com.stratum.domain.di.ApplicationScope
 import com.stratum.application.healthconnect.HealthConnectSchedulerPort
 import com.stratum.domain.logging.LoggingPort
-import com.stratum.domain.logging.runCatchingLogged
 import com.stratum.application.program.ProgramRepository
 import com.stratum.application.response.ResponseModelingSchedulerPort
 import com.stratum.domain.training.identity.TrainingSessionId
@@ -15,10 +14,33 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import com.stratum.domain.training.TrainingSession
 import com.stratum.domain.training.TrainingSessionKind
-import com.stratum.domain.training.TrainingSessionNotInProgressException
 import com.stratum.domain.training.TrainingSessionStatus
 import com.stratum.domain.training.sessionsWithMaterializedAutoRests
 import com.stratum.domain.response.RE_EXTRACT_MIN_COMPLETED_WORKOUTS
+
+/**
+ * Outcome of finalizing a training session (STR-243).
+ *
+ * The guard branches carry the typed facts the former constructed exceptions
+ * carried ([SessionNotFound] / [SessionNotInProgress] with the session id and
+ * actual status). The originating throwable of a failed finalize goes once to
+ * the diagnostics channel ([LoggingPort.error]) at the use-case boundary; it
+ * never crosses as a payload. Coroutine cancellation is not a branch: it
+ * propagates.
+ */
+sealed interface FinalizeTrainingSessionResult {
+    data class Success(val session: TrainingSession) : FinalizeTrainingSessionResult
+
+    data class SessionNotFound(val sessionId: TrainingSessionId) : FinalizeTrainingSessionResult
+
+    data class SessionNotInProgress(
+        val sessionId: TrainingSessionId,
+        val status: TrainingSessionStatus,
+    ) : FinalizeTrainingSessionResult
+
+    /** The finalize write failed (repository / store I/O). */
+    data object PersistenceFailed : FinalizeTrainingSessionResult
+}
 
 class FinalizeTrainingSessionUseCase @Inject constructor(
     private val trainingLogRepository: TrainingLogRepository,
@@ -36,23 +58,20 @@ class FinalizeTrainingSessionUseCase @Inject constructor(
     @ApplicationScope private val refreshScope: CoroutineScope =
         CoroutineScope(Dispatchers.Main.immediate),
 ) {
-    suspend operator fun invoke(sessionId: TrainingSessionId): Result<TrainingSession> {
-        val session =
-            trainingLogRepository.getSession(sessionId)
-                ?: return Result.failure(
-                    IllegalArgumentException("Training session ${sessionId.value} not found"),
+    suspend operator fun invoke(sessionId: TrainingSessionId): FinalizeTrainingSessionResult {
+        // The session load sits inside the boundary try (C3 precedent): a throwing
+        // load is logged once and returned as PersistenceFailed instead of escaping.
+        return try {
+            val session =
+                trainingLogRepository.getSession(sessionId)
+                    ?: return FinalizeTrainingSessionResult.SessionNotFound(sessionId)
+            if (session.status != TrainingSessionStatus.IN_PROGRESS) {
+                return FinalizeTrainingSessionResult.SessionNotInProgress(
+                    session.id,
+                    session.status,
                 )
-        if (session.status != TrainingSessionStatus.IN_PROGRESS) {
-            return Result.failure(
-                TrainingSessionNotInProgressException(session.id, session.status),
-            )
-        }
+            }
 
-        return runCatchingLogged(
-            loggingPort = loggingPort,
-            tag = TAG,
-            message = "Failed to finalize training session ${sessionId.value}",
-        ) {
             val completed = session.complete(at = Instant.now())
 
             val sessionSets = trainingLogRepository.getSetsForSession(sessionId)
@@ -131,7 +150,16 @@ class FinalizeTrainingSessionUseCase @Inject constructor(
                 )
             }
 
-            completed
+            FinalizeTrainingSessionResult.Success(completed)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (t: Throwable) {
+            loggingPort.error(
+                TAG,
+                "Failed to finalize training session ${sessionId.value}: ${t.message}",
+                t,
+            )
+            FinalizeTrainingSessionResult.PersistenceFailed
         }
     }
 

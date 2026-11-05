@@ -1,5 +1,6 @@
 package com.stratum.application.training
 
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
@@ -33,11 +34,11 @@ class UnskipWorkoutUseCaseTest {
             initialSessions = listOf(session),
             programRepository = programRepo,
         )
-        val useCase = UnskipWorkoutUseCase(logRepo, programRepo)
+        val useCase = UnskipWorkoutUseCase(logRepo, programRepo, FakeLoggingPort())
 
         val result = useCase(workoutAId)
 
-        assertTrue(result.isSuccess)
+        assertEquals(UnskipWorkoutResult.Success, result)
         assertTrue(logRepo.getSession(session.id) == null)
     }
 
@@ -53,9 +54,9 @@ class UnskipWorkoutUseCaseTest {
             initialSessions = listOf(skipSession),
             programRepository = programRepo,
         )
-        val useCase = UnskipWorkoutUseCase(logRepo, programRepo)
+        val useCase = UnskipWorkoutUseCase(logRepo, programRepo, FakeLoggingPort())
 
-        useCase(workoutAId).getOrThrow()
+        useCase(workoutAId)
 
         assertEquals(0, programRepo.getProgram()?.cyclePosition)
     }
@@ -65,11 +66,11 @@ class UnskipWorkoutUseCaseTest {
     fun unskipNoOpWhenNoSession() = runTest {
         val programRepo = FakeProgramRepository(WorkoutLoggingFixtures.twoWorkoutProgram())
         val logRepo = FakeTrainingLogRepository(programRepository = programRepo)
-        val useCase = UnskipWorkoutUseCase(logRepo, programRepo)
+        val useCase = UnskipWorkoutUseCase(logRepo, programRepo, FakeLoggingPort())
 
         val result = useCase(workoutAId)
 
-        assertTrue(result.isSuccess)
+        assertEquals(UnskipWorkoutResult.Success, result)
         assertEquals(0, programRepo.getProgram()?.cyclePosition)
     }
 
@@ -87,9 +88,9 @@ class UnskipWorkoutUseCaseTest {
             initialSessions = listOf(previousCycleSession),
             programRepository = programRepo,
         )
-        val useCase = UnskipWorkoutUseCase(logRepo, programRepo)
+        val useCase = UnskipWorkoutUseCase(logRepo, programRepo, FakeLoggingPort())
 
-        useCase(workoutAId).getOrThrow()
+        useCase(workoutAId)
 
         // The previous-cycle session should still exist — unskip only targets current cycle
         assertTrue(logRepo.getSession(previousCycleSession.id) != null)
@@ -117,9 +118,9 @@ class UnskipWorkoutUseCaseTest {
             initialSessions = listOf(orphanedRest),
             programRepository = programRepo,
         )
-        val useCase = UnskipWorkoutUseCase(logRepo, programRepo)
+        val useCase = UnskipWorkoutUseCase(logRepo, programRepo, FakeLoggingPort())
 
-        useCase(Weekday.Tuesday).getOrThrow()
+        useCase(Weekday.Tuesday)
 
         assertTrue(logRepo.getSession(orphanedRest.id) != null)
     }
@@ -145,9 +146,9 @@ class UnskipWorkoutUseCaseTest {
             initialSessions = listOf(restDaySession),
             programRepository = programRepo,
         )
-        val useCase = UnskipWorkoutUseCase(logRepo, programRepo)
+        val useCase = UnskipWorkoutUseCase(logRepo, programRepo, FakeLoggingPort())
 
-        useCase(Weekday.Tuesday).getOrThrow()
+        useCase(Weekday.Tuesday)
 
         assertTrue(logRepo.getSession(restDaySession.id) == null)
     }
@@ -155,18 +156,15 @@ class UnskipWorkoutUseCaseTest {
     @Test
     @DisplayName("Returns failure when no active program exists")
     fun returnsFailureWhenNoActiveProgram() = runTest {
-        val useCase = UnskipWorkoutUseCase(FakeTrainingLogRepository(), FakeProgramRepository(null))
+        val useCase = UnskipWorkoutUseCase(FakeTrainingLogRepository(), FakeProgramRepository(null), FakeLoggingPort())
 
         val workoutResult = useCase(workoutAId)
-        assertTrue(workoutResult.isFailure)
-        assertTrue(workoutResult.exceptionOrNull() is IllegalStateException)
+        assertEquals(UnskipWorkoutResult.NoActiveProgram, workoutResult)
 
         val weekdayResult = useCase(Weekday.Tuesday)
-        assertTrue(weekdayResult.isFailure)
-        assertTrue(weekdayResult.exceptionOrNull() is IllegalStateException)
+        assertEquals(UnskipWorkoutResult.NoActiveProgram, weekdayResult)
 
         val slotResult = useCase.unskipRestSlot(1)
-        assertTrue(slotResult.isFailure)
-        assertTrue(slotResult.exceptionOrNull() is IllegalStateException)
+        assertEquals(UnskipWorkoutResult.NoActiveProgram, slotResult)
     }
 }

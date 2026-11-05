@@ -49,7 +49,7 @@ class UpdateLoggedSetUseCaseTest {
                 ),
             )
 
-        assertTrue(result.isSuccess)
+        assertEquals(UpdateLoggedSetResult.Success, result)
         val updated = repo.getAllSets().single()
         assertEquals(140.0, updated.weight.amount)
         assertEquals(6, updated.reps)
@@ -82,14 +82,20 @@ class UpdateLoggedSetUseCaseTest {
         val useCase = UpdateLoggedSetUseCase(repo, logging)
         val result = useCase(set.copy(reps = 8))
 
-        assertTrue(result.isFailure)
-        assertTrue(result.exceptionOrNull() is TrainingSessionNotInProgressException)
+        assertEquals(
+            UpdateLoggedSetResult.SessionNotInProgress(
+                sessionId,
+                com.stratum.domain.training.TrainingSessionStatus.COMPLETED,
+            ),
+            result,
+        )
         assertEquals(5, repo.getAllSets().single().reps)
         assertEquals(1, logging.errors.size)
+        assertTrue(logging.errors.single().throwable is TrainingSessionNotInProgressException)
     }
 
     @Test
-    @DisplayName("operational getSession failure returns Result failure with exactly one error log")
+    @DisplayName("operational getSession failure returns PersistenceFailed with exactly one error log")
     fun operationalLoadFailureReturnsFailureAndLogsOnce() = runTest {
         val repo = FakeTrainingLogRepository()
         val failure = IllegalStateException("room load failed")
@@ -113,8 +119,7 @@ class UpdateLoggedSetUseCaseTest {
 
         val result = useCase(set)
 
-        assertTrue(result.isFailure)
-        assertEquals(failure, result.exceptionOrNull())
+        assertEquals(UpdateLoggedSetResult.PersistenceFailed, result)
         assertEquals(1, logging.errors.size)
         assertEquals("Failed to update logged set: ${failure.message}", logging.errors.single().message)
         assertEquals(failure, logging.errors.single().throwable)

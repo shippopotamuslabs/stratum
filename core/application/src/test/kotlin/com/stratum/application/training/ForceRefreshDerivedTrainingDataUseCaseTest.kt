@@ -73,7 +73,7 @@ class ForceRefreshDerivedTrainingDataUseCaseTest {
 
         val result = buildUseCase(logRepo, liftRepo).invoke()
 
-        assertTrue(result.isSuccess)
+        assertEquals(ForceRefreshDerivedTrainingDataResult.Success, result)
         assertTrue(
             insightsRepo.getAll().isNotEmpty(),
             "force refresh must rebuild lift training insights",
@@ -101,7 +101,7 @@ class ForceRefreshDerivedTrainingDataUseCaseTest {
     fun emptyHistoryStillForceEnqueues() = runTest {
         val result = buildUseCase(FakeTrainingLogRepository(), FakeLiftRepository()).invoke()
 
-        assertTrue(result.isSuccess)
+        assertEquals(ForceRefreshDerivedTrainingDataResult.Success, result)
         assertTrue(persistence.weeklyStimulusRepository.getAll().isEmpty())
         assertEquals(0, modelingScheduler.enqueueCount)
         assertEquals(1, modelingScheduler.forceExtractCount)
@@ -122,7 +122,7 @@ class ForceRefreshDerivedTrainingDataUseCaseTest {
 
         val result = buildUseCase(failingLog, FakeLiftRepository()).invoke()
 
-        assertTrue(result.isFailure)
+        assertEquals(ForceRefreshDerivedTrainingDataResult.PersistenceFailed, result)
         assertEquals(0, modelingScheduler.enqueueCount)
         assertEquals(0, modelingScheduler.forceExtractCount)
     }
@@ -182,7 +182,7 @@ class ForceRefreshDerivedTrainingDataUseCaseTest {
                 responseModelingScheduler = modelingScheduler,
             ).invoke()
 
-        assertTrue(result.isFailure)
+        assertEquals(ForceRefreshDerivedTrainingDataResult.PersistenceFailed, result)
         assertEquals(0, modelingScheduler.forceExtractCount)
     }
 

@@ -1,5 +1,6 @@
 package com.stratum.application.training
 
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeProgramChangeEventRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
@@ -18,10 +19,10 @@ class RecordRestDaySkipUseCaseTest {
     @DisplayName("WL-028 RecordRestDaySkipUseCase creates REST_DAY zero-set session")
     fun wl028_restDaySkipSession() = runTest {
         val repo = FakeTrainingLogRepository()
-        val useCase = RecordRestDaySkipUseCase(repo, FakeProgramRepository(program()))
+        val useCase = RecordRestDaySkipUseCase(repo, FakeProgramRepository(program()), FakeLoggingPort())
 
         // Prefer slot-index API (schedule identity); rest@1 on a Mon/Wed train week.
-        val session = useCase(slotIndex = 1).getOrThrow()
+        val session = (useCase(slotIndex = 1) as RecordRestDaySkipResult.Success).session
 
         assertEquals(TrainingSessionKind.REST_DAY, session.kind)
         assertNull(session.workoutId)
@@ -32,26 +33,23 @@ class RecordRestDaySkipUseCaseTest {
     @Test
     @DisplayName("Returns failure when no active program exists")
     fun returnsFailureWhenNoActiveProgram() = runTest {
-        val useCase = RecordRestDaySkipUseCase(FakeTrainingLogRepository(), FakeProgramRepository(null))
+        val useCase = RecordRestDaySkipUseCase(FakeTrainingLogRepository(), FakeProgramRepository(null), FakeLoggingPort())
 
         val slotResult = useCase(slotIndex = 1)
-        assertTrue(slotResult.isFailure)
-        assertTrue(slotResult.exceptionOrNull() is IllegalStateException)
+        assertEquals(RecordRestDaySkipResult.NoActiveProgram, slotResult)
 
         val weekdayResult = useCase(weekday = Weekday.Tuesday)
-        assertTrue(weekdayResult.isFailure)
-        assertTrue(weekdayResult.exceptionOrNull() is IllegalStateException)
+        assertEquals(RecordRestDaySkipResult.NoActiveProgram, weekdayResult)
     }
 
     @Test
     @DisplayName("Returns failure when slot is not a rest slot")
     fun returnsFailureWhenSlotNotRest() = runTest {
-        val useCase = RecordRestDaySkipUseCase(FakeTrainingLogRepository(), FakeProgramRepository(program()))
+        val useCase = RecordRestDaySkipUseCase(FakeTrainingLogRepository(), FakeProgramRepository(program()), FakeLoggingPort())
 
         // slot 0 is a training workout, not rest
         val result = useCase(slotIndex = 0)
-        assertTrue(result.isFailure)
-        assertTrue(result.exceptionOrNull() is IllegalArgumentException)
+        assertEquals(RecordRestDaySkipResult.NotRestSlot(0), result)
     }
 
     private fun program() =

@@ -10,6 +10,7 @@ import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.sync.CloudSessionState
 import com.stratum.application.sync.CloudSyncPort
 import com.stratum.domain.sync.SyncStatus
+import com.stratum.application.training.RebuildLocalDerivedTrainingDataResult
 import com.stratum.application.training.RebuildLocalDerivedTrainingDataUseCase
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
@@ -225,16 +226,17 @@ class FirestoreCloudSyncAdapter @Inject constructor(
             pull = { pullEngine.pull(userId).getOrThrow() },
             logError = { msg -> loggingPort.error(TAG, msg) },
             afterSuccessfulPull = {
-                rebuildLocalDerivedTrainingData()
-                    .onFailure { error ->
-                        // Sync itself succeeded; charts may stay empty until the next clean pass
-                        // or a local workout finalize (which also refreshes weekly series).
-                        loggingPort.error(
-                            TAG,
-                            "post-pull derived rebuild failed: ${error.message}",
-                            error,
-                        )
-                    }
+                if (
+                    rebuildLocalDerivedTrainingData() != RebuildLocalDerivedTrainingDataResult.Success
+                ) {
+                    // Sync itself succeeded; charts may stay empty until the next clean pass
+                    // or a local workout finalize (which also refreshes weekly series).
+                    // The rebuild already logged its stage failure inside the stages.
+                    loggingPort.error(
+                        TAG,
+                        "post-pull derived rebuild failed",
+                    )
+                }
             },
         )
     }
