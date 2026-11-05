@@ -2,7 +2,7 @@
 
 package com.stratum.application.program.generation
 
-import com.stratum.domain.program.generation.build.BuildProgramResult
+import com.stratum.domain.program.generation.build.BuildProgramOutcome
 import com.stratum.domain.program.generation.build.buildProgramWithSelections
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisPort
@@ -16,7 +16,7 @@ class BuildProgramWorkoutsUseCase @Inject constructor() {
         programSynthesisPort: ProgramSynthesisPort,
         onSynthesizingProgram: suspend () -> Unit = {},
         onSelectingExercises: suspend () -> Unit = {},
-    ): BuildProgramResult =
+    ): BuildProgramOutcome =
         buildProgramWithSelections(
             context = context,
             weeklyTargets = weeklyTargets,

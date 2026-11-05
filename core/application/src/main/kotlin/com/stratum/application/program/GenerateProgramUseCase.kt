@@ -9,7 +9,10 @@ import com.stratum.application.program.generation.pipeline.PipelinePhase
 import com.stratum.application.program.generation.pipeline.PipelineProgress
 import com.stratum.application.program.generation.pipeline.ProgramGenerationPipeline
 import com.stratum.application.program.generation.pipeline.ProgramGenerationPipelineResult
+import com.stratum.domain.program.generation.synthesis.ProgramSynthesisException
+import com.stratum.domain.program.generation.synthesis.ProgramSynthesisRefusal
 import com.stratum.domain.program.generation.validation.ProgramGenerationValidationException
+import com.stratum.application.program.generation.synthesis.FlagGatedProgramSynthesisPort
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.schema.toDomainProgram
 import com.stratum.domain.program.generation.schema.toProgramNormalizationRequest
@@ -92,6 +95,18 @@ class GenerateProgramUseCase @Inject constructor(
                             // the same payload shape the previous generic catch produced.
                             return@withContext Result.failure(
                                 ProgramGenerationValidationException(pipelineResult.report),
+                            )
+                        is ProgramGenerationPipelineResult.SynthesisRefused ->
+                            // Constructed as a failure value, never thrown (STR-241):
+                            // preserves STR-242's classifyGenerateOutcome, which keys on
+                            // ProgramSynthesisException at the terminal boundary.
+                            return@withContext Result.failure(
+                                ProgramSynthesisException(
+                                    when (pipelineResult.refusal) {
+                                        ProgramSynthesisRefusal.FeatureDisabled ->
+                                            FlagGatedProgramSynthesisPort.MESSAGE_SYNTHESIS_PAUSED
+                                    },
+                                ),
                             )
                     }
                 var program =

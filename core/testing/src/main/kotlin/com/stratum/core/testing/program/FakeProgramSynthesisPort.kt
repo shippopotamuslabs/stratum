@@ -9,8 +9,8 @@ import com.stratum.domain.program.generation.slots.WorkoutSlotTemplate
 import com.stratum.domain.program.generation.structure.SessionRegionFilter
 import com.stratum.domain.program.generation.structure.isSlotCompatibleWithRegionFilter
 import com.stratum.domain.program.generation.structure.regionFiltersBySessionPosition
+import com.stratum.domain.program.generation.synthesis.ProgramSynthesisOutcome
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisPort
-import com.stratum.domain.program.generation.synthesis.ProgramSynthesisResult
 import com.stratum.domain.program.generation.synthesis.UnifiedSynthesisSolution
 import com.stratum.domain.program.generation.synthesis.materializeSynthesisResult
 import com.stratum.domain.program.generation.universe.SynthesisSlot
@@ -33,7 +33,7 @@ class FakeProgramSynthesisPort(
     override suspend fun synthesize(
         weeklyTargets: WeeklyVolumeTargets,
         context: ProgramGenerationContext,
-    ): ProgramSynthesisResult {
+    ): ProgramSynthesisOutcome {
         val diagnostics = mutableListOf<SlotGenerationDiagnostic>()
         val universe = buildSlotUniverse(context, weeklyTargets, diagnostics)
         require(universe.isNotEmpty()) { "Slot universe is empty for fake synthesis." }
@@ -93,7 +93,9 @@ class FakeProgramSynthesisPort(
                 cycleSlotIndexByPosition = cycleSlotIndices,
                 regionFilterBySession = regionFilters,
             )
-        return materializeSynthesisResult(universe, solution).copy(diagnostics = diagnostics.toList())
+        return ProgramSynthesisOutcome.Completed(
+            materializeSynthesisResult(universe, solution).copy(diagnostics = diagnostics.toList()),
+        )
     }
 
     private fun regionFiltersForSessions(
