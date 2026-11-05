@@ -13,7 +13,10 @@ import com.stratum.domain.program.generation.validation.ValidationSeverity
  * the STR-242 expected-vs-exceptional split on these branches, and domain
  * cannot import an application type.
  *
- * Failure branches carry typed values only — never a [Throwable]. Coroutine
+ * Failure branches carry typed values. The one exception is
+ * [GenerateProgramResult.Unexpected]: its domain-owned
+ * [GenerationFailureDiagnostic]s carry the real [Throwable] so the outcome
+ * consumer can record it at its boundary (STR-237 Special 1). Coroutine
  * cancellation is not a branch: it propagates.
  */
 sealed interface GenerateProgramResult {
@@ -42,12 +45,16 @@ sealed interface GenerateProgramResult {
     data class SynthesisFailed(val message: String) : GenerateProgramResult
 
     /**
-     * An unbounded operational failure inside generation. This branch carries
-     * only the [kind]; the outcome consumer records the failure exactly once
-     * at its boundary (STR-237: the propagation path has no logging or
-     * telemetry capability).
+     * An unbounded operational failure inside generation. The branch carries
+     * the [kind] plus [diagnostics] holding the real throwable; the outcome
+     * consumer records each diagnostic exactly once at its boundary
+     * (STR-237 Special 1: the propagation path has no logging or telemetry
+     * capability, so the record rides the outcome).
      */
-    data class Unexpected(val kind: GenerateProgramFailureKind) : GenerateProgramResult
+    data class Unexpected(
+        val kind: GenerateProgramFailureKind,
+        val diagnostics: List<GenerationFailureDiagnostic>,
+    ) : GenerateProgramResult
 }
 
 /** Kinds for [GenerateProgramResult.Unexpected]; the set is deliberately unbounded. */

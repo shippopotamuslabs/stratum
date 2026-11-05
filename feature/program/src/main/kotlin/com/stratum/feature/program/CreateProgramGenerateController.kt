@@ -263,17 +263,14 @@ internal class CreateProgramGenerateController(
                 ProgramGenerationValidationException(result.report),
             )
         } else if (result is GenerateProgramResult.Unexpected) {
-            // STR-237: the use case no longer records (application has no
-            // telemetry capability), so the exceptional record lives here at
-            // the outcome consumer — exactly one record (non-fatal +
-            // exceptional_occurred counter) with a constructed exception
-            // value, the same pattern as ValidationRejected above. The
-            // constructed value's class is synthetic: it may differ from the
-            // real throwable's class, which does not cross the branch.
-            telemetryRouter.recordExceptional(
-                GENERATE_LOG_TAG,
-                IllegalStateException("Program generation failed unexpectedly: ${result.kind}"),
-            )
+            // STR-237 Special 1: the branch carries the REAL throwable as a
+            // domain diagnostic (superseding slice A's constructed exception
+            // value), so the exceptional record lives here at the outcome
+            // consumer with class fidelity restored — exactly one record
+            // (non-fatal + exceptional_occurred counter) per diagnostic.
+            result.diagnostics.forEach { diagnostic ->
+                telemetryRouter.recordExceptional(GENERATE_LOG_TAG, diagnostic.cause)
+            }
         }
         logAnalytics(
             USER_VISIBLE_ERROR_EVENT,

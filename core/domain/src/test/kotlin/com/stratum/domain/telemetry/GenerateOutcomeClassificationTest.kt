@@ -63,7 +63,10 @@ class GenerateOutcomeClassificationTest {
     fun unexpectedIsExceptional() {
         assertNull(
             classifyGenerateOutcome(
-                GenerateProgramResult.Unexpected(GenerateProgramFailureKind.OperationalFailure),
+                GenerateProgramResult.Unexpected(
+                    GenerateProgramFailureKind.OperationalFailure,
+                    diagnostics = emptyList(),
+                ),
             ),
         )
     }

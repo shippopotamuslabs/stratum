@@ -976,12 +976,13 @@ class OnboardingViewModel @Inject constructor(
     }
 
     /**
-     * Records a generation failure branch (STR-243). An [GenerateProgramResult.Unexpected]
-     * failure was already recorded once at the use-case boundary via
-     * TelemetryRouter.recordExceptional, so only the analytics event fires for
-     * it here; the expected branches are recorded here with a constructed
-     * exception value for the log record only — the branch itself carries the
-     * typed facts.
+     * Records a generation failure branch (STR-243). An
+     * [GenerateProgramResult.Unexpected] failure rides the branch as a domain
+     * diagnostic carrying the real throwable (STR-237 Special 1) and is
+     * recorded here via the recorder path; the expected branches are recorded
+     * here with a constructed exception value for the log record only — the
+     * branch itself carries the typed facts. The analytics event below fires
+     * for every failure branch.
      */
     private fun logGenerateFailure(result: GenerateProgramResult) {
         when (result) {
@@ -1008,9 +1009,19 @@ class OnboardingViewModel @Inject constructor(
                     OnboardingProgramFlowOps.MSG_GENERATE_FAILED,
                     ProgramGenerationValidationException(result.report),
                 )
-            is GenerateProgramResult.Success,
-            is GenerateProgramResult.Unexpected,
-            -> Unit
+            is GenerateProgramResult.Unexpected ->
+                // STR-237 Special 1: the branch carries the REAL throwable as
+                // a domain diagnostic; record each one exactly once here via
+                // the recorder path (this branch previously kept only the
+                // analytics event below — the gap Special 1 closes).
+                result.diagnostics.forEach { diagnostic ->
+                    logError(
+                        OnboardingProgramFlowOps.TAG,
+                        OnboardingProgramFlowOps.MSG_GENERATE_FAILED,
+                        diagnostic.cause,
+                    )
+                }
+            is GenerateProgramResult.Success -> Unit
         }
         logAnalytics(
             USER_VISIBLE_ERROR_EVENT,

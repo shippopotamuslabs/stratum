@@ -10,6 +10,7 @@ import com.stratum.application.program.generation.pipeline.PipelineProgress
 import com.stratum.application.program.generation.pipeline.ProgramGenerationPipeline
 import com.stratum.application.program.generation.pipeline.ProgramGenerationPipelineResult
 import com.stratum.domain.program.generation.GenerateProgramFailureKind
+import com.stratum.domain.program.generation.GenerationFailureDiagnostic
 import com.stratum.domain.program.generation.GenerateProgramResult
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisException
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
@@ -146,15 +147,19 @@ class GenerateProgramUseCase @Inject constructor(
                 // user-safe message — never error-logged (STR-242 classifies it
                 // expected at the terminal boundary).
                 GenerateProgramResult.SynthesisFailed(error.message ?: FALLBACK_MESSAGE)
-            } catch (_: Throwable) {
-                // Unbounded operational failure (STR-237): application has no
-                // logging/telemetry capability, so this use case records
-                // nothing; the branch carries only the kind. The outcome
+            } catch (error: Throwable) {
+                // Unbounded operational failure (STR-237 Special 1):
+                // application has no logging/telemetry capability, so this
+                // use case records nothing; the branch carries the kind plus
+                // a domain diagnostic holding the REAL throwable. The outcome
                 // consumer records it exactly once at its boundary
-                // (CreateProgramGenerateController records it via
-                // TelemetryRouter.recordExceptional with a constructed
-                // exception value, the ValidationRejected pattern).
-                GenerateProgramResult.Unexpected(GenerateProgramFailureKind.OperationalFailure)
+                // (CreateProgramGenerateController via
+                // TelemetryRouter.recordExceptional; OnboardingViewModel via
+                // its recorder path).
+                GenerateProgramResult.Unexpected(
+                    kind = GenerateProgramFailureKind.OperationalFailure,
+                    diagnostics = listOf(GenerationFailureDiagnostic(cause = error)),
+                )
             }
         }
 

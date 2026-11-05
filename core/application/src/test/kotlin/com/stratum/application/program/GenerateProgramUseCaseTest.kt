@@ -35,6 +35,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -129,18 +130,25 @@ class GenerateProgramUseCaseTest {
     inner class FailurePath {
         @Test
         fun `invoke does not persist on generation failure`() = runTest {
-            val useCase = buildUseCase(this, contextLoader = FixedProgramGenerationContextLoader(error = { error("boom") }))
+            val boom = IllegalArgumentException("boom")
+            val useCase =
+                buildUseCase(
+                    this,
+                    contextLoader = FixedProgramGenerationContextLoader(error = { throw boom }),
+                )
 
             val result = useCase.invoke()
 
-            assertEquals(
-                GenerateProgramResult.Unexpected(GenerateProgramFailureKind.OperationalFailure),
-                result,
-            )
-            // STR-237: the use case records nothing (application has no
-            // telemetry capability). The exactly-one exceptional record for
-            // this branch is asserted at the outcome consumer's test
-            // (CreateProgramGenerateControllerTest), where the record moved.
+            // STR-237 Special 1: the use case records nothing (application
+            // has no telemetry capability); the Unexpected branch carries the
+            // REAL throwable as a domain diagnostic. The exactly-one
+            // exceptional record for this branch is asserted at the outcome
+            // consumer's test (CreateProgramGenerateControllerTest), where
+            // the record moved.
+            val unexpected = result as GenerateProgramResult.Unexpected
+            assertEquals(GenerateProgramFailureKind.OperationalFailure, unexpected.kind)
+            assertEquals(1, unexpected.diagnostics.size)
+            assertSame(boom, unexpected.diagnostics.single().cause)
             assertTrue(programRepository.saveProgramCalls.isEmpty())
             assertNull(programRepository.current)
         }

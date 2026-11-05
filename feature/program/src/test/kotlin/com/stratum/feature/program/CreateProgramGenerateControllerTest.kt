@@ -45,6 +45,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
@@ -54,6 +55,9 @@ class CreateProgramGenerateControllerTest {
 
     @Test
     fun `generate failure records analytics and surfaces error state`() = runTest {
+        // STR-237 Special 1: a distinctive pre-created throwable — the record
+        // must carry THIS instance (class fidelity), not a constructed value.
+        val boom = IllegalArgumentException("boom")
         val analytics = FakeAnalyticsPort()
         val outcomes = FakeOutcomeTelemetrySink()
         val crash = FakeCrashTelemetryPort()
@@ -73,7 +77,8 @@ class CreateProgramGenerateControllerTest {
                 scope = backgroundScope,
                 generateProgram =
                     GenerateProgramUseCase(
-                        loadContext = FixedProgramGenerationContextLoader(error = { error("boom") }),
+                        loadContext =
+                            FixedProgramGenerationContextLoader(error = { throw boom }),
                         pipeline = testProgramGenerationPipeline(),
                         liftRepository = com.stratum.core.testing.onboarding.FakeLiftRepository(),
                         generationDispatcher = UnconfinedTestDispatcher(testScheduler),
@@ -107,20 +112,19 @@ class CreateProgramGenerateControllerTest {
         val event = byName[USER_VISIBLE_ERROR_EVENT]?.single()
         assertEquals("create_program", event?.params?.get(PARAM_SCREEN))
         assertEquals("generate_program", event?.params?.get(PARAM_ACTION))
-        // Unexpected failure: never in the outcome stream; STR-237 moved
-        // the record here — the controller records it exactly once via
-        // TelemetryRouter.recordExceptional: one non-fatal plus one
-        // exceptional_occurred counter increment with the base
-        // boundary/class params. The recorded exception value is CONSTRUCTED
-        // (the branch carries no throwable), so its class is synthetic —
-        // IllegalStateException here by construction, not because the real
-        // failure (also an IllegalStateException in this fixture) crossed.
+        // Unexpected failure: never in the outcome stream; STR-237 Special 1
+        // carries the REAL throwable on the branch and the controller records
+        // it exactly once via TelemetryRouter.recordExceptional: one
+        // non-fatal plus one exceptional_occurred counter increment with the
+        // base boundary/class params. Class fidelity: the recorded exception
+        // IS the fixture's throwable (assertSame), and the class param names
+        // its real class.
         assertTrue(outcomes.outcomes.isEmpty())
         assertEquals(1, crash.recordedExceptions.size)
-        assertTrue(crash.recordedExceptions.single() is IllegalStateException)
+        assertSame(boom, crash.recordedExceptions.single())
         val exceptional = byName[TelemetryRouter.EVENT_EXCEPTIONAL_OCCURRED]?.single()
         assertEquals("CreateProgramGenerate", exceptional?.params?.get(TelemetryRouter.PARAM_BOUNDARY))
-        assertEquals("IllegalStateException", exceptional?.params?.get(TelemetryRouter.PARAM_CLASS))
+        assertEquals("IllegalArgumentException", exceptional?.params?.get(TelemetryRouter.PARAM_CLASS))
     }
 
     @Test
