@@ -15,6 +15,7 @@ import com.stratum.domain.training.TrainingSession
 import com.stratum.domain.training.TrainingSessionKind
 import com.stratum.domain.program.Workout
 import com.stratum.domain.training.isOrphanedAgainstActiveProgram
+import kotlin.coroutines.cancellation.CancellationException
 
 class StartTrainingSessionUseCase @Inject constructor(
     private val trainingLogRepository: TrainingLogRepository,
@@ -81,9 +82,11 @@ class StartTrainingSessionUseCase @Inject constructor(
 
             trainingLogRepository.insertSession(session)
             StartTrainingSessionResult.Success(session)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (t: Throwable) {
             loggingPort.error(TAG, "Failed to start training session: ${t.message}", t)
-            StartTrainingSessionResult.Failure(t)
+            StartTrainingSessionResult.PersistenceFailed
         }
     }
 

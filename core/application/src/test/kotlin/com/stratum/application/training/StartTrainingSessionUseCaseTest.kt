@@ -129,5 +129,44 @@ class StartTrainingSessionUseCaseTest {
         assertEquals(StartTrainingSessionResult.WorkoutNotFound(unknownId), result)
     }
 
+    @Test
+    @DisplayName("Start returns PersistenceFailed when the active-session read throws (STR-243)")
+    fun persistenceFailureReturnsPersistenceFailed() = runTest {
+        val throwingRepo =
+            object : TrainingLogRepository by FakeTrainingLogRepository() {
+                override suspend fun getActiveSession(): com.stratum.domain.training.TrainingSession? =
+                    throw RuntimeException("room unavailable")
+            }
+        val useCase = StartTrainingSessionUseCase(
+            throwingRepo,
+            FakeProgramRepository(program()),
+            FakeLoggingPort(),
+        )
+
+        val result = useCase(StartTrainingSessionRequest.AdHocEmpty)
+        assertEquals(StartTrainingSessionResult.PersistenceFailed, result)
+    }
+
+    @Test
+    @DisplayName("Start propagates CancellationException instead of capturing it (STR-243)")
+    fun cancellationPropagates() {
+        val cancellingRepo =
+            object : TrainingLogRepository by FakeTrainingLogRepository() {
+                override suspend fun getActiveSession(): com.stratum.domain.training.TrainingSession? =
+                    throw kotlin.coroutines.cancellation.CancellationException("cancelled")
+            }
+        val useCase = StartTrainingSessionUseCase(
+            cancellingRepo,
+            FakeProgramRepository(program()),
+            FakeLoggingPort(),
+        )
+
+        org.junit.jupiter.api.Assertions.assertThrows(
+            kotlin.coroutines.cancellation.CancellationException::class.java,
+        ) {
+            kotlinx.coroutines.runBlocking { useCase(StartTrainingSessionRequest.AdHocEmpty) }
+        }
+    }
+
     private fun program() = WorkoutLoggingFixtures.twoWorkoutProgram()
 }

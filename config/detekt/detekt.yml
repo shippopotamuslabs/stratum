@@ -30,6 +30,84 @@ stratum:
     active: true
   ForbiddenRawSpacingLiteralInUi:
     active: true
+  # STR-243: raw-Throwable failure gate for :core:domain + :core:application main sources.
+  # legacyFiles is the shrinking ratchet: every cluster commit removes its converted
+  # files; C10 leaves this list EMPTY. The rule's Throwable-property check exempts the
+  # 8 section-10 diagnostics sealed types (STR-254..259: ScheduleDiagnostic,
+  # ProgramImportRollbackDiagnostic, EntitlementDiagnostic,
+  # ApplyGrantedPermissionsDiagnostic, EquipmentProposalDiagnostic,
+  # MergeLiftsDiagnostic, SwapWorkoutLiftDiagnostic, RepRangeShiftDiagnostic,
+  # LiftHistoryDiagnostic) by the *Diagnostic name pattern - they are the
+  # partial-success diagnostics channel, not failure payloads.
+  NoRawThrowableFailure:
+    active: true
+    legacyFiles:
+      - 'core/application/src/main/kotlin/com/stratum/application/auth/AuthUseCases.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/checkin/ApplyCheckInRecommendationsUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/checkin/CheckInPreferencesUseCases.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/dashboard/DashboardPreferencesUseCases.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/dashboard/LoadDashboardUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/dashboard/LoadGraphDetailUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/export/ExportTrainingLogsUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/healthconnect/HealthConnectUseCases.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/lift/AddCustomEquipmentUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/lift/AddCustomLiftUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/lift/ApplyEquipmentIncrementProposalUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/lift/CustomLiftFieldRules.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/lift/DeleteCustomEquipmentUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/lift/DeleteLiftUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/lift/DismissEquipmentProposalUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/lift/EquipmentProposalPreferencesUseCases.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/lift/FindOrCreateEquipmentByNameUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/lift/ForkEquipmentUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/lift/ForkEquipmentWithTiersUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/lift/MergeLiftsUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/lift/RenameAndSetIncrementTiersUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/lift/RenameEquipmentUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/lift/SaveLiftNotesUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/lift/ScanIncrementTiersUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/lift/SetEquipmentIncrementTiersUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/lift/SetLiftDefaultRestUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/lift/SetLiftEnabledUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/lift/SetLiftEquipmentUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/lift/UpdateCustomLiftDetailsUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/lift/UpdateLiftMusclesUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/lift/WeightDisplayPreferencesUseCases.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/onboarding/AdvanceOnboardingStepUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/onboarding/ReopenOnboardingWizardUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/program/ActivateStoredProgramUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/program/AddWorkoutLiftUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/program/AdjustWorkoutLiftSetCountUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/program/DeleteProgramUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/program/DiscardActiveProgramUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/program/GenerateProgramUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/program/ProgramsUiPreferencesUseCases.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/program/ReorderProgramCycleDaysUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/program/SaveWorkoutUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/program/SwapWorkoutLiftUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/program/UpdateExistingProgramUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/program/importing/ImportProgramTemplatesUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/subscription/SubscriptionUseCases.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/theme/ThemePreferencesUseCases.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/training/FinalizeTrainingSessionUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/training/GetCompletedSessionForEditUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/training/GetWorkoutSessionDetailUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/training/GetWorkoutSummaryUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/training/LocalDerivedTrainingStages.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/training/LogSetUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/training/RecordRestDaySkipUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/training/RecordWorkoutSkipUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/training/RequireInProgressSession.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/training/RewriteSessionLiftEquipmentUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/training/UnskipWorkoutUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/training/UpdateCompletedSessionSetsUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/training/UpdateCompletedSessionTimesUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/training/UpdateLoggedSetUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/workout/RepRangeShiftPreferencesUseCases.kt'
+      - 'core/domain/src/main/kotlin/com/stratum/domain/coroutines/RunCatchingCancellable.kt'
+      - 'core/domain/src/main/kotlin/com/stratum/domain/export/ExportRangeBounds.kt'
+      - 'core/domain/src/main/kotlin/com/stratum/domain/lift/CatalogNames.kt'
+      - 'core/domain/src/main/kotlin/com/stratum/domain/logging/LoggedResult.kt'
 
 potential-bugs:
   active: true

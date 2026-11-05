@@ -21,6 +21,7 @@ class StratumRuleSetProvider : RuleSetProvider {
                 ForbiddenDomainTypeInUiState(config),
                 ForbiddenUseCaseInFeatureMapper(config),
                 ForbiddenRawSpacingLiteralInUi(config),
+                NoRawThrowableFailure(config),
             ),
         )
 
