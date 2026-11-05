@@ -37,7 +37,7 @@ import com.stratum.domain.program.Workout
 
 typealias ProgramTemplateImportProgressCallback = suspend (ProgramTemplateImportPhase) -> Unit
 
-/** Thrown when the server rejects the uploaded file as not a workout program. */
+/** Carried as a [Result] failure value when the server rejects the uploaded file as not a workout program. */
 class ProgramTemplateRejectedException(message: String) : Exception(message)
 
 /**
@@ -91,27 +91,40 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
             withContext(importDispatcher) {
             onProgress(ProgramTemplateImportPhase.Uploading)
             val jobId = ProgramTemplateImportJobId(UUID.randomUUID().toString())
-            importPort.uploadAndStart(jobId, bytes, fileName).getOrThrow()
+            importPort.uploadAndStart(jobId, bytes, fileName)
+                .getOrElse { return@withContext Result.failure(it) }
 
-            val snapshot = pollUntilTerminal(jobId, onProgress).getOrThrow()
+            val snapshot = pollUntilTerminal(jobId, onProgress)
+                .getOrElse { return@withContext Result.failure(it) }
+            // Expected terminal outcomes are returned as failure values, never thrown:
+            // the exception types are constructed as Result payloads (STR-241).
             when (snapshot.status) {
                 RemoteProgramTemplateJobStatus.Rejected ->
-                    throw ProgramTemplateRejectedException(
-                        snapshot.errorMessage ?: "This file does not look like a workout program.",
+                    return@withContext Result.failure(
+                        ProgramTemplateRejectedException(
+                            snapshot.errorMessage ?: "This file does not look like a workout program.",
+                        ),
                     )
                 RemoteProgramTemplateJobStatus.Failed ->
-                    error(snapshot.errorMessage ?: "Import failed.")
+                    return@withContext Result.failure(
+                        IllegalStateException(snapshot.errorMessage ?: "Import failed."),
+                    )
                 RemoteProgramTemplateJobStatus.Ready -> Unit
                 else ->
-                    error("Import ended in non-terminal status: ${snapshot.status}")
+                    return@withContext Result.failure(
+                        IllegalStateException("Import ended in non-terminal status: ${snapshot.status}"),
+                    )
             }
 
             val templateStoragePath =
                 snapshot.programTemplateStoragePath
-                    ?: error("Ready job has no template path.")
+                    ?: return@withContext Result.failure(
+                        IllegalStateException("Ready job has no template path."),
+                    )
 
             onProgress(ProgramTemplateImportPhase.MatchingCatalog)
-            val templateJson = importPort.downloadProgramTemplate(templateStoragePath).getOrThrow()
+            val templateJson = importPort.downloadProgramTemplate(templateStoragePath)
+                .getOrElse { return@withContext Result.failure(it) }
             val parsed = parseAll(templateJson)
             require(parsed.isNotEmpty()) { "Imported template has no programs" }
 
@@ -190,13 +203,17 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
                 completeOnboarding(profile)
             }
             onProgress(ProgramTemplateImportPhase.Complete)
-            ProgramTemplateImportResult(
-                importedProgramIds = importedIds,
-                skippedProgramCount = skipped,
+            Result.success(
+                ProgramTemplateImportResult(
+                    importedProgramIds = importedIds,
+                    skippedProgramCount = skipped,
+                ),
             )
             }
         }
-        return result
+        // Flatten: the block returns expected failures as Result values; the envelope's
+        // own failures (operational throws caught by runCatchingCancellable) pass through.
+        return result.getOrElse { return Result.failure(it) }
     }
 
     /**
@@ -285,17 +302,32 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
     private suspend fun pollUntilTerminal(
         jobId: ProgramTemplateImportJobId,
         onProgress: ProgramTemplateImportProgressCallback,
-    ): Result<ProgramTemplateJobSnapshot> = runCatchingCancellable {
+    ): Result<ProgramTemplateJobSnapshot> {
+        // Direct Result propagation (STR-241): a poll failure is returned as a value,
+        // never unwrapped into a throw. Cancellation from the port or the delay
+        // propagates as cancellation, exactly as the previous envelope did.
+        var pollFailure: Throwable? = null
         val terminal = withTimeoutOrNull(POLL_TIMEOUT_MS) {
             var snapshot: ProgramTemplateJobSnapshot? = null
             while (snapshot == null || !snapshot.status.isTerminal()) {
                 delay(POLL_INTERVAL_MS)
-                snapshot = importPort.pollJobStatus(jobId).getOrThrow()
-                snapshot.progressPhase?.let { onProgress(it) }
+                val polled = importPort.pollJobStatus(jobId)
+                val failure = polled.exceptionOrNull()
+                if (failure != null) {
+                    pollFailure = failure
+                    return@withTimeoutOrNull snapshot
+                }
+                snapshot = polled.getOrNull()
+                snapshot?.progressPhase?.let { onProgress(it) }
             }
             snapshot
-        } ?: error("Timed out waiting for import to finish.")
-        terminal
+        }
+        pollFailure?.let { return Result.failure(it) }
+        return if (terminal != null) {
+            Result.success(terminal)
+        } else {
+            Result.failure(IllegalStateException("Timed out waiting for import to finish."))
+        }
     }
 
     private fun RemoteProgramTemplateJobStatus.isTerminal(): Boolean =
