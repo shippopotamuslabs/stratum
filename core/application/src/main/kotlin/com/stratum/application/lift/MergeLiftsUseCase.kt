@@ -2,7 +2,6 @@ package com.stratum.application.lift
 
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.logging.LoggingPort
-import com.stratum.domain.logging.runCatchingLogged
 import com.stratum.application.training.ComputePersonalRecordsUseCase
 import com.stratum.application.training.RebuildLocalDerivedTrainingDataUseCase
 import com.stratum.application.training.TrainingLogRepository
@@ -11,6 +10,33 @@ import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.program.Program
+
+/**
+ * Outcome of merging lifts (STR-243).
+ *
+ * The precondition branches enumerate the invoke guards: no sources, the
+ * target named as its own source, and a selection that does not fully
+ * resolve. [Success] carries the [MergeLiftsOutcome] (with its §10
+ * diagnostics). The originating throwable of a failed merge goes once to the
+ * diagnostics channel ([LoggingPort.error]) at the use-case boundary; it
+ * never crosses as a payload. Coroutine cancellation is not a branch: it
+ * propagates.
+ */
+sealed interface MergeLiftsResult {
+    data class Success(val outcome: MergeLiftsOutcome) : MergeLiftsResult
+
+    /** No source lifts were supplied. */
+    data object NoSourceLifts : MergeLiftsResult
+
+    /** The target lift was also named as a source. */
+    data object TargetIsSource : MergeLiftsResult
+
+    /** One or more selected lifts were not found. */
+    data object LiftsNotFound : MergeLiftsResult
+
+    /** A repository read or write in the merge failed. */
+    data object PersistenceFailed : MergeLiftsResult
+}
 
 /**
  * Merges lift **history** into a single survivor lift.
@@ -40,21 +66,21 @@ class MergeLiftsUseCase @Inject constructor(
     suspend operator fun invoke(
         targetLiftId: LiftId,
         sourceLiftIds: Set<LiftId>,
-    ): Result<MergeLiftsOutcome> {
+    ): MergeLiftsResult {
         if (sourceLiftIds.isEmpty()) {
-            return Result.failure(IllegalArgumentException("At least one source lift is required"))
+            return MergeLiftsResult.NoSourceLifts
         }
         if (targetLiftId in sourceLiftIds) {
-            return Result.failure(IllegalArgumentException("Target lift cannot also be a source"))
+            return MergeLiftsResult.TargetIsSource
         }
 
         val allIds = sourceLiftIds + targetLiftId
-        val lifts = liftRepository.getLiftsByIds(allIds)
-        if (lifts.size != allIds.size) {
-            return Result.failure(IllegalArgumentException("One or more selected lifts were not found"))
-        }
+        return try {
+            val lifts = liftRepository.getLiftsByIds(allIds)
+            if (lifts.size != allIds.size) {
+                return MergeLiftsResult.LiftsNotFound
+            }
 
-        return runCatchingLogged(loggingPort, TAG, "Failed to merge lifts") {
             val target = lifts.first { it.id == targetLiftId }
             val sources = lifts.filter { it.id in sourceLiftIds }
 
@@ -81,7 +107,12 @@ class MergeLiftsUseCase @Inject constructor(
                     "Merge succeeded but derived training rebuild failed: ${error.message}",
                 )
             }
-            MergeLiftsOutcome(diagnostics = listOfNotNull(prDiagnostic))
+            MergeLiftsResult.Success(MergeLiftsOutcome(diagnostics = listOfNotNull(prDiagnostic)))
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (t: Throwable) {
+            loggingPort.error(TAG, "Failed to merge lifts: ${t.message}", t)
+            MergeLiftsResult.PersistenceFailed
         }
     }
 

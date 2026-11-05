@@ -4,6 +4,7 @@ import com.stratum.core.testing.lift.FakeLiftNotesRepository
 import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
+import com.stratum.application.lift.LiftNotesRepository
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.identity.LiftSessionNoteId
 import com.stratum.domain.onboarding.MuscleGroup
@@ -58,8 +59,8 @@ class SaveLiftNotesUseCaseTest {
                 ),
             )
 
-        assertTrue(result.isSuccess)
-        assertFalse(result.getOrThrow().workoutNoteNeedsOverlay)
+        assertTrue(result is SaveLiftNotesOutcome.Success)
+        assertFalse((result as SaveLiftNotesOutcome.Success).result.workoutNoteNeedsOverlay)
         assertEquals("session cue", notes.getSessionNote(sessionId, workoutLiftId)?.body)
         assertEquals(
             LiftSessionNoteId.forSlot(sessionId, workoutLiftId),
@@ -286,7 +287,9 @@ class SaveLiftNotesUseCaseTest {
                 ),
             )
 
-        assertTrue(result.getOrThrow().workoutNoteNeedsOverlay)
+        assertTrue(
+            ((result as SaveLiftNotesOutcome.Success).result.workoutNoteNeedsOverlay),
+        )
     }
 
     @Test
@@ -341,7 +344,9 @@ class SaveLiftNotesUseCaseTest {
                 ),
             )
 
-        assertTrue(result.getOrThrow().workoutNoteNeedsOverlay)
+        assertTrue(
+            ((result as SaveLiftNotesOutcome.Success).result.workoutNoteNeedsOverlay),
+        )
     }
 
     @Test
@@ -552,4 +557,40 @@ class SaveLiftNotesUseCaseTest {
                     ),
                 ),
         )
+
+    @Test
+    @DisplayName("Repository write failure surfaces as PersistenceFailed with one error log")
+    fun persistenceFailureOnWrite() = runTest {
+        val notes = FakeLiftNotesRepository()
+        val throwing =
+            object : LiftNotesRepository by notes {
+                override suspend fun replaceSessionNotes(
+                    sessionId: TrainingSessionId,
+                    workoutLiftId: WorkoutLiftId,
+                    liftId: LiftId,
+                    notes: List<SessionNoteInput>,
+                ): Unit = throw IllegalStateException("write failed")
+            }
+        val logging = FakeLoggingPort()
+        val useCase =
+            SaveLiftNotesUseCase(
+                throwing,
+                FakeLiftRepository(listOf(sampleLift())),
+                FakeProgramRepository(sampleProgram()),
+                logging,
+            )
+
+        val result =
+            useCase(
+                SaveLiftNotesCommand(
+                    sessionId = sessionId,
+                    workoutLiftId = workoutLiftId,
+                    liftId = liftId,
+                    sessionNotes = listOf(SessionNoteInput(body = "cue")),
+                ),
+            )
+
+        assertEquals(SaveLiftNotesOutcome.PersistenceFailed, result)
+        assertEquals(1, logging.errors.size)
+    }
 }

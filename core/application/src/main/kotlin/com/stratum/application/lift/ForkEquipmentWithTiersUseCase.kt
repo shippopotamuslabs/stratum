@@ -13,10 +13,11 @@ import com.stratum.domain.lift.Weight
  * Outcome of the fork-with-tiers composite write (STR-243).
  *
  * The fork and tier-write steps surface their validation results on the matching
- * branches. [LiftAssignmentFailed] is the interim branch for the lift-reassignment
- * step: [SetLiftEquipmentUseCase] still returns a raw `Result` until its own cluster
- * (C4) converts it, so its failure kinds cannot be enumerated here yet; its
- * operational failures are already logged once at that use case's own boundary.
+ * branches. The lift-reassignment step's failure kinds are enumerated on the
+ * `Assignment*` branches, mapped one-to-one from [SetLiftEquipmentResult]
+ * (STR-243 C4 retired the interim single `LiftAssignmentFailed` branch once
+ * that use case returned typed outcomes; its operational failures are logged
+ * once at its own boundary).
  */
 sealed interface ForkEquipmentWithTiersResult {
     data class Success(val equipmentId: EquipmentId) : ForkEquipmentWithTiersResult
@@ -35,8 +36,15 @@ sealed interface ForkEquipmentWithTiersResult {
     /** A repository read or write in the fork or tier-write step failed. */
     data object PersistenceFailed : ForkEquipmentWithTiersResult
 
-    /** The lift-reassignment step failed (see the type doc; interim until C4). */
-    data object LiftAssignmentFailed : ForkEquipmentWithTiersResult
+    /** The lift-reassignment step's lift was not found. */
+    data class AssignmentLiftNotFound(val liftId: LiftId) : ForkEquipmentWithTiersResult
+
+    /** The lift-reassignment step targeted deleted equipment. */
+    data class AssignmentEquipmentDeleted(val equipmentId: EquipmentId) :
+        ForkEquipmentWithTiersResult
+
+    /** The lift-reassignment step's read or write failed. */
+    data object AssignmentPersistenceFailed : ForkEquipmentWithTiersResult
 }
 
 /**
@@ -80,11 +88,7 @@ class ForkEquipmentWithTiersUseCase @Inject constructor(
             .asFailure()
             ?.let { return it }
         if (liftId != null) {
-            // Interim (see the outcome type doc): SetLiftEquipmentUseCase converts
-            // in C4; until then any failure of the assignment step is this branch.
-            if (setLiftEquipment(liftId, forked.id).isFailure) {
-                return ForkEquipmentWithTiersResult.LiftAssignmentFailed
-            }
+            setLiftEquipment(liftId, forked.id).asAssignmentFailure()?.let { return it }
         }
         return ForkEquipmentWithTiersResult.Success(forked.id)
     }
@@ -103,6 +107,18 @@ class ForkEquipmentWithTiersUseCase @Inject constructor(
                 ForkEquipmentWithTiersResult.InvalidMicro(validation)
             ForkEquipmentResult.PersistenceFailed ->
                 ForkEquipmentWithTiersResult.PersistenceFailed
+        }
+
+    /** Maps an assignment failure onto this composite's matching branch; null on success. */
+    private fun SetLiftEquipmentResult.asAssignmentFailure(): ForkEquipmentWithTiersResult? =
+        when (this) {
+            SetLiftEquipmentResult.Success -> null
+            is SetLiftEquipmentResult.LiftNotFound ->
+                ForkEquipmentWithTiersResult.AssignmentLiftNotFound(liftId)
+            is SetLiftEquipmentResult.EquipmentDeleted ->
+                ForkEquipmentWithTiersResult.AssignmentEquipmentDeleted(equipmentId)
+            SetLiftEquipmentResult.PersistenceFailed ->
+                ForkEquipmentWithTiersResult.AssignmentPersistenceFailed
         }
 
     /** Maps a tier-write failure onto this composite's matching branch; null on success. */

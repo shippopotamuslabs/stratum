@@ -31,7 +31,7 @@ class SetLiftEquipmentUseCaseTest {
 
         val result = useCase(liftId, SeedEquipmentIds.Bodyweight)
 
-        assertTrue(result.isSuccess)
+        assertEquals(SetLiftEquipmentResult.Success, result)
         val lift = repo.currentLifts.single()
         assertEquals(SeedEquipmentIds.Bodyweight, lift.equipmentId)
         assertEquals(LoadType.Bodyweight, lift.loadType)
@@ -55,7 +55,7 @@ class SetLiftEquipmentUseCaseTest {
 
         val result = useCase(liftId, cableId)
 
-        assertTrue(result.isSuccess)
+        assertEquals(SetLiftEquipmentResult.Success, result)
         val lift = repo.currentLifts.single()
         assertEquals(cableId, lift.equipmentId)
         assertEquals(LoadType.Weighted, lift.loadType)
@@ -73,7 +73,7 @@ class SetLiftEquipmentUseCaseTest {
 
         val result = useCase(liftId, cableId)
 
-        assertTrue(result.isSuccess)
+        assertEquals(SetLiftEquipmentResult.Success, result)
         assertEquals(LoadType.Assisted, repo.currentLifts.single().loadType)
     }
 
@@ -88,7 +88,7 @@ class SetLiftEquipmentUseCaseTest {
 
         val result = useCase(liftId, null)
 
-        assertTrue(result.isSuccess)
+        assertEquals(SetLiftEquipmentResult.Success, result)
         val lift = repo.currentLifts.single()
         assertEquals(null, lift.equipmentId)
         assertEquals(LoadType.Assisted, lift.loadType)
@@ -106,10 +106,10 @@ class SetLiftEquipmentUseCaseTest {
         )
         val useCase = SetLiftEquipmentUseCase(repo, equipmentRepo, FakeLoggingPort())
 
-        assertTrue(useCase(liftId, cableId).isFailure)
+        assertEquals(SetLiftEquipmentResult.EquipmentDeleted(cableId), useCase(liftId, cableId))
         assertEquals(cableId, repo.currentLifts.single().equipmentId)
-        assertTrue(useCase(liftId, EquipmentId("live-eq")).isSuccess)
-        assertTrue(useCase(liftId, null).isSuccess)
+        assertEquals(SetLiftEquipmentResult.Success, useCase(liftId, EquipmentId("live-eq")))
+        assertEquals(SetLiftEquipmentResult.Success, useCase(liftId, null))
         assertEquals(null, repo.currentLifts.single().equipmentId)
     }
 
@@ -121,7 +121,7 @@ class SetLiftEquipmentUseCaseTest {
 
         val result = useCase(liftId, cableId)
 
-        assertTrue(result.isFailure)
+        assertEquals(SetLiftEquipmentResult.LiftNotFound(liftId), result)
         assertTrue(repo.currentLifts.isEmpty())
     }
 

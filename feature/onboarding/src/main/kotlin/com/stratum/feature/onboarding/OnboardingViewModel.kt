@@ -12,8 +12,10 @@ import com.stratum.domain.importing.ImportHistoryPersistPolicy
 import com.stratum.domain.importing.ImportProgress
 import com.stratum.domain.importing.ImportProgressPhase
 import com.stratum.application.importing.RefreshPersistedImportStateUseCase
+import com.stratum.application.lift.ApplyGymPresetResult
 import com.stratum.application.lift.ApplyGymPresetUseCase
 import com.stratum.application.lift.ObserveWeightDisplayPreferencesUseCase
+import com.stratum.application.lift.SetSelectedPresetResult
 import com.stratum.application.lift.SetSelectedPresetUseCase
 import com.stratum.application.lift.SetWeightDisplayUnitUseCase
 import com.stratum.domain.lift.Weight
@@ -388,19 +390,18 @@ class OnboardingViewModel @Inject constructor(
                 )
             }
             importResumeState.value = null
-            val result =
+            // STR-243 C4: branch on the outcome kinds; the failure copy is the
+            // shipped preset-apply fallback.
+            val failed =
                 if (preset != null) {
-                    applyGymPreset(preset)
+                    applyGymPreset(preset) == ApplyGymPresetResult.PersistenceFailed
                 } else {
-                    setSelectedPreset(null)
+                    setSelectedPreset(null) == SetSelectedPresetResult.PersistenceFailed
                 }
             ephemeral.update {
                 it.copy(
                     applyingPreset = false,
-                    presetApplyError = result.fold(
-                        onSuccess = { null },
-                        onFailure = { error -> error.toPresetApplyErrorMessage() },
-                    ),
+                    presetApplyError = if (failed) PRESET_APPLY_ERROR_FALLBACK else null,
                 )
             }
         }

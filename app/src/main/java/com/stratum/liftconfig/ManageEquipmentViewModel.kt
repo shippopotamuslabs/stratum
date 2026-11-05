@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.application.lift.AddCustomEquipmentResult
 import com.stratum.application.lift.AddCustomEquipmentUseCase
+import com.stratum.application.lift.DeleteCustomEquipmentResult
 import com.stratum.application.lift.DeleteCustomEquipmentUseCase
 import com.stratum.application.lift.ForkEquipmentResult
 import com.stratum.domain.lift.Equipment
@@ -347,15 +348,17 @@ class ManageEquipmentViewModel @Inject constructor(
         viewModelScope.launch {
             val result = deleteCustomEquipment(EquipmentId(pending.id), replacement)
             pendingDelete.value = null
-            result
-                .onSuccess {
+            // STR-243 C4: branch on the outcome kinds; the user copy is sourced
+            // from the kind (NotDeletable carries the shipped refusal copy).
+            when (result) {
+                DeleteCustomEquipmentResult.Success ->
                     _userMessage.value = "Deleted ${pending.name}."
-                }
-                .onFailure { error ->
+                is DeleteCustomEquipmentResult.NotDeletable ->
                     _userMessage.value =
-                        error.message?.takeIf { it.isNotBlank() }
-                            ?: MSG_DELETE_FAILED
-                }
+                        "Equipment cannot be deleted (protected or missing, or a replacement is required)"
+                DeleteCustomEquipmentResult.PersistenceFailed ->
+                    _userMessage.value = MSG_DELETE_FAILED
+            }
         }
     }
 

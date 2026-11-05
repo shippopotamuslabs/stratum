@@ -276,9 +276,11 @@ class OnboardingImportProgramViewModelTest {
             ),
             applyGymPreset = com.stratum.application.lift.ApplyGymPresetUseCase(
                 com.stratum.core.testing.onboarding.FakeLiftRepository(),
+                com.stratum.core.testing.logging.FakeLoggingPort(),
             ),
             setSelectedPreset = com.stratum.application.lift.SetSelectedPresetUseCase(
                 com.stratum.core.testing.onboarding.FakeLiftRepository(),
+                com.stratum.core.testing.logging.FakeLoggingPort(),
             ),
             executeHistoricalImport = com.stratum.application.importing.ExecuteHistoricalImportUseCase(
                 validateImportFiles = com.stratum.application.importing.ValidateImportFilesUseCase(),

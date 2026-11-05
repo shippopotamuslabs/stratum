@@ -212,12 +212,15 @@ class ForkEquipmentWithTiersUseCaseTest {
     }
 
     @Test
-    @DisplayName("Given a missing lift when invoked then LiftAssignmentFailed (STR-243 interim branch)")
+    @DisplayName("Given a missing lift when invoked then AssignmentLiftNotFound (STR-243 C4)")
     fun forkWithTiersFailsOnMissingLift() = runTest {
         val result =
             subject(cableId, "Cables (copy)", editedTiers, LiftId("missing-lift"))
 
-        assertEquals(ForkEquipmentWithTiersResult.LiftAssignmentFailed, result)
+        assertEquals(
+            ForkEquipmentWithTiersResult.AssignmentLiftNotFound(LiftId("missing-lift")),
+            result,
+        )
     }
 
     @Test

@@ -2,6 +2,7 @@ package com.stratum.liftconfig
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.stratum.application.lift.AddCustomLiftResult
 import com.stratum.application.lift.AddCustomLiftUseCase
 import com.stratum.domain.lift.CustomLiftDefinition
 import com.stratum.domain.lift.DEFAULT_STANDARD_REST_SECONDS
@@ -293,11 +294,16 @@ class CreateLiftViewModel @Inject constructor(
                     ),
                 )
             sheets.update { it.copy(saving = false) }
-            if (result.isSuccess) {
-                _events.send(CreateLiftEvent.NavigateBack)
-            } else {
-                errorOverride.value = result.exceptionOrNull()?.message
-                    ?: "Couldn't create lift. Try again."
+            // STR-243 C4: branch on the outcome kinds; the user copy is sourced
+            // from the kind (validation branches carry their message).
+            when (result) {
+                is AddCustomLiftResult.Success -> _events.send(CreateLiftEvent.NavigateBack)
+                is AddCustomLiftResult.InvalidName ->
+                    errorOverride.value = result.validation.message
+                is AddCustomLiftResult.InvalidField ->
+                    errorOverride.value = result.validation.message
+                AddCustomLiftResult.PersistenceFailed ->
+                    errorOverride.value = "Couldn't create lift. Try again."
             }
         }
     }

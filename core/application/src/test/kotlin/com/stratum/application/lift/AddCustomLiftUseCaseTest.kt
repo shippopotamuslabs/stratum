@@ -10,6 +10,9 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import com.stratum.domain.lift.CustomLiftDefinition
+import com.stratum.domain.lift.identity.LiftId
+import kotlin.coroutines.cancellation.CancellationException
+import org.junit.jupiter.api.Assertions.assertThrows
 import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
@@ -38,8 +41,8 @@ class AddCustomLiftUseCaseTest {
                 ),
             )
 
-        assertTrue(result.isSuccess)
-        val lift = repo.currentLifts.single { it.id == result.getOrThrow() }
+        assertTrue(result is AddCustomLiftResult.Success)
+        val lift = repo.currentLifts.single { it.id == (result as AddCustomLiftResult.Success).liftId }
         assertEquals("Landmine Press", lift.name)
         assertTrue(lift.isCustom)
         assertTrue(lift.enabled)
@@ -68,7 +71,7 @@ class AddCustomLiftUseCaseTest {
                 ),
             )
 
-        assertTrue(result.isFailure)
+        assertTrue(result is AddCustomLiftResult.InvalidName)
         assertTrue(repo.currentLifts.isEmpty())
     }
 
@@ -87,7 +90,7 @@ class AddCustomLiftUseCaseTest {
                 ),
             )
 
-        assertTrue(result.isFailure)
+        assertTrue(result is AddCustomLiftResult.InvalidField)
         assertTrue(repo.currentLifts.isEmpty())
     }
 
@@ -106,7 +109,7 @@ class AddCustomLiftUseCaseTest {
                 ),
             )
 
-        assertTrue(result.isFailure)
+        assertTrue(result is AddCustomLiftResult.InvalidField)
         assertTrue(repo.currentLifts.isEmpty())
     }
 
@@ -126,7 +129,14 @@ class AddCustomLiftUseCaseTest {
                 ),
             )
 
-        assertTrue(result.isFailure)
+        assertEquals(
+            AddCustomLiftResult.InvalidField(
+                CustomLiftFieldValidation.Invalid(
+                    "Rest must be between 0 and 600 seconds",
+                ),
+            ),
+            result,
+        )
         assertTrue(repo.currentLifts.isEmpty())
     }
 
@@ -146,8 +156,65 @@ class AddCustomLiftUseCaseTest {
                 ),
             )
 
-        assertTrue(result.isSuccess)
+        assertTrue(result is AddCustomLiftResult.Success)
         assertNull(repo.currentLifts.single().equipmentName)
         assertNull(repo.currentLifts.single().equipmentId)
+    }
+
+    @Test
+    @DisplayName("Given a failing repository write when added then PersistenceFailed and one error log")
+    fun persistenceFailureOnWrite() = runTest {
+        val repo = FakeLiftRepository()
+        val logging = FakeLoggingPort()
+        val useCase =
+            AddCustomLiftUseCase(
+                ThrowingAddLiftRepository(repo, IllegalStateException("write failed")),
+                logging,
+            )
+
+        val result =
+            useCase(
+                CustomLiftDefinition(
+                    name = "Mystery Move",
+                    movementPatterns = setOf(MovementPattern.SquatPattern),
+                    primaryMuscles = setOf(MuscleGroup.Quad),
+                ),
+            )
+
+        assertEquals(AddCustomLiftResult.PersistenceFailed, result)
+        assertEquals(1, logging.errors.size)
+        assertTrue(repo.currentLifts.isEmpty())
+    }
+
+    @Test
+    @DisplayName("Given a cancelling repository write when added then cancellation propagates")
+    fun cancellationPropagates() {
+        val repo = FakeLiftRepository()
+        val useCase =
+            AddCustomLiftUseCase(
+                ThrowingAddLiftRepository(repo, CancellationException("cancelled")),
+                FakeLoggingPort(),
+            )
+
+        assertThrows(CancellationException::class.java) {
+            kotlinx.coroutines.runBlocking {
+                useCase(
+                    CustomLiftDefinition(
+                        name = "Mystery Move",
+                        movementPatterns = setOf(MovementPattern.SquatPattern),
+                        primaryMuscles = setOf(MuscleGroup.Quad),
+                    ),
+                )
+            }
+        }
+    }
+
+    /** Delegates to [delegate] except [addCustomLift], which throws [failure]. */
+    private class ThrowingAddLiftRepository(
+        delegate: FakeLiftRepository,
+        private val failure: Throwable,
+    ) : LiftRepository by delegate {
+        override suspend fun addCustomLift(definition: CustomLiftDefinition): LiftId =
+            throw failure
     }
 }

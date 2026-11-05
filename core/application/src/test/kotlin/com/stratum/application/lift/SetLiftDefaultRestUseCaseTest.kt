@@ -23,7 +23,7 @@ class SetLiftDefaultRestUseCaseTest {
 
         val result = useCase(lift.id, 150)
 
-        assertTrue(result.isSuccess)
+        assertEquals(SetLiftDefaultRestResult.Success, result)
         assertEquals(150, repo.currentLifts.single().defaultRestSeconds)
     }
 
@@ -36,8 +36,19 @@ class SetLiftDefaultRestUseCaseTest {
 
         val result = useCase(lift.id, 999)
 
-        assertTrue(result.isFailure)
+        assertEquals(SetLiftDefaultRestResult.InvalidRest(999), result)
         assertEquals(null, repo.currentLifts.single().defaultRestSeconds)
+    }
+
+    @Test
+    @DisplayName("Given missing lift when set rest then LiftNotFound")
+    fun missingLiftFails() = runTest {
+        val repo = FakeLiftRepository()
+        val useCase = SetLiftDefaultRestUseCase(repo, FakeLoggingPort())
+
+        val result = useCase(LiftId("missing"), 150)
+
+        assertEquals(SetLiftDefaultRestResult.LiftNotFound(LiftId("missing")), result)
     }
 
     private fun sampleLift(isCustom: Boolean): Lift =
