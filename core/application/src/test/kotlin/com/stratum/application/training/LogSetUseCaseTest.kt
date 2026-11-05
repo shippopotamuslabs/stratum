@@ -40,7 +40,7 @@ class LogSetUseCaseTest {
         val result = useCase(command(sessionId = "ts-live-1"))
 
         assertEquals(1, repo.insertSetCallCount)
-        assertEquals(TrainingSessionId("ts-live-1"), result.getOrThrow().sessionId)
+        assertEquals(TrainingSessionId("ts-live-1"), (result as LogSetResult.Success).loggedSet.sessionId)
     }
 
     @Test
@@ -53,15 +53,20 @@ class LogSetUseCaseTest {
 
         val result = useCase(command(sessionId = "ts-done"))
 
-        assertTrue(result.isFailure)
-        assertTrue(result.exceptionOrNull() is TrainingSessionNotInProgressException)
+        assertEquals(
+            LogSetResult.SessionNotInProgress(
+                TrainingSessionId("ts-done"),
+                com.stratum.domain.training.TrainingSessionStatus.COMPLETED,
+            ),
+            result,
+        )
         assertEquals(0, repo.insertSetCallCount)
         assertEquals(1, logging.errors.size)
         assertTrue(logging.errors.single().throwable is TrainingSessionNotInProgressException)
     }
 
     @Test
-    @DisplayName("operational getSession failure returns Result failure with exactly one error log")
+    @DisplayName("operational getSession failure returns PersistenceFailed with exactly one error log")
     fun operationalLoadFailureReturnsFailureAndLogsOnce() = runTest {
         val repo = FakeTrainingLogRepository()
         val failure = IllegalStateException("room load failed")
@@ -71,8 +76,7 @@ class LogSetUseCaseTest {
 
         val result = useCase(command(sessionId = "ts-live-1"))
 
-        assertTrue(result.isFailure)
-        assertEquals(failure, result.exceptionOrNull())
+        assertEquals(LogSetResult.PersistenceFailed, result)
         assertEquals(0, repo.insertSetCallCount)
         assertEquals(1, logging.errors.size)
         assertEquals("Failed to log set: ${failure.message}", logging.errors.single().message)
@@ -86,7 +90,7 @@ class LogSetUseCaseTest {
         repo.seedSession(WorkoutLoggingFixtures.inProgressSession(id = "ts-live-1"))
         val useCase = buildUseCase(repo)
 
-        val set = useCase(command(workoutLiftId = WorkoutLiftId("wl-1"))).getOrThrow()
+        val set = (useCase(command(workoutLiftId = WorkoutLiftId("wl-1"))) as LogSetResult.Success).loggedSet
 
         assertEquals(WorkoutLiftId("wl-1"), set.liftContext.workoutLiftId)
         assertEquals(ProgressionScheme.Double, set.liftContext.progressionScheme)
@@ -106,7 +110,7 @@ class LogSetUseCaseTest {
             FakeLoggingPort(),
         )
 
-        val set = useCase(command()).getOrThrow()
+        val set = (useCase(command()) as LogSetResult.Success).loggedSet
 
         assertEquals(WorkoutLoggingFixtures.CHEST_BITMASK, set.liftContext.primaryMusclesBitmask)
         assertEquals("Barbell Bench Press", set.liftContext.liftName)
@@ -120,14 +124,14 @@ class LogSetUseCaseTest {
         val sessionOnlyId = WorkoutLiftId("wl-session-added")
         val useCase = buildUseCase(repo)
 
-        val set = useCase(
+        val set = (useCase(
             command(workoutLiftId = sessionOnlyId).copy(
                 setType = SetType.Standard,
                 repMin = 8,
                 repMax = 12,
                 rirGoal = 2,
             ),
-        ).getOrThrow()
+        ) as LogSetResult.Success).loggedSet
 
         assertEquals(1, repo.insertSetCallCount)
         assertEquals(sessionOnlyId, set.liftContext.workoutLiftId)
@@ -148,7 +152,7 @@ class LogSetUseCaseTest {
 
         // setIndex 0 would match the template top set, but live mini shape must win.
         val set =
-            useCase(
+            (useCase(
                 command(workoutLiftId = WorkoutLiftId("wl-1")).copy(
                     setIndex = 0,
                     setType = SetType.MyoRep,
@@ -156,7 +160,7 @@ class LogSetUseCaseTest {
                     repMax = 0,
                     rirGoal = 0,
                 ),
-            ).getOrThrow()
+            ) as LogSetResult.Success).loggedSet
 
         assertEquals(SetType.MyoRep, set.liftContext.setType)
         assertEquals(0, set.liftContext.repMin)
@@ -185,7 +189,7 @@ class LogSetUseCaseTest {
             FakeLoggingPort(),
         )
 
-        val set = useCase(command(sessionId = "ts-adhoc", workoutLiftId = sessionOnlyId)).getOrThrow()
+        val set = (useCase(command(sessionId = "ts-adhoc", workoutLiftId = sessionOnlyId)) as LogSetResult.Success).loggedSet
 
         assertEquals(1, repo.insertSetCallCount)
         assertEquals(sessionOnlyId, set.liftContext.workoutLiftId)
@@ -199,7 +203,7 @@ class LogSetUseCaseTest {
         repo.seedSession(WorkoutLoggingFixtures.inProgressSession(id = "ts-live-1"))
         val useCase = buildUseCase(repo)
 
-        val set = useCase(command()).getOrThrow()
+        val set = (useCase(command()) as LogSetResult.Success).loggedSet
 
         assertEquals(
             com.stratum.domain.lift.SeedEquipmentIds.DoubleWeightPlates,
@@ -219,7 +223,7 @@ class LogSetUseCaseTest {
         val useCase = buildUseCase(repo)
         val swapTarget = com.stratum.domain.lift.identity.EquipmentId("eq-cable")
 
-        val set = useCase(command().copy(equipment = SetEquipmentSource.Explicit(swapTarget))).getOrThrow()
+        val set = (useCase(command().copy(equipment = SetEquipmentSource.Explicit(swapTarget))) as LogSetResult.Success).loggedSet
 
         assertEquals(swapTarget, set.equipmentId)
     }
@@ -231,7 +235,7 @@ class LogSetUseCaseTest {
         repo.seedSession(WorkoutLoggingFixtures.inProgressSession(id = "ts-live-1"))
         val useCase = buildUseCase(repo)
 
-        val withPartials = useCase(command().copy(partialReps = 2)).getOrThrow()
+        val withPartials = (useCase(command().copy(partialReps = 2)) as LogSetResult.Success).loggedSet
         assertEquals(2, withPartials.partialReps)
         assertEquals(2, withPartials.normalizedPartialReps)
         assertEquals(
@@ -241,8 +245,40 @@ class LogSetUseCaseTest {
 
         // STR-168: the use case no longer normalizes ad hoc — the raw value is
         // stored and LoggedSet owns the meaning (0 reads back as "none").
-        val zero = useCase(command().copy(partialReps = 0)).getOrThrow()
+        val zero = (useCase(command().copy(partialReps = 0)) as LogSetResult.Success).loggedSet
         assertNull(zero.normalizedPartialReps)
+    }
+
+    @Test
+    @DisplayName("missing session returns SessionNotFound branch (STR-243)")
+    fun missingSessionReturnsSessionNotFound() = runTest {
+        val repo = FakeTrainingLogRepository()
+        val useCase = buildUseCase(repo)
+
+        val result = useCase(command(sessionId = "ts-missing"))
+
+        assertEquals(LogSetResult.SessionNotFound(TrainingSessionId("ts-missing")), result)
+        assertEquals(0, repo.insertSetCallCount)
+    }
+
+    @Test
+    @DisplayName("unknown lift returns LiftNotFound branch (STR-243)")
+    fun unknownLiftReturnsLiftNotFound() = runTest {
+        val repo = FakeTrainingLogRepository()
+        repo.seedSession(WorkoutLoggingFixtures.inProgressSession(id = "ts-live-1"))
+        val useCase =
+            LogSetUseCase(
+                repo,
+                FakeLiftRepository(initialLifts = emptyList()),
+                FakeProgramRepository(programWithLift()),
+                StubLoggedLiftContextFactory(),
+                FakeLoggingPort(),
+            )
+
+        val result = useCase(command())
+
+        assertEquals(LogSetResult.LiftNotFound(WorkoutLoggingFixtures.liftBenchId), result)
+        assertEquals(0, repo.insertSetCallCount)
     }
 
     private fun buildUseCase(

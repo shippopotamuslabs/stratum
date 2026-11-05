@@ -22,6 +22,7 @@ import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.program.identity.WorkoutSupersetGroupId
 import com.stratum.application.training.DeleteLoggedSetUseCase
+import com.stratum.application.training.FinalizeTrainingSessionResult
 import com.stratum.application.training.FinalizeTrainingSessionUseCase
 import com.stratum.application.training.GetLoggedSetsForSessionUseCase
 import com.stratum.domain.training.LogSetCommand
@@ -103,7 +104,7 @@ internal suspend fun LiveWorkoutSessionRuntime.handleCompleteWorkout(cmd: Sessio
         // while NavHost is still composing this route during the exit transition.
         effects.setRetainLoadedUiForExit(true)
         val finalizeResult = finalizeTrainingSession(sessionId)
-        if (finalizeResult.isFailure) {
+        if (finalizeResult !is FinalizeTrainingSessionResult.Success) {
             effects.setRetainLoadedUiForExit(false)
             // Do NOT clear templateSavedThisComplete — template is already durable;
             // retry is finalize-only (see flag comment above).

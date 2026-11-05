@@ -10,6 +10,7 @@ import com.stratum.application.program.ObserveLibraryProgramsUseCase
 import com.stratum.application.program.ObserveProgramUseCase
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.identity.ProgramId
+import com.stratum.application.training.AbandonTrainingSessionResult
 import com.stratum.application.training.AbandonTrainingSessionUseCase
 import com.stratum.application.training.ObserveActiveSessionUseCase
 import com.stratum.domain.training.TrainingSession
@@ -165,9 +166,9 @@ class ProgramLibraryViewModel @Inject constructor(
         viewModelScope.launch {
             val session = observeActiveSession().first()
             if (session != null && session.status == TrainingSessionStatus.IN_PROGRESS) {
-                abandonTrainingSession(session.id).onFailure { error ->
+                if (abandonTrainingSession(session.id) != AbandonTrainingSessionResult.Success) {
                     userMessage.value =
-                        error.message ?: "Couldn't discard the in-progress workout. Try again."
+                        "Couldn't discard the in-progress workout. Try again."
                     pendingActivateProgramId.value = null
                     return@launch
                 }

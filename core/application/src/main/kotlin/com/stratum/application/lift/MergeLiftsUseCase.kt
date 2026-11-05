@@ -3,6 +3,7 @@ package com.stratum.application.lift
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.application.training.ComputePersonalRecordsUseCase
+import com.stratum.application.training.RebuildLocalDerivedTrainingDataResult
 import com.stratum.application.training.RebuildLocalDerivedTrainingDataUseCase
 import com.stratum.application.training.TrainingLogRepository
 import com.stratum.application.workout.WorkoutOverlayStore
@@ -101,10 +102,10 @@ class MergeLiftsUseCase @Inject constructor(
 
             val prDiagnostic = recomputePersonalRecords(targetLiftId)
 
-            rebuildLocalDerived().onFailure { error ->
+            if (rebuildLocalDerived() != RebuildLocalDerivedTrainingDataResult.Success) {
                 loggingPort.warning(
                     TAG,
-                    "Merge succeeded but derived training rebuild failed: ${error.message}",
+                    "Merge succeeded but derived training rebuild failed",
                 )
             }
             MergeLiftsResult.Success(MergeLiftsOutcome(diagnostics = listOfNotNull(prDiagnostic)))

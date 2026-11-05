@@ -1,5 +1,6 @@
 package com.stratum.application.training
 
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeProgramChangeEventRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
@@ -20,9 +21,9 @@ class RecordWorkoutSkipUseCaseTest {
     fun wl027_workoutSkipZeroSetSession() = runTest {
         val programRepo = FakeProgramRepository(program())
         val repo = FakeTrainingLogRepository(programRepository = programRepo)
-        val useCase = RecordWorkoutSkipUseCase(repo, programRepo)
+        val useCase = RecordWorkoutSkipUseCase(repo, programRepo, FakeLoggingPort())
 
-        val session = useCase(WorkoutLoggingFixtures.workoutAId).getOrThrow()
+        val session = (useCase(WorkoutLoggingFixtures.workoutAId) as RecordWorkoutSkipResult.Success).session
 
         assertEquals(TrainingSessionStatus.COMPLETED, session.status)
         assertEquals(WorkoutLoggingFixtures.workoutAId, session.workoutId)
@@ -38,9 +39,10 @@ class RecordWorkoutSkipUseCaseTest {
             RecordWorkoutSkipUseCase(
                 FakeTrainingLogRepository(programRepository = programRepo),
                 programRepo,
+                FakeLoggingPort(),
             )
 
-        useCase(WorkoutLoggingFixtures.workoutAId).getOrThrow()
+        useCase(WorkoutLoggingFixtures.workoutAId)
 
         assertEquals(1, programRepo.getProgram()?.cyclePosition)
     }
@@ -64,9 +66,9 @@ class RecordWorkoutSkipUseCaseTest {
                 programRepository = programRepo,
                 programChangeEventRepository = events,
             )
-        val useCase = RecordWorkoutSkipUseCase(logRepo, programRepo)
+        val useCase = RecordWorkoutSkipUseCase(logRepo, programRepo, FakeLoggingPort())
 
-        useCase(WorkoutLoggingFixtures.workoutBId).getOrThrow()
+        useCase(WorkoutLoggingFixtures.workoutBId)
 
         assertEquals(2, programRepo.getProgram()?.currentCycleNumber)
         assertEquals(0, programRepo.getProgram()?.cyclePosition)
@@ -76,24 +78,56 @@ class RecordWorkoutSkipUseCaseTest {
     @DisplayName("Returns failure when no active program exists")
     fun returnsFailureWhenNoActiveProgram() = runTest {
         val programRepo = FakeProgramRepository(null)
-        val useCase = RecordWorkoutSkipUseCase(FakeTrainingLogRepository(), programRepo)
+        val useCase = RecordWorkoutSkipUseCase(FakeTrainingLogRepository(), programRepo, FakeLoggingPort())
 
         val result = useCase(WorkoutLoggingFixtures.workoutAId)
 
-        assertTrue(result.isFailure)
-        assertTrue(result.exceptionOrNull() is IllegalStateException)
+        assertEquals(RecordWorkoutSkipResult.NoActiveProgram, result)
     }
 
     @Test
     @DisplayName("Returns failure when workout does not belong to active program")
     fun returnsFailureWhenWorkoutNotFound() = runTest {
         val programRepo = FakeProgramRepository(program())
-        val useCase = RecordWorkoutSkipUseCase(FakeTrainingLogRepository(), programRepo)
+        val useCase = RecordWorkoutSkipUseCase(FakeTrainingLogRepository(), programRepo, FakeLoggingPort())
 
         val result = useCase(com.stratum.domain.program.identity.WorkoutId("non-existent"))
 
-        assertTrue(result.isFailure)
-        assertTrue(result.exceptionOrNull() is IllegalArgumentException)
+        assertEquals(
+            RecordWorkoutSkipResult.WorkoutNotFound(com.stratum.domain.program.identity.WorkoutId("non-existent")),
+            result,
+        )
+    }
+
+    @Test
+    @DisplayName("Operational failure returns PersistenceFailed and logs once (STR-243)")
+    fun operationalFailureReturnsPersistenceFailed() = runTest {
+        val programRepo = FakeProgramRepository(program())
+        val repo = FakeTrainingLogRepository(programRepository = programRepo)
+        repo.getAllSessionsError = IllegalStateException("load boom")
+        val logging = FakeLoggingPort()
+        val useCase = RecordWorkoutSkipUseCase(repo, programRepo, logging)
+
+        val result = useCase(WorkoutLoggingFixtures.workoutAId)
+
+        assertEquals(RecordWorkoutSkipResult.PersistenceFailed, result)
+        assertEquals(1, logging.errors.size)
+        assertEquals("Failed to record workout skip: load boom", logging.errors.single().message)
+    }
+
+    @Test
+    @DisplayName("Cancellation propagates instead of being captured (STR-243)")
+    fun cancellationPropagates() {
+        val programRepo = FakeProgramRepository(program())
+        val repo = FakeTrainingLogRepository(programRepository = programRepo)
+        repo.getAllSessionsError = kotlin.coroutines.cancellation.CancellationException("cancelled")
+        val useCase = RecordWorkoutSkipUseCase(repo, programRepo, FakeLoggingPort())
+
+        org.junit.jupiter.api.Assertions.assertThrows(
+            kotlin.coroutines.cancellation.CancellationException::class.java,
+        ) {
+            kotlinx.coroutines.runBlocking { useCase(WorkoutLoggingFixtures.workoutAId) }
+        }
     }
 
     private fun program() = WorkoutLoggingFixtures.twoWorkoutProgram()

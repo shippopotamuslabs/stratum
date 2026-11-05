@@ -22,17 +22,20 @@ import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.program.identity.WorkoutSupersetGroupId
+import com.stratum.application.training.DeleteLoggedSetResult
 import com.stratum.application.training.DeleteLoggedSetUseCase
 import com.stratum.application.training.FinalizeTrainingSessionUseCase
 import com.stratum.application.training.GetLoggedSetsForSessionUseCase
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.training.LogSetCommand
+import com.stratum.application.training.LogSetResult
 import com.stratum.application.training.LogSetUseCase
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.normalizedPartialReps
 import com.stratum.domain.training.TrainingSession
 import com.stratum.domain.training.TrainingSessionDisplayName
 import com.stratum.domain.training.TrainingSessionKind
+import com.stratum.application.training.UpdateLoggedSetResult
 import com.stratum.application.training.UpdateLoggedSetUseCase
 import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.domain.training.liveWorkoutRouteId
@@ -199,7 +202,7 @@ internal suspend fun LiveWorkoutSessionRuntime.persistLoggedSet(
                     partialReps = normalizedPartials,
                 ),
             )
-        if (updateResult.isFailure) {
+        if (updateResult != UpdateLoggedSetResult.Success) {
             effects.publishUserMessage(LiveWorkoutSessionRuntime.MSG_LOG_SET_FAILED)
             return null
         }
@@ -225,11 +228,11 @@ internal suspend fun LiveWorkoutSessionRuntime.persistLoggedSet(
                 partialReps = normalizedPartials,
             ),
         )
-    if (insertResult.isFailure) {
+    if (insertResult !is LogSetResult.Success) {
         effects.publishUserMessage(LiveWorkoutSessionRuntime.MSG_LOG_SET_FAILED)
         return null
     }
-    return insertResult.getOrNull()?.id
+    return insertResult.loggedSet.id
 }
 
 /**
@@ -280,7 +283,7 @@ internal suspend fun LiveWorkoutSessionRuntime.reindexRoomSetIndicesForLift(
         )
     for (updated in updates) {
         val result = updateLoggedSet(updated)
-        if (result.isFailure) {
+        if (result != UpdateLoggedSetResult.Success) {
             effects.publishUserMessage(LiveWorkoutSessionRuntime.MSG_LOG_SET_FAILED)
             return
         }
@@ -300,7 +303,7 @@ internal suspend fun LiveWorkoutSessionRuntime.handleUnlogSet(cmd: SessionComman
         val dbSet = findLoggedSetForSlot(session, targetSlot)
         if (dbSet != null) {
             val deleteResult = deleteLoggedSet(dbSet.id)
-            if (deleteResult.isFailure) {
+            if (deleteResult != DeleteLoggedSetResult.Success) {
                 effects.publishUserMessage(LiveWorkoutSessionRuntime.MSG_UNLOG_SET_FAILED)
                 return
             }
@@ -405,7 +408,7 @@ internal suspend fun LiveWorkoutSessionRuntime.handleDeleteSetByKey(cmd: Session
             val dbSet = findLoggedSetForSlot(session, targetSlot)
             if (dbSet != null) {
                 val deleteResult = deleteLoggedSet(dbSet.id)
-                if (deleteResult.isFailure) {
+                if (deleteResult != DeleteLoggedSetResult.Success) {
                     effects.publishUserMessage(LiveWorkoutSessionRuntime.MSG_UNLOG_SET_FAILED)
                     return
                 }
@@ -506,7 +509,7 @@ internal suspend fun LiveWorkoutSessionRuntime.handleDeleteSetWithCascade(cmd: S
             val dbSet = findLoggedSetForSlot(session, targetSlot)
             if (dbSet != null) {
                 val deleteResult = deleteLoggedSet(dbSet.id)
-                if (deleteResult.isFailure) {
+                if (deleteResult != DeleteLoggedSetResult.Success) {
                     effects.publishUserMessage(LiveWorkoutSessionRuntime.MSG_UNLOG_SET_FAILED)
                     return
                 }
@@ -552,7 +555,7 @@ internal suspend fun LiveWorkoutSessionRuntime.handleSetSetKind(cmd: SessionComm
             val dbSet = findLoggedSetForSlot(session, dropSlot)
             if (dbSet != null) {
                 val deleteResult = deleteLoggedSet(dbSet.id)
-                if (deleteResult.isFailure) {
+                if (deleteResult != DeleteLoggedSetResult.Success) {
                     effects.publishUserMessage(LiveWorkoutSessionRuntime.MSG_UNLOG_SET_FAILED)
                     return
                 }

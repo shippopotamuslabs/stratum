@@ -1,6 +1,7 @@
 package com.stratum.feature.workout
 
 import com.stratum.domain.di.ApplicationScope
+import com.stratum.application.training.AbandonTrainingSessionResult
 import com.stratum.application.training.AbandonTrainingSessionUseCase
 import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.feature.workout.notification.LiveWorkoutSurfaces
@@ -27,7 +28,7 @@ class ProcessScopedAbandonTrainingSession @Inject constructor(
      */
     fun abandon(
         sessionId: TrainingSessionId,
-        onResult: (Result<Unit>) -> Unit,
+        onResult: (AbandonTrainingSessionResult) -> Unit,
     ) {
         liveWorkoutSurfaces.clearSession()
         applicationScope.launch {

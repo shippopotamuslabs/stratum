@@ -1,6 +1,7 @@
 package com.stratum.feature.program
 
 import com.stratum.domain.program.Program
+import com.stratum.application.training.AbandonTrainingSessionResult
 import com.stratum.application.training.AbandonTrainingSessionUseCase
 import com.stratum.application.training.ObserveActiveSessionUseCase
 import com.stratum.domain.training.TrainingSession
@@ -92,14 +93,14 @@ internal class CreateProgramActiveSessionGuard(
         val reason = state.value.pendingActiveSessionDiscard ?: return null
         val session = inProgressSessionOrNull()
         if (session != null) {
-            abandonTrainingSession(session.id).onFailure { error ->
+            if (abandonTrainingSession(session.id) != AbandonTrainingSessionResult.Success) {
                 pendingPersistMode = null
                 pendingPersistOnDone = null
                 state.update {
                     it.copy(
                         pendingActiveSessionDiscard = null,
                         saveErrorMessage =
-                            error.message ?: "Couldn't discard the in-progress workout. Try again.",
+                            "Couldn't discard the in-progress workout. Try again.",
                     )
                 }
                 return null

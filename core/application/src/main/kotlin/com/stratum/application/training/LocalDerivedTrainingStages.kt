@@ -12,6 +12,26 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 
 /**
+ * Outcome of a [LocalDerivedTrainingStages] run (STR-243).
+ *
+ * Stage failures are identified by kind ([InsightsFailed] /
+ * [WeeklySeriesFailed]): the stage's originating throwable is logged once
+ * inside the stages (with the caller's log tag) before the branch is returned,
+ * so it never crosses as a payload. [PersistenceFailed] covers a failure of
+ * the stage runner itself. Coroutine cancellation is not a branch: it
+ * propagates.
+ */
+sealed interface LocalDerivedTrainingStagesResult {
+    data object Success : LocalDerivedTrainingStagesResult
+
+    data object InsightsFailed : LocalDerivedTrainingStagesResult
+
+    data object WeeklySeriesFailed : LocalDerivedTrainingStagesResult
+
+    data object PersistenceFailed : LocalDerivedTrainingStagesResult
+}
+
+/**
  * Shared insights + weekly-series stages used by post-finalize refresh, cloud-hydrate rebuild, and
  * Settings force recovery. Always runs on [defaultDispatcher] so UI / finalize callers never block
  * Main with full-history analytics.
@@ -39,7 +59,7 @@ class LocalDerivedTrainingStages @Inject constructor(
         includeInsights: Boolean,
         failPolicy: FailPolicy,
         logTag: String,
-    ): Result<Unit> =
+    ): LocalDerivedTrainingStagesResult =
         try {
             withContext(defaultDispatcher) {
                 if (includeInsights) {
@@ -52,9 +72,7 @@ class LocalDerivedTrainingStages @Inject constructor(
                             error,
                         )
                         if (failPolicy == FailPolicy.Throw) {
-                            return@withContext Result.failure(
-                                error ?: IllegalStateException("Insights rollup failed"),
-                            )
+                            return@withContext LocalDerivedTrainingStagesResult.InsightsFailed
                         }
                     }
                 }
@@ -68,16 +86,17 @@ class LocalDerivedTrainingStages @Inject constructor(
                         error,
                     )
                     if (failPolicy == FailPolicy.Throw) {
-                        return@withContext Result.failure(
-                            error ?: IllegalStateException("Weekly series rebuild failed"),
-                        )
+                        return@withContext LocalDerivedTrainingStagesResult.WeeklySeriesFailed
                     }
                 }
-                Result.success(Unit)
+                LocalDerivedTrainingStagesResult.Success
             }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
-            Result.failure(e)
+            // The stage runner itself failed (not a stage result): log the
+            // throwable once here, at the boundary, and return the kind.
+            loggingPort.error(logTag, "Local derived stages failed: ${e.message}", e)
+            LocalDerivedTrainingStagesResult.PersistenceFailed
         }
 }

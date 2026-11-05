@@ -53,7 +53,7 @@ class RebuildLocalDerivedTrainingDataUseCaseTest {
 
         val result = buildUseCase(logRepo, liftRepo).invoke()
 
-        assertTrue(result.isSuccess)
+        assertEquals(RebuildLocalDerivedTrainingDataResult.Success, result)
         assertTrue(
             persistence.weeklyStimulusRepository.getAll().isNotEmpty(),
             "hydrated sets must produce weekly stimulus for the dashboard",
@@ -70,7 +70,7 @@ class RebuildLocalDerivedTrainingDataUseCaseTest {
     fun emptyHistoryStillEnqueues() = runTest {
         val result = buildUseCase(FakeTrainingLogRepository(), FakeLiftRepository()).invoke()
 
-        assertTrue(result.isSuccess)
+        assertEquals(RebuildLocalDerivedTrainingDataResult.Success, result)
         assertTrue(persistence.weeklyStimulusRepository.getAll().isEmpty())
         assertEquals(1, modelingScheduler.enqueueCount)
     }
