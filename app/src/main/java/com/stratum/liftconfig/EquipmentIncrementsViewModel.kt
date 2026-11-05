@@ -150,17 +150,17 @@ class EquipmentIncrementsViewModel @Inject constructor(
                 pendingSwap.value = null
                 // STR-243 C4: branch on the outcome kinds; the user copy is
                 // sourced from the kind.
-                when (val result = setLiftEquipment(LiftId(liftId), pick.equipmentId)) {
+                val result = setLiftEquipment(LiftId(liftId), pick.equipmentId)
+                if (result is SetLiftEquipmentResult.PersistenceFailed) diagnosticDrain.drain(result.diagnostics)
+                when (result) {
                     SetLiftEquipmentResult.Success -> Unit
                     is SetLiftEquipmentResult.LiftNotFound ->
                         validationOverride.value = "Lift not found"
                     is SetLiftEquipmentResult.EquipmentDeleted ->
                         validationOverride.value =
                             "Equipment is deleted; pick a live equipment or clear the assignment"
-                    is SetLiftEquipmentResult.PersistenceFailed -> {
-                        diagnosticDrain.drain(result.diagnostics)
+                    is SetLiftEquipmentResult.PersistenceFailed ->
                         validationOverride.value = "Could not change equipment"
-                    }
                 }
             }
         }
@@ -516,24 +516,13 @@ class EquipmentIncrementsViewModel @Inject constructor(
             // from the kind (see the file-level mapping helpers below).
             val failureMessage =
                 if (draftName != null) {
-                    val result =
-                        renameAndSetIncrementTiers(
-                            EquipmentId(id),
-                            draftName,
-                            domainTiers,
-                            domainMicro,
-                        )
-                    if (result is RenameAndSetIncrementTiersResult.PersistenceFailed) {
-                        diagnosticDrain.drain(result.diagnostics)
-                    }
-                    result.saveFailureMessage()
+                    renameAndSetIncrementTiers(EquipmentId(id), draftName, domainTiers, domainMicro)
+                        .also { if (it is RenameAndSetIncrementTiersResult.PersistenceFailed) diagnosticDrain.drain(it.diagnostics) }
+                        .saveFailureMessage()
                 } else {
-                    val result =
-                        setEquipmentIncrementTiers(EquipmentId(id), domainTiers, domainMicro)
-                    if (result is SetEquipmentIncrementTiersResult.PersistenceFailed) {
-                        diagnosticDrain.drain(result.diagnostics)
-                    }
-                    result.saveFailureMessage()
+                    setEquipmentIncrementTiers(EquipmentId(id), domainTiers, domainMicro)
+                        .also { if (it is SetEquipmentIncrementTiersResult.PersistenceFailed) diagnosticDrain.drain(it.diagnostics) }
+                        .saveFailureMessage()
                 }
             isSaving.value = false
             if (failureMessage == null) {
@@ -594,7 +583,9 @@ class EquipmentIncrementsViewModel @Inject constructor(
         viewModelScope.launch {
             // STR-243 C4: branch on the outcome kinds; the user copy is sourced
             // from the kind (NotDeletable carries the shipped refusal copy).
-            when (val result = deleteCustomEquipment(EquipmentId(id), replacement)) {
+            val result = deleteCustomEquipment(EquipmentId(id), replacement)
+            if (result is DeleteCustomEquipmentResult.PersistenceFailed) diagnosticDrain.drain(result.diagnostics)
+            when (result) {
                 DeleteCustomEquipmentResult.Success -> {
                     deleteSucceeded.value = true
                     validationOverride.value = null
@@ -602,10 +593,8 @@ class EquipmentIncrementsViewModel @Inject constructor(
                 is DeleteCustomEquipmentResult.NotDeletable ->
                     validationOverride.value =
                         "Equipment cannot be deleted (protected or missing, or a replacement is required)"
-                is DeleteCustomEquipmentResult.PersistenceFailed -> {
-                    diagnosticDrain.drain(result.diagnostics)
+                is DeleteCustomEquipmentResult.PersistenceFailed ->
                     validationOverride.value = "Could not delete equipment"
-                }
             }
         }
     }
@@ -651,13 +640,8 @@ class EquipmentIncrementsViewModel @Inject constructor(
                         liftId,
                         domainMicro,
                     )
-                when (result) {
-                    is ForkEquipmentWithTiersResult.PersistenceFailed ->
-                        diagnosticDrain.drain(result.diagnostics)
-                    is ForkEquipmentWithTiersResult.AssignmentPersistenceFailed ->
-                        diagnosticDrain.drain(result.diagnostics)
-                    else -> Unit
-                }
+                (result as? ForkEquipmentWithTiersResult.PersistenceFailed)?.let { diagnosticDrain.drain(it.diagnostics) }
+                (result as? ForkEquipmentWithTiersResult.AssignmentPersistenceFailed)?.let { diagnosticDrain.drain(it.diagnostics) }
                 if (result is ForkEquipmentWithTiersResult.Success) {
                     dismissProposalContext()
                     saveSucceeded.value = true
@@ -676,10 +660,8 @@ class EquipmentIncrementsViewModel @Inject constructor(
      * miss logged weights — the user took ownership. Cancellation paths never call this.
      */
     private suspend fun dismissProposalContext() {
-        val result = proposalSession.dismissIfPresent(dismissEquipmentProposal) ?: return
-        if (result is DismissEquipmentProposalResult.PersistenceFailed) {
-            diagnosticDrain.drain(result.diagnostics)
-        }
+        val result = proposalSession.dismissIfPresent(dismissEquipmentProposal)
+        (result as? DismissEquipmentProposalResult.PersistenceFailed)?.let { diagnosticDrain.drain(it.diagnostics) }
     }
 
     private fun validatedDraftTiers(): List<IncrementTier>? {
