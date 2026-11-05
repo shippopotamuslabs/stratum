@@ -6,6 +6,7 @@ import com.stratum.application.auth.AuthDeleteAfterAccountWipeException
 import com.stratum.application.auth.DeleteAccountUseCase
 import com.stratum.application.auth.LocalCleanupAfterAccountDeletionException
 import com.stratum.application.auth.LogoutUseCase
+import com.stratum.application.checkin.CheckInPreferenceResult
 import com.stratum.application.checkin.MarkCheckInPendingUseCase
 import com.stratum.application.checkin.ObserveCheckInPreferencesUseCase
 import com.stratum.application.checkin.SetCheckInEnabledUseCase
@@ -21,16 +22,20 @@ import com.stratum.domain.subscription.EntitlementState
 import com.stratum.application.subscription.ObserveEntitlementUseCase
 import com.stratum.application.lift.ObserveEquipmentProposalsEnabledUseCase
 import com.stratum.application.lift.ObserveWeightDisplayPreferencesUseCase
+import com.stratum.application.lift.EquipmentProposalPreferenceResult
 import com.stratum.application.lift.SetEquipmentProposalsEnabledUseCase
 import com.stratum.application.lift.SetWeightDisplayUnitUseCase
+import com.stratum.application.lift.WeightDisplayPreferenceResult
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.theme.ColorMode
 import com.stratum.application.theme.ObserveThemePreferencesUseCase
 import com.stratum.application.theme.SetColorModeUseCase
 import com.stratum.application.theme.SetThemeFamilyUseCase
+import com.stratum.application.theme.ThemePreferenceResult
 import com.stratum.domain.theme.ThemeFamily
 import com.stratum.application.training.ForceRefreshDerivedTrainingData
 import com.stratum.application.workout.ObserveRepRangeShiftProposalsEnabledUseCase
+import com.stratum.application.workout.RepRangeShiftPreferenceResult
 import com.stratum.application.workout.SetRepRangeShiftProposalsEnabledUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Instant
@@ -234,7 +239,7 @@ class SettingsViewModel @Inject constructor(
 
     fun onAppearanceSelected(appearance: AppearanceUi) {
         viewModelScope.launch {
-            setColorMode(appearance.toDomain()).onFailure {
+            if (setColorMode(appearance.toDomain()) == ThemePreferenceResult.PersistenceFailed) {
                 _userMessage.value = MSG_PREFS_FAILED
             }
         }
@@ -242,7 +247,7 @@ class SettingsViewModel @Inject constructor(
 
     fun onThemeFamilySelected(family: ThemeFamilyUi) {
         viewModelScope.launch {
-            setThemeFamily(family.toDomain()).onFailure {
+            if (setThemeFamily(family.toDomain()) == ThemePreferenceResult.PersistenceFailed) {
                 _userMessage.value = MSG_PREFS_FAILED
             }
         }
@@ -250,7 +255,7 @@ class SettingsViewModel @Inject constructor(
 
     fun onCheckInsEnabledChange(enabled: Boolean) {
         viewModelScope.launch {
-            setCheckInEnabled(enabled).onFailure {
+            if (setCheckInEnabled(enabled) == CheckInPreferenceResult.PersistenceFailed) {
                 _userMessage.value = MSG_PREFS_FAILED
             }
         }
@@ -258,7 +263,7 @@ class SettingsViewModel @Inject constructor(
 
     fun onWeightUnitSelected(unit: WeightUnitUi) {
         viewModelScope.launch {
-            setWeightDisplayUnit(unit.toDomain()).onFailure {
+            if (setWeightDisplayUnit(unit.toDomain()) == WeightDisplayPreferenceResult.PersistenceFailed) {
                 _userMessage.value = MSG_PREFS_FAILED
             }
         }
@@ -269,14 +274,16 @@ class SettingsViewModel @Inject constructor(
         enabled: Boolean,
     ) {
         viewModelScope.launch {
-            val result =
+            val failed =
                 when (kind) {
                     PostWorkoutSuggestionUi.EquipmentSteps ->
-                        setEquipmentProposalsEnabled(enabled)
+                        setEquipmentProposalsEnabled(enabled) ==
+                            EquipmentProposalPreferenceResult.PersistenceFailed
                     PostWorkoutSuggestionUi.RepRangeShift ->
-                        setRepRangeShiftProposalsEnabled(enabled)
+                        setRepRangeShiftProposalsEnabled(enabled) ==
+                            RepRangeShiftPreferenceResult.PersistenceFailed
                 }
-            result.onFailure {
+            if (failed) {
                 _userMessage.value = MSG_PREFS_FAILED
             }
         }
@@ -291,7 +298,10 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             val enable = setCheckInEnabled(true)
             val pending = markCheckInPending(Instant.now())
-            if (enable.isFailure || pending.isFailure) {
+            if (
+                enable == CheckInPreferenceResult.PersistenceFailed ||
+                pending == CheckInPreferenceResult.PersistenceFailed
+            ) {
                 _userMessage.value = MSG_PREFS_FAILED
                 return@launch
             }

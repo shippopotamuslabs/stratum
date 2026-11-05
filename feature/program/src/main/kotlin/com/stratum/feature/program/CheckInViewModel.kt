@@ -3,6 +3,7 @@ package com.stratum.feature.program
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.application.checkin.ApplyCheckInRecommendationsUseCase
+import com.stratum.application.checkin.CheckInPreferenceResult
 import com.stratum.domain.checkin.CheckInSubjectiveFeedback
 import com.stratum.application.checkin.EvaluateCheckInUseCase
 import com.stratum.application.checkin.GetCheckInMuscleGroupsUseCase
@@ -81,13 +82,13 @@ class CheckInViewModel @Inject constructor(
 
     fun skip() {
         viewModelScope.launch {
-            skipCheckIn()
-                .onSuccess { dismiss() }
-                .onFailure { error ->
+            when (skipCheckIn()) {
+                CheckInPreferenceResult.Success -> dismiss()
+                CheckInPreferenceResult.PersistenceFailed ->
                     _uiState.update {
-                        it.copy(errorMessage = error.message ?: "Could not skip check-in")
+                        it.copy(errorMessage = "Could not skip check-in")
                     }
-                }
+            }
         }
     }
 

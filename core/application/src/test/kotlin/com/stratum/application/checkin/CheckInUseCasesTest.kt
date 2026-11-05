@@ -82,4 +82,34 @@ class CheckInUseCasesTest {
         assertFalse(fake.current.enabled)
         assertNull(fake.current.pendingSinceExtractedAt)
     }
+
+    @Test
+    @DisplayName("setEnabled returns PersistenceFailed when the repository write throws (STR-243)")
+    fun setEnabledPersistenceFailure() = runTest {
+        val throwing =
+            object : CheckInPreferencesRepository by fake {
+                override suspend fun setEnabled(enabled: Boolean) {
+                    throw RuntimeException("store unavailable")
+                }
+            }
+        val result = SetCheckInEnabledUseCase(throwing, FakeLoggingPort())(true)
+        assertEquals(CheckInPreferenceResult.PersistenceFailed, result)
+    }
+
+    @Test
+    @DisplayName("skip propagates CancellationException instead of capturing it (STR-243)")
+    fun skipCancellationPropagates() {
+        val cancelling =
+            object : CheckInPreferencesRepository by fake {
+                override suspend fun skip(now: Instant) {
+                    throw kotlin.coroutines.cancellation.CancellationException("cancelled")
+                }
+            }
+        val subject = SkipCheckInUseCase(cancelling, FakeLoggingPort())
+        org.junit.jupiter.api.Assertions.assertThrows(
+            kotlin.coroutines.cancellation.CancellationException::class.java,
+        ) {
+            kotlinx.coroutines.runBlocking { subject(Instant.parse("2026-03-02T00:00:00Z")) }
+        }
+    }
 }

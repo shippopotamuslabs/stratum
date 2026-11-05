@@ -48,10 +48,21 @@ class ApplyCheckInRecommendationsUseCase @Inject constructor(
             ) {
                 programRepository.saveProgram(updated)
                 events.forEach { programChangeEventRepository.append(it) }
-                completeCheckIn(now).getOrThrow()
+                // STR-243 C2 minimal caller touch (this file converts in C7):
+                // CompleteCheckIn now returns its sealed outcome; a persistence
+                // failure re-enters this use case's Result failure as before.
+                if (completeCheckIn(now) == CheckInPreferenceResult.PersistenceFailed) {
+                    error("Failed to complete check-in")
+                }
             }
         }
-        return completeCheckIn(now)
+        // STR-243 C2 minimal caller touch (this file converts in C7): map the
+        // sealed check-in outcome back onto this use case's Result shape.
+        return when (completeCheckIn(now)) {
+            CheckInPreferenceResult.Success -> Result.success(Unit)
+            CheckInPreferenceResult.PersistenceFailed ->
+                Result.failure(IllegalStateException("Failed to complete check-in"))
+        }
     }
 
     private companion object {

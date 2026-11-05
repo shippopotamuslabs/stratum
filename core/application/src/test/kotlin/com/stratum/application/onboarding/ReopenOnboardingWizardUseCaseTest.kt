@@ -28,4 +28,34 @@ class ReopenOnboardingWizardUseCaseTest {
         assertNull(repository.current.completedAt)
         assertEquals(OnboardingStep.ChoosePath, repository.current.currentStep)
     }
+
+    @Test
+    fun `reopen returns PersistenceFailed when the repository write throws (STR-243)`() = runTest {
+        val throwing =
+            object : OnboardingRepository by FakeOnboardingRepository() {
+                override suspend fun reopenWizard() {
+                    throw RuntimeException("store unavailable")
+                }
+            }
+        val subject = ReopenOnboardingWizardUseCase(throwing, FakeLoggingPort())
+
+        assertEquals(ReopenOnboardingWizardResult.PersistenceFailed, subject())
+    }
+
+    @Test
+    fun `reopen propagates CancellationException instead of capturing it (STR-243)`() {
+        val cancelling =
+            object : OnboardingRepository by FakeOnboardingRepository() {
+                override suspend fun reopenWizard() {
+                    throw kotlin.coroutines.cancellation.CancellationException("cancelled")
+                }
+            }
+        val subject = ReopenOnboardingWizardUseCase(cancelling, FakeLoggingPort())
+
+        org.junit.jupiter.api.Assertions.assertThrows(
+            kotlin.coroutines.cancellation.CancellationException::class.java,
+        ) {
+            kotlinx.coroutines.runBlocking { subject() }
+        }
+    }
 }
