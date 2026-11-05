@@ -92,10 +92,10 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
             onProgress(ProgramTemplateImportPhase.Uploading)
             val jobId = ProgramTemplateImportJobId(UUID.randomUUID().toString())
             importPort.uploadAndStart(jobId, bytes, fileName)
-                .getOrElse { return@withContext Result.failure(it) }
+                .getOrElseRethrowingCancellation { return@withContext Result.failure(it) }
 
             val snapshot = pollUntilTerminal(jobId, onProgress)
-                .getOrElse { return@withContext Result.failure(it) }
+                .getOrElseRethrowingCancellation { return@withContext Result.failure(it) }
             // Expected terminal outcomes are returned as failure values, never thrown:
             // the exception types are constructed as Result payloads (STR-241).
             when (snapshot.status) {
@@ -124,7 +124,7 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
 
             onProgress(ProgramTemplateImportPhase.MatchingCatalog)
             val templateJson = importPort.downloadProgramTemplate(templateStoragePath)
-                .getOrElse { return@withContext Result.failure(it) }
+                .getOrElseRethrowingCancellation { return@withContext Result.failure(it) }
             val parsed = parseAll(templateJson)
             require(parsed.isNotEmpty()) { "Imported template has no programs" }
 
@@ -299,35 +299,54 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
         return failures
     }
 
+    /**
+     * [Result.getOrElse] with the cancellation contract closed: a
+     * [CancellationException] carried as a failure VALUE is rethrown as
+     * cancellation instead of being returned as an ordinary failure. Today's sole
+     * adapter builds its Results with `runCatchingCancellable` and can never
+     * produce one, but direct Result propagation must not silently absorb a
+     * future adapter's cancellation.
+     */
+    private inline fun <T> Result<T>.getOrElseRethrowingCancellation(
+        onFailure: (Throwable) -> T,
+    ): T =
+        getOrElse { error ->
+            if (error is CancellationException) throw error
+            onFailure(error)
+        }
+
     private suspend fun pollUntilTerminal(
         jobId: ProgramTemplateImportJobId,
         onProgress: ProgramTemplateImportProgressCallback,
     ): Result<ProgramTemplateJobSnapshot> {
-        // Direct Result propagation (STR-241): a poll failure is returned as a value,
-        // never unwrapped into a throw. Cancellation from the port or the delay
-        // propagates as cancellation, exactly as the previous envelope did.
-        var pollFailure: Throwable? = null
-        val terminal = withTimeoutOrNull(POLL_TIMEOUT_MS) {
-            var snapshot: ProgramTemplateJobSnapshot? = null
-            while (snapshot == null || !snapshot.status.isTerminal()) {
-                delay(POLL_INTERVAL_MS)
-                val polled = importPort.pollJobStatus(jobId)
-                val failure = polled.exceptionOrNull()
-                if (failure != null) {
-                    pollFailure = failure
-                    return@withTimeoutOrNull snapshot
+        // Direct Result propagation (STR-241): the loop itself returns the poll
+        // outcome as a Result — a mid-poll failure wins over the timeout and over
+        // any non-terminal snapshot. A CancellationException thrown by the port or
+        // the delay propagates as cancellation (no catch here), and one carried as
+        // a poll Result failure value is rethrown for the same reason.
+        val pollOutcome =
+            withTimeoutOrNull(POLL_TIMEOUT_MS) {
+                var outcome: Result<ProgramTemplateJobSnapshot>? = null
+                while (outcome == null) {
+                    delay(POLL_INTERVAL_MS)
+                    val result = importPort.pollJobStatus(jobId)
+                    val failure = result.exceptionOrNull()
+                    if (failure != null) {
+                        if (failure is CancellationException) throw failure
+                        outcome = Result.failure(failure)
+                    } else {
+                        val snapshot = result.getOrNull()
+                        snapshot?.progressPhase?.let { onProgress(it) }
+                        if (snapshot != null && snapshot.status.isTerminal()) {
+                            outcome = Result.success(snapshot)
+                        }
+                    }
                 }
-                snapshot = polled.getOrNull()
-                snapshot?.progressPhase?.let { onProgress(it) }
+                outcome
             }
-            snapshot
-        }
-        pollFailure?.let { return Result.failure(it) }
-        return if (terminal != null) {
-            Result.success(terminal)
-        } else {
-            Result.failure(IllegalStateException("Timed out waiting for import to finish."))
-        }
+        return pollOutcome ?: Result.failure(
+            IllegalStateException("Timed out waiting for import to finish."),
+        )
     }
 
     private fun RemoteProgramTemplateJobStatus.isTerminal(): Boolean =

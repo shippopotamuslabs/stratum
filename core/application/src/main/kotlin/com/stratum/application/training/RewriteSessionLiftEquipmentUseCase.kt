@@ -5,8 +5,6 @@ import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.training.identity.TrainingSessionId
-import com.stratum.domain.training.TrainingSessionNotInProgressException
-import com.stratum.domain.training.TrainingSessionStatus
 import javax.inject.Inject
 
 /**
@@ -22,16 +20,22 @@ class RewriteSessionLiftEquipmentUseCase @Inject constructor(
         liftId: LiftId,
         newEquipmentId: EquipmentId,
     ): Result<Unit> {
-        // Pre-check status after load: a non-live session is an expected failure, returned
-        // as a constructed value (never thrown). The helper call below stays as the backstop.
-        val loadedSession = trainingLogRepository.getSession(sessionId)
-        if (loadedSession != null && loadedSession.status != TrainingSessionStatus.IN_PROGRESS) {
-            val error = TrainingSessionNotInProgressException(loadedSession.id, loadedSession.status)
-            loggingPort.error(TAG, "Failed to rewrite session lift equipment: ${error.message}", error)
-            return Result.failure(error)
+        // Single load via the seam check: a missing / non-live session and an operational
+        // load failure are expected failures, returned as constructed values (never thrown)
+        // and logged with the same line the envelope below produces. Cancellation from the
+        // load propagates as cancellation out of the check.
+        when (val check = trainingLogRepository.checkInProgressSession(sessionId)) {
+            is InProgressSessionCheck.Rejected -> {
+                loggingPort.error(
+                    TAG,
+                    "Failed to rewrite session lift equipment: ${check.error.message}",
+                    check.error,
+                )
+                return Result.failure(check.error)
+            }
+            is InProgressSessionCheck.Ready -> Unit
         }
         return runCatchingCancellable {
-            trainingLogRepository.requireInProgressSession(sessionId)
             val matching =
                 trainingLogRepository.getSetsForSession(sessionId)
                     .filter { it.liftId == liftId && it.equipmentId != newEquipmentId }

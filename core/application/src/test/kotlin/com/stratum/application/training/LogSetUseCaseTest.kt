@@ -61,6 +61,25 @@ class LogSetUseCaseTest {
     }
 
     @Test
+    @DisplayName("operational getSession failure returns Result failure with exactly one error log")
+    fun operationalLoadFailureReturnsFailureAndLogsOnce() = runTest {
+        val repo = FakeTrainingLogRepository()
+        val failure = IllegalStateException("room load failed")
+        repo.getSessionError = failure
+        val logging = FakeLoggingPort()
+        val useCase = buildUseCase(repo, logging)
+
+        val result = useCase(command(sessionId = "ts-live-1"))
+
+        assertTrue(result.isFailure)
+        assertEquals(failure, result.exceptionOrNull())
+        assertEquals(0, repo.insertSetCallCount)
+        assertEquals(1, logging.errors.size)
+        assertEquals("Failed to log set: ${failure.message}", logging.errors.single().message)
+        assertEquals(failure, logging.errors.single().throwable)
+    }
+
+    @Test
     @DisplayName("WL-033 Live LoggedLiftContext includes template progression fields")
     fun wl033_liveSnapshotTemplateFields() = runTest {
         val repo = FakeTrainingLogRepository()

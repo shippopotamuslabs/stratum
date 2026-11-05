@@ -12,7 +12,6 @@ import com.stratum.application.program.generation.pipeline.ProgramGenerationPipe
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisException
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisRefusal
 import com.stratum.domain.program.generation.validation.ProgramGenerationValidationException
-import com.stratum.application.program.generation.synthesis.FlagGatedProgramSynthesisPort
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.schema.toDomainProgram
 import com.stratum.domain.program.generation.schema.toProgramNormalizationRequest
@@ -104,7 +103,7 @@ class GenerateProgramUseCase @Inject constructor(
                                 ProgramSynthesisException(
                                     when (pipelineResult.refusal) {
                                         ProgramSynthesisRefusal.FeatureDisabled ->
-                                            FlagGatedProgramSynthesisPort.MESSAGE_SYNTHESIS_PAUSED
+                                            ProgramSynthesisException.MESSAGE_SYNTHESIS_PAUSED
                                     },
                                 ),
                             )

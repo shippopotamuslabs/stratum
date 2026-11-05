@@ -59,6 +59,28 @@ class RewriteSessionLiftEquipmentUseCaseTest {
         assertEquals(1, logging.errors.size)
     }
 
+    @Test
+    @DisplayName("operational getSession failure returns Result failure with exactly one error log")
+    fun operationalLoadFailureReturnsFailureAndLogsOnce() = runTest {
+        val repo = FakeTrainingLogRepository()
+        val failure = IllegalStateException("room load failed")
+        repo.getSessionError = failure
+        val sessionId = TrainingSessionId("ts-live-1")
+        val logging = FakeLoggingPort()
+        val useCase = RewriteSessionLiftEquipmentUseCase(repo, logging)
+
+        val result = useCase(sessionId, LiftId("lift-1"), EquipmentId("ssb"))
+
+        assertTrue(result.isFailure)
+        assertEquals(failure, result.exceptionOrNull())
+        assertEquals(1, logging.errors.size)
+        assertEquals(
+            "Failed to rewrite session lift equipment: ${failure.message}",
+            logging.errors.single().message,
+        )
+        assertEquals(failure, logging.errors.single().throwable)
+    }
+
     private fun loggedSet(
         id: String,
         sessionId: TrainingSessionId,

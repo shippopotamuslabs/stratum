@@ -15,8 +15,6 @@ import com.stratum.domain.training.LoggedLiftContext
 import com.stratum.domain.training.LoggedLiftContextFactory
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.SetEquipmentSource
-import com.stratum.domain.training.TrainingSessionNotInProgressException
-import com.stratum.domain.training.TrainingSessionStatus
 
 class LogSetUseCase @Inject constructor(
     private val trainingLogRepository: TrainingLogRepository,
@@ -26,17 +24,18 @@ class LogSetUseCase @Inject constructor(
     private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(command: LogSetCommand): Result<LoggedSet> {
-        // Pre-check status after load: a non-live session is an expected failure, returned
-        // as a constructed value (never thrown). The helper call below stays as the backstop.
-        val loadedSession = trainingLogRepository.getSession(command.sessionId)
-        if (loadedSession != null && loadedSession.status != TrainingSessionStatus.IN_PROGRESS) {
-            val error = TrainingSessionNotInProgressException(loadedSession.id, loadedSession.status)
-            loggingPort.error(TAG, "Failed to log set: ${error.message}", error)
-            return Result.failure(error)
+        // Single load via the seam check: a missing / non-live session and an operational
+        // load failure are expected failures, returned as constructed values (never thrown)
+        // and logged with the same line the envelope below produces. Cancellation from the
+        // load propagates as cancellation out of the check.
+        when (val check = trainingLogRepository.checkInProgressSession(command.sessionId)) {
+            is InProgressSessionCheck.Rejected -> {
+                loggingPort.error(TAG, "Failed to log set: ${check.error.message}", check.error)
+                return Result.failure(check.error)
+            }
+            is InProgressSessionCheck.Ready -> Unit
         }
         return runCatchingCancellable {
-        trainingLogRepository.requireInProgressSession(command.sessionId)
-
         val lift =
             liftRepository.observeLifts().first().firstOrNull { it.id == command.liftId }
                 ?: throw IllegalArgumentException("Lift ${command.liftId.value} not found")

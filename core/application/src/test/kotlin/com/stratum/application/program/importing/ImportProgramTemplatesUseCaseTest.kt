@@ -29,6 +29,8 @@ import com.stratum.application.program.ProgramRepository
 import com.stratum.domain.program.importing.ProgramImportActivation
 import com.stratum.domain.program.importing.ProgramImportRollbackDiagnostic
 import com.stratum.domain.program.importing.ProgramTemplateImportOptions
+import com.stratum.domain.program.importing.ProgramTemplateImportJobId
+import com.stratum.domain.program.importing.ProgramTemplateJobSnapshot
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ImportProgramTemplatesUseCaseTest {
@@ -54,7 +56,7 @@ class ImportProgramTemplatesUseCaseTest {
     private fun buildUseCase(
         programRepo: ProgramRepository,
         onboardingRepo: FakeOnboardingRepository,
-        importPort: FakeProgramTemplateImportPort,
+        importPort: ProgramTemplateImportPort,
         testScheduler: TestCoroutineScheduler,
         completeOnboarding: CompleteOnboardingUseCase? = null,
     ): ImportProgramTemplatesUseCase {
@@ -426,6 +428,41 @@ class ImportProgramTemplatesUseCaseTest {
         assertEquals("save cancelled", actual.message)
         assertEquals(1, actual.suppressed.size)
         assertSame(failingRepo.deleteCauses.single(), actual.suppressed.single())
+        assertFalse(onboardingRepo.current.isComplete)
+    }
+
+    @Test
+    @DisplayName("CancellationException carried as an upload Result failure value is rethrown")
+    fun valueCarriedCancellationFromUploadIsRethrown() = runTest {
+        val programRepo = FakeProgramRepository()
+        val onboardingRepo = FakeOnboardingRepository()
+        val port =
+            object : ProgramTemplateImportPort {
+                override suspend fun uploadAndStart(
+                    jobId: ProgramTemplateImportJobId,
+                    bytes: ByteArray,
+                    fileName: String,
+                ): Result<Unit> = Result.failure(CancellationException("upload cancelled"))
+
+                override suspend fun pollJobStatus(
+                    jobId: ProgramTemplateImportJobId,
+                ): Result<ProgramTemplateJobSnapshot> = error("poll must not run")
+
+                override suspend fun downloadProgramTemplate(storagePath: String): Result<String> =
+                    error("download must not run")
+            }
+        var thrown: Throwable? = null
+        try {
+            buildUseCase(programRepo, onboardingRepo, port, testScheduler)(
+                bytes = byteArrayOf(1),
+                fileName = "p.json",
+                options = libraryOnly,
+            )
+        } catch (cancelled: CancellationException) {
+            thrown = cancelled
+        }
+        val actual = requireNotNull(thrown) { "invoke must throw CancellationException" }
+        assertEquals("upload cancelled", actual.message)
         assertFalse(onboardingRepo.current.isComplete)
     }
 }

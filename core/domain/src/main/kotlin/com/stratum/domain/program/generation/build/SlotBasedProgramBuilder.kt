@@ -45,7 +45,7 @@ data class BuildProgramResult(
  * carries the [BuildProgramResult] unchanged.
  */
 sealed interface BuildProgramOutcome {
-    data class Built(val result: BuildProgramResult) : BuildProgramOutcome
+    data class Completed(val result: BuildProgramResult) : BuildProgramOutcome
     data class SynthesisRefused(val refusal: ProgramSynthesisRefusal) : BuildProgramOutcome
 }
 
@@ -119,7 +119,7 @@ suspend fun buildProgramWithSelections(
             cycleLengthHint = context.cycleLength,
         )
 
-    return BuildProgramOutcome.Built(
+    return BuildProgramOutcome.Completed(
         BuildProgramResult(
             program =
                 BuiltProgram(
