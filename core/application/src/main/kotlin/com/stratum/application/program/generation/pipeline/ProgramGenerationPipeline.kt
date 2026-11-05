@@ -13,7 +13,9 @@ import com.stratum.domain.program.generation.context.withResolvedCycleSpace
 import com.stratum.domain.program.generation.draft.ProgramDraft
 import com.stratum.domain.program.generation.schema.NormalizedProgram
 import com.stratum.domain.program.generation.schema.ProgramNormalizationRequest
+import com.stratum.domain.program.generation.build.BuildProgramOutcome
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisPort
+import com.stratum.domain.program.generation.synthesis.ProgramSynthesisRefusal
 import com.stratum.domain.program.generation.validation.ValidationReport
 import javax.inject.Inject
 import com.stratum.domain.program.generation.volume.planWeeklyVolume
@@ -46,6 +48,7 @@ data class PipelineOptions(
 sealed interface ProgramGenerationPipelineResult {
     data class Success(val program: NormalizedProgram) : ProgramGenerationPipelineResult
     data class ValidationRejected(val report: ValidationReport) : ProgramGenerationPipelineResult
+    data class SynthesisRefused(val refusal: ProgramSynthesisRefusal) : ProgramGenerationPipelineResult
 }
 
 open class ProgramGenerationPipeline @Inject constructor(
@@ -66,17 +69,24 @@ open class ProgramGenerationPipeline @Inject constructor(
         val weeklyTargets = planWeeklyVolume(context)
 
         val buildResult =
-            buildProgramWorkouts(
-                context = context,
-                weeklyTargets = weeklyTargets,
-                programSynthesisPort = programSynthesisPort,
-                onSynthesizingProgram = {
-                    options.progress(PipelineProgress(PipelinePhase.SynthesizingProgram))
-                },
-                onSelectingExercises = {
-                    options.progress(PipelineProgress(PipelinePhase.SelectingExercises))
-                },
-            )
+            when (
+                val buildOutcome =
+                    buildProgramWorkouts(
+                        context = context,
+                        weeklyTargets = weeklyTargets,
+                        programSynthesisPort = programSynthesisPort,
+                        onSynthesizingProgram = {
+                            options.progress(PipelineProgress(PipelinePhase.SynthesizingProgram))
+                        },
+                        onSelectingExercises = {
+                            options.progress(PipelineProgress(PipelinePhase.SelectingExercises))
+                        },
+                    )
+            ) {
+                is BuildProgramOutcome.Built -> buildOutcome.result
+                is BuildProgramOutcome.SynthesisRefused ->
+                    return ProgramGenerationPipelineResult.SynthesisRefused(buildOutcome.refusal)
+            }
         telemetryLogger.logSynthesisComplete(context, buildResult)
         // STR-254: drain slot-build diagnostics exactly once per generation through the
         // pipeline's existing logging wiring. Diagnostics never reach the UI.

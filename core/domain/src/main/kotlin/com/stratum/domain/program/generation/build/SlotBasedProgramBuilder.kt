@@ -12,7 +12,9 @@ import com.stratum.domain.program.generation.slots.SlotGenerationDiagnostic
 import com.stratum.domain.program.generation.selection.SelectedSlotLift
 import com.stratum.domain.program.generation.selection.selectLiftForSlot
 import com.stratum.domain.program.generation.synthesis.PLACEHOLDER_PROGRAM_NAME
+import com.stratum.domain.program.generation.synthesis.ProgramSynthesisOutcome
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisPort
+import com.stratum.domain.program.generation.synthesis.ProgramSynthesisRefusal
 import com.stratum.domain.program.generation.validation.validateActiveSlotSelections
 import com.stratum.domain.program.generation.volume.WeeklyVolumeTargets
 import com.stratum.domain.program.generation.volume.planWeeklyVolume
@@ -37,16 +39,31 @@ data class BuildProgramResult(
     val diagnostics: List<SlotGenerationDiagnostic> = emptyList(),
 )
 
+/**
+ * Outcome of a program build (STR-241): a synthesis refusal propagates as the
+ * [SynthesisRefused] branch instead of a thrown exception; the completed path
+ * carries the [BuildProgramResult] unchanged.
+ */
+sealed interface BuildProgramOutcome {
+    data class Built(val result: BuildProgramResult) : BuildProgramOutcome
+    data class SynthesisRefused(val refusal: ProgramSynthesisRefusal) : BuildProgramOutcome
+}
+
 suspend fun buildProgramWithSelections(
     context: ProgramGenerationContext,
     weeklyTargets: WeeklyVolumeTargets? = null,
     programSynthesisPort: ProgramSynthesisPort,
     onSynthesizingProgram: suspend () -> Unit = {},
     onSelectingExercises: suspend () -> Unit = {},
-): BuildProgramResult {
+): BuildProgramOutcome {
     val targets = weeklyTargets ?: planWeeklyVolume(context)
     onSynthesizingProgram()
-    val synthesis = programSynthesisPort.synthesize(targets, context)
+    val synthesis =
+        when (val outcome = programSynthesisPort.synthesize(targets, context)) {
+            is ProgramSynthesisOutcome.Completed -> outcome.result
+            is ProgramSynthesisOutcome.Refused ->
+                return BuildProgramOutcome.SynthesisRefused(outcome.refusal)
+        }
     onSelectingExercises()
 
     val sessionPlans = synthesis.plans
@@ -102,17 +119,19 @@ suspend fun buildProgramWithSelections(
             cycleLengthHint = context.cycleLength,
         )
 
-    return BuildProgramResult(
-        program =
-            BuiltProgram(
-                name = PLACEHOLDER_PROGRAM_NAME,
-                cycleLength = cycleSpace.cycleLength,
-                restSlotIndices = cycleSpace.restSlotIndices,
-                workouts = workouts,
-            ),
-        selectionsBySession = selectionsBySession,
-        cycleSlotIndexByPosition = synthesis.cycleSlotIndexByPosition,
-        synthesisObjective = synthesis.objective,
-        diagnostics = synthesis.diagnostics,
+    return BuildProgramOutcome.Built(
+        BuildProgramResult(
+            program =
+                BuiltProgram(
+                    name = PLACEHOLDER_PROGRAM_NAME,
+                    cycleLength = cycleSpace.cycleLength,
+                    restSlotIndices = cycleSpace.restSlotIndices,
+                    workouts = workouts,
+                ),
+            selectionsBySession = selectionsBySession,
+            cycleSlotIndexByPosition = synthesis.cycleSlotIndexByPosition,
+            synthesisObjective = synthesis.objective,
+            diagnostics = synthesis.diagnostics,
+        ),
     )
 }

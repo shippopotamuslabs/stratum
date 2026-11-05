@@ -8,8 +8,8 @@ import com.google.firebase.storage.FirebaseStorage
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisException
+import com.stratum.domain.program.generation.synthesis.ProgramSynthesisOutcome
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisPort
-import com.stratum.domain.program.generation.synthesis.ProgramSynthesisResult
 import com.stratum.domain.program.generation.synthesis.wire.ProgramSynthesisWire
 import com.stratum.domain.program.generation.volume.WeeklyVolumeTargets
 import com.stratum.domain.telemetry.AnalyticsPort
@@ -43,7 +43,7 @@ class FirebaseProgramSynthesisAdapter @Inject constructor(
     override suspend fun synthesize(
         weeklyTargets: WeeklyVolumeTargets,
         context: ProgramGenerationContext,
-    ): ProgramSynthesisResult {
+    ): ProgramSynthesisOutcome {
         val uid =
             auth.currentUser?.uid
                 ?: throw ProgramSynthesisException(MESSAGE_SIGN_IN_REQUIRED)
@@ -118,7 +118,10 @@ class FirebaseProgramSynthesisAdapter @Inject constructor(
                             ClientStageCorrelation.Job(jobId),
                             ClientStage.DECODE_RESULT,
                         )
-                    val decoded = ProgramSynthesisWire.decodeResult(bytes.decodeToString())
+                    val decoded =
+                        ProgramSynthesisOutcome.Completed(
+                            ProgramSynthesisWire.decodeResult(bytes.decodeToString()),
+                        )
                     val decodeMs = decodeTimer.stop()
                     loggingPort.info(
                         TAG,
