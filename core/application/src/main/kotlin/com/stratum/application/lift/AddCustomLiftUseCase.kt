@@ -1,7 +1,7 @@
 package com.stratum.application.lift
 
 import com.stratum.domain.lift.identity.LiftId
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
 import com.stratum.domain.lift.CatalogNames
@@ -9,14 +9,16 @@ import com.stratum.domain.lift.CustomLiftDefinition
 import com.stratum.domain.lift.Lift
 
 /**
- * Outcome of adding a custom lift (STR-243).
+ * Outcome of adding a custom lift (STR-243; STR-237 Route (i)).
  *
  * Validation branches carry the validation results themselves
  * ([CatalogNames.Validation.Invalid] for the name rule,
  * [CustomLiftFieldValidation.Invalid] for the field rules). The originating
- * throwable of a failed write goes once to the diagnostics channel
- * ([LoggingPort.error]) at the use-case boundary; it never crosses as a
- * payload. Coroutine cancellation is not a branch: it propagates.
+ * throwable of a failed write rides the [PersistenceFailed] branch as an
+ * [OperationalDiagnostic] (legacy tag + rendered message, real throwable as
+ * cause); the presentation boundary drains it exactly once through its
+ * module's DiagnosticDrain. Coroutine cancellation is not a branch: it
+ * propagates.
  */
 sealed interface AddCustomLiftResult {
     data class Success(val liftId: LiftId) : AddCustomLiftResult
@@ -26,7 +28,9 @@ sealed interface AddCustomLiftResult {
     data class InvalidField(val validation: CustomLiftFieldValidation.Invalid) : AddCustomLiftResult
 
     /** The lift write failed (repository / store I/O). */
-    data object PersistenceFailed : AddCustomLiftResult
+    data class PersistenceFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : AddCustomLiftResult
 }
 
 /**
@@ -35,7 +39,6 @@ sealed interface AddCustomLiftResult {
  */
 class AddCustomLiftUseCase @Inject constructor(
     private val repository: LiftRepository,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(definition: CustomLiftDefinition): AddCustomLiftResult {
         // Name rule and field rules are owned once on the domain side (STR-169);
@@ -74,8 +77,15 @@ class AddCustomLiftUseCase @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (t: Throwable) {
-            loggingPort.error(TAG, "Failed to add custom lift: ${t.message}", t)
-            AddCustomLiftResult.PersistenceFailed
+            AddCustomLiftResult.PersistenceFailed(
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Failed to add custom lift: ${t.message}",
+                        cause = t,
+                    ),
+                ),
+            )
         }
     }
 

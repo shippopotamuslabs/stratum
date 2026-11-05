@@ -1,7 +1,7 @@
 package com.stratum.application.lift
 
 import com.stratum.domain.lift.identity.LiftId
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.first
@@ -14,9 +14,10 @@ import com.stratum.domain.lift.Lift
  * The field branch carries the validation result itself
  * ([CustomLiftFieldValidation.Invalid]); [CatalogLiftNotEditable] is the
  * catalog-immutability refusal. The originating throwable of a failed read or
- * write goes once to the diagnostics channel ([LoggingPort.error]) at the
- * use-case boundary; it never crosses as a payload. Coroutine cancellation is
- * not a branch: it propagates.
+ * write rides the [PersistenceFailed] branch as an [OperationalDiagnostic]
+ * (legacy tag + rendered message, real throwable as cause); the presentation
+ * boundary drains it exactly once through its module's DiagnosticDrain.
+ * Coroutine cancellation is not a branch: it propagates.
  */
 sealed interface UpdateCustomLiftDetailsResult {
     data object Success : UpdateCustomLiftDetailsResult
@@ -29,7 +30,9 @@ sealed interface UpdateCustomLiftDetailsResult {
     data class CatalogLiftNotEditable(val liftId: LiftId) : UpdateCustomLiftDetailsResult
 
     /** The catalog read or the details write failed (repository / store I/O). */
-    data object PersistenceFailed : UpdateCustomLiftDetailsResult
+    data class PersistenceFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : UpdateCustomLiftDetailsResult
 }
 
 /**
@@ -38,7 +41,6 @@ sealed interface UpdateCustomLiftDetailsResult {
  */
 class UpdateCustomLiftDetailsUseCase @Inject constructor(
     private val repository: LiftRepository,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(
         id: LiftId,
@@ -59,8 +61,15 @@ class UpdateCustomLiftDetailsUseCase @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (t: Throwable) {
-            loggingPort.error(TAG, "Failed to update custom lift details: ${t.message}", t)
-            UpdateCustomLiftDetailsResult.PersistenceFailed
+            UpdateCustomLiftDetailsResult.PersistenceFailed(
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Failed to update custom lift details: ${t.message}",
+                        cause = t,
+                    ),
+                ),
+            )
         }
     }
 

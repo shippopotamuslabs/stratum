@@ -21,6 +21,7 @@ import com.stratum.domain.lift.EquipmentPickResult
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.inferFatigueProfile
 import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.app.DiagnosticDrain
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
@@ -51,6 +52,7 @@ class CreateLiftViewModel @Inject constructor(
     private val addCustomLift: AddCustomLiftUseCase,
     private val observeEquipmentCatalog: ObserveEquipmentCatalogUseCase,
     private val equipmentPickResult: EquipmentPickResult,
+    private val diagnosticDrain: DiagnosticDrain,
 ) : ViewModel() {
 
     private data class Draft(
@@ -302,8 +304,10 @@ class CreateLiftViewModel @Inject constructor(
                     errorOverride.value = result.validation.message
                 is AddCustomLiftResult.InvalidField ->
                     errorOverride.value = result.validation.message
-                AddCustomLiftResult.PersistenceFailed ->
+                is AddCustomLiftResult.PersistenceFailed -> {
+                    diagnosticDrain.drain(result.diagnostics)
                     errorOverride.value = "Couldn't create lift. Try again."
+                }
             }
         }
     }

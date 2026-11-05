@@ -1,23 +1,31 @@
 package com.stratum.application.lift
 
 import com.stratum.domain.lift.identity.LiftId
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.application.training.RebuildLocalDerivedTrainingDataUseCase
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
- * Outcome of deleting a lift (STR-243). A missing or already-tombstoned lift
- * is a no-op [Success], matching the port contract. The originating throwable
- * of a failed delete goes once to the diagnostics channel
- * ([LoggingPort.error]) at the use-case boundary; it never crosses as a
- * payload. Coroutine cancellation is not a branch: it propagates.
+ * Outcome of deleting a lift (STR-243; STR-237 Route (i)). A missing or
+ * already-tombstoned lift is a no-op [Success], matching the port contract.
+ * The originating throwable of a failed delete rides the [PersistenceFailed]
+ * branch as an [OperationalDiagnostic] (legacy tag + rendered message, real
+ * throwable as cause); a post-commit rebuild failure the delete tolerates
+ * rides [Success]'s diagnostics the same way (the §10 success-payload
+ * precedent, cf. [MergeLiftsOutcome]). The presentation boundary drains them
+ * exactly once through its module's DiagnosticDrain. Coroutine cancellation
+ * is not a branch: it propagates.
  */
 sealed interface DeleteLiftResult {
-    data object Success : DeleteLiftResult
+    data class Success(
+        val diagnostics: List<OperationalDiagnostic> = emptyList(),
+    ) : DeleteLiftResult
 
     /** The tombstone write failed (repository / store I/O). */
-    data object PersistenceFailed : DeleteLiftResult
+    data class PersistenceFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : DeleteLiftResult
 }
 
 /**
@@ -26,13 +34,14 @@ sealed interface DeleteLiftResult {
  * slot + stash-note sweep. Logged history is never rewritten.
  *
  * After the commit, the derived rebuild runs so no derived/catalog surface
- * keeps presenting the lift; a rebuild failure is logged, not fatal — the
- * delete itself already succeeded.
+ * keeps presenting the lift; a rebuild failure is carried on [DeleteLiftResult.Success],
+ * not fatal — the delete itself already succeeded. (A rebuild that returns
+ * its failure branch instead of throwing was already recorded inside the
+ * derived-training stages; only a thrown failure rides here.)
  */
 class DeleteLiftUseCase @Inject constructor(
     private val deleteLiftPort: DeleteLiftPort,
     private val rebuildDerived: RebuildLocalDerivedTrainingDataUseCase,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(id: LiftId): DeleteLiftResult {
         val tombstoned =
@@ -41,20 +50,34 @@ class DeleteLiftUseCase @Inject constructor(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (t: Throwable) {
-                loggingPort.error(TAG, "Failed to delete lift: ${t.message}", t)
-                return DeleteLiftResult.PersistenceFailed
+                return DeleteLiftResult.PersistenceFailed(
+                    diagnostics = listOf(
+                        OperationalDiagnostic(
+                            tag = TAG,
+                            message = "Failed to delete lift: ${t.message}",
+                            cause = t,
+                        ),
+                    ),
+                )
             }
 
+        var rebuildDiagnostics: List<OperationalDiagnostic> = emptyList()
         if (tombstoned) {
             try {
                 rebuildDerived()
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (t: Throwable) {
-                loggingPort.error(TAG, "Derived rebuild after lift delete failed: ${t.message}", t)
+                rebuildDiagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Derived rebuild after lift delete failed: ${t.message}",
+                        cause = t,
+                    ),
+                )
             }
         }
-        return DeleteLiftResult.Success
+        return DeleteLiftResult.Success(diagnostics = rebuildDiagnostics)
     }
 
     private companion object {

@@ -20,7 +20,8 @@ import com.stratum.domain.lift.LiftDeleteImpact
 import com.stratum.application.lift.MergeLiftsDiagnostic
 import com.stratum.application.lift.MergeLiftsResult
 import com.stratum.application.lift.MergeLiftsUseCase
-import com.stratum.domain.logging.LogErrorUseCase
+import com.stratum.application.diagnostics.OperationalDiagnostic
+import com.stratum.app.DiagnosticDrain
 import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.application.lift.ObserveLiftCatalogUseCase
 import com.stratum.application.lift.SetLiftEnabledResult
@@ -98,7 +99,7 @@ class GymViewModel @Inject constructor(
     private val mergeLifts: MergeLiftsUseCase,
     private val deleteLift: DeleteLiftUseCase,
     private val getLiftDeleteImpact: GetLiftDeleteImpactUseCase,
-    private val logError: LogErrorUseCase,
+    private val diagnosticDrain: DiagnosticDrain,
 ) : ViewModel() {
 
     private val filters = MutableStateFlow(GymFilters())
@@ -191,7 +192,9 @@ class GymViewModel @Inject constructor(
 
     fun toggleLiftEnabled(id: String, enabled: Boolean) {
         viewModelScope.launch {
-            if (setLiftEnabled(LiftId(id), enabled) == SetLiftEnabledResult.PersistenceFailed) {
+            val result = setLiftEnabled(LiftId(id), enabled)
+            if (result is SetLiftEnabledResult.PersistenceFailed) {
+                diagnosticDrain.drain(result.diagnostics)
                 _userMessage.value = MSG_TOGGLE_FAILED
             }
         }
@@ -258,6 +261,10 @@ class GymViewModel @Inject constructor(
                         mergeSelection.value = MergeSelection()
                         _userMessage.value = MSG_MERGE_SUCCESS
                     }
+                    is MergeLiftsResult.PersistenceFailed -> {
+                        diagnosticDrain.drain(result.diagnostics)
+                        _userMessage.value = MSG_MERGE_FAILED
+                    }
                     else -> _userMessage.value = MSG_MERGE_FAILED
                 }
             } finally {
@@ -299,11 +306,15 @@ class GymViewModel @Inject constructor(
         deleteInFlight = true
         viewModelScope.launch {
             try {
-                when (deleteLift(LiftId(pending.id))) {
-                    DeleteLiftResult.Success ->
+                when (val result = deleteLift(LiftId(pending.id))) {
+                    is DeleteLiftResult.Success -> {
+                        diagnosticDrain.drain(result.diagnostics)
                         _userMessage.value = "Deleted ${pending.name}."
-                    DeleteLiftResult.PersistenceFailed ->
+                    }
+                    is DeleteLiftResult.PersistenceFailed -> {
+                        diagnosticDrain.drain(result.diagnostics)
                         _userMessage.value = MSG_DELETE_FAILED
+                    }
                 }
             } finally {
                 deleteInFlight = false
@@ -312,9 +323,9 @@ class GymViewModel @Inject constructor(
     }
 
     /**
-     * STR-255: reports each merge diagnostic exactly once through the screen's
-     * existing error-logging wiring. Diagnostics are log-only — never surfaced in
-     * the UI. Error level (not warning) so the bound failure travels attached,
+     * STR-255: reports each merge diagnostic exactly once through the app
+     * [DiagnosticDrain]. Diagnostics are log-only — never surfaced in the UI.
+     * Error level (not warning) so the bound failure travels attached,
      * mirroring the STR-250 drain shape: `LoggingPort.warning` carries no
      * throwable and ViewModels must not inject `LoggingPort` directly.
      */
@@ -322,11 +333,13 @@ class GymViewModel @Inject constructor(
         for (diagnostic in diagnostics) {
             when (diagnostic) {
                 is MergeLiftsDiagnostic.PersonalRecordsNotRecomputed ->
-                    logError(
-                        TAG,
-                        "Merge succeeded but personal records were not recomputed: " +
-                            "target=${diagnostic.targetLiftId.value} — PR flags may be stale.",
-                        diagnostic.cause,
+                    diagnosticDrain.drain(
+                        OperationalDiagnostic(
+                            tag = TAG,
+                            message = "Merge succeeded but personal records were not recomputed: " +
+                                "target=${diagnostic.targetLiftId.value} — PR flags may be stale.",
+                            cause = diagnostic.cause,
+                        ),
                     )
             }
         }
