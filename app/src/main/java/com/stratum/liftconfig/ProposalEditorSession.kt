@@ -1,5 +1,6 @@
 package com.stratum.liftconfig
 
+import com.stratum.application.lift.DismissEquipmentProposalResult
 import com.stratum.application.lift.DismissEquipmentProposalUseCase
 import com.stratum.feature.workout.ui.ProposalEditContext
 import com.stratum.feature.workout.ui.ProposalTierArgs
@@ -55,9 +56,10 @@ class ProposalEditorSession {
      * warnings-only launches dismiss nothing by construction (pill quieting stays
      * with the session tracker), so live paths cannot accidentally dismiss.
      */
-    suspend fun dismissIfPresent(dismiss: DismissEquipmentProposalUseCase) {
+    suspend fun dismissIfPresent(
+        dismiss: DismissEquipmentProposalUseCase,
+    ): DismissEquipmentProposalResult? =
         (_input.value?.context as? ProposalEditContext.PostWorkout)?.let {
             dismiss(it.proposalId)
         }
-    }
 }

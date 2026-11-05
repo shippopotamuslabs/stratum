@@ -354,7 +354,11 @@ class WorkoutCompleteViewModel @Inject constructor(
                 // STR-243 C3: branch on the outcome type — the Amended/Forked
                 // branches are success; every failure branch gets the same
                 // user copy as the old onFailure path.
-                when (val outcome = applyEquipmentIncrementProposal(remedy)) {
+                val outcome = applyEquipmentIncrementProposal(remedy)
+                if (outcome is ApplyEquipmentIncrementResult.PersistenceFailed) {
+                    diagnosticDrain.drain(outcome.diagnostics)
+                }
+                when (outcome) {
                     is ApplyEquipmentIncrementResult.Amended,
                     is ApplyEquipmentIncrementResult.Forked -> {
                         settled = true
@@ -372,7 +376,7 @@ class WorkoutCompleteViewModel @Inject constructor(
                     is ApplyEquipmentIncrementResult.InvalidName,
                     is ApplyEquipmentIncrementResult.InvalidTiers,
                     is ApplyEquipmentIncrementResult.EquipmentNotFound,
-                    ApplyEquipmentIncrementResult.PersistenceFailed -> {
+                    is ApplyEquipmentIncrementResult.PersistenceFailed -> {
                         settled = true
                         enqueueUserMessage(EquipmentProposalUiMapper.MSG_APPLY_FAILED)
                         applyEquipmentSnapshot(

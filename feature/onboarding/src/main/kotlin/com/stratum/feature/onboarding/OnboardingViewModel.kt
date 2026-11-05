@@ -18,6 +18,7 @@ import com.stratum.application.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.application.lift.SetSelectedPresetResult
 import com.stratum.application.lift.SetSelectedPresetUseCase
 import com.stratum.application.lift.SetWeightDisplayUnitUseCase
+import com.stratum.application.lift.WeightDisplayPreferenceResult
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.logging.LogAnalyticsEventUseCase
 import com.stratum.domain.logging.LogErrorUseCase
@@ -432,9 +433,13 @@ class OnboardingViewModel @Inject constructor(
      */
     fun onAppWeightUnitSelected(useKg: Boolean) {
         viewModelScope.launch {
-            setWeightDisplayUnit(
-                if (useKg) Weight.WeightUnit.Kg else Weight.WeightUnit.Lb,
-            )
+            val result =
+                setWeightDisplayUnit(
+                    if (useKg) Weight.WeightUnit.Kg else Weight.WeightUnit.Lb,
+                )
+            if (result is WeightDisplayPreferenceResult.PersistenceFailed) {
+                diagnosticDrain.drain(result.diagnostics)
+            }
         }
     }
 

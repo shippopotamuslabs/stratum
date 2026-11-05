@@ -1,22 +1,26 @@
 package com.stratum.application.lift
 
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Outcome of an equipment-proposal preferences write (STR-243).
+ * Outcome of an equipment-proposal preferences write (STR-243; STR-237 Route (i)).
  *
- * The originating throwable goes once to the diagnostics channel ([LoggingPort.error])
- * at the use-case boundary; it never crosses as a payload. Coroutine cancellation is
- * not a branch: it propagates as cancellation.
+ * The originating throwable rides the [PersistenceFailed] branch as an
+ * [OperationalDiagnostic] (legacy tag + rendered message, real throwable as
+ * cause); the presentation boundary drains it exactly once through its
+ * module's DiagnosticDrain. Coroutine cancellation is not a branch: it
+ * propagates as cancellation.
  */
 sealed interface EquipmentProposalPreferenceResult {
     data object Success : EquipmentProposalPreferenceResult
 
     /** The preferences write failed (repository / store I/O). */
-    data object PersistenceFailed : EquipmentProposalPreferenceResult
+    data class PersistenceFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : EquipmentProposalPreferenceResult
 }
 
 class ObserveEquipmentProposalsEnabledUseCase @Inject constructor(
@@ -27,7 +31,6 @@ class ObserveEquipmentProposalsEnabledUseCase @Inject constructor(
 
 class SetEquipmentProposalsEnabledUseCase @Inject constructor(
     private val preferences: EquipmentProposalPreferences,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(enabled: Boolean): EquipmentProposalPreferenceResult =
         try {
@@ -36,8 +39,15 @@ class SetEquipmentProposalsEnabledUseCase @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (t: Throwable) {
-            loggingPort.error(TAG, "Failed to set equipment proposals enabled: ${t.message}", t)
-            EquipmentProposalPreferenceResult.PersistenceFailed
+            EquipmentProposalPreferenceResult.PersistenceFailed(
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Failed to set equipment proposals enabled: ${t.message}",
+                        cause = t,
+                    ),
+                ),
+            )
         }
 
     private companion object {

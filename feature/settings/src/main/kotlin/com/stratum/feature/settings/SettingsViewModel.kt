@@ -300,7 +300,9 @@ class SettingsViewModel @Inject constructor(
 
     fun onWeightUnitSelected(unit: WeightUnitUi) {
         viewModelScope.launch {
-            if (setWeightDisplayUnit(unit.toDomain()) == WeightDisplayPreferenceResult.PersistenceFailed) {
+            val result = setWeightDisplayUnit(unit.toDomain())
+            if (result is WeightDisplayPreferenceResult.PersistenceFailed) {
+                diagnosticDrain.drain(result.diagnostics)
                 _userMessage.value = MSG_PREFS_FAILED
             }
         }
@@ -313,9 +315,15 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             val failed =
                 when (kind) {
-                    PostWorkoutSuggestionUi.EquipmentSteps ->
-                        setEquipmentProposalsEnabled(enabled) ==
-                            EquipmentProposalPreferenceResult.PersistenceFailed
+                    PostWorkoutSuggestionUi.EquipmentSteps -> {
+                        val result = setEquipmentProposalsEnabled(enabled)
+                        if (result is EquipmentProposalPreferenceResult.PersistenceFailed) {
+                            diagnosticDrain.drain(result.diagnostics)
+                            true
+                        } else {
+                            false
+                        }
+                    }
                     PostWorkoutSuggestionUi.RepRangeShift ->
                         setRepRangeShiftProposalsEnabled(enabled) ==
                             RepRangeShiftPreferenceResult.PersistenceFailed

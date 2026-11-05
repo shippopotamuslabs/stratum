@@ -295,7 +295,6 @@ class OnboardingGenerateViewModelTest {
             setWeightDisplayUnit =
                 com.stratum.application.lift.SetWeightDisplayUnitUseCase(
                     weightDisplayPreferences,
-                    com.stratum.core.testing.logging.FakeLoggingPort(),
                 ),
         )
         return Triple(viewModel, onboardingRepo, programRepo)

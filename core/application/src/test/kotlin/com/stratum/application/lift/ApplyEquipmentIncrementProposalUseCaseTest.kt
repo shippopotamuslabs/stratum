@@ -1,6 +1,5 @@
 package com.stratum.application.lift
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeEquipmentRepository
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.domain.lift.identity.EquipmentId
@@ -35,7 +34,6 @@ class ApplyEquipmentIncrementProposalUseCaseTest {
 
     private lateinit var liftRepo: FakeLiftRepository
     private lateinit var equipmentRepo: FakeEquipmentRepository
-    private lateinit var logging: FakeLoggingPort
     private lateinit var subject: ApplyEquipmentIncrementProposalUseCase
 
     @BeforeEach
@@ -66,11 +64,9 @@ class ApplyEquipmentIncrementProposalUseCaseTest {
                 sampleLift(rowId, "Cable row", cableId),
             ),
         )
-        logging = FakeLoggingPort()
         subject =
             ApplyEquipmentIncrementProposalUseCase(
                 equipmentRepository = equipmentRepo,
-                loggingPort = logging,
             )
     }
 
@@ -135,12 +131,10 @@ class ApplyEquipmentIncrementProposalUseCaseTest {
                 ApplyEquipmentIncrementResult.EquipmentNotFound(missingId),
                 result,
             )
-            assertEquals(0, logging.errors.size)
-            assertEquals(1, logging.warnings.size)
         }
 
         @Test
-        @DisplayName("Given a repository failure when amend applied then PersistenceFailed (STR-243)")
+        @DisplayName("Given a repository failure when amend applied then PersistenceFailed carrying the failure diagnostic")
         fun persistenceFailure() = runTest {
             equipmentRepo.failNextWrite = true
             val result =
@@ -151,8 +145,15 @@ class ApplyEquipmentIncrementProposalUseCaseTest {
                     ),
                 )
 
-            assertEquals(ApplyEquipmentIncrementResult.PersistenceFailed, result)
-            assertEquals(1, logging.errors.size)
+            val failed = result as ApplyEquipmentIncrementResult.PersistenceFailed
+            assertEquals(1, failed.diagnostics.size)
+            val diagnostic = failed.diagnostics.single()
+            assertEquals("ApplyEquipmentIncrementProposal", diagnostic.tag)
+            assertEquals(
+                "Failed to apply equipment increment remedy: Simulated equipment write failure",
+                diagnostic.message,
+            )
+            assertTrue(diagnostic.cause is IllegalStateException)
         }
     }
 
@@ -198,8 +199,6 @@ class ApplyEquipmentIncrementProposalUseCaseTest {
                 "Equipment name is required",
                 (result as ApplyEquipmentIncrementResult.InvalidName).validation.message,
             )
-            assertEquals(0, logging.errors.size)
-            assertEquals(1, logging.warnings.size)
         }
     }
 

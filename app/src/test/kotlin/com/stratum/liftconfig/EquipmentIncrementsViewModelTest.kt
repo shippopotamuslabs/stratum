@@ -102,7 +102,6 @@ class EquipmentIncrementsViewModelTest {
                 dismissEquipmentProposal =
                     DismissEquipmentProposalUseCase(
                         fakeProposalPrefs,
-                        FakeLoggingPort(),
                     ),
                 deleteCustomEquipment =
                     DeleteCustomEquipmentUseCase(

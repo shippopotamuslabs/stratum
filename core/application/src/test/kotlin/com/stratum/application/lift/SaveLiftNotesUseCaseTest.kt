@@ -1,7 +1,6 @@
 package com.stratum.application.lift
 
 import com.stratum.core.testing.lift.FakeLiftNotesRepository
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.application.lift.LiftNotesRepository
@@ -46,7 +45,7 @@ class SaveLiftNotesUseCaseTest {
         val notes = FakeLiftNotesRepository()
         val lifts = FakeLiftRepository(listOf(sampleLift()))
         val programs = FakeProgramRepository(sampleProgram())
-        val useCase = SaveLiftNotesUseCase(notes, lifts, programs, FakeLoggingPort())
+        val useCase = SaveLiftNotesUseCase(notes, lifts, programs)
 
         val result =
             useCase(
@@ -89,7 +88,6 @@ class SaveLiftNotesUseCaseTest {
                 notes,
                 FakeLiftRepository(listOf(sampleLift())),
                 FakeProgramRepository(sampleProgram()),
-                FakeLoggingPort(),
             )
 
         useCase(
@@ -113,7 +111,6 @@ class SaveLiftNotesUseCaseTest {
                 notes,
                 FakeLiftRepository(listOf(sampleLift())),
                 FakeProgramRepository(sampleProgram()),
-                FakeLoggingPort(),
             )
 
         useCase(
@@ -142,7 +139,6 @@ class SaveLiftNotesUseCaseTest {
                 notes,
                 FakeLiftRepository(listOf(sampleLift())),
                 FakeProgramRepository(sampleProgram()),
-                FakeLoggingPort(),
             )
         suspend fun stored() = notes.getSessionNotes(sessionId, workoutLiftId)
 
@@ -196,7 +192,6 @@ class SaveLiftNotesUseCaseTest {
                 notes,
                 FakeLiftRepository(listOf(sampleLift())),
                 FakeProgramRepository(sampleProgram()),
-                FakeLoggingPort(),
             )
 
         useCase(
@@ -220,7 +215,6 @@ class SaveLiftNotesUseCaseTest {
                 FakeLiftNotesRepository(),
                 lifts,
                 FakeProgramRepository(sampleProgram()),
-                FakeLoggingPort(),
             )
 
         useCase(
@@ -274,7 +268,6 @@ class SaveLiftNotesUseCaseTest {
                 FakeLiftNotesRepository(),
                 FakeLiftRepository(listOf(sampleLift())),
                 programs,
-                FakeLoggingPort(),
             )
 
         val result =
@@ -301,7 +294,6 @@ class SaveLiftNotesUseCaseTest {
                 FakeLiftNotesRepository(),
                 FakeLiftRepository(listOf(sampleLift())),
                 programs,
-                FakeLoggingPort(),
             )
         // The slot's persisted lift is liftId (squat); the edit targets another
         // lift's pair (e.g. a swapped-in lift mid-session).
@@ -331,7 +323,6 @@ class SaveLiftNotesUseCaseTest {
                 FakeLiftNotesRepository(),
                 FakeLiftRepository(listOf(sampleLift())),
                 FakeProgramRepository(sampleProgram()),
-                FakeLoggingPort(),
             )
 
         val result =
@@ -358,7 +349,6 @@ class SaveLiftNotesUseCaseTest {
                 notes,
                 FakeLiftRepository(listOf(sampleLift())),
                 FakeProgramRepository(sampleProgram()),
-                FakeLoggingPort(),
             )
 
         useCase(
@@ -434,7 +424,6 @@ class SaveLiftNotesUseCaseTest {
                 FakeLiftNotesRepository(),
                 FakeLiftRepository(listOf(sampleLift())),
                 programs,
-                FakeLoggingPort(),
             )
         useCase(
             SaveLiftNotesCommand(
@@ -480,7 +469,6 @@ class SaveLiftNotesUseCaseTest {
                 FakeLiftNotesRepository(),
                 FakeLiftRepository(listOf(sampleLift())),
                 programs,
-                FakeLoggingPort(),
             )
         useCase(
             SaveLiftNotesCommand(
@@ -559,7 +547,7 @@ class SaveLiftNotesUseCaseTest {
         )
 
     @Test
-    @DisplayName("Repository write failure surfaces as PersistenceFailed with one error log")
+    @DisplayName("Repository write failure surfaces as PersistenceFailed carrying the failure diagnostic")
     fun persistenceFailureOnWrite() = runTest {
         val notes = FakeLiftNotesRepository()
         val throwing =
@@ -571,13 +559,11 @@ class SaveLiftNotesUseCaseTest {
                     notes: List<SessionNoteInput>,
                 ): Unit = throw IllegalStateException("write failed")
             }
-        val logging = FakeLoggingPort()
         val useCase =
             SaveLiftNotesUseCase(
                 throwing,
                 FakeLiftRepository(listOf(sampleLift())),
                 FakeProgramRepository(sampleProgram()),
-                logging,
             )
 
         val result =
@@ -590,7 +576,11 @@ class SaveLiftNotesUseCaseTest {
                 ),
             )
 
-        assertEquals(SaveLiftNotesOutcome.PersistenceFailed, result)
-        assertEquals(1, logging.errors.size)
+        val failed = result as SaveLiftNotesOutcome.PersistenceFailed
+        assertEquals(1, failed.diagnostics.size)
+        val diagnostic = failed.diagnostics.single()
+        assertEquals("SaveLiftNotes", diagnostic.tag)
+        assertEquals("Failed to save lift notes: write failed", diagnostic.message)
+        assertTrue(diagnostic.cause is IllegalStateException)
     }
 }

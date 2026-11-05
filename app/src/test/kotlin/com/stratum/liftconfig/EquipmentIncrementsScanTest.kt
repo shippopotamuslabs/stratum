@@ -114,7 +114,6 @@ class EquipmentIncrementsScanTest {
             dismissEquipmentProposal =
                 DismissEquipmentProposalUseCase(
                     fakeProposalPrefs,
-                    FakeLoggingPort(),
                 ),
             deleteCustomEquipment =
                 DeleteCustomEquipmentUseCase(

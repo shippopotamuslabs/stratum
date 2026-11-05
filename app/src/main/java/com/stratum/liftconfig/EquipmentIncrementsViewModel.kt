@@ -25,6 +25,7 @@ import com.stratum.application.lift.DeleteCustomEquipmentResult
 import com.stratum.application.lift.DeleteCustomEquipmentUseCase
 import com.stratum.application.lift.GetEquipmentDeleteImpactUseCase
 import com.stratum.domain.lift.SeedEquipmentIds
+import com.stratum.application.lift.DismissEquipmentProposalResult
 import com.stratum.application.lift.DismissEquipmentProposalUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.app.DiagnosticDrain
@@ -675,7 +676,10 @@ class EquipmentIncrementsViewModel @Inject constructor(
      * miss logged weights — the user took ownership. Cancellation paths never call this.
      */
     private suspend fun dismissProposalContext() {
-        proposalSession.dismissIfPresent(dismissEquipmentProposal)
+        val result = proposalSession.dismissIfPresent(dismissEquipmentProposal) ?: return
+        if (result is DismissEquipmentProposalResult.PersistenceFailed) {
+            diagnosticDrain.drain(result.diagnostics)
+        }
     }
 
     private fun validatedDraftTiers(): List<IncrementTier>? {

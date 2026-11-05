@@ -430,7 +430,6 @@ class WorkoutViewModelTest {
                 liftNotesRepository,
                 liftRepository,
                 programRepository,
-                FakeLoggingPort(),
             ),
             getPastSessionNotesForLift = GetPastSessionNotesForLiftUseCase(
                 liftNotesRepository,
@@ -456,6 +455,7 @@ class WorkoutViewModelTest {
                     trainingLogRepository,
                     FakeLoggingPort(),
                 ),
+            diagnosticDrain = DiagnosticDrain(FakeLoggingPort()),
         )
     }
 
@@ -532,7 +532,6 @@ class WorkoutViewModelTest {
                 liftNotesRepository,
                 liftRepository,
                 programRepository,
-                FakeLoggingPort(),
             ),
             getPastSessionNotesForLift = GetPastSessionNotesForLiftUseCase(
                 liftNotesRepository,
@@ -558,6 +557,7 @@ class WorkoutViewModelTest {
                     trainingLogRepository,
                     FakeLoggingPort(),
                 ),
+            diagnosticDrain = DiagnosticDrain(FakeLoggingPort()),
         )
     }
 
@@ -632,7 +632,6 @@ class WorkoutViewModelTest {
                 liftNotesRepository,
                 liftRepository,
                 programRepository,
-                FakeLoggingPort(),
             ),
             getPastSessionNotesForLift = GetPastSessionNotesForLiftUseCase(
                 liftNotesRepository,
@@ -658,6 +657,7 @@ class WorkoutViewModelTest {
                     trainingLogRepository,
                     FakeLoggingPort(),
                 ),
+            diagnosticDrain = DiagnosticDrain(FakeLoggingPort()),
         )
     }
 
@@ -1414,7 +1414,6 @@ class WorkoutViewModelTest {
                 liftNotesRepository,
                 liftRepository,
                 programRepository,
-                FakeLoggingPort(),
             ),
             getPastSessionNotesForLift = GetPastSessionNotesForLiftUseCase(
                 liftNotesRepository,
@@ -1440,6 +1439,7 @@ class WorkoutViewModelTest {
                     trainingLogRepository,
                     FakeLoggingPort(),
                 ),
+            diagnosticDrain = DiagnosticDrain(FakeLoggingPort()),
         )
 
         localViewModel.startSession(workoutId)
@@ -1513,7 +1513,6 @@ class WorkoutViewModelTest {
                 liftNotesRepository,
                 liftRepository,
                 programRepository,
-                FakeLoggingPort(),
             ),
             getPastSessionNotesForLift = GetPastSessionNotesForLiftUseCase(
                 liftNotesRepository,
@@ -1539,6 +1538,7 @@ class WorkoutViewModelTest {
                     trainingLogRepository,
                     FakeLoggingPort(),
                 ),
+            diagnosticDrain = DiagnosticDrain(FakeLoggingPort()),
         )
 
         localViewModel.startSession(workoutId)

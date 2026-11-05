@@ -726,7 +726,6 @@ class WorkoutCompleteViewModelTest {
                 applyEquipmentIncrementProposal =
                     ApplyEquipmentIncrementProposalUseCase(
                         equipmentRepository = equipmentRepo,
-                        loggingPort = logging,
                     ),
                 equipmentProposalPreferences = equipPrefs,
                 analyzeSessionRepRangeShiftProposals =
@@ -843,7 +842,6 @@ class WorkoutCompleteViewModelTest {
                 applyEquipmentIncrementProposal =
                     ApplyEquipmentIncrementProposalUseCase(
                         equipmentRepository = equipmentRepo,
-                        loggingPort = logging,
                     ),
                 equipmentProposalPreferences = prefs,
                 analyzeSessionRepRangeShiftProposals =
@@ -965,7 +963,6 @@ class WorkoutCompleteViewModelTest {
                 applyEquipmentIncrementProposal =
                     ApplyEquipmentIncrementProposalUseCase(
                         equipmentRepository = equipmentRepo,
-                        loggingPort = logging,
                     ),
                 equipmentProposalPreferences = prefs,
                 analyzeSessionRepRangeShiftProposals =
@@ -1061,7 +1058,6 @@ class WorkoutCompleteViewModelTest {
             applyEquipmentIncrementProposal =
                 ApplyEquipmentIncrementProposalUseCase(
                     equipmentRepository = equipmentRepo,
-                    loggingPort = logging,
                 ),
             equipmentProposalPreferences = prefs,
             analyzeSessionRepRangeShiftProposals =

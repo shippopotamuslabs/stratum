@@ -1,6 +1,5 @@
 package com.stratum.liftconfig
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeEquipmentProposalPreferences
 import com.stratum.application.lift.DismissEquipmentProposalUseCase
 import com.stratum.feature.workout.ui.ProposalEditContext
@@ -18,7 +17,7 @@ import org.junit.jupiter.api.Test
 class ProposalEditorSessionTest {
 
     private val prefs = FakeEquipmentProposalPreferences()
-    private val dismiss = DismissEquipmentProposalUseCase(prefs, FakeLoggingPort())
+    private val dismiss = DismissEquipmentProposalUseCase(prefs)
     private val args = listOf(ProposalTierArgs(0.0, null, 2.5))
     private val context = ProposalEditContext.PostWorkout("proposal-1", listOf(62.5))
 

@@ -145,11 +145,11 @@ class SettingsViewModelTest {
             setColorMode = SetColorModeUseCase(fakeThemePreferences),
             setCheckInEnabled = SetCheckInEnabledUseCase(fakeCheckInPreferences),
             setEquipmentProposalsEnabled =
-                SetEquipmentProposalsEnabledUseCase(fakeEquipmentProposals, FakeLoggingPort()),
+                SetEquipmentProposalsEnabledUseCase(fakeEquipmentProposals),
             setRepRangeShiftProposalsEnabled =
                 SetRepRangeShiftProposalsEnabledUseCase(fakeRepRangeProposals, FakeLoggingPort()),
             setWeightDisplayUnit =
-                SetWeightDisplayUnitUseCase(fakeWeightDisplayPreferences, FakeLoggingPort()),
+                SetWeightDisplayUnitUseCase(fakeWeightDisplayPreferences),
             setHealthConnectEnabled =
                 SetHealthConnectEnabledUseCase(
                     fakeHealthConnectPreferences,

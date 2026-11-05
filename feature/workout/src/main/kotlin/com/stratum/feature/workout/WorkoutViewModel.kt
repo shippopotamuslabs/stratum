@@ -131,6 +131,7 @@ class WorkoutViewModel @Inject constructor(
     private val getRecentlyUsedEquipment: GetRecentlyUsedEquipmentForLiftUseCase,
     private val equipmentPickResult: EquipmentPickResult,
     private val rewriteSessionLiftEquipment: RewriteSessionLiftEquipmentUseCase,
+    private val diagnosticDrain: DiagnosticDrain,
 ) : ViewModel() {
 
     /**
@@ -825,7 +826,8 @@ class WorkoutViewModel @Inject constructor(
             val result =
                 when (outcome) {
                     is SaveLiftNotesOutcome.Success -> outcome.result
-                    SaveLiftNotesOutcome.PersistenceFailed -> {
+                    is SaveLiftNotesOutcome.PersistenceFailed -> {
+                        diagnosticDrain.drain(outcome.diagnostics)
                         _userMessage.value = MSG_NOTES_SAVE_FAILED
                         return@launch
                     }
