@@ -15,6 +15,8 @@ import com.stratum.domain.training.LoggedLiftContext
 import com.stratum.domain.training.LoggedLiftContextFactory
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.SetEquipmentSource
+import com.stratum.domain.training.TrainingSessionNotInProgressException
+import com.stratum.domain.training.TrainingSessionStatus
 
 class LogSetUseCase @Inject constructor(
     private val trainingLogRepository: TrainingLogRepository,
@@ -23,7 +25,16 @@ class LogSetUseCase @Inject constructor(
     private val loggedLiftContextFactory: LoggedLiftContextFactory,
     private val loggingPort: LoggingPort,
 ) {
-    suspend operator fun invoke(command: LogSetCommand): Result<LoggedSet> = runCatchingCancellable {
+    suspend operator fun invoke(command: LogSetCommand): Result<LoggedSet> {
+        // Pre-check status after load: a non-live session is an expected failure, returned
+        // as a constructed value (never thrown). The helper call below stays as the backstop.
+        val loadedSession = trainingLogRepository.getSession(command.sessionId)
+        if (loadedSession != null && loadedSession.status != TrainingSessionStatus.IN_PROGRESS) {
+            val error = TrainingSessionNotInProgressException(loadedSession.id, loadedSession.status)
+            loggingPort.error(TAG, "Failed to log set: ${error.message}", error)
+            return Result.failure(error)
+        }
+        return runCatchingCancellable {
         trainingLogRepository.requireInProgressSession(command.sessionId)
 
         val lift =
@@ -54,8 +65,9 @@ class LogSetUseCase @Inject constructor(
 
         trainingLogRepository.insertSet(loggedSet)
         loggedSet
-    }.onFailure { error ->
-        loggingPort.error(TAG, "Failed to log set: ${error.message}", error)
+        }.onFailure { error ->
+            loggingPort.error(TAG, "Failed to log set: ${error.message}", error)
+        }
     }
 
     /**

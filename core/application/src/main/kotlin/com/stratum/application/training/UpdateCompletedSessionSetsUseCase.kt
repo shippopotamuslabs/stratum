@@ -13,6 +13,7 @@ import kotlinx.coroutines.launch
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.PersonalRecordScoring
 import com.stratum.domain.training.TrainingSession
+import com.stratum.domain.training.TrainingSessionStatus
 import com.stratum.domain.response.ResponseProfileMetadata
 
 /**
@@ -47,8 +48,12 @@ class UpdateCompletedSessionSetsUseCase @Inject constructor(
                 ?: return Result.failure(
                     IllegalArgumentException("Training session ${sessionId.value} not found"),
                 )
-        runCatchingCancellable { session.requireCompleted() }.getOrElse {
-            return Result.failure(it)
+        if (session.status != TrainingSessionStatus.COMPLETED) {
+            return Result.failure(
+                IllegalArgumentException(
+                    "Training session ${session.id.value} is not completed (status=${session.status})",
+                ),
+            )
         }
         if (desiredSets.isEmpty()) {
             return Result.failure(
