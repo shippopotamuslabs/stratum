@@ -47,7 +47,7 @@ class GetWorkoutSessionDetailUseCaseTest {
             )
         val useCase = detailUseCase(logRepo, programRepo)
 
-        val detail = useCase(TrainingSessionId("ts-1")).getOrThrow()
+        val detail = (useCase(TrainingSessionId("ts-1")) as GetWorkoutSessionDetailResult.Success).detail
         assertEquals("Snap Upper", detail.workoutName)
     }
 
@@ -91,7 +91,7 @@ class GetWorkoutSessionDetailUseCaseTest {
             ),
         )
         val useCase = detailUseCase(logRepo, programRepo)
-        val detail = useCase(TrainingSessionId("ts-1")).getOrThrow()
+        val detail = (useCase(TrainingSessionId("ts-1")) as GetWorkoutSessionDetailResult.Success).detail
 
         assertEquals(3_600_000L, detail.durationMillis)
         assertEquals(2, detail.totalSets)
@@ -111,7 +111,10 @@ class GetWorkoutSessionDetailUseCaseTest {
         val logRepo = FakeTrainingLogRepository(programRepository = programRepo)
         val logging = FakeLoggingPort()
         val useCase = detailUseCase(logRepo, programRepo, logging)
-        assertTrue(useCase(TrainingSessionId("missing")).isFailure)
+        assertEquals(
+            GetWorkoutSessionDetailResult.SessionNotFound(TrainingSessionId("missing")),
+            useCase(TrainingSessionId("missing")),
+        )
         assertExpectedFailureLogged(logging)
     }
 
@@ -127,7 +130,10 @@ class GetWorkoutSessionDetailUseCaseTest {
             )
         val logging = FakeLoggingPort()
         val useCase = detailUseCase(logRepo, programRepo, logging)
-        assertTrue(useCase(TrainingSessionId("ts-skip")).isFailure)
+        assertEquals(
+            GetWorkoutSessionDetailResult.NoLoggedSets(TrainingSessionId("ts-skip")),
+            useCase(TrainingSessionId("ts-skip")),
+        )
         assertExpectedFailureLogged(logging)
     }
 
@@ -158,7 +164,13 @@ class GetWorkoutSessionDetailUseCaseTest {
             )
         val logging = FakeLoggingPort()
         val useCase = detailUseCase(logRepo, programRepo, logging)
-        assertTrue(useCase(TrainingSessionId("ts-ip")).isFailure)
+        assertEquals(
+            GetWorkoutSessionDetailResult.SessionNotCompleted(
+                TrainingSessionId("ts-ip"),
+                com.stratum.domain.training.TrainingSessionStatus.IN_PROGRESS,
+            ),
+            useCase(TrainingSessionId("ts-ip")),
+        )
         assertExpectedFailureLogged(logging)
     }
 

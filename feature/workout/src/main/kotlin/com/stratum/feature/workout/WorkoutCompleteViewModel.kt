@@ -16,6 +16,7 @@ import com.stratum.application.lift.EquipmentProposalDiagnostic
 import com.stratum.domain.lift.EquipmentIncrementRemedy
 import com.stratum.application.lift.EquipmentProposalPreferences
 import com.stratum.application.lift.ObserveWeightDisplayPreferencesUseCase
+import com.stratum.application.training.GetWorkoutSummaryResult
 import com.stratum.application.training.GetWorkoutSummaryUseCase
 import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.application.workout.AnalyzeSessionRepRangeShiftProposalsUseCase
@@ -102,8 +103,9 @@ class WorkoutCompleteViewModel @Inject constructor(
                 val result = getWorkoutSummary(TrainingSessionId(sessionId))
                 if (generation != loadGeneration) return@launch
                 _uiState.value =
-                    result.fold(
-                        onSuccess = { summary ->
+                    when (result) {
+                        is GetWorkoutSummaryResult.Success -> {
+                            val summary = result.summary
                             val trainingSessionId = TrainingSessionId(sessionId)
                             // Parallel analyze; each use case degrades to an empty
                             // outcome carrying diagnostics, drained once below.
@@ -124,8 +126,8 @@ class WorkoutCompleteViewModel @Inject constructor(
                             val equipmentProposals = equipmentOutcome.proposals
                             val repRangeProposals = repRangeOutcome.proposals
                             if (generation != loadGeneration) {
-                                return@fold _uiState.value
-                            }
+                                _uiState.value
+                            } else {
                             val equipmentSnap =
                                 equipmentSession.load(
                                     equipmentProposals,
@@ -167,9 +169,10 @@ class WorkoutCompleteViewModel @Inject constructor(
                                 blastRadiusConfirm = equipmentSnap.blastRadiusConfirm,
                                 userMessage = null,
                             )
-                        },
-                        onFailure = { WorkoutCompleteUiState.Error },
-                    )
+                            }
+                        }
+                        else -> WorkoutCompleteUiState.Error
+                    }
             }
     }
 

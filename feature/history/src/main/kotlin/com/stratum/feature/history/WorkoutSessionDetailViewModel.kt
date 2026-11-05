@@ -4,7 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.application.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.Weight
+import com.stratum.application.training.GetWorkoutSessionDetailResult
 import com.stratum.application.training.GetWorkoutSessionDetailUseCase
+import com.stratum.application.training.UpdateCompletedSessionTimesResult
 import com.stratum.application.training.UpdateCompletedSessionTimesUseCase
 import com.stratum.domain.training.WorkoutSessionDetail
 import com.stratum.domain.training.identity.TrainingSessionId
@@ -82,14 +84,28 @@ class WorkoutSessionDetailViewModel @Inject constructor(
                         startedAt = startedAt,
                         endedAt = endedAt,
                     )
-                result.fold(
-                    onSuccess = {
+                when (result) {
+                    UpdateCompletedSessionTimesResult.Success ->
                         loadInternal(sessionId, isInitial = false, zoneId = zoneId)
-                    },
-                    onFailure = { error ->
-                        _userMessage.value = error.message ?: "Could not update workout time"
-                    },
-                )
+                    else ->
+                        // Same user copy the former exception messages carried, sourced
+                        // from the branch kind (STR-243).
+                        _userMessage.value =
+                            when (result) {
+                                is UpdateCompletedSessionTimesResult.SessionNotFound ->
+                                    "Training session ${result.sessionId.value} not found"
+                                is UpdateCompletedSessionTimesResult.SessionNotCompleted ->
+                                    "Training session ${result.sessionId.value} is not completed " +
+                                        "(status=${result.status})"
+                                is UpdateCompletedSessionTimesResult.StartAfterFinish ->
+                                    "Start time (${result.startedAt}) cannot be after " +
+                                        "finish time (${result.endedAt})"
+                                UpdateCompletedSessionTimesResult.PersistenceFailed ->
+                                    "Could not update workout time"
+                                UpdateCompletedSessionTimesResult.Success ->
+                                    "Could not update workout time"
+                            }
+                }
             } finally {
                 isUpdating = false
             }
@@ -107,16 +123,16 @@ class WorkoutSessionDetailViewModel @Inject constructor(
         displayUnit = observeWeightDisplayPreferences().first().displayUnit
         val result = getWorkoutSessionDetail(TrainingSessionId(sessionId))
         _uiState.value =
-            result.fold(
-                onSuccess = { detail ->
-                    cachedDetail = detail
-                    WorkoutSessionDetailUiMapper.toDetailLoaded(detail, displayUnit, zoneId)
-                },
-                onFailure = {
+            when (result) {
+                is GetWorkoutSessionDetailResult.Success -> {
+                    cachedDetail = result.detail
+                    WorkoutSessionDetailUiMapper.toDetailLoaded(result.detail, displayUnit, zoneId)
+                }
+                else -> {
                     cachedDetail = null
                     WorkoutSessionDetailUiState.Error
-                },
-            )
+                }
+            }
     }
 
     fun userMessageShown() {

@@ -1,6 +1,5 @@
 package com.stratum.application.training
 
-import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.di.ApplicationScope
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.application.response.ResponseModelingSchedulerPort
@@ -14,7 +13,38 @@ import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.PersonalRecordScoring
 import com.stratum.domain.training.TrainingSession
 import com.stratum.domain.training.TrainingSessionStatus
+import kotlin.coroutines.cancellation.CancellationException
 import com.stratum.domain.response.ResponseProfileMetadata
+
+/**
+ * Outcome of updating a completed session's sets (STR-243).
+ *
+ * The guard branches carry the typed facts the former constructed exceptions
+ * carried ([SessionNotFound] / [SessionNotCompleted] with the session id and
+ * actual status / [MustRetainAtLeastOneSet] / [SetsBelongToAnotherSession]).
+ * The originating throwable of a failed write goes once to the diagnostics
+ * channel ([LoggingPort.error]) at the use-case boundary; it never crosses
+ * as a payload. Coroutine cancellation is not a branch: it propagates.
+ */
+sealed interface UpdateCompletedSessionSetsResult {
+    data object Success : UpdateCompletedSessionSetsResult
+
+    data class SessionNotFound(val sessionId: TrainingSessionId) : UpdateCompletedSessionSetsResult
+
+    data class SessionNotCompleted(
+        val sessionId: TrainingSessionId,
+        val status: TrainingSessionStatus,
+    ) : UpdateCompletedSessionSetsResult
+
+    data class MustRetainAtLeastOneSet(val sessionId: TrainingSessionId) :
+        UpdateCompletedSessionSetsResult
+
+    data class SetsBelongToAnotherSession(val sessionId: TrainingSessionId) :
+        UpdateCompletedSessionSetsResult
+
+    /** The set update failed (repository / store I/O). */
+    data object PersistenceFailed : UpdateCompletedSessionSetsResult
+}
 
 /**
  * Amends a **completed** training session's logged sets (edit / add / delete weight-reps-RIR
@@ -42,29 +72,23 @@ class UpdateCompletedSessionSetsUseCase @Inject constructor(
     suspend operator fun invoke(
         sessionId: TrainingSessionId,
         desiredSets: List<LoggedSet>,
-    ): Result<Unit> {
-        val session =
-            trainingLogRepository.getSession(sessionId)
-                ?: return Result.failure(
-                    IllegalArgumentException("Training session ${sessionId.value} not found"),
-                )
-        if (session.status != TrainingSessionStatus.COMPLETED) {
-            return Result.failure(
-                TrainingSession.notCompletedException(session),
-            )
-        }
-        if (desiredSets.isEmpty()) {
-            return Result.failure(
-                IllegalArgumentException("Completed session ${sessionId.value} must retain at least one set"),
-            )
-        }
-        if (desiredSets.any { it.sessionId != sessionId }) {
-            return Result.failure(
-                IllegalArgumentException("All desired sets must belong to session ${sessionId.value}"),
-            )
-        }
+    ): UpdateCompletedSessionSetsResult {
+        // The session load sits inside the boundary try (C3 precedent): a throwing
+        // load is logged once and returned as PersistenceFailed instead of escaping.
+        return try {
+            val session =
+                trainingLogRepository.getSession(sessionId)
+                    ?: return UpdateCompletedSessionSetsResult.SessionNotFound(sessionId)
+            if (session.status != TrainingSessionStatus.COMPLETED) {
+                return UpdateCompletedSessionSetsResult.SessionNotCompleted(session.id, session.status)
+            }
+            if (desiredSets.isEmpty()) {
+                return UpdateCompletedSessionSetsResult.MustRetainAtLeastOneSet(sessionId)
+            }
+            if (desiredSets.any { it.sessionId != sessionId }) {
+                return UpdateCompletedSessionSetsResult.SetsBelongToAnotherSession(sessionId)
+            }
 
-        return runCatchingCancellable {
             val currentSets = trainingLogRepository.getSetsForSession(sessionId)
         val currentById = currentSets.associateBy { it.id }
         val desiredById = desiredSets.associateBy { it.id }
@@ -131,13 +155,17 @@ class UpdateCompletedSessionSetsUseCase @Inject constructor(
             )
         }
 
-        if (sessionWasInLastModelingRun(session)) {
-            // REPLACE so amended sets always re-enter the model even if a job is pending.
-            responseModelingScheduler.enqueueForceExtract(replaceExisting = true)
+            if (sessionWasInLastModelingRun(session)) {
+                // REPLACE so amended sets always re-enter the model even if a job is pending.
+                responseModelingScheduler.enqueueForceExtract(replaceExisting = true)
+            }
+            UpdateCompletedSessionSetsResult.Success
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (t: Throwable) {
+            loggingPort.error(TAG, "Failed to update completed session sets: ${t.message}", t)
+            UpdateCompletedSessionSetsResult.PersistenceFailed
         }
-    }.onFailure { error ->
-        loggingPort.error(TAG, "Failed to update completed session sets: ${error.message}", error)
-    }
     }
 
     /**

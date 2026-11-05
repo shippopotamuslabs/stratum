@@ -42,7 +42,7 @@ class GetWorkoutSummaryUseCaseTest {
         val liftRepo = FakeLiftRepository(initialLifts = listOf(benchLift()))
         val useCase = GetWorkoutSummaryUseCase(logRepo, programRepo, ObserveLiftCatalogUseCase(liftRepo), FakeLoggingPort())
 
-        val summary = useCase(sessionId).getOrThrow()
+        val summary = (useCase(sessionId) as GetWorkoutSummaryResult.Success).summary
 
         assertEquals("Workout A", summary.workoutName)
     }
@@ -58,8 +58,10 @@ class GetWorkoutSummaryUseCaseTest {
 
         val result = useCase(TrainingSessionId("missing"))
 
-        assertTrue(result.isFailure)
-        assertTrue(result.exceptionOrNull() is IllegalStateException)
+        assertEquals(
+            GetWorkoutSummaryResult.SessionNotFound(TrainingSessionId("missing")),
+            result,
+        )
         assertEquals(0, logging.errors.size)
         assertEquals(1, logging.warnings.size)
     }
@@ -76,7 +78,7 @@ class GetWorkoutSummaryUseCaseTest {
         val liftRepo = FakeLiftRepository(initialLifts = listOf(benchLift()))
         val useCase = GetWorkoutSummaryUseCase(logRepo, programRepo, ObserveLiftCatalogUseCase(liftRepo), FakeLoggingPort())
 
-        val summary = useCase(TrainingSessionId("ts-1")).getOrThrow()
+        val summary = (useCase(TrainingSessionId("ts-1")) as GetWorkoutSummaryResult.Success).summary
 
         // Fixture: startedAt 10:00, endedAt 11:00 → 3600 seconds = 3,600,000 millis
         assertEquals(3_600_000L, summary.durationMillis)
@@ -124,7 +126,7 @@ class GetWorkoutSummaryUseCaseTest {
             ),
         )
 
-        val summary = useCase(TrainingSessionId("ts-1")).getOrThrow()
+        val summary = (useCase(TrainingSessionId("ts-1")) as GetWorkoutSummaryResult.Success).summary
 
         assertEquals(1, summary.bestSets.size)
         val best = summary.bestSets[0]
@@ -152,7 +154,7 @@ class GetWorkoutSummaryUseCaseTest {
         logRepo.insertSet(bodyweightSet("set-12", reps = 12, setIndex = 1, isPr = true))
         logRepo.insertSet(bodyweightSet("set-6", reps = 6, setIndex = 2, isPr = false))
 
-        val summary = useCase(TrainingSessionId("ts-1")).getOrThrow()
+        val summary = (useCase(TrainingSessionId("ts-1")) as GetWorkoutSummaryResult.Success).summary
 
         assertEquals(1, summary.bestSets.size)
         val best = summary.bestSets.single()
@@ -209,7 +211,7 @@ class GetWorkoutSummaryUseCaseTest {
             ),
         )
 
-        val summary = useCase(TrainingSessionId("ts-1")).getOrThrow()
+        val summary = (useCase(TrainingSessionId("ts-1")) as GetWorkoutSummaryResult.Success).summary
         val best = summary.bestSets.single()
         assertEquals(45.0, best.weight.amount)
         assertEquals(5, best.reps)
@@ -248,7 +250,7 @@ class GetWorkoutSummaryUseCaseTest {
             ),
         )
 
-        val zeroSummary = useCase(TrainingSessionId("ts-1")).getOrThrow()
+        val zeroSummary = (useCase(TrainingSessionId("ts-1")) as GetWorkoutSummaryResult.Success).summary
         assertNull(zeroSummary.bestSets.single().partialReps)
 
         logRepo.insertSet(
@@ -267,7 +269,7 @@ class GetWorkoutSummaryUseCaseTest {
             ),
         )
 
-        val withPartials = useCase(TrainingSessionId("ts-1")).getOrThrow()
+        val withPartials = (useCase(TrainingSessionId("ts-1")) as GetWorkoutSummaryResult.Success).summary
         assertEquals(2, withPartials.bestSets.single().partialReps)
     }
 
@@ -344,7 +346,7 @@ class GetWorkoutSummaryUseCaseTest {
             FakeLoggingPort(),
         )
 
-        val summary = useCase(TrainingSessionId("ts-order")).getOrThrow()
+        val summary = (useCase(TrainingSessionId("ts-order")) as GetWorkoutSummaryResult.Success).summary
 
         assertEquals(2, summary.bestSets.size)
         assertEquals("Barbell Squat", summary.bestSets[0].liftName)
@@ -414,7 +416,7 @@ class GetWorkoutSummaryUseCaseTest {
             FakeLoggingPort(),
         )
 
-        val summary = useCase(TrainingSessionId("ts-orphan")).getOrThrow()
+        val summary = (useCase(TrainingSessionId("ts-orphan")) as GetWorkoutSummaryResult.Success).summary
 
         assertEquals(2, summary.bestSets.size)
         assertEquals("Barbell Squat", summary.bestSets[0].liftName)
