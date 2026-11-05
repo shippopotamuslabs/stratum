@@ -100,8 +100,7 @@ class WorkoutLoggingMutationDefenseTest {
 
         val extractUseCase =
             ExtractResponseProfileUseCase(
-                loggingPort = FakeLoggingPort(),
-                trainingLogRepository = trainingLogRepo,
+                                trainingLogRepository = trainingLogRepo,
                 liftRepository = liftRepo,
                 liftTrainingInsightsRepository = InMemoryLiftInsightsRepository(),
                 muscleVolumeBaselineRepository = InMemoryVolumeRepository(),
@@ -139,8 +138,7 @@ class WorkoutLoggingMutationDefenseTest {
         val insightsRepo = InMemoryLiftInsightsRepository()
         val extractResponseProfile =
             ExtractResponseProfileUseCase(
-                loggingPort = FakeLoggingPort(),
-                trainingLogRepository = trainingLogRepo,
+                                trainingLogRepository = trainingLogRepo,
                 liftRepository = liftRepo,
                 liftTrainingInsightsRepository = insightsRepo,
                 muscleVolumeBaselineRepository = InMemoryVolumeRepository(),

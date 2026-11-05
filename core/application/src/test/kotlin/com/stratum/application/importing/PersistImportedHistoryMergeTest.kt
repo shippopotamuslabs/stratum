@@ -85,8 +85,7 @@ class PersistImportedHistoryMergeTest {
             )
         val extractResponse =
             ExtractResponseProfileUseCase(
-                loggingPort = FakeLoggingPort(),
-                trainingLogRepository = trainingLogRepo,
+                                trainingLogRepository = trainingLogRepo,
                 liftRepository = liftRepo,
                 liftTrainingInsightsRepository = insightsRepo,
                 muscleVolumeBaselineRepository = volumeRepo,
@@ -160,7 +159,7 @@ class PersistImportedHistoryMergeTest {
                 sourceKind = ImportDedupeSourceKind.ThirdParty,
                 zone = ZONE_NY,
             )
-        assertEquals(PersistImportedHistoryOutcome.Failed, result)
+        assertEquals(PersistImportedHistoryOutcome.Failed(emptyList()), result)
         assertEquals(2, repo.getImportSessions().size)
     }
 
@@ -195,7 +194,7 @@ class PersistImportedHistoryMergeTest {
                 sets = listOf(set("set-new", "imp-new")),
                 policy = ImportHistoryPersistPolicy.ReplaceImportOrigin,
             )
-        assertEquals(PersistImportedHistoryOutcome.Failed, result)
+        assertEquals(PersistImportedHistoryOutcome.Failed(emptyList()), result)
         assertEquals(0, repo.getImportSessions().size)
     }
 
@@ -263,7 +262,7 @@ class PersistImportedHistoryMergeTest {
                 sourceKind = ImportDedupeSourceKind.ThirdParty,
                 zone = ZONE_NY,
             )
-        assertEquals(PersistImportedHistoryOutcome.Failed, result)
+        assertEquals(PersistImportedHistoryOutcome.Failed(emptyList()), result)
         // Appended import rows removed
         assertFalse(repo.getAllSessions().any { it.id.value == "imp-new" })
         assertFalse(repo.getAllSets().any { it.id.value == "set-new" })

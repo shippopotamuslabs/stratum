@@ -88,7 +88,10 @@ class PersistImportedHistoryUseCaseResponseTest {
                 policy = ImportHistoryPersistPolicy.ReplaceImportOrigin,
             )
 
-        assertEquals(PersistImportedHistoryOutcome.Failed, result)
+        val failed = result as PersistImportedHistoryOutcome.Failed
+        // STR-237: the response-extract diagnostic rides the persist branch.
+        assertEquals(1, failed.diagnostics.size)
+        assertEquals("ExtractResponseProfile", failed.diagnostics.single().tag)
         assertEquals(0, trainingLogRepo.getImportSessions().size)
         assertEquals(0, persistence.epochRepository.getAll().size)
         assertEquals(0, persistence.volumeRepository.getAll().size)
@@ -116,7 +119,9 @@ class PersistImportedHistoryUseCaseResponseTest {
                 policy = ImportHistoryPersistPolicy.ReplaceImportOrigin,
             )
 
-        assertEquals(PersistImportedHistoryOutcome.Failed, result)
+        val failed = result as PersistImportedHistoryOutcome.Failed
+        assertEquals(1, failed.diagnostics.size)
+        assertEquals("ExtractResponseProfile", failed.diagnostics.single().tag)
         assertEquals(0, persistence.epochRepository.getAll().size)
         assertEquals(0, persistence.volumeRepository.getAll().size)
         assertNull(persistence.metadataRepository.get())
@@ -144,7 +149,7 @@ class PersistImportedHistoryUseCaseResponseTest {
                 policy = ImportHistoryPersistPolicy.ReplaceImportOrigin,
             )
 
-        assertEquals(PersistImportedHistoryOutcome.Failed, result)
+        assertEquals(PersistImportedHistoryOutcome.Failed(emptyList()), result)
         assertEquals(0, trainingLogRepo.getImportSessions().size)
         assertEquals(0, persistence.epochRepository.getAll().size)
     }
@@ -159,8 +164,7 @@ class PersistImportedHistoryUseCaseResponseTest {
     ): PersistImportedHistoryUseCase {
         val extractResponseProfile =
             ExtractResponseProfileUseCase(
-                loggingPort = FakeLoggingPort(),
-                trainingLogRepository = trainingLogRepo,
+                                trainingLogRepository = trainingLogRepo,
                 liftRepository = liftRepo,
                 liftTrainingInsightsRepository = insightsRepo,
                 muscleVolumeBaselineRepository = InMemoryVolumeRepository(),

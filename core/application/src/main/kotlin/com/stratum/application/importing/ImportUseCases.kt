@@ -4,6 +4,7 @@ import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.Lift
 import com.stratum.application.lift.LiftRepository
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.application.response.ExtractResponseProfileOutcome
 import com.stratum.application.response.ExtractResponseProfileUseCase
 import com.stratum.application.response.ResponseProfilePersistencePort
@@ -754,11 +755,14 @@ class StartHistoricalImportUseCase @Inject constructor(
  * Outcome of [PersistImportedHistoryUseCase] (STR-243). [Persisted] carries the
  * post-persist insights summary. [SessionsNotImportOrigin] and [NoValidSets] are
  * the enumerated input refusals (formerly `require` failures). [Failed] covers
- * operational failure of the persist itself or of a downstream extract — the
- * originating throwable is logged once at the boundary where it occurred (this
- * use case's envelope, or the extract use case's own boundary), and any rows
- * appended before the failure are unwound exactly as before. Coroutine
- * cancellation is not a branch: it propagates.
+ * operational failure of the persist itself or of a downstream extract, and
+ * any rows appended before the failure are unwound exactly as before.
+ * STR-237 Route (i): a downstream response-extract failure's diagnostics ride
+ * this branch through to the import runner, which drains them exactly once;
+ * the other failure paths still record at their own boundaries (this use
+ * case's envelope, the insights extract) and carry an empty list until their
+ * own chunk converts them. Coroutine cancellation is not a branch: it
+ * propagates.
  */
 sealed interface PersistImportedHistoryOutcome {
     data class Persisted(val summary: ExtractTrainingInsightsSummary) : PersistImportedHistoryOutcome
@@ -767,7 +771,9 @@ sealed interface PersistImportedHistoryOutcome {
 
     data object NoValidSets : PersistImportedHistoryOutcome
 
-    data object Failed : PersistImportedHistoryOutcome
+    data class Failed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : PersistImportedHistoryOutcome
 }
 
 class PersistImportedHistoryUseCase @Inject constructor(
@@ -807,7 +813,7 @@ class PersistImportedHistoryUseCase @Inject constructor(
             throw cancelled
         } catch (error: Throwable) {
             loggingPort.error(TAG, "Failed to persist imported history: ${error.message}", error)
-            PersistImportedHistoryOutcome.Failed
+            PersistImportedHistoryOutcome.Failed(emptyList())
         }
     }
 
@@ -865,7 +871,7 @@ class PersistImportedHistoryUseCase @Inject constructor(
             return when (val insights = extractTrainingInsights()) {
                 is ExtractTrainingInsightsOutcome.Extracted ->
                     PersistImportedHistoryOutcome.Persisted(insights.summary.copy(mergeStats = mergeStats))
-                ExtractTrainingInsightsOutcome.Failed -> PersistImportedHistoryOutcome.Failed
+                ExtractTrainingInsightsOutcome.Failed -> PersistImportedHistoryOutcome.Failed(emptyList())
             }
         }
         val outcome = resolveImportLifts(filtered.sets, onProgress = onProgress)
@@ -932,7 +938,7 @@ class PersistImportedHistoryUseCase @Inject constructor(
                     )
                 ExtractTrainingInsightsOutcome.Failed -> {
                     unwindMergeAppend(appendedSessions, appendedSets, restorePrSets)
-                    return PersistImportedHistoryOutcome.Failed
+                    return PersistImportedHistoryOutcome.Failed(emptyList())
                 }
             }
         val responseOutcome =
@@ -944,9 +950,9 @@ class PersistImportedHistoryUseCase @Inject constructor(
             }
         when (responseOutcome) {
             is ExtractResponseProfileOutcome.Extracted -> Unit
-            ExtractResponseProfileOutcome.Failed -> {
+            is ExtractResponseProfileOutcome.Failed -> {
                 unwindMergeAppend(appendedSessions, appendedSets, restorePrSets)
-                return PersistImportedHistoryOutcome.Failed
+                return PersistImportedHistoryOutcome.Failed(responseOutcome.diagnostics)
             }
         }
         liftRepository.setUsedHistoricalImport(true)
@@ -1034,7 +1040,7 @@ class PersistImportedHistoryUseCase @Inject constructor(
                     insightsOutcome.summary.copy(liftResolution = outcome.summary)
                 ExtractTrainingInsightsOutcome.Failed -> {
                     trainingLogRepository.replaceImportHistory(emptyList(), emptyList())
-                    return PersistImportedHistoryOutcome.Failed
+                    return PersistImportedHistoryOutcome.Failed(emptyList())
                 }
             }
         val responseOutcome =
@@ -1047,10 +1053,10 @@ class PersistImportedHistoryUseCase @Inject constructor(
             }
         when (responseOutcome) {
             is ExtractResponseProfileOutcome.Extracted -> Unit
-            ExtractResponseProfileOutcome.Failed -> {
+            is ExtractResponseProfileOutcome.Failed -> {
                 trainingLogRepository.replaceImportHistory(emptyList(), emptyList())
                 responseProfilePersistence.clearAll()
-                return PersistImportedHistoryOutcome.Failed
+                return PersistImportedHistoryOutcome.Failed(responseOutcome.diagnostics)
             }
         }
         liftRepository.setUsedHistoricalImport(true)

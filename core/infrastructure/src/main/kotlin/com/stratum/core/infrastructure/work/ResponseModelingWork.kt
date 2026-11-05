@@ -71,10 +71,11 @@ class ResponseModelingWork @Inject constructor(
             // Null metadata, enough new workouts, or forced history invalidation → full All-history extract.
 
             when (
-                extractResponseProfile(
-                    provenLiftIds = emptySet(),
-                    scope = InsightsAnalysisScope.All,
-                )
+                val outcome =
+                    extractResponseProfile(
+                        provenLiftIds = emptySet(),
+                        scope = InsightsAnalysisScope.All,
+                    )
             ) {
                 is ExtractResponseProfileOutcome.Extracted -> {
                     if (isReExtract && !forceHistoryInvalidation) {
@@ -91,10 +92,15 @@ class ResponseModelingWork @Inject constructor(
                     }
                     Outcome.Success
                 }
-                ExtractResponseProfileOutcome.Failed ->
-                    // The extract failure was logged once at the use case's boundary;
-                    // this value only drives the worker's retry decision + its log.
+                is ExtractResponseProfileOutcome.Failed -> {
+                    // STR-237: the extract failure record rides the outcome
+                    // branch; this worker is its boundary and records it
+                    // exactly once. The Failed value drives the retry decision.
+                    outcome.diagnostics.forEach { diagnostic ->
+                        loggingPort.error(diagnostic.tag, diagnostic.message, diagnostic.cause)
+                    }
                     Outcome.Failed(IllegalStateException("Response profile extraction failed."))
+                }
             }
         } catch (error: CancellationException) {
             throw error

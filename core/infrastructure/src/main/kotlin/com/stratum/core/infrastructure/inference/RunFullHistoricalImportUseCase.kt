@@ -127,8 +127,16 @@ class RunFullHistoricalImportUseCase @Inject constructor(
                         error("Import persist requires all sessions to have origin IMPORT.")
                     PersistImportedHistoryOutcome.NoValidSets ->
                         error("Import contained no valid training sets.")
-                    PersistImportedHistoryOutcome.Failed ->
+                    is PersistImportedHistoryOutcome.Failed -> {
+                        // STR-237: diagnostics carried on the branch (the
+                        // response-extract failure record) are recorded exactly
+                        // once here; failure paths with an empty list already
+                        // recorded at their own boundaries.
+                        persistOutcome.diagnostics.forEach { diagnostic ->
+                            loggingPort.error(diagnostic.tag, diagnostic.message, diagnostic.cause)
+                        }
                         throw AlreadyLoggedImportFailureException("Import failed.")
+                    }
                 }
             summary.liftResolution?.let(importLiftResolutionLogger::log)
             emit(HistoricalImportEvent.Progress(ImportProgress(ImportProgressPhase.Complete)))

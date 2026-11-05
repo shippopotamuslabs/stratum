@@ -245,10 +245,10 @@ class ResponseModelingWorkTest {
         val persistence = FailOnVolumeResponseProfilePersistencePort()
         // FailOnVolume has its own metadata repo — seed gate via training log only; metadata on
         // FailOnVolume is empty so gate would not skip. Use Fake that throws instead.
+        val workLogging = com.stratum.core.testing.logging.FakeLoggingPort()
         val work = ResponseModelingWork(
             extractResponseProfile = ExtractResponseProfileUseCase(
-                loggingPort = FakeLoggingPort(),
-                trainingLogRepository = trainingLog,
+                                trainingLogRepository = trainingLog,
                 liftRepository = FakeLiftRepository(),
                 liftTrainingInsightsRepository = EmptyLiftInsights(),
                 muscleVolumeBaselineRepository = EmptyVolumeBaselines(),
@@ -262,12 +262,15 @@ class ResponseModelingWorkTest {
             markCheckInPending = MarkCheckInPendingUseCase(
                 FakeCheckInPreferencesRepository(),
             ),
-            loggingPort = com.stratum.core.testing.logging.FakeLoggingPort(),
+            loggingPort = workLogging,
         )
 
         val outcome = work.run()
 
         assertTrue(outcome is ResponseModelingWork.Outcome.Failed)
+        // STR-237: the worker drains the carried extract diagnostic exactly once.
+        assertEquals(1, workLogging.errors.size)
+        assertEquals("ExtractResponseProfile", workLogging.errors.single().tag)
     }
 
     @Test
@@ -287,8 +290,7 @@ class ResponseModelingWorkTest {
         ).let {
             ResponseModelingWork(
                 extractResponseProfile = ExtractResponseProfileUseCase(
-                    loggingPort = FakeLoggingPort(),
-                    trainingLogRepository = trainingLog,
+                                        trainingLogRepository = trainingLog,
                     liftRepository = FakeLiftRepository(),
                     liftTrainingInsightsRepository = EmptyLiftInsights(),
                     muscleVolumeBaselineRepository = EmptyVolumeBaselines(),
@@ -387,8 +389,7 @@ class ResponseModelingWorkTest {
         checkInPrefs: FakeCheckInPreferencesRepository = FakeCheckInPreferencesRepository(),
     ): ResponseModelingWork {
         val extract = ExtractResponseProfileUseCase(
-            loggingPort = FakeLoggingPort(),
-            trainingLogRepository = trainingLog,
+                        trainingLogRepository = trainingLog,
             liftRepository = FakeLiftRepository(),
             liftTrainingInsightsRepository = EmptyLiftInsights(),
             muscleVolumeBaselineRepository = EmptyVolumeBaselines(),
