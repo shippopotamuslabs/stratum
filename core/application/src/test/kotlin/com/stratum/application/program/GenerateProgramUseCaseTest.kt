@@ -38,6 +38,7 @@ import com.stratum.application.program.generation.IntegrateAndValidateProgramUse
 import com.stratum.application.program.generation.PlanWeeklyVolumeUseCase
 import com.stratum.application.program.generation.pipeline.PipelineOptions
 import com.stratum.application.program.generation.pipeline.ProgramGenerationPipeline
+import com.stratum.application.program.generation.pipeline.ProgramGenerationPipelineResult
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.ProgramGenerationProgressPhase
 import com.stratum.domain.program.ProgramGenerationTelemetryLogger
@@ -311,5 +312,5 @@ private class FixedNormalizedProgramPipeline(
         context: ProgramGenerationContext,
         normalizationRequest: ProgramNormalizationRequest,
         options: PipelineOptions,
-    ): NormalizedProgram = fixed
+    ): ProgramGenerationPipelineResult = ProgramGenerationPipelineResult.Success(fixed)
 }
