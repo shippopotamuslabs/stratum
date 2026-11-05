@@ -1,6 +1,5 @@
 package com.stratum.application.program
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.domain.program.identity.ProgramId
@@ -41,7 +40,6 @@ class ReorderProgramCycleDaysUseCaseTest {
             ReorderProgramCycleDaysUseCase(
                 programRepository = programRepo,
                 trainingLogRepository = trainingRepo,
-                loggingPort = FakeLoggingPort(),
             )
         val items = program.toReorderDayItems()
         // Rest, A, B, Rest → rest that was@1 moves to 0
@@ -82,7 +80,6 @@ class ReorderProgramCycleDaysUseCaseTest {
             ReorderProgramCycleDaysUseCase(
                 programRepository = programRepo,
                 trainingLogRepository = trainingRepo,
-                loggingPort = FakeLoggingPort(),
             )
         val items = program.toReorderDayItems()
         val ordered =
@@ -104,7 +101,6 @@ class ReorderProgramCycleDaysUseCaseTest {
             ReorderProgramCycleDaysUseCase(
                 programRepository = FakeProgramRepository(),
                 trainingLogRepository = FakeTrainingLogRepository(),
-                loggingPort = FakeLoggingPort(),
             )
         assertEquals(ReorderProgramCycleDaysResult.ProgramNotFound(ProgramId("missing")), useCase(ProgramId("missing"), listOf("a")))
     }

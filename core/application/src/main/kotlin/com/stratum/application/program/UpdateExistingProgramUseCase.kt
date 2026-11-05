@@ -1,18 +1,20 @@
 package com.stratum.application.program
 
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
 import com.stratum.domain.program.Program
 
 /**
- * Outcome of [UpdateExistingProgramUseCase] (STR-243).
+ * Outcome of [UpdateExistingProgramUseCase] (STR-243; STR-237 Route (i)).
  *
- * The validation branches are expected caller outcomes: they leave a warning
- * breadcrumb only, never a Crashlytics non-fatal, exactly as the former
- * `expectedFailure` path did. An operational save failure is logged once via
- * [LoggingPort.error] at the use-case boundary and surfaces as
- * [PersistenceFailed]. Coroutine cancellation is not a branch: it propagates.
+ * The validation branches are expected caller outcomes and are the record
+ * the consumer acts on — their former warning breadcrumbs duplicated the
+ * branch facts and are dropped. An operational save failure rides the
+ * [PersistenceFailed] branch as an [OperationalDiagnostic] (legacy tag +
+ * rendered message, real throwable as cause); the presentation boundary
+ * drains it exactly once through its module's DiagnosticDrain. Coroutine
+ * cancellation is not a branch: it propagates.
  */
 sealed interface UpdateExistingProgramResult {
     data object Success : UpdateExistingProgramResult
@@ -24,7 +26,9 @@ sealed interface UpdateExistingProgramResult {
     data object NoExercises : UpdateExistingProgramResult
 
     /** The program save failed (repository / store I/O). */
-    data object PersistenceFailed : UpdateExistingProgramResult
+    data class PersistenceFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : UpdateExistingProgramResult
 }
 
 /**
@@ -36,17 +40,14 @@ sealed interface UpdateExistingProgramResult {
  */
 class UpdateExistingProgramUseCase @Inject constructor(
     private val programRepository: ProgramRepository,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(program: Program): UpdateExistingProgramResult {
-        // Validation failures are expected caller outcomes, not operational faults: reject
-        // before the logged persistence block so they never become Crashlytics non-fatals.
+        // Validation failures are expected caller outcomes, not operational faults: the
+        // typed branches are their record, so they never become Crashlytics non-fatals.
         if (program.workouts.isEmpty()) {
-            loggingPort.warning(TAG, "Program must have at least one workout")
             return UpdateExistingProgramResult.NoWorkouts
         }
         if (program.workouts.none { workout -> workout.workoutLifts.isNotEmpty() }) {
-            loggingPort.warning(TAG, "Program must have at least one exercise")
             return UpdateExistingProgramResult.NoExercises
         }
         return try {
@@ -55,8 +56,15 @@ class UpdateExistingProgramUseCase @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Throwable) {
-            loggingPort.error(TAG, "Failed to update program: ${error.message}", error)
-            UpdateExistingProgramResult.PersistenceFailed
+            UpdateExistingProgramResult.PersistenceFailed(
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Failed to update program: ${error.message}",
+                        cause = error,
+                    ),
+                ),
+            )
         }
     }
 

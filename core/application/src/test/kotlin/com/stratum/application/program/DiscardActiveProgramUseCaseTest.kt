@@ -1,6 +1,5 @@
 package com.stratum.application.program
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
@@ -18,8 +17,8 @@ class DiscardActiveProgramUseCaseTest {
         val program = WorkoutLoggingFixtures.twoWorkoutProgram()
         val programRepo = FakeProgramRepository(program)
         val trainingLog = FakeTrainingLogRepository()
-        val delete = DeleteProgramUseCase(programRepo, trainingLog, FakeLoggingPort())
-        val subject = DiscardActiveProgramUseCase(programRepo, delete, FakeLoggingPort())
+        val delete = DeleteProgramUseCase(programRepo, trainingLog)
+        val subject = DiscardActiveProgramUseCase(programRepo, delete)
 
         val result = subject()
 
@@ -33,8 +32,8 @@ class DiscardActiveProgramUseCaseTest {
     fun noOpWithoutActiveProgram() = runTest {
         val programRepo = FakeProgramRepository(null)
         val trainingLog = FakeTrainingLogRepository()
-        val delete = DeleteProgramUseCase(programRepo, trainingLog, FakeLoggingPort())
-        val subject = DiscardActiveProgramUseCase(programRepo, delete, FakeLoggingPort())
+        val delete = DeleteProgramUseCase(programRepo, trainingLog)
+        val subject = DiscardActiveProgramUseCase(programRepo, delete)
 
         val result = subject()
 
@@ -49,8 +48,8 @@ class DiscardActiveProgramUseCaseTest {
         val trainingLog = FakeTrainingLogRepository().apply {
             seedSession(WorkoutLoggingFixtures.inProgressSession())
         }
-        val delete = DeleteProgramUseCase(programRepo, trainingLog, FakeLoggingPort())
-        val subject = DiscardActiveProgramUseCase(programRepo, delete, FakeLoggingPort())
+        val delete = DeleteProgramUseCase(programRepo, trainingLog)
+        val subject = DiscardActiveProgramUseCase(programRepo, delete)
 
         val result = subject()
 

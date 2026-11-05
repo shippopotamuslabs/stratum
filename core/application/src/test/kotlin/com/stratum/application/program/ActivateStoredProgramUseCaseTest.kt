@@ -1,6 +1,5 @@
 package com.stratum.application.program
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
 import com.stratum.domain.lift.identity.LiftId
@@ -72,7 +71,7 @@ class ActivateStoredProgramUseCaseTest {
             )
         val repository = FakeProgramRepository(active)
         repository.saveToLibrary(library)
-        val useCase = ActivateStoredProgramUseCase(repository, FakeLoggingPort())
+        val useCase = ActivateStoredProgramUseCase(repository)
 
         val result = useCase(library.id)
 
@@ -86,7 +85,7 @@ class ActivateStoredProgramUseCaseTest {
     @DisplayName("Fails when program is unknown")
     fun failsWhenUnknown() = runTest {
         val repository = FakeProgramRepository(WorkoutLoggingFixtures.twoWorkoutProgram())
-        val useCase = ActivateStoredProgramUseCase(repository, FakeLoggingPort())
+        val useCase = ActivateStoredProgramUseCase(repository)
 
         val result = useCase(com.stratum.domain.program.identity.ProgramId("missing"))
 
@@ -102,7 +101,7 @@ class ActivateStoredProgramUseCaseTest {
     @DisplayName("Refuses to activate import-history")
     fun refusesImportHistory() = runTest {
         val repository = FakeProgramRepository(WorkoutLoggingFixtures.twoWorkoutProgram())
-        val useCase = ActivateStoredProgramUseCase(repository, FakeLoggingPort())
+        val useCase = ActivateStoredProgramUseCase(repository)
 
         val result = useCase(com.stratum.domain.program.identity.ProgramId.ImportHistory)
 
@@ -115,7 +114,7 @@ class ActivateStoredProgramUseCaseTest {
     }
 
     @Test
-    @DisplayName("Repository save failure returns PersistenceFailed with one error log")
+    @DisplayName("Repository save failure returns PersistenceFailed carrying the failure diagnostic")
     fun persistenceFailureOnSaveError() = runTest {
         val library =
             WorkoutLoggingFixtures.twoWorkoutProgram().copy(
@@ -140,12 +139,18 @@ class ActivateStoredProgramUseCaseTest {
                     },
             )
         val repository = FakeProgramRepository(library, failOnSave = true)
-        val logging = FakeLoggingPort()
-        val useCase = ActivateStoredProgramUseCase(repository, logging)
+        val useCase = ActivateStoredProgramUseCase(repository)
 
         val result = useCase(library.id)
 
-        assertEquals(ActivateStoredProgramResult.PersistenceFailed, result)
-        assertEquals(1, logging.errors.size)
+        val failed = result as ActivateStoredProgramResult.PersistenceFailed
+        assertEquals(1, failed.diagnostics.size)
+        val diagnostic = failed.diagnostics.single()
+        assertEquals("ActivateStoredProgram", diagnostic.tag)
+        assertEquals(
+            "Failed to activate program: FakeProgramRepository configured to fail on save",
+            diagnostic.message,
+        )
+        assertTrue(diagnostic.cause is IllegalStateException)
     }
 }

@@ -207,7 +207,6 @@ internal object OnboardingViewModelTestFixtures {
             activateProgram = com.stratum.application.program.ActivateProgramUseCase(
                 programRepository = fakeProgramRepository,
                 programChangeEventRepository = com.stratum.core.testing.training.NoOpProgramChangeEventRepository(),
-                loggingPort = FakeLoggingPort(),
             ),
             completeOnboarding = CompleteOnboardingUseCase(fakeRepository, fakeProfileRepository),
             importProgramTemplate = com.stratum.application.program.importing.ImportProgramTemplateUseCase(

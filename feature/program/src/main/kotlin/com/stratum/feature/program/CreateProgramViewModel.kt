@@ -63,6 +63,7 @@ class CreateProgramViewModel @Inject constructor(
     abandonTrainingSession: AbandonTrainingSessionUseCase,
     logAnalytics: LogAnalyticsEventUseCase,
     telemetryRouter: TelemetryRouter,
+    diagnosticDrain: DiagnosticDrain,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
@@ -96,6 +97,7 @@ class CreateProgramViewModel @Inject constructor(
             workoutEditSession = workoutEditSession,
             activeSessionGuard = activeSessionGuard,
             finishOnboarding = { finishOnboarding },
+            diagnosticDrain = diagnosticDrain,
         )
 
     private val generate =

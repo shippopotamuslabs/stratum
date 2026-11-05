@@ -242,7 +242,7 @@ class EditWorkoutViewModelSchemeToggleTest {
             observeProgram = ObserveProgramUseCase(repository),
             observeProgramById = com.stratum.application.program.ObserveProgramByIdUseCase(repository),
             observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
-            saveWorkoutUseCase = SaveWorkoutUseCase(repository, programChangeEventRepository, logging),
+            saveWorkoutUseCase = SaveWorkoutUseCase(repository, programChangeEventRepository),
             computeWorkoutMuscleVolume = ComputeWorkoutMuscleVolumeUseCase(),
             estimateWorkoutDurationMinutes = EstimateWorkoutDurationMinutesUseCase(),
             appendProgramChangeEvent = com.stratum.application.training.AppendProgramChangeEventUseCase(programChangeEventRepository),
@@ -273,6 +273,7 @@ class EditWorkoutViewModelSchemeToggleTest {
                 ),
             equipmentPickResult =
                 com.stratum.domain.lift.EquipmentPickResult(),
+            diagnosticDrain = DiagnosticDrain(logging),
         )
     }
 

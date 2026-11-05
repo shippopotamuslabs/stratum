@@ -415,7 +415,7 @@ class WorkoutViewModelTest {
             finalizeTrainingSession = finalizeTrainingSession(liftRepo = liftRepository),
             applyOverlayToWorkout = com.stratum.application.workout.ApplyOverlayToWorkoutUseCase(),
             computeTemplateChangeSummary = com.stratum.application.workout.ComputeTemplateChangeSummaryUseCase(),
-            saveWorkoutUseCase = com.stratum.application.program.SaveWorkoutUseCase(programRepository, NoOpProgramChangeEventRepository(), FakeLoggingPort()),
+            saveWorkoutUseCase = com.stratum.application.program.SaveWorkoutUseCase(programRepository, NoOpProgramChangeEventRepository()),
             getProgramById = GetProgramByIdUseCase(programRepository),
             observeLiftTrainingInsights = com.stratum.application.importing.ObserveLiftTrainingInsightsUseCase(
                 com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository(),
@@ -517,7 +517,7 @@ class WorkoutViewModelTest {
             finalizeTrainingSession = finalizeTrainingSession(liftRepo = liftRepository),
             applyOverlayToWorkout = com.stratum.application.workout.ApplyOverlayToWorkoutUseCase(),
             computeTemplateChangeSummary = com.stratum.application.workout.ComputeTemplateChangeSummaryUseCase(),
-            saveWorkoutUseCase = com.stratum.application.program.SaveWorkoutUseCase(programRepository, NoOpProgramChangeEventRepository(), FakeLoggingPort()),
+            saveWorkoutUseCase = com.stratum.application.program.SaveWorkoutUseCase(programRepository, NoOpProgramChangeEventRepository()),
             getProgramById = GetProgramByIdUseCase(programRepository),
             observeLiftTrainingInsights = com.stratum.application.importing.ObserveLiftTrainingInsightsUseCase(
                 com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository(),
@@ -605,7 +605,7 @@ class WorkoutViewModelTest {
             finalizeTrainingSession = finalizeTrainingSession(liftRepo = liftRepository),
             applyOverlayToWorkout = com.stratum.application.workout.ApplyOverlayToWorkoutUseCase(),
             computeTemplateChangeSummary = com.stratum.application.workout.ComputeTemplateChangeSummaryUseCase(),
-            saveWorkoutUseCase = com.stratum.application.program.SaveWorkoutUseCase(programRepository, NoOpProgramChangeEventRepository(), FakeLoggingPort()),
+            saveWorkoutUseCase = com.stratum.application.program.SaveWorkoutUseCase(programRepository, NoOpProgramChangeEventRepository()),
             getProgramById = GetProgramByIdUseCase(programRepository),
             observeLiftTrainingInsights = com.stratum.application.importing.ObserveLiftTrainingInsightsUseCase(
                 com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository(
@@ -1399,7 +1399,7 @@ class WorkoutViewModelTest {
             finalizeTrainingSession = finalizeTrainingSession(liftRepo = liftRepository),
             applyOverlayToWorkout = com.stratum.application.workout.ApplyOverlayToWorkoutUseCase(),
             computeTemplateChangeSummary = com.stratum.application.workout.ComputeTemplateChangeSummaryUseCase(),
-            saveWorkoutUseCase = com.stratum.application.program.SaveWorkoutUseCase(programRepository, NoOpProgramChangeEventRepository(), FakeLoggingPort()),
+            saveWorkoutUseCase = com.stratum.application.program.SaveWorkoutUseCase(programRepository, NoOpProgramChangeEventRepository()),
             getProgramById = GetProgramByIdUseCase(programRepository),
             observeLiftTrainingInsights = com.stratum.application.importing.ObserveLiftTrainingInsightsUseCase(
                 com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository(),
@@ -1498,7 +1498,7 @@ class WorkoutViewModelTest {
             finalizeTrainingSession = finalizeTrainingSession(liftRepo = liftRepository),
             applyOverlayToWorkout = com.stratum.application.workout.ApplyOverlayToWorkoutUseCase(),
             computeTemplateChangeSummary = com.stratum.application.workout.ComputeTemplateChangeSummaryUseCase(),
-            saveWorkoutUseCase = com.stratum.application.program.SaveWorkoutUseCase(programRepository, NoOpProgramChangeEventRepository(), FakeLoggingPort()),
+            saveWorkoutUseCase = com.stratum.application.program.SaveWorkoutUseCase(programRepository, NoOpProgramChangeEventRepository()),
             getProgramById = GetProgramByIdUseCase(programRepository),
             observeLiftTrainingInsights = com.stratum.application.importing.ObserveLiftTrainingInsightsUseCase(
                 com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository(),

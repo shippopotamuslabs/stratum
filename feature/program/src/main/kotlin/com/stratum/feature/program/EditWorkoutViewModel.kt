@@ -78,6 +78,7 @@ class EditWorkoutViewModel @Inject constructor(
     observeCycleProgress: ObserveCycleProgressUseCase,
     abandonTrainingSession: AbandonTrainingSessionUseCase,
     manageWorkoutOverlay: ManageWorkoutOverlayUseCase,
+    private val diagnosticDrain: DiagnosticDrain,
 ) : ViewModel() {
 
     private val startCoordinator =
@@ -369,6 +370,9 @@ class EditWorkoutViewModel @Inject constructor(
                 updatedWorkout = updatedWorkout,
                 programId = scopedProgramId ?: programSnapshot?.id,
             )
+        if (result is SaveWorkoutResult.PersistenceFailed) {
+            diagnosticDrain.drain(result.diagnostics)
+        }
         return if (result == SaveWorkoutResult.Success) {
             // Slice 8 (D11): append SchemeChanged / LiftSwapped for baseline diffs.
             appendSchemeChangedEvents(baseline, updatedWorkout)

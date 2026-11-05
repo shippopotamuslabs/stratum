@@ -40,8 +40,8 @@ class ReorderWorkoutsViewModelTest {
                     ReorderProgramCycleDaysUseCase(
                         programRepository = programRepository,
                         trainingLogRepository = FakeTrainingLogRepository(),
-                        loggingPort = FakeLoggingPort(),
                     ),
+                diagnosticDrain = DiagnosticDrain(FakeLoggingPort()),
             )
     }
 
@@ -98,8 +98,8 @@ class ReorderWorkoutsViewModelTest {
                     ReorderProgramCycleDaysUseCase(
                         programRepository = programRepository,
                         trainingLogRepository = FakeTrainingLogRepository(),
-                        loggingPort = FakeLoggingPort(),
                     ),
+                diagnosticDrain = DiagnosticDrain(FakeLoggingPort()),
             )
         viewModel.initialize(PROGRAM_ID)
         advanceUntilIdle()
@@ -124,8 +124,8 @@ class ReorderWorkoutsViewModelTest {
                     ReorderProgramCycleDaysUseCase(
                         programRepository = programRepository,
                         trainingLogRepository = FakeTrainingLogRepository(),
-                        loggingPort = FakeLoggingPort(),
                     ),
+                diagnosticDrain = DiagnosticDrain(FakeLoggingPort()),
             )
         viewModel.initialize("missing")
         advanceUntilIdle()

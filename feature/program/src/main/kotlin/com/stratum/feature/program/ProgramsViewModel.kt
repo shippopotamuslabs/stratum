@@ -7,6 +7,7 @@ import com.stratum.application.program.ComputeProgramMuscleVolumeUseCase
 import com.stratum.application.program.ObserveProgramUseCase
 import com.stratum.application.program.ObserveProgramsUiPreferencesUseCase
 import com.stratum.application.program.SetExpandedWorkoutIdUseCase
+import com.stratum.application.program.ProgramsUiPreferenceResult
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.training.StartTrainingSessionResult
@@ -80,6 +81,7 @@ class ProgramsViewModel @Inject constructor(
     private val manageWorkoutOverlay: ManageWorkoutOverlayUseCase,
     observeProgramsUiPreferences: ObserveProgramsUiPreferencesUseCase,
     private val setExpandedWorkoutId: SetExpandedWorkoutIdUseCase,
+    private val diagnosticDrain: DiagnosticDrain,
 ) : ViewModel() {
 
     /** Transient snackbar copy; cleared via [userMessageShown] after the UI presents it. */
@@ -162,7 +164,10 @@ class ProgramsViewModel @Inject constructor(
 
     fun setExpandedWorkout(workoutId: String?) {
         viewModelScope.launch {
-            setExpandedWorkoutId(workoutId)
+            val result = setExpandedWorkoutId(workoutId)
+            if (result is ProgramsUiPreferenceResult.PersistenceFailed) {
+                diagnosticDrain.drain(result.diagnostics)
+            }
         }
     }
 

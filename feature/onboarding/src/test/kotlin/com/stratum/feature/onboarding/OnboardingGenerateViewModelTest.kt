@@ -267,7 +267,6 @@ class OnboardingGenerateViewModelTest {
             activateProgram = com.stratum.application.program.ActivateProgramUseCase(
                 programRepository = programRepo,
                 programChangeEventRepository = com.stratum.core.testing.training.NoOpProgramChangeEventRepository(),
-                loggingPort = FakeLoggingPort(),
             ),
             completeOnboarding = CompleteOnboardingUseCase(onboardingRepo, profileRepo),
             importProgramTemplate = com.stratum.application.program.importing.ImportProgramTemplateUseCase(

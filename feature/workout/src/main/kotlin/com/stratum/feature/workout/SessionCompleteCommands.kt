@@ -89,6 +89,14 @@ internal suspend fun LiveWorkoutSessionRuntime.handleCompleteWorkout(cmd: Sessio
         if (templateToSave != null) {
             val updated = applyOverlayToWorkout(templateToSave, overlay, tombstonedEquipmentIds, tombstonedLiftIds)
             val saveResult = saveWorkoutUseCase(workoutId, updated)
+            if (saveResult is SaveWorkoutResult.PersistenceFailed) {
+                // STR-237 Route (i): the failure record rides the branch as
+                // diagnostics; this runtime boundary drains them exactly once
+                // through its existing recorder.
+                saveResult.diagnostics.forEach { diagnostic ->
+                    logError(diagnostic.tag, diagnostic.message, diagnostic.cause)
+                }
+            }
             if (saveResult != SaveWorkoutResult.Success) {
                 effects.publishUserMessage(LiveWorkoutSessionRuntime.MSG_COMPLETE_FAILED)
                 return

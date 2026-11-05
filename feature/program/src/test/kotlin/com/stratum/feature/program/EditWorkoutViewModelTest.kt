@@ -1082,7 +1082,7 @@ class EditWorkoutViewModelTest {
             observeProgram = ObserveProgramUseCase(repository),
             observeProgramById = com.stratum.application.program.ObserveProgramByIdUseCase(repository),
             observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
-            saveWorkoutUseCase = SaveWorkoutUseCase(repository, programChangeEvents, logging),
+            saveWorkoutUseCase = SaveWorkoutUseCase(repository, programChangeEvents),
             computeWorkoutMuscleVolume = ComputeWorkoutMuscleVolumeUseCase(),
             estimateWorkoutDurationMinutes = EstimateWorkoutDurationMinutesUseCase(),
             appendProgramChangeEvent = com.stratum.application.training.AppendProgramChangeEventUseCase(programChangeEvents),
@@ -1098,6 +1098,7 @@ class EditWorkoutViewModelTest {
                 equipmentRepository,
             ),
             equipmentPickResult = equipmentPickResult,
+            diagnosticDrain = DiagnosticDrain(logging),
         )
     }
 

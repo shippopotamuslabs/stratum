@@ -1,6 +1,5 @@
 package com.stratum.application.program
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.NoOpProgramChangeEventRepository
 import com.stratum.domain.lift.identity.LiftId
@@ -33,7 +32,7 @@ class SaveWorkoutUseCaseTest {
     @DisplayName("Given active program when save workout then only target workout is replaced")
     fun saveWorkoutMergesSingleWorkout() = runTest {
         val repository = FakeProgramRepository(TWO_WORKOUT_PROGRAM)
-        val useCase = SaveWorkoutUseCase(repository, NoOpProgramChangeEventRepository(), FakeLoggingPort())
+        val useCase = SaveWorkoutUseCase(repository, NoOpProgramChangeEventRepository())
         val updatedWorkout =
             TWO_WORKOUT_PROGRAM.workouts.first().copy(
                 workoutLifts =
@@ -79,7 +78,7 @@ class SaveWorkoutUseCaseTest {
     @DisplayName("When no active program exists then save returns failure")
     fun saveFailsWhenNoProgram() = runTest {
         val repository = FakeProgramRepository(null)
-        val useCase = SaveWorkoutUseCase(repository, NoOpProgramChangeEventRepository(), FakeLoggingPort())
+        val useCase = SaveWorkoutUseCase(repository, NoOpProgramChangeEventRepository())
 
         val result = useCase(WorkoutId("w-1"), sampleWorkout())
 
@@ -90,7 +89,7 @@ class SaveWorkoutUseCaseTest {
     @DisplayName("When workout id is missing then save returns failure")
     fun saveFailsWhenWorkoutNotFound() = runTest {
         val repository = FakeProgramRepository(TWO_WORKOUT_PROGRAM)
-        val useCase = SaveWorkoutUseCase(repository, NoOpProgramChangeEventRepository(), FakeLoggingPort())
+        val useCase = SaveWorkoutUseCase(repository, NoOpProgramChangeEventRepository())
 
         val result = useCase(WorkoutId("missing"), sampleWorkout())
 
@@ -122,7 +121,7 @@ class SaveWorkoutUseCaseTest {
             )
         val repository = FakeProgramRepository(active)
         repository.saveToLibrary(library)
-        val useCase = SaveWorkoutUseCase(repository, NoOpProgramChangeEventRepository(), FakeLoggingPort())
+        val useCase = SaveWorkoutUseCase(repository, NoOpProgramChangeEventRepository())
         val targetWorkout = library.workouts.first()
         val updated =
             targetWorkout.copy(
@@ -142,7 +141,7 @@ class SaveWorkoutUseCaseTest {
     @DisplayName("When explicit programId is unknown then save returns ProgramNotFound")
     fun saveFailsWhenProgramIdUnknown() = runTest {
         val repository = FakeProgramRepository(TWO_WORKOUT_PROGRAM)
-        val useCase = SaveWorkoutUseCase(repository, NoOpProgramChangeEventRepository(), FakeLoggingPort())
+        val useCase = SaveWorkoutUseCase(repository, NoOpProgramChangeEventRepository())
 
         val result = useCase(WorkoutId("w-1"), sampleWorkout(), programId = ProgramId("missing"))
 
@@ -150,16 +149,22 @@ class SaveWorkoutUseCaseTest {
     }
 
     @Test
-    @DisplayName("When repository save fails then PersistenceFailed with one error log")
+    @DisplayName("When repository save fails then PersistenceFailed carrying the failure diagnostic")
     fun savePersistenceFailure() = runTest {
         val repository = FakeProgramRepository(TWO_WORKOUT_PROGRAM, failOnSave = true)
-        val logging = FakeLoggingPort()
-        val useCase = SaveWorkoutUseCase(repository, NoOpProgramChangeEventRepository(), logging)
+        val useCase = SaveWorkoutUseCase(repository, NoOpProgramChangeEventRepository())
 
         val result = useCase(WorkoutId("w-1"), TWO_WORKOUT_PROGRAM.workouts.first())
 
-        assertEquals(SaveWorkoutResult.PersistenceFailed, result)
-        assertEquals(1, logging.errors.size)
+        val failed = result as SaveWorkoutResult.PersistenceFailed
+        assertEquals(1, failed.diagnostics.size)
+        val diagnostic = failed.diagnostics.single()
+        assertEquals("SaveWorkout", diagnostic.tag)
+        assertEquals(
+            "Failed to save workout: FakeProgramRepository configured to fail on save",
+            diagnostic.message,
+        )
+        assertTrue(diagnostic.cause is IllegalStateException)
     }
 
     private fun sampleWorkout(): Workout =
@@ -247,7 +252,7 @@ class SaveWorkoutUseCaseTest {
     fun wl036_saveWorkoutAppendsWorkoutEditedEvent() = runTest {
         val events = com.stratum.core.testing.training.FakeProgramChangeEventRepository()
         val program = com.stratum.core.testing.training.WorkoutLoggingFixtures.twoWorkoutProgram()
-        val useCase = SaveWorkoutUseCase(FakeProgramRepository(program), events, FakeLoggingPort())
+        val useCase = SaveWorkoutUseCase(FakeProgramRepository(program), events)
 
         assertEquals(
             SaveWorkoutResult.Success,
@@ -281,7 +286,6 @@ class SaveWorkoutUseCaseTest {
         val useCase = SaveWorkoutUseCase(
             FakeProgramRepository(com.stratum.core.testing.training.WorkoutLoggingFixtures.twoWorkoutProgram()),
             events,
-            FakeLoggingPort(),
         )
 
         assertEquals(

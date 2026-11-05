@@ -297,7 +297,8 @@ class ProgramsViewModelTest {
                     observeProgramsUiPreferences =
                         ObserveProgramsUiPreferencesUseCase(FakeProgramsUiPreferencesRepository()),
                     setExpandedWorkoutId =
-                        SetExpandedWorkoutIdUseCase(FakeProgramsUiPreferencesRepository(), logging),
+                        SetExpandedWorkoutIdUseCase(FakeProgramsUiPreferencesRepository()),
+                    diagnosticDrain = DiagnosticDrain(logging),
                 )
 
             // Collect bar so WhileSubscribed starts; orphan cleanup runs from init.
@@ -363,7 +364,8 @@ class ProgramsViewModelTest {
                     observeProgramsUiPreferences =
                         ObserveProgramsUiPreferencesUseCase(FakeProgramsUiPreferencesRepository()),
                     setExpandedWorkoutId =
-                        SetExpandedWorkoutIdUseCase(FakeProgramsUiPreferencesRepository(), logging),
+                        SetExpandedWorkoutIdUseCase(FakeProgramsUiPreferencesRepository()),
+                    diagnosticDrain = DiagnosticDrain(logging),
                 )
 
             viewModel.activeWorkoutBarState.test {
@@ -470,7 +472,8 @@ class ProgramsViewModelTest {
             unskipWorkout = com.stratum.application.training.UnskipWorkoutUseCase(trainingLog, repository, FakeLoggingPort()),
             manageWorkoutOverlay = ManageWorkoutOverlayUseCase(FakeWorkoutOverlayStore(), logging),
             observeProgramsUiPreferences = ObserveProgramsUiPreferencesUseCase(uiPrefs),
-            setExpandedWorkoutId = SetExpandedWorkoutIdUseCase(uiPrefs, logging),
+            setExpandedWorkoutId = SetExpandedWorkoutIdUseCase(uiPrefs),
+            diagnosticDrain = DiagnosticDrain(logging),
         )
     }
 

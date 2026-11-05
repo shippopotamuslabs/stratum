@@ -1,6 +1,5 @@
 package com.stratum.application.program
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
@@ -20,7 +19,7 @@ class DeleteProgramUseCaseTest {
         val programRepo = FakeProgramRepository(program)
         val trainingLog = FakeTrainingLogRepository()
         val useCase =
-            DeleteProgramUseCase(programRepo, trainingLog, FakeLoggingPort())
+            DeleteProgramUseCase(programRepo, trainingLog)
 
         val result = useCase(program.id)
 
@@ -36,7 +35,7 @@ class DeleteProgramUseCaseTest {
         val trainingLog = FakeTrainingLogRepository()
         trainingLog.seedSession(WorkoutLoggingFixtures.inProgressSession())
         val useCase =
-            DeleteProgramUseCase(programRepo, trainingLog, FakeLoggingPort())
+            DeleteProgramUseCase(programRepo, trainingLog)
 
         val result = useCase(program.id)
 
@@ -50,7 +49,7 @@ class DeleteProgramUseCaseTest {
         val programRepo = FakeProgramRepository(null)
         val trainingLog = FakeTrainingLogRepository()
         val useCase =
-            DeleteProgramUseCase(programRepo, trainingLog, FakeLoggingPort())
+            DeleteProgramUseCase(programRepo, trainingLog)
 
         val result = useCase(ProgramId.ImportHistory)
 

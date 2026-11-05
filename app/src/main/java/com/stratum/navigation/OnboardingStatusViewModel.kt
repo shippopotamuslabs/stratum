@@ -6,6 +6,7 @@ import com.stratum.app.DiagnosticDrain
 import com.stratum.application.onboarding.ObserveOnboardingCompleteUseCase
 import com.stratum.application.onboarding.ReopenOnboardingWizardResult
 import com.stratum.application.onboarding.ReopenOnboardingWizardUseCase
+import com.stratum.application.program.DiscardActiveProgramResult
 import com.stratum.application.program.DiscardActiveProgramUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -35,12 +36,16 @@ class OnboardingStatusViewModel @Inject constructor(
 
     /**
      * Preview "Discard Program": delete the active template (if any), then reopen the wizard
-     * at Choose Path. Failures are logged in use cases; onboarding still reopens so the user
-     * is not stuck on preview.
+     * at Choose Path. A discard failure's record rides its branch as diagnostics
+     * (STR-237 Route (i)) and is drained here exactly once; onboarding still
+     * reopens so the user is not stuck on preview.
      */
     fun discardProgramAndReopenOnboarding() {
         viewModelScope.launch {
-            discardActiveProgram()
+            val discardResult = discardActiveProgram()
+            if (discardResult is DiscardActiveProgramResult.PersistenceFailed) {
+                diagnosticDrain.drain(discardResult.diagnostics)
+            }
             val result = reopenOnboardingWizard()
             if (result is ReopenOnboardingWizardResult.PersistenceFailed) {
                 diagnosticDrain.drain(result.diagnostics)

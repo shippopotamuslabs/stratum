@@ -2,7 +2,7 @@ package com.stratum.application.program
 
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.training.ProgramChangeEvent
 import com.stratum.domain.training.ProgramChangeEventPayload
@@ -18,14 +18,16 @@ import com.stratum.application.lift.EquipmentRepository
 import com.stratum.domain.workout.LiftSwapped
 
 /**
- * Outcome of [SwapWorkoutLiftUseCase] (STR-243).
+ * Outcome of [SwapWorkoutLiftUseCase] (STR-243; STR-237 Route (i)).
  *
  * [Success] carries the [SwapWorkoutLiftOutcome] (with its §10 diagnostics).
- * The expected refusal branches leave a warning breadcrumb only, never a
- * Crashlytics non-fatal, exactly as the former `expectedFailure` path did; an
- * operational load/save failure is logged once via [LoggingPort.error] at the
- * use-case boundary and surfaces as [PersistenceFailed]. Coroutine
- * cancellation is not a branch: it propagates.
+ * The expected refusal branches are the record the consumer acts on — their
+ * former warning breadcrumbs duplicated the branch facts and are dropped; an
+ * operational load/save failure rides the [PersistenceFailed] branch as an
+ * [OperationalDiagnostic] (legacy tag + rendered message, real throwable as
+ * cause); the presentation boundary drains it exactly once through its
+ * module's DiagnosticDrain. Coroutine cancellation is not a branch: it
+ * propagates.
  */
 sealed interface SwapWorkoutLiftResult {
     data class Success(val outcome: SwapWorkoutLiftOutcome) : SwapWorkoutLiftResult
@@ -40,7 +42,9 @@ sealed interface SwapWorkoutLiftResult {
     data class EquipmentDeleted(val equipmentIds: List<EquipmentId>) : SwapWorkoutLiftResult
 
     /** The swap failed (repository / store I/O). */
-    data object PersistenceFailed : SwapWorkoutLiftResult
+    data class PersistenceFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : SwapWorkoutLiftResult
 }
 
 /**
@@ -51,7 +55,6 @@ class SwapWorkoutLiftUseCase @Inject constructor(
     private val programRepository: ProgramRepository,
     private val programChangeEventRepository: ProgramChangeEventRepository,
     private val equipmentRepository: com.stratum.application.lift.EquipmentRepository,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(
         workoutLiftId: WorkoutLiftId,
@@ -62,8 +65,15 @@ class SwapWorkoutLiftUseCase @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Throwable) {
-            loggingPort.error(TAG, "Failed to swap workout lift: ${error.message}", error)
-            SwapWorkoutLiftResult.PersistenceFailed
+            SwapWorkoutLiftResult.PersistenceFailed(
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Failed to swap workout lift: ${error.message}",
+                        cause = error,
+                    ),
+                ),
+            )
         }
 
     private suspend fun doInvoke(
@@ -73,9 +83,9 @@ class SwapWorkoutLiftUseCase @Inject constructor(
         val program = programRepository.getProgram()
 
         if (program == null) {
-            // Expected domain state (no active program), not an operational fault: breadcrumb
-            // only, so this never becomes a Crashlytics non-fatal.
-            loggingPort.warning(TAG, "Failed to swap workout lift: no active program")
+            // Expected domain state (no active program), not an operational fault: the
+            // typed branch is the record (STR-237: the former warning breadcrumb
+            // duplicated the branch fact and is dropped).
             return SwapWorkoutLiftResult.NoActiveProgram
         }
 
@@ -113,11 +123,9 @@ class SwapWorkoutLiftUseCase @Inject constructor(
             }
 
         if (targetLift == null) {
-            // Expected stale-id outcome, not an operational fault: breadcrumb only.
-            loggingPort.warning(
-                TAG,
-                "Failed to swap workout lift: workout lift $workoutLiftId not found",
-            )
+            // Expected stale-id outcome, not an operational fault: the typed branch
+            // (carrying the id) is the record (STR-237: breadcrumb dropped as a
+            // duplicate of the branch fact).
             return SwapWorkoutLiftResult.WorkoutLiftNotFound(workoutLiftId)
         }
 
@@ -142,11 +150,9 @@ class SwapWorkoutLiftUseCase @Inject constructor(
                 .distinct()
                 .filter { id -> equipmentRepository.getEquipment(id)?.isTombstoned == true }
         if (orphaned.isNotEmpty()) {
-            // Expected refusal (a slot still points at tombstoned equipment): breadcrumb only.
-            loggingPort.warning(
-                TAG,
-                "Failed to swap workout lift: deleted equipment is still assigned",
-            )
+            // Expected refusal (a slot still points at tombstoned equipment): the typed
+            // branch (carrying the equipment ids) is the record (STR-237: breadcrumb
+            // dropped as a duplicate of the branch fact).
             return SwapWorkoutLiftResult.EquipmentDeleted(orphaned)
         }
         programRepository.saveProgram(updatedProgram)

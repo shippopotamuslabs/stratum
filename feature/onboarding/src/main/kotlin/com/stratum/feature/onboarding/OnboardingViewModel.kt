@@ -1020,10 +1020,10 @@ class OnboardingViewModel @Inject constructor(
 
     /**
      * Records an activation failure after a successful generation (STR-243).
-     * A persistence failure was already logged once at the use-case boundary,
-     * so only the analytics event fires for it; the validation branches are
-     * recorded here with a constructed exception value for the log record
-     * only — the branch itself carries the typed facts.
+     * A persistence failure's record rides its branch as diagnostics
+     * (STR-237 Route (i)) and is drained here exactly once; the validation
+     * branches are recorded here with a constructed exception value for the
+     * log record only — the branch itself carries the typed facts.
      */
     private fun logActivateFailure(result: ActivateProgramResult) {
         when (result) {
@@ -1039,9 +1039,9 @@ class OnboardingViewModel @Inject constructor(
                     OnboardingProgramFlowOps.MSG_GENERATE_FAILED,
                     IllegalArgumentException("Program must have at least one exercise"),
                 )
-            ActivateProgramResult.Success,
-            ActivateProgramResult.PersistenceFailed,
-            -> Unit
+            ActivateProgramResult.Success -> Unit
+            is ActivateProgramResult.PersistenceFailed ->
+                diagnosticDrain.drain(result.diagnostics)
         }
         logAnalytics(
             USER_VISIBLE_ERROR_EVENT,

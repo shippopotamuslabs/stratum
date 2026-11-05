@@ -50,8 +50,7 @@ class OnboardingStatusViewModelTest {
             discardActiveProgram =
                 DiscardActiveProgramUseCase(
                     programRepository = programRepository,
-                    deleteProgram = DeleteProgramUseCase(programRepository, trainingLog, logging),
-                    loggingPort = logging,
+                    deleteProgram = DeleteProgramUseCase(programRepository, trainingLog),
                 ),
             diagnosticDrain = com.stratum.app.DiagnosticDrain(logging),
         )

@@ -43,6 +43,7 @@ class LiftSwapViewModel @Inject constructor(
     private val workoutEditSession: WorkoutEditSession,
     private val swapWorkoutLift: SwapWorkoutLiftUseCase,
     private val logError: LogErrorUseCase,
+    private val diagnosticDrain: DiagnosticDrain,
 ) : ViewModel() {
     private val targetWorkoutId = MutableStateFlow<String?>(null)
     private val targetWorkoutLiftId = MutableStateFlow<String?>(null)
@@ -238,8 +239,11 @@ class LiftSwapViewModel @Inject constructor(
                             SwapWorkoutLiftResult.NoActiveProgram,
                             is SwapWorkoutLiftResult.WorkoutLiftNotFound,
                             is SwapWorkoutLiftResult.EquipmentDeleted,
-                            SwapWorkoutLiftResult.PersistenceFailed,
                             -> _userMessage.value = MSG_SWAP_FAILED
+                            is SwapWorkoutLiftResult.PersistenceFailed -> {
+                                diagnosticDrain.drain(result.diagnostics)
+                                _userMessage.value = MSG_SWAP_FAILED
+                            }
                         }
                     }
             }

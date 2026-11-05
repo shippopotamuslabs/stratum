@@ -289,7 +289,7 @@ class ProgramLibraryViewModelTest {
             observeLibraryPrograms = ObserveLibraryProgramsUseCase(programRepo),
             observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepo),
             observeActiveSession = ObserveActiveSessionUseCase(trainingLog),
-            activateStoredProgram = ActivateStoredProgramUseCase(programRepo, FakeLoggingPort()),
+            activateStoredProgram = ActivateStoredProgramUseCase(programRepo),
             abandonTrainingSession =
                 com.stratum.application.training.AbandonTrainingSessionUseCase(
                     trainingLog,
@@ -299,8 +299,8 @@ class ProgramLibraryViewModelTest {
                 DeleteProgramUseCase(
                     programRepository = programRepo,
                     trainingLogRepository = trainingLog,
-                    loggingPort = FakeLoggingPort(),
                 ),
+            diagnosticDrain = DiagnosticDrain(FakeLoggingPort()),
         )
     }
 

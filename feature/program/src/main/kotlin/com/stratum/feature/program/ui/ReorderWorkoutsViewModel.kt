@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.stratum.application.program.ReorderProgramCycleDaysResult
 import com.stratum.application.program.ReorderProgramCycleDaysUseCase
 import com.stratum.domain.program.identity.ProgramId
+import com.stratum.feature.program.DiagnosticDrain
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Job
@@ -25,6 +26,7 @@ data class ReorderWorkoutUiState(
 @HiltViewModel
 class ReorderWorkoutsViewModel @Inject constructor(
     private val reorderProgramCycleDays: ReorderProgramCycleDaysUseCase,
+    private val diagnosticDrain: DiagnosticDrain,
 ) : ViewModel() {
 
     private val _days = MutableStateFlow<List<ReorderWorkoutUiState>>(emptyList())
@@ -76,11 +78,14 @@ class ReorderWorkoutsViewModel @Inject constructor(
         if (orderedIds.isEmpty()) return
         persistJob =
             viewModelScope.launch {
-                when (reorderProgramCycleDays(ProgramId(programId), orderedIds)) {
+                when (val result = reorderProgramCycleDays(ProgramId(programId), orderedIds)) {
                     ReorderProgramCycleDaysResult.Success -> onDone()
-                    is ReorderProgramCycleDaysResult.ProgramNotFound,
-                    ReorderProgramCycleDaysResult.PersistenceFailed,
-                    -> _userMessage.value = MSG_REORDER_FAILED
+                    is ReorderProgramCycleDaysResult.ProgramNotFound ->
+                        _userMessage.value = MSG_REORDER_FAILED
+                    is ReorderProgramCycleDaysResult.PersistenceFailed -> {
+                        diagnosticDrain.drain(result.diagnostics)
+                        _userMessage.value = MSG_REORDER_FAILED
+                    }
                 }
             }
     }

@@ -2,7 +2,7 @@ package com.stratum.application.program
 
 import com.stratum.application.lift.LiftRepository
 import com.stratum.domain.lift.identity.LiftId
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.domain.program.identity.LiftSetId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
@@ -25,12 +25,14 @@ import com.stratum.domain.program.WorkoutLift
 import com.stratum.domain.program.DEFAULT_LIFT_SET_REST_SECONDS
 
 /**
- * Outcome of [AddWorkoutLiftUseCase] (STR-243).
+ * Outcome of [AddWorkoutLiftUseCase] (STR-243; STR-237 Route (i)).
  *
  * The refusal branches are expected caller outcomes and are not logged; an
- * operational load/save failure is logged once via [LoggingPort.error] at the
- * use-case boundary and surfaces as [PersistenceFailed]. Coroutine
- * cancellation is not a branch: it propagates.
+ * operational load/save failure rides the [PersistenceFailed] branch as an
+ * [OperationalDiagnostic] (legacy tag + rendered message, real throwable as
+ * cause); the presentation boundary drains it exactly once through its
+ * module's DiagnosticDrain. Coroutine cancellation is not a branch: it
+ * propagates.
  */
 sealed interface AddWorkoutLiftResult {
     data object Success : AddWorkoutLiftResult
@@ -42,7 +44,9 @@ sealed interface AddWorkoutLiftResult {
     data class WorkoutNotFound(val workoutId: WorkoutId) : AddWorkoutLiftResult
 
     /** The add failed (repository / store I/O). */
-    data object PersistenceFailed : AddWorkoutLiftResult
+    data class PersistenceFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : AddWorkoutLiftResult
 }
 
 /**
@@ -54,7 +58,6 @@ class AddWorkoutLiftUseCase @Inject constructor(
     private val programRepository: ProgramRepository,
     private val programChangeEventRepository: ProgramChangeEventRepository,
     private val liftRepository: LiftRepository,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(workoutId: WorkoutId, liftId: LiftId): AddWorkoutLiftResult {
         return try {
@@ -111,8 +114,15 @@ class AddWorkoutLiftUseCase @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Throwable) {
-            loggingPort.error(TAG, "Failed to add workout lift: ${error.message}", error)
-            AddWorkoutLiftResult.PersistenceFailed
+            AddWorkoutLiftResult.PersistenceFailed(
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Failed to add workout lift: ${error.message}",
+                        cause = error,
+                    ),
+                ),
+            )
         }
     }
 
