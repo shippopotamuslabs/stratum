@@ -181,8 +181,8 @@ internal object OnboardingViewModelTestFixtures {
                 loggingPort = FakeLoggingPort(),
             ),
             getOnboardingStepCapabilities = GetOnboardingStepCapabilitiesUseCase(validateCurrentStep),
-            applyGymPreset = ApplyGymPresetUseCase(fakeLiftRepository),
-            setSelectedPreset = SetSelectedPresetUseCase(fakeLiftRepository),
+            applyGymPreset = ApplyGymPresetUseCase(fakeLiftRepository, FakeLoggingPort()),
+            setSelectedPreset = SetSelectedPresetUseCase(fakeLiftRepository, FakeLoggingPort()),
             executeHistoricalImport = ExecuteHistoricalImportUseCase(
                 validateImportFiles = com.stratum.application.importing.ValidateImportFilesUseCase(),
                 runHistoricalImport = RunHistoricalImportUseCase(fakeHistoricalImport),

@@ -29,7 +29,7 @@ class UpdateLiftMusclesUseCaseTest {
                 secondaryMuscles = setOf(MuscleGroup.AnteriorDeltoid),
             )
 
-        assertTrue(result.isSuccess)
+        assertEquals(UpdateLiftMusclesResult.Success, result)
         val lift = repo.currentLifts.single()
         assertEquals(setOf(MuscleGroup.Chest, MuscleGroup.Tricep), lift.primaryMuscles)
         assertEquals(setOf(MuscleGroup.AnteriorDeltoid), lift.secondaryMuscles)
@@ -48,7 +48,7 @@ class UpdateLiftMusclesUseCaseTest {
                 secondaryMuscles = emptySet(),
             )
 
-        assertTrue(result.isFailure)
+        assertEquals(UpdateLiftMusclesResult.CatalogLiftNotEditable(liftId), result)
         assertEquals(setOf(MuscleGroup.Chest), repo.currentLifts.single().primaryMuscles)
     }
 
@@ -65,7 +65,14 @@ class UpdateLiftMusclesUseCaseTest {
                 secondaryMuscles = setOf(MuscleGroup.Chest),
             )
 
-        assertTrue(result.isFailure)
+        assertEquals(
+            UpdateLiftMusclesResult.InvalidField(
+                CustomLiftFieldValidation.Invalid(
+                    CustomLiftFieldRules.PRIMARY_MUSCLES_REQUIRED_MESSAGE,
+                ),
+            ),
+            result,
+        )
         assertEquals(setOf(MuscleGroup.Chest), repo.currentLifts.single().primaryMuscles)
     }
 
@@ -82,10 +89,26 @@ class UpdateLiftMusclesUseCaseTest {
                 secondaryMuscles = setOf(MuscleGroup.Chest, MuscleGroup.Tricep),
             )
 
-        assertTrue(result.isSuccess)
+        assertEquals(UpdateLiftMusclesResult.Success, result)
         val lift = repo.currentLifts.single()
         assertEquals(setOf(MuscleGroup.Chest), lift.primaryMuscles)
         assertEquals(setOf(MuscleGroup.Tricep), lift.secondaryMuscles)
+    }
+
+    @Test
+    @DisplayName("Given missing lift when muscles updated then LiftNotFound")
+    fun missingLiftFails() = runTest {
+        val repo = FakeLiftRepository()
+        val useCase = UpdateLiftMusclesUseCase(repo, FakeLoggingPort())
+
+        val result =
+            useCase(
+                id = liftId,
+                primaryMuscles = setOf(MuscleGroup.Chest),
+                secondaryMuscles = emptySet(),
+            )
+
+        assertEquals(UpdateLiftMusclesResult.LiftNotFound(liftId), result)
     }
 
     private fun sampleLift(isCustom: Boolean): Lift =

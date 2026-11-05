@@ -26,6 +26,7 @@ import com.stratum.application.lift.ObserveLiftCatalogUseCase
 import com.stratum.application.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.OptionalNoteEdit
 import com.stratum.domain.lift.SaveLiftNotesCommand
+import com.stratum.application.lift.SaveLiftNotesOutcome
 import com.stratum.application.lift.SaveLiftNotesUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId
@@ -808,7 +809,7 @@ class WorkoutViewModel @Inject constructor(
         if (!request.isDirty) return
         val sessionId = session.cachedSessionId() ?: return
         viewModelScope.launch {
-            val result =
+            val outcome =
                 saveLiftNotesUseCase(
                     SaveLiftNotesCommand(
                         sessionId = sessionId,
@@ -818,9 +819,14 @@ class WorkoutViewModel @Inject constructor(
                         workoutNotes = request.workoutNotes?.map { it.toWorkoutInput() },
                         liftNotes = request.liftNotes?.map { it.toCatalogInput() },
                     ),
-                ).getOrElse {
-                    _userMessage.value = MSG_NOTES_SAVE_FAILED
-                    return@launch
+                )
+            val result =
+                when (outcome) {
+                    is SaveLiftNotesOutcome.Success -> outcome.result
+                    SaveLiftNotesOutcome.PersistenceFailed -> {
+                        _userMessage.value = MSG_NOTES_SAVE_FAILED
+                        return@launch
+                    }
                 }
             if (result.workoutNoteNeedsOverlay) {
                 enqueue(

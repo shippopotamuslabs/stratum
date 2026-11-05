@@ -83,8 +83,8 @@ class DeleteLiftUseCaseTest {
     @Test
     @DisplayName("Seed and custom lifts delete through the same tombstone path")
     fun seedAndCustomBothTombstone() = runTest {
-        assertTrue(subject(seedId).isSuccess)
-        assertTrue(subject(customId).isSuccess)
+        assertEquals(DeleteLiftResult.Success, subject(seedId))
+        assertEquals(DeleteLiftResult.Success, subject(customId))
 
         val seed = liftRepo.currentLifts.single { it.id == seedId }
         val custom = liftRepo.currentLifts.single { it.id == customId }
@@ -112,7 +112,7 @@ class DeleteLiftUseCaseTest {
             ),
         )
 
-        assertTrue(subject(seedId).isSuccess)
+        assertEquals(DeleteLiftResult.Success, subject(seedId))
 
         val active = programRepo.getProgramById(ProgramId("prog-1"))!!
         assertEquals(listOf(otherId), active.workouts.single().workoutLifts.map { it.liftId })
@@ -128,7 +128,7 @@ class DeleteLiftUseCaseTest {
             loggedSet(id = "set-1", liftId = seedId, isPr = true)
         logRepo.seedSet(original)
 
-        assertTrue(subject(seedId).isSuccess)
+        assertEquals(DeleteLiftResult.Success, subject(seedId))
 
         val after = logRepo.getAllSets().single()
         assertEquals(original, after)
@@ -139,9 +139,9 @@ class DeleteLiftUseCaseTest {
     @Test
     @DisplayName("Re-delete of a tombstoned lift is a no-op success")
     fun redeleteIsNoOpSuccess() = runTest {
-        assertTrue(subject(seedId).isSuccess)
+        assertEquals(DeleteLiftResult.Success, subject(seedId))
         val slotsBefore = deletePort.deleteCallCount
-        assertTrue(subject(seedId).isSuccess)
+        assertEquals(DeleteLiftResult.Success, subject(seedId))
         assertEquals(slotsBefore + 1, deletePort.deleteCallCount)
         assertTrue(liftRepo.currentLifts.single { it.id == seedId }.isDeleted)
     }
@@ -149,7 +149,7 @@ class DeleteLiftUseCaseTest {
     @Test
     @DisplayName("Deleting a missing lift succeeds as a no-op")
     fun missingLiftIsNoOpSuccess() = runTest {
-        assertTrue(subject(LiftId("nope")).isSuccess)
+        assertEquals(DeleteLiftResult.Success, subject(LiftId("nope")))
         assertFalse(liftRepo.currentLifts.any { it.isDeleted })
     }
 
@@ -172,7 +172,7 @@ class DeleteLiftUseCaseTest {
                 loggingPort = FakeLoggingPort(),
             )
 
-        assertTrue(failing(seedId).isFailure)
+        assertEquals(DeleteLiftResult.PersistenceFailed, failing(seedId))
         assertFalse(liftRepo.currentLifts.single { it.id == seedId }.isDeleted)
     }
 

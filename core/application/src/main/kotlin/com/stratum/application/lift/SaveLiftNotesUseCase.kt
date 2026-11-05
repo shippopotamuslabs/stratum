@@ -2,16 +2,31 @@ package com.stratum.application.lift
 
 import com.stratum.domain.lift.identity.LiftSessionNoteId
 import com.stratum.domain.logging.LoggingPort
-import com.stratum.domain.logging.runCatchingLogged
 import com.stratum.application.program.ProgramRepository
 import java.time.Instant
 import javax.inject.Inject
+import kotlin.coroutines.cancellation.CancellationException
 import com.stratum.domain.lift.LiftSessionNote
 import com.stratum.domain.lift.OptionalNoteEdit
 import com.stratum.domain.lift.SaveLiftNotesCommand
 import com.stratum.domain.lift.SaveLiftNotesResult
 import com.stratum.domain.lift.SessionNoteInput
 import com.stratum.domain.lift.sanitizeLiftNoteBody
+
+/**
+ * Outcome of saving lift notes (STR-243). [Success] carries the domain
+ * [SaveLiftNotesResult] payload (whether the workout pin needs the session
+ * overlay). The originating throwable of a failed write goes once to the
+ * diagnostics channel ([LoggingPort.error]) at the use-case boundary; it
+ * never crosses as a payload. Coroutine cancellation is not a branch: it
+ * propagates.
+ */
+sealed interface SaveLiftNotesOutcome {
+    data class Success(val result: SaveLiftNotesResult) : SaveLiftNotesOutcome
+
+    /** A note write failed (repository / store I/O). */
+    data object PersistenceFailed : SaveLiftNotesOutcome
+}
 
 /**
  * Persists dirty note tabs. Session notes go to [LiftNotesRepository]; catalog pins to
@@ -26,8 +41,8 @@ class SaveLiftNotesUseCase @Inject constructor(
     private val programRepository: ProgramRepository,
     private val loggingPort: LoggingPort,
 ) {
-    suspend operator fun invoke(command: SaveLiftNotesCommand): Result<SaveLiftNotesResult> =
-        runCatchingLogged(loggingPort, TAG, "Failed to save lift notes") {
+    suspend operator fun invoke(command: SaveLiftNotesCommand): SaveLiftNotesOutcome =
+        try {
             command.sessionNotes?.let { inputs ->
                 persistSessionNotes(command, inputs)
             } ?: command.sessionNote?.let { edit -> persistSessionNote(command, edit) }
@@ -55,7 +70,14 @@ class SaveLiftNotesUseCase @Inject constructor(
                         )
                     !written
                 } ?: false
-            SaveLiftNotesResult(workoutNoteNeedsOverlay = workoutNeedsOverlay)
+            SaveLiftNotesOutcome.Success(
+                SaveLiftNotesResult(workoutNoteNeedsOverlay = workoutNeedsOverlay),
+            )
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (t: Throwable) {
+            loggingPort.error(TAG, "Failed to save lift notes: ${t.message}", t)
+            SaveLiftNotesOutcome.PersistenceFailed
         }
 
     private suspend fun persistSessionNotes(

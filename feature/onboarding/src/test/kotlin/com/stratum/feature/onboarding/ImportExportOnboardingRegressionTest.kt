@@ -174,8 +174,8 @@ class ImportExportOnboardingRegressionTest {
                     loggingPort = FakeLoggingPort(),
                 ),
             getOnboardingStepCapabilities = GetOnboardingStepCapabilitiesUseCase(validateCurrentStep),
-            applyGymPreset = ApplyGymPresetUseCase(liftRepo),
-            setSelectedPreset = SetSelectedPresetUseCase(liftRepo),
+            applyGymPreset = ApplyGymPresetUseCase(liftRepo, FakeLoggingPort()),
+            setSelectedPreset = SetSelectedPresetUseCase(liftRepo, FakeLoggingPort()),
             executeHistoricalImport =
                 ExecuteHistoricalImportUseCase(
                     validateImportFiles = ValidateImportFilesUseCase(),

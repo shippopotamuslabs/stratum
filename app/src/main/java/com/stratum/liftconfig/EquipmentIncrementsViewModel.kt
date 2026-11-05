@@ -19,7 +19,9 @@ import com.stratum.application.lift.RenameAndSetIncrementTiersResult
 import com.stratum.application.lift.RenameAndSetIncrementTiersUseCase
 import com.stratum.application.lift.SetEquipmentIncrementTiersResult
 import com.stratum.application.lift.SetEquipmentIncrementTiersUseCase
+import com.stratum.application.lift.SetLiftEquipmentResult
 import com.stratum.application.lift.SetLiftEquipmentUseCase
+import com.stratum.application.lift.DeleteCustomEquipmentResult
 import com.stratum.application.lift.DeleteCustomEquipmentUseCase
 import com.stratum.application.lift.GetEquipmentDeleteImpactUseCase
 import com.stratum.domain.lift.SeedEquipmentIds
@@ -143,10 +145,17 @@ class EquipmentIncrementsViewModel @Inject constructor(
                 }
             }.collect { (liftId, pick) ->
                 pendingSwap.value = null
-                val result = setLiftEquipment(LiftId(liftId), pick.equipmentId)
-                if (result.isFailure) {
-                    validationOverride.value = result.exceptionOrNull()?.message
-                        ?: "Could not change equipment"
+                // STR-243 C4: branch on the outcome kinds; the user copy is
+                // sourced from the kind.
+                when (val result = setLiftEquipment(LiftId(liftId), pick.equipmentId)) {
+                    SetLiftEquipmentResult.Success -> Unit
+                    is SetLiftEquipmentResult.LiftNotFound ->
+                        validationOverride.value = "Lift not found"
+                    is SetLiftEquipmentResult.EquipmentDeleted ->
+                        validationOverride.value =
+                            "Equipment is deleted; pick a live equipment or clear the assignment"
+                    SetLiftEquipmentResult.PersistenceFailed ->
+                        validationOverride.value = "Could not change equipment"
                 }
             }
         }
@@ -569,13 +578,18 @@ class EquipmentIncrementsViewModel @Inject constructor(
             }
         _deleteDialog.value = null
         viewModelScope.launch {
-            val result = deleteCustomEquipment(EquipmentId(id), replacement)
-            if (result.isSuccess) {
-                deleteSucceeded.value = true
-                validationOverride.value = null
-            } else {
-                validationOverride.value = result.exceptionOrNull()?.message
-                    ?: "Could not delete equipment"
+            // STR-243 C4: branch on the outcome kinds; the user copy is sourced
+            // from the kind (NotDeletable carries the shipped refusal copy).
+            when (deleteCustomEquipment(EquipmentId(id), replacement)) {
+                DeleteCustomEquipmentResult.Success -> {
+                    deleteSucceeded.value = true
+                    validationOverride.value = null
+                }
+                is DeleteCustomEquipmentResult.NotDeletable ->
+                    validationOverride.value =
+                        "Equipment cannot be deleted (protected or missing, or a replacement is required)"
+                DeleteCustomEquipmentResult.PersistenceFailed ->
+                    validationOverride.value = "Could not delete equipment"
             }
         }
     }
@@ -854,5 +868,7 @@ private fun ForkEquipmentWithTiersResult.forkFailureMessage(): String =
         is ForkEquipmentWithTiersResult.InvalidMicro ->
             "Invalid micro increments: ${validation.errors}"
         ForkEquipmentWithTiersResult.PersistenceFailed,
-        ForkEquipmentWithTiersResult.LiftAssignmentFailed -> "Could not copy equipment"
+        is ForkEquipmentWithTiersResult.AssignmentLiftNotFound,
+        is ForkEquipmentWithTiersResult.AssignmentEquipmentDeleted,
+        ForkEquipmentWithTiersResult.AssignmentPersistenceFailed -> "Could not copy equipment"
     }
