@@ -39,6 +39,7 @@ class ImportProgramViewModel @Inject constructor(
     private val authManager: AuthManager,
     private val logAnalytics: LogAnalyticsEventUseCase,
     private val logError: LogErrorUseCase,
+    private val diagnosticDrain: DiagnosticDrain,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ImportProgramUiState())
     val uiState: StateFlow<ImportProgramUiState> = _uiState.asStateFlow()
@@ -117,6 +118,11 @@ class ImportProgramViewModel @Inject constructor(
                     }
                 }
                 else -> {
+                    // STR-237: an operational failure rides the OperationalFailed
+                    // branch as diagnostics and is drained here exactly once.
+                    if (outcome is ProgramTemplateImportOutcome.OperationalFailed) {
+                        diagnosticDrain.drain(outcome.diagnostics)
+                    }
                     // STR-256: a failed orphan rollback rides the PersistFailed branch as
                     // diagnostics and is drained here exactly once. User copy still derives
                     // from the primary message via userFacingImportError below.
@@ -187,7 +193,7 @@ internal fun userFacingImportError(outcome: ProgramTemplateImportOutcome): Strin
             sanitizedImportMessage("Import ended in non-terminal status: ${outcome.status}")
         ProgramTemplateImportOutcome.TimedOut ->
             sanitizedImportMessage("Timed out waiting for import to finish.")
-        ProgramTemplateImportOutcome.OperationalFailed -> "Import failed."
+        is ProgramTemplateImportOutcome.OperationalFailed -> "Import failed."
         is ProgramTemplateImportOutcome.Success -> "Import failed."
     }
 

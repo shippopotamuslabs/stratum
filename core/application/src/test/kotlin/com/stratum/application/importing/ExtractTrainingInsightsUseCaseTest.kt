@@ -1,6 +1,5 @@
 package com.stratum.application.importing
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
@@ -70,7 +69,6 @@ class ExtractTrainingInsightsUseCaseTest {
         trainingLogRepo.replaceImportHistory(sessions, sets)
         val insightsRepo = InMemoryLiftInsightsRepository()
         val useCase = ExtractTrainingInsightsUseCase(
-            loggingPort = FakeLoggingPort(),
             trainingLogRepository = trainingLogRepo,
             liftTrainingInsightsRepository = insightsRepo,
             supersetAffinityRepository = InMemorySupersetRepository(),
@@ -154,7 +152,6 @@ class ExtractTrainingInsightsUseCaseTest {
         val liftInsightsRepo = InMemoryLiftInsightsRepository()
         val metadataRepo = InMemoryMetadataRepository()
         val useCase = ExtractTrainingInsightsUseCase(
-            loggingPort = FakeLoggingPort(),
             trainingLogRepository = trainingLogRepo,
             liftTrainingInsightsRepository = liftInsightsRepo,
             supersetAffinityRepository = InMemorySupersetRepository(),
@@ -225,7 +222,6 @@ class ExtractTrainingInsightsUseCaseTest {
             )
         }
         val useCase = ExtractTrainingInsightsUseCase(
-            loggingPort = FakeLoggingPort(),
             trainingLogRepository = trainingLogRepo,
             liftTrainingInsightsRepository = InMemoryLiftInsightsRepository(),
             supersetAffinityRepository = InMemorySupersetRepository(),
@@ -244,13 +240,11 @@ class ExtractTrainingInsightsUseCaseTest {
     }
 
     @Test
-    fun `repository failure returns Failed and logs the throwable once at the boundary`() = runTest {
+    fun `repository failure returns Failed carrying the failure diagnostic`() = runTest {
         val failure = IllegalStateException("room down")
         val trainingLogRepo = FakeTrainingLogRepository()
         trainingLogRepo.getAllSessionsError = failure
-        val logging = FakeLoggingPort()
         val useCase = ExtractTrainingInsightsUseCase(
-            loggingPort = logging,
             trainingLogRepository = trainingLogRepo,
             liftTrainingInsightsRepository = InMemoryLiftInsightsRepository(),
             supersetAffinityRepository = InMemorySupersetRepository(),
@@ -261,11 +255,14 @@ class ExtractTrainingInsightsUseCaseTest {
 
         val outcome = useCase(scope = InsightsAnalysisScope.All)
 
-        assertEquals(ExtractTrainingInsightsOutcome.Failed, outcome)
-        assertEquals(1, logging.errors.size)
-        assertEquals("ExtractTrainingInsights", logging.errors.single().tag)
-        assertEquals("Failed to extract training insights: room down", logging.errors.single().message)
-        assertEquals(failure, logging.errors.single().throwable)
+        // STR-237: the record rides the branch as a diagnostic (legacy tag +
+        // rendered message, real throwable as cause); the boundary drains it
+        // exactly once.
+        val failed = outcome as ExtractTrainingInsightsOutcome.Failed
+        assertEquals(1, failed.diagnostics.size)
+        assertEquals("ExtractTrainingInsights", failed.diagnostics.single().tag)
+        assertEquals("Failed to extract training insights: room down", failed.diagnostics.single().message)
+        assertEquals(failure, failed.diagnostics.single().cause)
     }
 
     @Test
@@ -273,7 +270,6 @@ class ExtractTrainingInsightsUseCaseTest {
         val trainingLogRepo = FakeTrainingLogRepository()
         trainingLogRepo.getAllSessionsError = kotlinx.coroutines.CancellationException("cancelled")
         val useCase = ExtractTrainingInsightsUseCase(
-            loggingPort = FakeLoggingPort(),
             trainingLogRepository = trainingLogRepo,
             liftTrainingInsightsRepository = InMemoryLiftInsightsRepository(),
             supersetAffinityRepository = InMemorySupersetRepository(),

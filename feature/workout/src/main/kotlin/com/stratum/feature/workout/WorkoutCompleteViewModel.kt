@@ -128,6 +128,10 @@ class WorkoutCompleteViewModel @Inject constructor(
                                 }
                             logEquipmentDiagnostics(equipmentOutcome.diagnostics)
                             logRepRangeDiagnostics(repRangeOutcome.diagnostics)
+                            // STR-237: operational diagnostics propagated from
+                            // the rep-range analysis's insights extract drain
+                            // here exactly once.
+                            diagnosticDrain.drain(repRangeOutcome.operationalDiagnostics)
                             val equipmentProposals = equipmentOutcome.proposals
                             val repRangeProposals = repRangeOutcome.proposals
                             if (generation != loadGeneration) {

@@ -33,7 +33,9 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
@@ -54,7 +56,6 @@ class ImportProgramViewModelTest {
             ),
         private val throwable: Throwable? = null,
     ) : ImportProgramTemplatesUseCase(
-        loggingPort = FakeLoggingPort(),
         importPort = FakeProgramTemplateImportPort(),
         resolver =
             ResolveProgramTemplateLiftsUseCase(
@@ -97,6 +98,7 @@ class ImportProgramViewModelTest {
             auth,
             LogAnalyticsEventUseCase(FakeAnalyticsPort()),
             LogErrorUseCase(FakeLoggingPort()),
+            DiagnosticDrain(FakeLoggingPort()),
         )
         vm.onFileSelected(byteArrayOf(1), "p.json")
         advanceUntilIdle()
@@ -115,6 +117,7 @@ class ImportProgramViewModelTest {
             auth,
             LogAnalyticsEventUseCase(FakeAnalyticsPort()),
             LogErrorUseCase(FakeLoggingPort()),
+            DiagnosticDrain(FakeLoggingPort()),
         )
         vm.onFileSelected(byteArrayOf(1), "p.json")
         advanceUntilIdle()
@@ -135,6 +138,7 @@ class ImportProgramViewModelTest {
             auth,
             LogAnalyticsEventUseCase(FakeAnalyticsPort()),
             LogErrorUseCase(FakeLoggingPort()),
+            DiagnosticDrain(FakeLoggingPort()),
         )
         vm.onFileSelected(byteArrayOf(1), "p.json")
         advanceUntilIdle()
@@ -156,6 +160,7 @@ class ImportProgramViewModelTest {
             auth,
             LogAnalyticsEventUseCase(analytics),
             LogErrorUseCase(FakeLoggingPort()),
+            DiagnosticDrain(FakeLoggingPort()),
         )
         vm.onReadFilesFailed("Could not open document")
         advanceUntilIdle()
@@ -173,20 +178,38 @@ class ImportProgramViewModelTest {
     fun ieS7_009_importFailureRecordsAnalytics() = runTest {
         val auth =
             FakeAuthManager(AuthState.Authenticated(UserProfile("u1", "U", "u@e.com", null)))
+        val failure = IllegalStateException("storage down")
         val useCase =
             RecordingImportProgramTemplatesUseCase(
-                outcome = ProgramTemplateImportOutcome.OperationalFailed,
+                outcome =
+                    ProgramTemplateImportOutcome.OperationalFailed(
+                        diagnostics =
+                            listOf(
+                                OperationalDiagnostic(
+                                    tag = "ProgramTemplateImport",
+                                    message = "Program import failed: storage down",
+                                    cause = failure,
+                                ),
+                            ),
+                    ),
             )
         val analytics = FakeAnalyticsPort()
+        val drainLogging = FakeLoggingPort()
         val vm = ImportProgramViewModel(
             useCase,
             auth,
             LogAnalyticsEventUseCase(analytics),
             LogErrorUseCase(FakeLoggingPort()),
+            DiagnosticDrain(drainLogging),
         )
         vm.onFileSelected(byteArrayOf(1), "p.json")
         advanceUntilIdle()
         assertEquals(false, vm.uiState.value.isImporting)
+        // STR-237: the carried diagnostic drains exactly once at the boundary.
+        assertEquals(1, drainLogging.errors.size)
+        assertEquals("ProgramTemplateImport", drainLogging.errors.single().tag)
+        assertEquals("Program import failed: storage down", drainLogging.errors.single().message)
+        assertSame(failure, drainLogging.errors.single().throwable)
         val event = analytics.events.single()
         assertEquals(USER_VISIBLE_ERROR_EVENT, event.name)
         assertEquals("import_program", event.params[PARAM_SCREEN])
@@ -219,6 +242,7 @@ class ImportProgramViewModelTest {
                 auth,
                 LogAnalyticsEventUseCase(analytics),
                 LogErrorUseCase(logging),
+                DiagnosticDrain(FakeLoggingPort()),
             )
         vm.onFileSelected(byteArrayOf(1), "p.json")
         advanceUntilIdle()
@@ -251,6 +275,7 @@ class ImportProgramViewModelTest {
                 auth,
                 LogAnalyticsEventUseCase(analytics),
                 LogErrorUseCase(logging),
+                DiagnosticDrain(FakeLoggingPort()),
             )
         vm.onFileSelected(byteArrayOf(1), "p.json")
         advanceUntilIdle()

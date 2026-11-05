@@ -205,7 +205,6 @@ class OnboardingImportProgramViewModelTest {
         val liftRepo = FakeLiftRepository()
         val completeOnboarding = com.stratum.application.onboarding.CompleteOnboardingUseCase(onboardingRepo, profileRepo)
         val importUseCase = ImportProgramTemplateUseCase(
-            loggingPort = FakeLoggingPort(),
             importPort = importPort,
             resolver = ResolveProgramTemplateLiftsUseCase(liftRepo, FakeLiftNameResolverPort()),
             repository = programRepo,

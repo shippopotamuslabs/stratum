@@ -392,7 +392,6 @@ class UpdateCompletedSessionSetsUseCaseTest {
 
     private fun buildInsights(repo: FakeTrainingLogRepository): ExtractTrainingInsightsUseCase =
         ExtractTrainingInsightsUseCase(
-            loggingPort = FakeLoggingPort(),
             trainingLogRepository = repo,
             liftTrainingInsightsRepository = object : LiftTrainingInsightsRepository {
                 override suspend fun replaceAll(insights: List<LiftTrainingInsights>) = Unit

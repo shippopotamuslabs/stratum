@@ -938,9 +938,13 @@ class OnboardingViewModel @Inject constructor(
     }
 
     private fun setImportProgramError(outcome: ProgramTemplateImportOutcome) {
-        // OperationalFailed was already logged once at the use-case boundary
-        // (STR-243), so it has no log record here; the other branches are
-        // recorded with a constructed exception value for the record only.
+        // OperationalFailed carries its record on the branch as diagnostics
+        // (STR-237 Route (i)) and drains here exactly once, so it has no
+        // constructed log record; the other branches are recorded with a
+        // constructed exception value for the record only.
+        if (outcome is ProgramTemplateImportOutcome.OperationalFailed) {
+            diagnosticDrain.drain(outcome.diagnostics)
+        }
         OnboardingProgramFlowOps.importFailureLogThrowable(outcome)?.let { record ->
             logError(
                 OnboardingProgramFlowOps.TAG_IMPORT,

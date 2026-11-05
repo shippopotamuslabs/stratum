@@ -3,6 +3,7 @@ package com.stratum.application.training
 import com.stratum.domain.di.DefaultDispatcher
 import com.stratum.application.importing.ExtractTrainingInsightsOutcome
 import com.stratum.application.importing.ExtractTrainingInsightsUseCase
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.application.importing.InsightsAnalysisScope
 import com.stratum.domain.logging.LoggingPort
 import javax.inject.Inject
@@ -18,10 +19,12 @@ import kotlinx.coroutines.withContext
  * Stage failures are identified by kind ([InsightsFailed] /
  * [WeeklySeriesFailed]). The weekly-series stage's originating throwable is
  * logged once inside the stages (with the caller's log tag) before the branch
- * is returned; the insights stage's throwable is logged once at
- * [ExtractTrainingInsightsUseCase]'s own boundary, so neither crosses as a
- * payload. [PersistenceFailed] covers a failure of the stage runner itself.
- * Coroutine cancellation is not a branch: it propagates.
+ * is returned; the insights stage's failure rides the extract outcome as
+ * diagnostics (STR-237) and is drained exactly once here through this class's
+ * logging port — the stages are the interim boundary until chunk 1E carries
+ * them onward — so neither crosses as a payload. [PersistenceFailed] covers
+ * a failure of the stage runner itself. Coroutine cancellation is not a
+ * branch: it propagates.
  */
 sealed interface LocalDerivedTrainingStagesResult {
     data object Success : LocalDerivedTrainingStagesResult
@@ -67,7 +70,22 @@ class LocalDerivedTrainingStages @Inject constructor(
                 if (includeInsights) {
                     val insightsOutcome = extractTrainingInsights(scope = InsightsAnalysisScope.All)
                     if (insightsOutcome is ExtractTrainingInsightsOutcome.Failed) {
-                        // Already logged once at the extract use case's boundary.
+                        // STR-237: the extract failure rides the outcome as
+                        // diagnostics; drain each one exactly once here
+                        // (DiagnosticDrain semantics) before the fail policy
+                        // applies.
+                        insightsOutcome.diagnostics.forEach { diagnostic ->
+                            when (diagnostic.level) {
+                                OperationalDiagnostic.Level.ERROR ->
+                                    loggingPort.error(
+                                        diagnostic.tag,
+                                        diagnostic.message,
+                                        diagnostic.cause,
+                                    )
+                                OperationalDiagnostic.Level.WARNING ->
+                                    loggingPort.warning(diagnostic.tag, diagnostic.message)
+                            }
+                        }
                         if (failPolicy == FailPolicy.Throw) {
                             return@withContext LocalDerivedTrainingStagesResult.InsightsFailed
                         }

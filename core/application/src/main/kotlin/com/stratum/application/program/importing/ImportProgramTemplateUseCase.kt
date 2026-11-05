@@ -1,7 +1,6 @@
 package com.stratum.application.program.importing
 
 import com.stratum.domain.di.DefaultDispatcher
-import com.stratum.domain.logging.LoggingPort
 import com.stratum.application.onboarding.CompleteOnboardingUseCase
 import com.stratum.application.onboarding.UserTrainingProfileRepository
 import com.stratum.application.program.ProgramRepository
@@ -26,7 +25,6 @@ class ImportProgramTemplateUseCase @Inject constructor(
     private val completeOnboarding: CompleteOnboardingUseCase,
     private val profileRepository: UserTrainingProfileRepository,
     private val programChangeEventRepository: ProgramChangeEventRepository,
-    private val loggingPort: LoggingPort,
     @DefaultDispatcher private val importDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) {
     private val core =
@@ -37,7 +35,6 @@ class ImportProgramTemplateUseCase @Inject constructor(
             completeOnboarding = completeOnboarding,
             profileRepository = profileRepository,
             programChangeEventRepository = programChangeEventRepository,
-            loggingPort = loggingPort,
             importDispatcher = importDispatcher,
         )
 

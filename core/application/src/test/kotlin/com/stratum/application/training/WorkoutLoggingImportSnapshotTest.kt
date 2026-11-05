@@ -111,7 +111,6 @@ class WorkoutLoggingImportSnapshotTest {
                 experimentRegistry = EmptyExperimentRegistry(),
             )
         return PersistImportedHistoryUseCase(
-            loggingPort = FakeLoggingPort(),
             trainingLogRepository = trainingLogRepo,
             resolveImportLifts =
                 ResolveImportLiftsUseCase(
@@ -123,7 +122,6 @@ class WorkoutLoggingImportSnapshotTest {
                 ),
             extractTrainingInsights =
                 ExtractTrainingInsightsUseCase(
-                    loggingPort = FakeLoggingPort(),
                     trainingLogRepository = trainingLogRepo,
                     liftTrainingInsightsRepository = insightsRepo,
                     supersetAffinityRepository = InMemorySupersetRepository(),

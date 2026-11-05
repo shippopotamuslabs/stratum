@@ -47,7 +47,6 @@ import com.stratum.domain.importing.ResolveImportLiftsSummary
 import com.stratum.domain.importing.TrainingInsightsExtractor
 import com.stratum.domain.importing.UnmatchedExerciseSample
 import com.stratum.application.importing.failActiveImportJobs
-import com.stratum.domain.logging.LoggingPort
 import com.stratum.application.training.ComputePersonalRecordsUseCase
 import com.stratum.application.training.FinalizeTrainingSessionUseCase
 import com.stratum.domain.lift.residual
@@ -72,14 +71,15 @@ enum class InsightsAnalysisScope {
 /**
  * Outcome of [ExtractTrainingInsightsUseCase] (STR-243): the extracted
  * [ExtractTrainingInsightsSummary], or [Failed] when the extraction failed
- * operationally (repository reads/writes, analysis). The originating throwable
- * is logged once at the use-case boundary, so it never crosses as a payload.
+ * operationally (repository reads/writes, analysis). [Failed] carries the
+ * failure as diagnostics (STR-237 Route (i): legacy tag + rendered message,
+ * real throwable as cause) for the boundary to drain exactly once.
  * Coroutine cancellation is not a branch: it propagates.
  */
 sealed interface ExtractTrainingInsightsOutcome {
     data class Extracted(val summary: ExtractTrainingInsightsSummary) : ExtractTrainingInsightsOutcome
 
-    data object Failed : ExtractTrainingInsightsOutcome
+    data class Failed(val diagnostics: List<OperationalDiagnostic>) : ExtractTrainingInsightsOutcome
 }
 
 class ExtractTrainingInsightsUseCase @Inject constructor(
@@ -89,7 +89,6 @@ class ExtractTrainingInsightsUseCase @Inject constructor(
     private val muscleVolumeBaselineRepository: MuscleVolumeBaselineRepository,
     private val importAnalysisMetadataRepository: ImportAnalysisMetadataRepository,
     private val liftRepository: LiftRepository,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(
         provenLiftIds: Set<LiftId> = emptySet(),
@@ -100,8 +99,16 @@ class ExtractTrainingInsightsUseCase @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Throwable) {
-            loggingPort.error(TAG, "Failed to extract training insights: ${error.message}", error)
-            ExtractTrainingInsightsOutcome.Failed
+            ExtractTrainingInsightsOutcome.Failed(
+                diagnostics =
+                    listOf(
+                        OperationalDiagnostic(
+                            tag = TAG,
+                            message = "Failed to extract training insights: ${error.message}",
+                            cause = error,
+                        ),
+                    ),
+            )
         }
     }
 
@@ -711,19 +718,19 @@ class ResolveImportLiftsUseCase @Inject constructor(
 
 /**
  * Outcome of [StartHistoricalImportUseCase] (STR-243): the freshly allocated
- * [ImportJob], or [Failed] when the job repository failed operationally. The
- * originating throwable is logged once at the use-case boundary, so it never
- * crosses as a payload. Coroutine cancellation is not a branch: it propagates.
+ * [ImportJob], or [Failed] when the job repository failed operationally.
+ * [Failed] carries the failure as diagnostics (STR-237 Route (i): legacy tag
+ * + rendered message, real throwable as cause) for the boundary to drain
+ * exactly once. Coroutine cancellation is not a branch: it propagates.
  */
 sealed interface StartHistoricalImportOutcome {
     data class Started(val job: ImportJob) : StartHistoricalImportOutcome
 
-    data object Failed : StartHistoricalImportOutcome
+    data class Failed(val diagnostics: List<OperationalDiagnostic>) : StartHistoricalImportOutcome
 }
 
 class StartHistoricalImportUseCase @Inject constructor(
     private val importJobRepository: ImportJobRepository,
-    private val loggingPort: LoggingPort,
 ) {
     /**
      * Always allocates a fresh local job. Any non-terminal local job (left behind by cancel/stop
@@ -741,8 +748,16 @@ class StartHistoricalImportUseCase @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Throwable) {
-            loggingPort.error(TAG, "Failed to start historical import: ${error.message}", error)
-            StartHistoricalImportOutcome.Failed
+            StartHistoricalImportOutcome.Failed(
+                diagnostics =
+                    listOf(
+                        OperationalDiagnostic(
+                            tag = TAG,
+                            message = "Failed to start historical import: ${error.message}",
+                            cause = error,
+                        ),
+                    ),
+            )
         }
     }
 
@@ -757,12 +772,12 @@ class StartHistoricalImportUseCase @Inject constructor(
  * the enumerated input refusals (formerly `require` failures). [Failed] covers
  * operational failure of the persist itself or of a downstream extract, and
  * any rows appended before the failure are unwound exactly as before.
- * STR-237 Route (i): a downstream response-extract failure's diagnostics ride
- * this branch through to the import runner, which drains them exactly once;
- * the other failure paths still record at their own boundaries (this use
- * case's envelope, the insights extract) and carry an empty list until their
- * own chunk converts them. Coroutine cancellation is not a branch: it
- * propagates.
+ * STR-237 Route (i): every failure path's diagnostics ride this branch
+ * through to the import runner, which drains them exactly once — the
+ * response-extract diagnostics (chunk 1B), this use case's own envelope
+ * failure, and a downstream insights-extract failure's diagnostics
+ * propagated from the extract outcome (chunk 1D). Coroutine cancellation is
+ * not a branch: it propagates.
  */
 sealed interface PersistImportedHistoryOutcome {
     data class Persisted(val summary: ExtractTrainingInsightsSummary) : PersistImportedHistoryOutcome
@@ -785,7 +800,6 @@ class PersistImportedHistoryUseCase @Inject constructor(
     private val liftRepository: LiftRepository,
     private val loggedLiftContextFactory: com.stratum.domain.training.LoggedLiftContextFactory? = null,
     private val computePersonalRecords: com.stratum.application.training.ComputePersonalRecordsUseCase,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(
         sessions: List<TrainingSession>,
@@ -812,8 +826,16 @@ class PersistImportedHistoryUseCase @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Throwable) {
-            loggingPort.error(TAG, "Failed to persist imported history: ${error.message}", error)
-            PersistImportedHistoryOutcome.Failed(emptyList())
+            PersistImportedHistoryOutcome.Failed(
+                diagnostics =
+                    listOf(
+                        OperationalDiagnostic(
+                            tag = TAG,
+                            message = "Failed to persist imported history: ${error.message}",
+                            cause = error,
+                        ),
+                    ),
+            )
         }
     }
 
@@ -871,7 +893,8 @@ class PersistImportedHistoryUseCase @Inject constructor(
             return when (val insights = extractTrainingInsights()) {
                 is ExtractTrainingInsightsOutcome.Extracted ->
                     PersistImportedHistoryOutcome.Persisted(insights.summary.copy(mergeStats = mergeStats))
-                ExtractTrainingInsightsOutcome.Failed -> PersistImportedHistoryOutcome.Failed(emptyList())
+                is ExtractTrainingInsightsOutcome.Failed ->
+                    PersistImportedHistoryOutcome.Failed(insights.diagnostics)
             }
         }
         val outcome = resolveImportLifts(filtered.sets, onProgress = onProgress)
@@ -936,9 +959,9 @@ class PersistImportedHistoryUseCase @Inject constructor(
                         liftResolution = outcome.summary,
                         mergeStats = mergeStats,
                     )
-                ExtractTrainingInsightsOutcome.Failed -> {
+                is ExtractTrainingInsightsOutcome.Failed -> {
                     unwindMergeAppend(appendedSessions, appendedSets, restorePrSets)
-                    return PersistImportedHistoryOutcome.Failed(emptyList())
+                    return PersistImportedHistoryOutcome.Failed(insightsOutcome.diagnostics)
                 }
             }
         val responseOutcome =
@@ -1038,9 +1061,9 @@ class PersistImportedHistoryUseCase @Inject constructor(
             when (insightsOutcome) {
                 is ExtractTrainingInsightsOutcome.Extracted ->
                     insightsOutcome.summary.copy(liftResolution = outcome.summary)
-                ExtractTrainingInsightsOutcome.Failed -> {
+                is ExtractTrainingInsightsOutcome.Failed -> {
                     trainingLogRepository.replaceImportHistory(emptyList(), emptyList())
-                    return PersistImportedHistoryOutcome.Failed(emptyList())
+                    return PersistImportedHistoryOutcome.Failed(insightsOutcome.diagnostics)
                 }
             }
         val responseOutcome =

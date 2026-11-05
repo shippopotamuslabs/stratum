@@ -1,5 +1,7 @@
 package com.stratum.application.workout
 
+import com.stratum.application.diagnostics.OperationalDiagnostic
+import com.stratum.application.importing.ExtractTrainingInsightsOutcome
 import com.stratum.application.importing.ExtractTrainingInsightsUseCase
 import com.stratum.application.importing.InsightsAnalysisScope
 import com.stratum.domain.importing.LiftTrainingInsights
@@ -58,9 +60,17 @@ class AnalyzeSessionRepRangeShiftProposalsUseCase @Inject constructor(
      * [AnalyzeSessionRepRangeShiftProposalsOutcome.diagnostics] exactly once.
      * Cancellation propagates.
      */
-    suspend operator fun invoke(sessionId: TrainingSessionId): AnalyzeSessionRepRangeShiftProposalsOutcome =
-        try {
-            AnalyzeSessionRepRangeShiftProposalsOutcome(proposals = analyze(sessionId))
+    suspend operator fun invoke(sessionId: TrainingSessionId): AnalyzeSessionRepRangeShiftProposalsOutcome {
+        // STR-237 chunk 1D: the insights extract's failure diagnostics are
+        // captured here and propagated on the outcome (the extract outcome
+        // was previously ignored, its record living at the extract's own
+        // boundary; the record now rides to this outcome's boundary drain).
+        var extractDiagnostics: List<OperationalDiagnostic> = emptyList()
+        return try {
+            AnalyzeSessionRepRangeShiftProposalsOutcome(
+                proposals = analyze(sessionId) { diagnostics -> extractDiagnostics = diagnostics },
+                operationalDiagnostics = extractDiagnostics,
+            )
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Throwable) {
@@ -72,10 +82,15 @@ class AnalyzeSessionRepRangeShiftProposalsUseCase @Inject constructor(
                             cause = error,
                         ),
                     ),
+                operationalDiagnostics = extractDiagnostics,
             )
         }
+    }
 
-    private suspend fun analyze(sessionId: TrainingSessionId): List<RepRangeShiftProposal> {
+    private suspend fun analyze(
+        sessionId: TrainingSessionId,
+        onExtractDiagnostics: (List<OperationalDiagnostic>) -> Unit,
+    ): List<RepRangeShiftProposal> {
         if (!preferences.isEnabled()) {
             return emptyList()
         }
@@ -88,7 +103,10 @@ class AnalyzeSessionRepRangeShiftProposalsUseCase @Inject constructor(
         checkNotNull(program)
 
         // Await rollup so this session contributes to slopes (finalize only fires-and-forgets).
-        extractTrainingInsights(scope = InsightsAnalysisScope.All)
+        val insightsOutcome = extractTrainingInsights(scope = InsightsAnalysisScope.All)
+        if (insightsOutcome is ExtractTrainingInsightsOutcome.Failed) {
+            onExtractDiagnostics(insightsOutcome.diagnostics)
+        }
 
         val sets = trainingLogRepository.getSetsForSession(sessionId)
         val byWorkoutLift = setsWithWorkoutLiftId(sets)

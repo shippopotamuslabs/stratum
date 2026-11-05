@@ -338,7 +338,6 @@ class FinalizeTrainingSessionUseCaseTest {
         )
         repo.seedSession(WorkoutLoggingFixtures.inProgressSession(id = "ts-live-1"))
         val failingUseCase = ExtractTrainingInsightsUseCase(
-            loggingPort = FakeLoggingPort(),
             trainingLogRepository = repo,
             liftTrainingInsightsRepository = NoopLiftInsightsRepository(),
             supersetAffinityRepository = NoopSupersetRepository(),
@@ -465,7 +464,6 @@ class FinalizeTrainingSessionUseCaseTest {
         val liftInsightsRepo = RecordingLiftInsightsRepository()
         val metadataRepo = RecordingMetadataRepository()
         val useCase = ExtractTrainingInsightsUseCase(
-            loggingPort = FakeLoggingPort(),
             trainingLogRepository = repo,
             liftTrainingInsightsRepository = liftInsightsRepo,
             supersetAffinityRepository = NoopSupersetRepository(),
