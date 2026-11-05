@@ -688,10 +688,12 @@ class OnboardingViewModel @Inject constructor(
                     }
                 }
                 AdvanceOnboardingStepResult.NoOp -> Unit
-                AdvanceOnboardingStepResult.PersistenceFailed ->
+                is AdvanceOnboardingStepResult.PersistenceFailed -> {
+                    diagnosticDrain.drain(result.diagnostics)
                     ephemeral.update {
                         it.copy(navigationError = OnboardingProgramFlowOps.MSG_NAVIGATION_FAILED)
                     }
+                }
             }
         }
     }
@@ -723,10 +725,12 @@ class OnboardingViewModel @Inject constructor(
                         maybePrefillMinimumVolumeFromImport()
                     }
                 }
-                AdvanceOnboardingStepResult.PersistenceFailed ->
+                is AdvanceOnboardingStepResult.PersistenceFailed -> {
+                    diagnosticDrain.drain(result.diagnostics)
                     ephemeral.update {
                         it.copy(navigationError = OnboardingProgramFlowOps.MSG_NAVIGATION_FAILED)
                     }
+                }
                 else -> Unit
             }
         }
@@ -757,10 +761,12 @@ class OnboardingViewModel @Inject constructor(
                     clearImportProgramProgress()
                     ephemeral.update { it.copy(navigationError = null) }
                 }
-                AdvanceOnboardingStepResult.PersistenceFailed ->
+                is AdvanceOnboardingStepResult.PersistenceFailed -> {
+                    diagnosticDrain.drain(result.diagnostics)
                     ephemeral.update {
                         it.copy(navigationError = OnboardingProgramFlowOps.MSG_NAVIGATION_FAILED)
                     }
+                }
                 else -> Unit
             }
         }

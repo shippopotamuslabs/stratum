@@ -171,8 +171,7 @@ class ImportExportOnboardingRegressionTest {
                     updateSpecialization =
                         UpdateSpecializationUseCase(FakeSpecializationPreferenceRepository()),
                     saveOnboardingProgress = SaveOnboardingProgressUseCase(onboardingRepo),
-                    loggingPort = FakeLoggingPort(),
-                ),
+                    ),
             getOnboardingStepCapabilities = GetOnboardingStepCapabilitiesUseCase(validateCurrentStep),
             applyGymPreset = ApplyGymPresetUseCase(liftRepo),
             setSelectedPreset = SetSelectedPresetUseCase(liftRepo),

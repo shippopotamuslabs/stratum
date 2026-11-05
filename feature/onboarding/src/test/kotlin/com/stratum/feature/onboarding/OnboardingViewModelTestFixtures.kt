@@ -178,7 +178,6 @@ internal object OnboardingViewModelTestFixtures {
                 updateUserTrainingProfile = UpdateUserTrainingProfileUseCase(fakeProfileRepository),
                 updateSpecialization = UpdateSpecializationUseCase(fakeSpecializationRepository),
                 saveOnboardingProgress = SaveOnboardingProgressUseCase(fakeRepository),
-                loggingPort = FakeLoggingPort(),
             ),
             getOnboardingStepCapabilities = GetOnboardingStepCapabilitiesUseCase(validateCurrentStep),
             applyGymPreset = ApplyGymPresetUseCase(fakeLiftRepository),

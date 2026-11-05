@@ -1,6 +1,5 @@
 package com.stratum.application.onboarding
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeOnboardingRepository
 import com.stratum.core.testing.onboarding.FakeSpecializationPreferenceRepository
 import com.stratum.core.testing.onboarding.FakeUserTrainingProfileRepository
@@ -9,6 +8,7 @@ import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.identity.LiftId
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
@@ -51,20 +51,18 @@ class AdvanceOnboardingStepUseCaseTest {
             updateUserTrainingProfile = UpdateUserTrainingProfileUseCase(fakeProfile),
             updateSpecialization = UpdateSpecializationUseCase(fakeSpecialization),
             saveOnboardingProgress = SaveOnboardingProgressUseCase(fakeOnboarding),
-            loggingPort = FakeLoggingPort(),
         )
     }
 
     @Test
-    @DisplayName("Given a failing profile write when advancing then PersistenceFailed and one legacy error log (STR-243 rider)")
-    fun forwardPersistenceFailedLogsOnce() = runTest {
+    @DisplayName("Given a failing profile write when advancing then PersistenceFailed carrying the failure diagnostic")
+    fun forwardPersistenceFailedCarriesDiagnostic() = runTest {
         val failure = IllegalStateException("room down")
         val throwingProfileRepo = object : UserTrainingProfileRepository by fakeProfile {
             override suspend fun saveProfile(profile: UserTrainingProfile) {
                 throw failure
             }
         }
-        val logging = FakeLoggingPort()
         val failingSubject = AdvanceOnboardingStepUseCase(
             validateCurrentStep = ValidateCurrentOnboardingStepUseCase(
                 validateProfileStep = ValidateProfileStepUseCase(),
@@ -76,7 +74,6 @@ class AdvanceOnboardingStepUseCaseTest {
             updateUserTrainingProfile = UpdateUserTrainingProfileUseCase(throwingProfileRepo),
             updateSpecialization = UpdateSpecializationUseCase(fakeSpecialization),
             saveOnboardingProgress = SaveOnboardingProgressUseCase(fakeOnboarding),
-            loggingPort = logging,
         )
         val profile = UserTrainingProfile(
             trainingAge = TrainingAge.Intermediate,
@@ -92,11 +89,14 @@ class AdvanceOnboardingStepUseCaseTest {
             selectedPreset = null,
         )
 
-        assertEquals(AdvanceOnboardingStepResult.PersistenceFailed, result)
-        assertEquals(1, logging.errors.size)
-        assertEquals("AdvanceOnboardingStep", logging.errors.single().tag)
-        assertEquals("Failed to advance onboarding step: room down", logging.errors.single().message)
-        assertEquals(failure, logging.errors.single().throwable)
+        // STR-237: the record rides the branch as a diagnostic (legacy tag +
+        // rendered message, real throwable as cause); the boundary drains it
+        // exactly once.
+        val failed = result as AdvanceOnboardingStepResult.PersistenceFailed
+        assertEquals(1, failed.diagnostics.size)
+        assertEquals("AdvanceOnboardingStep", failed.diagnostics.single().tag)
+        assertEquals("Failed to advance onboarding step: room down", failed.diagnostics.single().message)
+        assertSame(failure, failed.diagnostics.single().cause)
         assertEquals(OnboardingStep.Profile, fakeOnboarding.current.currentStep)
     }
 
@@ -108,7 +108,6 @@ class AdvanceOnboardingStepUseCaseTest {
                 throw kotlinx.coroutines.CancellationException("cancelled")
             }
         }
-        val logging = FakeLoggingPort()
         val cancellingSubject = AdvanceOnboardingStepUseCase(
             validateCurrentStep = ValidateCurrentOnboardingStepUseCase(
                 validateProfileStep = ValidateProfileStepUseCase(),
@@ -120,7 +119,6 @@ class AdvanceOnboardingStepUseCaseTest {
             updateUserTrainingProfile = UpdateUserTrainingProfileUseCase(cancellingProfileRepo),
             updateSpecialization = UpdateSpecializationUseCase(fakeSpecialization),
             saveOnboardingProgress = SaveOnboardingProgressUseCase(fakeOnboarding),
-            loggingPort = logging,
         )
         val profile = UserTrainingProfile(
             trainingAge = TrainingAge.Intermediate,
@@ -142,7 +140,6 @@ class AdvanceOnboardingStepUseCaseTest {
         }
 
         assertEquals("cancelled", thrown?.message)
-        assertTrue(logging.errors.isEmpty())
     }
 
     @Test

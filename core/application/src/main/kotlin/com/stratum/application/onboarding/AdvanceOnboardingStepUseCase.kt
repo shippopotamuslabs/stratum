@@ -1,8 +1,8 @@
 package com.stratum.application.onboarding
 
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.Lift
-import com.stratum.domain.logging.LoggingPort
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import com.stratum.domain.onboarding.OnboardingPath
@@ -24,8 +24,15 @@ sealed interface AdvanceOnboardingStepResult {
     data object ValidationFailed : AdvanceOnboardingStepResult
     data object NoOp : AdvanceOnboardingStepResult
 
-    /** Profile / specialization / progress I/O failed after validation passed. */
-    data object PersistenceFailed : AdvanceOnboardingStepResult
+    /**
+     * Profile / specialization / progress I/O failed after validation passed.
+     * Carries the failure as diagnostics (STR-237 Route (i): legacy tag +
+     * rendered message, real throwable as cause) for the boundary to drain
+     * exactly once.
+     */
+    data class PersistenceFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : AdvanceOnboardingStepResult
 }
 
 /**
@@ -42,7 +49,6 @@ class AdvanceOnboardingStepUseCase @Inject constructor(
     private val updateUserTrainingProfile: UpdateUserTrainingProfileUseCase,
     private val updateSpecialization: UpdateSpecializationUseCase,
     private val saveOnboardingProgress: SaveOnboardingProgressUseCase,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(
         currentStep: OnboardingStep,
@@ -131,8 +137,8 @@ class AdvanceOnboardingStepUseCase @Inject constructor(
         // Boundary try/catch (STR-243 rider): replaces the internal
         // runCatchingLogged call so this file leaves the NoRawThrowableFailure
         // legacy list. Behaviour is identical — cancellation propagates, any
-        // other failure is logged once with the legacy tag/message and maps to
-        // PersistenceFailed.
+        // other failure maps to PersistenceFailed carrying the legacy
+        // tag/message record as a diagnostic (STR-237 Route (i)).
         try {
             updateUserTrainingProfile(profileToSave)
             updateSpecialization(specializationToSave)
@@ -140,8 +146,16 @@ class AdvanceOnboardingStepUseCase @Inject constructor(
         } catch (error: CancellationException) {
             throw error
         } catch (error: Throwable) {
-            loggingPort.error(TAG, "Failed to advance onboarding step: ${error.message}", error)
-            return AdvanceOnboardingStepResult.PersistenceFailed
+            return AdvanceOnboardingStepResult.PersistenceFailed(
+                diagnostics =
+                    listOf(
+                        OperationalDiagnostic(
+                            tag = TAG,
+                            message = "Failed to advance onboarding step: ${error.message}",
+                            cause = error,
+                        ),
+                    ),
+            )
         }
         return AdvanceOnboardingStepResult.Success(targetStep)
     }

@@ -234,7 +234,6 @@ class OnboardingGenerateViewModelTest {
                     com.stratum.core.testing.onboarding.FakeSpecializationPreferenceRepository(),
                 ),
                 saveOnboardingProgress = com.stratum.application.onboarding.SaveOnboardingProgressUseCase(onboardingRepo),
-                loggingPort = com.stratum.core.testing.logging.FakeLoggingPort(),
             ),
             getOnboardingStepCapabilities = com.stratum.application.onboarding.GetOnboardingStepCapabilitiesUseCase(
                 validateCurrentStep,
