@@ -21,6 +21,7 @@ import com.stratum.domain.workout.ApplyRepRangeShiftResult
 import com.stratum.domain.workout.RepRangeShiftInput
 import com.stratum.domain.workout.evaluateRepRangeShift
 import com.stratum.domain.program.Program
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * Applies a post-workout rep-range shift to a single [WorkoutLift] in the active program.
@@ -66,9 +67,11 @@ class ApplyRepRangeShiftUseCase @Inject constructor(
                     setCount = setCount,
                 )
             }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (t: Throwable) {
             loggingPort.error(TAG, "Failed to apply rep-range shift for ${workoutLiftId.value}", t)
-            ApplyRepRangeShiftResult.Failure(t)
+            ApplyRepRangeShiftResult.PersistenceFailed
         }
     }
 

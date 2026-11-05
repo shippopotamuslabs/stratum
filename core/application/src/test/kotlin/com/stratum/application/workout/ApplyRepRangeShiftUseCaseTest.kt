@@ -203,6 +203,46 @@ class ApplyRepRangeShiftUseCaseTest {
             isTopSet = isTopSet,
         )
 
+    @Test
+    @DisplayName("Persistence failure on save returns PersistenceFailed branch (STR-243)")
+    fun persistenceFailureReturnsPersistenceFailed() = runTest {
+        val program =
+            programWithLift(
+                WorkoutLift(
+                    id = wlId,
+                    workoutId = WorkoutLoggingFixtures.workoutAId,
+                    liftId = WorkoutLoggingFixtures.liftBenchId,
+                    progressionScheme = ProgressionScheme.Double,
+                    position = 0,
+                    sets =
+                        listOf(
+                            set(0, repMin = 8, repMax = 10, isTopSet = true),
+                            set(1, repMin = 0, repMax = 0, isTopSet = false),
+                            set(2, repMin = 0, repMax = 0, isTopSet = false),
+                            set(3, repMin = 0, repMax = 0, isTopSet = false),
+                        ),
+                ),
+            )
+        val useCase =
+            ApplyRepRangeShiftUseCase(
+                FakeProgramRepository(program, failOnSave = true),
+                FakeProgramChangeEventRepository(),
+                FakeLoggingPort(),
+            )
+
+        val result =
+            useCase(
+                workoutLiftId = wlId,
+                expectedCurrentRepMin = 8,
+                expectedCurrentRepMax = 10,
+                proposedRepMin = 14,
+                proposedRepMax = 16,
+                fatigueSlope = -3.0,
+                setCount = 4,
+            )
+        assertEquals(ApplyRepRangeShiftResult.PersistenceFailed, result)
+    }
+
     private fun programWithLift(lift: WorkoutLift) =
         WorkoutLoggingFixtures.twoWorkoutProgram(
             workouts =
