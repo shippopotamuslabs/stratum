@@ -88,8 +88,11 @@ class ForkEquipmentWithTiersUseCaseTest {
         val result =
             subject(cableId, "Cables (copy)", editedTiers, LiftId("lat-pulldown"))
 
-        assertTrue(result.isSuccess)
-        val copy = equipmentRepo.getEquipment(result.getOrThrow())!!
+        assertTrue(result is ForkEquipmentWithTiersResult.Success)
+        val copy =
+            equipmentRepo.getEquipment(
+                (result as ForkEquipmentWithTiersResult.Success).equipmentId,
+            )!!
         assertEquals("Cables (copy)", copy.name)
         assertEquals(editedTiers, copy.incrementTiers)
         assertEquals(storedTiers, equipmentRepo.getEquipment(cableId)?.incrementTiers)
@@ -108,8 +111,13 @@ class ForkEquipmentWithTiersUseCaseTest {
 
         val result = subject(cableId, "Cables (copy)", editedTiers, micro = micro)
 
-        assertTrue(result.isSuccess)
-        assertEquals(micro, equipmentRepo.getEquipment(result.getOrThrow())?.microIncrements)
+        assertTrue(result is ForkEquipmentWithTiersResult.Success)
+        assertEquals(
+            micro,
+            equipmentRepo.getEquipment(
+                (result as ForkEquipmentWithTiersResult.Success).equipmentId,
+            )?.microIncrements,
+        )
     }
 
     @Test
@@ -130,8 +138,11 @@ class ForkEquipmentWithTiersUseCaseTest {
 
         val result = subject(cableId, "Cables (copy)", editedTiers)
 
-        assertTrue(result.isSuccess)
-        val copy = equipmentRepo.getEquipment(result.getOrThrow())!!
+        assertTrue(result is ForkEquipmentWithTiersResult.Success)
+        val copy =
+            equipmentRepo.getEquipment(
+                (result as ForkEquipmentWithTiersResult.Success).equipmentId,
+            )!!
         assertEquals(editedTiers, copy.incrementTiers)
         assertEquals(stops, copy.microIncrements)
         assertEquals(stops, equipmentRepo.getEquipment(cableId)?.microIncrements)
@@ -155,8 +166,11 @@ class ForkEquipmentWithTiersUseCaseTest {
         val result =
             subject(cableId, "Cables (copy)", editedTiers, micro = listOf(Weight(5.0, lb)))
 
-        assertTrue(result.isSuccess)
-        val copy = equipmentRepo.getEquipment(result.getOrThrow())!!
+        assertTrue(result is ForkEquipmentWithTiersResult.Success)
+        val copy =
+            equipmentRepo.getEquipment(
+                (result as ForkEquipmentWithTiersResult.Success).equipmentId,
+            )!!
         assertEquals(listOf(Weight(5.0, lb)), copy.microIncrements)
         assertEquals(
             listOf(Weight(2.5, lb)),
@@ -174,8 +188,11 @@ class ForkEquipmentWithTiersUseCaseTest {
         val result =
             subject(cableId, "Cables (copy)", editedTiers, micro = listOf(Weight(7.5, lb)))
 
-        assertTrue(result.isSuccess)
-        val copy = equipmentRepo.getEquipment(result.getOrThrow())!!
+        assertTrue(result is ForkEquipmentWithTiersResult.Success)
+        val copy =
+            equipmentRepo.getEquipment(
+                (result as ForkEquipmentWithTiersResult.Success).equipmentId,
+            )!!
         assertEquals(editedTiers, copy.incrementTiers)
         assertEquals(listOf(Weight(7.5, lb)), copy.microIncrements)
     }
@@ -187,8 +204,20 @@ class ForkEquipmentWithTiersUseCaseTest {
 
         val result = subject(EquipmentId("missing"), "Ghost (copy)", editedTiers)
 
-        assertTrue(result.isFailure)
+        assertEquals(
+            ForkEquipmentWithTiersResult.EquipmentNotFound(EquipmentId("missing")),
+            result,
+        )
         assertEquals(before, equipmentRepo.current.size)
+    }
+
+    @Test
+    @DisplayName("Given a missing lift when invoked then LiftAssignmentFailed (STR-243 interim branch)")
+    fun forkWithTiersFailsOnMissingLift() = runTest {
+        val result =
+            subject(cableId, "Cables (copy)", editedTiers, LiftId("missing-lift"))
+
+        assertEquals(ForkEquipmentWithTiersResult.LiftAssignmentFailed, result)
     }
 
     @Test
@@ -196,10 +225,12 @@ class ForkEquipmentWithTiersUseCaseTest {
     fun forksWithoutReassign() = runTest {
         val result = subject(cableId, "Cables (copy)", editedTiers)
 
-        assertTrue(result.isSuccess)
+        assertTrue(result is ForkEquipmentWithTiersResult.Success)
         assertEquals(
             editedTiers,
-            equipmentRepo.getEquipment(result.getOrThrow())?.incrementTiers,
+            equipmentRepo.getEquipment(
+                (result as ForkEquipmentWithTiersResult.Success).equipmentId,
+            )?.incrementTiers,
         )
         assertEquals(
             cableId,

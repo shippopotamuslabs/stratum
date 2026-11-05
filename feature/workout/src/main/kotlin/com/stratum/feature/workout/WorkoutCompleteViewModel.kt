@@ -11,6 +11,7 @@ import com.stratum.application.healthconnect.ObserveHealthConnectSyncErrorsUseCa
 import com.stratum.domain.healthconnect.HealthFailureKind
 import com.stratum.application.lift.AnalyzeSessionEquipmentProposalsUseCase
 import com.stratum.application.lift.ApplyEquipmentIncrementProposalUseCase
+import com.stratum.application.lift.ApplyEquipmentIncrementResult
 import com.stratum.application.lift.EquipmentProposalDiagnostic
 import com.stratum.domain.lift.EquipmentIncrementRemedy
 import com.stratum.application.lift.EquipmentProposalPreferences
@@ -342,9 +343,12 @@ class WorkoutCompleteViewModel @Inject constructor(
         viewModelScope.launch {
             var settled = false
             try {
-                val result = applyEquipmentIncrementProposal(remedy)
-                result
-                    .onSuccess { outcome ->
+                // STR-243 C3: branch on the outcome type — the Amended/Forked
+                // branches are success; every failure branch gets the same
+                // user copy as the old onFailure path.
+                when (val outcome = applyEquipmentIncrementProposal(remedy)) {
+                    is ApplyEquipmentIncrementResult.Amended,
+                    is ApplyEquipmentIncrementResult.Forked -> {
                         settled = true
                         enqueueUserMessage(
                             EquipmentProposalUiMapper.successMessage(outcome, remedy),
@@ -357,7 +361,10 @@ class WorkoutCompleteViewModel @Inject constructor(
                         )
                         publishNextUserMessage()
                     }
-                    .onFailure {
+                    is ApplyEquipmentIncrementResult.InvalidName,
+                    is ApplyEquipmentIncrementResult.InvalidTiers,
+                    is ApplyEquipmentIncrementResult.EquipmentNotFound,
+                    ApplyEquipmentIncrementResult.PersistenceFailed -> {
                         settled = true
                         enqueueUserMessage(EquipmentProposalUiMapper.MSG_APPLY_FAILED)
                         applyEquipmentSnapshot(
@@ -368,6 +375,7 @@ class WorkoutCompleteViewModel @Inject constructor(
                         )
                         publishNextUserMessage()
                     }
+                }
             } finally {
                 if (!settled) {
                     applyEquipmentSnapshot(equipmentSession.releaseApply(proposalId))

@@ -19,13 +19,24 @@ class AddCustomLiftUseCase @Inject constructor(
 ) {
     suspend operator fun invoke(definition: CustomLiftDefinition): Result<LiftId> {
         // Name rule and field rules are owned once on the domain side (STR-169).
-        val name = CatalogNames.liftNameResult(definition.name).getOrElse { return Result.failure(it) }
-        CustomLiftFieldRules.validateMovementPatterns(definition.movementPatterns)
-            .onFailure { return Result.failure(it) }
-        CustomLiftFieldRules.validatePrimaryMuscles(definition.primaryMuscles)
-            .onFailure { return Result.failure(it) }
-        CustomLiftFieldRules.validateDefaultRestSeconds(definition.defaultRestSeconds)
-            .onFailure { return Result.failure(it) }
+        // STR-243 C3 minimal caller touch (this file converts in C4): the name and
+        // field rules now return typed validations; map an Invalid back onto this
+        // use case's Result failure with the same message, as before.
+        val name =
+            when (val nameResult = CatalogNames.validateLiftName(definition.name)) {
+                is CatalogNames.Validation.Valid -> nameResult.name
+                is CatalogNames.Validation.Invalid ->
+                    return Result.failure(IllegalArgumentException(nameResult.message))
+            }
+        (CustomLiftFieldRules.validateMovementPatterns(definition.movementPatterns)
+            as? CustomLiftFieldValidation.Invalid)
+            ?.let { return Result.failure(IllegalArgumentException(it.message)) }
+        (CustomLiftFieldRules.validatePrimaryMuscles(definition.primaryMuscles)
+            as? CustomLiftFieldValidation.Invalid)
+            ?.let { return Result.failure(IllegalArgumentException(it.message)) }
+        (CustomLiftFieldRules.validateDefaultRestSeconds(definition.defaultRestSeconds)
+            as? CustomLiftFieldValidation.Invalid)
+            ?.let { return Result.failure(IllegalArgumentException(it.message)) }
         val equipmentName = CatalogNames.normalizedEquipmentNameOrNull(definition.equipmentName)
         val secondary =
             CustomLiftFieldRules.distinctSecondaryMuscles(

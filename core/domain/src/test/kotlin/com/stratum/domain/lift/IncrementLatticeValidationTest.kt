@@ -318,28 +318,43 @@ class IncrementLatticeValidationTest {
     @DisplayName("canonical construction surfaces")
     inner class ConstructionSurfaces {
         @Test
-        @DisplayName("Given valid tiers when resultOf is used then success carries the lattice")
-        fun resultOfSuccess() {
+        @DisplayName("Given valid tiers and micro when validated then both results are Valid (STR-243)")
+        fun validationSurfacesValid() {
             val tiers = listOf(tier(0.0, null, 15.0))
             val micro = listOf(stop(5.0))
-            val result = IncrementLattice.resultOf(tiers, micro)
-            assertTrue(result.isSuccess)
-            assertEquals(IncrementLattice(tiers, micro), result.getOrThrow())
+            assertEquals(
+                IncrementTiersValidationResult.Valid,
+                IncrementLattice.validateTiers(tiers),
+            )
+            assertEquals(
+                MicroIncrementsValidationResult.Valid,
+                IncrementLattice.validateMicro(tiers, micro),
+            )
+            assertEquals(IncrementLattice(tiers, micro), IncrementLattice(tiers, micro))
         }
 
         @Test
-        @DisplayName("Given invalid tiers when resultOf is used then failure carries the tier exception")
-        fun resultOfTierFailure() {
+        @DisplayName("Given invalid tiers when validated then Invalid carries the tier errors (STR-243)")
+        fun validationSurfaceTierFailure() {
             val tiers = listOf(tier(0.0, 100.0, 5.0))
-            val result = IncrementLattice.resultOf(tiers)
-            assertTrue(result.exceptionOrNull() is IncrementTiersInvalidException)
+            val result = IncrementLattice.validateTiers(tiers)
+            assertTrue(result is IncrementTiersValidationResult.Invalid)
+            assertTrue(
+                (result as IncrementTiersValidationResult.Invalid).errors
+                    .contains(IncrementTiersValidationError.FinalTierMustBeOpenEnded),
+            )
         }
 
         @Test
-        @DisplayName("Given invalid micro when resultOf is used then failure carries the micro exception")
-        fun resultOfMicroFailure() {
-            val result = IncrementLattice.resultOf(listOf(tier(0.0, null, 15.0)), listOf(stop(20.0)))
-            assertTrue(result.exceptionOrNull() is MicroIncrementsInvalidException)
+        @DisplayName("Given invalid micro when validated then Invalid carries the micro errors (STR-243)")
+        fun validationSurfaceMicroFailure() {
+            val result =
+                IncrementLattice.validateMicro(listOf(tier(0.0, null, 15.0)), listOf(stop(20.0)))
+            assertTrue(result is MicroIncrementsValidationResult.Invalid)
+            assertTrue(
+                (result as MicroIncrementsValidationResult.Invalid).errors
+                    .contains(MicroIncrementsValidationError.ExceedsLargestIncrement),
+            )
         }
 
     }

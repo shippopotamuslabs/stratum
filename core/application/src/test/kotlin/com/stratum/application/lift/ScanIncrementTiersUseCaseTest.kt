@@ -5,12 +5,10 @@ import com.stratum.core.testing.logging.FakeLoggingPort
 import java.io.IOException
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import com.stratum.domain.lift.IncrementTier
-import com.stratum.domain.lift.IncrementTiersInvalidException
 import com.stratum.domain.lift.ScanPhoto
 import com.stratum.domain.lift.ScannedTierRow
 import com.stratum.domain.lift.ScannedTiers
@@ -35,13 +33,13 @@ class ScanIncrementTiersUseCaseTest {
         val port = FakeIncrementScanPort(Result.success(scannedLb()))
         val result = subject(port).invoke(photo)
 
-        assertTrue(result.isSuccess)
+        assertTrue(result is ScanIncrementTiersResult.Success)
         assertEquals(
             listOf(
                 tier(0.0, 100.0, 5.0),
                 tier(100.0, null, 10.0),
             ),
-            result.getOrThrow().tiers,
+            (result as ScanIncrementTiersResult.Success).scanned.tiers,
         )
         assertEquals(listOf(photo), port.calls)
     }
@@ -61,13 +59,13 @@ class ScanIncrementTiersUseCaseTest {
             )
         val result = subject(port).invoke(photo)
 
-        assertTrue(result.isSuccess)
-        val tiers = result.getOrThrow().tiers
+        assertTrue(result is ScanIncrementTiersResult.Success)
+        val tiers = (result as ScanIncrementTiersResult.Success).scanned.tiers
         assertEquals(0.0, tiers.single().lowerBound.amount, 1e-9)
         assertEquals(2.5 / 0.45359237, tiers.single().increment.amount, 1e-9)
         assertEquals(Weight.WeightUnit.Lb, tiers.single().increment.unit)
-        assertEquals(1, result.getOrThrow().microStops.size)
-        assertEquals(1.25 / 0.45359237, result.getOrThrow().microStops.single().amount, 1e-9)
+        assertEquals(1, (result as ScanIncrementTiersResult.Success).scanned.microStops.size)
+        assertEquals(1.25 / 0.45359237, (result as ScanIncrementTiersResult.Success).scanned.microStops.single().amount, 1e-9)
     }
 
     @Test
@@ -84,8 +82,8 @@ class ScanIncrementTiersUseCaseTest {
             )
         val result = subject(port).invoke(photo)
 
-        assertTrue(result.isSuccess)
-        assertEquals(listOf(tier(5.0, null, 5.0)), result.getOrThrow().tiers)
+        assertTrue(result is ScanIncrementTiersResult.Success)
+        assertEquals(listOf(tier(5.0, null, 5.0)), (result as ScanIncrementTiersResult.Success).scanned.tiers)
     }
 
     @Test
@@ -106,13 +104,13 @@ class ScanIncrementTiersUseCaseTest {
             )
         val result = subject(port).invoke(photo)
 
-        assertTrue(result.isSuccess)
+        assertTrue(result is ScanIncrementTiersResult.Success)
         assertEquals(
             listOf(
                 tier(0.0, 40.0, 5.0),
                 tier(40.0, null, 10.0),
             ),
-            result.getOrThrow().tiers,
+            (result as ScanIncrementTiersResult.Success).scanned.tiers,
         )
     }
 
@@ -134,8 +132,7 @@ class ScanIncrementTiersUseCaseTest {
             )
         val result = subject(port).invoke(photo)
 
-        assertTrue(result.isFailure)
-        assertTrue(result.exceptionOrNull() is IncrementTiersInvalidException)
+        assertTrue(result is ScanIncrementTiersResult.InvalidTiers)
     }
 
     @Test
@@ -159,8 +156,8 @@ class ScanIncrementTiersUseCaseTest {
             )
         val result = subject(port).invoke(photo)
 
-        assertTrue(result.isSuccess)
-        assertEquals(listOf(tier(0.0, null, 5.0)), result.getOrThrow().tiers)
+        assertTrue(result is ScanIncrementTiersResult.Success)
+        assertEquals(listOf(tier(0.0, null, 5.0)), (result as ScanIncrementTiersResult.Success).scanned.tiers)
     }
 
     @Test
@@ -177,8 +174,7 @@ class ScanIncrementTiersUseCaseTest {
             )
         val result = subject(port).invoke(photo)
 
-        assertTrue(result.isFailure)
-        assertTrue(result.exceptionOrNull() is IncrementScanEmptyException)
+        assertEquals(ScanIncrementTiersResult.Empty, result)
     }
 
     @Test
@@ -197,7 +193,7 @@ class ScanIncrementTiersUseCaseTest {
 
         val result = subject(port, loggingPort).invoke(photo)
 
-        assertTrue(result.isFailure)
+        assertEquals(ScanIncrementTiersResult.Empty, result)
         assertEquals(1, loggingPort.warnings.size)
         val warning = loggingPort.warnings.single()
         assertEquals("StratumIncrementScan", warning.tag)
@@ -226,8 +222,7 @@ class ScanIncrementTiersUseCaseTest {
             )
         val result = subject(port).invoke(photo)
 
-        assertTrue(result.isFailure)
-        assertTrue(result.exceptionOrNull() is IncrementTiersInvalidException)
+        assertTrue(result is ScanIncrementTiersResult.InvalidTiers)
     }
 
     @Test
@@ -250,7 +245,7 @@ class ScanIncrementTiersUseCaseTest {
 
         val result = subject(port, loggingPort).invoke(photo)
 
-        assertTrue(result.isFailure)
+        assertTrue(result is ScanIncrementTiersResult.InvalidTiers)
         assertEquals(1, loggingPort.warnings.size)
         val warning = loggingPort.warnings.single()
         assertEquals("StratumIncrementScan", warning.tag)
@@ -269,7 +264,7 @@ class ScanIncrementTiersUseCaseTest {
 
         val result = subject(port, loggingPort).invoke(photo)
 
-        assertTrue(result.isSuccess)
+        assertTrue(result is ScanIncrementTiersResult.Success)
         assertTrue(loggingPort.warnings.isEmpty())
         assertTrue(loggingPort.errors.isEmpty())
     }
@@ -289,10 +284,10 @@ class ScanIncrementTiersUseCaseTest {
             )
         val result = subject(port).invoke(photo)
 
-        assertTrue(result.isSuccess)
+        assertTrue(result is ScanIncrementTiersResult.Success)
         assertEquals(
             listOf(Weight(5.0, Weight.WeightUnit.Lb), Weight(10.0, Weight.WeightUnit.Lb)),
-            result.getOrThrow().microStops,
+            (result as ScanIncrementTiersResult.Success).scanned.microStops,
         )
     }
 
@@ -311,21 +306,19 @@ class ScanIncrementTiersUseCaseTest {
             )
         val result = subject(port).invoke(photo)
 
-        assertTrue(result.isSuccess)
-        assertEquals(listOf(tier(0.0, null, 15.0)), result.getOrThrow().tiers)
-        assertEquals(emptyList<Weight>(), result.getOrThrow().microStops)
+        assertTrue(result is ScanIncrementTiersResult.Success)
+        assertEquals(listOf(tier(0.0, null, 15.0)), (result as ScanIncrementTiersResult.Success).scanned.tiers)
+        assertEquals(emptyList<Weight>(), (result as ScanIncrementTiersResult.Success).scanned.microStops)
     }
 
     @Test
-    @DisplayName("Given port failure when invoked then the failure propagates")
-    fun portFailurePropagates() = runTest {
-        val failure = IOException("network down")
-        val port = FakeIncrementScanPort(Result.failure(failure))
+    @DisplayName("Given port failure when invoked then the ScanFailed branch is returned (STR-243)")
+    fun portFailureReturnsScanFailed() = runTest {
+        val port = FakeIncrementScanPort(Result.failure(IOException("network down")))
 
         val result = subject(port).invoke(photo)
 
-        assertTrue(result.isFailure)
-        assertSame(failure, result.exceptionOrNull())
+        assertEquals(ScanIncrementTiersResult.ScanFailed, result)
     }
 
     @Test
@@ -336,7 +329,7 @@ class ScanIncrementTiersUseCaseTest {
 
         val result = subject(port, loggingPort).invoke(photo)
 
-        assertTrue(result.isFailure)
+        assertEquals(ScanIncrementTiersResult.ScanFailed, result)
         assertTrue(loggingPort.warnings.isEmpty())
         assertTrue(loggingPort.errors.isEmpty())
     }

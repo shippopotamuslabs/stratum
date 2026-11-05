@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.stratum.domain.lift.CatalogNames
 import com.stratum.domain.lift.Equipment
 import com.stratum.application.lift.EquipmentAffectedLifts
+import com.stratum.application.lift.ForkEquipmentWithTiersResult
 import com.stratum.application.lift.ForkEquipmentWithTiersUseCase
 import com.stratum.domain.lift.IncrementLattice
 import com.stratum.domain.lift.IncrementTier
@@ -14,7 +15,9 @@ import com.stratum.application.lift.ObserveEquipmentCatalogUseCase
 import com.stratum.application.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.MicroIncrementsValidationResult
 import com.stratum.domain.lift.ScanPhoto
+import com.stratum.application.lift.RenameAndSetIncrementTiersResult
 import com.stratum.application.lift.RenameAndSetIncrementTiersUseCase
+import com.stratum.application.lift.SetEquipmentIncrementTiersResult
 import com.stratum.application.lift.SetEquipmentIncrementTiersUseCase
 import com.stratum.application.lift.SetLiftEquipmentUseCase
 import com.stratum.application.lift.DeleteCustomEquipmentUseCase
@@ -495,20 +498,27 @@ class EquipmentIncrementsViewModel @Inject constructor(
             // A name edit saves through the combined use case: the rename and
             // the tier write land in one repository transaction, so a failure
             // can never leave the new name over the old tiers (or vice versa).
-            val result =
+            // STR-243 C3: branch on the outcome kinds; the user copy is sourced
+            // from the kind (see the file-level mapping helpers below).
+            val failureMessage =
                 if (draftName != null) {
-                    renameAndSetIncrementTiers(EquipmentId(id), draftName, domainTiers, domainMicro)
+                    renameAndSetIncrementTiers(
+                        EquipmentId(id),
+                        draftName,
+                        domainTiers,
+                        domainMicro,
+                    ).saveFailureMessage()
                 } else {
                     setEquipmentIncrementTiers(EquipmentId(id), domainTiers, domainMicro)
+                        .saveFailureMessage()
                 }
             isSaving.value = false
-            if (result.isSuccess) {
+            if (failureMessage == null) {
                 dismissProposalContext()
                 saveSucceeded.value = true
                 validationOverride.value = null
             } else {
-                validationOverride.value = result.exceptionOrNull()?.message
-                    ?: "Could not save increments"
+                validationOverride.value = failureMessage
             }
         }
     }
@@ -601,6 +611,8 @@ class EquipmentIncrementsViewModel @Inject constructor(
                 val trimmed = copyName.trim()
                 val resolvedName = trimmed.ifBlank { forkNameSuggestion() }
                 val liftId = sourceLiftId.value?.let(::LiftId)
+                // STR-243 C3: branch on the outcome kinds; the user copy is
+                // sourced from the kind (see the file-level mapping below).
                 val result =
                     forkEquipmentWithTiers(
                         EquipmentId(id),
@@ -609,13 +621,12 @@ class EquipmentIncrementsViewModel @Inject constructor(
                         liftId,
                         domainMicro,
                     )
-                if (result.isSuccess) {
+                if (result is ForkEquipmentWithTiersResult.Success) {
                     dismissProposalContext()
                     saveSucceeded.value = true
                     validationOverride.value = null
                 } else {
-                    validationOverride.value = result.exceptionOrNull()?.message
-                        ?: "Could not copy equipment"
+                    validationOverride.value = result.forkFailureMessage()
                 }
             } finally {
                 isSaving.value = false
@@ -806,3 +817,42 @@ class EquipmentIncrementsViewModel @Inject constructor(
             lifts = emptyList(),
         )
 }
+
+// STR-243 C3: user copy for the save/fork outcome branches, sourced from the kind.
+// Validation branches carry their user-facing text (the validation message / the
+// invalid-tiers and invalid-micro summaries the old exception messages produced);
+// operational branches use the editor's fallback copy. Null means success.
+
+private fun RenameAndSetIncrementTiersResult.saveFailureMessage(): String? =
+    when (this) {
+        RenameAndSetIncrementTiersResult.Success -> null
+        is RenameAndSetIncrementTiersResult.InvalidName -> validation.message
+        is RenameAndSetIncrementTiersResult.InvalidTiers ->
+            "Invalid increment tiers: ${validation.errors}"
+        is RenameAndSetIncrementTiersResult.InvalidMicro ->
+            "Invalid micro increments: ${validation.errors}"
+        RenameAndSetIncrementTiersResult.PersistenceFailed -> "Could not save increments"
+    }
+
+private fun SetEquipmentIncrementTiersResult.saveFailureMessage(): String? =
+    when (this) {
+        SetEquipmentIncrementTiersResult.Success -> null
+        is SetEquipmentIncrementTiersResult.InvalidTiers ->
+            "Invalid increment tiers: ${validation.errors}"
+        is SetEquipmentIncrementTiersResult.InvalidMicro ->
+            "Invalid micro increments: ${validation.errors}"
+        SetEquipmentIncrementTiersResult.PersistenceFailed -> "Could not save increments"
+    }
+
+private fun ForkEquipmentWithTiersResult.forkFailureMessage(): String =
+    when (this) {
+        is ForkEquipmentWithTiersResult.Success -> "Could not copy equipment"
+        is ForkEquipmentWithTiersResult.InvalidName -> validation.message
+        is ForkEquipmentWithTiersResult.EquipmentNotFound -> "Equipment not found"
+        is ForkEquipmentWithTiersResult.InvalidTiers ->
+            "Invalid increment tiers: ${validation.errors}"
+        is ForkEquipmentWithTiersResult.InvalidMicro ->
+            "Invalid micro increments: ${validation.errors}"
+        ForkEquipmentWithTiersResult.PersistenceFailed,
+        ForkEquipmentWithTiersResult.LiftAssignmentFailed -> "Could not copy equipment"
+    }

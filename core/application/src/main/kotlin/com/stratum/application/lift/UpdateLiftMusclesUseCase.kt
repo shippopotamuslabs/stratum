@@ -23,8 +23,11 @@ class UpdateLiftMusclesUseCase @Inject constructor(
         primaryMuscles: Set<MuscleGroup>,
         secondaryMuscles: Set<MuscleGroup>,
     ): Result<Unit> {
-        CustomLiftFieldRules.validatePrimaryMuscles(primaryMuscles)
-            .onFailure { return Result.failure(it) }
+        // STR-243 C3 minimal caller touch (this file converts in C4): the field
+        // rules now return typed validations; map Invalid onto the same failure.
+        (CustomLiftFieldRules.validatePrimaryMuscles(primaryMuscles)
+            as? CustomLiftFieldValidation.Invalid)
+            ?.let { return Result.failure(IllegalArgumentException(it.message)) }
         val lift =
             repository.observeLifts().first().firstOrNull { it.id == id }
                 ?: return Result.failure(IllegalArgumentException("Lift not found"))
