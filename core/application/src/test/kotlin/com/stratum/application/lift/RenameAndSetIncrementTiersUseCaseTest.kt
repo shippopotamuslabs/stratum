@@ -10,7 +10,6 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.IncrementTier
-import com.stratum.domain.lift.IncrementTiersInvalidException
 import com.stratum.domain.lift.Weight
 
 class RenameAndSetIncrementTiersUseCaseTest {
@@ -43,7 +42,7 @@ class RenameAndSetIncrementTiersUseCaseTest {
 
         val result = subject(repo)(equipmentId, "  Lat Stack  ", tiers, micro)
 
-        assertTrue(result.isSuccess)
+        assertEquals(RenameAndSetIncrementTiersResult.Success, result)
         val stored = repo.current.single()
         assertEquals("Lat Stack", stored.name)
         assertEquals(tiers, stored.incrementTiers)
@@ -51,20 +50,23 @@ class RenameAndSetIncrementTiersUseCaseTest {
     }
 
     @Test
-    @DisplayName("Given a blank name when invoked then nothing is written")
+    @DisplayName("Given a blank name when invoked then InvalidName and nothing is written")
     fun rejectsBlankName() = runTest {
         val repo = seed()
         val before = repo.current.single()
 
         val result = subject(repo)(equipmentId, "   ", listOf(tier(0.0, null, 10.0)))
 
-        assertTrue(result.isFailure)
-        assertEquals("Equipment name is required", result.exceptionOrNull()?.message)
+        assertTrue(result is RenameAndSetIncrementTiersResult.InvalidName)
+        assertEquals(
+            "Equipment name is required",
+            (result as RenameAndSetIncrementTiersResult.InvalidName).validation.message,
+        )
         assertEquals(before, repo.current.single())
     }
 
     @Test
-    @DisplayName("Given invalid tiers when invoked then the rename is not written either")
+    @DisplayName("Given invalid tiers when invoked then InvalidTiers and the rename is not written either")
     fun rejectsInvalidTiersWithoutRenaming() = runTest {
         val repo = seed()
 
@@ -75,15 +77,14 @@ class RenameAndSetIncrementTiersUseCaseTest {
                 listOf(tier(0.0, 40.0, 5.0), tier(50.0, null, 10.0)), // gap
             )
 
-        assertTrue(result.isFailure)
-        assertTrue(result.exceptionOrNull() is IncrementTiersInvalidException)
+        assertTrue(result is RenameAndSetIncrementTiersResult.InvalidTiers)
         val stored = repo.current.single()
         assertEquals("Pin-Loaded Machine", stored.name)
         assertEquals(listOf(tier(0.0, null, 15.0)), stored.incrementTiers)
     }
 
     @Test
-    @DisplayName("Given a repository failure when invoked then stored name and tiers are unchanged")
+    @DisplayName("Given a repository failure when invoked then PersistenceFailed and stored state is unchanged")
     fun repositoryFailureLeavesStateUnchanged() = runTest {
         val repo = seed()
         val before = repo.current.single()
@@ -91,7 +92,7 @@ class RenameAndSetIncrementTiersUseCaseTest {
 
         val result = subject(repo)(equipmentId, "Lat Stack", listOf(tier(0.0, null, 10.0)))
 
-        assertTrue(result.isFailure)
+        assertEquals(RenameAndSetIncrementTiersResult.PersistenceFailed, result)
         assertEquals(before, repo.current.single())
     }
 

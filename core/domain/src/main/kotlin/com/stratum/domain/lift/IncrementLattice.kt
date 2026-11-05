@@ -129,17 +129,6 @@ data class IncrementLattice(
         val EMPTY: IncrementLattice = IncrementLattice(emptyList())
 
         /**
-         * Canonical non-throwing construction for `Result`-returning write paths:
-         * success carries the lattice, failure carries the same
-         * [IncrementTiersInvalidException] / [MicroIncrementsInvalidException] the
-         * constructor throws.
-         */
-        fun resultOf(
-            tiers: List<IncrementTier>,
-            micro: List<Weight> = emptyList(),
-        ): Result<IncrementLattice> = runCatching { IncrementLattice(tiers, micro) }
-
-        /**
          * Prepares converted scan tiers for validation (STR-244). A scan reads a real
          * stack, whose printed top band is closed (the maximum weight), while the
          * lattice models the top band as open (tier rule 3). A complete read — no

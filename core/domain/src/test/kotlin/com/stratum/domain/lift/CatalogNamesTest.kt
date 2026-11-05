@@ -2,7 +2,6 @@ package com.stratum.domain.lift
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 
@@ -13,7 +12,10 @@ class CatalogNamesTest {
     fun equipmentNameTrims() {
         val result = CatalogNames.validateEquipmentName("  Cable Stack  ")
         assertEquals(CatalogNames.Validation.Valid("Cable Stack"), result)
-        assertEquals("Cable Stack", CatalogNames.equipmentNameResult("  Cable Stack  ").getOrThrow())
+        assertEquals(
+            "Cable Stack",
+            (CatalogNames.validateEquipmentName("  Cable Stack  ") as CatalogNames.Validation.Valid).name,
+        )
     }
 
     @Test
@@ -29,7 +31,7 @@ class CatalogNamesTest {
         )
         assertEquals(
             EQUIPMENT_NAME_REQUIRED_MESSAGE,
-            CatalogNames.equipmentNameResult(null).exceptionOrNull()?.message,
+            (CatalogNames.validateEquipmentName(null) as CatalogNames.Validation.Invalid).message,
         )
     }
 
@@ -49,6 +51,9 @@ class CatalogNamesTest {
         assertNull(CatalogNames.normalizedEquipmentNameOrNull("   "))
         assertNull(CatalogNames.normalizedEquipmentNameOrNull(null))
         assertEquals("landmine", CatalogNames.normalizedEquipmentNameOrNull("  landmine  "))
-        assertTrue(CatalogNames.liftNameResult("  Press ").isSuccess)
+        assertEquals(
+            CatalogNames.Validation.Valid("Press"),
+            CatalogNames.validateLiftName("  Press "),
+        )
     }
 }

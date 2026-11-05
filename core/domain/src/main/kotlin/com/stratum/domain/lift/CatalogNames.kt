@@ -29,12 +29,6 @@ object CatalogNames {
 
     fun validateLiftName(raw: String?): Validation = validate(raw, LIFT_NAME_REQUIRED_MESSAGE)
 
-    /** The equipment name rule as a [Result] of the trimmed name, for use-case call sites. */
-    fun equipmentNameResult(raw: String?): Result<String> = resultOf(validateEquipmentName(raw))
-
-    /** The lift name rule as a [Result] of the trimmed name, for use-case call sites. */
-    fun liftNameResult(raw: String?): Result<String> = resultOf(validateLiftName(raw))
-
     /**
      * The user-facing message for a raw equipment name, or null when the name is
      * valid. Editors call this for a draft they know has been touched; whether a
@@ -59,10 +53,4 @@ object CatalogNames {
             Validation.Valid(trimmed)
         }
     }
-
-    private fun resultOf(validation: Validation): Result<String> =
-        when (validation) {
-            is Validation.Valid -> Result.success(validation.name)
-            is Validation.Invalid -> Result.failure(IllegalArgumentException(validation.message))
-        }
 }
