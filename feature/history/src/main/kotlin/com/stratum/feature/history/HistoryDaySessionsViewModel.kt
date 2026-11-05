@@ -2,6 +2,7 @@ package com.stratum.feature.history
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.stratum.application.training.GetWorkoutSessionDetailResult
 import com.stratum.application.training.GetWorkoutSessionDetailUseCase
 import com.stratum.application.training.ObserveWorkoutHistoryCalendarUseCase
 import com.stratum.feature.history.ui.HistoryDaySessionsUiState
@@ -60,21 +61,24 @@ class HistoryDaySessionsViewModel @Inject constructor(
                         daySessions
                             .map { daySession ->
                                 async {
-                                    getWorkoutSessionDetail(daySession.sessionId)
-                                        .map(WorkoutSessionDetailUiMapper::toDaySummary)
+                                    when (val result = getWorkoutSessionDetail(daySession.sessionId)) {
+                                        is GetWorkoutSessionDetailResult.Success ->
+                                            WorkoutSessionDetailUiMapper.toDaySummary(result.detail)
+                                        else -> null
+                                    }
                                 }
                             }
                             .awaitAll()
                     }
                 // Fail closed: a missing/corrupt session must not silently shrink the day list.
-                if (results.any { it.isFailure }) {
+                if (results.any { it == null }) {
                     _uiState.value = HistoryDaySessionsUiState.Error
                     return@launch
                 }
                 _uiState.value =
                     HistoryDaySessionsUiState.Loaded(
                         dateTitle = WorkoutSessionDetailUiMapper.formatDayTitle(dateIso),
-                        sessions = results.mapNotNull { it.getOrNull() },
+                        sessions = results.filterNotNull(),
                     )
             }
     }

@@ -24,8 +24,10 @@ class GetCompletedSessionForEditUseCaseTest {
 
         val result = useCase(TrainingSessionId("missing"))
 
-        assertTrue(result.isFailure)
-        assertTrue(result.exceptionOrNull() is IllegalStateException)
+        assertEquals(
+            GetCompletedSessionForEditResult.SessionNotFound(TrainingSessionId("missing")),
+            result,
+        )
         assertEquals(0, logging.errors.size)
         assertEquals(1, logging.warnings.size)
     }
@@ -45,8 +47,36 @@ class GetCompletedSessionForEditUseCaseTest {
 
         val result = useCase(TrainingSessionId("ts-ip"))
 
-        assertTrue(result.isFailure)
-        assertTrue(result.exceptionOrNull() is IllegalArgumentException)
+        assertEquals(
+            GetCompletedSessionForEditResult.SessionNotCompleted(
+                TrainingSessionId("ts-ip"),
+                com.stratum.domain.training.TrainingSessionStatus.IN_PROGRESS,
+            ),
+            result,
+        )
+        assertEquals(0, logging.errors.size)
+        assertEquals(1, logging.warnings.size)
+    }
+
+    @Test
+    @DisplayName("Given completed session with no sets when loaded for edit then NoLoggedSets without non-fatal")
+    fun noLoggedSetsFailsWithoutNonFatal() = runTest {
+        val programRepo = FakeProgramRepository(WorkoutLoggingFixtures.twoWorkoutProgram())
+        val session = WorkoutLoggingFixtures.completedLiveSession(id = "ts-empty")
+        val logRepo =
+            FakeTrainingLogRepository(
+                initialSessions = listOf(session),
+                programRepository = programRepo,
+            )
+        val logging = FakeLoggingPort()
+        val useCase = forEditUseCase(logRepo, programRepo, logging)
+
+        val result = useCase(TrainingSessionId("ts-empty"))
+
+        assertEquals(
+            GetCompletedSessionForEditResult.NoLoggedSets(TrainingSessionId("ts-empty")),
+            result,
+        )
         assertEquals(0, logging.errors.size)
         assertEquals(1, logging.warnings.size)
     }

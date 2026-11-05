@@ -13,9 +13,11 @@ import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.storageWeightFromDisplay
 import com.stratum.domain.program.SetType
+import com.stratum.application.training.GetCompletedSessionForEditResult
 import com.stratum.application.training.GetCompletedSessionForEditUseCase
 import com.stratum.domain.training.LoggedLiftContext
 import com.stratum.domain.training.LoggedSet
+import com.stratum.application.training.UpdateCompletedSessionSetsResult
 import com.stratum.application.training.UpdateCompletedSessionSetsUseCase
 import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.domain.training.normalizedPartialReps
@@ -65,9 +67,9 @@ class EditHistoricalWorkoutViewModel @Inject constructor(
             val id = TrainingSessionId(sessionIdValue)
             sessionId = id
             displayUnit = observeWeightDisplayPreferences().first().displayUnit
-            val result = getCompletedSessionForEdit(id)
-            result.fold(
-                onSuccess = { snapshot ->
+            when (val result = getCompletedSessionForEdit(id)) {
+                is GetCompletedSessionForEditResult.Success -> {
+                    val snapshot = result.snapshot
                     workoutName = snapshot.workoutName
                     draftLifts =
                         mapSnapshotToDraft(
@@ -79,11 +81,11 @@ class EditHistoricalWorkoutViewModel @Inject constructor(
                         )
                     baselineSignature = signature(draftLifts)
                     publishLoaded()
-                },
-                onFailure = {
+                }
+                else -> {
                     _uiState.value = EditHistoricalWorkoutUiState.Error
-                },
-            )
+                }
+            }
         }
     }
 
@@ -173,17 +175,33 @@ class EditHistoricalWorkoutViewModel @Inject constructor(
                 }
             val result = updateCompletedSessionSets(id, desired)
             isSaving = false
-            result.fold(
-                onSuccess = {
+            when (result) {
+                UpdateCompletedSessionSetsResult.Success -> {
                     baselineSignature = signature(draftLifts)
                     publishLoaded()
                     _events.tryEmit(EditHistoricalWorkoutEvent.NavigateBack)
-                },
-                onFailure = { error ->
+                }
+                else -> {
                     publishLoaded()
-                    _userMessage.value = error.message ?: "Could not save workout"
-                },
-            )
+                    // Same user copy the former exception messages carried, sourced
+                    // from the branch kind (STR-243).
+                    _userMessage.value =
+                        when (result) {
+                            is UpdateCompletedSessionSetsResult.SessionNotFound ->
+                                "Training session ${result.sessionId.value} not found"
+                            is UpdateCompletedSessionSetsResult.SessionNotCompleted ->
+                                "Training session ${result.sessionId.value} is not completed " +
+                                    "(status=${result.status})"
+                            is UpdateCompletedSessionSetsResult.MustRetainAtLeastOneSet ->
+                                "Completed session ${result.sessionId.value} must retain at least one set"
+                            is UpdateCompletedSessionSetsResult.SetsBelongToAnotherSession ->
+                                "All desired sets must belong to session ${result.sessionId.value}"
+                            UpdateCompletedSessionSetsResult.PersistenceFailed ->
+                                "Could not save workout"
+                            UpdateCompletedSessionSetsResult.Success -> "Could not save workout"
+                        }
+                }
+            }
         }
     }
 

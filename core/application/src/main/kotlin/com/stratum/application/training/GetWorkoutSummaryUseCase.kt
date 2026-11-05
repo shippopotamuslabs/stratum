@@ -5,8 +5,6 @@ import com.stratum.application.lift.ObserveLiftCatalogUseCase
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.toStorageLb
 import com.stratum.domain.logging.LoggingPort
-import com.stratum.domain.logging.expectedFailure
-import com.stratum.domain.logging.runCatchingLogged
 import com.stratum.domain.program.Program
 import com.stratum.application.program.ProgramRepository
 import com.stratum.domain.program.Workout
@@ -20,6 +18,26 @@ import com.stratum.domain.training.TrainingSession
 import com.stratum.domain.training.TrainingSessionDisplayName
 import com.stratum.domain.training.WorkoutSummary
 import com.stratum.domain.training.normalizedPartialReps
+import kotlin.coroutines.cancellation.CancellationException
+
+/**
+ * Outcome of loading a workout summary (STR-243).
+ *
+ * [SessionNotFound] carries the missing session id and leaves a warning
+ * breadcrumb only, never a Crashlytics non-fatal, exactly as the former
+ * `expectedFailure` path did. The originating throwable of an operational
+ * load failure goes once to the diagnostics channel ([LoggingPort.error])
+ * at the use-case boundary; it never crosses as a payload. Coroutine
+ * cancellation is not a branch: it propagates.
+ */
+sealed interface GetWorkoutSummaryResult {
+    data class Success(val summary: WorkoutSummary) : GetWorkoutSummaryResult
+
+    data class SessionNotFound(val sessionId: TrainingSessionId) : GetWorkoutSummaryResult
+
+    /** The summary load failed (repository / store I/O). */
+    data object PersistenceFailed : GetWorkoutSummaryResult
+}
 
 /**
  * Builds a [WorkoutSummary] for the workout completion screen. Loads the completed session,
@@ -33,28 +51,33 @@ class GetWorkoutSummaryUseCase @Inject constructor(
     private val observeLiftCatalog: ObserveLiftCatalogUseCase,
     private val loggingPort: LoggingPort,
 ) {
-    suspend operator fun invoke(sessionId: TrainingSessionId): Result<WorkoutSummary> {
+    suspend operator fun invoke(sessionId: TrainingSessionId): GetWorkoutSummaryResult {
         // A missing session is expected (stale deep link), not an operational fault: load all
         // reads in one logged block, then validate outside it so the miss leaves a breadcrumb
         // only, never a Crashlytics non-fatal.
         val reads =
-            runCatchingLogged(loggingPort, TAG, "Failed to load workout summary") {
+            try {
                 SummaryReads(
                     session = trainingLogRepository.getSession(sessionId),
                     sets = trainingLogRepository.getSetsForSession(sessionId),
                     lifts = observeLiftCatalog().first(),
                     program = programRepository.getProgram(),
                 )
-            }.getOrElse { return Result.failure(it) }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (t: Throwable) {
+                loggingPort.error(TAG, "Failed to load workout summary: ${t.message}", t)
+                return GetWorkoutSummaryResult.PersistenceFailed
+            }
         val session = reads.session
-            ?: return loggingPort.expectedFailure(
-                TAG,
-                IllegalStateException("Training session ${sessionId.value} not found"),
-            )
+            ?: run {
+                loggingPort.warning(TAG, "Training session ${sessionId.value} not found")
+                return GetWorkoutSummaryResult.SessionNotFound(sessionId)
+            }
         val loggedSets = reads.sets
         val liftNamesById = reads.lifts.associate { it.id to it.name }
         val program = reads.program
-        return runCatchingLogged(loggingPort, TAG, "Failed to load workout summary") {
+        return try {
             val liftFallback =
                 loggedSets.firstOrNull()?.liftContext?.liftName?.takeIf { it.isNotBlank() }
                     ?: loggedSets.firstOrNull()?.exerciseNameRaw
@@ -74,11 +97,18 @@ class GetWorkoutSummaryUseCase @Inject constructor(
                 program?.workouts?.firstOrNull { it.id == workoutId }
             }
 
-            WorkoutSummary(
-                workoutName = workoutName,
-                durationMillis = durationMillis.coerceAtLeast(0),
-                bestSets = bestSetsInWorkoutOrder(loggedSets, workout, liftNamesById),
+            GetWorkoutSummaryResult.Success(
+                WorkoutSummary(
+                    workoutName = workoutName,
+                    durationMillis = durationMillis.coerceAtLeast(0),
+                    bestSets = bestSetsInWorkoutOrder(loggedSets, workout, liftNamesById),
+                ),
             )
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (t: Throwable) {
+            loggingPort.error(TAG, "Failed to load workout summary: ${t.message}", t)
+            GetWorkoutSummaryResult.PersistenceFailed
         }
     }
 

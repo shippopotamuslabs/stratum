@@ -4,8 +4,6 @@ import com.stratum.application.lift.LiftRepository
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.logging.LoggingPort
-import com.stratum.domain.logging.expectedFailure
-import com.stratum.domain.logging.runCatchingLogged
 import com.stratum.application.program.ProgramRepository
 import com.stratum.domain.training.identity.TrainingSessionId
 import javax.inject.Inject
@@ -14,6 +12,35 @@ import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.TrainingSession
 import com.stratum.domain.training.TrainingSessionDisplayName
 import com.stratum.domain.training.TrainingSessionStatus
+import kotlin.coroutines.cancellation.CancellationException
+
+/**
+ * Outcome of loading a completed session for edit (STR-243).
+ *
+ * The expected branches carry the typed facts the former constructed
+ * exceptions carried ([SessionNotFound] / [SessionNotCompleted] with the
+ * session id and actual status / [NoLoggedSets]); each leaves a warning
+ * breadcrumb only, never a Crashlytics non-fatal, exactly as the former
+ * `expectedFailure` path did. The originating throwable of an operational
+ * load failure goes once to the diagnostics channel ([LoggingPort.error])
+ * at the use-case boundary; it never crosses as a payload. Coroutine
+ * cancellation is not a branch: it propagates.
+ */
+sealed interface GetCompletedSessionForEditResult {
+    data class Success(val snapshot: CompletedSessionEditSnapshot) : GetCompletedSessionForEditResult
+
+    data class SessionNotFound(val sessionId: TrainingSessionId) : GetCompletedSessionForEditResult
+
+    data class SessionNotCompleted(
+        val sessionId: TrainingSessionId,
+        val status: TrainingSessionStatus,
+    ) : GetCompletedSessionForEditResult
+
+    data class NoLoggedSets(val sessionId: TrainingSessionId) : GetCompletedSessionForEditResult
+
+    /** The session load failed (repository / store I/O). */
+    data object PersistenceFailed : GetCompletedSessionForEditResult
+}
 
 /**
  * Loads a completed session for historical edit: display name, raw [LoggedSet] rows (with ids),
@@ -26,36 +53,40 @@ class GetCompletedSessionForEditUseCase @Inject constructor(
     private val liftRepository: LiftRepository,
     private val loggingPort: LoggingPort,
 ) {
-    suspend operator fun invoke(sessionId: TrainingSessionId): Result<CompletedSessionEditSnapshot> {
+    suspend operator fun invoke(sessionId: TrainingSessionId): GetCompletedSessionForEditResult {
         // Not-found / wrong-status / empty outcomes are expected (stale deep links, mid-edit
-        // reads), not operational faults: validate outside the logged block so they leave a
+        // reads), not operational faults: validate outside the logged blocks so they leave a
         // breadcrumb only and never become Crashlytics non-fatals.
         val loaded =
-            runCatchingLogged(loggingPort, TAG, "Failed to load session for edit") {
+            try {
                 Pair(
                     trainingLogRepository.getSession(sessionId),
                     trainingLogRepository.getSetsForSession(sessionId),
                 )
-            }.getOrElse { return Result.failure(it) }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (t: Throwable) {
+                loggingPort.error(TAG, "Failed to load session for edit: ${t.message}", t)
+                return GetCompletedSessionForEditResult.PersistenceFailed
+            }
         val session = loaded.first
-            ?: return loggingPort.expectedFailure(
-                TAG,
-                IllegalStateException("Training session ${sessionId.value} not found"),
-            )
+            ?: run {
+                loggingPort.warning(TAG, "Training session ${sessionId.value} not found")
+                return GetCompletedSessionForEditResult.SessionNotFound(sessionId)
+            }
         if (session.status != TrainingSessionStatus.COMPLETED) {
-            return loggingPort.expectedFailure(
+            loggingPort.warning(
                 TAG,
-                TrainingSession.notCompletedException(session),
+                "Training session ${session.id.value} is not completed (status=${session.status})",
             )
+            return GetCompletedSessionForEditResult.SessionNotCompleted(session.id, session.status)
         }
         val sets = loaded.second.sortedWith(compareBy({ it.setIndex }, { it.completedAt }))
         if (sets.isEmpty()) {
-            return loggingPort.expectedFailure(
-                TAG,
-                IllegalArgumentException("Training session ${sessionId.value} has no logged sets"),
-            )
+            loggingPort.warning(TAG, "Training session ${sessionId.value} has no logged sets")
+            return GetCompletedSessionForEditResult.NoLoggedSets(sessionId)
         }
-        return runCatchingLogged(loggingPort, TAG, "Failed to load session for edit") {
+        return try {
             val program = programRepository.getProgram()
             val liftFallback =
                 sets.firstOrNull()?.liftContext?.liftName?.takeIf { it.isNotBlank() }
@@ -83,14 +114,21 @@ class GetCompletedSessionForEditUseCase @Inject constructor(
                     .distinct()
                     .associateWith { liftId -> liftsById[liftId]?.isDoubleSidedPlateLoad ?: true }
 
-            CompletedSessionEditSnapshot(
-                sessionId = sessionId,
-                workoutName = workoutName,
-                sets = sets,
-                loadTypeByLiftId = loadTypeByLiftId,
-                isPlateLoadedByLiftId = isPlateLoadedByLiftId,
-                isDoubleSidedByLiftId = isDoubleSidedByLiftId,
+            GetCompletedSessionForEditResult.Success(
+                CompletedSessionEditSnapshot(
+                    sessionId = sessionId,
+                    workoutName = workoutName,
+                    sets = sets,
+                    loadTypeByLiftId = loadTypeByLiftId,
+                    isPlateLoadedByLiftId = isPlateLoadedByLiftId,
+                    isDoubleSidedByLiftId = isDoubleSidedByLiftId,
+                ),
             )
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (t: Throwable) {
+            loggingPort.error(TAG, "Failed to load session for edit: ${t.message}", t)
+            GetCompletedSessionForEditResult.PersistenceFailed
         }
     }
 
