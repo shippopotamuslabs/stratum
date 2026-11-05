@@ -1,6 +1,5 @@
 package com.stratum.application.lift
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeEquipmentRepository
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.domain.lift.identity.EquipmentId
@@ -68,14 +67,12 @@ class ForkEquipmentWithTiersUseCaseTest {
                 forkEquipment =
                     ForkEquipmentUseCase(
                         equipmentRepo,
-                        FakeLoggingPort(),
-                    ),
+                                ),
                 setEquipmentIncrementTiers =
                     SetEquipmentIncrementTiersUseCase(
                         equipmentRepo,
-                        FakeLoggingPort(),
-                    ),
-                setLiftEquipment = SetLiftEquipmentUseCase(liftRepo, equipmentRepo, FakeLoggingPort()),
+                                ),
+                setLiftEquipment = SetLiftEquipmentUseCase(liftRepo, equipmentRepo),
             )
     }
 

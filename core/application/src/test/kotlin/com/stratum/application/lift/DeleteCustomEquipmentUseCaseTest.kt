@@ -1,6 +1,5 @@
 package com.stratum.application.lift
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeEquipmentRepository
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.domain.lift.identity.EquipmentId
@@ -9,6 +8,7 @@ import com.stratum.domain.onboarding.MuscleGroup
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -46,7 +46,7 @@ class DeleteCustomEquipmentUseCaseTest {
     @DisplayName("Tombstones custom equipment: row retained, hidden from the catalog")
     fun deletesCustomEquipmentAsTombstone() = runTest {
         val repo = FakeEquipmentRepository(initial = listOf(equipment(customId, "Custom Cable", true)))
-        val useCase = DeleteCustomEquipmentUseCase(repo, FakeLoggingPort())
+        val useCase = DeleteCustomEquipmentUseCase(repo)
         val result = useCase(customId)
         assertEquals(DeleteCustomEquipmentResult.Success, result)
         val retained = repo.current.single()
@@ -59,7 +59,7 @@ class DeleteCustomEquipmentUseCaseTest {
     @DisplayName("Visible seed equipment now deletes successfully")
     fun deletesVisibleSeedEquipment() = runTest {
         val repo = FakeEquipmentRepository(initial = listOf(equipment(seedId, "Cables", false)))
-        val useCase = DeleteCustomEquipmentUseCase(repo, FakeLoggingPort())
+        val useCase = DeleteCustomEquipmentUseCase(repo)
         val result = useCase(seedId)
         assertEquals(DeleteCustomEquipmentResult.Success, result)
         assertTrue(repo.current.single().isDeleted)
@@ -74,7 +74,7 @@ class DeleteCustomEquipmentUseCaseTest {
                 equipment(SeedEquipmentIds.Bodyweight, "Bodyweight", false),
             ),
         )
-        val useCase = DeleteCustomEquipmentUseCase(repo, FakeLoggingPort())
+        val useCase = DeleteCustomEquipmentUseCase(repo)
         assertEquals(
             DeleteCustomEquipmentResult.NotDeletable(SeedEquipmentIds.Default),
             useCase(SeedEquipmentIds.Default),
@@ -90,7 +90,7 @@ class DeleteCustomEquipmentUseCaseTest {
     @DisplayName("Fails when equipment is missing")
     fun failsWhenMissing() = runTest {
         val repo = FakeEquipmentRepository(initial = emptyList())
-        val useCase = DeleteCustomEquipmentUseCase(repo, FakeLoggingPort())
+        val useCase = DeleteCustomEquipmentUseCase(repo)
         assertEquals(DeleteCustomEquipmentResult.NotDeletable(customId), useCase(customId))
     }
 
@@ -98,7 +98,7 @@ class DeleteCustomEquipmentUseCaseTest {
     @DisplayName("Re-deleting tombstoned equipment succeeds idempotently")
     fun redeleteIsIdempotent() = runTest {
         val repo = FakeEquipmentRepository(initial = listOf(equipment(customId, "Custom Cable", true)))
-        val useCase = DeleteCustomEquipmentUseCase(repo, FakeLoggingPort())
+        val useCase = DeleteCustomEquipmentUseCase(repo)
         assertEquals(DeleteCustomEquipmentResult.Success, useCase(customId))
         assertEquals(DeleteCustomEquipmentResult.Success, useCase(customId))
         assertTrue(repo.current.single().isDeleted)
@@ -115,7 +115,7 @@ class DeleteCustomEquipmentUseCaseTest {
             ),
             liftRepository = liftRepo,
         )
-        val useCase = DeleteCustomEquipmentUseCase(repo, FakeLoggingPort())
+        val useCase = DeleteCustomEquipmentUseCase(repo)
         val result = useCase(customId)
         assertEquals(DeleteCustomEquipmentResult.NotDeletable(customId), result)
         assertTrue(repo.current.none { it.isDeleted })
@@ -133,7 +133,7 @@ class DeleteCustomEquipmentUseCaseTest {
             ),
             liftRepository = liftRepo,
         )
-        val useCase = DeleteCustomEquipmentUseCase(repo, FakeLoggingPort())
+        val useCase = DeleteCustomEquipmentUseCase(repo)
         val result = useCase(customId, replacementId)
         assertEquals(DeleteCustomEquipmentResult.Success, result)
         assertTrue(liftRepo.currentLifts.all { it.equipmentId == replacementId })
@@ -149,7 +149,7 @@ class DeleteCustomEquipmentUseCaseTest {
             initial = listOf(equipment(customId, "Custom Cable", true), tombstoned),
             liftRepository = liftRepo,
         )
-        val useCase = DeleteCustomEquipmentUseCase(repo, FakeLoggingPort())
+        val useCase = DeleteCustomEquipmentUseCase(repo)
         assertEquals(
             DeleteCustomEquipmentResult.NotDeletable(customId),
             useCase(customId, EquipmentId("dead-eq")),
@@ -174,7 +174,7 @@ class DeleteCustomEquipmentUseCaseTest {
             initial = listOf(equipment(customId, "Custom Cable", true)),
             liftRepository = liftRepo,
         )
-        val useCase = DeleteCustomEquipmentUseCase(repo, FakeLoggingPort())
+        val useCase = DeleteCustomEquipmentUseCase(repo)
         val result = useCase(customId)
         assertEquals(DeleteCustomEquipmentResult.Success, result)
         val updated = liftRepo.currentLifts.single()
@@ -183,20 +183,24 @@ class DeleteCustomEquipmentUseCaseTest {
     }
 
     @Test
-    @DisplayName("Repository write failure surfaces as PersistenceFailed with one error log")
+    @DisplayName("Repository write failure surfaces as PersistenceFailed carrying the failure diagnostic")
     fun persistenceFailureOnWrite() = runTest {
         val repo = FakeEquipmentRepository(initial = listOf(equipment(customId, "Custom Cable", true)))
-        val logging = FakeLoggingPort()
+        val failure = IllegalStateException("write failed")
         val throwing =
             object : EquipmentRepository by repo {
                 override suspend fun deleteCustomEquipment(
                     id: EquipmentId,
                     replacementId: EquipmentId?,
-                ): Boolean = throw IllegalStateException("write failed")
+                ): Boolean = throw failure
             }
-        val useCase = DeleteCustomEquipmentUseCase(throwing, logging)
+        val useCase = DeleteCustomEquipmentUseCase(throwing)
         val result = useCase(customId)
-        assertEquals(DeleteCustomEquipmentResult.PersistenceFailed, result)
-        assertEquals(1, logging.errors.size)
+        val failed = result as DeleteCustomEquipmentResult.PersistenceFailed
+        assertEquals(1, failed.diagnostics.size)
+        val diagnostic = failed.diagnostics.single()
+        assertEquals("DeleteCustomEquipment", diagnostic.tag)
+        assertEquals("Failed to delete custom equipment: write failed", diagnostic.message)
+        assertSame(failure, diagnostic.cause)
     }
 }

@@ -1,6 +1,5 @@
 package com.stratum.application.lift
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeEquipmentRepository
 import com.stratum.domain.lift.identity.EquipmentId
 import kotlinx.coroutines.test.runTest
@@ -19,7 +18,6 @@ class RenameAndSetIncrementTiersUseCaseTest {
     private fun subject(repo: FakeEquipmentRepository): RenameAndSetIncrementTiersUseCase =
         RenameAndSetIncrementTiersUseCase(
             repo,
-            FakeLoggingPort(),
         )
 
     private fun seed(): FakeEquipmentRepository =
@@ -92,7 +90,15 @@ class RenameAndSetIncrementTiersUseCaseTest {
 
         val result = subject(repo)(equipmentId, "Lat Stack", listOf(tier(0.0, null, 10.0)))
 
-        assertEquals(RenameAndSetIncrementTiersResult.PersistenceFailed, result)
+        val failed = result as RenameAndSetIncrementTiersResult.PersistenceFailed
+        assertEquals(1, failed.diagnostics.size)
+        val diagnostic = failed.diagnostics.single()
+        assertEquals("RenameAndSetIncrementTiers", diagnostic.tag)
+        assertEquals(
+            "Failed to rename equipment and set increment tiers: Simulated equipment write failure",
+            diagnostic.message,
+        )
+        assertTrue(diagnostic.cause is IllegalStateException)
         assertEquals(before, repo.current.single())
     }
 

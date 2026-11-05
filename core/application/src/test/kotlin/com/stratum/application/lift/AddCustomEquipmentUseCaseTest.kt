@@ -1,6 +1,5 @@
 package com.stratum.application.lift
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeEquipmentRepository
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -29,7 +28,6 @@ class AddCustomEquipmentUseCaseTest {
         subject =
             AddCustomEquipmentUseCase(
                 repository = equipmentRepo,
-                loggingPort = FakeLoggingPort(),
             )
     }
 
@@ -129,11 +127,19 @@ class AddCustomEquipmentUseCaseTest {
     }
 
     @Test
-    @DisplayName("Given a repository failure when added then PersistenceFailed (STR-243)")
+    @DisplayName("Given a repository failure when added then PersistenceFailed carrying the failure diagnostic")
     fun addCustomPersistenceFailure() = runTest {
         equipmentRepo.failNextWrite = true
         val result = subject("Pin stack", tiers)
 
-        assertEquals(AddCustomEquipmentResult.PersistenceFailed, result)
+        val failed = result as AddCustomEquipmentResult.PersistenceFailed
+        assertEquals(1, failed.diagnostics.size)
+        val diagnostic = failed.diagnostics.single()
+        assertEquals("AddCustomEquipment", diagnostic.tag)
+        assertEquals(
+            "Failed to add custom equipment: Simulated equipment write failure",
+            diagnostic.message,
+        )
+        assertTrue(diagnostic.cause is IllegalStateException)
     }
 }

@@ -1,6 +1,5 @@
 package com.stratum.application.lift
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeEquipmentRepository
 import com.stratum.domain.lift.identity.EquipmentId
 import kotlinx.coroutines.test.runTest
@@ -20,7 +19,6 @@ class SetEquipmentIncrementTiersUseCaseTest {
     private fun subject(repo: FakeEquipmentRepository): SetEquipmentIncrementTiersUseCase =
         SetEquipmentIncrementTiersUseCase(
             repo,
-            FakeLoggingPort(),
         )
 
     private fun seed(): FakeEquipmentRepository =
@@ -86,14 +84,22 @@ class SetEquipmentIncrementTiersUseCaseTest {
     }
 
     @Test
-    @DisplayName("Given a repository failure when invoked then PersistenceFailed (STR-243)")
+    @DisplayName("Given a repository failure when invoked then PersistenceFailed carrying the failure diagnostic")
     fun persistenceFailure() = runTest {
         val repo = seed()
         repo.failNextWrite = true
 
         val result = subject(repo)(equipmentId, listOf(tier(0.0, null, 15.0)))
 
-        assertEquals(SetEquipmentIncrementTiersResult.PersistenceFailed, result)
+        val failed = result as SetEquipmentIncrementTiersResult.PersistenceFailed
+        assertEquals(1, failed.diagnostics.size)
+        val diagnostic = failed.diagnostics.single()
+        assertEquals("SetEquipmentIncrementTiers", diagnostic.tag)
+        assertEquals(
+            "Failed to set equipment increment tiers: Simulated equipment write failure",
+            diagnostic.message,
+        )
+        assertTrue(diagnostic.cause is IllegalStateException)
     }
 
     @Test
@@ -109,7 +115,7 @@ class SetEquipmentIncrementTiersUseCaseTest {
                     throw kotlin.coroutines.cancellation.CancellationException("cancelled")
                 }
             }
-        val subject = SetEquipmentIncrementTiersUseCase(cancelling, FakeLoggingPort())
+        val subject = SetEquipmentIncrementTiersUseCase(cancelling)
         org.junit.jupiter.api.Assertions.assertThrows(
             kotlin.coroutines.cancellation.CancellationException::class.java,
         ) {

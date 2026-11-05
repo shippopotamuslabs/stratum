@@ -1,19 +1,20 @@
 package com.stratum.application.lift
 
 import com.stratum.domain.lift.identity.EquipmentId
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
 import com.stratum.domain.lift.CatalogNames
 
 /**
- * Outcome of finding or creating equipment by name (STR-243).
+ * Outcome of finding or creating equipment by name (STR-243; STR-237 Route (i)).
  *
  * The name branch carries the validation result itself
  * ([CatalogNames.Validation.Invalid]). The originating throwable of a failed
- * write goes once to the diagnostics channel ([LoggingPort.error]) at the
- * use-case boundary; it never crosses as a payload. Coroutine cancellation is
- * not a branch: it propagates.
+ * write rides the [PersistenceFailed] branch as an [OperationalDiagnostic]
+ * (legacy tag + rendered message, real throwable as cause); the presentation
+ * boundary drains it exactly once through its module's DiagnosticDrain.
+ * Coroutine cancellation is not a branch: it propagates.
  */
 sealed interface FindOrCreateEquipmentResult {
     data class Success(val equipmentId: EquipmentId) : FindOrCreateEquipmentResult
@@ -22,7 +23,9 @@ sealed interface FindOrCreateEquipmentResult {
         FindOrCreateEquipmentResult
 
     /** The equipment read/write failed (repository / store I/O). */
-    data object PersistenceFailed : FindOrCreateEquipmentResult
+    data class PersistenceFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : FindOrCreateEquipmentResult
 }
 
 /**
@@ -32,7 +35,6 @@ sealed interface FindOrCreateEquipmentResult {
  */
 class FindOrCreateEquipmentByNameUseCase @Inject constructor(
     private val repository: EquipmentRepository,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(name: String): FindOrCreateEquipmentResult {
         val trimmed =
@@ -46,8 +48,15 @@ class FindOrCreateEquipmentByNameUseCase @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (t: Throwable) {
-            loggingPort.error(TAG, "Failed to find or create equipment: ${t.message}", t)
-            FindOrCreateEquipmentResult.PersistenceFailed
+            FindOrCreateEquipmentResult.PersistenceFailed(
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Failed to find or create equipment: ${t.message}",
+                        cause = t,
+                    ),
+                ),
+            )
         }
     }
 

@@ -2,7 +2,7 @@ package com.stratum.application.lift
 
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
 import com.stratum.domain.lift.Equipment
@@ -11,13 +11,15 @@ import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.alignedWithEquipment
 
 /**
- * Outcome of assigning equipment to a lift (STR-243).
+ * Outcome of assigning equipment to a lift (STR-243; STR-237 Route (i)).
  *
  * [EquipmentDeleted] is the tombstone refusal (STR-105 Scope 8): a deleted
  * equipment can never be (re-)persisted as an assignment. The originating
- * throwable of a failed read or write goes once to the diagnostics channel
- * ([LoggingPort.error]) at the use-case boundary; it never crosses as a
- * payload. Coroutine cancellation is not a branch: it propagates.
+ * throwable of a failed read or write rides the [PersistenceFailed] branch
+ * as an [OperationalDiagnostic] (legacy tag + rendered message, real
+ * throwable as cause); the presentation boundary drains it exactly once
+ * through its module's DiagnosticDrain. Coroutine cancellation is not a
+ * branch: it propagates.
  */
 sealed interface SetLiftEquipmentResult {
     data object Success : SetLiftEquipmentResult
@@ -27,7 +29,9 @@ sealed interface SetLiftEquipmentResult {
     data class EquipmentDeleted(val equipmentId: EquipmentId) : SetLiftEquipmentResult
 
     /** A catalog read or the assignment write failed (repository / store I/O). */
-    data object PersistenceFailed : SetLiftEquipmentResult
+    data class PersistenceFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : SetLiftEquipmentResult
 }
 
 /**
@@ -39,7 +43,6 @@ sealed interface SetLiftEquipmentResult {
 class SetLiftEquipmentUseCase @Inject constructor(
     private val repository: LiftRepository,
     private val equipmentRepository: EquipmentRepository,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(id: LiftId, equipmentId: EquipmentId?): SetLiftEquipmentResult =
         try {
@@ -59,8 +62,15 @@ class SetLiftEquipmentUseCase @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (t: Throwable) {
-            loggingPort.error(TAG, "Failed to set lift equipment: ${t.message}", t)
-            SetLiftEquipmentResult.PersistenceFailed
+            SetLiftEquipmentResult.PersistenceFailed(
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Failed to set lift equipment: ${t.message}",
+                        cause = t,
+                    ),
+                ),
+            )
         }
 
     private companion object {

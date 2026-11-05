@@ -27,6 +27,7 @@ import com.stratum.application.lift.GetEquipmentDeleteImpactUseCase
 import com.stratum.domain.lift.SeedEquipmentIds
 import com.stratum.application.lift.DismissEquipmentProposalUseCase
 import com.stratum.domain.lift.Weight
+import com.stratum.app.DiagnosticDrain
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.EquipmentPickResult
 import com.stratum.domain.lift.identity.LiftId
@@ -94,6 +95,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
     private val equipmentPickResult: EquipmentPickResult,
     observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
     private val scanDelegate: IncrementScanDelegate,
+    private val diagnosticDrain: DiagnosticDrain,
 ) : ViewModel() {
 
     private val equipmentId = MutableStateFlow<String?>(null)
@@ -154,8 +156,10 @@ class EquipmentIncrementsViewModel @Inject constructor(
                     is SetLiftEquipmentResult.EquipmentDeleted ->
                         validationOverride.value =
                             "Equipment is deleted; pick a live equipment or clear the assignment"
-                    SetLiftEquipmentResult.PersistenceFailed ->
+                    is SetLiftEquipmentResult.PersistenceFailed -> {
+                        diagnosticDrain.drain(result.diagnostics)
                         validationOverride.value = "Could not change equipment"
+                    }
                 }
             }
         }
@@ -511,15 +515,24 @@ class EquipmentIncrementsViewModel @Inject constructor(
             // from the kind (see the file-level mapping helpers below).
             val failureMessage =
                 if (draftName != null) {
-                    renameAndSetIncrementTiers(
-                        EquipmentId(id),
-                        draftName,
-                        domainTiers,
-                        domainMicro,
-                    ).saveFailureMessage()
+                    val result =
+                        renameAndSetIncrementTiers(
+                            EquipmentId(id),
+                            draftName,
+                            domainTiers,
+                            domainMicro,
+                        )
+                    if (result is RenameAndSetIncrementTiersResult.PersistenceFailed) {
+                        diagnosticDrain.drain(result.diagnostics)
+                    }
+                    result.saveFailureMessage()
                 } else {
-                    setEquipmentIncrementTiers(EquipmentId(id), domainTiers, domainMicro)
-                        .saveFailureMessage()
+                    val result =
+                        setEquipmentIncrementTiers(EquipmentId(id), domainTiers, domainMicro)
+                    if (result is SetEquipmentIncrementTiersResult.PersistenceFailed) {
+                        diagnosticDrain.drain(result.diagnostics)
+                    }
+                    result.saveFailureMessage()
                 }
             isSaving.value = false
             if (failureMessage == null) {
@@ -580,7 +593,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
         viewModelScope.launch {
             // STR-243 C4: branch on the outcome kinds; the user copy is sourced
             // from the kind (NotDeletable carries the shipped refusal copy).
-            when (deleteCustomEquipment(EquipmentId(id), replacement)) {
+            when (val result = deleteCustomEquipment(EquipmentId(id), replacement)) {
                 DeleteCustomEquipmentResult.Success -> {
                     deleteSucceeded.value = true
                     validationOverride.value = null
@@ -588,8 +601,10 @@ class EquipmentIncrementsViewModel @Inject constructor(
                 is DeleteCustomEquipmentResult.NotDeletable ->
                     validationOverride.value =
                         "Equipment cannot be deleted (protected or missing, or a replacement is required)"
-                DeleteCustomEquipmentResult.PersistenceFailed ->
+                is DeleteCustomEquipmentResult.PersistenceFailed -> {
+                    diagnosticDrain.drain(result.diagnostics)
                     validationOverride.value = "Could not delete equipment"
+                }
             }
         }
     }
@@ -635,6 +650,13 @@ class EquipmentIncrementsViewModel @Inject constructor(
                         liftId,
                         domainMicro,
                     )
+                when (result) {
+                    is ForkEquipmentWithTiersResult.PersistenceFailed ->
+                        diagnosticDrain.drain(result.diagnostics)
+                    is ForkEquipmentWithTiersResult.AssignmentPersistenceFailed ->
+                        diagnosticDrain.drain(result.diagnostics)
+                    else -> Unit
+                }
                 if (result is ForkEquipmentWithTiersResult.Success) {
                     dismissProposalContext()
                     saveSucceeded.value = true
@@ -845,7 +867,7 @@ private fun RenameAndSetIncrementTiersResult.saveFailureMessage(): String? =
             "Invalid increment tiers: ${validation.errors}"
         is RenameAndSetIncrementTiersResult.InvalidMicro ->
             "Invalid micro increments: ${validation.errors}"
-        RenameAndSetIncrementTiersResult.PersistenceFailed -> "Could not save increments"
+        is RenameAndSetIncrementTiersResult.PersistenceFailed -> "Could not save increments"
     }
 
 private fun SetEquipmentIncrementTiersResult.saveFailureMessage(): String? =
@@ -855,7 +877,7 @@ private fun SetEquipmentIncrementTiersResult.saveFailureMessage(): String? =
             "Invalid increment tiers: ${validation.errors}"
         is SetEquipmentIncrementTiersResult.InvalidMicro ->
             "Invalid micro increments: ${validation.errors}"
-        SetEquipmentIncrementTiersResult.PersistenceFailed -> "Could not save increments"
+        is SetEquipmentIncrementTiersResult.PersistenceFailed -> "Could not save increments"
     }
 
 private fun ForkEquipmentWithTiersResult.forkFailureMessage(): String =
@@ -867,8 +889,8 @@ private fun ForkEquipmentWithTiersResult.forkFailureMessage(): String =
             "Invalid increment tiers: ${validation.errors}"
         is ForkEquipmentWithTiersResult.InvalidMicro ->
             "Invalid micro increments: ${validation.errors}"
-        ForkEquipmentWithTiersResult.PersistenceFailed,
+        is ForkEquipmentWithTiersResult.PersistenceFailed,
         is ForkEquipmentWithTiersResult.AssignmentLiftNotFound,
         is ForkEquipmentWithTiersResult.AssignmentEquipmentDeleted,
-        ForkEquipmentWithTiersResult.AssignmentPersistenceFailed -> "Could not copy equipment"
+        is ForkEquipmentWithTiersResult.AssignmentPersistenceFailed -> "Could not copy equipment"
     }
