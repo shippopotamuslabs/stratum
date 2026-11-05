@@ -10,7 +10,7 @@ import com.stratum.domain.program.generation.schema.NormalizedProgram
 import com.stratum.domain.program.generation.schema.ProgramNormalizationRequest
 import com.stratum.domain.program.generation.schema.parseAndNormalizeProgram
 import com.stratum.domain.program.generation.schema.toDraft
-import com.stratum.domain.program.generation.validation.ProgramGenerationValidationException
+import com.stratum.domain.program.generation.validation.ValidationReport
 import com.stratum.domain.program.generation.validation.ValidationSeverity
 import com.stratum.domain.program.generation.validation.validateProgramMetrics
 import com.stratum.domain.program.generation.volume.WeeklyVolumeTargets
@@ -19,6 +19,16 @@ import javax.inject.Inject
 data class IntegrateAndValidateOptions(
     val skipFinalValidation: Boolean = false,
 )
+
+/**
+ * Outcome of integrate-and-validate (STR-241): a blocking validation rejection is an
+ * expected failure, returned as the [ValidationRejected] branch carrying the full
+ * [ValidationReport] — never thrown across the pipeline boundary.
+ */
+sealed interface IntegrateAndValidateProgramResult {
+    data class Success(val program: NormalizedProgram) : IntegrateAndValidateProgramResult
+    data class ValidationRejected(val report: ValidationReport) : IntegrateAndValidateProgramResult
+}
 
 class IntegrateAndValidateProgramUseCase @Inject constructor() {
     suspend operator fun invoke(
@@ -29,7 +39,7 @@ class IntegrateAndValidateProgramUseCase @Inject constructor() {
         options: IntegrateAndValidateOptions = IntegrateAndValidateOptions(),
         onPolishingProgram: suspend () -> Unit = {},
         onFinalizingProgram: suspend () -> Unit = {},
-    ): NormalizedProgram {
+    ): IntegrateAndValidateProgramResult {
         var draft =
             repairWeeklyVolume(
                 program = built,
@@ -53,9 +63,9 @@ class IntegrateAndValidateProgramUseCase @Inject constructor() {
                         issue.code in blockingCodes
                 }
             if (blocking.isNotEmpty()) {
-                throw ProgramGenerationValidationException(report)
+                return IntegrateAndValidateProgramResult.ValidationRejected(report)
             }
         }
-        return normalized
+        return IntegrateAndValidateProgramResult.Success(normalized)
     }
 }
