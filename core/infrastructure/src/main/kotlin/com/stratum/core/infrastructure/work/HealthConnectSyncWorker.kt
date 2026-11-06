@@ -9,10 +9,10 @@ import com.stratum.application.healthconnect.HealthSyncFailure
 import com.stratum.application.healthconnect.toHealthFailureKind
 import com.stratum.domain.healthconnect.HealthFailureKind
 import com.stratum.domain.logging.LoggingPort
-import com.stratum.domain.logging.onFailureLogged
 import com.stratum.domain.training.identity.TrainingSessionId
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import kotlin.coroutines.cancellation.CancellationException
 
 @HiltWorker
 class HealthConnectSyncWorker @AssistedInject constructor(
@@ -61,16 +61,22 @@ class HealthConnectSyncWorker @AssistedInject constructor(
     }
 
     /**
-     * Persists the sticky sync error for UI surfacing. The work layer returns
-     * the write failure as a value without logging it; this worker is the
+     * Persists the sticky sync error for UI surfacing. The work layer throws
+     * the write failure without logging it; this worker is the
      * drain boundary, so each failure is logged exactly once here.
      */
     private suspend fun reportStickySyncError(kind: HealthFailureKind) {
-        work.reportTerminalFailure(kind).onFailureLogged(
-            loggingPort,
-            HEALTH_CONNECT_PREFS_TAG,
-            "Failed to set Health Connect sync error",
-        )
+        try {
+            work.reportTerminalFailure(kind)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            loggingPort.error(
+                HEALTH_CONNECT_PREFS_TAG,
+                "Failed to set Health Connect sync error: ${error.message}",
+                error,
+            )
+        }
     }
 
     private companion object {

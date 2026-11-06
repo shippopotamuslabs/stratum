@@ -2,6 +2,7 @@ package com.stratum.feature.subscription
 
 import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.subscription.FakeBillingPort
 import com.stratum.core.testing.subscription.FakeEntitlementRepository
 import com.stratum.core.testing.telemetry.FakeAnalyticsPort
@@ -49,9 +50,9 @@ class PaywallViewModelTest {
         analytics: FakeAnalyticsPort = FakeAnalyticsPort(),
     ): PaywallViewModel =
         PaywallViewModel(
-            getSubscriptionProducts = GetSubscriptionProductsUseCase(fakeBilling),
-            purchaseSubscription = PurchaseSubscriptionUseCase(fakeBilling),
-            restorePurchases = RestorePurchasesUseCase(fakeBilling, fakeRepo),
+            getSubscriptionProducts = GetSubscriptionProductsUseCase(fakeBilling, FakeLoggingPort()),
+            purchaseSubscription = PurchaseSubscriptionUseCase(fakeBilling, FakeLoggingPort()),
+            restorePurchases = RestorePurchasesUseCase(fakeBilling, fakeRepo, FakeLoggingPort()),
             observeEntitlement = ObserveEntitlementUseCase(fakeRepo),
             observeBillingPurchaseResults = ObserveBillingPurchaseResultsUseCase(fakeBilling),
             logAnalytics = LogAnalyticsEventUseCase(analytics),
@@ -191,7 +192,7 @@ class PaywallViewModelTest {
 
     @Test
     fun `restore failure records analytics and shows message`() = runTest {
-        fakeBilling.restorePurchasesResult = Result.failure(IllegalStateException("Sync down"))
+        fakeBilling.restorePurchasesFailure = IllegalStateException("Sync down")
         val analytics = FakeAnalyticsPort()
         viewModel = createViewModel(analytics)
 

@@ -43,8 +43,6 @@ stratum:
     active: true
     legacyFiles:
       - 'core/application/src/main/kotlin/com/stratum/application/auth/AuthUseCases.kt'
-      - 'core/application/src/main/kotlin/com/stratum/application/healthconnect/HealthConnectUseCases.kt'
-      - 'core/application/src/main/kotlin/com/stratum/application/subscription/SubscriptionUseCases.kt'
       - 'core/domain/src/main/kotlin/com/stratum/domain/coroutines/RunCatchingCancellable.kt'
       - 'core/domain/src/main/kotlin/com/stratum/domain/logging/LoggedResult.kt'
 

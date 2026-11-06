@@ -8,7 +8,6 @@ import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.metadata.Device
 import androidx.health.connect.client.records.metadata.Metadata
 import com.stratum.application.healthconnect.HealthConnectSyncPort
-import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.TrainingSession
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -36,25 +35,36 @@ class HealthConnectManager @Inject constructor(
         return grantedPermissions.contains(writePermission)
     }
 
-    override suspend fun grantedPermissions(): Result<Set<String>> {
+    override suspend fun grantedPermissions(): Set<String> {
         if (!isAvailable()) {
-            return Result.failure(HealthConnectUnavailableException().toHealthSyncFailure())
+            throw HealthConnectUnavailableException().toHealthSyncFailure()
         }
         return try {
-            Result.success(
-                HealthConnectClient.getOrCreate(context).permissionController.getGrantedPermissions(),
-            )
+            HealthConnectClient.getOrCreate(context).permissionController.getGrantedPermissions()
         } catch (e: CancellationException) {
             throw e
         } catch (error: Throwable) {
-            Result.failure(error.toHealthSyncFailure())
+            throw error.toHealthSyncFailure()
         }
     }
 
     override suspend fun pushSession(
         session: TrainingSession,
         sets: List<LoggedSet>,
-    ): Result<Unit> = runCatchingCancellable<Unit> {
+    ) {
+        try {
+            pushSessionOrThrow(session, sets)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (error: Throwable) {
+            throw error.toHealthSyncFailure()
+        }
+    }
+
+    private suspend fun pushSessionOrThrow(
+        session: TrainingSession,
+        sets: List<LoggedSet>,
+    ) {
         if (!isAvailable()) {
             throw HealthConnectUnavailableException()
         }
@@ -89,13 +99,7 @@ class HealthConnectManager @Inject constructor(
         )
 
         client.insertRecords(listOf(record))
-    }.fold(
-        onSuccess = { Result.success(it) },
-        onFailure = {
-            if (it is CancellationException) throw it
-            Result.failure(it.toHealthSyncFailure())
-        },
-    )
+    }
 
     private fun buildSessionRecord(
         startTime: Instant,

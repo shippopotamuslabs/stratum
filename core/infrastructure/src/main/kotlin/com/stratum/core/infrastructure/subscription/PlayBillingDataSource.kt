@@ -98,7 +98,7 @@ class PlayBillingDataSource @Inject constructor(
         }
     }
 
-    override suspend fun querySubscriptionProducts(): Result<List<SubscriptionProduct>> = runCatchingCancellable {
+    override suspend fun querySubscriptionProducts(): List<SubscriptionProduct> {
         if (!ensureConnected()) {
             error("Failed to connect to Google Play Billing service")
         }
@@ -125,14 +125,14 @@ class PlayBillingDataSource @Inject constructor(
         val detailsList = productDetailsResult.productDetailsList ?: emptyList()
         cachedProductDetails = detailsList.associateBy { it.productId }
 
-        detailsList.mapNotNull(PlaySubscriptionMapper::toDomain)
+        return detailsList.mapNotNull(PlaySubscriptionMapper::toDomain)
             .filter { SubscriptionCatalog.isKnownProductId(it.productId) }
             .sortedBy { product ->
                 if (product.productId == SubscriptionCatalog.ANNUAL_PRODUCT_ID) 0 else 1
             }
     }
 
-    override suspend fun launchBillingFlow(product: SubscriptionProduct): Result<Unit> = runCatchingCancellable {
+    override suspend fun launchBillingFlow(product: SubscriptionProduct) {
         if (!ensureConnected()) {
             error("Failed to connect to Google Play Billing service")
         }
@@ -148,7 +148,7 @@ class PlayBillingDataSource @Inject constructor(
         }
 
         val details = cachedProductDetails[product.productId]
-            ?: querySubscriptionProducts().getOrThrow().let {
+            ?: querySubscriptionProducts().let {
                 cachedProductDetails[product.productId]
                     ?: error("Product details not available for ${product.productId}")
             }
@@ -172,7 +172,7 @@ class PlayBillingDataSource @Inject constructor(
         }
     }
 
-    override suspend fun restorePurchases(): Result<Unit> = runCatchingCancellable {
+    override suspend fun restorePurchases() {
         queryAndPublishActivePurchases()
     }
 

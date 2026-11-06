@@ -1,9 +1,10 @@
 package com.stratum.application.healthconnect
 
 /**
- * Outcome of [SetHealthConnectEnabledUseCase.applyGrantedPermissions]: the preference write
- * itself reports success/failure through the surrounding `Result`, while a permission-query
- * degradation the call tolerates rides along as [diagnostics].
+ * Outcome of [SetHealthConnectEnabledUseCase.applyGrantedPermissions] (STR-243):
+ * [Applied] carries any permission-query degradation the call tolerated as
+ * [ApplyGrantedPermissionsDiagnostic]s; [PersistenceFailed] is the preference
+ * write itself failing (logged once at the use-case boundary).
  *
  * Placement note (CODE_STYLE_GOSPEL §11): this type is owned by the application
  * layer, not the domain. The degradation it records is detected in use-case
@@ -11,9 +12,17 @@ package com.stratum.application.healthconnect
  * domain math, so the domain stays free of this operational concern. Diagnostics are
  * drained exactly once at the feature boundary and never reach UI state.
  */
-data class ApplyGrantedPermissionsOutcome(
-    val diagnostics: List<ApplyGrantedPermissionsDiagnostic> = emptyList(),
-)
+sealed interface ApplyGrantedPermissionsOutcome {
+    data class Applied(
+        val diagnostics: List<ApplyGrantedPermissionsDiagnostic> = emptyList(),
+    ) : ApplyGrantedPermissionsOutcome
+
+    /** The SDK became unavailable before the opt-in write; no write was attempted. */
+    data object SdkUnavailable : ApplyGrantedPermissionsOutcome
+
+    /** The preference write failed (store I/O). */
+    data object PersistenceFailed : ApplyGrantedPermissionsOutcome
+}
 
 /**
  * A non-fatal permission-query degradation recorded as data (STR-257).

@@ -42,7 +42,7 @@ class SubscriptionRepositoryImplTest {
         fakeComplimentary.access.value = ComplimentaryAccess.NotGranted
         fakeBilling.setPurchases(emptyList())
         fakePlaySync.syncedTokens.clear()
-        fakePlaySync.syncResult = Result.success(true)
+        fakePlaySync.syncFailure = null
         repository = SubscriptionRepositoryImpl(
             billingPort = fakeBilling,
             complimentaryAccessStore = fakeComplimentary,
@@ -116,20 +116,18 @@ class SubscriptionRepositoryImplTest {
         fakeBilling.setPurchases(listOf(knownPlayPurchase()))
 
         val result = repository.refreshEntitlement()
-        assertEquals(
-            Result.success(EntitlementState.NotEntitled("Not authenticated")),
-            result,
-        )
+        assertEquals(EntitlementState.NotEntitled("Not authenticated"), result)
     }
 
     @Test
     @DisplayName("refresh propagates failure when billing restore fails")
     fun refreshFailsWhenBillingRestoreFails() = runTest {
-        fakeBilling.restorePurchasesResult = Result.failure(IllegalStateException("Billing service down"))
+        fakeBilling.restorePurchasesFailure = IllegalStateException("Billing service down")
 
-        val result = repository.refreshEntitlement()
-        org.junit.jupiter.api.Assertions.assertTrue(result.isFailure)
-        assertEquals("Billing service down", result.exceptionOrNull()?.message)
+        val thrown = org.junit.jupiter.api.assertThrows<IllegalStateException> {
+            repository.refreshEntitlement()
+        }
+        assertEquals("Billing service down", thrown.message)
     }
 
     @Test
@@ -148,10 +146,7 @@ class SubscriptionRepositoryImplTest {
         }
 
         val refreshed = repository.refreshEntitlement()
-        assertEquals(
-            Result.success(EntitlementState.Entitled(EntitlementSource.ComplimentaryAccess)),
-            refreshed,
-        )
+        assertEquals(EntitlementState.Entitled(EntitlementSource.ComplimentaryAccess), refreshed)
     }
 
     @Test
@@ -172,8 +167,9 @@ class SubscriptionRepositoryImplTest {
         fakeAuthManager.setState(authenticated("uid-dev"))
         fakeComplimentary.access.value = ComplimentaryAccess.Unknown
 
-        val refreshed = repository.refreshEntitlement()
-        assertTrue(refreshed.isFailure)
+        org.junit.jupiter.api.assertThrows<IllegalStateException> {
+            repository.refreshEntitlement()
+        }
     }
 
     @Test
@@ -184,10 +180,7 @@ class SubscriptionRepositoryImplTest {
         fakeBilling.setPurchases(listOf(knownPlayPurchase()))
 
         val refreshed = repository.refreshEntitlement()
-        assertEquals(
-            Result.success(EntitlementState.Entitled(EntitlementSource.GooglePlaySubscription)),
-            refreshed,
-        )
+        assertEquals(EntitlementState.Entitled(EntitlementSource.GooglePlaySubscription), refreshed)
     }
 
     @Test
@@ -211,13 +204,12 @@ class SubscriptionRepositoryImplTest {
     @DisplayName("play sync failure surfaces as a diagnostic value")
     fun syncFailureSurfacesAsDiagnostic() = runTest {
         val boom = IllegalStateException("sync boom")
-        fakePlaySync.syncResult = Result.failure(boom)
+        fakePlaySync.syncFailure = boom
         fakeAuthManager.setState(authenticated("uid-subscriber"))
         fakeBilling.setPurchases(listOf(knownPlayPurchase()))
 
         repository.observeEntitlementDiagnostics().test {
-            val refreshed = repository.refreshEntitlement()
-            assertTrue(refreshed.isSuccess)
+            repository.refreshEntitlement()
             val diagnostic = awaitItem()
             assertTrue(diagnostic is EntitlementDiagnostic.PlaySyncFailed)
             assertSame(boom, (diagnostic as EntitlementDiagnostic.PlaySyncFailed).cause)
@@ -229,7 +221,7 @@ class SubscriptionRepositoryImplTest {
     @DisplayName("observe-triggered play sync failure surfaces as a diagnostic value")
     fun observeTriggeredSyncFailureSurfacesAsDiagnostic() = runTest {
         val boom = IllegalStateException("sync boom")
-        fakePlaySync.syncResult = Result.failure(boom)
+        fakePlaySync.syncFailure = boom
         fakeAuthManager.setState(authenticated("uid-subscriber"))
         fakeBilling.setPurchases(listOf(knownPlayPurchase()))
 
@@ -255,8 +247,7 @@ class SubscriptionRepositoryImplTest {
         fakeBilling.setPurchases(listOf(knownPlayPurchase()))
 
         repository.observeEntitlementDiagnostics().test {
-            val refreshed = repository.refreshEntitlement()
-            assertTrue(refreshed.isSuccess)
+            repository.refreshEntitlement()
             assertEquals(listOf("token-abc"), fakePlaySync.syncedTokens)
             expectNoEvents()
             cancelAndIgnoreRemainingEvents()

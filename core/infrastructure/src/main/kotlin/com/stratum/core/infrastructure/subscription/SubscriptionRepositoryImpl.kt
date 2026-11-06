@@ -2,7 +2,6 @@ package com.stratum.core.infrastructure.subscription
 
 import com.stratum.application.auth.AuthManager
 import com.stratum.domain.auth.AuthState
-import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.di.ApplicationScope
 import com.stratum.application.subscription.BillingPort
 import com.stratum.application.subscription.EntitlementRepository
@@ -13,6 +12,7 @@ import com.stratum.application.subscription.PlayEntitlementSyncPort
 import com.stratum.domain.subscription.SubscriptionPurchase
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
@@ -62,33 +62,26 @@ class SubscriptionRepositoryImpl @Inject constructor(
             }
         }.distinctUntilChanged()
 
-    override suspend fun refreshEntitlement(): Result<EntitlementState> {
-        val restoreResult = billingPort.restorePurchases()
-        if (restoreResult.isFailure) {
-            return Result.failure(
-                restoreResult.exceptionOrNull() ?: IllegalStateException("Failed to restore purchases"),
-            )
+    override suspend fun refreshEntitlement(): EntitlementState {
+        billingPort.restorePurchases()
+        val auth = authManager.authState.value
+        val purchases = billingPort.activePurchases.first()
+        val complimentary = if (auth is AuthState.Authenticated) {
+            complimentaryAccessStore.getComplimentaryAccess(auth.user.uid)
+        } else {
+            ComplimentaryAccess.NotGranted
         }
-        return runCatchingCancellable {
-            val auth = authManager.authState.value
-            val purchases = billingPort.activePurchases.first()
-            val complimentary = if (auth is AuthState.Authenticated) {
-                complimentaryAccessStore.getComplimentaryAccess(auth.user.uid)
-            } else {
-                ComplimentaryAccess.NotGranted
-            }
-            if (auth is AuthState.Authenticated) {
-                syncActivePurchaseTokens(purchases)
-            }
-            val state = EntitlementState.resolve(auth, complimentary, purchases)
-            // A one-shot refresh must answer definitively: when the complimentary read
-            // failed and no Play purchase entitles, Loading would tell the caller the
-            // restore found nothing. Fail instead so the caller can show a retry (STR-280).
-            check(state !is EntitlementState.Loading || auth !is AuthState.Authenticated) {
-                "Entitlement refresh could not verify complimentary access"
-            }
-            state
+        if (auth is AuthState.Authenticated) {
+            syncActivePurchaseTokens(purchases)
         }
+        val state = EntitlementState.resolve(auth, complimentary, purchases)
+        // A one-shot refresh must answer definitively: when the complimentary read
+        // failed and no Play purchase entitles, Loading would tell the caller the
+        // restore found nothing. Fail instead so the caller can show a retry (STR-280).
+        check(state !is EntitlementState.Loading || auth !is AuthState.Authenticated) {
+            "Entitlement refresh could not verify complimentary access"
+        }
+        return state
     }
 
     private fun syncActivePurchaseTokens(purchases: List<SubscriptionPurchase>) {
@@ -96,10 +89,13 @@ class SubscriptionRepositoryImpl @Inject constructor(
             val token = purchase.purchaseToken
             if (token.isBlank()) continue
             applicationScope.launch {
-                playEntitlementSync.syncPurchaseToken(token)
-                    .onFailure { error ->
-                        diagnosticsChannel.trySend(EntitlementDiagnostic.PlaySyncFailed(error))
-                    }
+                try {
+                    playEntitlementSync.syncPurchaseToken(token)
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (error: Throwable) {
+                    diagnosticsChannel.trySend(EntitlementDiagnostic.PlaySyncFailed(error))
+                }
             }
         }
     }

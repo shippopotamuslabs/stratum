@@ -6,7 +6,6 @@ import java.io.ByteArrayInputStream
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -33,21 +32,18 @@ class DataStoreHealthConnectPreferencesRepositoryTest {
     }
 
     @Test
-    @DisplayName("setEnabled returns success and persists the preference")
+    @DisplayName("setEnabled persists the preference")
     fun setEnabledPersists() = runTest {
-        val result = repository.setEnabled(true)
+        repository.setEnabled(true)
 
-        assertTrue(result.isSuccess)
         assertEquals(true, repository.getPreferences().enabled)
     }
 
     @Test
-    @DisplayName("setPendingSyncError returns success and persists the sticky kind")
+    @DisplayName("setPendingSyncError persists the sticky kind")
     fun setPendingSyncErrorPersists() = runTest {
-        val result =
-            repository.setPendingSyncError(HealthFailureKind.PermissionDenied)
+        repository.setPendingSyncError(HealthFailureKind.PermissionDenied)
 
-        assertTrue(result.isSuccess)
         assertEquals(
             HealthFailureKind.PermissionDenied,
             repository.getPreferences().pendingSyncError,
@@ -59,9 +55,8 @@ class DataStoreHealthConnectPreferencesRepositoryTest {
     fun clearPendingSyncErrorPersists() = runTest {
         repository.setPendingSyncError(HealthFailureKind.Unavailable)
 
-        val result = repository.setPendingSyncError(null)
+        repository.setPendingSyncError(null)
 
-        assertTrue(result.isSuccess)
         assertEquals(null, repository.getPreferences().pendingSyncError)
     }
 

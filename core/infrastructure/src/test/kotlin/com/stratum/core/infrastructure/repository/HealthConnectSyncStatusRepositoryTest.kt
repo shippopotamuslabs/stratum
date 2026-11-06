@@ -6,10 +6,10 @@ import com.stratum.domain.healthconnect.HealthFailureKind
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertSame
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 
 class HealthConnectSyncStatusRepositoryTest {
 
@@ -25,9 +25,8 @@ class HealthConnectSyncStatusRepositoryTest {
     @Test
     @DisplayName("reportSyncError forwards success without logging")
     fun reportSyncErrorForwards() = runTest {
-        val result = repository.reportSyncError(HealthFailureKind.Unavailable)
+        repository.reportSyncError(HealthFailureKind.Unavailable)
 
-        assertTrue(result.isSuccess)
         assertEquals(
             HealthFailureKind.Unavailable,
             preferences.getPreferences().pendingSyncError,
@@ -35,15 +34,16 @@ class HealthConnectSyncStatusRepositoryTest {
     }
 
     @Test
-    @DisplayName("reportSyncError forwards failure as a value")
+    @DisplayName("reportSyncError forwards failure by throwing it")
     fun reportSyncErrorForwardsFailure() = runTest {
         val cause = IllegalStateException("datastore blip")
         preferences.setPendingSyncErrorFailure = cause
 
-        val result = repository.reportSyncError(HealthFailureKind.Unavailable)
+        val thrown = assertThrows<IllegalStateException> {
+            repository.reportSyncError(HealthFailureKind.Unavailable)
+        }
 
-        assertTrue(result.isFailure)
-        assertSame(cause, result.exceptionOrNull())
+        assertSame(cause, thrown)
         assertEquals(null, preferences.getPreferences().pendingSyncError)
     }
 
@@ -63,16 +63,17 @@ class HealthConnectSyncStatusRepositoryTest {
     }
 
     @Test
-    @DisplayName("clearPendingSyncError forwards failure as a value")
+    @DisplayName("clearPendingSyncError forwards failure by throwing it")
     fun clearPendingSyncErrorForwardsFailure() = runTest {
         preferences.setPendingSyncError(HealthFailureKind.PermissionDenied)
         val cause = IllegalStateException("datastore blip")
         preferences.setPendingSyncErrorFailure = cause
 
-        val result = repository.clearPendingSyncError()
+        val thrown = assertThrows<IllegalStateException> {
+            repository.clearPendingSyncError()
+        }
 
-        assertTrue(result.isFailure)
-        assertSame(cause, result.exceptionOrNull())
+        assertSame(cause, thrown)
         assertEquals(
             HealthFailureKind.PermissionDenied,
             preferences.getPreferences().pendingSyncError,
