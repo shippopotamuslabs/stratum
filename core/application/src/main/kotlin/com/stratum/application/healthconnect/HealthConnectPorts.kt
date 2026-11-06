@@ -34,7 +34,13 @@ sealed interface HealthConnectWriteOutcome {
 
     data class Failed(
         val diagnostics: List<HealthSyncDiagnostic>,
-    ) : HealthConnectWriteOutcome
+    ) : HealthConnectWriteOutcome {
+        init {
+            require(diagnostics.isNotEmpty()) {
+                "HealthConnectWriteOutcome.Failed requires at least one diagnostic."
+            }
+        }
+    }
 }
 
 /** Outcome of a Health Connect granted-permissions query at the sync port. */
@@ -45,7 +51,13 @@ sealed interface HealthConnectGrantedPermissionsOutcome {
         val kind: HealthSyncFailureKind,
         val message: String?,
         val diagnostics: List<HealthSyncDiagnostic>,
-    ) : HealthConnectGrantedPermissionsOutcome
+    ) : HealthConnectGrantedPermissionsOutcome {
+        init {
+            require(diagnostics.isNotEmpty()) {
+                "HealthConnectGrantedPermissionsOutcome.Failed requires at least one diagnostic."
+            }
+        }
+    }
 }
 
 /** Outcome of pushing a session to Health Connect at the sync port. */
@@ -56,7 +68,13 @@ sealed interface HealthConnectPushOutcome {
         val kind: HealthSyncFailureKind,
         val message: String?,
         val diagnostics: List<HealthSyncDiagnostic>,
-    ) : HealthConnectPushOutcome
+    ) : HealthConnectPushOutcome {
+        init {
+            require(diagnostics.isNotEmpty()) {
+                "HealthConnectPushOutcome.Failed requires at least one diagnostic."
+            }
+        }
+    }
 }
 
 /**

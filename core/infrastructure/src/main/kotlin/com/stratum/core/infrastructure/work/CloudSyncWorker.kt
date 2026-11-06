@@ -43,10 +43,11 @@ class CloudSyncWorker @AssistedInject constructor(
             when (val outcome = cloudSyncPort.requestSync()) {
                 CloudSyncOutcome.Success -> null
                 is CloudSyncOutcome.Failed ->
+                    // The Failed invariant guarantees at least one diagnostic,
+                    // and OperationFailed is its only subtype.
                     outcome.diagnostics
                         .filterIsInstance<CloudSyncDiagnostic.OperationFailed>()
-                        .firstOrNull()?.cause
-                        ?: IllegalStateException("Cloud sync failed")
+                        .first().cause
             }
         // STR-242: terminal boundary for the sync flow. Classified outcomes go
         // to the countable stream; an unexpected failure that exhausted retries

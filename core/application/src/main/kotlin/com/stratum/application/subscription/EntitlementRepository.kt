@@ -10,7 +10,13 @@ sealed interface RefreshEntitlementOutcome {
 
     data class Failed(
         val diagnostics: List<BillingDiagnostic>,
-    ) : RefreshEntitlementOutcome
+    ) : RefreshEntitlementOutcome {
+        init {
+            require(diagnostics.isNotEmpty()) {
+                "RefreshEntitlementOutcome.Failed requires at least one diagnostic."
+            }
+        }
+    }
 }
 
 interface EntitlementRepository {

@@ -23,7 +23,13 @@ sealed interface SubscriptionProductsOutcome {
     data class Failed(
         val message: String?,
         val diagnostics: List<BillingDiagnostic>,
-    ) : SubscriptionProductsOutcome
+    ) : SubscriptionProductsOutcome {
+        init {
+            require(diagnostics.isNotEmpty()) {
+                "SubscriptionProductsOutcome.Failed requires at least one diagnostic."
+            }
+        }
+    }
 }
 
 /** Outcome of launching the billing flow at the [BillingPort]. */
@@ -33,7 +39,13 @@ sealed interface BillingFlowOutcome {
     data class Failed(
         val message: String?,
         val diagnostics: List<BillingDiagnostic>,
-    ) : BillingFlowOutcome
+    ) : BillingFlowOutcome {
+        init {
+            require(diagnostics.isNotEmpty()) {
+                "BillingFlowOutcome.Failed requires at least one diagnostic."
+            }
+        }
+    }
 }
 
 /** Outcome of restoring purchases at the [BillingPort]. */
@@ -43,7 +55,13 @@ sealed interface RestorePurchasesOutcome {
     data class Failed(
         val message: String?,
         val diagnostics: List<BillingDiagnostic>,
-    ) : RestorePurchasesOutcome
+    ) : RestorePurchasesOutcome {
+        init {
+            require(diagnostics.isNotEmpty()) {
+                "RestorePurchasesOutcome.Failed requires at least one diagnostic."
+            }
+        }
+    }
 }
 
 /**
