@@ -91,6 +91,7 @@ class OnboardingViewModel @Inject constructor(
     private val importProgramTemplate: ImportProgramTemplateUseCase,
     private val logError: LogErrorUseCase,
     private val logAnalytics: LogAnalyticsEventUseCase,
+    private val diagnosticDrain: DiagnosticDrain,
     observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
     private val setWeightDisplayUnit: SetWeightDisplayUnitUseCase,
 ) : ViewModel() {
@@ -400,9 +401,21 @@ class OnboardingViewModel @Inject constructor(
             // shipped preset-apply fallback.
             val failed =
                 if (preset != null) {
-                    applyGymPreset(preset) == ApplyGymPresetResult.PersistenceFailed
+                    when (val result = applyGymPreset(preset)) {
+                        is ApplyGymPresetResult.PersistenceFailed -> {
+                            diagnosticDrain.drain(result.diagnostics)
+                            true
+                        }
+                        ApplyGymPresetResult.Success -> false
+                    }
                 } else {
-                    setSelectedPreset(null) == SetSelectedPresetResult.PersistenceFailed
+                    when (val result = setSelectedPreset(null)) {
+                        is SetSelectedPresetResult.PersistenceFailed -> {
+                            diagnosticDrain.drain(result.diagnostics)
+                            true
+                        }
+                        SetSelectedPresetResult.Success -> false
+                    }
                 }
             ephemeral.update {
                 it.copy(

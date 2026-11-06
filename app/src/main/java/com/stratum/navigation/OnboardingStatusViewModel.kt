@@ -2,7 +2,9 @@ package com.stratum.navigation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.stratum.app.DiagnosticDrain
 import com.stratum.application.onboarding.ObserveOnboardingCompleteUseCase
+import com.stratum.application.onboarding.ReopenOnboardingWizardResult
 import com.stratum.application.onboarding.ReopenOnboardingWizardUseCase
 import com.stratum.application.program.DiscardActiveProgramUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -17,6 +19,7 @@ class OnboardingStatusViewModel @Inject constructor(
     observeComplete: ObserveOnboardingCompleteUseCase,
     private val reopenOnboardingWizard: ReopenOnboardingWizardUseCase,
     private val discardActiveProgram: DiscardActiveProgramUseCase,
+    private val diagnosticDrain: DiagnosticDrain,
 ) : ViewModel() {
     /**
      * `null` until the first repository emission — callers must not route on `false` while
@@ -38,7 +41,10 @@ class OnboardingStatusViewModel @Inject constructor(
     fun discardProgramAndReopenOnboarding() {
         viewModelScope.launch {
             discardActiveProgram()
-            reopenOnboardingWizard()
+            val result = reopenOnboardingWizard()
+            if (result is ReopenOnboardingWizardResult.PersistenceFailed) {
+                diagnosticDrain.drain(result.diagnostics)
+            }
         }
     }
 }

@@ -1,6 +1,5 @@
 package com.stratum.application.onboarding
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeOnboardingRepository
 import com.stratum.domain.onboarding.OnboardingProgress
 import com.stratum.domain.onboarding.OnboardingStep
@@ -21,7 +20,7 @@ class ReopenOnboardingWizardUseCaseTest {
                         completedAt = FakeOnboardingRepository.COMPLETED_AT,
                     ),
             )
-        val subject = ReopenOnboardingWizardUseCase(repository, FakeLoggingPort())
+        val subject = ReopenOnboardingWizardUseCase(repository)
 
         subject()
 
@@ -30,16 +29,22 @@ class ReopenOnboardingWizardUseCaseTest {
     }
 
     @Test
-    fun `reopen returns PersistenceFailed when the repository write throws (STR-243)`() = runTest {
+    fun `reopen returns PersistenceFailed carrying the diagnostic when the repository write throws (STR-243)`() = runTest {
+        val boom = RuntimeException("store unavailable")
         val throwing =
             object : OnboardingRepository by FakeOnboardingRepository() {
                 override suspend fun reopenWizard() {
-                    throw RuntimeException("store unavailable")
+                    throw boom
                 }
             }
-        val subject = ReopenOnboardingWizardUseCase(throwing, FakeLoggingPort())
+        val subject = ReopenOnboardingWizardUseCase(throwing)
 
-        assertEquals(ReopenOnboardingWizardResult.PersistenceFailed, subject())
+        val result = subject()
+        val failed = result as ReopenOnboardingWizardResult.PersistenceFailed
+        assertEquals(1, failed.diagnostics.size)
+        assertEquals("ReopenOnboardingWizard", failed.diagnostics.single().tag)
+        assertEquals("Failed to reopen onboarding wizard: store unavailable", failed.diagnostics.single().message)
+        org.junit.jupiter.api.Assertions.assertSame(boom, failed.diagnostics.single().cause)
     }
 
     @Test
@@ -50,7 +55,7 @@ class ReopenOnboardingWizardUseCaseTest {
                     throw kotlin.coroutines.cancellation.CancellationException("cancelled")
                 }
             }
-        val subject = ReopenOnboardingWizardUseCase(cancelling, FakeLoggingPort())
+        val subject = ReopenOnboardingWizardUseCase(cancelling)
 
         org.junit.jupiter.api.Assertions.assertThrows(
             kotlin.coroutines.cancellation.CancellationException::class.java,

@@ -239,8 +239,8 @@ class OnboardingGenerateViewModelTest {
             getOnboardingStepCapabilities = com.stratum.application.onboarding.GetOnboardingStepCapabilitiesUseCase(
                 validateCurrentStep,
             ),
-            applyGymPreset = ApplyGymPresetUseCase(com.stratum.core.testing.onboarding.FakeLiftRepository(), FakeLoggingPort()),
-            setSelectedPreset = SetSelectedPresetUseCase(com.stratum.core.testing.onboarding.FakeLiftRepository(), FakeLoggingPort()),
+            applyGymPreset = ApplyGymPresetUseCase(com.stratum.core.testing.onboarding.FakeLiftRepository()),
+            setSelectedPreset = SetSelectedPresetUseCase(com.stratum.core.testing.onboarding.FakeLiftRepository()),
             executeHistoricalImport = com.stratum.application.importing.ExecuteHistoricalImportUseCase(
                 validateImportFiles = com.stratum.application.importing.ValidateImportFilesUseCase(),
                 runHistoricalImport = com.stratum.application.importing.RunHistoricalImportUseCase(
@@ -283,6 +283,7 @@ class OnboardingGenerateViewModelTest {
                 programChangeEventRepository = com.stratum.core.testing.training.NoOpProgramChangeEventRepository(),
             ),
             logError = com.stratum.domain.logging.LogErrorUseCase(FakeLoggingPort()),
+            diagnosticDrain = DiagnosticDrain(FakeLoggingPort()),
             logAnalytics =
                 com.stratum.domain.logging.LogAnalyticsEventUseCase(
                     analytics,

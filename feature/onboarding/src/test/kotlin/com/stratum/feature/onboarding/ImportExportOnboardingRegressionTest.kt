@@ -175,8 +175,8 @@ class ImportExportOnboardingRegressionTest {
                     loggingPort = FakeLoggingPort(),
                 ),
             getOnboardingStepCapabilities = GetOnboardingStepCapabilitiesUseCase(validateCurrentStep),
-            applyGymPreset = ApplyGymPresetUseCase(liftRepo, FakeLoggingPort()),
-            setSelectedPreset = SetSelectedPresetUseCase(liftRepo, FakeLoggingPort()),
+            applyGymPreset = ApplyGymPresetUseCase(liftRepo),
+            setSelectedPreset = SetSelectedPresetUseCase(liftRepo),
             executeHistoricalImport =
                 ExecuteHistoricalImportUseCase(
                     validateImportFiles = ValidateImportFilesUseCase(),
@@ -209,6 +209,7 @@ class ImportExportOnboardingRegressionTest {
             completeOnboarding = completeOnboarding,
             importProgramTemplate = importUseCase,
             logError = com.stratum.domain.logging.LogErrorUseCase(FakeLoggingPort()),
+            diagnosticDrain = DiagnosticDrain(FakeLoggingPort()),
             logAnalytics =
                 com.stratum.domain.logging.LogAnalyticsEventUseCase(
                     com.stratum.core.testing.telemetry.FakeAnalyticsPort(),
