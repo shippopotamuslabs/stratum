@@ -34,6 +34,8 @@ import com.stratum.domain.program.generation.synthesis.ProgramSynthesisException
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisRefusal
 import com.stratum.domain.program.generation.validation.ProgramGenerationValidationException
 import com.stratum.domain.program.generation.validationUserMessage
+import com.stratum.core.infrastructure.telemetry.ProgramGenerationTelemetryLogger
+import com.stratum.domain.program.generation.GenerationSynthesisSummary
 import com.stratum.domain.telemetry.classifyGenerateOutcome
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -59,6 +61,7 @@ internal class CreateProgramGenerateController(
     private val logAnalytics: AnalyticsRecorder,
     private val synthesisTelemetry: SynthesisTelemetry,
     private val telemetryRouter: TelemetryRouter,
+    private val generationLogger: ProgramGenerationTelemetryLogger,
 ) {
     private var generateJob: Job? = null
 
@@ -215,7 +218,12 @@ internal class CreateProgramGenerateController(
                     }
                 val program =
                     when (result) {
-                        is GenerateProgramResult.Success -> result.program
+                        is GenerateProgramResult.Success -> {
+                            // STR-237 chunk 3: the synthesis records ride the
+                            // outcome; this boundary records them exactly once.
+                            result.synthesis?.let { recordSynthesis(it) }
+                            result.program
+                        }
                         is GenerateProgramResult.ValidationRejected,
                         is GenerateProgramResult.SynthesisRefused,
                         is GenerateProgramResult.SynthesisFailed,
@@ -247,7 +255,18 @@ internal class CreateProgramGenerateController(
             }
     }
 
+    /** Records a carried synthesis summary exactly once (info + slot diagnostics). */
+    private fun recordSynthesis(synthesis: GenerationSynthesisSummary) {
+        generationLogger.logSynthesisComplete(synthesis)
+        generationLogger.logGenerationDiagnostics(synthesis.diagnostics)
+    }
+
     private fun publishGenerateFailure(result: GenerateProgramResult) {
+        // STR-237 chunk 3: a validation-rejected generation still completed its
+        // build, so its carried synthesis records are drained here exactly once.
+        if (result is GenerateProgramResult.ValidationRejected) {
+            result.synthesis?.let { recordSynthesis(it) }
+        }
         // STR-242: one home per class — the expected-vs-exceptional split lives
         // in classifyGenerateOutcome, keyed on the STR-243 outcome branches.
         val outcome = classifyGenerateOutcome(result)

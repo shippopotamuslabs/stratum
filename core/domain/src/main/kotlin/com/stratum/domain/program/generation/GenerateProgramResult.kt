@@ -20,15 +20,25 @@ import com.stratum.domain.program.generation.validation.ValidationSeverity
  * cancellation is not a branch: it propagates.
  */
 sealed interface GenerateProgramResult {
-    /** Generation produced a program draft (not yet persisted). */
-    data class Success(val program: Program) : GenerateProgramResult
+    /**
+     * Generation produced a program draft (not yet persisted). [synthesis]
+     * carries the completed build's facts so the outcome boundary records
+     * them exactly once (STR-237 chunk 3).
+     */
+    data class Success(
+        val program: Program,
+        val synthesis: GenerationSynthesisSummary? = null,
+    ) : GenerateProgramResult
 
     /**
      * The generated program failed domain validation. Expected: the report is
      * the payload; presentation derives the user-facing copy from it via
      * [validationUserMessage].
      */
-    data class ValidationRejected(val report: ValidationReport) : GenerateProgramResult
+    data class ValidationRejected(
+        val report: ValidationReport,
+        val synthesis: GenerationSynthesisSummary? = null,
+    ) : GenerateProgramResult
 
     /**
      * Synthesis was refused before any solver work ran (e.g. the feature gate

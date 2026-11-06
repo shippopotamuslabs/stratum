@@ -1,5 +1,6 @@
 package com.stratum.feature.onboarding
 
+import com.stratum.core.infrastructure.telemetry.ProgramGenerationTelemetryLogger
 import com.stratum.core.testing.program.FixedProgramGenerationContextLoader
 import com.stratum.core.testing.logging.FakeLoggingPort
 
@@ -308,6 +309,7 @@ class OnboardingImportProgramViewModelTest {
             completeOnboarding = completeOnboarding,
             importProgramTemplate = importUseCase,
             diagnosticDrain = DiagnosticDrain(FakeLoggingPort()),
+            generationLogger = ProgramGenerationTelemetryLogger(FakeLoggingPort()),
             logAnalytics =
                 AnalyticsRecorder(
                     analytics,

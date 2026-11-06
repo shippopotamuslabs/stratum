@@ -1,5 +1,6 @@
 package com.stratum.feature.onboarding
 
+import com.stratum.core.infrastructure.telemetry.ProgramGenerationTelemetryLogger
 import com.stratum.core.testing.logging.FakeLoggingPort
 
 import app.cash.turbine.test
@@ -280,6 +281,7 @@ class OnboardingGenerateViewModelTest {
                 programChangeEventRepository = com.stratum.core.testing.training.NoOpProgramChangeEventRepository(),
             ),
             diagnosticDrain = DiagnosticDrain(FakeLoggingPort()),
+            generationLogger = ProgramGenerationTelemetryLogger(FakeLoggingPort()),
             logAnalytics =
                 AnalyticsRecorder(
                     analytics,

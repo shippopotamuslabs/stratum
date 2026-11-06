@@ -1,11 +1,10 @@
-package com.stratum.domain.program
+package com.stratum.core.infrastructure.telemetry
 
 import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.program.scenarioContext
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.onboarding.MuscleGroup
-import com.stratum.domain.program.generation.build.BuildProgramResult
-import com.stratum.domain.program.generation.build.BuiltProgram
+import com.stratum.domain.program.generation.GenerationSynthesisSummary
 import com.stratum.domain.program.generation.prescription.SynthesisObjectiveBreakdown
 import com.stratum.domain.program.generation.slots.SlotGenerationDiagnostic
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -34,14 +33,11 @@ class ProgramGenerationTelemetryLoggerTest {
                 sessionFillShortfall = 0L,
             )
         logger.logSynthesisComplete(
-            context = context,
-            result =
-                BuildProgramResult(
-                    program = BuiltProgram(name = "Test", cycleLength = 4, workouts = emptyList()),
-                    selectionsBySession = emptyList(),
-                    cycleSlotIndexByPosition = listOf(0, 1, 3, 4),
-                    synthesisObjective = objective,
-                ),
+            GenerationSynthesisSummary(
+                trainingDaysPerWeek = context.trainingDaysPerWeek,
+                cycleLength = 4,
+                objective = objective,
+            ),
         )
 
         assertTrue(

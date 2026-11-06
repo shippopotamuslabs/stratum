@@ -1,5 +1,6 @@
 package com.stratum.feature.onboarding
 
+import com.stratum.core.infrastructure.telemetry.ProgramGenerationTelemetryLogger
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.application.importing.CancelHistoricalImportUseCase
@@ -47,6 +48,7 @@ import com.stratum.application.program.ActivateProgramResult
 import com.stratum.application.program.ActivateProgramUseCase
 import com.stratum.application.program.GenerateProgramUseCase
 import com.stratum.domain.program.generation.GenerateProgramResult
+import com.stratum.domain.program.generation.GenerationSynthesisSummary
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisException
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisRefusal
 import com.stratum.domain.program.generation.validation.ProgramGenerationValidationException
@@ -90,6 +92,7 @@ class OnboardingViewModel @Inject constructor(
     private val importProgramTemplate: ImportProgramTemplateUseCase,
     private val logAnalytics: AnalyticsRecorder,
     private val diagnosticDrain: DiagnosticDrain,
+    private val generationLogger: ProgramGenerationTelemetryLogger,
     observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
     private val setWeightDisplayUnit: SetWeightDisplayUnitUseCase,
 ) : ViewModel() {
@@ -825,7 +828,12 @@ class OnboardingViewModel @Inject constructor(
                         }
                     val program =
                         when (generateResult) {
-                            is GenerateProgramResult.Success -> generateResult.program
+                            is GenerateProgramResult.Success -> {
+                                // STR-237 chunk 3: the synthesis records ride
+                                // the outcome; this boundary records them once.
+                                generateResult.synthesis?.let { recordSynthesis(it) }
+                                generateResult.program
+                            }
                             is GenerateProgramResult.ValidationRejected,
                             is GenerateProgramResult.SynthesisRefused,
                             is GenerateProgramResult.SynthesisFailed,
@@ -991,7 +999,18 @@ class OnboardingViewModel @Inject constructor(
      * branch itself carries the typed facts. The analytics event below fires
      * for every failure branch.
      */
+    /** Records a carried synthesis summary exactly once (info + slot diagnostics). */
+    private fun recordSynthesis(synthesis: GenerationSynthesisSummary) {
+        generationLogger.logSynthesisComplete(synthesis)
+        generationLogger.logGenerationDiagnostics(synthesis.diagnostics)
+    }
+
     private fun logGenerateFailure(result: GenerateProgramResult) {
+        // STR-237 chunk 3: a validation-rejected generation still completed its
+        // build, so its carried synthesis records are drained here exactly once.
+        if (result is GenerateProgramResult.ValidationRejected) {
+            result.synthesis?.let { recordSynthesis(it) }
+        }
         when (result) {
             is GenerateProgramResult.SynthesisFailed ->
                 diagnosticDrain.recordError(

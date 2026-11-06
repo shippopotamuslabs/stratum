@@ -1,32 +1,33 @@
-package com.stratum.domain.program
+package com.stratum.core.infrastructure.telemetry
 
 import com.stratum.domain.logging.LoggingPort
-import com.stratum.domain.program.generation.build.BuildProgramResult
-import com.stratum.domain.program.generation.context.ProgramGenerationContext
+import com.stratum.domain.program.generation.GenerationSynthesisSummary
 import com.stratum.domain.program.generation.prescription.SynthesisObjectiveBreakdown
 import com.stratum.domain.program.generation.slots.SlotGenerationDiagnostic
 import javax.inject.Inject
 
 /**
  * Structured info-level telemetry for on-device program synthesis. Uses [LoggingPort]
- * so adapters can fan out to Logcat, Crashlytics, or OpenTelemetry without pulling
- * Android into `:core:domain`.
+ * so adapters can fan out to Logcat, Crashlytics, or OpenTelemetry.
+ *
+ * Infrastructure-resident (STR-237 chunk 3): domain and application have no
+ * logging capability, so the generation pipeline no longer records through
+ * this logger mid-run. The synthesis facts ride the generation outcome as a
+ * [GenerationSynthesisSummary] and the outcome boundary (program-generation
+ * controller / onboarding) invokes this logger exactly once per generation.
  */
 class ProgramGenerationTelemetryLogger @Inject constructor(
     private val loggingPort: LoggingPort,
 ) {
-    fun logSynthesisComplete(
-        context: ProgramGenerationContext,
-        result: BuildProgramResult,
-    ) {
+    fun logSynthesisComplete(summary: GenerationSynthesisSummary) {
         loggingPort.info(
             TAG,
             buildString {
                 append("programSynthesis ")
-                append("days=${context.trainingDaysPerWeek} ")
-                append("cycleLength=${result.program.cycleLength} ")
+                append("days=${summary.trainingDaysPerWeek} ")
+                append("cycleLength=${summary.cycleLength} ")
                 append("unified=true ")
-                appendObjective("objective", result.synthesisObjective)
+                appendObjective("objective", summary.objective)
             },
         )
     }
@@ -48,9 +49,8 @@ class ProgramGenerationTelemetryLogger @Inject constructor(
     }
 
     /**
-     * STR-254: reports each slot-build diagnostic exactly once at warning level through
-     * the pipeline's existing logging wiring. Diagnostics are log-only — never surfaced
-     * in the UI.
+     * STR-254: reports each slot-build diagnostic exactly once at warning level.
+     * Diagnostics are log-only — never surfaced in the UI.
      */
     fun logGenerationDiagnostics(diagnostics: List<SlotGenerationDiagnostic>) {
         for (diagnostic in diagnostics) {

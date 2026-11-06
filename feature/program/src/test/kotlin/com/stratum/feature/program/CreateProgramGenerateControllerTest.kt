@@ -1,6 +1,8 @@
 package com.stratum.feature.program
 
+import com.stratum.core.infrastructure.telemetry.ProgramGenerationTelemetryLogger
 import com.stratum.core.testing.MainDispatcherRule
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.ui.trainingsetup.SESSION_BAND_KEY_MEDIUM
 import com.stratum.core.ui.trainingsetup.ScheduleDraftUi
 import com.stratum.core.ui.trainingsetup.isReadyForGeneration
@@ -91,6 +93,7 @@ class CreateProgramGenerateControllerTest {
                 logAnalytics = AnalyticsRecorder(analytics),
                 synthesisTelemetry = SynthesisTelemetry(analytics::logEvent),
                 telemetryRouter = TelemetryRouter(outcomes, crash, analytics),
+                generationLogger = ProgramGenerationTelemetryLogger(FakeLoggingPort()),
             )
 
         assertTrue(
@@ -164,6 +167,7 @@ class CreateProgramGenerateControllerTest {
                 logAnalytics = AnalyticsRecorder(analytics),
                 synthesisTelemetry = SynthesisTelemetry(analytics::logEvent),
                 telemetryRouter = TelemetryRouter(outcomes, crash, analytics),
+                generationLogger = ProgramGenerationTelemetryLogger(FakeLoggingPort()),
             )
 
         controller.generate()
@@ -240,6 +244,7 @@ class CreateProgramGenerateControllerTest {
                 logAnalytics = AnalyticsRecorder(analytics),
                 synthesisTelemetry = SynthesisTelemetry(analytics::logEvent),
                 telemetryRouter = TelemetryRouter(outcomes, crash, analytics),
+                generationLogger = ProgramGenerationTelemetryLogger(FakeLoggingPort()),
             )
 
         controller.generate()

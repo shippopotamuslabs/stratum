@@ -89,13 +89,14 @@ class GenerateProgramUseCase @Inject constructor(
                                     ),
                             )
                     ) {
-                        is ProgramGenerationPipelineResult.Success -> pipelineResult.program
+                        is ProgramGenerationPipelineResult.Success -> pipelineResult.program to pipelineResult.synthesis
                         is ProgramGenerationPipelineResult.ValidationRejected ->
                             // STR-243: the rejection travels as an outcome branch
                             // carrying the report end-to-end (STR-241 interim mapped
                             // it to a constructed exception value).
                             return@withContext GenerateProgramResult.ValidationRejected(
                                 pipelineResult.report,
+                                synthesis = pipelineResult.synthesis,
                             )
                         is ProgramGenerationPipelineResult.SynthesisRefused ->
                             // STR-243: the refusal travels as an outcome branch;
@@ -105,8 +106,9 @@ class GenerateProgramUseCase @Inject constructor(
                                 pipelineResult.refusal,
                             )
                     }
+                val (normalizedProgram, synthesisSummary) = normalized
                 var program =
-                    normalized.toDomainProgram(
+                    normalizedProgram.toDomainProgram(
                         restSecondsForLift = { id -> liftsById[id]?.resolvedDefaultRestSeconds() },
                     )
                         .retainOnlyKnownLifts(knownLiftIds)
@@ -137,7 +139,7 @@ class GenerateProgramUseCase @Inject constructor(
                                 ?: resolveInitialCycleStartEpochDay(program),
                     )
                 onProgress(ProgramGenerationProgress(ProgramGenerationProgressPhase.Complete))
-                GenerateProgramResult.Success(program)
+                GenerateProgramResult.Success(program, synthesis = synthesisSummary)
             } catch (error: kotlinx.coroutines.CancellationException) {
                 // Structured cancellation must not become a failure branch.
                 throw error

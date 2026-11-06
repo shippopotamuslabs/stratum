@@ -1,6 +1,5 @@
 package com.stratum.application.program
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.program.FakeProgramSynthesisPort
@@ -50,7 +49,6 @@ import com.stratum.application.program.generation.pipeline.ProgramGenerationPipe
 import com.stratum.application.program.generation.pipeline.ProgramGenerationPipelineResult
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.ProgramGenerationProgressPhase
-import com.stratum.domain.program.ProgramGenerationTelemetryLogger
 import com.stratum.domain.program.ScheduleDayItem
 import com.stratum.domain.program.SetType
 import com.stratum.domain.program.buildWeeklySchedule
@@ -73,6 +71,11 @@ class GenerateProgramUseCaseTest {
             val result = useCase.invoke()
 
             assertTrue(result is GenerateProgramResult.Success)
+            // STR-237 chunk 3: the synthesis records ride the outcome to the
+            // boundary (the pipeline no longer records them itself).
+            val synthesis = (result as GenerateProgramResult.Success).synthesis
+            assertTrue(synthesis != null, "expected the synthesis summary to ride the Success branch")
+            assertTrue(synthesis!!.cycleLength > 0)
             assertTrue(programRepository.saveProgramCalls.isEmpty())
             assertNull(programRepository.current)
             assertFalse(result.requireProgram().isActive)
@@ -402,7 +405,6 @@ private class FixedNormalizedProgramPipeline(
     buildProgramWorkouts = BuildProgramWorkoutsUseCase(),
     integrateAndValidate = IntegrateAndValidateProgramUseCase(),
     programSynthesisPort = FakeProgramSynthesisPort(),
-    telemetryLogger = ProgramGenerationTelemetryLogger(FakeLoggingPort()),
 ) {
     override suspend fun generate(
         context: ProgramGenerationContext,
@@ -422,7 +424,6 @@ private class ValidationRejectedPipeline(
     buildProgramWorkouts = BuildProgramWorkoutsUseCase(),
     integrateAndValidate = IntegrateAndValidateProgramUseCase(),
     programSynthesisPort = FakeProgramSynthesisPort(),
-    telemetryLogger = ProgramGenerationTelemetryLogger(FakeLoggingPort()),
 ) {
     override suspend fun generate(
         context: ProgramGenerationContext,
@@ -440,7 +441,6 @@ private class SynthesisRefusedPipeline : ProgramGenerationPipeline(
     buildProgramWorkouts = BuildProgramWorkoutsUseCase(),
     integrateAndValidate = IntegrateAndValidateProgramUseCase(),
     programSynthesisPort = FakeProgramSynthesisPort(),
-    telemetryLogger = ProgramGenerationTelemetryLogger(FakeLoggingPort()),
 ) {
     override suspend fun generate(
         context: ProgramGenerationContext,
