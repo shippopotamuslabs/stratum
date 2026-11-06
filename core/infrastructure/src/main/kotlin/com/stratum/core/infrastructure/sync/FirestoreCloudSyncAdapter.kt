@@ -104,7 +104,6 @@ class FirestoreCloudSyncAdapter @Inject constructor(
                 } catch (error: CancellationException) {
                     throw error
                 } catch (error: Throwable) {
-                    loggingPort.error(TAG, "start failed: ${error.message}", error)
                     activeUserId.set(null)
                     _syncStatus.value = SyncStatus.Error(error.message ?: "sync start failed")
                     _sessionState.value =
@@ -124,7 +123,6 @@ class FirestoreCloudSyncAdapter @Inject constructor(
                 } catch (error: CancellationException) {
                     throw error
                 } catch (error: Throwable) {
-                    loggingPort.error(TAG, "start push/pull failed: ${error.message}", error)
                     _syncStatus.value = SyncStatus.Error(error.message ?: "sync start failed")
                     try {
                         cloudSyncScheduler.enqueueSoon()
@@ -182,7 +180,6 @@ class FirestoreCloudSyncAdapter @Inject constructor(
                 } catch (error: CancellationException) {
                     throw error
                 } catch (error: Throwable) {
-                    loggingPort.error(TAG, "requestSync failed: ${error.message}", error)
                     _syncStatus.value = SyncStatus.Error(error.message ?: "request sync failed")
                     // Do not enqueueSoon(REPLACE) here. Residual failures retry via WorkManager
                     // backoff; other failures give up after bounded retries. UI/scheduler retries
@@ -215,7 +212,6 @@ class FirestoreCloudSyncAdapter @Inject constructor(
                 } catch (error: CancellationException) {
                     throw error
                 } catch (error: Throwable) {
-                    loggingPort.error(TAG, "endSessionAndWipe failed: ${error.message}", error)
                     CloudSyncOutcome.Failed(
                         listOf(CloudSyncDiagnostic.OperationFailed(error)),
                     )
@@ -238,7 +234,6 @@ class FirestoreCloudSyncAdapter @Inject constructor(
             uploadUntilIdle = { uploadEngine.uploadUntilIdle(userId).getOrThrow() },
             hasDirtyResidual = { uploadEngine.hasResidualPending() },
             pull = { pullEngine.pull(userId).getOrThrow() },
-            logError = { msg -> loggingPort.error(TAG, msg) },
             afterSuccessfulPull = {
                 val rebuildResult = rebuildLocalDerivedTrainingData()
                 if (rebuildResult is RebuildLocalDerivedTrainingDataResult.PersistenceFailed) {

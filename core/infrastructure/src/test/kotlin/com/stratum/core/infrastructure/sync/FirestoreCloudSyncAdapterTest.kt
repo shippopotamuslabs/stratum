@@ -2,6 +2,7 @@
 
 package com.stratum.core.infrastructure.sync
 
+import com.stratum.application.training.RebuildLocalDerivedTrainingDataResult
 import com.stratum.application.training.RebuildLocalDerivedTrainingDataUseCase
 import com.stratum.core.infrastructure.work.CloudSyncScheduler
 import com.stratum.core.testing.logging.FakeLoggingPort
@@ -79,6 +80,10 @@ class FirestoreCloudSyncAdapterTest {
         }
         assertEquals(1, recoveryErrors.size)
         assertSame(enqueueFailure, recoveryErrors.single().throwable)
+        // STR-238: the B12 recovery-enqueue record is the ONLY adapter record —
+        // the primary push/pull failure itself records nothing here (its
+        // diagnostics ride the Failed outcome to the boundary drain).
+        assertEquals(1, logging.errors.size)
     }
 
     @Test
@@ -119,6 +124,123 @@ class FirestoreCloudSyncAdapterTest {
             ((outcome as com.stratum.application.sync.CloudSyncOutcome.Failed)
                 .diagnostics.single()
                 as com.stratum.application.sync.CloudSyncDiagnostic.OperationFailed).cause,
+        )
+        // STR-238: the primary failure records nothing at the adapter.
+        assertTrue(logging.errors.isEmpty())
+    }
+
+    @Test
+    @DisplayName("Given account ownership setup throws when start then Failed carries the cause and adapter records nothing")
+    fun startOwnershipFailureRecordsNothingAtAdapter() = runTest {
+        val ownershipFailure = IllegalStateException("ownership blew up")
+        val logging = FakeLoggingPort()
+        val stateStore = mockk<FirestoreSyncStateStore> {
+            coEvery { lastSyncedUserId() } throws ownershipFailure
+        }
+        val subject = adapter(stateStore = stateStore, logging = logging)
+
+        val outcome = subject.start("uid-1")
+
+        assertTrue(outcome is com.stratum.application.sync.CloudSyncOutcome.Failed)
+        assertSame(
+            ownershipFailure,
+            ((outcome as com.stratum.application.sync.CloudSyncOutcome.Failed)
+                .diagnostics.single()
+                as com.stratum.application.sync.CloudSyncDiagnostic.OperationFailed).cause,
+        )
+        assertTrue(logging.errors.isEmpty())
+    }
+
+    @Test
+    @DisplayName("Given a started session when requestSync push pull fails then Failed carries the cause and adapter records nothing")
+    fun requestSyncFailureRecordsNothingAtAdapter() = runTest {
+        val syncFailure = IllegalStateException("requestSync blew up")
+        val logging = FakeLoggingPort()
+        val stateStore = mockk<FirestoreSyncStateStore> {
+            coEvery { lastSyncedUserId() } returns "uid-1"
+            coEvery { setLastSyncedUserId(any()) } returns Unit
+            coEvery { isHydrated(any()) } returns true
+        }
+        val uploadEngine = mockk<FirestorePendingUploadEngine> {
+            coEvery { uploadUntilIdle(any(), any()) } returns Result.success(false)
+            coEvery { hasResidualPending() } returns false
+        }
+        val pullEngine = mockk<FirestoreRemotePullEngine> {
+            coEvery { pull(any()) } returns
+                Result.success(PullResult(hadFailures = false, hydrated = true))
+        }
+        val subject = adapter(
+            stateStore = stateStore,
+            uploadEngine = uploadEngine,
+            pullEngine = pullEngine,
+            logging = logging,
+        )
+
+        val startOutcome = subject.start("uid-1")
+        assertTrue(startOutcome is com.stratum.application.sync.CloudSyncOutcome.Success)
+
+        coEvery { uploadEngine.uploadUntilIdle(any(), any()) } returns Result.failure(syncFailure)
+        val outcome = subject.requestSync()
+
+        assertTrue(outcome is com.stratum.application.sync.CloudSyncOutcome.Failed)
+        assertSame(
+            syncFailure,
+            ((outcome as com.stratum.application.sync.CloudSyncOutcome.Failed)
+                .diagnostics.single()
+                as com.stratum.application.sync.CloudSyncDiagnostic.OperationFailed).cause,
+        )
+        assertTrue(logging.errors.isEmpty())
+    }
+
+    @Test
+    @DisplayName("Given the local wipe throws when endSessionAndWipe then Failed carries the cause and adapter records nothing")
+    fun endSessionAndWipeFailureRecordsNothingAtAdapter() = runTest {
+        val wipeFailure = IllegalStateException("wipe blew up")
+        val logging = FakeLoggingPort()
+        val clearer = mockk<UserOwnedDataClearer> {
+            coEvery { clearUserOwnedData() } throws wipeFailure
+        }
+        val subject = adapter(
+            stateStore = mockk(relaxed = true),
+            userOwnedDataClearer = clearer,
+            logging = logging,
+        )
+
+        val outcome = subject.endSessionAndWipe("uid-1")
+
+        assertTrue(outcome is com.stratum.application.sync.CloudSyncOutcome.Failed)
+        assertSame(
+            wipeFailure,
+            ((outcome as com.stratum.application.sync.CloudSyncOutcome.Failed)
+                .diagnostics.single()
+                as com.stratum.application.sync.CloudSyncDiagnostic.OperationFailed).cause,
+        )
+        assertTrue(logging.errors.isEmpty())
+    }
+
+    private fun adapter(
+        stateStore: FirestoreSyncStateStore,
+        uploadEngine: FirestorePendingUploadEngine = mockk(relaxed = true),
+        pullEngine: FirestoreRemotePullEngine = mockk(relaxed = true),
+        userOwnedDataClearer: UserOwnedDataClearer = mockk(relaxed = true),
+        logging: FakeLoggingPort,
+    ): FirestoreCloudSyncAdapter {
+        // Explicit Success: a relaxed mock of the sealed result can take the
+        // PersistenceFailed branch and trip the adapter's (legal) rebuild drain.
+        val rebuild = mockk<RebuildLocalDerivedTrainingDataUseCase>()
+        coEvery { rebuild.invoke() } returns RebuildLocalDerivedTrainingDataResult.Success
+        return FirestoreCloudSyncAdapter(
+            stateStore = stateStore,
+            uploadEngine = uploadEngine,
+            pullEngine = pullEngine,
+            userOwnedDataClearer = userOwnedDataClearer,
+            writeCoordinator = UserOwnedWriteCoordinator(),
+            catalogSeedGate = LiftCatalogSeedGate().apply { complete() },
+            cloudSyncScheduler = mockk(relaxed = true),
+            featureGate = DefaultCloudSyncFeatureGate().apply { setEnabledForTests(true) },
+            rebuildLocalDerivedTrainingData = rebuild,
+            loggingPort = logging,
+            ioDispatcher = Dispatchers.Unconfined,
         )
     }
 }

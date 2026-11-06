@@ -32,14 +32,13 @@ internal suspend fun runSyncPushPullPass(
     uploadUntilIdle: suspend () -> Boolean,
     hasDirtyResidual: suspend () -> Boolean,
     pull: suspend () -> PullResult,
-    logError: (String) -> Unit,
     afterSuccessfulPull: suspend () -> Unit = {},
 ) {
     awaitSeed()
     setStatus(SyncStatus.Syncing)
 
     if (uploadUntilIdle()) {
-        failResidual(setStatus, logError, "upload residual remaining after max passes")
+        failResidual(setStatus, "upload residual remaining after max passes")
     }
 
     if (!isHydrated()) {
@@ -51,14 +50,13 @@ internal suspend fun runSyncPushPullPass(
     // Pull-side demotions (dual-active, dual-PR) dirtied Room after the first upload — drain them.
     if (hasDirtyResidual()) {
         if (uploadUntilIdle()) {
-            failResidual(setStatus, logError, "upload residual remaining after post-pull drain")
+            failResidual(setStatus, "upload residual remaining after post-pull drain")
         }
     }
 
     if (pullResult.hadFailures || !pullResult.hydrated) {
         failResidual(
             setStatus,
-            logError,
             "pull incomplete (hadFailures=${pullResult.hadFailures}, hydrated=${pullResult.hydrated})",
         )
     }
@@ -71,10 +69,8 @@ internal suspend fun runSyncPushPullPass(
 
 private fun failResidual(
     setStatus: (SyncStatus) -> Unit,
-    logError: (String) -> Unit,
     message: String,
 ): Nothing {
-    logError(message)
     setStatus(SyncStatus.Error(message))
     throw CloudSyncResidualException(message)
 }

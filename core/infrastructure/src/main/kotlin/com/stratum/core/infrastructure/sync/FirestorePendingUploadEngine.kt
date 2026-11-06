@@ -86,7 +86,6 @@ class FirestorePendingUploadEngine @Inject constructor(
             // WorkManager REPLACE cancels in-flight workers — not an upload failure.
             throw error
         } catch (error: Exception) {
-            loggingPort.error(TAG, "uploadPending failed: ${error.message}", error)
             Result.failure(error)
         }
 
