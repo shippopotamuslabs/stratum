@@ -8,7 +8,6 @@ import com.stratum.application.lift.LiftRepository
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.logging.LoggingPort
-import com.stratum.domain.logging.runCatchingLogged
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.application.program.ProgramRepository
 import com.stratum.application.response.LiftWeeklyPerformanceRepository
@@ -26,6 +25,7 @@ import java.time.Instant
 import java.time.Period
 import java.time.ZoneId
 import javax.inject.Inject
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.first
 import com.stratum.domain.dashboard.DashboardSummary
 import com.stratum.domain.dashboard.LiftSeries
@@ -41,6 +41,23 @@ import com.stratum.domain.dashboard.windowStart
 import com.stratum.domain.response.RE_EXTRACT_MIN_COMPLETED_WORKOUTS
 
 /**
+ * Outcome of [LoadDashboardUseCase] (STR-243).
+ *
+ * An operational load failure is logged once via [LoggingPort.error] at the
+ * use-case boundary and surfaces as [Failed]; it never crosses as a payload.
+ * Coroutine cancellation is not a branch: it propagates.
+ */
+sealed interface LoadDashboardResult {
+    data class Loaded(val summary: DashboardSummary) : LoadDashboardResult
+
+    /** The board has no data in the window. */
+    data object Empty : LoadDashboardResult
+
+    /** The dashboard load failed (repository / store I/O). */
+    data object Failed : LoadDashboardResult
+}
+
+/**
  * Loads the windowed dashboard read model from the deterministic weekly tables. Reads a ~3-month
  * window ([DASHBOARD_PERFORMANCE_WINDOW_WEEKS]).
  *
@@ -52,9 +69,9 @@ import com.stratum.domain.response.RE_EXTRACT_MIN_COMPLETED_WORKOUTS
  *   ([com.stratum.domain.response.RE_EXTRACT_MIN_COMPLETED_WORKOUTS] completed-workout cadence;
  *   also enqueued post-pull)
  *
- * Returns [Result.success] with the summary, or `null` data when the board is empty.
- * Unexpected failures are logged once and returned as [Result.failure] so the UI can show
- * retry chrome instead of an empty board.
+ * Returns [LoadDashboardResult.Loaded] with the summary, or [LoadDashboardResult.Empty]
+ * when the board is empty. Unexpected failures are logged once and returned as
+ * [LoadDashboardResult.Failed] so the UI can show retry chrome instead of an empty board.
  *
  * Lifts tab: only lifts present in the active program (with in-window performance). Muscles tab: all
  * muscles with in-window stimulus, rolled up across every contributing lift — a muscle can be
@@ -69,7 +86,7 @@ class LoadDashboardUseCase @Inject constructor(
     private val programRepository: ProgramRepository,
     private val loggingPort: LoggingPort,
 ) {
-    suspend operator fun invoke(): Result<DashboardSummary?> =
+    suspend operator fun invoke(): LoadDashboardResult =
         invoke(now = Instant.now(), zone = ZoneId.systemDefault())
 
     /**
@@ -79,9 +96,17 @@ class LoadDashboardUseCase @Inject constructor(
     suspend operator fun invoke(
         now: Instant,
         zone: ZoneId = ZoneId.systemDefault(),
-    ): Result<DashboardSummary?> =
-        runCatchingLogged(loggingPort, TAG, "Failed to load dashboard") {
-            load(now, zone)
+    ): LoadDashboardResult =
+        try {
+            when (val summary = load(now, zone)) {
+                null -> LoadDashboardResult.Empty
+                else -> LoadDashboardResult.Loaded(summary)
+            }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            loggingPort.error(TAG, "Failed to load dashboard: ${error.message}", error)
+            LoadDashboardResult.Failed
         }
 
     private suspend fun load(now: Instant, zone: ZoneId): DashboardSummary? {

@@ -9,7 +9,9 @@ import com.stratum.domain.dashboard.DashboardSummary
 import com.stratum.domain.dashboard.GraphDetailSubject
 import com.stratum.domain.dashboard.LIFT_E1RM_SLOPE_THRESHOLD
 import com.stratum.domain.dashboard.LiftSeries
+import com.stratum.application.dashboard.LoadDashboardResult
 import com.stratum.application.dashboard.LoadDashboardUseCase
+import com.stratum.application.dashboard.LoadGraphDetailResult
 import com.stratum.application.dashboard.LoadGraphDetailUseCase
 import com.stratum.domain.dashboard.MUSCLE_PROGRESS_SLOPE_THRESHOLD
 import com.stratum.domain.dashboard.MuscleDailyVolumeSeries
@@ -239,18 +241,21 @@ class DashboardViewModel(
             if (_uiState.value !is DashboardUiState.Loaded) {
                 _uiState.value = DashboardUiState.Loading
             }
-            val result = loadDashboard(now = clock(), zone = zone)
             _uiState.value =
-                result.fold(
-                    onSuccess = { summary ->
-                        lastSummary = summary
-                        summary?.toUiState(displayUnit.value, zone) ?: DashboardUiState.Empty
-                    },
-                    onFailure = {
+                when (val result = loadDashboard(now = clock(), zone = zone)) {
+                    is LoadDashboardResult.Loaded -> {
+                        lastSummary = result.summary
+                        result.summary.toUiState(displayUnit.value, zone)
+                    }
+                    LoadDashboardResult.Empty -> {
+                        lastSummary = null
+                        DashboardUiState.Empty
+                    }
+                    LoadDashboardResult.Failed -> {
                         lastSummary = null
                         DashboardUiState.Error
-                    },
-                )
+                    }
+                }
         }
         if (healthEnabled.value) {
             loadHealth()
@@ -352,22 +357,20 @@ class DashboardViewModel(
         detailJob?.cancel()
         detailJob = viewModelScope.launch {
             _graphDetailState.value = GraphDetailUiState.Loading
-            val result = loadGraphDetail(subject, zone = zone)
-            result.fold(
-                onSuccess = { series ->
-                    if (series == null) {
-                        detailSession = null
-                        _graphDetailState.value = GraphDetailUiState.Empty
-                    } else {
-                        detailSession = series.toSession(zone = zone)
-                        publishReady()
-                    }
-                },
-                onFailure = {
+            when (val result = loadGraphDetail(subject, zone = zone)) {
+                is LoadGraphDetailResult.Loaded -> {
+                    detailSession = result.series.toSession(zone = zone)
+                    publishReady()
+                }
+                LoadGraphDetailResult.Empty -> {
+                    detailSession = null
+                    _graphDetailState.value = GraphDetailUiState.Empty
+                }
+                LoadGraphDetailResult.Failed -> {
                     detailSession = null
                     _graphDetailState.value = GraphDetailUiState.Error
-                },
-            )
+                }
+            }
         }
     }
 

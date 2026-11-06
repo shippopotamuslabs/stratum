@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.domain.export.ExportFileResult
 import com.stratum.domain.export.ExportLogRange
+import com.stratum.application.export.ExportTrainingLogsResult
 import com.stratum.application.export.ExportTrainingLogsUseCase
 import com.stratum.application.export.PreviewExportTrainingLogsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -29,7 +30,7 @@ enum class ExportRangePresetUi {
 
 /**
  * User-facing export errors as presentation keys so the UI can resolve string resources.
- * [Generic] covers unexpected failures whose message is already human-readable.
+ * [Generic] covers unexpected failures with the feature fallback copy.
  */
 sealed interface ExportLogsErrorUi {
     data object InvalidDateOrder : ExportLogsErrorUi
@@ -119,21 +120,33 @@ class ExportLogsViewModel(
                 }
                 return@launch
             }
-            val result = exportLogs(range)
-            result.fold(
-                onSuccess = { file ->
+            when (val result = exportLogs(range)) {
+                is ExportTrainingLogsResult.Success -> {
                     _uiState.update { it.copy(isExporting = false, error = null) }
-                    _shareEvents.emit(file)
-                },
-                onFailure = { throwable ->
+                    _shareEvents.emit(result.file)
+                }
+                is ExportTrainingLogsResult.InvalidRange ->
                     _uiState.update {
                         it.copy(
                             isExporting = false,
-                            error = mapExportFailure(throwable),
+                            error = ExportLogsErrorUi.InvalidDateOrder,
                         )
                     }
-                },
-            )
+                ExportTrainingLogsResult.NoLogsInRange ->
+                    _uiState.update {
+                        it.copy(
+                            isExporting = false,
+                            error = ExportLogsErrorUi.EmptyRange,
+                        )
+                    }
+                ExportTrainingLogsResult.PersistenceFailed ->
+                    _uiState.update {
+                        it.copy(
+                            isExporting = false,
+                            error = ExportLogsErrorUi.Generic(EXPORT_FAILED_MESSAGE),
+                        )
+                    }
+            }
         }
     }
 
@@ -174,15 +187,6 @@ class ExportLogsViewModel(
 
     private companion object {
         const val DEFAULT_CUSTOM_RANGE_DAYS = 30L
-        const val EMPTY_RANGE_MESSAGE = "No training logs in the selected range."
-
-        fun mapExportFailure(error: Throwable): ExportLogsErrorUi {
-            val message = error.message
-            return when {
-                message == EMPTY_RANGE_MESSAGE -> ExportLogsErrorUi.EmptyRange
-                !message.isNullOrBlank() -> ExportLogsErrorUi.Generic(message)
-                else -> ExportLogsErrorUi.Generic("Export failed.")
-            }
-        }
+        const val EXPORT_FAILED_MESSAGE = "Export failed."
     }
 }

@@ -43,15 +43,11 @@ stratum:
     active: true
     legacyFiles:
       - 'core/application/src/main/kotlin/com/stratum/application/auth/AuthUseCases.kt'
-      - 'core/application/src/main/kotlin/com/stratum/application/dashboard/LoadDashboardUseCase.kt'
-      - 'core/application/src/main/kotlin/com/stratum/application/dashboard/LoadGraphDetailUseCase.kt'
-      - 'core/application/src/main/kotlin/com/stratum/application/export/ExportTrainingLogsUseCase.kt'
       - 'core/application/src/main/kotlin/com/stratum/application/healthconnect/HealthConnectUseCases.kt'
       - 'core/application/src/main/kotlin/com/stratum/application/onboarding/AdvanceOnboardingStepUseCase.kt'
       - 'core/application/src/main/kotlin/com/stratum/application/program/importing/ImportProgramTemplatesUseCase.kt'
       - 'core/application/src/main/kotlin/com/stratum/application/subscription/SubscriptionUseCases.kt'
       - 'core/domain/src/main/kotlin/com/stratum/domain/coroutines/RunCatchingCancellable.kt'
-      - 'core/domain/src/main/kotlin/com/stratum/domain/export/ExportRangeBounds.kt'
       - 'core/domain/src/main/kotlin/com/stratum/domain/logging/LoggedResult.kt'
 
 potential-bugs:

@@ -6,6 +6,7 @@ import javax.inject.Inject
 import com.stratum.domain.export.ExportLogPreview
 import com.stratum.domain.export.ExportLogRange
 import com.stratum.domain.export.ExportRangeBounds
+import com.stratum.domain.export.ExportRangeBoundsResult
 
 class PreviewExportTrainingLogsUseCase(
     private val trainingLogRepository: TrainingLogRepository,
@@ -21,8 +22,10 @@ class PreviewExportTrainingLogsUseCase(
         val now = clock()
         // Invalid custom range: treat as empty preview rather than throwing for UI.
         val bounds =
-            ExportRangeBounds.resolve(range, now).getOrElse {
-                return ExportLogPreview(sessionCount = 0, setCount = 0)
+            when (val resolution = ExportRangeBounds.resolve(range, now)) {
+                is ExportRangeBoundsResult.StartAfterEnd ->
+                    return ExportLogPreview(sessionCount = 0, setCount = 0)
+                is ExportRangeBoundsResult.Resolved -> resolution.bounds
             }
         val allSessions = trainingLogRepository.getAllSessions()
         val allSets = trainingLogRepository.getAllSets()

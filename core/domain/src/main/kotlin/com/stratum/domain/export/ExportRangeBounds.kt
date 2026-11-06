@@ -5,6 +5,22 @@ import java.time.LocalDate
 import java.time.ZoneId
 
 /**
+ * Outcome of resolving an [ExportLogRange] to instant bounds (STR-243).
+ *
+ * Failure branches carry typed values only — never a [Throwable].
+ */
+sealed interface ExportRangeBoundsResult {
+    /** Resolved bounds as `[startInstant, endInstantExclusive)`; null pair means AllTime (no bounds). */
+    data class Resolved(val bounds: Pair<Instant, Instant>?) : ExportRangeBoundsResult
+
+    /** A custom range whose start date falls after its end date. */
+    data class StartAfterEnd(
+        val startDate: LocalDate,
+        val endDateInclusive: LocalDate,
+    ) : ExportRangeBoundsResult
+}
+
+/**
  * Pure helpers: range → `[startInstant, endInstantExclusive)?`.
  * Null pair means AllTime (no bounds).
  */
@@ -12,24 +28,26 @@ object ExportRangeBounds {
     fun resolve(
         range: ExportLogRange,
         now: Instant = Instant.now(),
-    ): Result<Pair<Instant, Instant>?> {
+    ): ExportRangeBoundsResult {
         return when (range) {
-            ExportLogRange.AllTime -> Result.success(null)
+            ExportLogRange.AllTime -> ExportRangeBoundsResult.Resolved(null)
             is ExportLogRange.LastDays -> {
                 val today = todayInZone(range.zone, now)
                 val startDate = today.minusDays((range.days - 1).toLong())
-                Result.success(boundsForCalendar(startDate, today, range.zone))
+                ExportRangeBoundsResult.Resolved(boundsForCalendar(startDate, today, range.zone))
             }
             is ExportLogRange.YearToDate -> {
                 val today = todayInZone(range.zone, now)
                 val startDate = LocalDate.of(today.year, 1, 1)
-                Result.success(boundsForCalendar(startDate, today, range.zone))
+                ExportRangeBoundsResult.Resolved(boundsForCalendar(startDate, today, range.zone))
             }
             is ExportLogRange.Custom -> {
                 if (range.startDate > range.endDateInclusive) {
-                    Result.failure(IllegalArgumentException("Start date must be on or before end date."))
+                    ExportRangeBoundsResult.StartAfterEnd(range.startDate, range.endDateInclusive)
                 } else {
-                    Result.success(boundsForCalendar(range.startDate, range.endDateInclusive, range.zone))
+                    ExportRangeBoundsResult.Resolved(
+                        boundsForCalendar(range.startDate, range.endDateInclusive, range.zone),
+                    )
                 }
             }
         }
