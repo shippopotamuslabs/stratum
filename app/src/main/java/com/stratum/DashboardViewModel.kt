@@ -34,10 +34,9 @@ import com.stratum.domain.lift.WeightConversion
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.shortLabel
 import com.stratum.domain.onboarding.MuscleGroup
-import com.stratum.application.sync.CloudSyncDiagnostic
 import com.stratum.application.sync.CloudSyncOperation
 import com.stratum.application.sync.CloudSyncOutcome
-import com.stratum.core.infrastructure.work.CloudSyncNotStartedException
+import com.stratum.application.sync.isNotStarted
 import com.stratum.application.sync.ObserveCloudSyncStatusUseCase
 import com.stratum.application.sync.RequestCloudSyncUseCase
 import com.stratum.domain.sync.SyncStatus
@@ -224,10 +223,7 @@ class DashboardViewModel(
                 // (classifySyncWork → NotStarted → no-op success), a
                 // not-started pass (no active session) is not an error and
                 // records nothing — pre-STR-238 it was returned unlogged.
-                val recordable = outcome.diagnostics.filterNot { diagnostic ->
-                    diagnostic is CloudSyncDiagnostic.OperationFailed &&
-                        diagnostic.cause is CloudSyncNotStartedException
-                }
+                val recordable = outcome.diagnostics.filterNot { it.isNotStarted }
                 diagnosticDrain.drainSync(recordable, CloudSyncOperation.RequestSync)
             }
         }

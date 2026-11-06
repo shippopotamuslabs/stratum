@@ -15,6 +15,7 @@ import com.stratum.core.infrastructure.telemetry.OutcomeTelemetry.Companion.REAS
 import com.stratum.core.infrastructure.telemetry.OutcomeTelemetry.Companion.USE_CASE_CLOUD_SYNC
 import com.stratum.core.infrastructure.telemetry.TelemetryRouter
 import com.stratum.application.sync.CloudSyncDiagnostic
+import com.stratum.application.sync.CloudSyncNotStartedException
 import com.stratum.application.sync.CloudSyncOutcome
 import com.stratum.application.sync.CloudSyncPort
 import dagger.assisted.Assisted
@@ -145,7 +146,4 @@ internal fun mapCloudSyncWorkResult(
                 onTerminalError = onTerminalExceptional,
             )
     }
-
-/** Carried as the [CloudSyncOutcome.Failed] diagnostic cause when [CloudSyncPort.requestSync] has no active session; worker treats it as no-op success. */
-class CloudSyncNotStartedException : IllegalStateException("Cloud sync not started")
 

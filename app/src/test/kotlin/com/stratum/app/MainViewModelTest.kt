@@ -241,6 +241,13 @@ class MainViewModelTest {
         assertSame(wipeError, wipeRecord.throwable)
         val restartRecords = loggingPort.errors.filter { it.throwable == restartError }
         assertEquals(1, restartRecords.size)
+        // Thermos round 2: the record ORDER is pinned — the primary (wipe)
+        // record first, the compensating restart record second (the
+        // recording fake preserves append order).
+        assertEquals(
+            listOf(wipeError, restartError),
+            loggingPort.errors.map { it.throwable },
+        )
     }
 
     @Test

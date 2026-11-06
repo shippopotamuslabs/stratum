@@ -30,11 +30,15 @@ import com.stratum.domain.lift.residual
  *
  * Failure shape (STR-243 remediation, Sean's E1 ruling): operations return
  * [CloudSyncOutcome]. No exception crosses this port in place of an outcome
- * (coroutine cancellation still propagates). The adapter logs an operational
- * failure once at its own boundary before returning [CloudSyncOutcome.Failed];
- * the failure's cause rides the branch only as a [CloudSyncDiagnostic] value
- * for boundaries that must classify or drain it (the sync worker, the
- * compensating-restart seam) — never as a raw `Result` payload.
+ * (coroutine cancellation still propagates). The adapter returns
+ * [CloudSyncOutcome.Failed] carrying [CloudSyncDiagnostic]s and records
+ * nothing on the propagate path (STR-238); the invoking boundary drains
+ * each diagnostic exactly once via the shared render factory below. The
+ * adapter records only where no outcome path exists (the hydrated
+ * swallow-to-Success start branch and the B12 recovery-enqueue record).
+ * The failure's cause rides the branch only as a [CloudSyncDiagnostic]
+ * value for boundaries that must classify or drain it (the sync worker,
+ * the compensating-restart seam) — never as a raw `Result` payload.
  */
 interface CloudSyncPort {
     val syncStatus: StateFlow<SyncStatus>
@@ -70,11 +74,12 @@ interface CloudSyncPort {
  * Outcome of a cloud sync operation (STR-243).
  *
  * [Failed] carries the operation's failure as [CloudSyncDiagnostic] values:
- * the adapter logs the operational failure once at its own boundary, and a
- * boundary that must classify the failure (the sync worker's
+ * the adapter records nothing on the propagate path, and a boundary that
+ * must classify the failure (the sync worker's
  * NotStarted / ResidualBacklog / Unexpected discrimination) or drain it (the
- * compensating sync restart after a logout / account-deletion failure) reads
- * the cause from the diagnostic — the throwable never crosses as a thrown
+ * compensating sync restart after a logout / account-deletion failure)
+ * reads the cause from the diagnostic and records it exactly once via the
+ * shared render factory — the throwable never crosses as a thrown
  * exception or a raw `Result` payload. Coroutine cancellation is not a
  * branch: it propagates as cancellation.
  */
@@ -102,6 +107,28 @@ sealed interface CloudSyncDiagnostic {
         val cause: Throwable,
     ) : CloudSyncDiagnostic
 }
+
+/**
+ * The not-started condition: a sync operation ran with no active session.
+ * Carried as the [CloudSyncOutcome.Failed] diagnostic cause when
+ * [CloudSyncPort.requestSync] has no session; consumers classify it as a
+ * no-op success condition (the sync worker's NotStarted classification),
+ * not an error. Part of this port's outcome vocabulary (STR-238), so it
+ * lives in the application layer beside the port.
+ */
+class CloudSyncNotStartedException : IllegalStateException("Cloud sync not started")
+
+/**
+ * Whether this diagnostic's failure is the [CloudSyncNotStartedException]
+ * condition — the one sync failure consumers treat as a no-op rather than
+ * an error. The cause check lives here, beside the port's outcome
+ * vocabulary, so boundaries filter on this named predicate instead of
+ * unwrapping the diagnostic themselves.
+ */
+val CloudSyncDiagnostic.isNotStarted: Boolean
+    get() = when (this) {
+        is CloudSyncDiagnostic.OperationFailed -> cause is CloudSyncNotStartedException
+    }
 
 /** The sync adapter's log tag — every sync-failure record keeps its shape. */
 const val CLOUD_SYNC_LOG_TAG = "FirestoreCloudSync"

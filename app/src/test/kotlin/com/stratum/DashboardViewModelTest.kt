@@ -361,7 +361,7 @@ class DashboardViewModelTest {
     fun refreshDoesNotRecordNotStartedSyncPass() = runTest {
         val cloudSync = FakeCloudSyncPort()
         cloudSync.requestFailure =
-            com.stratum.core.infrastructure.work.CloudSyncNotStartedException()
+            com.stratum.application.sync.CloudSyncNotStartedException()
         val logging = FakeLoggingPort()
         val viewModel = buildViewModel(cloudSync = cloudSync, logging = logging)
         advanceUntilIdle()

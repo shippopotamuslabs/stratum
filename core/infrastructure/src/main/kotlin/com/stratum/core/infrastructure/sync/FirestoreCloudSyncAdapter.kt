@@ -3,12 +3,13 @@ import com.stratum.core.infrastructure.sync.CloudSyncResidualException
 import com.stratum.core.infrastructure.sync.UserOwnedWriteCoordinator
 import com.stratum.core.infrastructure.sync.CloudSyncFeatureGate
 
-import com.stratum.core.infrastructure.work.CloudSyncNotStartedException
 import com.stratum.core.infrastructure.work.CloudSyncScheduler
 import com.stratum.domain.di.IoDispatcher
 import com.stratum.core.infrastructure.logging.LoggingPort
 import com.stratum.domain.sync.CloudSessionState
+import com.stratum.application.sync.CLOUD_SYNC_LOG_TAG
 import com.stratum.application.sync.CloudSyncDiagnostic
+import com.stratum.application.sync.CloudSyncNotStartedException
 import com.stratum.application.sync.CloudSyncOutcome
 import com.stratum.application.sync.CloudSyncPort
 import com.stratum.domain.sync.SyncStatus
@@ -304,7 +305,7 @@ class FirestoreCloudSyncAdapter @Inject constructor(
     }
 
     private companion object {
-        const val TAG = "FirestoreCloudSync"
+        const val TAG = CLOUD_SYNC_LOG_TAG
         const val MSG_SESSION_FAILED = "Couldn't load your training data"
     }
 }

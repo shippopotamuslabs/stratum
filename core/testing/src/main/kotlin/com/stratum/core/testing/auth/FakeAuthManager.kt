@@ -65,13 +65,7 @@ class FakeAuthManager(
             return LoginWithGoogleResult.Failed(
                 kind = SignInFailureKind.Other,
                 message = message,
-                diagnostics = listOf(
-                    OperationalDiagnostic(
-                        tag = "StratumGoogleAuth",
-                        message = "Google sign-in failed: ${failure.message}",
-                        cause = failure,
-                    ),
-                ),
+                diagnostics = diagnosticsFor(failure, "sign-in"),
             )
         }
         val classifiedKind = signInFailureKind
@@ -84,13 +78,7 @@ class FakeAuthManager(
             return LoginWithGoogleResult.Failed(
                 kind = classifiedKind,
                 message = signInFailureMessage,
-                diagnostics = listOf(
-                    OperationalDiagnostic(
-                        tag = "StratumGoogleAuth",
-                        message = "Google sign-in failed: ${cause.message}",
-                        cause = cause,
-                    ),
-                ),
+                diagnostics = diagnosticsFor(cause, "sign-in"),
             )
         }
         val user = UserProfile("uid-test", "Test User", "test@example.com", null)
@@ -104,17 +92,25 @@ class FakeAuthManager(
         if (failure != null) {
             if (failure is CancellationException) throw failure
             return SignOutOutcome.Failed(
-                diagnostics = listOf(
-                    OperationalDiagnostic(
-                        tag = "StratumGoogleAuth",
-                        message = "Google sign-out failed: ${failure.message}",
-                        cause = failure,
-                    ),
-                ),
+                diagnostics = diagnosticsFor(failure, "sign-out"),
             )
         }
         state.value = AuthState.Unauthenticated
         return SignOutOutcome.Success
     }
+
+    /**
+     * Mirrors the real adapter's §10 carrier shape for a Google auth
+     * failure. The adapter's TAG is private, so the tag literal lives in
+     * this one place inside the fake.
+     */
+    private fun diagnosticsFor(failure: Throwable, operation: String): List<OperationalDiagnostic> =
+        listOf(
+            OperationalDiagnostic(
+                tag = "StratumGoogleAuth",
+                message = "Google $operation failed: ${failure.message}",
+                cause = failure,
+            ),
+        )
 }
 

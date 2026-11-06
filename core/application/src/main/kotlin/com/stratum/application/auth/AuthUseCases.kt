@@ -54,14 +54,26 @@ sealed interface LogoutResult {
     /** The session teardown / Room wipe failed; sign-out was not attempted. */
     data class WipeFailed(
         val restartDiagnostics: List<CloudSyncDiagnostic>,
-        val wipeDiagnostics: List<OperationalDiagnostic> = emptyList(),
-    ) : LogoutResult
+        val wipeDiagnostics: List<OperationalDiagnostic>,
+    ) : LogoutResult {
+        init {
+            require(wipeDiagnostics.isNotEmpty()) {
+                "LogoutResult.WipeFailed requires at least one wipe diagnostic."
+            }
+        }
+    }
 
     /** The wipe succeeded but Firebase sign-out failed. */
     data class SignOutFailed(
         val restartDiagnostics: List<CloudSyncDiagnostic>,
-        val signOutDiagnostics: List<OperationalDiagnostic> = emptyList(),
-    ) : LogoutResult
+        val signOutDiagnostics: List<OperationalDiagnostic>,
+    ) : LogoutResult {
+        init {
+            require(signOutDiagnostics.isNotEmpty()) {
+                "LogoutResult.SignOutFailed requires at least one sign-out diagnostic."
+            }
+        }
+    }
 }
 
 private const val MSG_SYNC_RESTART_FAILED_LOGOUT =
@@ -181,8 +193,14 @@ sealed interface DeleteAccountResult {
     /** Cloud Firestore + Storage deletion failed; local data is intact for retry. */
     data class RemoteDataFailed(
         val restartDiagnostics: List<CloudSyncDiagnostic>,
-        val deletionDiagnostics: List<OperationalDiagnostic> = emptyList(),
-    ) : DeleteAccountResult
+        val deletionDiagnostics: List<OperationalDiagnostic>,
+    ) : DeleteAccountResult {
+        init {
+            require(deletionDiagnostics.isNotEmpty()) {
+                "DeleteAccountResult.RemoteDataFailed requires at least one deletion diagnostic."
+            }
+        }
+    }
 
     /**
      * Cloud data was deleted, but the local Room wipe failed. The Auth user is
@@ -191,8 +209,14 @@ sealed interface DeleteAccountResult {
      * for the terminal boundary's exactly-once drain (STR-238).
      */
     data class LocalCleanupFailed(
-        val wipeDiagnostics: List<OperationalDiagnostic> = emptyList(),
-    ) : DeleteAccountResult
+        val wipeDiagnostics: List<OperationalDiagnostic>,
+    ) : DeleteAccountResult {
+        init {
+            require(wipeDiagnostics.isNotEmpty()) {
+                "DeleteAccountResult.LocalCleanupFailed requires at least one wipe diagnostic."
+            }
+        }
+    }
 
     /**
      * Local wipe succeeded and cloud data is gone, but Firebase Auth user
@@ -202,8 +226,14 @@ sealed interface DeleteAccountResult {
      * terminal boundary's exactly-once drain.
      */
     data class AuthDeleteFailed(
-        val deletionDiagnostics: List<OperationalDiagnostic> = emptyList(),
-    ) : DeleteAccountResult
+        val deletionDiagnostics: List<OperationalDiagnostic>,
+    ) : DeleteAccountResult {
+        init {
+            require(deletionDiagnostics.isNotEmpty()) {
+                "DeleteAccountResult.AuthDeleteFailed requires at least one deletion diagnostic."
+            }
+        }
+    }
 }
 
 /**

@@ -475,6 +475,13 @@ class SettingsViewModelTest {
         assertEquals(2, loggingPort.errors.size)
         assertEquals(1, loggingPort.errors.count { it.throwable == wipeError })
         assertEquals(1, loggingPort.errors.count { it.throwable == restartError })
+        // Thermos round 2: the record ORDER is pinned — the primary (wipe)
+        // record first, the compensating restart record second (the
+        // recording fake preserves append order).
+        assertEquals(
+            listOf(wipeError, restartError),
+            loggingPort.errors.map { it.throwable },
+        )
         assertFalse(subject.uiState.value.isLoggingOut)
     }
 
