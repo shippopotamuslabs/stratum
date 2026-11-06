@@ -1,5 +1,7 @@
 package com.stratum.application.importing
 
+import com.stratum.core.testing.logging.FakeLoggingPort
+
 import com.stratum.core.testing.importing.FakeCustomLiftInferencePort
 import com.stratum.core.testing.importing.FakeImportEquipmentInferencePort
 import com.stratum.core.testing.importing.FakeLiftEquipmentCatalog
@@ -73,6 +75,7 @@ class PersistImportedHistoryMergeTest {
         val persistence = FakeResponseProfilePersistencePort()
         val extractInsights =
             ExtractTrainingInsightsUseCase(
+                loggingPort = FakeLoggingPort(),
                 trainingLogRepository = trainingLogRepo,
                 liftTrainingInsightsRepository = insightsRepo,
                 supersetAffinityRepository = InMemorySupersetRepository(),
@@ -82,6 +85,7 @@ class PersistImportedHistoryMergeTest {
             )
         val extractResponse =
             ExtractResponseProfileUseCase(
+                loggingPort = FakeLoggingPort(),
                 trainingLogRepository = trainingLogRepo,
                 liftRepository = liftRepo,
                 liftTrainingInsightsRepository = insightsRepo,
@@ -92,6 +96,7 @@ class PersistImportedHistoryMergeTest {
                 experimentRegistry = EmptyExperimentRegistry(),
             )
         return PersistImportedHistoryUseCase(
+            loggingPort = FakeLoggingPort(),
             trainingLogRepository = trainingLogRepo,
             resolveImportLifts =
                 ResolveImportLiftsUseCase(
@@ -127,7 +132,7 @@ class PersistImportedHistoryMergeTest {
                 sourceKind = ImportDedupeSourceKind.ThirdParty,
                 zone = ZONE_NY,
             )
-        assertTrue(result.isSuccess)
+        assertTrue(result is PersistImportedHistoryOutcome.Persisted)
         val all = repo.getAllSessions()
         assertTrue(all.any { it.id.value == "sess-live" && it.origin == TrainingSessionOrigin.LIVE })
         assertTrue(all.any { it.id.value == "imp-new" && it.origin == TrainingSessionOrigin.IMPORT })
@@ -155,8 +160,7 @@ class PersistImportedHistoryMergeTest {
                 sourceKind = ImportDedupeSourceKind.ThirdParty,
                 zone = ZONE_NY,
             )
-        assertTrue(result.isFailure)
-        assertEquals("insights boom", result.exceptionOrNull()!!.message)
+        assertEquals(PersistImportedHistoryOutcome.Failed, result)
         assertEquals(2, repo.getImportSessions().size)
     }
 
@@ -174,8 +178,8 @@ class PersistImportedHistoryMergeTest {
                 sourceKind = ImportDedupeSourceKind.StratumStableIds,
                 zone = ZONE_NY,
             )
-        assertTrue(result.isSuccess)
-        val stats = result.getOrThrow().mergeStats
+        assertTrue(result is PersistImportedHistoryOutcome.Persisted)
+        val stats = (result as PersistImportedHistoryOutcome.Persisted).summary.mergeStats
         assertEquals(0, stats!!.sessionsInserted)
         assertEquals(0, stats.setsInserted)
         assertEquals(1, stats.sessionsSkipped)
@@ -191,7 +195,7 @@ class PersistImportedHistoryMergeTest {
                 sets = listOf(set("set-new", "imp-new")),
                 policy = ImportHistoryPersistPolicy.ReplaceImportOrigin,
             )
-        assertTrue(result.isFailure)
+        assertEquals(PersistImportedHistoryOutcome.Failed, result)
         assertEquals(0, repo.getImportSessions().size)
     }
 
@@ -210,9 +214,9 @@ class PersistImportedHistoryMergeTest {
                 sourceKind = ImportDedupeSourceKind.StratumStableIds,
                 zone = ZONE_NY,
             )
-        assertTrue(result.isSuccess)
+        assertTrue(result is PersistImportedHistoryOutcome.Persisted)
         assertEquals(1, repo.getAllSessions().count { it.id.value == "dup-sess" })
-        assertTrue(result.getOrThrow().mergeStats!!.sessionsSkipped >= 1)
+        assertTrue((result as PersistImportedHistoryOutcome.Persisted).summary.mergeStats!!.sessionsSkipped >= 1)
     }
 
     @Test
@@ -259,8 +263,7 @@ class PersistImportedHistoryMergeTest {
                 sourceKind = ImportDedupeSourceKind.ThirdParty,
                 zone = ZONE_NY,
             )
-        assertTrue(result.isFailure)
-        assertEquals("insights boom", result.exceptionOrNull()!!.message)
+        assertEquals(PersistImportedHistoryOutcome.Failed, result)
         // Appended import rows removed
         assertFalse(repo.getAllSessions().any { it.id.value == "imp-new" })
         assertFalse(repo.getAllSets().any { it.id.value == "set-new" })
@@ -268,6 +271,36 @@ class PersistImportedHistoryMergeTest {
         val restored = repo.getAllSets().single { it.id.value == "set-live-pr" }
         assertTrue(restored.isPersonalRecord, "demoted LIVE PR must be restored on merge unwind")
         assertEquals(LiftId("lift-squat"), restored.liftId)
+    }
+
+    @Test
+    @DisplayName("Merge with a non-import session returns SessionsNotImportOrigin")
+    fun mergeNonImportOriginRefused() = runTest {
+        val repo = FakeTrainingLogRepository()
+        val result =
+            buildPersist(repo)(
+                sessions = listOf(sessionLive),
+                sets = listOf(setLive1),
+                policy = ImportHistoryPersistPolicy.MergeSkipDuplicates,
+                sourceKind = ImportDedupeSourceKind.ThirdParty,
+                zone = ZONE_NY,
+            )
+        assertEquals(PersistImportedHistoryOutcome.SessionsNotImportOrigin, result)
+        assertTrue(repo.getAllSessions().isEmpty())
+    }
+
+    @Test
+    @DisplayName("Replace with no valid sets returns NoValidSets")
+    fun replaceNoValidSetsRefused() = runTest {
+        val repo = FakeTrainingLogRepository()
+        val result =
+            buildPersist(repo)(
+                sessions = listOf(session("imp-new", Instant.parse("2026-07-12T14:00:00Z"))),
+                sets = emptyList(),
+                policy = ImportHistoryPersistPolicy.ReplaceImportOrigin,
+            )
+        assertEquals(PersistImportedHistoryOutcome.NoValidSets, result)
+        assertTrue(repo.getImportSessions().isEmpty())
     }
 
     private class InMemoryMetadataRepository : ImportAnalysisMetadataRepository {

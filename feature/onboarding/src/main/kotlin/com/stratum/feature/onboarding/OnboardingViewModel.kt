@@ -54,6 +54,7 @@ import com.stratum.domain.program.generation.validation.ProgramGenerationValidat
 import com.stratum.domain.program.ProgramGenerationProgress
 import com.stratum.domain.program.ProgramGenerationProgressPhase
 import com.stratum.application.program.importing.ImportProgramTemplateUseCase
+import com.stratum.application.program.importing.ProgramTemplateImportOutcome
 import com.stratum.domain.program.importing.ProgramTemplateImportPhase
 import com.stratum.domain.program.schedule.GenerationCycleDefaults
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -869,25 +870,22 @@ class OnboardingViewModel @Inject constructor(
         importProgramJob?.cancel()
         importProgramJob =
             viewModelScope.launch {
-                val result =
+                val outcome =
                     importProgramTemplate(file.bytes, file.fileName) { phase ->
                         withContext(Dispatchers.Main.immediate) {
                             publishImportProgramProgress(phase)
                         }
                     }
-                result.fold(
-                    onSuccess = {
+                when (outcome) {
+                    is ProgramTemplateImportOutcome.Success ->
                         ephemeral.update {
                             it.copy(
                                 importProgramState = ImportProgramState.Idle,
                                 importMaxTimelineIndex = 0,
                             )
                         }
-                    },
-                    onFailure = { error ->
-                        setImportProgramError(error)
-                    },
-                )
+                    else -> setImportProgramError(outcome)
+                }
             }
     }
 
@@ -921,17 +919,22 @@ class OnboardingViewModel @Inject constructor(
         ephemeral.update { OnboardingProgramFlowOps.withImportProgramProgress(it, phase) }
     }
 
-    private fun setImportProgramError(error: Throwable) {
-        logError(
-            OnboardingProgramFlowOps.TAG_IMPORT,
-            OnboardingProgramFlowOps.importFailureLogMessage(error),
-            error,
-        )
+    private fun setImportProgramError(outcome: ProgramTemplateImportOutcome) {
+        // OperationalFailed was already logged once at the use-case boundary
+        // (STR-243), so it has no log record here; the other branches are
+        // recorded with a constructed exception value for the record only.
+        OnboardingProgramFlowOps.importFailureLogThrowable(outcome)?.let { record ->
+            logError(
+                OnboardingProgramFlowOps.TAG_IMPORT,
+                OnboardingProgramFlowOps.importFailureLogMessage(outcome),
+                record,
+            )
+        }
         logAnalytics(
             USER_VISIBLE_ERROR_EVENT,
             mapOf(PARAM_SCREEN to "onboarding", PARAM_ACTION to "import_program"),
         )
-        ephemeral.update { OnboardingProgramFlowOps.importProgramFailed(it, error) }
+        ephemeral.update { OnboardingProgramFlowOps.importProgramFailed(it, outcome) }
     }
 
     /** Cancels an in-flight import and resets import UI so it cannot leak across paths/steps. */

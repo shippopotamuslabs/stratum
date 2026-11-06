@@ -2,6 +2,7 @@ package com.stratum.core.infrastructure.work
 
 import com.stratum.application.checkin.MarkCheckInPendingUseCase
 import com.stratum.application.importing.InsightsAnalysisScope
+import com.stratum.application.response.ExtractResponseProfileOutcome
 import com.stratum.application.response.ExtractResponseProfileUseCase
 import com.stratum.domain.response.RE_EXTRACT_MIN_COMPLETED_WORKOUTS
 import com.stratum.application.response.ResponseProfileMetadataRepository
@@ -66,20 +67,25 @@ class ResponseModelingWork @Inject constructor(
             }
             // Null metadata, enough new workouts, or forced history invalidation → full All-history extract.
 
-            extractResponseProfile(
-                provenLiftIds = emptySet(),
-                scope = InsightsAnalysisScope.All,
-            ).fold(
-                onSuccess = {
+            when (
+                extractResponseProfile(
+                    provenLiftIds = emptySet(),
+                    scope = InsightsAnalysisScope.All,
+                )
+            ) {
+                is ExtractResponseProfileOutcome.Extracted -> {
                     if (isReExtract && !forceHistoryInvalidation) {
                         // Extract watermark already advanced; mark pending check-in.
                         // History-invalidation force runs intentionally skip check-in.
                         markCheckInPending(Instant.now())
                     }
                     Outcome.Success
-                },
-                onFailure = { Outcome.Failed(it) },
-            )
+                }
+                ExtractResponseProfileOutcome.Failed ->
+                    // The extract failure was logged once at the use case's boundary;
+                    // this value only drives the worker's retry decision + its log.
+                    Outcome.Failed(IllegalStateException("Response profile extraction failed."))
+            }
         } catch (error: CancellationException) {
             throw error
         } catch (error: Throwable) {

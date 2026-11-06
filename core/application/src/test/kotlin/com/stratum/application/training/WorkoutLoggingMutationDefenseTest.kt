@@ -1,5 +1,9 @@
 package com.stratum.application.training
 
+import com.stratum.core.testing.logging.FakeLoggingPort
+import com.stratum.application.importing.PersistImportedHistoryOutcome
+import com.stratum.application.response.ExtractResponseProfileOutcome
+
 import com.stratum.core.testing.importing.FakeCustomLiftInferencePort
 import com.stratum.core.testing.importing.FakeImportEquipmentInferencePort
 import com.stratum.core.testing.importing.FakeLiftEquipmentCatalog
@@ -49,11 +53,13 @@ class WorkoutLoggingMutationDefenseTest {
             liftRepo = liftRepo,
         )
 
-        persistUseCase(
-            sessions = listOf(WorkoutLoggingFixtures.importTrainingSession()),
-            sets = listOf(WorkoutLoggingFixtures.importLoggedSet()),
-            policy = ImportHistoryPersistPolicy.ReplaceImportOrigin,
-        ).getOrThrow()
+        assertTrue(
+            persistUseCase(
+                sessions = listOf(WorkoutLoggingFixtures.importTrainingSession()),
+                sets = listOf(WorkoutLoggingFixtures.importLoggedSet()),
+                policy = ImportHistoryPersistPolicy.ReplaceImportOrigin,
+            ) is PersistImportedHistoryOutcome.Persisted,
+        )
 
         liftRepo.seedLifts(catalogWithBench().map { lift ->
             if (lift.id == WorkoutLoggingFixtures.liftBenchId) WorkoutLoggingFixtures.backOnlyBench() else lift
@@ -82,16 +88,19 @@ class WorkoutLoggingMutationDefenseTest {
             persistence = persistence,
         )
 
-        persistUseCase(
-            sessions = listOf(WorkoutLoggingFixtures.importTrainingSession()),
-            sets = listOf(WorkoutLoggingFixtures.importLoggedSet()),
-            policy = ImportHistoryPersistPolicy.ReplaceImportOrigin,
-        ).getOrThrow()
+        assertTrue(
+            persistUseCase(
+                sessions = listOf(WorkoutLoggingFixtures.importTrainingSession()),
+                sets = listOf(WorkoutLoggingFixtures.importLoggedSet()),
+                policy = ImportHistoryPersistPolicy.ReplaceImportOrigin,
+            ) is PersistImportedHistoryOutcome.Persisted,
+        )
 
         liftRepo.seedLifts(listOf(WorkoutLoggingFixtures.verticalPullCatalogBench()))
 
         val extractUseCase =
             ExtractResponseProfileUseCase(
+                loggingPort = FakeLoggingPort(),
                 trainingLogRepository = trainingLogRepo,
                 liftRepository = liftRepo,
                 liftTrainingInsightsRepository = InMemoryLiftInsightsRepository(),
@@ -102,7 +111,7 @@ class WorkoutLoggingMutationDefenseTest {
                 experimentRegistry = EmptyExperimentRegistry(),
             )
 
-        extractUseCase().getOrThrow()
+        assertTrue(extractUseCase() is ExtractResponseProfileOutcome.Extracted)
 
         val horizontalPushCredit =
             persistence.effectivenessRepository
@@ -130,6 +139,7 @@ class WorkoutLoggingMutationDefenseTest {
         val insightsRepo = InMemoryLiftInsightsRepository()
         val extractResponseProfile =
             ExtractResponseProfileUseCase(
+                loggingPort = FakeLoggingPort(),
                 trainingLogRepository = trainingLogRepo,
                 liftRepository = liftRepo,
                 liftTrainingInsightsRepository = insightsRepo,
@@ -140,6 +150,7 @@ class WorkoutLoggingMutationDefenseTest {
                 experimentRegistry = EmptyExperimentRegistry(),
             )
         return PersistImportedHistoryUseCase(
+            loggingPort = FakeLoggingPort(),
             trainingLogRepository = trainingLogRepo,
             resolveImportLifts =
                 ResolveImportLiftsUseCase(
@@ -151,6 +162,7 @@ class WorkoutLoggingMutationDefenseTest {
                 ),
             extractTrainingInsights =
                 ExtractTrainingInsightsUseCase(
+                    loggingPort = FakeLoggingPort(),
                     trainingLogRepository = trainingLogRepo,
                     liftTrainingInsightsRepository = insightsRepo,
                     supersetAffinityRepository = InMemorySupersetRepository(),

@@ -738,6 +738,7 @@ class WorkoutCompleteViewModelTest {
                         preferences = repRangePrefs,
                         extractTrainingInsights =
                             ExtractTrainingInsightsUseCase(
+                                loggingPort = FakeLoggingPort(),
                                 trainingLogRepository = seededLog,
                                 liftTrainingInsightsRepository = insightsRepo,
                                 supersetAffinityRepository = FakeSupersetAffinityRepository(),
@@ -853,6 +854,7 @@ class WorkoutCompleteViewModelTest {
                         preferences = repRangePrefs,
                         extractTrainingInsights =
                             ExtractTrainingInsightsUseCase(
+                                loggingPort = FakeLoggingPort(),
                                 trainingLogRepository = logRepo,
                                 liftTrainingInsightsRepository = insightsRepo,
                                 supersetAffinityRepository = FakeSupersetAffinityRepository(),
@@ -973,6 +975,7 @@ class WorkoutCompleteViewModelTest {
                         preferences = repRangePrefs,
                         extractTrainingInsights =
                             ExtractTrainingInsightsUseCase(
+                                loggingPort = FakeLoggingPort(),
                                 trainingLogRepository = logRepo,
                                 liftTrainingInsightsRepository = insightsRepo,
                                 supersetAffinityRepository = FakeSupersetAffinityRepository(),
@@ -1067,6 +1070,7 @@ class WorkoutCompleteViewModelTest {
                     preferences = repRangePrefs,
                     extractTrainingInsights =
                         ExtractTrainingInsightsUseCase(
+                            loggingPort = FakeLoggingPort(),
                             trainingLogRepository = logRepo,
                             liftTrainingInsightsRepository = insightsRepo,
                             supersetAffinityRepository = FakeSupersetAffinityRepository(),

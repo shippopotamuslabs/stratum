@@ -212,6 +212,7 @@ internal object OnboardingViewModelTestFixtures {
             ),
             completeOnboarding = CompleteOnboardingUseCase(fakeRepository, fakeProfileRepository),
             importProgramTemplate = com.stratum.application.program.importing.ImportProgramTemplateUseCase(
+                loggingPort = FakeLoggingPort(),
                 importPort = com.stratum.core.testing.importing.FakeProgramTemplateImportPort(),
                 resolver = com.stratum.application.program.importing.ResolveProgramTemplateLiftsUseCase(
                     liftRepository = fakeLiftRepository,

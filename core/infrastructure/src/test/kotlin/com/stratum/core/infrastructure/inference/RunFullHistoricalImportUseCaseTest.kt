@@ -78,7 +78,7 @@ class RunFullHistoricalImportUseCaseTest {
         )
         val (persist, rollback) = buildPersistAndRollback(trainingLogRepo, liftRepo)
         val useCase = RunFullHistoricalImportUseCase(
-            startHistoricalImport = StartHistoricalImportUseCase(jobRepo),
+            startHistoricalImport = StartHistoricalImportUseCase(jobRepo, FakeLoggingPort()),
             historicalImportPort = port,
             persistImportedHistory = persist,
             rollbackHistoricalImport = rollback,
@@ -138,7 +138,7 @@ class RunFullHistoricalImportUseCaseTest {
         val (persist, rollback) = buildPersistAndRollback(trainingLogRepo, liftRepo)
         val useCase =
             RunFullHistoricalImportUseCase(
-                startHistoricalImport = StartHistoricalImportUseCase(jobRepo),
+                startHistoricalImport = StartHistoricalImportUseCase(jobRepo, FakeLoggingPort()),
                 historicalImportPort = port,
                 persistImportedHistory = persist,
                 rollbackHistoricalImport = rollback,
@@ -198,7 +198,7 @@ class RunFullHistoricalImportUseCaseTest {
         val (persist, rollback) = buildPersistAndRollback(trainingLogRepo, liftRepo)
         val useCase =
             RunFullHistoricalImportUseCase(
-                startHistoricalImport = StartHistoricalImportUseCase(jobRepo),
+                startHistoricalImport = StartHistoricalImportUseCase(jobRepo, FakeLoggingPort()),
                 historicalImportPort = port,
                 persistImportedHistory = persist,
                 rollbackHistoricalImport = rollback,
@@ -271,7 +271,7 @@ class RunFullHistoricalImportUseCaseTest {
         val (persist, rollback) = buildPersistAndRollback(trainingLogRepo, liftRepo)
         val useCase =
             RunFullHistoricalImportUseCase(
-                startHistoricalImport = StartHistoricalImportUseCase(jobRepo),
+                startHistoricalImport = StartHistoricalImportUseCase(jobRepo, FakeLoggingPort()),
                 historicalImportPort = port,
                 persistImportedHistory = persist,
                 rollbackHistoricalImport = rollback,
@@ -342,6 +342,7 @@ class RunFullHistoricalImportUseCaseTest {
         val persistence = FakeResponseProfilePersistencePort()
         val extractResponseProfile =
             ExtractResponseProfileUseCase(
+                loggingPort = FakeLoggingPort(),
                 trainingLogRepository = trainingLogRepo,
                 liftRepository = liftRepo,
                 liftTrainingInsightsRepository = InMemoryLiftInsightsRepository(),
@@ -353,6 +354,7 @@ class RunFullHistoricalImportUseCaseTest {
             )
         val persist =
             PersistImportedHistoryUseCase(
+                loggingPort = FakeLoggingPort(),
                 trainingLogRepository = trainingLogRepo,
                 resolveImportLifts =
                     ResolveImportLiftsUseCase(
@@ -364,6 +366,7 @@ class RunFullHistoricalImportUseCaseTest {
                     ),
                 extractTrainingInsights =
                     ExtractTrainingInsightsUseCase(
+                        loggingPort = FakeLoggingPort(),
                         trainingLogRepository = trainingLogRepo,
                         liftTrainingInsightsRepository = InMemoryLiftInsightsRepository(),
                         supersetAffinityRepository = InMemorySupersetRepository(),

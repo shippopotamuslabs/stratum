@@ -104,6 +104,7 @@ class ImportExportOnboardingRegressionTest {
         val completeOnboarding = CompleteOnboardingUseCase(onboardingRepo, profileRepo)
         val importUseCase =
             ImportProgramTemplateUseCase(
+                loggingPort = FakeLoggingPort(),
                 importPort = importPort,
                 resolver =
                     ResolveProgramTemplateLiftsUseCase(

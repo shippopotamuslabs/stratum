@@ -15,10 +15,12 @@ import com.stratum.domain.importing.ImportProgressPhase
 import com.stratum.domain.importing.HistoricalImportResumeState
 import com.stratum.domain.importing.ImportedHistoryChunk
 import com.stratum.application.importing.MergeImportedHistoryUseCase
+import com.stratum.application.importing.PersistImportedHistoryOutcome
 import com.stratum.application.importing.PersistImportedHistoryUseCase
 import com.stratum.application.importing.RollbackHistoricalImportUseCase
 import com.stratum.domain.importing.ImportFailureKind
 import com.stratum.domain.importing.RemoteImportJobStatus
+import com.stratum.application.importing.StartHistoricalImportOutcome
 import com.stratum.application.importing.StartHistoricalImportUseCase
 import com.stratum.domain.importing.UnsupportedImportFileException
 import com.stratum.domain.di.DefaultDispatcher
@@ -107,16 +109,26 @@ class RunFullHistoricalImportUseCase @Inject constructor(
             // skip; all other sessions use ThirdParty content fingerprint. Do not collapse a
             // mixed batch to a single global sourceKind.
             val summary =
-                persistImportedHistory(
-                    sessions = merged.sessions,
-                    sets = merged.sets,
-                    onProgress = { progress ->
-                        emit(HistoricalImportEvent.Progress(progress))
-                    },
-                    policy = persistPolicy,
-                    sourceKind = ImportDedupeSourceKind.ThirdParty,
-                    stableIdSessionIds = merged.stableIdSessionIds,
-                ).getOrThrow()
+                when (
+                    val persistOutcome =
+                        persistImportedHistory(
+                            sessions = merged.sessions,
+                            sets = merged.sets,
+                            onProgress = { progress ->
+                                emit(HistoricalImportEvent.Progress(progress))
+                            },
+                            policy = persistPolicy,
+                            sourceKind = ImportDedupeSourceKind.ThirdParty,
+                            stableIdSessionIds = merged.stableIdSessionIds,
+                        )
+                ) {
+                    is PersistImportedHistoryOutcome.Persisted -> persistOutcome.summary
+                    PersistImportedHistoryOutcome.SessionsNotImportOrigin ->
+                        error("Import persist requires all sessions to have origin IMPORT.")
+                    PersistImportedHistoryOutcome.NoValidSets ->
+                        error("Import contained no valid training sets.")
+                    PersistImportedHistoryOutcome.Failed -> error("Import failed.")
+                }
             summary.liftResolution?.let(importLiftResolutionLogger::log)
             emit(HistoricalImportEvent.Progress(ImportProgress(ImportProgressPhase.Complete)))
             emit(
@@ -184,9 +196,11 @@ class RunFullHistoricalImportUseCase @Inject constructor(
         fallbackWeightUnit: com.stratum.domain.lift.Weight.WeightUnit,
         onProgress: suspend (ImportProgress) -> Unit,
     ): ImportedHistoryChunk? {
-        val job = startHistoricalImport().getOrElse { error ->
-            error("Could not start import job: ${error.message}")
-        }
+        val job =
+            when (val startOutcome = startHistoricalImport()) {
+                is StartHistoricalImportOutcome.Started -> startOutcome.job
+                StartHistoricalImportOutcome.Failed -> error("Could not start import job")
+            }
         try {
             onProgress(
                 ImportProgress(

@@ -33,6 +33,7 @@ fun localDerivedTrainingStages(
             muscleVolumeBaselineRepository = FakeMuscleVolumeBaselineRepository(),
             importAnalysisMetadataRepository = FakeImportAnalysisMetadataRepository(),
             liftRepository = liftRepository,
+            loggingPort = loggingPort,
         ),
     refreshWeeklySeries: RefreshWeeklySeriesUseCase =
         RefreshWeeklySeriesUseCase(trainingLog, liftRepository, persistence),

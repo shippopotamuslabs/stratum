@@ -1,5 +1,7 @@
 package com.stratum.application.importing
 
+import com.stratum.core.testing.logging.FakeLoggingPort
+
 import com.stratum.core.testing.importing.FakeCustomLiftInferencePort
 import com.stratum.core.testing.importing.FakeImportEquipmentInferencePort
 import com.stratum.core.testing.importing.FakeLiftEquipmentCatalog
@@ -57,7 +59,7 @@ class PersistImportedHistoryUseCaseResponseTest {
                 policy = ImportHistoryPersistPolicy.ReplaceImportOrigin,
             )
 
-        assertTrue(result.isSuccess)
+        assertTrue(result is PersistImportedHistoryOutcome.Persisted)
         assertNotNull(metadataRepo.get())
         assertTrue(insightsRepo.getAll().isNotEmpty())
         assertEquals(2, persistence.epochRepository.getAll().size)
@@ -86,7 +88,7 @@ class PersistImportedHistoryUseCaseResponseTest {
                 policy = ImportHistoryPersistPolicy.ReplaceImportOrigin,
             )
 
-        assertTrue(result.isFailure)
+        assertEquals(PersistImportedHistoryOutcome.Failed, result)
         assertEquals(0, trainingLogRepo.getImportSessions().size)
         assertEquals(0, persistence.epochRepository.getAll().size)
         assertEquals(0, persistence.volumeRepository.getAll().size)
@@ -114,7 +116,7 @@ class PersistImportedHistoryUseCaseResponseTest {
                 policy = ImportHistoryPersistPolicy.ReplaceImportOrigin,
             )
 
-        assertTrue(result.isFailure)
+        assertEquals(PersistImportedHistoryOutcome.Failed, result)
         assertEquals(0, persistence.epochRepository.getAll().size)
         assertEquals(0, persistence.volumeRepository.getAll().size)
         assertNull(persistence.metadataRepository.get())
@@ -142,7 +144,7 @@ class PersistImportedHistoryUseCaseResponseTest {
                 policy = ImportHistoryPersistPolicy.ReplaceImportOrigin,
             )
 
-        assertTrue(result.isFailure)
+        assertEquals(PersistImportedHistoryOutcome.Failed, result)
         assertEquals(0, trainingLogRepo.getImportSessions().size)
         assertEquals(0, persistence.epochRepository.getAll().size)
     }
@@ -157,6 +159,7 @@ class PersistImportedHistoryUseCaseResponseTest {
     ): PersistImportedHistoryUseCase {
         val extractResponseProfile =
             ExtractResponseProfileUseCase(
+                loggingPort = FakeLoggingPort(),
                 trainingLogRepository = trainingLogRepo,
                 liftRepository = liftRepo,
                 liftTrainingInsightsRepository = insightsRepo,
@@ -167,6 +170,7 @@ class PersistImportedHistoryUseCaseResponseTest {
                 experimentRegistry = EmptyExperimentRegistry(),
             )
         return PersistImportedHistoryUseCase(
+            loggingPort = FakeLoggingPort(),
             trainingLogRepository = trainingLogRepo,
             resolveImportLifts =
                 ResolveImportLiftsUseCase(
@@ -178,6 +182,7 @@ class PersistImportedHistoryUseCaseResponseTest {
                 ),
             extractTrainingInsights =
                 ExtractTrainingInsightsUseCase(
+                    loggingPort = FakeLoggingPort(),
                     trainingLogRepository = trainingLogRepo,
                     liftTrainingInsightsRepository = insightsRepo,
                     supersetAffinityRepository = InMemorySupersetRepository(),
