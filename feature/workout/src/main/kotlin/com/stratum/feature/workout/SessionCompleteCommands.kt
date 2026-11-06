@@ -93,9 +93,7 @@ internal suspend fun LiveWorkoutSessionRuntime.handleCompleteWorkout(cmd: Sessio
                 // STR-237 Route (i): the failure record rides the branch as
                 // diagnostics; this runtime boundary drains them exactly once
                 // through its existing recorder.
-                saveResult.diagnostics.forEach { diagnostic ->
-                    logError(diagnostic.tag, diagnostic.message, diagnostic.cause)
-                }
+                drainOperationalDiagnostics(saveResult.diagnostics)
             }
             if (saveResult != SaveWorkoutResult.Success) {
                 effects.publishUserMessage(LiveWorkoutSessionRuntime.MSG_COMPLETE_FAILED)

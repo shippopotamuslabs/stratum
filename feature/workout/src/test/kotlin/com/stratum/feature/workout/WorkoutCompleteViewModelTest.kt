@@ -43,7 +43,6 @@ import com.stratum.domain.healthconnect.HealthFailureKind
 import com.stratum.application.workout.AnalyzeSessionRepRangeShiftProposalsUseCase
 import com.stratum.application.workout.ApplyRepRangeShiftUseCase
 import com.stratum.application.workout.RepRangeShiftDiagnostic
-import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.feature.workout.ui.EquipmentEditorDestination
 import com.stratum.feature.workout.ui.WorkoutCompleteEvent
 import com.stratum.feature.workout.ui.WorkoutCompleteUiState

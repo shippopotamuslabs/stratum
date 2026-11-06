@@ -30,7 +30,6 @@ import com.stratum.application.lift.ObserveLiftCatalogUseCase
 import com.stratum.application.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
-import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.application.program.GetProgramByIdUseCase
@@ -422,7 +421,6 @@ class WorkoutViewModelTest {
             liveWorkoutSurfaces = fakeLiveWorkoutSurfaces(),
             observeWeightDisplayPreferences =
                 ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
-            logError = LogErrorUseCase(fakeLogging),
             saveLiftNotesUseCase = com.stratum.application.lift.SaveLiftNotesUseCase(
                 liftNotesRepository,
                 liftRepository,
@@ -451,7 +449,7 @@ class WorkoutViewModelTest {
                 com.stratum.application.training.RewriteSessionLiftEquipmentUseCase(
                     trainingLogRepository,
                 ),
-            diagnosticDrain = DiagnosticDrain(FakeLoggingPort()),
+            diagnosticDrain = DiagnosticDrain(fakeLogging),
         )
     }
 
@@ -522,7 +520,6 @@ class WorkoutViewModelTest {
             liveWorkoutSurfaces = fakeLiveWorkoutSurfaces(),
             observeWeightDisplayPreferences =
                 ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
-            logError = LogErrorUseCase(FakeLoggingPort()),
             saveLiftNotesUseCase = com.stratum.application.lift.SaveLiftNotesUseCase(
                 liftNotesRepository,
                 liftRepository,
@@ -620,7 +617,6 @@ class WorkoutViewModelTest {
             liveWorkoutSurfaces = fakeLiveWorkoutSurfaces(),
             observeWeightDisplayPreferences =
                 ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
-            logError = LogErrorUseCase(FakeLoggingPort()),
             saveLiftNotesUseCase = com.stratum.application.lift.SaveLiftNotesUseCase(
                 liftNotesRepository,
                 liftRepository,
@@ -1400,7 +1396,6 @@ class WorkoutViewModelTest {
             liveWorkoutSurfaces = fakeLiveWorkoutSurfaces(),
             observeWeightDisplayPreferences =
                 ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
-            logError = LogErrorUseCase(FakeLoggingPort()),
             saveLiftNotesUseCase = com.stratum.application.lift.SaveLiftNotesUseCase(
                 liftNotesRepository,
                 liftRepository,
@@ -1497,7 +1492,6 @@ class WorkoutViewModelTest {
             liveWorkoutSurfaces = fakeLiveWorkoutSurfaces(),
             observeWeightDisplayPreferences =
                 ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
-            logError = LogErrorUseCase(FakeLoggingPort()),
             saveLiftNotesUseCase = com.stratum.application.lift.SaveLiftNotesUseCase(
                 liftNotesRepository,
                 liftRepository,

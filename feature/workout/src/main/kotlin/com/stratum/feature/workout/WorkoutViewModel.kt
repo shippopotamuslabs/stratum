@@ -31,7 +31,6 @@ import com.stratum.application.lift.SaveLiftNotesUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
-import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.application.program.GetProgramByIdUseCase
 import com.stratum.application.program.SaveWorkoutUseCase
 import com.stratum.domain.program.identity.WorkoutId
@@ -121,7 +120,6 @@ class WorkoutViewModel @Inject constructor(
     private val workoutEditSession: WorkoutEditSession,
     private val liveWorkoutSurfaces: LiveWorkoutSurfaces,
     observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
-    private val logError: LogErrorUseCase,
     private val saveLiftNotesUseCase: SaveLiftNotesUseCase,
     private val getPastSessionNotesForLift: GetPastSessionNotesForLiftUseCase,
     private val getLiftNoteLists: GetLiftNoteListsUseCase,
@@ -251,7 +249,7 @@ class WorkoutViewModel @Inject constructor(
             observeLiftTrainingInsights = observeLiftTrainingInsights,
             manageWorkoutOverlay = manageWorkoutOverlay,
             getSessionPinnedNoteLists = getSessionPinnedNoteLists,
-            logError = logError,
+            diagnosticDrain = diagnosticDrain,
         )
 
     init {
@@ -310,7 +308,7 @@ class WorkoutViewModel @Inject constructor(
                     is EditSessionEvent.LiftSelected -> {
                         val activeWorkoutId = session.activeWorkoutId()?.value
                         if (event.workoutId != activeWorkoutId) {
-                            logError(
+                            diagnosticDrain.recordError(
                                 TAG,
                                 "Ignored LiftSelected: event workoutId (${event.workoutId}) " +
                                     "does not match active session ($activeWorkoutId)",
@@ -327,7 +325,7 @@ class WorkoutViewModel @Inject constructor(
                     is EditSessionEvent.LiftsSelected -> {
                         val activeWorkoutId = session.activeWorkoutId()?.value
                         if (event.workoutId != activeWorkoutId) {
-                            logError(
+                            diagnosticDrain.recordError(
                                 TAG,
                                 "Ignored LiftsSelected: event workoutId (${event.workoutId}) " +
                                     "does not match active session ($activeWorkoutId)",
@@ -344,7 +342,7 @@ class WorkoutViewModel @Inject constructor(
                         if (event.workoutId == activeWorkoutId) {
                             reorderLifts(event.orderedWorkoutLiftIds)
                         } else {
-                            logError(
+                            diagnosticDrain.recordError(
                                 TAG,
                                 "Ignored LiftsReordered: event workoutId (${event.workoutId}) " +
                                     "does not match active session ($activeWorkoutId)",
@@ -875,7 +873,7 @@ class WorkoutViewModel @Inject constructor(
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (error: Throwable) {
-                    logError(TAG, "Session command dropped: ${error.message}", error)
+                    diagnosticDrain.recordError(TAG, "Session command dropped: ${error.message}", error)
                     _userMessage.value = MSG_SESSION_COMMAND_DROPPED
                 }
             }

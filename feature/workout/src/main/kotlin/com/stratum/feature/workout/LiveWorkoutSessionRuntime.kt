@@ -16,7 +16,6 @@ import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.storageWeightFromDisplay
-import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.application.program.GetProgramByIdUseCase
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.ProgressionScheme
@@ -102,7 +101,7 @@ internal class LiveWorkoutSessionRuntime(
     val observeLiftTrainingInsights: ObserveLiftTrainingInsightsUseCase,
     val manageWorkoutOverlay: ManageWorkoutOverlayUseCase,
     val getSessionPinnedNoteLists: GetSessionPinnedNoteListsUseCase,
-    val logError: LogErrorUseCase,
+    val diagnosticDrain: DiagnosticDrain,
 ) {
     var activeWorkoutId: WorkoutId? = null
     var cachedProgramId: ProgramId? = null
@@ -597,16 +596,22 @@ internal class LiveWorkoutSessionRuntime(
      * Diagnostics are log-only — never surfaced in the UI.
      */
     internal fun drainOperationalDiagnostics(diagnostics: List<OperationalDiagnostic>) {
-        for (diagnostic in diagnostics) {
-            logError(diagnostic.tag, diagnostic.message, diagnostic.cause)
-        }
+        diagnosticDrain.drain(diagnostics)
     }
 
+    /**
+     * STR-237 chunk 2: this record's cause is null by design (the §10
+     * [ProgressionDiagnostic] carries no throwable), so it does NOT ride the
+     * [OperationalDiagnostic] carrier — no cause is fabricated. The runtime is
+     * a non-ViewModel boundary component and records through its own
+     * sanctioned recorder, the module [DiagnosticDrain]'s direct-record path,
+     * with tag/message/null-cause unchanged.
+     */
     internal fun logProgressionDiagnostics(diagnostics: List<ProgressionDiagnostic>) {
         for (diagnostic in diagnostics) {
             when (diagnostic) {
                 is ProgressionDiagnostic.BaselineSkipped ->
-                    logError(
+                    diagnosticDrain.recordError(
                         TAG,
                         "Progression baseline skipped: " +
                             "lift=${liftNamesById[diagnostic.liftId] ?: diagnostic.liftId.value} " +

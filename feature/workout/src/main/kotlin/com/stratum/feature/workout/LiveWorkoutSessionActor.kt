@@ -29,7 +29,6 @@ import com.stratum.application.workout.RecomputeRecommendationsUseCase
 import com.stratum.domain.workout.RenderedWorkout
 import com.stratum.domain.workout.SetSlotId
 import com.stratum.application.importing.ObserveLiftTrainingInsightsUseCase
-import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.feature.workout.ui.WorkoutUiEvent
 import com.stratum.feature.workout.ui.WorkoutUiState
 import kotlin.coroutines.cancellation.CancellationException
@@ -65,7 +64,7 @@ internal class LiveWorkoutSessionActor(
     observeLiftTrainingInsights: ObserveLiftTrainingInsightsUseCase,
     manageWorkoutOverlay: ManageWorkoutOverlayUseCase,
     getSessionPinnedNoteLists: GetSessionPinnedNoteListsUseCase,
-    private val logError: LogErrorUseCase,
+    private val diagnosticDrain: DiagnosticDrain,
 ) {
     private var commands = Channel<SessionCommand>(Channel.UNLIMITED)
     private var consumerJob: Job? = null
@@ -90,7 +89,7 @@ internal class LiveWorkoutSessionActor(
             observeLiftTrainingInsights = observeLiftTrainingInsights,
             manageWorkoutOverlay = manageWorkoutOverlay,
             getSessionPinnedNoteLists = getSessionPinnedNoteLists,
-            logError = logError,
+            diagnosticDrain = diagnosticDrain,
         )
 
     init {
@@ -108,7 +107,7 @@ internal class LiveWorkoutSessionActor(
                     } catch (cancelled: CancellationException) {
                         throw cancelled
                     } catch (error: Throwable) {
-                        logError(TAG, "Session command failed: ${error.message}", error)
+                        diagnosticDrain.recordError(TAG, "Session command failed: ${error.message}", error)
                         publishUnexpectedCommandFailure(cmd)
                     }
                 }
