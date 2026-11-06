@@ -99,7 +99,7 @@ class CloudSyncAuthListenerTest {
         }
 
     @Test
-    fun `startCloudSync failure is logged without killing the listener`() =
+    fun `startCloudSync failure is not re-logged by the listener and does not kill it`() =
         runTest {
             val logging = FakeLoggingPort()
             cloudSyncPort.startFailure = IllegalStateException("sync start boom")
@@ -110,9 +110,10 @@ class CloudSyncAuthListenerTest {
             val user = UserProfile("user-abc", "Test User", "test@example.com", null)
             authManager.setState(AuthState.Authenticated(user))
 
-            assertEquals(1, logging.errors.size)
-            assertEquals("CloudSyncAuth", logging.errors.single().tag)
-            assertTrue(logging.errors.single().message.contains("sync start boom"))
+            // The failed start's single error record is the sync adapter's own
+            // log at its boundary; the listener drains nothing (the outcome
+            // carries no diagnostics payload), so no second record here.
+            assertTrue(logging.errors.isEmpty())
             val stopsBeforeSignOut = cloudSyncPort.stopCount
             authManager.setState(AuthState.Unauthenticated)
             assertEquals(stopsBeforeSignOut + 1, cloudSyncPort.stopCount)

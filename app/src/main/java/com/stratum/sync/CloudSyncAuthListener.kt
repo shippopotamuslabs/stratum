@@ -5,8 +5,6 @@ import com.stratum.application.auth.GetAuthStateUseCase
 import com.stratum.domain.di.ApplicationScope
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.logging.collectLatestRestarting
-import com.stratum.application.sync.CloudSyncDiagnostic
-import com.stratum.application.sync.CloudSyncOutcome
 import com.stratum.application.sync.StartCloudSyncUseCase
 import com.stratum.application.sync.StopCloudSyncUseCase
 import javax.inject.Inject
@@ -38,21 +36,10 @@ class CloudSyncAuthListener @Inject constructor(
                 getAuthState().collectLatestRestarting(loggingPort, TAG) { state ->
                     when (state) {
                         is AuthState.Authenticated -> {
-                            val outcome = startCloudSync(state.user.uid)
-                            if (outcome is CloudSyncOutcome.Failed) {
-                                outcome.diagnostics.forEach { diagnostic ->
-                                    when (diagnostic) {
-                                        is CloudSyncDiagnostic.OperationFailed -> {
-                                            val error = diagnostic.cause
-                                            loggingPort.error(
-                                                TAG,
-                                                "startCloudSync failed: ${error.message}",
-                                                error,
-                                            )
-                                        }
-                                    }
-                                }
-                            }
+                            // A failed start is error-logged exactly once by
+                            // the sync adapter at its own boundary; the
+                            // outcome carries no payload to drain here.
+                            startCloudSync(state.user.uid)
                         }
                         AuthState.Unauthenticated, is AuthState.Error -> {
                             stopCloudSync()
