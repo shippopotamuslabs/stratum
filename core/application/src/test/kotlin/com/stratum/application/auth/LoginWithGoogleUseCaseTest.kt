@@ -1,11 +1,13 @@
 package com.stratum.application.auth
 
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.core.testing.auth.FakeAuthManager
 import com.stratum.domain.auth.AuthState
 import com.stratum.domain.auth.SignInFailureKind
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -39,14 +41,28 @@ class LoginWithGoogleUseCaseTest {
 
     @Test
     fun `unclassified sign in failure returns other branch with message`() = runTest {
+        val failure = IllegalStateException("unexpected boom")
         val fake = FakeAuthManager().apply {
-            signInFailure = IllegalStateException("unexpected boom")
+            signInFailure = failure
         }
         val subject = LoginWithGoogleUseCase(fake)
         val result = subject()
+        assertTrue(result is LoginWithGoogleResult.Failed)
+        val failed = result as LoginWithGoogleResult.Failed
+        assertEquals(SignInFailureKind.Other, failed.kind)
+        assertEquals("unexpected boom", failed.message)
+        // STR-238: the branch also carries the real cause as a §10
+        // diagnostic for the boundary's exactly-once drain.
+        val diagnostics = failed.diagnostics
+        assertEquals(1, diagnostics.size)
+        assertSame(failure, diagnostics.single().cause)
         assertEquals(
-            LoginWithGoogleResult.Failed(SignInFailureKind.Other, "unexpected boom"),
-            result,
+            OperationalDiagnostic(
+                tag = "StratumGoogleAuth",
+                message = "Google sign-in failed: unexpected boom",
+                cause = failure,
+            ),
+            diagnostics.single(),
         )
     }
 

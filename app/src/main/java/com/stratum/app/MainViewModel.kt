@@ -101,9 +101,14 @@ class MainViewModel @Inject constructor(
             signInError.value = null
             when (val result = loginWithGoogle()) {
                 is LoginWithGoogleResult.Success -> Unit
-                is LoginWithGoogleResult.Failed ->
+                is LoginWithGoogleResult.Failed -> {
+                    // STR-238: the sign-in failure's §10 diagnostics are
+                    // drained here exactly once — this boundary is the
+                    // single recording owner (the adapter records nothing).
+                    diagnosticDrain.drain(result.diagnostics)
                     signInError.value =
                         loginFailureToGoogleSignInMessage(result.kind, result.message)
+                }
             }
         }
     }
@@ -131,8 +136,12 @@ class MainViewModel @Inject constructor(
                         drainSyncDiagnostics(result.wipeDiagnostics, "endSessionAndWipe failed")
                         drainRestartDiagnostics(result.restartDiagnostics)
                     }
-                    is LogoutResult.SignOutFailed ->
+                    is LogoutResult.SignOutFailed -> {
+                        // STR-238: the primary sign-out failure drains here
+                        // too, exactly once, alongside the restart's.
+                        diagnosticDrain.drain(result.signOutDiagnostics)
                         drainRestartDiagnostics(result.restartDiagnostics)
+                    }
                     LogoutResult.Success -> Unit
                 }
                 // Keep shell copy non-technical.

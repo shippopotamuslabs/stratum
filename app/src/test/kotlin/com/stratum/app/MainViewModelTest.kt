@@ -171,6 +171,51 @@ class MainViewModelTest {
     }
 
     @Test
+    @DisplayName("When sign-in fails then the failure is logged exactly once at this boundary")
+    fun signInFailureLogsOnce() = runTest {
+        val signInErrorCause = IllegalStateException("network down")
+        fakeAuth.signInFailure = signInErrorCause
+        subject = buildViewModel()
+        advanceUntilIdle()
+
+        subject.onSignInWithGoogle()
+        advanceUntilIdle()
+
+        // STR-238 (A18): the adapter records nothing; the Failed branch's
+        // §10 diagnostics drain here exactly once, with the real cause and
+        // the adapter's legacy tag/message shape.
+        assertEquals(1, loggingPort.errors.size)
+        assertEquals("StratumGoogleAuth", loggingPort.errors.single().tag)
+        assertEquals(
+            "Google sign-in failed: network down",
+            loggingPort.errors.single().message,
+        )
+        assertSame(signInErrorCause, loggingPort.errors.single().throwable)
+    }
+
+    @Test
+    @DisplayName("When shell sign-out fails then the sign-out failure is logged exactly once")
+    fun shellSignOutFailureLogsOnce() = runTest {
+        val signOutError = IllegalStateException("sign-out failed")
+        fakeAuth.signOutFailure = signOutError
+        subject = buildViewModel()
+        advanceUntilIdle()
+
+        subject.onSignOutFromShell()
+        advanceUntilIdle()
+
+        // STR-238 (A19): the sign-out failure's diagnostics drain here
+        // exactly once; the (unattempted, uid-less) restart adds none.
+        assertEquals(1, loggingPort.errors.size)
+        assertEquals("StratumGoogleAuth", loggingPort.errors.single().tag)
+        assertEquals(
+            "Google sign-out failed: sign-out failed",
+            loggingPort.errors.single().message,
+        )
+        assertSame(signOutError, loggingPort.errors.single().throwable)
+    }
+
+    @Test
     @DisplayName("When sign-out and restart fail then wipe and restart are each logged once and shell stays generic")
     fun signOutAndRestartFailureLogsWipeAndRestartOnceEach() = runTest {
         fakeAuth.setState(

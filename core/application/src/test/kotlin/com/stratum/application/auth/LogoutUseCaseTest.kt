@@ -90,8 +90,9 @@ class LogoutUseCaseTest {
     @DisplayName("Given sign-out fails after wipe when logout then sync restarts")
     fun signOutFailureRestartsSync() = runTest {
         val user = UserProfile("uid-1", "A", "a@example.com", null)
+        val signOutError = IllegalStateException("sign-out failed")
         val auth = FakeAuthManager(AuthState.Authenticated(user)).apply {
-            signOutFailure = IllegalStateException("sign-out failed")
+            signOutFailure = signOutError
         }
         val port = FakeCloudSyncPort()
         val subject = buildSubject(auth, port)
@@ -103,6 +104,11 @@ class LogoutUseCaseTest {
             emptyList<CloudSyncDiagnostic>(),
             (result as LogoutResult.SignOutFailed).restartDiagnostics,
         )
+        // STR-238: the primary sign-out failure's diagnostics ride the
+        // branch, carrying the real cause for the boundary's drain.
+        val signOutDiagnostics = (result as LogoutResult.SignOutFailed).signOutDiagnostics
+        assertEquals(1, signOutDiagnostics.size)
+        assertSame(signOutError, signOutDiagnostics.single().cause)
         assertEquals(listOf("wipe", "start"), port.callOrder)
         assertEquals(1, auth.signOutCount)
         assertTrue(auth.authState.value is AuthState.Authenticated)
@@ -147,8 +153,9 @@ class LogoutUseCaseTest {
     @DisplayName("Given sign-out fails and restart fails when logout then branch carries restart diagnostic")
     fun signOutFailureAndRestartFailureCarriesDiagnostic() = runTest {
         val user = UserProfile("uid-1", "A", "a@example.com", null)
+        val signOutError = IllegalStateException("sign-out failed")
         val auth = FakeAuthManager(AuthState.Authenticated(user)).apply {
-            signOutFailure = IllegalStateException("sign-out failed")
+            signOutFailure = signOutError
         }
         val restartError = IllegalStateException("restart failed")
         val port = FakeCloudSyncPort().apply {
@@ -165,6 +172,11 @@ class LogoutUseCaseTest {
             restartError,
             (diagnostics.single() as CloudSyncDiagnostic.OperationFailed).cause,
         )
+        // STR-238: the sign-out failure's own diagnostics ride alongside
+        // the restart's, each carrying its own real cause.
+        val signOutDiagnostics = (result as LogoutResult.SignOutFailed).signOutDiagnostics
+        assertEquals(1, signOutDiagnostics.size)
+        assertSame(signOutError, signOutDiagnostics.single().cause)
         assertTrue(auth.authState.value is AuthState.Authenticated)
     }
 

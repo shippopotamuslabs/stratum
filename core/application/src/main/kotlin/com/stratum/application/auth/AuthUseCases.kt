@@ -1,5 +1,6 @@
 package com.stratum.application.auth
 
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.application.sync.CloudSyncDiagnostic
 import com.stratum.application.sync.CloudSyncOutcome
 import com.stratum.application.sync.EndSessionAndWipeUseCase
@@ -34,6 +35,8 @@ class LoginWithGoogleUseCase @Inject constructor(
  * the STR-256 suppressed-throwable mechanism, carried as diagnostics.
  * [WipeFailed] additionally carries the primary wipe failure's own
  * diagnostics (STR-238) so the same boundary drains them exactly once too.
+ * [SignOutFailed] additionally carries the primary sign-out failure's own
+ * §10 diagnostics (STR-238) for the same boundary's exactly-once drain.
  */
 sealed interface LogoutResult {
     data object Success : LogoutResult
@@ -47,6 +50,7 @@ sealed interface LogoutResult {
     /** The wipe succeeded but Firebase sign-out failed. */
     data class SignOutFailed(
         val restartDiagnostics: List<CloudSyncDiagnostic>,
+        val signOutDiagnostics: List<OperationalDiagnostic> = emptyList(),
     ) : LogoutResult
 }
 
@@ -80,7 +84,8 @@ class LogoutUseCase @Inject constructor(
             stopCloudSync()
         }
 
-        if (authManager.signOut() is SignOutOutcome.Failed) {
+        val signOutOutcome = authManager.signOut()
+        if (signOutOutcome is SignOutOutcome.Failed) {
             val diagnostics = if (
                 uid != null && authManager.authState.value is AuthState.Authenticated
             ) {
@@ -88,7 +93,10 @@ class LogoutUseCase @Inject constructor(
             } else {
                 emptyList()
             }
-            return LogoutResult.SignOutFailed(diagnostics)
+            return LogoutResult.SignOutFailed(
+                restartDiagnostics = diagnostics,
+                signOutDiagnostics = signOutOutcome.diagnostics,
+            )
         }
         return LogoutResult.Success
     }
@@ -103,9 +111,20 @@ class LogoutUseCase @Inject constructor(
  * (empty when the restart succeeded or was not attempted).
  * [LocalCleanupFailed] carries the primary wipe failure's own diagnostics
  * (STR-238) for the same boundary's exactly-once drain.
+ * [RemoteDataFailed] and [AuthDeleteFailed] additionally carry the primary
+ * account-deletion failure's own §10 diagnostics (STR-238), and [Success]
+ * carries the best-effort sign-out failure's §10 diagnostics when that
+ * final step failed — the same boundary drains each exactly once.
  */
 sealed interface DeleteAccountResult {
-    data object Success : DeleteAccountResult
+    /**
+     * Deletion completed. [signOutDiagnostics] carries the best-effort
+     * sign-out failure's §10 diagnostics (STR-238) when the final
+     * credential clear failed; empty when sign-out succeeded.
+     */
+    data class Success(
+        val signOutDiagnostics: List<OperationalDiagnostic> = emptyList(),
+    ) : DeleteAccountResult
 
     /** No signed-in user; nothing was attempted. */
     data object NotSignedIn : DeleteAccountResult
@@ -113,6 +132,7 @@ sealed interface DeleteAccountResult {
     /** Cloud Firestore + Storage deletion failed; local data is intact for retry. */
     data class RemoteDataFailed(
         val restartDiagnostics: List<CloudSyncDiagnostic>,
+        val deletionDiagnostics: List<OperationalDiagnostic> = emptyList(),
     ) : DeleteAccountResult
 
     /**
@@ -128,9 +148,13 @@ sealed interface DeleteAccountResult {
     /**
      * Local wipe succeeded and cloud data is gone, but Firebase Auth user
      * removal failed. Auth is left intact so the user can retry deletion
-     * without re-uploading wiped cloud data.
+     * without re-uploading wiped cloud data. [deletionDiagnostics] carries
+     * the auth-deletion failure's §10 diagnostics (STR-238) for the
+     * terminal boundary's exactly-once drain.
      */
-    data object AuthDeleteFailed : DeleteAccountResult
+    data class AuthDeleteFailed(
+        val deletionDiagnostics: List<OperationalDiagnostic> = emptyList(),
+    ) : DeleteAccountResult
 }
 
 /**
@@ -173,7 +197,8 @@ class DeleteAccountUseCase @Inject constructor(
             ?: return DeleteAccountResult.NotSignedIn
         // Freeze uploads before Admin cascade so WorkManager cannot re-push Room residuals.
         stopCloudSync()
-        if (accountDeletionPort.deleteRemoteUserData() is AccountDeletionOutcome.Failed) {
+        val remoteDataOutcome = accountDeletionPort.deleteRemoteUserData()
+        if (remoteDataOutcome is AccountDeletionOutcome.Failed) {
             // Runs before the NonCancellable block below, so a restart CancellationException
             // propagates to the caller instead of being swallowed.
             val diagnostics = if (authManager.authState.value is AuthState.Authenticated) {
@@ -181,7 +206,10 @@ class DeleteAccountUseCase @Inject constructor(
             } else {
                 emptyList()
             }
-            return DeleteAccountResult.RemoteDataFailed(diagnostics)
+            return DeleteAccountResult.RemoteDataFailed(
+                restartDiagnostics = diagnostics,
+                deletionDiagnostics = remoteDataOutcome.diagnostics,
+            )
         }
         return deleteAfterRemoteData(uid)
     }
@@ -195,17 +223,27 @@ class DeleteAccountUseCase @Inject constructor(
                     wipeDiagnostics = wipeOutcome.diagnostics,
                 )
             }
-            if (accountDeletionPort.deleteRemoteAuthUser() is AccountDeletionOutcome.Failed) {
-                return@withContext DeleteAccountResult.AuthDeleteFailed
+            val authDeleteOutcome = accountDeletionPort.deleteRemoteAuthUser()
+            if (authDeleteOutcome is AccountDeletionOutcome.Failed) {
+                return@withContext DeleteAccountResult.AuthDeleteFailed(
+                    deletionDiagnostics = authDeleteOutcome.diagnostics,
+                )
             }
             // Auth user is already gone; clear local session/credentials if possible.
             // Best-effort: deletion has already succeeded, so a sign-out failure never
-            // retypes the outcome. Sign-out failures are recorded exactly once by the
-            // AuthManager adapter (FirebaseGoogleAuthManager.signOut) — that adapter is
-            // the single recording owner (handle-exactly-once, CODE-STYLE-GOSPEL §11),
-            // so the outcome is simply consumed here. A CancellationException from
-            // the port still propagates (it is never an outcome branch).
-            authManager.signOut()
-            DeleteAccountResult.Success
+            // retypes the outcome. The sign-out failure's diagnostics ride the
+            // Success branch (STR-238): the AuthManager adapter records nothing,
+            // and the terminal boundary (Settings) is the single recording owner,
+            // draining them exactly once (handle-exactly-once, CODE-STYLE-GOSPEL
+            // §11). A CancellationException from the port still propagates (it is
+            // never an outcome branch).
+            val signOutOutcome = authManager.signOut()
+            DeleteAccountResult.Success(
+                signOutDiagnostics = if (signOutOutcome is SignOutOutcome.Failed) {
+                    signOutOutcome.diagnostics
+                } else {
+                    emptyList()
+                },
+            )
         }
 }

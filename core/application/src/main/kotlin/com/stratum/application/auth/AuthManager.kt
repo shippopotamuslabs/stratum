@@ -1,6 +1,7 @@
 package com.stratum.application.auth
 
 import kotlinx.coroutines.flow.StateFlow
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.domain.auth.AuthState
 import com.stratum.domain.auth.SignInFailureKind
 import com.stratum.domain.auth.UserProfile
@@ -8,9 +9,10 @@ import com.stratum.domain.auth.UserProfile
 /**
  * Firebase Auth boundary (STR-243 remediation, Sean's E1 ruling). Operations
  * return their sealed outcomes: no exception crosses this port in place of an
- * outcome (coroutine cancellation still propagates). The adapter logs an
- * operational failure once at its own boundary before returning the failure
- * branch, and classifies sign-in failures to
+ * outcome (coroutine cancellation still propagates). A failure branch
+ * carries the failure as §10 [OperationalDiagnostic]s (STR-238): the adapter
+ * records nothing, and the terminal boundary (Main shell, Settings) drains
+ * the diagnostics exactly once. The adapter classifies sign-in failures to
  * [com.stratum.domain.auth.SignInFailureKind] — the single classification
  * source for every consumer.
  */
@@ -26,8 +28,10 @@ interface AuthManager {
  * Outcome of a Google sign-in attempt (STR-243). [Failed] carries the
  * adapter's [SignInFailureKind] classification plus the originating message
  * for unclassified failures (the shipped message-carrying pattern, cf.
- * `BillingPurchaseResult.Failed`) — never the throwable itself, which the
- * adapter logged once at its boundary.
+ * `BillingPurchaseResult.Failed`), and — STR-238 — the failure as §10
+ * [diagnostics] carrying the real cause for the terminal boundary's
+ * exactly-once drain (empty when the failure has no throwable to carry,
+ * e.g. a purely classified failure constructed above the adapter).
  */
 sealed interface LoginWithGoogleResult {
     data class Success(val profile: UserProfile) : LoginWithGoogleResult
@@ -35,6 +39,7 @@ sealed interface LoginWithGoogleResult {
     data class Failed(
         val kind: SignInFailureKind,
         val message: String?,
+        val diagnostics: List<OperationalDiagnostic> = emptyList(),
     ) : LoginWithGoogleResult
 }
 
@@ -42,6 +47,18 @@ sealed interface LoginWithGoogleResult {
 sealed interface SignOutOutcome {
     data object Success : SignOutOutcome
 
-    /** Sign-out failed; the adapter already logged the failure once. */
-    data object Failed : SignOutOutcome
+    /**
+     * Sign-out failed. [diagnostics] carries the real cause as §10
+     * diagnostics for the terminal boundary's exactly-once drain
+     * (STR-238); the adapter records nothing.
+     */
+    data class Failed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : SignOutOutcome {
+        init {
+            require(diagnostics.isNotEmpty()) {
+                "SignOutOutcome.Failed requires at least one diagnostic."
+            }
+        }
+    }
 }

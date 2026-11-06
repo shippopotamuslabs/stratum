@@ -446,6 +446,10 @@ class SettingsViewModel @Inject constructor(
                         _userMessage.value = MSG_LOGOUT_FAILED
                     }
                     is LogoutResult.SignOutFailed -> {
+                        // STR-238: the primary sign-out failure is drained
+                        // here exactly once, alongside the compensating
+                        // restart's diagnostics.
+                        diagnosticDrain.drain(result.signOutDiagnostics)
                         drainRestartDiagnostics(
                             result.restartDiagnostics,
                             MSG_SYNC_RESTART_FAILED_LOGOUT,
@@ -528,12 +532,19 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 when (val result = deleteAccount()) {
-                    DeleteAccountResult.Success -> Unit
+                    is DeleteAccountResult.Success -> {
+                        // STR-238: a best-effort sign-out failure after a
+                        // completed deletion is drained here exactly once
+                        // (empty when sign-out succeeded — no record).
+                        diagnosticDrain.drain(result.signOutDiagnostics)
+                    }
                     DeleteAccountResult.NotSignedIn ->
                         _userMessage.value = MSG_DELETE_FAILED
                     is DeleteAccountResult.RemoteDataFailed -> {
-                        // STR-256: a failed compensating sync restart is drained here
-                        // exactly once.
+                        // STR-238: the primary deletion failure is drained
+                        // here exactly once, alongside the compensating
+                        // restart's diagnostics (STR-256).
+                        diagnosticDrain.drain(result.deletionDiagnostics)
                         drainRestartDiagnostics(
                             result.restartDiagnostics,
                             MSG_SYNC_RESTART_FAILED_DELETE,
@@ -546,8 +557,12 @@ class SettingsViewModel @Inject constructor(
                         drainSyncDiagnostics(result.wipeDiagnostics, "endSessionAndWipe failed")
                         _userMessage.value = MSG_DELETE_LOCAL_CLEANUP_FAILED
                     }
-                    DeleteAccountResult.AuthDeleteFailed ->
+                    is DeleteAccountResult.AuthDeleteFailed -> {
+                        // STR-238: the primary auth-deletion failure is
+                        // drained here exactly once.
+                        diagnosticDrain.drain(result.deletionDiagnostics)
                         _userMessage.value = MSG_DELETE_AUTH_FAILED
+                    }
                 }
             } finally {
                 accountUi.value = AccountUi.Idle

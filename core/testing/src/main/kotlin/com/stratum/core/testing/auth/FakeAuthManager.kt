@@ -3,6 +3,7 @@ package com.stratum.core.testing.auth
 import com.stratum.application.auth.AuthManager
 import com.stratum.application.auth.LoginWithGoogleResult
 import com.stratum.application.auth.SignOutOutcome
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.domain.auth.AuthState
 import com.stratum.domain.auth.SignInFailureKind
 import com.stratum.domain.auth.UserProfile
@@ -51,7 +52,17 @@ class FakeAuthManager(
             if (failure is CancellationException) throw failure
             val message = failure.message
             state.value = AuthState.Error(SignInFailureKind.Other, message ?: "")
-            return LoginWithGoogleResult.Failed(SignInFailureKind.Other, message)
+            return LoginWithGoogleResult.Failed(
+                kind = SignInFailureKind.Other,
+                message = message,
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = "StratumGoogleAuth",
+                        message = "Google sign-in failed: ${failure.message}",
+                        cause = failure,
+                    ),
+                ),
+            )
         }
         val classifiedKind = signInFailureKind
         if (classifiedKind != null) {
@@ -68,7 +79,15 @@ class FakeAuthManager(
         val failure = signOutFailure
         if (failure != null) {
             if (failure is CancellationException) throw failure
-            return SignOutOutcome.Failed
+            return SignOutOutcome.Failed(
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = "StratumGoogleAuth",
+                        message = "Google sign-out failed: ${failure.message}",
+                        cause = failure,
+                    ),
+                ),
+            )
         }
         state.value = AuthState.Unauthenticated
         return SignOutOutcome.Success

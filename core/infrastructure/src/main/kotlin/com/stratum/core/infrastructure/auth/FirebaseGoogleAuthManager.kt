@@ -11,10 +11,10 @@ import com.google.firebase.auth.GoogleAuthProvider
 import com.stratum.application.auth.AuthManager
 import com.stratum.application.auth.LoginWithGoogleResult
 import com.stratum.application.auth.SignOutOutcome
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.domain.auth.AuthState
 import com.stratum.domain.auth.UserProfile
 import com.stratum.domain.di.ApplicationScope
-import com.stratum.core.infrastructure.logging.LoggingPort
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.cancellation.CancellationException
@@ -30,7 +30,6 @@ class FirebaseGoogleAuthManager @Inject constructor(
     private val firebaseAuth: FirebaseAuth,
     private val credentialManager: CredentialManager,
     private val signInHostContext: SignInHostContext,
-    private val loggingPort: LoggingPort,
     @ApplicationScope private val externalScope: CoroutineScope,
     @GoogleServerClientId private val googleServerClientId: String,
 ) : AuthManager {
@@ -76,18 +75,30 @@ class FirebaseGoogleAuthManager @Inject constructor(
      * [LoginWithGoogleResult.Failed] and the [AuthState.Error] auth-state
      * emission — so the two can never diverge. The state's message is
      * non-null by type, so a null `message` rides the state as "" while the
-     * outcome branch keeps the null. The failure is logged exactly once
-     * here, at the adapter boundary.
+     * outcome branch keeps the null. The failure itself is NOT recorded
+     * here (STR-238): it rides the returned branch as a §10 diagnostic
+     * carrying the real [error], and the terminal boundary (Main shell)
+     * drains it exactly once — the boundary, not this adapter, is the
+     * single recording owner.
      *
      * Internal (not private) as the unit-test seam: tests drive this handler
      * directly and assert the two carriers agree.
      */
     internal fun recordSignInFailure(error: Throwable): LoginWithGoogleResult.Failed {
-        loggingPort.error(TAG, "Google sign-in failed: ${error.message}", error)
         val kind = error.signInFailureKind()
         val message = error.message
         _authState.value = AuthState.Error(kind, message ?: "")
-        return LoginWithGoogleResult.Failed(kind, message)
+        return LoginWithGoogleResult.Failed(
+            kind = kind,
+            message = message,
+            diagnostics = listOf(
+                OperationalDiagnostic(
+                    tag = TAG,
+                    message = "Google sign-in failed: ${error.message}",
+                    cause = error,
+                ),
+            ),
+        )
     }
 
     private suspend fun signInWithGoogleOrThrow(): UserProfile {
@@ -131,8 +142,18 @@ class FirebaseGoogleAuthManager @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Throwable) {
-            loggingPort.error(TAG, "Google sign-out failed: ${error.message}", error)
-            return SignOutOutcome.Failed
+            // STR-238: no record here — the failure rides the outcome as a
+            // §10 diagnostic and the terminal boundary (Settings / shell)
+            // drains it exactly once.
+            return SignOutOutcome.Failed(
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Google sign-out failed: ${error.message}",
+                        cause = error,
+                    ),
+                ),
+            )
         }
         return SignOutOutcome.Success
     }
