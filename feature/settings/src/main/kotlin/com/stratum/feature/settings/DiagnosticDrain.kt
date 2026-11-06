@@ -1,6 +1,9 @@
 package com.stratum.feature.settings
 
 import com.stratum.application.diagnostics.OperationalDiagnostic
+import com.stratum.application.sync.CloudSyncDiagnostic
+import com.stratum.application.sync.CloudSyncOperation
+import com.stratum.application.sync.toOperationalDiagnostics
 import com.stratum.core.infrastructure.logging.LoggingPort
 import javax.inject.Inject
 
@@ -25,6 +28,19 @@ class DiagnosticDrain @Inject constructor(
 ) {
     fun drain(diagnostics: List<OperationalDiagnostic>) {
         diagnostics.forEach { drain(it) }
+    }
+
+    /**
+     * Sync entry point: drains a sync operation's [CloudSyncDiagnostic]s
+     * exactly once each, rendered through the shared application-layer
+     * factory for [operation] (the adapter's legacy tag/message shape, real
+     * cause attached) — boundaries never hand-roll that conversion.
+     */
+    fun drainSync(
+        diagnostics: List<CloudSyncDiagnostic>,
+        operation: CloudSyncOperation,
+    ) {
+        drain(diagnostics.toOperationalDiagnostics(operation))
     }
 
     fun recordError(tag: String, message: String, throwable: Throwable? = null) {

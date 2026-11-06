@@ -1,11 +1,11 @@
 package com.stratum.sync
 
 import com.stratum.domain.auth.AuthState
+import com.stratum.app.DiagnosticDrain
 import com.stratum.application.auth.GetAuthStateUseCase
 import com.stratum.domain.di.ApplicationScope
-import com.stratum.core.infrastructure.logging.LoggingPort
 import com.stratum.domain.coroutines.collectLatestRestarting
-import com.stratum.application.sync.CloudSyncDiagnostic
+import com.stratum.application.sync.CloudSyncOperation
 import com.stratum.application.sync.CloudSyncOutcome
 import com.stratum.application.sync.StartCloudSyncUseCase
 import com.stratum.application.sync.StopCloudSyncUseCase
@@ -26,7 +26,7 @@ class CloudSyncAuthListener @Inject constructor(
     private val getAuthState: GetAuthStateUseCase,
     private val startCloudSync: StartCloudSyncUseCase,
     private val stopCloudSync: StopCloudSyncUseCase,
-    private val loggingPort: LoggingPort,
+    private val diagnosticDrain: DiagnosticDrain,
     @ApplicationScope private val scope: CoroutineScope,
 ) {
     private var job: Job? = null
@@ -35,22 +35,29 @@ class CloudSyncAuthListener @Inject constructor(
         if (job?.isActive == true) return
         job =
             scope.launch {
-                getAuthState().collectLatestRestarting({ t, m, e -> loggingPort.error(t, m, e) }, TAG) { state ->
+                getAuthState().collectLatestRestarting(
+                    { t, m, e -> diagnosticDrain.recordError(t, m, e) },
+                    TAG,
+                ) { state ->
                     when (state) {
                         is AuthState.Authenticated -> {
                             // This listener is the single recorder for its own
                             // start invocations (STR-238): a Failed outcome's
-                            // diagnostics are drained here exactly once, each
-                            // rendered with the sync adapter's tag/message
-                            // shape for a start failure so the record matches
-                            // the adapter's legacy log line for the same
-                            // failure. Restart invocations are a different
-                            // path — their diagnostics ride the logout /
-                            // account-deletion results and drain at the
-                            // Settings / shell boundaries, never here.
+                            // diagnostics are drained here exactly once through
+                            // the drain facade's sync entry point, rendered by
+                            // the shared factory in the sync adapter's
+                            // tag/message shape for a start failure so the
+                            // record matches the adapter's legacy log line for
+                            // the same failure. Restart invocations are a
+                            // different path — their diagnostics ride the
+                            // logout / account-deletion results and drain at
+                            // the Settings / shell boundaries, never here.
                             val outcome = startCloudSync(state.user.uid)
                             if (outcome is CloudSyncOutcome.Failed) {
-                                drainStartDiagnostics(outcome.diagnostics)
+                                diagnosticDrain.drainSync(
+                                    outcome.diagnostics,
+                                    CloudSyncOperation.Start,
+                                )
                             }
                         }
                         AuthState.Unauthenticated, is AuthState.Error -> {
@@ -62,24 +69,7 @@ class CloudSyncAuthListener @Inject constructor(
             }
     }
 
-    /** Drains a failed start's diagnostics exactly once, in adapter record shape. */
-    private fun drainStartDiagnostics(diagnostics: List<CloudSyncDiagnostic>) {
-        diagnostics.forEach { diagnostic ->
-            when (diagnostic) {
-                is CloudSyncDiagnostic.OperationFailed ->
-                    loggingPort.error(
-                        TAG_SYNC_ADAPTER,
-                        "start failed: ${diagnostic.cause.message}",
-                        diagnostic.cause,
-                    )
-            }
-        }
-    }
-
     private companion object {
         const val TAG = "CloudSyncAuth"
-
-        /** The sync adapter's log tag — start-failure records keep its shape. */
-        const val TAG_SYNC_ADAPTER = "FirestoreCloudSync"
     }
 }

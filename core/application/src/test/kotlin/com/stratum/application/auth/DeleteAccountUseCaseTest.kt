@@ -172,7 +172,7 @@ class DeleteAccountUseCaseTest {
         assertEquals(1, wipeDiagnostics.size)
         assertSame(
             wipeError,
-            (wipeDiagnostics.single() as CloudSyncDiagnostic.OperationFailed).cause,
+            wipeDiagnostics.single().cause,
         )
         assertEquals(1, remote.deleteDataCount)
         assertEquals(0, remote.deleteAuthCount)

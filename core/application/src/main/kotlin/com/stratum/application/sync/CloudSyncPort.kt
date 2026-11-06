@@ -1,6 +1,7 @@
 package com.stratum.application.sync
 
 import kotlinx.coroutines.flow.StateFlow
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.domain.sync.CloudSessionState
 import com.stratum.domain.sync.SyncStatus
 import com.stratum.domain.lift.residual
@@ -101,3 +102,71 @@ sealed interface CloudSyncDiagnostic {
         val cause: Throwable,
     ) : CloudSyncDiagnostic
 }
+
+/** The sync adapter's log tag — every sync-failure record keeps its shape. */
+const val CLOUD_SYNC_LOG_TAG = "FirestoreCloudSync"
+
+/**
+ * A cloud sync operation whose failure a boundary may have to render. Each
+ * operation owns the failure-label prefix of its legacy adapter log line, so
+ * the rendered record is `"<label>: <cause.message>"` (see
+ * [toOperationalDiagnostic]).
+ */
+enum class CloudSyncOperation(
+    val failureLabel: String,
+) {
+    Start("start failed"),
+    RequestSync("requestSync failed"),
+    EndSessionAndWipe("endSessionAndWipe failed"),
+}
+
+/**
+ * The single shared render factory for sync failures (STR-238 fix pass 2):
+ * converts a [CloudSyncDiagnostic] into the §10 [OperationalDiagnostic] a
+ * boundary drains, rendering exactly the adapter's legacy log line for that
+ * operation — tag [CLOUD_SYNC_LOG_TAG], message
+ * `"<operation label>: <cause.message>"`, the real cause preserved. Every
+ * boundary renders through here; no boundary hand-rolls this conversion.
+ */
+fun CloudSyncDiagnostic.toOperationalDiagnostic(
+    operation: CloudSyncOperation,
+): OperationalDiagnostic =
+    when (this) {
+        is CloudSyncDiagnostic.OperationFailed ->
+            OperationalDiagnostic(
+                tag = CLOUD_SYNC_LOG_TAG,
+                message = "${operation.failureLabel}: ${cause.message}",
+                cause = cause,
+            )
+    }
+
+/** List form of [toOperationalDiagnostic], order preserved. */
+fun List<CloudSyncDiagnostic>.toOperationalDiagnostics(
+    operation: CloudSyncOperation,
+): List<OperationalDiagnostic> = map { it.toOperationalDiagnostic(operation) }
+
+/**
+ * Renders a compensating-restart failure (STR-256) as an
+ * [OperationalDiagnostic]: unlike an operation failure, the record's tag and
+ * message belong to the boundary/flow rather than the sync adapter — the
+ * boundary supplies its own [restartTag] and the flow supplies its restart
+ * [message] — and only the cause comes from the diagnostic.
+ */
+fun CloudSyncDiagnostic.toRestartDiagnostic(
+    restartTag: String,
+    message: String,
+): OperationalDiagnostic =
+    when (this) {
+        is CloudSyncDiagnostic.OperationFailed ->
+            OperationalDiagnostic(
+                tag = restartTag,
+                message = message,
+                cause = cause,
+            )
+    }
+
+/** List form of [toRestartDiagnostic], order preserved. */
+fun List<CloudSyncDiagnostic>.toRestartDiagnostics(
+    restartTag: String,
+    message: String,
+): List<OperationalDiagnostic> = map { it.toRestartDiagnostic(restartTag, message) }

@@ -2,8 +2,11 @@ package com.stratum.application.auth
 
 import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.application.sync.CloudSyncDiagnostic
+import com.stratum.application.sync.CloudSyncOperation
 import com.stratum.application.sync.CloudSyncOutcome
 import com.stratum.application.sync.EndSessionAndWipeUseCase
+import com.stratum.application.sync.toOperationalDiagnostics
+import com.stratum.application.sync.toRestartDiagnostics
 import com.stratum.application.sync.StartCloudSyncUseCase
 import com.stratum.application.sync.StopCloudSyncUseCase
 import javax.inject.Inject
@@ -33,10 +36,17 @@ class LoginWithGoogleUseCase @Inject constructor(
  * the restart succeeded or was not attempted) so the terminal boundary
  * (Settings, shell) drains each exactly once through its own log wiring —
  * the STR-256 suppressed-throwable mechanism, carried as diagnostics.
- * [WipeFailed] additionally carries the primary wipe failure's own
- * diagnostics (STR-238) so the same boundary drains them exactly once too.
- * [SignOutFailed] additionally carries the primary sign-out failure's own
- * §10 diagnostics (STR-238) for the same boundary's exactly-once drain.
+ * [WipeFailed] additionally carries the primary wipe failure's own §10
+ * diagnostics (STR-238; converted from the wipe's [CloudSyncDiagnostic]s by
+ * the shared sync render factory when the branch is populated) so the same
+ * boundary drains them exactly once too. [SignOutFailed] additionally
+ * carries the primary sign-out failure's own §10 diagnostics (STR-238) for
+ * the same boundary's exactly-once drain.
+ *
+ * Single-vocabulary boundary access: [records] returns the branch's full
+ * ordered record list (primary failure first, compensating restart second)
+ * in the one §10 vocabulary, so a boundary drains a result with a single
+ * uniform `drain(result.records(tag))` call.
  */
 sealed interface LogoutResult {
     data object Success : LogoutResult
@@ -44,7 +54,7 @@ sealed interface LogoutResult {
     /** The session teardown / Room wipe failed; sign-out was not attempted. */
     data class WipeFailed(
         val restartDiagnostics: List<CloudSyncDiagnostic>,
-        val wipeDiagnostics: List<CloudSyncDiagnostic> = emptyList(),
+        val wipeDiagnostics: List<OperationalDiagnostic> = emptyList(),
     ) : LogoutResult
 
     /** The wipe succeeded but Firebase sign-out failed. */
@@ -53,6 +63,36 @@ sealed interface LogoutResult {
         val signOutDiagnostics: List<OperationalDiagnostic> = emptyList(),
     ) : LogoutResult
 }
+
+private const val MSG_SYNC_RESTART_FAILED_LOGOUT =
+    "Cloud sync restart failed after sign-out failure."
+private const val MSG_SYNC_RESTART_FAILED_DELETE =
+    "Cloud sync restart failed after account deletion failure."
+
+/**
+ * This logout result's full ordered record list for the terminal boundary's
+ * single exactly-once drain: the branch's primary failure records first,
+ * then the compensating restart's failures rendered with the boundary's own
+ * [restartTag] (Settings and the shell render the same restart records
+ * under their own tags — the tag is the boundary's, so it is a parameter,
+ * never canonicalized here) and the logout flow's restart message.
+ */
+fun LogoutResult.records(restartTag: String): List<OperationalDiagnostic> =
+    when (this) {
+        LogoutResult.Success -> emptyList()
+        is LogoutResult.WipeFailed ->
+            wipeDiagnostics +
+                restartDiagnostics.toRestartDiagnostics(
+                    restartTag,
+                    MSG_SYNC_RESTART_FAILED_LOGOUT,
+                )
+        is LogoutResult.SignOutFailed ->
+            signOutDiagnostics +
+                restartDiagnostics.toRestartDiagnostics(
+                    restartTag,
+                    MSG_SYNC_RESTART_FAILED_LOGOUT,
+                )
+    }
 
 /**
  * Ends the local sync session (atomic stop + Room wipe when signed in), then signs out of
@@ -77,7 +117,9 @@ class LogoutUseCase @Inject constructor(
                 }
                 return LogoutResult.WipeFailed(
                     restartDiagnostics = diagnostics,
-                    wipeDiagnostics = wipeOutcome.diagnostics,
+                    wipeDiagnostics = wipeOutcome.diagnostics.toOperationalDiagnostics(
+                        CloudSyncOperation.EndSessionAndWipe,
+                    ),
                 )
             }
         } else {
@@ -109,12 +151,19 @@ class LogoutUseCase @Inject constructor(
  * [RemoteDataFailed] carries the compensating sync restart's failures as
  * [CloudSyncDiagnostic]s for the terminal boundary's exactly-once drain
  * (empty when the restart succeeded or was not attempted).
- * [LocalCleanupFailed] carries the primary wipe failure's own diagnostics
- * (STR-238) for the same boundary's exactly-once drain.
+ * [LocalCleanupFailed] carries the primary wipe failure's own §10
+ * diagnostics (STR-238; converted from the wipe's [CloudSyncDiagnostic]s by
+ * the shared sync render factory when the branch is populated) for the same
+ * boundary's exactly-once drain.
  * [RemoteDataFailed] and [AuthDeleteFailed] additionally carry the primary
  * account-deletion failure's own §10 diagnostics (STR-238), and [Success]
  * carries the best-effort sign-out failure's §10 diagnostics when that
  * final step failed — the same boundary drains each exactly once.
+ *
+ * Single-vocabulary boundary access: [records] returns the branch's full
+ * ordered record list (primary failure first, compensating restart second)
+ * in the one §10 vocabulary, so a boundary drains a result with a single
+ * uniform `drain(result.records(tag))` call.
  */
 sealed interface DeleteAccountResult {
     /**
@@ -142,7 +191,7 @@ sealed interface DeleteAccountResult {
      * for the terminal boundary's exactly-once drain (STR-238).
      */
     data class LocalCleanupFailed(
-        val wipeDiagnostics: List<CloudSyncDiagnostic> = emptyList(),
+        val wipeDiagnostics: List<OperationalDiagnostic> = emptyList(),
     ) : DeleteAccountResult
 
     /**
@@ -156,6 +205,28 @@ sealed interface DeleteAccountResult {
         val deletionDiagnostics: List<OperationalDiagnostic> = emptyList(),
     ) : DeleteAccountResult
 }
+
+/**
+ * This account-deletion result's full ordered record list for the terminal
+ * boundary's single exactly-once drain: the branch's primary failure
+ * records first, then the compensating restart's failures rendered with
+ * the boundary's own [restartTag] (the tag is the boundary's, so it is a
+ * parameter, never canonicalized here) and the deletion flow's restart
+ * message. Branches with no restart carry only their primary records.
+ */
+fun DeleteAccountResult.records(restartTag: String): List<OperationalDiagnostic> =
+    when (this) {
+        is DeleteAccountResult.Success -> signOutDiagnostics
+        DeleteAccountResult.NotSignedIn -> emptyList()
+        is DeleteAccountResult.RemoteDataFailed ->
+            deletionDiagnostics +
+                restartDiagnostics.toRestartDiagnostics(
+                    restartTag,
+                    MSG_SYNC_RESTART_FAILED_DELETE,
+                )
+        is DeleteAccountResult.LocalCleanupFailed -> wipeDiagnostics
+        is DeleteAccountResult.AuthDeleteFailed -> deletionDiagnostics
+    }
 
 /**
  * Best-effort sync restart after a logout/account-deletion failure left sync stopped for a
@@ -220,7 +291,9 @@ class DeleteAccountUseCase @Inject constructor(
             val wipeOutcome = endSessionAndWipe(uid)
             if (wipeOutcome is CloudSyncOutcome.Failed) {
                 return@withContext DeleteAccountResult.LocalCleanupFailed(
-                    wipeDiagnostics = wipeOutcome.diagnostics,
+                    wipeDiagnostics = wipeOutcome.diagnostics.toOperationalDiagnostics(
+                        CloudSyncOperation.EndSessionAndWipe,
+                    ),
                 )
             }
             val authDeleteOutcome = accountDeletionPort.deleteRemoteAuthUser()

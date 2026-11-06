@@ -11,8 +11,8 @@ import com.stratum.application.auth.LoginWithGoogleResult
 import com.stratum.application.auth.LoginWithGoogleUseCase
 import com.stratum.application.auth.LogoutResult
 import com.stratum.application.auth.LogoutUseCase
-import com.stratum.application.diagnostics.OperationalDiagnostic
-import com.stratum.application.sync.CloudSyncDiagnostic
+import com.stratum.application.auth.records
+import com.stratum.application.sync.CloudSyncOperation
 import com.stratum.application.sync.CloudSyncOutcome
 import com.stratum.domain.sync.CloudSessionState
 import com.stratum.application.sync.ObserveCloudSessionStateUseCase
@@ -119,7 +119,7 @@ class MainViewModel @Inject constructor(
             signInError.value = null
             val outcome = startCloudSync(uid)
             if (outcome is CloudSyncOutcome.Failed) {
-                drainSyncDiagnostics(outcome.diagnostics, "start failed")
+                diagnosticDrain.drainSync(outcome.diagnostics, CloudSyncOperation.Start)
             }
         }
     }
@@ -129,74 +129,20 @@ class MainViewModel @Inject constructor(
             signInError.value = null
             val result = logout()
             if (result !is LogoutResult.Success) {
-                when (result) {
-                    is LogoutResult.WipeFailed -> {
-                        // STR-238: the primary wipe failure drains here too,
-                        // exactly once, alongside the compensating restart's.
-                        drainSyncDiagnostics(result.wipeDiagnostics, "endSessionAndWipe failed")
-                        drainRestartDiagnostics(result.restartDiagnostics)
-                    }
-                    is LogoutResult.SignOutFailed -> {
-                        // STR-238: the primary sign-out failure drains here
-                        // too, exactly once, alongside the restart's.
-                        diagnosticDrain.drain(result.signOutDiagnostics)
-                        drainRestartDiagnostics(result.restartDiagnostics)
-                    }
-                    LogoutResult.Success -> Unit
-                }
+                // STR-238: the result's accessor returns the branch's full
+                // ordered record list (primary failure first, compensating
+                // restart second, restart rendered under this boundary's
+                // tag) — drained here exactly once in a single call.
+                diagnosticDrain.drain(result.records(TAG_AUTH))
                 // Keep shell copy non-technical.
                 signInError.value = "Couldn't sign out. Try again."
             }
         }
     }
 
-    /**
-     * STR-238: drains a sync operation's failure diagnostics exactly once,
-     * each rendered with the sync adapter's tag/message shape for that
-     * operation ([operation] is "start failed" or "endSessionAndWipe
-     * failed") so the record matches the adapter's legacy log line for the
-     * same failure.
-     */
-    private fun drainSyncDiagnostics(
-        diagnostics: List<CloudSyncDiagnostic>,
-        operation: String,
-    ) {
-        diagnostics.forEach { diagnostic ->
-            when (diagnostic) {
-                is CloudSyncDiagnostic.OperationFailed ->
-                    diagnosticDrain.drain(
-                        OperationalDiagnostic(
-                            tag = TAG_SYNC_ADAPTER,
-                            message = "$operation: ${diagnostic.cause.message}",
-                            cause = diagnostic.cause,
-                        ),
-                    )
-            }
-        }
-    }
-
-    /** STR-256: a failed compensating sync restart is drained here exactly once. */
-    private fun drainRestartDiagnostics(diagnostics: List<CloudSyncDiagnostic>) {
-        diagnostics.forEach { diagnostic ->
-            when (diagnostic) {
-                is CloudSyncDiagnostic.OperationFailed ->
-                    diagnosticDrain.drain(
-                        OperationalDiagnostic(
-                            tag = TAG_AUTH,
-                            message = MSG_SYNC_RESTART_FAILED,
-                            cause = diagnostic.cause,
-                        ),
-                    )
-            }
-        }
-    }
-
     private companion object {
+        /** This boundary's tag for compensating-restart records. */
         const val TAG_AUTH = "ShellAuth"
-
-        /** The sync adapter's log tag — sync-failure records keep its shape. */
-        const val TAG_SYNC_ADAPTER = "FirestoreCloudSync"
-        const val MSG_SYNC_RESTART_FAILED = "Cloud sync restart failed after sign-out failure."
     }
 
     private fun mapShellState(

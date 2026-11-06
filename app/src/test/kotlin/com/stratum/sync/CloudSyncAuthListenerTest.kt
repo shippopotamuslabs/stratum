@@ -1,5 +1,6 @@
 package com.stratum.sync
 
+import com.stratum.app.DiagnosticDrain
 import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.auth.FakeAuthManager
 import com.stratum.core.testing.logging.FakeLoggingPort
@@ -34,7 +35,7 @@ class CloudSyncAuthListenerTest {
             getAuthState = GetAuthStateUseCase(authManager),
             startCloudSync = StartCloudSyncUseCase(cloudSyncPort),
             stopCloudSync = StopCloudSyncUseCase(cloudSyncPort),
-            loggingPort = loggingPort,
+            diagnosticDrain = DiagnosticDrain(loggingPort),
             scope = scope,
         )
 

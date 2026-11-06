@@ -6,8 +6,8 @@ import com.stratum.application.auth.DeleteAccountResult
 import com.stratum.application.auth.DeleteAccountUseCase
 import com.stratum.application.auth.LogoutResult
 import com.stratum.application.auth.LogoutUseCase
+import com.stratum.application.auth.records
 import com.stratum.application.diagnostics.OperationalDiagnostic
-import com.stratum.application.sync.CloudSyncDiagnostic
 import com.stratum.application.checkin.CheckInPreferenceResult
 import com.stratum.application.checkin.MarkCheckInPendingUseCase
 import com.stratum.application.checkin.ObserveCheckInPreferencesUseCase
@@ -433,75 +433,18 @@ class SettingsViewModel @Inject constructor(
         if (!claimed) return
         viewModelScope.launch {
             try {
-                when (val result = logout()) {
-                    LogoutResult.Success -> Unit
-                    is LogoutResult.WipeFailed -> {
-                        // STR-238: the primary wipe failure drains here too,
-                        // exactly once, alongside the compensating restart's.
-                        drainSyncDiagnostics(result.wipeDiagnostics, "endSessionAndWipe failed")
-                        drainRestartDiagnostics(
-                            result.restartDiagnostics,
-                            MSG_SYNC_RESTART_FAILED_LOGOUT,
-                        )
-                        _userMessage.value = MSG_LOGOUT_FAILED
-                    }
-                    is LogoutResult.SignOutFailed -> {
-                        // STR-238: the primary sign-out failure is drained
-                        // here exactly once, alongside the compensating
-                        // restart's diagnostics.
-                        diagnosticDrain.drain(result.signOutDiagnostics)
-                        drainRestartDiagnostics(
-                            result.restartDiagnostics,
-                            MSG_SYNC_RESTART_FAILED_LOGOUT,
-                        )
-                        _userMessage.value = MSG_LOGOUT_FAILED
-                    }
+                val result = logout()
+                if (result !is LogoutResult.Success) {
+                    // STR-238: the result's accessor returns the branch's
+                    // full ordered record list (primary failure first,
+                    // compensating restart second, restart rendered under
+                    // this boundary's tag) — drained here exactly once in
+                    // a single call.
+                    diagnosticDrain.drain(result.records(TAG_AUTH))
+                    _userMessage.value = MSG_LOGOUT_FAILED
                 }
             } finally {
                 accountUi.value = AccountUi.Idle
-            }
-        }
-    }
-
-    /**
-     * STR-238: drains a sync operation's failure diagnostics exactly once,
-     * each rendered with the sync adapter's tag/message shape for that
-     * operation ([operation] is "endSessionAndWipe failed") so the record
-     * matches the adapter's legacy log line for the same failure.
-     */
-    private fun drainSyncDiagnostics(
-        diagnostics: List<CloudSyncDiagnostic>,
-        operation: String,
-    ) {
-        diagnostics.forEach { diagnostic ->
-            when (diagnostic) {
-                is CloudSyncDiagnostic.OperationFailed ->
-                    diagnosticDrain.drain(
-                        OperationalDiagnostic(
-                            tag = TAG_SYNC_ADAPTER,
-                            message = "$operation: ${diagnostic.cause.message}",
-                            cause = diagnostic.cause,
-                        ),
-                    )
-            }
-        }
-    }
-
-    /** STR-256: a failed compensating sync restart is drained here exactly once. */
-    private fun drainRestartDiagnostics(
-        diagnostics: List<CloudSyncDiagnostic>,
-        message: String,
-    ) {
-        diagnostics.forEach { diagnostic ->
-            when (diagnostic) {
-                is CloudSyncDiagnostic.OperationFailed ->
-                    diagnosticDrain.drain(
-                        OperationalDiagnostic(
-                            tag = TAG_AUTH,
-                            message = message,
-                            cause = diagnostic.cause,
-                        ),
-                    )
             }
         }
     }
@@ -531,36 +474,31 @@ class SettingsViewModel @Inject constructor(
         if (!claimed) return
         viewModelScope.launch {
             try {
+                // STR-238: every branch drains through the result's
+                // accessor — the branch's full ordered record list
+                // (primary failure first, compensating restart second,
+                // restart rendered under this boundary's tag) — exactly
+                // once in a single uniform call per branch; only the user
+                // message differs per branch.
                 when (val result = deleteAccount()) {
                     is DeleteAccountResult.Success -> {
-                        // STR-238: a best-effort sign-out failure after a
-                        // completed deletion is drained here exactly once
-                        // (empty when sign-out succeeded — no record).
-                        diagnosticDrain.drain(result.signOutDiagnostics)
+                        // A best-effort sign-out failure after a completed
+                        // deletion is drained here exactly once (empty when
+                        // sign-out succeeded — no record).
+                        diagnosticDrain.drain(result.records(TAG_AUTH))
                     }
                     DeleteAccountResult.NotSignedIn ->
                         _userMessage.value = MSG_DELETE_FAILED
                     is DeleteAccountResult.RemoteDataFailed -> {
-                        // STR-238: the primary deletion failure is drained
-                        // here exactly once, alongside the compensating
-                        // restart's diagnostics (STR-256).
-                        diagnosticDrain.drain(result.deletionDiagnostics)
-                        drainRestartDiagnostics(
-                            result.restartDiagnostics,
-                            MSG_SYNC_RESTART_FAILED_DELETE,
-                        )
+                        diagnosticDrain.drain(result.records(TAG_AUTH))
                         _userMessage.value = MSG_DELETE_FAILED
                     }
                     is DeleteAccountResult.LocalCleanupFailed -> {
-                        // STR-238: the primary wipe failure is drained here
-                        // exactly once.
-                        drainSyncDiagnostics(result.wipeDiagnostics, "endSessionAndWipe failed")
+                        diagnosticDrain.drain(result.records(TAG_AUTH))
                         _userMessage.value = MSG_DELETE_LOCAL_CLEANUP_FAILED
                     }
                     is DeleteAccountResult.AuthDeleteFailed -> {
-                        // STR-238: the primary auth-deletion failure is
-                        // drained here exactly once.
-                        diagnosticDrain.drain(result.deletionDiagnostics)
+                        diagnosticDrain.drain(result.records(TAG_AUTH))
                         _userMessage.value = MSG_DELETE_AUTH_FAILED
                     }
                 }
@@ -633,14 +571,9 @@ class SettingsViewModel @Inject constructor(
 
     private companion object {
         const val TAG = "SettingsViewModel"
-        const val TAG_AUTH = "SettingsAuth"
 
-        /** The sync adapter's log tag — sync-failure records keep its shape. */
-        const val TAG_SYNC_ADAPTER = "FirestoreCloudSync"
-        const val MSG_SYNC_RESTART_FAILED_LOGOUT =
-            "Cloud sync restart failed after sign-out failure."
-        const val MSG_SYNC_RESTART_FAILED_DELETE =
-            "Cloud sync restart failed after account deletion failure."
+        /** This boundary's tag for compensating-restart records. */
+        const val TAG_AUTH = "SettingsAuth"
         const val FORCE_REFRESH_COOLDOWN_MS = 120_000L
         const val MSG_PREFS_FAILED = "Couldn't save that setting. Try again."
         const val MSG_HEALTH_SYNC_UNAVAILABLE =

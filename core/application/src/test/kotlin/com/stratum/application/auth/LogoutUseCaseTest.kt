@@ -78,7 +78,7 @@ class LogoutUseCaseTest {
         assertEquals(1, wipeDiagnostics.size)
         assertSame(
             wipeError,
-            (wipeDiagnostics.single() as CloudSyncDiagnostic.OperationFailed).cause,
+            wipeDiagnostics.single().cause,
         )
         assertEquals(listOf("wipe", "start"), port.callOrder)
         assertEquals(0, auth.signOutCount)
@@ -143,7 +143,7 @@ class LogoutUseCaseTest {
         assertEquals(1, wipeDiagnostics.size)
         assertSame(
             wipeError,
-            (wipeDiagnostics.single() as CloudSyncDiagnostic.OperationFailed).cause,
+            wipeDiagnostics.single().cause,
         )
         assertEquals(0, auth.signOutCount)
         assertTrue(auth.authState.value is AuthState.Authenticated)
