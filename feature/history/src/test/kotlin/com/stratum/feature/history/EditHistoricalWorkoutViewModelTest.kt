@@ -261,11 +261,11 @@ class EditHistoricalWorkoutViewModelTest {
                         trainingLogRepository = logRepo,
                         programRepository = programRepo,
                         liftRepository = liftRepo,
-                        loggingPort = FakeLoggingPort(),
                     ),
                 updateCompletedSessionSets = update,
                 observeWeightDisplayPreferences =
                     ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
+                diagnosticDrain = DiagnosticDrain(FakeLoggingPort()),
             )
         return Env(vm, logRepo)
     }

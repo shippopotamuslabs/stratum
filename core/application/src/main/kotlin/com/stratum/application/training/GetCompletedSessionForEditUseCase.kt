@@ -3,7 +3,7 @@ package com.stratum.application.training
 import com.stratum.application.lift.LiftRepository
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.identity.LiftId
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.application.program.ProgramRepository
 import com.stratum.domain.training.identity.TrainingSessionId
 import javax.inject.Inject
@@ -19,11 +19,12 @@ import kotlin.coroutines.cancellation.CancellationException
  *
  * The expected branches carry the typed facts the former constructed
  * exceptions carried ([SessionNotFound] / [SessionNotCompleted] with the
- * session id and actual status / [NoLoggedSets]); each leaves a warning
- * breadcrumb only, never a Crashlytics non-fatal, exactly as the former
- * `expectedFailure` path did. The originating throwable of an operational
- * load failure goes once to the diagnostics channel ([LoggingPort.error])
- * at the use-case boundary; it never crosses as a payload. Coroutine
+ * session id and actual status / [NoLoggedSets]); their former warning
+ * breadcrumbs are dropped — the branches themselves are the record
+ * (STR-237). The originating throwable of an operational load failure rides
+ * the [PersistenceFailed] branch as an [OperationalDiagnostic] (legacy tag +
+ * rendered message, real throwable as cause); the presentation boundary
+ * drains it exactly once through its module's DiagnosticDrain. Coroutine
  * cancellation is not a branch: it propagates.
  */
 sealed interface GetCompletedSessionForEditResult {
@@ -39,7 +40,9 @@ sealed interface GetCompletedSessionForEditResult {
     data class NoLoggedSets(val sessionId: TrainingSessionId) : GetCompletedSessionForEditResult
 
     /** The session load failed (repository / store I/O). */
-    data object PersistenceFailed : GetCompletedSessionForEditResult
+    data class PersistenceFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : GetCompletedSessionForEditResult
 }
 
 /**
@@ -51,12 +54,11 @@ class GetCompletedSessionForEditUseCase @Inject constructor(
     private val trainingLogRepository: TrainingLogRepository,
     private val programRepository: ProgramRepository,
     private val liftRepository: LiftRepository,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(sessionId: TrainingSessionId): GetCompletedSessionForEditResult {
         // Not-found / wrong-status / empty outcomes are expected (stale deep links, mid-edit
-        // reads), not operational faults: validate outside the logged blocks so they leave a
-        // breadcrumb only and never become Crashlytics non-fatals.
+        // reads), not operational faults: validate outside the boundary blocks so they
+        // return as typed branches and never become Crashlytics non-fatals.
         val loaded =
             try {
                 Pair(
@@ -66,24 +68,23 @@ class GetCompletedSessionForEditUseCase @Inject constructor(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (t: Throwable) {
-                loggingPort.error(TAG, "Failed to load session for edit: ${t.message}", t)
-                return GetCompletedSessionForEditResult.PersistenceFailed
+                return GetCompletedSessionForEditResult.PersistenceFailed(
+                    diagnostics = listOf(
+                        OperationalDiagnostic(
+                            tag = TAG,
+                            message = "Failed to load session for edit: ${t.message}",
+                            cause = t,
+                        ),
+                    ),
+                )
             }
         val session = loaded.first
-            ?: run {
-                loggingPort.warning(TAG, "Training session ${sessionId.value} not found")
-                return GetCompletedSessionForEditResult.SessionNotFound(sessionId)
-            }
+            ?: return GetCompletedSessionForEditResult.SessionNotFound(sessionId)
         if (session.status != TrainingSessionStatus.COMPLETED) {
-            loggingPort.warning(
-                TAG,
-                "Training session ${session.id.value} is not completed (status=${session.status})",
-            )
             return GetCompletedSessionForEditResult.SessionNotCompleted(session.id, session.status)
         }
         val sets = loaded.second.sortedWith(compareBy({ it.setIndex }, { it.completedAt }))
         if (sets.isEmpty()) {
-            loggingPort.warning(TAG, "Training session ${sessionId.value} has no logged sets")
             return GetCompletedSessionForEditResult.NoLoggedSets(sessionId)
         }
         return try {
@@ -127,8 +128,15 @@ class GetCompletedSessionForEditUseCase @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (t: Throwable) {
-            loggingPort.error(TAG, "Failed to load session for edit: ${t.message}", t)
-            GetCompletedSessionForEditResult.PersistenceFailed
+            GetCompletedSessionForEditResult.PersistenceFailed(
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Failed to load session for edit: ${t.message}",
+                        cause = t,
+                    ),
+                ),
+            )
         }
     }
 

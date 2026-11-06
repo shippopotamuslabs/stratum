@@ -714,7 +714,6 @@ class WorkoutCompleteViewModelTest {
                         seededLog,
                         programRepo,
                         ObserveLiftCatalogUseCase(liftRepo),
-                        logging,
                     ),
                 analyzeSessionEquipmentProposals =
                     AnalyzeSessionEquipmentProposalsUseCase(
@@ -829,7 +828,6 @@ class WorkoutCompleteViewModelTest {
                         logRepo,
                         programRepo,
                         ObserveLiftCatalogUseCase(liftRepo),
-                        logging,
                     ),
                 analyzeSessionEquipmentProposals =
                     AnalyzeSessionEquipmentProposalsUseCase(
@@ -949,7 +947,6 @@ class WorkoutCompleteViewModelTest {
                         logRepo,
                         programRepo,
                         ObserveLiftCatalogUseCase(liftRepo),
-                        logging,
                     ),
                 analyzeSessionEquipmentProposals =
                     AnalyzeSessionEquipmentProposalsUseCase(
@@ -1043,7 +1040,6 @@ class WorkoutCompleteViewModelTest {
                     logRepo,
                     programRepo,
                     ObserveLiftCatalogUseCase(liftRepo),
-                    logging,
                 ),
             analyzeSessionEquipmentProposals =
                 AnalyzeSessionEquipmentProposalsUseCase(

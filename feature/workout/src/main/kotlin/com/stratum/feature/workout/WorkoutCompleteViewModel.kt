@@ -109,6 +109,10 @@ class WorkoutCompleteViewModel @Inject constructor(
                 if (generation != loadGeneration) return@launch
                 _uiState.value =
                     when (result) {
+                        is GetWorkoutSummaryResult.PersistenceFailed -> {
+                            diagnosticDrain.drain(result.diagnostics)
+                            WorkoutCompleteUiState.Error
+                        }
                         is GetWorkoutSummaryResult.Success -> {
                             val summary = result.summary
                             val trainingSessionId = TrainingSessionId(sessionId)

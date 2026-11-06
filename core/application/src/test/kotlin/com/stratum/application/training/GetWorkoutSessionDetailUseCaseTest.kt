@@ -1,6 +1,5 @@
 package com.stratum.application.training
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
@@ -109,13 +108,11 @@ class GetWorkoutSessionDetailUseCaseTest {
     fun missingSessionFails() = runTest {
         val programRepo = FakeProgramRepository(WorkoutLoggingFixtures.twoWorkoutProgram())
         val logRepo = FakeTrainingLogRepository(programRepository = programRepo)
-        val logging = FakeLoggingPort()
-        val useCase = detailUseCase(logRepo, programRepo, logging)
+        val useCase = detailUseCase(logRepo, programRepo)
         assertEquals(
             GetWorkoutSessionDetailResult.SessionNotFound(TrainingSessionId("missing")),
             useCase(TrainingSessionId("missing")),
         )
-        assertExpectedFailureLogged(logging)
     }
 
     @Test
@@ -128,13 +125,11 @@ class GetWorkoutSessionDetailUseCaseTest {
                 initialSessions = listOf(session),
                 programRepository = programRepo,
             )
-        val logging = FakeLoggingPort()
-        val useCase = detailUseCase(logRepo, programRepo, logging)
+        val useCase = detailUseCase(logRepo, programRepo)
         assertEquals(
             GetWorkoutSessionDetailResult.NoLoggedSets(TrainingSessionId("ts-skip")),
             useCase(TrainingSessionId("ts-skip")),
         )
-        assertExpectedFailureLogged(logging)
     }
 
     @Test
@@ -162,8 +157,7 @@ class GetWorkoutSessionDetailUseCaseTest {
                     ),
                 programRepository = programRepo,
             )
-        val logging = FakeLoggingPort()
-        val useCase = detailUseCase(logRepo, programRepo, logging)
+        val useCase = detailUseCase(logRepo, programRepo)
         assertEquals(
             GetWorkoutSessionDetailResult.SessionNotCompleted(
                 TrainingSessionId("ts-ip"),
@@ -171,23 +165,14 @@ class GetWorkoutSessionDetailUseCaseTest {
             ),
             useCase(TrainingSessionId("ts-ip")),
         )
-        assertExpectedFailureLogged(logging)
     }
 
     private fun detailUseCase(
         logRepo: FakeTrainingLogRepository,
         programRepo: FakeProgramRepository,
-        logging: FakeLoggingPort = FakeLoggingPort(),
     ) = GetWorkoutSessionDetailUseCase(
         trainingLogRepository = logRepo,
         programRepository = programRepo,
         computeLoggedSessionMuscleVolume = ComputeLoggedSessionMuscleVolumeUseCase(),
-        loggingPort = logging,
     )
-
-    private fun assertExpectedFailureLogged(logging: FakeLoggingPort) {
-        // Expected business outcomes must leave a breadcrumb only — never a Crashlytics non-fatal.
-        assertEquals(0, logging.errors.size)
-        assertEquals(1, logging.warnings.size)
-    }
 }
