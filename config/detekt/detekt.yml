@@ -67,6 +67,7 @@ stratum:
       - 'LiftHistoryDiagnostic'
       - 'CloudSyncDiagnostic'
       - 'HealthSyncDiagnostic'
+      - 'BillingDiagnostic'
 
 potential-bugs:
   active: true

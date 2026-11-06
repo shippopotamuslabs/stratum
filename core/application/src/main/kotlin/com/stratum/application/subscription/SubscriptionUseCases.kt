@@ -1,7 +1,6 @@
 package com.stratum.application.subscription
 
 import javax.inject.Inject
-import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.Flow
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.subscription.BillingPurchaseResult
@@ -61,13 +60,22 @@ class GetSubscriptionProductsUseCase @Inject constructor(
     private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(): GetSubscriptionProductsResult =
-        try {
-            GetSubscriptionProductsResult.Success(billingPort.querySubscriptionProducts())
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (error: Throwable) {
-            loggingPort.error(TAG, "Failed to load subscription products: ${error.message}", error)
-            GetSubscriptionProductsResult.Failed
+        when (val outcome = billingPort.querySubscriptionProducts()) {
+            is SubscriptionProductsOutcome.Success ->
+                GetSubscriptionProductsResult.Success(outcome.products)
+            is SubscriptionProductsOutcome.Failed -> {
+                outcome.diagnostics.forEach { diagnostic ->
+                    when (diagnostic) {
+                        is BillingDiagnostic.OperationFailed ->
+                            loggingPort.error(
+                                TAG,
+                                "Failed to load subscription products: ${diagnostic.cause.message}",
+                                diagnostic.cause,
+                            )
+                    }
+                }
+                GetSubscriptionProductsResult.Failed
+            }
         }
 
     private companion object {
@@ -80,14 +88,21 @@ class PurchaseSubscriptionUseCase @Inject constructor(
     private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(product: SubscriptionProduct): PurchaseSubscriptionResult =
-        try {
-            billingPort.launchBillingFlow(product)
-            PurchaseSubscriptionResult.Success
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (error: Throwable) {
-            loggingPort.error(TAG, "Failed to launch billing flow: ${error.message}", error)
-            PurchaseSubscriptionResult.Failed(error.message)
+        when (val outcome = billingPort.launchBillingFlow(product)) {
+            BillingFlowOutcome.Success -> PurchaseSubscriptionResult.Success
+            is BillingFlowOutcome.Failed -> {
+                outcome.diagnostics.forEach { diagnostic ->
+                    when (diagnostic) {
+                        is BillingDiagnostic.OperationFailed ->
+                            loggingPort.error(
+                                TAG,
+                                "Failed to launch billing flow: ${diagnostic.cause.message}",
+                                diagnostic.cause,
+                            )
+                    }
+                }
+                PurchaseSubscriptionResult.Failed(outcome.message)
+            }
         }
 
     private companion object {
@@ -100,16 +115,38 @@ class RestorePurchasesUseCase @Inject constructor(
     private val repository: EntitlementRepository,
     private val loggingPort: LoggingPort,
 ) {
-    suspend operator fun invoke(): RestorePurchasesResult =
-        try {
-            billingPort.restorePurchases()
-            RestorePurchasesResult.Success(repository.refreshEntitlement())
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (error: Throwable) {
-            loggingPort.error(TAG, "Failed to restore purchases: ${error.message}", error)
-            RestorePurchasesResult.Failed(error.message)
+    suspend operator fun invoke(): RestorePurchasesResult {
+        when (val outcome = billingPort.restorePurchases()) {
+            RestorePurchasesOutcome.Success -> Unit
+            is RestorePurchasesOutcome.Failed -> return restoreFailed(outcome.diagnostics, outcome.message)
         }
+        return when (val outcome = repository.refreshEntitlement()) {
+            is RefreshEntitlementOutcome.Success ->
+                RestorePurchasesResult.Success(outcome.state)
+            is RefreshEntitlementOutcome.Failed ->
+                restoreFailed(outcome.diagnostics, null)
+        }
+    }
+
+    private fun restoreFailed(
+        diagnostics: List<BillingDiagnostic>,
+        message: String?,
+    ): RestorePurchasesResult {
+        var failureMessage = message
+        diagnostics.forEach { diagnostic ->
+            when (diagnostic) {
+                is BillingDiagnostic.OperationFailed -> {
+                    loggingPort.error(
+                        TAG,
+                        "Failed to restore purchases: ${diagnostic.cause.message}",
+                        diagnostic.cause,
+                    )
+                    if (failureMessage == null) failureMessage = diagnostic.cause.message
+                }
+            }
+        }
+        return RestorePurchasesResult.Failed(failureMessage)
+    }
 
     private companion object {
         const val TAG = "RestorePurchases"

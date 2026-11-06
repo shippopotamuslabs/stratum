@@ -1,5 +1,7 @@
 package com.stratum.core.infrastructure.subscription
 
+import com.stratum.application.subscription.RefreshEntitlementOutcome
+
 import app.cash.turbine.test
 import com.stratum.core.testing.auth.FakeAuthManager
 import com.stratum.core.testing.subscription.FakeBillingPort
@@ -116,18 +118,26 @@ class SubscriptionRepositoryImplTest {
         fakeBilling.setPurchases(listOf(knownPlayPurchase()))
 
         val result = repository.refreshEntitlement()
-        assertEquals(EntitlementState.NotEntitled("Not authenticated"), result)
+        assertEquals(
+            EntitlementState.NotEntitled("Not authenticated"),
+            (result as RefreshEntitlementOutcome.Success).state,
+        )
     }
 
     @Test
-    @DisplayName("refresh propagates failure when billing restore fails")
+    @DisplayName("refresh returns Failed when billing restore fails")
     fun refreshFailsWhenBillingRestoreFails() = runTest {
-        fakeBilling.restorePurchasesFailure = IllegalStateException("Billing service down")
+        val boom = IllegalStateException("Billing service down")
+        fakeBilling.restorePurchasesFailure = boom
 
-        val thrown = org.junit.jupiter.api.assertThrows<IllegalStateException> {
-            repository.refreshEntitlement()
-        }
-        assertEquals("Billing service down", thrown.message)
+        val outcome = repository.refreshEntitlement()
+
+        assertTrue(outcome is RefreshEntitlementOutcome.Failed)
+        assertSame(
+            boom,
+            ((outcome as RefreshEntitlementOutcome.Failed).diagnostics.single()
+                as com.stratum.application.subscription.BillingDiagnostic.OperationFailed).cause,
+        )
     }
 
     @Test
@@ -146,7 +156,10 @@ class SubscriptionRepositoryImplTest {
         }
 
         val refreshed = repository.refreshEntitlement()
-        assertEquals(EntitlementState.Entitled(EntitlementSource.ComplimentaryAccess), refreshed)
+        assertEquals(
+            EntitlementState.Entitled(EntitlementSource.ComplimentaryAccess),
+            (refreshed as RefreshEntitlementOutcome.Success).state,
+        )
     }
 
     @Test
@@ -167,9 +180,16 @@ class SubscriptionRepositoryImplTest {
         fakeAuthManager.setState(authenticated("uid-dev"))
         fakeComplimentary.access.value = ComplimentaryAccess.Unknown
 
-        org.junit.jupiter.api.assertThrows<IllegalStateException> {
-            repository.refreshEntitlement()
-        }
+        val outcome = repository.refreshEntitlement()
+
+        assertTrue(outcome is RefreshEntitlementOutcome.Failed)
+        val cause = ((outcome as RefreshEntitlementOutcome.Failed).diagnostics.single()
+            as com.stratum.application.subscription.BillingDiagnostic.OperationFailed).cause
+        assertTrue(cause is IllegalStateException)
+        assertEquals(
+            "Entitlement refresh could not verify complimentary access",
+            cause.message,
+        )
     }
 
     @Test
@@ -180,7 +200,10 @@ class SubscriptionRepositoryImplTest {
         fakeBilling.setPurchases(listOf(knownPlayPurchase()))
 
         val refreshed = repository.refreshEntitlement()
-        assertEquals(EntitlementState.Entitled(EntitlementSource.GooglePlaySubscription), refreshed)
+        assertEquals(
+            EntitlementState.Entitled(EntitlementSource.GooglePlaySubscription),
+            (refreshed as RefreshEntitlementOutcome.Success).state,
+        )
     }
 
     @Test
