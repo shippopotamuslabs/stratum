@@ -51,8 +51,20 @@ sealed interface GenerateProgramResult {
      * timeout, sign-in, monthly limit, …). [message] is user-safe copy
      * produced at the adapter boundary. Expected — see the STR-242
      * outcome classifier.
+     *
+     * [diagnostics] carry the real caught
+     * [com.stratum.domain.program.generation.synthesis.ProgramSynthesisException]
+     * as the diagnostic cause (its own cause chain preserves the vendor
+     * error), so the onboarding boundary records the real cause exactly
+     * once instead of a constructed exception built from [message]
+     * (STR-238, following the STR-237 Special-1 precedent for [Unexpected]).
+     * The create-program boundary keeps its ExpectedFailure classification
+     * for this branch and makes no error record from the diagnostics.
      */
-    data class SynthesisFailed(val message: String) : GenerateProgramResult
+    data class SynthesisFailed(
+        val message: String,
+        val diagnostics: List<GenerationFailureDiagnostic> = emptyList(),
+    ) : GenerateProgramResult
 
     /**
      * An unbounded operational failure inside generation. The branch carries

@@ -154,9 +154,17 @@ class GenerateProgramUseCase @Inject constructor(
             } catch (error: ProgramSynthesisException) {
                 // Adapter-translated provider condition (quota, timeout, sign-in,
                 // monthly limit, …): an expected branch carrying the adapter's
-                // user-safe message — never error-logged (STR-242 classifies it
-                // expected at the terminal boundary).
-                GenerateProgramResult.SynthesisFailed(error.message ?: FALLBACK_MESSAGE)
+                // user-safe message (STR-242 classifies it expected at the
+                // terminal boundary). STR-238: the caught exception itself rides
+                // the branch as a diagnostic (its cause chain preserves the
+                // vendor error) so the onboarding boundary drains the real
+                // cause exactly once instead of constructing one from the
+                // message; the create-program boundary makes no error record
+                // for this branch (ExpectedFailure classification unchanged).
+                GenerateProgramResult.SynthesisFailed(
+                    message = error.message ?: FALLBACK_MESSAGE,
+                    diagnostics = listOf(GenerationFailureDiagnostic(cause = error)),
+                )
             } catch (error: Throwable) {
                 // Unbounded operational failure (STR-237 Special 1):
                 // application has no logging/telemetry capability, so this

@@ -6,6 +6,7 @@ import com.stratum.domain.program.generation.synthesis.ProgramSynthesisException
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
@@ -304,13 +305,14 @@ class FirebaseProgramSynthesisAdapterTest {
         fun permanentThrowsImmediately() =
             runTest {
                 val loggingPort = FakeLoggingPort()
+                val error = permanentError()
                 var calls = 0
                 var thrown: Throwable? = null
                 try {
                     pollStatusWithTransientRetry(
                         fetch = {
                             calls++
-                            throw permanentError()
+                            throw error
                         },
                         loggingPort = loggingPort,
                         jobId = "job-1",
@@ -321,9 +323,12 @@ class FirebaseProgramSynthesisAdapterTest {
                 assertTrue(thrown is ProgramSynthesisException)
                 assertEquals(MESSAGE_GENERATION_FAILED, thrown?.message)
                 assertEquals(1, calls)
-                // Permanent failures go through FirebaseCallableErrorLogger → error().
-                assertEquals(1, loggingPort.errors.size)
+                // STR-238 (A10): the adapter records nothing on the propagate
+                // path; the thrown exception preserves the real cause for the
+                // boundary carrier/drain.
+                assertTrue(loggingPort.errors.isEmpty())
                 assertTrue(loggingPort.warnings.isEmpty())
+                assertSame(error, thrown?.cause)
             }
 
         @Test

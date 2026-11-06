@@ -1019,11 +1019,18 @@ class OnboardingViewModel @Inject constructor(
         }
         when (result) {
             is GenerateProgramResult.SynthesisFailed ->
-                diagnosticDrain.recordError(
-                    OnboardingProgramFlowOps.TAG,
-                    OnboardingProgramFlowOps.MSG_GENERATE_FAILED,
-                    ProgramSynthesisException(result.message),
-                )
+                // STR-238: the branch carries the real caught
+                // ProgramSynthesisException as a diagnostic (its cause chain
+                // preserves the vendor error); drain each carried cause
+                // exactly once instead of constructing an exception from
+                // result.message. Production carries exactly one diagnostic.
+                result.diagnostics.forEach { diagnostic ->
+                    diagnosticDrain.recordError(
+                        OnboardingProgramFlowOps.TAG,
+                        OnboardingProgramFlowOps.MSG_GENERATE_FAILED,
+                        diagnostic.cause,
+                    )
+                }
             is GenerateProgramResult.SynthesisRefused ->
                 diagnosticDrain.recordError(
                     OnboardingProgramFlowOps.TAG,

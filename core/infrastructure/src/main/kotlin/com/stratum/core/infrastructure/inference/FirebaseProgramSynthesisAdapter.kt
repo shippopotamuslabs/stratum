@@ -151,13 +151,11 @@ class FirebaseProgramSynthesisAdapter @Inject constructor(
         } catch (error: ProgramSynthesisException) {
             throw error
         } catch (error: FirebaseFunctionsException) {
-            FirebaseCallableErrorLogger.logFailure(loggingPort, TAG, START_CALLABLE, error)
             throw ProgramSynthesisException(
                 message = mapFunctionsExceptionToUserMessage(error.code.name),
                 cause = error,
             )
         } catch (error: Throwable) {
-            loggingPort.error(TAG, "Program synthesis failed: ${error.message}", error)
             throw ProgramSynthesisException(
                 message = MESSAGE_GENERATION_FAILED,
                 cause = error,
@@ -349,7 +347,6 @@ internal suspend fun pollStatusWithTransientRetry(
             return fetch()
         } catch (error: FirebaseFunctionsException) {
             if (!error.code.isTransientStatusCode()) {
-                FirebaseCallableErrorLogger.logFailure(loggingPort, TAG, STATUS_CALLABLE, error)
                 throw ProgramSynthesisException(
                     message = mapFunctionsExceptionToUserMessage(error.code.name),
                     cause = error,

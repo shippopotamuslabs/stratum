@@ -162,18 +162,27 @@ class GenerateProgramUseCaseTest {
 
         @Test
         fun `invoke maps a thrown synthesis exception to SynthesisFailed without an error log`() = runTest {
+            // STR-238: the caught ProgramSynthesisException rides the branch
+            // as the diagnostic cause (its cause chain preserves the vendor
+            // error) so the onboarding boundary can drain the real cause.
+            val vendor = IllegalStateException("vendor down")
+            val synthesisError = ProgramSynthesisException("quota exhausted", vendor)
             val useCase =
                 buildUseCase(
                     this,
                     contextLoader =
                         FixedProgramGenerationContextLoader(
-                            error = { throw ProgramSynthesisException("quota exhausted") },
+                            error = { throw synthesisError },
                         ),
                 )
 
             val result = useCase.invoke()
 
-            assertEquals(GenerateProgramResult.SynthesisFailed("quota exhausted"), result)
+            val failed = result as GenerateProgramResult.SynthesisFailed
+            assertEquals("quota exhausted", failed.message)
+            assertEquals(1, failed.diagnostics.size)
+            assertSame(synthesisError, failed.diagnostics.single().cause)
+            assertSame(vendor, failed.diagnostics.single().cause.cause)
             assertTrue(programRepository.saveProgramCalls.isEmpty())
             assertNull(programRepository.current)
         }

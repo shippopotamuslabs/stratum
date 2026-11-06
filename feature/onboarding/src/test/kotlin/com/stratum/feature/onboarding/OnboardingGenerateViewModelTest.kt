@@ -27,6 +27,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -67,6 +68,35 @@ class OnboardingGenerateViewModelTest {
                 assertFalse(onboardingRepo.current.isComplete)
                 assertEquals(null, programRepo.current)
             }
+
+        @Test
+        fun `generate synthesis failure drains carried cause exactly once`() = runTest {
+            // STR-238: SynthesisFailed carries the caught
+            // ProgramSynthesisException; the onboarding drain records that
+            // real cause (vendor chain preserved) exactly once, not a
+            // constructed exception built from the message.
+            val vendor = IllegalStateException("vendor down")
+            val synthesisError =
+                com.stratum.domain.program.generation.synthesis.ProgramSynthesisException(
+                    "quota exhausted",
+                    vendor,
+                )
+            val loggingPort = FakeLoggingPort()
+            val generationDispatcher = UnconfinedTestDispatcher(testScheduler)
+            val (viewModel, _, _) =
+                buildViewModel(
+                    fail = false,
+                    generationDispatcher = generationDispatcher,
+                    diagnosticLoggingPort = loggingPort,
+                    contextError = { throw synthesisError },
+                )
+            viewModel.generate()
+            assertEquals(1, loggingPort.errors.size)
+            assertEquals("OnboardingViewModel", loggingPort.errors.single().tag)
+            assertEquals("Program generation failed", loggingPort.errors.single().message)
+            assertSame(synthesisError, loggingPort.errors.single().throwable)
+            assertSame(vendor, loggingPort.errors.single().throwable?.cause)
+        }
     }
 
     @Nested
@@ -149,6 +179,8 @@ class OnboardingGenerateViewModelTest {
         generationDispatcher: CoroutineDispatcher = kotlinx.coroutines.Dispatchers.Default,
         analytics: com.stratum.core.testing.telemetry.FakeAnalyticsPort =
             com.stratum.core.testing.telemetry.FakeAnalyticsPort(),
+        diagnosticLoggingPort: FakeLoggingPort = FakeLoggingPort(),
+        contextError: (() -> Nothing)? = null,
     ): Triple<OnboardingViewModel, FakeOnboardingRepository, FakeProgramRepository> {
         val onboardingRepo = FakeOnboardingRepository()
         val profileRepo = FakeUserTrainingProfileRepository(
@@ -156,10 +188,13 @@ class OnboardingGenerateViewModelTest {
         )
         val programRepo = FakeProgramRepository()
         val contextLoader: ProgramGenerationContextLoader =
-            if (fail) {
-                FixedProgramGenerationContextLoader(error = { error("generation failed") })
-            } else {
-                FixedProgramGenerationContextLoader(context = scenarioContext(days = 3, specialization = emptyMap()))
+            when {
+                contextError != null ->
+                    FixedProgramGenerationContextLoader(error = contextError)
+                fail ->
+                    FixedProgramGenerationContextLoader(error = { error("generation failed") })
+                else ->
+                    FixedProgramGenerationContextLoader(context = scenarioContext(days = 3, specialization = emptyMap()))
             }
         val validateCurrentStep = com.stratum.application.onboarding.ValidateCurrentOnboardingStepUseCase(
             validateProfileStep = com.stratum.application.onboarding.ValidateProfileStepUseCase(),
@@ -280,7 +315,7 @@ class OnboardingGenerateViewModelTest {
                 profileRepository = profileRepo,
                 programChangeEventRepository = com.stratum.core.testing.training.NoOpProgramChangeEventRepository(),
             ),
-            diagnosticDrain = DiagnosticDrain(FakeLoggingPort()),
+            diagnosticDrain = DiagnosticDrain(diagnosticLoggingPort),
             generationLogger = ProgramGenerationTelemetryLogger(FakeLoggingPort()),
             logAnalytics =
                 AnalyticsRecorder(
