@@ -359,7 +359,7 @@ class SettingsViewModelTest {
     @Test
     @DisplayName("rebuild progress failure surfaces message without cooldown")
     fun rebuildProgressFailure() = runTest {
-        forceRefreshResult = ForceRefreshDerivedTrainingDataResult.PersistenceFailed
+        forceRefreshResult = ForceRefreshDerivedTrainingDataResult.PersistenceFailed(emptyList())
         subject = buildViewModel()
 
         subject.uiState.test {

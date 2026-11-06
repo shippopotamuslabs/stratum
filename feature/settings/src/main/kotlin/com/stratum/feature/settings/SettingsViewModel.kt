@@ -382,7 +382,8 @@ class SettingsViewModel @Inject constructor(
         }
         rebuildProgressUi.update { it.copy(showConfirm = false, isRunning = true) }
         viewModelScope.launch {
-            when (forceRefreshDerived()) {
+            val forceRefreshOutcome = forceRefreshDerived()
+            when (forceRefreshOutcome) {
                 ForceRefreshDerivedTrainingDataResult.Success -> {
                     rebuildProgressUi.update {
                         it.copy(
@@ -393,7 +394,8 @@ class SettingsViewModel @Inject constructor(
                     }
                     _userMessage.value = MSG_FORCE_REFRESH_QUEUED
                 }
-                ForceRefreshDerivedTrainingDataResult.PersistenceFailed -> {
+                is ForceRefreshDerivedTrainingDataResult.PersistenceFailed -> {
+                    diagnosticDrain.drain(forceRefreshOutcome.diagnostics)
                     rebuildProgressUi.update { it.copy(isRunning = false) }
                     _userMessage.value = MSG_FORCE_REFRESH_FAILED
                 }

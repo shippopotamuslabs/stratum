@@ -1,5 +1,6 @@
 package com.stratum.application.training
 
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.application.response.ResponseModelingSchedulerPort
 import javax.inject.Inject
 import com.stratum.domain.training.LoggedSet
@@ -8,16 +9,20 @@ import com.stratum.application.dashboard.LoadDashboardUseCase
 import com.stratum.application.sync.CloudSyncPort
 
 /**
- * Outcome of rebuilding local derived training data (STR-243). The stage that
- * failed is identified on [LocalDerivedTrainingStagesResult] and was already
- * logged inside the stages; this outcome carries only the failure kind.
- * Coroutine cancellation is not a branch: it propagates out of the stages.
+ * Outcome of rebuilding local derived training data (STR-243; STR-237
+ * Route (i)). The stage that failed is identified on
+ * [LocalDerivedTrainingStagesResult]; its failure records ride
+ * [PersistenceFailed.diagnostics] unchanged from the stages result, and the
+ * boundary that owns this result drains them exactly once. Coroutine
+ * cancellation is not a branch: it propagates out of the stages.
  */
 sealed interface RebuildLocalDerivedTrainingDataResult {
     data object Success : RebuildLocalDerivedTrainingDataResult
 
     /** A derived-data stage failed (see [LocalDerivedTrainingStagesResult]). */
-    data object PersistenceFailed : RebuildLocalDerivedTrainingDataResult
+    data class PersistenceFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : RebuildLocalDerivedTrainingDataResult
 }
 
 /**
@@ -49,12 +54,19 @@ class RebuildLocalDerivedTrainingDataUseCase @Inject constructor(
                 failPolicy = LocalDerivedTrainingStages.FailPolicy.Throw,
                 logTag = TAG,
             )
-        if (stagesResult != LocalDerivedTrainingStagesResult.Success) {
-            // The stage failure was already logged as an error with its
-            // throwable inside the stages; this outcome branch is the record
-            // the caller acts on (STR-237: no duplicate breadcrumb, and
-            // application has no logging capability).
-            return RebuildLocalDerivedTrainingDataResult.PersistenceFailed
+        if (stagesResult !is LocalDerivedTrainingStagesResult.Success) {
+            // The stage failure records ride the stages result; propagate
+            // them unchanged on this outcome's branch for the boundary to
+            // drain (STR-237: exactly one record per failure, no duplicate
+            // breadcrumb).
+            val diagnostics =
+                when (stagesResult) {
+                    is LocalDerivedTrainingStagesResult.InsightsFailed -> stagesResult.diagnostics
+                    is LocalDerivedTrainingStagesResult.WeeklySeriesFailed -> stagesResult.diagnostics
+                    is LocalDerivedTrainingStagesResult.PersistenceFailed -> stagesResult.diagnostics
+                    is LocalDerivedTrainingStagesResult.Success -> emptyList()
+                }
+            return RebuildLocalDerivedTrainingDataResult.PersistenceFailed(diagnostics)
         }
         // Non-blocking enqueue — worker owns gates / extract cost.
         responseModelingScheduler.enqueueRefresh()

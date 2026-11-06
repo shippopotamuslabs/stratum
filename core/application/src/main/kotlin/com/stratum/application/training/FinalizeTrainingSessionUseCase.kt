@@ -129,8 +129,13 @@ class FinalizeTrainingSessionUseCase @Inject constructor(
 
             // The session + cycle effects are durable above. The derived-data refresh is
             // fire-and-forget on the application scope so completion returns (and the UI
-            // navigates) immediately; the dashboard tables refresh behind the user. Failures are
-            // swallowed inside LocalDerivedTrainingStages (LogAndContinue).
+            // navigates) immediately; the dashboard tables refresh behind the user.
+            // STR-237 STOP (chunk 1E): the stages run under LogAndContinue, so its
+            // stage-failure records now ride the returned result's diagnostics — but
+            // this launch discards the result and no boundary drainer exists on this
+            // path, so those records are not recorded. Draining them here would need
+            // a logging capability in application; restructuring the launch is a
+            // behavior change. See plans/STR-237/status.md (chunk 1E STOP).
             refreshScope.launch {
                 localDerivedStages.run(
                     includeInsights = true,

@@ -3,6 +3,7 @@ package com.stratum.application.lift
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.application.training.ComputePersonalRecordsUseCase
+import com.stratum.application.training.RebuildLocalDerivedTrainingDataResult
 import com.stratum.application.training.RebuildLocalDerivedTrainingDataUseCase
 import com.stratum.application.training.TrainingLogRepository
 import com.stratum.application.workout.WorkoutOverlayStore
@@ -103,11 +104,23 @@ class MergeLiftsUseCase @Inject constructor(
 
             val prDiagnostic = recomputePersonalRecords(targetLiftId)
 
-            // A failed rebuild is recorded inside the derived-training
-            // stages with its throwable; the merge does not re-record it
-            // (STR-237: no duplicate breadcrumb).
-            rebuildLocalDerived()
-            MergeLiftsResult.Success(MergeLiftsOutcome(diagnostics = listOfNotNull(prDiagnostic)))
+            // A failed rebuild's stage records ride the rebuild outcome;
+            // they ride this outcome onward to the boundary drain unchanged
+            // (STR-237: exactly one record per failure, no duplicate
+            // breadcrumb).
+            val rebuildResult = rebuildLocalDerived()
+            val rebuildDiagnostics =
+                if (rebuildResult is RebuildLocalDerivedTrainingDataResult.PersistenceFailed) {
+                    rebuildResult.diagnostics
+                } else {
+                    emptyList()
+                }
+            MergeLiftsResult.Success(
+                MergeLiftsOutcome(
+                    diagnostics = listOfNotNull(prDiagnostic),
+                    operationalDiagnostics = rebuildDiagnostics,
+                ),
+            )
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (t: Throwable) {

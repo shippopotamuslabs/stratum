@@ -2,6 +2,7 @@ package com.stratum.application.lift
 
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.application.diagnostics.OperationalDiagnostic
+import com.stratum.application.training.RebuildLocalDerivedTrainingDataResult
 import com.stratum.application.training.RebuildLocalDerivedTrainingDataUseCase
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
@@ -64,7 +65,12 @@ class DeleteLiftUseCase @Inject constructor(
         var rebuildDiagnostics: List<OperationalDiagnostic> = emptyList()
         if (tombstoned) {
             try {
-                rebuildDerived()
+                val rebuildResult = rebuildDerived()
+                if (rebuildResult is RebuildLocalDerivedTrainingDataResult.PersistenceFailed) {
+                    // STR-237: the rebuild's stage records ride its outcome;
+                    // they ride this Success onward to the boundary drain.
+                    rebuildDiagnostics = rebuildResult.diagnostics
+                }
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (t: Throwable) {

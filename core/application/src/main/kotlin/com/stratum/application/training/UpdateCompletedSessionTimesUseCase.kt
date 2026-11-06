@@ -132,6 +132,10 @@ class UpdateCompletedSessionTimesUseCase @Inject constructor(
             responseModelingScheduler.enqueueForceExtract(replaceExisting = true)
         }
 
+            // STR-237 STOP (chunk 1E): fire-and-forget LogAndContinue launch;
+            // the stages result (and the stage-failure diagnostics it now
+            // carries) is discarded — no boundary drainer exists on this
+            // path. See plans/STR-237/status.md (chunk 1E STOP).
             refreshScope.launch {
                 localDerivedStages.run(
                     includeInsights = true,

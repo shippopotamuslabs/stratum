@@ -4,7 +4,6 @@ import com.stratum.core.testing.importing.FakeImportAnalysisMetadataRepository
 import com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository
 import com.stratum.core.testing.importing.FakeMuscleVolumeBaselineRepository
 import com.stratum.core.testing.importing.FakeSupersetAffinityRepository
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.response.FakeResponseModelingSchedulerPort
 import com.stratum.core.testing.response.FakeResponseProfilePersistencePort
@@ -122,7 +121,9 @@ class ForceRefreshDerivedTrainingDataUseCaseTest {
 
         val result = buildUseCase(failingLog, FakeLiftRepository()).invoke()
 
-        assertEquals(ForceRefreshDerivedTrainingDataResult.PersistenceFailed, result)
+        // STR-237: the insights failure record rides the branch exactly once.
+        val failed = result as ForceRefreshDerivedTrainingDataResult.PersistenceFailed
+        assertEquals(1, failed.diagnostics.size)
         assertEquals(0, modelingScheduler.enqueueCount)
         assertEquals(0, modelingScheduler.forceExtractCount)
     }
@@ -172,7 +173,6 @@ class ForceRefreshDerivedTrainingDataUseCaseTest {
                     ),
                 refreshWeeklySeries =
                     RefreshWeeklySeriesUseCase(logRepo, liftRepo, failingPersistence),
-                loggingPort = FakeLoggingPort(),
                 defaultDispatcher = Dispatchers.Unconfined,
             )
 
@@ -182,7 +182,12 @@ class ForceRefreshDerivedTrainingDataUseCaseTest {
                 responseModelingScheduler = modelingScheduler,
             ).invoke()
 
-        assertEquals(ForceRefreshDerivedTrainingDataResult.PersistenceFailed, result)
+        // STR-237: the weekly-series failure record rides the branch
+        // exactly once, rendered with the caller's legacy tag + message.
+        val failedWeekly = result as ForceRefreshDerivedTrainingDataResult.PersistenceFailed
+        val weeklyDiagnostic = failedWeekly.diagnostics.single()
+        assertEquals("ForceRefreshDerived", weeklyDiagnostic.tag)
+        assertTrue(weeklyDiagnostic.message.startsWith("Weekly series rebuild failed:"))
         assertEquals(0, modelingScheduler.forceExtractCount)
     }
 

@@ -258,6 +258,7 @@ class GymViewModel @Inject constructor(
                 ) {
                     is MergeLiftsResult.Success -> {
                         logMergeDiagnostics(result.outcome.diagnostics)
+                        diagnosticDrain.drain(result.outcome.operationalDiagnostics)
                         mergeSelection.value = MergeSelection()
                         _userMessage.value = MSG_MERGE_SUCCESS
                     }

@@ -4,12 +4,10 @@ import com.stratum.core.testing.importing.FakeImportAnalysisMetadataRepository
 import com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository
 import com.stratum.core.testing.importing.FakeMuscleVolumeBaselineRepository
 import com.stratum.core.testing.importing.FakeSupersetAffinityRepository
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.response.FakeResponseProfilePersistencePort
 import com.stratum.application.importing.ExtractTrainingInsightsUseCase
 import com.stratum.application.lift.LiftRepository
-import com.stratum.domain.logging.LoggingPort
 import com.stratum.application.training.LocalDerivedTrainingStages
 import com.stratum.application.training.RefreshWeeklySeriesUseCase
 import com.stratum.application.training.TrainingLogRepository
@@ -24,7 +22,6 @@ fun localDerivedTrainingStages(
     trainingLog: TrainingLogRepository,
     liftRepository: LiftRepository = FakeLiftRepository(),
     persistence: FakeResponseProfilePersistencePort = FakeResponseProfilePersistencePort(),
-    loggingPort: LoggingPort = FakeLoggingPort(),
     extractTrainingInsights: ExtractTrainingInsightsUseCase =
         ExtractTrainingInsightsUseCase(
             trainingLogRepository = trainingLog,
@@ -41,6 +38,5 @@ fun localDerivedTrainingStages(
     LocalDerivedTrainingStages(
         extractTrainingInsights = extractTrainingInsights,
         refreshWeeklySeries = refreshWeeklySeries,
-        loggingPort = loggingPort,
         defaultDispatcher = dispatcher,
     )
