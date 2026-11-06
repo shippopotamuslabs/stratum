@@ -1,6 +1,5 @@
 package com.stratum.application.export
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.export.ExportTestFixtures.CLOCK_INSTANT
 import com.stratum.core.testing.export.ExportTestFixtures.ZONE_NY
@@ -38,7 +37,6 @@ class ExportTrainingLogsUseCaseTest {
         ExportTrainingLogsUseCase(
             trainingLogRepository = repo,
             clock = clock,
-            loggingPort = FakeLoggingPort(),
         )
 
     /** Unwraps a successful export outcome to the file the pre-STR-243 Result carried. */
@@ -253,35 +251,32 @@ class ExportTrainingLogsUseCaseTest {
     @Test
     @DisplayName("IE-S1-009 Empty selection returns NoLogsInRange without file result")
     fun ieS1_009_emptyRange() = runTest {
-        val logging = FakeLoggingPort()
         val repo = FakeTrainingLogRepository()
         val result =
             ExportTrainingLogsUseCase(
                 trainingLogRepository = repo,
                 clock = clock,
-                loggingPort = logging,
             )(ExportLogRange.LastDays(30, ZONE_NY))
         assertEquals(ExportTrainingLogsResult.NoLogsInRange, result)
-        assertTrue(logging.errors.isEmpty())
     }
 
     @Test
-    @DisplayName("Repository read failure is logged once and returned as PersistenceFailed")
+    @DisplayName("Repository read failure returns PersistenceFailed carrying exactly one diagnostic")
     fun repositoryReadFailureIsLogged() = runTest {
-        val logging = FakeLoggingPort()
         val repo = FakeTrainingLogRepository()
-        repo.getAllSessionsError = IllegalStateException("room down")
+        val cause = IllegalStateException("room down")
+        repo.getAllSessionsError = cause
         val result =
             ExportTrainingLogsUseCase(
                 trainingLogRepository = repo,
                 clock = clock,
-                loggingPort = logging,
             )(ExportLogRange.AllTime)
-        assertEquals(ExportTrainingLogsResult.PersistenceFailed, result)
-        assertEquals(1, logging.errors.size)
-        assertEquals("ExportTrainingLogs", logging.errors.single().tag)
-        assertEquals("Failed to read training logs: room down", logging.errors.single().message)
-        assertEquals("room down", logging.errors.single().throwable?.message)
+        val failed = result as ExportTrainingLogsResult.PersistenceFailed
+        assertEquals(1, failed.diagnostics.size)
+        val diagnostic = failed.diagnostics.single()
+        assertEquals("ExportTrainingLogs", diagnostic.tag)
+        assertEquals("Failed to read training logs: room down", diagnostic.message)
+        org.junit.jupiter.api.Assertions.assertSame(cause, diagnostic.cause)
     }
 
     @Test
@@ -297,7 +292,6 @@ class ExportTrainingLogsUseCaseTest {
                 ExportTrainingLogsUseCase(
                     trainingLogRepository = repo,
                     clock = clock,
-                    loggingPort = FakeLoggingPort(),
                 )(ExportLogRange.AllTime)
             }
         }

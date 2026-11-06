@@ -53,6 +53,7 @@ data class ExportLogsUiState(
 class ExportLogsViewModel(
     private val previewExport: PreviewExportTrainingLogsUseCase,
     private val exportLogs: ExportTrainingLogsUseCase,
+    private val diagnosticDrain: DiagnosticDrain,
     private val zone: ZoneId,
 ) : ViewModel() {
     /**
@@ -63,7 +64,8 @@ class ExportLogsViewModel(
     constructor(
         previewExport: PreviewExportTrainingLogsUseCase,
         exportLogs: ExportTrainingLogsUseCase,
-    ) : this(previewExport, exportLogs, ZoneId.systemDefault())
+        diagnosticDrain: DiagnosticDrain,
+    ) : this(previewExport, exportLogs, diagnosticDrain, ZoneId.systemDefault())
 
     private val _uiState = MutableStateFlow(ExportLogsUiState())
     val uiState: StateFlow<ExportLogsUiState> = _uiState.asStateFlow()
@@ -139,13 +141,15 @@ class ExportLogsViewModel(
                             error = ExportLogsErrorUi.EmptyRange,
                         )
                     }
-                ExportTrainingLogsResult.PersistenceFailed ->
+                is ExportTrainingLogsResult.PersistenceFailed -> {
+                    diagnosticDrain.drain(result.diagnostics)
                     _uiState.update {
                         it.copy(
                             isExporting = false,
                             error = ExportLogsErrorUi.Generic(EXPORT_FAILED_MESSAGE),
                         )
                     }
+                }
             }
         }
     }

@@ -1,6 +1,6 @@
 package com.stratum.application.export
 
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.domain.training.LoggedSet
 import com.stratum.application.training.TrainingLogRepository
 import com.stratum.domain.training.TrainingSession
@@ -19,10 +19,11 @@ import com.stratum.domain.export.StratumExportJson
 /**
  * Outcome of [ExportTrainingLogsUseCase] (STR-243).
  *
- * [InvalidRange] and [NoLogsInRange] are expected caller outcomes and are not
- * logged; an operational read/encode failure is logged once via
- * [LoggingPort.error] at the use-case boundary and surfaces as
- * [PersistenceFailed]. Coroutine cancellation is not a branch: it propagates.
+ * [InvalidRange] and [NoLogsInRange] are expected caller outcomes and carry
+ * no diagnostics; an operational read/encode failure rides the
+ * [PersistenceFailed] branch as an [OperationalDiagnostic] and is drained
+ * exactly once at the presentation boundary. Coroutine cancellation is not
+ * a branch: it propagates.
  */
 sealed interface ExportTrainingLogsResult {
     data class Success(val file: ExportFileResult) : ExportTrainingLogsResult
@@ -37,20 +38,20 @@ sealed interface ExportTrainingLogsResult {
     data object NoLogsInRange : ExportTrainingLogsResult
 
     /** The export failed (repository / store I/O). */
-    data object PersistenceFailed : ExportTrainingLogsResult
+    data class PersistenceFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : ExportTrainingLogsResult
 }
 
 class ExportTrainingLogsUseCase(
     private val trainingLogRepository: TrainingLogRepository,
     private val clock: () -> Instant,
-    private val loggingPort: LoggingPort,
 ) {
     /** Hilt entry: wall clock. Unit tests use the primary constructor with a fixed clock. */
     @Inject
     constructor(
         trainingLogRepository: TrainingLogRepository,
-        loggingPort: LoggingPort,
-    ) : this(trainingLogRepository, { Instant.now() }, loggingPort)
+    ) : this(trainingLogRepository, { Instant.now() })
 
     /**
      * Reads sessions/sets in [range], maps to Stratum log envelope with stable ids,
@@ -74,8 +75,15 @@ class ExportTrainingLogsUseCase(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Throwable) {
-                loggingPort.error(TAG, "Failed to read training logs: ${error.message}", error)
-                return ExportTrainingLogsResult.PersistenceFailed
+                return ExportTrainingLogsResult.PersistenceFailed(
+                    diagnostics = listOf(
+                        OperationalDiagnostic(
+                            tag = TAG,
+                            message = "Failed to read training logs: ${error.message}",
+                            cause = error,
+                        ),
+                    ),
+                )
             }
         if (sessions.isEmpty() || sets.isEmpty()) {
             return ExportTrainingLogsResult.NoLogsInRange
@@ -99,8 +107,15 @@ class ExportTrainingLogsUseCase(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Throwable) {
-            loggingPort.error(TAG, "Failed to export training logs: ${error.message}", error)
-            ExportTrainingLogsResult.PersistenceFailed
+            ExportTrainingLogsResult.PersistenceFailed(
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Failed to export training logs: ${error.message}",
+                        cause = error,
+                    ),
+                ),
+            )
         }
     }
 
