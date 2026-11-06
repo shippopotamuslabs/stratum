@@ -102,7 +102,7 @@ class FirestoreCloudSyncAdapter @Inject constructor(
                     }
                 } catch (error: CancellationException) {
                     throw error
-                } catch (error: Exception) {
+                } catch (error: Throwable) {
                     loggingPort.error(TAG, "start failed: ${error.message}", error)
                     activeUserId.set(null)
                     _syncStatus.value = SyncStatus.Error(error.message ?: "sync start failed")
@@ -122,7 +122,7 @@ class FirestoreCloudSyncAdapter @Inject constructor(
                     CloudSyncOutcome.Success
                 } catch (error: CancellationException) {
                     throw error
-                } catch (error: Exception) {
+                } catch (error: Throwable) {
                     loggingPort.error(TAG, "start push/pull failed: ${error.message}", error)
                     _syncStatus.value = SyncStatus.Error(error.message ?: "sync start failed")
                     try {
@@ -180,7 +180,7 @@ class FirestoreCloudSyncAdapter @Inject constructor(
                     CloudSyncOutcome.Success
                 } catch (error: CancellationException) {
                     throw error
-                } catch (error: Exception) {
+                } catch (error: Throwable) {
                     loggingPort.error(TAG, "requestSync failed: ${error.message}", error)
                     _syncStatus.value = SyncStatus.Error(error.message ?: "request sync failed")
                     // Do not enqueueSoon(REPLACE) here. Residual failures retry via WorkManager
@@ -213,7 +213,7 @@ class FirestoreCloudSyncAdapter @Inject constructor(
                     CloudSyncOutcome.Success
                 } catch (error: CancellationException) {
                     throw error
-                } catch (error: Exception) {
+                } catch (error: Throwable) {
                     loggingPort.error(TAG, "endSessionAndWipe failed: ${error.message}", error)
                     CloudSyncOutcome.Failed(
                         listOf(CloudSyncDiagnostic.OperationFailed(error)),
