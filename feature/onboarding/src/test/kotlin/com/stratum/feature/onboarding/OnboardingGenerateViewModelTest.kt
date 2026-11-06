@@ -262,7 +262,6 @@ class OnboardingGenerateViewModelTest {
                 loadContext = contextLoader,
                 pipeline = testProgramGenerationPipeline(),
                 liftRepository = liftRepo,
-                telemetryRouter = com.stratum.domain.telemetry.TelemetryRouter(com.stratum.core.testing.telemetry.FakeOutcomeTelemetrySink(), com.stratum.core.testing.telemetry.FakeCrashTelemetryPort(), com.stratum.core.testing.telemetry.FakeAnalyticsPort()),
                 generationDispatcher = generationDispatcher,
             ),
             activateProgram = com.stratum.application.program.ActivateProgramUseCase(

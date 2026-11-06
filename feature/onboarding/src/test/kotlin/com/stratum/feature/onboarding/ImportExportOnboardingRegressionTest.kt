@@ -199,7 +199,6 @@ class ImportExportOnboardingRegressionTest {
                     loadContext = FixedProgramGenerationContextLoader(error = { error("not used") }),
                     pipeline = testProgramGenerationPipeline(),
                     liftRepository = liftRepo,
-                    telemetryRouter = com.stratum.domain.telemetry.TelemetryRouter(com.stratum.core.testing.telemetry.FakeOutcomeTelemetrySink(), com.stratum.core.testing.telemetry.FakeCrashTelemetryPort(), com.stratum.core.testing.telemetry.FakeAnalyticsPort()),
                 ),
             activateProgram =
                 ActivateProgramUseCase(

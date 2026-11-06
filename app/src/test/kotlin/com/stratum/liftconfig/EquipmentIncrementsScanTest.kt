@@ -139,7 +139,6 @@ class EquipmentIncrementsScanTest {
                 IncrementScanDelegate(
                     ScanIncrementTiersUseCase(
                         scanPort,
-                        FakeLoggingPort(),
                     ),
                     ObserveIncrementsAiScanUseCase(fakeFeatureFlags),
                 ),

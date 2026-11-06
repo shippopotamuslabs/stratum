@@ -3,7 +3,6 @@ package com.stratum.liftconfig
 import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.featureflag.FakeFeatureFlagRepository
 import com.stratum.core.testing.lift.FakeIncrementScanPort
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.domain.featureflag.AppFeatureFlag
 import com.stratum.application.featureflag.ObserveIncrementsAiScanUseCase
 import com.stratum.application.lift.IncrementScanPort
@@ -46,7 +45,6 @@ class IncrementScanDelegateTest {
         IncrementScanDelegate(
             ScanIncrementTiersUseCase(
                 port,
-                FakeLoggingPort(),
             ),
             ObserveIncrementsAiScanUseCase(fakeFeatureFlags),
         )

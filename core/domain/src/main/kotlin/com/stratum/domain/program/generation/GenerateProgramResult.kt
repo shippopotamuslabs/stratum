@@ -42,10 +42,10 @@ sealed interface GenerateProgramResult {
     data class SynthesisFailed(val message: String) : GenerateProgramResult
 
     /**
-     * An unbounded operational failure inside generation. The originating
-     * throwable is logged once via
-     * [com.stratum.domain.logging.LoggingPort.error] at the use-case
-     * boundary; this branch carries only the [kind].
+     * An unbounded operational failure inside generation. This branch carries
+     * only the [kind]; the outcome consumer records the failure exactly once
+     * at its boundary (STR-237: the propagation path has no logging or
+     * telemetry capability).
      */
     data class Unexpected(val kind: GenerateProgramFailureKind) : GenerateProgramResult
 }

@@ -76,7 +76,6 @@ class CreateProgramGenerateControllerTest {
                         loadContext = FixedProgramGenerationContextLoader(error = { error("boom") }),
                         pipeline = testProgramGenerationPipeline(),
                         liftRepository = com.stratum.core.testing.onboarding.FakeLiftRepository(),
-                        telemetryRouter = TelemetryRouter(outcomes, crash, analytics),
                         generationDispatcher = UnconfinedTestDispatcher(testScheduler),
                     ),
                 updateUserTrainingProfile = UpdateUserTrainingProfileUseCase(profileRepo),
@@ -108,12 +107,14 @@ class CreateProgramGenerateControllerTest {
         val event = byName[USER_VISIBLE_ERROR_EVENT]?.single()
         assertEquals("create_program", event?.params?.get(PARAM_SCREEN))
         assertEquals("generate_program", event?.params?.get(PARAM_ACTION))
-        // Unexpected failure: never in the outcome stream; the use case
-        // recorded the original throwable exactly once via
-        // TelemetryRouter.recordExceptional — one non-fatal holding the real
-        // throwable plus one exceptional_occurred counter increment with the
-        // base boundary/class params (restored pre-STR-243 behaviour). The
-        // controller adds no second record.
+        // Unexpected failure: never in the outcome stream; STR-237 moved
+        // the record here — the controller records it exactly once via
+        // TelemetryRouter.recordExceptional: one non-fatal plus one
+        // exceptional_occurred counter increment with the base
+        // boundary/class params. The recorded exception value is CONSTRUCTED
+        // (the branch carries no throwable), so its class is synthetic —
+        // IllegalStateException here by construction, not because the real
+        // failure (also an IllegalStateException in this fixture) crossed.
         assertTrue(outcomes.outcomes.isEmpty())
         assertEquals(1, crash.recordedExceptions.size)
         assertTrue(crash.recordedExceptions.single() is IllegalStateException)
@@ -149,7 +150,6 @@ class CreateProgramGenerateControllerTest {
                             ),
                         pipeline = testProgramGenerationPipeline(),
                         liftRepository = com.stratum.core.testing.onboarding.FakeLiftRepository(),
-                        telemetryRouter = TelemetryRouter(outcomes, crash, analytics),
                         generationDispatcher = UnconfinedTestDispatcher(testScheduler),
                     ),
                 updateUserTrainingProfile = UpdateUserTrainingProfileUseCase(profileRepo),
@@ -226,7 +226,6 @@ class CreateProgramGenerateControllerTest {
                                         )
                                     },
                             ),
-                        telemetryRouter = TelemetryRouter(outcomes, crash, analytics),
                         generationDispatcher = UnconfinedTestDispatcher(testScheduler),
                     ),
                 updateUserTrainingProfile = UpdateUserTrainingProfileUseCase(profileRepo),

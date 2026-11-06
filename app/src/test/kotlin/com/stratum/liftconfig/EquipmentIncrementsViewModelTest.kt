@@ -125,7 +125,6 @@ class EquipmentIncrementsViewModelTest {
                     IncrementScanDelegate(
                         ScanIncrementTiersUseCase(
                             FakeIncrementScanPort(),
-                            FakeLoggingPort(),
                         ),
                         ObserveIncrementsAiScanUseCase(fakeFeatureFlags),
                     ),

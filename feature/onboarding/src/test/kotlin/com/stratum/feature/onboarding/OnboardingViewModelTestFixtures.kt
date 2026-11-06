@@ -203,7 +203,6 @@ internal object OnboardingViewModelTestFixtures {
                     ),
                 pipeline = testProgramGenerationPipeline(),
                 liftRepository = fakeLiftRepository,
-                telemetryRouter = com.stratum.domain.telemetry.TelemetryRouter(com.stratum.core.testing.telemetry.FakeOutcomeTelemetrySink(), com.stratum.core.testing.telemetry.FakeCrashTelemetryPort(), com.stratum.core.testing.telemetry.FakeAnalyticsPort()),
             ),
             activateProgram = com.stratum.application.program.ActivateProgramUseCase(
                 programRepository = fakeProgramRepository,

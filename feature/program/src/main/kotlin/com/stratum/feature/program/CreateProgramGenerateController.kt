@@ -262,11 +262,19 @@ internal class CreateProgramGenerateController(
                 GENERATE_LOG_TAG,
                 ProgramGenerationValidationException(result.report),
             )
+        } else if (result is GenerateProgramResult.Unexpected) {
+            // STR-237: the use case no longer records (application has no
+            // telemetry capability), so the exceptional record lives here at
+            // the outcome consumer — exactly one record (non-fatal +
+            // exceptional_occurred counter) with a constructed exception
+            // value, the same pattern as ValidationRejected above. The
+            // constructed value's class is synthetic: it may differ from the
+            // real throwable's class, which does not cross the branch.
+            telemetryRouter.recordExceptional(
+                GENERATE_LOG_TAG,
+                IllegalStateException("Program generation failed unexpectedly: ${result.kind}"),
+            )
         }
-        // GenerateProgramResult.Unexpected gets no record here: the use case
-        // already recorded the original throwable exactly once via
-        // TelemetryRouter.recordExceptional (non-fatal + exceptional_occurred
-        // counter), so the exceptional fact still has exactly one record.
         logAnalytics(
             USER_VISIBLE_ERROR_EVENT,
             mapOf(PARAM_SCREEN to "create_program", PARAM_ACTION to "generate_program"),

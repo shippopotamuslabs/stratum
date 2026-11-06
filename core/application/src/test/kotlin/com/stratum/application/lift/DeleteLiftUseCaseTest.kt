@@ -74,7 +74,6 @@ class DeleteLiftUseCaseTest {
                                 liftRepository = liftRepo,
                             ),
                         responseModelingScheduler = FakeResponseModelingSchedulerPort(),
-                        loggingPort = logging,
                     ),
                 loggingPort = logging,
             )
@@ -167,7 +166,6 @@ class DeleteLiftUseCaseTest {
                                 liftRepository = liftRepo,
                             ),
                         responseModelingScheduler = FakeResponseModelingSchedulerPort(),
-                        loggingPort = FakeLoggingPort(),
                     ),
                 loggingPort = FakeLoggingPort(),
             )

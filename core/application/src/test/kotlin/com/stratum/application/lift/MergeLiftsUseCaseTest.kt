@@ -107,7 +107,6 @@ class MergeLiftsUseCaseTest {
                         liftRepository = liftRepo,
                     ),
                 responseModelingScheduler = FakeResponseModelingSchedulerPort(),
-                loggingPort = logging,
             )
         subject =
             MergeLiftsUseCase(

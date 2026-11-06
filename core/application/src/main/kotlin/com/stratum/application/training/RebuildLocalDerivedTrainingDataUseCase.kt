@@ -1,6 +1,5 @@
 package com.stratum.application.training
 
-import com.stratum.domain.logging.LoggingPort
 import com.stratum.application.response.ResponseModelingSchedulerPort
 import javax.inject.Inject
 import com.stratum.domain.training.LoggedSet
@@ -42,7 +41,6 @@ sealed interface RebuildLocalDerivedTrainingDataResult {
 class RebuildLocalDerivedTrainingDataUseCase @Inject constructor(
     private val localDerivedStages: LocalDerivedTrainingStages,
     private val responseModelingScheduler: ResponseModelingSchedulerPort,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(): RebuildLocalDerivedTrainingDataResult {
         val stagesResult =
@@ -52,13 +50,10 @@ class RebuildLocalDerivedTrainingDataUseCase @Inject constructor(
                 logTag = TAG,
             )
         if (stagesResult != LocalDerivedTrainingStagesResult.Success) {
-            // Stage already logged as an error with its throwable inside the
-            // stages; keep a top-level warning breadcrumb for hydrate callers
-            // (no throwable crosses here, and the failure is not logged twice).
-            loggingPort.warning(
-                TAG,
-                "Weekly series rebuild failed",
-            )
+            // The stage failure was already logged as an error with its
+            // throwable inside the stages; this outcome branch is the record
+            // the caller acts on (STR-237: no duplicate breadcrumb, and
+            // application has no logging capability).
             return RebuildLocalDerivedTrainingDataResult.PersistenceFailed
         }
         // Non-blocking enqueue — worker owns gates / extract cost.
