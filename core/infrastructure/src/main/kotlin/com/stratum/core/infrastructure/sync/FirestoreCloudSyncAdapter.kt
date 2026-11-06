@@ -241,7 +241,7 @@ class FirestoreCloudSyncAdapter @Inject constructor(
                     // or a local workout finalize (which also refreshes weekly series).
                     // STR-237: the rebuild's stage records ride its outcome;
                     // this adapter is their boundary — record each exactly
-                    // once, then keep this adapter's own breadcrumb.
+                    // once (STR-238: no duplicate breadcrumb on top).
                     rebuildResult.diagnostics.forEach { diagnostic ->
                         when (diagnostic.level) {
                             OperationalDiagnostic.Level.ERROR ->
@@ -254,10 +254,6 @@ class FirestoreCloudSyncAdapter @Inject constructor(
                                 loggingPort.warning(diagnostic.tag, diagnostic.message)
                         }
                     }
-                    loggingPort.error(
-                        TAG,
-                        "post-pull derived rebuild failed",
-                    )
                 }
             },
         )

@@ -2,6 +2,7 @@
 
 package com.stratum.core.infrastructure.sync
 
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.application.training.RebuildLocalDerivedTrainingDataResult
 import com.stratum.application.training.RebuildLocalDerivedTrainingDataUseCase
 import com.stratum.core.infrastructure.work.CloudSyncScheduler
@@ -218,17 +219,68 @@ class FirestoreCloudSyncAdapterTest {
         assertTrue(logging.errors.isEmpty())
     }
 
+    @Test
+    @DisplayName("Given the post-pull rebuild fails when start then sync succeeds and the rebuild diagnostic is recorded exactly once with no breadcrumb")
+    fun postPullRebuildFailureIsDrainedExactlyOnceWithoutBreadcrumb() = runTest {
+        val rebuildFailure = IllegalStateException("weekly rebuild blew up")
+        val rebuildDiagnostic = OperationalDiagnostic(
+            tag = "RebuildLocalDerived",
+            message = "Weekly series rebuild failed: ${rebuildFailure.message}",
+            cause = rebuildFailure,
+        )
+        val logging = FakeLoggingPort()
+        val stateStore = mockk<FirestoreSyncStateStore> {
+            coEvery { lastSyncedUserId() } returns "uid-1"
+            coEvery { setLastSyncedUserId(any()) } returns Unit
+            coEvery { isHydrated(any()) } returns true
+        }
+        val uploadEngine = mockk<FirestorePendingUploadEngine> {
+            coEvery { uploadUntilIdle(any(), any()) } returns Result.success(false)
+            coEvery { hasResidualPending() } returns false
+        }
+        val pullEngine = mockk<FirestoreRemotePullEngine> {
+            coEvery { pull(any()) } returns
+                Result.success(PullResult(hadFailures = false, hydrated = true))
+        }
+        val subject = adapter(
+            stateStore = stateStore,
+            uploadEngine = uploadEngine,
+            pullEngine = pullEngine,
+            logging = logging,
+            rebuildResult = RebuildLocalDerivedTrainingDataResult.PersistenceFailed(
+                listOf(rebuildDiagnostic),
+            ),
+        )
+
+        // Sync itself succeeded; the rebuild failure does not fail the pass.
+        val outcome = subject.start("uid-1")
+
+        assertTrue(outcome is com.stratum.application.sync.CloudSyncOutcome.Success)
+        // STR-238 (B13): the drained per-diagnostic record is the rebuild
+        // failure's only record — exactly one error, carrying the real
+        // cause, and no duplicate "post-pull derived rebuild failed"
+        // breadcrumb on top of it.
+        assertEquals(1, logging.errors.size)
+        val record = logging.errors.single()
+        assertEquals(rebuildDiagnostic.tag, record.tag)
+        assertEquals(rebuildDiagnostic.message, record.message)
+        assertSame(rebuildFailure, record.throwable)
+        assertTrue(logging.errors.none { it.message == "post-pull derived rebuild failed" })
+    }
+
     private fun adapter(
         stateStore: FirestoreSyncStateStore,
         uploadEngine: FirestorePendingUploadEngine = mockk(relaxed = true),
         pullEngine: FirestoreRemotePullEngine = mockk(relaxed = true),
         userOwnedDataClearer: UserOwnedDataClearer = mockk(relaxed = true),
         logging: FakeLoggingPort,
+        rebuildResult: RebuildLocalDerivedTrainingDataResult =
+            RebuildLocalDerivedTrainingDataResult.Success,
     ): FirestoreCloudSyncAdapter {
-        // Explicit Success: a relaxed mock of the sealed result can take the
+        // Explicit result: a relaxed mock of the sealed result can take the
         // PersistenceFailed branch and trip the adapter's (legal) rebuild drain.
         val rebuild = mockk<RebuildLocalDerivedTrainingDataUseCase>()
-        coEvery { rebuild.invoke() } returns RebuildLocalDerivedTrainingDataResult.Success
+        coEvery { rebuild.invoke() } returns rebuildResult
         return FirestoreCloudSyncAdapter(
             stateStore = stateStore,
             uploadEngine = uploadEngine,
