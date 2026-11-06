@@ -47,6 +47,10 @@ import com.stratum.domain.onboarding.toggleInAdditiveSetEdit
 import com.stratum.application.program.ActivateProgramResult
 import com.stratum.application.program.ActivateProgramUseCase
 import com.stratum.application.program.GenerateProgramUseCase
+import com.stratum.domain.program.generation.GenerateProgramResult
+import com.stratum.domain.program.generation.synthesis.ProgramSynthesisException
+import com.stratum.domain.program.generation.synthesis.ProgramSynthesisRefusal
+import com.stratum.domain.program.generation.validation.ProgramGenerationValidationException
 import com.stratum.domain.program.ProgramGenerationProgress
 import com.stratum.domain.program.ProgramGenerationProgressPhase
 import com.stratum.application.program.importing.ImportProgramTemplateUseCase
@@ -797,11 +801,19 @@ class OnboardingViewModel @Inject constructor(
                                 publishGenerateProgress(progress)
                             }
                         }
-                    val program = generateResult.getOrElse { error ->
-                        logGenerateFailure(error)
-                        ephemeral.update(OnboardingProgramFlowOps::generateFailed)
-                        return@launch
-                    }
+                    val program =
+                        when (generateResult) {
+                            is GenerateProgramResult.Success -> generateResult.program
+                            is GenerateProgramResult.ValidationRejected,
+                            is GenerateProgramResult.SynthesisRefused,
+                            is GenerateProgramResult.SynthesisFailed,
+                            is GenerateProgramResult.Unexpected,
+                            -> {
+                                logGenerateFailure(generateResult)
+                                ephemeral.update(OnboardingProgramFlowOps::generateFailed)
+                                return@launch
+                            }
+                        }
                     withContext(Dispatchers.Main.immediate) {
                         publishGenerateProgress(
                             ProgramGenerationProgress(ProgramGenerationProgressPhase.SavingProgram),
@@ -936,6 +948,48 @@ class OnboardingViewModel @Inject constructor(
 
     private fun logGenerateFailure(error: Throwable) {
         logError(OnboardingProgramFlowOps.TAG, OnboardingProgramFlowOps.MSG_GENERATE_FAILED, error)
+        logAnalytics(
+            USER_VISIBLE_ERROR_EVENT,
+            mapOf(PARAM_SCREEN to "onboarding", PARAM_ACTION to "generate_program"),
+        )
+    }
+
+    /**
+     * Records a generation failure branch (STR-243). An [GenerateProgramResult.Unexpected]
+     * failure was already logged once at the use-case boundary, so only the
+     * analytics event fires for it; the expected branches are recorded here
+     * with a constructed exception value for the log record only — the branch
+     * itself carries the typed facts.
+     */
+    private fun logGenerateFailure(result: GenerateProgramResult) {
+        when (result) {
+            is GenerateProgramResult.SynthesisFailed ->
+                logError(
+                    OnboardingProgramFlowOps.TAG,
+                    OnboardingProgramFlowOps.MSG_GENERATE_FAILED,
+                    ProgramSynthesisException(result.message),
+                )
+            is GenerateProgramResult.SynthesisRefused ->
+                logError(
+                    OnboardingProgramFlowOps.TAG,
+                    OnboardingProgramFlowOps.MSG_GENERATE_FAILED,
+                    ProgramSynthesisException(
+                        when (result.refusal) {
+                            ProgramSynthesisRefusal.FeatureDisabled ->
+                                ProgramSynthesisException.MESSAGE_SYNTHESIS_PAUSED
+                        },
+                    ),
+                )
+            is GenerateProgramResult.ValidationRejected ->
+                logError(
+                    OnboardingProgramFlowOps.TAG,
+                    OnboardingProgramFlowOps.MSG_GENERATE_FAILED,
+                    ProgramGenerationValidationException(result.report),
+                )
+            is GenerateProgramResult.Success,
+            is GenerateProgramResult.Unexpected,
+            -> Unit
+        }
         logAnalytics(
             USER_VISIBLE_ERROR_EVENT,
             mapOf(PARAM_SCREEN to "onboarding", PARAM_ACTION to "generate_program"),

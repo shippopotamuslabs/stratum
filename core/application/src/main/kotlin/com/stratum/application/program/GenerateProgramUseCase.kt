@@ -9,9 +9,10 @@ import com.stratum.application.program.generation.pipeline.PipelinePhase
 import com.stratum.application.program.generation.pipeline.PipelineProgress
 import com.stratum.application.program.generation.pipeline.ProgramGenerationPipeline
 import com.stratum.application.program.generation.pipeline.ProgramGenerationPipelineResult
+import com.stratum.domain.logging.LoggingPort
+import com.stratum.domain.program.generation.GenerateProgramFailureKind
+import com.stratum.domain.program.generation.GenerateProgramResult
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisException
-import com.stratum.domain.program.generation.synthesis.ProgramSynthesisRefusal
-import com.stratum.domain.program.generation.validation.ProgramGenerationValidationException
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.schema.toDomainProgram
 import com.stratum.domain.program.generation.schema.toProgramNormalizationRequest
@@ -50,13 +51,14 @@ class GenerateProgramUseCase @Inject constructor(
     private val loadContext: ProgramGenerationContextLoader,
     private val pipeline: ProgramGenerationPipeline,
     private val liftRepository: LiftRepository,
+    private val loggingPort: LoggingPort,
     @DefaultDispatcher private val generationDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) {
     suspend operator fun invoke(
         restSlotIndices: Set<Int>? = null,
         cycleLength: Int? = null,
         onProgress: ProgramGenerationProgressCallback = {},
-    ): Result<Program> =
+    ): GenerateProgramResult =
         withContext(generationDispatcher) {
             try {
                 onProgress(ProgramGenerationProgress(ProgramGenerationProgressPhase.PreparingPayload))
@@ -90,22 +92,18 @@ class GenerateProgramUseCase @Inject constructor(
                     ) {
                         is ProgramGenerationPipelineResult.Success -> pipelineResult.program
                         is ProgramGenerationPipelineResult.ValidationRejected ->
-                            // Constructed as a failure value, never thrown (STR-241):
-                            // the same payload shape the previous generic catch produced.
-                            return@withContext Result.failure(
-                                ProgramGenerationValidationException(pipelineResult.report),
+                            // STR-243: the rejection travels as an outcome branch
+                            // carrying the report end-to-end (STR-241 interim mapped
+                            // it to a constructed exception value).
+                            return@withContext GenerateProgramResult.ValidationRejected(
+                                pipelineResult.report,
                             )
                         is ProgramGenerationPipelineResult.SynthesisRefused ->
-                            // Constructed as a failure value, never thrown (STR-241):
-                            // preserves STR-242's classifyGenerateOutcome, which keys on
-                            // ProgramSynthesisException at the terminal boundary.
-                            return@withContext Result.failure(
-                                ProgramSynthesisException(
-                                    when (pipelineResult.refusal) {
-                                        ProgramSynthesisRefusal.FeatureDisabled ->
-                                            ProgramSynthesisException.MESSAGE_SYNTHESIS_PAUSED
-                                    },
-                                ),
+                            // STR-243: the refusal travels as an outcome branch;
+                            // STR-242's classifyGenerateOutcome keys on this branch
+                            // at the terminal boundary.
+                            return@withContext GenerateProgramResult.SynthesisRefused(
+                                pipelineResult.refusal,
                             )
                     }
                 var program =
@@ -140,14 +138,28 @@ class GenerateProgramUseCase @Inject constructor(
                                 ?: resolveInitialCycleStartEpochDay(program),
                     )
                 onProgress(ProgramGenerationProgress(ProgramGenerationProgressPhase.Complete))
-                Result.success(program)
+                GenerateProgramResult.Success(program)
             } catch (error: kotlinx.coroutines.CancellationException) {
-                // Structured cancellation must not become Result.failure.
+                // Structured cancellation must not become a failure branch.
                 throw error
+            } catch (error: ProgramSynthesisException) {
+                // Adapter-translated provider condition (quota, timeout, sign-in,
+                // monthly limit, …): an expected branch carrying the adapter's
+                // user-safe message — never error-logged (STR-242 classifies it
+                // expected at the terminal boundary).
+                GenerateProgramResult.SynthesisFailed(error.message ?: FALLBACK_MESSAGE)
             } catch (error: Throwable) {
-                Result.failure(error)
+                // Unbounded operational failure: logged once here at the boundary;
+                // the branch carries only the kind (STR-243).
+                loggingPort.error(TAG, "Failed to generate program: ${error.message}", error)
+                GenerateProgramResult.Unexpected(GenerateProgramFailureKind.OperationalFailure)
             }
         }
+
+    private companion object {
+        const val TAG = "GenerateProgram"
+        const val FALLBACK_MESSAGE = "Generation failed"
+    }
 }
 
 private fun PipelineProgress.toDomainProgress(): ProgramGenerationProgress =

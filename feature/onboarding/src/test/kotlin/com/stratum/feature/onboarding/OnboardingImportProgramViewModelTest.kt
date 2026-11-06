@@ -303,6 +303,7 @@ class OnboardingImportProgramViewModelTest {
                 loadContext = FixedProgramGenerationContextLoader(error = { error("not used") }),
                 pipeline = com.stratum.core.testing.program.testProgramGenerationPipeline(),
                 liftRepository = liftRepo,
+                loggingPort = FakeLoggingPort(),
             ),
             activateProgram = com.stratum.application.program.ActivateProgramUseCase(
                 programRepository = programRepo,
