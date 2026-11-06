@@ -16,7 +16,7 @@ import javax.inject.Inject
  * `LoggingPort.warning`, which carries no throwable.
  *
  * [recordError] is the direct-record path for boundary failures that
- * originate outside a use case (the retired `LogErrorUseCase` route): the
+ * originate outside a use case (the retired error-use-case route): the
  * record keeps its tag/message exactly, and the throwable stays nullable -
  * a record whose cause is null by design is never given a fabricated one.
  */

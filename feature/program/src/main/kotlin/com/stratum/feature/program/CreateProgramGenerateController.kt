@@ -19,7 +19,6 @@ import com.stratum.application.program.InferLastTrainedBucketUseCase
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.ProgramGenerationProgress
 import com.stratum.domain.program.ProgramGenerationProgressPhase
-import com.stratum.domain.logging.LogAnalyticsEventUseCase
 import com.stratum.domain.telemetry.PARAM_ACTION
 import com.stratum.domain.telemetry.PARAM_SCREEN
 import com.stratum.domain.telemetry.USER_VISIBLE_ERROR_EVENT
@@ -57,7 +56,7 @@ internal class CreateProgramGenerateController(
     private val getUserTrainingProfile: GetUserTrainingProfileUseCase,
     private val inferLastTrained: InferLastTrainedBucketUseCase,
     private val onProgramGenerated: (Program) -> Unit,
-    private val logAnalytics: LogAnalyticsEventUseCase,
+    private val logAnalytics: AnalyticsRecorder,
     private val synthesisTelemetry: SynthesisTelemetry,
     private val telemetryRouter: TelemetryRouter,
 ) {

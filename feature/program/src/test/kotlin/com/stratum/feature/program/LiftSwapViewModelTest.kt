@@ -11,7 +11,6 @@ import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.application.lift.RankSwapCandidatesUseCase
 import com.stratum.domain.lift.identity.LiftId
-import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.Program
@@ -72,7 +71,6 @@ class LiftSwapViewModelTest {
                     NoOpProgramChangeEventRepository(),
                     com.stratum.core.testing.onboarding.FakeEquipmentRepository(),
                 ),
-                logError = LogErrorUseCase(fakeLoggingPort),
                 diagnosticDrain = DiagnosticDrain(fakeLoggingPort),
             )
     }

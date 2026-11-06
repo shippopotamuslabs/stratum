@@ -8,7 +8,6 @@ import com.stratum.core.ui.component.LiftSwapSheetState
 import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.application.lift.RankSwapCandidatesUseCase
 import com.stratum.domain.lift.identity.LiftId
-import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.application.program.SwapWorkoutLiftDiagnostic
 import com.stratum.application.program.SwapWorkoutLiftResult
 import com.stratum.application.program.SwapWorkoutLiftUseCase
@@ -43,7 +42,6 @@ class LiftSwapViewModel @Inject constructor(
     private val rankSwapCandidates: RankSwapCandidatesUseCase,
     private val workoutEditSession: WorkoutEditSession,
     private val swapWorkoutLift: SwapWorkoutLiftUseCase,
-    private val logError: LogErrorUseCase,
     private val diagnosticDrain: DiagnosticDrain,
 ) : ViewModel() {
     private val targetWorkoutId = MutableStateFlow<String?>(null)
@@ -226,7 +224,7 @@ class LiftSwapViewModel @Inject constructor(
         when (commitMode) {
             LiftSwapCommitMode.PersistToProgram -> {
                 if (workoutLiftId.isNullOrBlank()) {
-                    logError(TAG, "Cannot persist swap to program: workoutLiftId is null or blank")
+                    diagnosticDrain.recordError(TAG, "Cannot persist swap to program: workoutLiftId is null or blank")
                     return
                 }
                 if (persistSwapJob?.isActive == true) return

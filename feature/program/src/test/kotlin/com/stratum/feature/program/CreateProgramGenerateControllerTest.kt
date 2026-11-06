@@ -16,7 +16,6 @@ import com.stratum.core.testing.telemetry.FakeAnalyticsPort
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.identity.LiftId
-import com.stratum.domain.logging.LogAnalyticsEventUseCase
 import com.stratum.core.testing.telemetry.FakeCrashTelemetryPort
 import com.stratum.core.testing.telemetry.FakeOutcomeTelemetrySink
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisException
@@ -89,7 +88,7 @@ class CreateProgramGenerateControllerTest {
                 getUserTrainingProfile = GetUserTrainingProfileUseCase(profileRepo),
                 inferLastTrained = InferLastTrainedBucketUseCase(FakeTrainingLogRepository()),
                 onProgramGenerated = {},
-                logAnalytics = LogAnalyticsEventUseCase(analytics),
+                logAnalytics = AnalyticsRecorder(analytics),
                 synthesisTelemetry = SynthesisTelemetry(analytics::logEvent),
                 telemetryRouter = TelemetryRouter(outcomes, crash, analytics),
             )
@@ -162,7 +161,7 @@ class CreateProgramGenerateControllerTest {
                 getUserTrainingProfile = GetUserTrainingProfileUseCase(profileRepo),
                 inferLastTrained = InferLastTrainedBucketUseCase(FakeTrainingLogRepository()),
                 onProgramGenerated = {},
-                logAnalytics = LogAnalyticsEventUseCase(analytics),
+                logAnalytics = AnalyticsRecorder(analytics),
                 synthesisTelemetry = SynthesisTelemetry(analytics::logEvent),
                 telemetryRouter = TelemetryRouter(outcomes, crash, analytics),
             )
@@ -238,7 +237,7 @@ class CreateProgramGenerateControllerTest {
                 getUserTrainingProfile = GetUserTrainingProfileUseCase(profileRepo),
                 inferLastTrained = InferLastTrainedBucketUseCase(FakeTrainingLogRepository()),
                 onProgramGenerated = { program -> generatedProgram = program },
-                logAnalytics = LogAnalyticsEventUseCase(analytics),
+                logAnalytics = AnalyticsRecorder(analytics),
                 synthesisTelemetry = SynthesisTelemetry(analytics::logEvent),
                 telemetryRouter = TelemetryRouter(outcomes, crash, analytics),
             )

@@ -3,7 +3,6 @@ package com.stratum.feature.program
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.application.lift.ObserveLiftCatalogUseCase
-import com.stratum.domain.logging.LogAnalyticsEventUseCase
 import com.stratum.domain.telemetry.SynthesisTelemetry
 import com.stratum.domain.telemetry.TelemetryRouter
 import com.stratum.application.onboarding.CompleteOnboardingUseCase
@@ -61,7 +60,7 @@ class CreateProgramViewModel @Inject constructor(
     private val workoutEditSession: WorkoutEditSession,
     observeActiveSession: ObserveActiveSessionUseCase,
     abandonTrainingSession: AbandonTrainingSessionUseCase,
-    logAnalytics: LogAnalyticsEventUseCase,
+    logAnalytics: AnalyticsRecorder,
     telemetryRouter: TelemetryRouter,
     diagnosticDrain: DiagnosticDrain,
 ) : ViewModel() {
