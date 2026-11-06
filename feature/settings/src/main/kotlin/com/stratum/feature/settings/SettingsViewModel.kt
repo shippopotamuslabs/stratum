@@ -270,7 +270,9 @@ class SettingsViewModel @Inject constructor(
 
     fun onAppearanceSelected(appearance: AppearanceUi) {
         viewModelScope.launch {
-            if (setColorMode(appearance.toDomain()) == ThemePreferenceResult.PersistenceFailed) {
+            val result = setColorMode(appearance.toDomain())
+            if (result is ThemePreferenceResult.PersistenceFailed) {
+                diagnosticDrain.drain(result.diagnostics)
                 _userMessage.value = MSG_PREFS_FAILED
             }
         }
@@ -278,7 +280,9 @@ class SettingsViewModel @Inject constructor(
 
     fun onThemeFamilySelected(family: ThemeFamilyUi) {
         viewModelScope.launch {
-            if (setThemeFamily(family.toDomain()) == ThemePreferenceResult.PersistenceFailed) {
+            val result = setThemeFamily(family.toDomain())
+            if (result is ThemePreferenceResult.PersistenceFailed) {
+                diagnosticDrain.drain(result.diagnostics)
                 _userMessage.value = MSG_PREFS_FAILED
             }
         }
