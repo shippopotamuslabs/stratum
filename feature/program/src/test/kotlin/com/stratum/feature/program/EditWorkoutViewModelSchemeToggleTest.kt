@@ -256,7 +256,6 @@ class EditWorkoutViewModelSchemeToggleTest {
             manageWorkoutOverlay =
                 com.stratum.application.workout.ManageWorkoutOverlayUseCase(
                     com.stratum.core.testing.workout.FakeWorkoutOverlayStore(),
-                    logging,
                 ),
             observeEquipmentCatalog =
                 com.stratum.application.lift.ObserveEquipmentCatalogUseCase(

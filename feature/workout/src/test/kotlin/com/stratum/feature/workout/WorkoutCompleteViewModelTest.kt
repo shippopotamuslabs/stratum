@@ -750,7 +750,6 @@ class WorkoutCompleteViewModelTest {
                     ApplyRepRangeShiftUseCase(
                         programRepository = programRepo,
                         programChangeEventRepository = FakeProgramChangeEventRepository(),
-                        loggingPort = logging,
                     ),
                 repRangeShiftProposalPreferences = repRangePrefs,
                 logError = LogErrorUseCase(logging),
@@ -864,7 +863,6 @@ class WorkoutCompleteViewModelTest {
                     ApplyRepRangeShiftUseCase(
                         programRepository = programRepo,
                         programChangeEventRepository = FakeProgramChangeEventRepository(),
-                        loggingPort = logging,
                     ),
                 repRangeShiftProposalPreferences = repRangePrefs,
                 logError = LogErrorUseCase(logging),
@@ -982,7 +980,6 @@ class WorkoutCompleteViewModelTest {
                     ApplyRepRangeShiftUseCase(
                         programRepository = programRepo,
                         programChangeEventRepository = FakeProgramChangeEventRepository(),
-                        loggingPort = logging,
                     ),
                 repRangeShiftProposalPreferences = repRangePrefs,
                 logError = LogErrorUseCase(logging),
@@ -1075,7 +1072,6 @@ class WorkoutCompleteViewModelTest {
                 ApplyRepRangeShiftUseCase(
                     programRepository = programRepo,
                     programChangeEventRepository = FakeProgramChangeEventRepository(),
-                    loggingPort = logging,
                 ),
             repRangeShiftProposalPreferences = repRangePrefs,
             logError = LogErrorUseCase(logging),

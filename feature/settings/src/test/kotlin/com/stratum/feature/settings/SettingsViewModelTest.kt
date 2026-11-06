@@ -147,7 +147,7 @@ class SettingsViewModelTest {
             setEquipmentProposalsEnabled =
                 SetEquipmentProposalsEnabledUseCase(fakeEquipmentProposals),
             setRepRangeShiftProposalsEnabled =
-                SetRepRangeShiftProposalsEnabledUseCase(fakeRepRangeProposals, FakeLoggingPort()),
+                SetRepRangeShiftProposalsEnabledUseCase(fakeRepRangeProposals),
             setWeightDisplayUnit =
                 SetWeightDisplayUnitUseCase(fakeWeightDisplayPreferences),
             setHealthConnectEnabled =

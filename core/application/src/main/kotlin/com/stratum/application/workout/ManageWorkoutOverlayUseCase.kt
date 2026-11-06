@@ -1,6 +1,6 @@
 package com.stratum.application.workout
 
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.domain.training.identity.TrainingSessionId
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
@@ -17,42 +17,56 @@ import com.stratum.domain.workout.WorkoutOverlay
  * single use case rather than three (ARCHITECTURE.md §4.4: ViewModels depend on use cases,
  * not repository ports).
  *
- * [save] / [clear] failures are best-effort: operational failures are logged once at
- * this boundary and swallowed so the live workout UI is never crashed by overlay
- * persistence (callers never branched on the former failure Result). Coroutine
- * cancellation propagates — it is neither logged nor swallowed.
+ * [save] / [clear] failures are best-effort: operational failures are returned
+ * as [OperationalDiagnostic]s (empty on success) for the caller — the boundary
+ * that owns the UI — to drain exactly once, and are otherwise swallowed so the
+ * live workout UI is never crashed by overlay persistence (callers never
+ * branched on the former failure Result). Coroutine cancellation propagates —
+ * it is neither recorded nor swallowed.
  */
 class ManageWorkoutOverlayUseCase @Inject constructor(
     private val store: WorkoutOverlayStore,
-    private val loggingPort: LoggingPort,
 ) {
     /** The persisted overlay for [sessionId], or `null` when nothing matching is stored. */
     suspend fun load(sessionId: TrainingSessionId): WorkoutOverlay? = store.load(sessionId)
 
     /**
-     * Overwrites the stored overlay for [sessionId]. An operational failure is logged
-     * once and swallowed; coroutine cancellation propagates.
+     * Overwrites the stored overlay for [sessionId]. An operational failure is
+     * returned as one diagnostic and swallowed; coroutine cancellation
+     * propagates.
      */
-    suspend fun save(sessionId: TrainingSessionId, overlay: WorkoutOverlay) {
+    suspend fun save(sessionId: TrainingSessionId, overlay: WorkoutOverlay): List<OperationalDiagnostic> =
         try {
             store.save(sessionId, overlay)
+            emptyList()
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Throwable) {
-            loggingPort.error(TAG, "Failed to persist workout overlay: ${error.message}", error)
+            listOf(
+                OperationalDiagnostic(
+                    tag = TAG,
+                    message = "Failed to persist workout overlay: ${error.message}",
+                    cause = error,
+                ),
+            )
         }
-    }
 
     /** Drops any stored overlay regardless of session id (call on finalize / abandon). */
-    suspend fun clear() {
+    suspend fun clear(): List<OperationalDiagnostic> =
         try {
             store.clear()
+            emptyList()
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Throwable) {
-            loggingPort.error(TAG, "Failed to clear workout overlay: ${error.message}", error)
+            listOf(
+                OperationalDiagnostic(
+                    tag = TAG,
+                    message = "Failed to clear workout overlay: ${error.message}",
+                    cause = error,
+                ),
+            )
         }
-    }
 
     private companion object {
         const val TAG = "ManageWorkoutOverlay"

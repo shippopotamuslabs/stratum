@@ -61,7 +61,7 @@ class AnalyzeSessionRepRangeShiftProposalsUseCase @Inject constructor(
      * Cancellation propagates.
      */
     suspend operator fun invoke(sessionId: TrainingSessionId): AnalyzeSessionRepRangeShiftProposalsOutcome {
-        // STR-237 chunk 1D: the insights extract's failure diagnostics are
+        // STR-237: the insights extract's failure diagnostics are
         // captured here and propagated on the outcome (the extract outcome
         // was previously ignored, its record living at the extract's own
         // boundary; the record now rides to this outcome's boundary drain).

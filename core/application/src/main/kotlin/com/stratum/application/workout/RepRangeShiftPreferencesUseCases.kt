@@ -1,22 +1,26 @@
 package com.stratum.application.workout
 
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Outcome of a rep-range-shift preferences write (STR-243).
+ * Outcome of a rep-range-shift preferences write (STR-243; STR-237 Route (i)).
  *
- * The originating throwable goes once to the diagnostics channel ([LoggingPort.error])
- * at the use-case boundary; it never crosses as a payload. Coroutine cancellation is
- * not a branch: it propagates as cancellation.
+ * The originating throwable rides the [PersistenceFailed] branch as an
+ * [OperationalDiagnostic] (legacy tag + rendered message, real throwable as
+ * cause); the presentation boundary drains it exactly once through its
+ * module's DiagnosticDrain. Coroutine cancellation is not a branch: it
+ * propagates as cancellation.
  */
 sealed interface RepRangeShiftPreferenceResult {
     data object Success : RepRangeShiftPreferenceResult
 
     /** The preferences write failed (repository / store I/O). */
-    data object PersistenceFailed : RepRangeShiftPreferenceResult
+    data class PersistenceFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : RepRangeShiftPreferenceResult
 }
 
 class ObserveRepRangeShiftProposalsEnabledUseCase @Inject constructor(
@@ -27,7 +31,6 @@ class ObserveRepRangeShiftProposalsEnabledUseCase @Inject constructor(
 
 class SetRepRangeShiftProposalsEnabledUseCase @Inject constructor(
     private val preferences: RepRangeShiftProposalPreferences,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(enabled: Boolean): RepRangeShiftPreferenceResult =
         try {
@@ -36,8 +39,15 @@ class SetRepRangeShiftProposalsEnabledUseCase @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (t: Throwable) {
-            loggingPort.error(TAG, "Failed to set rep-range shift proposals enabled: ${t.message}", t)
-            RepRangeShiftPreferenceResult.PersistenceFailed
+            RepRangeShiftPreferenceResult.PersistenceFailed(
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Failed to set rep-range shift proposals enabled: ${t.message}",
+                        cause = t,
+                    ),
+                ),
+            )
         }
 
     private companion object {

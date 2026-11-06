@@ -1,6 +1,5 @@
 package com.stratum.application.workout
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.workout.FakeRepRangeShiftProposalPreferences
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
@@ -18,7 +17,7 @@ class RepRangeShiftPreferencesUseCasesTest {
     @Test
     @DisplayName("setEnabled writes the flag and returns Success (STR-243)")
     fun setEnabledSuccess() = runTest {
-        val result = SetRepRangeShiftProposalsEnabledUseCase(fake, FakeLoggingPort())(false)
+        val result = SetRepRangeShiftProposalsEnabledUseCase(fake)(false)
         assertEquals(RepRangeShiftPreferenceResult.Success, result)
         assertTrue(!fake.isEnabled())
     }
@@ -32,8 +31,16 @@ class RepRangeShiftPreferencesUseCasesTest {
                     throw RuntimeException("store unavailable")
                 }
             }
-        val result = SetRepRangeShiftProposalsEnabledUseCase(throwing, FakeLoggingPort())(false)
-        assertEquals(RepRangeShiftPreferenceResult.PersistenceFailed, result)
+        val result = SetRepRangeShiftProposalsEnabledUseCase(throwing)(false)
+        // STR-237: the failure record rides the branch exactly once.
+        val failed = result as RepRangeShiftPreferenceResult.PersistenceFailed
+        val diagnostic = failed.diagnostics.single()
+        assertEquals("SetRepRangeShiftEnabled", diagnostic.tag)
+        assertEquals(
+            "Failed to set rep-range shift proposals enabled: store unavailable",
+            diagnostic.message,
+        )
+        assertEquals("store unavailable", diagnostic.cause.message)
     }
 
     @Test
@@ -45,7 +52,7 @@ class RepRangeShiftPreferencesUseCasesTest {
                     throw CancellationException("cancelled")
                 }
             }
-        val subject = SetRepRangeShiftProposalsEnabledUseCase(cancelling, FakeLoggingPort())
+        val subject = SetRepRangeShiftProposalsEnabledUseCase(cancelling)
         assertThrows(CancellationException::class.java) {
             runBlocking { subject(false) }
         }

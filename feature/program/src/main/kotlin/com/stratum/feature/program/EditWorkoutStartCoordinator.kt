@@ -124,7 +124,7 @@ internal class EditWorkoutStartCoordinator(
         if (abandonResult != AbandonTrainingSessionResult.Success) {
             return MSG_ABANDON_FAILED
         }
-        manageWorkoutOverlay.clear()
+        diagnosticDrain.drain(manageWorkoutOverlay.clear())
         return null
     }
 

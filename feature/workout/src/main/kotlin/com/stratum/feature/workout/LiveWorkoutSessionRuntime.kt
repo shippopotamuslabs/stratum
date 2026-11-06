@@ -256,7 +256,7 @@ internal class LiveWorkoutSessionRuntime(
     internal suspend fun flushOverlay() {
         val id = cachedSessionId ?: return
         val rev = overlayRevision
-        manageWorkoutOverlay.save(id, overlay)
+        drainOperationalDiagnostics(manageWorkoutOverlay.save(id, overlay))
         lastPersistedRevision = rev
     }
 

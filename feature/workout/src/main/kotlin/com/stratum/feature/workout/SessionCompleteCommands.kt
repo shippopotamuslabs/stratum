@@ -138,7 +138,7 @@ internal suspend fun LiveWorkoutSessionRuntime.handleCompleteWorkout(cmd: Sessio
             return
         }
         templateSavedThisComplete = false
-        manageWorkoutOverlay.clear()
+        drainOperationalDiagnostics(manageWorkoutOverlay.clear())
         effects.clearLiveSurfaces()
         effects.emitEvent(WorkoutUiEvent.NavigateToFinalize(sessionId.value))
         // Terminal: drop session ids so double-complete / late mutators no-op.

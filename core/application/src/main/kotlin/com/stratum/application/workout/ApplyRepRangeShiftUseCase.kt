@@ -1,6 +1,5 @@
 package com.stratum.application.workout
 
-import com.stratum.domain.logging.LoggingPort
 import com.stratum.application.program.ProgramRepository
 import com.stratum.domain.program.ProgressionRepRangePolicy
 import com.stratum.domain.program.WorkoutLift
@@ -17,6 +16,7 @@ import javax.inject.Singleton
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import com.stratum.domain.workout.ApplyRepRangeShiftResult
+import com.stratum.domain.workout.RepRangeShiftFailureDiagnostic
 import com.stratum.domain.workout.RepRangeShiftInput
 import com.stratum.domain.workout.evaluateRepRangeShift
 import com.stratum.domain.program.Program
@@ -28,13 +28,13 @@ import kotlin.coroutines.cancellation.CancellationException
  * Re-reads the live template, verifies the expected current band, and re-runs
  * [evaluateRepRangeShift] so stale Accepts no-op. Serializes mutations via [writeMutex]
  * so concurrent Accepts cannot lose updates. Event append failures after a successful
- * save are logged but do not fail the apply (template is already durable).
+ * save ride [ApplyRepRangeShiftResult.Success.diagnostics] but do not fail the
+ * apply (template is already durable).
  */
 @Singleton
 class ApplyRepRangeShiftUseCase @Inject constructor(
     private val programRepository: ProgramRepository,
     private val programChangeEventRepository: ProgramChangeEventRepository,
-    private val loggingPort: LoggingPort,
 ) {
     private val writeMutex = Mutex()
 
@@ -69,8 +69,9 @@ class ApplyRepRangeShiftUseCase @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (t: Throwable) {
-            loggingPort.error(TAG, "Failed to apply rep-range shift for ${workoutLiftId.value}", t)
-            ApplyRepRangeShiftResult.PersistenceFailed
+            ApplyRepRangeShiftResult.PersistenceFailed(
+                diagnostics = listOf(RepRangeShiftFailureDiagnostic(t)),
+            )
         }
     }
 
@@ -116,28 +117,27 @@ class ApplyRepRangeShiftUseCase @Inject constructor(
             )
         programRepository.saveProgram(program.replaceWorkoutLift(updatedLift))
         // Template is durable; event is audit-only — do not fail Accept if append breaks.
-        try {
-            programChangeEventRepository.append(
-                ProgramChangeEvent(
-                    id = ProgramChangeEventId(UUID.randomUUID().toString()),
-                    programId = program.id,
-                    eventType = ProgramChangeEventType.WORKOUT_EDITED,
-                    occurredAt = Instant.now(),
-                    payload = ProgramChangeEventPayload.WorkoutEdited(parentWorkout.id),
-                ),
-            )
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (error: Throwable) {
-            loggingPort.error(
-                TAG,
-                "Program saved but WORKOUT_EDITED event failed for ${workoutLiftId.value}: " +
-                    "${error.message}",
-                error,
-            )
-        }
+        val eventDiagnostic =
+            try {
+                programChangeEventRepository.append(
+                    ProgramChangeEvent(
+                        id = ProgramChangeEventId(UUID.randomUUID().toString()),
+                        programId = program.id,
+                        eventType = ProgramChangeEventType.WORKOUT_EDITED,
+                        occurredAt = Instant.now(),
+                        payload = ProgramChangeEventPayload.WorkoutEdited(parentWorkout.id),
+                    ),
+                )
+                null
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Throwable) {
+                RepRangeShiftFailureDiagnostic(error)
+            }
 
-        return ApplyRepRangeShiftResult.Success
+        return ApplyRepRangeShiftResult.Success(
+            diagnostics = listOfNotNull(eventDiagnostic),
+        )
     }
 
     private fun validateProposal(
@@ -231,9 +231,5 @@ class ApplyRepRangeShiftUseCase @Inject constructor(
                     )
                 }
         return ProgressionRepRangePolicy.resolveSharedBand(specs)
-    }
-
-    private companion object {
-        const val TAG = "ApplyRepRangeShift"
     }
 }

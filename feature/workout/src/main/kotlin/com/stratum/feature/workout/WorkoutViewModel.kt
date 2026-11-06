@@ -906,7 +906,7 @@ class WorkoutViewModel @Inject constructor(
                 sessionObservationJob = null
                 session.send(SessionCommand.BeginAbandon)
                 session.send(SessionCommand.FinalizeAbandonLocal)
-                manageWorkoutOverlay.clear()
+                diagnosticDrain.drain(manageWorkoutOverlay.clear())
                 _events.send(WorkoutUiEvent.NavigateBackAfterAbandon)
             }
             return
@@ -946,7 +946,7 @@ class WorkoutViewModel @Inject constructor(
                     sessionObservationJob?.cancel()
                     sessionObservationJob = null
                     session.send(SessionCommand.FinalizeAbandonLocal)
-                    manageWorkoutOverlay.clear()
+                    diagnosticDrain.drain(manageWorkoutOverlay.clear())
                     _events.send(WorkoutUiEvent.NavigateBackAfterAbandon)
                 }
             }

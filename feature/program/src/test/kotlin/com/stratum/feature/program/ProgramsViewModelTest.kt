@@ -293,7 +293,7 @@ class ProgramsViewModelTest {
                         com.stratum.application.training.RecordRestDaySkipUseCase(trainingLog, repository),
                     unskipWorkout = com.stratum.application.training.UnskipWorkoutUseCase(trainingLog, repository),
                     manageWorkoutOverlay =
-                        ManageWorkoutOverlayUseCase(FakeWorkoutOverlayStore(), logging),
+                        ManageWorkoutOverlayUseCase(FakeWorkoutOverlayStore()),
                     observeProgramsUiPreferences =
                         ObserveProgramsUiPreferencesUseCase(FakeProgramsUiPreferencesRepository()),
                     setExpandedWorkoutId =
@@ -360,7 +360,7 @@ class ProgramsViewModelTest {
                         com.stratum.application.training.RecordRestDaySkipUseCase(trainingLog, repository),
                     unskipWorkout = com.stratum.application.training.UnskipWorkoutUseCase(trainingLog, repository),
                     manageWorkoutOverlay =
-                        ManageWorkoutOverlayUseCase(FakeWorkoutOverlayStore(), logging),
+                        ManageWorkoutOverlayUseCase(FakeWorkoutOverlayStore()),
                     observeProgramsUiPreferences =
                         ObserveProgramsUiPreferencesUseCase(FakeProgramsUiPreferencesRepository()),
                     setExpandedWorkoutId =
@@ -470,7 +470,7 @@ class ProgramsViewModelTest {
             recordWorkoutSkip = com.stratum.application.training.RecordWorkoutSkipUseCase(trainingLog, repository),
             recordRestDaySkip = com.stratum.application.training.RecordRestDaySkipUseCase(trainingLog, repository),
             unskipWorkout = com.stratum.application.training.UnskipWorkoutUseCase(trainingLog, repository),
-            manageWorkoutOverlay = ManageWorkoutOverlayUseCase(FakeWorkoutOverlayStore(), logging),
+            manageWorkoutOverlay = ManageWorkoutOverlayUseCase(FakeWorkoutOverlayStore()),
             observeProgramsUiPreferences = ObserveProgramsUiPreferencesUseCase(uiPrefs),
             setExpandedWorkoutId = SetExpandedWorkoutIdUseCase(uiPrefs),
             diagnosticDrain = DiagnosticDrain(logging),

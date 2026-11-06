@@ -324,9 +324,15 @@ class SettingsViewModel @Inject constructor(
                             false
                         }
                     }
-                    PostWorkoutSuggestionUi.RepRangeShift ->
-                        setRepRangeShiftProposalsEnabled(enabled) ==
-                            RepRangeShiftPreferenceResult.PersistenceFailed
+                    PostWorkoutSuggestionUi.RepRangeShift -> {
+                        val result = setRepRangeShiftProposalsEnabled(enabled)
+                        if (result is RepRangeShiftPreferenceResult.PersistenceFailed) {
+                            diagnosticDrain.drain(result.diagnostics)
+                            true
+                        } else {
+                            false
+                        }
+                    }
                 }
             if (failed) {
                 _userMessage.value = MSG_PREFS_FAILED

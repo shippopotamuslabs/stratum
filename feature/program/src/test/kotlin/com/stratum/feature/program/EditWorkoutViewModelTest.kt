@@ -1090,7 +1090,7 @@ class EditWorkoutViewModelTest {
             startTrainingSession = StartTrainingSessionUseCase(trainingLog, repository),
             observeCycleProgress = ObserveCycleProgressUseCase(repository, trainingLog),
             abandonTrainingSession = AbandonTrainingSessionUseCase(trainingLog),
-            manageWorkoutOverlay = ManageWorkoutOverlayUseCase(FakeWorkoutOverlayStore(), logging),
+            manageWorkoutOverlay = ManageWorkoutOverlayUseCase(FakeWorkoutOverlayStore()),
             observeEquipmentCatalog = com.stratum.application.lift.ObserveEquipmentCatalogUseCase(equipmentRepository),
             getEquipment = com.stratum.application.lift.GetEquipmentUseCase(equipmentRepository),
             getRecentlyUsedEquipment = com.stratum.application.lift.GetRecentlyUsedEquipmentForLiftUseCase(

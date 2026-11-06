@@ -309,7 +309,7 @@ class ProgramsViewModel @Inject constructor(
             } else {
                 // Match live-screen abandon: drop process-scoped overlay so a new session
                 // cannot restore a dead session's structure from DataStore.
-                manageWorkoutOverlay.clear()
+                diagnosticDrain.drain(manageWorkoutOverlay.clear())
             }
         }
     }
@@ -374,7 +374,7 @@ class ProgramsViewModel @Inject constructor(
                     showUserMessage(MSG_ABANDON_FAILED)
                     return@launch
                 }
-                manageWorkoutOverlay.clear()
+                diagnosticDrain.drain(manageWorkoutOverlay.clear())
             }
             when (action) {
                 is ProgramsStartAction.StartWorkout ->

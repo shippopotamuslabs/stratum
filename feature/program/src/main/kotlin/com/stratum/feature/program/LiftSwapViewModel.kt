@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.stratum.core.ui.component.LiftSwapFilterIntent
 import com.stratum.core.ui.component.LiftSwapOptionState
 import com.stratum.core.ui.component.LiftSwapSheetState
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.application.lift.RankSwapCandidatesUseCase
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.logging.LogErrorUseCase
@@ -265,12 +266,14 @@ class LiftSwapViewModel @Inject constructor(
         for (diagnostic in diagnostics) {
             when (diagnostic) {
                 is SwapWorkoutLiftDiagnostic.PinnedNotesUnreadable ->
-                    logError(
-                        TAG,
-                        "Swap succeeded but pinned notes could not be read: " +
-                            "slot=${diagnostic.workoutLiftId.value} " +
-                            "newLift=${diagnostic.newLiftId.value} — proceeded with empty notes.",
-                        diagnostic.cause,
+                    diagnosticDrain.drain(
+                        OperationalDiagnostic(
+                            tag = TAG,
+                            message = "Swap succeeded but pinned notes could not be read: " +
+                                "slot=${diagnostic.workoutLiftId.value} " +
+                                "newLift=${diagnostic.newLiftId.value} — proceeded with empty notes.",
+                            cause = diagnostic.cause,
+                        ),
                     )
             }
         }

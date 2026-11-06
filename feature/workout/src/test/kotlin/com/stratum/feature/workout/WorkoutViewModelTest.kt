@@ -417,7 +417,7 @@ class WorkoutViewModelTest {
             observeLiftTrainingInsights = com.stratum.application.importing.ObserveLiftTrainingInsightsUseCase(
                 com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository(),
             ),
-            manageWorkoutOverlay = ManageWorkoutOverlayUseCase(overlayStore, FakeLoggingPort()),
+            manageWorkoutOverlay = ManageWorkoutOverlayUseCase(overlayStore),
             workoutEditSession = workoutEditSession,
             liveWorkoutSurfaces = fakeLiveWorkoutSurfaces(),
             observeWeightDisplayPreferences =
@@ -517,7 +517,7 @@ class WorkoutViewModelTest {
             observeLiftTrainingInsights = com.stratum.application.importing.ObserveLiftTrainingInsightsUseCase(
                 com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository(),
             ),
-            manageWorkoutOverlay = ManageWorkoutOverlayUseCase(overlayStore, FakeLoggingPort()),
+            manageWorkoutOverlay = ManageWorkoutOverlayUseCase(overlayStore),
             workoutEditSession = workoutEditSession,
             liveWorkoutSurfaces = fakeLiveWorkoutSurfaces(),
             observeWeightDisplayPreferences =
@@ -615,7 +615,7 @@ class WorkoutViewModelTest {
                     ),
                 ),
             ),
-            manageWorkoutOverlay = ManageWorkoutOverlayUseCase(overlayStore, FakeLoggingPort()),
+            manageWorkoutOverlay = ManageWorkoutOverlayUseCase(overlayStore),
             workoutEditSession = workoutEditSession,
             liveWorkoutSurfaces = fakeLiveWorkoutSurfaces(),
             observeWeightDisplayPreferences =
@@ -1395,7 +1395,7 @@ class WorkoutViewModelTest {
             observeLiftTrainingInsights = com.stratum.application.importing.ObserveLiftTrainingInsightsUseCase(
                 com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository(),
             ),
-            manageWorkoutOverlay = ManageWorkoutOverlayUseCase(overlayStore, FakeLoggingPort()),
+            manageWorkoutOverlay = ManageWorkoutOverlayUseCase(overlayStore),
             workoutEditSession = WorkoutEditSession(),
             liveWorkoutSurfaces = fakeLiveWorkoutSurfaces(),
             observeWeightDisplayPreferences =
@@ -1492,7 +1492,7 @@ class WorkoutViewModelTest {
             observeLiftTrainingInsights = com.stratum.application.importing.ObserveLiftTrainingInsightsUseCase(
                 com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository(),
             ),
-            manageWorkoutOverlay = ManageWorkoutOverlayUseCase(overlayStore, FakeLoggingPort()),
+            manageWorkoutOverlay = ManageWorkoutOverlayUseCase(overlayStore),
             workoutEditSession = WorkoutEditSession(),
             liveWorkoutSurfaces = fakeLiveWorkoutSurfaces(),
             observeWeightDisplayPreferences =

@@ -1,6 +1,5 @@
 package com.stratum.application.workout
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeProgramChangeEventRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
@@ -50,7 +49,7 @@ class ApplyRepRangeShiftUseCaseTest {
             )
         val programRepo = FakeProgramRepository(program)
         val events = FakeProgramChangeEventRepository()
-        val useCase = ApplyRepRangeShiftUseCase(programRepo, events, FakeLoggingPort())
+        val useCase = ApplyRepRangeShiftUseCase(programRepo, events)
 
         val result =
             useCase(
@@ -101,7 +100,6 @@ class ApplyRepRangeShiftUseCaseTest {
             ApplyRepRangeShiftUseCase(
                 programRepo,
                 FakeProgramChangeEventRepository(),
-                FakeLoggingPort(),
             )
 
         assertTrue(
@@ -144,7 +142,6 @@ class ApplyRepRangeShiftUseCaseTest {
             ApplyRepRangeShiftUseCase(
                 programRepo,
                 FakeProgramChangeEventRepository(),
-                FakeLoggingPort(),
             )
 
         val result =
@@ -170,7 +167,6 @@ class ApplyRepRangeShiftUseCaseTest {
             ApplyRepRangeShiftUseCase(
                 programRepo,
                 FakeProgramChangeEventRepository(),
-                FakeLoggingPort(),
             )
         val result =
             useCase(
@@ -227,7 +223,6 @@ class ApplyRepRangeShiftUseCaseTest {
             ApplyRepRangeShiftUseCase(
                 FakeProgramRepository(program, failOnSave = true),
                 FakeProgramChangeEventRepository(),
-                FakeLoggingPort(),
             )
 
         val result =
@@ -240,7 +235,11 @@ class ApplyRepRangeShiftUseCaseTest {
                 fatigueSlope = -3.0,
                 setCount = 4,
             )
-        assertEquals(ApplyRepRangeShiftResult.PersistenceFailed, result)
+        // STR-237: the failure rides the branch as exactly one domain
+        // diagnostic carrying the real throwable.
+        val failed = result as ApplyRepRangeShiftResult.PersistenceFailed
+        val diagnostic = failed.diagnostics.single()
+        assertEquals("FakeProgramRepository configured to fail on save", diagnostic.cause.message)
     }
 
     private fun programWithLift(lift: WorkoutLift) =
