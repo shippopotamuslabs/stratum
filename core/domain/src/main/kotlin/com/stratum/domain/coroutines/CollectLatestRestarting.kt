@@ -1,4 +1,4 @@
-package com.stratum.domain.logging
+package com.stratum.domain.coroutines
 
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.coroutines.coroutineContext
@@ -14,10 +14,15 @@ internal const val DEFAULT_COLLECTOR_RESTART_DELAY_MS = 1_000L
  * Collects [this] with [collectLatest], restarting after unexpected failures so a single
  * emission/throw does not kill a process-lifetime listener. Completes when the upstream
  * completes normally. [CancellationException] is not swallowed.
+ *
+ * Domain has no logging capability (STR-237): the failure record is boundary-owned.
+ * The collecting boundary passes [onFailure], invoked exactly once per unexpected
+ * failure with the legacy tag, the rendered message, and the real throwable; the
+ * boundary records it through its own wiring.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 suspend fun <T> Flow<T>.collectLatestRestarting(
-    loggingPort: LoggingPort,
+    onFailure: (tag: String, message: String, error: Throwable) -> Unit,
     tag: String,
     restartDelayMs: Long = DEFAULT_COLLECTOR_RESTART_DELAY_MS,
     collector: suspend (value: T) -> Unit,
@@ -29,7 +34,7 @@ suspend fun <T> Flow<T>.collectLatestRestarting(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Throwable) {
-            loggingPort.error(tag, "Collector failed: ${error.message}", error)
+            onFailure(tag, "Collector failed: ${error.message}", error)
             delay(restartDelayMs)
         }
     }

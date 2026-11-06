@@ -1,4 +1,4 @@
-package com.stratum.domain.logging
+package com.stratum.domain.coroutines
 
 import com.stratum.core.testing.logging.FakeLoggingPort
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -18,7 +18,7 @@ class CollectLatestRestartingTest {
         flow {
             emit(1)
             emit(2)
-        }.collectLatestRestarting(fakeLogging, "Listener") { value ->
+        }.collectLatestRestarting({ tag, message, error -> fakeLogging.error(tag, message, error) }, "Listener") { value ->
             values += value
         }
 
@@ -35,7 +35,7 @@ class CollectLatestRestartingTest {
             if (attempts == 1) throw IllegalStateException("collector boom")
             emit("recovered")
         }.collectLatestRestarting(
-            loggingPort = fakeLogging,
+            onFailure = { tag, message, error -> fakeLogging.error(tag, message, error) },
             tag = "Listener",
             restartDelayMs = 1_000L,
         ) { value ->

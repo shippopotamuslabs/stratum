@@ -6,7 +6,7 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import com.stratum.domain.di.ApplicationScope
 import com.stratum.domain.logging.LoggingPort
-import com.stratum.domain.logging.collectLatestRestarting
+import com.stratum.domain.coroutines.collectLatestRestarting
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -69,7 +69,7 @@ class WorkoutNotificationCoordinator @Inject constructor(
         scope.launch {
             combine(restTimer.state, activeWorkout.active) { rest, session ->
                 rest to session
-            }.distinctUntilChanged().collectLatestRestarting(loggingPort, TAG) { (rest, session) ->
+            }.distinctUntilChanged().collectLatestRestarting({ t, m, e -> loggingPort.error(t, m, e) }, TAG) { (rest, session) ->
                 val running = rest is RestTimerState.Running
                 if (running && !previousRestWasRunning) {
                     // Fresh rest start after idle — allow the rest notification again and

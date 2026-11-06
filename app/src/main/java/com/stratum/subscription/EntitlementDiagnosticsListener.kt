@@ -4,7 +4,7 @@ import com.stratum.application.subscription.ObserveEntitlementDiagnosticsUseCase
 import com.stratum.application.subscription.SUBSCRIPTION_REPO_TAG
 import com.stratum.domain.di.ApplicationScope
 import com.stratum.domain.logging.LoggingPort
-import com.stratum.domain.logging.collectLatestRestarting
+import com.stratum.domain.coroutines.collectLatestRestarting
 import com.stratum.domain.subscription.EntitlementDiagnostic
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -28,7 +28,7 @@ class EntitlementDiagnosticsListener @Inject constructor(
     fun start() {
         if (job?.isActive == true) return
         job = scope.launch {
-            observeDiagnostics().collectLatestRestarting(loggingPort, SUBSCRIPTION_REPO_TAG) { diagnostic ->
+            observeDiagnostics().collectLatestRestarting({ t, m, e -> loggingPort.error(t, m, e) }, SUBSCRIPTION_REPO_TAG) { diagnostic ->
                 when (diagnostic) {
                     is EntitlementDiagnostic.PlaySyncFailed ->
                         loggingPort.error(SUBSCRIPTION_REPO_TAG, "Play entitlement sync failed", diagnostic.cause)
