@@ -12,8 +12,6 @@ import com.stratum.domain.importing.ImportFileInput
 import com.stratum.domain.importing.ImportHistoryPersistPolicy
 import com.stratum.application.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.Weight
-import com.stratum.domain.logging.LogAnalyticsEventUseCase
-import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.domain.telemetry.PARAM_ACTION
 import com.stratum.domain.telemetry.PARAM_SCREEN
 import com.stratum.domain.telemetry.USER_VISIBLE_ERROR_EVENT
@@ -47,8 +45,8 @@ class ImportLogsViewModel @Inject constructor(
     private val executeImport: ExecuteHistoricalImportUseCase,
     private val cancelImport: CancelHistoricalImportUseCase,
     private val authManager: AuthManager,
-    private val logError: LogErrorUseCase,
-    private val logAnalytics: LogAnalyticsEventUseCase,
+    private val diagnosticDrain: DiagnosticDrain,
+    private val logAnalytics: AnalyticsRecorder,
     observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ImportLogsUiState())
@@ -142,7 +140,7 @@ class ImportLogsViewModel @Inject constructor(
      * [logDetail] is for logs only — UI always gets [IMPORT_LOGS_READ_FILES_ERROR].
      */
     fun onReadFilesFailed(logDetail: String? = null) {
-        logError(
+        diagnosticDrain.recordError(
             IMPORT_LOGS_LOG_TAG,
             "Could not read import files: ${logDetail?.takeIf { it.isNotBlank() } ?: "(no detail)"}",
         )
@@ -251,7 +249,7 @@ class ImportLogsViewModel @Inject constructor(
                         is HistoricalImportOrchestrationEvent.Failed -> {
                             lastResume = event.resume
                             // Provider/server diagnostics (e.g. OpenRouter credits) stay in logs only.
-                            logError(
+                            diagnosticDrain.recordError(
                                 IMPORT_LOGS_LOG_TAG,
                                 "Historical import failed (kind=${event.kind}): ${event.message}",
                             )

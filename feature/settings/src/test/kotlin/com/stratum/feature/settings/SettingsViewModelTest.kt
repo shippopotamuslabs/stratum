@@ -17,7 +17,6 @@ import com.stratum.application.auth.DeleteAccountUseCase
 import com.stratum.application.auth.LogoutUseCase
 import com.stratum.domain.auth.UserProfile
 import com.stratum.domain.checkin.CheckInPreferences
-import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.application.checkin.MarkCheckInPendingUseCase
 import com.stratum.application.checkin.ObserveCheckInPreferencesUseCase
 import com.stratum.application.checkin.SetCheckInEnabledUseCase
@@ -155,7 +154,6 @@ class SettingsViewModelTest {
                     fakeHealthConnectPreferences,
                     fakeHealthConnectSync,
                 ),
-            logError = LogErrorUseCase(loggingPort),
             diagnosticDrain = DiagnosticDrain(loggingPort),
             clearHealthConnectSyncError =
                 ClearHealthConnectSyncErrorUseCase(fakeHealthConnectSyncStatus),

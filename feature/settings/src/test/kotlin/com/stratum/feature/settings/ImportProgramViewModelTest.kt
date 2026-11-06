@@ -4,8 +4,6 @@ import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.auth.FakeAuthManager
 import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.telemetry.FakeAnalyticsPort
-import com.stratum.domain.logging.LogAnalyticsEventUseCase
-import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.domain.telemetry.PARAM_ACTION
 import com.stratum.domain.telemetry.PARAM_SCREEN
 import com.stratum.domain.telemetry.USER_VISIBLE_ERROR_EVENT
@@ -96,8 +94,7 @@ class ImportProgramViewModelTest {
         val vm = ImportProgramViewModel(
             useCase,
             auth,
-            LogAnalyticsEventUseCase(FakeAnalyticsPort()),
-            LogErrorUseCase(FakeLoggingPort()),
+            AnalyticsRecorder(FakeAnalyticsPort()),
             DiagnosticDrain(FakeLoggingPort()),
         )
         vm.onFileSelected(byteArrayOf(1), "p.json")
@@ -115,8 +112,7 @@ class ImportProgramViewModelTest {
         val vm = ImportProgramViewModel(
             useCase,
             auth,
-            LogAnalyticsEventUseCase(FakeAnalyticsPort()),
-            LogErrorUseCase(FakeLoggingPort()),
+            AnalyticsRecorder(FakeAnalyticsPort()),
             DiagnosticDrain(FakeLoggingPort()),
         )
         vm.onFileSelected(byteArrayOf(1), "p.json")
@@ -136,8 +132,7 @@ class ImportProgramViewModelTest {
         val vm = ImportProgramViewModel(
             useCase,
             auth,
-            LogAnalyticsEventUseCase(FakeAnalyticsPort()),
-            LogErrorUseCase(FakeLoggingPort()),
+            AnalyticsRecorder(FakeAnalyticsPort()),
             DiagnosticDrain(FakeLoggingPort()),
         )
         vm.onFileSelected(byteArrayOf(1), "p.json")
@@ -158,8 +153,7 @@ class ImportProgramViewModelTest {
         val vm = ImportProgramViewModel(
             useCase,
             auth,
-            LogAnalyticsEventUseCase(analytics),
-            LogErrorUseCase(FakeLoggingPort()),
+            AnalyticsRecorder(analytics),
             DiagnosticDrain(FakeLoggingPort()),
         )
         vm.onReadFilesFailed("Could not open document")
@@ -198,8 +192,7 @@ class ImportProgramViewModelTest {
         val vm = ImportProgramViewModel(
             useCase,
             auth,
-            LogAnalyticsEventUseCase(analytics),
-            LogErrorUseCase(FakeLoggingPort()),
+            AnalyticsRecorder(analytics),
             DiagnosticDrain(drainLogging),
         )
         vm.onFileSelected(byteArrayOf(1), "p.json")
@@ -240,9 +233,8 @@ class ImportProgramViewModelTest {
             ImportProgramViewModel(
                 useCase,
                 auth,
-                LogAnalyticsEventUseCase(analytics),
-                LogErrorUseCase(logging),
-                DiagnosticDrain(FakeLoggingPort()),
+                AnalyticsRecorder(analytics),
+                DiagnosticDrain(logging),
             )
         vm.onFileSelected(byteArrayOf(1), "p.json")
         advanceUntilIdle()
@@ -273,9 +265,8 @@ class ImportProgramViewModelTest {
             ImportProgramViewModel(
                 useCase,
                 auth,
-                LogAnalyticsEventUseCase(analytics),
-                LogErrorUseCase(logging),
-                DiagnosticDrain(FakeLoggingPort()),
+                AnalyticsRecorder(analytics),
+                DiagnosticDrain(logging),
             )
         vm.onFileSelected(byteArrayOf(1), "p.json")
         advanceUntilIdle()

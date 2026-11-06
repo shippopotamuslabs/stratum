@@ -6,6 +6,7 @@ import com.stratum.application.auth.DeleteAccountResult
 import com.stratum.application.auth.DeleteAccountUseCase
 import com.stratum.application.auth.LogoutResult
 import com.stratum.application.auth.LogoutUseCase
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.application.sync.CloudSyncDiagnostic
 import com.stratum.application.checkin.CheckInPreferenceResult
 import com.stratum.application.checkin.MarkCheckInPendingUseCase
@@ -21,7 +22,6 @@ import com.stratum.application.healthconnect.ApplyGrantedPermissionsOutcome
 import com.stratum.application.healthconnect.HealthConnectPermissionsQueryResult
 import com.stratum.application.healthconnect.SetHealthConnectEnabledResult
 import com.stratum.application.healthconnect.SetHealthConnectEnabledUseCase
-import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.domain.subscription.EntitlementSource
 import com.stratum.domain.subscription.EntitlementState
 import com.stratum.application.subscription.ObserveEntitlementUseCase
@@ -79,7 +79,6 @@ class SettingsViewModel @Inject constructor(
     private val setRepRangeShiftProposalsEnabled: SetRepRangeShiftProposalsEnabledUseCase,
     private val setWeightDisplayUnit: SetWeightDisplayUnitUseCase,
     private val setHealthConnectEnabled: SetHealthConnectEnabledUseCase,
-    private val logError: LogErrorUseCase,
     private val diagnosticDrain: DiagnosticDrain,
     private val clearHealthConnectSyncError: ClearHealthConnectSyncErrorUseCase,
     private val markCheckInPending: MarkCheckInPendingUseCase,
@@ -465,7 +464,13 @@ class SettingsViewModel @Inject constructor(
         diagnostics.forEach { diagnostic ->
             when (diagnostic) {
                 is CloudSyncDiagnostic.OperationFailed ->
-                    logError(TAG_AUTH, message, diagnostic.cause)
+                    diagnosticDrain.drain(
+                        OperationalDiagnostic(
+                            tag = TAG_AUTH,
+                            message = message,
+                            cause = diagnostic.cause,
+                        ),
+                    )
             }
         }
     }
@@ -569,10 +574,12 @@ class SettingsViewModel @Inject constructor(
         for (diagnostic in diagnostics) {
             when (diagnostic) {
                 is ApplyGrantedPermissionsDiagnostic.PermissionQueryFailed ->
-                    logError(
-                        TAG,
-                        "Health Connect permission query failed — preference left unchanged.",
-                        diagnostic.cause,
+                    diagnosticDrain.drain(
+                        OperationalDiagnostic(
+                            tag = TAG,
+                            message = "Health Connect permission query failed — preference left unchanged.",
+                            cause = diagnostic.cause,
+                        ),
                     )
             }
         }
