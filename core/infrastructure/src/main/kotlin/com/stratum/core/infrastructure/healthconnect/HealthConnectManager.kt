@@ -7,7 +7,12 @@ import androidx.health.connect.client.records.ExerciseSegment
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.metadata.Device
 import androidx.health.connect.client.records.metadata.Metadata
+import com.stratum.application.healthconnect.HEALTH_SYNC_UNAVAILABLE_MESSAGE
+import com.stratum.application.healthconnect.HealthConnectGrantedPermissionsOutcome
+import com.stratum.application.healthconnect.HealthConnectPushOutcome
 import com.stratum.application.healthconnect.HealthConnectSyncPort
+import com.stratum.application.healthconnect.HealthSyncDiagnostic
+import com.stratum.application.healthconnect.HealthSyncFailureKind
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.TrainingSession
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -35,30 +40,48 @@ class HealthConnectManager @Inject constructor(
         return grantedPermissions.contains(writePermission)
     }
 
-    override suspend fun grantedPermissions(): Set<String> {
+    override suspend fun grantedPermissions(): HealthConnectGrantedPermissionsOutcome {
         if (!isAvailable()) {
-            throw HealthConnectUnavailableException().toHealthSyncFailure()
+            val cause = HealthConnectUnavailableException()
+            return HealthConnectGrantedPermissionsOutcome.Failed(
+                kind = HealthSyncFailureKind.Terminal,
+                message = HEALTH_SYNC_UNAVAILABLE_MESSAGE,
+                diagnostics = listOf(HealthSyncDiagnostic.OperationFailed(cause)),
+            )
         }
         return try {
-            HealthConnectClient.getOrCreate(context).permissionController.getGrantedPermissions()
+            HealthConnectGrantedPermissionsOutcome.Success(
+                HealthConnectClient.getOrCreate(context).permissionController.getGrantedPermissions(),
+            )
         } catch (e: CancellationException) {
             throw e
         } catch (error: Throwable) {
-            throw error.toHealthSyncFailure()
+            val classified = error.toClassifiedHealthSyncFailure()
+            HealthConnectGrantedPermissionsOutcome.Failed(
+                kind = classified.kind,
+                message = classified.message,
+                diagnostics = listOf(HealthSyncDiagnostic.OperationFailed(error)),
+            )
         }
     }
 
     override suspend fun pushSession(
         session: TrainingSession,
         sets: List<LoggedSet>,
-    ) {
+    ): HealthConnectPushOutcome {
         try {
             pushSessionOrThrow(session, sets)
         } catch (e: CancellationException) {
             throw e
         } catch (error: Throwable) {
-            throw error.toHealthSyncFailure()
+            val classified = error.toClassifiedHealthSyncFailure()
+            return HealthConnectPushOutcome.Failed(
+                kind = classified.kind,
+                message = classified.message,
+                diagnostics = listOf(HealthSyncDiagnostic.OperationFailed(error)),
+            )
         }
+        return HealthConnectPushOutcome.Success
     }
 
     private suspend fun pushSessionOrThrow(

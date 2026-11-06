@@ -1,8 +1,8 @@
 package com.stratum.core.infrastructure.healthconnect
 
-import com.stratum.application.healthconnect.HealthSyncFailure
+import com.stratum.application.healthconnect.HEALTH_SYNC_PERMISSION_DENIED_MESSAGE
+import com.stratum.application.healthconnect.HEALTH_SYNC_UNAVAILABLE_MESSAGE
 import com.stratum.application.healthconnect.HealthSyncFailureKind
-import kotlin.coroutines.cancellation.CancellationException
 
 /** Health Connect SDK is missing or not usable on this device — not worth retrying. */
 internal class HealthConnectUnavailableException : IllegalStateException()
@@ -11,17 +11,33 @@ internal class HealthConnectUnavailableException : IllegalStateException()
 internal class HealthConnectPermissionDeniedException : IllegalStateException()
 
 /**
- * Maps vendor SDK-state failures to the agnostic application-port classification
- * at the adapter boundary so vendor types never cross the port.
+ * A vendor SDK failure classified at the adapter boundary (STR-243
+ * remediation): the [kind] and user-safe [message] that ride the sync port's
+ * failure branch as values. The originating throwable itself rides only as
+ * the branch's diagnostic cause, constructed by the adapter.
  */
-internal fun Throwable.toHealthSyncFailure(): Throwable = when (this) {
-    is HealthConnectUnavailableException -> HealthSyncFailure.unavailable(cause = this)
-    is HealthConnectPermissionDeniedException -> HealthSyncFailure.permissionDenied(cause = this)
-    is HealthSyncFailure -> this
-    is CancellationException -> this
-    else -> HealthSyncFailure(
-        HealthSyncFailureKind.Transient,
-        this.message,
-        this,
-    )
-}
+internal data class ClassifiedHealthSyncFailure(
+    val kind: HealthSyncFailureKind,
+    val message: String?,
+)
+
+/**
+ * Maps vendor SDK-state failures to the agnostic application-port
+ * classification at the adapter boundary so vendor types never cross the
+ * port. Cancellation is never classified — callers propagate it first.
+ */
+internal fun Throwable.toClassifiedHealthSyncFailure(): ClassifiedHealthSyncFailure =
+    when (this) {
+        is HealthConnectUnavailableException -> ClassifiedHealthSyncFailure(
+            HealthSyncFailureKind.Terminal,
+            HEALTH_SYNC_UNAVAILABLE_MESSAGE,
+        )
+        is HealthConnectPermissionDeniedException -> ClassifiedHealthSyncFailure(
+            HealthSyncFailureKind.UserActionable,
+            HEALTH_SYNC_PERMISSION_DENIED_MESSAGE,
+        )
+        else -> ClassifiedHealthSyncFailure(
+            HealthSyncFailureKind.Transient,
+            message,
+        )
+    }

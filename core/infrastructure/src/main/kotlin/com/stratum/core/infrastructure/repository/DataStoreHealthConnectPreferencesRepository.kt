@@ -6,6 +6,9 @@ import com.stratum.core.infrastructure.healthconnect.healthConnectPreferencesDat
 import com.stratum.domain.healthconnect.HealthConnectPreferences
 import com.stratum.domain.healthconnect.HealthFailureKind
 import com.stratum.application.healthconnect.HealthConnectPreferencesPort
+import com.stratum.application.healthconnect.HealthConnectWriteOutcome
+import com.stratum.application.healthconnect.HealthSyncDiagnostic
+import kotlin.coroutines.cancellation.CancellationException
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -24,17 +27,26 @@ class DataStoreHealthConnectPreferencesRepository @Inject constructor(
     override suspend fun getPreferences(): HealthConnectPreferences =
         context.healthConnectPreferencesDataStore.data.first().toDomain()
 
-    override suspend fun setEnabled(enabled: Boolean) {
+    override suspend fun setEnabled(enabled: Boolean): HealthConnectWriteOutcome =
         writePreferences { current -> current.copy(enabled = enabled) }
-    }
 
-    override suspend fun setPendingSyncError(kind: HealthFailureKind?) {
+    override suspend fun setPendingSyncError(
+        kind: HealthFailureKind?,
+    ): HealthConnectWriteOutcome =
         writePreferences { current -> current.copy(pendingSyncErrorKind = kind?.name) }
-    }
 
     private suspend fun writePreferences(
         transform: suspend (HealthConnectPreferencesRecord) -> HealthConnectPreferencesRecord,
-    ) {
-        context.healthConnectPreferencesDataStore.updateData(transform)
+    ): HealthConnectWriteOutcome {
+        try {
+            context.healthConnectPreferencesDataStore.updateData(transform)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            return HealthConnectWriteOutcome.Failed(
+                listOf(HealthSyncDiagnostic.OperationFailed(error)),
+            )
+        }
+        return HealthConnectWriteOutcome.Success
     }
 }

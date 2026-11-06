@@ -66,6 +66,7 @@ stratum:
       - 'RepRangeShiftDiagnostic'
       - 'LiftHistoryDiagnostic'
       - 'CloudSyncDiagnostic'
+      - 'HealthSyncDiagnostic'
 
 potential-bugs:
   active: true
