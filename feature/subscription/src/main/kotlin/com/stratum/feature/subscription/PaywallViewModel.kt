@@ -15,7 +15,6 @@ import com.stratum.application.subscription.RestorePurchasesResult
 import com.stratum.application.subscription.RestorePurchasesUseCase
 import com.stratum.domain.subscription.SubscriptionCatalog
 import com.stratum.domain.subscription.SubscriptionProduct
-import com.stratum.domain.logging.LogAnalyticsEventUseCase
 import com.stratum.domain.telemetry.PARAM_ACTION
 import com.stratum.domain.telemetry.PARAM_SCREEN
 import com.stratum.domain.telemetry.USER_VISIBLE_ERROR_EVENT
@@ -51,7 +50,7 @@ class PaywallViewModel @Inject constructor(
     private val getSubscriptionProducts: GetSubscriptionProductsUseCase,
     private val purchaseSubscription: PurchaseSubscriptionUseCase,
     private val restorePurchases: RestorePurchasesUseCase,
-    private val logAnalytics: LogAnalyticsEventUseCase,
+    private val logAnalytics: AnalyticsRecorder,
     private val diagnosticDrain: DiagnosticDrain,
     observeEntitlement: ObserveEntitlementUseCase,
     observeBillingPurchaseResults: ObserveBillingPurchaseResultsUseCase,
