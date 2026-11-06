@@ -56,12 +56,7 @@ class HealthConnectManager @Inject constructor(
         } catch (e: CancellationException) {
             throw e
         } catch (error: Throwable) {
-            val classified = error.toClassifiedHealthSyncFailure()
-            HealthConnectGrantedPermissionsOutcome.Failed(
-                kind = classified.kind,
-                message = classified.message,
-                diagnostics = listOf(HealthSyncDiagnostic.OperationFailed(error)),
-            )
+            classifiedGrantedPermissionsFailure(error)
         }
     }
 
@@ -74,12 +69,7 @@ class HealthConnectManager @Inject constructor(
         } catch (e: CancellationException) {
             throw e
         } catch (error: Throwable) {
-            val classified = error.toClassifiedHealthSyncFailure()
-            return HealthConnectPushOutcome.Failed(
-                kind = classified.kind,
-                message = classified.message,
-                diagnostics = listOf(HealthSyncDiagnostic.OperationFailed(error)),
-            )
+            return classifiedPushFailure(error)
         }
         return HealthConnectPushOutcome.Success
     }
@@ -198,4 +188,31 @@ class HealthConnectManager @Inject constructor(
             return builder.toString().trimEnd()
         }
     }
+}
+
+/**
+ * Builds the push Failed branch for a caught vendor failure (B4 seam): the
+ * classified kind/message ride the branch, and the diagnostic cause is the
+ * identical vendor [error] — never a copy or a synthesized substitute.
+ * Internal so unit tests can pin that cause identity without the SDK.
+ */
+internal fun classifiedPushFailure(error: Throwable): HealthConnectPushOutcome.Failed {
+    val classified = error.toClassifiedHealthSyncFailure()
+    return HealthConnectPushOutcome.Failed(
+        kind = classified.kind,
+        message = classified.message,
+        diagnostics = listOf(HealthSyncDiagnostic.OperationFailed(error)),
+    )
+}
+
+/** Granted-permissions twin of [classifiedPushFailure] — same cause-identity invariant. */
+internal fun classifiedGrantedPermissionsFailure(
+    error: Throwable,
+): HealthConnectGrantedPermissionsOutcome.Failed {
+    val classified = error.toClassifiedHealthSyncFailure()
+    return HealthConnectGrantedPermissionsOutcome.Failed(
+        kind = classified.kind,
+        message = classified.message,
+        diagnostics = listOf(HealthSyncDiagnostic.OperationFailed(error)),
+    )
 }
