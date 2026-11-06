@@ -205,10 +205,9 @@ class ImportExportOnboardingRegressionTest {
                 ),
             completeOnboarding = completeOnboarding,
             importProgramTemplate = importUseCase,
-            logError = com.stratum.domain.logging.LogErrorUseCase(FakeLoggingPort()),
             diagnosticDrain = DiagnosticDrain(FakeLoggingPort()),
             logAnalytics =
-                com.stratum.domain.logging.LogAnalyticsEventUseCase(
+                AnalyticsRecorder(
                     com.stratum.core.testing.telemetry.FakeAnalyticsPort(),
                 ),
             observeWeightDisplayPreferences =

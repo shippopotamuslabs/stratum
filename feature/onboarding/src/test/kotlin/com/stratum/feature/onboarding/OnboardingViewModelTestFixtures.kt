@@ -219,10 +219,9 @@ internal object OnboardingViewModelTestFixtures {
                 profileRepository = fakeProfileRepository,
                 programChangeEventRepository = com.stratum.core.testing.training.NoOpProgramChangeEventRepository(),
             ),
-            logError = com.stratum.domain.logging.LogErrorUseCase(FakeLoggingPort()),
             diagnosticDrain = DiagnosticDrain(FakeLoggingPort()),
             logAnalytics =
-                com.stratum.domain.logging.LogAnalyticsEventUseCase(
+                AnalyticsRecorder(
                     com.stratum.core.testing.telemetry.FakeAnalyticsPort(),
                 ),
             observeWeightDisplayPreferences =

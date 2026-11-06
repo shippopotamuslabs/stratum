@@ -20,8 +20,6 @@ import com.stratum.application.lift.SetSelectedPresetUseCase
 import com.stratum.application.lift.SetWeightDisplayUnitUseCase
 import com.stratum.application.lift.WeightDisplayPreferenceResult
 import com.stratum.domain.lift.Weight
-import com.stratum.domain.logging.LogAnalyticsEventUseCase
-import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.domain.telemetry.PARAM_ACTION
 import com.stratum.domain.telemetry.PARAM_SCREEN
 import com.stratum.domain.telemetry.USER_VISIBLE_ERROR_EVENT
@@ -90,8 +88,7 @@ class OnboardingViewModel @Inject constructor(
     private val activateProgram: ActivateProgramUseCase,
     private val completeOnboarding: CompleteOnboardingUseCase,
     private val importProgramTemplate: ImportProgramTemplateUseCase,
-    private val logError: LogErrorUseCase,
-    private val logAnalytics: LogAnalyticsEventUseCase,
+    private val logAnalytics: AnalyticsRecorder,
     private val diagnosticDrain: DiagnosticDrain,
     observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
     private val setWeightDisplayUnit: SetWeightDisplayUnitUseCase,
@@ -923,7 +920,7 @@ class OnboardingViewModel @Inject constructor(
         userFacingMessage: String? = null,
         logDetail: String? = null,
     ) {
-        logError(
+        diagnosticDrain.recordError(
             OnboardingProgramFlowOps.TAG_IMPORT,
             OnboardingProgramFlowOps.fileReadFailureLogMessage(logDetail ?: userFacingMessage),
         )
@@ -952,7 +949,7 @@ class OnboardingViewModel @Inject constructor(
             diagnosticDrain.drain(outcome.diagnostics)
         }
         OnboardingProgramFlowOps.importFailureLogThrowable(outcome)?.let { record ->
-            logError(
+            diagnosticDrain.recordError(
                 OnboardingProgramFlowOps.TAG_IMPORT,
                 OnboardingProgramFlowOps.importFailureLogMessage(outcome),
                 record,
@@ -978,7 +975,7 @@ class OnboardingViewModel @Inject constructor(
     }
 
     private fun logGenerateFailure(error: Throwable) {
-        logError(OnboardingProgramFlowOps.TAG, OnboardingProgramFlowOps.MSG_GENERATE_FAILED, error)
+        diagnosticDrain.recordError(OnboardingProgramFlowOps.TAG, OnboardingProgramFlowOps.MSG_GENERATE_FAILED, error)
         logAnalytics(
             USER_VISIBLE_ERROR_EVENT,
             mapOf(PARAM_SCREEN to "onboarding", PARAM_ACTION to "generate_program"),
@@ -997,13 +994,13 @@ class OnboardingViewModel @Inject constructor(
     private fun logGenerateFailure(result: GenerateProgramResult) {
         when (result) {
             is GenerateProgramResult.SynthesisFailed ->
-                logError(
+                diagnosticDrain.recordError(
                     OnboardingProgramFlowOps.TAG,
                     OnboardingProgramFlowOps.MSG_GENERATE_FAILED,
                     ProgramSynthesisException(result.message),
                 )
             is GenerateProgramResult.SynthesisRefused ->
-                logError(
+                diagnosticDrain.recordError(
                     OnboardingProgramFlowOps.TAG,
                     OnboardingProgramFlowOps.MSG_GENERATE_FAILED,
                     ProgramSynthesisException(
@@ -1014,7 +1011,7 @@ class OnboardingViewModel @Inject constructor(
                     ),
                 )
             is GenerateProgramResult.ValidationRejected ->
-                logError(
+                diagnosticDrain.recordError(
                     OnboardingProgramFlowOps.TAG,
                     OnboardingProgramFlowOps.MSG_GENERATE_FAILED,
                     ProgramGenerationValidationException(result.report),
@@ -1025,7 +1022,7 @@ class OnboardingViewModel @Inject constructor(
                 // the recorder path (this branch previously kept only the
                 // analytics event below — the gap Special 1 closes).
                 result.diagnostics.forEach { diagnostic ->
-                    logError(
+                    diagnosticDrain.recordError(
                         OnboardingProgramFlowOps.TAG,
                         OnboardingProgramFlowOps.MSG_GENERATE_FAILED,
                         diagnostic.cause,
@@ -1049,13 +1046,13 @@ class OnboardingViewModel @Inject constructor(
     private fun logActivateFailure(result: ActivateProgramResult) {
         when (result) {
             ActivateProgramResult.NoWorkouts ->
-                logError(
+                diagnosticDrain.recordError(
                     OnboardingProgramFlowOps.TAG,
                     OnboardingProgramFlowOps.MSG_GENERATE_FAILED,
                     IllegalArgumentException("Program must have at least one workout"),
                 )
             ActivateProgramResult.NoExercises ->
-                logError(
+                diagnosticDrain.recordError(
                     OnboardingProgramFlowOps.TAG,
                     OnboardingProgramFlowOps.MSG_GENERATE_FAILED,
                     IllegalArgumentException("Program must have at least one exercise"),

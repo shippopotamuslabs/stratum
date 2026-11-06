@@ -279,10 +279,9 @@ class OnboardingGenerateViewModelTest {
                 profileRepository = profileRepo,
                 programChangeEventRepository = com.stratum.core.testing.training.NoOpProgramChangeEventRepository(),
             ),
-            logError = com.stratum.domain.logging.LogErrorUseCase(FakeLoggingPort()),
             diagnosticDrain = DiagnosticDrain(FakeLoggingPort()),
             logAnalytics =
-                com.stratum.domain.logging.LogAnalyticsEventUseCase(
+                AnalyticsRecorder(
                     analytics,
                 ),
             observeWeightDisplayPreferences =

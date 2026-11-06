@@ -307,10 +307,9 @@ class OnboardingImportProgramViewModelTest {
             ),
             completeOnboarding = completeOnboarding,
             importProgramTemplate = importUseCase,
-            logError = com.stratum.domain.logging.LogErrorUseCase(FakeLoggingPort()),
             diagnosticDrain = DiagnosticDrain(FakeLoggingPort()),
             logAnalytics =
-                com.stratum.domain.logging.LogAnalyticsEventUseCase(
+                AnalyticsRecorder(
                     analytics,
                 ),
             observeWeightDisplayPreferences =
