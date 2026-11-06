@@ -71,7 +71,7 @@ class TelemetryAuthListenerTest {
             listener.start()
             assertEquals("user-abc", fakeTelemetry.currentUserId)
 
-            authManager.setState(AuthState.Error("Auth failed"))
+            authManager.setState(AuthState.Error(com.stratum.domain.auth.SignInFailureKind.Other, "Auth failed"))
 
             assertNull(fakeTelemetry.currentUserId)
             scope.cancel()

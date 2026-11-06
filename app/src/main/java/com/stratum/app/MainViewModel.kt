@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.app.theme.toUi
 import com.stratum.core.ui.auth.loginFailureToGoogleSignInMessage
-import com.stratum.core.ui.auth.toGoogleSignInMessage
 import com.stratum.core.ui.theme.ThemePreferences
 import com.stratum.domain.auth.AuthState
 import com.stratum.application.auth.GetAuthStateUseCase
@@ -162,7 +161,7 @@ class MainViewModel @Inject constructor(
             AuthState.Loading -> ShellUiState.CheckingAuth
             AuthState.Unauthenticated -> ShellUiState.SignedOut
             is AuthState.Error ->
-                ShellUiState.SignInError(RuntimeException(auth.message).toGoogleSignInMessage())
+                ShellUiState.SignInError(loginFailureToGoogleSignInMessage(auth.kind, auth.message))
             is AuthState.Authenticated -> {
                 if (hasEntered) {
                     ShellUiState.Ready

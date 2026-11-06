@@ -9,6 +9,8 @@ import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.stratum.application.auth.AuthManager
+import com.stratum.application.auth.LoginWithGoogleResult
+import com.stratum.application.auth.SignOutOutcome
 import com.stratum.domain.auth.AuthState
 import com.stratum.domain.auth.UserProfile
 import com.stratum.domain.di.ApplicationScope
@@ -55,14 +57,19 @@ class FirebaseGoogleAuthManager @Inject constructor(
         }
     }
 
-    override suspend fun signInWithGoogle(): UserProfile {
+    override suspend fun signInWithGoogle(): LoginWithGoogleResult {
         try {
-            return signInWithGoogleOrThrow()
+            return LoginWithGoogleResult.Success(signInWithGoogleOrThrow())
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Throwable) {
             loggingPort.error(TAG, "Google sign-in failed: ${error.message}", error)
-            throw error.toGoogleSignInException()
+            val kind = error.signInFailureKind()
+            val message = error.message
+            // Populate the auth-state boundary with the same single-source
+            // classification the outcome branch carries (E2).
+            _authState.value = AuthState.Error(kind, message ?: "")
+            return LoginWithGoogleResult.Failed(kind, message)
         }
     }
 
@@ -100,7 +107,7 @@ class FirebaseGoogleAuthManager @Inject constructor(
         )
     }
 
-    override suspend fun signOut() {
+    override suspend fun signOut(): SignOutOutcome {
         try {
             firebaseAuth.signOut()
             credentialManager.clearCredentialState(ClearCredentialStateRequest())
@@ -108,8 +115,9 @@ class FirebaseGoogleAuthManager @Inject constructor(
             throw cancelled
         } catch (error: Throwable) {
             loggingPort.error(TAG, "Google sign-out failed: ${error.message}", error)
-            throw error
+            return SignOutOutcome.Failed
         }
+        return SignOutOutcome.Success
     }
 
     private companion object {

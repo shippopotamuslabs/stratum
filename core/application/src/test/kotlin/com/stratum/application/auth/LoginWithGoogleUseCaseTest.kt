@@ -2,6 +2,7 @@ package com.stratum.application.auth
 
 import com.stratum.core.testing.auth.FakeAuthManager
 import com.stratum.domain.auth.AuthState
+import com.stratum.domain.auth.SignInFailureKind
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -25,8 +26,8 @@ class LoginWithGoogleUseCaseTest {
     @Test
     fun `classified sign in failure returns failed branch with kind and message`() = runTest {
         val fake = FakeAuthManager().apply {
-            signInFailure =
-                GoogleSignInException(SignInFailureKind.Network, "network unreachable")
+            signInFailureKind = SignInFailureKind.Network
+            signInFailureMessage = "network unreachable"
         }
         val subject = LoginWithGoogleUseCase(fake)
         val result = subject()

@@ -5,25 +5,17 @@ import androidx.credentials.exceptions.GetCredentialInterruptedException
 import androidx.credentials.exceptions.GetCredentialProviderConfigurationException
 import androidx.credentials.exceptions.GetCredentialUnsupportedException
 import androidx.credentials.exceptions.NoCredentialException
-import com.stratum.application.auth.GoogleSignInException
-import com.stratum.application.auth.SignInFailureKind
+import com.stratum.domain.auth.SignInFailureKind
 import java.io.IOException
 
 /**
- * Maps a vendor sign-in failure to the application-owned classification at
- * the adapter boundary (STR-243): typed Credential Manager / IO failures are
- * discriminated over the whole cause chain, mirroring the typed branch of
- * the presentation mapper in `:core:ui`; anything else is
- * [SignInFailureKind.Other] and presentation applies its message heuristics.
- * The originating throwable is preserved as the exception's cause.
+ * The single classification source for Google sign-in failures (STR-243, E2
+ * ruling): maps a vendor sign-in failure to the domain-owned
+ * [SignInFailureKind] at the adapter boundary. Typed Credential Manager / IO
+ * failures are discriminated over the whole cause chain; anything else is
+ * [SignInFailureKind.Other] and presentation applies its message heuristics
+ * to the carried message.
  */
-internal fun Throwable.toGoogleSignInException(): GoogleSignInException =
-    GoogleSignInException(
-        kind = signInFailureKind(),
-        message = message,
-        cause = this,
-    )
-
 internal fun Throwable.signInFailureKind(): SignInFailureKind {
     val chain = generateSequence(this) { it.cause }.toList()
     for (error in chain) {

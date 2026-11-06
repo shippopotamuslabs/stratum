@@ -40,7 +40,7 @@ class EntitlementStateTest {
         )
         assertEquals(
             expected,
-            EntitlementState.resolve(AuthState.Error("nope"), complimentary = ComplimentaryAccess.Granted, purchases = listOf(playPurchase)),
+            EntitlementState.resolve(AuthState.Error(com.stratum.domain.auth.SignInFailureKind.Other, "nope"), complimentary = ComplimentaryAccess.Granted, purchases = listOf(playPurchase)),
         )
     }
 
