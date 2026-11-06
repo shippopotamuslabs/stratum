@@ -203,6 +203,7 @@ class ImportExportOnboardingRegressionTest {
                 ActivateProgramUseCase(
                     programRepository = programRepo,
                     programChangeEventRepository = NoOpProgramChangeEventRepository(),
+                    loggingPort = FakeLoggingPort(),
                 ),
             completeOnboarding = completeOnboarding,
             importProgramTemplate = importUseCase,

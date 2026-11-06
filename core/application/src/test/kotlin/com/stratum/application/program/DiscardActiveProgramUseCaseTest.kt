@@ -5,6 +5,7 @@ import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
@@ -22,7 +23,7 @@ class DiscardActiveProgramUseCaseTest {
 
         val result = subject()
 
-        assertTrue(result.isSuccess)
+        assertEquals(DiscardActiveProgramResult.Success, result)
         assertNull(programRepo.getProgram())
         assertNull(programRepo.getProgramById(program.id))
     }
@@ -37,7 +38,7 @@ class DiscardActiveProgramUseCaseTest {
 
         val result = subject()
 
-        assertTrue(result.isSuccess)
+        assertEquals(DiscardActiveProgramResult.Success, result)
     }
 
     @Test
@@ -53,6 +54,6 @@ class DiscardActiveProgramUseCaseTest {
 
         val result = subject()
 
-        assertTrue(result.isFailure)
+        assertEquals(DiscardActiveProgramResult.SessionInProgress(program.id), result)
     }
 }

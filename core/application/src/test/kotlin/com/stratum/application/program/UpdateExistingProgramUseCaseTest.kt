@@ -37,7 +37,7 @@ class UpdateExistingProgramUseCaseTest {
             )
         val result = useCase(renamed)
 
-        assertTrue(result.isSuccess, result.exceptionOrNull()?.message)
+        assertEquals(UpdateExistingProgramResult.Success, result)
         assertEquals(
             "Renamed A",
             programRepo.getProgram()?.workouts
@@ -55,8 +55,7 @@ class UpdateExistingProgramUseCaseTest {
 
         val result = useCase(program)
 
-        assertTrue(result.isFailure)
-        assertTrue(result.exceptionOrNull() is IllegalArgumentException)
+        assertEquals(UpdateExistingProgramResult.NoWorkouts, result)
         assertEquals(0, logging.errors.size)
         assertEquals(1, logging.warnings.size)
     }
@@ -71,8 +70,7 @@ class UpdateExistingProgramUseCaseTest {
 
         val result = useCase(program)
 
-        assertTrue(result.isFailure)
-        assertTrue(result.exceptionOrNull() is IllegalArgumentException)
+        assertEquals(UpdateExistingProgramResult.NoExercises, result)
         assertEquals(0, logging.errors.size)
         assertEquals(1, logging.warnings.size)
     }

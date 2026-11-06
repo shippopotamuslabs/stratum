@@ -4,7 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.domain.lift.Lift
 import com.stratum.application.lift.ObserveLiftCatalogUseCase
+import com.stratum.application.program.ActivateStoredProgramResult
 import com.stratum.application.program.ActivateStoredProgramUseCase
+import com.stratum.application.program.DeleteProgramResult
 import com.stratum.application.program.DeleteProgramUseCase
 import com.stratum.application.program.ObserveLibraryProgramsUseCase
 import com.stratum.application.program.ObserveProgramUseCase
@@ -125,15 +127,26 @@ class ProgramLibraryViewModel @Inject constructor(
         if (isDeleting.value) return
         isDeleting.value = true
         viewModelScope.launch {
-            deleteProgram(ProgramId(id))
-                .onSuccess {
+            when (val result = deleteProgram(ProgramId(id))) {
+                DeleteProgramResult.Success -> {
                     pendingDeleteProgramId.value = null
                     expandedProgramIds.update { it - id }
                 }
-                .onFailure { error ->
-                    userMessage.value = error.message ?: "Couldn't delete program. Try again."
+                is DeleteProgramResult.ImportHistoryProgram -> {
+                    userMessage.value = "Import-history program cannot be deleted"
                     pendingDeleteProgramId.value = null
                 }
+                is DeleteProgramResult.SessionInProgress -> {
+                    userMessage.value =
+                        "Cannot delete this program while a workout is in progress. " +
+                            "Finish or abandon the session first."
+                    pendingDeleteProgramId.value = null
+                }
+                DeleteProgramResult.PersistenceFailed -> {
+                    userMessage.value = "Couldn't delete program. Try again."
+                    pendingDeleteProgramId.value = null
+                }
+            }
             isDeleting.value = false
         }
     }
@@ -179,10 +192,19 @@ class ProgramLibraryViewModel @Inject constructor(
     }
 
     private suspend fun performActivate(programId: String) {
-        activateStoredProgram(ProgramId(programId))
-            .onFailure { error ->
-                userMessage.value = error.message ?: "Couldn't activate program. Try again."
-            }
+        when (val result = activateStoredProgram(ProgramId(programId))) {
+            ActivateStoredProgramResult.Success -> Unit
+            is ActivateStoredProgramResult.ImportHistoryProgram ->
+                userMessage.value = "Import-history program cannot be activated"
+            is ActivateStoredProgramResult.ProgramNotFound ->
+                userMessage.value = "Cannot activate unknown program: ${result.programId.value}"
+            ActivateStoredProgramResult.NoWorkouts ->
+                userMessage.value = "Program must have at least one workout"
+            ActivateStoredProgramResult.NoExercises ->
+                userMessage.value = "Program must have at least one exercise"
+            ActivateStoredProgramResult.PersistenceFailed ->
+                userMessage.value = "Couldn't activate program. Try again."
+        }
     }
 
     fun onUserMessageShown() {

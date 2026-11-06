@@ -1,17 +1,35 @@
 package com.stratum.application.program
 
 import com.stratum.domain.logging.LoggingPort
-import com.stratum.domain.logging.runCatchingLogged
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.training.CycleProgressResolver
 import com.stratum.application.training.TrainingLogRepository
 import com.stratum.domain.training.TrainingSession
 import javax.inject.Inject
+import kotlin.coroutines.cancellation.CancellationException
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.ReorderDayItem
 import com.stratum.domain.program.reorderCycleDays
 import com.stratum.domain.program.slotIndexRemapAfterReorder
 import com.stratum.domain.program.toReorderDayItems
+
+/**
+ * Outcome of [ReorderProgramCycleDaysUseCase] (STR-243).
+ *
+ * [ProgramNotFound] is an expected caller outcome and is not logged; an
+ * operational load/save failure is logged once via [LoggingPort.error] at the
+ * use-case boundary and surfaces as [PersistenceFailed]. Coroutine
+ * cancellation is not a branch: it propagates.
+ */
+sealed interface ReorderProgramCycleDaysResult {
+    data object Success : ReorderProgramCycleDaysResult
+
+    /** No program exists for the requested id. */
+    data class ProgramNotFound(val programId: ProgramId) : ReorderProgramCycleDaysResult
+
+    /** The reorder failed (repository / store I/O). */
+    data object PersistenceFailed : ReorderProgramCycleDaysResult
+}
 
 /**
  * Persists a reordered cycle-day list (train + rest slots) for an existing program.
@@ -28,14 +46,21 @@ class ReorderProgramCycleDaysUseCase @Inject constructor(
     suspend operator fun invoke(
         programId: ProgramId,
         orderedDayIds: List<String>,
-    ): Result<Unit> {
+    ): ReorderProgramCycleDaysResult {
         val program =
-            programRepository.getProgramById(programId)
-                ?: return Result.failure(IllegalArgumentException("Program not found: ${programId.value}"))
+            try {
+                programRepository.getProgramById(programId)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Throwable) {
+                loggingPort.error(TAG, "Failed to reorder program cycle days: ${error.message}", error)
+                return ReorderProgramCycleDaysResult.PersistenceFailed
+            }
+                ?: return ReorderProgramCycleDaysResult.ProgramNotFound(programId)
         val reordered = program.reorderCycleDays(orderedDayIds)
-        if (reordered == program) return Result.success(Unit)
+        if (reordered == program) return ReorderProgramCycleDaysResult.Success
 
-        return runCatchingLogged(loggingPort, TAG, "Failed to reorder program cycle days") {
+        return try {
             val slotRemap = program.slotIndexRemapAfterReorder(orderedDayIds)
             val sessions = trainingLogRepository.getAllSessions()
             val remappedSessions =
@@ -61,6 +86,12 @@ class ReorderProgramCycleDaysUseCase @Inject constructor(
                         ),
                 )
             programRepository.saveProgram(reconciled)
+            ReorderProgramCycleDaysResult.Success
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            loggingPort.error(TAG, "Failed to reorder program cycle days: ${error.message}", error)
+            ReorderProgramCycleDaysResult.PersistenceFailed
         }
     }
 

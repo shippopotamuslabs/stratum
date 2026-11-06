@@ -13,6 +13,7 @@ import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.storageWeightFromDisplay
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.ProgressionScheme
+import com.stratum.application.program.SaveWorkoutResult
 import com.stratum.application.program.SaveWorkoutUseCase
 import com.stratum.domain.program.Workout
 import com.stratum.domain.program.WorkoutLift
@@ -88,7 +89,7 @@ internal suspend fun LiveWorkoutSessionRuntime.handleCompleteWorkout(cmd: Sessio
         if (templateToSave != null) {
             val updated = applyOverlayToWorkout(templateToSave, overlay, tombstonedEquipmentIds, tombstonedLiftIds)
             val saveResult = saveWorkoutUseCase(workoutId, updated)
-            if (saveResult.isFailure) {
+            if (saveResult != SaveWorkoutResult.Success) {
                 effects.publishUserMessage(LiveWorkoutSessionRuntime.MSG_COMPLETE_FAILED)
                 return
             }

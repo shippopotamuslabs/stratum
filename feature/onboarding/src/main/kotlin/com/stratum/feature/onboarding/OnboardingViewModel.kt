@@ -44,6 +44,7 @@ import com.stratum.core.ui.trainingsetup.withTrainingDayCount
 import com.stratum.domain.onboarding.AdditiveSetEdit
 import com.stratum.application.onboarding.ValidateMinimumVolumeStepUseCase
 import com.stratum.domain.onboarding.toggleInAdditiveSetEdit
+import com.stratum.application.program.ActivateProgramResult
 import com.stratum.application.program.ActivateProgramUseCase
 import com.stratum.application.program.GenerateProgramUseCase
 import com.stratum.domain.program.ProgramGenerationProgress
@@ -806,8 +807,9 @@ class OnboardingViewModel @Inject constructor(
                             ProgramGenerationProgress(ProgramGenerationProgressPhase.SavingProgram),
                         )
                     }
-                    activateProgram(program).onFailure { error ->
-                        logGenerateFailure(error)
+                    val activateResult = activateProgram(program)
+                    if (activateResult != ActivateProgramResult.Success) {
+                        logActivateFailure(activateResult)
                         ephemeral.update(OnboardingProgramFlowOps::generateFailed)
                         return@launch
                     }
@@ -934,6 +936,37 @@ class OnboardingViewModel @Inject constructor(
 
     private fun logGenerateFailure(error: Throwable) {
         logError(OnboardingProgramFlowOps.TAG, OnboardingProgramFlowOps.MSG_GENERATE_FAILED, error)
+        logAnalytics(
+            USER_VISIBLE_ERROR_EVENT,
+            mapOf(PARAM_SCREEN to "onboarding", PARAM_ACTION to "generate_program"),
+        )
+    }
+
+    /**
+     * Records an activation failure after a successful generation (STR-243).
+     * A persistence failure was already logged once at the use-case boundary,
+     * so only the analytics event fires for it; the validation branches are
+     * recorded here with a constructed exception value for the log record
+     * only — the branch itself carries the typed facts.
+     */
+    private fun logActivateFailure(result: ActivateProgramResult) {
+        when (result) {
+            ActivateProgramResult.NoWorkouts ->
+                logError(
+                    OnboardingProgramFlowOps.TAG,
+                    OnboardingProgramFlowOps.MSG_GENERATE_FAILED,
+                    IllegalArgumentException("Program must have at least one workout"),
+                )
+            ActivateProgramResult.NoExercises ->
+                logError(
+                    OnboardingProgramFlowOps.TAG,
+                    OnboardingProgramFlowOps.MSG_GENERATE_FAILED,
+                    IllegalArgumentException("Program must have at least one exercise"),
+                )
+            ActivateProgramResult.Success,
+            ActivateProgramResult.PersistenceFailed,
+            -> Unit
+        }
         logAnalytics(
             USER_VISIBLE_ERROR_EVENT,
             mapOf(PARAM_SCREEN to "onboarding", PARAM_ACTION to "generate_program"),

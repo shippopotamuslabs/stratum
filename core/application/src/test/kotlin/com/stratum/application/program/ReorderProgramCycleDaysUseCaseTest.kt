@@ -54,7 +54,7 @@ class ReorderProgramCycleDaysUseCaseTest {
             )
 
         val result = useCase(ProgramId("prog-1"), ordered)
-        assertTrue(result.isSuccess)
+        assertEquals(ReorderProgramCycleDaysResult.Success, result)
 
         val rest = trainingRepo.getSession(TrainingSessionId("rest-1"))!!
         assertEquals(0, rest.cycleSlotIndexSnapshot)
@@ -93,7 +93,7 @@ class ReorderProgramCycleDaysUseCaseTest {
                 items[3].dayId,
             )
 
-        assertTrue(useCase(ProgramId("prog-1"), ordered).isSuccess)
+        assertEquals(ReorderProgramCycleDaysResult.Success, useCase(ProgramId("prog-1"), ordered))
         assertEquals(1, trainingRepo.getSession(TrainingSessionId("old-rest"))!!.cycleSlotIndexSnapshot)
     }
 
@@ -106,7 +106,7 @@ class ReorderProgramCycleDaysUseCaseTest {
                 trainingLogRepository = FakeTrainingLogRepository(),
                 loggingPort = FakeLoggingPort(),
             )
-        assertTrue(useCase(ProgramId("missing"), listOf("a")).isFailure)
+        assertEquals(ReorderProgramCycleDaysResult.ProgramNotFound(ProgramId("missing")), useCase(ProgramId("missing"), listOf("a")))
     }
 
     private fun sampleProgram(): Program =
