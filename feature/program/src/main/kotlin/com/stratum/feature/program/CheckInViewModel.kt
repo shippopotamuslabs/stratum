@@ -2,6 +2,7 @@ package com.stratum.feature.program
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.stratum.application.checkin.ApplyCheckInRecommendationsResult
 import com.stratum.application.checkin.ApplyCheckInRecommendationsUseCase
 import com.stratum.application.checkin.CheckInPreferenceResult
 import com.stratum.domain.checkin.CheckInSubjectiveFeedback
@@ -295,20 +296,28 @@ class CheckInViewModel @Inject constructor(
             _uiState.update { it.copy(isApplying = true, errorMessage = null) }
             val commands =
                 _uiState.value.recommendations.mapNotNull { it.toApplyCommand() }
-            applyRecommendations(commands)
-                .onSuccess {
+            when (val result = applyRecommendations(commands)) {
+                ApplyCheckInRecommendationsResult.Success -> {
                     applyInFlight.set(false)
                     dismiss()
                 }
-                .onFailure { error ->
-                    applyInFlight.set(false)
-                    _uiState.update {
-                        it.copy(
-                            isApplying = false,
-                            errorMessage = error.message ?: "Could not apply check-in",
-                        )
-                    }
-                }
+                ApplyCheckInRecommendationsResult.NoActiveProgram ->
+                    showApplyError("No active program found to apply check-in")
+                is ApplyCheckInRecommendationsResult.WorkoutLiftNotFound ->
+                    showApplyError("Workout lift ${result.workoutLiftId.value} not found")
+                ApplyCheckInRecommendationsResult.PersistenceFailed ->
+                    showApplyError("Could not apply check-in")
+            }
+        }
+    }
+
+    private fun showApplyError(message: String) {
+        applyInFlight.set(false)
+        _uiState.update {
+            it.copy(
+                isApplying = false,
+                errorMessage = message,
+            )
         }
     }
 

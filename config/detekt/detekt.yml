@@ -43,7 +43,6 @@ stratum:
     active: true
     legacyFiles:
       - 'core/application/src/main/kotlin/com/stratum/application/auth/AuthUseCases.kt'
-      - 'core/application/src/main/kotlin/com/stratum/application/checkin/ApplyCheckInRecommendationsUseCase.kt'
       - 'core/application/src/main/kotlin/com/stratum/application/dashboard/LoadDashboardUseCase.kt'
       - 'core/application/src/main/kotlin/com/stratum/application/dashboard/LoadGraphDetailUseCase.kt'
       - 'core/application/src/main/kotlin/com/stratum/application/export/ExportTrainingLogsUseCase.kt'
