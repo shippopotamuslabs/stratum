@@ -222,9 +222,9 @@ class GenerateProgramUseCaseTest {
         val repo = FakeProgramRepository()
         val generate = buildUseCase(this)
         val program = generate.invoke().getOrThrow()
-        val activate = ActivateProgramUseCase(repo, events)
+        val activate = ActivateProgramUseCase(repo, events, FakeLoggingPort())
 
-        activate(program).getOrThrow()
+        assertEquals(ActivateProgramResult.Success, activate(program))
 
         assertNotNull(repo.current)
         assertTrue(repo.current!!.isActive)

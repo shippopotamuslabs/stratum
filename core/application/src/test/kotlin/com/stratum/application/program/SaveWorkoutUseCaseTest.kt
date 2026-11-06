@@ -66,7 +66,7 @@ class SaveWorkoutUseCaseTest {
 
         val result = useCase(WorkoutId("w-1"), updatedWorkout)
 
-        assertTrue(result.isSuccess)
+        assertEquals(SaveWorkoutResult.Success, result)
         val saved = repository.getProgram()!!
         assertEquals(2, saved.workouts.size)
         assertEquals(1, saved.workouts[0].workoutLifts[0].sets.size)
@@ -83,8 +83,7 @@ class SaveWorkoutUseCaseTest {
 
         val result = useCase(WorkoutId("w-1"), sampleWorkout())
 
-        assertTrue(result.isFailure)
-        assertTrue(result.exceptionOrNull() is IllegalStateException)
+        assertEquals(SaveWorkoutResult.NoActiveProgram, result)
     }
 
     @Test
@@ -95,7 +94,7 @@ class SaveWorkoutUseCaseTest {
 
         val result = useCase(WorkoutId("missing"), sampleWorkout())
 
-        assertTrue(result.isFailure)
+        assertEquals(SaveWorkoutResult.WorkoutNotFound(WorkoutId("missing")), result)
         assertEquals(TWO_WORKOUT_PROGRAM, repository.getProgram())
     }
 
@@ -132,11 +131,35 @@ class SaveWorkoutUseCaseTest {
 
         val result = useCase(targetWorkout.id, updated, programId = library.id)
 
-        assertTrue(result.isSuccess)
+        assertEquals(SaveWorkoutResult.Success, result)
         val savedLibrary = repository.getProgramById(library.id)!!
         assertEquals(false, savedLibrary.isActive)
         assertEquals("Library Push Updated", savedLibrary.workouts.first().name)
         assertEquals(active.id, repository.getProgram()?.id)
+    }
+
+    @Test
+    @DisplayName("When explicit programId is unknown then save returns ProgramNotFound")
+    fun saveFailsWhenProgramIdUnknown() = runTest {
+        val repository = FakeProgramRepository(TWO_WORKOUT_PROGRAM)
+        val useCase = SaveWorkoutUseCase(repository, NoOpProgramChangeEventRepository(), FakeLoggingPort())
+
+        val result = useCase(WorkoutId("w-1"), sampleWorkout(), programId = ProgramId("missing"))
+
+        assertEquals(SaveWorkoutResult.ProgramNotFound(ProgramId("missing")), result)
+    }
+
+    @Test
+    @DisplayName("When repository save fails then PersistenceFailed with one error log")
+    fun savePersistenceFailure() = runTest {
+        val repository = FakeProgramRepository(TWO_WORKOUT_PROGRAM, failOnSave = true)
+        val logging = FakeLoggingPort()
+        val useCase = SaveWorkoutUseCase(repository, NoOpProgramChangeEventRepository(), logging)
+
+        val result = useCase(WorkoutId("w-1"), TWO_WORKOUT_PROGRAM.workouts.first())
+
+        assertEquals(SaveWorkoutResult.PersistenceFailed, result)
+        assertEquals(1, logging.errors.size)
     }
 
     private fun sampleWorkout(): Workout =
@@ -226,7 +249,10 @@ class SaveWorkoutUseCaseTest {
         val program = com.stratum.core.testing.training.WorkoutLoggingFixtures.twoWorkoutProgram()
         val useCase = SaveWorkoutUseCase(FakeProgramRepository(program), events, FakeLoggingPort())
 
-        useCase(com.stratum.core.testing.training.WorkoutLoggingFixtures.workoutAId, program.workouts.first()).getOrThrow()
+        assertEquals(
+            SaveWorkoutResult.Success,
+            useCase(com.stratum.core.testing.training.WorkoutLoggingFixtures.workoutAId, program.workouts.first()),
+        )
 
         val appended = events.getEventsForProgram(com.stratum.core.testing.training.WorkoutLoggingFixtures.programId).events
         assertEquals(1, appended.size)
@@ -258,10 +284,13 @@ class SaveWorkoutUseCaseTest {
             FakeLoggingPort(),
         )
 
-        useCase(
-            com.stratum.core.testing.training.WorkoutLoggingFixtures.workoutAId,
-            com.stratum.core.testing.training.WorkoutLoggingFixtures.twoWorkoutProgram().workouts.first(),
-        ).getOrThrow()
+        assertEquals(
+            SaveWorkoutResult.Success,
+            useCase(
+                com.stratum.core.testing.training.WorkoutLoggingFixtures.workoutAId,
+                com.stratum.core.testing.training.WorkoutLoggingFixtures.twoWorkoutProgram().workouts.first(),
+            ),
+        )
 
         val all = events.getEventsForProgram(com.stratum.core.testing.training.WorkoutLoggingFixtures.programId).events
         assertEquals(2, all.size)

@@ -4,9 +4,9 @@ import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.identity.WorkoutLiftId
 
 /**
- * Outcome of [SwapWorkoutLiftUseCase]: the swap itself reports success/failure
- * through the surrounding `Result`, while degradations that the swap tolerates
- * ride along as [diagnostics].
+ * Success payload of [SwapWorkoutLiftUseCase]: the swap itself reports its
+ * outcome through [SwapWorkoutLiftResult], while degradations that the swap
+ * tolerates ride along as [diagnostics].
  *
  * Placement note (CODE-STYLE-GOSPEL §11): this type is owned by the application
  * layer, not the domain. The degradation it records is detected in use-case

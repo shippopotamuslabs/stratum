@@ -66,7 +66,7 @@ class SwapWorkoutLiftUseCaseTest {
 
         val result = useCase(targetWorkoutLiftId, newLiftId)
 
-        assertTrue(result.isSuccess)
+        assertTrue(result is SwapWorkoutLiftResult.Success)
         val updatedProgram = repository.getProgram()
         assertEquals(newLiftId, updatedProgram?.workouts?.first()?.workoutLifts?.first()?.liftId)
     }
@@ -80,8 +80,7 @@ class SwapWorkoutLiftUseCaseTest {
 
         val result = useCase(WorkoutLiftId("wl-1"), LiftId("incline-db-bench"))
 
-        assertTrue(result.isFailure)
-        assertTrue(result.exceptionOrNull() is IllegalStateException)
+        assertEquals(SwapWorkoutLiftResult.NoActiveProgram, result)
         assertEquals(0, logging.errors.size)
         assertEquals(1, logging.warnings.size)
         assertTrue(logging.warnings.first().message.contains("no active program"))
@@ -123,8 +122,10 @@ class SwapWorkoutLiftUseCaseTest {
 
         val result = useCase(WorkoutLiftId("non-existent"), LiftId("incline-db-bench"))
 
-        assertTrue(result.isFailure)
-        assertTrue(result.exceptionOrNull() is IllegalArgumentException)
+        assertEquals(
+            SwapWorkoutLiftResult.WorkoutLiftNotFound(WorkoutLiftId("non-existent")),
+            result,
+        )
         // Verify program was not modified
         val currentProgram = repository.getProgram()
         assertEquals(LiftId("bench-press"), currentProgram?.workouts?.first()?.workoutLifts?.first()?.liftId)
@@ -165,7 +166,7 @@ class SwapWorkoutLiftUseCaseTest {
         )
         val useCase = SwapWorkoutLiftUseCase(FakeProgramRepository(program), events, com.stratum.core.testing.onboarding.FakeEquipmentRepository(), FakeLoggingPort())
 
-        useCase(WorkoutLiftId("wl-bench"), LiftId("lift-squat")).getOrThrow()
+        assertTrue(useCase(WorkoutLiftId("wl-bench"), LiftId("lift-squat")) is SwapWorkoutLiftResult.Success)
 
         val appended = events.getEventsForProgram(ProgramId("p-1")).events
         assertEquals(1, appended.size)
@@ -189,7 +190,7 @@ class SwapWorkoutLiftUseCaseTest {
         val useCase =
             SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository(), com.stratum.core.testing.onboarding.FakeEquipmentRepository(), FakeLoggingPort())
 
-        useCase(slot, LiftId("lift-ohp")).getOrThrow()
+        assertTrue(useCase(slot, LiftId("lift-ohp")) is SwapWorkoutLiftResult.Success)
 
         val swapped = repository.getProgram()!!.workouts.single().workoutLifts.single()
         assertEquals(LiftId("lift-ohp"), swapped.liftId)
@@ -220,8 +221,8 @@ class SwapWorkoutLiftUseCaseTest {
         val useCase =
             SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository(), com.stratum.core.testing.onboarding.FakeEquipmentRepository(), FakeLoggingPort())
 
-        useCase(slot, LiftId("lift-ohp")).getOrThrow()
-        useCase(slot, LiftId("lift-bench")).getOrThrow()
+        assertTrue(useCase(slot, LiftId("lift-ohp")) is SwapWorkoutLiftResult.Success)
+        assertTrue(useCase(slot, LiftId("lift-bench")) is SwapWorkoutLiftResult.Success)
 
         val restored = repository.getProgram()!!.workouts.single().workoutLifts.single()
         assertEquals(LiftId("lift-bench"), restored.liftId)
@@ -244,8 +245,8 @@ class SwapWorkoutLiftUseCaseTest {
 
         val result = useCase(slot, LiftId("lift-ohp"))
 
-        assertTrue(result.isSuccess)
-        val outcome = result.getOrThrow()
+        assertTrue(result is SwapWorkoutLiftResult.Success)
+        val outcome = (result as SwapWorkoutLiftResult.Success).outcome
         assertEquals(1, outcome.diagnostics.size)
         val diagnostic = outcome.diagnostics.single() as SwapWorkoutLiftDiagnostic.PinnedNotesUnreadable
         assertEquals(slot, diagnostic.workoutLiftId)
@@ -270,9 +271,10 @@ class SwapWorkoutLiftUseCaseTest {
         val useCase =
             SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository(), com.stratum.core.testing.onboarding.FakeEquipmentRepository(), FakeLoggingPort())
 
-        val outcome = useCase(slot, LiftId("lift-ohp")).getOrThrow()
+        val result = useCase(slot, LiftId("lift-ohp"))
 
-        assertTrue(outcome.diagnostics.isEmpty())
+        assertTrue(result is SwapWorkoutLiftResult.Success)
+        assertTrue((result as SwapWorkoutLiftResult.Success).outcome.diagnostics.isEmpty())
     }
 
     @Test

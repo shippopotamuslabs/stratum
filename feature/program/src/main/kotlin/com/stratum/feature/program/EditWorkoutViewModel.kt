@@ -9,6 +9,7 @@ import com.stratum.application.program.EstimateWorkoutDurationMinutesUseCase
 import com.stratum.application.program.ObserveProgramByIdUseCase
 import com.stratum.application.program.ObserveProgramUseCase
 import com.stratum.domain.program.Program
+import com.stratum.application.program.SaveWorkoutResult
 import com.stratum.application.program.SaveWorkoutUseCase
 import com.stratum.domain.program.mergeWorkout
 import com.stratum.domain.program.Workout
@@ -368,7 +369,7 @@ class EditWorkoutViewModel @Inject constructor(
                 updatedWorkout = updatedWorkout,
                 programId = scopedProgramId ?: programSnapshot?.id,
             )
-        return if (result.isSuccess) {
+        return if (result == SaveWorkoutResult.Success) {
             // Slice 8 (D11): append SchemeChanged / LiftSwapped for baseline diffs.
             appendSchemeChangedEvents(baseline, updatedWorkout)
             appendLiftSwappedEvents(baseline, updatedWorkout)

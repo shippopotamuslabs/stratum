@@ -3,12 +3,15 @@ package com.stratum.feature.program
 import com.stratum.domain.lift.Lift
 import com.stratum.application.onboarding.CompleteOnboardingUseCase
 import com.stratum.application.onboarding.GetUserTrainingProfileUseCase
+import com.stratum.application.program.ActivateProgramResult
 import com.stratum.application.program.ActivateProgramUseCase
 import com.stratum.application.program.ComputeWorkoutMuscleVolumeUseCase
 import com.stratum.application.program.EstimateWorkoutDurationMinutesUseCase
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.ProgressionScheme
+import com.stratum.application.program.SaveProgramToLibraryResult
 import com.stratum.application.program.SaveProgramToLibraryUseCase
+import com.stratum.application.program.UpdateExistingProgramResult
 import com.stratum.application.program.UpdateExistingProgramUseCase
 import com.stratum.domain.workout.WorkoutEditSession
 import com.stratum.feature.program.ui.DEFAULT_REST_SECONDS
@@ -384,53 +387,53 @@ internal class CreateProgramEditorController(
         val current = state.value
         state.update { it.copy(isSaving = true, saveErrorMessage = null) }
         val draft = current.toDomainProgram(loadedProgramMeta)
-        val result =
+        val failureMessage =
             when (mode) {
-                CreateProgramPersistMode.Activate -> activateProgram(draft.activate())
-                CreateProgramPersistMode.SavePreservingActive -> updateExistingProgram(draft)
+                CreateProgramPersistMode.Activate ->
+                    activateProgram(draft.activate()).persistFailureMessage()
+                CreateProgramPersistMode.SavePreservingActive ->
+                    updateExistingProgram(draft).persistFailureMessage()
                 CreateProgramPersistMode.SaveToLibrary ->
                     if (current.isEditingExisting) {
-                        updateExistingProgram(draft.deactivate())
+                        updateExistingProgram(draft.deactivate()).persistFailureMessage()
                     } else {
-                        saveProgramToLibrary(draft)
+                        saveProgramToLibrary(draft).persistFailureMessage()
                     }
             }
-        result
-            .onSuccess {
-                if (finishOnboarding() && mode == CreateProgramPersistMode.Activate) {
-                    completeOnboarding(getUserTrainingProfile())
-                }
-                if (mode == CreateProgramPersistMode.Activate) {
-                    loadedProgramMeta = draft.activate().toLoadedProgramMeta()
-                } else if (mode == CreateProgramPersistMode.SavePreservingActive) {
-                    loadedProgramMeta = draft.toLoadedProgramMeta()
-                } else if (current.isEditingExisting) {
-                    loadedProgramMeta = draft.deactivate().toLoadedProgramMeta()
-                }
-                state.update {
-                    it.copy(
-                        isSaving = false,
-                        isDirty = false,
-                        originalIsActive =
-                            when (mode) {
-                                CreateProgramPersistMode.Activate -> true
-                                CreateProgramPersistMode.SaveToLibrary -> false
-                                CreateProgramPersistMode.SavePreservingActive -> it.originalIsActive
-                            },
-                    )
-                }
-                if (!finishOnboarding() || mode == CreateProgramPersistMode.Activate) {
-                    onDone()
-                }
+        if (failureMessage == null) {
+            if (finishOnboarding() && mode == CreateProgramPersistMode.Activate) {
+                completeOnboarding(getUserTrainingProfile())
             }
-            .onFailure { error ->
-                state.update {
-                    it.copy(
-                        isSaving = false,
-                        saveErrorMessage = error.message ?: "Couldn't save program. Try again.",
-                    )
-                }
+            if (mode == CreateProgramPersistMode.Activate) {
+                loadedProgramMeta = draft.activate().toLoadedProgramMeta()
+            } else if (mode == CreateProgramPersistMode.SavePreservingActive) {
+                loadedProgramMeta = draft.toLoadedProgramMeta()
+            } else if (current.isEditingExisting) {
+                loadedProgramMeta = draft.deactivate().toLoadedProgramMeta()
             }
+            state.update {
+                it.copy(
+                    isSaving = false,
+                    isDirty = false,
+                    originalIsActive =
+                        when (mode) {
+                            CreateProgramPersistMode.Activate -> true
+                            CreateProgramPersistMode.SaveToLibrary -> false
+                            CreateProgramPersistMode.SavePreservingActive -> it.originalIsActive
+                        },
+                )
+            }
+            if (!finishOnboarding() || mode == CreateProgramPersistMode.Activate) {
+                onDone()
+            }
+        } else {
+            state.update {
+                it.copy(
+                    isSaving = false,
+                    saveErrorMessage = failureMessage,
+                )
+            }
+        }
     }
 
     private fun convertSelectedRestToWorkoutIfNeeded() {
@@ -491,3 +494,32 @@ internal class CreateProgramEditorController(
         )
     }
 }
+
+/**
+ * Maps a program persist outcome to the user copy shown on failure, or null on
+ * success (STR-243): the validation branches reproduce the exact former
+ * exception messages; a persistence failure uses the former fallback copy.
+ */
+private fun ActivateProgramResult.persistFailureMessage(): String? =
+    when (this) {
+        ActivateProgramResult.Success -> null
+        ActivateProgramResult.NoWorkouts -> "Program must have at least one workout"
+        ActivateProgramResult.NoExercises -> "Program must have at least one exercise"
+        ActivateProgramResult.PersistenceFailed -> "Couldn't save program. Try again."
+    }
+
+private fun SaveProgramToLibraryResult.persistFailureMessage(): String? =
+    when (this) {
+        SaveProgramToLibraryResult.Success -> null
+        SaveProgramToLibraryResult.NoWorkouts -> "Program must have at least one workout"
+        SaveProgramToLibraryResult.NoExercises -> "Program must have at least one exercise"
+        SaveProgramToLibraryResult.PersistenceFailed -> "Couldn't save program. Try again."
+    }
+
+private fun UpdateExistingProgramResult.persistFailureMessage(): String? =
+    when (this) {
+        UpdateExistingProgramResult.Success -> null
+        UpdateExistingProgramResult.NoWorkouts -> "Program must have at least one workout"
+        UpdateExistingProgramResult.NoExercises -> "Program must have at least one exercise"
+        UpdateExistingProgramResult.PersistenceFailed -> "Couldn't save program. Try again."
+    }

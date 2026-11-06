@@ -76,7 +76,7 @@ class ActivateStoredProgramUseCaseTest {
 
         val result = useCase(library.id)
 
-        assertTrue(result.isSuccess)
+        assertEquals(ActivateStoredProgramResult.Success, result)
         assertEquals(library.id, repository.getProgram()?.id)
         assertFalse(repository.getProgramById(active.id)!!.isActive)
         assertTrue(repository.getProgramById(library.id)!!.isActive)
@@ -90,6 +90,62 @@ class ActivateStoredProgramUseCaseTest {
 
         val result = useCase(com.stratum.domain.program.identity.ProgramId("missing"))
 
-        assertTrue(result.isFailure)
+        assertEquals(
+            ActivateStoredProgramResult.ProgramNotFound(
+                com.stratum.domain.program.identity.ProgramId("missing"),
+            ),
+            result,
+        )
+    }
+
+    @Test
+    @DisplayName("Refuses to activate import-history")
+    fun refusesImportHistory() = runTest {
+        val repository = FakeProgramRepository(WorkoutLoggingFixtures.twoWorkoutProgram())
+        val useCase = ActivateStoredProgramUseCase(repository, FakeLoggingPort())
+
+        val result = useCase(com.stratum.domain.program.identity.ProgramId.ImportHistory)
+
+        assertEquals(
+            ActivateStoredProgramResult.ImportHistoryProgram(
+                com.stratum.domain.program.identity.ProgramId.ImportHistory,
+            ),
+            result,
+        )
+    }
+
+    @Test
+    @DisplayName("Repository save failure returns PersistenceFailed with one error log")
+    fun persistenceFailureOnSaveError() = runTest {
+        val library =
+            WorkoutLoggingFixtures.twoWorkoutProgram().copy(
+                id = com.stratum.domain.program.identity.ProgramId("library"),
+                isActive = false,
+                workouts =
+                    WorkoutLoggingFixtures.defaultWorkouts().map { workout ->
+                        workout.copy(
+                            programId = com.stratum.domain.program.identity.ProgramId("library"),
+                            workoutLifts =
+                                listOf(
+                                    WorkoutLift(
+                                        id = WorkoutLiftId("wl-l"),
+                                        workoutId = workout.id,
+                                        liftId = LiftId("squat"),
+                                        progressionScheme = ProgressionScheme.Linear,
+                                        position = 0,
+                                        sets = emptyList(),
+                                    ),
+                                ),
+                        )
+                    },
+            )
+        val repository = FakeProgramRepository(library, failOnSave = true)
+        val logging = FakeLoggingPort()
+        val useCase = ActivateStoredProgramUseCase(repository, logging)
+
+        val result = useCase(library.id)
+
+        assertEquals(ActivateStoredProgramResult.PersistenceFailed, result)
+        assertEquals(1, logging.errors.size)
     }
 }
