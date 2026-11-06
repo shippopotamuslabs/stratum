@@ -33,6 +33,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -145,6 +146,41 @@ class ProgramLibraryViewModelTest {
             assertNull(trainingLog.getActiveSession())
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    @Test
+    @DisplayName("Confirm activate with failing abandon drains exactly one record and keeps program")
+    fun confirmActivateWithFailingAbandonDrainsOneRecord() = runTest {
+        val active = program(id = WorkoutLoggingFixtures.PROGRAM_ID, name = "Active", isActive = true)
+        val library = program(id = "library", name = "Library", isActive = false)
+        val programRepo = FakeProgramRepository(active)
+        programRepo.saveToLibrary(library)
+        val trainingLog = FakeTrainingLogRepository()
+        trainingLog.seedSession(WorkoutLoggingFixtures.inProgressSession(id = "ts-live"))
+        val boom = IllegalStateException("delete boom")
+        trainingLog.deleteSessionError = boom
+        val logging = FakeLoggingPort()
+        val viewModel = buildViewModel(programRepo, trainingLog, logging)
+
+        viewModel.uiState.test {
+            awaitItemUntil { it.programs.size == 2 }
+            viewModel.activateProgram("library")
+            awaitItemUntil { it.pendingActivateProgramId == "library" }
+            viewModel.confirmActivateDiscardingSession()
+            val after = awaitItemUntil { it.userMessage != null }
+            assertEquals(
+                "Couldn't discard the in-progress workout. Try again.",
+                after.userMessage,
+            )
+            assertEquals(null, after.pendingActivateProgramId)
+            cancelAndIgnoreRemainingEvents()
+        }
+        val error = logging.errors.single()
+        assertEquals("AbandonTrainingSession", error.tag)
+        assertEquals("Failed to abandon training session: delete boom", error.message)
+        assertSame(boom, error.throwable)
+        assertTrue(trainingLog.getActiveSession() != null)
+        assertEquals(active.id, programRepo.getProgram()?.id)
     }
 
     @Test
@@ -267,6 +303,7 @@ class ProgramLibraryViewModelTest {
     private fun buildViewModel(
         programRepo: FakeProgramRepository,
         trainingLog: FakeTrainingLogRepository = FakeTrainingLogRepository(),
+        logging: FakeLoggingPort = FakeLoggingPort(),
     ): ProgramLibraryViewModel {
         val liftRepo =
             FakeLiftRepository(
@@ -299,7 +336,7 @@ class ProgramLibraryViewModelTest {
                     programRepository = programRepo,
                     trainingLogRepository = trainingLog,
                 ),
-            diagnosticDrain = DiagnosticDrain(FakeLoggingPort()),
+            diagnosticDrain = DiagnosticDrain(logging),
         )
     }
 

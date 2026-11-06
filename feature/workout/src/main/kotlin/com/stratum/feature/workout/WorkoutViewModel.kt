@@ -428,7 +428,13 @@ class WorkoutViewModel @Inject constructor(
                     if (workout == null) {
                         // Program template deleted mid-session: abandon orphan and surface empty.
                         if (session.cachedSessionId() != trainingSession.id) {
-                            processScopedAbandon.abandon(trainingSession.id) { /* recovery — best effort */ }
+                            // Recovery — best effort, but a failed delete still
+                            // drains its carried diagnostics exactly once (STR-237).
+                            processScopedAbandon.abandon(trainingSession.id) { result ->
+                                if (result is AbandonTrainingSessionResult.PersistenceFailed) {
+                                    diagnosticDrain.drain(result.diagnostics)
+                                }
+                            }
                         }
                         session.send(
                             SessionCommand.ApplyCycleSnapshot(

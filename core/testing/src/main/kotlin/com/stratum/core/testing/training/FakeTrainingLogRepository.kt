@@ -188,7 +188,10 @@ class FakeTrainingLogRepository(
         sessionsFlow.value = sessions.values.toList()
     }
 
+    var insertSessionError: Throwable? = null
+
     override suspend fun insertSession(session: TrainingSession) {
+        insertSessionError?.let { throw it }
         sessions[session.id] = session
         refreshActiveSession()
     }

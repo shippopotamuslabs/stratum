@@ -91,6 +91,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -1586,6 +1587,27 @@ class WorkoutViewModelTest {
             assertEquals(WorkoutUiEvent.NavigateBackAfterAbandon, awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    @Test
+    @DisplayName("Given template deleted mid-session when recovery abandon fails then failure drains exactly once")
+    fun orphanRecoveryAbandonFailureDrainsExactlyOnce() = runTest {
+        val fakeLogging = FakeLoggingPort()
+        // Template workout deleted: the program no longer contains w-1, so the
+        // live session is an orphan and startSession recovery-abandons it.
+        programRepository.saveProgram(program().copy(workouts = emptyList()))
+        val boom = IllegalStateException("delete boom")
+        trainingLogRepository.deleteSessionError = boom
+        val viewModel = buildViewModel(fakeLogging = fakeLogging)
+
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        val error = fakeLogging.errors.single()
+        assertEquals("AbandonTrainingSession", error.tag)
+        assertEquals("Failed to abandon training session: delete boom", error.message)
+        assertSame(boom, error.throwable)
+        assertNotNull(trainingLogRepository.getActiveSession())
     }
 
     @Test

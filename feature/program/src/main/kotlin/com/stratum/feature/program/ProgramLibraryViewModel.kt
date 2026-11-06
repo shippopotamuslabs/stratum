@@ -181,7 +181,11 @@ class ProgramLibraryViewModel @Inject constructor(
         viewModelScope.launch {
             val session = observeActiveSession().first()
             if (session != null && session.status == TrainingSessionStatus.IN_PROGRESS) {
-                if (abandonTrainingSession(session.id) != AbandonTrainingSessionResult.Success) {
+                val abandonResult = abandonTrainingSession(session.id)
+                if (abandonResult is AbandonTrainingSessionResult.PersistenceFailed) {
+                    diagnosticDrain.drain(abandonResult.diagnostics)
+                }
+                if (abandonResult != AbandonTrainingSessionResult.Success) {
                     userMessage.value =
                         "Couldn't discard the in-progress workout. Try again."
                     pendingActivateProgramId.value = null
