@@ -28,6 +28,9 @@ class FirestoreCloudSyncAdapterTest {
     /** A [Throwable] that is not an [Exception] — the recovery enqueue catch must be Throwable-wide. */
     private class EnqueueThrowable(message: String) : Throwable(message)
 
+    /** An [Error] — not an [Exception] — thrown from the push/pull seam (A1). */
+    private class PushPullError(message: String) : Error(message)
+
     @Test
     @DisplayName("Given push/pull fails and recovery enqueueSoon throws when start then recovery failure is recorded exactly once")
     fun startRecoveryEnqueueFailureIsRecordedExactlyOnce() = runTest {
@@ -76,5 +79,46 @@ class FirestoreCloudSyncAdapterTest {
         }
         assertEquals(1, recoveryErrors.size)
         assertSame(enqueueFailure, recoveryErrors.single().throwable)
+    }
+
+    @Test
+    @DisplayName("Given push/pull throws an Error when start then Failed outcome carries it instead of throwing")
+    fun startPushPullErrorBecomesFailedOutcome() = runTest {
+        val pushPullFailure = PushPullError("native blew up")
+        val logging = FakeLoggingPort()
+
+        val stateStore = mockk<FirestoreSyncStateStore> {
+            coEvery { lastSyncedUserId() } returns "uid-1"
+            coEvery { setLastSyncedUserId(any()) } returns Unit
+            coEvery { isHydrated(any()) } returns false
+        }
+        val uploadEngine = mockk<FirestorePendingUploadEngine> {
+            coEvery { uploadUntilIdle(any(), any()) } returns Result.failure(pushPullFailure)
+        }
+        val subject = FirestoreCloudSyncAdapter(
+            stateStore = stateStore,
+            uploadEngine = uploadEngine,
+            pullEngine = mockk(relaxed = true),
+            userOwnedDataClearer = mockk(relaxed = true),
+            writeCoordinator = UserOwnedWriteCoordinator(),
+            catalogSeedGate = LiftCatalogSeedGate().apply { complete() },
+            cloudSyncScheduler = mockk(relaxed = true),
+            featureGate = DefaultCloudSyncFeatureGate().apply { setEnabledForTests(true) },
+            rebuildLocalDerivedTrainingData = mockk<RebuildLocalDerivedTrainingDataUseCase>(relaxed = true),
+            loggingPort = logging,
+            ioDispatcher = Dispatchers.Unconfined,
+        )
+
+        // An Error escaping the port as a throw would lose the sync worker's
+        // classification; the widened catch returns it as the Failed branch.
+        val outcome = subject.start("uid-1")
+
+        assertTrue(outcome is com.stratum.application.sync.CloudSyncOutcome.Failed)
+        assertSame(
+            pushPullFailure,
+            ((outcome as com.stratum.application.sync.CloudSyncOutcome.Failed)
+                .diagnostics.single()
+                as com.stratum.application.sync.CloudSyncDiagnostic.OperationFailed).cause,
+        )
     }
 }

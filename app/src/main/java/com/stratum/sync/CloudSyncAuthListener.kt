@@ -37,8 +37,13 @@ class CloudSyncAuthListener @Inject constructor(
                     when (state) {
                         is AuthState.Authenticated -> {
                             // A failed start is error-logged exactly once by
-                            // the sync adapter at its own boundary; the
-                            // outcome carries no payload to drain here.
+                            // the sync adapter at its own boundary. The Failed
+                            // outcome does carry diagnostics for the boundaries
+                            // that must classify or drain them (the sync
+                            // worker, the compensating restart after a logout /
+                            // account-deletion failure) — this listener is not
+                            // a drain site, because the adapter already logged
+                            // the failure once.
                             startCloudSync(state.user.uid)
                         }
                         AuthState.Unauthenticated, is AuthState.Error -> {
