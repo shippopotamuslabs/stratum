@@ -6,7 +6,6 @@ import com.stratum.core.testing.healthconnect.FakeHealthConnectSyncStatusPort
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
-import com.stratum.application.healthconnect.HealthSyncFailure
 import com.stratum.application.healthconnect.HealthSyncFailureKind
 import com.stratum.domain.healthconnect.HealthConnectPreferences
 import com.stratum.domain.healthconnect.HealthFailureKind
@@ -84,8 +83,11 @@ class HealthConnectSyncWorkTest {
 
         assertTrue(outcome is HealthConnectSyncWork.Outcome.TerminalFailure)
         val terminal = outcome as HealthConnectSyncWork.Outcome.TerminalFailure
-        assertTrue(terminal.error is HealthSyncFailure)
-        assertEquals(HealthSyncFailureKind.Terminal, (terminal.error as HealthSyncFailure).kind)
+        assertEquals(HealthSyncFailureKind.Terminal, terminal.kind)
+        assertEquals(
+            "Health Connect SDK is not available on this device",
+            terminal.message,
+        )
     }
 
     @Test
@@ -93,14 +95,14 @@ class HealthConnectSyncWorkTest {
     fun userActionableFailureIsTerminal() = runTest {
         seedCompletedSession()
         preferences.setPreferences(HealthConnectPreferences(enabled = true))
-        syncPort.pushFailure = HealthSyncFailure.permissionDenied()
+        syncPort.pushFailureKind = HealthSyncFailureKind.UserActionable
+        syncPort.pushFailureMessage = "Health Connect write permission is not granted"
 
         val outcome = work.run(TrainingSessionId("ts-hc-1"))
 
         assertTrue(outcome is HealthConnectSyncWork.Outcome.TerminalFailure)
         val terminal = outcome as HealthConnectSyncWork.Outcome.TerminalFailure
-        assertTrue(terminal.error is HealthSyncFailure)
-        assertEquals(HealthSyncFailureKind.UserActionable, (terminal.error as HealthSyncFailure).kind)
+        assertEquals(HealthSyncFailureKind.UserActionable, terminal.kind)
     }
 
     @Test
@@ -114,7 +116,8 @@ class HealthConnectSyncWorkTest {
 
         assertTrue(outcome is HealthConnectSyncWork.Outcome.RetryableFailure)
         val retryable = outcome as HealthConnectSyncWork.Outcome.RetryableFailure
-        assertSame(syncPort.pushFailure, retryable.error)
+        assertEquals(HealthSyncFailureKind.Transient, retryable.kind)
+        assertSame(syncPort.pushFailure, retryable.cause)
     }
 
     @Test
@@ -142,7 +145,7 @@ class HealthConnectSyncWorkTest {
     }
 
     @Test
-    @DisplayName("Missing session is a terminal failure with the original throwable")
+    @DisplayName("Missing session is a terminal failure with the original throwable as cause")
     fun missingSessionIsTerminalWithThrowable() = runTest {
         preferences.setPreferences(HealthConnectPreferences(enabled = true))
 
@@ -150,8 +153,9 @@ class HealthConnectSyncWorkTest {
 
         assertTrue(outcome is HealthConnectSyncWork.Outcome.TerminalFailure)
         val terminal = outcome as HealthConnectSyncWork.Outcome.TerminalFailure
-        assertTrue(terminal.error is IllegalStateException)
-        assertTrue(terminal.error.message!!.contains("missing"))
+        assertEquals(null, terminal.kind)
+        assertTrue(terminal.cause is IllegalStateException)
+        assertTrue(terminal.message!!.contains("missing"))
     }
 
     @Test
@@ -163,16 +167,20 @@ class HealthConnectSyncWorkTest {
     }
 
     @Test
-    @DisplayName("STR-263: failing sticky write throws the failure")
+    @DisplayName("STR-263: failing sticky write returns the failure as a diagnostic")
     fun reportTerminalFailureForwardsFailure() = runTest {
         val cause = IllegalStateException("datastore blip")
         syncStatus.failure = cause
 
-        val thrown = org.junit.jupiter.api.assertThrows<IllegalStateException> {
-            work.reportTerminalFailure(HealthFailureKind.Unavailable)
-        }
+        val outcome = work.reportTerminalFailure(HealthFailureKind.Unavailable)
 
-        assertSame(cause, thrown)
+        assertTrue(outcome is com.stratum.application.healthconnect.HealthConnectWriteOutcome.Failed)
+        assertSame(
+            cause,
+            ((outcome as com.stratum.application.healthconnect.HealthConnectWriteOutcome.Failed)
+                .diagnostics.single()
+                as com.stratum.application.healthconnect.HealthSyncDiagnostic.OperationFailed).cause,
+        )
         assertEquals(null, syncStatus.currentPendingError)
     }
 }

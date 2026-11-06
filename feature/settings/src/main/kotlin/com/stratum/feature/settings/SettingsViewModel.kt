@@ -514,7 +514,7 @@ class SettingsViewModel @Inject constructor(
 
     /**
      * Translates the sticky sync-error kind to the existing shipped user text (STR-268).
-     * The strings are the HealthSyncFailure factory wordings — no new copy.
+     * The strings are the Health Connect classification wordings — no new copy.
      */
     private fun HealthFailureKind.toUserMessage(): String =
         when (this) {
