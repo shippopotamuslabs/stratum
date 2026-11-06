@@ -153,19 +153,16 @@ sealed interface DeleteAccountResult {
 /**
  * Best-effort sync restart after a logout/account-deletion failure left sync stopped for a
  * still-authenticated user (STR-256). Returns the restart's failure diagnostics (empty on
- * success): the terminal boundary (Settings, shell) drains each exactly once through its
- * own log wiring. The primary outcome branch is never retyped by a restart failure, so
- * callers branching on [LogoutResult] / [DeleteAccountResult] kinds are unaffected.
- * [CancellationException] from the restart propagates (the start use case rethrows it),
- * never rides as a diagnostic.
+ * success), produced by the start use case's dedicated restart seam: the terminal boundary
+ * (Settings, shell) drains each exactly once through its own log wiring. The primary
+ * outcome branch is never retyped by a restart failure, so callers branching on
+ * [LogoutResult] / [DeleteAccountResult] kinds are unaffected. [CancellationException]
+ * from the restart propagates (the start use case rethrows it), never rides as a
+ * diagnostic.
  */
 private suspend fun StartCloudSyncUseCase.restartDiagnosticsAfterFailure(
     uid: String,
-): List<CloudSyncDiagnostic> =
-    when (val outcome = invoke(uid)) {
-        CloudSyncOutcome.Success -> emptyList()
-        is CloudSyncOutcome.Failed -> outcome.diagnostics
-    }
+): List<CloudSyncDiagnostic> = restartDiagnostics(uid)
 
 /**
  * Permanently deletes the signed-in user's account:
