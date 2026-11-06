@@ -3,7 +3,6 @@ package com.stratum.application.dashboard
 import com.stratum.application.lift.LiftRepository
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.logging.LoggingPort
-import com.stratum.domain.logging.runCatchingLogged
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.application.response.LiftWeeklyPerformanceRepository
 import com.stratum.application.response.MuscleWeeklyOutcomeIndexRepository
@@ -14,6 +13,7 @@ import com.stratum.domain.response.modeling.MuscleDailyVolumeBuilder
 import com.stratum.application.training.TrainingLogRepository
 import java.time.ZoneId
 import javax.inject.Inject
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.first
 import com.stratum.domain.dashboard.GraphDetailKind
 import com.stratum.domain.dashboard.GraphDetailSeries
@@ -23,12 +23,30 @@ import com.stratum.domain.dashboard.windowStart
 import com.stratum.domain.lift.Lift
 
 /**
+ * Outcome of [LoadGraphDetailUseCase] (STR-243).
+ *
+ * An operational load failure is logged once via [LoggingPort.error] at the
+ * use-case boundary and surfaces as [Failed]; it never crosses as a payload.
+ * Coroutine cancellation is not a branch: it propagates.
+ */
+sealed interface LoadGraphDetailResult {
+    data class Loaded(val series: GraphDetailSeries) : LoadGraphDetailResult
+
+    /** The subject has no points. */
+    data object Empty : LoadGraphDetailResult
+
+    /** The graph detail load failed (repository / store I/O). */
+    data object Failed : LoadGraphDetailResult
+}
+
+/**
  * Loads full history for one lift, weekly muscle series, or daily muscle volume for the fullscreen
  * graph detail.
  *
  * Unlike [LoadDashboardUseCase] (board window ~13 weeks), this reads **all** rows for the subject
- * so time-range chips (1Y / All) reflect real history. Success with null data means the subject
- * has no points. Unexpected failures are logged and returned as [Result.failure].
+ * so time-range chips (1Y / All) reflect real history. [LoadGraphDetailResult.Empty] means the
+ * subject has no points. Unexpected failures are logged and returned as
+ * [LoadGraphDetailResult.Failed].
  */
 class LoadGraphDetailUseCase @Inject constructor(
     private val liftWeeklyPerformanceRepository: LiftWeeklyPerformanceRepository,
@@ -45,14 +63,24 @@ class LoadGraphDetailUseCase @Inject constructor(
     suspend operator fun invoke(
         subject: GraphDetailSubject,
         zone: ZoneId = ZoneId.systemDefault(),
-    ): Result<GraphDetailSeries?> =
-        runCatchingLogged(loggingPort, TAG, "Failed to load graph detail") {
-            when (subject) {
-                is GraphDetailSubject.Lift -> loadLift(subject.liftId)
-                is GraphDetailSubject.Muscle -> loadMuscle(subject.muscle)
-                is GraphDetailSubject.MuscleDailyVolume ->
-                    loadMuscleDailyVolume(subject.muscle, zone)
+    ): LoadGraphDetailResult =
+        try {
+            val series =
+                when (subject) {
+                    is GraphDetailSubject.Lift -> loadLift(subject.liftId)
+                    is GraphDetailSubject.Muscle -> loadMuscle(subject.muscle)
+                    is GraphDetailSubject.MuscleDailyVolume ->
+                        loadMuscleDailyVolume(subject.muscle, zone)
+                }
+            when (series) {
+                null -> LoadGraphDetailResult.Empty
+                else -> LoadGraphDetailResult.Loaded(series)
             }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            loggingPort.error(TAG, "Failed to load graph detail: ${error.message}", error)
+            LoadGraphDetailResult.Failed
         }
 
     private companion object {

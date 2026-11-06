@@ -46,11 +46,21 @@ class LoadGraphDetailUseCaseTest {
 
     private val utc: ZoneId = ZoneOffset.UTC
 
+    /** Unwraps a load outcome to the nullable series the pre-STR-243 Result carried. */
+    private fun LoadGraphDetailResult.seriesOrNull():
+        com.stratum.domain.dashboard.GraphDetailSeries? =
+        when (this) {
+            is LoadGraphDetailResult.Loaded -> series
+            LoadGraphDetailResult.Empty -> null
+            LoadGraphDetailResult.Failed ->
+                throw AssertionError("Expected a loaded graph detail, got Failed")
+        }
+
     @Test
     @DisplayName("returns null when lift has no performance rows")
     fun liftEmpty() = runTest {
         val useCase = buildUseCase()
-        assertNull(useCase(GraphDetailSubject.Lift(LiftId("missing"))).getOrThrow())
+        assertNull(useCase(GraphDetailSubject.Lift(LiftId("missing"))).seriesOrNull())
     }
 
     @Test
@@ -71,7 +81,7 @@ class LoadGraphDetailUseCaseTest {
         )
         val useCase = buildUseCase(performanceRepo = performanceRepo, liftRepo = liftRepo)
 
-        val detail = useCase(GraphDetailSubject.Lift(benchId)).getOrThrow()
+        val detail = useCase(GraphDetailSubject.Lift(benchId)).seriesOrNull()
         assertNotNull(detail)
         assertEquals("Bench Press", detail!!.title)
         assertEquals(GraphDetailKind.Lift, detail.kind)
@@ -105,7 +115,7 @@ class LoadGraphDetailUseCaseTest {
         )
         val useCase = buildUseCase(stimulusRepo = stimulusRepo, outcomeRepo = outcomeRepo)
 
-        val detail = useCase(GraphDetailSubject.Muscle(MuscleGroup.Chest)).getOrThrow()
+        val detail = useCase(GraphDetailSubject.Muscle(MuscleGroup.Chest)).seriesOrNull()
         assertNotNull(detail)
         assertEquals("Chest", detail!!.title) // displayLabel
         assertEquals(GraphDetailKind.Muscle, detail.kind)
@@ -118,7 +128,7 @@ class LoadGraphDetailUseCaseTest {
     @DisplayName("returns null when muscle has neither stimulus nor index rows")
     fun muscleEmpty() = runTest {
         val useCase = buildUseCase()
-        assertNull(useCase(GraphDetailSubject.Muscle(MuscleGroup.Chest)).getOrThrow())
+        assertNull(useCase(GraphDetailSubject.Muscle(MuscleGroup.Chest)).seriesOrNull())
     }
 
     @Test
@@ -139,7 +149,7 @@ class LoadGraphDetailUseCaseTest {
         log.seedSet(hardSet(benchId, "c", session.id, day1))
         val useCase = buildUseCase(liftRepo = liftRepo, trainingLog = log)
 
-        val detail = useCase(GraphDetailSubject.MuscleDailyVolume(MuscleGroup.Chest), zone = utc).getOrThrow()
+        val detail = useCase(GraphDetailSubject.MuscleDailyVolume(MuscleGroup.Chest), zone = utc).seriesOrNull()
         assertNotNull(detail)
         assertEquals(GraphDetailKind.MuscleDailyVolume, detail!!.kind)
         assertEquals("Chest", detail.title)
@@ -173,7 +183,7 @@ class LoadGraphDetailUseCaseTest {
         log.seedSet(hardSet(benchId, "a", session.id, NOW.minus(1, ChronoUnit.DAYS)))
         val useCase = buildUseCase(liftRepo = liftRepo, trainingLog = log)
 
-        val detail = useCase(GraphDetailSubject.MuscleDailyVolume(MuscleGroup.Tricep), zone = utc).getOrThrow()
+        val detail = useCase(GraphDetailSubject.MuscleDailyVolume(MuscleGroup.Tricep), zone = utc).seriesOrNull()
         assertNotNull(detail, "press pattern should load sets for Tricep even without stored secondary")
         assertEquals(0.5, detail!!.primary.single().value, 0.01)
     }
@@ -182,7 +192,41 @@ class LoadGraphDetailUseCaseTest {
     @DisplayName("returns null for MuscleDailyVolume with no hard sets")
     fun muscleDailyVolumeEmpty() = runTest {
         val useCase = buildUseCase()
-        assertNull(useCase(GraphDetailSubject.MuscleDailyVolume(MuscleGroup.Chest), zone = utc).getOrThrow())
+        assertNull(useCase(GraphDetailSubject.MuscleDailyVolume(MuscleGroup.Chest), zone = utc).seriesOrNull())
+    }
+
+    @Test
+    @DisplayName("returns Failed and logs exactly one error when the performance read throws (STR-243)")
+    fun loadFailure() = runTest {
+        val performanceRepo = FakeLiftWeeklyPerformanceRepository()
+        performanceRepo.getAllError = IllegalStateException("perf boom")
+        val logging = FakeLoggingPort()
+        val useCase = buildUseCase(performanceRepo = performanceRepo, logging = logging)
+
+        val result = useCase(GraphDetailSubject.Lift(LiftId("bench")))
+
+        assertEquals(LoadGraphDetailResult.Failed, result)
+        assertEquals(1, logging.errors.size)
+        assertEquals("LoadGraphDetail", logging.errors.single().tag)
+        assertEquals("Failed to load graph detail: perf boom", logging.errors.single().message)
+        assertEquals("perf boom", logging.errors.single().throwable?.message)
+    }
+
+    @Test
+    @DisplayName("Cancellation propagates instead of being captured (STR-243)")
+    fun cancellationPropagates() {
+        val performanceRepo = FakeLiftWeeklyPerformanceRepository()
+        performanceRepo.getAllError =
+            kotlin.coroutines.cancellation.CancellationException("cancelled")
+        val useCase = buildUseCase(performanceRepo = performanceRepo)
+
+        org.junit.jupiter.api.Assertions.assertThrows(
+            kotlin.coroutines.cancellation.CancellationException::class.java,
+        ) {
+            kotlinx.coroutines.runBlocking {
+                useCase(GraphDetailSubject.Lift(LiftId("bench")))
+            }
+        }
     }
 
     @Test
@@ -275,13 +319,14 @@ class LoadGraphDetailUseCaseTest {
         outcomeRepo: FakeMuscleWeeklyOutcomeIndexRepository = FakeMuscleWeeklyOutcomeIndexRepository(),
         liftRepo: FakeLiftRepository = FakeLiftRepository(),
         trainingLog: FakeTrainingLogRepository = FakeTrainingLogRepository(),
+        logging: FakeLoggingPort = FakeLoggingPort(),
     ): LoadGraphDetailUseCase = LoadGraphDetailUseCase(
         liftWeeklyPerformanceRepository = performanceRepo,
         muscleWeeklyStimulusRepository = stimulusRepo,
         muscleWeeklyOutcomeIndexRepository = outcomeRepo,
         liftRepository = liftRepo,
         trainingLogRepository = trainingLog,
-        loggingPort = FakeLoggingPort(),
+        loggingPort = logging,
     )
 
     private fun hardSet(
