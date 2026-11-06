@@ -248,11 +248,11 @@ class EditWorkoutViewModelSchemeToggleTest {
             appendProgramChangeEvent = com.stratum.application.training.AppendProgramChangeEventUseCase(programChangeEventRepository),
             workoutEditSession = workoutEditSession,
             startTrainingSession =
-                com.stratum.application.training.StartTrainingSessionUseCase(trainingLog, repository, logging),
+                com.stratum.application.training.StartTrainingSessionUseCase(trainingLog, repository),
             observeCycleProgress =
                 com.stratum.application.training.ObserveCycleProgressUseCase(repository, trainingLog),
             abandonTrainingSession =
-                com.stratum.application.training.AbandonTrainingSessionUseCase(trainingLog, logging),
+                com.stratum.application.training.AbandonTrainingSessionUseCase(trainingLog),
             manageWorkoutOverlay =
                 com.stratum.application.workout.ManageWorkoutOverlayUseCase(
                     com.stratum.core.testing.workout.FakeWorkoutOverlayStore(),

@@ -81,6 +81,7 @@ class CreateProgramViewModel @Inject constructor(
             state = _uiState,
             observeActiveSession = observeActiveSession,
             abandonTrainingSession = abandonTrainingSession,
+            diagnosticDrain = diagnosticDrain,
         )
 
     private val editor =

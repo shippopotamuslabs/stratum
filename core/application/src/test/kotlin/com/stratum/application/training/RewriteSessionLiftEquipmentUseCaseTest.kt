@@ -1,6 +1,5 @@
 package com.stratum.application.training
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
 import com.stratum.domain.importing.identity.LoggedSetId
@@ -15,7 +14,6 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import com.stratum.domain.training.LoggedSet
-import com.stratum.domain.training.TrainingSessionNotInProgressException
 
 class RewriteSessionLiftEquipmentUseCaseTest {
 
@@ -30,7 +28,7 @@ class RewriteSessionLiftEquipmentUseCaseTest {
         repo.insertSet(loggedSet("ls-3", sessionId, liftId = "lift-2", equipmentId = "barbell"))
         repo.insertSet(loggedSet("ls-4", sessionId, liftId = "lift-1", equipmentId = "ssb"))
 
-        val useCase = RewriteSessionLiftEquipmentUseCase(repo, FakeLoggingPort())
+        val useCase = RewriteSessionLiftEquipmentUseCase(repo)
         val result = useCase(sessionId, LiftId("lift-1"), EquipmentId("ssb"))
 
         assertEquals(RewriteSessionLiftEquipmentResult.Success, result)
@@ -49,8 +47,7 @@ class RewriteSessionLiftEquipmentUseCaseTest {
         repo.seedSession(WorkoutLoggingFixtures.completedLiveSession(id = sessionId.value))
         repo.insertSet(loggedSet("ls-1", sessionId, liftId = "lift-1", equipmentId = "barbell"))
 
-        val logging = FakeLoggingPort()
-        val useCase = RewriteSessionLiftEquipmentUseCase(repo, logging)
+        val useCase = RewriteSessionLiftEquipmentUseCase(repo)
         val result = useCase(sessionId, LiftId("lift-1"), EquipmentId("ssb"))
 
         assertEquals(
@@ -61,29 +58,27 @@ class RewriteSessionLiftEquipmentUseCaseTest {
             result,
         )
         assertEquals(EquipmentId("barbell"), repo.getAllSets().single().equipmentId)
-        assertEquals(1, logging.errors.size)
-        assertTrue(logging.errors.single().throwable is TrainingSessionNotInProgressException)
     }
 
     @Test
-    @DisplayName("operational getSession failure returns PersistenceFailed with exactly one error log")
+    @DisplayName("operational getSession failure returns PersistenceFailed carrying exactly one diagnostic")
     fun operationalLoadFailureReturnsFailureAndLogsOnce() = runTest {
         val repo = FakeTrainingLogRepository()
         val failure = IllegalStateException("room load failed")
         repo.getSessionError = failure
         val sessionId = TrainingSessionId("ts-live-1")
-        val logging = FakeLoggingPort()
-        val useCase = RewriteSessionLiftEquipmentUseCase(repo, logging)
+        val useCase = RewriteSessionLiftEquipmentUseCase(repo)
 
         val result = useCase(sessionId, LiftId("lift-1"), EquipmentId("ssb"))
 
-        assertEquals(RewriteSessionLiftEquipmentResult.PersistenceFailed, result)
-        assertEquals(1, logging.errors.size)
+        val failed = result as RewriteSessionLiftEquipmentResult.PersistenceFailed
+        val diagnostic = failed.diagnostics.single()
         assertEquals(
             "Failed to rewrite session lift equipment: ${failure.message}",
-            logging.errors.single().message,
+            diagnostic.message,
         )
-        assertEquals(failure, logging.errors.single().throwable)
+        assertEquals("RewriteSessionLiftEquipmentUseCase", diagnostic.tag)
+        org.junit.jupiter.api.Assertions.assertSame(failure, diagnostic.cause)
     }
 
     private fun loggedSet(

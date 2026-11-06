@@ -87,6 +87,7 @@ class EditWorkoutViewModel @Inject constructor(
             observeCycleProgress = observeCycleProgress,
             abandonTrainingSession = abandonTrainingSession,
             manageWorkoutOverlay = manageWorkoutOverlay,
+            diagnosticDrain = diagnosticDrain,
         )
 
     // Declared above init: the pick collector launched below reads these eagerly.

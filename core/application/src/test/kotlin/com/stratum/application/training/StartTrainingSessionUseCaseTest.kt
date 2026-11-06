@@ -1,6 +1,5 @@
 package com.stratum.application.training
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
@@ -25,7 +24,6 @@ class StartTrainingSessionUseCaseTest {
         val useCase = StartTrainingSessionUseCase(
             FakeTrainingLogRepository(),
             FakeProgramRepository(program()),
-            FakeLoggingPort(),
         )
 
         val result = useCase(StartTrainingSessionRequest.ProgramWorkout(WorkoutLoggingFixtures.workoutAId))
@@ -44,7 +42,6 @@ class StartTrainingSessionUseCaseTest {
         val useCase = StartTrainingSessionUseCase(
             FakeTrainingLogRepository(),
             FakeProgramRepository(program()),
-            FakeLoggingPort(),
         )
 
         val result = useCase(StartTrainingSessionRequest.AdHocEmpty)
@@ -65,7 +62,6 @@ class StartTrainingSessionUseCaseTest {
         val useCase = StartTrainingSessionUseCase(
             repo,
             FakeProgramRepository(program()),
-            FakeLoggingPort(),
         )
 
         val firstStart = useCase(StartTrainingSessionRequest.ProgramWorkout(WorkoutLoggingFixtures.workoutBId))
@@ -90,7 +86,6 @@ class StartTrainingSessionUseCaseTest {
         val useCase = StartTrainingSessionUseCase(
             trainingLog,
             programRepo,
-            FakeLoggingPort(),
         )
 
         val result =
@@ -108,7 +103,6 @@ class StartTrainingSessionUseCaseTest {
         val useCase = StartTrainingSessionUseCase(
             FakeTrainingLogRepository(),
             FakeProgramRepository(null),
-            FakeLoggingPort(),
         )
 
         val result = useCase(StartTrainingSessionRequest.AdHocEmpty)
@@ -121,7 +115,6 @@ class StartTrainingSessionUseCaseTest {
         val useCase = StartTrainingSessionUseCase(
             FakeTrainingLogRepository(),
             FakeProgramRepository(program()),
-            FakeLoggingPort(),
         )
 
         val unknownId = WorkoutId("unknown-w")
@@ -140,11 +133,13 @@ class StartTrainingSessionUseCaseTest {
         val useCase = StartTrainingSessionUseCase(
             throwingRepo,
             FakeProgramRepository(program()),
-            FakeLoggingPort(),
         )
 
         val result = useCase(StartTrainingSessionRequest.AdHocEmpty)
-        assertEquals(StartTrainingSessionResult.PersistenceFailed, result)
+        val failed = result as StartTrainingSessionResult.PersistenceFailed
+        val diagnostic = failed.diagnostics.single()
+        assertEquals("room unavailable", diagnostic.cause.message)
+        assertTrue(diagnostic.cause is RuntimeException)
     }
 
     @Test
@@ -158,7 +153,6 @@ class StartTrainingSessionUseCaseTest {
         val useCase = StartTrainingSessionUseCase(
             cancellingRepo,
             FakeProgramRepository(program()),
-            FakeLoggingPort(),
         )
 
         org.junit.jupiter.api.Assertions.assertThrows(

@@ -10,11 +10,15 @@ sealed interface StartTrainingSessionResult {
     data class WorkoutNotFound(val workoutId: WorkoutId) : StartTrainingSessionResult
     /**
      * The session could not be started because a repository read or write failed.
-     * The originating throwable is logged once at the use-case boundary through the
-     * diagnostics channel (LoggingPort); it never crosses as a payload (STR-243).
-     * Coroutine cancellation is not this branch: it propagates as cancellation.
+     * The originating throwable rides this branch as a
+     * [TrainingSessionFailureDiagnostic] and is recorded exactly once at the
+     * presentation boundary (STR-237 Route (i), the domain-owned-outcome shape
+     * of STR-243's diagnostics channel). Coroutine cancellation is not this
+     * branch: it propagates as cancellation.
      */
-    data object PersistenceFailed : StartTrainingSessionResult
+    data class PersistenceFailed(
+        val diagnostics: List<TrainingSessionFailureDiagnostic>,
+    ) : StartTrainingSessionResult
 }
 
 val StartTrainingSessionResult.isSuccess: Boolean

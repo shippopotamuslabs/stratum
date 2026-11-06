@@ -202,6 +202,9 @@ internal suspend fun LiveWorkoutSessionRuntime.persistLoggedSet(
                     partialReps = normalizedPartials,
                 ),
             )
+        if (updateResult is UpdateLoggedSetResult.PersistenceFailed) {
+            drainOperationalDiagnostics(updateResult.diagnostics)
+        }
         if (updateResult != UpdateLoggedSetResult.Success) {
             effects.publishUserMessage(LiveWorkoutSessionRuntime.MSG_LOG_SET_FAILED)
             return null
@@ -228,6 +231,9 @@ internal suspend fun LiveWorkoutSessionRuntime.persistLoggedSet(
                 partialReps = normalizedPartials,
             ),
         )
+    if (insertResult is LogSetResult.PersistenceFailed) {
+        drainOperationalDiagnostics(insertResult.diagnostics)
+    }
     if (insertResult !is LogSetResult.Success) {
         effects.publishUserMessage(LiveWorkoutSessionRuntime.MSG_LOG_SET_FAILED)
         return null
@@ -283,6 +289,9 @@ internal suspend fun LiveWorkoutSessionRuntime.reindexRoomSetIndicesForLift(
         )
     for (updated in updates) {
         val result = updateLoggedSet(updated)
+        if (result is UpdateLoggedSetResult.PersistenceFailed) {
+            drainOperationalDiagnostics(result.diagnostics)
+        }
         if (result != UpdateLoggedSetResult.Success) {
             effects.publishUserMessage(LiveWorkoutSessionRuntime.MSG_LOG_SET_FAILED)
             return
@@ -303,6 +312,9 @@ internal suspend fun LiveWorkoutSessionRuntime.handleUnlogSet(cmd: SessionComman
         val dbSet = findLoggedSetForSlot(session, targetSlot)
         if (dbSet != null) {
             val deleteResult = deleteLoggedSet(dbSet.id)
+            if (deleteResult is DeleteLoggedSetResult.PersistenceFailed) {
+                drainOperationalDiagnostics(deleteResult.diagnostics)
+            }
             if (deleteResult != DeleteLoggedSetResult.Success) {
                 effects.publishUserMessage(LiveWorkoutSessionRuntime.MSG_UNLOG_SET_FAILED)
                 return
@@ -408,6 +420,9 @@ internal suspend fun LiveWorkoutSessionRuntime.handleDeleteSetByKey(cmd: Session
             val dbSet = findLoggedSetForSlot(session, targetSlot)
             if (dbSet != null) {
                 val deleteResult = deleteLoggedSet(dbSet.id)
+                if (deleteResult is DeleteLoggedSetResult.PersistenceFailed) {
+                    drainOperationalDiagnostics(deleteResult.diagnostics)
+                }
                 if (deleteResult != DeleteLoggedSetResult.Success) {
                     effects.publishUserMessage(LiveWorkoutSessionRuntime.MSG_UNLOG_SET_FAILED)
                     return
@@ -509,6 +524,9 @@ internal suspend fun LiveWorkoutSessionRuntime.handleDeleteSetWithCascade(cmd: S
             val dbSet = findLoggedSetForSlot(session, targetSlot)
             if (dbSet != null) {
                 val deleteResult = deleteLoggedSet(dbSet.id)
+                if (deleteResult is DeleteLoggedSetResult.PersistenceFailed) {
+                    drainOperationalDiagnostics(deleteResult.diagnostics)
+                }
                 if (deleteResult != DeleteLoggedSetResult.Success) {
                     effects.publishUserMessage(LiveWorkoutSessionRuntime.MSG_UNLOG_SET_FAILED)
                     return
@@ -555,6 +573,9 @@ internal suspend fun LiveWorkoutSessionRuntime.handleSetSetKind(cmd: SessionComm
             val dbSet = findLoggedSetForSlot(session, dropSlot)
             if (dbSet != null) {
                 val deleteResult = deleteLoggedSet(dbSet.id)
+                if (deleteResult is DeleteLoggedSetResult.PersistenceFailed) {
+                    drainOperationalDiagnostics(deleteResult.diagnostics)
+                }
                 if (deleteResult != DeleteLoggedSetResult.Success) {
                     effects.publishUserMessage(LiveWorkoutSessionRuntime.MSG_UNLOG_SET_FAILED)
                     return

@@ -281,10 +281,10 @@ class ProgramsViewModelTest {
                     observeProgram = com.stratum.application.program.ObserveProgramUseCase(repository),
                     observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
                     computeProgramMuscleVolume = ComputeProgramMuscleVolumeUseCase(),
-                    startTrainingSession = StartTrainingSessionUseCase(trainingLog, repository, logging),
+                    startTrainingSession = StartTrainingSessionUseCase(trainingLog, repository),
                     observeCycleProgress = ObserveCycleProgressUseCase(repository, trainingLog),
                     abandonTrainingSession =
-                        com.stratum.application.training.AbandonTrainingSessionUseCase(trainingLog, logging),
+                        com.stratum.application.training.AbandonTrainingSessionUseCase(trainingLog),
                     getLoggedSetsForSession =
                         com.stratum.application.training.GetLoggedSetsForSessionUseCase(trainingLog),
                     recordWorkoutSkip =
@@ -348,10 +348,10 @@ class ProgramsViewModelTest {
                     observeProgram = com.stratum.application.program.ObserveProgramUseCase(repository),
                     observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
                     computeProgramMuscleVolume = ComputeProgramMuscleVolumeUseCase(),
-                    startTrainingSession = StartTrainingSessionUseCase(trainingLog, repository, logging),
+                    startTrainingSession = StartTrainingSessionUseCase(trainingLog, repository),
                     observeCycleProgress = ObserveCycleProgressUseCase(repository, trainingLog),
                     abandonTrainingSession =
-                        com.stratum.application.training.AbandonTrainingSessionUseCase(trainingLog, logging),
+                        com.stratum.application.training.AbandonTrainingSessionUseCase(trainingLog),
                     getLoggedSetsForSession =
                         com.stratum.application.training.GetLoggedSetsForSessionUseCase(trainingLog),
                     recordWorkoutSkip =
@@ -463,9 +463,9 @@ class ProgramsViewModelTest {
             observeProgram = com.stratum.application.program.ObserveProgramUseCase(repository),
             observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
             computeProgramMuscleVolume = ComputeProgramMuscleVolumeUseCase(),
-            startTrainingSession = StartTrainingSessionUseCase(trainingLog, repository, logging),
+            startTrainingSession = StartTrainingSessionUseCase(trainingLog, repository),
             observeCycleProgress = ObserveCycleProgressUseCase(repository, trainingLog),
-            abandonTrainingSession = com.stratum.application.training.AbandonTrainingSessionUseCase(trainingLog, logging),
+            abandonTrainingSession = com.stratum.application.training.AbandonTrainingSessionUseCase(trainingLog),
             getLoggedSetsForSession = com.stratum.application.training.GetLoggedSetsForSessionUseCase(trainingLog),
             recordWorkoutSkip = com.stratum.application.training.RecordWorkoutSkipUseCase(trainingLog, repository, FakeLoggingPort()),
             recordRestDaySkip = com.stratum.application.training.RecordRestDaySkipUseCase(trainingLog, repository, FakeLoggingPort()),

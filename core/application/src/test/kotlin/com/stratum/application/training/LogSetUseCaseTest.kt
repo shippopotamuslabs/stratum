@@ -1,6 +1,5 @@
 package com.stratum.application.training
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
@@ -25,7 +24,6 @@ import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.SetEquipmentSource
 import com.stratum.domain.training.StubLoggedLiftContextFactory
 import com.stratum.domain.training.TrainingSessionKind
-import com.stratum.domain.training.TrainingSessionNotInProgressException
 import com.stratum.domain.training.countsTowardMainBlockFatigue
 import com.stratum.domain.training.normalizedPartialReps
 
@@ -48,8 +46,7 @@ class LogSetUseCaseTest {
     fun wl032_logSetRejectsCompleted() = runTest {
         val repo = FakeTrainingLogRepository()
         repo.seedSession(WorkoutLoggingFixtures.completedLiveSession(id = "ts-done"))
-        val logging = FakeLoggingPort()
-        val useCase = buildUseCase(repo, logging)
+        val useCase = buildUseCase(repo)
 
         val result = useCase(command(sessionId = "ts-done"))
 
@@ -61,26 +58,24 @@ class LogSetUseCaseTest {
             result,
         )
         assertEquals(0, repo.insertSetCallCount)
-        assertEquals(1, logging.errors.size)
-        assertTrue(logging.errors.single().throwable is TrainingSessionNotInProgressException)
     }
 
     @Test
-    @DisplayName("operational getSession failure returns PersistenceFailed with exactly one error log")
+    @DisplayName("operational getSession failure returns PersistenceFailed carrying exactly one diagnostic")
     fun operationalLoadFailureReturnsFailureAndLogsOnce() = runTest {
         val repo = FakeTrainingLogRepository()
         val failure = IllegalStateException("room load failed")
         repo.getSessionError = failure
-        val logging = FakeLoggingPort()
-        val useCase = buildUseCase(repo, logging)
+        val useCase = buildUseCase(repo)
 
         val result = useCase(command(sessionId = "ts-live-1"))
 
-        assertEquals(LogSetResult.PersistenceFailed, result)
+        val failed = result as LogSetResult.PersistenceFailed
         assertEquals(0, repo.insertSetCallCount)
-        assertEquals(1, logging.errors.size)
-        assertEquals("Failed to log set: ${failure.message}", logging.errors.single().message)
-        assertEquals(failure, logging.errors.single().throwable)
+        val diagnostic = failed.diagnostics.single()
+        assertEquals("Failed to log set: ${failure.message}", diagnostic.message)
+        assertEquals("LogSetUseCase", diagnostic.tag)
+        org.junit.jupiter.api.Assertions.assertSame(failure, diagnostic.cause)
     }
 
     @Test
@@ -107,7 +102,6 @@ class LogSetUseCaseTest {
             liftRepo,
             FakeProgramRepository(programWithLift()),
             StubLoggedLiftContextFactory(),
-            FakeLoggingPort(),
         )
 
         val set = (useCase(command()) as LogSetResult.Success).loggedSet
@@ -186,7 +180,6 @@ class LogSetUseCaseTest {
             FakeLiftRepository(initialLifts = listOf(WorkoutLoggingFixtures.benchLift())),
             FakeProgramRepository(initial = null),
             StubLoggedLiftContextFactory(),
-            FakeLoggingPort(),
         )
 
         val set = (useCase(command(sessionId = "ts-adhoc", workoutLiftId = sessionOnlyId)) as LogSetResult.Success).loggedSet
@@ -272,8 +265,7 @@ class LogSetUseCaseTest {
                 FakeLiftRepository(initialLifts = emptyList()),
                 FakeProgramRepository(programWithLift()),
                 StubLoggedLiftContextFactory(),
-                FakeLoggingPort(),
-            )
+                )
 
         val result = useCase(command())
 
@@ -283,13 +275,11 @@ class LogSetUseCaseTest {
 
     private fun buildUseCase(
         repo: FakeTrainingLogRepository,
-        logging: FakeLoggingPort = FakeLoggingPort(),
     ) = LogSetUseCase(
         repo,
         FakeLiftRepository(initialLifts = listOf(WorkoutLoggingFixtures.benchLift())),
         FakeProgramRepository(programWithLift()),
         StubLoggedLiftContextFactory(),
-        logging,
     )
 
     private fun programWithLift() = WorkoutLoggingFixtures.twoWorkoutProgram().copy(

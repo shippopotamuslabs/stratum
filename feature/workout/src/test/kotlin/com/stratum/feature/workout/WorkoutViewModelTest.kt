@@ -369,7 +369,6 @@ class WorkoutViewModelTest {
             abandonTrainingSession =
                 com.stratum.application.training.AbandonTrainingSessionUseCase(
                     trainingLog,
-                    FakeLoggingPort(),
                 ),
             liveWorkoutSurfaces = fakeLiveWorkoutSurfaces(),
             applicationScope =
@@ -404,13 +403,12 @@ class WorkoutViewModelTest {
                 liftRepository = liftRepository,
                 programRepository = programRepository,
                 loggedLiftContextFactory = DefaultLoggedLiftContextFactory(),
-                loggingPort = FakeLoggingPort(),
             ),
-            updateLoggedSet = UpdateLoggedSetUseCase(trainingLogRepository, FakeLoggingPort()),
+            updateLoggedSet = UpdateLoggedSetUseCase(trainingLogRepository),
             observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
             getLiftsByIds = com.stratum.application.lift.GetLiftsByIdsUseCase(liftRepository),
             getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
-            deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository, FakeLoggingPort()),
+            deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository),
             processScopedAbandon = processScopedAbandon(trainingLogRepository),
             finalizeTrainingSession = finalizeTrainingSession(liftRepo = liftRepository),
             applyOverlayToWorkout = com.stratum.application.workout.ApplyOverlayToWorkoutUseCase(),
@@ -453,7 +451,6 @@ class WorkoutViewModelTest {
             rewriteSessionLiftEquipment =
                 com.stratum.application.training.RewriteSessionLiftEquipmentUseCase(
                     trainingLogRepository,
-                    FakeLoggingPort(),
                 ),
             diagnosticDrain = DiagnosticDrain(FakeLoggingPort()),
         )
@@ -506,13 +503,12 @@ class WorkoutViewModelTest {
                 liftRepository = liftRepository,
                 programRepository = programRepository,
                 loggedLiftContextFactory = DefaultLoggedLiftContextFactory(),
-                loggingPort = FakeLoggingPort(),
             ),
-            updateLoggedSet = UpdateLoggedSetUseCase(trainingLogRepository, FakeLoggingPort()),
+            updateLoggedSet = UpdateLoggedSetUseCase(trainingLogRepository),
             observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
             getLiftsByIds = com.stratum.application.lift.GetLiftsByIdsUseCase(liftRepository),
             getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
-            deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository, FakeLoggingPort()),
+            deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository),
             processScopedAbandon = processScopedAbandon(trainingLogRepository),
             finalizeTrainingSession = finalizeTrainingSession(liftRepo = liftRepository),
             applyOverlayToWorkout = com.stratum.application.workout.ApplyOverlayToWorkoutUseCase(),
@@ -555,7 +551,6 @@ class WorkoutViewModelTest {
             rewriteSessionLiftEquipment =
                 com.stratum.application.training.RewriteSessionLiftEquipmentUseCase(
                     trainingLogRepository,
-                    FakeLoggingPort(),
                 ),
             diagnosticDrain = DiagnosticDrain(FakeLoggingPort()),
         )
@@ -594,13 +589,12 @@ class WorkoutViewModelTest {
                 liftRepository = liftRepository,
                 programRepository = programRepository,
                 loggedLiftContextFactory = DefaultLoggedLiftContextFactory(),
-                loggingPort = FakeLoggingPort(),
             ),
-            updateLoggedSet = UpdateLoggedSetUseCase(trainingLogRepository, FakeLoggingPort()),
+            updateLoggedSet = UpdateLoggedSetUseCase(trainingLogRepository),
             observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
             getLiftsByIds = com.stratum.application.lift.GetLiftsByIdsUseCase(liftRepository),
             getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
-            deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository, FakeLoggingPort()),
+            deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository),
             processScopedAbandon = processScopedAbandon(trainingLogRepository),
             finalizeTrainingSession = finalizeTrainingSession(liftRepo = liftRepository),
             applyOverlayToWorkout = com.stratum.application.workout.ApplyOverlayToWorkoutUseCase(),
@@ -655,7 +649,6 @@ class WorkoutViewModelTest {
             rewriteSessionLiftEquipment =
                 com.stratum.application.training.RewriteSessionLiftEquipmentUseCase(
                     trainingLogRepository,
-                    FakeLoggingPort(),
                 ),
             diagnosticDrain = DiagnosticDrain(FakeLoggingPort()),
         )
@@ -1388,13 +1381,12 @@ class WorkoutViewModelTest {
                 liftRepository = liftRepository,
                 programRepository = programRepository,
                 loggedLiftContextFactory = DefaultLoggedLiftContextFactory(),
-                loggingPort = FakeLoggingPort(),
             ),
-            updateLoggedSet = UpdateLoggedSetUseCase(trainingLogRepository, FakeLoggingPort()),
+            updateLoggedSet = UpdateLoggedSetUseCase(trainingLogRepository),
             observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
             getLiftsByIds = com.stratum.application.lift.GetLiftsByIdsUseCase(liftRepository),
             getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
-            deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository, FakeLoggingPort()),
+            deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository),
             processScopedAbandon = processScopedAbandon(trainingLogRepository),
             finalizeTrainingSession = finalizeTrainingSession(liftRepo = liftRepository),
             applyOverlayToWorkout = com.stratum.application.workout.ApplyOverlayToWorkoutUseCase(),
@@ -1437,7 +1429,6 @@ class WorkoutViewModelTest {
             rewriteSessionLiftEquipment =
                 com.stratum.application.training.RewriteSessionLiftEquipmentUseCase(
                     trainingLogRepository,
-                    FakeLoggingPort(),
                 ),
             diagnosticDrain = DiagnosticDrain(FakeLoggingPort()),
         )
@@ -1487,13 +1478,12 @@ class WorkoutViewModelTest {
                 liftRepository = liftRepository,
                 programRepository = programRepository,
                 loggedLiftContextFactory = DefaultLoggedLiftContextFactory(),
-                loggingPort = FakeLoggingPort(),
             ),
-            updateLoggedSet = UpdateLoggedSetUseCase(trainingLogRepository, FakeLoggingPort()),
+            updateLoggedSet = UpdateLoggedSetUseCase(trainingLogRepository),
             observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
             getLiftsByIds = com.stratum.application.lift.GetLiftsByIdsUseCase(liftRepository),
             getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
-            deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository, FakeLoggingPort()),
+            deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository),
             processScopedAbandon = processScopedAbandon(trainingLogRepository),
             finalizeTrainingSession = finalizeTrainingSession(liftRepo = liftRepository),
             applyOverlayToWorkout = com.stratum.application.workout.ApplyOverlayToWorkoutUseCase(),
@@ -1536,7 +1526,6 @@ class WorkoutViewModelTest {
             rewriteSessionLiftEquipment =
                 com.stratum.application.training.RewriteSessionLiftEquipmentUseCase(
                     trainingLogRepository,
-                    FakeLoggingPort(),
                 ),
             diagnosticDrain = DiagnosticDrain(FakeLoggingPort()),
         )

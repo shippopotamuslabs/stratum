@@ -5,6 +5,7 @@ import com.stratum.core.ui.component.cleanupSupersetGroups
 import com.stratum.core.ui.component.linkSupersetWithAdjacent
 import com.stratum.core.ui.component.unlinkLiftFromSuperset
 import com.stratum.domain.importing.FatigueDecay
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.application.importing.ObserveLiftTrainingInsightsUseCase
 import com.stratum.domain.lift.EffectiveSteps
 import com.stratum.domain.lift.Equipment
@@ -590,6 +591,17 @@ internal class LiveWorkoutSessionRuntime(
      * existing error-logging wiring. Diagnostics are log-only — never surfaced in
      * the UI.
      */
+    /**
+     * STR-237 Route (i): drains operational diagnostics carried on a use-case
+     * outcome branch exactly once through this runtime's existing recorder.
+     * Diagnostics are log-only — never surfaced in the UI.
+     */
+    internal fun drainOperationalDiagnostics(diagnostics: List<OperationalDiagnostic>) {
+        for (diagnostic in diagnostics) {
+            logError(diagnostic.tag, diagnostic.message, diagnostic.cause)
+        }
+    }
+
     internal fun logProgressionDiagnostics(diagnostics: List<ProgressionDiagnostic>) {
         for (diagnostic in diagnostics) {
             when (diagnostic) {

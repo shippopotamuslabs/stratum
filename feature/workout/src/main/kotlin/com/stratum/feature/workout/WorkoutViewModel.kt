@@ -654,6 +654,9 @@ class WorkoutViewModel @Inject constructor(
                     newEquipmentId = EquipmentId(prompt.newId),
                 )
             rewriteInFlight = false
+            if (result is RewriteSessionLiftEquipmentResult.PersistenceFailed) {
+                diagnosticDrain.drain(result.diagnostics)
+            }
             if (result == RewriteSessionLiftEquipmentResult.Success) {
                 swapEquipment(WorkoutLiftId(prompt.workoutLiftId), EquipmentId(prompt.newId))
                 _equipmentRewritePrompt.value = null
@@ -919,6 +922,9 @@ class WorkoutViewModel @Inject constructor(
             session.send(SessionCommand.BeginAbandon)
             processScopedAbandon.abandon(trainingSessionId) { result ->
                 viewModelScope.launch {
+                    if (result is AbandonTrainingSessionResult.PersistenceFailed) {
+                        diagnosticDrain.drain(result.diagnostics)
+                    }
                     if (result != AbandonTrainingSessionResult.Success) {
                         session.send(SessionCommand.CancelAbandon)
                         retainLoadedUiForExit = false

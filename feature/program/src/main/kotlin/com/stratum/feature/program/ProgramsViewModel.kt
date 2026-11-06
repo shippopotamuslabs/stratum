@@ -113,10 +113,9 @@ class ProgramsViewModel @Inject constructor(
                 .distinctUntilChanged()
                 .collect { orphanSessionId ->
                     if (orphanSessionId != null) {
-                        if (
-                            abandonTrainingSession(orphanSessionId) ==
-                                AbandonTrainingSessionResult.PersistenceFailed
-                        ) {
+                        val abandonResult = abandonTrainingSession(orphanSessionId)
+                        if (abandonResult is AbandonTrainingSessionResult.PersistenceFailed) {
+                            diagnosticDrain.drain(abandonResult.diagnostics)
                             showUserMessage(MSG_ABANDON_FAILED)
                         }
                     }

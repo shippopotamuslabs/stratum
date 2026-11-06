@@ -293,7 +293,6 @@ class ProgramLibraryViewModelTest {
             abandonTrainingSession =
                 com.stratum.application.training.AbandonTrainingSessionUseCase(
                     trainingLog,
-                    FakeLoggingPort(),
                 ),
             deleteProgram =
                 DeleteProgramUseCase(

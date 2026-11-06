@@ -1,6 +1,5 @@
 package com.stratum.application.training
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
 import com.stratum.domain.importing.identity.LoggedSetId
@@ -14,7 +13,6 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import com.stratum.domain.training.LoggedSet
-import com.stratum.domain.training.TrainingSessionNotInProgressException
 
 class UpdateLoggedSetUseCaseTest {
 
@@ -39,7 +37,7 @@ class UpdateLoggedSetUseCaseTest {
             )
         repo.insertSet(original)
 
-        val useCase = UpdateLoggedSetUseCase(repo, FakeLoggingPort())
+        val useCase = UpdateLoggedSetUseCase(repo)
         val result =
             useCase(
                 original.copy(
@@ -78,8 +76,7 @@ class UpdateLoggedSetUseCaseTest {
             )
         repo.insertSet(set)
 
-        val logging = FakeLoggingPort()
-        val useCase = UpdateLoggedSetUseCase(repo, logging)
+        val useCase = UpdateLoggedSetUseCase(repo)
         val result = useCase(set.copy(reps = 8))
 
         assertEquals(
@@ -90,12 +87,10 @@ class UpdateLoggedSetUseCaseTest {
             result,
         )
         assertEquals(5, repo.getAllSets().single().reps)
-        assertEquals(1, logging.errors.size)
-        assertTrue(logging.errors.single().throwable is TrainingSessionNotInProgressException)
     }
 
     @Test
-    @DisplayName("operational getSession failure returns PersistenceFailed with exactly one error log")
+    @DisplayName("operational getSession failure returns PersistenceFailed carrying exactly one diagnostic")
     fun operationalLoadFailureReturnsFailureAndLogsOnce() = runTest {
         val repo = FakeTrainingLogRepository()
         val failure = IllegalStateException("room load failed")
@@ -114,14 +109,14 @@ class UpdateLoggedSetUseCaseTest {
                 completedAt = Instant.parse("2024-01-01T00:00:00Z"),
                 liftContext = WorkoutLoggingFixtures.importLiftContext(),
             )
-        val logging = FakeLoggingPort()
-        val useCase = UpdateLoggedSetUseCase(repo, logging)
+        val useCase = UpdateLoggedSetUseCase(repo)
 
         val result = useCase(set)
 
-        assertEquals(UpdateLoggedSetResult.PersistenceFailed, result)
-        assertEquals(1, logging.errors.size)
-        assertEquals("Failed to update logged set: ${failure.message}", logging.errors.single().message)
-        assertEquals(failure, logging.errors.single().throwable)
+        val failed = result as UpdateLoggedSetResult.PersistenceFailed
+        val diagnostic = failed.diagnostics.single()
+        assertEquals("Failed to update logged set: ${failure.message}", diagnostic.message)
+        assertEquals("UpdateLoggedSetUseCase", diagnostic.tag)
+        org.junit.jupiter.api.Assertions.assertSame(failure, diagnostic.cause)
     }
 }
