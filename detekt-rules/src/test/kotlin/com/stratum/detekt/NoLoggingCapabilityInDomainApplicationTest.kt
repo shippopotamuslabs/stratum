@@ -57,6 +57,21 @@ class NoLoggingCapabilityInDomainApplicationTest {
     }
 
     @Test
+    @DisplayName("a file in a nested application logging package is reported")
+    fun nestedApplicationLoggingPackageReported() {
+        val findings =
+            lint(
+                "core/application/src/main/Foo.kt",
+                """
+                package com.stratum.application.checkin.logging
+
+                class Foo
+                """.trimIndent(),
+            )
+        assertEquals(1, findings.size)
+    }
+
+    @Test
     @DisplayName("a package merely starting with a banned segment is not reported")
     fun lookalikePackageNotReported() {
         val findings =
@@ -151,6 +166,17 @@ class NoLoggingCapabilityInDomainApplicationTest {
             lint(
                 "core/application/src/main/FooUseCase.kt",
                 "fun foo() = expectedFailure(IllegalStateException(\"x\"))",
+            )
+        assertEquals(1, findings.size)
+    }
+
+    @Test
+    @DisplayName("LogAnalyticsEventUseCase constructor call is reported")
+    fun logAnalyticsEventUseCaseReported() {
+        val findings =
+            lint(
+                "core/application/src/main/Foo.kt",
+                "fun foo() = LogAnalyticsEventUseCase(port)",
             )
         assertEquals(1, findings.size)
     }

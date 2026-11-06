@@ -21,16 +21,16 @@ import org.jetbrains.kotlin.psi.KtUserType
  * (DiagnosticDrain).
  *
  * Scoped to :core:domain and :core:application MAIN sources. Flags:
- *  (a) a file whose package is `com.stratum.domain.logging`,
- *      `com.stratum.domain.telemetry`, `com.stratum.application.logging`,
- *      `com.stratum.application.telemetry`, or a subpackage of one of those;
+ *  (a) a file whose package has a segment exactly `logging` or `telemetry`
+ *      (segment equality on the dot-split package name — a segment like
+ *      `loggingstuff` does NOT flag);
  *  (b) type references to `LoggingPort`, `AnalyticsPort`,
  *      `CrashTelemetryPort`, or `TelemetryUploadPort` — import directives
  *      importing one of those names (from any package) and `KtUserType`
  *      references with one of those names;
  *  (c) call expressions whose callee simple name is `runCatchingLogged`,
- *      `onFailureLogged`, `expectedFailure`, or `LogErrorUseCase` (the last
- *      is a constructor call).
+ *      `onFailureLogged`, `expectedFailure`, `LogErrorUseCase`, or
+ *      `LogAnalyticsEventUseCase` (the last two are constructor calls).
  *
  * Known PSI limitation: this rule performs no type resolution. Checks (b)
  * and (c) match simple names as written in the source. Words inside
@@ -59,7 +59,7 @@ class NoLoggingCapabilityInDomainApplication(config: Config) : Rule(config) {
         if (isEnforced(file.virtualFilePath)) {
             val packageDirective = file.packageDirective
             val packageName = packageDirective?.packageNameExpression?.text.orEmpty()
-            if (BANNED_PACKAGES.any { banned -> packageName == banned || packageName.startsWith("$banned.") }) {
+            if (packageName.split('.').any { segment -> segment in BANNED_PACKAGE_SEGMENTS }) {
                 report(
                     CodeSmell(
                         issue = issue,
@@ -127,18 +127,19 @@ class NoLoggingCapabilityInDomainApplication(config: Config) : Rule(config) {
     }
 
     companion object {
-        private val BANNED_PACKAGES =
-            setOf(
-                "com.stratum.domain.logging",
-                "com.stratum.domain.telemetry",
-                "com.stratum.application.logging",
-                "com.stratum.application.telemetry",
-            )
+        private val BANNED_PACKAGE_SEGMENTS =
+            setOf("logging", "telemetry")
 
         private val BANNED_TYPE_NAMES =
             setOf("LoggingPort", "AnalyticsPort", "CrashTelemetryPort", "TelemetryUploadPort")
 
         private val BANNED_CALLEES =
-            setOf("runCatchingLogged", "onFailureLogged", "expectedFailure", "LogErrorUseCase")
+            setOf(
+                "runCatchingLogged",
+                "onFailureLogged",
+                "expectedFailure",
+                "LogErrorUseCase",
+                "LogAnalyticsEventUseCase",
+            )
     }
 }

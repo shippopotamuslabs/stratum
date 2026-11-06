@@ -24,7 +24,8 @@ import org.jetbrains.kotlin.psi.psiUtil.getParentOfType
  *  (a) `Result.failure(` call expressions,
  *  (b) calls to the funnel helpers that manufacture raw-Throwable failures —
  *      `runCatchingLogged` / `onFailureLogged` / `expectedFailure`
- *      (domain/logging/LoggedResult.kt) and `runCatchingCancellable`
+ *      (the former LoggedResult helpers, deleted by STR-237) and
+ *      `runCatchingCancellable`
  *      (domain/coroutines/RunCatchingCancellable.kt) — at call sites outside
  *      their definition files (the definition files are legacyFiles entries),
  *  (c) raw-payload-typed properties / constructor parameters declared on a
@@ -57,7 +58,7 @@ class NoRawThrowableFailure(config: Config) : Rule(config) {
             severity = Severity.CodeSmell,
             description =
                 "Domain/application failures must be sealed outcome branches, not raw Throwables. " +
-                    "Return the area's sealed outcome type instead of Result.failure / the LoggedResult funnel.",
+                    "Return the area's sealed outcome type instead of Result.failure / the former LoggedResult funnel (deleted by STR-237).",
             debt = Debt.TWENTY_MINS,
         )
 
