@@ -1,7 +1,9 @@
 package com.stratum.core.infrastructure.work
 
+import com.stratum.application.checkin.CheckInPreferenceResult
 import com.stratum.application.checkin.MarkCheckInPendingUseCase
 import com.stratum.application.importing.InsightsAnalysisScope
+import com.stratum.domain.logging.LoggingPort
 import com.stratum.application.response.ExtractResponseProfileOutcome
 import com.stratum.application.response.ExtractResponseProfileUseCase
 import com.stratum.domain.response.RE_EXTRACT_MIN_COMPLETED_WORKOUTS
@@ -41,6 +43,7 @@ class ResponseModelingWork @Inject constructor(
     private val metadataRepository: ResponseProfileMetadataRepository,
     private val trainingLogRepository: TrainingLogRepository,
     private val markCheckInPending: MarkCheckInPendingUseCase,
+    private val loggingPort: LoggingPort,
 ) {
 
     sealed interface Outcome {
@@ -77,7 +80,14 @@ class ResponseModelingWork @Inject constructor(
                     if (isReExtract && !forceHistoryInvalidation) {
                         // Extract watermark already advanced; mark pending check-in.
                         // History-invalidation force runs intentionally skip check-in.
-                        markCheckInPending(Instant.now())
+                        // STR-237: this worker is the boundary for the mark-pending
+                        // outcome — its failure diagnostics are recorded exactly once here.
+                        val pending = markCheckInPending(Instant.now())
+                        if (pending is CheckInPreferenceResult.PersistenceFailed) {
+                            pending.diagnostics.forEach { diagnostic ->
+                                loggingPort.error(diagnostic.tag, diagnostic.message, diagnostic.cause)
+                            }
+                        }
                     }
                     Outcome.Success
                 }

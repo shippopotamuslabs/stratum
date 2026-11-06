@@ -161,6 +161,12 @@ data class CheckInEvaluation(
     val recommendations: List<CheckInRecommendation>,
     /** Active program lift ids (for swap-picker exclusion). */
     val programLiftIds: Set<LiftId> = emptySet(),
+    /**
+     * One diagnostic per undecodable `program_change_event` row skipped while
+     * evaluating (STR-237 Special 2). The presentation boundary drains them as
+     * warnings exactly once; they never reach UI state.
+     */
+    val diagnostics: List<CheckInSkippedRowDiagnostic> = emptyList(),
 ) {
     val actionable: List<CheckInRecommendation>
         get() = recommendations.filter { it.action !is CheckInAction.Maintain }

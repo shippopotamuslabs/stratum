@@ -79,6 +79,7 @@ class SettingsViewModel @Inject constructor(
     private val setWeightDisplayUnit: SetWeightDisplayUnitUseCase,
     private val setHealthConnectEnabled: SetHealthConnectEnabledUseCase,
     private val logError: LogErrorUseCase,
+    private val diagnosticDrain: DiagnosticDrain,
     private val clearHealthConnectSyncError: ClearHealthConnectSyncErrorUseCase,
     private val markCheckInPending: MarkCheckInPendingUseCase,
     private val forceRefreshDerived: ForceRefreshDerivedTrainingData,
@@ -277,7 +278,9 @@ class SettingsViewModel @Inject constructor(
 
     fun onCheckInsEnabledChange(enabled: Boolean) {
         viewModelScope.launch {
-            if (setCheckInEnabled(enabled) == CheckInPreferenceResult.PersistenceFailed) {
+            val result = setCheckInEnabled(enabled)
+            if (result is CheckInPreferenceResult.PersistenceFailed) {
+                diagnosticDrain.drain(result.diagnostics)
                 _userMessage.value = MSG_PREFS_FAILED
             }
         }
@@ -320,9 +323,14 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             val enable = setCheckInEnabled(true)
             val pending = markCheckInPending(Instant.now())
+            listOf(enable, pending).forEach { result ->
+                if (result is CheckInPreferenceResult.PersistenceFailed) {
+                    diagnosticDrain.drain(result.diagnostics)
+                }
+            }
             if (
-                enable == CheckInPreferenceResult.PersistenceFailed ||
-                pending == CheckInPreferenceResult.PersistenceFailed
+                enable is CheckInPreferenceResult.PersistenceFailed ||
+                pending is CheckInPreferenceResult.PersistenceFailed
             ) {
                 _userMessage.value = MSG_PREFS_FAILED
                 return@launch

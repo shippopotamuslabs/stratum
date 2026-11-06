@@ -143,7 +143,7 @@ class SettingsViewModelTest {
                 ObserveEntitlementUseCase(fakeEntitlementRepository),
             setThemeFamily = SetThemeFamilyUseCase(fakeThemePreferences, FakeLoggingPort()),
             setColorMode = SetColorModeUseCase(fakeThemePreferences, FakeLoggingPort()),
-            setCheckInEnabled = SetCheckInEnabledUseCase(fakeCheckInPreferences, FakeLoggingPort()),
+            setCheckInEnabled = SetCheckInEnabledUseCase(fakeCheckInPreferences),
             setEquipmentProposalsEnabled =
                 SetEquipmentProposalsEnabledUseCase(fakeEquipmentProposals, FakeLoggingPort()),
             setRepRangeShiftProposalsEnabled =
@@ -157,9 +157,10 @@ class SettingsViewModelTest {
                     FakeLoggingPort(),
                 ),
             logError = LogErrorUseCase(loggingPort),
+            diagnosticDrain = DiagnosticDrain(loggingPort),
             clearHealthConnectSyncError =
                 ClearHealthConnectSyncErrorUseCase(fakeHealthConnectSyncStatus, FakeLoggingPort()),
-            markCheckInPending = MarkCheckInPendingUseCase(fakeCheckInPreferences, FakeLoggingPort()),
+            markCheckInPending = MarkCheckInPendingUseCase(fakeCheckInPreferences),
             forceRefreshDerived = forceRefresh,
             logout = LogoutUseCase(
                 authManager = fakeAuth,

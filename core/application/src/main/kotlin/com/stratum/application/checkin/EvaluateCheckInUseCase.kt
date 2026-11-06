@@ -11,7 +11,6 @@ import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.application.response.LiftWeeklyPerformanceRepository
 import com.stratum.application.response.MuscleVolumeResponseSnapshotRepository
 import com.stratum.application.training.ProgramChangeEventRepository
-import com.stratum.domain.logging.LoggingPort
 import java.time.Instant
 import java.time.Period
 import javax.inject.Inject
@@ -26,6 +25,7 @@ import com.stratum.domain.checkin.CheckInProvisionalRecommendation
 import com.stratum.domain.checkin.CheckInRanking
 import com.stratum.domain.checkin.CheckInRationale
 import com.stratum.domain.checkin.CheckInRecommendation
+import com.stratum.domain.checkin.CheckInSkippedRowDiagnostic
 import com.stratum.domain.checkin.CheckInSubjectiveFeedback
 import com.stratum.domain.checkin.CheckInVolumeCeiling
 import com.stratum.domain.checkin.CycleHardSetVolume
@@ -59,7 +59,6 @@ class EvaluateCheckInUseCase @Inject constructor(
     private val liftRepository: LiftRepository,
     private val liftWeeklyPerformanceRepository: LiftWeeklyPerformanceRepository,
     private val programChangeEventRepository: ProgramChangeEventRepository,
-    private val loggingPort: LoggingPort,
     private val rankSwapCandidates: RankSwapCandidatesUseCase,
     private val computeProgramMuscleVolume: ComputeProgramMuscleVolumeUseCase,
     private val muscleVolumeResponseSnapshotRepository: MuscleVolumeResponseSnapshotRepository,
@@ -75,17 +74,15 @@ class EvaluateCheckInUseCase @Inject constructor(
         val performance = liftWeeklyPerformanceRepository.getSince(windowStart)
         val performanceByLift = performance.groupBy { it.liftId }
         val eventRead = programChangeEventRepository.getEventsForProgram(program.id)
-        // Diagnostics as values: the repository returns undecodable-row skips
-        // on the read instead of logging them. This use case is the drain
-        // boundary — its only caller is the CheckIn ViewModel and diagnostics
-        // never reach the UI — so each skipped row is logged exactly once here.
-        eventRead.skippedRows.forEach { skipped ->
-            loggingPort.warning(
-                PROGRAM_CHANGE_EVENTS_TAG,
-                "Skipping undecodable program_change_event " +
-                    "id=${skipped.id.value} type=${skipped.eventType}",
-            )
-        }
+        // Diagnostics as values (STR-237 Special 2): the repository returns
+        // undecodable-row skips on the read instead of logging them. They ride
+        // the evaluation outcome as CheckInSkippedRowDiagnostics; the CheckIn
+        // ViewModel drains each one as a warning exactly once at the boundary
+        // and they never reach UI state.
+        val skippedRowDiagnostics =
+            eventRead.skippedRows.map { skipped ->
+                CheckInSkippedRowDiagnostic(id = skipped.id, eventType = skipped.eventType)
+            }
         val events = eventRead.events
 
         val cycleVolume =
@@ -205,6 +202,7 @@ class EvaluateCheckInUseCase @Inject constructor(
             recommendations =
                 recommendations.sortedWith(CheckInDecisionEngine.recommendationComparator()),
             programLiftIds = programLiftIds,
+            diagnostics = skippedRowDiagnostics,
         )
     }
 
@@ -297,5 +295,3 @@ class EvaluateCheckInUseCase @Inject constructor(
         val decision: CheckInCoreDecision,
     )
 }
-
-private const val PROGRAM_CHANGE_EVENTS_TAG = "ProgramChangeEvents"

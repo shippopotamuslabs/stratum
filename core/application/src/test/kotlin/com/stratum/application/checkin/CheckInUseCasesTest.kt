@@ -1,6 +1,5 @@
 package com.stratum.application.checkin
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import app.cash.turbine.test
 import com.stratum.core.testing.checkin.FakeCheckInPreferencesRepository
 import java.time.Instant
@@ -8,6 +7,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -27,10 +27,10 @@ class CheckInUseCasesTest {
     fun setup() {
         fake.seed(CheckInPreferences())
         observePending = ObservePendingCheckInUseCase(fake)
-        setEnabled = SetCheckInEnabledUseCase(fake, FakeLoggingPort())
-        markPending = MarkCheckInPendingUseCase(fake, FakeLoggingPort())
-        skip = SkipCheckInUseCase(fake, FakeLoggingPort())
-        complete = CompleteCheckInUseCase(fake, FakeLoggingPort())
+        setEnabled = SetCheckInEnabledUseCase(fake)
+        markPending = MarkCheckInPendingUseCase(fake)
+        skip = SkipCheckInUseCase(fake)
+        complete = CompleteCheckInUseCase(fake)
     }
 
     @Test
@@ -84,16 +84,22 @@ class CheckInUseCasesTest {
     }
 
     @Test
-    @DisplayName("setEnabled returns PersistenceFailed when the repository write throws (STR-243)")
+    @DisplayName("setEnabled returns PersistenceFailed carrying the failure diagnostic (STR-243/STR-237)")
     fun setEnabledPersistenceFailure() = runTest {
+        val cause = RuntimeException("store unavailable")
         val throwing =
             object : CheckInPreferencesRepository by fake {
                 override suspend fun setEnabled(enabled: Boolean) {
-                    throw RuntimeException("store unavailable")
+                    throw cause
                 }
             }
-        val result = SetCheckInEnabledUseCase(throwing, FakeLoggingPort())(true)
-        assertEquals(CheckInPreferenceResult.PersistenceFailed, result)
+        val result = SetCheckInEnabledUseCase(throwing)(true)
+        val failed = result as CheckInPreferenceResult.PersistenceFailed
+        assertEquals(1, failed.diagnostics.size)
+        val diagnostic = failed.diagnostics.single()
+        assertEquals("SetCheckInEnabled", diagnostic.tag)
+        assertEquals("Failed to set check-in enabled: store unavailable", diagnostic.message)
+        assertSame(cause, diagnostic.cause)
     }
 
     @Test
@@ -105,7 +111,7 @@ class CheckInUseCasesTest {
                     throw kotlin.coroutines.cancellation.CancellationException("cancelled")
                 }
             }
-        val subject = SkipCheckInUseCase(cancelling, FakeLoggingPort())
+        val subject = SkipCheckInUseCase(cancelling)
         org.junit.jupiter.api.Assertions.assertThrows(
             kotlin.coroutines.cancellation.CancellationException::class.java,
         ) {
