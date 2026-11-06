@@ -5,10 +5,9 @@ import androidx.credentials.exceptions.GetCredentialInterruptedException
 import androidx.credentials.exceptions.GetCredentialProviderConfigurationException
 import androidx.credentials.exceptions.GetCredentialUnsupportedException
 import androidx.credentials.exceptions.NoCredentialException
-import com.stratum.application.auth.SignInFailureKind
+import com.stratum.domain.auth.SignInFailureKind
 import java.io.IOException
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 
@@ -44,13 +43,10 @@ class GoogleSignInClassificationTest {
     }
 
     @Test
-    @DisplayName("Cause chain is walked and origin is preserved")
-    fun walksCauseAndPreservesOrigin() {
+    @DisplayName("Cause chain is walked for the classification")
+    fun walksCauseChain() {
         val origin = RuntimeException("wrapper", NoCredentialException())
-        val classified = origin.toGoogleSignInException()
-        assertEquals(SignInFailureKind.NoAccount, classified.kind)
-        assertSame(origin, classified.cause)
-        assertEquals("wrapper", classified.message)
+        assertEquals(SignInFailureKind.NoAccount, origin.signInFailureKind())
     }
 
     @Test

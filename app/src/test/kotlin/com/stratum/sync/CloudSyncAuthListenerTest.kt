@@ -77,7 +77,7 @@ class CloudSyncAuthListenerTest {
             listener.start()
             assertEquals("user-abc", cloudSyncPort.startedUserId)
 
-            authManager.setState(AuthState.Error("Auth failed"))
+            authManager.setState(AuthState.Error(com.stratum.domain.auth.SignInFailureKind.Other, "Auth failed"))
 
             assertEquals(1, cloudSyncPort.stopCount)
             scope.cancel()

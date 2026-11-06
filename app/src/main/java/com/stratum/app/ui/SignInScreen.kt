@@ -88,7 +88,7 @@ fun SignInScreen(
                 }
                 is ShellUiState.SignInError -> {
                     // [shellState.message] is already mapped to user-facing copy in MainViewModel
-                    // (see toGoogleSignInMessage); never pass raw throwables into ShellUiState.
+                    // (see loginFailureToGoogleSignInMessage); never pass raw throwables into ShellUiState.
                     SignInErrorText(
                         text = shellState.message,
                         modifier = Modifier.padding(bottom = StratumSpacing.s16),

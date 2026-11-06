@@ -15,6 +15,7 @@ sealed interface AuthState {
     ) : AuthState
 
     data class Error(
+        val kind: SignInFailureKind,
         val message: String,
     ) : AuthState
 

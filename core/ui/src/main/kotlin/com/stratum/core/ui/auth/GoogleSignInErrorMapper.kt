@@ -1,32 +1,16 @@
 package com.stratum.core.ui.auth
 
-import androidx.credentials.exceptions.GetCredentialCancellationException
-import androidx.credentials.exceptions.GetCredentialInterruptedException
-import androidx.credentials.exceptions.GetCredentialProviderConfigurationException
-import androidx.credentials.exceptions.GetCredentialUnsupportedException
-import androidx.credentials.exceptions.NoCredentialException
-import com.stratum.application.auth.SignInFailureKind
-import java.io.IOException
+import com.stratum.domain.auth.SignInFailureKind
 
 /**
- * Maps Google / Credential Manager failures to short, user-facing copy.
+ * Maps Google sign-in failures to short, user-facing copy.
  *
- * Never returns exception class names, stack-ish text, or developer config jargon.
- * Technical detail stays in logs ([com.stratum.core.infrastructure.auth.FirebaseGoogleAuthManager]).
- */
-fun Throwable.toGoogleSignInMessage(): String {
-    val chain = generateSequence(this) { it.cause }.toList()
-    // Prefer typed Credential Manager / IO failures over free-form messages on wrappers.
-    chain.forEach { typedMessage(it)?.let { msg -> return msg } }
-    chain.forEach { heuristicMessage(it)?.let { msg -> return msg } }
-    return MSG_GENERIC
-}
-
-/**
- * Maps an application-classified sign-in failure (STR-243) to the same
- * user-facing copy as [toGoogleSignInMessage]: typed kinds map directly to
- * their copy; [SignInFailureKind.Other] falls through to the message
- * heuristics below (single source) and then the generic fallback.
+ * The single classification source is the infrastructure adapter's
+ * vendor-type -> [SignInFailureKind] mapping (STR-243, E2 ruling); this
+ * mapper only turns a kind (plus the originating message for
+ * [SignInFailureKind.Other]) into copy. Never returns exception class names,
+ * stack-ish text, or developer config jargon. Technical detail stays in logs
+ * ([com.stratum.core.infrastructure.auth.FirebaseGoogleAuthManager]).
  */
 fun loginFailureToGoogleSignInMessage(
     kind: SignInFailureKind,
@@ -41,20 +25,6 @@ fun loginFailureToGoogleSignInMessage(
         SignInFailureKind.Other ->
             heuristicMessageText(message.orEmpty()) ?: MSG_GENERIC
     }
-
-private fun typedMessage(error: Throwable): String? =
-    when (error) {
-        is GetCredentialCancellationException -> MSG_CANCELLED
-        is NoCredentialException -> MSG_NO_ACCOUNT
-        is GetCredentialInterruptedException -> MSG_INTERRUPTED
-        is GetCredentialProviderConfigurationException,
-        is GetCredentialUnsupportedException,
-        -> MSG_UNAVAILABLE
-        is IOException -> MSG_NETWORK
-        else -> null
-    }
-
-private fun heuristicMessage(error: Throwable): String? = heuristicMessageText(error.message.orEmpty())
 
 private fun heuristicMessageText(msg: String): String? {
     if (msg.isBlank()) return null

@@ -11,6 +11,7 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 import com.stratum.domain.auth.AuthState
+import com.stratum.domain.auth.SignInFailureKind
 import com.stratum.domain.auth.UserProfile
 import com.stratum.application.sync.CloudSyncPort
 
@@ -40,15 +41,7 @@ class LoginWithGoogleUseCase @Inject constructor(
     private val authManager: AuthManager,
 ) {
     suspend operator fun invoke(): LoginWithGoogleResult =
-        try {
-            LoginWithGoogleResult.Success(authManager.signInWithGoogle())
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (error: GoogleSignInException) {
-            LoginWithGoogleResult.Failed(error.kind, error.message)
-        } catch (error: Throwable) {
-            LoginWithGoogleResult.Failed(SignInFailureKind.Other, error.message)
-        }
+        authManager.signInWithGoogle()
 }
 
 /**
@@ -98,11 +91,7 @@ class LogoutUseCase @Inject constructor(
             stopCloudSync()
         }
 
-        try {
-            authManager.signOut()
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (_: Throwable) {
+        if (authManager.signOut() is SignOutOutcome.Failed) {
             val diagnostics = if (
                 uid != null && authManager.authState.value is AuthState.Authenticated
             ) {
@@ -225,16 +214,9 @@ class DeleteAccountUseCase @Inject constructor(
             // retypes the outcome. Sign-out failures are recorded exactly once by the
             // AuthManager adapter (FirebaseGoogleAuthManager.signOut) — that adapter is
             // the single recording owner (handle-exactly-once, CODE-STYLE-GOSPEL §11),
-            // so this capture only consumes the failure and rethrows a
-            // CancellationException if one surfaces, returned or thrown.
-            val signOutError: Throwable? =
-                try {
-                    authManager.signOut()
-                    null
-                } catch (error: Throwable) {
-                    error
-                }
-            if (signOutError is CancellationException) throw signOutError
+            // so the outcome is simply consumed here. A CancellationException from
+            // the port still propagates (it is never an outcome branch).
+            authManager.signOut()
             DeleteAccountResult.Success
         }
 }
