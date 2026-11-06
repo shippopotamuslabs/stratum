@@ -2,7 +2,7 @@ package com.stratum.application.subscription
 
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.domain.subscription.BillingPurchaseResult
 import com.stratum.domain.subscription.EntitlementDiagnostic
 import com.stratum.domain.subscription.EntitlementState
@@ -12,14 +12,17 @@ import com.stratum.domain.subscription.SubscriptionProduct
 const val SUBSCRIPTION_REPO_TAG = "SubscriptionRepo"
 
 /**
- * Outcome of loading the subscription product catalog (STR-243). The
- * originating throwable is logged once via [LoggingPort.error] at the
- * use-case boundary; it never crosses as a payload.
+ * Outcome of loading the subscription product catalog (STR-243; STR-237
+ * Route (i)). On failure the port's diagnostics are re-rendered as
+ * [OperationalDiagnostic]s on the [Failed] branch; the presentation boundary
+ * drains them exactly once.
  */
 sealed interface GetSubscriptionProductsResult {
     data class Success(val products: List<SubscriptionProduct>) : GetSubscriptionProductsResult
 
-    data object Failed : GetSubscriptionProductsResult
+    data class Failed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : GetSubscriptionProductsResult
 }
 
 /**
@@ -31,14 +34,20 @@ sealed interface GetSubscriptionProductsResult {
 sealed interface PurchaseSubscriptionResult {
     data object Success : PurchaseSubscriptionResult
 
-    data class Failed(val message: String?) : PurchaseSubscriptionResult
+    data class Failed(
+        val message: String?,
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : PurchaseSubscriptionResult
 }
 
 /** Outcome of restoring purchases (STR-243); same message pattern as [PurchaseSubscriptionResult]. */
 sealed interface RestorePurchasesResult {
     data class Success(val entitlement: EntitlementState) : RestorePurchasesResult
 
-    data class Failed(val message: String?) : RestorePurchasesResult
+    data class Failed(
+        val message: String?,
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : RestorePurchasesResult
 }
 
 class ObserveEntitlementUseCase @Inject constructor(
@@ -57,25 +66,25 @@ class ObserveEntitlementDiagnosticsUseCase @Inject constructor(
 
 class GetSubscriptionProductsUseCase @Inject constructor(
     private val billingPort: BillingPort,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(): GetSubscriptionProductsResult =
         when (val outcome = billingPort.querySubscriptionProducts()) {
             is SubscriptionProductsOutcome.Success ->
                 GetSubscriptionProductsResult.Success(outcome.products)
-            is SubscriptionProductsOutcome.Failed -> {
-                outcome.diagnostics.forEach { diagnostic ->
-                    when (diagnostic) {
-                        is BillingDiagnostic.OperationFailed ->
-                            loggingPort.error(
-                                TAG,
-                                "Failed to load subscription products: ${diagnostic.cause.message}",
-                                diagnostic.cause,
-                            )
-                    }
-                }
-                GetSubscriptionProductsResult.Failed
-            }
+            is SubscriptionProductsOutcome.Failed ->
+                GetSubscriptionProductsResult.Failed(
+                    diagnostics = outcome.diagnostics.map { diagnostic ->
+                        when (diagnostic) {
+                            is BillingDiagnostic.OperationFailed ->
+                                OperationalDiagnostic(
+                                    tag = TAG,
+                                    message = "Failed to load subscription products: " +
+                                        "${diagnostic.cause.message}",
+                                    cause = diagnostic.cause,
+                                )
+                        }
+                    },
+                )
         }
 
     private companion object {
@@ -85,24 +94,25 @@ class GetSubscriptionProductsUseCase @Inject constructor(
 
 class PurchaseSubscriptionUseCase @Inject constructor(
     private val billingPort: BillingPort,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(product: SubscriptionProduct): PurchaseSubscriptionResult =
         when (val outcome = billingPort.launchBillingFlow(product)) {
             BillingFlowOutcome.Success -> PurchaseSubscriptionResult.Success
-            is BillingFlowOutcome.Failed -> {
-                outcome.diagnostics.forEach { diagnostic ->
-                    when (diagnostic) {
-                        is BillingDiagnostic.OperationFailed ->
-                            loggingPort.error(
-                                TAG,
-                                "Failed to launch billing flow: ${diagnostic.cause.message}",
-                                diagnostic.cause,
-                            )
-                    }
-                }
-                PurchaseSubscriptionResult.Failed(outcome.message)
-            }
+            is BillingFlowOutcome.Failed ->
+                PurchaseSubscriptionResult.Failed(
+                    message = outcome.message,
+                    diagnostics = outcome.diagnostics.map { diagnostic ->
+                        when (diagnostic) {
+                            is BillingDiagnostic.OperationFailed ->
+                                OperationalDiagnostic(
+                                    tag = TAG,
+                                    message = "Failed to launch billing flow: " +
+                                        "${diagnostic.cause.message}",
+                                    cause = diagnostic.cause,
+                                )
+                        }
+                    },
+                )
         }
 
     private companion object {
@@ -113,7 +123,6 @@ class PurchaseSubscriptionUseCase @Inject constructor(
 class RestorePurchasesUseCase @Inject constructor(
     private val billingPort: BillingPort,
     private val repository: EntitlementRepository,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(): RestorePurchasesResult {
         when (val outcome = billingPort.restorePurchases()) {
@@ -133,19 +142,19 @@ class RestorePurchasesUseCase @Inject constructor(
         message: String?,
     ): RestorePurchasesResult {
         var failureMessage = message
-        diagnostics.forEach { diagnostic ->
+        val operationalDiagnostics = diagnostics.map { diagnostic ->
             when (diagnostic) {
                 is BillingDiagnostic.OperationFailed -> {
-                    loggingPort.error(
-                        TAG,
-                        "Failed to restore purchases: ${diagnostic.cause.message}",
-                        diagnostic.cause,
-                    )
                     if (failureMessage == null) failureMessage = diagnostic.cause.message
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Failed to restore purchases: ${diagnostic.cause.message}",
+                        cause = diagnostic.cause,
+                    )
                 }
             }
         }
-        return RestorePurchasesResult.Failed(failureMessage)
+        return RestorePurchasesResult.Failed(failureMessage, operationalDiagnostics)
     }
 
     private companion object {

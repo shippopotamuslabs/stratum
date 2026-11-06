@@ -1,7 +1,6 @@
 package com.stratum.application.subscription
 
 import app.cash.turbine.test
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.subscription.FakeBillingPort
 import com.stratum.core.testing.subscription.FakeEntitlementRepository
 import kotlinx.coroutines.test.runTest
@@ -18,7 +17,6 @@ import com.stratum.domain.subscription.SubscriptionCatalog
 class SubscriptionUseCasesTest {
     private val fakeBilling = FakeBillingPort()
     private val fakeRepo = FakeEntitlementRepository()
-    private val fakeLogging = FakeLoggingPort()
 
     @Test
     fun `observe entitlement emits current state`() = runTest {
@@ -36,7 +34,7 @@ class SubscriptionUseCasesTest {
 
     @Test
     fun `get subscription products returns all available products`() = runTest {
-        val useCase = GetSubscriptionProductsUseCase(fakeBilling, fakeLogging)
+        val useCase = GetSubscriptionProductsUseCase(fakeBilling)
         val result = useCase()
         val products = (result as GetSubscriptionProductsResult.Success).products
         assertEquals(2, products.size)
@@ -49,21 +47,24 @@ class SubscriptionUseCasesTest {
     }
 
     @Test
-    fun `get subscription products failure returns Failed and logs once`() = runTest {
+    fun `get subscription products failure returns Failed carrying exactly one diagnostic`() = runTest {
         val boom = IllegalStateException("Billing unavailable")
         fakeBilling.queryException = boom
-        val useCase = GetSubscriptionProductsUseCase(fakeBilling, fakeLogging)
+        val useCase = GetSubscriptionProductsUseCase(fakeBilling)
 
         val result = useCase()
 
-        assertEquals(GetSubscriptionProductsResult.Failed, result)
-        assertEquals(1, fakeLogging.errors.size)
-        assertSame(boom, fakeLogging.errors.single().throwable)
+        val failed = result as GetSubscriptionProductsResult.Failed
+        assertEquals(1, failed.diagnostics.size)
+        val diagnostic = failed.diagnostics.single()
+        assertEquals("GetSubscriptionProducts", diagnostic.tag)
+        assertEquals("Failed to load subscription products: Billing unavailable", diagnostic.message)
+        assertSame(boom, diagnostic.cause)
     }
 
     @Test
     fun `purchase subscription launches billing flow for product`() = runTest {
-        val useCase = PurchaseSubscriptionUseCase(fakeBilling, fakeLogging)
+        val useCase = PurchaseSubscriptionUseCase(fakeBilling)
         val product = fakeBilling.availableProducts.first()
         val result = useCase(product)
         assertEquals(PurchaseSubscriptionResult.Success, result)
@@ -71,21 +72,25 @@ class SubscriptionUseCasesTest {
     }
 
     @Test
-    fun `purchase subscription failure returns Failed carrying the message and logs once`() = runTest {
-        fakeBilling.launchBillingFailure = IllegalStateException("Billing unavailable")
-        val useCase = PurchaseSubscriptionUseCase(fakeBilling, fakeLogging)
+    fun `purchase subscription failure returns Failed carrying the message and one diagnostic`() = runTest {
+        val boom = IllegalStateException("Billing unavailable")
+        fakeBilling.launchBillingFailure = boom
+        val useCase = PurchaseSubscriptionUseCase(fakeBilling)
         val product = fakeBilling.availableProducts.first()
 
         val result = useCase(product)
 
-        assertEquals(PurchaseSubscriptionResult.Failed("Billing unavailable"), result)
-        assertEquals(1, fakeLogging.errors.size)
+        val failed = result as PurchaseSubscriptionResult.Failed
+        assertEquals("Billing unavailable", failed.message)
+        assertEquals(1, failed.diagnostics.size)
+        assertEquals("PurchaseSubscription", failed.diagnostics.single().tag)
+        assertSame(boom, failed.diagnostics.single().cause)
     }
 
     @Test
     fun `restore purchases restores billing and refreshes repo state`() = runTest {
         fakeRepo.setState(EntitlementState.Entitled(EntitlementSource.GooglePlaySubscription))
-        val useCase = RestorePurchasesUseCase(fakeBilling, fakeRepo, fakeLogging)
+        val useCase = RestorePurchasesUseCase(fakeBilling, fakeRepo)
         val result = useCase()
         assertEquals(
             RestorePurchasesResult.Success(
@@ -97,19 +102,27 @@ class SubscriptionUseCasesTest {
 
     @Test
     fun `restore purchases propagates billing failure`() = runTest {
-        fakeBilling.restorePurchasesFailure = IllegalStateException("Billing unavailable")
-        val useCase = RestorePurchasesUseCase(fakeBilling, fakeRepo, fakeLogging)
+        val boom = IllegalStateException("Billing unavailable")
+        fakeBilling.restorePurchasesFailure = boom
+        val useCase = RestorePurchasesUseCase(fakeBilling, fakeRepo)
         val result = useCase()
-        assertEquals(RestorePurchasesResult.Failed("Billing unavailable"), result)
-        assertEquals(1, fakeLogging.errors.size)
+        val failed = result as RestorePurchasesResult.Failed
+        assertEquals("Billing unavailable", failed.message)
+        assertEquals(1, failed.diagnostics.size)
+        assertEquals("RestorePurchases", failed.diagnostics.single().tag)
+        assertSame(boom, failed.diagnostics.single().cause)
     }
 
     @Test
     fun `restore purchases propagates repository refresh failure`() = runTest {
-        fakeRepo.refreshFailure = IllegalStateException("Refresh failed")
-        val useCase = RestorePurchasesUseCase(fakeBilling, fakeRepo, fakeLogging)
+        val boom = IllegalStateException("Refresh failed")
+        fakeRepo.refreshFailure = boom
+        val useCase = RestorePurchasesUseCase(fakeBilling, fakeRepo)
         val result = useCase()
-        assertEquals(RestorePurchasesResult.Failed("Refresh failed"), result)
+        val failed = result as RestorePurchasesResult.Failed
+        assertEquals("Refresh failed", failed.message)
+        assertEquals(1, failed.diagnostics.size)
+        assertSame(boom, failed.diagnostics.single().cause)
     }
 
     @Test

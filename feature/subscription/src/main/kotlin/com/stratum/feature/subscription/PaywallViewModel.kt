@@ -52,6 +52,7 @@ class PaywallViewModel @Inject constructor(
     private val purchaseSubscription: PurchaseSubscriptionUseCase,
     private val restorePurchases: RestorePurchasesUseCase,
     private val logAnalytics: LogAnalyticsEventUseCase,
+    private val diagnosticDrain: DiagnosticDrain,
     observeEntitlement: ObserveEntitlementUseCase,
     observeBillingPurchaseResults: ObserveBillingPurchaseResultsUseCase,
 ) : ViewModel() {
@@ -182,7 +183,8 @@ class PaywallViewModel @Inject constructor(
                         }
                     }
                 }
-                GetSubscriptionProductsResult.Failed -> {
+                is GetSubscriptionProductsResult.Failed -> {
+                    diagnosticDrain.drain(result.diagnostics)
                     logAnalytics(
                         USER_VISIBLE_ERROR_EVENT,
                         mapOf(PARAM_SCREEN to "paywall", PARAM_ACTION to "load_offerings"),
@@ -212,6 +214,7 @@ class PaywallViewModel @Inject constructor(
             // Counting it needs cancellation discrimination first.
             val result = purchaseSubscription(product)
             if (result is PurchaseSubscriptionResult.Failed) {
+                diagnosticDrain.drain(result.diagnostics)
                 transientState.update {
                     it.copy(
                         isPurchasing = false,
@@ -244,6 +247,7 @@ class PaywallViewModel @Inject constructor(
                     }
                 }
                 is RestorePurchasesResult.Failed -> {
+                    diagnosticDrain.drain(result.diagnostics)
                     logAnalytics(
                         USER_VISIBLE_ERROR_EVENT,
                         mapOf(PARAM_SCREEN to "paywall", PARAM_ACTION to "restore_purchases"),
