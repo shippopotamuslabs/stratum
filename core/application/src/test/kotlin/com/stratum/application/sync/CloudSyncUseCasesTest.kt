@@ -43,12 +43,20 @@ class CloudSyncUseCasesTest {
     @Test
     fun portFailureReturnsFailedOutcome() = runTest {
         val port = FakeCloudSyncPort()
-        port.startFailure = IllegalStateException("sync boom")
+        val failure = IllegalStateException("sync boom")
+        port.startFailure = failure
         val start = StartCloudSyncUseCase(port)
 
-        // Failed is a payload-free branch: the throwable's single record is
-        // the port adapter's own boundary log, so nothing rides the outcome.
-        assertEquals(CloudSyncOutcome.Failed, start("uid-1"))
+        // The Failed branch carries the failure only as a diagnostic value:
+        // the throwable's single log record is the port adapter's own
+        // boundary log; the cause rides for classifiers/drains, never thrown.
+        val outcome = start("uid-1")
+        assertTrue(outcome is CloudSyncOutcome.Failed)
+        assertSame(
+            failure,
+            ((outcome as CloudSyncOutcome.Failed).diagnostics.single()
+                as CloudSyncDiagnostic.OperationFailed).cause,
+        )
     }
 
     @Test

@@ -14,6 +14,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertSame
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 
@@ -59,15 +60,17 @@ class FirestoreCloudSyncAdapterTest {
             ioDispatcher = Dispatchers.Unconfined,
         )
 
-        // The push/pull outcome logic still ran: first-hydrate failure is thrown.
-        var thrown: Throwable? = null
-        try {
-            subject.start("uid-1")
-        } catch (error: Throwable) {
-            thrown = error
-        }
+        // The push/pull outcome logic still ran: a first-hydrate failure is
+        // the Failed branch, its cause riding as the diagnostic value.
+        val outcome = subject.start("uid-1")
 
-        assertSame(pushPullFailure, thrown)
+        assertTrue(outcome is com.stratum.application.sync.CloudSyncOutcome.Failed)
+        assertSame(
+            pushPullFailure,
+            ((outcome as com.stratum.application.sync.CloudSyncOutcome.Failed)
+                .diagnostics.single()
+                as com.stratum.application.sync.CloudSyncDiagnostic.OperationFailed).cause,
+        )
         val recoveryErrors = logging.errors.filter {
             it.message.startsWith("start recovery enqueue failed")
         }
