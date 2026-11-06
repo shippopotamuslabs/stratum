@@ -67,6 +67,13 @@ stratum:
       - 'HealthSyncDiagnostic'
       - 'HealthConnectDiagnostic'
       - 'BillingDiagnostic'
+  # STR-237: no logging capability in :core:domain / :core:application main
+  # sources — no .logging/.telemetry packages there, no references to the
+  # logging/telemetry ports (now in :core:infrastructure), and no
+  # LoggedResult / LogErrorUseCase logging calls. Operational failures ride
+  # the outcomes' diagnostics and are recorded once at the boundary.
+  NoLoggingCapabilityInDomainApplication:
+    active: true
 
 potential-bugs:
   active: true
