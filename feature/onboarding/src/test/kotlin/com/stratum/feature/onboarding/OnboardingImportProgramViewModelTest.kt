@@ -304,7 +304,7 @@ class OnboardingImportProgramViewModelTest {
                 loadContext = FixedProgramGenerationContextLoader(error = { error("not used") }),
                 pipeline = com.stratum.core.testing.program.testProgramGenerationPipeline(),
                 liftRepository = liftRepo,
-                loggingPort = FakeLoggingPort(),
+                telemetryRouter = com.stratum.domain.telemetry.TelemetryRouter(com.stratum.core.testing.telemetry.FakeOutcomeTelemetrySink(), com.stratum.core.testing.telemetry.FakeCrashTelemetryPort(), com.stratum.core.testing.telemetry.FakeAnalyticsPort()),
             ),
             activateProgram = com.stratum.application.program.ActivateProgramUseCase(
                 programRepository = programRepo,

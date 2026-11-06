@@ -1,6 +1,9 @@
 package com.stratum.application.program
 
 import com.stratum.core.testing.logging.FakeLoggingPort
+import com.stratum.core.testing.telemetry.FakeAnalyticsPort
+import com.stratum.core.testing.telemetry.FakeCrashTelemetryPort
+import com.stratum.core.testing.telemetry.FakeOutcomeTelemetrySink
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.program.FakeProgramSynthesisPort
@@ -40,6 +43,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import com.stratum.domain.program.generation.volume.planWeeklyVolume
+import com.stratum.domain.telemetry.TelemetryRouter
 import com.stratum.domain.training.ProgramChangeEventType
 import com.stratum.application.program.generation.BuildProgramWorkoutsUseCase
 import com.stratum.application.program.generation.IntegrateAndValidateProgramUseCase
@@ -137,9 +141,17 @@ class GenerateProgramUseCaseTest {
                 GenerateProgramResult.Unexpected(GenerateProgramFailureKind.OperationalFailure),
                 result,
             )
-            // The operational throwable is logged exactly once at the boundary.
-            assertEquals(1, loggingPort.errors.size)
-            assertTrue(loggingPort.errors.single().throwable is IllegalStateException)
+            // The operational throwable is recorded exactly once at the
+            // boundary via TelemetryRouter.recordExceptional: one Crashlytics
+            // non-fatal holding the real throwable plus one
+            // exceptional_occurred counter increment with the base
+            // boundary/class params (restored pre-STR-243 behaviour).
+            assertEquals(1, crashTelemetry.recordedExceptions.size)
+            assertTrue(crashTelemetry.recordedExceptions.single() is IllegalStateException)
+            val exceptional = analyticsPort.events.single { it.name == TelemetryRouter.EVENT_EXCEPTIONAL_OCCURRED }
+            assertEquals("CreateProgramGenerate", exceptional.params[TelemetryRouter.PARAM_BOUNDARY])
+            assertEquals("IllegalStateException", exceptional.params[TelemetryRouter.PARAM_CLASS])
+            assertTrue(outcomeSink.outcomes.isEmpty())
             assertTrue(programRepository.saveProgramCalls.isEmpty())
             assertNull(programRepository.current)
         }
@@ -158,7 +170,8 @@ class GenerateProgramUseCaseTest {
             val result = useCase.invoke()
 
             assertEquals(GenerateProgramResult.SynthesisFailed("quota exhausted"), result)
-            assertTrue(loggingPort.errors.isEmpty())
+            assertTrue(crashTelemetry.recordedExceptions.isEmpty())
+            assertTrue(analyticsPort.events.none { it.name == TelemetryRouter.EVENT_EXCEPTIONAL_OCCURRED })
             assertTrue(programRepository.saveProgramCalls.isEmpty())
             assertNull(programRepository.current)
         }
@@ -195,7 +208,7 @@ class GenerateProgramUseCaseTest {
             val result = useCase.invoke()
 
             assertEquals(GenerateProgramResult.ValidationRejected(report), result)
-            assertTrue(loggingPort.errors.isEmpty())
+            assertTrue(crashTelemetry.recordedExceptions.isEmpty())
             assertTrue(programRepository.saveProgramCalls.isEmpty())
             assertNull(programRepository.current)
         }
@@ -214,7 +227,7 @@ class GenerateProgramUseCaseTest {
                 GenerateProgramResult.SynthesisRefused(ProgramSynthesisRefusal.FeatureDisabled),
                 result,
             )
-            assertTrue(loggingPort.errors.isEmpty())
+            assertTrue(crashTelemetry.recordedExceptions.isEmpty())
         }
     }
 
@@ -250,7 +263,9 @@ class GenerateProgramUseCaseTest {
     }
 
     private lateinit var programRepository: FakeProgramRepository
-    private lateinit var loggingPort: FakeLoggingPort
+    private lateinit var crashTelemetry: FakeCrashTelemetryPort
+    private lateinit var analyticsPort: FakeAnalyticsPort
+    private lateinit var outcomeSink: FakeOutcomeTelemetrySink
 
     private fun GenerateProgramResult.requireProgram(): Program =
         (this as GenerateProgramResult.Success).program
@@ -265,11 +280,13 @@ class GenerateProgramUseCaseTest {
         pipeline: ProgramGenerationPipeline = testProgramGenerationPipeline(),
     ): GenerateProgramUseCase {
         programRepository = FakeProgramRepository()
-        loggingPort = FakeLoggingPort()
+        crashTelemetry = FakeCrashTelemetryPort()
+        analyticsPort = FakeAnalyticsPort()
+        outcomeSink = FakeOutcomeTelemetrySink()
         return GenerateProgramUseCase(
             loadContext = contextLoader,
             pipeline = pipeline,
-            loggingPort = loggingPort,
+            telemetryRouter = TelemetryRouter(outcomeSink, crashTelemetry, analyticsPort),
             liftRepository = FakeLiftRepository(
                 initialLifts =
                     enabledLiftIds.map { id ->
@@ -369,7 +386,7 @@ class GenerateProgramUseCaseTest {
                     ),
                 pipeline = FixedNormalizedProgramPipeline(fixedNormalized),
                 liftRepository = FakeLiftRepository(initialLifts = listOf(highLift)),
-                loggingPort = FakeLoggingPort(),
+                telemetryRouter = TelemetryRouter(FakeOutcomeTelemetrySink(), FakeCrashTelemetryPort(), FakeAnalyticsPort()),
                 generationDispatcher = UnconfinedTestDispatcher(testScheduler),
             )
 

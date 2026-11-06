@@ -959,10 +959,11 @@ class OnboardingViewModel @Inject constructor(
 
     /**
      * Records a generation failure branch (STR-243). An [GenerateProgramResult.Unexpected]
-     * failure was already logged once at the use-case boundary, so only the
-     * analytics event fires for it; the expected branches are recorded here
-     * with a constructed exception value for the log record only — the branch
-     * itself carries the typed facts.
+     * failure was already recorded once at the use-case boundary via
+     * TelemetryRouter.recordExceptional, so only the analytics event fires for
+     * it here; the expected branches are recorded here with a constructed
+     * exception value for the log record only — the branch itself carries the
+     * typed facts.
      */
     private fun logGenerateFailure(result: GenerateProgramResult) {
         when (result) {

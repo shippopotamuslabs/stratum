@@ -264,8 +264,9 @@ internal class CreateProgramGenerateController(
             )
         }
         // GenerateProgramResult.Unexpected gets no record here: the use case
-        // already logged the original throwable once via LoggingPort.error, so
-        // the exceptional fact still has exactly one record.
+        // already recorded the original throwable exactly once via
+        // TelemetryRouter.recordExceptional (non-fatal + exceptional_occurred
+        // counter), so the exceptional fact still has exactly one record.
         logAnalytics(
             USER_VISIBLE_ERROR_EVENT,
             mapOf(PARAM_SCREEN to "create_program", PARAM_ACTION to "generate_program"),
