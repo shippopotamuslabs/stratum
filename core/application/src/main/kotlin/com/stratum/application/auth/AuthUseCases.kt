@@ -11,30 +11,12 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 import com.stratum.domain.auth.AuthState
-import com.stratum.domain.auth.SignInFailureKind
-import com.stratum.domain.auth.UserProfile
 import com.stratum.application.sync.CloudSyncPort
 
 class GetAuthStateUseCase @Inject constructor(
     private val authManager: AuthManager,
 ) {
     operator fun invoke(): Flow<AuthState> = authManager.authState
-}
-
-/**
- * Outcome of a Google sign-in attempt (STR-243). [Failed] carries the
- * adapter's [SignInFailureKind] classification plus the originating message
- * for unclassified failures (the shipped message-carrying pattern, cf.
- * `BillingPurchaseResult.Failed`) — never the throwable itself, which the
- * adapter logged once at its boundary.
- */
-sealed interface LoginWithGoogleResult {
-    data class Success(val profile: UserProfile) : LoginWithGoogleResult
-
-    data class Failed(
-        val kind: SignInFailureKind,
-        val message: String?,
-    ) : LoginWithGoogleResult
 }
 
 class LoginWithGoogleUseCase @Inject constructor(

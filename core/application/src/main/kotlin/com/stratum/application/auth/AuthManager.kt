@@ -2,6 +2,8 @@ package com.stratum.application.auth
 
 import kotlinx.coroutines.flow.StateFlow
 import com.stratum.domain.auth.AuthState
+import com.stratum.domain.auth.SignInFailureKind
+import com.stratum.domain.auth.UserProfile
 
 /**
  * Firebase Auth boundary (STR-243 remediation, Sean's E1 ruling). Operations
@@ -18,6 +20,22 @@ interface AuthManager {
     suspend fun signInWithGoogle(): LoginWithGoogleResult
 
     suspend fun signOut(): SignOutOutcome
+}
+
+/**
+ * Outcome of a Google sign-in attempt (STR-243). [Failed] carries the
+ * adapter's [SignInFailureKind] classification plus the originating message
+ * for unclassified failures (the shipped message-carrying pattern, cf.
+ * `BillingPurchaseResult.Failed`) — never the throwable itself, which the
+ * adapter logged once at its boundary.
+ */
+sealed interface LoginWithGoogleResult {
+    data class Success(val profile: UserProfile) : LoginWithGoogleResult
+
+    data class Failed(
+        val kind: SignInFailureKind,
+        val message: String?,
+    ) : LoginWithGoogleResult
 }
 
 /** Outcome of a Firebase sign-out attempt at the [AuthManager] port. */
