@@ -1,6 +1,5 @@
 package com.stratum.application.training
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeProgramChangeEventRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
@@ -21,7 +20,7 @@ class RecordWorkoutSkipUseCaseTest {
     fun wl027_workoutSkipZeroSetSession() = runTest {
         val programRepo = FakeProgramRepository(program())
         val repo = FakeTrainingLogRepository(programRepository = programRepo)
-        val useCase = RecordWorkoutSkipUseCase(repo, programRepo, FakeLoggingPort())
+        val useCase = RecordWorkoutSkipUseCase(repo, programRepo)
 
         val session = (useCase(WorkoutLoggingFixtures.workoutAId) as RecordWorkoutSkipResult.Success).session
 
@@ -39,8 +38,7 @@ class RecordWorkoutSkipUseCaseTest {
             RecordWorkoutSkipUseCase(
                 FakeTrainingLogRepository(programRepository = programRepo),
                 programRepo,
-                FakeLoggingPort(),
-            )
+                )
 
         useCase(WorkoutLoggingFixtures.workoutAId)
 
@@ -66,7 +64,7 @@ class RecordWorkoutSkipUseCaseTest {
                 programRepository = programRepo,
                 programChangeEventRepository = events,
             )
-        val useCase = RecordWorkoutSkipUseCase(logRepo, programRepo, FakeLoggingPort())
+        val useCase = RecordWorkoutSkipUseCase(logRepo, programRepo)
 
         useCase(WorkoutLoggingFixtures.workoutBId)
 
@@ -78,7 +76,7 @@ class RecordWorkoutSkipUseCaseTest {
     @DisplayName("Returns failure when no active program exists")
     fun returnsFailureWhenNoActiveProgram() = runTest {
         val programRepo = FakeProgramRepository(null)
-        val useCase = RecordWorkoutSkipUseCase(FakeTrainingLogRepository(), programRepo, FakeLoggingPort())
+        val useCase = RecordWorkoutSkipUseCase(FakeTrainingLogRepository(), programRepo)
 
         val result = useCase(WorkoutLoggingFixtures.workoutAId)
 
@@ -89,7 +87,7 @@ class RecordWorkoutSkipUseCaseTest {
     @DisplayName("Returns failure when workout does not belong to active program")
     fun returnsFailureWhenWorkoutNotFound() = runTest {
         val programRepo = FakeProgramRepository(program())
-        val useCase = RecordWorkoutSkipUseCase(FakeTrainingLogRepository(), programRepo, FakeLoggingPort())
+        val useCase = RecordWorkoutSkipUseCase(FakeTrainingLogRepository(), programRepo)
 
         val result = useCase(com.stratum.domain.program.identity.WorkoutId("non-existent"))
 
@@ -105,14 +103,14 @@ class RecordWorkoutSkipUseCaseTest {
         val programRepo = FakeProgramRepository(program())
         val repo = FakeTrainingLogRepository(programRepository = programRepo)
         repo.getAllSessionsError = IllegalStateException("load boom")
-        val logging = FakeLoggingPort()
-        val useCase = RecordWorkoutSkipUseCase(repo, programRepo, logging)
+        val useCase = RecordWorkoutSkipUseCase(repo, programRepo)
 
         val result = useCase(WorkoutLoggingFixtures.workoutAId)
 
-        assertEquals(RecordWorkoutSkipResult.PersistenceFailed, result)
-        assertEquals(1, logging.errors.size)
-        assertEquals("Failed to record workout skip: load boom", logging.errors.single().message)
+        val failed = result as RecordWorkoutSkipResult.PersistenceFailed
+        val diagnostic = failed.diagnostics.single()
+        assertEquals("Failed to record workout skip: load boom", diagnostic.message)
+        assertEquals("RecordWorkoutSkip", diagnostic.tag)
     }
 
     @Test
@@ -121,7 +119,7 @@ class RecordWorkoutSkipUseCaseTest {
         val programRepo = FakeProgramRepository(program())
         val repo = FakeTrainingLogRepository(programRepository = programRepo)
         repo.getAllSessionsError = kotlin.coroutines.cancellation.CancellationException("cancelled")
-        val useCase = RecordWorkoutSkipUseCase(repo, programRepo, FakeLoggingPort())
+        val useCase = RecordWorkoutSkipUseCase(repo, programRepo)
 
         org.junit.jupiter.api.Assertions.assertThrows(
             kotlin.coroutines.cancellation.CancellationException::class.java,

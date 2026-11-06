@@ -113,6 +113,17 @@ internal suspend fun LiveWorkoutSessionRuntime.handleCompleteWorkout(cmd: Sessio
         // while NavHost is still composing this route during the exit transition.
         effects.setRetainLoadedUiForExit(true)
         val finalizeResult = finalizeTrainingSession(sessionId)
+        // STR-237 Route (i): finalize's records ride its outcome branches;
+        // this runtime boundary drains them exactly once through its
+        // existing recorder (PersistenceFailed's failure, Success's
+        // best-effort Health Connect enqueue failure).
+        when (finalizeResult) {
+            is FinalizeTrainingSessionResult.PersistenceFailed ->
+                drainOperationalDiagnostics(finalizeResult.diagnostics)
+            is FinalizeTrainingSessionResult.Success ->
+                drainOperationalDiagnostics(finalizeResult.diagnostics)
+            else -> Unit
+        }
         if (finalizeResult !is FinalizeTrainingSessionResult.Success) {
             effects.setRetainLoadedUiForExit(false)
             // Do NOT clear templateSavedThisComplete — template is already durable;

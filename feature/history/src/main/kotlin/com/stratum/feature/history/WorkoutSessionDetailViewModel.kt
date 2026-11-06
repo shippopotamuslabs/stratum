@@ -86,8 +86,10 @@ class WorkoutSessionDetailViewModel @Inject constructor(
                         endedAt = endedAt,
                     )
                 when (result) {
-                    UpdateCompletedSessionTimesResult.Success ->
+                    is UpdateCompletedSessionTimesResult.Success -> {
+                        diagnosticDrain.drain(result.diagnostics)
                         loadInternal(sessionId, isInitial = false, zoneId = zoneId)
+                    }
                     else ->
                         // Same user copy the former exception messages carried, sourced
                         // from the branch kind (STR-243).
@@ -101,9 +103,11 @@ class WorkoutSessionDetailViewModel @Inject constructor(
                                 is UpdateCompletedSessionTimesResult.StartAfterFinish ->
                                     "Start time (${result.startedAt}) cannot be after " +
                                         "finish time (${result.endedAt})"
-                                UpdateCompletedSessionTimesResult.PersistenceFailed ->
+                                is UpdateCompletedSessionTimesResult.PersistenceFailed -> {
+                                    diagnosticDrain.drain(result.diagnostics)
                                     "Could not update workout time"
-                                UpdateCompletedSessionTimesResult.Success ->
+                                }
+                                is UpdateCompletedSessionTimesResult.Success ->
                                     "Could not update workout time"
                             }
                 }

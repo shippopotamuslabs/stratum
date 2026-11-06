@@ -273,7 +273,6 @@ class WorkoutSessionDetailViewModelTest {
                 responseProfileMetadataRepository = metadataRepo,
                 responseModelingScheduler = FakeResponseModelingSchedulerPort(),
                 healthConnectScheduler = FakeHealthConnectSchedulerPort(),
-                loggingPort = FakeLoggingPort(),
                 refreshScope = CoroutineScope(Dispatchers.Unconfined),
             )
         val vm =

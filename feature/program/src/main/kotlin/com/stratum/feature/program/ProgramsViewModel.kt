@@ -316,7 +316,11 @@ class ProgramsViewModel @Inject constructor(
 
     fun skipWorkout(workoutId: String) {
         viewModelScope.launch {
-            if (recordWorkoutSkip(WorkoutId(workoutId)) !is RecordWorkoutSkipResult.Success) {
+            val result = recordWorkoutSkip(WorkoutId(workoutId))
+            if (result is RecordWorkoutSkipResult.PersistenceFailed) {
+                diagnosticDrain.drain(result.diagnostics)
+            }
+            if (result !is RecordWorkoutSkipResult.Success) {
                 showUserMessage(MSG_SKIP_FAILED)
             }
         }
@@ -324,7 +328,11 @@ class ProgramsViewModel @Inject constructor(
 
     fun unskipWorkout(workoutId: String) {
         viewModelScope.launch {
-            if (unskipWorkout(WorkoutId(workoutId)) != UnskipWorkoutResult.Success) {
+            val result = unskipWorkout(WorkoutId(workoutId))
+            if (result is UnskipWorkoutResult.PersistenceFailed) {
+                diagnosticDrain.drain(result.diagnostics)
+            }
+            if (result != UnskipWorkoutResult.Success) {
                 showUserMessage(MSG_UNSKIP_FAILED)
             }
         }
@@ -332,7 +340,11 @@ class ProgramsViewModel @Inject constructor(
 
     fun skipRestDay(slotIndex: Int) {
         viewModelScope.launch {
-            if (recordRestDaySkip(slotIndex) !is RecordRestDaySkipResult.Success) {
+            val result = recordRestDaySkip(slotIndex)
+            if (result is RecordRestDaySkipResult.PersistenceFailed) {
+                diagnosticDrain.drain(result.diagnostics)
+            }
+            if (result !is RecordRestDaySkipResult.Success) {
                 showUserMessage(MSG_SKIP_FAILED)
             }
         }
@@ -340,7 +352,11 @@ class ProgramsViewModel @Inject constructor(
 
     fun unskipRestDay(slotIndex: Int) {
         viewModelScope.launch {
-            if (unskipWorkout.unskipRestSlot(slotIndex) != UnskipWorkoutResult.Success) {
+            val result = unskipWorkout.unskipRestSlot(slotIndex)
+            if (result is UnskipWorkoutResult.PersistenceFailed) {
+                diagnosticDrain.drain(result.diagnostics)
+            }
+            if (result != UnskipWorkoutResult.Success) {
                 showUserMessage(MSG_UNSKIP_FAILED)
             }
         }
@@ -351,6 +367,9 @@ class ProgramsViewModel @Inject constructor(
             val progress = observeCycleProgress().first()
             progress.activeSession?.let { session ->
                 val abandonResult = abandonTrainingSession(session.id)
+                if (abandonResult is AbandonTrainingSessionResult.PersistenceFailed) {
+                    diagnosticDrain.drain(abandonResult.diagnostics)
+                }
                 if (abandonResult != AbandonTrainingSessionResult.Success) {
                     showUserMessage(MSG_ABANDON_FAILED)
                     return@launch

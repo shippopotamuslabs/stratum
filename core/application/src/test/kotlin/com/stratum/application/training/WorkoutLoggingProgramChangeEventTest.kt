@@ -34,7 +34,7 @@ class WorkoutLoggingProgramChangeEventTest {
                 programRepository = programRepo,
                 programChangeEventRepository = events,
             )
-        val useCase = RecordWorkoutSkipUseCase(logRepo, programRepo, FakeLoggingPort())
+        val useCase = RecordWorkoutSkipUseCase(logRepo, programRepo)
 
         useCase(WorkoutLoggingFixtures.workoutBId)
 

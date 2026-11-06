@@ -1,7 +1,7 @@
 package com.stratum.application.training
 
 import com.stratum.application.program.ProgramRepository
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.schedule.resolvedCycleSlots
 import com.stratum.domain.training.identity.TrainingSessionId
@@ -19,11 +19,11 @@ import kotlin.coroutines.cancellation.CancellationException
  * Outcome of recording a workout skip (STR-243).
  *
  * The guard branches carry the typed facts ([WorkoutNotFound] carries the
- * missing workout id). The originating throwable of a failed write goes once
- * to the diagnostics channel ([LoggingPort.error]) at the use-case boundary —
- * this use case previously returned its failures silently; it now logs them
- * once at the boundary, per the C4 precedent. Coroutine cancellation is not a
- * branch: it propagates.
+ * missing workout id). The originating throwable of a failed write rides the
+ * [PersistenceFailed] branch as an [OperationalDiagnostic] (legacy tag +
+ * rendered message, real throwable as cause); the presentation boundary
+ * drains it exactly once through its module's DiagnosticDrain. Coroutine
+ * cancellation is not a branch: it propagates.
  */
 sealed interface RecordWorkoutSkipResult {
     data class Success(val session: TrainingSession) : RecordWorkoutSkipResult
@@ -33,13 +33,14 @@ sealed interface RecordWorkoutSkipResult {
     data class WorkoutNotFound(val workoutId: WorkoutId) : RecordWorkoutSkipResult
 
     /** The skip write failed (repository / store I/O). */
-    data object PersistenceFailed : RecordWorkoutSkipResult
+    data class PersistenceFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : RecordWorkoutSkipResult
 }
 
 class RecordWorkoutSkipUseCase @Inject constructor(
     private val trainingLogRepository: TrainingLogRepository,
     private val programRepository: ProgramRepository,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(workoutId: WorkoutId): RecordWorkoutSkipResult {
         val program =
@@ -48,8 +49,15 @@ class RecordWorkoutSkipUseCase @Inject constructor(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (t: Throwable) {
-                loggingPort.error(TAG, "Failed to record workout skip: ${t.message}", t)
-                return RecordWorkoutSkipResult.PersistenceFailed
+                return RecordWorkoutSkipResult.PersistenceFailed(
+                    diagnostics = listOf(
+                        OperationalDiagnostic(
+                            tag = TAG,
+                            message = "Failed to record workout skip: ${t.message}",
+                            cause = t,
+                        ),
+                    ),
+                )
             }
                 ?: return RecordWorkoutSkipResult.NoActiveProgram
         val workout =
@@ -96,8 +104,15 @@ class RecordWorkoutSkipUseCase @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (t: Throwable) {
-            loggingPort.error(TAG, "Failed to record workout skip: ${t.message}", t)
-            RecordWorkoutSkipResult.PersistenceFailed
+            RecordWorkoutSkipResult.PersistenceFailed(
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Failed to record workout skip: ${t.message}",
+                        cause = t,
+                    ),
+                ),
+            )
         }
     }
 

@@ -288,10 +288,10 @@ class ProgramsViewModelTest {
                     getLoggedSetsForSession =
                         com.stratum.application.training.GetLoggedSetsForSessionUseCase(trainingLog),
                     recordWorkoutSkip =
-                        com.stratum.application.training.RecordWorkoutSkipUseCase(trainingLog, repository, FakeLoggingPort()),
+                        com.stratum.application.training.RecordWorkoutSkipUseCase(trainingLog, repository),
                     recordRestDaySkip =
-                        com.stratum.application.training.RecordRestDaySkipUseCase(trainingLog, repository, FakeLoggingPort()),
-                    unskipWorkout = com.stratum.application.training.UnskipWorkoutUseCase(trainingLog, repository, FakeLoggingPort()),
+                        com.stratum.application.training.RecordRestDaySkipUseCase(trainingLog, repository),
+                    unskipWorkout = com.stratum.application.training.UnskipWorkoutUseCase(trainingLog, repository),
                     manageWorkoutOverlay =
                         ManageWorkoutOverlayUseCase(FakeWorkoutOverlayStore(), logging),
                     observeProgramsUiPreferences =
@@ -355,10 +355,10 @@ class ProgramsViewModelTest {
                     getLoggedSetsForSession =
                         com.stratum.application.training.GetLoggedSetsForSessionUseCase(trainingLog),
                     recordWorkoutSkip =
-                        com.stratum.application.training.RecordWorkoutSkipUseCase(trainingLog, repository, FakeLoggingPort()),
+                        com.stratum.application.training.RecordWorkoutSkipUseCase(trainingLog, repository),
                     recordRestDaySkip =
-                        com.stratum.application.training.RecordRestDaySkipUseCase(trainingLog, repository, FakeLoggingPort()),
-                    unskipWorkout = com.stratum.application.training.UnskipWorkoutUseCase(trainingLog, repository, FakeLoggingPort()),
+                        com.stratum.application.training.RecordRestDaySkipUseCase(trainingLog, repository),
+                    unskipWorkout = com.stratum.application.training.UnskipWorkoutUseCase(trainingLog, repository),
                     manageWorkoutOverlay =
                         ManageWorkoutOverlayUseCase(FakeWorkoutOverlayStore(), logging),
                     observeProgramsUiPreferences =
@@ -467,9 +467,9 @@ class ProgramsViewModelTest {
             observeCycleProgress = ObserveCycleProgressUseCase(repository, trainingLog),
             abandonTrainingSession = com.stratum.application.training.AbandonTrainingSessionUseCase(trainingLog),
             getLoggedSetsForSession = com.stratum.application.training.GetLoggedSetsForSessionUseCase(trainingLog),
-            recordWorkoutSkip = com.stratum.application.training.RecordWorkoutSkipUseCase(trainingLog, repository, FakeLoggingPort()),
-            recordRestDaySkip = com.stratum.application.training.RecordRestDaySkipUseCase(trainingLog, repository, FakeLoggingPort()),
-            unskipWorkout = com.stratum.application.training.UnskipWorkoutUseCase(trainingLog, repository, FakeLoggingPort()),
+            recordWorkoutSkip = com.stratum.application.training.RecordWorkoutSkipUseCase(trainingLog, repository),
+            recordRestDaySkip = com.stratum.application.training.RecordRestDaySkipUseCase(trainingLog, repository),
+            unskipWorkout = com.stratum.application.training.UnskipWorkoutUseCase(trainingLog, repository),
             manageWorkoutOverlay = ManageWorkoutOverlayUseCase(FakeWorkoutOverlayStore(), logging),
             observeProgramsUiPreferences = ObserveProgramsUiPreferencesUseCase(uiPrefs),
             setExpandedWorkoutId = SetExpandedWorkoutIdUseCase(uiPrefs),

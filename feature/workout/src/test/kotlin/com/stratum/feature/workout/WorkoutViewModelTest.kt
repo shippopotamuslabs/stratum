@@ -168,7 +168,6 @@ class WorkoutViewModelTest {
                 trainingLog = trainingLog,
                 liftRepository = liftRepo,
             ),
-        loggingPort = FakeLoggingPort(),
         refreshScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Unconfined),
     )
 

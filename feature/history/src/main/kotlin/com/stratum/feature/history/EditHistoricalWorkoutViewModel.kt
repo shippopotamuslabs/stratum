@@ -187,6 +187,9 @@ class EditHistoricalWorkoutViewModel @Inject constructor(
                     _events.tryEmit(EditHistoricalWorkoutEvent.NavigateBack)
                 }
                 else -> {
+                    if (result is UpdateCompletedSessionSetsResult.PersistenceFailed) {
+                        diagnosticDrain.drain(result.diagnostics)
+                    }
                     publishLoaded()
                     // Same user copy the former exception messages carried, sourced
                     // from the branch kind (STR-243).
@@ -201,7 +204,7 @@ class EditHistoricalWorkoutViewModel @Inject constructor(
                                 "Completed session ${result.sessionId.value} must retain at least one set"
                             is UpdateCompletedSessionSetsResult.SetsBelongToAnotherSession ->
                                 "All desired sets must belong to session ${result.sessionId.value}"
-                            UpdateCompletedSessionSetsResult.PersistenceFailed ->
+                            is UpdateCompletedSessionSetsResult.PersistenceFailed ->
                                 "Could not save workout"
                             UpdateCompletedSessionSetsResult.Success -> "Could not save workout"
                         }

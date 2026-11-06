@@ -1,6 +1,6 @@
 package com.stratum.application.training
 
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.application.program.ProgramRepository
 import com.stratum.domain.program.schedule.CycleProjection
@@ -23,10 +23,11 @@ import kotlin.coroutines.cancellation.CancellationException
  *
  * The guard branches carry the typed facts ([NotRestSlot] carries the slot
  * index, [NoUnconsumedRestSlot] the weekday). The originating throwable of a
- * failed write goes once to the diagnostics channel ([LoggingPort.error]) at
- * the use-case boundary — this use case previously returned its failures
- * silently; it now logs them once at the boundary, per the C4 precedent.
- * Coroutine cancellation is not a branch: it propagates.
+ * failed write rides the [PersistenceFailed] branch as an
+ * [OperationalDiagnostic] (legacy tag + rendered message, real throwable as
+ * cause); the presentation boundary drains it exactly once through its
+ * module's DiagnosticDrain. Coroutine cancellation is not a branch: it
+ * propagates.
  */
 sealed interface RecordRestDaySkipResult {
     data class Success(val session: TrainingSession) : RecordRestDaySkipResult
@@ -38,7 +39,9 @@ sealed interface RecordRestDaySkipResult {
     data class NoUnconsumedRestSlot(val weekday: Weekday) : RecordRestDaySkipResult
 
     /** The skip write failed (repository / store I/O). */
-    data object PersistenceFailed : RecordRestDaySkipResult
+    data class PersistenceFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : RecordRestDaySkipResult
 }
 
 /**
@@ -49,7 +52,6 @@ sealed interface RecordRestDaySkipResult {
 class RecordRestDaySkipUseCase @Inject constructor(
     private val trainingLogRepository: TrainingLogRepository,
     private val programRepository: ProgramRepository,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(slotIndex: Int): RecordRestDaySkipResult {
         val program =
@@ -58,8 +60,15 @@ class RecordRestDaySkipUseCase @Inject constructor(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (t: Throwable) {
-                loggingPort.error(TAG, "Failed to record rest day skip: ${t.message}", t)
-                return RecordRestDaySkipResult.PersistenceFailed
+                                return RecordRestDaySkipResult.PersistenceFailed(
+                    diagnostics = listOf(
+                        OperationalDiagnostic(
+                            tag = TAG,
+                            message = "Failed to record rest day skip: ${t.message}",
+                            cause = t,
+                        ),
+                    ),
+                )
             }
                 ?: return RecordRestDaySkipResult.NoActiveProgram
         val slots = program.resolvedCycleSlots()
@@ -85,8 +94,15 @@ class RecordRestDaySkipUseCase @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (t: Throwable) {
-            loggingPort.error(TAG, "Failed to record rest day skip: ${t.message}", t)
-            RecordRestDaySkipResult.PersistenceFailed
+                        RecordRestDaySkipResult.PersistenceFailed(
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Failed to record rest day skip: ${t.message}",
+                        cause = t,
+                    ),
+                ),
+            )
         }
     }
 
@@ -102,8 +118,15 @@ class RecordRestDaySkipUseCase @Inject constructor(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (t: Throwable) {
-                loggingPort.error(TAG, "Failed to record rest day skip: ${t.message}", t)
-                return RecordRestDaySkipResult.PersistenceFailed
+                                return RecordRestDaySkipResult.PersistenceFailed(
+                    diagnostics = listOf(
+                        OperationalDiagnostic(
+                            tag = TAG,
+                            message = "Failed to record rest day skip: ${t.message}",
+                            cause = t,
+                        ),
+                    ),
+                )
             }
                 ?: return RecordRestDaySkipResult.NoActiveProgram
         return try {
@@ -138,8 +161,15 @@ class RecordRestDaySkipUseCase @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (t: Throwable) {
-            loggingPort.error(TAG, "Failed to record rest day skip: ${t.message}", t)
-            RecordRestDaySkipResult.PersistenceFailed
+                        RecordRestDaySkipResult.PersistenceFailed(
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Failed to record rest day skip: ${t.message}",
+                        cause = t,
+                    ),
+                ),
+            )
         }
     }
 

@@ -251,7 +251,6 @@ class EditHistoricalWorkoutViewModelTest {
                     ),
                 metadataRepository = metadataRepo,
                 responseModelingScheduler = FakeResponseModelingSchedulerPort(),
-                loggingPort = FakeLoggingPort(),
                 refreshScope = CoroutineScope(Dispatchers.Unconfined),
             )
         val vm =

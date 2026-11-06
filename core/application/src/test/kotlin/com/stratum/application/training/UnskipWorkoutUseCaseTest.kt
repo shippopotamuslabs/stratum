@@ -1,6 +1,5 @@
 package com.stratum.application.training
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
@@ -34,7 +33,7 @@ class UnskipWorkoutUseCaseTest {
             initialSessions = listOf(session),
             programRepository = programRepo,
         )
-        val useCase = UnskipWorkoutUseCase(logRepo, programRepo, FakeLoggingPort())
+        val useCase = UnskipWorkoutUseCase(logRepo, programRepo)
 
         val result = useCase(workoutAId)
 
@@ -54,7 +53,7 @@ class UnskipWorkoutUseCaseTest {
             initialSessions = listOf(skipSession),
             programRepository = programRepo,
         )
-        val useCase = UnskipWorkoutUseCase(logRepo, programRepo, FakeLoggingPort())
+        val useCase = UnskipWorkoutUseCase(logRepo, programRepo)
 
         useCase(workoutAId)
 
@@ -66,7 +65,7 @@ class UnskipWorkoutUseCaseTest {
     fun unskipNoOpWhenNoSession() = runTest {
         val programRepo = FakeProgramRepository(WorkoutLoggingFixtures.twoWorkoutProgram())
         val logRepo = FakeTrainingLogRepository(programRepository = programRepo)
-        val useCase = UnskipWorkoutUseCase(logRepo, programRepo, FakeLoggingPort())
+        val useCase = UnskipWorkoutUseCase(logRepo, programRepo)
 
         val result = useCase(workoutAId)
 
@@ -88,7 +87,7 @@ class UnskipWorkoutUseCaseTest {
             initialSessions = listOf(previousCycleSession),
             programRepository = programRepo,
         )
-        val useCase = UnskipWorkoutUseCase(logRepo, programRepo, FakeLoggingPort())
+        val useCase = UnskipWorkoutUseCase(logRepo, programRepo)
 
         useCase(workoutAId)
 
@@ -118,7 +117,7 @@ class UnskipWorkoutUseCaseTest {
             initialSessions = listOf(orphanedRest),
             programRepository = programRepo,
         )
-        val useCase = UnskipWorkoutUseCase(logRepo, programRepo, FakeLoggingPort())
+        val useCase = UnskipWorkoutUseCase(logRepo, programRepo)
 
         useCase(Weekday.Tuesday)
 
@@ -146,7 +145,7 @@ class UnskipWorkoutUseCaseTest {
             initialSessions = listOf(restDaySession),
             programRepository = programRepo,
         )
-        val useCase = UnskipWorkoutUseCase(logRepo, programRepo, FakeLoggingPort())
+        val useCase = UnskipWorkoutUseCase(logRepo, programRepo)
 
         useCase(Weekday.Tuesday)
 
@@ -156,7 +155,7 @@ class UnskipWorkoutUseCaseTest {
     @Test
     @DisplayName("Returns failure when no active program exists")
     fun returnsFailureWhenNoActiveProgram() = runTest {
-        val useCase = UnskipWorkoutUseCase(FakeTrainingLogRepository(), FakeProgramRepository(null), FakeLoggingPort())
+        val useCase = UnskipWorkoutUseCase(FakeTrainingLogRepository(), FakeProgramRepository(null))
 
         val workoutResult = useCase(workoutAId)
         assertEquals(UnskipWorkoutResult.NoActiveProgram, workoutResult)
