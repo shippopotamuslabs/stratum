@@ -8,6 +8,8 @@ import com.stratum.core.infrastructure.work.CloudSyncScheduler
 import com.stratum.domain.di.IoDispatcher
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.sync.CloudSessionState
+import com.stratum.application.sync.CloudSyncDiagnostic
+import com.stratum.application.sync.CloudSyncOutcome
 import com.stratum.application.sync.CloudSyncPort
 import com.stratum.domain.sync.SyncStatus
 import com.stratum.application.training.RebuildLocalDerivedTrainingDataResult
@@ -47,7 +49,7 @@ import kotlinx.coroutines.withContext
  * Adapter mutex serializes [start]/[stop]/[requestSync]/[endSessionAndWipe] against each
  * other only — Room write isolation is [UserOwnedWriteCoordinator] (repos + remote apply/adopt).
  *
- * Residual work throws [CloudSyncResidualException] so [requestSync] returns failure and
+ * Residual work throws [CloudSyncResidualException] internally so [requestSync] returns a Failed outcome and
  * WorkManager can [androidx.work.ListenableWorker.Result.retry] — never REPLACE unique work from
  * inside a running worker pass.
  */
@@ -74,7 +76,7 @@ class FirestoreCloudSyncAdapter @Inject constructor(
     private val activeUserId = AtomicReference<String?>(null)
     private val mutex = Mutex()
 
-    override suspend fun start(userId: String) {
+    override suspend fun start(userId: String): CloudSyncOutcome =
         withContext(ioDispatcher) {
             mutex.withLock {
                 _sessionState.value = CloudSessionState.Establishing(userId)
@@ -90,7 +92,7 @@ class FirestoreCloudSyncAdapter @Inject constructor(
                         loggingPort.info(TAG, "cloud sync disabled by feature gate; ownership only")
                         _syncStatus.value = SyncStatus.Idle
                         markSessionReady(userId)
-                        return@withLock
+                        return@withLock CloudSyncOutcome.Success
                     }
 
                     // Local-first: unlock shell when this account already has hydrated data.
@@ -109,12 +111,15 @@ class FirestoreCloudSyncAdapter @Inject constructor(
                             userId = userId,
                             message = error.message ?: MSG_SESSION_FAILED,
                         )
-                    throw error
+                    return@withLock CloudSyncOutcome.Failed(
+                        listOf(CloudSyncDiagnostic.OperationFailed(error)),
+                    )
                 }
 
                 try {
                     runPushPull(userId)
                     markSessionReady(userId)
+                    CloudSyncOutcome.Success
                 } catch (error: CancellationException) {
                     throw error
                 } catch (error: Exception) {
@@ -131,18 +136,19 @@ class FirestoreCloudSyncAdapter @Inject constructor(
                     }
                     if (localAlreadyUsable || _sessionState.value is CloudSessionState.Ready) {
                         // Keep shell open; background worker retries residual/network work.
-                        return@withLock
+                        return@withLock CloudSyncOutcome.Success
                     }
                     _sessionState.value =
                         CloudSessionState.Failed(
                             userId = userId,
                             message = error.message ?: MSG_SESSION_FAILED,
                         )
-                    throw error
+                    CloudSyncOutcome.Failed(
+                        listOf(CloudSyncDiagnostic.OperationFailed(error)),
+                    )
                 }
             }
         }
-    }
 
     override suspend fun stop() {
         withContext(ioDispatcher) {
@@ -156,17 +162,22 @@ class FirestoreCloudSyncAdapter @Inject constructor(
         }
     }
 
-    override suspend fun requestSync() {
+    override suspend fun requestSync(): CloudSyncOutcome {
         if (!featureGate.isEnabled()) {
-            return
+            return CloudSyncOutcome.Success
         }
-        withContext(ioDispatcher) {
+        return withContext(ioDispatcher) {
             mutex.withLock {
                 val userId = activeUserId.get()
-                    ?: throw CloudSyncNotStartedException()
+                    ?: return@withLock CloudSyncOutcome.Failed(
+                        listOf(
+                            CloudSyncDiagnostic.OperationFailed(CloudSyncNotStartedException()),
+                        ),
+                    )
                 try {
                     runPushPull(userId)
                     markSessionReady(userId)
+                    CloudSyncOutcome.Success
                 } catch (error: CancellationException) {
                     throw error
                 } catch (error: Exception) {
@@ -176,13 +187,15 @@ class FirestoreCloudSyncAdapter @Inject constructor(
                     // backoff; other failures give up after bounded retries. UI/scheduler retries
                     // must enqueue outside the running worker — REPLACE unique work from inside
                     // doWork can self-cancel.
-                    throw error
+                    CloudSyncOutcome.Failed(
+                        listOf(CloudSyncDiagnostic.OperationFailed(error)),
+                    )
                 }
             }
         }
     }
 
-    override suspend fun endSessionAndWipe(userId: String) {
+    override suspend fun endSessionAndWipe(userId: String): CloudSyncOutcome =
         withContext(ioDispatcher) {
             mutex.withLock {
                 try {
@@ -197,15 +210,17 @@ class FirestoreCloudSyncAdapter @Inject constructor(
                     }
                     _sessionState.value = CloudSessionState.Inactive
                     _syncStatus.value = SyncStatus.Idle
+                    CloudSyncOutcome.Success
                 } catch (error: CancellationException) {
                     throw error
                 } catch (error: Exception) {
                     loggingPort.error(TAG, "endSessionAndWipe failed: ${error.message}", error)
-                    throw error
+                    CloudSyncOutcome.Failed(
+                        listOf(CloudSyncDiagnostic.OperationFailed(error)),
+                    )
                 }
             }
         }
-    }
 
     /**
      * Canonical push → pull → post-pull residual upload. Shared by [start] and [requestSync].

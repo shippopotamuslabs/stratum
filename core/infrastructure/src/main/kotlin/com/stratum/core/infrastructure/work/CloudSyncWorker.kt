@@ -14,6 +14,8 @@ import com.stratum.domain.telemetry.OutcomeTelemetry.Companion.REASON_SYNC_NOT_S
 import com.stratum.domain.telemetry.OutcomeTelemetry.Companion.REASON_SYNC_RESIDUAL_BACKLOG
 import com.stratum.domain.telemetry.OutcomeTelemetry.Companion.USE_CASE_CLOUD_SYNC
 import com.stratum.domain.telemetry.TelemetryRouter
+import com.stratum.application.sync.CloudSyncDiagnostic
+import com.stratum.application.sync.CloudSyncOutcome
 import com.stratum.application.sync.CloudSyncPort
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -34,14 +36,17 @@ class CloudSyncWorker @AssistedInject constructor(
 ) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         if (!featureGate.isEnabled()) return Result.success()
+        // The port returns its outcome; the worker's classifiers discriminate
+        // on the failure cause, which rides the Failed branch as a diagnostic
+        // (cancellation from the port still propagates as a throw).
         val failure: Throwable? =
-            try {
-                cloudSyncPort.requestSync()
-                null
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (error: Throwable) {
-                error
+            when (val outcome = cloudSyncPort.requestSync()) {
+                CloudSyncOutcome.Success -> null
+                is CloudSyncOutcome.Failed ->
+                    outcome.diagnostics
+                        .filterIsInstance<CloudSyncDiagnostic.OperationFailed>()
+                        .firstOrNull()?.cause
+                        ?: IllegalStateException("Cloud sync failed")
             }
         // STR-242: terminal boundary for the sync flow. Classified outcomes go
         // to the countable stream; an unexpected failure that exhausted retries
@@ -140,6 +145,6 @@ internal fun mapCloudSyncWorkResult(
             )
     }
 
-/** Thrown by [CloudSyncPort.requestSync] when no active session; worker treats as no-op success. */
+/** Carried as the [CloudSyncOutcome.Failed] diagnostic cause when [CloudSyncPort.requestSync] has no active session; worker treats it as no-op success. */
 class CloudSyncNotStartedException : IllegalStateException("Cloud sync not started")
 

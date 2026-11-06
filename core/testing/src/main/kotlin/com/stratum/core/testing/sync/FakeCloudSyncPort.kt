@@ -1,6 +1,8 @@
 package com.stratum.core.testing.sync
 
 import com.stratum.domain.sync.CloudSessionState
+import com.stratum.application.sync.CloudSyncDiagnostic
+import com.stratum.application.sync.CloudSyncOutcome
 import com.stratum.application.sync.CloudSyncPort
 import com.stratum.domain.sync.SyncStatus
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,12 +33,21 @@ class FakeCloudSyncPort : CloudSyncPort {
     var lastWipedUserId: String? = null
         private set
 
-    /** When non-null, [start] throws this instead of succeeding. */
+    /**
+     * When non-null, [start] returns a Failed outcome carrying this as its
+     * diagnostic cause instead of succeeding. A [kotlinx.coroutines.CancellationException]
+     * still throws — cancellation is never an outcome branch.
+     */
     var startFailure: Throwable? = null
-    /** When non-null, [requestSync] throws this instead of succeeding. */
+    /** Same contract as [startFailure], for [requestSync]. */
     var requestFailure: Throwable? = null
-    /** When non-null, [endSessionAndWipe] throws this instead of succeeding. */
+    /** Same contract as [startFailure], for [endSessionAndWipe]. */
     var wipeFailure: Throwable? = null
+
+    private fun failureOutcome(failure: Throwable): CloudSyncOutcome {
+        if (failure is kotlinx.coroutines.CancellationException) throw failure
+        return CloudSyncOutcome.Failed(listOf(CloudSyncDiagnostic.OperationFailed(failure)))
+    }
 
     /** Call order log: "start", "stop", "request", "wipe". */
     val callOrder: MutableList<String> = mutableListOf()
@@ -49,7 +60,7 @@ class FakeCloudSyncPort : CloudSyncPort {
         _sessionState.value = state
     }
 
-    override suspend fun start(userId: String) {
+    override suspend fun start(userId: String): CloudSyncOutcome {
         startCount++
         callOrder += "start"
         startedUserId = userId
@@ -60,10 +71,11 @@ class FakeCloudSyncPort : CloudSyncPort {
             val message = failure.message ?: "start failed"
             _syncStatus.value = SyncStatus.Error(message)
             _sessionState.value = CloudSessionState.Failed(userId, message)
-            throw failure
+            return failureOutcome(failure)
         }
         _syncStatus.value = SyncStatus.Idle
         _sessionState.value = CloudSessionState.Ready(userId)
+        return CloudSyncOutcome.Success
     }
 
     override suspend fun stop() {
@@ -74,29 +86,31 @@ class FakeCloudSyncPort : CloudSyncPort {
         _syncStatus.value = SyncStatus.Idle
     }
 
-    override suspend fun requestSync() {
+    override suspend fun requestSync(): CloudSyncOutcome {
         requestCount++
         callOrder += "request"
         _syncStatus.value = SyncStatus.Syncing
         val failure = requestFailure
         if (failure != null) {
             _syncStatus.value = SyncStatus.Error(failure.message ?: "request failed")
-            throw failure
+            return failureOutcome(failure)
         }
         _syncStatus.value = SyncStatus.Idle
         val uid = startedUserId
         if (uid != null) {
             _sessionState.value = CloudSessionState.Ready(uid)
         }
+        return CloudSyncOutcome.Success
     }
 
-    override suspend fun endSessionAndWipe(userId: String) {
+    override suspend fun endSessionAndWipe(userId: String): CloudSyncOutcome {
         wipeCount++
         callOrder += "wipe"
         lastWipedUserId = userId
         startedUserId = null
         _sessionState.value = CloudSessionState.Inactive
         _syncStatus.value = SyncStatus.Idle
-        wipeFailure?.let { throw it }
+        val failure = wipeFailure ?: return CloudSyncOutcome.Success
+        return failureOutcome(failure)
     }
 }
