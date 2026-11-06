@@ -1,9 +1,9 @@
-package com.stratum.domain.telemetry
+package com.stratum.core.infrastructure.telemetry
 
 import com.stratum.core.testing.telemetry.FakePendingClientLogStore
 import com.stratum.core.testing.telemetry.FakeTelemetryUploadPort
-import com.stratum.domain.telemetry.OutcomeTelemetry.Companion.REASON_SYNTHESIS_FAILED
-import com.stratum.domain.telemetry.OutcomeTelemetry.Companion.USE_CASE_PROGRAM_GENERATION
+import com.stratum.core.infrastructure.telemetry.OutcomeTelemetry.Companion.REASON_SYNTHESIS_FAILED
+import com.stratum.core.infrastructure.telemetry.OutcomeTelemetry.Companion.USE_CASE_PROGRAM_GENERATION
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceTimeBy

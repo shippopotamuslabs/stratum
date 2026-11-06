@@ -1,8 +1,8 @@
 package com.stratum.core.infrastructure.telemetry
 
 import android.content.Context
-import com.stratum.domain.telemetry.ClientLogEntry
-import com.stratum.domain.telemetry.PendingClientLogStore
+import com.stratum.core.infrastructure.telemetry.ClientLogEntry
+import com.stratum.core.infrastructure.telemetry.PendingClientLogStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.first
  *
  * Malformed entries fail closed (dropped on load) so one bad row cannot wedge
  * telemetry. Writes are capped to [PendingClientLogStore.MAX_PERSISTED_ENTRIES]
- * newest entries; [com.stratum.domain.telemetry.ClientLogBuffer] already caps
+ * newest entries; [com.stratum.core.infrastructure.telemetry.ClientLogBuffer] already caps
  * what it hands over, this is defense in depth.
  */
 @Singleton

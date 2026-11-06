@@ -10,7 +10,7 @@ import com.stratum.domain.importing.InferredEquipmentLoading
 import com.stratum.application.importing.UnmatchedExerciseCandidate
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.SeedEquipmentIds
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.core.infrastructure.logging.LoggingPort
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton

@@ -6,9 +6,9 @@ import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.subscription.FakeBillingPort
 import com.stratum.core.testing.subscription.FakeEntitlementRepository
 import com.stratum.core.testing.telemetry.FakeAnalyticsPort
-import com.stratum.domain.telemetry.PARAM_ACTION
-import com.stratum.domain.telemetry.PARAM_SCREEN
-import com.stratum.domain.telemetry.USER_VISIBLE_ERROR_EVENT
+import com.stratum.core.infrastructure.telemetry.PARAM_ACTION
+import com.stratum.core.infrastructure.telemetry.PARAM_SCREEN
+import com.stratum.core.infrastructure.telemetry.USER_VISIBLE_ERROR_EVENT
 import com.stratum.domain.subscription.BillingPurchaseResult
 import com.stratum.domain.subscription.EntitlementSource
 import com.stratum.domain.subscription.EntitlementState

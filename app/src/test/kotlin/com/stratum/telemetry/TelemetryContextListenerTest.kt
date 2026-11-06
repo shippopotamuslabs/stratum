@@ -9,8 +9,8 @@ import com.stratum.core.testing.training.WorkoutLoggingFixtures
 import com.stratum.domain.subscription.EntitlementSource
 import com.stratum.domain.subscription.EntitlementState
 import com.stratum.application.subscription.ObserveEntitlementUseCase
-import com.stratum.domain.telemetry.TIER_COMPLIMENTARY
-import com.stratum.domain.telemetry.TIER_NOT_ENTITLED
+import com.stratum.core.infrastructure.telemetry.TIER_COMPLIMENTARY
+import com.stratum.core.infrastructure.telemetry.TIER_NOT_ENTITLED
 import com.stratum.application.training.ObserveActiveSessionUseCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi

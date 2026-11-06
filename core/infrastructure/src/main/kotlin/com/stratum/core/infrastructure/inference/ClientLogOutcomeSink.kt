@@ -1,8 +1,8 @@
 package com.stratum.core.infrastructure.inference
 
-import com.stratum.domain.telemetry.ClientLogBuffer
-import com.stratum.domain.telemetry.OutcomeTelemetry
-import com.stratum.domain.telemetry.OutcomeTelemetrySink
+import com.stratum.core.infrastructure.telemetry.ClientLogBuffer
+import com.stratum.core.infrastructure.telemetry.OutcomeTelemetry
+import com.stratum.core.infrastructure.telemetry.OutcomeTelemetrySink
 import javax.inject.Inject
 import javax.inject.Singleton
 

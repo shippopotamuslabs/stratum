@@ -24,7 +24,7 @@ import com.stratum.application.importing.StartHistoricalImportOutcome
 import com.stratum.application.importing.StartHistoricalImportUseCase
 import com.stratum.domain.importing.UnsupportedImportFileException
 import com.stratum.domain.di.DefaultDispatcher
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.core.infrastructure.logging.LoggingPort
 import java.time.Instant
 import javax.inject.Inject
 import kotlin.time.Duration.Companion.milliseconds

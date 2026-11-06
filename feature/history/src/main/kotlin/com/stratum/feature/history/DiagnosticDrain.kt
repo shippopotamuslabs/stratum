@@ -1,7 +1,7 @@
 package com.stratum.feature.history
 
 import com.stratum.application.diagnostics.OperationalDiagnostic
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.core.infrastructure.logging.LoggingPort
 import javax.inject.Inject
 
 /**

@@ -1,4 +1,4 @@
-package com.stratum.domain.telemetry
+package com.stratum.core.infrastructure.telemetry
 
 import javax.inject.Inject
 
@@ -36,7 +36,7 @@ class TelemetryRouter @Inject constructor(
     /**
      * Records an exceptional failure exactly once: a Crashlytics non-fatal plus
      * one counter increment. Terminal boundaries call this INSTEAD of any
-     * [com.stratum.domain.logging.LoggingPort] error for the same fact, so the
+     * [com.stratum.core.infrastructure.logging.LoggingPort] error for the same fact, so the
      * record is never duplicated.
      */
     fun recordExceptional(boundary: String, error: Throwable) {

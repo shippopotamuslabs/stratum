@@ -1,7 +1,7 @@
 package com.stratum.core.infrastructure.di
 
 import com.stratum.core.infrastructure.telemetry.DataStorePendingClientLogStore
-import com.stratum.domain.telemetry.PendingClientLogStore
+import com.stratum.core.infrastructure.telemetry.PendingClientLogStore
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn

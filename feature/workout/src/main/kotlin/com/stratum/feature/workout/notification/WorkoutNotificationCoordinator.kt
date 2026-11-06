@@ -5,7 +5,7 @@ import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import com.stratum.domain.di.ApplicationScope
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.core.infrastructure.logging.LoggingPort
 import com.stratum.domain.coroutines.collectLatestRestarting
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject

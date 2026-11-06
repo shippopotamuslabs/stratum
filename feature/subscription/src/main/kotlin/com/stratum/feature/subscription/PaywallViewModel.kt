@@ -15,9 +15,9 @@ import com.stratum.application.subscription.RestorePurchasesResult
 import com.stratum.application.subscription.RestorePurchasesUseCase
 import com.stratum.domain.subscription.SubscriptionCatalog
 import com.stratum.domain.subscription.SubscriptionProduct
-import com.stratum.domain.telemetry.PARAM_ACTION
-import com.stratum.domain.telemetry.PARAM_SCREEN
-import com.stratum.domain.telemetry.USER_VISIBLE_ERROR_EVENT
+import com.stratum.core.infrastructure.telemetry.PARAM_ACTION
+import com.stratum.core.infrastructure.telemetry.PARAM_SCREEN
+import com.stratum.core.infrastructure.telemetry.USER_VISIBLE_ERROR_EVENT
 import com.stratum.domain.subscription.annualSavingsPercent
 import com.stratum.domain.subscription.monthlyEquivalentMicros
 import dagger.hilt.android.lifecycle.HiltViewModel

@@ -21,9 +21,9 @@ import com.stratum.application.lift.SetSelectedPresetUseCase
 import com.stratum.application.lift.SetWeightDisplayUnitUseCase
 import com.stratum.application.lift.WeightDisplayPreferenceResult
 import com.stratum.domain.lift.Weight
-import com.stratum.domain.telemetry.PARAM_ACTION
-import com.stratum.domain.telemetry.PARAM_SCREEN
-import com.stratum.domain.telemetry.USER_VISIBLE_ERROR_EVENT
+import com.stratum.core.infrastructure.telemetry.PARAM_ACTION
+import com.stratum.core.infrastructure.telemetry.PARAM_SCREEN
+import com.stratum.core.infrastructure.telemetry.USER_VISIBLE_ERROR_EVENT
 import com.stratum.application.onboarding.AdvanceOnboardingStepResult
 import com.stratum.application.onboarding.AdvanceOnboardingStepUseCase
 import com.stratum.application.onboarding.CompleteOnboardingUseCase

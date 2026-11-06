@@ -6,7 +6,7 @@ import com.stratum.core.infrastructure.sync.CloudSyncFeatureGate
 import com.stratum.core.infrastructure.work.CloudSyncNotStartedException
 import com.stratum.core.infrastructure.work.CloudSyncScheduler
 import com.stratum.domain.di.IoDispatcher
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.core.infrastructure.logging.LoggingPort
 import com.stratum.domain.sync.CloudSessionState
 import com.stratum.application.sync.CloudSyncDiagnostic
 import com.stratum.application.sync.CloudSyncOutcome

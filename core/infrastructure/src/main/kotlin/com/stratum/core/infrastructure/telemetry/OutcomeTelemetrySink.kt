@@ -1,4 +1,4 @@
-package com.stratum.domain.telemetry
+package com.stratum.core.infrastructure.telemetry
 
 /**
  * Network boundary for the countable outcome stream (STR-242).

@@ -1,7 +1,7 @@
 package com.stratum.core.testing.telemetry
 
-import com.stratum.domain.telemetry.OutcomeTelemetry
-import com.stratum.domain.telemetry.OutcomeTelemetrySink
+import com.stratum.core.infrastructure.telemetry.OutcomeTelemetry
+import com.stratum.core.infrastructure.telemetry.OutcomeTelemetrySink
 
 /** In-memory [OutcomeTelemetrySink] for unit tests. Records outcomes for state-based assertions. */
 class FakeOutcomeTelemetrySink : OutcomeTelemetrySink {

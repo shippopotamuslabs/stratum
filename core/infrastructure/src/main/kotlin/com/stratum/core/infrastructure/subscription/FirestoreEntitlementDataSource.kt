@@ -3,7 +3,7 @@ package com.stratum.core.infrastructure.subscription
 import com.google.firebase.firestore.DocumentReference
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Source
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.core.infrastructure.logging.LoggingPort
 import com.stratum.domain.subscription.ComplimentaryAccess
 import javax.inject.Inject
 import javax.inject.Singleton

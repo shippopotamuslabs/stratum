@@ -1,7 +1,7 @@
 package com.stratum.core.infrastructure.work
 
 import androidx.work.ListenableWorker.Result
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.core.infrastructure.logging.LoggingPort
 
 internal const val DEFAULT_WORKER_MAX_RETRIES = 3
 

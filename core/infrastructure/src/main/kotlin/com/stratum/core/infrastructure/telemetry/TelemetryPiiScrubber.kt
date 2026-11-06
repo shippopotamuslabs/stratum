@@ -1,10 +1,10 @@
-package com.stratum.domain.telemetry
+package com.stratum.core.infrastructure.telemetry
 
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.core.infrastructure.logging.LoggingPort
 
 /**
  * Scrubs common PII patterns from telemetry text before Crashlytics breadcrumbs or future
- * OpenTelemetry export via [com.stratum.domain.logging.LoggingPort].
+ * OpenTelemetry export via [com.stratum.core.infrastructure.logging.LoggingPort].
  */
 object TelemetryPiiScrubber {
     private val emailPattern =

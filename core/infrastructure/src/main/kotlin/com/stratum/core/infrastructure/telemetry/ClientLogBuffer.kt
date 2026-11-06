@@ -1,4 +1,4 @@
-package com.stratum.domain.telemetry
+package com.stratum.core.infrastructure.telemetry
 
 import java.util.UUID
 import kotlinx.coroutines.CoroutineScope
@@ -6,7 +6,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.core.infrastructure.logging.LoggingPort
 
 /**
  * Client-side volume/cost controls for tier-2 telemetry (STR-27).
@@ -31,7 +31,7 @@ data class ClientLogUploadPolicy(
  * Batching in-memory buffer with offline queueing for [ClientLogEntry].
  *
  * Thread-safe: [record] is synchronous and callable from any thread (it backs
- * [LoggingPort][com.stratum.domain.logging.LoggingPort] methods, which are
+ * [LoggingPort][com.stratum.core.infrastructure.logging.LoggingPort] methods, which are
  * non-suspending). Uploads run on [scope]; unsent entries survive process
  * death via [pendingStore]. [sessionId] correlates every entry from one
  * process run in SQL.

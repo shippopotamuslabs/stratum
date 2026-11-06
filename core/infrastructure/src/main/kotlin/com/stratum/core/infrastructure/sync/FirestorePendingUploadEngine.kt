@@ -7,7 +7,7 @@ import com.google.firebase.firestore.SetOptions
 import com.stratum.core.infrastructure.db.PendingCloudDeleteDao
 import com.stratum.core.infrastructure.db.PendingCloudDeleteEntity
 import com.stratum.core.infrastructure.sync.handlers.SyncHandlerRegistry
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.core.infrastructure.logging.LoggingPort
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.tasks.await

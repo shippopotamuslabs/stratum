@@ -2,13 +2,13 @@ package com.stratum.core.infrastructure.inference
 
 import com.stratum.core.testing.telemetry.FakePendingClientLogStore
 import com.stratum.core.testing.telemetry.FakeTelemetryUploadPort
-import com.stratum.domain.telemetry.ClientLogBuffer
-import com.stratum.domain.telemetry.ClientLogSeverity
-import com.stratum.domain.telemetry.OutcomeResult
-import com.stratum.domain.telemetry.OutcomeTelemetry
-import com.stratum.domain.telemetry.OutcomeTelemetry.Companion.REASON_SYNC_NOT_STARTED
-import com.stratum.domain.telemetry.OutcomeTelemetry.Companion.USE_CASE_CLOUD_SYNC
-import com.stratum.domain.telemetry.OutcomeTelemetry.Companion.USE_CASE_PROGRAM_GENERATION
+import com.stratum.core.infrastructure.telemetry.ClientLogBuffer
+import com.stratum.core.infrastructure.telemetry.ClientLogSeverity
+import com.stratum.core.infrastructure.telemetry.OutcomeResult
+import com.stratum.core.infrastructure.telemetry.OutcomeTelemetry
+import com.stratum.core.infrastructure.telemetry.OutcomeTelemetry.Companion.REASON_SYNC_NOT_STARTED
+import com.stratum.core.infrastructure.telemetry.OutcomeTelemetry.Companion.USE_CASE_CLOUD_SYNC
+import com.stratum.core.infrastructure.telemetry.OutcomeTelemetry.Companion.USE_CASE_PROGRAM_GENERATION
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull

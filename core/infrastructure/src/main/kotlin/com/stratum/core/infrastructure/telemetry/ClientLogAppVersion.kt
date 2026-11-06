@@ -1,4 +1,4 @@
-package com.stratum.domain.telemetry
+package com.stratum.core.infrastructure.telemetry
 
 /**
  * Normalizes the user-visible version for the tier-2 upload envelope.

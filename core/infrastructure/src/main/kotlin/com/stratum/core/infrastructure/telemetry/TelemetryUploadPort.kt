@@ -1,4 +1,4 @@
-package com.stratum.domain.telemetry
+package com.stratum.core.infrastructure.telemetry
 
 /**
  * Network boundary for tier-2 client logs. Implemented in `:core:inference`

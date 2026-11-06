@@ -1,6 +1,6 @@
 package com.stratum.feature.program
 
-import com.stratum.domain.telemetry.AnalyticsPort
+import com.stratum.core.infrastructure.telemetry.AnalyticsPort
 import javax.inject.Inject
 
 /**

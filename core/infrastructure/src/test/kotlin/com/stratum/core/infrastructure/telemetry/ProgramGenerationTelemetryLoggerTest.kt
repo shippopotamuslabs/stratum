@@ -2,7 +2,7 @@ package com.stratum.core.infrastructure.telemetry
 
 import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.program.scenarioContext
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.core.infrastructure.logging.LoggingPort
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.generation.GenerationSynthesisSummary
 import com.stratum.domain.program.generation.prescription.SynthesisObjectiveBreakdown

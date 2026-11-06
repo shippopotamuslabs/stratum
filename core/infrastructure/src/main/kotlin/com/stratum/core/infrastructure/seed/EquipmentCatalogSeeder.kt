@@ -9,7 +9,7 @@ import com.stratum.core.infrastructure.mapper.toMicroJsonArray
 import com.stratum.core.infrastructure.sync.SyncFlags
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.IncrementTierId
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.core.infrastructure.logging.LoggingPort
 import kotlinx.serialization.json.Json
 
 /**

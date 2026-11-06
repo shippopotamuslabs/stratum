@@ -80,11 +80,11 @@ class OnboardingImportProgramViewModelTest {
         }
         val event = analytics.events.single()
         assertEquals(
-            com.stratum.domain.telemetry.USER_VISIBLE_ERROR_EVENT,
+            com.stratum.core.infrastructure.telemetry.USER_VISIBLE_ERROR_EVENT,
             event.name,
         )
-        assertEquals("onboarding", event.params[com.stratum.domain.telemetry.PARAM_SCREEN])
-        assertEquals("import_program", event.params[com.stratum.domain.telemetry.PARAM_ACTION])
+        assertEquals("onboarding", event.params[com.stratum.core.infrastructure.telemetry.PARAM_SCREEN])
+        assertEquals("import_program", event.params[com.stratum.core.infrastructure.telemetry.PARAM_ACTION])
     }
 
     @Test

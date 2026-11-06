@@ -35,9 +35,9 @@ import com.stratum.application.importing.SupersetAffinityRepository
 import com.stratum.application.importing.ValidateImportFilesUseCase
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.core.testing.telemetry.FakeAnalyticsPort
-import com.stratum.domain.telemetry.PARAM_ACTION
-import com.stratum.domain.telemetry.PARAM_SCREEN
-import com.stratum.domain.telemetry.USER_VISIBLE_ERROR_EVENT
+import com.stratum.core.infrastructure.telemetry.PARAM_ACTION
+import com.stratum.core.infrastructure.telemetry.PARAM_SCREEN
+import com.stratum.core.infrastructure.telemetry.USER_VISIBLE_ERROR_EVENT
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest

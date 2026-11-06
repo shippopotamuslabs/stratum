@@ -1,4 +1,4 @@
-package com.stratum.domain.telemetry
+package com.stratum.core.infrastructure.telemetry
 
 import com.stratum.core.testing.telemetry.FakeAnalyticsPort
 import com.stratum.core.testing.telemetry.FakeCrashTelemetryPort

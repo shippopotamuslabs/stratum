@@ -1,11 +1,11 @@
-package com.stratum.domain.telemetry
+package com.stratum.core.infrastructure.telemetry
 
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.core.infrastructure.logging.LoggingPort
 
 /**
  * Domain port for product analytics events (Firebase Analytics).
  *
- * Separated from [com.stratum.domain.logging.LoggingPort] (operational logs) and
+ * Separated from [com.stratum.core.infrastructure.logging.LoggingPort] (operational logs) and
  * [CrashTelemetryPort] (crash attribution) so event instrumentation can evolve independently.
  *
  * Firebase limits shape this contract: at most 500 distinct event types per app and short

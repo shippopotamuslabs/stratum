@@ -1,10 +1,10 @@
-package com.stratum.domain.logging
+package com.stratum.core.infrastructure.logging
 
 import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.telemetry.FakeAnalyticsPort
 import com.stratum.core.testing.telemetry.FakeCrashTelemetryPort
 import com.stratum.core.testing.telemetry.FakeOutcomeTelemetrySink
-import com.stratum.domain.telemetry.TelemetryRouter
+import com.stratum.core.infrastructure.telemetry.TelemetryRouter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch

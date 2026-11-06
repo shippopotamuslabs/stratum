@@ -1,4 +1,4 @@
-package com.stratum.domain.telemetry
+package com.stratum.core.infrastructure.telemetry
 
 /**
  * Countable outcome fact for the OpenTelemetry outcome stream (STR-242).

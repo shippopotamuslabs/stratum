@@ -3,8 +3,8 @@ package com.stratum.core.infrastructure.work
 import androidx.work.ListenableWorker
 import com.stratum.core.infrastructure.sync.CloudSyncResidualException
 import com.stratum.core.testing.logging.FakeLoggingPort
-import com.stratum.domain.telemetry.OutcomeResult
-import com.stratum.domain.telemetry.OutcomeTelemetry
+import com.stratum.core.infrastructure.telemetry.OutcomeResult
+import com.stratum.core.infrastructure.telemetry.OutcomeTelemetry
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue

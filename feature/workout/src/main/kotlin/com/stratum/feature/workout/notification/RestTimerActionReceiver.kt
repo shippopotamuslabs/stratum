@@ -3,7 +3,7 @@ package com.stratum.feature.workout.notification
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.core.infrastructure.logging.LoggingPort
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 

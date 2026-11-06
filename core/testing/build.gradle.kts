@@ -18,6 +18,14 @@ tasks.withType<Test>().configureEach {
 dependencies {
     implementation(project(":core:domain"))
     implementation(project(":core:application"))
+    api(project(":core:infrastructure")) {
+        // The fakes implement only infrastructure's own logging/telemetry
+        // port types. Infrastructure's external dependencies are AAR-only
+        // and cannot resolve on the JVM runtime classpaths of :core:testing's
+        // JVM consumers (:core:domain / :core:application tests); Android
+        // consumers receive them through their own infrastructure edge.
+        isTransitive = false
+    }
     implementation(libs.kotlinx.serialization.json)
     api(libs.junit.jupiter)
     api(libs.kotlinx.coroutines.test)

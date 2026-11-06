@@ -32,11 +32,10 @@ stratum:
     active: true
   # STR-243: raw-Throwable failure gate for :core:domain + :core:application main sources.
   # Final legacyFiles state (review round 1): every entry is either
-  # (a) a sanctioned funnel definition - RunCatchingCancellable.kt and
-  #     LoggedResult.kt, the canonical failure constructors themselves; their
-  #     definitions and internal Result.failure sites are the only sanctioned
-  #     raw-Throwable constructions in domain/application main sources
-  #     (LoggedResult.kt's entry disappears when STR-237 deletes that file), or
+  # (a) a sanctioned funnel definition - RunCatchingCancellable.kt, the
+  #     canonical failure constructor itself; its definition and internal
+  #     Result.failure sites are the only sanctioned
+  #     raw-Throwable constructions in domain/application main sources, or
   # (b) a named application-internal producer whose Result never crosses a
   #     port/presentation boundary - ComputePersonalRecordsUseCase and
   #     RefreshWeeklySeriesUseCase, consumed only inside :core:application
@@ -52,7 +51,6 @@ stratum:
     active: true
     legacyFiles:
       - 'core/domain/src/main/kotlin/com/stratum/domain/coroutines/RunCatchingCancellable.kt'
-      - 'core/domain/src/main/kotlin/com/stratum/domain/logging/LoggedResult.kt'
       - 'core/application/src/main/kotlin/com/stratum/application/training/ComputePersonalRecordsUseCase.kt'
       - 'core/application/src/main/kotlin/com/stratum/application/training/RefreshWeeklySeriesUseCase.kt'
     diagnosticExemptTypes:

@@ -4,8 +4,8 @@ import com.stratum.core.infrastructure.telemetry.ProgramGenerationTelemetryLogge
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.application.lift.ObserveLiftCatalogUseCase
-import com.stratum.domain.telemetry.SynthesisTelemetry
-import com.stratum.domain.telemetry.TelemetryRouter
+import com.stratum.core.infrastructure.telemetry.SynthesisTelemetry
+import com.stratum.core.infrastructure.telemetry.TelemetryRouter
 import com.stratum.application.onboarding.CompleteOnboardingUseCase
 import com.stratum.application.onboarding.GetUserTrainingProfileUseCase
 import com.stratum.application.onboarding.UpdateSpecializationUseCase

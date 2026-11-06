@@ -1,4 +1,4 @@
-package com.stratum.domain.telemetry
+package com.stratum.core.infrastructure.telemetry
 
 /**
  * Stable vocabulary for product analytics events recorded at presentation

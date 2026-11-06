@@ -1,4 +1,4 @@
-package com.stratum.domain.logging
+package com.stratum.core.infrastructure.logging
 
 /**
  * Domain port for structured logging. Platform adapters (Android Log, Crashlytics, and a future

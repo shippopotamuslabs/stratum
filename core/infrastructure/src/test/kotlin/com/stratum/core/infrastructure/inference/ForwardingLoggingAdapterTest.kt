@@ -3,8 +3,8 @@ package com.stratum.core.infrastructure.inference
 import com.stratum.core.testing.telemetry.FakeCrashTelemetryPort
 import com.stratum.core.testing.telemetry.FakePendingClientLogStore
 import com.stratum.core.testing.telemetry.FakeTelemetryUploadPort
-import com.stratum.domain.telemetry.ClientLogBuffer
-import com.stratum.domain.telemetry.ClientLogSeverity
+import com.stratum.core.infrastructure.telemetry.ClientLogBuffer
+import com.stratum.core.infrastructure.telemetry.ClientLogSeverity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals

@@ -1,8 +1,8 @@
-package com.stratum.domain.logging
+package com.stratum.core.infrastructure.logging
 
-import com.stratum.domain.telemetry.TelemetryPiiScrubber
-import com.stratum.domain.telemetry.TelemetryThrowableSanitizer
-import com.stratum.domain.telemetry.TelemetryRouter
+import com.stratum.core.infrastructure.telemetry.TelemetryPiiScrubber
+import com.stratum.core.infrastructure.telemetry.TelemetryThrowableSanitizer
+import com.stratum.core.infrastructure.telemetry.TelemetryRouter
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.system.exitProcess

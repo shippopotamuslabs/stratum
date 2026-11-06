@@ -1,14 +1,14 @@
-package com.stratum.domain.telemetry
+package com.stratum.core.infrastructure.telemetry
 
-import com.stratum.domain.telemetry.SynthesisTelemetry.Companion.EVENT_SYNTHESIS_READY_OBSERVED
-import com.stratum.domain.telemetry.SynthesisTelemetry.Companion.EVENT_SYNTHESIS_RENDERED
-import com.stratum.domain.telemetry.SynthesisTelemetry.Companion.EVENT_SYNTHESIS_STARTED
-import com.stratum.domain.telemetry.SynthesisTelemetry.Companion.EVENT_SYNTHESIS_CLIENT_STAGE
-import com.stratum.domain.telemetry.SynthesisTelemetry.Companion.PARAM_CORRELATION_ID
-import com.stratum.domain.telemetry.SynthesisTelemetry.Companion.PARAM_DURATION_MS
-import com.stratum.domain.telemetry.SynthesisTelemetry.Companion.PARAM_JOB_ID
-import com.stratum.domain.telemetry.SynthesisTelemetry.Companion.PARAM_SESSION_ID
-import com.stratum.domain.telemetry.SynthesisTelemetry.Companion.PARAM_STAGE
+import com.stratum.core.infrastructure.telemetry.SynthesisTelemetry.Companion.EVENT_SYNTHESIS_READY_OBSERVED
+import com.stratum.core.infrastructure.telemetry.SynthesisTelemetry.Companion.EVENT_SYNTHESIS_RENDERED
+import com.stratum.core.infrastructure.telemetry.SynthesisTelemetry.Companion.EVENT_SYNTHESIS_STARTED
+import com.stratum.core.infrastructure.telemetry.SynthesisTelemetry.Companion.EVENT_SYNTHESIS_CLIENT_STAGE
+import com.stratum.core.infrastructure.telemetry.SynthesisTelemetry.Companion.PARAM_CORRELATION_ID
+import com.stratum.core.infrastructure.telemetry.SynthesisTelemetry.Companion.PARAM_DURATION_MS
+import com.stratum.core.infrastructure.telemetry.SynthesisTelemetry.Companion.PARAM_JOB_ID
+import com.stratum.core.infrastructure.telemetry.SynthesisTelemetry.Companion.PARAM_SESSION_ID
+import com.stratum.core.infrastructure.telemetry.SynthesisTelemetry.Companion.PARAM_STAGE
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test

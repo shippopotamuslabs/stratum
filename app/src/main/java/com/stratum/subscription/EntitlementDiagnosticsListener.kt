@@ -3,7 +3,7 @@ package com.stratum.subscription
 import com.stratum.application.subscription.ObserveEntitlementDiagnosticsUseCase
 import com.stratum.application.subscription.SUBSCRIPTION_REPO_TAG
 import com.stratum.domain.di.ApplicationScope
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.core.infrastructure.logging.LoggingPort
 import com.stratum.domain.coroutines.collectLatestRestarting
 import com.stratum.domain.subscription.EntitlementDiagnostic
 import javax.inject.Inject

@@ -2,7 +2,7 @@ package com.stratum.app
 
 import com.google.firebase.appcheck.FirebaseAppCheck
 import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.core.infrastructure.logging.LoggingPort
 
 /**
  * Release App Check install (Play Integrity). Debug uses the same FQCN under `src/debug`.

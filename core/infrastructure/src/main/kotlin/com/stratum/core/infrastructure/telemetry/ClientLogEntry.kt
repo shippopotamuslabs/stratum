@@ -1,14 +1,14 @@
-package com.stratum.domain.telemetry
+package com.stratum.core.infrastructure.telemetry
 
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.core.infrastructure.logging.LoggingPort
 
 /**
  * Severity tiers for queryable client logs (STR-27 tier 2).
  *
  * Only [WARNING] (expected failures, validation rejections) and [ERROR]
- * ([LoggingPort.errorSkippingNonFatal][com.stratum.domain.logging.LoggingPort.errorSkippingNonFatal])
+ * ([LoggingPort.errorSkippingNonFatal][com.stratum.core.infrastructure.logging.LoggingPort.errorSkippingNonFatal])
  * are uploaded to the ingestion endpoint. Unexpected failures stay on
- * [LoggingPort.error][com.stratum.domain.logging.LoggingPort.error] and are Crashlytics-only.
+ * [LoggingPort.error][com.stratum.core.infrastructure.logging.LoggingPort.error] and are Crashlytics-only.
  *
  * [OUTCOME] carries the STR-242 countable outcome series (successes and expected
  * failures as structured facts, not log lines). The tier-2 pipeline is reused

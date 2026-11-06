@@ -6,7 +6,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.stratum.core.infrastructure.auth.FirebaseGoogleAuthManager
 import com.stratum.application.auth.AuthManager
 import com.stratum.domain.di.ApplicationScope
-import com.stratum.domain.logging.ProcessErrorSafetyNet
+import com.stratum.core.infrastructure.logging.ProcessErrorSafetyNet
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
