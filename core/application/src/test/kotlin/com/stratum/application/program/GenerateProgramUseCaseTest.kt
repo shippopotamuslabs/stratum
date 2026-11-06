@@ -21,6 +21,8 @@ import com.stratum.domain.program.generation.schema.NormalizedWorkout
 import com.stratum.domain.program.generation.schema.ProgramNormalizationRequest
 import com.stratum.domain.program.generation.GenerateProgramFailureKind
 import com.stratum.domain.program.generation.GenerateProgramResult
+import com.stratum.domain.program.generation.GenerationSynthesisSummary
+import com.stratum.domain.program.generation.prescription.SynthesisObjectiveBreakdown
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisException
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisRefusal
 import com.stratum.domain.program.generation.validation.ValidationIssue
@@ -152,6 +154,8 @@ class GenerateProgramUseCaseTest {
             assertEquals(GenerateProgramFailureKind.OperationalFailure, unexpected.kind)
             assertEquals(1, unexpected.diagnostics.size)
             assertSame(boom, unexpected.diagnostics.single().cause)
+            // The failure happened before the pipeline returned: no synthesis to carry.
+            assertNull(unexpected.synthesis)
             assertTrue(programRepository.saveProgramCalls.isEmpty())
             assertNull(programRepository.current)
         }
@@ -172,6 +176,69 @@ class GenerateProgramUseCaseTest {
             assertEquals(GenerateProgramResult.SynthesisFailed("quota exhausted"), result)
             assertTrue(programRepository.saveProgramCalls.isEmpty())
             assertNull(programRepository.current)
+        }
+    }
+
+    @Nested
+    @DisplayName("Post-pipeline failure carries the synthesis summary on Unexpected")
+    inner class PostPipelineFailurePath {
+        @Test
+        fun `invoke carries synthesis when retainOnlyKnownLifts empties the program and require fails`() = runTest {
+            val summary =
+                GenerationSynthesisSummary(
+                    trainingDaysPerWeek = 3,
+                    cycleLength = 7,
+                    objective = SynthesisObjectiveBreakdown.ZERO,
+                )
+            // Every lift in the built program is unknown to the enabled
+            // catalog, so post-pipeline sanitization drops the only workout
+            // and the workouts-nonempty require throws.
+            val fixed =
+                NormalizedProgram(
+                    name = "Unknown Lifts Program",
+                    cycleLength = 1,
+                    restSlotIndices = emptySet(),
+                    workouts =
+                        listOf(
+                            NormalizedWorkout(
+                                name = "Day 1",
+                                weekday = "Monday",
+                                position = 0,
+                                workoutLifts =
+                                    listOf(
+                                        NormalizedLift(
+                                            liftId = "unknown-lift",
+                                            position = 0,
+                                            progressionScheme = ProgressionScheme.Double,
+                                            workoutLiftSets =
+                                                listOf(
+                                                    NormalizedSet(
+                                                        position = 0,
+                                                        setType = SetType.Standard,
+                                                        repMin = 6,
+                                                        repMax = 10,
+                                                        rirGoal = 2,
+                                                        isTopSet = true,
+                                                    ),
+                                                ),
+                                        ),
+                                    ),
+                            ),
+                        ),
+                )
+            val useCase =
+                buildUseCase(this, pipeline = SuccessWithSynthesisPipeline(fixed, summary))
+
+            val result = useCase.invoke()
+
+            val unexpected = result as GenerateProgramResult.Unexpected
+            assertEquals(GenerateProgramFailureKind.OperationalFailure, unexpected.kind)
+            assertSame(summary, unexpected.synthesis)
+            assertTrue(
+                unexpected.diagnostics.single().cause is IllegalArgumentException,
+                "expected the require failure, got ${unexpected.diagnostics.single().cause}",
+            )
+            assertTrue(programRepository.saveProgramCalls.isEmpty())
         }
     }
 
@@ -392,6 +459,27 @@ class GenerateProgramUseCaseTest {
             "expected restSeconds 180 for High fatigue lift, got ${highSets.map { it.restSeconds }}",
         )
     }
+}
+
+/**
+ * Test double: returns a fixed [NormalizedProgram] plus a synthesis summary,
+ * so the post-pipeline failure test can assert the summary rides the
+ * Unexpected branch (STR-237 review round 1).
+ */
+private class SuccessWithSynthesisPipeline(
+    private val fixed: NormalizedProgram,
+    private val synthesis: GenerationSynthesisSummary,
+) : ProgramGenerationPipeline(
+    planWeeklyVolume = PlanWeeklyVolumeUseCase(),
+    buildProgramWorkouts = BuildProgramWorkoutsUseCase(),
+    integrateAndValidate = IntegrateAndValidateProgramUseCase(),
+    programSynthesisPort = FakeProgramSynthesisPort(),
+) {
+    override suspend fun generate(
+        context: ProgramGenerationContext,
+        normalizationRequest: ProgramNormalizationRequest,
+        options: PipelineOptions,
+    ): ProgramGenerationPipelineResult = ProgramGenerationPipelineResult.Success(fixed, synthesis)
 }
 
 /**

@@ -264,7 +264,14 @@ internal class CreateProgramGenerateController(
     private fun publishGenerateFailure(result: GenerateProgramResult) {
         // STR-237 chunk 3: a validation-rejected generation still completed its
         // build, so its carried synthesis records are drained here exactly once.
+        // STR-237 review round 1: an Unexpected failure after the pipeline
+        // succeeded carries the same completed build's synthesis; drain it
+        // here exactly once as well (this is the only recordSynthesis call
+        // on either failure path — Success records in generate()).
         if (result is GenerateProgramResult.ValidationRejected) {
+            result.synthesis?.let { recordSynthesis(it) }
+        }
+        if (result is GenerateProgramResult.Unexpected) {
             result.synthesis?.let { recordSynthesis(it) }
         }
         // STR-242: one home per class — the expected-vs-exceptional split lives

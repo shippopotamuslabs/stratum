@@ -60,10 +60,16 @@ sealed interface GenerateProgramResult {
      * consumer records each diagnostic exactly once at its boundary
      * (STR-237 Special 1: the propagation path has no recording
      * capability, so the record rides the outcome).
+     *
+     * [synthesis] carries the completed build's facts when the pipeline
+     * succeeded but a post-pipeline step failed (STR-237 review round 1),
+     * so the boundary records them exactly once just as on [Success];
+     * it is null when the failure happened before the pipeline returned.
      */
     data class Unexpected(
         val kind: GenerateProgramFailureKind,
         val diagnostics: List<GenerationFailureDiagnostic>,
+        val synthesis: GenerationSynthesisSummary? = null,
     ) : GenerateProgramResult
 }
 

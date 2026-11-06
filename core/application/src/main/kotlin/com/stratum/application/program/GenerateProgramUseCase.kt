@@ -11,6 +11,7 @@ import com.stratum.application.program.generation.pipeline.ProgramGenerationPipe
 import com.stratum.application.program.generation.pipeline.ProgramGenerationPipelineResult
 import com.stratum.domain.program.generation.GenerateProgramFailureKind
 import com.stratum.domain.program.generation.GenerationFailureDiagnostic
+import com.stratum.domain.program.generation.GenerationSynthesisSummary
 import com.stratum.domain.program.generation.GenerateProgramResult
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisException
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
@@ -59,6 +60,10 @@ class GenerateProgramUseCase @Inject constructor(
         onProgress: ProgramGenerationProgressCallback = {},
     ): GenerateProgramResult =
         withContext(generationDispatcher) {
+            // Hoisted so a post-pipeline failure can carry the completed
+            // build's synthesis facts on the Unexpected branch (STR-237
+            // review round 1); assigned when the pipeline result lands.
+            var synthesisSummary: GenerationSynthesisSummary? = null
             try {
                 onProgress(ProgramGenerationProgress(ProgramGenerationProgressPhase.PreparingPayload))
                 val context =
@@ -89,7 +94,10 @@ class GenerateProgramUseCase @Inject constructor(
                                     ),
                             )
                     ) {
-                        is ProgramGenerationPipelineResult.Success -> pipelineResult.program to pipelineResult.synthesis
+                        is ProgramGenerationPipelineResult.Success -> {
+                            synthesisSummary = pipelineResult.synthesis
+                            pipelineResult.program to pipelineResult.synthesis
+                        }
                         is ProgramGenerationPipelineResult.ValidationRejected ->
                             // STR-243: the rejection travels as an outcome branch
                             // carrying the report end-to-end (STR-241 interim mapped
@@ -106,7 +114,7 @@ class GenerateProgramUseCase @Inject constructor(
                                 pipelineResult.refusal,
                             )
                     }
-                val (normalizedProgram, synthesisSummary) = normalized
+                val normalizedProgram = normalized.first
                 var program =
                     normalizedProgram.toDomainProgram(
                         restSecondsForLift = { id -> liftsById[id]?.resolvedDefaultRestSeconds() },
@@ -161,6 +169,7 @@ class GenerateProgramUseCase @Inject constructor(
                 GenerateProgramResult.Unexpected(
                     kind = GenerateProgramFailureKind.OperationalFailure,
                     diagnostics = listOf(GenerationFailureDiagnostic(cause = error)),
+                    synthesis = synthesisSummary,
                 )
             }
         }
