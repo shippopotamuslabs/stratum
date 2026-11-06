@@ -8,7 +8,11 @@ import com.stratum.application.subscription.EntitlementRepository
 import com.stratum.domain.subscription.ComplimentaryAccess
 import com.stratum.domain.subscription.EntitlementDiagnostic
 import com.stratum.domain.subscription.EntitlementState
+import com.stratum.application.subscription.BillingDiagnostic
+import com.stratum.application.subscription.PlayEntitlementSyncOutcome
 import com.stratum.application.subscription.PlayEntitlementSyncPort
+import com.stratum.application.subscription.RefreshEntitlementOutcome
+import com.stratum.application.subscription.RestorePurchasesOutcome
 import com.stratum.domain.subscription.SubscriptionPurchase
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -62,26 +66,38 @@ class SubscriptionRepositoryImpl @Inject constructor(
             }
         }.distinctUntilChanged()
 
-    override suspend fun refreshEntitlement(): EntitlementState {
-        billingPort.restorePurchases()
-        val auth = authManager.authState.value
-        val purchases = billingPort.activePurchases.first()
-        val complimentary = if (auth is AuthState.Authenticated) {
-            complimentaryAccessStore.getComplimentaryAccess(auth.user.uid)
-        } else {
-            ComplimentaryAccess.NotGranted
+    override suspend fun refreshEntitlement(): RefreshEntitlementOutcome {
+        try {
+            when (val restore = billingPort.restorePurchases()) {
+                RestorePurchasesOutcome.Success -> Unit
+                is RestorePurchasesOutcome.Failed ->
+                    return RefreshEntitlementOutcome.Failed(restore.diagnostics)
+            }
+            val auth = authManager.authState.value
+            val purchases = billingPort.activePurchases.first()
+            val complimentary = if (auth is AuthState.Authenticated) {
+                complimentaryAccessStore.getComplimentaryAccess(auth.user.uid)
+            } else {
+                ComplimentaryAccess.NotGranted
+            }
+            if (auth is AuthState.Authenticated) {
+                syncActivePurchaseTokens(purchases)
+            }
+            val state = EntitlementState.resolve(auth, complimentary, purchases)
+            // A one-shot refresh must answer definitively: when the complimentary read
+            // failed and no Play purchase entitles, Loading would tell the caller the
+            // restore found nothing. Fail instead so the caller can show a retry (STR-280).
+            check(state !is EntitlementState.Loading || auth !is AuthState.Authenticated) {
+                "Entitlement refresh could not verify complimentary access"
+            }
+            return RefreshEntitlementOutcome.Success(state)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            return RefreshEntitlementOutcome.Failed(
+                listOf(BillingDiagnostic.OperationFailed(error)),
+            )
         }
-        if (auth is AuthState.Authenticated) {
-            syncActivePurchaseTokens(purchases)
-        }
-        val state = EntitlementState.resolve(auth, complimentary, purchases)
-        // A one-shot refresh must answer definitively: when the complimentary read
-        // failed and no Play purchase entitles, Loading would tell the caller the
-        // restore found nothing. Fail instead so the caller can show a retry (STR-280).
-        check(state !is EntitlementState.Loading || auth !is AuthState.Authenticated) {
-            "Entitlement refresh could not verify complimentary access"
-        }
-        return state
     }
 
     private fun syncActivePurchaseTokens(purchases: List<SubscriptionPurchase>) {
@@ -89,12 +105,15 @@ class SubscriptionRepositoryImpl @Inject constructor(
             val token = purchase.purchaseToken
             if (token.isBlank()) continue
             applicationScope.launch {
-                try {
-                    playEntitlementSync.syncPurchaseToken(token)
-                } catch (cancelled: CancellationException) {
-                    throw cancelled
-                } catch (error: Throwable) {
-                    diagnosticsChannel.trySend(EntitlementDiagnostic.PlaySyncFailed(error))
+                // The port returns its outcome; a Failed branch's diagnostics
+                // are already the PlaySyncFailed values this channel carries,
+                // forwarded exactly once. Cancellation still propagates.
+                when (val outcome = playEntitlementSync.syncPurchaseToken(token)) {
+                    is PlayEntitlementSyncOutcome.Success -> Unit
+                    is PlayEntitlementSyncOutcome.Failed ->
+                        outcome.diagnostics.forEach { diagnostic ->
+                            diagnosticsChannel.trySend(diagnostic)
+                        }
                 }
             }
         }
