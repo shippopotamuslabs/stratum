@@ -7,8 +7,8 @@ import com.stratum.domain.onboarding.MuscleGroup
  * A non-fatal program-generation event recorded while building slots (STR-254).
  *
  * Diagnostics are values, not logs: `:core:domain` never logs (CODE_STYLE_RULES.md §1),
- * so the slot builders record them on the caller's collector and the generation pipeline
- * reports each one exactly once through `ProgramGenerationTelemetryLogger`.
+ * so the slot builders record them on the caller's collector and the generation
+ * outcome carries them to its boundary, which records each one exactly once.
  * Diagnostics never reach the UI.
  */
 sealed interface SlotGenerationDiagnostic {

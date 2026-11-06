@@ -9,8 +9,8 @@ import com.stratum.domain.program.generation.validation.ValidationSeverity
  * Outcome of program generation (STR-243).
  *
  * Lives in domain (unlike the per-use-case outcome types in the application
- * layer) because [com.stratum.domain.telemetry.classifyGenerateOutcome] keys
- * the STR-242 expected-vs-exceptional split on these branches, and domain
+ * layer) because the STR-242 outcome classifier keys its
+ * expected-vs-exceptional split on these branches, and domain
  * cannot import an application type.
  *
  * Failure branches carry typed values. The one exception is
@@ -42,15 +42,15 @@ sealed interface GenerateProgramResult {
 
     /**
      * Synthesis was refused before any solver work ran (e.g. the feature gate
-     * is disabled). Expected — see [com.stratum.domain.telemetry.classifyGenerateOutcome].
+     * is disabled). Expected — see the STR-242 outcome classifier.
      */
     data class SynthesisRefused(val refusal: ProgramSynthesisRefusal) : GenerateProgramResult
 
     /**
      * The synthesis adapter reported a translated provider condition (quota,
      * timeout, sign-in, monthly limit, …). [message] is user-safe copy
-     * produced at the adapter boundary. Expected — see
-     * [com.stratum.domain.telemetry.classifyGenerateOutcome].
+     * produced at the adapter boundary. Expected — see the STR-242
+     * outcome classifier.
      */
     data class SynthesisFailed(val message: String) : GenerateProgramResult
 
@@ -58,7 +58,7 @@ sealed interface GenerateProgramResult {
      * An unbounded operational failure inside generation. The branch carries
      * the [kind] plus [diagnostics] holding the real throwable; the outcome
      * consumer records each diagnostic exactly once at its boundary
-     * (STR-237 Special 1: the propagation path has no logging or telemetry
+     * (STR-237 Special 1: the propagation path has no recording
      * capability, so the record rides the outcome).
      */
     data class Unexpected(

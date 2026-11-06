@@ -1,7 +1,7 @@
 package com.stratum.domain.program.generation.prescription
 
 /**
- * Decomposed CP-SAT objective for comparing split candidates and telemetry.
+ * Decomposed CP-SAT objective for comparing split candidates.
  * Lower [total] is better. Tiers are separated by orders of magnitude in the solver.
  */
 data class SynthesisObjectiveBreakdown(
