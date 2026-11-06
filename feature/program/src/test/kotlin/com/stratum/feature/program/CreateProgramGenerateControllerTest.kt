@@ -31,9 +31,9 @@ import com.stratum.domain.telemetry.SynthesisTelemetry.Companion.PARAM_DURATION_
 import com.stratum.domain.telemetry.SynthesisTelemetry.Companion.PARAM_JOB_ID
 import com.stratum.domain.telemetry.SynthesisTelemetry.Companion.PARAM_SESSION_ID
 import com.stratum.domain.telemetry.SynthesisTelemetry.Companion.PARAM_STAGE
-import com.stratum.domain.logging.PARAM_ACTION
-import com.stratum.domain.logging.PARAM_SCREEN
-import com.stratum.domain.logging.USER_VISIBLE_ERROR_EVENT
+import com.stratum.domain.telemetry.PARAM_ACTION
+import com.stratum.domain.telemetry.PARAM_SCREEN
+import com.stratum.domain.telemetry.USER_VISIBLE_ERROR_EVENT
 import com.stratum.application.onboarding.GetUserTrainingProfileUseCase
 import com.stratum.application.onboarding.UpdateSpecializationUseCase
 import com.stratum.application.onboarding.UpdateUserTrainingProfileUseCase

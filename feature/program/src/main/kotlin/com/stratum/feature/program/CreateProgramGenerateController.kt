@@ -20,9 +20,9 @@ import com.stratum.domain.program.Program
 import com.stratum.domain.program.ProgramGenerationProgress
 import com.stratum.domain.program.ProgramGenerationProgressPhase
 import com.stratum.domain.logging.LogAnalyticsEventUseCase
-import com.stratum.domain.logging.PARAM_ACTION
-import com.stratum.domain.logging.PARAM_SCREEN
-import com.stratum.domain.logging.USER_VISIBLE_ERROR_EVENT
+import com.stratum.domain.telemetry.PARAM_ACTION
+import com.stratum.domain.telemetry.PARAM_SCREEN
+import com.stratum.domain.telemetry.USER_VISIBLE_ERROR_EVENT
 import com.stratum.domain.telemetry.ClientStage
 import com.stratum.domain.telemetry.ClientStageCorrelation
 import com.stratum.domain.telemetry.OutcomeResult

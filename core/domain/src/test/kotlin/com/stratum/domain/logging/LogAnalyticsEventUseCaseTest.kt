@@ -1,6 +1,9 @@
 package com.stratum.domain.logging
 
 import com.stratum.core.testing.telemetry.FakeAnalyticsPort
+import com.stratum.domain.telemetry.PARAM_ACTION
+import com.stratum.domain.telemetry.PARAM_SCREEN
+import com.stratum.domain.telemetry.USER_VISIBLE_ERROR_EVENT
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 

@@ -3,11 +3,6 @@ package com.stratum.domain.logging
 import com.stratum.domain.telemetry.AnalyticsPort
 import javax.inject.Inject
 
-/** Stable vocabulary for product analytics events recorded through [LogAnalyticsEventUseCase]. */
-const val USER_VISIBLE_ERROR_EVENT = "user_visible_error"
-const val PARAM_SCREEN = "screen"
-const val PARAM_ACTION = "action"
-
 /**
  * Thin wrapper around [AnalyticsPort.logEvent] for presentation-layer instrumentation.
  *
