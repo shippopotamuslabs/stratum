@@ -11,7 +11,6 @@ import com.stratum.application.auth.GetAuthStateUseCase
 import com.stratum.application.auth.LoginWithGoogleUseCase
 import com.stratum.application.auth.LogoutUseCase
 import com.stratum.domain.auth.UserProfile
-import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.domain.sync.CloudSessionState
 import com.stratum.application.sync.EndSessionAndWipeUseCase
 import com.stratum.application.sync.ObserveCloudSessionStateUseCase
@@ -60,7 +59,7 @@ class MainViewModelTest {
             startCloudSync = StartCloudSyncUseCase(fakeCloudSync),
             observeSessionState = ObserveCloudSessionStateUseCase(fakeCloudSync),
             observeThemePreferences = ObserveThemePreferencesUseCase(fakeTheme),
-            logError = LogErrorUseCase(loggingPort),
+            diagnosticDrain = DiagnosticDrain(loggingPort),
         )
 
     @Test
