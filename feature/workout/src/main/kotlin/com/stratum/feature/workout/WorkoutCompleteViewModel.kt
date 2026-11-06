@@ -26,7 +26,6 @@ import com.stratum.application.workout.RepRangeShiftDiagnostic
 import com.stratum.domain.workout.ApplyRepRangeShiftResult
 import com.stratum.application.workout.ApplyRepRangeShiftUseCase
 import com.stratum.application.workout.RepRangeShiftProposalPreferences
-import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.feature.workout.ui.EquipmentProposalUiMapper
 import com.stratum.feature.workout.ui.LiftBestSetUi
 import com.stratum.feature.workout.ui.RepRangeShiftUiMapper
@@ -65,7 +64,6 @@ class WorkoutCompleteViewModel @Inject constructor(
     private val analyzeSessionRepRangeShiftProposals: AnalyzeSessionRepRangeShiftProposalsUseCase,
     private val applyRepRangeShift: ApplyRepRangeShiftUseCase,
     private val repRangeShiftProposalPreferences: RepRangeShiftProposalPreferences,
-    private val logError: LogErrorUseCase,
     private val observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
     observeHealthConnectSyncErrors: ObserveHealthConnectSyncErrorsUseCase,
     private val clearHealthConnectSyncError: ClearHealthConnectSyncErrorUseCase,

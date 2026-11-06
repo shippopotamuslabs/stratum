@@ -752,7 +752,6 @@ class WorkoutCompleteViewModelTest {
                         programChangeEventRepository = FakeProgramChangeEventRepository(),
                     ),
                 repRangeShiftProposalPreferences = repRangePrefs,
-                logError = LogErrorUseCase(logging),
                 observeWeightDisplayPreferences =
                     ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
                 observeHealthConnectSyncErrors =
@@ -865,7 +864,6 @@ class WorkoutCompleteViewModelTest {
                         programChangeEventRepository = FakeProgramChangeEventRepository(),
                     ),
                 repRangeShiftProposalPreferences = repRangePrefs,
-                logError = LogErrorUseCase(logging),
                 observeWeightDisplayPreferences =
                     ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
                 observeHealthConnectSyncErrors =
@@ -982,7 +980,6 @@ class WorkoutCompleteViewModelTest {
                         programChangeEventRepository = FakeProgramChangeEventRepository(),
                     ),
                 repRangeShiftProposalPreferences = repRangePrefs,
-                logError = LogErrorUseCase(logging),
                 observeWeightDisplayPreferences =
                     ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
                 observeHealthConnectSyncErrors =
@@ -1074,7 +1071,6 @@ class WorkoutCompleteViewModelTest {
                     programChangeEventRepository = FakeProgramChangeEventRepository(),
                 ),
             repRangeShiftProposalPreferences = repRangePrefs,
-            logError = LogErrorUseCase(logging),
             observeWeightDisplayPreferences =
                 ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
             observeHealthConnectSyncErrors =
