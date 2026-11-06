@@ -2,6 +2,7 @@ package com.stratum.core.infrastructure.inference
 
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.functions.FirebaseFunctions
+import com.stratum.application.auth.AccountDeletionOutcome
 import com.stratum.application.auth.AccountDeletionPort
 import com.stratum.domain.logging.LoggingPort
 import java.util.concurrent.TimeUnit
@@ -21,15 +22,13 @@ class FirebaseAccountDeletionAdapter @Inject constructor(
     private val functions: FirebaseFunctions = FirebaseFunctions.getInstance()
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
 
-    override suspend fun deleteRemoteUserData() {
+    override suspend fun deleteRemoteUserData(): AccountDeletionOutcome =
         callPhase(PHASE_DATA)
-    }
 
-    override suspend fun deleteRemoteAuthUser() {
+    override suspend fun deleteRemoteAuthUser(): AccountDeletionOutcome =
         callPhase(PHASE_AUTH)
-    }
 
-    private suspend fun callPhase(phase: String) {
+    private suspend fun callPhase(phase: String): AccountDeletionOutcome {
         try {
             checkNotNull(auth.currentUser) { "Sign-in required to delete account." }
             val callable =
@@ -46,8 +45,9 @@ class FirebaseAccountDeletionAdapter @Inject constructor(
                 "$CALLABLE_NAME($phase)",
                 error,
             )
-            throw error
+            return AccountDeletionOutcome.Failed
         }
+        return AccountDeletionOutcome.Success
     }
 
     private companion object {
