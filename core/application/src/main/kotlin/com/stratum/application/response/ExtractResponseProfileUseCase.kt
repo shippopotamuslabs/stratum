@@ -5,13 +5,13 @@ import com.stratum.application.importing.InsightsAnalysisScope
 import com.stratum.application.importing.LiftTrainingInsightsRepository
 import com.stratum.application.importing.MuscleVolumeBaselineRepository
 import com.stratum.application.lift.LiftRepository
-import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.application.training.TrainingLogRepository
 import com.stratum.domain.training.toMovementPatternSet
 import java.time.Instant
 import javax.inject.Inject
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.first
 import com.stratum.domain.response.ExtractResponseProfileSummary
 import com.stratum.domain.response.ExtractedResponseProfile
@@ -66,14 +66,14 @@ class ExtractResponseProfileUseCase @Inject constructor(
         provenLiftIds: Set<LiftId> = emptySet(),
         scope: InsightsAnalysisScope = InsightsAnalysisScope.ImportOnly,
     ): ExtractResponseProfileOutcome {
-        val result = runCatchingCancellable { extract(provenLiftIds, scope) }
-        return result.fold(
-            onSuccess = { summary -> ExtractResponseProfileOutcome.Extracted(summary) },
-            onFailure = { error ->
-                loggingPort.error(TAG, "Failed to extract response profile: ${error.message}", error)
-                ExtractResponseProfileOutcome.Failed
-            },
-        )
+        return try {
+            ExtractResponseProfileOutcome.Extracted(extract(provenLiftIds, scope))
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            loggingPort.error(TAG, "Failed to extract response profile: ${error.message}", error)
+            ExtractResponseProfileOutcome.Failed
+        }
     }
 
     private suspend fun extract(

@@ -1,6 +1,5 @@
 package com.stratum.application.workout
 
-import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.application.program.ProgramRepository
 import com.stratum.domain.program.ProgressionRepRangePolicy
@@ -117,7 +116,7 @@ class ApplyRepRangeShiftUseCase @Inject constructor(
             )
         programRepository.saveProgram(program.replaceWorkoutLift(updatedLift))
         // Template is durable; event is audit-only — do not fail Accept if append breaks.
-        runCatchingCancellable {
+        try {
             programChangeEventRepository.append(
                 ProgramChangeEvent(
                     id = ProgramChangeEventId(UUID.randomUUID().toString()),
@@ -127,7 +126,9 @@ class ApplyRepRangeShiftUseCase @Inject constructor(
                     payload = ProgramChangeEventPayload.WorkoutEdited(parentWorkout.id),
                 ),
             )
-        }.onFailure { error ->
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
             loggingPort.error(
                 TAG,
                 "Program saved but WORKOUT_EDITED event failed for ${workoutLiftId.value}: " +

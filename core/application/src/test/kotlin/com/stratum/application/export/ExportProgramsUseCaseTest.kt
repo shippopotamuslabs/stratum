@@ -1,5 +1,6 @@
 package com.stratum.application.export
 
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.export.ExportTestFixtures.CLOCK_INSTANT
@@ -10,6 +11,7 @@ import com.stratum.domain.json.JsonReader
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.export.ExportFileResult
 import com.stratum.domain.program.identity.ProgramId
 import java.time.Instant
 import kotlinx.coroutines.test.runTest
@@ -20,6 +22,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import com.stratum.domain.program.Program
+import com.stratum.application.program.ProgramRepository
 import com.stratum.core.testing.export.ExportTestFixtures.programImportHistory
 import com.stratum.core.testing.export.ExportTestFixtures
 
@@ -27,21 +30,27 @@ class ExportProgramsUseCaseTest {
 
     private lateinit var programRepo: FakeProgramRepository
     private lateinit var liftRepo: FakeLiftRepository
+    private lateinit var loggingPort: FakeLoggingPort
     private val clock: () -> Instant = { CLOCK_INSTANT }
 
     @BeforeEach
     fun setup() {
         programRepo = FakeProgramRepository()
         liftRepo = FakeLiftRepository()
+        loggingPort = FakeLoggingPort()
         seedDisplayNameLifts()
     }
 
-    private fun useCase() =
+    private fun useCase(programRepository: ProgramRepository = programRepo) =
         ExportProgramsUseCase(
-            programRepository = programRepo,
+            programRepository = programRepository,
             liftRepository = liftRepo,
             clock = clock,
+            loggingPort = loggingPort,
         )
+
+    private fun ExportProgramsResult.requireFile(): ExportFileResult =
+        (this as ExportProgramsResult.Success).file
 
     private suspend fun seedActiveAndLib() {
         programRepo.saveProgram(programActive)
@@ -77,10 +86,7 @@ class ExportProgramsUseCaseTest {
     @DisplayName("IE-S2-002 Export with empty programIds fails")
     fun ieS2_002_emptySelection() = runTest {
         val result = useCase()(emptyList())
-        assertTrue(result.isFailure)
-        val ex = result.exceptionOrNull()
-        assertTrue(ex is IllegalArgumentException)
-        assertEquals("Select at least one program to export.", ex!!.message)
+        assertEquals(ExportProgramsResult.NoProgramsSelected, result)
     }
 
     @Test
@@ -88,8 +94,7 @@ class ExportProgramsUseCaseTest {
     fun ieS2_003_multiProgramIds() = runTest {
         seedActiveAndLib()
         val result = useCase()(listOf(ProgramId("prog-active"), ProgramId("prog-lib")))
-        assertTrue(result.isSuccess)
-        val root = decodeRoot(result.getOrThrow().bytes)
+        val root = decodeRoot(result.requireFile().bytes)
         assertEquals("stratum.export.programs", root.requireString("schema"))
         assertEquals(1, root.requireInt("schemaVersion"))
         assertEquals("stratum", root.requireString("source"))
@@ -109,10 +114,10 @@ class ExportProgramsUseCaseTest {
     fun ieS2_004_rejectImportHistory() = runTest {
         programRepo.saveToLibrary(ExportTestFixtures.programImportHistory)
         val result = useCase()(listOf(ProgramId("import-history")))
-        assertTrue(result.isFailure)
-        val ex = result.exceptionOrNull()
-        assertTrue(ex is IllegalArgumentException)
-        assertEquals("One or more programs could not be exported.", ex!!.message)
+        assertEquals(
+            ExportProgramsResult.ProgramsNotExportable(listOf(ProgramId("import-history"))),
+            result,
+        )
     }
 
     @Test
@@ -120,8 +125,7 @@ class ExportProgramsUseCaseTest {
     fun ieS2_005_mimeAndFilename() = runTest {
         programRepo.saveProgram(programActive)
         val result = useCase()(listOf(ProgramId("prog-active")))
-        assertTrue(result.isSuccess)
-        val file = result.getOrThrow()
+        val file = result.requireFile()
         assertEquals("application/json", file.mimeType)
         assertEquals("stratum-programs-20260716-150000.json", file.fileName)
     }
@@ -131,8 +135,7 @@ class ExportProgramsUseCaseTest {
     fun ieS2_m001_programIdsPresent() = runTest {
         programRepo.saveProgram(programActive)
         val result = useCase()(listOf(ProgramId("prog-active")))
-        assertTrue(result.isSuccess)
-        val programs = decodeRoot(result.getOrThrow().bytes).requireArray("programs")
+        val programs = decodeRoot(result.requireFile().bytes).requireArray("programs")
         val first = programs.values[0] as JsonObject
         assertEquals("prog-active", first.requireString("id"))
         assertTrue(first.entries.containsKey("id"))
@@ -143,14 +146,13 @@ class ExportProgramsUseCaseTest {
     fun ieS2_006_liftDisplayNames() = runTest {
         seedActiveAndLib()
         val result = useCase()(listOf(ProgramId("prog-active"), ProgramId("prog-lib")))
-        assertTrue(result.isSuccess)
-        val json = result.getOrThrow().bytes.decodeToString()
+        val json = result.requireFile().bytes.decodeToString()
         assertTrue(json.contains("\"name\":\"Squat\""), "expected Squat display name in JSON: $json")
         assertTrue(json.contains("\"name\":\"Bench\""), "expected Bench display name in JSON: $json")
         assertFalse(json.contains("lift-squat"), "must not export raw lift id slug: $json")
         assertFalse(json.contains("lift-bench"), "must not export raw lift id slug: $json")
 
-        val programs = decodeRoot(result.getOrThrow().bytes).requireArray("programs")
+        val programs = decodeRoot(result.requireFile().bytes).requireArray("programs")
         val namesByProgramId =
             programs.values.associate { item ->
                 val obj = item as JsonObject
@@ -170,5 +172,25 @@ class ExportProgramsUseCaseTest {
             }
         assertEquals("Squat", namesByProgramId["prog-active"])
         assertEquals("Bench", namesByProgramId["prog-lib"])
+    }
+
+    @Test
+    @DisplayName("Repository read failure returns PersistenceFailed and logs exactly once")
+    fun persistenceFailure() = runTest {
+        val failure = IllegalStateException("room down")
+        val throwingRepo =
+            object : ProgramRepository by programRepo {
+                override suspend fun getProgramById(id: ProgramId): Program? = throw failure
+            }
+        programRepo.saveProgram(programActive)
+
+        val result = useCase(throwingRepo)(listOf(ProgramId("prog-active")))
+
+        assertEquals(ExportProgramsResult.PersistenceFailed, result)
+        assertEquals(1, loggingPort.errors.size)
+        val record = loggingPort.errors.single()
+        assertEquals("ExportPrograms", record.tag)
+        assertEquals("Failed to export programs: room down", record.message)
+        assertTrue(record.throwable === failure)
     }
 }

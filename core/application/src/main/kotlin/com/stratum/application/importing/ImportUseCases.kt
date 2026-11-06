@@ -1,6 +1,5 @@
 package com.stratum.application.importing
 
-import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.Lift
 import com.stratum.application.lift.LiftRepository
@@ -14,6 +13,7 @@ import com.stratum.domain.training.TrainingSession
 import com.stratum.domain.training.TrainingSessionOrigin
 import com.stratum.domain.di.DefaultDispatcher
 import javax.inject.Inject
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -94,14 +94,14 @@ class ExtractTrainingInsightsUseCase @Inject constructor(
         provenLiftIds: Set<LiftId> = emptySet(),
         scope: InsightsAnalysisScope = InsightsAnalysisScope.ImportOnly,
     ): ExtractTrainingInsightsOutcome {
-        val result = runCatchingCancellable { extract(provenLiftIds, scope) }
-        return result.fold(
-            onSuccess = { summary -> ExtractTrainingInsightsOutcome.Extracted(summary) },
-            onFailure = { error ->
-                loggingPort.error(TAG, "Failed to extract training insights: ${error.message}", error)
-                ExtractTrainingInsightsOutcome.Failed
-            },
-        )
+        return try {
+            ExtractTrainingInsightsOutcome.Extracted(extract(provenLiftIds, scope))
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            loggingPort.error(TAG, "Failed to extract training insights: ${error.message}", error)
+            ExtractTrainingInsightsOutcome.Failed
+        }
     }
 
     private suspend fun extract(
@@ -731,20 +731,18 @@ class StartHistoricalImportUseCase @Inject constructor(
      * running" / "Another import is already in progress."
      */
     suspend operator fun invoke(): StartHistoricalImportOutcome {
-        val result = runCatchingCancellable {
+        return try {
             failActiveImportJobs(
                 importJobRepository = importJobRepository,
                 errorMessage = "Superseded by a new import.",
             )
-            importJobRepository.createJob()
+            StartHistoricalImportOutcome.Started(importJobRepository.createJob())
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            loggingPort.error(TAG, "Failed to start historical import: ${error.message}", error)
+            StartHistoricalImportOutcome.Failed
         }
-        return result.fold(
-            onSuccess = { job -> StartHistoricalImportOutcome.Started(job) },
-            onFailure = { error ->
-                loggingPort.error(TAG, "Failed to start historical import: ${error.message}", error)
-                StartHistoricalImportOutcome.Failed
-            },
-        )
     }
 
     private companion object {
@@ -798,21 +796,19 @@ class PersistImportedHistoryUseCase @Inject constructor(
         stableIdSessionIds: Set<String> = emptySet(),
         zone: java.time.ZoneId = java.time.ZoneId.systemDefault(),
     ): PersistImportedHistoryOutcome {
-        val result = runCatchingCancellable {
+        return try {
             when (policy) {
                 ImportHistoryPersistPolicy.ReplaceImportOrigin ->
                     invokeReplace(sessions, sets, onProgress)
                 ImportHistoryPersistPolicy.MergeSkipDuplicates ->
                     invokeMerge(sessions, sets, onProgress, sourceKind, stableIdSessionIds, zone)
             }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            loggingPort.error(TAG, "Failed to persist imported history: ${error.message}", error)
+            PersistImportedHistoryOutcome.Failed
         }
-        return result.fold(
-            onSuccess = { outcome -> outcome },
-            onFailure = { error ->
-                loggingPort.error(TAG, "Failed to persist imported history: ${error.message}", error)
-                PersistImportedHistoryOutcome.Failed
-            },
-        )
     }
 
     private suspend fun invokeMerge(

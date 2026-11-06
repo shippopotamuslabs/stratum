@@ -1,6 +1,5 @@
 package com.stratum.application.program.importing
 
-import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.di.DefaultDispatcher
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.application.onboarding.CompleteOnboardingUseCase
@@ -140,7 +139,7 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
         // Rollback diagnostics collected inside; re-attached below when the surfaced
         // failure is a cancellation the platform normalized (see below).
         val rollbackFailures = mutableListOf<ProgramImportRollbackDiagnostic>()
-        val result = runImportBlock(rollbackFailures) {
+        return try {
             withContext(importDispatcher) {
             onProgress(ProgramTemplateImportPhase.Uploading)
             val jobId = ProgramTemplateImportJobId(UUID.randomUUID().toString())
@@ -273,17 +272,17 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
                 ),
             )
             }
-        }
-        // Flatten: the block returns expected failures as outcome branches; the envelope's
-        // own failures (operational throws caught by runCatchingCancellable) surface as
-        // the OperationalFailed branch.
-        return result.getOrElse { error ->
-            if (error is ImportPollTimeoutException) {
-                ProgramTemplateImportOutcome.TimedOut
-            } else {
-                logOperationalFailure(error)
-                ProgramTemplateImportOutcome.OperationalFailed
-            }
+        } catch (cancelled: CancellationException) {
+            // A cancellation propagates as a throw with the rollback evidence
+            // re-attached (STR-256, see [withRollbackEvidence]).
+            throw cancelled.withRollbackEvidence(rollbackFailures)
+        } catch (_: ImportPollTimeoutException) {
+            // Flatten: the block returns expected failures as outcome branches; the
+            // envelope's own operational throws surface as OperationalFailed.
+            ProgramTemplateImportOutcome.TimedOut
+        } catch (error: Throwable) {
+            logOperationalFailure(error)
+            ProgramTemplateImportOutcome.OperationalFailed
         }
     }
 
@@ -295,21 +294,6 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
     private fun logOperationalFailure(error: Throwable) {
         loggingPort.error(TAG, "Program import failed: ${error.message}", error)
     }
-
-    /**
-     * Runs [block] as the import's Result envelope (STR-239): ordinary failures return
-     * as a [Result]; a cancellation propagates as a throw with the rollback evidence
-     * re-attached (STR-256, see [withRollbackEvidence]).
-     */
-    private suspend fun <T> runImportBlock(
-        rollbackFailures: List<ProgramImportRollbackDiagnostic>,
-        block: suspend () -> T,
-    ): Result<T> =
-        try {
-            runCatchingCancellable(block)
-        } catch (cancelled: CancellationException) {
-            throw cancelled.withRollbackEvidence(rollbackFailures)
-        }
 
     /**
      * Re-attaches rollback evidence to a surfaced cancellation (STR-256): coroutine
@@ -333,7 +317,7 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
      * its delete attempt via [collectRollbackFailures], then a [CancellationException] primary
      * is returned as-is with the rollback causes attached (never wrapped), a persist failure
      * with failed deletes becomes a [ProgramImportRollbackException], and a clean rollback
-     * returns the primary bare. The in-catch attach is repeated after runCatchingCancellable because
+     * returns the primary bare. The in-catch attach is repeated at the invoke boundary catch because
      * coroutine machinery may normalize the rethrown instance (message-only copy) once the
      * block has suspended — the in-catch attach alone would be silently dropped in practice.
      */

@@ -2,6 +2,7 @@ package com.stratum.feature.settings
 
 import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.application.export.ExportProgramsUseCase
@@ -91,6 +92,7 @@ class ExportProgramsViewModelTest {
                     programRepository = repo,
                     liftRepository = FakeLiftRepository(),
                     clock = clock,
+                    loggingPort = FakeLoggingPort(),
                 ),
         )
     }
