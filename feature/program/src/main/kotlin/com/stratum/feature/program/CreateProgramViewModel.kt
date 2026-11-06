@@ -43,7 +43,7 @@ import kotlinx.coroutines.launch
  * - [CreateProgramEditorController] — day/lift editor + save/activate
  */
 @HiltViewModel
-@Suppress("TooManyFunctions") // Thin route façade: delegates generate + editor controller APIs.
+@Suppress("LongParameterList", "TooManyFunctions") // Hilt façade over the two controllers.
 class CreateProgramViewModel @Inject constructor(
     generateProgram: GenerateProgramUseCase,
     activateProgram: ActivateProgramUseCase,
