@@ -12,7 +12,6 @@ import com.stratum.core.testing.program.FixedProgramGenerationContextLoader
 import com.stratum.core.testing.program.SCENARIO_LIFT_CATALOG
 import com.stratum.core.testing.program.scenarioContext
 import com.stratum.core.testing.program.testProgramGenerationPipeline
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.telemetry.FakeAnalyticsPort
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.domain.lift.Lift
@@ -58,7 +57,6 @@ class CreateProgramGenerateControllerTest {
         val analytics = FakeAnalyticsPort()
         val outcomes = FakeOutcomeTelemetrySink()
         val crash = FakeCrashTelemetryPort()
-        val logging = FakeLoggingPort()
         val profileRepo = FakeUserTrainingProfileRepository()
         val state =
             MutableStateFlow(
@@ -78,7 +76,7 @@ class CreateProgramGenerateControllerTest {
                         loadContext = FixedProgramGenerationContextLoader(error = { error("boom") }),
                         pipeline = testProgramGenerationPipeline(),
                         liftRepository = com.stratum.core.testing.onboarding.FakeLiftRepository(),
-                        loggingPort = logging,
+                        telemetryRouter = TelemetryRouter(outcomes, crash, analytics),
                         generationDispatcher = UnconfinedTestDispatcher(testScheduler),
                     ),
                 updateUserTrainingProfile = UpdateUserTrainingProfileUseCase(profileRepo),
@@ -110,17 +108,18 @@ class CreateProgramGenerateControllerTest {
         val event = byName[USER_VISIBLE_ERROR_EVENT]?.single()
         assertEquals("create_program", event?.params?.get(PARAM_SCREEN))
         assertEquals("generate_program", event?.params?.get(PARAM_ACTION))
-        // Unexpected failure: never in the outcome stream, and no router crash
-        // record — the use case logged the original throwable exactly once via
-        // its LoggingPort, so the exceptional fact has exactly one record.
+        // Unexpected failure: never in the outcome stream; the use case
+        // recorded the original throwable exactly once via
+        // TelemetryRouter.recordExceptional — one non-fatal holding the real
+        // throwable plus one exceptional_occurred counter increment with the
+        // base boundary/class params (restored pre-STR-243 behaviour). The
+        // controller adds no second record.
         assertTrue(outcomes.outcomes.isEmpty())
-        assertTrue(crash.recordedExceptions.isEmpty())
-        assertTrue(
-            analytics.events.none { it.name == TelemetryRouter.EVENT_EXCEPTIONAL_OCCURRED },
-            "unexpected failure must not increment the exceptional counter",
-        )
-        assertEquals(1, logging.errors.size)
-        assertTrue(logging.errors.single().throwable is IllegalStateException)
+        assertEquals(1, crash.recordedExceptions.size)
+        assertTrue(crash.recordedExceptions.single() is IllegalStateException)
+        val exceptional = byName[TelemetryRouter.EVENT_EXCEPTIONAL_OCCURRED]?.single()
+        assertEquals("CreateProgramGenerate", exceptional?.params?.get(TelemetryRouter.PARAM_BOUNDARY))
+        assertEquals("IllegalStateException", exceptional?.params?.get(TelemetryRouter.PARAM_CLASS))
     }
 
     @Test
@@ -150,7 +149,7 @@ class CreateProgramGenerateControllerTest {
                             ),
                         pipeline = testProgramGenerationPipeline(),
                         liftRepository = com.stratum.core.testing.onboarding.FakeLiftRepository(),
-                        loggingPort = FakeLoggingPort(),
+                        telemetryRouter = TelemetryRouter(outcomes, crash, analytics),
                         generationDispatcher = UnconfinedTestDispatcher(testScheduler),
                     ),
                 updateUserTrainingProfile = UpdateUserTrainingProfileUseCase(profileRepo),
@@ -227,7 +226,7 @@ class CreateProgramGenerateControllerTest {
                                         )
                                     },
                             ),
-                        loggingPort = FakeLoggingPort(),
+                        telemetryRouter = TelemetryRouter(outcomes, crash, analytics),
                         generationDispatcher = UnconfinedTestDispatcher(testScheduler),
                     ),
                 updateUserTrainingProfile = UpdateUserTrainingProfileUseCase(profileRepo),

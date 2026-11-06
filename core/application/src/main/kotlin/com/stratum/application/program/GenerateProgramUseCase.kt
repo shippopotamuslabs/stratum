@@ -9,10 +9,10 @@ import com.stratum.application.program.generation.pipeline.PipelinePhase
 import com.stratum.application.program.generation.pipeline.PipelineProgress
 import com.stratum.application.program.generation.pipeline.ProgramGenerationPipeline
 import com.stratum.application.program.generation.pipeline.ProgramGenerationPipelineResult
-import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.program.generation.GenerateProgramFailureKind
 import com.stratum.domain.program.generation.GenerateProgramResult
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisException
+import com.stratum.domain.telemetry.TelemetryRouter
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.schema.toDomainProgram
 import com.stratum.domain.program.generation.schema.toProgramNormalizationRequest
@@ -51,7 +51,7 @@ class GenerateProgramUseCase @Inject constructor(
     private val loadContext: ProgramGenerationContextLoader,
     private val pipeline: ProgramGenerationPipeline,
     private val liftRepository: LiftRepository,
-    private val loggingPort: LoggingPort,
+    private val telemetryRouter: TelemetryRouter,
     @DefaultDispatcher private val generationDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) {
     suspend operator fun invoke(
@@ -149,15 +149,22 @@ class GenerateProgramUseCase @Inject constructor(
                 // expected at the terminal boundary).
                 GenerateProgramResult.SynthesisFailed(error.message ?: FALLBACK_MESSAGE)
             } catch (error: Throwable) {
-                // Unbounded operational failure: logged once here at the boundary;
-                // the branch carries only the kind (STR-243).
-                loggingPort.error(TAG, "Failed to generate program: ${error.message}", error)
+                // Unbounded operational failure: recorded exactly once here at
+                // the boundary via the telemetry router (Crashlytics non-fatal
+                // + exceptional_occurred counter with the real throwable),
+                // restoring the pre-STR-243 exceptional record; the branch
+                // carries only the kind (STR-243). Terminal boundaries must
+                // not record it again.
+                telemetryRouter.recordExceptional(EXCEPTIONAL_BOUNDARY, error)
                 GenerateProgramResult.Unexpected(GenerateProgramFailureKind.OperationalFailure)
             }
         }
 
     private companion object {
-        const val TAG = "GenerateProgram"
+        // Boundary name for the exceptional record: the same boundary the
+        // Create Program terminal boundary used before STR-243, so the
+        // exceptional_occurred counter's boundary/class params are unchanged.
+        const val EXCEPTIONAL_BOUNDARY = "CreateProgramGenerate"
         const val FALLBACK_MESSAGE = "Generation failed"
     }
 }
