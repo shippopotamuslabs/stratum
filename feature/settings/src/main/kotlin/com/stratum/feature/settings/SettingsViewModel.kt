@@ -11,6 +11,7 @@ import com.stratum.application.checkin.CheckInPreferenceResult
 import com.stratum.application.checkin.MarkCheckInPendingUseCase
 import com.stratum.application.checkin.ObserveCheckInPreferencesUseCase
 import com.stratum.application.checkin.SetCheckInEnabledUseCase
+import com.stratum.application.healthconnect.ClearHealthConnectSyncErrorResult
 import com.stratum.application.healthconnect.ClearHealthConnectSyncErrorUseCase
 import com.stratum.application.healthconnect.ObserveHealthConnectPreferencesUseCase
 import com.stratum.application.healthconnect.ObserveHealthConnectSyncErrorsUseCase
@@ -106,7 +107,10 @@ class SettingsViewModel @Inject constructor(
         observeHealthConnectSyncErrors()
             .onEach { kind ->
                 _userMessage.value = kind.toUserMessage()
-                clearHealthConnectSyncError()
+                val clearResult = clearHealthConnectSyncError()
+                if (clearResult is ClearHealthConnectSyncErrorResult.PersistenceFailed) {
+                    diagnosticDrain.drain(clearResult.diagnostics)
+                }
             }
             .launchIn(viewModelScope)
     }
@@ -182,12 +186,14 @@ class SettingsViewModel @Inject constructor(
 
     fun onHealthConnectEnabledChange(enabled: Boolean) {
         viewModelScope.launch {
-            when (setHealthConnectEnabled(enabled)) {
+            when (val result = setHealthConnectEnabled(enabled)) {
                 SetHealthConnectEnabledResult.Success -> Unit
                 SetHealthConnectEnabledResult.SdkUnavailable ->
                     _userMessage.value = MSG_HEALTH_SYNC_UNAVAILABLE
-                SetHealthConnectEnabledResult.PersistenceFailed ->
+                is SetHealthConnectEnabledResult.PersistenceFailed -> {
+                    diagnosticDrain.drain(result.diagnostics)
                     _userMessage.value = MSG_PREFS_FAILED
+                }
             }
         }
     }
@@ -211,8 +217,10 @@ class SettingsViewModel @Inject constructor(
                 logPermissionDiagnostics(outcome.diagnostics)
             ApplyGrantedPermissionsOutcome.SdkUnavailable ->
                 _userMessage.value = MSG_HEALTH_SYNC_UNAVAILABLE
-            ApplyGrantedPermissionsOutcome.PersistenceFailed ->
+            is ApplyGrantedPermissionsOutcome.PersistenceFailed -> {
+                diagnosticDrain.drain(outcome.diagnostics)
                 _userMessage.value = MSG_PREFS_FAILED
+            }
         }
     }
 

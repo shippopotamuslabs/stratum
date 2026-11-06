@@ -6,6 +6,7 @@ import com.stratum.core.ui.component.RIR_NONE_LABEL
 import com.stratum.core.ui.component.formatSetPerformance
 import com.stratum.core.ui.component.formatWeightAmountForDisplay
 import com.stratum.core.ui.component.formatWorkoutDuration
+import com.stratum.application.healthconnect.ClearHealthConnectSyncErrorResult
 import com.stratum.application.healthconnect.ClearHealthConnectSyncErrorUseCase
 import com.stratum.application.healthconnect.ObserveHealthConnectSyncErrorsUseCase
 import com.stratum.domain.healthconnect.HealthFailureKind
@@ -67,6 +68,7 @@ class WorkoutCompleteViewModel @Inject constructor(
     private val observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
     observeHealthConnectSyncErrors: ObserveHealthConnectSyncErrorsUseCase,
     private val clearHealthConnectSyncError: ClearHealthConnectSyncErrorUseCase,
+    private val diagnosticDrain: DiagnosticDrain,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<WorkoutCompleteUiState>(WorkoutCompleteUiState.Loading)
@@ -88,7 +90,10 @@ class WorkoutCompleteViewModel @Inject constructor(
             .onEach { kind ->
                 enqueueUserMessage(kind.toUserMessage())
                 publishNextUserMessage()
-                clearHealthConnectSyncError()
+                val clearResult = clearHealthConnectSyncError()
+                if (clearResult is ClearHealthConnectSyncErrorResult.PersistenceFailed) {
+                    diagnosticDrain.drain(clearResult.diagnostics)
+                }
             }
             .launchIn(viewModelScope)
     }

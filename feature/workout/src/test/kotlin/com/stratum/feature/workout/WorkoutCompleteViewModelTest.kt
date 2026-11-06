@@ -762,7 +762,8 @@ class WorkoutCompleteViewModelTest {
                 observeHealthConnectSyncErrors =
                     ObserveHealthConnectSyncErrorsUseCase(healthConnectSyncStatus),
                 clearHealthConnectSyncError =
-                    ClearHealthConnectSyncErrorUseCase(healthConnectSyncStatus, logging),
+                    ClearHealthConnectSyncErrorUseCase(healthConnectSyncStatus),
+                diagnosticDrain = DiagnosticDrain(logging),
             )
         return RepRangeHarness(viewModel, programRepo, repRangePrefs, sessionId)
     }
@@ -878,7 +879,8 @@ class WorkoutCompleteViewModelTest {
                 observeHealthConnectSyncErrors =
                     ObserveHealthConnectSyncErrorsUseCase(healthConnectSyncStatus),
                 clearHealthConnectSyncError =
-                    ClearHealthConnectSyncErrorUseCase(healthConnectSyncStatus, logging),
+                    ClearHealthConnectSyncErrorUseCase(healthConnectSyncStatus),
+                diagnosticDrain = DiagnosticDrain(logging),
             )
         return CableHarness(viewModel, prefs, equipmentRepo, liftRepo, sessionId)
     }
@@ -998,7 +1000,8 @@ class WorkoutCompleteViewModelTest {
                 observeHealthConnectSyncErrors =
                     ObserveHealthConnectSyncErrorsUseCase(healthConnectSyncStatus),
                 clearHealthConnectSyncError =
-                    ClearHealthConnectSyncErrorUseCase(healthConnectSyncStatus, logging),
+                    ClearHealthConnectSyncErrorUseCase(healthConnectSyncStatus),
+                diagnosticDrain = DiagnosticDrain(logging),
             )
         return viewModel to logging
     }
@@ -1093,7 +1096,8 @@ class WorkoutCompleteViewModelTest {
             observeHealthConnectSyncErrors =
                 ObserveHealthConnectSyncErrorsUseCase(healthConnectSyncStatus),
             clearHealthConnectSyncError =
-                ClearHealthConnectSyncErrorUseCase(healthConnectSyncStatus, logging),
+                ClearHealthConnectSyncErrorUseCase(healthConnectSyncStatus),
+            diagnosticDrain = DiagnosticDrain(logging),
         )
     }
 

@@ -154,12 +154,11 @@ class SettingsViewModelTest {
                 SetHealthConnectEnabledUseCase(
                     fakeHealthConnectPreferences,
                     fakeHealthConnectSync,
-                    FakeLoggingPort(),
                 ),
             logError = LogErrorUseCase(loggingPort),
             diagnosticDrain = DiagnosticDrain(loggingPort),
             clearHealthConnectSyncError =
-                ClearHealthConnectSyncErrorUseCase(fakeHealthConnectSyncStatus, FakeLoggingPort()),
+                ClearHealthConnectSyncErrorUseCase(fakeHealthConnectSyncStatus),
             markCheckInPending = MarkCheckInPendingUseCase(fakeCheckInPreferences),
             forceRefreshDerived = forceRefresh,
             logout = LogoutUseCase(
