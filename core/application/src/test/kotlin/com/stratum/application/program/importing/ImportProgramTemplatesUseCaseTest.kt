@@ -1,5 +1,7 @@
 package com.stratum.application.program.importing
 
+import com.stratum.core.testing.logging.FakeLoggingPort
+
 import com.stratum.core.testing.importing.FakeLiftNameResolverPort
 import com.stratum.core.testing.importing.FakeProgramTemplateImportPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
@@ -59,10 +61,12 @@ class ImportProgramTemplatesUseCaseTest {
         importPort: ProgramTemplateImportPort,
         testScheduler: TestCoroutineScheduler,
         completeOnboarding: CompleteOnboardingUseCase? = null,
+        loggingPort: com.stratum.domain.logging.LoggingPort = FakeLoggingPort(),
     ): ImportProgramTemplatesUseCase {
         val profileRepo = FakeUserTrainingProfileRepository()
         val liftRepo = FakeLiftRepository()
         return ImportProgramTemplatesUseCase(
+            loggingPort = loggingPort,
             importPort = importPort,
             resolver =
                 ResolveProgramTemplateLiftsUseCase(
@@ -159,8 +163,8 @@ class ImportProgramTemplatesUseCaseTest {
                 fileName = "p.json",
                 options = libraryOnly,
             )
-        assertTrue(result.isSuccess)
-        assertEquals(1, result.getOrThrow().importedProgramIds.size)
+        assertTrue(result is ProgramTemplateImportOutcome.Success)
+        assertEquals(1, (result as ProgramTemplateImportOutcome.Success).result.importedProgramIds.size)
         val saved = programRepo.getAllUserPrograms().single()
         assertFalse(saved.isActive)
         assertFalse(onboardingRepo.current.isComplete)
@@ -183,9 +187,9 @@ class ImportProgramTemplatesUseCaseTest {
                 "p.json",
                 libraryOnly,
             )
-        assertTrue(result.isSuccess)
-        assertTrue(result.getOrThrow().importedProgramIds.isEmpty())
-        assertEquals(1, result.getOrThrow().skippedProgramCount)
+        assertTrue(result is ProgramTemplateImportOutcome.Success)
+        assertTrue((result as ProgramTemplateImportOutcome.Success).result.importedProgramIds.isEmpty())
+        assertEquals(1, (result as ProgramTemplateImportOutcome.Success).result.skippedProgramCount)
     }
 
     @Test
@@ -200,9 +204,9 @@ class ImportProgramTemplatesUseCaseTest {
                 "p.json",
                 libraryOnly,
             )
-        assertTrue(result.isSuccess)
-        assertEquals(2, result.getOrThrow().importedProgramIds.size)
-        assertEquals(0, result.getOrThrow().skippedProgramCount)
+        assertTrue(result is ProgramTemplateImportOutcome.Success)
+        assertEquals(2, (result as ProgramTemplateImportOutcome.Success).result.importedProgramIds.size)
+        assertEquals(0, (result as ProgramTemplateImportOutcome.Success).result.skippedProgramCount)
         assertTrue(programRepo.getAllUserPrograms().all { !it.isActive })
     }
 
@@ -219,10 +223,10 @@ class ImportProgramTemplatesUseCaseTest {
                 "p.json",
                 libraryOnly,
             )
-        assertTrue(result.isSuccess)
-        val imported = result.getOrThrow().importedProgramIds.map { it.value }
+        assertTrue(result is ProgramTemplateImportOutcome.Success)
+        val imported = (result as ProgramTemplateImportOutcome.Success).result.importedProgramIds.map { it.value }
         assertEquals(listOf("prog-b"), imported)
-        assertEquals(1, result.getOrThrow().skippedProgramCount)
+        assertEquals(1, (result as ProgramTemplateImportOutcome.Success).result.skippedProgramCount)
     }
 
     @Test
@@ -235,6 +239,7 @@ class ImportProgramTemplatesUseCaseTest {
         // SUT is the thin-API onboarding wrapper (test_spec Gherkin), not core options.
         val wrapper =
             ImportProgramTemplateUseCase(
+                loggingPort = FakeLoggingPort(),
                 importPort = port,
                 resolver =
                     ResolveProgramTemplateLiftsUseCase(
@@ -248,7 +253,7 @@ class ImportProgramTemplatesUseCaseTest {
                 importDispatcher = UnconfinedTestDispatcher(testScheduler),
             )
         val result = wrapper(byteArrayOf(1), "plan.csv")
-        assertTrue(result.isSuccess)
+        assertTrue(result is ProgramTemplateImportOutcome.Success)
         assertTrue(programRepo.current != null && programRepo.current!!.isActive)
         assertTrue(onboardingRepo.current.isComplete)
     }
@@ -291,7 +296,7 @@ class ImportProgramTemplatesUseCaseTest {
                 fileName = "stratum-programs.json",
                 options = libraryOnly,
             )
-        assertTrue(result.isSuccess)
+        assertTrue(result is ProgramTemplateImportOutcome.Success)
         val saved = programRepo.getProgramById(com.stratum.domain.program.identity.ProgramId("exported-prog-1"))
         requireNotNull(saved)
         assertEquals("exported-prog-1", saved.id.value)
@@ -307,9 +312,9 @@ class ImportProgramTemplatesUseCaseTest {
                 fileName = "stratum-programs.json",
                 options = libraryOnly,
             )
-        assertTrue(reimport.isSuccess, reimport.exceptionOrNull()?.message)
-        assertEquals(1, reimport.getOrThrow().importedProgramIds.size)
-        assertEquals(0, reimport.getOrThrow().skippedProgramCount)
+        assertTrue(reimport is ProgramTemplateImportOutcome.Success, "$reimport")
+        assertEquals(1, (reimport as ProgramTemplateImportOutcome.Success).result.importedProgramIds.size)
+        assertEquals(0, (reimport as ProgramTemplateImportOutcome.Success).result.skippedProgramCount)
         val restored = programRepo.getProgramById(com.stratum.domain.program.identity.ProgramId("exported-prog-1"))
         requireNotNull(restored)
         assertTrue(restored.workouts.all { it.programId == restored.id })
@@ -341,16 +346,20 @@ class ImportProgramTemplatesUseCaseTest {
                 fileName = "p.json",
                 options = libraryOnly,
             )
-        assertTrue(result.isFailure)
         assertTrue(
             failingRepo.inner.getAllUserPrograms().isEmpty(),
             "First program must not remain after batch rollback",
         )
         assertFalse(onboardingRepo.current.isComplete)
-        // Clean rollback: the primary surfaces bare, never wrapped.
-        val primary = result.exceptionOrNull()
-        assertTrue(primary is IllegalStateException)
-        assertFalse(primary is ProgramImportRollbackException)
+        // Clean rollback: the PersistFailed branch carries the primary's message
+        // and no diagnostics (no wrapper evidence when every delete succeeded).
+        assertEquals(
+            ProgramTemplateImportOutcome.PersistFailed(
+                message = "Fake save #2 failed (configured fail on #2)",
+                diagnostics = emptyList(),
+            ),
+            result,
+        )
     }
 
     @Test
@@ -370,10 +379,8 @@ class ImportProgramTemplatesUseCaseTest {
                 fileName = "p.json",
                 options = libraryOnly,
             )
-        assertTrue(result.isFailure)
-        val failure = result.exceptionOrNull()
-        assertTrue(failure is ProgramImportRollbackException)
-        failure as ProgramImportRollbackException
+        assertTrue(result is ProgramTemplateImportOutcome.PersistFailed)
+        val failure = result as ProgramTemplateImportOutcome.PersistFailed
         // Every persisted id still got its delete attempt.
         assertEquals(listOf(ProgramId("prog-a")), failingRepo.deleteAttempts)
         // Diagnostics carry the program id and the delete cause as values.
@@ -384,10 +391,9 @@ class ImportProgramTemplatesUseCaseTest {
         orphan as ProgramImportRollbackDiagnostic.RollbackDeleteFailed
         assertEquals(ProgramId("prog-a"), orphan.programId)
         assertTrue(orphan.cause is IllegalStateException)
-        // User-facing copy is unchanged: message and cause are the primary persist failure.
+        assertSame(failingRepo.deleteCauses.single(), orphan.cause)
+        // User-facing copy is unchanged: the branch message is the primary persist failure's.
         assertEquals("Fake save #2 failed (configured fail on #2)", failure.message)
-        assertTrue(failure.cause is IllegalStateException)
-        assertTrue(failure.suppressed.any { it === orphan.cause })
         assertFalse(onboardingRepo.current.isComplete)
     }
 
@@ -464,5 +470,156 @@ class ImportProgramTemplatesUseCaseTest {
         val actual = requireNotNull(thrown) { "invoke must throw CancellationException" }
         assertEquals("upload cancelled", actual.message)
         assertFalse(onboardingRepo.current.isComplete)
+    }
+
+    private fun terminalPort(
+        status: com.stratum.domain.program.importing.RemoteProgramTemplateJobStatus,
+        errorMessage: String?,
+        storagePath: String? = "programImports/test/job/template.json",
+    ): FakeProgramTemplateImportPort =
+        FakeProgramTemplateImportPort(
+            snapshotSequence =
+                listOf(
+                    ProgramTemplateJobSnapshot(
+                        status = status,
+                        progressPhase = com.stratum.domain.program.importing.ProgramTemplateImportPhase.Failed,
+                        progressMessage = null,
+                        programTemplateStoragePath = storagePath,
+                        errorMessage = errorMessage,
+                    ),
+                ),
+        )
+
+    @Test
+    @DisplayName("Rejected terminal status returns the Rejected branch with the server message")
+    fun rejectedTerminalStatus() = runTest {
+        val port = terminalPort(
+            status = com.stratum.domain.program.importing.RemoteProgramTemplateJobStatus.Rejected,
+            errorMessage = "not a program",
+        )
+        val result =
+            buildUseCase(FakeProgramRepository(), FakeOnboardingRepository(), port, testScheduler)(
+                bytes = byteArrayOf(1),
+                fileName = "p.json",
+                options = libraryOnly,
+            )
+        assertEquals(ProgramTemplateImportOutcome.Rejected("not a program"), result)
+    }
+
+    @Test
+    @DisplayName("Rejected terminal status without a server message uses the default copy")
+    fun rejectedTerminalStatusDefaultMessage() = runTest {
+        val port = terminalPort(
+            status = com.stratum.domain.program.importing.RemoteProgramTemplateJobStatus.Rejected,
+            errorMessage = null,
+        )
+        val result =
+            buildUseCase(FakeProgramRepository(), FakeOnboardingRepository(), port, testScheduler)(
+                bytes = byteArrayOf(1),
+                fileName = "p.json",
+                options = libraryOnly,
+            )
+        assertEquals(
+            ProgramTemplateImportOutcome.Rejected("This file does not look like a workout program."),
+            result,
+        )
+    }
+
+    @Test
+    @DisplayName("Failed terminal status returns the Failed branch with the server message")
+    fun failedTerminalStatus() = runTest {
+        val port = terminalPort(
+            status = com.stratum.domain.program.importing.RemoteProgramTemplateJobStatus.Failed,
+            errorMessage = "Conversion failed",
+        )
+        val result =
+            buildUseCase(FakeProgramRepository(), FakeOnboardingRepository(), port, testScheduler)(
+                bytes = byteArrayOf(1),
+                fileName = "p.json",
+                options = libraryOnly,
+            )
+        assertEquals(ProgramTemplateImportOutcome.Failed("Conversion failed"), result)
+    }
+
+    @Test
+    @DisplayName("Ready terminal status without a template path returns ReadyWithoutPath")
+    fun readyWithoutPath() = runTest {
+        val port = terminalPort(
+            status = com.stratum.domain.program.importing.RemoteProgramTemplateJobStatus.Ready,
+            errorMessage = null,
+            storagePath = null,
+        )
+        val result =
+            buildUseCase(FakeProgramRepository(), FakeOnboardingRepository(), port, testScheduler)(
+                bytes = byteArrayOf(1),
+                fileName = "p.json",
+                options = libraryOnly,
+            )
+        assertEquals(ProgramTemplateImportOutcome.ReadyWithoutPath, result)
+    }
+
+    @Test
+    @DisplayName("Non-terminal job past the poll deadline returns TimedOut")
+    fun pollTimeout() = runTest {
+        val port = terminalPort(
+            status = com.stratum.domain.program.importing.RemoteProgramTemplateJobStatus.Running,
+            errorMessage = null,
+            storagePath = null,
+        )
+        val result =
+            buildUseCase(FakeProgramRepository(), FakeOnboardingRepository(), port, testScheduler)(
+                bytes = byteArrayOf(1),
+                fileName = "p.json",
+                options = libraryOnly,
+            )
+        assertEquals(ProgramTemplateImportOutcome.TimedOut, result)
+    }
+
+    @Test
+    @DisplayName("Download failure value returns OperationalFailed and logs once at the boundary")
+    fun downloadFailureIsOperational() = runTest {
+        val failure = IllegalStateException("storage down")
+        val port =
+            object : ProgramTemplateImportPort {
+                override suspend fun uploadAndStart(
+                    jobId: ProgramTemplateImportJobId,
+                    bytes: ByteArray,
+                    fileName: String,
+                ): Result<Unit> = Result.success(Unit)
+
+                override suspend fun pollJobStatus(
+                    jobId: ProgramTemplateImportJobId,
+                ): Result<ProgramTemplateJobSnapshot> =
+                    Result.success(
+                        ProgramTemplateJobSnapshot(
+                            status = com.stratum.domain.program.importing.RemoteProgramTemplateJobStatus.Ready,
+                            progressPhase = com.stratum.domain.program.importing.ProgramTemplateImportPhase.Parsing,
+                            progressMessage = null,
+                            programTemplateStoragePath = "programImports/test/job/template.json",
+                            errorMessage = null,
+                        ),
+                    )
+
+                override suspend fun downloadProgramTemplate(storagePath: String): Result<String> =
+                    Result.failure(failure)
+            }
+        val logging = FakeLoggingPort()
+        val result =
+            buildUseCase(
+                FakeProgramRepository(),
+                FakeOnboardingRepository(),
+                port,
+                testScheduler,
+                loggingPort = logging,
+            )(
+                bytes = byteArrayOf(1),
+                fileName = "p.json",
+                options = libraryOnly,
+            )
+        assertEquals(ProgramTemplateImportOutcome.OperationalFailed, result)
+        assertEquals(1, logging.errors.size)
+        assertEquals("ProgramTemplateImport", logging.errors.single().tag)
+        assertEquals("Program import failed: storage down", logging.errors.single().message)
+        assertSame(failure, logging.errors.single().throwable)
     }
 }

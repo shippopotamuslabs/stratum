@@ -1,5 +1,7 @@
 package com.stratum.core.infrastructure.work
 
+import com.stratum.core.testing.logging.FakeLoggingPort
+
 import com.stratum.core.testing.checkin.FakeCheckInPreferencesRepository
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.response.FailOnVolumeResponseProfilePersistencePort
@@ -245,6 +247,7 @@ class ResponseModelingWorkTest {
         // FailOnVolume is empty so gate would not skip. Use Fake that throws instead.
         val work = ResponseModelingWork(
             extractResponseProfile = ExtractResponseProfileUseCase(
+                loggingPort = FakeLoggingPort(),
                 trainingLogRepository = trainingLog,
                 liftRepository = FakeLiftRepository(),
                 liftTrainingInsightsRepository = EmptyLiftInsights(),
@@ -284,6 +287,7 @@ class ResponseModelingWorkTest {
         ).let {
             ResponseModelingWork(
                 extractResponseProfile = ExtractResponseProfileUseCase(
+                    loggingPort = FakeLoggingPort(),
                     trainingLogRepository = trainingLog,
                     liftRepository = FakeLiftRepository(),
                     liftTrainingInsightsRepository = EmptyLiftInsights(),
@@ -383,6 +387,7 @@ class ResponseModelingWorkTest {
         checkInPrefs: FakeCheckInPreferencesRepository = FakeCheckInPreferencesRepository(),
     ): ResponseModelingWork {
         val extract = ExtractResponseProfileUseCase(
+            loggingPort = FakeLoggingPort(),
             trainingLogRepository = trainingLog,
             liftRepository = FakeLiftRepository(),
             liftTrainingInsightsRepository = EmptyLiftInsights(),

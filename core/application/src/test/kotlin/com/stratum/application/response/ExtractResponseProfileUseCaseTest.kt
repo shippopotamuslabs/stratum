@@ -1,5 +1,7 @@
 package com.stratum.application.response
 
+import com.stratum.core.testing.logging.FakeLoggingPort
+
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.response.FakeResponseProfilePersistencePort
 import com.stratum.core.testing.training.FakeTrainingLogRepository
@@ -34,7 +36,7 @@ class ExtractResponseProfileUseCaseTest {
 
         val result = useCase(fixture.provenLiftIds)
 
-        assertTrue(result.isSuccess)
+        assertTrue(result is ExtractResponseProfileOutcome.Extracted)
         assertEquals(2, persistence.epochRepository.getAll().size)
         assertEquals(2, persistence.metadataRepository.get()?.epochsAnalyzed)
     }
@@ -46,7 +48,7 @@ class ExtractResponseProfileUseCaseTest {
         val persistence = FakeResponseProfilePersistencePort()
         val useCase = buildUseCase(fixture, persistence)
 
-        val summary = useCase(fixture.provenLiftIds).getOrThrow()
+        val summary = (useCase(fixture.provenLiftIds) as ExtractResponseProfileOutcome.Extracted).summary
 
         assertEquals(0, persistence.experimentRepository.getAll().size)
         assertEquals(0, summary.experimentsRecorded)
@@ -58,7 +60,7 @@ class ExtractResponseProfileUseCaseTest {
         val fixture = ResponseFixtures.fixS7MultiEpoch()
         val useCase = buildUseCase(fixture, FakeResponseProfilePersistencePort())
 
-        val summary = useCase(fixture.provenLiftIds).getOrThrow()
+        val summary = (useCase(fixture.provenLiftIds) as ExtractResponseProfileOutcome.Extracted).summary
 
         assertEquals(2, summary.epochsSegmented)
         assertEquals(1, summary.musclesWithVolumeResponse)
@@ -72,6 +74,7 @@ class ExtractResponseProfileUseCaseTest {
         val persistence = FakeResponseProfilePersistencePort()
         val useCase =
             ExtractResponseProfileUseCase(
+                loggingPort = FakeLoggingPort(),
                 trainingLogRepository = FakeTrainingLogRepository(),
                 liftRepository = FakeLiftRepository(),
                 liftTrainingInsightsRepository = FakeLiftInsightsRepository(),
@@ -84,7 +87,7 @@ class ExtractResponseProfileUseCaseTest {
 
         val result = useCase()
 
-        assertTrue(result.isSuccess)
+        assertTrue(result is ExtractResponseProfileOutcome.Extracted)
         assertEquals(1, persistence.epochRepository.getAll().size)
     }
 
@@ -99,6 +102,7 @@ class ExtractResponseProfileUseCaseTest {
         // Seed as full history (includes what would be live + import).
         trainingLogRepo.replaceAll(fixture.sessions, fixture.sets)
         val useCase = ExtractResponseProfileUseCase(
+            loggingPort = FakeLoggingPort(),
             trainingLogRepository = trainingLogRepo,
             liftRepository = liftRepo,
             liftTrainingInsightsRepository = FakeLiftInsightsRepository(),
@@ -114,7 +118,7 @@ class ExtractResponseProfileUseCaseTest {
             scope = com.stratum.application.importing.InsightsAnalysisScope.All,
         )
 
-        assertTrue(result.isSuccess)
+        assertTrue(result is ExtractResponseProfileOutcome.Extracted)
         assertEquals(2, persistence.epochRepository.getAll().size)
         assertTrue(persistence.metadataRepository.get() != null)
         // replaceExtractedProfile path (not weekly-only).
@@ -132,7 +136,7 @@ class ExtractResponseProfileUseCaseTest {
 
         val result = useCase(fixture.provenLiftIds)
 
-        assertTrue(result.isSuccess)
+        assertTrue(result is ExtractResponseProfileOutcome.Extracted)
         assertEquals(2, persistence.epochRepository.getAll().size)
     }
 
@@ -152,6 +156,35 @@ class ExtractResponseProfileUseCaseTest {
         assertTrue((baselines.firstOrNull { it.muscle == com.stratum.domain.onboarding.MuscleGroup.Chest }?.meanWeeklyHardSets ?: 0.0) > 0.0)
     }
 
+    @Test
+    @DisplayName("Persistence failure returns Failed and logs once at the boundary")
+    fun persistenceFailureReturnsFailed() = runTest {
+        val fixture = ResponseFixtures.fixS7MultiEpoch()
+        val liftRepo = FakeLiftRepository()
+        liftRepo.seedLifts(fixture.lifts)
+        val trainingLogRepo = FakeTrainingLogRepository()
+        trainingLogRepo.replaceImportHistory(fixture.sessions, fixture.sets)
+        val logging = FakeLoggingPort()
+        val useCase = ExtractResponseProfileUseCase(
+            loggingPort = logging,
+            trainingLogRepository = trainingLogRepo,
+            liftRepository = liftRepo,
+            liftTrainingInsightsRepository = FakeLiftInsightsRepository(),
+            muscleVolumeBaselineRepository = FakeVolumeBaselineRepository(),
+            importAnalysisMetadataRepository = FakeImportMetadataRepository(fixture),
+            responseProfilePersistence =
+                com.stratum.core.testing.response.FailOnVolumeResponseProfilePersistencePort(),
+            extractor = DefaultResponseObservationExtractor(),
+            experimentRegistry = EmptyExperimentRegistry(),
+        )
+
+        val outcome = useCase(fixture.provenLiftIds)
+
+        assertEquals(ExtractResponseProfileOutcome.Failed, outcome)
+        assertEquals(1, logging.errors.size)
+        assertEquals("ExtractResponseProfile", logging.errors.single().tag)
+    }
+
     private suspend fun buildUseCase(
         fixture: ResponseExtractionInput,
         persistence: FakeResponseProfilePersistencePort,
@@ -161,6 +194,7 @@ class ExtractResponseProfileUseCaseTest {
         val trainingLogRepo = FakeTrainingLogRepository()
         trainingLogRepo.replaceImportHistory(fixture.sessions, fixture.sets)
         return ExtractResponseProfileUseCase(
+            loggingPort = FakeLoggingPort(),
             trainingLogRepository = trainingLogRepo,
             liftRepository = liftRepo,
             liftTrainingInsightsRepository = FakeLiftInsightsRepository(),

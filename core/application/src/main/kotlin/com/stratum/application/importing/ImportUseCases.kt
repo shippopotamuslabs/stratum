@@ -5,6 +5,7 @@ import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.Lift
 import com.stratum.application.lift.LiftRepository
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.application.response.ExtractResponseProfileOutcome
 import com.stratum.application.response.ExtractResponseProfileUseCase
 import com.stratum.application.response.ResponseProfilePersistencePort
 import com.stratum.domain.training.LoggedSet
@@ -45,6 +46,7 @@ import com.stratum.domain.importing.ResolveImportLiftsSummary
 import com.stratum.domain.importing.TrainingInsightsExtractor
 import com.stratum.domain.importing.UnmatchedExerciseSample
 import com.stratum.application.importing.failActiveImportJobs
+import com.stratum.domain.logging.LoggingPort
 import com.stratum.application.training.ComputePersonalRecordsUseCase
 import com.stratum.application.training.FinalizeTrainingSessionUseCase
 import com.stratum.domain.lift.residual
@@ -66,6 +68,19 @@ enum class InsightsAnalysisScope {
     All,
 }
 
+/**
+ * Outcome of [ExtractTrainingInsightsUseCase] (STR-243): the extracted
+ * [ExtractTrainingInsightsSummary], or [Failed] when the extraction failed
+ * operationally (repository reads/writes, analysis). The originating throwable
+ * is logged once at the use-case boundary, so it never crosses as a payload.
+ * Coroutine cancellation is not a branch: it propagates.
+ */
+sealed interface ExtractTrainingInsightsOutcome {
+    data class Extracted(val summary: ExtractTrainingInsightsSummary) : ExtractTrainingInsightsOutcome
+
+    data object Failed : ExtractTrainingInsightsOutcome
+}
+
 class ExtractTrainingInsightsUseCase @Inject constructor(
     private val trainingLogRepository: TrainingLogRepository,
     private val liftTrainingInsightsRepository: LiftTrainingInsightsRepository,
@@ -73,11 +88,26 @@ class ExtractTrainingInsightsUseCase @Inject constructor(
     private val muscleVolumeBaselineRepository: MuscleVolumeBaselineRepository,
     private val importAnalysisMetadataRepository: ImportAnalysisMetadataRepository,
     private val liftRepository: LiftRepository,
+    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(
         provenLiftIds: Set<LiftId> = emptySet(),
         scope: InsightsAnalysisScope = InsightsAnalysisScope.ImportOnly,
-    ): Result<ExtractTrainingInsightsSummary> = runCatchingCancellable {
+    ): ExtractTrainingInsightsOutcome {
+        val result = runCatchingCancellable { extract(provenLiftIds, scope) }
+        return result.fold(
+            onSuccess = { summary -> ExtractTrainingInsightsOutcome.Extracted(summary) },
+            onFailure = { error ->
+                loggingPort.error(TAG, "Failed to extract training insights: ${error.message}", error)
+                ExtractTrainingInsightsOutcome.Failed
+            },
+        )
+    }
+
+    private suspend fun extract(
+        provenLiftIds: Set<LiftId>,
+        scope: InsightsAnalysisScope,
+    ): ExtractTrainingInsightsSummary {
         // A live refresh over All history must not clobber proven-lift provenance recorded at
         // import time — re-read the previously persisted metadata and carry its proven ids forward.
         // ImportOnly callers always pass an explicit provenLiftIds set (from lift resolution).
@@ -107,11 +137,15 @@ class ExtractTrainingInsightsUseCase @Inject constructor(
         supersetAffinityRepository.replaceAll(output.supersetAffinities)
         muscleVolumeBaselineRepository.replaceAll(output.volumeBaselines)
         importAnalysisMetadataRepository.save(output.metadata)
-        ExtractTrainingInsightsSummary(
+        return ExtractTrainingInsightsSummary(
             liftsWithInsights = output.liftInsights.size,
             supersetPairs = output.supersetAffinities.size,
             musclesWithBaselines = output.volumeBaselines.size,
         )
+    }
+
+    private companion object {
+        const val TAG = "ExtractTrainingInsights"
     }
 }
 
@@ -674,8 +708,21 @@ class ResolveImportLiftsUseCase @Inject constructor(
     }
 }
 
+/**
+ * Outcome of [StartHistoricalImportUseCase] (STR-243): the freshly allocated
+ * [ImportJob], or [Failed] when the job repository failed operationally. The
+ * originating throwable is logged once at the use-case boundary, so it never
+ * crosses as a payload. Coroutine cancellation is not a branch: it propagates.
+ */
+sealed interface StartHistoricalImportOutcome {
+    data class Started(val job: ImportJob) : StartHistoricalImportOutcome
+
+    data object Failed : StartHistoricalImportOutcome
+}
+
 class StartHistoricalImportUseCase @Inject constructor(
     private val importJobRepository: ImportJobRepository,
+    private val loggingPort: LoggingPort,
 ) {
     /**
      * Always allocates a fresh local job. Any non-terminal local job (left behind by cancel/stop
@@ -683,13 +730,46 @@ class StartHistoricalImportUseCase @Inject constructor(
      * still `pending_agent`/`agent_running` — that path used to surface "Import job is already
      * running" / "Another import is already in progress."
      */
-    suspend operator fun invoke(): Result<ImportJob> = runCatchingCancellable {
-        failActiveImportJobs(
-            importJobRepository = importJobRepository,
-            errorMessage = "Superseded by a new import.",
+    suspend operator fun invoke(): StartHistoricalImportOutcome {
+        val result = runCatchingCancellable {
+            failActiveImportJobs(
+                importJobRepository = importJobRepository,
+                errorMessage = "Superseded by a new import.",
+            )
+            importJobRepository.createJob()
+        }
+        return result.fold(
+            onSuccess = { job -> StartHistoricalImportOutcome.Started(job) },
+            onFailure = { error ->
+                loggingPort.error(TAG, "Failed to start historical import: ${error.message}", error)
+                StartHistoricalImportOutcome.Failed
+            },
         )
-        importJobRepository.createJob()
     }
+
+    private companion object {
+        const val TAG = "StartHistoricalImport"
+    }
+}
+
+/**
+ * Outcome of [PersistImportedHistoryUseCase] (STR-243). [Persisted] carries the
+ * post-persist insights summary. [SessionsNotImportOrigin] and [NoValidSets] are
+ * the enumerated input refusals (formerly `require` failures). [Failed] covers
+ * operational failure of the persist itself or of a downstream extract — the
+ * originating throwable is logged once at the boundary where it occurred (this
+ * use case's envelope, or the extract use case's own boundary), and any rows
+ * appended before the failure are unwound exactly as before. Coroutine
+ * cancellation is not a branch: it propagates.
+ */
+sealed interface PersistImportedHistoryOutcome {
+    data class Persisted(val summary: ExtractTrainingInsightsSummary) : PersistImportedHistoryOutcome
+
+    data object SessionsNotImportOrigin : PersistImportedHistoryOutcome
+
+    data object NoValidSets : PersistImportedHistoryOutcome
+
+    data object Failed : PersistImportedHistoryOutcome
 }
 
 class PersistImportedHistoryUseCase @Inject constructor(
@@ -701,6 +781,7 @@ class PersistImportedHistoryUseCase @Inject constructor(
     private val liftRepository: LiftRepository,
     private val loggedLiftContextFactory: com.stratum.domain.training.LoggedLiftContextFactory? = null,
     private val computePersonalRecords: com.stratum.application.training.ComputePersonalRecordsUseCase,
+    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(
         sessions: List<TrainingSession>,
@@ -716,13 +797,22 @@ class PersistImportedHistoryUseCase @Inject constructor(
          */
         stableIdSessionIds: Set<String> = emptySet(),
         zone: java.time.ZoneId = java.time.ZoneId.systemDefault(),
-    ): Result<ExtractTrainingInsightsSummary> {
-        return when (policy) {
-            ImportHistoryPersistPolicy.ReplaceImportOrigin ->
-                invokeReplace(sessions, sets, onProgress)
-            ImportHistoryPersistPolicy.MergeSkipDuplicates ->
-                invokeMerge(sessions, sets, onProgress, sourceKind, stableIdSessionIds, zone)
+    ): PersistImportedHistoryOutcome {
+        val result = runCatchingCancellable {
+            when (policy) {
+                ImportHistoryPersistPolicy.ReplaceImportOrigin ->
+                    invokeReplace(sessions, sets, onProgress)
+                ImportHistoryPersistPolicy.MergeSkipDuplicates ->
+                    invokeMerge(sessions, sets, onProgress, sourceKind, stableIdSessionIds, zone)
+            }
         }
+        return result.fold(
+            onSuccess = { outcome -> outcome },
+            onFailure = { error ->
+                loggingPort.error(TAG, "Failed to persist imported history: ${error.message}", error)
+                PersistImportedHistoryOutcome.Failed
+            },
+        )
     }
 
     private suspend fun invokeMerge(
@@ -732,10 +822,10 @@ class PersistImportedHistoryUseCase @Inject constructor(
         sourceKind: ImportDedupeSourceKind,
         stableIdSessionIds: Set<String>,
         zone: java.time.ZoneId,
-    ): Result<ExtractTrainingInsightsSummary> = runCatchingCancellable {
+    ): PersistImportedHistoryOutcome {
         val (sanitizedSessions, sanitizedSets) = ImportedHistorySanitizer.sanitize(sessions, sets)
-        require(sanitizedSessions.all { it.origin == TrainingSessionOrigin.IMPORT }) {
-            "Import persist requires all sessions to have origin IMPORT."
+        if (!sanitizedSessions.all { it.origin == TrainingSessionOrigin.IMPORT }) {
+            return PersistImportedHistoryOutcome.SessionsNotImportOrigin
         }
         val existingSessions = trainingLogRepository.getAllSessions()
         val existingSets = trainingLogRepository.getAllSets()
@@ -761,11 +851,13 @@ class PersistImportedHistoryUseCase @Inject constructor(
             // misconfigured insights pipeline fails closed without wiping prior IMPORT rows.
             // Fresh-empty device → summary zeros without extract.
             if (existingSessions.isEmpty()) {
-                return@runCatchingCancellable ExtractTrainingInsightsSummary(
-                    liftsWithInsights = 0,
-                    supersetPairs = 0,
-                    musclesWithBaselines = 0,
-                    mergeStats = mergeStats,
+                return PersistImportedHistoryOutcome.Persisted(
+                    ExtractTrainingInsightsSummary(
+                        liftsWithInsights = 0,
+                        supersetPairs = 0,
+                        musclesWithBaselines = 0,
+                        mergeStats = mergeStats,
+                    ),
                 )
             }
             onProgress(
@@ -774,9 +866,11 @@ class PersistImportedHistoryUseCase @Inject constructor(
                     catalogStep = ImportCatalogProgressStep.AnalyzingPatterns,
                 ),
             )
-            return@runCatchingCancellable extractTrainingInsights()
-                .getOrThrow()
-                .copy(mergeStats = mergeStats)
+            return when (val insights = extractTrainingInsights()) {
+                is ExtractTrainingInsightsOutcome.Extracted ->
+                    PersistImportedHistoryOutcome.Persisted(insights.summary.copy(mergeStats = mergeStats))
+                ExtractTrainingInsightsOutcome.Failed -> PersistImportedHistoryOutcome.Failed
+            }
         }
         val outcome = resolveImportLifts(filtered.sets, onProgress = onProgress)
         val factory = loggedLiftContextFactory ?: com.stratum.domain.training.DefaultLoggedLiftContextFactory()
@@ -810,28 +904,58 @@ class PersistImportedHistoryUseCase @Inject constructor(
                 catalogStep = ImportCatalogProgressStep.AnalyzingPatterns,
             ),
         )
-        // On insights/response failure: remove only rows we just appended and restore demoted PRs.
-        val summary =
+        return finishMerge(outcome, appendedSessions, appendedSets, restorePrSets, mergeStats)
+    }
+
+    /**
+     * Post-append merge tail: run the insights + response extracts over the appended
+     * rows. On insights/response failure, remove only rows we just appended and restore
+     * demoted PRs — a thrown failure (incl. cancellation) unwinds in the catch and
+     * propagates; an extract outcome failure unwinds here and surfaces as Failed.
+     */
+    private suspend fun finishMerge(
+        outcome: ResolveImportLiftsResult,
+        appendedSessions: List<TrainingSession>,
+        appendedSets: List<LoggedSet>,
+        restorePrSets: List<LoggedSet>,
+        mergeStats: MergeImportStats,
+    ): PersistImportedHistoryOutcome {
+        val insightsOutcome =
             try {
                 extractTrainingInsights(outcome.provenLiftIds)
-                    .getOrThrow()
-                    .copy(
-                        liftResolution = outcome.summary,
-                        mergeStats = mergeStats,
-                    )
             } catch (error: Throwable) {
                 unwindMergeAppend(appendedSessions, appendedSets, restorePrSets)
                 throw error
             }
-        try {
-            extractResponseProfile(outcome.provenLiftIds).getOrThrow()
-        } catch (error: Throwable) {
-            unwindMergeAppend(appendedSessions, appendedSets, restorePrSets)
-            throw error
+        val summary =
+            when (insightsOutcome) {
+                is ExtractTrainingInsightsOutcome.Extracted ->
+                    insightsOutcome.summary.copy(
+                        liftResolution = outcome.summary,
+                        mergeStats = mergeStats,
+                    )
+                ExtractTrainingInsightsOutcome.Failed -> {
+                    unwindMergeAppend(appendedSessions, appendedSets, restorePrSets)
+                    return PersistImportedHistoryOutcome.Failed
+                }
+            }
+        val responseOutcome =
+            try {
+                extractResponseProfile(outcome.provenLiftIds)
+            } catch (error: Throwable) {
+                unwindMergeAppend(appendedSessions, appendedSets, restorePrSets)
+                throw error
+            }
+        when (responseOutcome) {
+            is ExtractResponseProfileOutcome.Extracted -> Unit
+            ExtractResponseProfileOutcome.Failed -> {
+                unwindMergeAppend(appendedSessions, appendedSets, restorePrSets)
+                return PersistImportedHistoryOutcome.Failed
+            }
         }
         liftRepository.setUsedHistoricalImport(true)
         liftRepository.setSelectedPreset(null)
-        summary
+        return PersistImportedHistoryOutcome.Persisted(summary)
     }
 
     /** Removes rows appended this merge and restores any LIVE PRs demoted for the import. */
@@ -862,13 +986,13 @@ class PersistImportedHistoryUseCase @Inject constructor(
         sessions: List<TrainingSession>,
         sets: List<LoggedSet>,
         onProgress: ImportProgressCallback,
-    ): Result<ExtractTrainingInsightsSummary> = runCatchingCancellable {
+    ): PersistImportedHistoryOutcome {
         val (sessions, sanitizedSets) = ImportedHistorySanitizer.sanitize(sessions, sets)
-        require(sessions.all { it.origin == TrainingSessionOrigin.IMPORT }) {
-            "Import persist requires all sessions to have origin IMPORT."
+        if (!sessions.all { it.origin == TrainingSessionOrigin.IMPORT }) {
+            return PersistImportedHistoryOutcome.SessionsNotImportOrigin
         }
-        require(sanitizedSets.isNotEmpty()) {
-            "Import contained no valid training sets."
+        if (sanitizedSets.isEmpty()) {
+            return PersistImportedHistoryOutcome.NoValidSets
         }
         val outcome = resolveImportLifts(sanitizedSets, onProgress = onProgress)
         val factory = loggedLiftContextFactory ?: com.stratum.domain.training.DefaultLoggedLiftContextFactory()
@@ -899,25 +1023,47 @@ class PersistImportedHistoryUseCase @Inject constructor(
                 catalogStep = ImportCatalogProgressStep.AnalyzingPatterns,
             ),
         )
-        val summary =
+        // A thrown extract failure (incl. cancellation) rolls back in the catch and
+        // propagates; an extract outcome failure rolls back here and surfaces as Failed.
+        val insightsOutcome =
             try {
                 extractTrainingInsights(outcome.provenLiftIds)
-                    .getOrThrow()
-                    .copy(liftResolution = outcome.summary)
             } catch (error: Throwable) {
                 trainingLogRepository.replaceImportHistory(emptyList(), emptyList())
                 throw error
             }
-        try {
-            extractResponseProfile(outcome.provenLiftIds).getOrThrow()
-        } catch (error: Throwable) {
-            trainingLogRepository.replaceImportHistory(emptyList(), emptyList())
-            responseProfilePersistence.clearAll()
-            throw error
+        val summary =
+            when (insightsOutcome) {
+                is ExtractTrainingInsightsOutcome.Extracted ->
+                    insightsOutcome.summary.copy(liftResolution = outcome.summary)
+                ExtractTrainingInsightsOutcome.Failed -> {
+                    trainingLogRepository.replaceImportHistory(emptyList(), emptyList())
+                    return PersistImportedHistoryOutcome.Failed
+                }
+            }
+        val responseOutcome =
+            try {
+                extractResponseProfile(outcome.provenLiftIds)
+            } catch (error: Throwable) {
+                trainingLogRepository.replaceImportHistory(emptyList(), emptyList())
+                responseProfilePersistence.clearAll()
+                throw error
+            }
+        when (responseOutcome) {
+            is ExtractResponseProfileOutcome.Extracted -> Unit
+            ExtractResponseProfileOutcome.Failed -> {
+                trainingLogRepository.replaceImportHistory(emptyList(), emptyList())
+                responseProfilePersistence.clearAll()
+                return PersistImportedHistoryOutcome.Failed
+            }
         }
         liftRepository.setUsedHistoricalImport(true)
         liftRepository.setSelectedPreset(null)
-        summary
+        return PersistImportedHistoryOutcome.Persisted(summary)
+    }
+
+    private companion object {
+        const val TAG = "PersistImportedHistory"
     }
 }
 

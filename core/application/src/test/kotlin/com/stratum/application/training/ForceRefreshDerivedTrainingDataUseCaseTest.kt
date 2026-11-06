@@ -163,6 +163,7 @@ class ForceRefreshDerivedTrainingDataUseCaseTest {
             LocalDerivedTrainingStages(
                 extractTrainingInsights =
                     ExtractTrainingInsightsUseCase(
+                        loggingPort = FakeLoggingPort(),
                         trainingLogRepository = logRepo,
                         liftTrainingInsightsRepository = insightsRepo,
                         supersetAffinityRepository = FakeSupersetAffinityRepository(),
@@ -198,6 +199,7 @@ class ForceRefreshDerivedTrainingDataUseCaseTest {
                     persistence = persistence,
                     extractTrainingInsights =
                         ExtractTrainingInsightsUseCase(
+                            loggingPort = FakeLoggingPort(),
                             trainingLogRepository = logRepo,
                             liftTrainingInsightsRepository = insightsRepo,
                             supersetAffinityRepository = FakeSupersetAffinityRepository(),

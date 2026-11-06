@@ -21,7 +21,7 @@ import com.stratum.domain.auth.UserProfile
 import com.stratum.application.onboarding.CompleteOnboardingUseCase
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.application.program.importing.ImportProgramTemplatesUseCase
-import com.stratum.application.program.importing.ProgramImportRollbackException
+import com.stratum.application.program.importing.ProgramTemplateImportOutcome
 import com.stratum.domain.program.importing.ProgramImportActivation
 import com.stratum.domain.program.importing.ProgramImportRollbackDiagnostic
 import com.stratum.domain.program.importing.ProgramTemplateImportOptions
@@ -45,14 +45,16 @@ import org.junit.jupiter.api.extension.ExtendWith
 class ImportProgramViewModelTest {
 
     private class RecordingImportProgramTemplatesUseCase(
-        private val result: Result<ProgramTemplateImportResult> =
-            Result.success(
+        private val outcome: ProgramTemplateImportOutcome =
+            ProgramTemplateImportOutcome.Success(
                 ProgramTemplateImportResult(
                     importedProgramIds = listOf(ProgramId("x")),
                     skippedProgramCount = 0,
                 ),
             ),
+        private val throwable: Throwable? = null,
     ) : ImportProgramTemplatesUseCase(
+        loggingPort = FakeLoggingPort(),
         importPort = FakeProgramTemplateImportPort(),
         resolver =
             ResolveProgramTemplateLiftsUseCase(
@@ -77,10 +79,11 @@ class ImportProgramViewModelTest {
             fileName: String,
             options: ProgramTemplateImportOptions,
             onProgress: ProgramTemplateImportProgressCallback,
-        ): Result<ProgramTemplateImportResult> {
+        ): ProgramTemplateImportOutcome {
             callCount++
             lastOptions = options
-            return result
+            throwable?.let { throw it }
+            return outcome
         }
     }
 
@@ -172,7 +175,7 @@ class ImportProgramViewModelTest {
             FakeAuthManager(AuthState.Authenticated(UserProfile("u1", "U", "u@e.com", null)))
         val useCase =
             RecordingImportProgramTemplatesUseCase(
-                result = Result.failure(RuntimeException("boom")),
+                outcome = ProgramTemplateImportOutcome.OperationalFailed,
             )
         val analytics = FakeAnalyticsPort()
         val vm = ImportProgramViewModel(
@@ -196,10 +199,9 @@ class ImportProgramViewModelTest {
         val auth =
             FakeAuthManager(AuthState.Authenticated(UserProfile("u1", "U", "u@e.com", null)))
         val deleteCause = IllegalStateException("delete failed")
-        val primary = IllegalStateException("save failed")
-        val wrapper =
-            ProgramImportRollbackException(
-                cause = primary,
+        val outcome =
+            ProgramTemplateImportOutcome.PersistFailed(
+                message = "save failed",
                 diagnostics =
                     listOf(
                         ProgramImportRollbackDiagnostic.RollbackDeleteFailed(
@@ -208,7 +210,7 @@ class ImportProgramViewModelTest {
                         ),
                     ),
             )
-        val useCase = RecordingImportProgramTemplatesUseCase(result = Result.failure(wrapper))
+        val useCase = RecordingImportProgramTemplatesUseCase(outcome = outcome)
         val analytics = FakeAnalyticsPort()
         val logging = FakeLoggingPort()
         val vm =
@@ -239,7 +241,7 @@ class ImportProgramViewModelTest {
             FakeAuthManager(AuthState.Authenticated(UserProfile("u1", "U", "u@e.com", null)))
         val useCase =
             RecordingImportProgramTemplatesUseCase(
-                result = Result.failure(CancellationException("cancelled")),
+                throwable = CancellationException("cancelled"),
             )
         val analytics = FakeAnalyticsPort()
         val logging = FakeLoggingPort()
@@ -264,7 +266,10 @@ class ImportProgramViewModelTest {
     fun userFacingImportError_hidesSqlite() {
         val friendly =
             userFacingImportError(
-                Exception("FOREIGN KEY constraint failed (code 787 SQLITE_CONSTRAINT_FOREIGNKEY)"),
+                ProgramTemplateImportOutcome.PersistFailed(
+                    message = "FOREIGN KEY constraint failed (code 787 SQLITE_CONSTRAINT_FOREIGNKEY)",
+                    diagnostics = emptyList(),
+                ),
             )
         assertEquals(
             "Couldn't save this program. Try again or pick a different file.",
