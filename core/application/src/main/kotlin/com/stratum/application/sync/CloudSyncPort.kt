@@ -26,6 +26,11 @@ import com.stratum.domain.lift.residual
  *
  * Incomplete surface (not synced by design): response-modeling tables, import job metadata,
  * insights, theme prefs, workout overlays — multi-device may recompute or diverge for those.
+ *
+ * Failure shape (STR-243): operations are plain suspend calls — an operational
+ * failure throws to the caller after the adapter has logged it once at its own
+ * boundary; use cases translate the throw into [CloudSyncOutcome]. No
+ * raw-`Result` failure payload crosses this port.
  */
 interface CloudSyncPort {
     val syncStatus: StateFlow<SyncStatus>
@@ -39,7 +44,7 @@ interface CloudSyncPort {
     /**
      * Begin sync for [userId]: account isolation, upload pending, hydrate/pull.
      */
-    suspend fun start(userId: String): Result<Unit>
+    suspend fun start(userId: String)
 
     /** Tear down the current sync session (not an account wipe). */
     suspend fun stop()
@@ -47,12 +52,12 @@ interface CloudSyncPort {
     /**
      * One-shot push of dirty rows then pull remote changes. Safe to call while [start] is active.
      */
-    suspend fun requestSync(): Result<Unit>
+    suspend fun requestSync()
 
     /**
      * Atomic logout teardown: cancel workers, clear active uid, wipe Room user data and
      * durable hydrate/cursors for [userId]. Last-account ownership is retained so a different
      * uid on the next [start] still triggers a wipe. Safe to call without a prior [stop].
      */
-    suspend fun endSessionAndWipe(userId: String): Result<Unit>
+    suspend fun endSessionAndWipe(userId: String)
 }

@@ -438,7 +438,7 @@ class SettingsViewModelTest {
     @Test
     @DisplayName("When logout fails then userMessage is set and in-flight clears")
     fun logoutFailureSurfacesMessage() = runTest {
-        fakeCloudSync.wipeResult = Result.failure(IllegalStateException("wipe failed"))
+        fakeCloudSync.wipeFailure = IllegalStateException("wipe failed")
         subject = buildViewModel()
 
         subject.onLogoutClick()
@@ -457,8 +457,8 @@ class SettingsViewModelTest {
     @DisplayName("When logout and restart fail then restart is logged once and message stays generic")
     fun logoutAndRestartFailureLogsRestartOnce() = runTest {
         val restartError = IllegalStateException("restart failed")
-        fakeCloudSync.wipeResult = Result.failure(IllegalStateException("wipe failed"))
-        fakeCloudSync.startResult = Result.failure(restartError)
+        fakeCloudSync.wipeFailure = IllegalStateException("wipe failed")
+        fakeCloudSync.startFailure = restartError
         subject = buildViewModel()
 
         subject.onLogoutClick()
@@ -541,8 +541,7 @@ class SettingsViewModelTest {
     @Test
     @DisplayName("When auth delete fails after wipe then distinct finish-account message")
     fun deleteAccountAuthFailureSurfacesGuidance() = runTest {
-        fakeAccountDeletion.deleteAuthResult =
-            Result.failure(IllegalStateException("auth delete failed"))
+        fakeAccountDeletion.deleteAuthFailure = IllegalStateException("auth delete failed")
         subject = buildViewModel()
 
         subject.onDeleteAccountClick()
@@ -562,7 +561,7 @@ class SettingsViewModelTest {
     @Test
     @DisplayName("When remote delete fails then generic userMessage is set")
     fun deleteAccountFailureSurfacesMessage() = runTest {
-        fakeAccountDeletion.deleteDataResult = Result.failure(IllegalStateException("cloud failed"))
+        fakeAccountDeletion.deleteDataFailure = IllegalStateException("cloud failed")
         subject = buildViewModel()
 
         subject.onDeleteAccountClick()
@@ -581,8 +580,8 @@ class SettingsViewModelTest {
     @DisplayName("When delete and restart fail then restart is logged once and message stays generic")
     fun deleteAccountAndRestartFailureLogsRestartOnce() = runTest {
         val restartError = IllegalStateException("restart failed")
-        fakeAccountDeletion.deleteDataResult = Result.failure(IllegalStateException("cloud failed"))
-        fakeCloudSync.startResult = Result.failure(restartError)
+        fakeAccountDeletion.deleteDataFailure = IllegalStateException("cloud failed")
+        fakeCloudSync.startFailure = restartError
         subject = buildViewModel()
 
         subject.onDeleteAccountClick()
@@ -600,7 +599,7 @@ class SettingsViewModelTest {
     @Test
     @DisplayName("When local wipe fails after cloud data delete then local-cleanup guidance snackbar")
     fun deleteAccountLocalCleanupFailureSurfacesGuidance() = runTest {
-        fakeCloudSync.wipeResult = Result.failure(IllegalStateException("wipe failed"))
+        fakeCloudSync.wipeFailure = IllegalStateException("wipe failed")
         subject = buildViewModel()
 
         subject.onDeleteAccountClick()

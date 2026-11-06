@@ -63,4 +63,63 @@ class GoogleSignInErrorMapperTest {
             )
         assertEquals(MSG_CANCELLED, wrapped.toGoogleSignInMessage())
     }
+
+    @Test
+    @DisplayName("Classified kinds map to the same copy as their typed exceptions")
+    fun classifiedKinds() {
+        assertEquals(
+            MSG_CANCELLED,
+            loginFailureToGoogleSignInMessage(
+                com.stratum.application.auth.SignInFailureKind.Cancelled,
+                null,
+            ),
+        )
+        assertEquals(
+            MSG_NO_ACCOUNT,
+            loginFailureToGoogleSignInMessage(
+                com.stratum.application.auth.SignInFailureKind.NoAccount,
+                null,
+            ),
+        )
+        assertEquals(
+            MSG_INTERRUPTED,
+            loginFailureToGoogleSignInMessage(
+                com.stratum.application.auth.SignInFailureKind.Interrupted,
+                null,
+            ),
+        )
+        assertEquals(
+            MSG_UNAVAILABLE,
+            loginFailureToGoogleSignInMessage(
+                com.stratum.application.auth.SignInFailureKind.Unavailable,
+                null,
+            ),
+        )
+        assertEquals(
+            MSG_NETWORK,
+            loginFailureToGoogleSignInMessage(
+                com.stratum.application.auth.SignInFailureKind.Network,
+                null,
+            ),
+        )
+    }
+
+    @Test
+    @DisplayName("Other kind applies message heuristics then generic fallback")
+    fun classifiedOther() {
+        assertEquals(
+            MSG_CONFIG,
+            loginFailureToGoogleSignInMessage(
+                com.stratum.application.auth.SignInFailureKind.Other,
+                "Google Sign-In configuration missing: default_web_client_id not found.",
+            ),
+        )
+        assertEquals(
+            MSG_GENERIC,
+            loginFailureToGoogleSignInMessage(
+                com.stratum.application.auth.SignInFailureKind.Other,
+                null,
+            ),
+        )
+    }
 }

@@ -7,19 +7,21 @@ class FakeAccountDeletionPort : AccountDeletionPort {
         private set
     var deleteAuthCount: Int = 0
         private set
-    var deleteDataResult: Result<Unit> = Result.success(Unit)
-    var deleteAuthResult: Result<Unit> = Result.success(Unit)
+    /** When non-null, [deleteRemoteUserData] throws this instead of succeeding. */
+    var deleteDataFailure: Throwable? = null
+    /** When non-null, [deleteRemoteAuthUser] throws this instead of succeeding. */
+    var deleteAuthFailure: Throwable? = null
 
     /** Total remote calls (data + auth phases). */
     val deleteCount: Int get() = deleteDataCount + deleteAuthCount
 
-    override suspend fun deleteRemoteUserData(): Result<Unit> {
+    override suspend fun deleteRemoteUserData() {
         deleteDataCount++
-        return deleteDataResult
+        deleteDataFailure?.let { throw it }
     }
 
-    override suspend fun deleteRemoteAuthUser(): Result<Unit> {
+    override suspend fun deleteRemoteAuthUser() {
         deleteAuthCount++
-        return deleteAuthResult
+        deleteAuthFailure?.let { throw it }
     }
 }

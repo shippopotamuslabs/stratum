@@ -3,11 +3,11 @@ package com.stratum.core.infrastructure.inference
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.functions.FirebaseFunctions
 import com.stratum.application.auth.AccountDeletionPort
-import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.logging.LoggingPort
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.tasks.await
 
 /**
@@ -21,29 +21,34 @@ class FirebaseAccountDeletionAdapter @Inject constructor(
     private val functions: FirebaseFunctions = FirebaseFunctions.getInstance()
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
 
-    override suspend fun deleteRemoteUserData(): Result<Unit> =
+    override suspend fun deleteRemoteUserData() {
         callPhase(PHASE_DATA)
+    }
 
-    override suspend fun deleteRemoteAuthUser(): Result<Unit> =
+    override suspend fun deleteRemoteAuthUser() {
         callPhase(PHASE_AUTH)
+    }
 
-    private suspend fun callPhase(phase: String): Result<Unit> =
-        runCatchingCancellable {
+    private suspend fun callPhase(phase: String) {
+        try {
             checkNotNull(auth.currentUser) { "Sign-in required to delete account." }
             val callable =
                 functions
                     .getHttpsCallable(CALLABLE_NAME)
                     .withTimeout(CALLABLE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
             callable.call(mapOf("phase" to phase)).await()
-            Unit
-        }.onFailure { error ->
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
             FirebaseCallableErrorLogger.logFailure(
                 loggingPort,
                 TAG,
                 "$CALLABLE_NAME($phase)",
                 error,
             )
+            throw error
         }
+    }
 
     private companion object {
         private const val TAG = "StratumDeleteAccount"

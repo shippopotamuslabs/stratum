@@ -102,7 +102,7 @@ class CloudSyncAuthListenerTest {
     fun `startCloudSync failure is logged without killing the listener`() =
         runTest {
             val logging = FakeLoggingPort()
-            cloudSyncPort.startResult = Result.failure(IllegalStateException("sync start boom"))
+            cloudSyncPort.startFailure = IllegalStateException("sync start boom")
             val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
             val listener = createListener(scope, logging)
             listener.start()
