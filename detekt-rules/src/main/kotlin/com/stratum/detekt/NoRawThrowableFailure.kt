@@ -22,19 +22,33 @@ import org.jetbrains.kotlin.psi.psiUtil.getParentOfType
  *
  * Scoped to :core:domain and :core:application MAIN sources. Flags:
  *  (a) `Result.failure(` call expressions,
- *  (b) `runCatchingLogged` / `expectedFailure` call expressions (the LoggedResult
- *      funnel helpers that manufacture raw-Throwable failures),
- *  (c) Throwable-typed properties / constructor parameters declared on a subtype
- *      of a sealed type declared in the same file.
+ *  (b) calls to the funnel helpers that manufacture raw-Throwable failures —
+ *      `runCatchingLogged` / `onFailureLogged` / `expectedFailure`
+ *      (domain/logging/LoggedResult.kt) and `runCatchingCancellable`
+ *      (domain/coroutines/RunCatchingCancellable.kt) — at call sites outside
+ *      their definition files (the definition files are legacyFiles entries),
+ *  (c) raw-payload-typed properties / constructor parameters declared on a
+ *      subtype of a sealed type declared in the same file. Payload types are
+ *      `Throwable` and `Exception`, qualified (`kotlin.Throwable` /
+ *      `kotlin.Exception`) or not, nullable or not, and `List<Throwable>` /
+ *      `List<Exception>` (likewise qualified / nullable elements).
  *
- * Section-10 diagnostics exemption: subtypes of a sealed type whose name contains
- * "Diagnostic" are the partial-success diagnostics channel (STR-254..259), not
- * failure payloads. They legitimately carry `cause: Throwable` for the boundary
- * log drain and are exempt from check (c) by that name pattern.
+ * Section-10 diagnostics exemption: subtypes of a sealed type whose name is on
+ * the EXACT-NAME `diagnosticExemptTypes` list in config/detekt/detekt.yml are
+ * the partial-success diagnostics channel (STR-254..259), not failure
+ * payloads. They legitimately carry `cause: Throwable` for the boundary log
+ * drain and are exempt from check (c) by that exact list — a sealed type that
+ * merely has "Diagnostic" in its name is NOT exempt.
  *
- * Ratchet: files not yet converted are listed in the rule's `legacyFiles` config
- * in config/detekt/detekt.yml. Every STR-243 cluster commit removes its files;
- * the list must end empty.
+ * Known PSI limitation: this rule performs no type resolution. Check (c) only
+ * sees a subtype when its sealed supertype is declared in the SAME file;
+ * sealed subtypes declared in a different file than their supertype are not
+ * checked.
+ *
+ * Ratchet: files that legitimately construct or return raw-Throwable failures
+ * are listed in the rule's `legacyFiles` config in config/detekt/detekt.yml —
+ * the sanctioned funnel definitions plus the named application-internal
+ * producers whose Result never crosses a port/presentation boundary.
  */
 class NoRawThrowableFailure(config: Config) : Rule(config) {
     override val issue =
@@ -49,6 +63,9 @@ class NoRawThrowableFailure(config: Config) : Rule(config) {
 
     private val legacyFiles: List<String> =
         valueOrDefault("legacyFiles", emptyList())
+
+    private val diagnosticExemptTypes: List<String> =
+        valueOrDefault("diagnosticExemptTypes", emptyList())
 
     private fun isEnforced(path: String?): Boolean {
         if (path == null) return false
@@ -96,13 +113,13 @@ class NoRawThrowableFailure(config: Config) : Rule(config) {
 
     override fun visitParameter(parameter: KtParameter) {
         super.visitParameter(parameter)
-        if (parameter.typeReference?.text?.removeSuffix("?") != "Throwable") return
+        if (!isRawThrowablePayloadType(parameter.typeReference?.text)) return
         checkThrowableOnSealedSubtype(parameter, parameter.name ?: "parameter")
     }
 
     override fun visitProperty(property: KtProperty) {
         super.visitProperty(property)
-        if (property.typeReference?.text?.removeSuffix("?") != "Throwable") return
+        if (!isRawThrowablePayloadType(property.typeReference?.text)) return
         // Local variables are boundary/logging plumbing, not declared outcome fields.
         if (property.isLocal) return
         checkThrowableOnSealedSubtype(property, property.name ?: "property")
@@ -131,8 +148,8 @@ class NoRawThrowableFailure(config: Config) : Rule(config) {
                 }
                 .mapNotNull { declared -> declared.name }
         val matched = superNames.firstOrNull { it in sealedNames } ?: return
-        // §10 diagnostics channel exemption (name pattern): *Diagnostic sealed types.
-        if (matched.contains(DIAGNOSTIC_MARKER)) return
+        // §10 diagnostics channel exemption: exact-name list from detekt.yml only.
+        if (matched in diagnosticExemptTypes) return
         report(
             CodeSmell(
                 issue = issue,
@@ -145,7 +162,27 @@ class NoRawThrowableFailure(config: Config) : Rule(config) {
     }
 
     companion object {
-        private val FUNNEL_CALLEES = setOf("runCatchingLogged", "expectedFailure")
-        private const val DIAGNOSTIC_MARKER = "Diagnostic"
+        private val FUNNEL_CALLEES =
+            setOf("runCatchingLogged", "expectedFailure", "runCatchingCancellable", "onFailureLogged")
+
+        private val RAW_PAYLOAD_TYPES =
+            setOf("Throwable", "Exception", "kotlin.Throwable", "kotlin.Exception")
+
+        /**
+         * True when [typeText] is a raw Throwable/Exception payload type:
+         * bare or `kotlin.`-qualified, nullable or not, or a `List<...>` of one.
+         */
+        private fun isRawThrowablePayloadType(typeText: String?): Boolean {
+            if (typeText == null) return false
+            val normalized = typeText.replace(WHITESPACE, "").removeSuffix("?")
+            if (normalized in RAW_PAYLOAD_TYPES) return true
+            if (normalized.startsWith("List<") && normalized.endsWith(">")) {
+                val element = normalized.removePrefix("List<").removeSuffix(">").removeSuffix("?")
+                return element in RAW_PAYLOAD_TYPES
+            }
+            return false
+        }
+
+        private val WHITESPACE = Regex("\\s")
     }
 }

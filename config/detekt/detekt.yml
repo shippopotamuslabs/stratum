@@ -31,27 +31,41 @@ stratum:
   ForbiddenRawSpacingLiteralInUi:
     active: true
   # STR-243: raw-Throwable failure gate for :core:domain + :core:application main sources.
-  # The ratchet is COMPLETE (C10, the final cluster): every legacy file has been
-  # converted to sealed outcome types. The two remaining legacyFiles entries are
-  # NOT legacy debt - they are the permanent sanctioned failure constructors
-  # (the funnel definitions themselves: runCatchingCancellable and the
-  # LoggedResult helpers), the only places a raw-Throwable Result.failure may
-  # be constructed in domain/application main sources. LoggedResult.kt's entry
-  # disappears later when STR-237 deletes that file; until then it stays
-  # listed. The gate is otherwise absolute: no new entries.
-  # The rule's Throwable-property check exempts the section-10 diagnostics
-  # sealed types (STR-254..259: ScheduleDiagnostic,
-  # ProgramImportRollbackDiagnostic, EntitlementDiagnostic,
-  # ApplyGrantedPermissionsDiagnostic, EquipmentProposalDiagnostic,
-  # MergeLiftsDiagnostic, SwapWorkoutLiftDiagnostic, RepRangeShiftDiagnostic,
-  # LiftHistoryDiagnostic, CloudSyncDiagnostic) by the *Diagnostic name
-  # pattern - they are the partial-success diagnostics channel, not failure
-  # payloads.
+  # Final legacyFiles state (review round 1): every entry is either
+  # (a) a sanctioned funnel definition - RunCatchingCancellable.kt and
+  #     LoggedResult.kt, the canonical failure constructors themselves; their
+  #     definitions and internal Result.failure sites are the only sanctioned
+  #     raw-Throwable constructions in domain/application main sources
+  #     (LoggedResult.kt's entry disappears when STR-237 deletes that file), or
+  # (b) a named application-internal producer whose Result never crosses a
+  #     port/presentation boundary - ComputePersonalRecordsUseCase and
+  #     RefreshWeeklySeriesUseCase, consumed only inside :core:application
+  #     (consumers verified in clusters C5/C8: FinalizeTrainingSession,
+  #     PersistImportedHistory, MergeLifts, LocalDerivedTrainingStages).
+  # The gate is otherwise absolute: no new entries.
+  # The rule's Throwable-property check exempts ONLY the section-10
+  # diagnostics sealed types named exactly in diagnosticExemptTypes below
+  # (STR-254..259) - they are the partial-success diagnostics channel, not
+  # failure payloads. A sealed type merely containing "Diagnostic" in its
+  # name is NOT exempt.
   NoRawThrowableFailure:
     active: true
     legacyFiles:
       - 'core/domain/src/main/kotlin/com/stratum/domain/coroutines/RunCatchingCancellable.kt'
       - 'core/domain/src/main/kotlin/com/stratum/domain/logging/LoggedResult.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/training/ComputePersonalRecordsUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/training/RefreshWeeklySeriesUseCase.kt'
+    diagnosticExemptTypes:
+      - 'ScheduleDiagnostic'
+      - 'ProgramImportRollbackDiagnostic'
+      - 'EntitlementDiagnostic'
+      - 'ApplyGrantedPermissionsDiagnostic'
+      - 'EquipmentProposalDiagnostic'
+      - 'MergeLiftsDiagnostic'
+      - 'SwapWorkoutLiftDiagnostic'
+      - 'RepRangeShiftDiagnostic'
+      - 'LiftHistoryDiagnostic'
+      - 'CloudSyncDiagnostic'
 
 potential-bugs:
   active: true

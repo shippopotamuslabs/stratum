@@ -3,6 +3,7 @@ package com.stratum.feature.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.domain.export.ExportFileResult
+import com.stratum.application.export.ExportProgramsResult
 import com.stratum.application.export.ExportProgramsUseCase
 import com.stratum.application.export.PreviewExportProgramsUseCase
 import com.stratum.domain.program.identity.ProgramId
@@ -96,21 +97,33 @@ class ExportProgramsViewModel @Inject constructor(
                 return@launch
             }
             _uiState.update { it.copy(isExporting = true, errorMessage = null) }
-            val result = exportPrograms(selected.map { ProgramId(it) })
-            result.fold(
-                onSuccess = { file ->
+            // Copy is sourced from the outcome kind (STR-243): the refusal
+            // branches carry the former require messages; an operational
+            // failure shows the former fallback.
+            when (val result = exportPrograms(selected.map { ProgramId(it) })) {
+                is ExportProgramsResult.Success -> {
                     _uiState.update { it.copy(isExporting = false, errorMessage = null) }
-                    _shareEvents.emit(file)
-                },
-                onFailure = { error ->
+                    _shareEvents.emit(result.file)
+                }
+                ExportProgramsResult.NoProgramsSelected ->
                     _uiState.update {
                         it.copy(
                             isExporting = false,
-                            errorMessage = error.message ?: "Export failed.",
+                            errorMessage = "Select at least one program to export.",
                         )
                     }
-                },
-            )
+                is ExportProgramsResult.ProgramsNotExportable ->
+                    _uiState.update {
+                        it.copy(
+                            isExporting = false,
+                            errorMessage = "One or more programs could not be exported.",
+                        )
+                    }
+                ExportProgramsResult.PersistenceFailed ->
+                    _uiState.update {
+                        it.copy(isExporting = false, errorMessage = "Export failed.")
+                    }
+            }
         }
     }
 }
