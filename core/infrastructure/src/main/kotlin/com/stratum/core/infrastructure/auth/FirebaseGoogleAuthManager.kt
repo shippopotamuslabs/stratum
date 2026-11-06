@@ -63,14 +63,31 @@ class FirebaseGoogleAuthManager @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Throwable) {
-            loggingPort.error(TAG, "Google sign-in failed: ${error.message}", error)
-            val kind = error.signInFailureKind()
-            val message = error.message
-            // Populate the auth-state boundary with the same single-source
-            // classification the outcome branch carries (E2).
-            _authState.value = AuthState.Error(kind, message ?: "")
-            return LoginWithGoogleResult.Failed(kind, message)
+            return recordSignInFailure(error)
         }
+    }
+
+    /**
+     * The single population site for a classified sign-in failure (E2).
+     *
+     * Single-locals invariant: [error]'s classification and message are
+     * computed exactly once, into the single locals `kind` and `message`,
+     * and those same locals populate BOTH carriers — the returned
+     * [LoginWithGoogleResult.Failed] and the [AuthState.Error] auth-state
+     * emission — so the two can never diverge. The state's message is
+     * non-null by type, so a null `message` rides the state as "" while the
+     * outcome branch keeps the null. The failure is logged exactly once
+     * here, at the adapter boundary.
+     *
+     * Internal (not private) as the unit-test seam: tests drive this handler
+     * directly and assert the two carriers agree.
+     */
+    internal fun recordSignInFailure(error: Throwable): LoginWithGoogleResult.Failed {
+        loggingPort.error(TAG, "Google sign-in failed: ${error.message}", error)
+        val kind = error.signInFailureKind()
+        val message = error.message
+        _authState.value = AuthState.Error(kind, message ?: "")
+        return LoginWithGoogleResult.Failed(kind, message)
     }
 
     private suspend fun signInWithGoogleOrThrow(): UserProfile {
