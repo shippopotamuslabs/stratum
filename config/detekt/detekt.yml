@@ -31,18 +31,25 @@ stratum:
   ForbiddenRawSpacingLiteralInUi:
     active: true
   # STR-243: raw-Throwable failure gate for :core:domain + :core:application main sources.
-  # legacyFiles is the shrinking ratchet: every cluster commit removes its converted
-  # files; C10 leaves this list EMPTY. The rule's Throwable-property check exempts the
-  # 8 section-10 diagnostics sealed types (STR-254..259: ScheduleDiagnostic,
+  # The ratchet is COMPLETE (C10, the final cluster): every legacy file has been
+  # converted to sealed outcome types. The two remaining legacyFiles entries are
+  # NOT legacy debt - they are the permanent sanctioned failure constructors
+  # (the funnel definitions themselves: runCatchingCancellable and the
+  # LoggedResult helpers), the only places a raw-Throwable Result.failure may
+  # be constructed in domain/application main sources. LoggedResult.kt's entry
+  # disappears later when STR-237 deletes that file; until then it stays
+  # listed. The gate is otherwise absolute: no new entries.
+  # The rule's Throwable-property check exempts the section-10 diagnostics
+  # sealed types (STR-254..259: ScheduleDiagnostic,
   # ProgramImportRollbackDiagnostic, EntitlementDiagnostic,
   # ApplyGrantedPermissionsDiagnostic, EquipmentProposalDiagnostic,
   # MergeLiftsDiagnostic, SwapWorkoutLiftDiagnostic, RepRangeShiftDiagnostic,
-  # LiftHistoryDiagnostic) by the *Diagnostic name pattern - they are the
-  # partial-success diagnostics channel, not failure payloads.
+  # LiftHistoryDiagnostic, CloudSyncDiagnostic) by the *Diagnostic name
+  # pattern - they are the partial-success diagnostics channel, not failure
+  # payloads.
   NoRawThrowableFailure:
     active: true
     legacyFiles:
-      - 'core/application/src/main/kotlin/com/stratum/application/auth/AuthUseCases.kt'
       - 'core/domain/src/main/kotlin/com/stratum/domain/coroutines/RunCatchingCancellable.kt'
       - 'core/domain/src/main/kotlin/com/stratum/domain/logging/LoggedResult.kt'
 

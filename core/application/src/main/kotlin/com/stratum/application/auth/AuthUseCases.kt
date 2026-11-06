@@ -1,5 +1,7 @@
 package com.stratum.application.auth
 
+import com.stratum.application.sync.CloudSyncDiagnostic
+import com.stratum.application.sync.CloudSyncOutcome
 import com.stratum.application.sync.EndSessionAndWipeUseCase
 import com.stratum.application.sync.StartCloudSyncUseCase
 import com.stratum.application.sync.StopCloudSyncUseCase
@@ -18,16 +20,62 @@ class GetAuthStateUseCase @Inject constructor(
     operator fun invoke(): Flow<AuthState> = authManager.authState
 }
 
+/**
+ * Outcome of a Google sign-in attempt (STR-243). [Failed] carries the
+ * adapter's [SignInFailureKind] classification plus the originating message
+ * for unclassified failures (the shipped message-carrying pattern, cf.
+ * `BillingPurchaseResult.Failed`) — never the throwable itself, which the
+ * adapter logged once at its boundary.
+ */
+sealed interface LoginWithGoogleResult {
+    data class Success(val profile: UserProfile) : LoginWithGoogleResult
+
+    data class Failed(
+        val kind: SignInFailureKind,
+        val message: String?,
+    ) : LoginWithGoogleResult
+}
+
 class LoginWithGoogleUseCase @Inject constructor(
     private val authManager: AuthManager,
 ) {
-    suspend operator fun invoke(): Result<UserProfile> = authManager.signInWithGoogle()
+    suspend operator fun invoke(): LoginWithGoogleResult =
+        try {
+            LoginWithGoogleResult.Success(authManager.signInWithGoogle())
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: GoogleSignInException) {
+            LoginWithGoogleResult.Failed(error.kind, error.message)
+        } catch (error: Throwable) {
+            LoginWithGoogleResult.Failed(SignInFailureKind.Other, error.message)
+        }
+}
+
+/**
+ * Outcome of a logout attempt (STR-243). A failure branch carries the
+ * compensating sync restart's failures as [CloudSyncDiagnostic]s (empty when
+ * the restart succeeded or was not attempted) so the terminal boundary
+ * (Settings, shell) drains each exactly once through its own log wiring —
+ * the STR-256 suppressed-throwable mechanism, carried as diagnostics.
+ */
+sealed interface LogoutResult {
+    data object Success : LogoutResult
+
+    /** The session teardown / Room wipe failed; sign-out was not attempted. */
+    data class WipeFailed(
+        val restartDiagnostics: List<CloudSyncDiagnostic>,
+    ) : LogoutResult
+
+    /** The wipe succeeded but Firebase sign-out failed. */
+    data class SignOutFailed(
+        val restartDiagnostics: List<CloudSyncDiagnostic>,
+    ) : LogoutResult
 }
 
 /**
  * Ends the local sync session (atomic stop + Room wipe when signed in), then signs out of
  * Firebase. On failure after teardown begins, re-starts sync for the still-authenticated user
- * so the shell can recover. [CancellationException] is rethrown (not wrapped in Result).
+ * so the shell can recover. [CancellationException] is rethrown (never captured as a branch).
  */
 class LogoutUseCase @Inject constructor(
     private val authManager: AuthManager,
@@ -35,82 +83,89 @@ class LogoutUseCase @Inject constructor(
     private val stopCloudSync: StopCloudSyncUseCase,
     private val startCloudSync: StartCloudSyncUseCase,
 ) {
-    suspend operator fun invoke(): Result<Unit> {
+    suspend operator fun invoke(): LogoutResult {
         val uid = (authManager.authState.value as? AuthState.Authenticated)?.user?.uid
-        val wipeOrStopResult = if (uid != null) {
-            endSessionAndWipe(uid)
+        if (uid != null) {
+            if (endSessionAndWipe(uid) is CloudSyncOutcome.Failed) {
+                val diagnostics = if (authManager.authState.value is AuthState.Authenticated) {
+                    startCloudSync.restartDiagnosticsAfterFailure(uid)
+                } else {
+                    emptyList()
+                }
+                return LogoutResult.WipeFailed(diagnostics)
+            }
         } else {
             stopCloudSync()
-            Result.success(Unit)
-        }
-        if (wipeOrStopResult.isFailure) {
-            val primary = wipeOrStopResult.exceptionOrNull()
-            if (uid != null && primary != null &&
-                authManager.authState.value is AuthState.Authenticated
-            ) {
-                startCloudSync.restartSyncAfterFailure(uid, primary)
-            }
-            return wipeOrStopResult
         }
 
-        val signOutResult = authManager.signOut()
-        if (signOutResult.isFailure) {
-            val primary = signOutResult.exceptionOrNull()
-            if (uid != null && primary != null &&
-                authManager.authState.value is AuthState.Authenticated
+        try {
+            authManager.signOut()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Throwable) {
+            val diagnostics = if (
+                uid != null && authManager.authState.value is AuthState.Authenticated
             ) {
-                startCloudSync.restartSyncAfterFailure(uid, primary)
+                startCloudSync.restartDiagnosticsAfterFailure(uid)
+            } else {
+                emptyList()
             }
-            return signOutResult
+            return LogoutResult.SignOutFailed(diagnostics)
         }
-        return Result.success(Unit)
+        return LogoutResult.Success
     }
 }
 
 /**
- * Best-effort sync restart after a logout/account-deletion failure left sync stopped for a
- * still-authenticated user (STR-256). The restart stays fire-and-forget: a restart failure is
- * attached to [primary] via [addSuppressed] so the terminal boundary (Settings, shell) emits it
- * exactly once alongside the primary — the primary is never wrapped or retyped, so callers
- * pattern-matching [LocalCleanupAfterAccountDeletionException] or
- * [AuthDeleteAfterAccountWipeException] are unaffected. [CancellationException] from the restart
- * is rethrown, never attached.
+ * Outcome of an account-deletion attempt (STR-243). Presentation branches on
+ * the kind for its copy: [LocalCleanupFailed] and [AuthDeleteFailed] are the
+ * two partial-deletion states that previously crossed as typed exceptions.
+ * [RemoteDataFailed] carries the compensating sync restart's failures as
+ * [CloudSyncDiagnostic]s for the terminal boundary's exactly-once drain
+ * (empty when the restart succeeded or was not attempted).
  */
-private suspend fun StartCloudSyncUseCase.restartSyncAfterFailure(
-    uid: String,
-    primary: Throwable,
-) {
-    val restartError: Throwable? =
-        try {
-            invoke(uid).exceptionOrNull()
-        } catch (error: Throwable) {
-            error
-        }
-    if (restartError is CancellationException) throw restartError
-    if (restartError != null) primary.addSuppressed(restartError)
+sealed interface DeleteAccountResult {
+    data object Success : DeleteAccountResult
+
+    /** No signed-in user; nothing was attempted. */
+    data object NotSignedIn : DeleteAccountResult
+
+    /** Cloud Firestore + Storage deletion failed; local data is intact for retry. */
+    data class RemoteDataFailed(
+        val restartDiagnostics: List<CloudSyncDiagnostic>,
+    ) : DeleteAccountResult
+
+    /**
+     * Cloud data was deleted, but the local Room wipe failed. The Auth user is
+     * intentionally still present so the user can see guidance and clear app
+     * storage or retry.
+     */
+    data object LocalCleanupFailed : DeleteAccountResult
+
+    /**
+     * Local wipe succeeded and cloud data is gone, but Firebase Auth user
+     * removal failed. Auth is left intact so the user can retry deletion
+     * without re-uploading wiped cloud data.
+     */
+    data object AuthDeleteFailed : DeleteAccountResult
 }
 
 /**
- * Cloud data was deleted, but local Room wipe failed. The Auth user is intentionally still
- * present so the user can see guidance and clear app storage or retry.
+ * Best-effort sync restart after a logout/account-deletion failure left sync stopped for a
+ * still-authenticated user (STR-256). Returns the restart's failure diagnostics (empty on
+ * success): the terminal boundary (Settings, shell) drains each exactly once through its
+ * own log wiring. The primary outcome branch is never retyped by a restart failure, so
+ * callers branching on [LogoutResult] / [DeleteAccountResult] kinds are unaffected.
+ * [CancellationException] from the restart propagates (the start use case rethrows it),
+ * never rides as a diagnostic.
  */
-class LocalCleanupAfterAccountDeletionException(
-    cause: Throwable? = null,
-) : Exception(
-        "Cloud account data was deleted, but this device could not clear local data.",
-        cause,
-    )
-
-/**
- * Local wipe succeeded and cloud data is gone, but Firebase Auth user removal failed.
- * Auth is left intact so the user can retry deletion without re-uploading wiped cloud data.
- */
-class AuthDeleteAfterAccountWipeException(
-    cause: Throwable? = null,
-) : Exception(
-        "Local and cloud training data were removed, but the account could not be fully closed.",
-        cause,
-    )
+private suspend fun StartCloudSyncUseCase.restartDiagnosticsAfterFailure(
+    uid: String,
+): List<CloudSyncDiagnostic> =
+    when (val outcome = invoke(uid)) {
+        CloudSyncOutcome.Success -> emptyList()
+        is CloudSyncOutcome.Failed -> outcome.diagnostics
+    }
 
 /**
  * Permanently deletes the signed-in user's account:
@@ -122,8 +177,9 @@ class AuthDeleteAfterAccountWipeException(
  * Sync is stopped before remote data so an in-flight [CloudSyncPort.requestSync] cannot resurrect
  * Firestore rows after Admin recursive delete. Cloud data is deleted before local wipe so a network
  * failure leaves local data for retry. Auth is deleted only after local wipe so a local-cleanup
- * failure can surface as [LocalCleanupAfterAccountDeletionException] without unmounting Settings.
- * Local wipe / Auth steps run under [NonCancellable]. [signOut] after Auth delete is best-effort.
+ * failure can surface as [DeleteAccountResult.LocalCleanupFailed] without unmounting Settings.
+ * Local wipe / Auth steps run under [NonCancellable]. [signOut][AuthManager.signOut] after Auth
+ * delete is best-effort.
  */
 class DeleteAccountUseCase @Inject constructor(
     private val authManager: AuthManager,
@@ -132,49 +188,56 @@ class DeleteAccountUseCase @Inject constructor(
     private val startCloudSync: StartCloudSyncUseCase,
     private val endSessionAndWipe: EndSessionAndWipeUseCase,
 ) {
-    suspend operator fun invoke(): Result<Unit> {
+    suspend operator fun invoke(): DeleteAccountResult {
         val uid = (authManager.authState.value as? AuthState.Authenticated)?.user?.uid
-            ?: return Result.failure(IllegalStateException("Not signed in."))
+            ?: return DeleteAccountResult.NotSignedIn
         // Freeze uploads before Admin cascade so WorkManager cannot re-push Room residuals.
         stopCloudSync()
-        val deleteRemoteResult = accountDeletionPort.deleteRemoteUserData()
-        if (deleteRemoteResult.isFailure) {
-            val primary = deleteRemoteResult.exceptionOrNull()
+        try {
+            accountDeletionPort.deleteRemoteUserData()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Throwable) {
             // Runs before the NonCancellable block below, so a restart CancellationException
             // propagates to the caller instead of being swallowed.
-            if (primary != null && authManager.authState.value is AuthState.Authenticated) {
-                startCloudSync.restartSyncAfterFailure(uid, primary)
+            val diagnostics = if (authManager.authState.value is AuthState.Authenticated) {
+                startCloudSync.restartDiagnosticsAfterFailure(uid)
+            } else {
+                emptyList()
             }
-            return deleteRemoteResult
+            return DeleteAccountResult.RemoteDataFailed(diagnostics)
         }
-        return withContext(NonCancellable) {
-            val wipeResult = endSessionAndWipe(uid)
-            if (wipeResult.isFailure) {
-                return@withContext Result.failure(
-                    LocalCleanupAfterAccountDeletionException(wipeResult.exceptionOrNull()),
-                )
+        return deleteAfterRemoteData(uid)
+    }
+
+    /** Local wipe, Auth delete, and best-effort sign-out once cloud data is gone. */
+    private suspend fun deleteAfterRemoteData(uid: String): DeleteAccountResult =
+        withContext(NonCancellable) {
+            if (endSessionAndWipe(uid) is CloudSyncOutcome.Failed) {
+                return@withContext DeleteAccountResult.LocalCleanupFailed
             }
-            val deleteAuthResult = accountDeletionPort.deleteRemoteAuthUser()
-            if (deleteAuthResult.isFailure) {
-                return@withContext Result.failure(
-                    AuthDeleteAfterAccountWipeException(deleteAuthResult.exceptionOrNull()),
-                )
+            try {
+                accountDeletionPort.deleteRemoteAuthUser()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Throwable) {
+                return@withContext DeleteAccountResult.AuthDeleteFailed
             }
             // Auth user is already gone; clear local session/credentials if possible.
             // Best-effort: deletion has already succeeded, so a sign-out failure never
             // retypes the outcome. Sign-out failures are recorded exactly once by the
             // AuthManager adapter (FirebaseGoogleAuthManager.signOut) — that adapter is
             // the single recording owner (handle-exactly-once, CODE-STYLE-GOSPEL §11),
-            // so this capture only consumes the Result and rethrows a
+            // so this capture only consumes the failure and rethrows a
             // CancellationException if one surfaces, returned or thrown.
             val signOutError: Throwable? =
                 try {
-                    authManager.signOut().exceptionOrNull()
+                    authManager.signOut()
+                    null
                 } catch (error: Throwable) {
                     error
                 }
             if (signOutError is CancellationException) throw signOutError
-            Result.success(Unit)
+            DeleteAccountResult.Success
         }
-    }
 }

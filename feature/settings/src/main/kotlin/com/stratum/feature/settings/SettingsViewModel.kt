@@ -2,10 +2,11 @@ package com.stratum.feature.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.stratum.application.auth.AuthDeleteAfterAccountWipeException
+import com.stratum.application.auth.DeleteAccountResult
 import com.stratum.application.auth.DeleteAccountUseCase
-import com.stratum.application.auth.LocalCleanupAfterAccountDeletionException
+import com.stratum.application.auth.LogoutResult
 import com.stratum.application.auth.LogoutUseCase
+import com.stratum.application.sync.CloudSyncDiagnostic
 import com.stratum.application.checkin.CheckInPreferenceResult
 import com.stratum.application.checkin.MarkCheckInPendingUseCase
 import com.stratum.application.checkin.ObserveCheckInPreferencesUseCase
@@ -397,16 +398,38 @@ class SettingsViewModel @Inject constructor(
         if (!claimed) return
         viewModelScope.launch {
             try {
-                logout().onFailure { error ->
-                    // STR-256: the primary stays UI-only; a failed compensating sync restart
-                    // rides it as suppressed and is drained here exactly once.
-                    error.suppressed.forEach { restartError ->
-                        logError(TAG_AUTH, MSG_SYNC_RESTART_FAILED_LOGOUT, restartError)
+                when (val result = logout()) {
+                    LogoutResult.Success -> Unit
+                    is LogoutResult.WipeFailed -> {
+                        drainRestartDiagnostics(
+                            result.restartDiagnostics,
+                            MSG_SYNC_RESTART_FAILED_LOGOUT,
+                        )
+                        _userMessage.value = MSG_LOGOUT_FAILED
                     }
-                    _userMessage.value = MSG_LOGOUT_FAILED
+                    is LogoutResult.SignOutFailed -> {
+                        drainRestartDiagnostics(
+                            result.restartDiagnostics,
+                            MSG_SYNC_RESTART_FAILED_LOGOUT,
+                        )
+                        _userMessage.value = MSG_LOGOUT_FAILED
+                    }
                 }
             } finally {
                 accountUi.value = AccountUi.Idle
+            }
+        }
+    }
+
+    /** STR-256: a failed compensating sync restart is drained here exactly once. */
+    private fun drainRestartDiagnostics(
+        diagnostics: List<CloudSyncDiagnostic>,
+        message: String,
+    ) {
+        diagnostics.forEach { diagnostic ->
+            when (diagnostic) {
+                is CloudSyncDiagnostic.OperationFailed ->
+                    logError(TAG_AUTH, message, diagnostic.cause)
             }
         }
     }
@@ -436,22 +459,24 @@ class SettingsViewModel @Inject constructor(
         if (!claimed) return
         viewModelScope.launch {
             try {
-                deleteAccount()
-                    .onFailure { error ->
-                        // STR-256: the primary stays UI-only; a failed compensating sync restart
-                        // rides it as suppressed and is drained here exactly once.
-                        error.suppressed.forEach { restartError ->
-                            logError(TAG_AUTH, MSG_SYNC_RESTART_FAILED_DELETE, restartError)
-                        }
-                        _userMessage.value =
-                            when (error) {
-                                is LocalCleanupAfterAccountDeletionException ->
-                                    MSG_DELETE_LOCAL_CLEANUP_FAILED
-                                is AuthDeleteAfterAccountWipeException ->
-                                    MSG_DELETE_AUTH_FAILED
-                                else -> MSG_DELETE_FAILED
-                            }
+                when (val result = deleteAccount()) {
+                    DeleteAccountResult.Success -> Unit
+                    DeleteAccountResult.NotSignedIn ->
+                        _userMessage.value = MSG_DELETE_FAILED
+                    is DeleteAccountResult.RemoteDataFailed -> {
+                        // STR-256: a failed compensating sync restart is drained here
+                        // exactly once.
+                        drainRestartDiagnostics(
+                            result.restartDiagnostics,
+                            MSG_SYNC_RESTART_FAILED_DELETE,
+                        )
+                        _userMessage.value = MSG_DELETE_FAILED
                     }
+                    DeleteAccountResult.LocalCleanupFailed ->
+                        _userMessage.value = MSG_DELETE_LOCAL_CLEANUP_FAILED
+                    DeleteAccountResult.AuthDeleteFailed ->
+                        _userMessage.value = MSG_DELETE_AUTH_FAILED
+                }
             } finally {
                 accountUi.value = AccountUi.Idle
             }

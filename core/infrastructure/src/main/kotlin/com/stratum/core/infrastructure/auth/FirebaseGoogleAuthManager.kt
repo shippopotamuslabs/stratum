@@ -11,11 +11,11 @@ import com.google.firebase.auth.GoogleAuthProvider
 import com.stratum.application.auth.AuthManager
 import com.stratum.domain.auth.AuthState
 import com.stratum.domain.auth.UserProfile
-import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.di.ApplicationScope
 import com.stratum.domain.logging.LoggingPort
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -55,7 +55,18 @@ class FirebaseGoogleAuthManager @Inject constructor(
         }
     }
 
-    override suspend fun signInWithGoogle(): Result<UserProfile> = runCatchingCancellable {
+    override suspend fun signInWithGoogle(): UserProfile {
+        try {
+            return signInWithGoogleOrThrow()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            loggingPort.error(TAG, "Google sign-in failed: ${error.message}", error)
+            throw error.toGoogleSignInException()
+        }
+    }
+
+    private suspend fun signInWithGoogleOrThrow(): UserProfile {
         require(googleServerClientId.isNotBlank()) {
             "Google Sign-In configuration missing: default_web_client_id is blank."
         }
@@ -81,21 +92,24 @@ class FirebaseGoogleAuthManager @Inject constructor(
         }
         val authResult = firebaseAuth.signInWithCredential(firebaseCredential).await()
         val user = authResult.user ?: error("Firebase sign in failed")
-        UserProfile(
+        return UserProfile(
             uid = user.uid,
             displayName = user.displayName,
             email = user.email,
             photoUrl = user.photoUrl?.toString(),
         )
-    }.onFailure { error ->
-        loggingPort.error(TAG, "Google sign-in failed: ${error.message}", error)
     }
 
-    override suspend fun signOut(): Result<Unit> = runCatchingCancellable {
-        firebaseAuth.signOut()
-        credentialManager.clearCredentialState(ClearCredentialStateRequest())
-    }.onFailure { error ->
-        loggingPort.error(TAG, "Google sign-out failed: ${error.message}", error)
+    override suspend fun signOut() {
+        try {
+            firebaseAuth.signOut()
+            credentialManager.clearCredentialState(ClearCredentialStateRequest())
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            loggingPort.error(TAG, "Google sign-out failed: ${error.message}", error)
+            throw error
+        }
     }
 
     private companion object {

@@ -1,5 +1,6 @@
 package com.stratum.application.auth
 
+import com.stratum.application.sync.CloudSyncDiagnostic
 import com.stratum.core.testing.auth.FakeAuthManager
 import com.stratum.core.testing.sync.FakeCloudSyncPort
 import com.stratum.domain.sync.CloudSessionState
@@ -28,7 +29,7 @@ class LogoutUseCaseTest {
 
         val result = subject()
 
-        assertTrue(result.isSuccess)
+        assertEquals(LogoutResult.Success, result)
         assertEquals(listOf("wipe"), port.callOrder)
         assertEquals("uid-1", port.lastWipedUserId)
         assertEquals(1, port.wipeCount)
@@ -46,7 +47,7 @@ class LogoutUseCaseTest {
 
         val result = subject()
 
-        assertTrue(result.isSuccess)
+        assertEquals(LogoutResult.Success, result)
         assertEquals(listOf("stop"), port.callOrder)
         assertEquals(0, port.wipeCount)
         assertEquals(1, auth.signOutCount)
@@ -58,18 +59,22 @@ class LogoutUseCaseTest {
         val user = UserProfile("uid-1", "A", "a@example.com", null)
         val auth = FakeAuthManager(AuthState.Authenticated(user))
         val port = FakeCloudSyncPort().apply {
-            wipeResult = Result.failure(IllegalStateException("wipe failed"))
+            wipeFailure = IllegalStateException("wipe failed")
         }
         val subject = buildSubject(auth, port)
 
         val result = subject()
 
-        assertTrue(result.isFailure)
+        assertTrue(result is LogoutResult.WipeFailed)
+        // Restart succeeded, so no restart diagnostics ride the branch.
+        assertEquals(
+            emptyList<CloudSyncDiagnostic>(),
+            (result as LogoutResult.WipeFailed).restartDiagnostics,
+        )
         assertEquals(listOf("wipe", "start"), port.callOrder)
         assertEquals(0, auth.signOutCount)
         assertTrue(auth.authState.value is AuthState.Authenticated)
         assertTrue(port.sessionState.value is CloudSessionState.Ready)
-        assertTrue(result.exceptionOrNull()!!.suppressed.isEmpty())
     }
 
     @Test
@@ -77,62 +82,71 @@ class LogoutUseCaseTest {
     fun signOutFailureRestartsSync() = runTest {
         val user = UserProfile("uid-1", "A", "a@example.com", null)
         val auth = FakeAuthManager(AuthState.Authenticated(user)).apply {
-            signOutResult = Result.failure(IllegalStateException("sign-out failed"))
+            signOutFailure = IllegalStateException("sign-out failed")
         }
         val port = FakeCloudSyncPort()
         val subject = buildSubject(auth, port)
 
         val result = subject()
 
-        assertTrue(result.isFailure)
+        assertTrue(result is LogoutResult.SignOutFailed)
+        assertEquals(
+            emptyList<CloudSyncDiagnostic>(),
+            (result as LogoutResult.SignOutFailed).restartDiagnostics,
+        )
         assertEquals(listOf("wipe", "start"), port.callOrder)
         assertEquals(1, auth.signOutCount)
         assertTrue(auth.authState.value is AuthState.Authenticated)
         assertTrue(port.sessionState.value is CloudSessionState.Ready)
-        assertTrue(result.exceptionOrNull()!!.suppressed.isEmpty())
     }
 
     @Test
-    @DisplayName("Given wipe fails and restart fails when logout then primary carries restart suppressed")
-    fun wipeFailureAndRestartFailureAttachesSuppressed() = runTest {
+    @DisplayName("Given wipe fails and restart fails when logout then branch carries restart diagnostic")
+    fun wipeFailureAndRestartFailureCarriesDiagnostic() = runTest {
         val user = UserProfile("uid-1", "A", "a@example.com", null)
         val auth = FakeAuthManager(AuthState.Authenticated(user))
-        val wipeError = IllegalStateException("wipe failed")
         val restartError = IllegalStateException("restart failed")
         val port = FakeCloudSyncPort().apply {
-            wipeResult = Result.failure(wipeError)
-            startResult = Result.failure(restartError)
+            wipeFailure = IllegalStateException("wipe failed")
+            startFailure = restartError
         }
         val subject = buildSubject(auth, port)
 
         val result = subject()
 
-        assertTrue(result.isFailure)
-        assertSame(wipeError, result.exceptionOrNull())
-        assertEquals(listOf(restartError), result.exceptionOrNull()!!.suppressed.toList())
+        assertTrue(result is LogoutResult.WipeFailed)
+        val diagnostics = (result as LogoutResult.WipeFailed).restartDiagnostics
+        assertEquals(1, diagnostics.size)
+        assertSame(
+            restartError,
+            (diagnostics.single() as CloudSyncDiagnostic.OperationFailed).cause,
+        )
         assertEquals(0, auth.signOutCount)
         assertTrue(auth.authState.value is AuthState.Authenticated)
     }
 
     @Test
-    @DisplayName("Given sign-out fails and restart fails when logout then primary carries restart suppressed")
-    fun signOutFailureAndRestartFailureAttachesSuppressed() = runTest {
+    @DisplayName("Given sign-out fails and restart fails when logout then branch carries restart diagnostic")
+    fun signOutFailureAndRestartFailureCarriesDiagnostic() = runTest {
         val user = UserProfile("uid-1", "A", "a@example.com", null)
-        val signOutError = IllegalStateException("sign-out failed")
         val auth = FakeAuthManager(AuthState.Authenticated(user)).apply {
-            signOutResult = Result.failure(signOutError)
+            signOutFailure = IllegalStateException("sign-out failed")
         }
         val restartError = IllegalStateException("restart failed")
         val port = FakeCloudSyncPort().apply {
-            startResult = Result.failure(restartError)
+            startFailure = restartError
         }
         val subject = buildSubject(auth, port)
 
         val result = subject()
 
-        assertTrue(result.isFailure)
-        assertSame(signOutError, result.exceptionOrNull())
-        assertEquals(listOf(restartError), result.exceptionOrNull()!!.suppressed.toList())
+        assertTrue(result is LogoutResult.SignOutFailed)
+        val diagnostics = (result as LogoutResult.SignOutFailed).restartDiagnostics
+        assertEquals(1, diagnostics.size)
+        assertSame(
+            restartError,
+            (diagnostics.single() as CloudSyncDiagnostic.OperationFailed).cause,
+        )
         assertTrue(auth.authState.value is AuthState.Authenticated)
     }
 
@@ -142,8 +156,8 @@ class LogoutUseCaseTest {
         val user = UserProfile("uid-1", "A", "a@example.com", null)
         val auth = FakeAuthManager(AuthState.Authenticated(user))
         val port = FakeCloudSyncPort().apply {
-            wipeResult = Result.failure(IllegalStateException("wipe failed"))
-            startThrowable = CancellationException("restart cancelled")
+            wipeFailure = IllegalStateException("wipe failed")
+            startFailure = CancellationException("restart cancelled")
         }
         val subject = buildSubject(auth, port)
 

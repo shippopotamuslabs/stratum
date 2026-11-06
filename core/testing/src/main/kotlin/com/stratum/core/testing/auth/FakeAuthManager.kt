@@ -14,24 +14,25 @@ class FakeAuthManager(
 
     var signOutCount: Int = 0
         private set
-    var signOutResult: Result<Unit> = Result.success(Unit)
+    /** When non-null, [signOut] throws this instead of succeeding. */
+    var signOutFailure: Throwable? = null
+    /** When non-null, [signInWithGoogle] throws this instead of signing in. */
+    var signInFailure: Throwable? = null
 
     fun setState(next: AuthState) {
         state.value = next
     }
 
-    override suspend fun signInWithGoogle(): Result<UserProfile> {
+    override suspend fun signInWithGoogle(): UserProfile {
+        signInFailure?.let { throw it }
         val user = UserProfile("uid-test", "Test User", "test@example.com", null)
         state.value = AuthState.Authenticated(user)
-        return Result.success(user)
+        return user
     }
 
-    override suspend fun signOut(): Result<Unit> {
+    override suspend fun signOut() {
         signOutCount++
-        return signOutResult.also {
-            if (it.isSuccess) {
-                state.value = AuthState.Unauthenticated
-            }
-        }
+        signOutFailure?.let { throw it }
+        state.value = AuthState.Unauthenticated
     }
 }

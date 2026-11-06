@@ -6,17 +6,20 @@ package com.stratum.application.auth
  *
  * Split into data vs Auth so the client can wipe Room while the Auth session is still valid
  * (Settings stays mounted and can surface local-cleanup failure messaging).
+ *
+ * Operations are plain suspend calls (STR-243): an operational failure throws
+ * to the caller after the adapter has logged it once at its own boundary.
  */
 interface AccountDeletionPort {
     /**
      * Deletes the Firestore user tree (all subcollections under users/uid) and related
      * Storage prefixes. Must be called while still authenticated.
      */
-    suspend fun deleteRemoteUserData(): Result<Unit>
+    suspend fun deleteRemoteUserData()
 
     /**
      * Deletes the Firebase Auth user for the current session (Admin).
      * Must be called while still authenticated; call after local Room wipe succeeds.
      */
-    suspend fun deleteRemoteAuthUser(): Result<Unit>
+    suspend fun deleteRemoteAuthUser()
 }
