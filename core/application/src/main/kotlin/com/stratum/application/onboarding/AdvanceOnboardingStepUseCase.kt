@@ -3,8 +3,8 @@ package com.stratum.application.onboarding
 import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.logging.LoggingPort
-import com.stratum.domain.logging.runCatchingLogged
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import com.stratum.domain.onboarding.OnboardingPath
 import com.stratum.domain.onboarding.OnboardingPathResolver
 import com.stratum.domain.onboarding.OnboardingProgress
@@ -128,17 +128,22 @@ class AdvanceOnboardingStepUseCase @Inject constructor(
                 else -> null
             }
 
-        val persistResult =
-            runCatchingLogged(loggingPort, TAG, "Failed to advance onboarding step") {
-                updateUserTrainingProfile(profileToSave)
-                updateSpecialization(specializationToSave)
-                saveOnboardingProgress(targetStep, selectedPath = pathToPersist)
-            }
-        return if (persistResult.isSuccess) {
-            AdvanceOnboardingStepResult.Success(targetStep)
-        } else {
-            AdvanceOnboardingStepResult.PersistenceFailed
+        // Boundary try/catch (STR-243 rider): replaces the internal
+        // runCatchingLogged call so this file leaves the NoRawThrowableFailure
+        // legacy list. Behaviour is identical — cancellation propagates, any
+        // other failure is logged once with the legacy tag/message and maps to
+        // PersistenceFailed.
+        try {
+            updateUserTrainingProfile(profileToSave)
+            updateSpecialization(specializationToSave)
+            saveOnboardingProgress(targetStep, selectedPath = pathToPersist)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Throwable) {
+            loggingPort.error(TAG, "Failed to advance onboarding step: ${error.message}", error)
+            return AdvanceOnboardingStepResult.PersistenceFailed
         }
+        return AdvanceOnboardingStepResult.Success(targetStep)
     }
 
     private companion object {
