@@ -62,56 +62,56 @@ class FakeHealthConnectSyncPort : HealthConnectSyncPort {
         session: TrainingSession,
         sets: List<LoggedSet>,
     ): HealthConnectPushOutcome {
-        if (!isAvailable) {
-            return HealthConnectPushOutcome.Failed(
-                kind = HealthSyncFailureKind.Terminal,
-                message = HEALTH_SYNC_UNAVAILABLE_MESSAGE,
-                diagnostics = listOf(
-                    HealthSyncDiagnostic.OperationFailed(
-                        IllegalStateException(HEALTH_SYNC_UNAVAILABLE_MESSAGE),
-                    ),
-                ),
-            )
-        }
-        if (!hasPermission) {
-            return HealthConnectPushOutcome.Failed(
-                kind = HealthSyncFailureKind.UserActionable,
-                message = HEALTH_SYNC_PERMISSION_DENIED_MESSAGE,
-                diagnostics = listOf(
-                    HealthSyncDiagnostic.OperationFailed(
-                        IllegalStateException(HEALTH_SYNC_PERMISSION_DENIED_MESSAGE),
-                    ),
-                ),
-            )
-        }
         pushThrows?.let { failure ->
             if (failure is CancellationException) throw failure
-            return HealthConnectPushOutcome.Failed(
-                kind = HealthSyncFailureKind.Transient,
-                message = failure.message,
-                diagnostics = listOf(HealthSyncDiagnostic.OperationFailed(failure)),
-            )
-        }
-        pushFailureKind?.let { kind ->
-            return HealthConnectPushOutcome.Failed(
-                kind = kind,
-                message = pushFailureMessage,
-                diagnostics = listOf(
-                    HealthSyncDiagnostic.OperationFailed(
-                        IllegalStateException(pushFailureMessage),
-                    ),
-                ),
-            )
         }
         pushFailure?.let { failure ->
             if (failure is CancellationException) throw failure
-            return HealthConnectPushOutcome.Failed(
-                kind = HealthSyncFailureKind.Transient,
-                message = failure.message,
-                diagnostics = listOf(HealthSyncDiagnostic.OperationFailed(failure)),
-            )
         }
-        pushedSessions.add(session to sets)
-        return HealthConnectPushOutcome.Success
+        val outcome = when {
+            !isAvailable -> failedPush(
+                HealthSyncFailureKind.Terminal,
+                HEALTH_SYNC_UNAVAILABLE_MESSAGE,
+            )
+            !hasPermission -> failedPush(
+                HealthSyncFailureKind.UserActionable,
+                HEALTH_SYNC_PERMISSION_DENIED_MESSAGE,
+            )
+            pushThrows != null -> failedPush(
+                HealthSyncFailureKind.Transient,
+                pushThrows!!.message,
+                pushThrows,
+            )
+            pushFailureKind != null -> failedPush(
+                pushFailureKind!!,
+                pushFailureMessage,
+                IllegalStateException(pushFailureMessage),
+            )
+            pushFailure != null -> failedPush(
+                HealthSyncFailureKind.Transient,
+                pushFailure!!.message,
+                pushFailure,
+            )
+            else -> {
+                pushedSessions.add(session to sets)
+                HealthConnectPushOutcome.Success
+            }
+        }
+        return outcome
     }
+
+    private fun failedPush(
+        kind: HealthSyncFailureKind,
+        message: String?,
+        cause: Throwable? = null,
+    ): HealthConnectPushOutcome.Failed =
+        HealthConnectPushOutcome.Failed(
+            kind = kind,
+            message = message,
+            diagnostics = listOf(
+                HealthSyncDiagnostic.OperationFailed(
+                    cause ?: IllegalStateException(message),
+                ),
+            ),
+        )
 }
