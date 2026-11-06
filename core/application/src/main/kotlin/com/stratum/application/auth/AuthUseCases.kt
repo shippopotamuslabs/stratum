@@ -32,6 +32,8 @@ class LoginWithGoogleUseCase @Inject constructor(
  * the restart succeeded or was not attempted) so the terminal boundary
  * (Settings, shell) drains each exactly once through its own log wiring —
  * the STR-256 suppressed-throwable mechanism, carried as diagnostics.
+ * [WipeFailed] additionally carries the primary wipe failure's own
+ * diagnostics (STR-238) so the same boundary drains them exactly once too.
  */
 sealed interface LogoutResult {
     data object Success : LogoutResult
@@ -39,6 +41,7 @@ sealed interface LogoutResult {
     /** The session teardown / Room wipe failed; sign-out was not attempted. */
     data class WipeFailed(
         val restartDiagnostics: List<CloudSyncDiagnostic>,
+        val wipeDiagnostics: List<CloudSyncDiagnostic> = emptyList(),
     ) : LogoutResult
 
     /** The wipe succeeded but Firebase sign-out failed. */
@@ -61,13 +64,17 @@ class LogoutUseCase @Inject constructor(
     suspend operator fun invoke(): LogoutResult {
         val uid = (authManager.authState.value as? AuthState.Authenticated)?.user?.uid
         if (uid != null) {
-            if (endSessionAndWipe(uid) is CloudSyncOutcome.Failed) {
+            val wipeOutcome = endSessionAndWipe(uid)
+            if (wipeOutcome is CloudSyncOutcome.Failed) {
                 val diagnostics = if (authManager.authState.value is AuthState.Authenticated) {
                     startCloudSync.restartDiagnosticsAfterFailure(uid)
                 } else {
                     emptyList()
                 }
-                return LogoutResult.WipeFailed(diagnostics)
+                return LogoutResult.WipeFailed(
+                    restartDiagnostics = diagnostics,
+                    wipeDiagnostics = wipeOutcome.diagnostics,
+                )
             }
         } else {
             stopCloudSync()
@@ -94,6 +101,8 @@ class LogoutUseCase @Inject constructor(
  * [RemoteDataFailed] carries the compensating sync restart's failures as
  * [CloudSyncDiagnostic]s for the terminal boundary's exactly-once drain
  * (empty when the restart succeeded or was not attempted).
+ * [LocalCleanupFailed] carries the primary wipe failure's own diagnostics
+ * (STR-238) for the same boundary's exactly-once drain.
  */
 sealed interface DeleteAccountResult {
     data object Success : DeleteAccountResult
@@ -109,9 +118,12 @@ sealed interface DeleteAccountResult {
     /**
      * Cloud data was deleted, but the local Room wipe failed. The Auth user is
      * intentionally still present so the user can see guidance and clear app
-     * storage or retry.
+     * storage or retry. [wipeDiagnostics] carries the wipe failure's cause
+     * for the terminal boundary's exactly-once drain (STR-238).
      */
-    data object LocalCleanupFailed : DeleteAccountResult
+    data class LocalCleanupFailed(
+        val wipeDiagnostics: List<CloudSyncDiagnostic> = emptyList(),
+    ) : DeleteAccountResult
 
     /**
      * Local wipe succeeded and cloud data is gone, but Firebase Auth user
@@ -177,8 +189,11 @@ class DeleteAccountUseCase @Inject constructor(
     /** Local wipe, Auth delete, and best-effort sign-out once cloud data is gone. */
     private suspend fun deleteAfterRemoteData(uid: String): DeleteAccountResult =
         withContext(NonCancellable) {
-            if (endSessionAndWipe(uid) is CloudSyncOutcome.Failed) {
-                return@withContext DeleteAccountResult.LocalCleanupFailed
+            val wipeOutcome = endSessionAndWipe(uid)
+            if (wipeOutcome is CloudSyncOutcome.Failed) {
+                return@withContext DeleteAccountResult.LocalCleanupFailed(
+                    wipeDiagnostics = wipeOutcome.diagnostics,
+                )
             }
             if (accountDeletionPort.deleteRemoteAuthUser() is AccountDeletionOutcome.Failed) {
                 return@withContext DeleteAccountResult.AuthDeleteFailed

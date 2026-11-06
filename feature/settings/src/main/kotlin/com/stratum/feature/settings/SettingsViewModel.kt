@@ -436,6 +436,9 @@ class SettingsViewModel @Inject constructor(
                 when (val result = logout()) {
                     LogoutResult.Success -> Unit
                     is LogoutResult.WipeFailed -> {
+                        // STR-238: the primary wipe failure drains here too,
+                        // exactly once, alongside the compensating restart's.
+                        drainSyncDiagnostics(result.wipeDiagnostics, "endSessionAndWipe failed")
                         drainRestartDiagnostics(
                             result.restartDiagnostics,
                             MSG_SYNC_RESTART_FAILED_LOGOUT,
@@ -452,6 +455,30 @@ class SettingsViewModel @Inject constructor(
                 }
             } finally {
                 accountUi.value = AccountUi.Idle
+            }
+        }
+    }
+
+    /**
+     * STR-238: drains a sync operation's failure diagnostics exactly once,
+     * each rendered with the sync adapter's tag/message shape for that
+     * operation ([operation] is "endSessionAndWipe failed") so the record
+     * matches the adapter's legacy log line for the same failure.
+     */
+    private fun drainSyncDiagnostics(
+        diagnostics: List<CloudSyncDiagnostic>,
+        operation: String,
+    ) {
+        diagnostics.forEach { diagnostic ->
+            when (diagnostic) {
+                is CloudSyncDiagnostic.OperationFailed ->
+                    diagnosticDrain.drain(
+                        OperationalDiagnostic(
+                            tag = TAG_SYNC_ADAPTER,
+                            message = "$operation: ${diagnostic.cause.message}",
+                            cause = diagnostic.cause,
+                        ),
+                    )
             }
         }
     }
@@ -513,8 +540,12 @@ class SettingsViewModel @Inject constructor(
                         )
                         _userMessage.value = MSG_DELETE_FAILED
                     }
-                    DeleteAccountResult.LocalCleanupFailed ->
+                    is DeleteAccountResult.LocalCleanupFailed -> {
+                        // STR-238: the primary wipe failure is drained here
+                        // exactly once.
+                        drainSyncDiagnostics(result.wipeDiagnostics, "endSessionAndWipe failed")
                         _userMessage.value = MSG_DELETE_LOCAL_CLEANUP_FAILED
+                    }
                     DeleteAccountResult.AuthDeleteFailed ->
                         _userMessage.value = MSG_DELETE_AUTH_FAILED
                 }
@@ -588,6 +619,9 @@ class SettingsViewModel @Inject constructor(
     private companion object {
         const val TAG = "SettingsViewModel"
         const val TAG_AUTH = "SettingsAuth"
+
+        /** The sync adapter's log tag — sync-failure records keep its shape. */
+        const val TAG_SYNC_ADAPTER = "FirestoreCloudSync"
         const val MSG_SYNC_RESTART_FAILED_LOGOUT =
             "Cloud sync restart failed after sign-out failure."
         const val MSG_SYNC_RESTART_FAILED_DELETE =

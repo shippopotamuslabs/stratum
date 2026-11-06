@@ -13,6 +13,7 @@ import com.stratum.application.auth.LogoutResult
 import com.stratum.application.auth.LogoutUseCase
 import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.application.sync.CloudSyncDiagnostic
+import com.stratum.application.sync.CloudSyncOutcome
 import com.stratum.domain.sync.CloudSessionState
 import com.stratum.application.sync.ObserveCloudSessionStateUseCase
 import com.stratum.application.sync.StartCloudSyncUseCase
@@ -111,7 +112,10 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch {
             val uid = authenticatedUserId.value ?: return@launch
             signInError.value = null
-            startCloudSync(uid)
+            val outcome = startCloudSync(uid)
+            if (outcome is CloudSyncOutcome.Failed) {
+                drainSyncDiagnostics(outcome.diagnostics, "start failed")
+            }
         }
     }
 
@@ -121,14 +125,43 @@ class MainViewModel @Inject constructor(
             val result = logout()
             if (result !is LogoutResult.Success) {
                 when (result) {
-                    is LogoutResult.WipeFailed ->
+                    is LogoutResult.WipeFailed -> {
+                        // STR-238: the primary wipe failure drains here too,
+                        // exactly once, alongside the compensating restart's.
+                        drainSyncDiagnostics(result.wipeDiagnostics, "endSessionAndWipe failed")
                         drainRestartDiagnostics(result.restartDiagnostics)
+                    }
                     is LogoutResult.SignOutFailed ->
                         drainRestartDiagnostics(result.restartDiagnostics)
                     LogoutResult.Success -> Unit
                 }
                 // Keep shell copy non-technical.
                 signInError.value = "Couldn't sign out. Try again."
+            }
+        }
+    }
+
+    /**
+     * STR-238: drains a sync operation's failure diagnostics exactly once,
+     * each rendered with the sync adapter's tag/message shape for that
+     * operation ([operation] is "start failed" or "endSessionAndWipe
+     * failed") so the record matches the adapter's legacy log line for the
+     * same failure.
+     */
+    private fun drainSyncDiagnostics(
+        diagnostics: List<CloudSyncDiagnostic>,
+        operation: String,
+    ) {
+        diagnostics.forEach { diagnostic ->
+            when (diagnostic) {
+                is CloudSyncDiagnostic.OperationFailed ->
+                    diagnosticDrain.drain(
+                        OperationalDiagnostic(
+                            tag = TAG_SYNC_ADAPTER,
+                            message = "$operation: ${diagnostic.cause.message}",
+                            cause = diagnostic.cause,
+                        ),
+                    )
             }
         }
     }
@@ -151,6 +184,9 @@ class MainViewModel @Inject constructor(
 
     private companion object {
         const val TAG_AUTH = "ShellAuth"
+
+        /** The sync adapter's log tag — sync-failure records keep its shape. */
+        const val TAG_SYNC_ADAPTER = "FirestoreCloudSync"
         const val MSG_SYNC_RESTART_FAILED = "Cloud sync restart failed after sign-out failure."
     }
 

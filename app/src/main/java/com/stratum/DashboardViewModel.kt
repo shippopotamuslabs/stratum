@@ -11,6 +11,7 @@ import com.stratum.domain.dashboard.LIFT_E1RM_SLOPE_THRESHOLD
 import com.stratum.domain.dashboard.LiftSeries
 import com.stratum.app.DiagnosticDrain
 import com.stratum.application.dashboard.DashboardPreferenceResult
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.application.dashboard.LoadDashboardResult
 import com.stratum.application.dashboard.LoadDashboardUseCase
 import com.stratum.application.dashboard.LoadGraphDetailResult
@@ -34,6 +35,8 @@ import com.stratum.domain.lift.WeightConversion
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.shortLabel
 import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.application.sync.CloudSyncDiagnostic
+import com.stratum.application.sync.CloudSyncOutcome
 import com.stratum.application.sync.ObserveCloudSyncStatusUseCase
 import com.stratum.application.sync.RequestCloudSyncUseCase
 import com.stratum.domain.sync.SyncStatus
@@ -208,7 +211,10 @@ class DashboardViewModel(
         if (_isRefreshing.value) return
         _isRefreshing.value = true
         viewModelScope.launch {
-            requestCloudSync()
+            val outcome = requestCloudSync()
+            if (outcome is CloudSyncOutcome.Failed) {
+                drainSyncDiagnostics(outcome.diagnostics)
+            }
         }
         load()
         val boardJob = loadJob
@@ -294,6 +300,29 @@ class DashboardViewModel(
             logHealthDiagnostics(pages.diagnostics)
             lastHealthPages = pages
             publishHealth(pages)
+        }
+    }
+
+    /**
+     * STR-238: a UI-triggered sync pass that fails is drained here exactly
+     * once — this ViewModel invoked the pass, so it is the pass's recording
+     * boundary. Each diagnostic renders with the sync adapter's tag/message
+     * shape for a requestSync failure so the record matches the adapter's
+     * legacy log line for the same failure. Diagnostics are log-only —
+     * never surfaced in the UI.
+     */
+    private fun drainSyncDiagnostics(diagnostics: List<CloudSyncDiagnostic>) {
+        diagnostics.forEach { diagnostic ->
+            when (diagnostic) {
+                is CloudSyncDiagnostic.OperationFailed ->
+                    diagnosticDrain.drain(
+                        OperationalDiagnostic(
+                            tag = TAG_SYNC_ADAPTER,
+                            message = "requestSync failed: ${diagnostic.cause.message}",
+                            cause = diagnostic.cause,
+                        ),
+                    )
+            }
         }
     }
 
@@ -522,6 +551,9 @@ internal fun formatHardSetAmount(hardSets: Double): String {
 }
 
 private const val HARD_SET_EPS = 1e-9
+
+/** The sync adapter's log tag — UI-triggered sync-failure records keep its shape. */
+private const val TAG_SYNC_ADAPTER = "FirestoreCloudSync"
 
 /**
  * Compact weekday for mini-card X-axis. Thursday = R (avoids clashing with Tuesday T);

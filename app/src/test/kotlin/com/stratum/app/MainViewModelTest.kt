@@ -22,6 +22,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -170,12 +171,13 @@ class MainViewModelTest {
     }
 
     @Test
-    @DisplayName("When sign-out and restart fail then restart is logged once and shell stays generic")
-    fun signOutAndRestartFailureLogsRestartOnce() = runTest {
+    @DisplayName("When sign-out and restart fail then wipe and restart are each logged once and shell stays generic")
+    fun signOutAndRestartFailureLogsWipeAndRestartOnceEach() = runTest {
         fakeAuth.setState(
             AuthState.Authenticated(UserProfile("uid-1", "A", "a@x.com", null)),
         )
-        fakeCloudSync.wipeFailure = IllegalStateException("wipe failed")
+        val wipeError = IllegalStateException("wipe failed")
+        fakeCloudSync.wipeFailure = wipeError
         val restartError = IllegalStateException("restart failed")
         fakeCloudSync.startFailure = restartError
         subject = buildViewModel()
@@ -184,8 +186,16 @@ class MainViewModelTest {
         subject.onSignOutFromShell()
         advanceUntilIdle()
 
-        assertEquals(1, loggingPort.errors.size)
-        assertEquals(restartError, loggingPort.errors.single().throwable)
+        // STR-238: the primary wipe failure now drains at this boundary too —
+        // exactly one wipe record (adapter shape, real cause) in addition to
+        // the STR-256 restart record's exactly one.
+        assertEquals(2, loggingPort.errors.size)
+        val wipeRecord = loggingPort.errors.single { it.throwable == wipeError }
+        assertEquals("FirestoreCloudSync", wipeRecord.tag)
+        assertEquals("endSessionAndWipe failed: wipe failed", wipeRecord.message)
+        assertSame(wipeError, wipeRecord.throwable)
+        val restartRecords = loggingPort.errors.filter { it.throwable == restartError }
+        assertEquals(1, restartRecords.size)
     }
 
     @Test
@@ -206,5 +216,30 @@ class MainViewModelTest {
         assertEquals(1, fakeCloudSync.startCount)
         assertEquals("uid-1", fakeCloudSync.startedUserId)
         assertEquals(ShellUiState.Ready, subject.shellUiState.value)
+    }
+
+    @Test
+    @DisplayName("When retry session start fails then the failed pass is logged exactly once")
+    fun retrySessionStartFailureLogsOnce() = runTest {
+        fakeAuth.setState(
+            AuthState.Authenticated(UserProfile("uid-1", "A", "a@x.com", null)),
+        )
+        fakeCloudSync.setSessionState(
+            CloudSessionState.Failed("uid-1", "hydrate failed"),
+        )
+        val startError = IllegalStateException("start boom")
+        fakeCloudSync.startFailure = startError
+        subject = buildViewModel()
+        advanceUntilIdle()
+
+        subject.onRetrySession()
+        advanceUntilIdle()
+
+        // STR-238: the invoking boundary records the failed start pass
+        // exactly once, in the sync adapter's tag/message shape.
+        assertEquals(1, loggingPort.errors.size)
+        assertEquals("FirestoreCloudSync", loggingPort.errors.single().tag)
+        assertEquals("start failed: start boom", loggingPort.errors.single().message)
+        assertSame(startError, loggingPort.errors.single().throwable)
     }
 }

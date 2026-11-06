@@ -143,14 +143,24 @@ class DeleteAccountUseCaseTest {
         val user = UserProfile("uid-1", "A", "a@example.com", null)
         val auth = FakeAuthManager(AuthState.Authenticated(user))
         val remote = FakeAccountDeletionPort()
+        val wipeError = IllegalStateException("wipe failed")
         val port = FakeCloudSyncPort().apply {
-            wipeFailure = IllegalStateException("wipe failed")
+            wipeFailure = wipeError
         }
         val subject = buildSubject(auth, remote, port)
 
         val result = subject()
 
-        assertEquals(DeleteAccountResult.LocalCleanupFailed, result)
+        assertTrue(result is DeleteAccountResult.LocalCleanupFailed)
+        // STR-238: the primary wipe failure's diagnostics ride the branch,
+        // carrying the real cause for the boundary's exactly-once drain.
+        val wipeDiagnostics =
+            (result as DeleteAccountResult.LocalCleanupFailed).wipeDiagnostics
+        assertEquals(1, wipeDiagnostics.size)
+        assertSame(
+            wipeError,
+            (wipeDiagnostics.single() as CloudSyncDiagnostic.OperationFailed).cause,
+        )
         assertEquals(1, remote.deleteDataCount)
         assertEquals(0, remote.deleteAuthCount)
         // Must not restart sync after cloud data is already gone (would re-upload).

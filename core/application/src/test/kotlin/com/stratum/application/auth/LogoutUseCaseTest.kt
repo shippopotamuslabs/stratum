@@ -58,8 +58,9 @@ class LogoutUseCaseTest {
     fun wipeFailureRestartsSync() = runTest {
         val user = UserProfile("uid-1", "A", "a@example.com", null)
         val auth = FakeAuthManager(AuthState.Authenticated(user))
+        val wipeError = IllegalStateException("wipe failed")
         val port = FakeCloudSyncPort().apply {
-            wipeFailure = IllegalStateException("wipe failed")
+            wipeFailure = wipeError
         }
         val subject = buildSubject(auth, port)
 
@@ -70,6 +71,14 @@ class LogoutUseCaseTest {
         assertEquals(
             emptyList<CloudSyncDiagnostic>(),
             (result as LogoutResult.WipeFailed).restartDiagnostics,
+        )
+        // STR-238: the primary wipe failure's diagnostics ride the branch,
+        // carrying the real cause for the boundary's exactly-once drain.
+        val wipeDiagnostics = (result as LogoutResult.WipeFailed).wipeDiagnostics
+        assertEquals(1, wipeDiagnostics.size)
+        assertSame(
+            wipeError,
+            (wipeDiagnostics.single() as CloudSyncDiagnostic.OperationFailed).cause,
         )
         assertEquals(listOf("wipe", "start"), port.callOrder)
         assertEquals(0, auth.signOutCount)
@@ -105,9 +114,10 @@ class LogoutUseCaseTest {
     fun wipeFailureAndRestartFailureCarriesDiagnostic() = runTest {
         val user = UserProfile("uid-1", "A", "a@example.com", null)
         val auth = FakeAuthManager(AuthState.Authenticated(user))
+        val wipeError = IllegalStateException("wipe failed")
         val restartError = IllegalStateException("restart failed")
         val port = FakeCloudSyncPort().apply {
-            wipeFailure = IllegalStateException("wipe failed")
+            wipeFailure = wipeError
             startFailure = restartError
         }
         val subject = buildSubject(auth, port)
@@ -120,6 +130,14 @@ class LogoutUseCaseTest {
         assertSame(
             restartError,
             (diagnostics.single() as CloudSyncDiagnostic.OperationFailed).cause,
+        )
+        // STR-238: the wipe failure's own diagnostics ride alongside the
+        // restart's, each carrying its own real cause.
+        val wipeDiagnostics = (result as LogoutResult.WipeFailed).wipeDiagnostics
+        assertEquals(1, wipeDiagnostics.size)
+        assertSame(
+            wipeError,
+            (wipeDiagnostics.single() as CloudSyncDiagnostic.OperationFailed).cause,
         )
         assertEquals(0, auth.signOutCount)
         assertTrue(auth.authState.value is AuthState.Authenticated)

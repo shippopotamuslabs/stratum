@@ -436,7 +436,8 @@ class SettingsViewModelTest {
     @Test
     @DisplayName("When logout fails then userMessage is set and in-flight clears")
     fun logoutFailureSurfacesMessage() = runTest {
-        fakeCloudSync.wipeFailure = IllegalStateException("wipe failed")
+        val wipeError = IllegalStateException("wipe failed")
+        fakeCloudSync.wipeFailure = wipeError
         subject = buildViewModel()
 
         subject.onLogoutClick()
@@ -447,15 +448,20 @@ class SettingsViewModelTest {
         assertEquals(0, fakeAuth.signOutCount)
         assertEquals("Couldn't sign out. Try again.", subject.userMessage.value)
         assertFalse(subject.uiState.value.isLoggingOut)
-        // Clean restart: nothing extra is logged.
-        assertTrue(loggingPort.errors.isEmpty())
+        // STR-238: the primary wipe failure is logged exactly once at this
+        // boundary (adapter shape, real cause); the clean restart adds none.
+        assertEquals(1, loggingPort.errors.size)
+        assertEquals("FirestoreCloudSync", loggingPort.errors.single().tag)
+        assertEquals("endSessionAndWipe failed: wipe failed", loggingPort.errors.single().message)
+        assertSame(wipeError, loggingPort.errors.single().throwable)
     }
 
     @Test
-    @DisplayName("When logout and restart fail then restart is logged once and message stays generic")
-    fun logoutAndRestartFailureLogsRestartOnce() = runTest {
+    @DisplayName("When logout and restart fail then wipe and restart are each logged once and message stays generic")
+    fun logoutAndRestartFailureLogsWipeAndRestartOnceEach() = runTest {
+        val wipeError = IllegalStateException("wipe failed")
         val restartError = IllegalStateException("restart failed")
-        fakeCloudSync.wipeFailure = IllegalStateException("wipe failed")
+        fakeCloudSync.wipeFailure = wipeError
         fakeCloudSync.startFailure = restartError
         subject = buildViewModel()
 
@@ -465,8 +471,10 @@ class SettingsViewModelTest {
 
         assertEquals(0, fakeAuth.signOutCount)
         assertEquals("Couldn't sign out. Try again.", subject.userMessage.value)
-        assertEquals(1, loggingPort.errors.size)
-        assertEquals(restartError, loggingPort.errors.single().throwable)
+        // STR-238 + STR-256: one wipe record and one restart record.
+        assertEquals(2, loggingPort.errors.size)
+        assertEquals(1, loggingPort.errors.count { it.throwable == wipeError })
+        assertEquals(1, loggingPort.errors.count { it.throwable == restartError })
         assertFalse(subject.uiState.value.isLoggingOut)
     }
 
@@ -597,7 +605,8 @@ class SettingsViewModelTest {
     @Test
     @DisplayName("When local wipe fails after cloud data delete then local-cleanup guidance snackbar")
     fun deleteAccountLocalCleanupFailureSurfacesGuidance() = runTest {
-        fakeCloudSync.wipeFailure = IllegalStateException("wipe failed")
+        val wipeError = IllegalStateException("wipe failed")
+        fakeCloudSync.wipeFailure = wipeError
         subject = buildViewModel()
 
         subject.onDeleteAccountClick()
@@ -607,6 +616,12 @@ class SettingsViewModelTest {
         assertEquals(1, fakeAccountDeletion.deleteDataCount)
         assertEquals(0, fakeAccountDeletion.deleteAuthCount)
         assertEquals(0, fakeAuth.signOutCount)
+        // STR-238: the primary wipe failure is logged exactly once at this
+        // boundary (adapter shape, real cause).
+        assertEquals(1, loggingPort.errors.size)
+        assertEquals("FirestoreCloudSync", loggingPort.errors.single().tag)
+        assertEquals("endSessionAndWipe failed: wipe failed", loggingPort.errors.single().message)
+        assertSame(wipeError, loggingPort.errors.single().throwable)
         assertTrue(fakeAuth.authState.value is AuthState.Authenticated)
         assertTrue(
             subject.userMessage.value?.contains("clear the app") == true ||
