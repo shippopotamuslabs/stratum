@@ -60,11 +60,20 @@ sealed interface GenerateProgramResult {
      * (STR-238, following the STR-237 Special-1 precedent for [Unexpected]).
      * The create-program boundary keeps its ExpectedFailure classification
      * for this branch and makes no error record from the diagnostics.
+     * [diagnostics] is non-empty by construction (Thermos round 1): a
+     * branch that carried no diagnostic would drain to zero records at
+     * the onboarding boundary.
      */
     data class SynthesisFailed(
         val message: String,
-        val diagnostics: List<GenerationFailureDiagnostic> = emptyList(),
-    ) : GenerateProgramResult
+        val diagnostics: List<GenerationFailureDiagnostic>,
+    ) : GenerateProgramResult {
+        init {
+            require(diagnostics.isNotEmpty()) {
+                "GenerateProgramResult.SynthesisFailed requires at least one diagnostic."
+            }
+        }
+    }
 
     /**
      * An unbounded operational failure inside generation. The branch carries

@@ -30,8 +30,9 @@ interface AuthManager {
  * for unclassified failures (the shipped message-carrying pattern, cf.
  * `BillingPurchaseResult.Failed`), and — STR-238 — the failure as §10
  * [diagnostics] carrying the real cause for the terminal boundary's
- * exactly-once drain (empty when the failure has no throwable to carry,
- * e.g. a purely classified failure constructed above the adapter).
+ * exactly-once drain. [Failed.diagnostics] is non-empty by construction
+ * (Thermos round 1): a failure branch that carried no diagnostic would
+ * drain to zero records at the boundary.
  */
 sealed interface LoginWithGoogleResult {
     data class Success(val profile: UserProfile) : LoginWithGoogleResult
@@ -39,8 +40,14 @@ sealed interface LoginWithGoogleResult {
     data class Failed(
         val kind: SignInFailureKind,
         val message: String?,
-        val diagnostics: List<OperationalDiagnostic> = emptyList(),
-    ) : LoginWithGoogleResult
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : LoginWithGoogleResult {
+        init {
+            require(diagnostics.isNotEmpty()) {
+                "LoginWithGoogleResult.Failed requires at least one diagnostic."
+            }
+        }
+    }
 }
 
 /** Outcome of a Firebase sign-out attempt at the [AuthManager] port. */

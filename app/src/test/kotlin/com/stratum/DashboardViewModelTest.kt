@@ -357,6 +357,24 @@ class DashboardViewModelTest {
     }
 
     @Test
+    @DisplayName("refresh does not record a not-started sync pass")
+    fun refreshDoesNotRecordNotStartedSyncPass() = runTest {
+        val cloudSync = FakeCloudSyncPort()
+        cloudSync.requestFailure =
+            com.stratum.core.infrastructure.work.CloudSyncNotStartedException()
+        val logging = FakeLoggingPort()
+        val viewModel = buildViewModel(cloudSync = cloudSync, logging = logging)
+        advanceUntilIdle()
+
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        // Thermos round 1: the not-started condition mirrors
+        // CloudSyncWorker's no-op success classification — zero records.
+        assertTrue(logging.errors.isEmpty())
+    }
+
+    @Test
     @DisplayName("openLiftGraph loads full history into Ready detail state")
     fun openLiftGraphReady() = runTest {
         val benchId = LiftId("bench")

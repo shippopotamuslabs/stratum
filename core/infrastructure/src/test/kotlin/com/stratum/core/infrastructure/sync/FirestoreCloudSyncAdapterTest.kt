@@ -88,6 +88,47 @@ class FirestoreCloudSyncAdapterTest {
     }
 
     @Test
+    @DisplayName("Given hydrated local data when start push/pull fails then Success and adapter records the failure exactly once")
+    fun startPushPullFailureOnHydratedPathRecordsOnceAtAdapter() = runTest {
+        val pushPullFailure = IllegalStateException("push failed")
+        val logging = FakeLoggingPort()
+
+        val stateStore = mockk<FirestoreSyncStateStore> {
+            coEvery { lastSyncedUserId() } returns "uid-1"
+            coEvery { setLastSyncedUserId(any()) } returns Unit
+            coEvery { isHydrated(any()) } returns true
+        }
+        val uploadEngine = mockk<FirestorePendingUploadEngine> {
+            coEvery { uploadUntilIdle(any(), any()) } returns Result.failure(pushPullFailure)
+        }
+        val subject = FirestoreCloudSyncAdapter(
+            stateStore = stateStore,
+            uploadEngine = uploadEngine,
+            pullEngine = mockk(relaxed = true),
+            userOwnedDataClearer = mockk(relaxed = true),
+            writeCoordinator = UserOwnedWriteCoordinator(),
+            catalogSeedGate = LiftCatalogSeedGate().apply { complete() },
+            cloudSyncScheduler = mockk(relaxed = true),
+            featureGate = DefaultCloudSyncFeatureGate().apply { setEnabledForTests(true) },
+            rebuildLocalDerivedTrainingData = mockk<RebuildLocalDerivedTrainingDataUseCase>(relaxed = true),
+            loggingPort = logging,
+            ioDispatcher = Dispatchers.Unconfined,
+        )
+
+        // Hydrated/Ready start: the shell stays open (Success), so no
+        // boundary ever sees a Failed outcome to drain — the adapter's
+        // own record (Thermos round 1, A2) is the failure's only record.
+        val outcome = subject.start("uid-1")
+
+        assertTrue(outcome is com.stratum.application.sync.CloudSyncOutcome.Success)
+        assertEquals(1, logging.errors.size)
+        val record = logging.errors.single()
+        assertEquals("FirestoreCloudSync", record.tag)
+        assertEquals("start push/pull failed: push failed", record.message)
+        assertSame(pushPullFailure, record.throwable)
+    }
+
+    @Test
     @DisplayName("Given push/pull throws an Error when start then Failed outcome carries it instead of throwing")
     fun startPushPullErrorBecomesFailedOutcome() = runTest {
         val pushPullFailure = PushPullError("native blew up")

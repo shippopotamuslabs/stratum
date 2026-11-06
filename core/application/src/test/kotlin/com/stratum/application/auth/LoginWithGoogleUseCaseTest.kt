@@ -27,14 +27,30 @@ class LoginWithGoogleUseCaseTest {
 
     @Test
     fun `classified sign in failure returns failed branch with kind and message`() = runTest {
+        // Thermos round 1: Failed diagnostics are non-empty — the
+        // classified failure carries the vendor exception it was
+        // classified from (an IOException, the Network classification's
+        // real source at the adapter) as its diagnostic cause.
+        val cause = java.io.IOException("network unreachable")
         val fake = FakeAuthManager().apply {
             signInFailureKind = SignInFailureKind.Network
             signInFailureMessage = "network unreachable"
+            signInFailureCause = cause
         }
         val subject = LoginWithGoogleUseCase(fake)
         val result = subject()
         assertEquals(
-            LoginWithGoogleResult.Failed(SignInFailureKind.Network, "network unreachable"),
+            LoginWithGoogleResult.Failed(
+                SignInFailureKind.Network,
+                "network unreachable",
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = "StratumGoogleAuth",
+                        message = "Google sign-in failed: network unreachable",
+                        cause = cause,
+                    ),
+                ),
+            ),
             result,
         )
     }

@@ -135,6 +135,18 @@ class FirestoreCloudSyncAdapter @Inject constructor(
                     }
                     if (localAlreadyUsable || _sessionState.value is CloudSessionState.Ready) {
                         // Keep shell open; background worker retries residual/network work.
+                        // Thermos round 1 (A2): this swallow-to-Success branch
+                        // has no Failed outcome for a boundary to drain, so —
+                        // like the B12 recovery-enqueue record above, which
+                        // also has no outcome path — the adapter records this
+                        // failure itself, exactly once, in the legacy shape.
+                        // Every other start failure returns Failed unrecorded
+                        // here; the boundary drains own those.
+                        loggingPort.error(
+                            TAG,
+                            "start push/pull failed: ${error.message}",
+                            error,
+                        )
                         return@withLock CloudSyncOutcome.Success
                     }
                     _sessionState.value =

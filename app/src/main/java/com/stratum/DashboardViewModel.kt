@@ -37,6 +37,7 @@ import com.stratum.domain.lift.shortLabel
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.application.sync.CloudSyncDiagnostic
 import com.stratum.application.sync.CloudSyncOutcome
+import com.stratum.core.infrastructure.work.CloudSyncNotStartedException
 import com.stratum.application.sync.ObserveCloudSyncStatusUseCase
 import com.stratum.application.sync.RequestCloudSyncUseCase
 import com.stratum.domain.sync.SyncStatus
@@ -314,7 +315,13 @@ class DashboardViewModel(
     private fun drainSyncDiagnostics(diagnostics: List<CloudSyncDiagnostic>) {
         diagnostics.forEach { diagnostic ->
             when (diagnostic) {
-                is CloudSyncDiagnostic.OperationFailed ->
+                is CloudSyncDiagnostic.OperationFailed -> {
+                    // Mirror CloudSyncWorker's classification
+                    // (classifySyncWork → NotStarted → no-op success): a
+                    // not-started pass (no active session) is not an error
+                    // and records nothing — pre-STR-238 this branch was
+                    // returned unlogged.
+                    if (diagnostic.cause is CloudSyncNotStartedException) return@forEach
                     diagnosticDrain.drain(
                         OperationalDiagnostic(
                             tag = TAG_SYNC_ADAPTER,
@@ -322,6 +329,7 @@ class DashboardViewModel(
                             cause = diagnostic.cause,
                         ),
                     )
+                }
             }
         }
     }

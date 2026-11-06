@@ -32,7 +32,7 @@ class FakeAuthManager(
      * signing in: the throwable maps to [SignInFailureKind.Other] with its
      * message. A [CancellationException] still throws — cancellation is never
      * an outcome branch. For a classified failure, set [signInFailureKind] /
-     * [signInFailureMessage] instead.
+     * [signInFailureMessage] / [signInFailureCause] instead.
      */
     var signInFailure: Throwable? = null
 
@@ -41,6 +41,16 @@ class FakeAuthManager(
 
     /** Message carried alongside [signInFailureKind]. */
     var signInFailureMessage: String? = null
+
+    /**
+     * The classified vendor exception the classified failure in
+     * [signInFailureKind] stands for — the fake's analogue of the real
+     * throwable the production adapter holds when it classifies a failure
+     * (Thermos round 1: [LoginWithGoogleResult.Failed] diagnostics are
+     * non-empty, so a classified failure must carry its cause). Required
+     * when [signInFailureKind] is set.
+     */
+    var signInFailureCause: Throwable? = null
 
     fun setState(next: AuthState) {
         state.value = next
@@ -66,8 +76,22 @@ class FakeAuthManager(
         }
         val classifiedKind = signInFailureKind
         if (classifiedKind != null) {
+            val cause = requireNotNull(signInFailureCause) {
+                "signInFailureKind requires signInFailureCause: the classified " +
+                    "vendor exception the failure carries as its diagnostic cause."
+            }
             state.value = AuthState.Error(classifiedKind, signInFailureMessage ?: "")
-            return LoginWithGoogleResult.Failed(classifiedKind, signInFailureMessage)
+            return LoginWithGoogleResult.Failed(
+                kind = classifiedKind,
+                message = signInFailureMessage,
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = "StratumGoogleAuth",
+                        message = "Google sign-in failed: ${cause.message}",
+                        cause = cause,
+                    ),
+                ),
+            )
         }
         val user = UserProfile("uid-test", "Test User", "test@example.com", null)
         state.value = AuthState.Authenticated(user)
