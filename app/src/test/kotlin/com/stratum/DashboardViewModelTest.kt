@@ -721,7 +721,6 @@ class DashboardViewModelTest {
             loadHealthConnectMetrics = LoadHealthConnectMetricsUseCase(
                 healthConnectMetrics,
                 healthConnectPreferences,
-                FakeLoggingPort(),
             ),
             requestCloudSync = RequestCloudSyncUseCase(cloudSync),
             diagnosticDrain = DiagnosticDrain(logging),

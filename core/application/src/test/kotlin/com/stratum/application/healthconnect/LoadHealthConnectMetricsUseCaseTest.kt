@@ -2,7 +2,6 @@ package com.stratum.application.healthconnect
 
 import com.stratum.core.testing.healthconnect.FakeHealthConnectMetricsPort
 import com.stratum.core.testing.healthconnect.FakeHealthConnectPreferencesRepository
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.domain.healthconnect.HealthFailureKind
 import com.stratum.domain.lift.Weight
 import java.time.Duration
@@ -44,15 +43,13 @@ class LoadHealthConnectMetricsUseCaseTest {
 
     private lateinit var prefs: FakeHealthConnectPreferencesRepository
     private lateinit var metrics: FakeHealthConnectMetricsPort
-    private lateinit var logging: FakeLoggingPort
     private lateinit var load: LoadHealthConnectMetricsUseCase
 
     @BeforeEach
     fun setup() {
         prefs = FakeHealthConnectPreferencesRepository()
         metrics = FakeHealthConnectMetricsPort()
-        logging = FakeLoggingPort()
-        load = LoadHealthConnectMetricsUseCase(metrics, prefs, logging)
+        load = LoadHealthConnectMetricsUseCase(metrics, prefs)
     }
 
     @Test
@@ -911,7 +908,12 @@ class LoadHealthConnectMetricsUseCaseTest {
 
         assertTrue(pages.visible)
         assertEquals(
-            listOf(HealthConnectDiagnostic.SnapshotReadFailed(HealthFailureKind.Unknown)),
+            listOf(
+                HealthConnectDiagnostic.SnapshotReadFailed(
+                    kind = HealthFailureKind.Unknown,
+                    cause = cause,
+                ),
+            ),
             pages.diagnostics,
         )
         val expected = assembleHealthMetricsPages(
@@ -923,23 +925,21 @@ class LoadHealthConnectMetricsUseCaseTest {
     }
 
     @Test
-    @DisplayName("STR-268: snapshot read failure logs the cause exactly once")
-    fun readFailureLogsCauseOnce() = runTest {
+    @DisplayName("STR-237 AQ1: snapshot read failure carries the real cause on the diagnostic")
+    fun readFailureCarriesRealCauseOnDiagnostic() = runTest {
         prefs.setPreferences(HealthConnectPreferences(enabled = true))
         metrics.granted = setOf(HealthMetricType.Steps, HealthMetricType.Weight)
         val cause = IllegalStateException("sdk blip")
         metrics.readSnapshotFailure = cause
 
-        load(zone, now)
+        val pages = load(zone, now)
 
-        assertEquals(1, logging.errors.size)
-        val entry = logging.errors.single()
-        assertEquals(HEALTH_CONNECT_METRICS_TAG, entry.tag)
-        assertEquals(
-            "Failed to read Health Connect snapshot — dashboard shows empty metrics",
-            entry.message,
-        )
-        assertSame(cause, entry.throwable)
+        // The use case records nothing itself; the carried cause is recorded
+        // exactly once at the dashboard boundary drain (asserted in the
+        // DashboardHealthViewModelTest read-failure test).
+        val diagnostic = pages.diagnostics.single() as HealthConnectDiagnostic.SnapshotReadFailed
+        assertEquals(HealthFailureKind.Unknown, diagnostic.kind)
+        assertSame(cause, diagnostic.cause)
     }
 
     @Test
@@ -956,7 +956,6 @@ class LoadHealthConnectMetricsUseCaseTest {
 
         assertTrue(pages.visible)
         assertTrue(pages.diagnostics.isEmpty())
-        assertTrue(logging.errors.isEmpty())
     }
 
     @Test
@@ -967,7 +966,6 @@ class LoadHealthConnectMetricsUseCaseTest {
         metrics.readSnapshotFailure = CancellationException("cancelled")
 
         assertThrows<CancellationException> { load(zone, now) }
-        assertTrue(logging.errors.isEmpty())
     }
 
     private fun kg(amount: Double): Weight = Weight(amount, Weight.WeightUnit.Kg)

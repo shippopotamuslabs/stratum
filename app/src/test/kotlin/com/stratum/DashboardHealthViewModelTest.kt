@@ -219,30 +219,30 @@ class DashboardHealthViewModelTest {
     }
 
     @Test
-    @DisplayName("STR-268 AQ1: snapshot read failure logs once at the catch; the drain logs nothing")
-    fun readFailureLogsOnceAtCatchAndDrainLogsNothing() = runTest {
+    @DisplayName("STR-237 AQ1: snapshot read failure logs exactly once at the dashboard drain")
+    fun readFailureLogsOnceAtDashboardDrain() = runTest {
         val healthPrefs = FakeHealthConnectPreferencesRepository()
         healthPrefs.setPreferences(HealthConnectPreferences(enabled = true))
         val metrics = FakeHealthConnectMetricsPort()
         metrics.granted = setOf(HealthMetricType.Steps)
         val cause = IllegalStateException("sdk blip")
         metrics.readSnapshotFailure = cause
-        val metricsLogging = FakeLoggingPort()
+        val drainLogging = FakeLoggingPort()
         val viewModel = buildViewModel(
             healthConnectPreferences = healthPrefs,
             healthConnectMetrics = metrics,
-            metricsLogging = metricsLogging,
+            drainLogging = drainLogging,
         )
         advanceUntilIdle()
-        // Init settles its own loads; one explicit load must log exactly once, at the catch.
-        metricsLogging.errors.clear()
+        // Init settles its own loads; one explicit load must log exactly once, at the drain.
+        drainLogging.errors.clear()
         viewModel.load()
         advanceUntilIdle()
 
-        // STR-268 AQ1: the drain produces no log for SnapshotReadFailed; the single error
-        // is the use-case catch log carrying the cause.
-        assertEquals(1, metricsLogging.errors.size)
-        val logged = metricsLogging.errors.single()
+        // AQ1 ruling (2026-11-06): the use case records nothing; the single error
+        // is the dashboard drain record carrying the real cause from the diagnostic.
+        assertEquals(1, drainLogging.errors.size)
+        val logged = drainLogging.errors.single()
         assertEquals("HealthConnectMetrics", logged.tag)
         assertEquals(
             "Failed to read Health Connect snapshot — dashboard shows empty metrics",
@@ -260,7 +260,7 @@ class DashboardHealthViewModelTest {
         healthConnectMetrics: FakeHealthConnectMetricsPort = FakeHealthConnectMetricsPort(),
         weightDisplayPreferences: FakeWeightDisplayPreferencesRepository =
             FakeWeightDisplayPreferencesRepository(),
-        metricsLogging: FakeLoggingPort = FakeLoggingPort(),
+        drainLogging: FakeLoggingPort = FakeLoggingPort(),
         now: Instant? = null,
     ): DashboardViewModel {
         val program = WorkoutLoggingFixtures.twoWorkoutProgram()
@@ -293,10 +293,9 @@ class DashboardHealthViewModelTest {
             loadHealthConnectMetrics = LoadHealthConnectMetricsUseCase(
                 healthConnectMetrics,
                 healthConnectPreferences,
-                metricsLogging,
             ),
             requestCloudSync = RequestCloudSyncUseCase(FakeCloudSyncPort()),
-            diagnosticDrain = DiagnosticDrain(FakeLoggingPort()),
+            diagnosticDrain = DiagnosticDrain(drainLogging),
             zone = testZone,
             clock = { now ?: Instant.now() },
         )

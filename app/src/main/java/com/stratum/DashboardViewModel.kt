@@ -25,6 +25,7 @@ import com.stratum.domain.dashboard.olsSlope
 import com.stratum.domain.dashboard.slopeToDirection
 import com.stratum.domain.healthconnect.HealthConnectDiagnostic
 import com.stratum.domain.health.HealthMetricsPages
+import com.stratum.application.healthconnect.HEALTH_CONNECT_METRICS_TAG
 import com.stratum.application.healthconnect.LoadHealthConnectMetricsUseCase
 import com.stratum.application.healthconnect.ObserveHealthConnectPreferencesUseCase
 import com.stratum.application.lift.ObserveWeightDisplayPreferencesUseCase
@@ -298,17 +299,20 @@ class DashboardViewModel(
 
     /**
      * STR-257: single drain for metrics-load diagnostics. Diagnostics are log-only —
-     * never surfaced in the UI. `SnapshotReadFailed` is intentionally not logged here:
-     * the cause was already logged once where it was caught, in the use-case catch
-     * (STR-268 AQ1), so a second error here would double-report the same failure.
-     * The drain call site stays for future variants.
+     * never surfaced in the UI. This drain is the single recorder for
+     * `SnapshotReadFailed` (AQ1 ruling, 2026-11-06, amending STR-268): the cause
+     * rides the diagnostic from the use case, which records nothing, and is recorded
+     * exactly once here at the dashboard boundary.
      */
     internal fun logHealthDiagnostics(diagnostics: List<HealthConnectDiagnostic>) {
         for (diagnostic in diagnostics) {
             when (diagnostic) {
-                // STR-268 AQ1: cause + empty-metrics context already logged once at the
-                // catch; nothing further to log for this variant.
-                is HealthConnectDiagnostic.SnapshotReadFailed -> Unit
+                is HealthConnectDiagnostic.SnapshotReadFailed ->
+                    diagnosticDrain.recordError(
+                        HEALTH_CONNECT_METRICS_TAG,
+                        "Failed to read Health Connect snapshot — dashboard shows empty metrics",
+                        diagnostic.cause,
+                    )
             }
         }
     }
