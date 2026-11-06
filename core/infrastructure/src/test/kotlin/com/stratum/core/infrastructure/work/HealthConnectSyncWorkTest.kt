@@ -95,8 +95,8 @@ class HealthConnectSyncWorkTest {
     fun userActionableFailureIsTerminal() = runTest {
         seedCompletedSession()
         preferences.setPreferences(HealthConnectPreferences(enabled = true))
+        syncPort.pushFailure = IllegalStateException("Health Connect write permission is not granted")
         syncPort.pushFailureKind = HealthSyncFailureKind.UserActionable
-        syncPort.pushFailureMessage = "Health Connect write permission is not granted"
 
         val outcome = work.run(TrainingSessionId("ts-hc-1"))
 
@@ -125,7 +125,7 @@ class HealthConnectSyncWorkTest {
     fun cancellationFromPushPropagates() = runTest {
         seedCompletedSession()
         preferences.setPreferences(HealthConnectPreferences(enabled = true))
-        syncPort.pushThrows = kotlinx.coroutines.CancellationException("cancelled")
+        syncPort.pushFailure = kotlinx.coroutines.CancellationException("cancelled")
 
         org.junit.jupiter.api.assertThrows<kotlinx.coroutines.CancellationException> {
             work.run(TrainingSessionId("ts-hc-1"))

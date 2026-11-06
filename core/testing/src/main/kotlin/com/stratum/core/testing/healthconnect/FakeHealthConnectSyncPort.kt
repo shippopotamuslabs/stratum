@@ -19,13 +19,23 @@ class FakeHealthConnectSyncPort : HealthConnectSyncPort {
     /** When non-null, the granted-permissions query fails with this as its diagnostic cause. */
     var grantedPermissionsFailure: Throwable? = null
 
-    /** When non-null, push fails as Transient with this as its diagnostic cause. */
+    /**
+     * The single push-failure driver (shared fake convention): when non-null,
+     * [pushSession] returns its Failed branch with this throwable as the
+     * diagnostic cause — the configured throwable itself, never a synthesized
+     * substitute. A [CancellationException] still throws: cancellation is
+     * never an outcome branch, and it is the only value that throws from
+     * [pushSession].
+     */
     var pushFailure: Throwable? = null
 
-    /** When non-null, push throws this instead of returning an outcome (cancellation tests). */
-    var pushThrows: Throwable? = null
-
-    /** When non-null, push fails with this classification kind (and [pushFailureMessage]). */
+    /**
+     * Optional classification override pair for the [pushFailure] branch,
+     * consulted only when [pushFailure] is non-null: [pushFailureKind]
+     * replaces the default [HealthSyncFailureKind.Transient] classification,
+     * and a non-null [pushFailureMessage] replaces `pushFailure.message` as
+     * the branch message. The diagnostic cause is [pushFailure] either way.
+     */
     var pushFailureKind: HealthSyncFailureKind? = null
     var pushFailureMessage: String? = null
 
@@ -62,35 +72,30 @@ class FakeHealthConnectSyncPort : HealthConnectSyncPort {
         session: TrainingSession,
         sets: List<LoggedSet>,
     ): HealthConnectPushOutcome {
-        pushThrows?.let { failure ->
-            if (failure is CancellationException) throw failure
-        }
         pushFailure?.let { failure ->
             if (failure is CancellationException) throw failure
         }
+        // Documented check order, consistent with grantedPermissions() above:
+        // the configured failure field first, then availability state.
+        // The state-driven branches below have no configured throwable; their
+        // diagnostic cause is synthesized from the branch message, mirroring
+        // the production adapter's typed unavailable / permission-denied
+        // exceptions for the same states.
         val outcome = when {
+            pushFailure != null -> failedPush(
+                pushFailureKind ?: HealthSyncFailureKind.Transient,
+                pushFailureMessage ?: pushFailure!!.message,
+                pushFailure!!,
+            )
             !isAvailable -> failedPush(
                 HealthSyncFailureKind.Terminal,
                 HEALTH_SYNC_UNAVAILABLE_MESSAGE,
+                IllegalStateException(HEALTH_SYNC_UNAVAILABLE_MESSAGE),
             )
             !hasPermission -> failedPush(
                 HealthSyncFailureKind.UserActionable,
                 HEALTH_SYNC_PERMISSION_DENIED_MESSAGE,
-            )
-            pushThrows != null -> failedPush(
-                HealthSyncFailureKind.Transient,
-                pushThrows!!.message,
-                pushThrows,
-            )
-            pushFailureKind != null -> failedPush(
-                pushFailureKind!!,
-                pushFailureMessage,
-                IllegalStateException(pushFailureMessage),
-            )
-            pushFailure != null -> failedPush(
-                HealthSyncFailureKind.Transient,
-                pushFailure!!.message,
-                pushFailure,
+                IllegalStateException(HEALTH_SYNC_PERMISSION_DENIED_MESSAGE),
             )
             else -> {
                 pushedSessions.add(session to sets)
@@ -103,15 +108,13 @@ class FakeHealthConnectSyncPort : HealthConnectSyncPort {
     private fun failedPush(
         kind: HealthSyncFailureKind,
         message: String?,
-        cause: Throwable? = null,
+        cause: Throwable,
     ): HealthConnectPushOutcome.Failed =
         HealthConnectPushOutcome.Failed(
             kind = kind,
             message = message,
             diagnostics = listOf(
-                HealthSyncDiagnostic.OperationFailed(
-                    cause ?: IllegalStateException(message),
-                ),
+                HealthSyncDiagnostic.OperationFailed(cause),
             ),
         )
 }
