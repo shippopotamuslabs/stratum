@@ -82,7 +82,13 @@ sealed interface CloudSyncOutcome {
 
     data class Failed(
         val diagnostics: List<CloudSyncDiagnostic>,
-    ) : CloudSyncOutcome
+    ) : CloudSyncOutcome {
+        init {
+            require(diagnostics.isNotEmpty()) {
+                "CloudSyncOutcome.Failed requires at least one diagnostic."
+            }
+        }
+    }
 }
 
 /**

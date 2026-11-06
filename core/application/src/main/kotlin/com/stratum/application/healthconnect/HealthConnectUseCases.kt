@@ -98,10 +98,11 @@ class SetHealthConnectEnabledUseCase @Inject constructor(
                 // cancel cannot turn an enabled switch off — the failure rides
                 // along as a diagnostic on the applied outcome (STR-257). The
                 // diagnostic cause is the port failure's own diagnostic cause.
+                // The Failed invariant guarantees at least one diagnostic,
+                // and OperationFailed is its only subtype.
                 val cause = outcome.diagnostics
                     .filterIsInstance<HealthSyncDiagnostic.OperationFailed>()
-                    .firstOrNull()?.cause
-                    ?: IllegalStateException(outcome.message)
+                    .first().cause
                 return ApplyGrantedPermissionsOutcome.Applied(
                     diagnostics = listOf(
                         ApplyGrantedPermissionsDiagnostic.PermissionQueryFailed(cause = cause),

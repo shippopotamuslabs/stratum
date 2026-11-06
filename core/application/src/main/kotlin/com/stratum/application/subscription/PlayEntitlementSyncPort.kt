@@ -8,7 +8,13 @@ sealed interface PlayEntitlementSyncOutcome {
 
     data class Failed(
         val diagnostics: List<EntitlementDiagnostic>,
-    ) : PlayEntitlementSyncOutcome
+    ) : PlayEntitlementSyncOutcome {
+        init {
+            require(diagnostics.isNotEmpty()) {
+                "PlayEntitlementSyncOutcome.Failed requires at least one diagnostic."
+            }
+        }
+    }
 }
 
 /**
