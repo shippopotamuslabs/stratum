@@ -2,7 +2,7 @@ package com.stratum.application.dashboard
 
 import com.stratum.application.lift.LiftRepository
 import com.stratum.domain.lift.identity.LiftId
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.application.response.LiftWeeklyPerformanceRepository
 import com.stratum.application.response.MuscleWeeklyOutcomeIndexRepository
@@ -25,9 +25,10 @@ import com.stratum.domain.lift.Lift
 /**
  * Outcome of [LoadGraphDetailUseCase] (STR-243).
  *
- * An operational load failure is logged once via [LoggingPort.error] at the
- * use-case boundary and surfaces as [Failed]; it never crosses as a payload.
- * Coroutine cancellation is not a branch: it propagates.
+ * An operational load failure rides the [Failed] branch as an
+ * [OperationalDiagnostic] and is drained exactly once at the presentation
+ * boundary; it never reaches UI state. Coroutine cancellation is not a
+ * branch: it propagates.
  */
 sealed interface LoadGraphDetailResult {
     data class Loaded(val series: GraphDetailSeries) : LoadGraphDetailResult
@@ -36,7 +37,9 @@ sealed interface LoadGraphDetailResult {
     data object Empty : LoadGraphDetailResult
 
     /** The graph detail load failed (repository / store I/O). */
-    data object Failed : LoadGraphDetailResult
+    data class Failed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : LoadGraphDetailResult
 }
 
 /**
@@ -45,8 +48,8 @@ sealed interface LoadGraphDetailResult {
  *
  * Unlike [LoadDashboardUseCase] (board window ~13 weeks), this reads **all** rows for the subject
  * so time-range chips (1Y / All) reflect real history. [LoadGraphDetailResult.Empty] means the
- * subject has no points. Unexpected failures are logged and returned as
- * [LoadGraphDetailResult.Failed].
+ * subject has no points. Unexpected failures are returned as
+ * [LoadGraphDetailResult.Failed] with their diagnostics on the branch.
  */
 class LoadGraphDetailUseCase @Inject constructor(
     private val liftWeeklyPerformanceRepository: LiftWeeklyPerformanceRepository,
@@ -54,7 +57,6 @@ class LoadGraphDetailUseCase @Inject constructor(
     private val muscleWeeklyOutcomeIndexRepository: MuscleWeeklyOutcomeIndexRepository,
     private val liftRepository: LiftRepository,
     private val trainingLogRepository: TrainingLogRepository,
-    private val loggingPort: LoggingPort,
 ) {
     /**
      * @param zone Calendar zone for daily volume bucketing. Board and detail must pass the same
@@ -79,8 +81,15 @@ class LoadGraphDetailUseCase @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Throwable) {
-            loggingPort.error(TAG, "Failed to load graph detail: ${error.message}", error)
-            LoadGraphDetailResult.Failed
+            LoadGraphDetailResult.Failed(
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Failed to load graph detail: ${error.message}",
+                        cause = error,
+                    ),
+                ),
+            )
         }
 
     private companion object {

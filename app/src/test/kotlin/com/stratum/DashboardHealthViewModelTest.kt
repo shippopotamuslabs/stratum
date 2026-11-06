@@ -5,6 +5,7 @@ import com.stratum.core.testing.dashboard.FakeDashboardPreferencesRepository
 import com.stratum.core.testing.healthconnect.FakeHealthConnectMetricsPort
 import com.stratum.core.testing.healthconnect.FakeHealthConnectPreferencesRepository
 import com.stratum.core.testing.lift.FakeWeightDisplayPreferencesRepository
+import com.stratum.app.DiagnosticDrain
 import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
@@ -271,7 +272,6 @@ class DashboardHealthViewModelTest {
                 liftRepository = FakeLiftRepository(),
                 trainingLogRepository = FakeTrainingLogRepository(),
                 programRepository = FakeProgramRepository(program),
-                loggingPort = FakeLoggingPort(),
             ),
             loadGraphDetail = LoadGraphDetailUseCase(
                 liftWeeklyPerformanceRepository = FakeLiftWeeklyPerformanceRepository(),
@@ -279,11 +279,9 @@ class DashboardHealthViewModelTest {
                 muscleWeeklyOutcomeIndexRepository = FakeMuscleWeeklyOutcomeIndexRepository(),
                 liftRepository = FakeLiftRepository(),
                 trainingLogRepository = FakeTrainingLogRepository(),
-                loggingPort = FakeLoggingPort(),
             ),
             setDashboardBoardTab = SetDashboardBoardTabUseCase(
                 FakeDashboardPreferencesRepository(),
-                FakeLoggingPort(),
             ),
             observeDashboardPreferences =
                 ObserveDashboardPreferencesUseCase(FakeDashboardPreferencesRepository()),
@@ -298,6 +296,7 @@ class DashboardHealthViewModelTest {
                 metricsLogging,
             ),
             requestCloudSync = RequestCloudSyncUseCase(FakeCloudSyncPort()),
+            diagnosticDrain = DiagnosticDrain(FakeLoggingPort()),
             zone = testZone,
             clock = { now ?: Instant.now() },
         )

@@ -9,6 +9,8 @@ import com.stratum.domain.dashboard.DashboardSummary
 import com.stratum.domain.dashboard.GraphDetailSubject
 import com.stratum.domain.dashboard.LIFT_E1RM_SLOPE_THRESHOLD
 import com.stratum.domain.dashboard.LiftSeries
+import com.stratum.app.DiagnosticDrain
+import com.stratum.application.dashboard.DashboardPreferenceResult
 import com.stratum.application.dashboard.LoadDashboardResult
 import com.stratum.application.dashboard.LoadDashboardUseCase
 import com.stratum.application.dashboard.LoadGraphDetailResult
@@ -57,6 +59,7 @@ class DashboardViewModel(
     observeHealthConnectPreferences: ObserveHealthConnectPreferencesUseCase,
     private val loadHealthConnectMetrics: LoadHealthConnectMetricsUseCase,
     private val requestCloudSync: RequestCloudSyncUseCase,
+    private val diagnosticDrain: DiagnosticDrain,
     /**
      * Device calendar zone for 7-Day buckets + labels. Captured once so load and presentation
      * cannot drift. Unit tests pass a fixed zone via the primary constructor.
@@ -80,6 +83,7 @@ class DashboardViewModel(
         observeHealthConnectPreferences: ObserveHealthConnectPreferencesUseCase,
         loadHealthConnectMetrics: LoadHealthConnectMetricsUseCase,
         requestCloudSync: RequestCloudSyncUseCase,
+        diagnosticDrain: DiagnosticDrain,
     ) : this(
         loadDashboard,
         loadGraphDetail,
@@ -90,6 +94,7 @@ class DashboardViewModel(
         observeHealthConnectPreferences,
         loadHealthConnectMetrics,
         requestCloudSync,
+        diagnosticDrain,
         ZoneId.systemDefault(),
         Instant::now,
     )
@@ -225,7 +230,10 @@ class DashboardViewModel(
     fun selectTab(tab: DashboardBoardTabUi) {
         if (tab == _selectedTab.value) return
         viewModelScope.launch {
-            setDashboardBoardTab(tab.toDomain())
+            val result = setDashboardBoardTab(tab.toDomain())
+            if (result is DashboardPreferenceResult.PersistenceFailed) {
+                diagnosticDrain.drain(result.diagnostics)
+            }
         }
     }
 
@@ -251,7 +259,8 @@ class DashboardViewModel(
                         lastSummary = null
                         DashboardUiState.Empty
                     }
-                    LoadDashboardResult.Failed -> {
+                    is LoadDashboardResult.Failed -> {
+                        diagnosticDrain.drain(result.diagnostics)
                         lastSummary = null
                         DashboardUiState.Error
                     }
@@ -366,7 +375,8 @@ class DashboardViewModel(
                     detailSession = null
                     _graphDetailState.value = GraphDetailUiState.Empty
                 }
-                LoadGraphDetailResult.Failed -> {
+                is LoadGraphDetailResult.Failed -> {
+                    diagnosticDrain.drain(result.diagnostics)
                     detailSession = null
                     _graphDetailState.value = GraphDetailUiState.Error
                 }

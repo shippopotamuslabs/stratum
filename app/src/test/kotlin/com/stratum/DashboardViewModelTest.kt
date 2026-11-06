@@ -4,6 +4,7 @@ import com.stratum.core.testing.dashboard.FakeDashboardPreferencesRepository
 import com.stratum.core.testing.healthconnect.FakeHealthConnectMetricsPort
 import com.stratum.core.testing.healthconnect.FakeHealthConnectPreferencesRepository
 import com.stratum.core.testing.lift.FakeWeightDisplayPreferencesRepository
+import com.stratum.app.DiagnosticDrain
 import com.stratum.core.testing.logging.FakeLoggingPort
 
 import com.stratum.core.testing.MainDispatcherRule
@@ -50,6 +51,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -71,23 +73,37 @@ class DashboardViewModelTest {
     @Test
     fun `load maps use-case failure to Error not Empty`() = runTest {
         val stimulusRepo = FakeMuscleWeeklyStimulusRepository()
-        stimulusRepo.getSinceError = IllegalStateException("dashboard boom")
-        val viewModel = buildViewModel(stimulusRepo = stimulusRepo)
+        val cause = IllegalStateException("dashboard boom")
+        stimulusRepo.getSinceError = cause
+        val logging = FakeLoggingPort()
+        val viewModel = buildViewModel(stimulusRepo = stimulusRepo, logging = logging)
         advanceUntilIdle()
 
         assertEquals(DashboardUiState.Error, viewModel.uiState.value)
+        // STR-237: the boundary drain records the carried diagnostic exactly once.
+        assertEquals(1, logging.errors.size)
+        assertEquals("LoadDashboard", logging.errors.single().tag)
+        assertEquals("Failed to load dashboard: dashboard boom", logging.errors.single().message)
+        assertSame(cause, logging.errors.single().throwable)
     }
 
     @Test
     fun `openLiftGraph maps use-case failure to Error and retry recovers`() = runTest {
         val performanceRepo = FakeLiftWeeklyPerformanceRepository()
-        performanceRepo.getAllError = IllegalStateException("graph boom")
-        val viewModel = buildViewModel(performanceRepo = performanceRepo)
+        val cause = IllegalStateException("graph boom")
+        performanceRepo.getAllError = cause
+        val logging = FakeLoggingPort()
+        val viewModel = buildViewModel(performanceRepo = performanceRepo, logging = logging)
 
         viewModel.openLiftGraph("bench")
         advanceUntilIdle()
 
         assertEquals(GraphDetailUiState.Error, viewModel.graphDetailState.value)
+        // STR-237: the boundary drain records the carried diagnostic exactly once.
+        assertEquals(1, logging.errors.size)
+        assertEquals("LoadGraphDetail", logging.errors.single().tag)
+        assertEquals("Failed to load graph detail: graph boom", logging.errors.single().message)
+        assertSame(cause, logging.errors.single().throwable)
 
         performanceRepo.getAllError = null
         viewModel.retryGraphDetail()
@@ -653,6 +669,7 @@ class DashboardViewModelTest {
         healthConnectMetrics: FakeHealthConnectMetricsPort = FakeHealthConnectMetricsPort(),
         zone: ZoneId = testZone,
         now: Instant? = null,
+        logging: FakeLoggingPort = FakeLoggingPort(),
     ): DashboardViewModel {
         val baseProgram = WorkoutLoggingFixtures.twoWorkoutProgram()
         val program = if (programLiftIds.isEmpty()) {
@@ -681,7 +698,6 @@ class DashboardViewModelTest {
             liftRepository = liftRepo,
             trainingLogRepository = trainingLog,
             programRepository = FakeProgramRepository(program),
-            loggingPort = FakeLoggingPort(),
         )
         val detailUseCase = LoadGraphDetailUseCase(
             liftWeeklyPerformanceRepository = performanceRepo,
@@ -689,14 +705,12 @@ class DashboardViewModelTest {
             muscleWeeklyOutcomeIndexRepository = outcomeIndexRepo,
             liftRepository = liftRepo,
             trainingLogRepository = trainingLog,
-            loggingPort = FakeLoggingPort(),
         )
         return DashboardViewModel(
             loadDashboard = useCase,
             loadGraphDetail = detailUseCase,
             setDashboardBoardTab = SetDashboardBoardTabUseCase(
                 dashboardPreferences,
-                FakeLoggingPort(),
             ),
             observeDashboardPreferences = ObserveDashboardPreferencesUseCase(dashboardPreferences),
             observeCloudSyncStatus = ObserveCloudSyncStatusUseCase(cloudSync),
@@ -710,6 +724,7 @@ class DashboardViewModelTest {
                 FakeLoggingPort(),
             ),
             requestCloudSync = RequestCloudSyncUseCase(cloudSync),
+            diagnosticDrain = DiagnosticDrain(logging),
             zone = zone,
             clock = { now ?: Instant.now() },
         )
