@@ -179,11 +179,7 @@ class DeleteAccountUseCase @Inject constructor(
             ?: return DeleteAccountResult.NotSignedIn
         // Freeze uploads before Admin cascade so WorkManager cannot re-push Room residuals.
         stopCloudSync()
-        try {
-            accountDeletionPort.deleteRemoteUserData()
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (_: Throwable) {
+        if (accountDeletionPort.deleteRemoteUserData() is AccountDeletionOutcome.Failed) {
             // Runs before the NonCancellable block below, so a restart CancellationException
             // propagates to the caller instead of being swallowed.
             val diagnostics = if (authManager.authState.value is AuthState.Authenticated) {
@@ -202,11 +198,7 @@ class DeleteAccountUseCase @Inject constructor(
             if (endSessionAndWipe(uid) is CloudSyncOutcome.Failed) {
                 return@withContext DeleteAccountResult.LocalCleanupFailed
             }
-            try {
-                accountDeletionPort.deleteRemoteAuthUser()
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (_: Throwable) {
+            if (accountDeletionPort.deleteRemoteAuthUser() is AccountDeletionOutcome.Failed) {
                 return@withContext DeleteAccountResult.AuthDeleteFailed
             }
             // Auth user is already gone; clear local session/credentials if possible.
