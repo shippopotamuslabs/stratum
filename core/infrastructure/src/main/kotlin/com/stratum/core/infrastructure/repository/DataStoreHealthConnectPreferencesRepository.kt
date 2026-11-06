@@ -9,7 +9,6 @@ import com.stratum.application.healthconnect.HealthConnectPreferencesPort
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -25,21 +24,17 @@ class DataStoreHealthConnectPreferencesRepository @Inject constructor(
     override suspend fun getPreferences(): HealthConnectPreferences =
         context.healthConnectPreferencesDataStore.data.first().toDomain()
 
-    override suspend fun setEnabled(enabled: Boolean): Result<Unit> =
+    override suspend fun setEnabled(enabled: Boolean) {
         writePreferences { current -> current.copy(enabled = enabled) }
+    }
 
-    override suspend fun setPendingSyncError(kind: HealthFailureKind?): Result<Unit> =
+    override suspend fun setPendingSyncError(kind: HealthFailureKind?) {
         writePreferences { current -> current.copy(pendingSyncErrorKind = kind?.name) }
+    }
 
     private suspend fun writePreferences(
         transform: suspend (HealthConnectPreferencesRecord) -> HealthConnectPreferencesRecord,
-    ): Result<Unit> =
-        try {
-            context.healthConnectPreferencesDataStore.updateData(transform)
-            Result.success(Unit)
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (error: Exception) {
-            Result.failure(error)
-        }
+    ) {
+        context.healthConnectPreferencesDataStore.updateData(transform)
+    }
 }

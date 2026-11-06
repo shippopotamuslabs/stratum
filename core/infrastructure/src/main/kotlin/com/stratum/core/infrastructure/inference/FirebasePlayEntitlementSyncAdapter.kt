@@ -3,7 +3,6 @@ package com.stratum.core.infrastructure.inference
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.functions.FirebaseFunctions
 import com.stratum.application.subscription.PlayEntitlementSyncPort
-import com.stratum.domain.coroutines.runCatchingCancellable
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -13,7 +12,7 @@ import kotlinx.coroutines.tasks.await
  * Thin Firebase Callable client for `syncPlayEntitlement`.
  * Never logs the raw Play purchase token.
  *
- * Failures are returned as [Result] and surfaced by the caller as
+ * Failures throw to the caller and are surfaced there as
  * entitlement diagnostic values drained exactly once at the app boundary,
  * so this adapter deliberately does not log (avoids logging the same
  * failure at two layers).
@@ -23,17 +22,16 @@ class FirebasePlayEntitlementSyncAdapter @Inject constructor() : PlayEntitlement
     private val functions: FirebaseFunctions = FirebaseFunctions.getInstance()
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
 
-    override suspend fun syncPurchaseToken(purchaseToken: String): Result<Boolean> =
-        runCatchingCancellable {
-            checkNotNull(auth.currentUser) { "Sign-in required to sync Play entitlement." }
-            check(purchaseToken.isNotBlank()) { "purchaseToken is required." }
-            val callable =
-                functions
-                    .getHttpsCallable(CALLABLE_NAME)
-                    .withTimeout(CALLABLE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-            val result = callable.call(mapOf("purchaseToken" to purchaseToken)).await()
-            parsePlayEntitlementSyncResponse(result.data)
-        }
+    override suspend fun syncPurchaseToken(purchaseToken: String): Boolean {
+        checkNotNull(auth.currentUser) { "Sign-in required to sync Play entitlement." }
+        check(purchaseToken.isNotBlank()) { "purchaseToken is required." }
+        val callable =
+            functions
+                .getHttpsCallable(CALLABLE_NAME)
+                .withTimeout(CALLABLE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        val result = callable.call(mapOf("purchaseToken" to purchaseToken)).await()
+        return parsePlayEntitlementSyncResponse(result.data)
+    }
 
     private companion object {
         const val CALLABLE_NAME = "syncPlayEntitlement"

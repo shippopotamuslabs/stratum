@@ -59,8 +59,9 @@ class FakeBillingPort(
         ),
     )
 
-    var launchBillingResult: Result<Unit> = Result.success(Unit)
-    var restorePurchasesResult: Result<Unit> = Result.success(Unit)
+    /** When non-null, the corresponding operation throws this error. */
+    var launchBillingFailure: Throwable? = null
+    var restorePurchasesFailure: Throwable? = null
     var lastLaunchedProduct: SubscriptionProduct? = null
     var queryException: Throwable? = null
 
@@ -72,17 +73,19 @@ class FakeBillingPort(
         purchaseResultsFlow.tryEmit(result)
     }
 
-    override suspend fun querySubscriptionProducts(): Result<List<SubscriptionProduct>> {
-        queryException?.let { return Result.failure(it) }
-        return Result.success(availableProducts)
+    override suspend fun querySubscriptionProducts(): List<SubscriptionProduct> {
+        queryException?.let { throw it }
+        return availableProducts
     }
 
-    override suspend fun launchBillingFlow(product: SubscriptionProduct): Result<Unit> {
+    override suspend fun launchBillingFlow(product: SubscriptionProduct) {
         lastLaunchedProduct = product
-        return launchBillingResult
+        launchBillingFailure?.let { throw it }
     }
 
-    override suspend fun restorePurchases(): Result<Unit> = restorePurchasesResult
+    override suspend fun restorePurchases() {
+        restorePurchasesFailure?.let { throw it }
+    }
 }
 
 class FakeEntitlementRepository(
@@ -123,10 +126,16 @@ class FakeEntitlementRepository(
             )
         }
 
-    var refreshResult: Result<EntitlementState>? = null
+    /** When non-null, [refreshEntitlement] returns this state instead of the current one. */
+    var refreshResult: EntitlementState? = null
 
-    override suspend fun refreshEntitlement(): Result<EntitlementState> =
-        refreshResult ?: Result.success(state.value)
+    /** When non-null, [refreshEntitlement] throws this error. */
+    var refreshFailure: Throwable? = null
+
+    override suspend fun refreshEntitlement(): EntitlementState {
+        refreshFailure?.let { throw it }
+        return refreshResult ?: state.value
+    }
 
     override fun observeEntitlementDiagnostics(): Flow<EntitlementDiagnostic> =
         diagnosticsChannel.receiveAsFlow()
@@ -134,10 +143,14 @@ class FakeEntitlementRepository(
 
 class FakePlayEntitlementSyncPort : PlayEntitlementSyncPort {
     val syncedTokens = mutableListOf<String>()
-    var syncResult: Result<Boolean> = Result.success(true)
+    var syncValue: Boolean = true
 
-    override suspend fun syncPurchaseToken(purchaseToken: String): Result<Boolean> {
+    /** When non-null, [syncPurchaseToken] throws this error. */
+    var syncFailure: Throwable? = null
+
+    override suspend fun syncPurchaseToken(purchaseToken: String): Boolean {
         syncedTokens += purchaseToken
-        return syncResult
+        syncFailure?.let { throw it }
+        return syncValue
     }
 }

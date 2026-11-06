@@ -6,10 +6,47 @@ import kotlinx.coroutines.flow.Flow
 import com.stratum.domain.healthconnect.HealthConnectPreferences
 import com.stratum.domain.healthconnect.HealthFailureKind
 import com.stratum.domain.logging.LoggingPort
-import com.stratum.domain.logging.onFailureLogged
 
 const val HEALTH_CONNECT_PREFS_TAG = "HealthConnectPrefs"
 const val HEALTH_CONNECT_METRICS_TAG = "HealthConnectMetrics"
+
+/**
+ * Outcome of enabling/disabling Health Connect (STR-243).
+ *
+ * The originating throwable goes once to the diagnostics channel ([LoggingPort.error])
+ * at the use-case boundary; it never crosses as a payload. Coroutine cancellation is
+ * not a branch: it propagates as cancellation.
+ */
+sealed interface SetHealthConnectEnabledResult {
+    data object Success : SetHealthConnectEnabledResult
+
+    /** The Health Connect SDK is not available on this device; no write was attempted. */
+    data object SdkUnavailable : SetHealthConnectEnabledResult
+
+    /** The preferences write failed (store I/O). */
+    data object PersistenceFailed : SetHealthConnectEnabledResult
+}
+
+/**
+ * Outcome of a Health Connect granted-permissions query (STR-243). A query
+ * failure is an expected branch ([QueryFailed]) so the UI can fall back to
+ * requesting the full permission set; it is not logged here — callers that
+ * tolerate the degradation record it as a diagnostic (see
+ * [SetHealthConnectEnabledUseCase.applyGrantedPermissions]).
+ */
+sealed interface HealthConnectPermissionsQueryResult {
+    data class Success(val permissions: Set<String>) : HealthConnectPermissionsQueryResult
+
+    data object QueryFailed : HealthConnectPermissionsQueryResult
+}
+
+/** Outcome of clearing the sticky Health Connect sync error (STR-243). */
+sealed interface ClearHealthConnectSyncErrorResult {
+    data object Success : ClearHealthConnectSyncErrorResult
+
+    /** The sync-status write failed (store I/O). */
+    data object PersistenceFailed : ClearHealthConnectSyncErrorResult
+}
 
 class ObserveHealthConnectPreferencesUseCase @Inject constructor(
     private val preferencesPort: HealthConnectPreferencesPort,
@@ -22,52 +59,81 @@ class SetHealthConnectEnabledUseCase @Inject constructor(
     private val syncPort: HealthConnectSyncPort,
     private val loggingPort: LoggingPort,
 ) {
-    suspend operator fun invoke(enabled: Boolean): Result<Unit> {
+    suspend operator fun invoke(enabled: Boolean): SetHealthConnectEnabledResult {
         if (enabled && !syncPort.isAvailable()) {
-            return Result.failure(HealthSyncFailure.unavailable())
+            return SetHealthConnectEnabledResult.SdkUnavailable
         }
-        // The preferences repository returns write failures as values without
-        // logging them. This use case is the drain boundary — its only callers
-        // are the Settings ViewModel (which maps the Result to UI state) and
+        // The preferences repository throws write failures without logging
+        // them. This use case is the drain boundary — its only callers are the
+        // Settings ViewModel (which branches on the outcome for UI state) and
         // applyGrantedPermissions below — so each failure is logged exactly
         // once here.
-        return preferencesPort.setEnabled(enabled).onFailureLogged(
-            loggingPort,
-            HEALTH_CONNECT_PREFS_TAG,
-            "Failed to set Health Connect enabled",
-        )
+        return try {
+            preferencesPort.setEnabled(enabled)
+            SetHealthConnectEnabledResult.Success
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            loggingPort.error(
+                HEALTH_CONNECT_PREFS_TAG,
+                "Failed to set Health Connect enabled: ${error.message}",
+                error,
+            )
+            SetHealthConnectEnabledResult.PersistenceFailed
+        }
     }
 
     /**
      * After the permission sheet closes, opt in from the current SDK grant set. A query failure
      * leaves the preference unchanged so Back / cancel cannot turn an enabled switch off — the
-     * failure rides along as a diagnostic on the success outcome (STR-257).
+     * failure rides along as a diagnostic on the applied outcome (STR-257).
      */
-    suspend fun applyGrantedPermissions(requested: Set<String>): Result<ApplyGrantedPermissionsOutcome> {
-        val granted = syncPort.grantedPermissions().getOrElse { error ->
+    suspend fun applyGrantedPermissions(requested: Set<String>): ApplyGrantedPermissionsOutcome {
+        val granted = try {
+            syncPort.grantedPermissions()
+        } catch (cancelled: CancellationException) {
             // Cancellation is not a degraded query — it must cancel the caller.
-            if (error is CancellationException) throw error
-            return Result.success(
-                ApplyGrantedPermissionsOutcome(
-                    diagnostics = listOf(
-                        ApplyGrantedPermissionsDiagnostic.PermissionQueryFailed(cause = error),
-                    ),
+            throw cancelled
+        } catch (error: Throwable) {
+            return ApplyGrantedPermissionsOutcome.Applied(
+                diagnostics = listOf(
+                    ApplyGrantedPermissionsDiagnostic.PermissionQueryFailed(cause = error),
                 ),
             )
         }
-        return invoke(granted.any { it in requested }).map { ApplyGrantedPermissionsOutcome() }
+        return when (invoke(granted.any { it in requested })) {
+            SetHealthConnectEnabledResult.Success -> ApplyGrantedPermissionsOutcome.Applied()
+            SetHealthConnectEnabledResult.SdkUnavailable ->
+                ApplyGrantedPermissionsOutcome.SdkUnavailable
+            SetHealthConnectEnabledResult.PersistenceFailed ->
+                ApplyGrantedPermissionsOutcome.PersistenceFailed
+        }
     }
 
     /**
      * Permissions in [requested] that Health Connect has not granted yet. A query failure is
-     * returned so the UI can fall back to requesting the full set.
+     * returned as [HealthConnectPermissionsQueryResult.QueryFailed] so the UI can fall back
+     * to requesting the full set.
      */
-    suspend fun permissionsStillNeeded(requested: Set<String>): Result<Set<String>> {
-        val granted = syncPort.grantedPermissions().getOrElse { return Result.failure(it) }
-        return Result.success(requested - granted)
+    suspend fun permissionsStillNeeded(requested: Set<String>): HealthConnectPermissionsQueryResult {
+        val granted = try {
+            syncPort.grantedPermissions()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Throwable) {
+            return HealthConnectPermissionsQueryResult.QueryFailed
+        }
+        return HealthConnectPermissionsQueryResult.Success(requested - granted)
     }
 
-    suspend fun grantedPermissions(): Result<Set<String>> = syncPort.grantedPermissions()
+    suspend fun grantedPermissions(): HealthConnectPermissionsQueryResult =
+        try {
+            HealthConnectPermissionsQueryResult.Success(syncPort.grantedPermissions())
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Throwable) {
+            HealthConnectPermissionsQueryResult.QueryFailed
+        }
 }
 
 class ObserveHealthConnectSyncErrorsUseCase @Inject constructor(
@@ -80,16 +146,24 @@ class ClearHealthConnectSyncErrorUseCase @Inject constructor(
     private val syncStatusPort: HealthConnectSyncStatusPort,
     private val loggingPort: LoggingPort,
 ) {
-    suspend operator fun invoke(): Result<Unit> {
-        // The sync-status repository returns write failures as values without
-        // logging them. This use case is the drain boundary — its only callers
-        // are the Settings and Workout-complete ViewModels (which do not log)
-        // — so each failure is logged exactly once here. Callers may ignore
-        // the returned Result since the failure is already logged here.
-        return syncStatusPort.clearPendingSyncError().onFailureLogged(
-            loggingPort,
-            HEALTH_CONNECT_PREFS_TAG,
-            "Failed to set Health Connect sync error",
-        )
+    suspend operator fun invoke(): ClearHealthConnectSyncErrorResult {
+        // The sync-status repository throws write failures without logging
+        // them. This use case is the drain boundary — its only callers are the
+        // Settings and Workout-complete ViewModels (which do not log) — so
+        // each failure is logged exactly once here. Callers may ignore the
+        // returned outcome since the failure is already logged here.
+        return try {
+            syncStatusPort.clearPendingSyncError()
+            ClearHealthConnectSyncErrorResult.Success
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            loggingPort.error(
+                HEALTH_CONNECT_PREFS_TAG,
+                "Failed to set Health Connect sync error: ${error.message}",
+                error,
+            )
+            ClearHealthConnectSyncErrorResult.PersistenceFailed
+        }
     }
 }

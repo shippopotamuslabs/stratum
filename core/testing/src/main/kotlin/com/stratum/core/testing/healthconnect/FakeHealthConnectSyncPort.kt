@@ -18,27 +18,26 @@ class FakeHealthConnectSyncPort : HealthConnectSyncPort {
 
     override suspend fun hasWritePermission(): Boolean = hasPermission
 
-    override suspend fun grantedPermissions(): Result<Set<String>> {
-        grantedPermissionsFailure?.let { return Result.failure(it) }
+    override suspend fun grantedPermissions(): Set<String> {
+        grantedPermissionsFailure?.let { throw it }
         if (!isAvailable) {
-            return Result.failure(HealthSyncFailure.unavailable())
+            throw HealthSyncFailure.unavailable()
         }
-        return Result.success(granted)
+        return granted
     }
 
     override suspend fun pushSession(
         session: TrainingSession,
         sets: List<LoggedSet>,
-    ): Result<Unit> {
+    ) {
         if (!isAvailable) {
-            return Result.failure(HealthSyncFailure.unavailable())
+            throw HealthSyncFailure.unavailable()
         }
         if (!hasPermission) {
-            return Result.failure(HealthSyncFailure.permissionDenied())
+            throw HealthSyncFailure.permissionDenied()
         }
         pushThrows?.let { throw it }
-        pushFailure?.let { return Result.failure(it) }
+        pushFailure?.let { throw it }
         pushedSessions.add(session to sets)
-        return Result.success(Unit)
     }
 }

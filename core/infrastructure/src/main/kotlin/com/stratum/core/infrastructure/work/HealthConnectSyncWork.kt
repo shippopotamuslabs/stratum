@@ -8,6 +8,7 @@ import com.stratum.domain.healthconnect.HealthFailureKind
 import com.stratum.application.training.TrainingLogRepository
 import com.stratum.domain.training.identity.TrainingSessionId
 import javax.inject.Inject
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * Pure orchestration for Health Connect session sync. Extracted from [HealthConnectSyncWorker]
@@ -46,19 +47,21 @@ class HealthConnectSyncWork @Inject constructor(
             )
 
         val sets = trainingLogRepository.getSetsForSession(sessionId)
-        val syncResult = healthConnectSyncPort.pushSession(session, sets)
-        return syncResult.fold(
-            onSuccess = { Outcome.Success },
-            onFailure = { error ->
-                if (error.isTerminalHealthSyncFailure()) {
-                    Outcome.TerminalFailure(error)
-                } else {
-                    Outcome.RetryableFailure(error)
-                }
-            },
-        )
+        return try {
+            healthConnectSyncPort.pushSession(session, sets)
+            Outcome.Success
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            if (error.isTerminalHealthSyncFailure()) {
+                Outcome.TerminalFailure(error)
+            } else {
+                Outcome.RetryableFailure(error)
+            }
+        }
     }
 
-    suspend fun reportTerminalFailure(kind: HealthFailureKind): Result<Unit> =
+    suspend fun reportTerminalFailure(kind: HealthFailureKind) {
         healthConnectSyncStatusPort.reportSyncError(kind)
+    }
 }

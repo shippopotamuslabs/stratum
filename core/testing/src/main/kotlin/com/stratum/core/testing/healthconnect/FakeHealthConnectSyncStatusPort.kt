@@ -14,21 +14,19 @@ class FakeHealthConnectSyncStatusPort : HealthConnectSyncStatusPort {
     val currentPendingError: HealthFailureKind?
         get() = pendingError.value
 
-    /** When non-null, writes fail with this error without mutating state. */
+    /** When non-null, writes throw this error without mutating state. */
     var failure: Throwable? = null
 
     override fun observePendingSyncErrors(): Flow<HealthFailureKind> =
         pendingError.map { it }.distinctUntilChanged().filterNotNull()
 
-    override suspend fun reportSyncError(kind: HealthFailureKind): Result<Unit> {
-        failure?.let { return Result.failure(it) }
+    override suspend fun reportSyncError(kind: HealthFailureKind) {
+        failure?.let { throw it }
         pendingError.value = kind
-        return Result.success(Unit)
     }
 
-    override suspend fun clearPendingSyncError(): Result<Unit> {
-        failure?.let { return Result.failure(it) }
+    override suspend fun clearPendingSyncError() {
+        failure?.let { throw it }
         pendingError.value = null
-        return Result.success(Unit)
     }
 }

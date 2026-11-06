@@ -15,6 +15,9 @@ import com.stratum.application.healthconnect.ObserveHealthConnectPreferencesUseC
 import com.stratum.application.healthconnect.ObserveHealthConnectSyncErrorsUseCase
 import com.stratum.domain.healthconnect.HealthFailureKind
 import com.stratum.application.healthconnect.ApplyGrantedPermissionsDiagnostic
+import com.stratum.application.healthconnect.ApplyGrantedPermissionsOutcome
+import com.stratum.application.healthconnect.HealthConnectPermissionsQueryResult
+import com.stratum.application.healthconnect.SetHealthConnectEnabledResult
 import com.stratum.application.healthconnect.SetHealthConnectEnabledUseCase
 import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.domain.subscription.EntitlementSource
@@ -177,8 +180,12 @@ class SettingsViewModel @Inject constructor(
 
     fun onHealthConnectEnabledChange(enabled: Boolean) {
         viewModelScope.launch {
-            setHealthConnectEnabled(enabled).onFailure { error ->
-                _userMessage.value = error.message ?: MSG_PREFS_FAILED
+            when (setHealthConnectEnabled(enabled)) {
+                SetHealthConnectEnabledResult.Success -> Unit
+                SetHealthConnectEnabledResult.SdkUnavailable ->
+                    _userMessage.value = MSG_HEALTH_SYNC_UNAVAILABLE
+                SetHealthConnectEnabledResult.PersistenceFailed ->
+                    _userMessage.value = MSG_PREFS_FAILED
             }
         }
     }
@@ -189,12 +196,21 @@ class SettingsViewModel @Inject constructor(
      */
     fun onHealthConnectPermissionSheetClosed() {
         viewModelScope.launch {
-            setHealthConnectEnabled.applyGrantedPermissions(HealthConnectLaunchPermissions.all)
-                .onSuccess { outcome -> logPermissionDiagnostics(outcome.diagnostics) }
-                .onFailure { error ->
-                    _userMessage.value = error.message ?: MSG_PREFS_FAILED
-                }
+            handleApplyGrantedPermissions(
+                setHealthConnectEnabled.applyGrantedPermissions(HealthConnectLaunchPermissions.all),
+            )
             loadHealthConnectGrants()
+        }
+    }
+
+    private fun handleApplyGrantedPermissions(outcome: ApplyGrantedPermissionsOutcome) {
+        when (outcome) {
+            is ApplyGrantedPermissionsOutcome.Applied ->
+                logPermissionDiagnostics(outcome.diagnostics)
+            ApplyGrantedPermissionsOutcome.SdkUnavailable ->
+                _userMessage.value = MSG_HEALTH_SYNC_UNAVAILABLE
+            ApplyGrantedPermissionsOutcome.PersistenceFailed ->
+                _userMessage.value = MSG_PREFS_FAILED
         }
     }
 
@@ -208,15 +224,18 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             loadHealthConnectGrants()
             val requested = focus.requestedPermissions()
-            val missing = setHealthConnectEnabled
-                .permissionsStillNeeded(requested)
-                .getOrElse { requested }
+            val missing = when (
+                val query = setHealthConnectEnabled.permissionsStillNeeded(requested)
+            ) {
+                is HealthConnectPermissionsQueryResult.Success -> query.permissions
+                HealthConnectPermissionsQueryResult.QueryFailed -> requested
+            }
             if (missing.isEmpty()) {
-                setHealthConnectEnabled.applyGrantedPermissions(HealthConnectLaunchPermissions.all)
-                    .onSuccess { outcome -> logPermissionDiagnostics(outcome.diagnostics) }
-                    .onFailure { error ->
-                        _userMessage.value = error.message ?: MSG_PREFS_FAILED
-                    }
+                handleApplyGrantedPermissions(
+                    setHealthConnectEnabled.applyGrantedPermissions(
+                        HealthConnectLaunchPermissions.all,
+                    ),
+                )
                 _healthConnectPermissionAction.emit(HealthConnectPermissionAction.OpenSettings)
             } else {
                 _healthConnectPermissionAction.emit(HealthConnectPermissionAction.Request(missing))
@@ -233,8 +252,9 @@ class SettingsViewModel @Inject constructor(
     }
 
     private suspend fun loadHealthConnectGrants() {
-        setHealthConnectEnabled.grantedPermissions().onSuccess { granted ->
-            healthConnectGranted.value = granted
+        val query = setHealthConnectEnabled.grantedPermissions()
+        if (query is HealthConnectPermissionsQueryResult.Success) {
+            healthConnectGranted.value = query.permissions
         }
     }
 

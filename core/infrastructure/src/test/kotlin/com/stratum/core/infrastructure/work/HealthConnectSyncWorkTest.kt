@@ -157,22 +157,22 @@ class HealthConnectSyncWorkTest {
     @Test
     @DisplayName("reportTerminalFailure records sticky sync error for UI")
     fun reportTerminalFailurePersistsError() = runTest {
-        val result = work.reportTerminalFailure(HealthFailureKind.Unavailable)
+        work.reportTerminalFailure(HealthFailureKind.Unavailable)
 
-        assertTrue(result.isSuccess)
         assertEquals(HealthFailureKind.Unavailable, syncStatus.currentPendingError)
     }
 
     @Test
-    @DisplayName("STR-263: failing sticky write returns failure as a value")
+    @DisplayName("STR-263: failing sticky write throws the failure")
     fun reportTerminalFailureForwardsFailure() = runTest {
         val cause = IllegalStateException("datastore blip")
         syncStatus.failure = cause
 
-        val result = work.reportTerminalFailure(HealthFailureKind.Unavailable)
+        val thrown = org.junit.jupiter.api.assertThrows<IllegalStateException> {
+            work.reportTerminalFailure(HealthFailureKind.Unavailable)
+        }
 
-        assertTrue(result.isFailure)
-        assertSame(cause, result.exceptionOrNull())
+        assertSame(cause, thrown)
         assertEquals(null, syncStatus.currentPendingError)
     }
 }

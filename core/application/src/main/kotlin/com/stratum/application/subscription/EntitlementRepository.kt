@@ -7,7 +7,8 @@ import com.stratum.domain.subscription.EntitlementState
 interface EntitlementRepository {
     fun observeEntitlement(): Flow<EntitlementState>
 
-    suspend fun refreshEntitlement(): Result<EntitlementState>
+    /** Re-reads entitlement from its sources; throws on an operational failure (STR-243). */
+    suspend fun refreshEntitlement(): EntitlementState
 
     /**
      * Fire-and-forget Play sync failures as values (CODE_STYLE_RULES
