@@ -20,8 +20,14 @@ import com.stratum.domain.program.generation.schema.NormalizedProgram
 import com.stratum.domain.program.generation.schema.NormalizedSet
 import com.stratum.domain.program.generation.schema.NormalizedWorkout
 import com.stratum.domain.program.generation.schema.ProgramNormalizationRequest
+import com.stratum.domain.program.generation.GenerateProgramFailureKind
+import com.stratum.domain.program.generation.GenerateProgramResult
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisException
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisRefusal
+import com.stratum.domain.program.generation.validation.ValidationIssue
+import com.stratum.domain.program.generation.validation.ValidationReport
+import com.stratum.domain.program.generation.validation.ValidationSeverity
+import com.stratum.domain.program.generation.validation.ValidationSummary
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
@@ -65,18 +71,17 @@ class GenerateProgramUseCaseTest {
 
             val result = useCase.invoke()
 
-            assertTrue(result.isSuccess)
-            assertNotNull(result.getOrNull())
+            assertTrue(result is GenerateProgramResult.Success)
             assertTrue(programRepository.saveProgramCalls.isEmpty())
             assertNull(programRepository.current)
-            assertFalse(result.getOrThrow().isActive)
+            assertFalse(result.requireProgram().isActive)
         }
 
         @Test
         fun `invoke binds training weekdays so weekly schedule has workout days`() = runTest {
             val useCase = buildUseCase(this)
 
-            val program = useCase.invoke().getOrThrow()
+            val program = useCase.invoke().requireProgram()
 
             val workoutDays =
                 buildWeeklySchedule(program).filterIsInstance<ScheduleDayItem.WorkoutDay>()
@@ -110,8 +115,8 @@ class GenerateProgramUseCaseTest {
 
             val result = useCase.invoke()
 
-            assertTrue(result.isSuccess, "generation should succeed even with a partial lift catalog")
-            val program = result.getOrThrow()
+            assertTrue(result is GenerateProgramResult.Success, "generation should succeed even with a partial lift catalog")
+            val program = result.requireProgram()
             val boundFromWorkouts = program.workouts.mapNotNull { it.weekday }.toSet()
             assertEquals(boundFromWorkouts, program.trainingWeekdays)
             val schedule = buildWeeklySchedule(program)
@@ -128,25 +133,88 @@ class GenerateProgramUseCaseTest {
 
             val result = useCase.invoke()
 
-            assertTrue(result.isFailure)
+            assertEquals(
+                GenerateProgramResult.Unexpected(GenerateProgramFailureKind.OperationalFailure),
+                result,
+            )
+            // The operational throwable is logged exactly once at the boundary.
+            assertEquals(1, loggingPort.errors.size)
+            assertTrue(loggingPort.errors.single().throwable is IllegalStateException)
+            assertTrue(programRepository.saveProgramCalls.isEmpty())
+            assertNull(programRepository.current)
+        }
+
+        @Test
+        fun `invoke maps a thrown synthesis exception to SynthesisFailed without an error log`() = runTest {
+            val useCase =
+                buildUseCase(
+                    this,
+                    contextLoader =
+                        FixedProgramGenerationContextLoader(
+                            error = { throw ProgramSynthesisException("quota exhausted") },
+                        ),
+                )
+
+            val result = useCase.invoke()
+
+            assertEquals(GenerateProgramResult.SynthesisFailed("quota exhausted"), result)
+            assertTrue(loggingPort.errors.isEmpty())
             assertTrue(programRepository.saveProgramCalls.isEmpty())
             assertNull(programRepository.current)
         }
     }
 
     @Nested
-    @DisplayName("Synthesis refusal maps to the paused failure value")
+    @DisplayName("Validation rejection maps to the ValidationRejected branch")
+    inner class ValidationRejectedPath {
+        @Test
+        fun `invoke returns ValidationRejected carrying the report`() = runTest {
+            val report =
+                ValidationReport(
+                    pass = false,
+                    issues =
+                        listOf(
+                            ValidationIssue(
+                                code = "test",
+                                severity = ValidationSeverity.Error,
+                                message = "volume too low",
+                            ),
+                        ),
+                    summary =
+                        ValidationSummary(
+                            weeklyMuscleVolume = emptyMap(),
+                            workoutHardSets = emptyList(),
+                            estimatedWorkoutMinutes = emptyList(),
+                            muscleWeeklyFrequency = emptyMap(),
+                            weeklyPushSets = 0.0,
+                            weeklyPullSets = 0.0,
+                        ),
+                )
+            val useCase = buildUseCase(this, pipeline = ValidationRejectedPipeline(report))
+
+            val result = useCase.invoke()
+
+            assertEquals(GenerateProgramResult.ValidationRejected(report), result)
+            assertTrue(loggingPort.errors.isEmpty())
+            assertTrue(programRepository.saveProgramCalls.isEmpty())
+            assertNull(programRepository.current)
+        }
+    }
+
+    @Nested
+    @DisplayName("Synthesis refusal maps to the SynthesisRefused branch")
     inner class SynthesisRefusalPath {
         @Test
-        fun `invoke returns ProgramSynthesisException with paused message on SynthesisRefused FeatureDisabled`() = runTest {
+        fun `invoke returns SynthesisRefused FeatureDisabled on pipeline refusal`() = runTest {
             val useCase = buildUseCase(this, pipeline = SynthesisRefusedPipeline())
 
             val result = useCase.invoke()
 
-            assertTrue(result.isFailure)
-            val error = result.exceptionOrNull()
-            assertTrue(error is ProgramSynthesisException)
-            assertEquals(ProgramSynthesisException.MESSAGE_SYNTHESIS_PAUSED, error?.message)
+            assertEquals(
+                GenerateProgramResult.SynthesisRefused(ProgramSynthesisRefusal.FeatureDisabled),
+                result,
+            )
+            assertTrue(loggingPort.errors.isEmpty())
         }
     }
 
@@ -182,6 +250,10 @@ class GenerateProgramUseCaseTest {
     }
 
     private lateinit var programRepository: FakeProgramRepository
+    private lateinit var loggingPort: FakeLoggingPort
+
+    private fun GenerateProgramResult.requireProgram(): Program =
+        (this as GenerateProgramResult.Success).program
 
     private fun buildUseCase(
         testScope: TestScope,
@@ -193,9 +265,11 @@ class GenerateProgramUseCaseTest {
         pipeline: ProgramGenerationPipeline = testProgramGenerationPipeline(),
     ): GenerateProgramUseCase {
         programRepository = FakeProgramRepository()
+        loggingPort = FakeLoggingPort()
         return GenerateProgramUseCase(
             loadContext = contextLoader,
             pipeline = pipeline,
+            loggingPort = loggingPort,
             liftRepository = FakeLiftRepository(
                 initialLifts =
                     enabledLiftIds.map { id ->
@@ -221,7 +295,7 @@ class GenerateProgramUseCaseTest {
         val events = FakeProgramChangeEventRepository()
         val repo = FakeProgramRepository()
         val generate = buildUseCase(this)
-        val program = generate.invoke().getOrThrow()
+        val program = generate.invoke().requireProgram()
         val activate = ActivateProgramUseCase(repo, events, FakeLoggingPort())
 
         assertEquals(ActivateProgramResult.Success, activate(program))
@@ -295,10 +369,11 @@ class GenerateProgramUseCaseTest {
                     ),
                 pipeline = FixedNormalizedProgramPipeline(fixedNormalized),
                 liftRepository = FakeLiftRepository(initialLifts = listOf(highLift)),
+                loggingPort = FakeLoggingPort(),
                 generationDispatcher = UnconfinedTestDispatcher(testScheduler),
             )
 
-        val program = useCase.invoke().getOrThrow()
+        val program = useCase.invoke().requireProgram()
 
         val highSets =
             program.workouts
@@ -332,6 +407,26 @@ private class FixedNormalizedProgramPipeline(
         normalizationRequest: ProgramNormalizationRequest,
         options: PipelineOptions,
     ): ProgramGenerationPipelineResult = ProgramGenerationPipelineResult.Success(fixed)
+}
+
+/**
+ * Test double: returns a validation rejection so the rejection-mapping test
+ * exercises [GenerateProgramUseCase]'s branch without full synthesis.
+ */
+private class ValidationRejectedPipeline(
+    private val report: ValidationReport,
+) : ProgramGenerationPipeline(
+    planWeeklyVolume = PlanWeeklyVolumeUseCase(),
+    buildProgramWorkouts = BuildProgramWorkoutsUseCase(),
+    integrateAndValidate = IntegrateAndValidateProgramUseCase(),
+    programSynthesisPort = FakeProgramSynthesisPort(),
+    telemetryLogger = ProgramGenerationTelemetryLogger(FakeLoggingPort()),
+) {
+    override suspend fun generate(
+        context: ProgramGenerationContext,
+        normalizationRequest: ProgramNormalizationRequest,
+        options: PipelineOptions,
+    ): ProgramGenerationPipelineResult = ProgramGenerationPipelineResult.ValidationRejected(report)
 }
 
 /**

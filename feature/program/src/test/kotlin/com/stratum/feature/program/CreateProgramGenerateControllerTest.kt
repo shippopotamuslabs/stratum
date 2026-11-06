@@ -12,6 +12,7 @@ import com.stratum.core.testing.program.FixedProgramGenerationContextLoader
 import com.stratum.core.testing.program.SCENARIO_LIFT_CATALOG
 import com.stratum.core.testing.program.scenarioContext
 import com.stratum.core.testing.program.testProgramGenerationPipeline
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.telemetry.FakeAnalyticsPort
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.domain.lift.Lift
@@ -57,6 +58,7 @@ class CreateProgramGenerateControllerTest {
         val analytics = FakeAnalyticsPort()
         val outcomes = FakeOutcomeTelemetrySink()
         val crash = FakeCrashTelemetryPort()
+        val logging = FakeLoggingPort()
         val profileRepo = FakeUserTrainingProfileRepository()
         val state =
             MutableStateFlow(
@@ -76,6 +78,7 @@ class CreateProgramGenerateControllerTest {
                         loadContext = FixedProgramGenerationContextLoader(error = { error("boom") }),
                         pipeline = testProgramGenerationPipeline(),
                         liftRepository = com.stratum.core.testing.onboarding.FakeLiftRepository(),
+                        loggingPort = logging,
                         generationDispatcher = UnconfinedTestDispatcher(testScheduler),
                     ),
                 updateUserTrainingProfile = UpdateUserTrainingProfileUseCase(profileRepo),
@@ -100,17 +103,24 @@ class CreateProgramGenerateControllerTest {
         advanceUntilIdle()
 
         assertEquals(CreateProgramGenerateState.Error, state.value.generateState)
+        // STR-243: an unexpected failure surfaces the generic fallback copy,
+        // never the raw exception message.
+        assertEquals("Generation failed", state.value.generateErrorMessage)
         val byName = analytics.events.groupBy { it.name }
         val event = byName[USER_VISIBLE_ERROR_EVENT]?.single()
         assertEquals("create_program", event?.params?.get(PARAM_SCREEN))
         assertEquals("generate_program", event?.params?.get(PARAM_ACTION))
-        // Unexpected failure: recorded once through the router (non-fatal +
-        // bare counter), never in the outcome stream.
+        // Unexpected failure: never in the outcome stream, and no router crash
+        // record — the use case logged the original throwable exactly once via
+        // its LoggingPort, so the exceptional fact has exactly one record.
         assertTrue(outcomes.outcomes.isEmpty())
-        assertEquals("IllegalStateException", crash.recordedExceptions.single()::class.simpleName)
-        val counter = byName[TelemetryRouter.EVENT_EXCEPTIONAL_OCCURRED]?.single()
-        assertEquals("CreateProgramGenerate", counter?.params?.get(TelemetryRouter.PARAM_BOUNDARY))
-        assertEquals("IllegalStateException", counter?.params?.get(TelemetryRouter.PARAM_CLASS))
+        assertTrue(crash.recordedExceptions.isEmpty())
+        assertTrue(
+            analytics.events.none { it.name == TelemetryRouter.EVENT_EXCEPTIONAL_OCCURRED },
+            "unexpected failure must not increment the exceptional counter",
+        )
+        assertEquals(1, logging.errors.size)
+        assertTrue(logging.errors.single().throwable is IllegalStateException)
     }
 
     @Test
@@ -140,6 +150,7 @@ class CreateProgramGenerateControllerTest {
                             ),
                         pipeline = testProgramGenerationPipeline(),
                         liftRepository = com.stratum.core.testing.onboarding.FakeLiftRepository(),
+                        loggingPort = FakeLoggingPort(),
                         generationDispatcher = UnconfinedTestDispatcher(testScheduler),
                     ),
                 updateUserTrainingProfile = UpdateUserTrainingProfileUseCase(profileRepo),
@@ -158,6 +169,8 @@ class CreateProgramGenerateControllerTest {
         advanceUntilIdle()
 
         assertEquals(CreateProgramGenerateState.Error, state.value.generateState)
+        // The adapter's user-safe message is the surfaced copy, unchanged.
+        assertEquals("quota exhausted", state.value.generateErrorMessage)
         val outcome = outcomes.outcomes.single()
         assertEquals(OutcomeTelemetry.USE_CASE_PROGRAM_GENERATION, outcome.useCase)
         assertEquals(
@@ -214,6 +227,7 @@ class CreateProgramGenerateControllerTest {
                                         )
                                     },
                             ),
+                        loggingPort = FakeLoggingPort(),
                         generationDispatcher = UnconfinedTestDispatcher(testScheduler),
                     ),
                 updateUserTrainingProfile = UpdateUserTrainingProfileUseCase(profileRepo),

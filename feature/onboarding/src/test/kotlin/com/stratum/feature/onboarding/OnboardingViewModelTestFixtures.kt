@@ -203,6 +203,7 @@ internal object OnboardingViewModelTestFixtures {
                     ),
                 pipeline = testProgramGenerationPipeline(),
                 liftRepository = fakeLiftRepository,
+                loggingPort = FakeLoggingPort(),
             ),
             activateProgram = com.stratum.application.program.ActivateProgramUseCase(
                 programRepository = fakeProgramRepository,

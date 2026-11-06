@@ -262,6 +262,7 @@ class OnboardingGenerateViewModelTest {
                 loadContext = contextLoader,
                 pipeline = testProgramGenerationPipeline(),
                 liftRepository = liftRepo,
+                loggingPort = FakeLoggingPort(),
                 generationDispatcher = generationDispatcher,
             ),
             activateProgram = com.stratum.application.program.ActivateProgramUseCase(

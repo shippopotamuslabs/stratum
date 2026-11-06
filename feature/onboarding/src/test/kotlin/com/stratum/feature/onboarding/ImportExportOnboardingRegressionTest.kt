@@ -198,6 +198,7 @@ class ImportExportOnboardingRegressionTest {
                     loadContext = FixedProgramGenerationContextLoader(error = { error("not used") }),
                     pipeline = testProgramGenerationPipeline(),
                     liftRepository = liftRepo,
+                    loggingPort = FakeLoggingPort(),
                 ),
             activateProgram =
                 ActivateProgramUseCase(

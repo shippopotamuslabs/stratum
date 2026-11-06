@@ -49,7 +49,6 @@ stratum:
       - 'core/application/src/main/kotlin/com/stratum/application/export/ExportTrainingLogsUseCase.kt'
       - 'core/application/src/main/kotlin/com/stratum/application/healthconnect/HealthConnectUseCases.kt'
       - 'core/application/src/main/kotlin/com/stratum/application/onboarding/AdvanceOnboardingStepUseCase.kt'
-      - 'core/application/src/main/kotlin/com/stratum/application/program/GenerateProgramUseCase.kt'
       - 'core/application/src/main/kotlin/com/stratum/application/program/importing/ImportProgramTemplatesUseCase.kt'
       - 'core/application/src/main/kotlin/com/stratum/application/subscription/SubscriptionUseCases.kt'
       - 'core/domain/src/main/kotlin/com/stratum/domain/coroutines/RunCatchingCancellable.kt'
