@@ -8,8 +8,10 @@ import com.stratum.application.importing.InsightsAnalysisScope
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
@@ -27,21 +29,59 @@ import kotlinx.coroutines.withContext
  * propagates.
  */
 sealed interface LocalDerivedTrainingStagesResult {
+    /** Stage-failure records carried by this branch (empty on a clean [Success]). */
+    val diagnostics: List<OperationalDiagnostic>
+
     data class Success(
-        val diagnostics: List<OperationalDiagnostic> = emptyList(),
+        override val diagnostics: List<OperationalDiagnostic> = emptyList(),
     ) : LocalDerivedTrainingStagesResult
 
     data class InsightsFailed(
-        val diagnostics: List<OperationalDiagnostic>,
+        override val diagnostics: List<OperationalDiagnostic>,
     ) : LocalDerivedTrainingStagesResult
 
     data class WeeklySeriesFailed(
-        val diagnostics: List<OperationalDiagnostic>,
+        override val diagnostics: List<OperationalDiagnostic>,
     ) : LocalDerivedTrainingStagesResult
 
     data class PersistenceFailed(
-        val diagnostics: List<OperationalDiagnostic>,
+        override val diagnostics: List<OperationalDiagnostic>,
     ) : LocalDerivedTrainingStagesResult
+}
+
+/**
+ * Shared fire-and-forget launcher for the post-finalize / history-edit derived
+ * refresh (STR-240 chunk 7 mechanism, shared by its three callers).
+ *
+ * Launches [stages] on this scope under
+ * [LocalDerivedTrainingStages.FailPolicy.LogAndContinue] with the caller's
+ * [logTag]. Stage-failure records ride the result's
+ * [LocalDerivedTrainingStagesResult.diagnostics] — under LogAndContinue they
+ * accumulate on [LocalDerivedTrainingStagesResult.Success.diagnostics]; the
+ * failure branches are unreachable under that policy but carry their own
+ * diagnostics through the same property, so no branch mapping is needed. The
+ * launch delivers the diagnostics to the boundary-supplied
+ * [onRefreshDiagnostics] exactly once, and only when the list is non-empty
+ * (the CollectLatestRestarting precedent: the boundary callback fires per
+ * failure, never on a clean run). The boundary drains them through its module
+ * DiagnosticDrain; application holds no logging capability.
+ */
+fun CoroutineScope.launchDerivedRefresh(
+    stages: LocalDerivedTrainingStages,
+    logTag: String,
+    onRefreshDiagnostics: (List<OperationalDiagnostic>) -> Unit,
+) {
+    launch {
+        val stagesResult =
+            stages.run(
+                includeInsights = true,
+                failPolicy = LocalDerivedTrainingStages.FailPolicy.LogAndContinue,
+                logTag = logTag,
+            )
+        if (stagesResult.diagnostics.isNotEmpty()) {
+            onRefreshDiagnostics(stagesResult.diagnostics)
+        }
+    }
 }
 
 /**

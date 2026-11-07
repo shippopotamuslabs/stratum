@@ -11,7 +11,6 @@ import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.TrainingSession
 import com.stratum.domain.training.TrainingSessionStatus
@@ -74,8 +73,8 @@ class UpdateCompletedSessionTimesUseCase @Inject constructor(
      * post-edit derived-data refresh (CollectLatestRestarting precedent: a
      * boundary-owned callback, NOT a logging capability in application — the
      * caller drains the delivered diagnostics through its own DiagnosticDrain).
-     * No default: every caller wires it explicitly. See the launch site below
-     * for the exact delivery convention.
+     * No default: every caller wires it explicitly. See the shared
+     * [launchDerivedRefresh] launcher for the exact delivery convention.
      */
     suspend operator fun invoke(
         sessionId: TrainingSessionId,
@@ -142,8 +141,9 @@ class UpdateCompletedSessionTimesUseCase @Inject constructor(
         }
 
             // STR-240 chunk 7: the refresh's stage-failure diagnostics are
-            // delivered via onRefreshDiagnostics — see launchDerivedRefresh.
-            launchDerivedRefresh(onRefreshDiagnostics)
+            // delivered via onRefreshDiagnostics — see the shared
+            // [launchDerivedRefresh] launcher.
+            refreshScope.launchDerivedRefresh(localDerivedStages, TAG, onRefreshDiagnostics)
             UpdateCompletedSessionTimesResult.Success(diagnostics = enqueueDiagnostics)
         } catch (cancelled: CancellationException) {
             throw cancelled
@@ -201,43 +201,6 @@ class UpdateCompletedSessionTimesUseCase @Inject constructor(
         val lastExtracted = responseProfileMetadataRepository.get()?.lastExtractedAt ?: return false
         val sessionAt = session.completedAt
         return !sessionAt.isAfter(lastExtracted)
-    }
-
-    /**
-     * STR-240 chunk 7 mechanism: launches the derived-stages run under
-     * LogAndContinue on the application scope (fire-and-forget). Stage-failure
-     * records ride the result —
-     * [LocalDerivedTrainingStagesResult.Success.diagnostics] accumulates them
-     * under LogAndContinue; the failure branches (InsightsFailed /
-     * WeeklySeriesFailed / PersistenceFailed, unreachable under LogAndContinue
-     * but mapped for completeness) each carry their own diagnostics. The launch
-     * delivers the mapped diagnostics to the boundary-supplied
-     * [onRefreshDiagnostics] exactly once, and only when the list is non-empty
-     * (the CollectLatestRestarting precedent: the boundary callback fires per
-     * failure, never on a clean run). The boundary drains them through its
-     * module DiagnosticDrain; application holds no logging capability.
-     */
-    private fun launchDerivedRefresh(
-        onRefreshDiagnostics: (List<OperationalDiagnostic>) -> Unit,
-    ) {
-        refreshScope.launch {
-            val stagesResult =
-                localDerivedStages.run(
-                    includeInsights = true,
-                    failPolicy = LocalDerivedTrainingStages.FailPolicy.LogAndContinue,
-                    logTag = TAG,
-                )
-            val diagnostics =
-                when (stagesResult) {
-                    is LocalDerivedTrainingStagesResult.Success -> stagesResult.diagnostics
-                    is LocalDerivedTrainingStagesResult.InsightsFailed -> stagesResult.diagnostics
-                    is LocalDerivedTrainingStagesResult.WeeklySeriesFailed -> stagesResult.diagnostics
-                    is LocalDerivedTrainingStagesResult.PersistenceFailed -> stagesResult.diagnostics
-                }
-            if (diagnostics.isNotEmpty()) {
-                onRefreshDiagnostics(diagnostics)
-            }
-        }
     }
 
     private companion object {

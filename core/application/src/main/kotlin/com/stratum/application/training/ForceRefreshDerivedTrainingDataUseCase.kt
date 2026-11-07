@@ -53,14 +53,13 @@ class ForceRefreshDerivedTrainingDataUseCase @Inject constructor(
                 logTag = TAG,
             )
         if (stagesResult !is LocalDerivedTrainingStagesResult.Success) {
-            val diagnostics =
-                when (stagesResult) {
-                    is LocalDerivedTrainingStagesResult.InsightsFailed -> stagesResult.diagnostics
-                    is LocalDerivedTrainingStagesResult.WeeklySeriesFailed -> stagesResult.diagnostics
-                    is LocalDerivedTrainingStagesResult.PersistenceFailed -> stagesResult.diagnostics
-                    is LocalDerivedTrainingStagesResult.Success -> emptyList()
-                }
-            return ForceRefreshDerivedTrainingDataResult.PersistenceFailed(diagnostics)
+            // This use case does NOT adopt the shared launchDerivedRefresh
+            // launcher: it runs synchronously under FailPolicy.Throw and
+            // returns its failure on this outcome for its own boundary to
+            // drain, rather than delivering through a fire-and-forget
+            // LogAndContinue callback. It does adopt the shared
+            // LocalDerivedTrainingStagesResult.diagnostics property.
+            return ForceRefreshDerivedTrainingDataResult.PersistenceFailed(stagesResult.diagnostics)
         }
         // Non-blocking: worker skips the 20-workout gate. KEEP on re-tap so we don't cancel
         // an in-flight recovery extract.
