@@ -140,6 +140,17 @@ class ImportProgramTemplatesUseCaseTest {
         }
     }
 
+    /** Always throws [failure] from [invoke]; drives the post-persist operational-failure path. */
+    private class ThrowingCompleteOnboardingUseCase(
+        onboardingRepository: OnboardingRepository,
+        profileRepository: UserTrainingProfileRepository,
+        private val failure: Throwable,
+    ) : CompleteOnboardingUseCase(onboardingRepository, profileRepository) {
+        override suspend fun invoke(finalProfile: UserTrainingProfile) {
+            throw failure
+        }
+    }
+
     /** Records invocations for mutation defense (IE-S5-M001). */
     private class RecordingCompleteOnboardingUseCase(
         onboardingRepository: OnboardingRepository,
@@ -659,6 +670,75 @@ class ImportProgramTemplatesUseCaseTest {
             persistFailed.embeddingDiagnostics.single().message,
         )
         assertSame(failure, persistFailed.embeddingDiagnostics.single().cause)
+    }
+
+    @Test
+    @DisplayName("Thermos round-2: embedding failure rides OperationalFailed when completeOnboarding throws after persist")
+    fun embeddingFailureRidesOperationalFailedWhenCompleteOnboardingThrowsAfterPersist() = runTest {
+        val failure = IllegalStateException("embedding down")
+        val hybrid =
+            HybridLiftNameResolver(
+                bm25 = Bm25LiftNameResolver(),
+                catalogEmbeddings = FakeLiftEmbeddingCatalog(),
+                nameEmbedding = FakeLiftNameEmbeddingPort(result = Result.failure(failure)),
+            )
+        val onboardingFailure = IllegalStateException("complete onboarding down")
+        val programRepo = FakeProgramRepository()
+        val onboardingRepo = FakeOnboardingRepository()
+        val throwingCompleteOnboarding =
+            ThrowingCompleteOnboardingUseCase(
+                onboardingRepo,
+                FakeUserTrainingProfileRepository(),
+                onboardingFailure,
+            )
+        val port = FakeProgramTemplateImportPort(templateJson = singleTemplateJson("Imported A"))
+        val result =
+            buildUseCase(
+                programRepo,
+                onboardingRepo,
+                port,
+                testScheduler,
+                completeOnboarding = throwingCompleteOnboarding,
+                liftNameResolver = hybrid,
+            )(
+                bytes = byteArrayOf(1),
+                fileName = "p.json",
+                options =
+                    ProgramTemplateImportOptions(
+                        activation = ProgramImportActivation.LibraryOnly,
+                        completeOnboarding = true,
+                        appendProgramRegeneratedEvent = false,
+                    ),
+            )
+        // Phase-2 persist already succeeded before completeOnboarding threw:
+        // the program was imported with degraded matching.
+        assertEquals(1, programRepo.getAllUserPrograms().size)
+        assertTrue(result is ProgramTemplateImportOutcome.OperationalFailed)
+        val operationalFailed = result as ProgramTemplateImportOutcome.OperationalFailed
+        // The primary operational failure keeps its own diagnostic, unchanged.
+        // Identity is not asserted for its cause: the throw crossed the
+        // withContext boundary, and coroutine machinery may normalize a thrown
+        // instance to a message-only copy (the STR-256 cancellation precedent).
+        // The embedding cause below IS identity-asserted — it is carried as
+        // data on the outcome, never thrown.
+        assertEquals(1, operationalFailed.diagnostics.size)
+        assertEquals("ProgramTemplateImport", operationalFailed.diagnostics.single().tag)
+        assertEquals(
+            "Program import failed: complete onboarding down",
+            operationalFailed.diagnostics.single().message,
+        )
+        assertEquals("complete onboarding down", operationalFailed.diagnostics.single().cause?.message)
+        assertTrue(operationalFailed.diagnostics.single().cause !== failure)
+        // The degraded resolve's embedding diagnostic rides this branch too,
+        // rendered through the canonical conversion with this flow's tag.
+        assertEquals(1, operationalFailed.embeddingDiagnostics.size)
+        assertEquals("ProgramTemplateImport", operationalFailed.embeddingDiagnostics.single().tag)
+        assertEquals(
+            "Import lift name embedding failed — gray-zone matches may be unresolved. " +
+                "Error: embedding down",
+            operationalFailed.embeddingDiagnostics.single().message,
+        )
+        assertSame(failure, operationalFailed.embeddingDiagnostics.single().cause)
     }
 
     @Test

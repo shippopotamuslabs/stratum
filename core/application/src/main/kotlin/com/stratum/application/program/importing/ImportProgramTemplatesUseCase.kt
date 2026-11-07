@@ -102,6 +102,19 @@ sealed interface ProgramTemplateImportOutcome {
 
     data class OperationalFailed(
         val diagnostics: List<OperationalDiagnostic>,
+        /**
+         * The degraded resolve's embedding diagnostic when resolution was
+         * degraded before the operational failure surfaced (Thermos round-2
+         * edge): an operational failure after a successful persist (e.g.
+         * completing onboarding throws) must not drop the embedding record —
+         * the program was imported with degraded matching. Carried here so
+         * the boundary records it exactly once on this path too, converted
+         * via the canonical
+         * [com.stratum.application.importing.toOperationalDiagnostic]
+         * rendering — the [Success] / [PersistFailed] drains never run for
+         * the same import. Empty when no resolve ran or it was not degraded.
+         */
+        val embeddingDiagnostics: List<OperationalDiagnostic> = emptyList(),
     ) : ProgramTemplateImportOutcome
 }
 
@@ -158,6 +171,13 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
         // Rollback diagnostics collected inside; re-attached below when the surfaced
         // failure is a cancellation the platform normalized (see below).
         val rollbackFailures = mutableListOf<ProgramImportRollbackDiagnostic>()
+        // STR-240 chunk 8b: the first embedding-batch failure in this import,
+        // captured inside the resolve loop below. Declared at invoke scope —
+        // not inside the block — so the outer envelope can carry it on the
+        // OperationalFailed branch when a post-resolve failure (e.g. a
+        // post-persist completeOnboarding throw) surfaces there; the
+        // Success / PersistFailed branches inside read the same value.
+        var embeddingDiagnostic: OperationalDiagnostic? = null
         return try {
             withContext(importDispatcher) {
             onProgress(ProgramTemplateImportPhase.Uploading)
@@ -212,12 +232,9 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
             val resolvedThisBatch = mutableListOf<com.stratum.domain.program.Program>()
             var skipped = 0
             var activatedFirst = false
-            // STR-240 chunk 8b: the first embedding-batch failure in this import is
-            // carried on the Success outcome (below) for the boundary to record
-            // exactly once per import; later templates in the same file degrade the
-            // same way and do not re-carry it.
-            var embeddingDiagnostic: OperationalDiagnostic? = null
-
+            // The first embedding-batch failure is kept (see the invoke-scope
+            // declaration above): later templates in the same file degrade the
+            // same way and do not re-carry it — one record per import.
             for (item in parsed) {
                 require(item.template.workouts.isNotEmpty()) { "Imported template has no workouts" }
                 val resolved = resolver.invoke(item.template)
@@ -310,7 +327,14 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
             // envelope's own operational throws surface as OperationalFailed.
             ProgramTemplateImportOutcome.TimedOut
         } catch (error: Throwable) {
-            ProgramTemplateImportOutcome.OperationalFailed(operationalDiagnostics(error))
+            // A failure surfacing here after a degraded resolve (post-persist
+            // throws included) carries the captured embedding diagnostic so the
+            // boundary records it exactly once; before any resolve the captured
+            // value is still null and the branch carries nothing extra.
+            ProgramTemplateImportOutcome.OperationalFailed(
+                diagnostics = operationalDiagnostics(error),
+                embeddingDiagnostics = listOfNotNull(embeddingDiagnostic),
+            )
         }
     }
 

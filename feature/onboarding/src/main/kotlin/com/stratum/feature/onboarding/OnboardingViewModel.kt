@@ -962,6 +962,12 @@ class OnboardingViewModel @Inject constructor(
         // constructed exception value for the record only.
         if (outcome is ProgramTemplateImportOutcome.OperationalFailed) {
             diagnosticDrain.drain(outcome.diagnostics)
+            // Thermos round-2 edge: a degraded resolve's embedding diagnostic
+            // rides this branch too when the operational failure surfaced
+            // after it (e.g. a post-persist throw) and drains here exactly
+            // once (the Success / PersistFailed drains never run for this
+            // import).
+            diagnosticDrain.drain(outcome.embeddingDiagnostics)
         }
         // Fix 7: a degraded resolve's embedding diagnostic rides the
         // PersistFailed branch too and drains here exactly once (the Success

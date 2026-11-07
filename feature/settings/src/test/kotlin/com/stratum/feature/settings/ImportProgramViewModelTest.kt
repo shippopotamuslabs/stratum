@@ -298,6 +298,56 @@ class ImportProgramViewModelTest {
     }
 
     @Test
+    @DisplayName("Thermos round-2: OperationalFailed embedding diagnostic drains exactly once at the settings boundary")
+    fun operationalFailedEmbeddingDiagnosticDrainsExactlyOnce() = runTest {
+        val auth =
+            FakeAuthManager(AuthState.Authenticated(UserProfile("u1", "U", "u@e.com", null)))
+        val failure = IllegalStateException("embedding down")
+        val operationalFailure = IllegalStateException("complete onboarding down")
+        val outcome =
+            ProgramTemplateImportOutcome.OperationalFailed(
+                diagnostics =
+                    listOf(
+                        OperationalDiagnostic(
+                            tag = "ProgramTemplateImport",
+                            message = "Program import failed: complete onboarding down",
+                            cause = operationalFailure,
+                        ),
+                    ),
+                embeddingDiagnostics =
+                    listOf(
+                        OperationalDiagnostic(
+                            tag = "ProgramTemplateImport",
+                            message = "Import lift name embedding failed — gray-zone " +
+                                "matches may be unresolved. Error: embedding down",
+                            cause = failure,
+                        ),
+                    ),
+            )
+        val useCase = RecordingImportProgramTemplatesUseCase(outcome = outcome)
+        val analytics = FakeAnalyticsPort()
+        val drainLogging = FakeLoggingPort()
+        val vm = ImportProgramViewModel(
+            useCase,
+            auth,
+            AnalyticsRecorder(analytics),
+            DiagnosticDrain(drainLogging),
+        )
+        vm.onFileSelected(byteArrayOf(1), "p.json")
+        advanceUntilIdle()
+        assertEquals("Import failed.", vm.uiState.value.errorMessage)
+        // Exactly two drain records on this path: the primary operational
+        // diagnostic and the carried embedding diagnostic, each exactly once.
+        assertEquals(2, drainLogging.errors.size)
+        assertEquals(1, drainLogging.errors.count { it.throwable === operationalFailure })
+        assertEquals(1, drainLogging.errors.count { it.throwable === failure })
+        val embeddingRecord = drainLogging.errors.single { it.throwable === failure }
+        assertEquals("ProgramTemplateImport", embeddingRecord.tag)
+        assertSame(failure, embeddingRecord.throwable)
+        assertEquals(1, analytics.events.size)
+    }
+
+    @Test
     @DisplayName("STR-256 Rollback failure logs each orphan delete once, UI copy uses primary message")
     fun str256_rollbackFailureDrainsDiagnosticsOnce() = runTest {
         val auth =
