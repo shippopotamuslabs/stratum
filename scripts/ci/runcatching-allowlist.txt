@@ -10,8 +10,6 @@
 # STR-237 moved TelemetryThrowableSanitizer — that was a path update in this
 # file, not a shrink.
 #
-# --- :core:domain — enum/parse getOrNull sites, non-suspend (STR-240 owns) ---
-core/domain/src/main/kotlin/com/stratum/domain/program/generation/synthesis/wire/ResultWireCodec.kt 1 # decodeSlotDiagnostics swallow, non-suspend (STR-240 chunk 5 owns the remaining site; the enumValueOf site was converted in chunk 1)
 # --- :core:domain — non-suspend, result consumed by the caller ---
 core/domain/src/main/kotlin/com/stratum/domain/program/ProgramSchedule.kt 1 # fallback computation, non-suspend, result consumed via fold
 core/domain/src/main/kotlin/com/stratum/domain/program/schedule/ProgramCycleSpace.kt 1 # invariant-failure-to-empty, non-suspend, result consumed via getOrDefault

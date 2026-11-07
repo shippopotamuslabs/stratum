@@ -38,6 +38,17 @@ sealed interface SlotGenerationDiagnostic {
         val muscleName: String,
         val patternName: String,
     ) : SlotGenerationDiagnostic
+
+    /**
+     * A slot-diagnostic entry on the synthesis wire could not be decoded — an unknown
+     * `kind`, an unrecognized field value, a missing field, or an entry that is not an
+     * object — so that entry produced no decoded diagnostic of its own kind. [entry]
+     * carries the entry's raw wire content, so the loss is identified at the boundary
+     * instead of the entry vanishing silently (STR-240).
+     */
+    data class SlotDiagnosticUndecodable(
+        val entry: String,
+    ) : SlotGenerationDiagnostic
 }
 
 /**

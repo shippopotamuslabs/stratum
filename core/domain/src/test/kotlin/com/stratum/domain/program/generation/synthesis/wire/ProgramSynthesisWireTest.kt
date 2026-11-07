@@ -134,7 +134,7 @@ class ProgramSynthesisWireTest {
     }
 
     @Test
-    fun `decodeResult drops unknown diagnostic kinds`() {
+    fun `decodeResult carries unknown diagnostic kinds as undecodable diagnostics`() {
         val encoded = ProgramSynthesisWire.encodeResult(minimalResult())
         val withUnknown =
             encoded.replace(
@@ -145,11 +145,18 @@ class ProgramSynthesisWireTest {
 
         val decoded = ProgramSynthesisWire.decodeResult(withUnknown)
 
-        assertTrue(decoded.diagnostics.isEmpty())
+        assertEquals(
+            listOf(
+                SlotGenerationDiagnostic.SlotDiagnosticUndecodable(
+                    """{"kind":"FutureKind","patternName":"X"}""",
+                ),
+            ),
+            decoded.diagnostics,
+        )
     }
 
     @Test
-    fun `decodeResult drops malformed diagnostic entries but keeps valid ones`() {
+    fun `decodeResult carries malformed diagnostic entries as undecodable diagnostics but keeps valid ones`() {
         val encoded = ProgramSynthesisWire.encodeResult(minimalResult())
         val withMixed =
             encoded.replace(
@@ -168,6 +175,13 @@ class ProgramSynthesisWireTest {
         assertEquals(
             listOf(
                 SlotGenerationDiagnostic.CrossDomainTouchSkipped("X", MuscleGroup.Chest),
+                SlotGenerationDiagnostic.SlotDiagnosticUndecodable(
+                    """{"kind":"CrossDomainTouchSkipped","patternName":"X","muscle":"NotAMuscle"}""",
+                ),
+                SlotGenerationDiagnostic.SlotDiagnosticUndecodable("\"not-an-object\""),
+                SlotGenerationDiagnostic.SlotDiagnosticUndecodable(
+                    """{"kind":"FutureKind","patternName":"X"}""",
+                ),
             ),
             decoded.diagnostics,
         )
@@ -175,14 +189,37 @@ class ProgramSynthesisWireTest {
     }
 
     @Test
-    fun `decodeResult with non-array diagnostics decodes to empty`() {
+    fun `decodeResult with non-array diagnostics carries it as an undecodable diagnostic`() {
         val encoded = ProgramSynthesisWire.encodeResult(minimalResult())
         val withNonArray = encoded.replace("\"diagnostics\":[]", "\"diagnostics\":\"oops\"")
 
         val decoded = ProgramSynthesisWire.decodeResult(withNonArray)
 
-        assertTrue(decoded.diagnostics.isEmpty())
+        assertEquals(
+            listOf(
+                SlotGenerationDiagnostic.SlotDiagnosticUndecodable("\"oops\""),
+            ),
+            decoded.diagnostics,
+        )
         assertEquals(minimalResult().sessions, decoded.sessions)
+    }
+
+    @Test
+    fun `result round-trip preserves undecodable slot diagnostics`() {
+        val result =
+            minimalResult().copy(
+                diagnostics =
+                    listOf(
+                        SlotGenerationDiagnostic.SlotDiagnosticUndecodable(
+                            """{"kind":"FutureKind","patternName":"X"}""",
+                        ),
+                    ),
+            )
+
+        val encoded = ProgramSynthesisWire.encodeResult(result)
+        val decoded = ProgramSynthesisWire.decodeResult(encoded)
+
+        assertEquals(result.diagnostics, decoded.diagnostics)
     }
 
     @Test

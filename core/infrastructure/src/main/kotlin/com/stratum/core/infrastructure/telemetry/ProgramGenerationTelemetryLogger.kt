@@ -69,6 +69,9 @@ class ProgramGenerationTelemetryLogger @Inject constructor(
             is SlotGenerationDiagnostic.SpecFocusMuscleUnrecognized ->
                 "Spec-focus lift excluded: muscle=\"$muscleName\" is not a known " +
                     "MuscleGroup — every lift rejected for pattern=\"$patternName\"."
+            is SlotGenerationDiagnostic.SlotDiagnosticUndecodable ->
+                "Slot diagnostic undecodable: entry=$entry could not be decoded — " +
+                    "that diagnostic entry was dropped from the decoded diagnostics."
         }
 
     private companion object {

@@ -1,6 +1,11 @@
 package com.stratum.domain.program.generation.synthesis.wire
 
+import com.stratum.domain.json.JsonArray
+import com.stratum.domain.json.JsonBoolean
+import com.stratum.domain.json.JsonNull
+import com.stratum.domain.json.JsonNumber
 import com.stratum.domain.json.JsonObject
+import com.stratum.domain.json.JsonString
 import com.stratum.domain.json.JsonValue
 import com.stratum.domain.json.jsonArray
 import com.stratum.domain.json.jsonBoolean
@@ -171,8 +176,10 @@ private fun decodeFatigueProfileSet(value: JsonValue?): Set<FatigueProfile>? {
 
 /**
  * Slot-build diagnostics (STR-254). The key is optional on decode — pre-diagnostics cloud
- * results carry no entry and decode to empty — and unknown future kinds are dropped rather
- * than failing the whole result (same rolling-deploy philosophy as region filters).
+ * results carry no entry and decode to empty — and a malformed entry never fails the
+ * whole result (same rolling-deploy philosophy as region filters): it is carried as a
+ * [SlotGenerationDiagnostic.SlotDiagnosticUndecodable] holding its raw wire content
+ * instead of being dropped silently (STR-240).
  */
 internal fun encodeSlotDiagnostic(diagnostic: SlotGenerationDiagnostic): String =
     when (diagnostic) {
@@ -194,34 +201,83 @@ internal fun encodeSlotDiagnostic(diagnostic: SlotGenerationDiagnostic): String 
                 "muscleName" to jsonString(diagnostic.muscleName),
                 "patternName" to jsonString(diagnostic.patternName),
             )
+        is SlotGenerationDiagnostic.SlotDiagnosticUndecodable ->
+            jsonObject(
+                "kind" to jsonString("SlotDiagnosticUndecodable"),
+                "entry" to jsonString(diagnostic.entry),
+            )
     }
 
 internal fun decodeSlotDiagnostics(value: JsonValue?): List<SlotGenerationDiagnostic> {
     if (value == null || value.isNull()) return emptyList()
-    val arr = value.asArrayOrNull() ?: return emptyList()
-    return arr.values.mapNotNull {
-        runCatching { decodeSlotDiagnosticOrNull(it.requireAsObject("diagnostic")) }.getOrNull()
+    val arr = value.asArrayOrNull()
+        ?: return listOf(SlotGenerationDiagnostic.SlotDiagnosticUndecodable(renderWireValue(value)))
+    return arr.values.map { decodeSlotDiagnostic(it) }
+}
+
+/**
+ * Decodes one diagnostics entry without throwing: every field is read through a
+ * null-returning accessor and enum names go through [MuscleGroup.parseOrNull], so a
+ * malformed entry — not an object, unknown kind, missing field, unrecognized value —
+ * becomes a [SlotGenerationDiagnostic.SlotDiagnosticUndecodable] carrying the entry's
+ * raw wire content rather than an exception to swallow or a silent drop.
+ */
+private fun decodeSlotDiagnostic(entry: JsonValue): SlotGenerationDiagnostic {
+    val obj = entry.asObjectOrNull()
+        ?: return SlotGenerationDiagnostic.SlotDiagnosticUndecodable(renderWireValue(entry))
+    return when (obj.optionalWireString("kind")) {
+        "CrossDomainTouchSkipped" ->
+            decodePatternAndMuscleDiagnostic(obj, entry) { patternName, muscle ->
+                SlotGenerationDiagnostic.CrossDomainTouchSkipped(patternName, muscle)
+            }
+        "SpecFocusSlotSkipped" ->
+            decodePatternAndMuscleDiagnostic(obj, entry) { patternName, muscle ->
+                SlotGenerationDiagnostic.SpecFocusSlotSkipped(patternName, muscle)
+            }
+        "SpecFocusMuscleUnrecognized" -> {
+            val muscleName = obj.optionalWireString("muscleName")
+            val patternName = obj.optionalWireString("patternName")
+            if (muscleName == null || patternName == null) {
+                SlotGenerationDiagnostic.SlotDiagnosticUndecodable(renderWireValue(entry))
+            } else {
+                SlotGenerationDiagnostic.SpecFocusMuscleUnrecognized(muscleName, patternName)
+            }
+        }
+        "SlotDiagnosticUndecodable" ->
+            SlotGenerationDiagnostic.SlotDiagnosticUndecodable(
+                obj.optionalWireString("entry") ?: renderWireValue(entry),
+            )
+        else -> SlotGenerationDiagnostic.SlotDiagnosticUndecodable(renderWireValue(entry))
     }
 }
 
-private fun decodeSlotDiagnosticOrNull(obj: JsonObject): SlotGenerationDiagnostic? =
-    when (obj.requireString("kind")) {
-        "CrossDomainTouchSkipped" ->
-            SlotGenerationDiagnostic.CrossDomainTouchSkipped(
-                patternName = obj.requireString("patternName"),
-                muscle = enumValueOf(obj.requireString("muscle")),
-            )
-        "SpecFocusSlotSkipped" ->
-            SlotGenerationDiagnostic.SpecFocusSlotSkipped(
-                patternName = obj.requireString("patternName"),
-                muscle = enumValueOf(obj.requireString("muscle")),
-            )
-        "SpecFocusMuscleUnrecognized" ->
-            SlotGenerationDiagnostic.SpecFocusMuscleUnrecognized(
-                muscleName = obj.requireString("muscleName"),
-                patternName = obj.requireString("patternName"),
-            )
-        else -> null
+private fun decodePatternAndMuscleDiagnostic(
+    obj: JsonObject,
+    entry: JsonValue,
+    build: (patternName: String, muscle: MuscleGroup) -> SlotGenerationDiagnostic,
+): SlotGenerationDiagnostic {
+    val patternName = obj.optionalWireString("patternName")
+    val muscle = obj.optionalWireString("muscle")?.let { MuscleGroup.parseOrNull(it) }
+    return if (patternName == null || muscle == null) {
+        SlotGenerationDiagnostic.SlotDiagnosticUndecodable(renderWireValue(entry))
+    } else {
+        build(patternName, muscle)
+    }
+}
+
+/** Reads a string field without throwing: absent, null, or non-string all read as null. */
+private fun JsonObject.optionalWireString(key: String): String? = this[key]?.asStringOrNull()
+
+/** Renders a decoded [JsonValue] back to compact wire JSON, identifying an entry as-is. */
+private fun renderWireValue(value: JsonValue): String =
+    when (value) {
+        is JsonObject ->
+            jsonObject(value.entries.map { (key, fieldValue) -> key to renderWireValue(fieldValue) })
+        is JsonArray -> jsonArray(value.values.map { renderWireValue(it) })
+        is JsonString -> jsonString(value.value)
+        is JsonNumber -> value.raw
+        is JsonBoolean -> jsonBoolean(value.value)
+        JsonNull -> "null"
     }
 
 internal fun encodeObjective(objective: SynthesisObjectiveBreakdown): String =
