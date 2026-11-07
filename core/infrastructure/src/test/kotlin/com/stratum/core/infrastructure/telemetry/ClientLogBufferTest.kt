@@ -1,30 +1,49 @@
 package com.stratum.core.infrastructure.telemetry
 
+import com.stratum.core.infrastructure.inference.AndroidLoggingAdapter
+import com.stratum.core.testing.telemetry.FakeCrashTelemetryPort
 import com.stratum.core.testing.telemetry.FakePendingClientLogStore
 import com.stratum.core.testing.telemetry.FakeTelemetryUploadPort
 import com.stratum.core.infrastructure.telemetry.OutcomeTelemetry.Companion.REASON_SYNTHESIS_FAILED
 import com.stratum.core.infrastructure.telemetry.OutcomeTelemetry.Companion.USE_CASE_PROGRAM_GENERATION
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assertions.fail
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
+import org.robolectric.annotation.Config
+import tech.apter.junit.jupiter.robolectric.RobolectricExtension
 
+/**
+ * Runs under Robolectric so `android.util.Log` inside [AndroidLoggingAdapter]
+ * (the buffer's local log channel) hits shadows instead of failing on the
+ * plain JVM — same precedent as ForwardingLoggingAdapterTest.
+ */
+@ExtendWith(RobolectricExtension::class)
+@Config(sdk = [34])
 class ClientLogBufferTest {
     private lateinit var upload: FakeTelemetryUploadPort
     private lateinit var store: FakePendingClientLogStore
+    private lateinit var telemetry: FakeCrashTelemetryPort
+    private lateinit var localLog: AndroidLoggingAdapter
     private var nowMs = START_MS
 
     @BeforeEach
     fun setup() {
         upload = FakeTelemetryUploadPort()
         store = FakePendingClientLogStore()
+        telemetry = FakeCrashTelemetryPort()
+        localLog = AndroidLoggingAdapter(telemetry)
         nowMs = START_MS
     }
 
@@ -52,6 +71,7 @@ class ClientLogBufferTest {
                         scope = this,
                         upload = upload,
                         pendingStore = store,
+                        localLog = localLog,
                         policy = policy(),
                         clock = { nowMs },
                         appVersion = APP_VERSION,
@@ -83,6 +103,7 @@ class ClientLogBufferTest {
                         scope = this,
                         upload = upload,
                         pendingStore = store,
+                        localLog = localLog,
                         policy = policy(),
                         clock = { nowMs },
                         appVersion = APP_VERSION,
@@ -104,6 +125,7 @@ class ClientLogBufferTest {
                         scope = this,
                         upload = upload,
                         pendingStore = store,
+                        localLog = localLog,
                         policy = policy().copy(maxBatchSize = 100),
                         clock = { nowMs },
                         appVersion = APP_VERSION,
@@ -133,6 +155,7 @@ class ClientLogBufferTest {
                         scope = this,
                         upload = upload,
                         pendingStore = store,
+                        localLog = localLog,
                         policy = policy().copy(maxUploadsPerHour = 1),
                         clock = { nowMs },
                         appVersion = APP_VERSION,
@@ -161,6 +184,7 @@ class ClientLogBufferTest {
                         scope = this,
                         upload = upload,
                         pendingStore = store,
+                        localLog = localLog,
                         policy = policy().copy(minRetryIntervalMs = 30_000L),
                         clock = { nowMs },
                         appVersion = APP_VERSION,
@@ -189,6 +213,7 @@ class ClientLogBufferTest {
                         scope = this,
                         upload = upload,
                         pendingStore = store,
+                        localLog = localLog,
                         policy = policy(),
                         clock = { nowMs },
                         appVersion = APP_VERSION,
@@ -231,6 +256,7 @@ class ClientLogBufferTest {
                         scope = this,
                         upload = upload,
                         pendingStore = store,
+                        localLog = localLog,
                         policy = policy(),
                         clock = { nowMs },
                         appVersion = APP_VERSION,
@@ -256,6 +282,7 @@ class ClientLogBufferTest {
                         scope = backgroundScope,
                         upload = upload,
                         pendingStore = store,
+                        localLog = localLog,
                         policy = policy(),
                         clock = { nowMs },
                         appVersion = APP_VERSION,
@@ -284,6 +311,7 @@ class ClientLogBufferTest {
                         scope = this,
                         upload = upload,
                         pendingStore = store,
+                        localLog = localLog,
                         policy = policy(),
                         clock = { nowMs },
                         appVersion = APP_VERSION,
@@ -294,6 +322,154 @@ class ClientLogBufferTest {
                 buffer.flush()
 
                 assertEquals(1, upload.uploadedBatches.size)
+            }
+
+        @Test
+        @DisplayName("load failure restores nothing and is recorded exactly once via the local log")
+        fun loadFailureRecordsOnceAndRestoresNothing() =
+            runTest {
+                val failure = RuntimeException("pending load failed")
+                store.pending = listOf(entry("pending-one"))
+                store.loadFailure = failure
+                val buffer =
+                    ClientLogBuffer(
+                        scope = this,
+                        upload = upload,
+                        pendingStore = store,
+                        localLog = localLog,
+                        policy = policy(),
+                        clock = { nowMs },
+                        appVersion = APP_VERSION,
+                    )
+
+                buffer.restorePending()
+
+                assertEquals(1, telemetry.recordedExceptions.size)
+                assertSame(failure, telemetry.recordedExceptions.single())
+                assertEquals(
+                    listOf(
+                        "ClientLogBuffer: Failed to restore pending client logs: pending load failed",
+                    ),
+                    telemetry.breadcrumbs,
+                )
+
+                buffer.record(ClientLogSeverity.WARNING, "Tag", "fresh")
+                buffer.flush()
+
+                assertEquals(
+                    listOf("fresh"),
+                    upload.uploadedBatches.single().entries.map { it.message },
+                )
+            }
+
+        @Test
+        @DisplayName("save failure keeps entries in memory and is recorded exactly once via the local log")
+        fun saveFailureRecordsOnceAndRetainsEntries() =
+            runTest {
+                val failure = RuntimeException("pending save failed")
+                upload.shouldFail = true
+                store.saveFailure = failure
+                val buffer =
+                    ClientLogBuffer(
+                        scope = this,
+                        upload = upload,
+                        pendingStore = store,
+                        localLog = localLog,
+                        policy = policy(),
+                        clock = { nowMs },
+                        appVersion = APP_VERSION,
+                    )
+                buffer.record(ClientLogSeverity.WARNING, "Tag", "offline warn")
+
+                buffer.flush()
+
+                assertEquals(1, telemetry.recordedExceptions.size)
+                assertSame(failure, telemetry.recordedExceptions.single())
+                assertEquals(
+                    listOf(
+                        "ClientLogBuffer: Failed to persist pending client logs: pending save failed",
+                    ),
+                    telemetry.breadcrumbs,
+                )
+                assertTrue(store.savedSnapshots.isEmpty())
+
+                // The entry survived in memory: once the store recovers, the
+                // retry uploads it and the successful persist adds no record.
+                store.saveFailure = null
+                upload.shouldFail = false
+                buffer.flush()
+
+                assertEquals(
+                    listOf("offline warn"),
+                    upload.uploadedBatches.last().entries.map { it.message },
+                )
+                assertEquals(1, telemetry.recordedExceptions.size)
+            }
+
+        @Test
+        @DisplayName("cancellation from load propagates and is not recorded as a failure")
+        fun loadCancellationPropagates() =
+            runTest {
+                store.loadFailure = CancellationException("load cancelled")
+                val buffer =
+                    ClientLogBuffer(
+                        scope = this,
+                        upload = upload,
+                        pendingStore = store,
+                        localLog = localLog,
+                        policy = policy(),
+                        clock = { nowMs },
+                        appVersion = APP_VERSION,
+                    )
+
+                try {
+                    buffer.restorePending()
+                    fail("Expected CancellationException to propagate")
+                } catch (error: CancellationException) {
+                    assertEquals("load cancelled", error.message)
+                }
+
+                assertTrue(telemetry.recordedExceptions.isEmpty())
+                assertTrue(telemetry.breadcrumbs.isEmpty())
+            }
+
+        @Test
+        @DisplayName("cancellation from save propagates and is not recorded as a failure")
+        fun saveCancellationPropagates() =
+            runTest {
+                upload.shouldFail = true
+                store.saveFailure = CancellationException("save cancelled")
+                val buffer =
+                    ClientLogBuffer(
+                        scope = this,
+                        upload = upload,
+                        pendingStore = store,
+                        localLog = localLog,
+                        policy = policy(),
+                        clock = { nowMs },
+                        appVersion = APP_VERSION,
+                    )
+                buffer.record(ClientLogSeverity.WARNING, "Tag", "offline warn")
+
+                try {
+                    buffer.flush()
+                    fail("Expected CancellationException to propagate")
+                } catch (error: CancellationException) {
+                    assertEquals("save cancelled", error.message)
+                }
+
+                assertTrue(telemetry.recordedExceptions.isEmpty())
+                assertTrue(telemetry.breadcrumbs.isEmpty())
+
+                // Cancellation did not drop the entry: a later flush uploads it.
+                store.saveFailure = null
+                upload.shouldFail = false
+                buffer.flush()
+
+                assertEquals(
+                    listOf("offline warn"),
+                    upload.uploadedBatches.last().entries.map { it.message },
+                )
             }
     }
 
@@ -309,6 +485,7 @@ class ClientLogBufferTest {
                         scope = this,
                         upload = upload,
                         pendingStore = store,
+                        localLog = localLog,
                         policy = policy(),
                         clock = { nowMs },
                         appVersion = APP_VERSION,
@@ -356,6 +533,7 @@ class ClientLogBufferTest {
                         scope = this,
                         upload = racingUpload,
                         pendingStore = store,
+                        localLog = localLog,
                         policy = policy().copy(maxBatchSize = 100),
                         clock = { nowMs },
                         appVersion = APP_VERSION,
@@ -397,6 +575,7 @@ class ClientLogBufferTest {
                         scope = this,
                         upload = upload,
                         pendingStore = store,
+                        localLog = localLog,
                         clock = { nowMs },
                         appVersion = APP_VERSION,
                     )

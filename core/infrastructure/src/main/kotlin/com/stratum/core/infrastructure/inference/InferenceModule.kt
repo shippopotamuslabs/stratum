@@ -109,6 +109,7 @@ abstract class InferenceModule {
                 scope = scope,
                 upload = upload,
                 pendingStore = pendingStore,
+                localLog = localLog,
                 appVersion =
                     resolveAppVersion(
                         runCatching {

@@ -45,6 +45,7 @@ class ForwardingLoggingAdapterTest {
                 scope = scope,
                 upload = upload,
                 pendingStore = store,
+                localLog = AndroidLoggingAdapter(telemetry),
                 appVersion = "test-version",
             )
         return Fixture(ForwardingLoggingAdapter(AndroidLoggingAdapter(telemetry), buffer), buffer)

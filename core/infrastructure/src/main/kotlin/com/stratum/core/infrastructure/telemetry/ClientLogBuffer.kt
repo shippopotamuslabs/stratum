@@ -1,11 +1,13 @@
 package com.stratum.core.infrastructure.telemetry
 
 import java.util.UUID
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import com.stratum.core.infrastructure.inference.AndroidLoggingAdapter
 import com.stratum.core.infrastructure.logging.LoggingPort
 
 /**
@@ -35,11 +37,19 @@ data class ClientLogUploadPolicy(
  * non-suspending). Uploads run on [scope]; unsent entries survive process
  * death via [pendingStore]. [sessionId] correlates every entry from one
  * process run in SQL.
+ *
+ * The buffer's own persistence failures (restoring or saving the offline
+ * queue) are recorded through [localLog] — the local-only
+ * [AndroidLoggingAdapter], never through [LoggingPort]: the production
+ * [LoggingPort] implementation forwards into this very buffer, so routing a
+ * buffer failure through it would re-enter the mechanism that just failed
+ * (the telemetry upload adapter's anti-feedback-loop channel, STR-238 A20).
  */
 class ClientLogBuffer(
     private val scope: CoroutineScope,
     private val upload: TelemetryUploadPort,
     private val pendingStore: PendingClientLogStore,
+    private val localLog: AndroidLoggingAdapter,
     private val policy: ClientLogUploadPolicy = ClientLogUploadPolicy(),
     private val clock: () -> Long = System::currentTimeMillis,
     private val appVersion: String = ClientLogBatch.APP_VERSION_UNKNOWN,
@@ -151,7 +161,14 @@ class ClientLogBuffer(
         val pending =
             try {
                 pendingStore.loadPending()
-            } catch (_: Exception) {
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: Exception) {
+                localLog.error(
+                    TAG,
+                    "Failed to restore pending client logs: ${error.message}",
+                    error,
+                )
                 return
             }
         if (pending.isEmpty()) {
@@ -216,12 +233,22 @@ class ClientLogBuffer(
     private suspend fun persist(entries: List<ClientLogEntry>) {
         try {
             pendingStore.savePending(entries.takeLast(policy.maxPersistedEntries))
-        } catch (_: Exception) {
-            // Offline queue is best-effort; the in-memory buffer still retries.
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (error: Exception) {
+            // Offline queue is best-effort; the in-memory buffer still retries
+            // until process death. The failure is recorded once through the
+            // local logger (see the class KDoc) instead of silently dropped.
+            localLog.error(
+                TAG,
+                "Failed to persist pending client logs: ${error.message}",
+                error,
+            )
         }
     }
 
     companion object {
+        private const val TAG = "ClientLogBuffer"
         private const val HOUR_MS = 3_600_000L
     }
 }

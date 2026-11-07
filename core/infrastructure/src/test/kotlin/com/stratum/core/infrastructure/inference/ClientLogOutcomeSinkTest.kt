@@ -1,5 +1,6 @@
 package com.stratum.core.infrastructure.inference
 
+import com.stratum.core.testing.telemetry.FakeCrashTelemetryPort
 import com.stratum.core.testing.telemetry.FakePendingClientLogStore
 import com.stratum.core.testing.telemetry.FakeTelemetryUploadPort
 import com.stratum.core.infrastructure.telemetry.ClientLogBuffer
@@ -23,6 +24,7 @@ class ClientLogOutcomeSinkTest {
                 scope = this,
                 upload = upload,
                 pendingStore = FakePendingClientLogStore(),
+                localLog = AndroidLoggingAdapter(FakeCrashTelemetryPort()),
                 appVersion = "1.2.3",
             )
         val sink = ClientLogOutcomeSink(buffer)
@@ -54,6 +56,7 @@ class ClientLogOutcomeSinkTest {
                 scope = this,
                 upload = upload,
                 pendingStore = FakePendingClientLogStore(),
+                localLog = AndroidLoggingAdapter(FakeCrashTelemetryPort()),
                 appVersion = "1.2.3",
             )
         val sink = ClientLogOutcomeSink(buffer)
