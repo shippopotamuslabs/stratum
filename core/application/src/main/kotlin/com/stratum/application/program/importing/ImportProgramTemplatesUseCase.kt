@@ -89,6 +89,15 @@ sealed interface ProgramTemplateImportOutcome {
     data class PersistFailed(
         val message: String?,
         val diagnostics: List<ProgramImportRollbackDiagnostic>,
+        /**
+         * The degraded resolve's embedding diagnostic when resolution was
+         * degraded before the persist failed (Fix 7): carried here so the
+         * boundary records it exactly once on this path too, converted via
+         * the canonical [com.stratum.application.importing.toOperationalDiagnostic]
+         * rendering — the [Success] path's drain is unchanged and never runs
+         * for the same import. Empty when the resolve was not degraded.
+         */
+        val embeddingDiagnostics: List<OperationalDiagnostic> = emptyList(),
     ) : ProgramTemplateImportOutcome
 
     data class OperationalFailed(
@@ -275,6 +284,7 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
                     message = thrown.message,
                     diagnostics =
                         (thrown as? ProgramImportRollbackException)?.diagnostics ?: emptyList(),
+                    embeddingDiagnostics = listOfNotNull(embeddingDiagnostic),
                 )
             }
 

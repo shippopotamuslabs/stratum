@@ -54,6 +54,40 @@ class OnboardingImportProgramViewModelTest {
     }
 
     @Test
+    fun `embedding failure on import success drains exactly once at the onboarding boundary`() = runTest {
+        // Fix 7 (the missing 8b onboarding pin): the fixture resolver gains an
+        // embedding-failure mode (mirroring the settings fixture's failing
+        // resolver); the degraded-but-successful import still completes
+        // onboarding, and its embedding diagnostic drains exactly once here.
+        val failure = IllegalStateException("embedding down")
+        val diagnosticLogging = FakeLoggingPort()
+        val importPort = FakeProgramTemplateImportPort()
+        val (viewModel, onboardingRepo, programRepo) = buildViewModel(
+            importPort,
+            testScheduler,
+            liftNameResolver = FakeLiftNameResolverPort(embeddingFailure = failure),
+            diagnosticLogging = diagnosticLogging,
+        )
+
+        viewModel.importExistingProgram(ImportFileInput(byteArrayOf(1, 2, 3), "plan.csv"))
+        advanceUntilIdle()
+
+        assertTrue(onboardingRepo.current.isComplete)
+        assertTrue(programRepo.current != null, "expected a persisted program")
+        assertEquals(1, diagnosticLogging.errors.size)
+        assertEquals("ProgramTemplateImport", diagnosticLogging.errors.single().tag)
+        assertEquals(
+            "Import lift name embedding failed — gray-zone matches may be unresolved. " +
+                "Error: embedding down",
+            diagnosticLogging.errors.single().message,
+        )
+        org.junit.jupiter.api.Assertions.assertSame(
+            failure,
+            diagnosticLogging.errors.single().throwable,
+        )
+    }
+
+    @Test
     fun `import failure does not complete onboarding and surfaces Error state`() = runTest {
         val importPort = FakeProgramTemplateImportPort(
             snapshotSequence = listOf(
@@ -199,6 +233,8 @@ class OnboardingImportProgramViewModelTest {
         testScheduler: TestCoroutineScheduler,
         analytics: com.stratum.core.testing.telemetry.FakeAnalyticsPort =
             com.stratum.core.testing.telemetry.FakeAnalyticsPort(),
+        liftNameResolver: FakeLiftNameResolverPort = FakeLiftNameResolverPort(),
+        diagnosticLogging: FakeLoggingPort = FakeLoggingPort(),
     ): Triple<OnboardingViewModel, FakeOnboardingRepository, FakeProgramRepository> {
         val onboardingRepo = FakeOnboardingRepository()
         val profileRepo = FakeUserTrainingProfileRepository(UserTrainingProfile.Empty)
@@ -207,7 +243,7 @@ class OnboardingImportProgramViewModelTest {
         val completeOnboarding = com.stratum.application.onboarding.CompleteOnboardingUseCase(onboardingRepo, profileRepo)
         val importUseCase = ImportProgramTemplateUseCase(
             importPort = importPort,
-            resolver = ResolveProgramTemplateLiftsUseCase(liftRepo, FakeLiftNameResolverPort()),
+            resolver = ResolveProgramTemplateLiftsUseCase(liftRepo, liftNameResolver),
             repository = programRepo,
             completeOnboarding = completeOnboarding,
             profileRepository = profileRepo,
@@ -308,7 +344,7 @@ class OnboardingImportProgramViewModelTest {
             ),
             completeOnboarding = completeOnboarding,
             importProgramTemplate = importUseCase,
-            diagnosticDrain = DiagnosticDrain(FakeLoggingPort()),
+            diagnosticDrain = DiagnosticDrain(diagnosticLogging),
             generationLogger = ProgramGenerationTelemetryLogger(FakeLoggingPort()),
             logAnalytics =
                 AnalyticsRecorder(

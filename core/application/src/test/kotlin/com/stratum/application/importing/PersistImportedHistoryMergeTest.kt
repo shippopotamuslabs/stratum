@@ -67,6 +67,7 @@ class PersistImportedHistoryMergeTest {
     private fun buildPersist(
         trainingLogRepo: FakeTrainingLogRepository,
         insightsRepo: LiftTrainingInsightsRepository = InMemoryLiftInsightsRepository(),
+        equipmentInference: FakeImportEquipmentInferencePort = FakeImportEquipmentInferencePort(),
     ): PersistImportedHistoryUseCase {
         val liftRepo = FakeLiftRepository(initialLifts = seedCatalog())
         val metadataRepo = InMemoryMetadataRepository()
@@ -100,7 +101,7 @@ class PersistImportedHistoryMergeTest {
                     Bm25LiftNameResolver(),
                     EnrichCustomLiftsUseCase(FakeCustomLiftInferencePort()),
                     FakeLiftEquipmentCatalog(),
-                    FakeImportEquipmentInferencePort(),
+                    equipmentInference,
                 ),
             extractTrainingInsights = extractInsights,
             extractResponseProfile = extractResponse,
@@ -167,6 +168,54 @@ class PersistImportedHistoryMergeTest {
         )
         assertTrue(failed.diagnostics.single().cause is RuntimeException)
         assertEquals(2, repo.getImportSessions().size)
+    }
+
+    @Test
+    @DisplayName("Fix 7: merge persist failure after a degraded resolve carries the resolution diagnostics")
+    fun mergePersistFailureCarriesResolutionDiagnostics() = runTest {
+        val failure = IllegalStateException("equipment inference down")
+        val repo = FakeTrainingLogRepository()
+        val result =
+            buildPersist(
+                repo,
+                insightsRepo = ThrowingLiftInsightsRepository("insights boom"),
+                equipmentInference = FakeImportEquipmentInferencePort(failure = failure),
+            )(
+                sessions = listOf(session("imp-new", Instant.parse("2026-07-12T14:00:00Z"))),
+                sets = listOf(
+                    set(
+                        "set-new",
+                        "imp-new",
+                        exercise = "Katana Special Gizmo",
+                        completedAt = Instant.parse("2026-07-12T14:05:00Z"),
+                    ),
+                ),
+                policy = ImportHistoryPersistPolicy.MergeSkipDuplicates,
+                sourceKind = ImportDedupeSourceKind.ThirdParty,
+                zone = ZONE_NY,
+            )
+        val failed = result as PersistImportedHistoryOutcome.Failed
+        // The persist/insights failure record is unchanged.
+        assertEquals(1, failed.diagnostics.size)
+        assertEquals(
+            "Failed to extract training insights: insights boom",
+            failed.diagnostics.single().message,
+        )
+        // The succeeded resolution's diagnostic rides the Failed branch instead
+        // of being dropped with the un-persisted summary.
+        assertEquals(
+            listOf(
+                com.stratum.domain.importing.ResolveImportLiftsDiagnostic
+                    .EquipmentInferenceFailed(failure),
+            ),
+            failed.resolutionDiagnostics,
+        )
+        org.junit.jupiter.api.Assertions.assertSame(
+            failure,
+            (failed.resolutionDiagnostics.single() as
+                com.stratum.domain.importing.ResolveImportLiftsDiagnostic
+                    .EquipmentInferenceFailed).cause,
+        )
     }
 
     @Test

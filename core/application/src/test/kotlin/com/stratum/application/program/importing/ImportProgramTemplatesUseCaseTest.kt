@@ -621,6 +621,47 @@ class ImportProgramTemplatesUseCaseTest {
     }
 
     @Test
+    @DisplayName("Fix 7: embedding failure rides PersistFailed as a diagnostic when persist fails after a degraded resolve")
+    fun embeddingFailureRidesPersistFailedAsDiagnostic() = runTest {
+        val failure = IllegalStateException("embedding down")
+        val hybrid =
+            HybridLiftNameResolver(
+                bm25 = Bm25LiftNameResolver(),
+                catalogEmbeddings = FakeLiftEmbeddingCatalog(),
+                nameEmbedding = FakeLiftNameEmbeddingPort(result = Result.failure(failure)),
+            )
+        val failingRepo = FailOnNthSaveRepository(failOnSaveNumber = 1)
+        val port = FakeProgramTemplateImportPort(templateJson = singleTemplateJson("Imported A"))
+        val result =
+            buildUseCase(
+                failingRepo,
+                FakeOnboardingRepository(),
+                port,
+                testScheduler,
+                liftNameResolver = hybrid,
+            )(
+                bytes = byteArrayOf(1),
+                fileName = "p.json",
+                options = libraryOnly,
+            )
+        assertTrue(result is ProgramTemplateImportOutcome.PersistFailed)
+        val persistFailed = result as ProgramTemplateImportOutcome.PersistFailed
+        // The persist failure's own shape is unchanged.
+        assertEquals("Fake save #1 failed (configured fail on #1)", persistFailed.message)
+        assertEquals(emptyList<ProgramImportRollbackDiagnostic>(), persistFailed.diagnostics)
+        // The degraded resolve's embedding diagnostic rides this branch too,
+        // rendered through the canonical conversion with this flow's tag.
+        assertEquals(1, persistFailed.embeddingDiagnostics.size)
+        assertEquals("ProgramTemplateImport", persistFailed.embeddingDiagnostics.single().tag)
+        assertEquals(
+            "Import lift name embedding failed — gray-zone matches may be unresolved. " +
+                "Error: embedding down",
+            persistFailed.embeddingDiagnostics.single().message,
+        )
+        assertSame(failure, persistFailed.embeddingDiagnostics.single().cause)
+    }
+
+    @Test
     @DisplayName("Download failure value returns OperationalFailed carrying the failure diagnostic")
     fun downloadFailureIsOperational() = runTest {
         val failure = IllegalStateException("storage down")

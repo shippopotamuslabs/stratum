@@ -51,7 +51,39 @@ class ImportLiftResolutionLogger @Inject constructor(
         // message-only records of the same failures, so keeping them would record
         // each failure twice. The counts (batches attempted/failed, LLM-inferred,
         // skipped, last error, embedding failed) remain on the info summary above.
-        summary.diagnostics.forEach { diagnostic ->
+        logDiagnostics(summary.diagnostics)
+
+        if (summary.seedCatalogLiftCount < MIN_EXPECTED_SEED_CATALOG_LIFTS) {
+            loggingPort.warning(
+                TAG,
+                "Seed catalog looks incomplete (${summary.seedCatalogLiftCount} lifts). " +
+                    "BM25 matching may fail until bundled catalog is seeded.",
+            )
+        }
+
+        if (summary.finalEnabledTotal <= summary.finalEnabledCustomLiftCount &&
+            summary.distinctPreCustomCatalogLiftsEnabled == 0
+        ) {
+            loggingPort.warning(
+                TAG,
+                "No catalog lifts matched — only custom lifts are enabled. " +
+                    "Check unmatched/nearMiss samples below.",
+            )
+        }
+
+        summary.unmatchedExerciseSamples.forEach(::logUnmatched)
+        summary.nearMissSamples.forEach(::logNearMiss)
+    }
+
+    /**
+     * Records each carried resolution diagnostic exactly once, with its real
+     * cause. Called by [log] on the success path; the import runner also calls
+     * it on the persist-failure path with the diagnostics the failed outcome
+     * carries from the succeeded resolution (Fix 7) — exactly one of the two
+     * paths runs per import, so no diagnostic is recorded twice.
+     */
+    fun logDiagnostics(diagnostics: List<ResolveImportLiftsDiagnostic>) {
+        diagnostics.forEach { diagnostic ->
             when (diagnostic) {
                 is ResolveImportLiftsDiagnostic.EquipmentInferenceFailed ->
                     loggingPort.error(
@@ -75,27 +107,6 @@ class ImportLiftResolutionLogger @Inject constructor(
                 }
             }
         }
-
-        if (summary.seedCatalogLiftCount < MIN_EXPECTED_SEED_CATALOG_LIFTS) {
-            loggingPort.warning(
-                TAG,
-                "Seed catalog looks incomplete (${summary.seedCatalogLiftCount} lifts). " +
-                    "BM25 matching may fail until bundled catalog is seeded.",
-            )
-        }
-
-        if (summary.finalEnabledTotal <= summary.finalEnabledCustomLiftCount &&
-            summary.distinctPreCustomCatalogLiftsEnabled == 0
-        ) {
-            loggingPort.warning(
-                TAG,
-                "No catalog lifts matched — only custom lifts are enabled. " +
-                    "Check unmatched/nearMiss samples below.",
-            )
-        }
-
-        summary.unmatchedExerciseSamples.forEach(::logUnmatched)
-        summary.nearMissSamples.forEach(::logNearMiss)
     }
 
     private fun logUnmatched(sample: UnmatchedExerciseSample) {

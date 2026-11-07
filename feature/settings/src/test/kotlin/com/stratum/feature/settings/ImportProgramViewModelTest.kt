@@ -258,6 +258,46 @@ class ImportProgramViewModelTest {
     }
 
     @Test
+    @DisplayName("Fix 7: PersistFailed embedding diagnostic drains exactly once at the settings boundary")
+    fun persistFailedEmbeddingDiagnosticDrainsExactlyOnce() = runTest {
+        val auth =
+            FakeAuthManager(AuthState.Authenticated(UserProfile("u1", "U", "u@e.com", null)))
+        val failure = IllegalStateException("embedding down")
+        val outcome =
+            ProgramTemplateImportOutcome.PersistFailed(
+                message = "save failed",
+                diagnostics = emptyList(),
+                embeddingDiagnostics =
+                    listOf(
+                        OperationalDiagnostic(
+                            tag = "ProgramTemplateImport",
+                            message = "Import lift name embedding failed — gray-zone " +
+                                "matches may be unresolved. Error: embedding down",
+                            cause = failure,
+                        ),
+                    ),
+            )
+        val useCase = RecordingImportProgramTemplatesUseCase(outcome = outcome)
+        val analytics = FakeAnalyticsPort()
+        val drainLogging = FakeLoggingPort()
+        val vm = ImportProgramViewModel(
+            useCase,
+            auth,
+            AnalyticsRecorder(analytics),
+            DiagnosticDrain(drainLogging),
+        )
+        vm.onFileSelected(byteArrayOf(1), "p.json")
+        advanceUntilIdle()
+        assertEquals("save failed", vm.uiState.value.errorMessage)
+        // Exactly one drain record on this path: the carried embedding
+        // diagnostic, with the real cause (no rollback diagnostics present).
+        assertEquals(1, drainLogging.errors.size)
+        assertEquals("ProgramTemplateImport", drainLogging.errors.single().tag)
+        assertSame(failure, drainLogging.errors.single().throwable)
+        assertEquals(1, analytics.events.size)
+    }
+
+    @Test
     @DisplayName("STR-256 Rollback failure logs each orphan delete once, UI copy uses primary message")
     fun str256_rollbackFailureDrainsDiagnosticsOnce() = runTest {
         val auth =

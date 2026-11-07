@@ -130,6 +130,10 @@ class ImportProgramViewModel @Inject constructor(
                     // diagnostics and is drained here exactly once. User copy still derives
                     // from the primary message via userFacingImportError below.
                     if (outcome is ProgramTemplateImportOutcome.PersistFailed) {
+                        // Fix 7: a degraded resolve's embedding diagnostic rides
+                        // this branch too and drains here exactly once (the
+                        // Success drain never runs for this import).
+                        diagnosticDrain.drain(outcome.embeddingDiagnostics)
                         outcome.diagnostics.forEach { diagnostic ->
                             when (diagnostic) {
                                 is ProgramImportRollbackDiagnostic.RollbackDeleteFailed ->

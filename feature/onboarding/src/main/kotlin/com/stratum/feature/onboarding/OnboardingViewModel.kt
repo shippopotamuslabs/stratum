@@ -963,6 +963,13 @@ class OnboardingViewModel @Inject constructor(
         if (outcome is ProgramTemplateImportOutcome.OperationalFailed) {
             diagnosticDrain.drain(outcome.diagnostics)
         }
+        // Fix 7: a degraded resolve's embedding diagnostic rides the
+        // PersistFailed branch too and drains here exactly once (the Success
+        // drain never runs for this import); the primary persist failure is
+        // still recorded via importFailureLogThrowable below.
+        if (outcome is ProgramTemplateImportOutcome.PersistFailed) {
+            diagnosticDrain.drain(outcome.embeddingDiagnostics)
+        }
         OnboardingProgramFlowOps.importFailureLogThrowable(outcome)?.let { record ->
             diagnosticDrain.recordError(
                 OnboardingProgramFlowOps.TAG_IMPORT,

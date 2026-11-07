@@ -344,6 +344,7 @@ class RunFullHistoricalImportUseCaseTest {
         customInference: FakeCustomLiftInferencePort = FakeCustomLiftInferencePort(),
         liftNameResolver: com.stratum.application.importing.LiftNameResolverPort =
             Bm25LiftNameResolver(),
+        liftInsightsRepository: LiftTrainingInsightsRepository = InMemoryLiftInsightsRepository(),
     ): Pair<PersistImportedHistoryUseCase, RollbackHistoricalImportUseCase> {
         val persistence = FakeResponseProfilePersistencePort()
         val extractResponseProfile =
@@ -371,7 +372,7 @@ class RunFullHistoricalImportUseCaseTest {
                 extractTrainingInsights =
                     ExtractTrainingInsightsUseCase(
                         trainingLogRepository = trainingLogRepo,
-                        liftTrainingInsightsRepository = InMemoryLiftInsightsRepository(),
+                        liftTrainingInsightsRepository = liftInsightsRepository,
                         supersetAffinityRepository = InMemorySupersetRepository(),
                         muscleVolumeBaselineRepository = InMemoryVolumeRepository(),
                         importAnalysisMetadataRepository = InMemoryMetadataRepository(),
@@ -635,10 +636,87 @@ class RunFullHistoricalImportUseCaseTest {
         assertTrue(flowLogging.errors.isEmpty())
     }
 
+    @Test
+    fun `persist failure after a degraded resolve records the resolution diagnostic exactly once at the boundary`() = runTest {
+        // Fix 7: resolution succeeds with an equipment-inference degradation,
+        // then the insights extract fails the persist. Before the fix the
+        // summary (and its diagnostic) was dropped on the Failed path and the
+        // equipment failure recorded zero times; now it rides the Failed
+        // branch and is recorded exactly once via the resolution logger,
+        // beside the persist failure's own single record on the flow port.
+        val jobRepo = FakeImportJobRepository()
+        val trainingLogRepo = FakeTrainingLogRepository()
+        val liftRepo = FakeLiftRepository(initialLifts = minimalSeedCatalog())
+        val failure = IllegalStateException("equipment inference down")
+        val port = FakeHistoricalImportPort(
+            snapshotSequence = listOf(
+                ImportJobSnapshot(
+                    status = RemoteImportJobStatus.Ready,
+                    progressPhase = ImportProgressPhase.ConvertingFull,
+                    progressMessage = "Done",
+                    conversionStoragePath = "imports/test/job/conversions/1/normalized.json",
+                    errorMessage = null,
+                ),
+            ),
+            conversionJson = sampleConversionJson(),
+        )
+        val (persist, rollback) =
+            buildPersistAndRollback(
+                trainingLogRepo,
+                liftRepo,
+                equipmentInference = FakeImportEquipmentInferencePort(failure = failure),
+                liftInsightsRepository = ThrowingLiftInsightsRepository("insights boom"),
+            )
+        val liftResolutionLogging = FakeLoggingPort()
+        val flowLogging = FakeLoggingPort()
+        val useCase = RunFullHistoricalImportUseCase(
+            startHistoricalImport = StartHistoricalImportUseCase(jobRepo),
+            historicalImportPort = port,
+            persistImportedHistory = persist,
+            rollbackHistoricalImport = rollback,
+            importJobRepository = jobRepo,
+            mergeImportedHistory = MergeImportedHistoryUseCase(),
+            importLiftResolutionLogger = testImportLiftResolutionLogger(liftResolutionLogging),
+            loggingPort = flowLogging,
+            importDispatcher = StandardTestDispatcher(testScheduler),
+        )
+
+        val events =
+            useCase.run(
+                files = listOf(ImportFileInput("id,exercise_name\n1,Squat".toByteArray(), "export.csv")),
+                persistPolicy = ImportHistoryPersistPolicy.ReplaceImportOrigin,
+            ).toList()
+
+        assertTrue(events.last() is HistoricalImportEvent.Failed)
+        // The persist failure's own record is unchanged: exactly one, on the
+        // flow port, with the extract tag/message.
+        assertEquals(1, flowLogging.errors.size)
+        assertEquals("ExtractTrainingInsights", flowLogging.errors.single().tag)
+        assertEquals(
+            "Failed to extract training insights: insights boom",
+            flowLogging.errors.single().message,
+        )
+        // The resolution diagnostic is recorded exactly once, via the
+        // resolution logger, with the real cause.
+        assertEquals(1, liftResolutionLogging.errors.size)
+        assertEquals("StratumImportLifts", liftResolutionLogging.errors.single().tag)
+        assertSame(failure, liftResolutionLogging.errors.single().throwable)
+    }
+
     private fun testImportLiftResolutionLogger(
         loggingPort: FakeLoggingPort = FakeLoggingPort(),
     ): ImportLiftResolutionLogger =
         ImportLiftResolutionLogger(loggingPort)
+
+    private class ThrowingLiftInsightsRepository(
+        private val message: String,
+    ) : LiftTrainingInsightsRepository {
+        override suspend fun replaceAll(insights: List<LiftTrainingInsights>) {
+            throw RuntimeException(message)
+        }
+        override suspend fun getAll(): List<LiftTrainingInsights> = emptyList()
+        override suspend fun getByLiftId(liftId: LiftId): LiftTrainingInsights? = null
+    }
 
     private class InMemoryLiftInsightsRepository : LiftTrainingInsightsRepository {
         override suspend fun replaceAll(insights: List<LiftTrainingInsights>) = Unit
