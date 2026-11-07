@@ -136,8 +136,44 @@ data class HealthMetricsPages(
     val diagnostics: List<HealthConnectDiagnostic> = emptyList(),
     val availability: HealthMetricsAvailability = HealthMetricsAvailability.Available,
 ) {
+    init {
+        // Degraded is a single coherent state, not a flag that can be combined
+        // with assembled metrics or detached from its failure diagnostic:
+        // it exists exactly because the snapshot read failed, and it carries
+        // no metrics (the dashboard renders it as unavailable instead).
+        if (availability == HealthMetricsAvailability.Degraded) {
+            require(diagnostics.any { it is HealthConnectDiagnostic.SnapshotReadFailed }) {
+                "Degraded pages must carry a SnapshotReadFailed diagnostic"
+            }
+            require(
+                activity == ActivityMetrics() &&
+                    weight == WeightMetrics() &&
+                    recovery == RecoveryMetrics(),
+            ) {
+                "Degraded pages must carry the empty metric defaults, not assembled metrics"
+            }
+        } else {
+            require(diagnostics.none { it is HealthConnectDiagnostic.SnapshotReadFailed }) {
+                "Available pages must not carry a SnapshotReadFailed diagnostic"
+            }
+        }
+    }
+
     companion object {
         val Hidden: HealthMetricsPages = HealthMetricsPages(visible = false)
+
+        /**
+         * Canonical Degraded construction: visible pages carrying exactly the
+         * snapshot-read failure [diagnostic] and the empty metric defaults.
+         */
+        fun degraded(
+            diagnostic: HealthConnectDiagnostic.SnapshotReadFailed,
+        ): HealthMetricsPages =
+            HealthMetricsPages(
+                visible = true,
+                diagnostics = listOf(diagnostic),
+                availability = HealthMetricsAvailability.Degraded,
+            )
     }
 }
 

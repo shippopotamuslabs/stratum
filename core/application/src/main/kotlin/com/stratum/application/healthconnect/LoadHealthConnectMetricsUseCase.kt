@@ -14,7 +14,6 @@ import com.stratum.domain.health.DailyVitalSample
 import com.stratum.domain.healthconnect.HealthConnectDiagnostic
 import com.stratum.domain.healthconnect.HealthFailureKind
 import com.stratum.domain.health.HealthMetricType
-import com.stratum.domain.health.HealthMetricsAvailability
 import com.stratum.domain.health.HealthMetricsPages
 import com.stratum.domain.health.HealthMetricsRequest
 import com.stratum.domain.health.HealthMetricsSnapshot
@@ -57,15 +56,11 @@ class LoadHealthConnectMetricsUseCase @Inject constructor(
             // kind is honestly Unknown. The failure is recorded as a diagnostic carrying
             // the real cause (AQ1 ruling, 2026-11-06); this use case records nothing —
             // the dashboard boundary drain records it exactly once.
-            return HealthMetricsPages(
-                visible = true,
-                diagnostics = listOf(
-                    HealthConnectDiagnostic.SnapshotReadFailed(
-                        kind = HealthFailureKind.Unknown,
-                        cause = error,
-                    ),
+            return HealthMetricsPages.degraded(
+                HealthConnectDiagnostic.SnapshotReadFailed(
+                    kind = HealthFailureKind.Unknown,
+                    cause = error,
                 ),
-                availability = HealthMetricsAvailability.Degraded,
             )
         }
         return assembleHealthMetricsPages(
