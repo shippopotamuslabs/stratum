@@ -1,5 +1,6 @@
 package com.stratum.core.infrastructure.inference
 
+import com.stratum.application.importing.toOperationalDiagnostic
 import com.stratum.domain.importing.NearMissExerciseSample
 import com.stratum.domain.importing.ResolveImportLiftsDiagnostic
 import com.stratum.domain.importing.ResolveImportLiftsSummary
@@ -66,13 +67,12 @@ class ImportLiftResolutionLogger @Inject constructor(
                             "no inferred metadata. Error: ${diagnostic.cause.message ?: "unknown"}",
                         diagnostic.cause,
                     )
-                is ResolveImportLiftsDiagnostic.LiftNameEmbeddingFailed ->
-                    loggingPort.error(
-                        TAG,
-                        "Import lift name embedding failed — gray-zone matches may be " +
-                            "unresolved. Error: ${diagnostic.cause.message ?: "unknown"}",
-                        diagnostic.cause,
-                    )
+                is ResolveImportLiftsDiagnostic.LiftNameEmbeddingFailed -> {
+                    // Canonical rendering (Fix 5): the same conversion the
+                    // template-import flow drains, with this flow's tag.
+                    val rendered = diagnostic.toOperationalDiagnostic(TAG)
+                    loggingPort.error(rendered.tag, rendered.message, rendered.cause)
+                }
             }
         }
 

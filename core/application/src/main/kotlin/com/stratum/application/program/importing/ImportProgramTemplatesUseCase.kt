@@ -1,6 +1,7 @@
 package com.stratum.application.program.importing
 
 import com.stratum.application.diagnostics.OperationalDiagnostic
+import com.stratum.application.importing.toOperationalDiagnostic
 import com.stratum.domain.di.DefaultDispatcher
 import com.stratum.application.onboarding.CompleteOnboardingUseCase
 import com.stratum.domain.onboarding.UserTrainingProfile
@@ -322,31 +323,19 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
      * Keeps the first embedding-batch failure seen in this import (STR-240 chunk
      * 8b): reads the resolver's post-invoke diagnostic while [current] is still
      * null, and returns [current] unchanged once one is carried — one record per
-     * import, however many templates the file held.
+     * import, however many templates the file held. The diagnostic is rendered
+     * through the canonical [toOperationalDiagnostic] conversion with this
+     * flow's tag — the same conversion the historical-import boundary renders
+     * for the same failure, so both flows' records are byte-identical apart
+     * from the tag. The two flows are distinct invocations — a historical
+     * import records its own failure on its summary channel and a template
+     * import records its own here — so no failure is recorded twice across
+     * flows.
      */
     private fun firstEmbeddingDiagnostic(
         current: OperationalDiagnostic?,
     ): OperationalDiagnostic? =
-        current ?: resolver.embeddingBatchFailureDiagnostic()?.let { diagnostic ->
-            embeddingOperationalDiagnostic(diagnostic.cause)
-        }
-
-    /**
-     * Renders a lift-name embedding batch failure (STR-240 chunk 8b) in this flow's
-     * [OperationalDiagnostic] vocabulary: this flow's tag, the same message the
-     * historical-import boundary renders for the same failure (chunk 8's
-     * `ImportLiftResolutionLogger` shape), and the real cause. The two flows are
-     * distinct invocations — a historical import records its own failure on its
-     * summary channel and a template import records its own here — so no failure
-     * is recorded twice across flows.
-     */
-    private fun embeddingOperationalDiagnostic(cause: Throwable): OperationalDiagnostic =
-        OperationalDiagnostic(
-            tag = TAG,
-            message = "Import lift name embedding failed — gray-zone matches may be " +
-                "unresolved. Error: ${cause.message ?: "unknown"}",
-            cause = cause,
-        )
+        current ?: resolver.embeddingBatchFailureDiagnostic()?.toOperationalDiagnostic(TAG)
 
     /**
      * Re-attaches rollback evidence to a surfaced cancellation (STR-256): coroutine
