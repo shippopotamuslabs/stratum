@@ -245,7 +245,7 @@ class DashboardHealthViewModelTest {
         val logged = drainLogging.errors.single()
         assertEquals("HealthConnectMetrics", logged.tag)
         assertEquals(
-            "Failed to read Health Connect snapshot — dashboard shows empty metrics",
+            "Failed to read Health Connect snapshot — dashboard shows metrics unavailable",
             logged.message,
         )
         assertSame(cause, logged.throwable)

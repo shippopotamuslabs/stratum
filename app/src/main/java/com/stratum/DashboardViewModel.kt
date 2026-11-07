@@ -327,7 +327,7 @@ class DashboardViewModel(
                 is HealthConnectDiagnostic.SnapshotReadFailed ->
                     diagnosticDrain.recordError(
                         HEALTH_CONNECT_METRICS_TAG,
-                        "Failed to read Health Connect snapshot — dashboard shows empty metrics",
+                        "Failed to read Health Connect snapshot — dashboard shows metrics unavailable",
                         diagnostic.cause,
                     )
             }
