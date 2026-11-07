@@ -178,7 +178,14 @@ class EditHistoricalWorkoutViewModel @Inject constructor(
                     _userMessage.value = error.message ?: "Invalid set values"
                     return@launch
                 }
-            val result = updateCompletedSessionSets(id, desired)
+            // STR-240 chunk 7: the post-edit refresh's stage-failure diagnostics
+            // are delivered through the boundary callback and drained here.
+            val result =
+                updateCompletedSessionSets(
+                    id,
+                    desired,
+                    onRefreshDiagnostics = { diagnostics -> diagnosticDrain.drain(diagnostics) },
+                )
             isSaving = false
             when (result) {
                 UpdateCompletedSessionSetsResult.Success -> {

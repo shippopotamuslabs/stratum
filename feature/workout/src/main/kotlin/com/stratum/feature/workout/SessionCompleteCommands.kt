@@ -110,7 +110,14 @@ internal suspend fun LiveWorkoutSessionRuntime.handleCompleteWorkout(cmd: Sessio
         // Arm before finalize so observe(null session) cannot flash NoActiveSession
         // while NavHost is still composing this route during the exit transition.
         effects.setRetainLoadedUiForExit(true)
-        val finalizeResult = finalizeTrainingSession(sessionId)
+        // STR-240 chunk 7: the post-finalize refresh's stage-failure diagnostics
+        // are delivered through the boundary callback and drained here through
+        // the same recorder as the finalize outcome's own diagnostics below.
+        val finalizeResult =
+            finalizeTrainingSession(
+                sessionId,
+                onRefreshDiagnostics = { diagnostics -> drainOperationalDiagnostics(diagnostics) },
+            )
         // STR-237 Route (i): finalize's records ride its outcome branches;
         // this runtime boundary drains them exactly once through its
         // existing recorder (PersistenceFailed's failure, Success's

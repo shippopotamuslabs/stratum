@@ -69,10 +69,19 @@ class UpdateCompletedSessionTimesUseCase @Inject constructor(
         CoroutineScope(Dispatchers.Main.immediate),
 ) {
 
+    /**
+     * @param onRefreshDiagnostics boundary-supplied diagnostics callback for the
+     * post-edit derived-data refresh (CollectLatestRestarting precedent: a
+     * boundary-owned callback, NOT a logging capability in application — the
+     * caller drains the delivered diagnostics through its own DiagnosticDrain).
+     * No default: every caller wires it explicitly. See the launch site below
+     * for the exact delivery convention.
+     */
     suspend operator fun invoke(
         sessionId: TrainingSessionId,
         startedAt: Instant,
         endedAt: Instant,
+        onRefreshDiagnostics: (List<OperationalDiagnostic>) -> Unit,
     ): UpdateCompletedSessionTimesResult {
         // The session load sits inside the boundary try (C3 precedent): a throwing
         // load is logged once and returned as PersistenceFailed instead of escaping.
@@ -132,17 +141,9 @@ class UpdateCompletedSessionTimesUseCase @Inject constructor(
             responseModelingScheduler.enqueueForceExtract(replaceExisting = true)
         }
 
-            // STR-237 STOP (chunk 1E): fire-and-forget LogAndContinue launch;
-            // the stages result (and the stage-failure diagnostics it now
-            // carries) is discarded — no boundary drainer exists on this
-            // path. See plans/STR-237/status.md (chunk 1E STOP).
-            refreshScope.launch {
-                localDerivedStages.run(
-                    includeInsights = true,
-                    failPolicy = LocalDerivedTrainingStages.FailPolicy.LogAndContinue,
-                    logTag = TAG,
-                )
-            }
+            // STR-240 chunk 7: the refresh's stage-failure diagnostics are
+            // delivered via onRefreshDiagnostics — see launchDerivedRefresh.
+            launchDerivedRefresh(onRefreshDiagnostics)
             UpdateCompletedSessionTimesResult.Success(diagnostics = enqueueDiagnostics)
         } catch (cancelled: CancellationException) {
             throw cancelled
@@ -200,6 +201,43 @@ class UpdateCompletedSessionTimesUseCase @Inject constructor(
         val lastExtracted = responseProfileMetadataRepository.get()?.lastExtractedAt ?: return false
         val sessionAt = session.completedAt
         return !sessionAt.isAfter(lastExtracted)
+    }
+
+    /**
+     * STR-240 chunk 7 mechanism: launches the derived-stages run under
+     * LogAndContinue on the application scope (fire-and-forget). Stage-failure
+     * records ride the result —
+     * [LocalDerivedTrainingStagesResult.Success.diagnostics] accumulates them
+     * under LogAndContinue; the failure branches (InsightsFailed /
+     * WeeklySeriesFailed / PersistenceFailed, unreachable under LogAndContinue
+     * but mapped for completeness) each carry their own diagnostics. The launch
+     * delivers the mapped diagnostics to the boundary-supplied
+     * [onRefreshDiagnostics] exactly once, and only when the list is non-empty
+     * (the CollectLatestRestarting precedent: the boundary callback fires per
+     * failure, never on a clean run). The boundary drains them through its
+     * module DiagnosticDrain; application holds no logging capability.
+     */
+    private fun launchDerivedRefresh(
+        onRefreshDiagnostics: (List<OperationalDiagnostic>) -> Unit,
+    ) {
+        refreshScope.launch {
+            val stagesResult =
+                localDerivedStages.run(
+                    includeInsights = true,
+                    failPolicy = LocalDerivedTrainingStages.FailPolicy.LogAndContinue,
+                    logTag = TAG,
+                )
+            val diagnostics =
+                when (stagesResult) {
+                    is LocalDerivedTrainingStagesResult.Success -> stagesResult.diagnostics
+                    is LocalDerivedTrainingStagesResult.InsightsFailed -> stagesResult.diagnostics
+                    is LocalDerivedTrainingStagesResult.WeeklySeriesFailed -> stagesResult.diagnostics
+                    is LocalDerivedTrainingStagesResult.PersistenceFailed -> stagesResult.diagnostics
+                }
+            if (diagnostics.isNotEmpty()) {
+                onRefreshDiagnostics(diagnostics)
+            }
+        }
     }
 
     private companion object {

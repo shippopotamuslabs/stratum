@@ -1,6 +1,12 @@
 package com.stratum.application.training
 
+import com.stratum.application.diagnostics.OperationalDiagnostic
+import com.stratum.application.importing.ExtractTrainingInsightsUseCase
 import com.stratum.core.testing.healthconnect.FakeHealthConnectSchedulerPort
+import com.stratum.core.testing.importing.FakeImportAnalysisMetadataRepository
+import com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository
+import com.stratum.core.testing.importing.FakeMuscleVolumeBaselineRepository
+import com.stratum.core.testing.importing.FakeSupersetAffinityRepository
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.response.FakeResponseModelingSchedulerPort
@@ -76,7 +82,7 @@ class UpdateCompletedSessionTimesUseCaseTest {
         val newStart = Instant.parse("2025-06-03T14:00:00Z")
         val newEnd = Instant.parse("2025-06-03T14:30:00Z") // 30 min duration
 
-        val result = useCase(TrainingSessionId("ts-1"), newStart, newEnd)
+        val result = useCase(TrainingSessionId("ts-1"), newStart, newEnd, onRefreshDiagnostics = {})
         assertEquals(UpdateCompletedSessionTimesResult.Success(), result)
 
         val updated = logRepo.getSession(TrainingSessionId("ts-1"))!!
@@ -137,7 +143,7 @@ class UpdateCompletedSessionTimesUseCaseTest {
         val newStart = Instant.parse("2025-06-03T14:00:00Z")
         val newEnd = Instant.parse("2025-06-03T15:00:00Z")
 
-        val result = useCase(TrainingSessionId("ts-clustered"), newStart, newEnd)
+        val result = useCase(TrainingSessionId("ts-clustered"), newStart, newEnd, onRefreshDiagnostics = {})
         assertEquals(UpdateCompletedSessionTimesResult.Success(), result)
 
         val updatedSets = logRepo.getSetsForSession(TrainingSessionId("ts-clustered"))
@@ -174,6 +180,7 @@ class UpdateCompletedSessionTimesUseCaseTest {
             TrainingSessionId("ts-modeled"),
             Instant.parse("2025-06-05T10:00:00Z"),
             Instant.parse("2025-06-05T11:00:00Z"),
+            onRefreshDiagnostics = {},
         )
         assertEquals(UpdateCompletedSessionTimesResult.Success(), result)
         assertEquals(1, modelingScheduler.forceExtractCount)
@@ -193,6 +200,7 @@ class UpdateCompletedSessionTimesUseCaseTest {
             TrainingSessionId("ts-1"),
             Instant.parse("2025-06-01T14:00:00Z"),
             Instant.parse("2025-06-01T15:00:00Z"),
+            onRefreshDiagnostics = {},
         )
         // STR-237: resilience preserved; the swallowed enqueue failure rides
         // Success as exactly one diagnostic.
@@ -216,6 +224,7 @@ class UpdateCompletedSessionTimesUseCaseTest {
             TrainingSessionId("missing"),
             Instant.parse("2025-06-01T14:00:00Z"),
             Instant.parse("2025-06-01T15:00:00Z"),
+            onRefreshDiagnostics = {},
         )
         assertEquals(
             UpdateCompletedSessionTimesResult.SessionNotFound(TrainingSessionId("missing")),
@@ -234,6 +243,7 @@ class UpdateCompletedSessionTimesUseCaseTest {
             TrainingSessionId("ts-ip"),
             Instant.parse("2025-06-01T14:00:00Z"),
             Instant.parse("2025-06-01T15:00:00Z"),
+            onRefreshDiagnostics = {},
         )
         assertEquals(
             UpdateCompletedSessionTimesResult.SessionNotCompleted(
@@ -254,8 +264,72 @@ class UpdateCompletedSessionTimesUseCaseTest {
         val start = Instant.parse("2025-06-01T16:00:00Z")
         val end = Instant.parse("2025-06-01T15:00:00Z")
 
-        val result = useCase(TrainingSessionId("ts-1"), start, end)
+        val result = useCase(TrainingSessionId("ts-1"), start, end, onRefreshDiagnostics = {})
         assertEquals(UpdateCompletedSessionTimesResult.StartAfterFinish(start, end), result)
+    }
+
+    @Test
+    @DisplayName("Refresh stage failure diagnostics are delivered to onRefreshDiagnostics exactly once (STR-240)")
+    fun deliversRefreshDiagnosticsExactlyOnce() = runTest {
+        val session = WorkoutLoggingFixtures.completedLiveSession(id = "ts-1")
+        val logRepo = FakeTrainingLogRepository(initialSessions = listOf(session))
+        val failure = RuntimeException("simulated refresh failure")
+        val liftRepo = FakeLiftRepository(listOf(WorkoutLoggingFixtures.benchLift()))
+        val stages =
+            com.stratum.core.testing.training.localDerivedTrainingStages(
+                trainingLog = logRepo,
+                liftRepository = liftRepo,
+                extractTrainingInsights =
+                    ExtractTrainingInsightsUseCase(
+                        trainingLogRepository = logRepo,
+                        liftTrainingInsightsRepository = FakeLiftTrainingInsightsRepository(),
+                        supersetAffinityRepository = FakeSupersetAffinityRepository(),
+                        muscleVolumeBaselineRepository = FakeMuscleVolumeBaselineRepository(),
+                        importAnalysisMetadataRepository =
+                            FakeImportAnalysisMetadataRepository(getFailure = failure),
+                        liftRepository = liftRepo,
+                    ),
+            )
+        val useCase = buildUseCase(logRepo = logRepo, stages = stages)
+        val deliveries = mutableListOf<List<OperationalDiagnostic>>()
+
+        val result =
+            useCase(
+                TrainingSessionId("ts-1"),
+                Instant.parse("2025-06-01T14:00:00Z"),
+                Instant.parse("2025-06-01T15:00:00Z"),
+                onRefreshDiagnostics = { deliveries += it },
+            )
+
+        assertEquals(UpdateCompletedSessionTimesResult.Success(), result)
+        // Exactly one delivery, carrying exactly the extract failure's diagnostic.
+        val diagnostic = deliveries.single().single()
+        assertEquals("ExtractTrainingInsights", diagnostic.tag)
+        assertEquals(
+            "Failed to extract training insights: simulated refresh failure",
+            diagnostic.message,
+        )
+        org.junit.jupiter.api.Assertions.assertSame(failure, diagnostic.cause)
+    }
+
+    @Test
+    @DisplayName("Refresh callback is not invoked when the refresh produces no diagnostics (STR-240)")
+    fun doesNotDeliverOnCleanRefresh() = runTest {
+        val session = WorkoutLoggingFixtures.completedLiveSession(id = "ts-1")
+        val logRepo = FakeTrainingLogRepository(initialSessions = listOf(session))
+        val useCase = buildUseCase(logRepo)
+        val deliveries = mutableListOf<List<OperationalDiagnostic>>()
+
+        val result =
+            useCase(
+                TrainingSessionId("ts-1"),
+                Instant.parse("2025-06-01T14:00:00Z"),
+                Instant.parse("2025-06-01T15:00:00Z"),
+                onRefreshDiagnostics = { deliveries += it },
+            )
+
+        assertEquals(UpdateCompletedSessionTimesResult.Success(), result)
+        assertTrue(deliveries.isEmpty())
     }
 
     private fun buildUseCase(
@@ -263,17 +337,19 @@ class UpdateCompletedSessionTimesUseCaseTest {
         hcScheduler: FakeHealthConnectSchedulerPort = FakeHealthConnectSchedulerPort(),
         metadataRepo: FakeResponseProfileMetadataRepository = FakeResponseProfileMetadataRepository(),
         modelingScheduler: FakeResponseModelingSchedulerPort = FakeResponseModelingSchedulerPort(),
+        stages: LocalDerivedTrainingStages? = null,
     ): UpdateCompletedSessionTimesUseCase {
         val liftRepo = FakeLiftRepository(listOf(WorkoutLoggingFixtures.benchLift()))
         val persistence = FakeResponseProfilePersistencePort(metadataRepository = metadataRepo)
         return UpdateCompletedSessionTimesUseCase(
             trainingLogRepository = logRepo,
             localDerivedStages =
-                com.stratum.core.testing.training.localDerivedTrainingStages(
-                    trainingLog = logRepo,
-                    liftRepository = liftRepo,
-                    persistence = persistence,
-                ),
+                stages
+                    ?: com.stratum.core.testing.training.localDerivedTrainingStages(
+                        trainingLog = logRepo,
+                        liftRepository = liftRepo,
+                        persistence = persistence,
+                    ),
             responseProfileMetadataRepository = metadataRepo,
             responseModelingScheduler = modelingScheduler,
             healthConnectScheduler = hcScheduler,

@@ -65,7 +65,18 @@ class FinalizeTrainingSessionUseCase @Inject constructor(
     @ApplicationScope private val refreshScope: CoroutineScope =
         CoroutineScope(Dispatchers.Main.immediate),
 ) {
-    suspend operator fun invoke(sessionId: TrainingSessionId): FinalizeTrainingSessionResult {
+    /**
+     * @param onRefreshDiagnostics boundary-supplied diagnostics callback for the
+     * post-finalize derived-data refresh (CollectLatestRestarting precedent: a
+     * boundary-owned callback, NOT a logging capability in application — the
+     * caller drains the delivered diagnostics through its own DiagnosticDrain).
+     * No default: every caller wires it explicitly. See the launch site below
+     * for the exact delivery convention.
+     */
+    suspend operator fun invoke(
+        sessionId: TrainingSessionId,
+        onRefreshDiagnostics: (List<OperationalDiagnostic>) -> Unit,
+    ): FinalizeTrainingSessionResult {
         // The session load sits inside the boundary try (C3 precedent): a throwing
         // load is logged once and returned as PersistenceFailed instead of escaping.
         return try {
@@ -130,19 +141,9 @@ class FinalizeTrainingSessionUseCase @Inject constructor(
             // The session + cycle effects are durable above. The derived-data refresh is
             // fire-and-forget on the application scope so completion returns (and the UI
             // navigates) immediately; the dashboard tables refresh behind the user.
-            // STR-237 STOP (chunk 1E): the stages run under LogAndContinue, so its
-            // stage-failure records now ride the returned result's diagnostics — but
-            // this launch discards the result and no boundary drainer exists on this
-            // path, so those records are not recorded. Draining them here would need
-            // a logging capability in application; restructuring the launch is a
-            // behavior change. See plans/STR-237/status.md (chunk 1E STOP).
-            refreshScope.launch {
-                localDerivedStages.run(
-                    includeInsights = true,
-                    failPolicy = LocalDerivedTrainingStages.FailPolicy.LogAndContinue,
-                    logTag = TAG,
-                )
-            }
+            // STR-240 chunk 7: the refresh's stage-failure diagnostics are
+            // delivered via [onRefreshDiagnostics] — see [launchDerivedRefresh].
+            launchDerivedRefresh(onRefreshDiagnostics)
 
             // Schedule heavy dose-response re-extract (WorkManager). Non-blocking: only enqueues
             // unique work; the worker enforces RE_EXTRACT_MIN_COMPLETED_WORKOUTS and does not
@@ -179,6 +180,43 @@ class FinalizeTrainingSessionUseCase @Inject constructor(
                     ),
                 ),
             )
+        }
+    }
+
+    /**
+     * STR-240 chunk 7 mechanism: launches the derived-stages run under
+     * LogAndContinue on the application scope. Stage-failure records ride the
+     * result — [LocalDerivedTrainingStagesResult.Success.diagnostics]
+     * accumulates them under LogAndContinue; the failure branches
+     * (InsightsFailed / WeeklySeriesFailed / PersistenceFailed, unreachable
+     * under LogAndContinue but mapped for completeness) each carry their own
+     * diagnostics. The launch delivers the mapped diagnostics to the
+     * boundary-supplied [onRefreshDiagnostics] exactly once, and only when the
+     * list is non-empty (the CollectLatestRestarting precedent: the boundary
+     * callback fires per failure, never on a clean run). The boundary drains
+     * them through its module DiagnosticDrain; application holds no logging
+     * capability.
+     */
+    private fun launchDerivedRefresh(
+        onRefreshDiagnostics: (List<OperationalDiagnostic>) -> Unit,
+    ) {
+        refreshScope.launch {
+            val stagesResult =
+                localDerivedStages.run(
+                    includeInsights = true,
+                    failPolicy = LocalDerivedTrainingStages.FailPolicy.LogAndContinue,
+                    logTag = TAG,
+                )
+            val diagnostics =
+                when (stagesResult) {
+                    is LocalDerivedTrainingStagesResult.Success -> stagesResult.diagnostics
+                    is LocalDerivedTrainingStagesResult.InsightsFailed -> stagesResult.diagnostics
+                    is LocalDerivedTrainingStagesResult.WeeklySeriesFailed -> stagesResult.diagnostics
+                    is LocalDerivedTrainingStagesResult.PersistenceFailed -> stagesResult.diagnostics
+                }
+            if (diagnostics.isNotEmpty()) {
+                onRefreshDiagnostics(diagnostics)
+            }
         }
     }
 
