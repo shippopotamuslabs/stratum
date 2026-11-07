@@ -3,6 +3,7 @@
 package com.stratum.core.infrastructure.inference
 
 import android.util.Log
+import com.stratum.core.infrastructure.logging.AndroidLoggingAdapter
 import com.stratum.core.testing.telemetry.FakeCrashTelemetryPort
 import io.mockk.every
 import io.mockk.mockkStatic

@@ -11,6 +11,7 @@ import com.stratum.application.importing.HistoricalImportRunnerPort
 import com.stratum.application.importing.ImportEquipmentInferencePort
 import com.stratum.application.importing.LiftNameEmbeddingPort
 import com.stratum.application.lift.IncrementScanPort
+import com.stratum.core.infrastructure.logging.AndroidLoggingAdapter
 import com.stratum.core.infrastructure.logging.LoggingPort
 import com.stratum.core.infrastructure.telemetry.ClientLogBuffer
 import com.stratum.core.infrastructure.telemetry.PendingClientLogStore

@@ -1,5 +1,6 @@
 package com.stratum.core.infrastructure.inference
 
+import com.stratum.core.infrastructure.logging.AndroidLoggingAdapter
 import com.stratum.core.infrastructure.logging.LoggingPort
 import com.stratum.core.infrastructure.telemetry.ClientLogBuffer
 import com.stratum.core.infrastructure.telemetry.ClientLogSeverity

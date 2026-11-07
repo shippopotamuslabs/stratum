@@ -1,7 +1,6 @@
-package com.stratum.core.infrastructure.inference
+package com.stratum.core.infrastructure.logging
 
 import android.util.Log
-import com.stratum.core.infrastructure.logging.LoggingPort
 import com.stratum.core.infrastructure.telemetry.CrashTelemetryPort
 import com.stratum.core.infrastructure.telemetry.TelemetryPiiScrubber
 import com.stratum.core.infrastructure.telemetry.TelemetryThrowableSanitizer

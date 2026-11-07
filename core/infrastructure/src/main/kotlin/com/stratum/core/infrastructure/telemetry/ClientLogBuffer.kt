@@ -7,7 +7,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import com.stratum.core.infrastructure.inference.AndroidLoggingAdapter
+import com.stratum.core.infrastructure.logging.AndroidLoggingAdapter
 import com.stratum.core.infrastructure.logging.LoggingPort
 
 /**
