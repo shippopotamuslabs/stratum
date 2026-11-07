@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import com.stratum.domain.lift.FatigueProfile
@@ -22,6 +23,7 @@ import com.stratum.domain.program.DEFAULT_LIFT_SET_REST_SECONDS
 import com.stratum.domain.program.LiftSet
 import com.stratum.domain.program.identity.WorkoutSupersetGroupId
 import com.stratum.domain.lift.residual
+import com.stratum.domain.importing.ResolveImportLiftsDiagnostic
 import com.stratum.domain.program.importing.NormalizedProgramTemplate
 import com.stratum.domain.program.importing.NormalizedProgramTemplateLift
 import com.stratum.domain.program.importing.NormalizedProgramTemplateSet
@@ -301,6 +303,69 @@ class ResolveProgramTemplateLiftsUseCaseTest {
         assertEquals(listOf("Hamstring Curl"), embeddingPort.lastRequestedNames)
         assertEquals(seatedId, program.workouts.single().workoutLifts.single().liftId)
         assertEquals(2, liftRepo.observeLifts().first().size)
+    }
+
+    @Test
+    fun `embedding batch failure is exposed as a diagnostic with the real cause and resolution still completes`() = runTest {
+        // STR-240 chunk 8b: the template flow's second consumer of prepareBatch.
+        // The embedding failure degraded this resolve to pure BM25 (the unmatched
+        // name still becomes a custom lift, unchanged), and its real cause is
+        // exposed as the chunk-8 diagnostic shape for the composing use case to
+        // carry to the boundary — before this chunk it recorded zero times here.
+        val failure = IllegalStateException("embedding down")
+        val liftRepo = FakeLiftRepository()
+        val embeddingPort = FakeLiftNameEmbeddingPort(result = Result.failure(failure))
+        val hybrid =
+            HybridLiftNameResolver(
+                bm25 = Bm25LiftNameResolver(),
+                catalogEmbeddings = FakeLiftEmbeddingCatalog(),
+                nameEmbedding = embeddingPort,
+            )
+        val useCase = ResolveProgramTemplateLiftsUseCase(liftRepo, hybrid)
+
+        val template =
+            NormalizedProgramTemplate(
+                programName = "Degraded",
+                cycleLength = 1,
+                workouts =
+                    listOf(
+                        NormalizedProgramTemplateWorkout(
+                            name = "Day 1",
+                            weekday = null,
+                            position = 0,
+                            lifts =
+                                listOf(
+                                    NormalizedProgramTemplateLift(
+                                        name = "Mystery Lift",
+                                        position = 0,
+                                        sets =
+                                            listOf(
+                                                NormalizedProgramTemplateSet(
+                                                    position = 0,
+                                                    setTypeLabel = null,
+                                                    repMin = 8,
+                                                    repMax = 12,
+                                                    rirGoal = 2,
+                                                    restSeconds = null,
+                                                    isTopSet = true,
+                                                ),
+                                            ),
+                                        supersetGroupKey = null,
+                                    ),
+                                ),
+                        ),
+                    ),
+            )
+
+        val program = useCase.invoke(template)
+
+        assertEquals(listOf("Mystery Lift"), embeddingPort.lastRequestedNames)
+        // Resolution behavior is unchanged apart from the carried diagnostic.
+        assertEquals(1, program.workouts.size)
+        assertEquals(1, liftRepo.observeLifts().first().size)
+        val diagnostic = useCase.embeddingBatchFailureDiagnostic()
+        assertEquals(ResolveImportLiftsDiagnostic.LiftNameEmbeddingFailed(failure), diagnostic)
+        assertSame(failure, diagnostic?.cause)
     }
 
     @Test

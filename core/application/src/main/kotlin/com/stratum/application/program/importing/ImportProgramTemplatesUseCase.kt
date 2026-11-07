@@ -48,7 +48,11 @@ class ProgramTemplateRejectedException(message: String) : Exception(message)
 /**
  * Outcome of [ImportProgramTemplatesUseCase] (STR-243).
  *
- * [Success] carries the import result. The terminal server statuses are typed
+ * [Success] carries the import result plus any non-fatal degradation diagnostics
+ * (§10): a lift-name embedding batch failure during template resolution degrades
+ * matching to pure BM25 but does not fail the import, so its real cause rides
+ * [Success.diagnostics] as an [OperationalDiagnostic] for the boundary to record
+ * exactly once (STR-240 chunk 8b). The terminal server statuses are typed
  * branches carrying the facts consumers branch on: [Rejected] and [Failed]
  * carry the server-provided message (or the use case's default copy),
  * [ReadyWithoutPath] is a Ready job with no template to download,
@@ -66,7 +70,10 @@ class ProgramTemplateRejectedException(message: String) : Exception(message)
  * (STR-256).
  */
 sealed interface ProgramTemplateImportOutcome {
-    data class Success(val result: ProgramTemplateImportResult) : ProgramTemplateImportOutcome
+    data class Success(
+        val result: ProgramTemplateImportResult,
+        val diagnostics: List<OperationalDiagnostic> = emptyList(),
+    ) : ProgramTemplateImportOutcome
 
     data class Rejected(val message: String) : ProgramTemplateImportOutcome
 
@@ -195,10 +202,16 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
             val resolvedThisBatch = mutableListOf<com.stratum.domain.program.Program>()
             var skipped = 0
             var activatedFirst = false
+            // STR-240 chunk 8b: the first embedding-batch failure in this import is
+            // carried on the Success outcome (below) for the boundary to record
+            // exactly once per import; later templates in the same file degrade the
+            // same way and do not re-carry it.
+            var embeddingDiagnostic: OperationalDiagnostic? = null
 
             for (item in parsed) {
                 require(item.template.workouts.isNotEmpty()) { "Imported template has no workouts" }
                 val resolved = resolver.invoke(item.template)
+                embeddingDiagnostic = firstEmbeddingDiagnostic(embeddingDiagnostic)
                 // Prefer stable export id when present. Resolve mints a random Program.id and
                 // stamps it on every Workout.programId — rebind the whole hierarchy so Room FKs
                 // (workouts.program_id → programs.id) stay consistent.
@@ -274,6 +287,7 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
                     importedProgramIds = importedIds,
                     skippedProgramCount = skipped,
                 ),
+                diagnostics = listOfNotNull(embeddingDiagnostic),
             )
             }
         } catch (cancelled: CancellationException) {
@@ -302,6 +316,36 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
                 message = "Program import failed: ${error.message}",
                 cause = error,
             ),
+        )
+
+    /**
+     * Keeps the first embedding-batch failure seen in this import (STR-240 chunk
+     * 8b): reads the resolver's post-invoke diagnostic while [current] is still
+     * null, and returns [current] unchanged once one is carried — one record per
+     * import, however many templates the file held.
+     */
+    private fun firstEmbeddingDiagnostic(
+        current: OperationalDiagnostic?,
+    ): OperationalDiagnostic? =
+        current ?: resolver.embeddingBatchFailureDiagnostic()?.let { diagnostic ->
+            embeddingOperationalDiagnostic(diagnostic.cause)
+        }
+
+    /**
+     * Renders a lift-name embedding batch failure (STR-240 chunk 8b) in this flow's
+     * [OperationalDiagnostic] vocabulary: this flow's tag, the same message the
+     * historical-import boundary renders for the same failure (chunk 8's
+     * `ImportLiftResolutionLogger` shape), and the real cause. The two flows are
+     * distinct invocations — a historical import records its own failure on its
+     * summary channel and a template import records its own here — so no failure
+     * is recorded twice across flows.
+     */
+    private fun embeddingOperationalDiagnostic(cause: Throwable): OperationalDiagnostic =
+        OperationalDiagnostic(
+            tag = TAG,
+            message = "Import lift name embedding failed — gray-zone matches may be " +
+                "unresolved. Error: ${cause.message ?: "unknown"}",
+            cause = cause,
         )
 
     /**

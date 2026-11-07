@@ -1,6 +1,11 @@
 package com.stratum.application.program.importing
 
 
+import com.stratum.application.importing.Bm25LiftNameResolver
+import com.stratum.application.importing.HybridLiftNameResolver
+import com.stratum.application.importing.LiftNameResolverPort
+import com.stratum.core.testing.importing.FakeLiftEmbeddingCatalog
+import com.stratum.core.testing.importing.FakeLiftNameEmbeddingPort
 import com.stratum.core.testing.importing.FakeLiftNameResolverPort
 import com.stratum.core.testing.importing.FakeProgramTemplateImportPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
@@ -60,6 +65,7 @@ class ImportProgramTemplatesUseCaseTest {
         importPort: ProgramTemplateImportPort,
         testScheduler: TestCoroutineScheduler,
         completeOnboarding: CompleteOnboardingUseCase? = null,
+        liftNameResolver: LiftNameResolverPort = FakeLiftNameResolverPort(),
     ): ImportProgramTemplatesUseCase {
         val profileRepo = FakeUserTrainingProfileRepository()
         val liftRepo = FakeLiftRepository()
@@ -68,7 +74,7 @@ class ImportProgramTemplatesUseCaseTest {
             resolver =
                 ResolveProgramTemplateLiftsUseCase(
                     liftRepository = liftRepo,
-                    liftNameResolver = FakeLiftNameResolverPort(),
+                    liftNameResolver = liftNameResolver,
                 ),
             repository = programRepo,
             completeOnboarding =
@@ -569,6 +575,49 @@ class ImportProgramTemplatesUseCaseTest {
                 options = libraryOnly,
             )
         assertEquals(ProgramTemplateImportOutcome.TimedOut, result)
+    }
+
+    @Test
+    @DisplayName("Embedding failure during template resolve rides Success as a diagnostic with the real cause")
+    fun embeddingFailureRidesSuccessAsDiagnostic() = runTest {
+        // STR-240 chunk 8b: ResolveProgramTemplateLiftsUseCase is the second
+        // consumer of HybridLiftNameResolver.prepareBatch. Its embedding failure
+        // degraded resolution to pure BM25 (the import still succeeds), and the
+        // real cause rides the Success outcome in this flow's OperationalDiagnostic
+        // vocabulary for the boundary to record exactly once — before this chunk
+        // the template flow recorded it zero times.
+        val failure = IllegalStateException("embedding down")
+        val hybrid =
+            HybridLiftNameResolver(
+                bm25 = Bm25LiftNameResolver(),
+                catalogEmbeddings = FakeLiftEmbeddingCatalog(),
+                nameEmbedding = FakeLiftNameEmbeddingPort(result = Result.failure(failure)),
+            )
+        val port = FakeProgramTemplateImportPort(templateJson = singleTemplateJson("Imported A"))
+        val result =
+            buildUseCase(
+                FakeProgramRepository(),
+                FakeOnboardingRepository(),
+                port,
+                testScheduler,
+                liftNameResolver = hybrid,
+            )(
+                bytes = byteArrayOf(1),
+                fileName = "p.json",
+                options = libraryOnly,
+            )
+        assertTrue(result is ProgramTemplateImportOutcome.Success)
+        val success = result as ProgramTemplateImportOutcome.Success
+        // Degraded-success behavior is unchanged: the program still imports.
+        assertEquals(1, success.result.importedProgramIds.size)
+        assertEquals(1, success.diagnostics.size)
+        assertEquals("ProgramTemplateImport", success.diagnostics.single().tag)
+        assertEquals(
+            "Import lift name embedding failed — gray-zone matches may be unresolved. " +
+                "Error: embedding down",
+            success.diagnostics.single().message,
+        )
+        assertSame(failure, success.diagnostics.single().cause)
     }
 
     @Test

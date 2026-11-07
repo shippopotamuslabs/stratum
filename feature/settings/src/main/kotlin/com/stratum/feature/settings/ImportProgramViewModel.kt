@@ -102,6 +102,11 @@ class ImportProgramViewModel @Inject constructor(
                 )
             when (outcome) {
                 is ProgramTemplateImportOutcome.Success -> {
+                    // STR-240 chunk 8b: a degraded-but-successful import (lift-name
+                    // embedding batch failed during resolution) carries its record
+                    // on the Success branch as diagnostics and is drained here
+                    // exactly once; diagnostics never reach the UI state.
+                    diagnosticDrain.drain(outcome.diagnostics)
                     val imported = outcome.result.importedProgramIds.size
                     val skipped = outcome.result.skippedProgramCount
                     _uiState.update {

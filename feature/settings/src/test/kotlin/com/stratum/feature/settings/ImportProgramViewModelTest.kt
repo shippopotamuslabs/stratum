@@ -210,6 +210,54 @@ class ImportProgramViewModelTest {
     }
 
     @Test
+    @DisplayName("STR-240 chunk 8b Degraded success drains the embedding diagnostic exactly once")
+    fun embeddingFailureOnSuccessDrainsExactlyOnce() = runTest {
+        val auth =
+            FakeAuthManager(AuthState.Authenticated(UserProfile("u1", "U", "u@e.com", null)))
+        val failure = IllegalStateException("embedding down")
+        val useCase =
+            RecordingImportProgramTemplatesUseCase(
+                outcome =
+                    ProgramTemplateImportOutcome.Success(
+                        result =
+                            ProgramTemplateImportResult(
+                                importedProgramIds = listOf(ProgramId("x")),
+                                skippedProgramCount = 0,
+                            ),
+                        diagnostics =
+                            listOf(
+                                OperationalDiagnostic(
+                                    tag = "ProgramTemplateImport",
+                                    message = "Import lift name embedding failed — gray-zone " +
+                                        "matches may be unresolved. Error: embedding down",
+                                    cause = failure,
+                                ),
+                            ),
+                    ),
+            )
+        val analytics = FakeAnalyticsPort()
+        val drainLogging = FakeLoggingPort()
+        val vm = ImportProgramViewModel(
+            useCase,
+            auth,
+            AnalyticsRecorder(analytics),
+            DiagnosticDrain(drainLogging),
+        )
+        vm.onFileSelected(byteArrayOf(1), "p.json")
+        advanceUntilIdle()
+        // The import still presents as a success, with counts and Complete phase.
+        assertEquals(ImportProgramPhaseUi.Complete, vm.uiState.value.phase)
+        assertEquals(1, vm.uiState.value.importedCount)
+        assertEquals(null, vm.uiState.value.errorMessage)
+        // STR-240 chunk 8b: the carried embedding diagnostic drains exactly once
+        // at this boundary, with the real cause attached.
+        assertEquals(1, drainLogging.errors.size)
+        assertEquals("ProgramTemplateImport", drainLogging.errors.single().tag)
+        assertSame(failure, drainLogging.errors.single().throwable)
+        assertTrue(analytics.events.isEmpty())
+    }
+
+    @Test
     @DisplayName("STR-256 Rollback failure logs each orphan delete once, UI copy uses primary message")
     fun str256_rollbackFailureDrainsDiagnosticsOnce() = runTest {
         val auth =

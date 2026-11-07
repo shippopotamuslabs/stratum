@@ -1,6 +1,7 @@
 package com.stratum.application.program.importing
 
 import com.stratum.domain.importing.ImportStubLiftGuesser
+import com.stratum.domain.importing.ResolveImportLiftsDiagnostic
 import com.stratum.application.importing.LiftNameResolverPort
 import com.stratum.application.importing.ResidualLiftNameResolution
 import com.stratum.application.lift.LiftRepository
@@ -67,6 +68,23 @@ class ResolveProgramTemplateLiftsUseCase @Inject constructor(
     /** Current catalog display names keyed by lift id (includes customs created during resolve). */
     suspend fun catalogNamesById(): Map<LiftId, String> =
         liftRepository.observeLifts().first().associate { it.id to it.name }
+
+    /**
+     * The embedding-batch failure from the most recent [invoke], as a §10 diagnostic
+     * carrying the real cause (STR-240 chunk 8b — the template-import counterpart of
+     * chunk 8's historical-import summary carrier), or null when the batch succeeded
+     * (or the resolver uses no embeddings). Resolution itself is unchanged: the
+     * failure only degraded matching to pure BM25 for that invoke.
+     *
+     * The resolver's batch state is cleared by the next invoke's `prepareBatch`, so
+     * the composing use case reads this immediately after each [invoke] and carries
+     * it on the import outcome for the boundary to record exactly once. This use
+     * case records nothing itself.
+     */
+    fun embeddingBatchFailureDiagnostic(): ResolveImportLiftsDiagnostic.LiftNameEmbeddingFailed? =
+        liftNameResolver.embeddingBatchFailureCause()?.let { cause ->
+            ResolveImportLiftsDiagnostic.LiftNameEmbeddingFailed(cause)
+        }
 
     suspend operator fun invoke(
         template: NormalizedProgramTemplate,
