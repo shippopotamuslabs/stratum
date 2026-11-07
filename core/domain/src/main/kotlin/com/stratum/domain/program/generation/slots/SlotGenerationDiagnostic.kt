@@ -50,7 +50,7 @@ internal fun MutableList<SlotGenerationDiagnostic>?.parseTouchPatternOrRecord(
     patternName: String,
     muscle: MuscleGroup,
 ): MovementPattern? {
-    val parsed = runCatching { MovementPattern.valueOf(patternName) }.getOrNull()
+    val parsed = MovementPattern.parseOrNull(patternName)
     if (parsed == null) {
         this?.add(SlotGenerationDiagnostic.CrossDomainTouchSkipped(patternName, muscle))
     }
@@ -66,7 +66,7 @@ internal fun MutableList<SlotGenerationDiagnostic>?.parseSpecFocusPatternOrRecor
     patternName: String,
     muscle: MuscleGroup,
 ): MovementPattern? {
-    val parsed = runCatching { MovementPattern.valueOf(patternName) }.getOrNull()
+    val parsed = MovementPattern.parseOrNull(patternName)
     if (parsed == null) {
         this?.add(SlotGenerationDiagnostic.SpecFocusSlotSkipped(patternName, muscle))
     }
@@ -82,7 +82,7 @@ internal fun MutableList<SlotGenerationDiagnostic>?.parseSpecFocusMuscleOrRecord
     muscleName: String,
     patternName: String,
 ): MuscleGroup? {
-    val parsed = runCatching { MuscleGroup.valueOf(muscleName) }.getOrNull()
+    val parsed = MuscleGroup.parseOrNull(muscleName)
     if (parsed == null) {
         this?.add(SlotGenerationDiagnostic.SpecFocusMuscleUnrecognized(muscleName, patternName))
     }

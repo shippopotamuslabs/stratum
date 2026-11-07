@@ -220,7 +220,7 @@ private fun decodeLiftContext(obj: JsonObject): LiftContext =
         equipment = obj.optionalString("equipment"),
         fatigueProfile =
             obj.optionalString("fatigueProfile")
-                ?.let { runCatching { enumValueOf<FatigueProfile>(it) }.getOrNull() }
+                ?.let { FatigueProfile.parseOrNull(it) }
                 ?: FatigueProfile.Low,
         incrementTiers =
             (obj["incrementTiers"] as? JsonArray)?.values?.map {

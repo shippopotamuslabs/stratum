@@ -159,8 +159,8 @@ private fun buildLiftDrafts(
     selections: List<SelectedSlotLift>,
     context: ProgramGenerationContext,
 ): List<ProgramLiftDraft> {
-    val trainingAge = runCatching { TrainingAge.valueOf(context.trainingAge) }.getOrNull()
-    val lastTrained = context.lastTrained?.let { runCatching { LastTrainedBucket.valueOf(it) }.getOrNull() }
+    val trainingAge = TrainingAge.parseOrNull(context.trainingAge)
+    val lastTrained = context.lastTrained?.let { LastTrainedBucket.parseOrNull(it) }
     return selections.mapIndexed { liftIndex, sel ->
         val scheme =
             schemeForTrainingAge(

@@ -152,7 +152,7 @@ private fun decodeWorkoutSlotTemplate(obj: JsonObject): WorkoutSlotTemplate =
  * Does not map legacy kinematic strings (AxialCompound → …) — those are ignored.
  */
 private fun decodeFatigueProfileOrNull(name: String?): FatigueProfile? =
-    name?.let { runCatching { enumValueOf<FatigueProfile>(it) }.getOrNull() }
+    name?.let { FatigueProfile.parseOrNull(it) }
 
 /** SlotRole with one legacy wire alias: Isolation → Accessory (role rename only). */
 private fun decodeSlotRole(name: String): SlotRole =

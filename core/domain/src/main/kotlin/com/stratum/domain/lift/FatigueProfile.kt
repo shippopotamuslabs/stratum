@@ -16,4 +16,9 @@ enum class FatigueProfile {
 
     /** Lighter accessories — not single-joint only. Was Isolation (kinematic). */
     Low,
+    ;
+
+    companion object {
+        fun parseOrNull(raw: String): FatigueProfile? = entries.firstOrNull { it.name == raw }
+    }
 }

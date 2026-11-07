@@ -25,6 +25,10 @@ enum class TrainingAge {
     /** 10+ years. Advanced / near genetic potential under quality training. */
     Advanced,
     ;
+
+    companion object {
+        fun parseOrNull(raw: String): TrainingAge? = entries.firstOrNull { it.name == raw }
+    }
 }
 
 /**
@@ -40,6 +44,10 @@ enum class LastTrainedBucket {
     MoreThanThreeMonthsAgo,
     Never,
     ;
+
+    companion object {
+        fun parseOrNull(raw: String): LastTrainedBucket? = entries.firstOrNull { it.name == raw }
+    }
 }
 
 /**
@@ -55,4 +63,8 @@ enum class Weekday {
     Saturday,
     Sunday,
     ;
+
+    companion object {
+        fun parseOrNull(raw: String): Weekday? = entries.firstOrNull { it.name == raw }
+    }
 }

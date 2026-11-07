@@ -61,6 +61,10 @@ enum class MovementPattern {
     HipAdduction,
     ;
 
+    companion object {
+        fun parseOrNull(raw: String): MovementPattern? = entries.firstOrNull { it.name == raw }
+    }
+
     /**
      * Human-readable label for UI grouping. Display strings live in the domain here (not the
      * feature layer) because the grouping is shared between OS-4 selection and OS-6 generation.

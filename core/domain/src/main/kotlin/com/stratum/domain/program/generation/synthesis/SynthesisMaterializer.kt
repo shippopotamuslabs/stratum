@@ -18,11 +18,11 @@ import com.stratum.domain.program.generation.prescription.SynthesisObjectiveBrea
 
 
 private fun patternFromSynthesis(pattern: String): MovementPattern =
-    runCatching { MovementPattern.valueOf(pattern) }.getOrNull()
+    MovementPattern.parseOrNull(pattern)
         ?: error("Unknown MovementPattern: $pattern")
 
 private fun muscleFromSynthesis(muscle: String): MuscleGroup =
-    runCatching { MuscleGroup.valueOf(muscle) }.getOrNull()
+    MuscleGroup.parseOrNull(muscle)
         ?: error("Unknown MuscleGroup: $muscle")
 
 fun buildUnifiedSessionPlans(

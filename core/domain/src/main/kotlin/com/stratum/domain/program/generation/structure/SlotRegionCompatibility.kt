@@ -32,7 +32,7 @@ fun allowedRegionFiltersForPattern(
             TrainingDomain.Upper -> setOf(SessionRegionFilter.LowerOnly, SessionRegionFilter.Unrestricted)
         }
     }
-    if (runCatching { MovementPattern.valueOf(pattern) }.getOrNull() in LOWER_PRIMARY_PATTERNS ||
+    if (MovementPattern.parseOrNull(pattern) in LOWER_PRIMARY_PATTERNS ||
         muscleTrainingDomain(primaryMuscle) == TrainingDomain.Lower
     ) {
         return setOf(SessionRegionFilter.LowerOnly, SessionRegionFilter.Unrestricted)

@@ -36,7 +36,7 @@ fun NormalizedProgram.toDomainProgram(
             id = workoutId,
             programId = programId,
             name = workout.name,
-            weekday = workout.weekday?.let { runCatching { Weekday.valueOf(it) }.getOrNull() },
+            weekday = workout.weekday?.let { Weekday.parseOrNull(it) },
             position = workout.position,
             workoutLifts = workout.workoutLifts.mapIndexed { liftIndex, lift ->
                 val workoutLiftId = WorkoutLiftId(UUID.randomUUID().toString())

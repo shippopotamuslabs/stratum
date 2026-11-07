@@ -42,6 +42,10 @@ enum class MuscleGroup {
     Adductor,
     ;
 
+    companion object {
+        fun parseOrNull(raw: String): MuscleGroup? = entries.firstOrNull { it.name == raw }
+    }
+
     /**
      * Human-readable label — single source of truth for UI and lift summaries.
      * Never expose [name] / `toString()` in product chrome (e.g. "LateralDeltoid", "Calf").

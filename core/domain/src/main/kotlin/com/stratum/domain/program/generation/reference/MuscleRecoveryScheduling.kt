@@ -152,7 +152,7 @@ private fun contributorsForMuscle(
     if (setCount == 0 || meta == null) return emptyList()
     val stressClass = classifyLiftStressClass(meta)
     val contributors = mutableListOf<Pair<LiftStressClass, Double>>()
-    val muscleGroup = runCatching { MuscleGroup.valueOf(muscle) }.getOrNull()
+    val muscleGroup = MuscleGroup.parseOrNull(muscle)
     if (muscleGroup != null && muscleGroup in meta.primaryMuscles) {
         contributors +=
             recoveryStressClassForContributor(stressClass, isPrimaryContributor = true) to

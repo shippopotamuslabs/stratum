@@ -34,6 +34,6 @@ internal fun relabelPlaceholderSessionNamesByWeekday(
 
 private fun weekdaySortKey(weekday: String?, position: Int?): Int =
     weekday
-        ?.let { runCatching { Weekday.valueOf(it).ordinal }.getOrNull() }
+        ?.let { Weekday.parseOrNull(it)?.ordinal }
         ?: position
         ?: Int.MAX_VALUE
