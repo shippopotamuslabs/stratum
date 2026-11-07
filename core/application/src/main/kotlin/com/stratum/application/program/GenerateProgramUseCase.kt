@@ -8,6 +8,10 @@ import com.stratum.application.program.generation.pipeline.PipelineOptions
 import com.stratum.application.program.generation.pipeline.PipelinePhase
 import com.stratum.application.program.generation.pipeline.PipelineProgress
 import com.stratum.application.program.generation.pipeline.ProgramGenerationPipeline
+import com.stratum.application.program.generation.pipeline.ProgramGenerationPipelineResult
+import com.stratum.domain.program.generation.synthesis.ProgramSynthesisException
+import com.stratum.domain.program.generation.synthesis.ProgramSynthesisRefusal
+import com.stratum.domain.program.generation.validation.ProgramGenerationValidationException
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.schema.toDomainProgram
 import com.stratum.domain.program.generation.schema.toProgramNormalizationRequest
@@ -73,14 +77,37 @@ class GenerateProgramUseCase @Inject constructor(
                 val knownLiftIds = liftsById.keys
 
                 val normalized =
-                    pipeline.generate(
-                        context = context,
-                        normalizationRequest = context.toProgramNormalizationRequest(),
-                        options =
-                            PipelineOptions(
-                                progress = { progress -> onProgress(progress.toDomainProgress()) },
-                            ),
-                    )
+                    when (
+                        val pipelineResult =
+                            pipeline.generate(
+                                context = context,
+                                normalizationRequest = context.toProgramNormalizationRequest(),
+                                options =
+                                    PipelineOptions(
+                                        progress = { progress -> onProgress(progress.toDomainProgress()) },
+                                    ),
+                            )
+                    ) {
+                        is ProgramGenerationPipelineResult.Success -> pipelineResult.program
+                        is ProgramGenerationPipelineResult.ValidationRejected ->
+                            // Constructed as a failure value, never thrown (STR-241):
+                            // the same payload shape the previous generic catch produced.
+                            return@withContext Result.failure(
+                                ProgramGenerationValidationException(pipelineResult.report),
+                            )
+                        is ProgramGenerationPipelineResult.SynthesisRefused ->
+                            // Constructed as a failure value, never thrown (STR-241):
+                            // preserves STR-242's classifyGenerateOutcome, which keys on
+                            // ProgramSynthesisException at the terminal boundary.
+                            return@withContext Result.failure(
+                                ProgramSynthesisException(
+                                    when (pipelineResult.refusal) {
+                                        ProgramSynthesisRefusal.FeatureDisabled ->
+                                            ProgramSynthesisException.MESSAGE_SYNTHESIS_PAUSED
+                                    },
+                                ),
+                            )
+                    }
                 var program =
                     normalized.toDomainProgram(
                         restSecondsForLift = { id -> liftsById[id]?.resolvedDefaultRestSeconds() },

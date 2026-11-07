@@ -1,6 +1,5 @@
 package com.stratum.application.training
 
-import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.logging.expectedFailure
 import com.stratum.domain.logging.runCatchingLogged
@@ -10,6 +9,7 @@ import javax.inject.Inject
 import com.stratum.domain.training.PersonalRecordScoring
 import com.stratum.domain.training.TrainingSession
 import com.stratum.domain.training.TrainingSessionDisplayName
+import com.stratum.domain.training.TrainingSessionStatus
 import com.stratum.domain.training.WorkoutSessionDetail
 import com.stratum.domain.training.WorkoutSessionLiftDetail
 import com.stratum.domain.training.WorkoutSessionSetDetail
@@ -41,8 +41,11 @@ class GetWorkoutSessionDetailUseCase @Inject constructor(
                 TAG,
                 IllegalStateException("Training session ${sessionId.value} not found"),
             )
-        runCatchingCancellable { session.requireCompleted() }.getOrElse {
-            return loggingPort.expectedFailure(TAG, it)
+        if (session.status != TrainingSessionStatus.COMPLETED) {
+            return loggingPort.expectedFailure(
+                TAG,
+                TrainingSession.notCompletedException(session),
+            )
         }
         val loggedSets = loaded.second.sortedWith(compareBy({ it.setIndex }, { it.completedAt }))
         if (loggedSets.isEmpty()) {

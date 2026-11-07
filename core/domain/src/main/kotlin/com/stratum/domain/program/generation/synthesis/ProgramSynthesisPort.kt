@@ -30,14 +30,37 @@ data class ProgramSynthesisResult(
     val diagnostics: List<SlotGenerationDiagnostic> = emptyList(),
 )
 
+/**
+ * Outcome of a synthesis call (STR-241): an expected refusal (kill-switch off,
+ * provider paused) is a [Refused] branch carrying a typed [ProgramSynthesisRefusal],
+ * never a thrown exception. Operational failures still throw
+ * [ProgramSynthesisException] from the adapter boundary.
+ */
+sealed interface ProgramSynthesisOutcome {
+    data class Completed(val result: ProgramSynthesisResult) : ProgramSynthesisOutcome
+    data class Refused(val refusal: ProgramSynthesisRefusal) : ProgramSynthesisOutcome
+}
+
+/** Why a synthesis call was refused before any solver work ran. */
+sealed interface ProgramSynthesisRefusal {
+    /** The feature gate for cloud synthesis is disabled. */
+    data object FeatureDisabled : ProgramSynthesisRefusal
+}
+
 interface ProgramSynthesisPort {
     suspend fun synthesize(
         weeklyTargets: WeeklyVolumeTargets,
         context: ProgramGenerationContext,
-    ): ProgramSynthesisResult
+    ): ProgramSynthesisOutcome
 }
 
 class ProgramSynthesisException(
     message: String,
     cause: Throwable? = null,
-) : RuntimeException(message, cause)
+) : RuntimeException(message, cause) {
+    companion object {
+        /** User-facing copy for a synthesis refusal while the feature gate is paused. */
+        const val MESSAGE_SYNTHESIS_PAUSED =
+            "Program generation is temporarily unavailable. Please try again later."
+    }
+}

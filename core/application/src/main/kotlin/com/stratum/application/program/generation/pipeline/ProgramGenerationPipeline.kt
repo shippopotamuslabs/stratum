@@ -5,6 +5,7 @@ package com.stratum.application.program.generation.pipeline
 import com.stratum.domain.program.ProgramGenerationTelemetryLogger
 import com.stratum.application.program.generation.BuildProgramWorkoutsUseCase
 import com.stratum.application.program.generation.IntegrateAndValidateOptions
+import com.stratum.application.program.generation.IntegrateAndValidateProgramResult
 import com.stratum.application.program.generation.IntegrateAndValidateProgramUseCase
 import com.stratum.application.program.generation.PlanWeeklyVolumeUseCase
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
@@ -12,7 +13,10 @@ import com.stratum.domain.program.generation.context.withResolvedCycleSpace
 import com.stratum.domain.program.generation.draft.ProgramDraft
 import com.stratum.domain.program.generation.schema.NormalizedProgram
 import com.stratum.domain.program.generation.schema.ProgramNormalizationRequest
+import com.stratum.domain.program.generation.build.BuildProgramOutcome
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisPort
+import com.stratum.domain.program.generation.synthesis.ProgramSynthesisRefusal
+import com.stratum.domain.program.generation.validation.ValidationReport
 import javax.inject.Inject
 import com.stratum.domain.program.generation.volume.planWeeklyVolume
 
@@ -36,6 +40,17 @@ data class PipelineOptions(
     val progress: PipelineProgressCallback = {},
 )
 
+/**
+ * Stage outcome of a pipeline run (STR-241): expected stage failures travel as
+ * branches of this type instead of thrown exceptions, so [com.stratum.application.program.GenerateProgramUseCase]
+ * can map each branch to its failure value explicitly.
+ */
+sealed interface ProgramGenerationPipelineResult {
+    data class Success(val program: NormalizedProgram) : ProgramGenerationPipelineResult
+    data class ValidationRejected(val report: ValidationReport) : ProgramGenerationPipelineResult
+    data class SynthesisRefused(val refusal: ProgramSynthesisRefusal) : ProgramGenerationPipelineResult
+}
+
 open class ProgramGenerationPipeline @Inject constructor(
     private val planWeeklyVolume: PlanWeeklyVolumeUseCase,
     private val buildProgramWorkouts: BuildProgramWorkoutsUseCase,
@@ -47,24 +62,31 @@ open class ProgramGenerationPipeline @Inject constructor(
         context: ProgramGenerationContext,
         normalizationRequest: ProgramNormalizationRequest,
         options: PipelineOptions = PipelineOptions(),
-    ): NormalizedProgram {
+    ): ProgramGenerationPipelineResult {
         // Shared cycle-space ring for volume planning, synthesis, validation, and post-passes.
         val context = context.withResolvedCycleSpace()
         options.progress(PipelineProgress(PipelinePhase.PlanningVolume))
         val weeklyTargets = planWeeklyVolume(context)
 
         val buildResult =
-            buildProgramWorkouts(
-                context = context,
-                weeklyTargets = weeklyTargets,
-                programSynthesisPort = programSynthesisPort,
-                onSynthesizingProgram = {
-                    options.progress(PipelineProgress(PipelinePhase.SynthesizingProgram))
-                },
-                onSelectingExercises = {
-                    options.progress(PipelineProgress(PipelinePhase.SelectingExercises))
-                },
-            )
+            when (
+                val buildOutcome =
+                    buildProgramWorkouts(
+                        context = context,
+                        weeklyTargets = weeklyTargets,
+                        programSynthesisPort = programSynthesisPort,
+                        onSynthesizingProgram = {
+                            options.progress(PipelineProgress(PipelinePhase.SynthesizingProgram))
+                        },
+                        onSelectingExercises = {
+                            options.progress(PipelineProgress(PipelinePhase.SelectingExercises))
+                        },
+                    )
+            ) {
+                is BuildProgramOutcome.Completed -> buildOutcome.result
+                is BuildProgramOutcome.SynthesisRefused ->
+                    return ProgramGenerationPipelineResult.SynthesisRefused(buildOutcome.refusal)
+            }
         telemetryLogger.logSynthesisComplete(context, buildResult)
         // STR-254: drain slot-build diagnostics exactly once per generation through the
         // pipeline's existing logging wiring. Diagnostics never reach the UI.
@@ -77,21 +99,28 @@ open class ProgramGenerationPipeline @Inject constructor(
                 restSlotIndices = buildResult.program.restSlotIndices,
                 workouts = buildResult.program.workouts,
             )
-        return integrateAndValidate(
-            built = draft,
-            weeklyTargets = weeklyTargets,
-            context = context,
-            normalizationRequest = normalizationRequest,
-            options =
-                IntegrateAndValidateOptions(
-                    skipFinalValidation = options.skipFinalValidation,
-                ),
-            onPolishingProgram = {
-                options.progress(PipelineProgress(PipelinePhase.PolishingProgram))
-            },
-            onFinalizingProgram = {
-                options.progress(PipelineProgress(PipelinePhase.FinalizingProgram))
-            },
-        )
+        return when (
+            val integrated = integrateAndValidate(
+                built = draft,
+                weeklyTargets = weeklyTargets,
+                context = context,
+                normalizationRequest = normalizationRequest,
+                options =
+                    IntegrateAndValidateOptions(
+                        skipFinalValidation = options.skipFinalValidation,
+                    ),
+                onPolishingProgram = {
+                    options.progress(PipelineProgress(PipelinePhase.PolishingProgram))
+                },
+                onFinalizingProgram = {
+                    options.progress(PipelineProgress(PipelinePhase.FinalizingProgram))
+                },
+            )
+        ) {
+            is IntegrateAndValidateProgramResult.Success ->
+                ProgramGenerationPipelineResult.Success(integrated.program)
+            is IntegrateAndValidateProgramResult.ValidationRejected ->
+                ProgramGenerationPipelineResult.ValidationRejected(integrated.report)
+        }
     }
 }

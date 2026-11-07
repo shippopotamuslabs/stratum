@@ -16,6 +16,7 @@ import kotlinx.coroutines.launch
 import com.stratum.domain.training.TrainingSession
 import com.stratum.domain.training.TrainingSessionKind
 import com.stratum.domain.training.TrainingSessionNotInProgressException
+import com.stratum.domain.training.TrainingSessionStatus
 import com.stratum.domain.training.sessionsWithMaterializedAutoRests
 import com.stratum.domain.response.RE_EXTRACT_MIN_COMPLETED_WORKOUTS
 
@@ -41,10 +42,10 @@ class FinalizeTrainingSessionUseCase @Inject constructor(
                 ?: return Result.failure(
                     IllegalArgumentException("Training session ${sessionId.value} not found"),
                 )
-        try {
-            session.requireInProgress()
-        } catch (error: TrainingSessionNotInProgressException) {
-            return Result.failure(error)
+        if (session.status != TrainingSessionStatus.IN_PROGRESS) {
+            return Result.failure(
+                TrainingSessionNotInProgressException(session.id, session.status),
+            )
         }
 
         return runCatchingLogged(

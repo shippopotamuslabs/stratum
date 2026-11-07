@@ -1,6 +1,5 @@
 package com.stratum.application.training
 
-import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.di.ApplicationScope
 import com.stratum.application.healthconnect.HealthConnectSchedulerPort
 import com.stratum.domain.logging.LoggingPort
@@ -16,6 +15,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.TrainingSession
+import com.stratum.domain.training.TrainingSessionStatus
 
 /**
  * Updates the start and finish timestamps of a **completed** training session.
@@ -46,10 +46,19 @@ class UpdateCompletedSessionTimesUseCase @Inject constructor(
                     IllegalArgumentException("Training session ${sessionId.value} not found"),
                 )
         // The completed guard and the start-after-finish rule are model rules (STR-166):
-        // retime() enforces both and returns the moved session.
-        val updatedSession =
-            runCatchingCancellable { session.retime(newStartedAt = startedAt, newEndedAt = endedAt) }
-                .getOrElse { return Result.failure(it) }
+        // retime() enforces both as a backstop and returns the moved session; the use case
+        // pre-checks both so the expected failures are returned as values, never thrown.
+        if (session.status != TrainingSessionStatus.COMPLETED) {
+            return Result.failure(
+                TrainingSession.notCompletedException(session),
+            )
+        }
+        if (startedAt.isAfter(endedAt)) {
+            return Result.failure(
+                TrainingSession.startAfterFinishException(startedAt, endedAt),
+            )
+        }
+        val updatedSession = session.retime(newStartedAt = startedAt, newEndedAt = endedAt)
 
         return runCatchingLogged(
             loggingPort = loggingPort,

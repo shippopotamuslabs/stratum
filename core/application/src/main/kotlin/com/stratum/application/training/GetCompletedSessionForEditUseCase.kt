@@ -1,7 +1,6 @@
 package com.stratum.application.training
 
 import com.stratum.application.lift.LiftRepository
-import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.logging.LoggingPort
@@ -12,7 +11,9 @@ import com.stratum.domain.training.identity.TrainingSessionId
 import javax.inject.Inject
 import kotlinx.coroutines.flow.first
 import com.stratum.domain.training.LoggedSet
+import com.stratum.domain.training.TrainingSession
 import com.stratum.domain.training.TrainingSessionDisplayName
+import com.stratum.domain.training.TrainingSessionStatus
 
 /**
  * Loads a completed session for historical edit: display name, raw [LoggedSet] rows (with ids),
@@ -41,8 +42,11 @@ class GetCompletedSessionForEditUseCase @Inject constructor(
                 TAG,
                 IllegalStateException("Training session ${sessionId.value} not found"),
             )
-        runCatchingCancellable { session.requireCompleted() }.getOrElse {
-            return loggingPort.expectedFailure(TAG, it)
+        if (session.status != TrainingSessionStatus.COMPLETED) {
+            return loggingPort.expectedFailure(
+                TAG,
+                TrainingSession.notCompletedException(session),
+            )
         }
         val sets = loaded.second.sortedWith(compareBy({ it.setIndex }, { it.completedAt }))
         if (sets.isEmpty()) {

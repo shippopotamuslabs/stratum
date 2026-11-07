@@ -12,8 +12,9 @@ import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
-import com.stratum.domain.program.generation.synthesis.ProgramSynthesisException
+import com.stratum.domain.program.generation.synthesis.ProgramSynthesisOutcome
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisPort
+import com.stratum.domain.program.generation.synthesis.ProgramSynthesisRefusal
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisResult
 
 class FlagGatedProgramSynthesisPortTest {
@@ -42,22 +43,23 @@ class FlagGatedProgramSynthesisPortTest {
 
         val result = gated.synthesize(emptyMap(), context)
 
-        assertSame(stubDelegate.canned, result)
+        assertEquals(ProgramSynthesisOutcome.Completed(stubDelegate.canned), result)
+        assertSame(stubDelegate.canned, (result as ProgramSynthesisOutcome.Completed).result)
         assertEquals(1, stubDelegate.invocations)
     }
 
     @Test
-    @DisplayName("Given gate disabled when synthesize called then throws without touching delegate")
+    @DisplayName("Given gate disabled when synthesize called then returns Refused without touching delegate")
     fun failsFastWhenGateDisabled() = runTest {
         fakeFlags.setFlag(AppFeatureFlag.CLOUD_PROGRAM_SYNTHESIS, false)
         val context = GenerationContextTestFixtures.contextWith()
 
-        val error =
-            org.junit.jupiter.api.assertThrows<ProgramSynthesisException> {
-                gated.synthesize(emptyMap(), context)
-            }
+        val result = gated.synthesize(emptyMap(), context)
 
-        assertEquals(FlagGatedProgramSynthesisPort.MESSAGE_SYNTHESIS_PAUSED, error.message)
+        assertEquals(
+            ProgramSynthesisOutcome.Refused(ProgramSynthesisRefusal.FeatureDisabled),
+            result,
+        )
         assertEquals(0, stubDelegate.invocations)
     }
 
@@ -81,9 +83,9 @@ class FlagGatedProgramSynthesisPortTest {
         override suspend fun synthesize(
             weeklyTargets: WeeklyVolumeTargets,
             context: ProgramGenerationContext,
-        ): ProgramSynthesisResult {
+        ): ProgramSynthesisOutcome {
             invocations++
-            return canned
+            return ProgramSynthesisOutcome.Completed(canned)
         }
     }
 }

@@ -23,9 +23,19 @@ class LogSetUseCase @Inject constructor(
     private val loggedLiftContextFactory: LoggedLiftContextFactory,
     private val loggingPort: LoggingPort,
 ) {
-    suspend operator fun invoke(command: LogSetCommand): Result<LoggedSet> = runCatchingCancellable {
-        trainingLogRepository.requireInProgressSession(command.sessionId)
-
+    suspend operator fun invoke(command: LogSetCommand): Result<LoggedSet> {
+        // Single load via the seam check: a missing / non-live session and an operational
+        // load failure are expected failures, returned as constructed values (never thrown)
+        // and logged with the same line the envelope below produces. Cancellation from the
+        // load propagates as cancellation out of the check.
+        when (val check = trainingLogRepository.checkInProgressSession(command.sessionId)) {
+            is InProgressSessionCheck.Rejected -> {
+                loggingPort.error(TAG, "Failed to log set: ${check.error.message}", check.error)
+                return Result.failure(check.error)
+            }
+            is InProgressSessionCheck.Ready -> Unit
+        }
+        return runCatchingCancellable {
         val lift =
             liftRepository.observeLifts().first().firstOrNull { it.id == command.liftId }
                 ?: throw IllegalArgumentException("Lift ${command.liftId.value} not found")
@@ -54,8 +64,9 @@ class LogSetUseCase @Inject constructor(
 
         trainingLogRepository.insertSet(loggedSet)
         loggedSet
-    }.onFailure { error ->
-        loggingPort.error(TAG, "Failed to log set: ${error.message}", error)
+        }.onFailure { error ->
+            loggingPort.error(TAG, "Failed to log set: ${error.message}", error)
+        }
     }
 
     /**

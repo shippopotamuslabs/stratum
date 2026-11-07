@@ -19,16 +19,32 @@ class RewriteSessionLiftEquipmentUseCase @Inject constructor(
         sessionId: TrainingSessionId,
         liftId: LiftId,
         newEquipmentId: EquipmentId,
-    ): Result<Unit> = runCatchingCancellable {
-        trainingLogRepository.requireInProgressSession(sessionId)
-        val matching =
-            trainingLogRepository.getSetsForSession(sessionId)
-                .filter { it.liftId == liftId && it.equipmentId != newEquipmentId }
-        if (matching.isNotEmpty()) {
-            trainingLogRepository.updateSets(matching.map { it.copy(equipmentId = newEquipmentId) })
+    ): Result<Unit> {
+        // Single load via the seam check: a missing / non-live session and an operational
+        // load failure are expected failures, returned as constructed values (never thrown)
+        // and logged with the same line the envelope below produces. Cancellation from the
+        // load propagates as cancellation out of the check.
+        when (val check = trainingLogRepository.checkInProgressSession(sessionId)) {
+            is InProgressSessionCheck.Rejected -> {
+                loggingPort.error(
+                    TAG,
+                    "Failed to rewrite session lift equipment: ${check.error.message}",
+                    check.error,
+                )
+                return Result.failure(check.error)
+            }
+            is InProgressSessionCheck.Ready -> Unit
         }
-    }.onFailure { error ->
-        loggingPort.error(TAG, "Failed to rewrite session lift equipment: ${error.message}", error)
+        return runCatchingCancellable {
+            val matching =
+                trainingLogRepository.getSetsForSession(sessionId)
+                    .filter { it.liftId == liftId && it.equipmentId != newEquipmentId }
+            if (matching.isNotEmpty()) {
+                trainingLogRepository.updateSets(matching.map { it.copy(equipmentId = newEquipmentId) })
+            }
+        }.onFailure { error ->
+            loggingPort.error(TAG, "Failed to rewrite session lift equipment: ${error.message}", error)
+        }
     }
 
     private companion object {

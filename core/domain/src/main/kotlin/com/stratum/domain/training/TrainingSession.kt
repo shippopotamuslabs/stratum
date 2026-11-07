@@ -116,8 +116,8 @@ data class TrainingSession(
 
     /** Returns this session, or throws [IllegalArgumentException] unless COMPLETED. */
     fun requireCompleted(): TrainingSession {
-        require(status == TrainingSessionStatus.COMPLETED) {
-            "Training session ${id.value} is not completed (status=$status)"
+        if (status != TrainingSessionStatus.COMPLETED) {
+            throw notCompletedException(this)
         }
         return this
     }
@@ -141,13 +141,32 @@ data class TrainingSession(
      */
     fun retime(newStartedAt: Instant, newEndedAt: Instant): TrainingSession {
         requireCompleted()
-        require(!newStartedAt.isAfter(newEndedAt)) {
-            "Start time ($newStartedAt) cannot be after finish time ($newEndedAt)"
+        if (newStartedAt.isAfter(newEndedAt)) {
+            throw startAfterFinishException(newStartedAt, newEndedAt)
         }
         return copy(startedAt = newStartedAt, endedAt = newEndedAt)
     }
 
     companion object {
+        /**
+         * The single owner of the not-completed failure copy: [requireCompleted] throws
+         * this and completed-session use cases return it as a failure value, so the
+         * message exists exactly once in production code.
+         */
+        fun notCompletedException(session: TrainingSession): IllegalArgumentException =
+            IllegalArgumentException(
+                "Training session ${session.id.value} is not completed (status=${session.status})",
+            )
+
+        /**
+         * The single owner of the [retime] start-after-finish failure copy: [retime]
+         * throws this and the retime use case returns it as a failure value.
+         */
+        fun startAfterFinishException(startedAt: Instant, endedAt: Instant): IllegalArgumentException =
+            IllegalArgumentException(
+                "Start time ($startedAt) cannot be after finish time ($endedAt)",
+            )
+
         /** Creates a live IN_PROGRESS session starting at [startedAt] (end not yet known). */
         fun started(
             id: TrainingSessionId,

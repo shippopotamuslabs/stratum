@@ -87,4 +87,36 @@ class UpdateLoggedSetUseCaseTest {
         assertEquals(5, repo.getAllSets().single().reps)
         assertEquals(1, logging.errors.size)
     }
+
+    @Test
+    @DisplayName("operational getSession failure returns Result failure with exactly one error log")
+    fun operationalLoadFailureReturnsFailureAndLogsOnce() = runTest {
+        val repo = FakeTrainingLogRepository()
+        val failure = IllegalStateException("room load failed")
+        repo.getSessionError = failure
+        val sessionId = TrainingSessionId("ts-live-1")
+        val set =
+            LoggedSet(
+                id = LoggedSetId("ls-1"),
+                sessionId = sessionId,
+                exerciseNameRaw = "Bench",
+                liftId = LiftId("lift-1"),
+                setIndex = 0,
+                weight = Weight(135.0, Weight.WeightUnit.Lb),
+                reps = 5,
+                rir = 2,
+                completedAt = Instant.parse("2024-01-01T00:00:00Z"),
+                liftContext = WorkoutLoggingFixtures.importLiftContext(),
+            )
+        val logging = FakeLoggingPort()
+        val useCase = UpdateLoggedSetUseCase(repo, logging)
+
+        val result = useCase(set)
+
+        assertTrue(result.isFailure)
+        assertEquals(failure, result.exceptionOrNull())
+        assertEquals(1, logging.errors.size)
+        assertEquals("Failed to update logged set: ${failure.message}", logging.errors.single().message)
+        assertEquals(failure, logging.errors.single().throwable)
+    }
 }
