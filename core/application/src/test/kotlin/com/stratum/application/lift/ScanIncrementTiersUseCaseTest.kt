@@ -4,6 +4,7 @@ import com.stratum.core.testing.lift.FakeIncrementScanPort
 import java.io.IOException
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -297,24 +298,32 @@ class ScanIncrementTiersUseCaseTest {
     @Test
     @DisplayName("Given port failure when invoked then the ScanFailed branch is returned (STR-243)")
     fun portFailureReturnsScanFailed() = runTest {
-        val port = FakeIncrementScanPort(Result.failure(IOException("network down")))
+        val failure = IOException("network down")
+        val port = FakeIncrementScanPort(Result.failure(failure))
 
         val result = subject(port).invoke(photo)
 
-        assertEquals(ScanIncrementTiersResult.ScanFailed, result)
+        assertTrue(result is ScanIncrementTiersResult.ScanFailed)
     }
 
     @Test
-    @DisplayName("Given port failure when invoked then the use case records nothing itself (adapter owns callable logging)")
-    fun portFailureRecordsNothingItself() = runTest {
-        // STR-237: the use case has no logging capability at all; the branch
-        // assertion is the whole contract here (adapter-side logging is
-        // covered by the adapter's own tests).
-        val port = FakeIncrementScanPort(Result.failure(IOException("network down")))
+    @DisplayName("Given port failure when invoked then ScanFailed carries the real cause as a diagnostic (STR-240 chunk 8)")
+    fun portFailureCarriesCauseOnScanFailed() = runTest {
+        // STR-240 chunk 8 (closing STR-238's interim A13): the adapter no longer
+        // logs the failure — the branch itself is the carrier, with the exact
+        // originating throwable as the diagnostic's cause for the boundary
+        // (:app lift-config delegate) to drain exactly once.
+        val failure = IOException("network down")
+        val port = FakeIncrementScanPort(Result.failure(failure))
 
         val result = subject(port).invoke(photo)
 
-        assertEquals(ScanIncrementTiersResult.ScanFailed, result)
+        val scanFailed = result as ScanIncrementTiersResult.ScanFailed
+        assertEquals(1, scanFailed.diagnostics.size)
+        val diagnostic = scanFailed.diagnostics.single()
+        assertEquals("StratumIncrementScan", diagnostic.tag)
+        assertEquals("inferEquipmentIncrements failed: network down", diagnostic.message)
+        assertSame(failure, diagnostic.cause)
     }
 
     private fun scannedLb(): ScannedTiers =

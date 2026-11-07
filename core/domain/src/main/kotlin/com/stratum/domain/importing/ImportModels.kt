@@ -175,6 +175,24 @@ sealed interface ResolveImportLiftsDiagnostic {
     data class EquipmentInferenceFailed(
         override val cause: Throwable,
     ) : ResolveImportLiftsDiagnostic
+
+    /**
+     * One custom-lift inference batch failed, so resolution continued without LLM metadata
+     * for that batch's names: those names are skipped (no custom lift created) unless a
+     * name rule resolved them. One diagnostic per failed batch, beside the outcome's
+     * batch count / last-failure-message fields.
+     */
+    data class CustomLiftInferenceFailed(
+        override val cause: Throwable,
+    ) : ResolveImportLiftsDiagnostic
+
+    /**
+     * The lift-name embedding batch failed, so the resolver degraded to pure BM25:
+     * gray-zone names that embeddings would have rescued stay unmatched for this import.
+     */
+    data class LiftNameEmbeddingFailed(
+        override val cause: Throwable,
+    ) : ResolveImportLiftsDiagnostic
 }
 
 data class UnmatchedExerciseSample(

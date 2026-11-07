@@ -7,6 +7,8 @@ import com.stratum.application.importing.UnmatchedExerciseCandidate
 class FakeCustomLiftInferencePort(
     private val results: List<InferredCustomLiftMetadata> = emptyList(),
     private val fail: Boolean = false,
+    /** Exact failure instance to return; takes precedence over [fail]. */
+    private val failure: Throwable? = null,
 ) : CustomLiftInferencePort {
     val invocations = mutableListOf<List<UnmatchedExerciseCandidate>>()
 
@@ -14,7 +16,9 @@ class FakeCustomLiftInferencePort(
         candidates: List<UnmatchedExerciseCandidate>,
     ): Result<List<InferredCustomLiftMetadata>> {
         invocations += candidates
-        return if (fail) {
+        return if (failure != null) {
+            Result.failure(failure)
+        } else if (fail) {
             Result.failure(IllegalStateException("inference failed"))
         } else {
             Result.success(

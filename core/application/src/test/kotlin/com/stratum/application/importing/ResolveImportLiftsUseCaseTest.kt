@@ -701,6 +701,72 @@ class ResolveImportLiftsUseCaseTest {
         assertFalse(outcome.summary.embeddingBatchFailed)
     }
 
+    @Test
+    @DisplayName("Given custom lift inference failure when resolving then summary carries the real cause as a diagnostic beside the count and message")
+    fun customLiftInferenceFailureRidesSummaryAsDiagnostic() = runTest {
+        // STR-240 chunk 8 (A12): the batch failure's cause rides the summary
+        // diagnostics channel; the count/message summary fields are unchanged.
+        val failure = IllegalStateException("custom lift inference down")
+        val customInference = FakeCustomLiftInferencePort(failure = failure)
+        val liftRepo = FakeLiftRepository(initialLifts = minimalSeedCatalog())
+        val subject = buildSubject(liftRepo, customInference = customInference)
+
+        val outcome = subject(listOf(loggedSet(exerciseNameRaw = "Katana Special Gizmo")))
+
+        assertEquals(1, customInference.invocations.size)
+        assertEquals(
+            listOf(ResolveImportLiftsDiagnostic.CustomLiftInferenceFailed(failure)),
+            outcome.summary.diagnostics,
+        )
+        assertSame(
+            failure,
+            (outcome.summary.diagnostics.single() as ResolveImportLiftsDiagnostic.CustomLiftInferenceFailed).cause,
+        )
+        assertEquals(1, outcome.summary.customLiftInferenceBatchesAttempted)
+        assertEquals(1, outcome.summary.customLiftInferenceBatchesFailed)
+        assertEquals("custom lift inference down", outcome.summary.customLiftInferenceLastError)
+        assertEquals(1, outcome.summary.customLiftsSkipped)
+    }
+
+    @Test
+    @DisplayName("Given embedding batch failure when resolving then summary carries the real cause as a diagnostic beside the message string")
+    fun embeddingFailureRidesSummaryAsDiagnostic() = runTest {
+        // STR-240 chunk 8 (A14): the embedding failure rides the summary
+        // diagnostics channel with its real cause; the bool/message summary
+        // fields are unchanged and resolution still completes on pure BM25.
+        val failure = IllegalStateException("embedding down")
+        val liftRepo = FakeLiftRepository(initialLifts = minimalSeedCatalog())
+        val subject =
+            ResolveImportLiftsUseCase(
+                liftRepository = liftRepo,
+                liftNameResolver =
+                    HybridLiftNameResolver(
+                        bm25 = Bm25LiftNameResolver(),
+                        catalogEmbeddings = FakeLiftEmbeddingCatalog(),
+                        nameEmbedding =
+                            FakeLiftNameEmbeddingPort(result = Result.failure(failure)),
+                    ),
+                enrichCustomLifts = EnrichCustomLiftsUseCase(FakeCustomLiftInferencePort()),
+                equipmentCatalogPort = FakeLiftEquipmentCatalog(),
+                equipmentInferencePort = FakeImportEquipmentInferencePort(),
+                resolutionDispatcher = UnconfinedTestDispatcher(testScheduler),
+            )
+
+        val outcome = subject(listOf(loggedSet(exerciseNameRaw = "Katana Special Gizmo")))
+
+        assertTrue(outcome.summary.embeddingBatchFailed)
+        assertEquals("embedding down", outcome.summary.embeddingBatchError)
+        assertEquals(
+            listOf(ResolveImportLiftsDiagnostic.LiftNameEmbeddingFailed(failure)),
+            outcome.summary.diagnostics,
+        )
+        assertSame(
+            failure,
+            (outcome.summary.diagnostics.single() as ResolveImportLiftsDiagnostic.LiftNameEmbeddingFailed).cause,
+        )
+        assertEquals(1, outcome.resolvedSets.size)
+    }
+
     private class CountingLiftNameResolver(
         private val delegate: LiftNameResolverPort,
     ) : LiftNameResolverPort {

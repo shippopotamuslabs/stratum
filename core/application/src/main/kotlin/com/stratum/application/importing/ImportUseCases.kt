@@ -282,6 +282,17 @@ class ResolveImportLiftsUseCase @Inject constructor(
                 equipmentResult.exceptionOrNull()?.let { error ->
                     listOf(ResolveImportLiftsDiagnostic.EquipmentInferenceFailed(error))
                 } ?: emptyList()
+            // The embedding batch failure (stage 1–2) rides the same summary channel
+            // as a diagnostic with its real cause, beside the bool/message fields
+            // below (STR-240 chunk 8, closing STR-238's interim A14 exception).
+            val embeddingDiagnostic =
+                liftNameResolver.embeddingBatchFailureCause()?.let { cause ->
+                    ResolveImportLiftsDiagnostic.LiftNameEmbeddingFailed(cause)
+                }
+            val summaryDiagnostics =
+                listOfNotNull(embeddingDiagnostic) +
+                    afterCustoms.customLiftInferenceDiagnostics +
+                    importDiagnostics
             val confirmedEquipment =
                 confirmedEquipment(
                     inferredEquipment = inferredEquipment,
@@ -349,7 +360,7 @@ class ResolveImportLiftsUseCase @Inject constructor(
                         customLiftInferenceLastError = afterCustoms.customLiftInferenceLastError,
                         embeddingBatchFailed = embeddingBatchError != null,
                         embeddingBatchError = embeddingBatchError,
-                        diagnostics = importDiagnostics,
+                        diagnostics = summaryDiagnostics,
                     ),
             )
         }
@@ -375,6 +386,7 @@ class ResolveImportLiftsUseCase @Inject constructor(
         val customLiftInferenceBatchesFailed: Int,
         val customLiftLlmInferredCount: Int,
         val customLiftInferenceLastError: String?,
+        val customLiftInferenceDiagnostics: List<ResolveImportLiftsDiagnostic>,
     )
 
     private data class EnablementResult(
@@ -472,6 +484,7 @@ class ResolveImportLiftsUseCase @Inject constructor(
                 customLiftInferenceBatchesFailed = 0,
                 customLiftLlmInferredCount = 0,
                 customLiftInferenceLastError = null,
+                customLiftInferenceDiagnostics = emptyList(),
             )
         }
         val candidates =
@@ -557,6 +570,7 @@ class ResolveImportLiftsUseCase @Inject constructor(
             customLiftInferenceBatchesFailed = enrichment.batchesFailed,
             customLiftLlmInferredCount = customLiftLlmInferredCount,
             customLiftInferenceLastError = enrichment.lastFailureMessage,
+            customLiftInferenceDiagnostics = enrichment.diagnostics,
         )
     }
 

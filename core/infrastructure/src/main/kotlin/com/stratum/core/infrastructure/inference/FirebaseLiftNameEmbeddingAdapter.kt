@@ -4,7 +4,6 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.functions.FirebaseFunctions
 import com.stratum.application.importing.LiftNameEmbeddingPort
 import com.stratum.domain.coroutines.runCatchingCancellable
-import com.stratum.core.infrastructure.logging.LoggingPort
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.async
@@ -15,12 +14,16 @@ import kotlinx.coroutines.tasks.await
 /**
  * Calls the `embed_exercise_names` Firebase Callable (MiniLM) for distinct import exercise names.
  * Returns L2-normalized vectors keyed by the original raw name string. Batches run concurrently
- * to reduce import latency; failures are logged via [FirebaseCallableErrorLogger].
+ * to reduce import latency.
+ *
+ * This adapter records nothing for a failure (STR-240 chunk 8, closing STR-238's
+ * interim A14 exception): the failure rides the returned [Result] into
+ * `HybridLiftNameResolver`, which keeps the real cause beside the message string;
+ * the import resolution use case carries it as a diagnostic on the import summary
+ * to the import boundary, which records it exactly once.
  */
 @Singleton
-class FirebaseLiftNameEmbeddingAdapter @Inject constructor(
-    private val loggingPort: LoggingPort,
-) : LiftNameEmbeddingPort {
+class FirebaseLiftNameEmbeddingAdapter @Inject constructor() : LiftNameEmbeddingPort {
     private val functions: FirebaseFunctions = FirebaseFunctions.getInstance()
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
 
@@ -35,8 +38,6 @@ class FirebaseLiftNameEmbeddingAdapter @Inject constructor(
                     .map { batch -> async { invokeBatch(batch) } }
                     .awaitAll()
             }.fold(emptyMap<String, FloatArray>()) { acc, batch -> acc + batch }
-        }.onFailure { error ->
-            FirebaseCallableErrorLogger.logFailure(loggingPort, TAG, CALLABLE_NAME, error)
         }
 
     private suspend fun invokeBatch(names: List<String>): Map<String, FloatArray> {
@@ -53,7 +54,6 @@ class FirebaseLiftNameEmbeddingAdapter @Inject constructor(
     internal companion object {
         /** Must stay in sync with the batch cap in `functions-python/main.py`. */
         const val EMBEDDING_BATCH_SIZE = 200
-        private const val TAG = "StratumLiftNameEmbedding"
         private const val CALLABLE_NAME = "embed_exercise_names"
 
         @Suppress("UNCHECKED_CAST")

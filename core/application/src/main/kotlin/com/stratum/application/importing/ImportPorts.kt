@@ -114,6 +114,16 @@ interface LiftNameResolverPort {
      * summary so silent degradation to pure BM25 is diagnosable.
      */
     fun embeddingBatchFailure(): String? = null
+
+    /**
+     * Returns the last embedding batch failure's real cause, or `null` on the same
+     * conditions as [embeddingBatchFailure]. The import resolution use case carries
+     * it on the import summary as a §10 diagnostic (STR-240 chunk 8, closing
+     * STR-238's interim A14 exception), so the import boundary records it exactly
+     * once with the cause attached — the message string alone is no longer the
+     * only record.
+     */
+    fun embeddingBatchFailureCause(): Throwable? = null
 }
 
 interface LiftEquipmentCatalogPort {

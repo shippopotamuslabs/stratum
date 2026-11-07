@@ -6,6 +6,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import com.stratum.domain.importing.ImportStubLiftGuesser
 import com.stratum.domain.importing.InferredCustomLiftMetadata
+import com.stratum.domain.importing.ResolveImportLiftsDiagnostic
 import com.stratum.domain.lift.residual
 
 /**
@@ -17,7 +18,11 @@ import com.stratum.domain.lift.residual
  *    from pattern via [ImportStubLiftGuesser.metadataFromPattern]
  *
  * Partial batch failures are tolerated; callers skip custom-lift creation for names with no
- * metadata.
+ * metadata. Each failed batch's real cause rides the outcome as a
+ * [ResolveImportLiftsDiagnostic.CustomLiftInferenceFailed] diagnostic beside the
+ * count/message fields (STR-240 chunk 8, closing STR-238's interim A12 exception):
+ * the inference adapter records nothing, and the diagnostics ride the import
+ * summary to the import boundary, which records each one exactly once.
  */
 class EnrichCustomLiftsUseCase @Inject constructor(
     private val customLiftInferencePort: CustomLiftInferencePort,
@@ -60,6 +65,7 @@ class EnrichCustomLiftsUseCase @Inject constructor(
             }
         var batchesFailed = 0
         var lastFailureMessage: String? = null
+        val diagnostics = mutableListOf<ResolveImportLiftsDiagnostic>()
         results.forEach { result ->
             result
                 .onSuccess { lifts ->
@@ -75,6 +81,7 @@ class EnrichCustomLiftsUseCase @Inject constructor(
                 }.onFailure { error ->
                     batchesFailed += 1
                     lastFailureMessage = error.message ?: error::class.simpleName
+                    diagnostics += ResolveImportLiftsDiagnostic.CustomLiftInferenceFailed(error)
                 }
         }
         return EnrichCustomLiftsOutcome(
@@ -83,6 +90,7 @@ class EnrichCustomLiftsUseCase @Inject constructor(
             batchesAttempted = batches.size,
             batchesFailed = batchesFailed,
             lastFailureMessage = lastFailureMessage,
+            diagnostics = diagnostics,
         )
     }
 
@@ -98,6 +106,12 @@ data class EnrichCustomLiftsOutcome(
     val batchesAttempted: Int,
     val batchesFailed: Int,
     val lastFailureMessage: String?,
+    /**
+     * One diagnostic per failed inference batch, carrying the real cause (§10).
+     * The import resolution use case forwards these onto the import summary,
+     * whose boundary records each one exactly once.
+     */
+    val diagnostics: List<ResolveImportLiftsDiagnostic> = emptyList(),
 ) {
     companion object {
         val EMPTY =

@@ -1,27 +1,24 @@
 package com.stratum.core.infrastructure.inference
 
 import com.google.firebase.functions.FirebaseFunctionsException
-import com.stratum.core.infrastructure.logging.LoggingPort
 
 /**
- * Shared Firebase Callable failure logging for inference adapters. Keeps tag/message shape consistent
- * across `inferCustomLifts`, `startProgramSynthesis`, etc.
+ * Shared Firebase Callable failure-message rendering for inference adapters.
+ *
+ * The former `logFailure` recorder was removed in STR-240 chunk 8: its last
+ * call sites (the A12/A13/A14 interim designated recorders from STR-238) now
+ * carry their failures as §10 diagnostics to their boundaries, which record
+ * them exactly once. This object stays because adapters whose outcome carries
+ * the failure as a diagnostic (e.g. account deletion, STR-238) still render
+ * the diagnostic's message with [failureMessage] so the boundary record keeps
+ * the exact shape the adapter's former log line used.
  */
 internal object FirebaseCallableErrorLogger {
-    fun logFailure(
-        loggingPort: LoggingPort,
-        tag: String,
-        callableName: String,
-        error: Throwable,
-    ) {
-        loggingPort.error(tag, failureMessage(callableName, error), error)
-    }
-
     /**
      * The rendered failure message for a callable failure, without recording
      * it. Adapters whose outcome carries the failure as a §10 diagnostic
-     * (STR-238) render the diagnostic's message with this so the boundary
-     * record keeps the exact shape [logFailure] would have produced.
+     * render the diagnostic's message with this so the boundary
+     * record keeps the exact shape a direct log would have produced.
      */
     fun failureMessage(
         callableName: String,

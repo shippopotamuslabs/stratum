@@ -2,6 +2,7 @@ package com.stratum.application.lift
 
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.domain.lift.IncrementLattice
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.IncrementTiersValidationResult
@@ -19,8 +20,10 @@ import com.stratum.domain.lift.toStorageLb
  * Empty/invalid outcomes are expected AI-read failures (not crashes): they travel
  * as the typed [ScanIncrementTiersResult] branches, which are the record the
  * consumer acts on (STR-237: application has no logging capability).
- * Callable-level failures stay logged by the inference adapter; this use case
- * only propagates them.
+ * Callable-level failures ride the [ScanIncrementTiersResult.ScanFailed] branch
+ * as diagnostics (STR-240 chunk 8, closing STR-238's interim A13 exception):
+ * the inference adapter records nothing, and the presentation boundary
+ * (the :app lift-config scan delegate) drains the diagnostics exactly once.
  */
 data class ScannedIncrementTiers(
     val tiers: List<IncrementTier>,
@@ -31,15 +34,18 @@ data class ScannedIncrementTiers(
  * Outcome of scanning increment tiers from a photo (STR-243).
  *
  * [InvalidTiers] carries the domain validation result itself. [ScanFailed] is the
- * scan port's failure: the inference adapter already logged the originating
- * throwable once at its boundary, so this use case logs nothing for it (see the
- * class doc on [ScanIncrementTiersUseCase]).
+ * scan port's failure: it carries the originating throwable as diagnostics
+ * (STR-237 Route (i): legacy tag + rendered message, real throwable as cause);
+ * the boundary consumer drains them exactly once and this use case records
+ * nothing itself (see the class doc on [ScanIncrementTiersUseCase]).
  */
 sealed interface ScanIncrementTiersResult {
     data class Success(val scanned: ScannedIncrementTiers) : ScanIncrementTiersResult
 
-    /** The scan port failed (callable / network); logged once by the adapter. */
-    data object ScanFailed : ScanIncrementTiersResult
+    /** The scan port failed (callable / network); the cause rides [diagnostics]. */
+    data class ScanFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : ScanIncrementTiersResult
 
     /** The scan yielded no usable tier rows (empty or all malformed). */
     data object Empty : ScanIncrementTiersResult
@@ -67,7 +73,16 @@ class ScanIncrementTiersUseCase @Inject constructor(
             port.scanTiers(photo).getOrElse { error ->
                 // Cancellation is not a scan failure (STR-239): it propagates.
                 if (error is CancellationException) throw error
-                return ScanIncrementTiersResult.ScanFailed
+                return ScanIncrementTiersResult.ScanFailed(
+                    diagnostics =
+                        listOf(
+                            OperationalDiagnostic(
+                                tag = TAG,
+                                message = "inferEquipmentIncrements failed: ${error.message}",
+                                cause = error,
+                            ),
+                        ),
+                )
             }
         val rawRowCount = scanned.tiers.size
         val converted = scanned.tiers.mapNotNull { it.toTier(scanned.unit) }
@@ -105,4 +120,9 @@ class ScanIncrementTiersUseCase @Inject constructor(
 
     private fun toStorageLb(amount: Double, unit: Weight.WeightUnit): Double =
         WeightConversion.convertAmount(amount, unit, Weight.WeightUnit.Lb)
+
+    private companion object {
+        /** The inference adapter's legacy log tag, kept so the boundary record is unchanged. */
+        const val TAG = "StratumIncrementScan"
+    }
 }

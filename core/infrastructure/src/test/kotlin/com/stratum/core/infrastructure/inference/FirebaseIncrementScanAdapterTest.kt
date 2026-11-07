@@ -8,7 +8,6 @@ import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.functions.FirebaseFunctionsException
 import com.google.firebase.functions.HttpsCallableReference
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.domain.lift.ScanPhoto
 import io.mockk.every
 import io.mockk.mockk
@@ -18,6 +17,7 @@ import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assertions.fail
 import org.junit.jupiter.api.BeforeEach
@@ -41,7 +41,6 @@ import tech.apter.junit.jupiter.robolectric.RobolectricExtension
 class FirebaseIncrementScanAdapterTest {
     private val auth: FirebaseAuth = mockk()
     private val functions: FirebaseFunctions = mockk()
-    private val fakeLogging = FakeLoggingPort()
     private lateinit var adapter: FirebaseIncrementScanAdapter
 
     private val photo = ScanPhoto(bytes = byteArrayOf(1, 2, 3), mimeType = "image/jpeg")
@@ -50,7 +49,6 @@ class FirebaseIncrementScanAdapterTest {
     fun setup() {
         adapter =
             FirebaseIncrementScanAdapter(
-                loggingPort = fakeLogging,
                 functions = functions,
                 auth = auth,
             )
@@ -78,11 +76,14 @@ class FirebaseIncrementScanAdapterTest {
         assertTrue(result.isFailure)
         assertTrue(result.exceptionOrNull() is IllegalStateException)
         verify(exactly = 0) { functions.getHttpsCallable(any()) }
-        assertEquals(1, fakeLogging.errors.size)
+        // STR-240 chunk 8 pin inversion (was: exactly 1 adapter error record):
+        // the adapter records zero — it has no logging port at all now. The
+        // failure rides the Result to the use case's ScanFailed carrier and is
+        // recorded exactly once at the :app lift-config boundary.
     }
 
     @Test
-    @DisplayName("callable error maps to failure and is logged with the callable name")
+    @DisplayName("callable error maps to failure carrying the real cause, unrecorded by the adapter")
     fun callableErrorMapsToFailure() = runTest {
         val user: FirebaseUser = mockk()
         every { auth.currentUser } returns user
@@ -99,16 +100,15 @@ class FirebaseIncrementScanAdapterTest {
         val result = adapter.scanTiers(photo)
 
         assertTrue(result.isFailure)
-        assertEquals(callableError, result.exceptionOrNull())
-        assertEquals(1, fakeLogging.errors.size)
-        val logged = fakeLogging.errors.single()
-        assertEquals(FirebaseIncrementScanAdapter.TAG, logged.tag)
-        assertTrue(logged.message.contains(FirebaseIncrementScanAdapter.CALLABLE_NAME))
-        assertTrue(logged.message.contains("UNAVAILABLE"))
+        // STR-240 chunk 8 pin inversion (was: exactly 1 adapter error record
+        // with the callable name/code): the adapter records zero; the exact
+        // callable error rides the Result as the failure value — the carrier
+        // the use case turns into the ScanFailed diagnostic.
+        assertSame(callableError, result.exceptionOrNull())
     }
 
     @Test
-    @DisplayName("cancellation is rethrown and never logged as a normal failure")
+    @DisplayName("cancellation is rethrown and never treated as a normal failure")
     fun cancellationIsRethrown() = runTest {
         val user: FirebaseUser = mockk()
         every { auth.currentUser } returns user
@@ -126,6 +126,5 @@ class FirebaseIncrementScanAdapterTest {
         } catch (error: CancellationException) {
             assertEquals("call cancelled", error.message)
         }
-        assertTrue(fakeLogging.errors.isEmpty())
     }
 }

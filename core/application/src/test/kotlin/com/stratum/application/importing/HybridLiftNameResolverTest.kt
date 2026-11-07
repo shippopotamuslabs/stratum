@@ -6,6 +6,8 @@ import com.stratum.domain.lift.identity.LiftId
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import com.stratum.domain.lift.residual
@@ -30,6 +32,30 @@ class HybridLiftNameResolverTest {
         val evaluation = resolver.evaluate("bench press", catalog)
         assertTrue(evaluation.matched)
         assertEquals(LiftId("bench"), evaluation.matchedLiftId)
+    }
+
+    @Test
+    fun `prepareBatch failure keeps the real cause beside the message string`() = runTest {
+        // STR-240 chunk 8 (closing STR-238's interim A14): the embedding failure
+        // is no longer only a message string — the exact cause is exposed for the
+        // import summary's diagnostic channel, and a fresh batch clears both.
+        val failure = IllegalStateException("offline")
+        val resolver =
+            HybridLiftNameResolver(
+                bm25 = bm25,
+                catalogEmbeddings = FakeLiftEmbeddingCatalog(),
+                nameEmbedding = FakeLiftNameEmbeddingPort(result = Result.failure(failure)),
+            )
+
+        resolver.prepareBatch(listOf("bench press"))
+
+        assertEquals("offline", resolver.embeddingBatchFailure())
+        assertSame(failure, resolver.embeddingBatchFailureCause())
+
+        resolver.prepareBatch(emptyList())
+
+        assertNull(resolver.embeddingBatchFailure())
+        assertNull(resolver.embeddingBatchFailureCause())
     }
 
     @Test

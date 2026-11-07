@@ -42,28 +42,14 @@ class ImportLiftResolutionLogger @Inject constructor(
             },
         )
 
-        if (summary.customLiftInferenceBatchesFailed > 0 || summary.customLiftsSkipped > 0) {
-            loggingPort.warning(
-                TAG,
-                "Custom lift inference failed for ${summary.customLiftInferenceBatchesFailed}/" +
-                    "${summary.customLiftInferenceBatchesAttempted} batches " +
-                    "(${summary.customLiftLlmInferredCount} LLM, " +
-                    "${summary.customLiftsSkipped} skipped). " +
-                    "Last error: ${summary.customLiftInferenceLastError ?: "unknown"}",
-            )
-        }
-
-        if (summary.embeddingBatchFailed) {
-            loggingPort.warning(
-                TAG,
-                "Lift name embedding failed — gray-zone matches may be unresolved. " +
-                    "Error: ${summary.embeddingBatchError ?: "unknown"}",
-            )
-        }
-
         // §10 diagnostics carried on the summary are recorded here, exactly once each,
         // with the real cause attached (this logger is called once per import, from
         // RunFullHistoricalImportUseCase, and is the only drain of the summary).
+        // These per-failure records supersede the former aggregate warnings for the
+        // custom-lift and embedding failures (STR-240 chunk 8): those warnings were
+        // message-only records of the same failures, so keeping them would record
+        // each failure twice. The counts (batches attempted/failed, LLM-inferred,
+        // skipped, last error, embedding failed) remain on the info summary above.
         summary.diagnostics.forEach { diagnostic ->
             when (diagnostic) {
                 is ResolveImportLiftsDiagnostic.EquipmentInferenceFailed ->
@@ -71,6 +57,20 @@ class ImportLiftResolutionLogger @Inject constructor(
                         TAG,
                         "Import equipment inference failed — Tier B equipment enablement " +
                             "may be missing. Error: ${diagnostic.cause.message ?: "unknown"}",
+                        diagnostic.cause,
+                    )
+                is ResolveImportLiftsDiagnostic.CustomLiftInferenceFailed ->
+                    loggingPort.error(
+                        TAG,
+                        "Import custom lift inference failed — names in that batch have " +
+                            "no inferred metadata. Error: ${diagnostic.cause.message ?: "unknown"}",
+                        diagnostic.cause,
+                    )
+                is ResolveImportLiftsDiagnostic.LiftNameEmbeddingFailed ->
+                    loggingPort.error(
+                        TAG,
+                        "Import lift name embedding failed — gray-zone matches may be " +
+                            "unresolved. Error: ${diagnostic.cause.message ?: "unknown"}",
                         diagnostic.cause,
                     )
             }

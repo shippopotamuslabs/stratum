@@ -136,6 +136,7 @@ class EquipmentIncrementsScanTest {
                         scanPort,
                     ),
                     ObserveIncrementsAiScanUseCase(fakeFeatureFlags),
+                    DiagnosticDrain(FakeLoggingPort()),
                 ),
             diagnosticDrain = DiagnosticDrain(FakeLoggingPort()),
         )

@@ -1,5 +1,6 @@
 package com.stratum.liftconfig
 
+import com.stratum.app.DiagnosticDrain
 import com.stratum.application.featureflag.ObserveIncrementsAiScanUseCase
 import com.stratum.application.lift.ScanIncrementTiersResult
 import com.stratum.application.lift.ScanIncrementTiersUseCase
@@ -44,10 +45,16 @@ sealed interface IncrementScanState {
  * delegate stays unit-agnostic: the unit arrives per call so each VM keeps
  * owning its display unit. Failures yield null and never touch existing
  * drafts — the VMs only apply returned [ScannedDrafts].
+ *
+ * This delegate is the presentation boundary for the scan: a
+ * [ScanIncrementTiersResult.ScanFailed]'s diagnostics are drained through the
+ * app [DiagnosticDrain] exactly once here (STR-240 chunk 8) — the inference
+ * adapter records nothing for the failure.
  */
 class IncrementScanDelegate @Inject constructor(
     private val scanIncrementTiers: ScanIncrementTiersUseCase,
     private val observeIncrementsAiScan: ObserveIncrementsAiScanUseCase,
+    private val diagnosticDrain: DiagnosticDrain,
 ) {
     /** Drafts from a successful scan, mapped to the caller's display unit. */
     data class ScannedDrafts(
@@ -144,8 +151,12 @@ class IncrementScanDelegate @Inject constructor(
     ): ScannedDrafts? {
         if (!observeIncrementsAiScan().first()) return null
         _scanState.value = IncrementScanState.Scanning
+        val result = scanIncrementTiers(photo)
+        if (result is ScanIncrementTiersResult.ScanFailed) {
+            diagnosticDrain.drain(result.diagnostics)
+        }
         val scanned =
-            (scanIncrementTiers(photo) as? ScanIncrementTiersResult.Success)?.scanned
+            (result as? ScanIncrementTiersResult.Success)?.scanned
         val tierDrafts =
             scanned?.tiers?.map { IncrementTierDraftOps.toDraft(it, displayUnit) }.orEmpty()
         val drafts =
