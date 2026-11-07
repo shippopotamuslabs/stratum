@@ -92,6 +92,17 @@ interface ImportAnalysisMetadataRepository {
     suspend fun clear()
 }
 
+/**
+ * One embedding batch failure as a single snapshot value: the rendered
+ * [message] and the real [cause] are captured together at failure time and
+ * cleared together by the next batch, so consumers never assemble a failure
+ * from separate reads that could span two batches.
+ */
+data class EmbeddingBatchFailure(
+    val message: String,
+    val cause: Throwable,
+)
+
 interface LiftNameResolverPort {
     /**
      * Prefetch query embeddings for residual exercise names that still need semantic rerank after
@@ -109,21 +120,16 @@ interface LiftNameResolverPort {
     fun evaluate(exerciseNameRaw: String, catalogNames: Map<LiftId, String>): LiftNameMatchEvaluation
 
     /**
-     * Returns the last embedding batch failure message, or `null` when embeddings were fetched
-     * successfully (or the resolver doesn't use embeddings). Callers surface this in the import
-     * summary so silent degradation to pure BM25 is diagnosable.
+     * Returns the last embedding batch failure as one [EmbeddingBatchFailure]
+     * snapshot, or `null` when embeddings were fetched successfully (or the
+     * resolver doesn't use embeddings). Callers read the snapshot once and
+     * derive everything from that same value: the import summary's
+     * failed/message fields (so silent degradation to pure BM25 is diagnosable)
+     * and the §10 [com.stratum.domain.importing.ResolveImportLiftsDiagnostic.LiftNameEmbeddingFailed]
+     * diagnostic the import boundary records exactly once with the cause
+     * attached (STR-240 chunk 8, closing STR-238's interim A14 exception).
      */
-    fun embeddingBatchFailure(): String? = null
-
-    /**
-     * Returns the last embedding batch failure's real cause, or `null` on the same
-     * conditions as [embeddingBatchFailure]. The import resolution use case carries
-     * it on the import summary as a §10 diagnostic (STR-240 chunk 8, closing
-     * STR-238's interim A14 exception), so the import boundary records it exactly
-     * once with the cause attached — the message string alone is no longer the
-     * only record.
-     */
-    fun embeddingBatchFailureCause(): Throwable? = null
+    fun embeddingBatchFailure(): EmbeddingBatchFailure? = null
 }
 
 interface LiftEquipmentCatalogPort {

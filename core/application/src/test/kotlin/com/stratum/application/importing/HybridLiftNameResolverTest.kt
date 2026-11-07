@@ -35,10 +35,11 @@ class HybridLiftNameResolverTest {
     }
 
     @Test
-    fun `prepareBatch failure keeps the real cause beside the message string`() = runTest {
-        // STR-240 chunk 8 (closing STR-238's interim A14): the embedding failure
-        // is no longer only a message string — the exact cause is exposed for the
-        // import summary's diagnostic channel, and a fresh batch clears both.
+    fun `prepareBatch failure is stored as one snapshot and cleared by the next batch`() = runTest {
+        // STR-240 chunk 8 (closing STR-238's interim A14) + Thermos round-1
+        // Fix 4: the embedding failure is one snapshot value — message and
+        // real cause captured together for the import summary's diagnostic
+        // channel, and a fresh batch clears the single field.
         val failure = IllegalStateException("offline")
         val resolver =
             HybridLiftNameResolver(
@@ -49,13 +50,13 @@ class HybridLiftNameResolverTest {
 
         resolver.prepareBatch(listOf("bench press"))
 
-        assertEquals("offline", resolver.embeddingBatchFailure())
-        assertSame(failure, resolver.embeddingBatchFailureCause())
+        val snapshot = resolver.embeddingBatchFailure()
+        assertEquals("offline", snapshot?.message)
+        assertSame(failure, snapshot?.cause)
 
         resolver.prepareBatch(emptyList())
 
         assertNull(resolver.embeddingBatchFailure())
-        assertNull(resolver.embeddingBatchFailureCause())
     }
 
     @Test

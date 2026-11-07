@@ -82,8 +82,8 @@ class ResolveProgramTemplateLiftsUseCase @Inject constructor(
      * case records nothing itself.
      */
     fun embeddingBatchFailureDiagnostic(): ResolveImportLiftsDiagnostic.LiftNameEmbeddingFailed? =
-        liftNameResolver.embeddingBatchFailureCause()?.let { cause ->
-            ResolveImportLiftsDiagnostic.LiftNameEmbeddingFailed(cause)
+        liftNameResolver.embeddingBatchFailure()?.let { failure ->
+            ResolveImportLiftsDiagnostic.LiftNameEmbeddingFailed(failure.cause)
         }
 
     suspend operator fun invoke(

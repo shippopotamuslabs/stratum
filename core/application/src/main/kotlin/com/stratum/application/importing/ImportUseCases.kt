@@ -285,9 +285,12 @@ class ResolveImportLiftsUseCase @Inject constructor(
             // The embedding batch failure (stage 1–2) rides the same summary channel
             // as a diagnostic with its real cause, beside the bool/message fields
             // below (STR-240 chunk 8, closing STR-238's interim A14 exception).
+            // The failure snapshot is read ONCE here; the diagnostic and the
+            // summary's bool/message fields all derive from this same value.
+            val embeddingFailure = liftNameResolver.embeddingBatchFailure()
             val embeddingDiagnostic =
-                liftNameResolver.embeddingBatchFailureCause()?.let { cause ->
-                    ResolveImportLiftsDiagnostic.LiftNameEmbeddingFailed(cause)
+                embeddingFailure?.let { failure ->
+                    ResolveImportLiftsDiagnostic.LiftNameEmbeddingFailed(failure.cause)
                 }
             val summaryDiagnostics =
                 listOfNotNull(embeddingDiagnostic) +
@@ -319,7 +322,6 @@ class ResolveImportLiftsUseCase @Inject constructor(
                     )
                 }
 
-            val embeddingBatchError = liftNameResolver.embeddingBatchFailure()
             ResolveImportLiftsResult(
                 resolvedSets = afterCustoms.finalResolvedSets,
                 provenLiftIds = provenLiftIds,
@@ -358,8 +360,8 @@ class ResolveImportLiftsUseCase @Inject constructor(
                         customLiftLlmInferredCount = afterCustoms.customLiftLlmInferredCount,
                         customLiftsSkipped = afterCustoms.customLiftsSkipped,
                         customLiftInferenceLastError = afterCustoms.customLiftInferenceLastError,
-                        embeddingBatchFailed = embeddingBatchError != null,
-                        embeddingBatchError = embeddingBatchError,
+                        embeddingBatchFailed = embeddingFailure != null,
+                        embeddingBatchError = embeddingFailure?.message,
                         diagnostics = summaryDiagnostics,
                     ),
             )
