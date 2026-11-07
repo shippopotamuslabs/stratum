@@ -1,5 +1,6 @@
 package com.stratum.application.training
 
+import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.Lift
 import com.stratum.application.lift.LiftRepository
@@ -22,7 +23,7 @@ class LogSetUseCase @Inject constructor(
     private val loggedLiftContextFactory: LoggedLiftContextFactory,
     private val loggingPort: LoggingPort,
 ) {
-    suspend operator fun invoke(command: LogSetCommand): Result<LoggedSet> = runCatching {
+    suspend operator fun invoke(command: LogSetCommand): Result<LoggedSet> = runCatchingCancellable {
         trainingLogRepository.requireInProgressSession(command.sessionId)
 
         val lift =

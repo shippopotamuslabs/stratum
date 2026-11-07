@@ -12,10 +12,11 @@ import com.stratum.domain.training.identity.TrainingSessionId
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * Prefs-gated WorkManager enqueue for Health Connect session sync.
- * Never throws — finalize treats this as fire-and-forget.
+ * Never throws for operational failures — finalize treats this as fire-and-forget.
  */
 @Singleton
 class WorkManagerHealthConnectScheduler @Inject constructor(
@@ -25,7 +26,7 @@ class WorkManagerHealthConnectScheduler @Inject constructor(
 ) : HealthConnectSchedulerPort {
 
     override suspend fun enqueueSync(sessionId: TrainingSessionId) {
-        runCatching {
+        try {
             if (!preferencesPort.getPreferences().enabled) return
             if (!healthConnectSyncPort.hasWritePermission()) return
             val inputData = Data.Builder()
@@ -41,6 +42,11 @@ class WorkManagerHealthConnectScheduler @Inject constructor(
                 ExistingWorkPolicy.REPLACE,
                 request,
             )
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Throwable) {
+            // Operational failures never throw; cancellation still propagates —
+            // finalize treats this as fire-and-forget.
         }
     }
 

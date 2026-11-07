@@ -3,6 +3,7 @@ package com.stratum.core.infrastructure.weightdisplay
 import android.content.Context
 import androidx.datastore.core.Serializer
 import androidx.datastore.dataStore
+import com.stratum.domain.coroutines.runCatchingCancellable
 import java.io.InputStream
 import java.io.OutputStream
 import kotlinx.serialization.json.Json
@@ -24,7 +25,7 @@ object WeightDisplayPreferencesRecordSerializer : Serializer<WeightDisplayPrefer
     override suspend fun readFrom(input: InputStream): WeightDisplayPreferencesRecord {
         val text = input.bufferedReader().use { it.readText() }
         if (text.isBlank()) return defaultValue
-        return runCatching {
+        return runCatchingCancellable {
             weightDisplayPrefsJson.decodeFromString(WeightDisplayPreferencesRecord.serializer(), text)
         }.getOrDefault(defaultValue)
     }

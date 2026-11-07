@@ -11,6 +11,7 @@ import com.google.firebase.auth.GoogleAuthProvider
 import com.stratum.application.auth.AuthManager
 import com.stratum.domain.auth.AuthState
 import com.stratum.domain.auth.UserProfile
+import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.di.ApplicationScope
 import com.stratum.domain.logging.LoggingPort
 import javax.inject.Inject
@@ -54,7 +55,7 @@ class FirebaseGoogleAuthManager @Inject constructor(
         }
     }
 
-    override suspend fun signInWithGoogle(): Result<UserProfile> = runCatching {
+    override suspend fun signInWithGoogle(): Result<UserProfile> = runCatchingCancellable {
         require(googleServerClientId.isNotBlank()) {
             "Google Sign-In configuration missing: default_web_client_id is blank."
         }
@@ -90,7 +91,7 @@ class FirebaseGoogleAuthManager @Inject constructor(
         loggingPort.error(TAG, "Google sign-in failed: ${error.message}", error)
     }
 
-    override suspend fun signOut(): Result<Unit> = runCatching {
+    override suspend fun signOut(): Result<Unit> = runCatchingCancellable {
         firebaseAuth.signOut()
         credentialManager.clearCredentialState(ClearCredentialStateRequest())
     }.onFailure { error ->

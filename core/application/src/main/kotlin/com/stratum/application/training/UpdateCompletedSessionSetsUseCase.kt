@@ -1,5 +1,6 @@
 package com.stratum.application.training
 
+import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.di.ApplicationScope
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.application.response.ResponseModelingSchedulerPort
@@ -46,7 +47,7 @@ class UpdateCompletedSessionSetsUseCase @Inject constructor(
                 ?: return Result.failure(
                     IllegalArgumentException("Training session ${sessionId.value} not found"),
                 )
-        runCatching { session.requireCompleted() }.getOrElse {
+        runCatchingCancellable { session.requireCompleted() }.getOrElse {
             return Result.failure(it)
         }
         if (desiredSets.isEmpty()) {
@@ -60,7 +61,7 @@ class UpdateCompletedSessionSetsUseCase @Inject constructor(
             )
         }
 
-        return runCatching {
+        return runCatchingCancellable {
             val currentSets = trainingLogRepository.getSetsForSession(sessionId)
         val currentById = currentSets.associateBy { it.id }
         val desiredById = desiredSets.associateBy { it.id }

@@ -3,6 +3,7 @@ package com.stratum.core.infrastructure.telemetry
 import android.content.Context
 import androidx.datastore.core.Serializer
 import androidx.datastore.dataStore
+import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.telemetry.ClientLogEntry
 import com.stratum.domain.telemetry.ClientLogSeverity
 import java.io.InputStream
@@ -45,7 +46,7 @@ object PendingClientLogRecordSerializer : Serializer<PendingClientLogRecord> {
     override suspend fun readFrom(input: InputStream): PendingClientLogRecord {
         val text = input.bufferedReader().use { it.readText() }
         if (text.isBlank()) return defaultValue
-        return runCatching {
+        return runCatchingCancellable {
             pendingClientLogJson.decodeFromString(PendingClientLogRecord.serializer(), text)
         }.getOrDefault(defaultValue)
     }

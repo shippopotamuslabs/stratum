@@ -105,7 +105,15 @@ class FirestoreCloudSyncAdapter @Inject constructor(
                     } catch (error: Exception) {
                         loggingPort.error(TAG, "start push/pull failed: ${error.message}", error)
                         _syncStatus.value = SyncStatus.Error(error.message ?: "sync start failed")
-                        runCatching { cloudSyncScheduler.enqueueSoon() }
+                        try {
+                            cloudSyncScheduler.enqueueSoon()
+                        } catch (scheduleError: Throwable) {
+                            loggingPort.error(
+                                TAG,
+                                "start recovery enqueue failed: ${scheduleError.message}",
+                                scheduleError,
+                            )
+                        }
                         if (localAlreadyUsable || _sessionState.value is CloudSessionState.Ready) {
                             // Keep shell open; background worker retries residual/network work.
                             Result.success(Unit)

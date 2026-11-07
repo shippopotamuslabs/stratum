@@ -1,6 +1,7 @@
 package com.stratum.application.training
 
 import com.stratum.application.program.ProgramRepository
+import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.schedule.resolvedCycleSlots
 import com.stratum.domain.training.identity.TrainingSessionId
@@ -45,7 +46,7 @@ class RecordWorkoutSkipUseCase @Inject constructor(
                 workoutNameSnapshot = workout.name,
             )
 
-        return runCatching {
+        return runCatchingCancellable {
             val baseSessions = trainingLogRepository.getAllSessions() + session
             val (ledger, autoRests) =
                 sessionsWithMaterializedAutoRests(

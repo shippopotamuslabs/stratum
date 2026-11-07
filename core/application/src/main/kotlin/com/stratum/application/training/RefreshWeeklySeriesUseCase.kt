@@ -1,6 +1,7 @@
 package com.stratum.application.training
 
 import com.stratum.application.lift.LiftRepository
+import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.response.ResponseExtractionInput
 import com.stratum.domain.response.TrainingSignalCleaner
 import com.stratum.domain.response.WeeklySignalSupport
@@ -42,10 +43,10 @@ class RefreshWeeklySeriesUseCase @Inject constructor(
     private val liftRepository: LiftRepository,
     private val persistence: ResponseProfilePersistencePort,
 ) {
-    suspend operator fun invoke(): Result<Unit> = runCatching {
+    suspend operator fun invoke(): Result<Unit> = runCatchingCancellable {
         val sessions = trainingLogRepository.getAllSessions()
         val sets = trainingLogRepository.getAllSets()
-        if (sets.isEmpty()) return@runCatching
+        if (sets.isEmpty()) return@runCatchingCancellable
 
         val lifts = liftRepository.observeLifts().first()
         val windowStart = sessions.minOfOrNull { it.startedAt } ?: Instant.EPOCH

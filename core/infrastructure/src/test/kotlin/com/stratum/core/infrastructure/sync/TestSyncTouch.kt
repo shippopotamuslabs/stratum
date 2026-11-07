@@ -3,6 +3,7 @@ package com.stratum.core.infrastructure.sync
 import android.content.Context
 import com.stratum.core.infrastructure.db.PendingCloudDeleteDao
 import com.stratum.core.infrastructure.work.CloudSyncScheduler
+import com.stratum.core.testing.logging.FakeLoggingPort
 
 /** Builds a no-network [SyncTouch] for Robolectric repository tests. */
 fun testSyncTouch(context: Context, pendingDao: PendingCloudDeleteDao): SyncTouch {
@@ -14,5 +15,6 @@ fun testSyncTouch(context: Context, pendingDao: PendingCloudDeleteDao): SyncTouc
         cloudSyncScheduler = scheduler,
         featureGate = gate,
         writeCoordinator = UserOwnedWriteCoordinator(),
+        loggingPort = FakeLoggingPort(),
     )
 }

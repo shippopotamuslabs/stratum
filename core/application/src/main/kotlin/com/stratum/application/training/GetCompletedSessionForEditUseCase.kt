@@ -1,6 +1,7 @@
 package com.stratum.application.training
 
 import com.stratum.application.lift.LiftRepository
+import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.logging.LoggingPort
@@ -40,7 +41,7 @@ class GetCompletedSessionForEditUseCase @Inject constructor(
                 TAG,
                 IllegalStateException("Training session ${sessionId.value} not found"),
             )
-        runCatching { session.requireCompleted() }.getOrElse {
+        runCatchingCancellable { session.requireCompleted() }.getOrElse {
             return loggingPort.expectedFailure(TAG, it)
         }
         val sets = loaded.second.sortedWith(compareBy({ it.setIndex }, { it.completedAt }))

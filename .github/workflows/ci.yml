@@ -152,6 +152,8 @@ jobs:
             ${{ runner.os }}-gradle-deps-
       - name: detekt
         run: ./gradlew detekt
+      - name: runCatching gate (STR-239)
+        run: scripts/ci/check-runcatching-gate.sh
       - name: Upload detekt reports
         if: always()
         uses: actions/upload-artifact@v4

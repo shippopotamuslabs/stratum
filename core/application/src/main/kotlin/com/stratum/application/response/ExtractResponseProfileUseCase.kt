@@ -5,6 +5,7 @@ import com.stratum.application.importing.InsightsAnalysisScope
 import com.stratum.application.importing.LiftTrainingInsightsRepository
 import com.stratum.application.importing.MuscleVolumeBaselineRepository
 import com.stratum.application.lift.LiftRepository
+import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.application.training.TrainingLogRepository
 import com.stratum.domain.training.toMovementPatternSet
@@ -49,7 +50,7 @@ class ExtractResponseProfileUseCase @Inject constructor(
     suspend operator fun invoke(
         provenLiftIds: Set<LiftId> = emptySet(),
         scope: InsightsAnalysisScope = InsightsAnalysisScope.ImportOnly,
-    ): Result<ExtractResponseProfileSummary> = runCatching {
+    ): Result<ExtractResponseProfileSummary> = runCatchingCancellable {
         // All-history refresh must not clobber proven-lift provenance recorded at import.
         val effectiveProvenLiftIds =
             if (scope == InsightsAnalysisScope.All && provenLiftIds.isEmpty()) {

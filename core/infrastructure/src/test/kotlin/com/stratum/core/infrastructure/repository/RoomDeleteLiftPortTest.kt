@@ -21,6 +21,7 @@ import com.stratum.core.infrastructure.sync.SyncFlags
 import com.stratum.core.infrastructure.sync.SyncTouch
 import com.stratum.core.infrastructure.sync.UserOwnedWriteCoordinator
 import com.stratum.core.infrastructure.work.CloudSyncScheduler
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.identity.LiftCatalogNoteId
 import com.stratum.domain.lift.identity.LiftId
@@ -374,6 +375,7 @@ class RoomDeleteLiftPortTest {
             cloudSyncScheduler = CloudSyncScheduler(RuntimeEnvironment.getApplication()),
             featureGate = gate,
             writeCoordinator = UserOwnedWriteCoordinator(),
+            loggingPort = FakeLoggingPort(),
         )
     }
 

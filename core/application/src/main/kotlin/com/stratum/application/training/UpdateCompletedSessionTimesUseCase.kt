@@ -1,5 +1,6 @@
 package com.stratum.application.training
 
+import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.di.ApplicationScope
 import com.stratum.application.healthconnect.HealthConnectSchedulerPort
 import com.stratum.domain.logging.LoggingPort
@@ -47,7 +48,7 @@ class UpdateCompletedSessionTimesUseCase @Inject constructor(
         // The completed guard and the start-after-finish rule are model rules (STR-166):
         // retime() enforces both and returns the moved session.
         val updatedSession =
-            runCatching { session.retime(newStartedAt = startedAt, newEndedAt = endedAt) }
+            runCatchingCancellable { session.retime(newStartedAt = startedAt, newEndedAt = endedAt) }
                 .getOrElse { return Result.failure(it) }
 
         return runCatchingLogged(

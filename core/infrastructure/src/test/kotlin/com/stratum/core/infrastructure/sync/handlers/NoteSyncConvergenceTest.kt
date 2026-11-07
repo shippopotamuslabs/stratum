@@ -18,6 +18,7 @@ import com.stratum.core.infrastructure.sync.appliers.ProgramRemoteApplier
 import com.stratum.core.infrastructure.sync.codecs.SyncEntityDecoders
 import com.stratum.core.infrastructure.sync.codecs.SyncEntityEncoders
 import com.stratum.core.infrastructure.work.CloudSyncScheduler
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.identity.LiftSessionNoteId
 import com.stratum.domain.program.identity.WorkoutLiftId
@@ -74,6 +75,7 @@ class NoteSyncConvergenceTest {
                     cloudSyncScheduler = CloudSyncScheduler(RuntimeEnvironment.getApplication()),
                     featureGate = DefaultCloudSyncFeatureGate().apply { setEnabledForTests(false) },
                     writeCoordinator = writeCoordinator,
+                    loggingPort = FakeLoggingPort(),
                 ),
                 userProfileDao = database.userProfileDao(),
                 onboardingDao = database.onboardingProgressDao(),

@@ -161,7 +161,19 @@ class DeleteAccountUseCase @Inject constructor(
                 )
             }
             // Auth user is already gone; clear local session/credentials if possible.
-            runCatching { authManager.signOut() }
+            // Best-effort: deletion has already succeeded, so a sign-out failure never
+            // retypes the outcome. Sign-out failures are recorded exactly once by the
+            // AuthManager adapter (FirebaseGoogleAuthManager.signOut) — that adapter is
+            // the single recording owner (handle-exactly-once, CODE-STYLE-GOSPEL §11),
+            // so this capture only consumes the Result and rethrows a
+            // CancellationException if one surfaces, returned or thrown.
+            val signOutError: Throwable? =
+                try {
+                    authManager.signOut().exceptionOrNull()
+                } catch (error: Throwable) {
+                    error
+                }
+            if (signOutError is CancellationException) throw signOutError
             Result.success(Unit)
         }
     }

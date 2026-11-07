@@ -17,6 +17,7 @@ import com.android.billingclient.api.queryProductDetails
 import com.android.billingclient.api.queryPurchasesAsync
 import com.stratum.application.auth.AuthManager
 import com.stratum.domain.auth.AuthState
+import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.di.ApplicationScope
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.application.subscription.BillingPort
@@ -80,12 +81,10 @@ class PlayBillingDataSource @Inject constructor(
 
     init {
         scope.launch {
-            runCatching {
+            warnOnRefreshFailure("Initial purchase query failed") {
                 if (ensureConnected()) {
                     queryAndPublishActivePurchases()
                 }
-            }.onFailure { error ->
-                loggingPort.warning(TAG, "Initial purchase query failed: ${error.message}")
             }
         }
     }
@@ -93,14 +92,13 @@ class PlayBillingDataSource @Inject constructor(
     override fun onPurchasesUpdated(billingResult: BillingResult, purchases: List<Purchase>?) {
         emitPurchaseResult(billingResult, purchases)
         scope.launch {
-            runCatching { queryAndPublishActivePurchases() }
-                .onFailure { error ->
-                    loggingPort.warning(TAG, "Failed refreshing purchases after update: ${error.message}")
-                }
+            warnOnRefreshFailure("Failed refreshing purchases after update") {
+                queryAndPublishActivePurchases()
+            }
         }
     }
 
-    override suspend fun querySubscriptionProducts(): Result<List<SubscriptionProduct>> = runCatching {
+    override suspend fun querySubscriptionProducts(): Result<List<SubscriptionProduct>> = runCatchingCancellable {
         if (!ensureConnected()) {
             error("Failed to connect to Google Play Billing service")
         }
@@ -134,7 +132,7 @@ class PlayBillingDataSource @Inject constructor(
             }
     }
 
-    override suspend fun launchBillingFlow(product: SubscriptionProduct): Result<Unit> = runCatching {
+    override suspend fun launchBillingFlow(product: SubscriptionProduct): Result<Unit> = runCatchingCancellable {
         if (!ensureConnected()) {
             error("Failed to connect to Google Play Billing service")
         }
@@ -174,7 +172,7 @@ class PlayBillingDataSource @Inject constructor(
         }
     }
 
-    override suspend fun restorePurchases(): Result<Unit> = runCatching {
+    override suspend fun restorePurchases(): Result<Unit> = runCatchingCancellable {
         queryAndPublishActivePurchases()
     }
 
@@ -202,6 +200,15 @@ class PlayBillingDataSource @Inject constructor(
         if (!_purchaseResults.tryEmit(result)) {
             loggingPort.warning(TAG, "Dropped billing purchase result")
         }
+    }
+
+    /**
+     * Runs a purchase-refresh [block], recording a failure once as a warning with
+     * [message] as the prefix. Cancellation propagates (runCatchingCancellable).
+     */
+    private suspend fun warnOnRefreshFailure(message: String, block: suspend () -> Unit) {
+        runCatchingCancellable { block() }
+            .onFailure { error -> loggingPort.warning(TAG, "$message: ${error.message}") }
     }
 
     private suspend fun queryAndPublishActivePurchases() {
@@ -290,12 +297,10 @@ class PlayBillingDataSource @Inject constructor(
                     resumeOnce(false)
                     scope.launch {
                         delay(RECONNECT_DELAY_MS)
-                        runCatching {
+                        warnOnRefreshFailure("Reconnect purchase refresh failed") {
                             if (ensureConnected()) {
                                 queryAndPublishActivePurchases()
                             }
-                        }.onFailure { error ->
-                            loggingPort.warning(TAG, "Reconnect purchase refresh failed: ${error.message}")
                         }
                     }
                 }

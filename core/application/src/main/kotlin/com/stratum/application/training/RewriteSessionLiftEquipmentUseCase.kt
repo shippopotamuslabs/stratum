@@ -1,5 +1,6 @@
 package com.stratum.application.training
 
+import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.logging.LoggingPort
@@ -18,7 +19,7 @@ class RewriteSessionLiftEquipmentUseCase @Inject constructor(
         sessionId: TrainingSessionId,
         liftId: LiftId,
         newEquipmentId: EquipmentId,
-    ): Result<Unit> = runCatching {
+    ): Result<Unit> = runCatchingCancellable {
         trainingLogRepository.requireInProgressSession(sessionId)
         val matching =
             trainingLogRepository.getSetsForSession(sessionId)

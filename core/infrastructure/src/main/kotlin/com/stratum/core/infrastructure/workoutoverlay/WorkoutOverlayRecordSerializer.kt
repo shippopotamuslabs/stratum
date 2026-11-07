@@ -2,6 +2,7 @@ package com.stratum.core.infrastructure.workoutoverlay
 
 import androidx.datastore.core.Serializer
 import androidx.datastore.dataStore
+import com.stratum.domain.coroutines.runCatchingCancellable
 import android.content.Context
 import kotlinx.serialization.json.Json
 import java.io.InputStream
@@ -33,7 +34,7 @@ object WorkoutOverlayRecordSerializer : Serializer<WorkoutOverlayRecord> {
     override suspend fun readFrom(input: InputStream): WorkoutOverlayRecord {
         val text = input.bufferedReader().use { it.readText() }
         if (text.isBlank()) return defaultValue
-        return runCatching {
+        return runCatchingCancellable {
             overlayJson.decodeFromString(WorkoutOverlayRecord.serializer(), text)
         }.getOrDefault(defaultValue)
     }

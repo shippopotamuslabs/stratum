@@ -1,0 +1,55 @@
+# Plain-runCatching allowlist for scripts/ci/check-runcatching-gate.sh (STR-239, format v2).
+# One entry per line: <repo-relative .kt path> <expected-count> # <reason / owner>.
+# Blank lines and lines starting with # are ignored. The gate FAILS when a listed
+# file's actual plain-runCatching count differs from the expected count in EITHER
+# direction, so this list shrinks (or its counts drop) as later tickets convert sites.
+#
+# Shrinking tickets: STR-240 owns the domain enum/parse files and the sanitizer
+# entries below. STR-241 and STR-243 do not touch allowlisted files. STR-237 MOVES
+# TelemetryThrowableSanitizer — that is a path update in this file, not a shrink.
+#
+# --- :core:domain — enum/parse getOrNull sites, non-suspend (STR-240 owns) ---
+core/domain/src/main/kotlin/com/stratum/domain/importing/GlobalVolumePriors.kt 1 # enum valueOf parse, non-suspend (STR-240)
+core/domain/src/main/kotlin/com/stratum/domain/program/generation/build/WorkoutAssembler.kt 2 # enum valueOf parses, non-suspend (STR-240)
+core/domain/src/main/kotlin/com/stratum/domain/program/generation/reference/MuscleRecoveryScheduling.kt 1 # enum valueOf parse, non-suspend (STR-240)
+core/domain/src/main/kotlin/com/stratum/domain/program/generation/schema/ProgramDomainMapper.kt 1 # enum valueOf parse, non-suspend (STR-240)
+core/domain/src/main/kotlin/com/stratum/domain/program/generation/schema/ProgramNormalizer.kt 2 # enum valueOf parses, non-suspend (STR-240)
+core/domain/src/main/kotlin/com/stratum/domain/program/generation/slots/SlotGenerationDiagnostic.kt 3 # enum valueOf parses, non-suspend (STR-240)
+core/domain/src/main/kotlin/com/stratum/domain/program/generation/structure/SlotRegionCompatibility.kt 1 # enum valueOf parse, non-suspend (STR-240)
+core/domain/src/main/kotlin/com/stratum/domain/program/generation/synthesis/PlaceholderSessionNames.kt 1 # enum valueOf parse, non-suspend (STR-240)
+core/domain/src/main/kotlin/com/stratum/domain/program/generation/synthesis/SynthesisMaterializer.kt 2 # enum valueOf parses, non-suspend (STR-240)
+core/domain/src/main/kotlin/com/stratum/domain/program/generation/synthesis/wire/ContextWireCodec.kt 1 # enumValueOf decode-or-null, non-suspend (STR-240)
+core/domain/src/main/kotlin/com/stratum/domain/program/generation/synthesis/wire/ResultWireCodec.kt 2 # enumValueOf/decode-or-null, non-suspend (STR-240)
+core/domain/src/main/kotlin/com/stratum/domain/program/generation/volume/VolumeTargetPlanner.kt 1 # enum valueOf parse, non-suspend (STR-240)
+# --- :core:domain — non-suspend, result consumed by the caller ---
+core/domain/src/main/kotlin/com/stratum/domain/lift/IncrementLattice.kt 1 # constructor-validation-as-Result, non-suspend, result consumed
+core/domain/src/main/kotlin/com/stratum/domain/program/ProgramSchedule.kt 1 # fallback computation, non-suspend, result consumed via fold
+core/domain/src/main/kotlin/com/stratum/domain/program/schedule/ProgramCycleSpace.kt 1 # invariant-failure-to-empty, non-suspend, result consumed via getOrDefault
+core/domain/src/main/kotlin/com/stratum/domain/telemetry/TelemetryThrowableSanitizer.kt 3 # best-effort reflection reconstruction, non-suspend (STR-237 moves this file — path update, not a shrink; STR-240 owns the sanitizer entries)
+#
+# --- :core:infrastructure — enum/decode control flow — permanent: blocks are non-suspend, so plain runCatching cannot absorb coroutine cancellation there ---
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/db/EnumConverters.kt 49 # Room @TypeConverter enum/ID decodes via getOrNull, non-suspend
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/db/ProgramChangeEventPayloadDto.kt 1 # payload decode-or-null, non-suspend
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/db/WeekdaySetConverter.kt 1 # enum decode via getOrNull, non-suspend
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/healthconnect/HealthConnectPreferencesRecord.kt 1 # enum valueOf parse, non-suspend
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/mapper/LiftMapper.kt 2 # enum/JSON decode-or-null, non-suspend
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/mapper/ProgramChangeEventMapper.kt 1 # payload decode-or-null, non-suspend
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/mapper/ProgramMapper.kt 1 # Instant.parse with EPOCH fallback, non-suspend
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/mapper/ResponseModelingMapper.kt 1 # enum decode via getOrNull, non-suspend
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/sync/appliers/LiftRemoteApplier.kt 1 # ID construction via getOrNull, non-suspend
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/sync/codecs/SyncEntityDecoders.kt 19 # synchronous entity decode helpers
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/telemetry/PendingClientLogRecord.kt 1 # enum valueOf parse in toDomain, non-suspend (its serializer readFrom wrap was converted by STR-239 review round 1)
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/workoutoverlay/WorkoutOverlayMapper.kt 1 # Weight construction via getOrNull, non-suspend
+# --- :core:infrastructure — asset/seed decode helpers — permanent: blocks are non-suspend, so plain runCatching cannot absorb coroutine cancellation there ---
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/seed/AssetLiftEmbeddingCatalog.kt 1 # asset decode in private non-suspend fun
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/seed/AssetLiftEquipmentCatalog.kt 2 # asset decode in private non-suspend fun; plus enum parse site
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/seed/EquipmentCatalogSeeder.kt 1 # asset decode in private non-suspend fun
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/seed/LiftCatalogSeeder.kt 2 # asset decode in private non-suspend fun; plus enum parse helper
+# --- :core:infrastructure — fire-and-forget telemetry wrappers — permanent: blocks are non-suspend, so plain runCatching cannot absorb coroutine cancellation there ---
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/inference/AndroidAnalyticsAdapter.kt 1 # non-suspend telemetry wrapper
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/inference/AndroidCrashTelemetryAdapter.kt 4 # non-suspend telemetry wrappers
+# --- :core:infrastructure — mixed files: suspend bodies converted by STR-239, one non-suspend parse site remains — permanent: the remaining block is non-suspend ---
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/inference/FirebaseCustomLiftInferenceAdapter.kt 1 # remaining site is an enum valueOf parse in a non-suspend helper
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/inference/FirebaseImportEquipmentInferenceAdapter.kt 1 # remaining site is an enum valueOf parse in a non-suspend helper
+# --- :core:infrastructure — DI wiring — permanent: block is non-suspend ---
+core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/inference/InferenceModule.kt 1 # @Provides versionName lookup via getOrNull, non-suspend

@@ -8,6 +8,7 @@ import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.metadata.Device
 import androidx.health.connect.client.records.metadata.Metadata
 import com.stratum.application.healthconnect.HealthConnectSyncPort
+import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.TrainingSession
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -53,7 +54,7 @@ class HealthConnectManager @Inject constructor(
     override suspend fun pushSession(
         session: TrainingSession,
         sets: List<LoggedSet>,
-    ): Result<Unit> = runCatching<Unit> {
+    ): Result<Unit> = runCatchingCancellable<Unit> {
         if (!isAvailable()) {
             throw HealthConnectUnavailableException()
         }

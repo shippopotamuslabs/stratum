@@ -3,6 +3,7 @@ package com.stratum.core.infrastructure.inference
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.functions.FirebaseFunctions
 import com.stratum.application.importing.LiftNameEmbeddingPort
+import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.logging.LoggingPort
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -24,10 +25,10 @@ class FirebaseLiftNameEmbeddingAdapter @Inject constructor(
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
 
     override suspend fun embedExerciseNames(names: List<String>): Result<Map<String, FloatArray>> =
-        runCatching {
+        runCatchingCancellable {
             requireAuth()
             val distinct = names.map { it.trim() }.filter { it.isNotEmpty() }.distinct()
-            if (distinct.isEmpty()) return@runCatching emptyMap<String, FloatArray>()
+            if (distinct.isEmpty()) return@runCatchingCancellable emptyMap<String, FloatArray>()
             coroutineScope {
                 distinct
                     .chunked(EMBEDDING_BATCH_SIZE)

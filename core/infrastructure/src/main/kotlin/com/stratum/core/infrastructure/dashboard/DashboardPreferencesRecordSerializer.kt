@@ -3,6 +3,7 @@ package com.stratum.core.infrastructure.dashboard
 import android.content.Context
 import androidx.datastore.core.Serializer
 import androidx.datastore.dataStore
+import com.stratum.domain.coroutines.runCatchingCancellable
 import java.io.InputStream
 import java.io.OutputStream
 import kotlinx.serialization.json.Json
@@ -24,7 +25,7 @@ object DashboardPreferencesRecordSerializer : Serializer<DashboardPreferencesRec
     override suspend fun readFrom(input: InputStream): DashboardPreferencesRecord {
         val text = input.bufferedReader().use { it.readText() }
         if (text.isBlank()) return defaultValue
-        return runCatching {
+        return runCatchingCancellable {
             dashboardPrefsJson.decodeFromString(DashboardPreferencesRecord.serializer(), text)
         }.getOrDefault(defaultValue)
     }

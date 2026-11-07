@@ -1,6 +1,7 @@
 package com.stratum.application.export
 
 import com.stratum.application.lift.LiftRepository
+import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.Program
 import com.stratum.application.program.ProgramRepository
@@ -34,7 +35,7 @@ class ExportProgramsUseCase(
      * rather than opaque lift ids.
      */
     suspend operator fun invoke(programIds: List<ProgramId>): Result<ExportFileResult> =
-        runCatching {
+        runCatchingCancellable {
             require(programIds.isNotEmpty()) {
                 "Select at least one program to export."
             }

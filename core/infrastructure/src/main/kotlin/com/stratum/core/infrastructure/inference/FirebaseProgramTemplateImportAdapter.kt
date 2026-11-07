@@ -3,6 +3,7 @@ package com.stratum.core.infrastructure.inference
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.storage.FirebaseStorage
+import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.program.importing.ProgramTemplateImportJobId
 import com.stratum.domain.program.importing.ProgramTemplateImportPhase
@@ -35,7 +36,7 @@ class FirebaseProgramTemplateImportAdapter @Inject constructor(
         jobId: ProgramTemplateImportJobId,
         bytes: ByteArray,
         fileName: String,
-    ): Result<Unit> = runCatching {
+    ): Result<Unit> = runCatchingCancellable {
         val uid = requireUid()
         val rawPath = "programImports/$uid/${jobId.value}/raw/$fileName"
         storage.reference.child(rawPath).putBytes(bytes).await()
@@ -55,7 +56,7 @@ class FirebaseProgramTemplateImportAdapter @Inject constructor(
 
     override suspend fun pollJobStatus(
         jobId: ProgramTemplateImportJobId,
-    ): Result<ProgramTemplateJobSnapshot> = runCatching {
+    ): Result<ProgramTemplateJobSnapshot> = runCatchingCancellable {
         val result =
             functions
                 .getHttpsCallable(STATUS_CALLABLE)
@@ -74,7 +75,7 @@ class FirebaseProgramTemplateImportAdapter @Inject constructor(
     }
 
     override suspend fun downloadProgramTemplate(storagePath: String): Result<String> =
-        runCatching {
+        runCatchingCancellable {
             val bytes = storage.reference.child(storagePath).getBytes(MAX_DOWNLOAD_BYTES).await()
             bytes.decodeToString()
         }.onFailure { error ->

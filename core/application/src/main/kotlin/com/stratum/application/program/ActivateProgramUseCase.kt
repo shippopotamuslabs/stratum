@@ -1,5 +1,6 @@
 package com.stratum.application.program
 
+import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.program.schedule.resolveInitialCycleStartEpochDay
 import com.stratum.domain.training.ProgramChangeEvent
 import com.stratum.domain.training.ProgramChangeEventPayload
@@ -23,7 +24,7 @@ class ActivateProgramUseCase @Inject constructor(
     private val programChangeEventRepository: ProgramChangeEventRepository,
 ) {
     suspend operator fun invoke(program: Program): Result<Unit> =
-        runCatching {
+        runCatchingCancellable {
             require(program.workouts.isNotEmpty()) { "Program must have at least one workout" }
             require(program.workouts.any { it.workoutLifts.isNotEmpty() }) {
                 "Program must have at least one exercise"
