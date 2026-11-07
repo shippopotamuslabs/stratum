@@ -11,8 +11,10 @@ import com.stratum.domain.lift.Lift
  * fallback) and is **never persisted to Room** — equipment is a transient import-enablement signal,
  * not a permanent attribute of a `Lift` (ARCHITECTURE.md §2.1, lift-first contract).
  *
- * Implementations should degrade gracefully: a failed/inference-less result yields an empty map so
- * the import pipeline falls back to Tier B sparse-import preset enablement.
+ * A failed result degrades the import to an empty inferred map (Tier B sparse-import preset
+ * enablement still applies), but the failure is not silent: `ResolveImportLiftsUseCase`
+ * carries the real cause on the import summary as a diagnostic, recorded exactly once at
+ * the import boundary.
  */
 interface ImportEquipmentInferencePort {
     suspend fun inferEquipment(names: List<String>): Result<Map<String, Set<GymEquipment>>>

@@ -42,6 +42,7 @@ import com.stratum.domain.importing.LiftNameMatchEvaluation
 import com.stratum.domain.importing.MergeImportStats
 import com.stratum.domain.importing.NearMissExerciseSample
 import com.stratum.application.importing.ResidualLiftNameResolution
+import com.stratum.domain.importing.ResolveImportLiftsDiagnostic
 import com.stratum.domain.importing.ResolveImportLiftsResult
 import com.stratum.domain.importing.ResolveImportLiftsSummary
 import com.stratum.domain.importing.TrainingInsightsExtractor
@@ -249,11 +250,9 @@ class ResolveImportLiftsUseCase @Inject constructor(
             val equipmentJob =
                 async {
                     if (equipmentInferenceNames.isEmpty()) {
-                        emptyMap()
+                        Result.success(emptyMap())
                     } else {
-                        equipmentInferencePort
-                            .inferEquipment(equipmentInferenceNames)
-                            .getOrDefault(emptyMap())
+                        equipmentInferencePort.inferEquipment(equipmentInferenceNames)
                     }
                 }
 
@@ -273,8 +272,16 @@ class ResolveImportLiftsUseCase @Inject constructor(
             val provenLiftIds: Set<LiftId> =
                 applied.preCustomCatalogMatchIds + afterCustoms.customLiftIds
 
-            // Stage 5: Tier A/B enablement + sparse fallback.
-            val inferredEquipment = equipmentJob.await()
+            // Stage 5: Tier A/B enablement + sparse fallback. An equipment-inference
+            // failure degrades to an empty inferred map, but it is not silent: the real
+            // cause rides the summary as a §10 diagnostic, recorded exactly once at the
+            // import boundary that surfaces the summary.
+            val equipmentResult = equipmentJob.await()
+            val inferredEquipment = equipmentResult.getOrDefault(emptyMap())
+            val importDiagnostics =
+                equipmentResult.exceptionOrNull()?.let { error ->
+                    listOf(ResolveImportLiftsDiagnostic.EquipmentInferenceFailed(error))
+                } ?: emptyList()
             val confirmedEquipment =
                 confirmedEquipment(
                     inferredEquipment = inferredEquipment,
@@ -342,6 +349,7 @@ class ResolveImportLiftsUseCase @Inject constructor(
                         customLiftInferenceLastError = afterCustoms.customLiftInferenceLastError,
                         embeddingBatchFailed = embeddingBatchError != null,
                         embeddingBatchError = embeddingBatchError,
+                        diagnostics = importDiagnostics,
                     ),
             )
         }

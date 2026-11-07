@@ -146,7 +146,36 @@ data class ResolveImportLiftsSummary(
     val embeddingBatchFailed: Boolean = false,
     /** Last embed_exercise_names error message when the embedding batch failed. */
     val embeddingBatchError: String? = null,
+    /**
+     * Operational diagnostics for degradations tolerated during resolution (§10): each one
+     * carries the real failure as data. The summary is the carrier through the import flow —
+     * `PersistImportedHistoryUseCase` forwards it as `liftResolution` and the import boundary
+     * (`ImportLiftResolutionLogger`, called once from `RunFullHistoricalImportUseCase`) records
+     * each diagnostic exactly once. Diagnostics never reach the UI.
+     */
+    val diagnostics: List<ResolveImportLiftsDiagnostic> = emptyList(),
 )
+
+/**
+ * A non-fatal import lift-resolution degradation recorded as data (§10).
+ *
+ * Diagnostics are values, not logs: the resolution use case constructs them below the
+ * boundary and never records them; they ride [ResolveImportLiftsSummary] to the import
+ * boundary, which records each one exactly once with its real [cause].
+ */
+sealed interface ResolveImportLiftsDiagnostic {
+    /** The real failure that caused the degradation. */
+    val cause: Throwable
+
+    /**
+     * The equipment-inference pass failed, so resolution continued with an empty inferred
+     * equipment map: Tier B equipment-closure enablement is missing for this import (Tier A
+     * enablement and the sparse-import fallback still apply).
+     */
+    data class EquipmentInferenceFailed(
+        override val cause: Throwable,
+    ) : ResolveImportLiftsDiagnostic
+}
 
 data class UnmatchedExerciseSample(
     val exerciseNameRaw: String,

@@ -24,6 +24,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -33,6 +34,7 @@ import com.stratum.domain.importing.ImportCatalogProgressStep
 import com.stratum.domain.importing.InferredCustomLiftMetadata
 import com.stratum.domain.importing.InferredEquipmentLoading
 import com.stratum.domain.importing.LiftNameMatchEvaluation
+import com.stratum.domain.importing.ResolveImportLiftsDiagnostic
 import com.stratum.domain.lift.residual
 
 class ResolveImportLiftsUseCaseTest {
@@ -667,6 +669,36 @@ class ResolveImportLiftsUseCaseTest {
         assertEquals(seatedId, outcome.resolvedSets.single().liftId)
         assertEquals(0, outcome.summary.customLiftsCreated)
         assertEquals(1, outcome.summary.distinctPreCustomCatalogLiftsEnabled)
+    }
+
+    @Test
+    @DisplayName("Given equipment inference failure when resolving then summary carries the real cause as a diagnostic and import still completes")
+    fun equipmentInferenceFailureRidesSummaryAsDiagnostic() = runTest {
+        val failure = IllegalStateException("equipment inference down")
+        val equipmentInference = FakeImportEquipmentInferencePort(failure = failure)
+        val liftRepo = FakeLiftRepository(initialLifts = minimalSeedCatalog())
+        val subject = buildSubject(liftRepo, equipmentInference = equipmentInference)
+
+        val outcome = subject(listOf(loggedSet(exerciseNameRaw = "Katana Special Gizmo")))
+
+        assertEquals(listOf(listOf("Katana Special Gizmo")), equipmentInference.invocations)
+        // The failure rides the summary (the channel Persist forwards as liftResolution to
+        // the import boundary logger) as an exact diagnostic value with the real cause.
+        assertEquals(
+            listOf(ResolveImportLiftsDiagnostic.EquipmentInferenceFailed(failure)),
+            outcome.summary.diagnostics,
+        )
+        assertSame(
+            failure,
+            (outcome.summary.diagnostics.single() as ResolveImportLiftsDiagnostic.EquipmentInferenceFailed).cause,
+        )
+        // Degraded success behavior is unchanged: no inferred equipment, no Tier B
+        // enablement from inference, and the rest of the resolution completes as before.
+        assertTrue(outcome.summary.confirmedEquipment.isEmpty())
+        assertEquals(0, outcome.summary.tierBLiftsEnabled)
+        assertEquals(1, outcome.summary.customLiftsSkipped)
+        assertEquals(1, outcome.resolvedSets.size)
+        assertFalse(outcome.summary.embeddingBatchFailed)
     }
 
     private class CountingLiftNameResolver(

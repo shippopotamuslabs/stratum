@@ -1,6 +1,7 @@
 package com.stratum.core.infrastructure.inference
 
 import com.stratum.domain.importing.NearMissExerciseSample
+import com.stratum.domain.importing.ResolveImportLiftsDiagnostic
 import com.stratum.domain.importing.ResolveImportLiftsSummary
 import com.stratum.domain.importing.UnmatchedExerciseSample
 import com.stratum.core.infrastructure.logging.LoggingPort
@@ -58,6 +59,21 @@ class ImportLiftResolutionLogger @Inject constructor(
                 "Lift name embedding failed — gray-zone matches may be unresolved. " +
                     "Error: ${summary.embeddingBatchError ?: "unknown"}",
             )
+        }
+
+        // §10 diagnostics carried on the summary are recorded here, exactly once each,
+        // with the real cause attached (this logger is called once per import, from
+        // RunFullHistoricalImportUseCase, and is the only drain of the summary).
+        summary.diagnostics.forEach { diagnostic ->
+            when (diagnostic) {
+                is ResolveImportLiftsDiagnostic.EquipmentInferenceFailed ->
+                    loggingPort.error(
+                        TAG,
+                        "Import equipment inference failed — Tier B equipment enablement " +
+                            "may be missing. Error: ${diagnostic.cause.message ?: "unknown"}",
+                        diagnostic.cause,
+                    )
+            }
         }
 
         if (summary.seedCatalogLiftCount < MIN_EXPECTED_SEED_CATALOG_LIFTS) {

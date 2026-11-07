@@ -35,6 +35,7 @@ import com.stratum.application.importing.RollbackHistoricalImportUseCase
 import com.stratum.domain.importing.RemoteImportJobStatus
 import com.stratum.application.importing.ResolveImportLiftsUseCase
 import com.stratum.application.importing.StartHistoricalImportUseCase
+import com.stratum.domain.importing.ResolveImportLiftsDiagnostic
 import com.stratum.domain.importing.SupersetAffinity
 import com.stratum.application.importing.SupersetAffinityRepository
 import com.stratum.domain.lift.Lift
@@ -48,6 +49,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -338,6 +340,7 @@ class RunFullHistoricalImportUseCaseTest {
     private fun buildPersistAndRollback(
         trainingLogRepo: FakeTrainingLogRepository,
         liftRepo: FakeLiftRepository,
+        equipmentInference: FakeImportEquipmentInferencePort = FakeImportEquipmentInferencePort(),
     ): Pair<PersistImportedHistoryUseCase, RollbackHistoricalImportUseCase> {
         val persistence = FakeResponseProfilePersistencePort()
         val extractResponseProfile =
@@ -360,7 +363,7 @@ class RunFullHistoricalImportUseCaseTest {
                         Bm25LiftNameResolver(),
                         EnrichCustomLiftsUseCase(FakeCustomLiftInferencePort()),
                         FakeLiftEquipmentCatalog(),
-                        FakeImportEquipmentInferencePort(),
+                        equipmentInference,
                     ),
                 extractTrainingInsights =
                     ExtractTrainingInsightsUseCase(
@@ -432,8 +435,72 @@ class RunFullHistoricalImportUseCaseTest {
         assertTrue(flowLogging.errors.single().throwable is IllegalStateException)
     }
 
-    private fun testImportLiftResolutionLogger(): ImportLiftResolutionLogger =
-        ImportLiftResolutionLogger(FakeLoggingPort())
+    @Test
+    fun `equipment inference failure is recorded exactly once at the import boundary with the real cause`() = runTest {
+        val jobRepo = FakeImportJobRepository()
+        val trainingLogRepo = FakeTrainingLogRepository()
+        val liftRepo = FakeLiftRepository(initialLifts = minimalSeedCatalog())
+        val failure = IllegalStateException("equipment inference down")
+        val port = FakeHistoricalImportPort(
+            snapshotSequence = listOf(
+                ImportJobSnapshot(
+                    status = RemoteImportJobStatus.Ready,
+                    progressPhase = ImportProgressPhase.ConvertingFull,
+                    progressMessage = "Done",
+                    conversionStoragePath = "imports/test/job/conversions/1/normalized.json",
+                    errorMessage = null,
+                ),
+            ),
+            conversionJson = sampleConversionJson(),
+        )
+        val (persist, rollback) =
+            buildPersistAndRollback(
+                trainingLogRepo,
+                liftRepo,
+                equipmentInference = FakeImportEquipmentInferencePort(failure = failure),
+            )
+        val liftResolutionLogging = FakeLoggingPort()
+        val flowLogging = FakeLoggingPort()
+        val useCase = RunFullHistoricalImportUseCase(
+            startHistoricalImport = StartHistoricalImportUseCase(jobRepo),
+            historicalImportPort = port,
+            persistImportedHistory = persist,
+            rollbackHistoricalImport = rollback,
+            importJobRepository = jobRepo,
+            mergeImportedHistory = MergeImportedHistoryUseCase(),
+            importLiftResolutionLogger = testImportLiftResolutionLogger(liftResolutionLogging),
+            loggingPort = flowLogging,
+            importDispatcher = StandardTestDispatcher(testScheduler),
+        )
+
+        val events =
+            useCase.run(
+                files = listOf(ImportFileInput("id,exercise_name\n1,Squat".toByteArray(), "export.csv")),
+                persistPolicy = ImportHistoryPersistPolicy.ReplaceImportOrigin,
+            ).toList()
+
+        val completed = events.last() as HistoricalImportEvent.Completed
+        // The diagnostic survives the whole flow on the summary, with the real cause.
+        assertEquals(
+            listOf(ResolveImportLiftsDiagnostic.EquipmentInferenceFailed(failure)),
+            completed.summary.liftResolution?.diagnostics,
+        )
+        assertSame(
+            failure,
+            (completed.summary.liftResolution?.diagnostics?.single() as ResolveImportLiftsDiagnostic.EquipmentInferenceFailed).cause,
+        )
+        // Exactly one record, at the boundary logger that surfaces the summary, with
+        // the real cause attached; the flow's own port adds no second record.
+        assertEquals(1, liftResolutionLogging.errors.size)
+        assertEquals("StratumImportLifts", liftResolutionLogging.errors.single().tag)
+        assertSame(failure, liftResolutionLogging.errors.single().throwable)
+        assertTrue(flowLogging.errors.isEmpty())
+    }
+
+    private fun testImportLiftResolutionLogger(
+        loggingPort: FakeLoggingPort = FakeLoggingPort(),
+    ): ImportLiftResolutionLogger =
+        ImportLiftResolutionLogger(loggingPort)
 
     private class InMemoryLiftInsightsRepository : LiftTrainingInsightsRepository {
         override suspend fun replaceAll(insights: List<LiftTrainingInsights>) = Unit
