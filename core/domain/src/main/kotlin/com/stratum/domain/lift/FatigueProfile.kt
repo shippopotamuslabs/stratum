@@ -1,5 +1,6 @@
 package com.stratum.domain.lift
 
+import com.stratum.domain.enumParseOrNull
 import com.stratum.domain.program.generation.reference.LiftStressClass
 
 /**
@@ -19,6 +20,6 @@ enum class FatigueProfile {
     ;
 
     companion object {
-        fun parseOrNull(raw: String): FatigueProfile? = entries.firstOrNull { it.name == raw }
+        fun parseOrNull(raw: String): FatigueProfile? = enumParseOrNull(raw)
     }
 }

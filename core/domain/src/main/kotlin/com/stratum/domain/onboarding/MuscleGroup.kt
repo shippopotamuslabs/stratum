@@ -1,5 +1,6 @@
 package com.stratum.domain.onboarding
 
+import com.stratum.domain.enumParseOrNull
 import com.stratum.domain.lift.MovementPattern
 
 /**
@@ -43,7 +44,7 @@ enum class MuscleGroup {
     ;
 
     companion object {
-        fun parseOrNull(raw: String): MuscleGroup? = entries.firstOrNull { it.name == raw }
+        fun parseOrNull(raw: String): MuscleGroup? = enumParseOrNull(raw)
     }
 
     /**

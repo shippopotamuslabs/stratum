@@ -1,5 +1,7 @@
 package com.stratum.domain.lift
 
+import com.stratum.domain.enumParseOrNull
+
 
 /**
  * How a [Lift] moves — the categorical slot a lift occupies (squat pattern, horizontal push,
@@ -62,7 +64,7 @@ enum class MovementPattern {
     ;
 
     companion object {
-        fun parseOrNull(raw: String): MovementPattern? = entries.firstOrNull { it.name == raw }
+        fun parseOrNull(raw: String): MovementPattern? = enumParseOrNull(raw)
     }
 
     /**

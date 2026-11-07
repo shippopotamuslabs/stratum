@@ -1,5 +1,7 @@
 package com.stratum.domain.onboarding
 
+import com.stratum.domain.enumParseOrNull
+
 /**
  * Self-reported training age: years of *solid, consistent* training — not calendar years
  * since the first gym visit. Feeds progression defaults in OS-6 generation.
@@ -27,7 +29,7 @@ enum class TrainingAge {
     ;
 
     companion object {
-        fun parseOrNull(raw: String): TrainingAge? = entries.firstOrNull { it.name == raw }
+        fun parseOrNull(raw: String): TrainingAge? = enumParseOrNull(raw)
     }
 }
 
@@ -46,7 +48,7 @@ enum class LastTrainedBucket {
     ;
 
     companion object {
-        fun parseOrNull(raw: String): LastTrainedBucket? = entries.firstOrNull { it.name == raw }
+        fun parseOrNull(raw: String): LastTrainedBucket? = enumParseOrNull(raw)
     }
 }
 
@@ -65,6 +67,6 @@ enum class Weekday {
     ;
 
     companion object {
-        fun parseOrNull(raw: String): Weekday? = entries.firstOrNull { it.name == raw }
+        fun parseOrNull(raw: String): Weekday? = enumParseOrNull(raw)
     }
 }
