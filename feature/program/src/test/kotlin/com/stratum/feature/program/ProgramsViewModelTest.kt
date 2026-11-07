@@ -40,6 +40,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -53,6 +54,8 @@ import org.junit.jupiter.api.extension.ExtendWith
 @ExtendWith(MainDispatcherRule::class)
 class ProgramsViewModelTest {
     private lateinit var repository: FakeProgramRepository
+    private lateinit var lastTrainingLog: FakeTrainingLogRepository
+    private lateinit var lastLogging: FakeLoggingPort
 
     @Nested
     @DisplayName("PROG-GEN-400 empty repo maps to Empty state")
@@ -209,6 +212,62 @@ class ProgramsViewModelTest {
     }
 
     @Nested
+    @DisplayName("Start and abandon failure drains (STR-237 review round 1)")
+    inner class StartAbandonFailureDrains {
+        @Test
+        fun `startProgramWorkout persistence failure drains exactly one start record`() = runTest {
+            val viewModel = buildViewModel(initial = PROGRAM_PPL)
+            val boom = IllegalStateException("insert boom")
+            lastTrainingLog.insertSessionError = boom
+
+            viewModel.startProgramWorkout("w-1")
+            advanceUntilIdle()
+
+            val error = lastLogging.errors.single()
+            assertEquals("StartTrainingSession", error.tag)
+            assertEquals("Failed to start training session: insert boom", error.message)
+            assertSame(boom, error.throwable)
+            assertEquals("Couldn't start that workout. Try again.", viewModel.userMessage.value)
+        }
+
+        @Test
+        fun `startEmptyWorkout persistence failure drains exactly one start record`() = runTest {
+            val viewModel = buildViewModel(initial = PROGRAM_PPL)
+            val boom = IllegalStateException("insert boom")
+            lastTrainingLog.insertSessionError = boom
+
+            viewModel.startEmptyWorkout()
+            advanceUntilIdle()
+
+            val error = lastLogging.errors.single()
+            assertEquals("StartTrainingSession", error.tag)
+            assertEquals("Failed to start training session: insert boom", error.message)
+            assertSame(boom, error.throwable)
+            assertEquals("Couldn't start that workout. Try again.", viewModel.userMessage.value)
+        }
+
+        @Test
+        fun `abandonActiveSession persistence failure drains exactly one abandon record`() = runTest {
+            val viewModel = buildViewModel(initial = PROGRAM_PPL)
+            viewModel.startProgramWorkout("w-1")
+            advanceUntilIdle()
+            assertTrue(lastLogging.errors.isEmpty())
+            val boom = IllegalStateException("delete boom")
+            lastTrainingLog.deleteSessionError = boom
+
+            viewModel.abandonActiveSession()
+            advanceUntilIdle()
+
+            val error = lastLogging.errors.single()
+            assertEquals("AbandonTrainingSession", error.tag)
+            assertEquals("Failed to abandon training session: delete boom", error.message)
+            assertSame(boom, error.throwable)
+            assertEquals("Couldn't cancel the workout. Try again.", viewModel.userMessage.value)
+            assertNotNull(lastTrainingLog.getActiveSession())
+        }
+    }
+
+    @Nested
     @DisplayName("Active workout bar state")
     inner class ActiveWorkoutBar {
         @Test
@@ -281,23 +340,24 @@ class ProgramsViewModelTest {
                     observeProgram = com.stratum.application.program.ObserveProgramUseCase(repository),
                     observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
                     computeProgramMuscleVolume = ComputeProgramMuscleVolumeUseCase(),
-                    startTrainingSession = StartTrainingSessionUseCase(trainingLog, repository, logging),
+                    startTrainingSession = StartTrainingSessionUseCase(trainingLog, repository),
                     observeCycleProgress = ObserveCycleProgressUseCase(repository, trainingLog),
                     abandonTrainingSession =
-                        com.stratum.application.training.AbandonTrainingSessionUseCase(trainingLog, logging),
+                        com.stratum.application.training.AbandonTrainingSessionUseCase(trainingLog),
                     getLoggedSetsForSession =
                         com.stratum.application.training.GetLoggedSetsForSessionUseCase(trainingLog),
                     recordWorkoutSkip =
-                        com.stratum.application.training.RecordWorkoutSkipUseCase(trainingLog, repository, FakeLoggingPort()),
+                        com.stratum.application.training.RecordWorkoutSkipUseCase(trainingLog, repository),
                     recordRestDaySkip =
-                        com.stratum.application.training.RecordRestDaySkipUseCase(trainingLog, repository, FakeLoggingPort()),
-                    unskipWorkout = com.stratum.application.training.UnskipWorkoutUseCase(trainingLog, repository, FakeLoggingPort()),
+                        com.stratum.application.training.RecordRestDaySkipUseCase(trainingLog, repository),
+                    unskipWorkout = com.stratum.application.training.UnskipWorkoutUseCase(trainingLog, repository),
                     manageWorkoutOverlay =
-                        ManageWorkoutOverlayUseCase(FakeWorkoutOverlayStore(), logging),
+                        ManageWorkoutOverlayUseCase(FakeWorkoutOverlayStore()),
                     observeProgramsUiPreferences =
                         ObserveProgramsUiPreferencesUseCase(FakeProgramsUiPreferencesRepository()),
                     setExpandedWorkoutId =
-                        SetExpandedWorkoutIdUseCase(FakeProgramsUiPreferencesRepository(), logging),
+                        SetExpandedWorkoutIdUseCase(FakeProgramsUiPreferencesRepository()),
+                    diagnosticDrain = DiagnosticDrain(logging),
                 )
 
             // Collect bar so WhileSubscribed starts; orphan cleanup runs from init.
@@ -347,23 +407,24 @@ class ProgramsViewModelTest {
                     observeProgram = com.stratum.application.program.ObserveProgramUseCase(repository),
                     observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
                     computeProgramMuscleVolume = ComputeProgramMuscleVolumeUseCase(),
-                    startTrainingSession = StartTrainingSessionUseCase(trainingLog, repository, logging),
+                    startTrainingSession = StartTrainingSessionUseCase(trainingLog, repository),
                     observeCycleProgress = ObserveCycleProgressUseCase(repository, trainingLog),
                     abandonTrainingSession =
-                        com.stratum.application.training.AbandonTrainingSessionUseCase(trainingLog, logging),
+                        com.stratum.application.training.AbandonTrainingSessionUseCase(trainingLog),
                     getLoggedSetsForSession =
                         com.stratum.application.training.GetLoggedSetsForSessionUseCase(trainingLog),
                     recordWorkoutSkip =
-                        com.stratum.application.training.RecordWorkoutSkipUseCase(trainingLog, repository, FakeLoggingPort()),
+                        com.stratum.application.training.RecordWorkoutSkipUseCase(trainingLog, repository),
                     recordRestDaySkip =
-                        com.stratum.application.training.RecordRestDaySkipUseCase(trainingLog, repository, FakeLoggingPort()),
-                    unskipWorkout = com.stratum.application.training.UnskipWorkoutUseCase(trainingLog, repository, FakeLoggingPort()),
+                        com.stratum.application.training.RecordRestDaySkipUseCase(trainingLog, repository),
+                    unskipWorkout = com.stratum.application.training.UnskipWorkoutUseCase(trainingLog, repository),
                     manageWorkoutOverlay =
-                        ManageWorkoutOverlayUseCase(FakeWorkoutOverlayStore(), logging),
+                        ManageWorkoutOverlayUseCase(FakeWorkoutOverlayStore()),
                     observeProgramsUiPreferences =
                         ObserveProgramsUiPreferencesUseCase(FakeProgramsUiPreferencesRepository()),
                     setExpandedWorkoutId =
-                        SetExpandedWorkoutIdUseCase(FakeProgramsUiPreferencesRepository(), logging),
+                        SetExpandedWorkoutIdUseCase(FakeProgramsUiPreferencesRepository()),
+                    diagnosticDrain = DiagnosticDrain(logging),
                 )
 
             viewModel.activeWorkoutBarState.test {
@@ -449,6 +510,7 @@ class ProgramsViewModelTest {
     ): ProgramsViewModel {
         repository = FakeProgramRepository(initial)
         val trainingLog = FakeTrainingLogRepository(programRepository = repository)
+        lastTrainingLog = trainingLog
         val liftRepository =
             FakeLiftRepository(
                 initialLifts =
@@ -457,20 +519,22 @@ class ProgramsViewModelTest {
                     ),
             )
         val logging = FakeLoggingPort()
+        lastLogging = logging
         return ProgramsViewModel(
             observeProgram = com.stratum.application.program.ObserveProgramUseCase(repository),
             observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
             computeProgramMuscleVolume = ComputeProgramMuscleVolumeUseCase(),
-            startTrainingSession = StartTrainingSessionUseCase(trainingLog, repository, logging),
+            startTrainingSession = StartTrainingSessionUseCase(trainingLog, repository),
             observeCycleProgress = ObserveCycleProgressUseCase(repository, trainingLog),
-            abandonTrainingSession = com.stratum.application.training.AbandonTrainingSessionUseCase(trainingLog, logging),
+            abandonTrainingSession = com.stratum.application.training.AbandonTrainingSessionUseCase(trainingLog),
             getLoggedSetsForSession = com.stratum.application.training.GetLoggedSetsForSessionUseCase(trainingLog),
-            recordWorkoutSkip = com.stratum.application.training.RecordWorkoutSkipUseCase(trainingLog, repository, FakeLoggingPort()),
-            recordRestDaySkip = com.stratum.application.training.RecordRestDaySkipUseCase(trainingLog, repository, FakeLoggingPort()),
-            unskipWorkout = com.stratum.application.training.UnskipWorkoutUseCase(trainingLog, repository, FakeLoggingPort()),
-            manageWorkoutOverlay = ManageWorkoutOverlayUseCase(FakeWorkoutOverlayStore(), logging),
+            recordWorkoutSkip = com.stratum.application.training.RecordWorkoutSkipUseCase(trainingLog, repository),
+            recordRestDaySkip = com.stratum.application.training.RecordRestDaySkipUseCase(trainingLog, repository),
+            unskipWorkout = com.stratum.application.training.UnskipWorkoutUseCase(trainingLog, repository),
+            manageWorkoutOverlay = ManageWorkoutOverlayUseCase(FakeWorkoutOverlayStore()),
             observeProgramsUiPreferences = ObserveProgramsUiPreferencesUseCase(uiPrefs),
-            setExpandedWorkoutId = SetExpandedWorkoutIdUseCase(uiPrefs, logging),
+            setExpandedWorkoutId = SetExpandedWorkoutIdUseCase(uiPrefs),
+            diagnosticDrain = DiagnosticDrain(logging),
         )
     }
 

@@ -1,6 +1,6 @@
 package com.stratum.application.dashboard
 
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.Flow
@@ -10,15 +10,18 @@ import com.stratum.domain.dashboard.DashboardPreferences
 /**
  * Outcome of a dashboard preferences write (STR-243).
  *
- * The originating throwable goes once to the diagnostics channel ([LoggingPort.error])
- * at the use-case boundary; it never crosses as a payload. Coroutine cancellation is
- * not a branch: it propagates as cancellation.
+ * The originating throwable rides the [PersistenceFailed] branch as an
+ * [OperationalDiagnostic] (legacy tag + rendered message, real throwable as
+ * cause); the presentation boundary drains it exactly once. Coroutine
+ * cancellation is not a branch: it propagates as cancellation.
  */
 sealed interface DashboardPreferenceResult {
     data object Success : DashboardPreferenceResult
 
     /** The preferences write failed (repository / store I/O). */
-    data object PersistenceFailed : DashboardPreferenceResult
+    data class PersistenceFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : DashboardPreferenceResult
 }
 
 /**
@@ -34,7 +37,6 @@ class ObserveDashboardPreferencesUseCase @Inject constructor(
 /** Persists the selected dashboard board tab (Muscles / 7-Day / Lifts). */
 class SetDashboardBoardTabUseCase @Inject constructor(
     private val repository: DashboardPreferencesRepository,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(tab: DashboardBoardTab): DashboardPreferenceResult =
         try {
@@ -43,8 +45,15 @@ class SetDashboardBoardTabUseCase @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (t: Throwable) {
-            loggingPort.error(TAG, "Failed to set dashboard board tab: ${t.message}", t)
-            DashboardPreferenceResult.PersistenceFailed
+            DashboardPreferenceResult.PersistenceFailed(
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Failed to set dashboard board tab: ${t.message}",
+                        cause = t,
+                    ),
+                ),
+            )
         }
 
     private companion object {

@@ -1,6 +1,5 @@
 package com.stratum.application.lift
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
@@ -19,7 +18,7 @@ class SetLiftDefaultRestUseCaseTest {
     fun setsOverrideOnCatalogLift() = runTest {
         val lift = sampleLift(isCustom = false)
         val repo = FakeLiftRepository(listOf(lift))
-        val useCase = SetLiftDefaultRestUseCase(repo, FakeLoggingPort())
+        val useCase = SetLiftDefaultRestUseCase(repo)
 
         val result = useCase(lift.id, 150)
 
@@ -32,7 +31,7 @@ class SetLiftDefaultRestUseCaseTest {
     fun rejectsOutOfRange() = runTest {
         val lift = sampleLift(isCustom = true)
         val repo = FakeLiftRepository(listOf(lift))
-        val useCase = SetLiftDefaultRestUseCase(repo, FakeLoggingPort())
+        val useCase = SetLiftDefaultRestUseCase(repo)
 
         val result = useCase(lift.id, 999)
 
@@ -44,7 +43,7 @@ class SetLiftDefaultRestUseCaseTest {
     @DisplayName("Given missing lift when set rest then LiftNotFound")
     fun missingLiftFails() = runTest {
         val repo = FakeLiftRepository()
-        val useCase = SetLiftDefaultRestUseCase(repo, FakeLoggingPort())
+        val useCase = SetLiftDefaultRestUseCase(repo)
 
         val result = useCase(LiftId("missing"), 150)
 

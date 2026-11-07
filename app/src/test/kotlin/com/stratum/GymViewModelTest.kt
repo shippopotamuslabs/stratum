@@ -16,7 +16,7 @@ import com.stratum.domain.lift.Lift
 import com.stratum.application.lift.MergeLiftsUseCase
 import com.stratum.application.training.TrainingLogRepository
 import com.stratum.domain.lift.MuscleLengthBias
-import com.stratum.domain.logging.LogErrorUseCase
+import com.stratum.app.DiagnosticDrain
 import com.stratum.application.lift.ObserveLiftCatalogUseCase
 import com.stratum.application.lift.SetLiftEnabledUseCase
 import com.stratum.domain.importing.identity.LoggedSetId
@@ -97,7 +97,7 @@ class GymViewModelTest {
         subject =
             GymViewModel(
                 observeLiftCatalog = ObserveLiftCatalogUseCase(fakeLiftRepository),
-                setLiftEnabled = SetLiftEnabledUseCase(fakeLiftRepository, logging),
+                setLiftEnabled = SetLiftEnabledUseCase(fakeLiftRepository),
                 mergeLifts =
                     MergeLiftsUseCase(
                         liftRepository = fakeLiftRepository,
@@ -112,10 +112,8 @@ class GymViewModelTest {
                                         liftRepository = fakeLiftRepository,
                                     ),
                                 responseModelingScheduler = FakeResponseModelingSchedulerPort(),
-                                loggingPort = logging,
                             ),
                         workoutOverlayStore = FakeWorkoutOverlayStore(),
-                        loggingPort = logging,
                     ),
                 deleteLift =
                     com.stratum.application.lift.DeleteLiftUseCase(
@@ -132,9 +130,7 @@ class GymViewModelTest {
                                         liftRepository = fakeLiftRepository,
                                     ),
                                 responseModelingScheduler = FakeResponseModelingSchedulerPort(),
-                                loggingPort = logging,
                             ),
-                        loggingPort = logging,
                     ),
                 getLiftDeleteImpact =
                     com.stratum.application.lift.GetLiftDeleteImpactUseCase(
@@ -143,7 +139,7 @@ class GymViewModelTest {
                         fakeLogRepository,
                         FakeWorkoutOverlayStore(),
                     ),
-                logError = LogErrorUseCase(logging),
+                diagnosticDrain = DiagnosticDrain(logging),
             )
     }
 
@@ -295,15 +291,13 @@ class GymViewModelTest {
                                 liftRepository = fakeLiftRepository,
                             ),
                         responseModelingScheduler = FakeResponseModelingSchedulerPort(),
-                        loggingPort = logging,
                     ),
                 workoutOverlayStore = FakeWorkoutOverlayStore(),
-                loggingPort = logging,
             )
         val failingSubject =
             GymViewModel(
                 observeLiftCatalog = ObserveLiftCatalogUseCase(fakeLiftRepository),
-                setLiftEnabled = SetLiftEnabledUseCase(fakeLiftRepository, logging),
+                setLiftEnabled = SetLiftEnabledUseCase(fakeLiftRepository),
                 mergeLifts = failingMerge,
                 deleteLift =
                     com.stratum.application.lift.DeleteLiftUseCase(
@@ -320,9 +314,7 @@ class GymViewModelTest {
                                         liftRepository = fakeLiftRepository,
                                     ),
                                 responseModelingScheduler = FakeResponseModelingSchedulerPort(),
-                                loggingPort = logging,
                             ),
-                        loggingPort = logging,
                     ),
                 getLiftDeleteImpact =
                     com.stratum.application.lift.GetLiftDeleteImpactUseCase(
@@ -331,7 +323,7 @@ class GymViewModelTest {
                         fakeLogRepository,
                         FakeWorkoutOverlayStore(),
                     ),
-                logError = LogErrorUseCase(logging),
+                diagnosticDrain = DiagnosticDrain(logging),
             )
         val errorsBefore = logging.errors.size
 

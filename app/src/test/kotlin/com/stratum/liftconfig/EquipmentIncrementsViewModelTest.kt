@@ -6,6 +6,7 @@ import com.stratum.core.testing.featureflag.FakeFeatureFlagRepository
 import com.stratum.core.testing.lift.FakeIncrementScanPort
 import com.stratum.core.testing.lift.testForkEquipmentWithTiers
 import com.stratum.core.testing.logging.FakeLoggingPort
+import com.stratum.app.DiagnosticDrain
 import com.stratum.core.testing.onboarding.FakeEquipmentProposalPreferences
 import com.stratum.core.testing.onboarding.FakeEquipmentRepository
 import com.stratum.core.testing.onboarding.FakeLiftRepository
@@ -90,25 +91,21 @@ class EquipmentIncrementsViewModelTest {
                 setEquipmentIncrementTiers =
                     SetEquipmentIncrementTiersUseCase(
                         fakeEquipmentRepository,
-                        FakeLoggingPort(),
                     ),
                 renameAndSetIncrementTiers =
                     RenameAndSetIncrementTiersUseCase(
                         fakeEquipmentRepository,
-                        FakeLoggingPort(),
                     ),
                 forkEquipmentWithTiers =
                     testForkEquipmentWithTiers(fakeEquipmentRepository, fakeLiftRepository),
-                setLiftEquipment = SetLiftEquipmentUseCase(fakeLiftRepository, fakeEquipmentRepository, FakeLoggingPort()),
+                setLiftEquipment = SetLiftEquipmentUseCase(fakeLiftRepository, fakeEquipmentRepository),
                 dismissEquipmentProposal =
                     DismissEquipmentProposalUseCase(
                         fakeProposalPrefs,
-                        FakeLoggingPort(),
                     ),
                 deleteCustomEquipment =
                     DeleteCustomEquipmentUseCase(
                         fakeEquipmentRepository,
-                        FakeLoggingPort(),
                     ),
                 getDeleteImpact =
                     GetEquipmentDeleteImpactUseCase(
@@ -125,10 +122,10 @@ class EquipmentIncrementsViewModelTest {
                     IncrementScanDelegate(
                         ScanIncrementTiersUseCase(
                             FakeIncrementScanPort(),
-                            FakeLoggingPort(),
                         ),
                         ObserveIncrementsAiScanUseCase(fakeFeatureFlags),
                     ),
+                diagnosticDrain = DiagnosticDrain(FakeLoggingPort()),
             )
     }
 

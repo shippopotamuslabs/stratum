@@ -1,6 +1,5 @@
 package com.stratum.application.theme
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import app.cash.turbine.test
 import com.stratum.core.testing.theme.FakeThemePreferencesRepository
 import kotlinx.coroutines.test.runTest
@@ -23,8 +22,8 @@ class ThemePreferencesUseCasesTest {
     fun setup() {
         fakeRepository.seed(ThemePreferences())
         observe = ObserveThemePreferencesUseCase(fakeRepository)
-        setFamily = SetThemeFamilyUseCase(fakeRepository, FakeLoggingPort())
-        setColorMode = SetColorModeUseCase(fakeRepository, FakeLoggingPort())
+        setFamily = SetThemeFamilyUseCase(fakeRepository)
+        setColorMode = SetColorModeUseCase(fakeRepository)
     }
 
     @Test
@@ -51,16 +50,22 @@ class ThemePreferencesUseCasesTest {
     }
 
     @Test
-    @DisplayName("setFamily returns PersistenceFailed when the repository write throws (STR-243)")
+    @DisplayName("setFamily returns PersistenceFailed carrying the diagnostic when the write throws (STR-243/STR-237)")
     fun setFamilyPersistenceFailure() = runTest {
+        val cause = RuntimeException("store unavailable")
         val throwing =
             object : ThemePreferencesRepository by fakeRepository {
                 override suspend fun setFamily(family: ThemeFamily) {
-                    throw RuntimeException("store unavailable")
+                    throw cause
                 }
             }
-        val result = SetThemeFamilyUseCase(throwing, FakeLoggingPort())(ThemeFamily.NeoBrutalist)
-        assertEquals(ThemePreferenceResult.PersistenceFailed, result)
+        val result = SetThemeFamilyUseCase(throwing)(ThemeFamily.NeoBrutalist)
+        val failed = result as ThemePreferenceResult.PersistenceFailed
+        assertEquals(1, failed.diagnostics.size)
+        val diagnostic = failed.diagnostics.single()
+        assertEquals("SetThemeFamily", diagnostic.tag)
+        assertEquals("Failed to set theme family: store unavailable", diagnostic.message)
+        org.junit.jupiter.api.Assertions.assertSame(cause, diagnostic.cause)
     }
 
     @Test
@@ -72,7 +77,7 @@ class ThemePreferencesUseCasesTest {
                     throw kotlin.coroutines.cancellation.CancellationException("cancelled")
                 }
             }
-        val subject = SetColorModeUseCase(cancelling, FakeLoggingPort())
+        val subject = SetColorModeUseCase(cancelling)
         org.junit.jupiter.api.Assertions.assertThrows(
             kotlin.coroutines.cancellation.CancellationException::class.java,
         ) {

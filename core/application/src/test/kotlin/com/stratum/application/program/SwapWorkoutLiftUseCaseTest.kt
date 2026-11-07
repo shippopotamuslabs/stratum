@@ -1,6 +1,5 @@
 package com.stratum.application.program
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.NoOpProgramChangeEventRepository
 import com.stratum.domain.lift.identity.LiftId
@@ -62,7 +61,7 @@ class SwapWorkoutLiftUseCaseTest {
         )
 
         val repository = FakeProgramRepository(initialProgram)
-        val useCase = SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository(), com.stratum.core.testing.onboarding.FakeEquipmentRepository(), FakeLoggingPort())
+        val useCase = SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository(), com.stratum.core.testing.onboarding.FakeEquipmentRepository())
 
         val result = useCase(targetWorkoutLiftId, newLiftId)
 
@@ -74,16 +73,14 @@ class SwapWorkoutLiftUseCaseTest {
     @Test
     @DisplayName("When swap is called and no active program exists, then it returns a failure result")
     fun swapFailsWhenNoProgram() = runTest {
-        val logging = FakeLoggingPort()
         val repository = FakeProgramRepository(null)
-        val useCase = SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository(), com.stratum.core.testing.onboarding.FakeEquipmentRepository(), logging)
+        val useCase = SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository(), com.stratum.core.testing.onboarding.FakeEquipmentRepository())
 
         val result = useCase(WorkoutLiftId("wl-1"), LiftId("incline-db-bench"))
 
+        // STR-237: the former warning breadcrumb duplicated the typed branch
+        // fact and is dropped; the branch is the record.
         assertEquals(SwapWorkoutLiftResult.NoActiveProgram, result)
-        assertEquals(0, logging.errors.size)
-        assertEquals(1, logging.warnings.size)
-        assertTrue(logging.warnings.first().message.contains("no active program"))
     }
 
     @Test
@@ -117,8 +114,7 @@ class SwapWorkoutLiftUseCaseTest {
         )
 
         val repository = FakeProgramRepository(initialProgram)
-        val logging = FakeLoggingPort()
-        val useCase = SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository(), com.stratum.core.testing.onboarding.FakeEquipmentRepository(), logging)
+        val useCase = SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository(), com.stratum.core.testing.onboarding.FakeEquipmentRepository())
 
         val result = useCase(WorkoutLiftId("non-existent"), LiftId("incline-db-bench"))
 
@@ -129,9 +125,8 @@ class SwapWorkoutLiftUseCaseTest {
         // Verify program was not modified
         val currentProgram = repository.getProgram()
         assertEquals(LiftId("bench-press"), currentProgram?.workouts?.first()?.workoutLifts?.first()?.liftId)
-        assertEquals(0, logging.errors.size)
-        assertEquals(1, logging.warnings.size)
-        assertTrue(logging.warnings.first().message.contains("not found"))
+        // STR-237: the former warning breadcrumb duplicated the typed branch
+        // fact (the branch carries the id) and is dropped.
     }
 
     @Test
@@ -164,7 +159,7 @@ class SwapWorkoutLiftUseCaseTest {
                 ),
             ),
         )
-        val useCase = SwapWorkoutLiftUseCase(FakeProgramRepository(program), events, com.stratum.core.testing.onboarding.FakeEquipmentRepository(), FakeLoggingPort())
+        val useCase = SwapWorkoutLiftUseCase(FakeProgramRepository(program), events, com.stratum.core.testing.onboarding.FakeEquipmentRepository())
 
         assertTrue(useCase(WorkoutLiftId("wl-bench"), LiftId("lift-squat")) is SwapWorkoutLiftResult.Success)
 
@@ -188,7 +183,7 @@ class SwapWorkoutLiftUseCaseTest {
             listOf(com.stratum.domain.lift.WorkoutLiftNoteInput(body = "bench cue")),
         )
         val useCase =
-            SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository(), com.stratum.core.testing.onboarding.FakeEquipmentRepository(), FakeLoggingPort())
+            SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository(), com.stratum.core.testing.onboarding.FakeEquipmentRepository())
 
         assertTrue(useCase(slot, LiftId("lift-ohp")) is SwapWorkoutLiftResult.Success)
 
@@ -219,7 +214,7 @@ class SwapWorkoutLiftUseCaseTest {
             listOf(com.stratum.domain.lift.WorkoutLiftNoteInput(body = "bench cue")),
         )
         val useCase =
-            SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository(), com.stratum.core.testing.onboarding.FakeEquipmentRepository(), FakeLoggingPort())
+            SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository(), com.stratum.core.testing.onboarding.FakeEquipmentRepository())
 
         assertTrue(useCase(slot, LiftId("lift-ohp")) is SwapWorkoutLiftResult.Success)
         assertTrue(useCase(slot, LiftId("lift-bench")) is SwapWorkoutLiftResult.Success)
@@ -241,7 +236,7 @@ class SwapWorkoutLiftUseCaseTest {
         val failure = IllegalStateException("notes boom")
         repository.pinnedNotesReadError = failure
         val useCase =
-            SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository(), com.stratum.core.testing.onboarding.FakeEquipmentRepository(), FakeLoggingPort())
+            SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository(), com.stratum.core.testing.onboarding.FakeEquipmentRepository())
 
         val result = useCase(slot, LiftId("lift-ohp"))
 
@@ -269,7 +264,7 @@ class SwapWorkoutLiftUseCaseTest {
             listOf(com.stratum.domain.lift.WorkoutLiftNoteInput(body = "bench cue")),
         )
         val useCase =
-            SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository(), com.stratum.core.testing.onboarding.FakeEquipmentRepository(), FakeLoggingPort())
+            SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository(), com.stratum.core.testing.onboarding.FakeEquipmentRepository())
 
         val result = useCase(slot, LiftId("lift-ohp"))
 
@@ -284,7 +279,7 @@ class SwapWorkoutLiftUseCaseTest {
         val repository = FakeProgramRepository(pairProgram())
         repository.pinnedNotesReadError = kotlinx.coroutines.CancellationException("cancelled")
         val useCase =
-            SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository(), com.stratum.core.testing.onboarding.FakeEquipmentRepository(), FakeLoggingPort())
+            SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository(), com.stratum.core.testing.onboarding.FakeEquipmentRepository())
 
         var propagated: kotlinx.coroutines.CancellationException? = null
         try {

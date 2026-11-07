@@ -2,7 +2,7 @@ package com.stratum.application.training
 
 import com.stratum.domain.di.ApplicationScope
 import com.stratum.application.healthconnect.HealthConnectSchedulerPort
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.application.response.ResponseModelingSchedulerPort
 import com.stratum.application.response.ResponseProfileMetadataRepository
 import com.stratum.domain.training.identity.TrainingSessionId
@@ -22,12 +22,17 @@ import com.stratum.domain.training.TrainingSessionStatus
  * The guard branches carry the typed facts the former constructed exceptions
  * carried ([SessionNotFound] / [SessionNotCompleted] with the session id and
  * actual status / [StartAfterFinish] with both timestamps). The originating
- * throwable of a failed write goes once to the diagnostics channel
- * ([LoggingPort.error]) at the use-case boundary; it never crosses as a
- * payload. Coroutine cancellation is not a branch: it propagates.
+ * throwable of a failed write rides the [PersistenceFailed] branch as an
+ * [OperationalDiagnostic] (legacy tag + rendered message, real throwable as
+ * cause); the presentation boundary drains it exactly once through its
+ * module's DiagnosticDrain. A best-effort Health Connect enqueue failure
+ * rides [Success.diagnostics] the same way. Coroutine cancellation is not a
+ * branch: it propagates.
  */
 sealed interface UpdateCompletedSessionTimesResult {
-    data object Success : UpdateCompletedSessionTimesResult
+    data class Success(
+        val diagnostics: List<OperationalDiagnostic> = emptyList(),
+    ) : UpdateCompletedSessionTimesResult
 
     data class SessionNotFound(val sessionId: TrainingSessionId) : UpdateCompletedSessionTimesResult
 
@@ -42,7 +47,9 @@ sealed interface UpdateCompletedSessionTimesResult {
     ) : UpdateCompletedSessionTimesResult
 
     /** The time update failed (repository / store I/O). */
-    data object PersistenceFailed : UpdateCompletedSessionTimesResult
+    data class PersistenceFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : UpdateCompletedSessionTimesResult
 }
 
 /**
@@ -58,7 +65,6 @@ class UpdateCompletedSessionTimesUseCase @Inject constructor(
     private val responseProfileMetadataRepository: ResponseProfileMetadataRepository,
     private val responseModelingScheduler: ResponseModelingSchedulerPort,
     private val healthConnectScheduler: HealthConnectSchedulerPort,
-    private val loggingPort: LoggingPort,
     @ApplicationScope private val refreshScope: CoroutineScope =
         CoroutineScope(Dispatchers.Main.immediate),
 ) {
@@ -106,22 +112,30 @@ class UpdateCompletedSessionTimesUseCase @Inject constructor(
             sets = shiftedSets,
         )
 
-        try {
-            healthConnectScheduler.enqueueSync(session.id)
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (error: Exception) {
-            loggingPort.error(
-                TAG,
-                "Health Connect sync enqueue failed for ${session.id.value}: ${error.message}",
-                error,
-            )
-        }
+        val enqueueDiagnostics =
+            try {
+                healthConnectScheduler.enqueueSync(session.id)
+                emptyList()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Health Connect sync enqueue failed for ${session.id.value}: ${error.message}",
+                        cause = error,
+                    ),
+                )
+            }
 
         if (wasInModel || sessionWasInLastModelingRun(updatedSession)) {
             responseModelingScheduler.enqueueForceExtract(replaceExisting = true)
         }
 
+            // STR-237 STOP (chunk 1E): fire-and-forget LogAndContinue launch;
+            // the stages result (and the stage-failure diagnostics it now
+            // carries) is discarded — no boundary drainer exists on this
+            // path. See plans/STR-237/status.md (chunk 1E STOP).
             refreshScope.launch {
                 localDerivedStages.run(
                     includeInsights = true,
@@ -129,12 +143,19 @@ class UpdateCompletedSessionTimesUseCase @Inject constructor(
                     logTag = TAG,
                 )
             }
-            UpdateCompletedSessionTimesResult.Success
+            UpdateCompletedSessionTimesResult.Success(diagnostics = enqueueDiagnostics)
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (t: Throwable) {
-            loggingPort.error(TAG, "Failed to update completed session times: ${t.message}", t)
-            UpdateCompletedSessionTimesResult.PersistenceFailed
+            UpdateCompletedSessionTimesResult.PersistenceFailed(
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Failed to update completed session times: ${t.message}",
+                        cause = t,
+                    ),
+                ),
+            )
         }
     }
 

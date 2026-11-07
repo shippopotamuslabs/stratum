@@ -1,10 +1,10 @@
 package com.stratum.core.infrastructure.inference
 
 import android.util.Log
-import com.stratum.domain.logging.LoggingPort
-import com.stratum.domain.telemetry.CrashTelemetryPort
-import com.stratum.domain.telemetry.TelemetryPiiScrubber
-import com.stratum.domain.telemetry.TelemetryThrowableSanitizer
+import com.stratum.core.infrastructure.logging.LoggingPort
+import com.stratum.core.infrastructure.telemetry.CrashTelemetryPort
+import com.stratum.core.infrastructure.telemetry.TelemetryPiiScrubber
+import com.stratum.core.infrastructure.telemetry.TelemetryThrowableSanitizer
 import javax.inject.Inject
 import javax.inject.Singleton
 

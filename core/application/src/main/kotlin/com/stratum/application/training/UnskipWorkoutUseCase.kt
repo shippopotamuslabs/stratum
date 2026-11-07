@@ -1,6 +1,6 @@
 package com.stratum.application.training
 
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.Program
 import com.stratum.application.program.ProgramRepository
@@ -15,11 +15,11 @@ import kotlin.coroutines.cancellation.CancellationException
 /**
  * Outcome of unskipping a workout or rest day (STR-243).
  *
- * The originating throwable of a failed write goes once to the diagnostics
- * channel ([LoggingPort.error]) at the use-case boundary — this use case
- * previously returned its failures silently; it now logs them once at the
- * boundary, per the C4 precedent. Coroutine cancellation is not a branch: it
- * propagates.
+ * The originating throwable of a failed write rides the [PersistenceFailed]
+ * branch as an [OperationalDiagnostic] (legacy tag + rendered message, real
+ * throwable as cause); the presentation boundary drains it exactly once
+ * through its module's DiagnosticDrain. Coroutine cancellation is not a
+ * branch: it propagates.
  */
 sealed interface UnskipWorkoutResult {
     data object Success : UnskipWorkoutResult
@@ -27,7 +27,9 @@ sealed interface UnskipWorkoutResult {
     data object NoActiveProgram : UnskipWorkoutResult
 
     /** The unskip write failed (repository / store I/O). */
-    data object PersistenceFailed : UnskipWorkoutResult
+    data class PersistenceFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : UnskipWorkoutResult
 }
 
 /**
@@ -48,7 +50,6 @@ sealed interface UnskipWorkoutResult {
 class UnskipWorkoutUseCase @Inject constructor(
     private val trainingLogRepository: TrainingLogRepository,
     private val programRepository: ProgramRepository,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(workoutId: WorkoutId): UnskipWorkoutResult {
         val program =
@@ -57,8 +58,15 @@ class UnskipWorkoutUseCase @Inject constructor(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (t: Throwable) {
-                loggingPort.error(TAG, "Failed to unskip workout: ${t.message}", t)
-                return UnskipWorkoutResult.PersistenceFailed
+                return UnskipWorkoutResult.PersistenceFailed(
+                    diagnostics = listOf(
+                        OperationalDiagnostic(
+                            tag = TAG,
+                            message = "Failed to unskip workout: ${t.message}",
+                            cause = t,
+                        ),
+                    ),
+                )
             }
                 ?: return UnskipWorkoutResult.NoActiveProgram
         return try {
@@ -84,8 +92,15 @@ class UnskipWorkoutUseCase @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (t: Throwable) {
-            loggingPort.error(TAG, "Failed to unskip workout: ${t.message}", t)
-            UnskipWorkoutResult.PersistenceFailed
+                        UnskipWorkoutResult.PersistenceFailed(
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Failed to unskip workout: ${t.message}",
+                        cause = t,
+                    ),
+                ),
+            )
         }
     }
 
@@ -100,8 +115,15 @@ class UnskipWorkoutUseCase @Inject constructor(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (t: Throwable) {
-                loggingPort.error(TAG, "Failed to unskip rest day: ${t.message}", t)
-                return UnskipWorkoutResult.PersistenceFailed
+                return UnskipWorkoutResult.PersistenceFailed(
+                    diagnostics = listOf(
+                        OperationalDiagnostic(
+                            tag = TAG,
+                            message = "Failed to unskip rest day: ${t.message}",
+                            cause = t,
+                        ),
+                    ),
+                )
             }
                 ?: return UnskipWorkoutResult.NoActiveProgram
         return try {
@@ -118,8 +140,15 @@ class UnskipWorkoutUseCase @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (t: Throwable) {
-            loggingPort.error(TAG, "Failed to unskip rest day: ${t.message}", t)
-            UnskipWorkoutResult.PersistenceFailed
+                        UnskipWorkoutResult.PersistenceFailed(
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Failed to unskip rest day: ${t.message}",
+                        cause = t,
+                    ),
+                ),
+            )
         }
     }
 
@@ -131,8 +160,15 @@ class UnskipWorkoutUseCase @Inject constructor(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (t: Throwable) {
-                loggingPort.error(TAG, "Failed to unskip rest day: ${t.message}", t)
-                return UnskipWorkoutResult.PersistenceFailed
+                return UnskipWorkoutResult.PersistenceFailed(
+                    diagnostics = listOf(
+                        OperationalDiagnostic(
+                            tag = TAG,
+                            message = "Failed to unskip rest day: ${t.message}",
+                            cause = t,
+                        ),
+                    ),
+                )
             }
                 ?: return UnskipWorkoutResult.NoActiveProgram
         return try {
@@ -149,8 +185,15 @@ class UnskipWorkoutUseCase @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (t: Throwable) {
-            loggingPort.error(TAG, "Failed to unskip rest day: ${t.message}", t)
-            UnskipWorkoutResult.PersistenceFailed
+                        UnskipWorkoutResult.PersistenceFailed(
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Failed to unskip rest day: ${t.message}",
+                        cause = t,
+                    ),
+                ),
+            )
         }
     }
 

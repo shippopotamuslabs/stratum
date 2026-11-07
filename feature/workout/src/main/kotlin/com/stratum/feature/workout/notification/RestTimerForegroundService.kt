@@ -6,8 +6,8 @@ import android.content.pm.ServiceInfo
 import android.os.IBinder
 import androidx.core.app.ServiceCompat
 import com.stratum.domain.di.ApplicationScope
-import com.stratum.domain.logging.LoggingPort
-import com.stratum.domain.logging.collectLatestRestarting
+import com.stratum.core.infrastructure.logging.LoggingPort
+import com.stratum.domain.coroutines.collectLatestRestarting
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
@@ -76,7 +76,7 @@ class RestTimerForegroundService : Service() {
             ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
         )
         observeJob = applicationScope.launch {
-            restTimer.state.collectLatestRestarting(loggingPort, TAG) { state ->
+            restTimer.state.collectLatestRestarting({ t, m, e -> loggingPort.error(t, m, e) }, TAG) { state ->
                 when (state) {
                     is RestTimerState.Idle -> {
                         stopSelfSafely()

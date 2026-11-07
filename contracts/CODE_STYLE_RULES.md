@@ -22,7 +22,7 @@ Stratum uses **containment below, UI reaction above** — not try/catch/rethrow 
 | Layer | Pattern | Logging |
 |-------|---------|---------|
 | **Infrastructure adapter** (Firebase, credentials, Room-backed auth) | `runCatching { … }.onFailure { log; Result.failure(mapped) }` | `LoggingPort.error` once, with tag + context |
-| **Use case (orchestration)** | `runCatching` or propagate `Result`; return `Result<T>`, sealed types, or `Flow<Event>` | Only when adding context the adapter lacks (avoid duplicate logs) |
+| **Use case (orchestration)** | `runCatching` or propagate `Result`; return `Result<T>`, sealed types, or `Flow<Event>` | No logging capability: use cases (and domain) hold no logging port or logger and make no log calls; operational failures ride the outcome's diagnostics and are recorded once at the boundary |
 | **Repository implementation** (infrastructure) | Plain `suspend` / `Flow`; let exceptions propagate to the caller's `runCatching` | No logging |
 | **ViewModel** | Branch on `Result` / sealed type / Flow event → `UiState` | No logging; map to user-visible strings |
 
@@ -45,18 +45,23 @@ with `strings.xml`.
 
 ### LoggingPort
 
-- Single outbound application port: `com.stratum.domain.logging.LoggingPort` (`*Port` interface; in canon outbound ports live in the application layer — there are no domain ports).
-- Production adapter: `AndroidLoggingAdapter` in `:core:inference` — Logcat + Firebase Crashlytics
-  non-fatals on `error(…, throwable)` (PII scrubbed via `TelemetryPiiScrubber` before breadcrumbs).
-- Future OpenTelemetry export should compose through the same port (composite adapter or extended
-  `AndroidLoggingAdapter`), mirroring pocket-crew.
+- The logging/telemetry ports live in `:core:infrastructure`: `com.stratum.core.infrastructure.logging.LoggingPort`
+  (with the telemetry ports in `com.stratum.core.infrastructure.telemetry`).
+- Production adapters live in `:core:infrastructure`: `AndroidLoggingAdapter` — Logcat + Firebase Crashlytics
+  non-fatals on `error(…, throwable)`, PII scrubbed via `TelemetryPiiScrubber` before breadcrumbs.
+- Domain and application modules contain NO logging port, logger type, telemetry port, or log call —
+  enforced by the module graph plus the `NoLoggingCapabilityInDomainApplication` detekt gate.
+- Presentation boundary components record through their module's `DiagnosticDrain` facade:
+  ViewModels inject the drain, never a port.
 - Tests use `FakeLoggingPort` from `:core:testing`.
+- Future OpenTelemetry export composes through the same port in infrastructure (composite adapter
+  or extended `AndroidLoggingAdapter`), mirroring pocket-crew.
 
 ### Partial success: diagnostics as values
 
-Canon: `contracts/gospel/CODE-STYLE-GOSPEL.md` §10 (Partial Success: Diagnostics as Values). In Stratum terms: a computation that degrades without failing returns typed diagnostics on its outcome inside the use case's `Result`; the boundary drains them through the wiring above (`LoggingPort` / `LogErrorUseCase`), each exactly once; diagnostics never reach the UI. (Contract Waiver for this section and the anti-pattern below: granted by Sean, 2026-10-30, STR-251; canon ratified by his merge of gospels PR #9.)
+Canon: `contracts/gospel/CODE-STYLE-GOSPEL.md` §10 (Partial Success: Diagnostics as Values). In Stratum terms: a computation that degrades without failing returns typed diagnostics on its outcome inside the use case's `Result`; the boundary drains them through its `DiagnosticDrain` wiring, each exactly once; diagnostics never reach the UI. (Contract Waiver for this section and the anti-pattern below: granted by Sean, 2026-10-30, STR-251; canon ratified by his merge of gospels PR #9.)
 
-**Reference implementation (STR-250).** `ProgressionDiagnostic` (`:core:domain`, `workout/progression/ProgressionDiagnostic.kt`): `BaselineSkipped` records the lift, the slot, the offending history input, and which load-math step lost its baseline. `GenerateProgressionSnapshotUseCase` (`:core:application`) collects diagnostics through the computation and returns them on `ProgressionSnapshotOutcome` inside its `Result`. `LiveWorkoutSessionRuntime.logProgressionDiagnostics` (`:feature:workout`) drains them through the session's `LogErrorUseCase` wiring. `ProgressionZeroLoadHistoryTest` asserts the diagnostics as values.
+**Reference implementation (STR-250).** `ProgressionDiagnostic` (`:core:domain`, `workout/progression/ProgressionDiagnostic.kt`): `BaselineSkipped` records the lift, the slot, the offending history input, and which load-math step lost its baseline. `GenerateProgressionSnapshotUseCase` (`:core:application`) collects diagnostics through the computation and returns them on `ProgressionSnapshotOutcome` inside its `Result`. `LiveWorkoutSessionRuntime.logProgressionDiagnostics` (`:feature:workout`) drains them through the session's `DiagnosticDrain` wiring. `ProgressionZeroLoadHistoryTest` asserts the diagnostics as values.
 
 ### Anti-patterns
 

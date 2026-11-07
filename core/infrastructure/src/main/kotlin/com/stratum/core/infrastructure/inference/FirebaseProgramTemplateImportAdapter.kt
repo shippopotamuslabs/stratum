@@ -4,7 +4,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.storage.FirebaseStorage
 import com.stratum.domain.coroutines.runCatchingCancellable
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.core.infrastructure.logging.LoggingPort
 import com.stratum.domain.program.importing.ProgramTemplateImportJobId
 import com.stratum.domain.program.importing.ProgramTemplateImportPhase
 import com.stratum.application.program.importing.ProgramTemplateImportPort

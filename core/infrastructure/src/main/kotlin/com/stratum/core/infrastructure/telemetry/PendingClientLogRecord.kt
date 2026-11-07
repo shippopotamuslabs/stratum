@@ -4,8 +4,8 @@ import android.content.Context
 import androidx.datastore.core.Serializer
 import androidx.datastore.dataStore
 import com.stratum.domain.coroutines.runCatchingCancellable
-import com.stratum.domain.telemetry.ClientLogEntry
-import com.stratum.domain.telemetry.ClientLogSeverity
+import com.stratum.core.infrastructure.telemetry.ClientLogEntry
+import com.stratum.core.infrastructure.telemetry.ClientLogSeverity
 import java.io.InputStream
 import java.io.OutputStream
 import kotlinx.serialization.Serializable

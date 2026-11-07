@@ -1,6 +1,5 @@
 package com.stratum.application.lift
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeEquipmentRepository
 import com.stratum.domain.lift.identity.EquipmentId
 import kotlinx.coroutines.test.runTest
@@ -22,7 +21,7 @@ class FindOrCreateEquipmentByNameUseCaseTest {
     @DisplayName("Existing name resolves to the existing row without creating")
     fun findsExisting() = runTest {
         val repo = FakeEquipmentRepository(initial = listOf(equipment(existingId, "Cables")))
-        val useCase = FindOrCreateEquipmentByNameUseCase(repo, FakeLoggingPort())
+        val useCase = FindOrCreateEquipmentByNameUseCase(repo)
 
         val result = useCase("  Cables  ")
 
@@ -34,7 +33,7 @@ class FindOrCreateEquipmentByNameUseCaseTest {
     @DisplayName("Unknown name creates a custom row and returns its id")
     fun createsWhenMissing() = runTest {
         val repo = FakeEquipmentRepository(initial = emptyList())
-        val useCase = FindOrCreateEquipmentByNameUseCase(repo, FakeLoggingPort())
+        val useCase = FindOrCreateEquipmentByNameUseCase(repo)
 
         val result = useCase("Landmine")
 
@@ -49,7 +48,7 @@ class FindOrCreateEquipmentByNameUseCaseTest {
     @DisplayName("Blank name returns InvalidName and creates nothing")
     fun rejectsBlankName() = runTest {
         val repo = FakeEquipmentRepository(initial = emptyList())
-        val useCase = FindOrCreateEquipmentByNameUseCase(repo, FakeLoggingPort())
+        val useCase = FindOrCreateEquipmentByNameUseCase(repo)
 
         val result = useCase("   ")
 
@@ -58,17 +57,23 @@ class FindOrCreateEquipmentByNameUseCaseTest {
     }
 
     @Test
-    @DisplayName("Repository write failure returns PersistenceFailed with one error log")
+    @DisplayName("Repository write failure returns PersistenceFailed carrying the failure diagnostic")
     fun persistenceFailureOnCreate() = runTest {
         val repo = FakeEquipmentRepository(initial = emptyList())
         repo.failNextWrite = true
-        val logging = FakeLoggingPort()
-        val useCase = FindOrCreateEquipmentByNameUseCase(repo, logging)
+        val useCase = FindOrCreateEquipmentByNameUseCase(repo)
 
         val result = useCase("Landmine")
 
-        assertEquals(FindOrCreateEquipmentResult.PersistenceFailed, result)
-        assertEquals(1, logging.errors.size)
+        val failed = result as FindOrCreateEquipmentResult.PersistenceFailed
+        assertEquals(1, failed.diagnostics.size)
+        val diagnostic = failed.diagnostics.single()
+        assertEquals("FindOrCreateEquipment", diagnostic.tag)
+        assertEquals(
+            "Failed to find or create equipment: Simulated equipment write failure",
+            diagnostic.message,
+        )
+        assertTrue(diagnostic.cause is IllegalStateException)
         assertTrue(repo.current.isEmpty())
     }
 }

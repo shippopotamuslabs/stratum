@@ -1,6 +1,6 @@
 package com.stratum.application.program
 
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.training.ProgramChangeEvent
@@ -17,12 +17,14 @@ import com.stratum.domain.program.Workout
 import com.stratum.domain.program.mergeWorkout
 
 /**
- * Outcome of [SaveWorkoutUseCase] (STR-243).
+ * Outcome of [SaveWorkoutUseCase] (STR-243; STR-237 Route (i)).
  *
  * The not-found branches are expected caller outcomes and are not logged; an
- * operational load/save failure is logged once via [LoggingPort.error] at the
- * use-case boundary and surfaces as [PersistenceFailed]. Coroutine
- * cancellation is not a branch: it propagates.
+ * operational load/save failure rides the [PersistenceFailed] branch as an
+ * [OperationalDiagnostic] (legacy tag + rendered message, real throwable as
+ * cause); the presentation boundary drains it exactly once through its
+ * module's DiagnosticDrain. Coroutine cancellation is not a branch: it
+ * propagates.
  */
 sealed interface SaveWorkoutResult {
     data object Success : SaveWorkoutResult
@@ -37,7 +39,9 @@ sealed interface SaveWorkoutResult {
     data class WorkoutNotFound(val workoutId: WorkoutId) : SaveWorkoutResult
 
     /** The save failed (repository / store I/O). */
-    data object PersistenceFailed : SaveWorkoutResult
+    data class PersistenceFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : SaveWorkoutResult
 }
 
 /**
@@ -51,7 +55,6 @@ sealed interface SaveWorkoutResult {
 class SaveWorkoutUseCase @Inject constructor(
     private val programRepository: ProgramRepository,
     private val programChangeEventRepository: ProgramChangeEventRepository,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(
         workoutId: WorkoutId,
@@ -70,8 +73,15 @@ class SaveWorkoutUseCase @Inject constructor(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Throwable) {
-                loggingPort.error(TAG, "Failed to save workout: ${error.message}", error)
-                return SaveWorkoutResult.PersistenceFailed
+                return SaveWorkoutResult.PersistenceFailed(
+                    diagnostics = listOf(
+                        OperationalDiagnostic(
+                            tag = TAG,
+                            message = "Failed to save workout: ${error.message}",
+                            cause = error,
+                        ),
+                    ),
+                )
             }
         if (program.workouts.none { it.id == workoutId }) {
             return SaveWorkoutResult.WorkoutNotFound(workoutId)
@@ -92,8 +102,15 @@ class SaveWorkoutUseCase @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Throwable) {
-            loggingPort.error(TAG, "Failed to save workout: ${error.message}", error)
-            SaveWorkoutResult.PersistenceFailed
+            SaveWorkoutResult.PersistenceFailed(
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Failed to save workout: ${error.message}",
+                        cause = error,
+                    ),
+                ),
+            )
         }
     }
 

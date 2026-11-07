@@ -6,10 +6,9 @@ import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.subscription.FakeBillingPort
 import com.stratum.core.testing.subscription.FakeEntitlementRepository
 import com.stratum.core.testing.telemetry.FakeAnalyticsPort
-import com.stratum.domain.logging.LogAnalyticsEventUseCase
-import com.stratum.domain.logging.PARAM_ACTION
-import com.stratum.domain.logging.PARAM_SCREEN
-import com.stratum.domain.logging.USER_VISIBLE_ERROR_EVENT
+import com.stratum.core.infrastructure.telemetry.PARAM_ACTION
+import com.stratum.core.infrastructure.telemetry.PARAM_SCREEN
+import com.stratum.core.infrastructure.telemetry.USER_VISIBLE_ERROR_EVENT
 import com.stratum.domain.subscription.BillingPurchaseResult
 import com.stratum.domain.subscription.EntitlementSource
 import com.stratum.domain.subscription.EntitlementState
@@ -48,14 +47,16 @@ class PaywallViewModelTest {
 
     private fun createViewModel(
         analytics: FakeAnalyticsPort = FakeAnalyticsPort(),
+        logging: FakeLoggingPort = FakeLoggingPort(),
     ): PaywallViewModel =
         PaywallViewModel(
-            getSubscriptionProducts = GetSubscriptionProductsUseCase(fakeBilling, FakeLoggingPort()),
-            purchaseSubscription = PurchaseSubscriptionUseCase(fakeBilling, FakeLoggingPort()),
-            restorePurchases = RestorePurchasesUseCase(fakeBilling, fakeRepo, FakeLoggingPort()),
+            getSubscriptionProducts = GetSubscriptionProductsUseCase(fakeBilling),
+            purchaseSubscription = PurchaseSubscriptionUseCase(fakeBilling),
+            restorePurchases = RestorePurchasesUseCase(fakeBilling, fakeRepo),
             observeEntitlement = ObserveEntitlementUseCase(fakeRepo),
             observeBillingPurchaseResults = ObserveBillingPurchaseResultsUseCase(fakeBilling),
-            logAnalytics = LogAnalyticsEventUseCase(analytics),
+            logAnalytics = AnalyticsRecorder(analytics),
+            diagnosticDrain = DiagnosticDrain(logging),
         )
 
     @Test
@@ -131,9 +132,11 @@ class PaywallViewModelTest {
 
     @Test
     fun `query failure is Error`() = runTest {
-        fakeBilling.queryException = IllegalStateException("Play Billing unavailable")
+        val boom = IllegalStateException("Play Billing unavailable")
+        fakeBilling.queryException = boom
         val analytics = FakeAnalyticsPort()
-        viewModel = createViewModel(analytics)
+        val logging = FakeLoggingPort()
+        viewModel = createViewModel(analytics, logging)
 
         viewModel.uiState.test {
             val state = awaitErrorState()
@@ -144,6 +147,14 @@ class PaywallViewModelTest {
         assertEquals(USER_VISIBLE_ERROR_EVENT, event.name)
         assertEquals("paywall", event.params[PARAM_SCREEN])
         assertEquals("load_offerings", event.params[PARAM_ACTION])
+        // STR-237: the boundary drain records the carried diagnostic exactly once.
+        assertEquals(1, logging.errors.size)
+        assertEquals("GetSubscriptionProducts", logging.errors.single().tag)
+        assertEquals(
+            "Failed to load subscription products: Play Billing unavailable",
+            logging.errors.single().message,
+        )
+        org.junit.jupiter.api.Assertions.assertSame(boom, logging.errors.single().throwable)
     }
 
     @Test
@@ -192,9 +203,11 @@ class PaywallViewModelTest {
 
     @Test
     fun `restore failure records analytics and shows message`() = runTest {
-        fakeBilling.restorePurchasesFailure = IllegalStateException("Sync down")
+        val boom = IllegalStateException("Sync down")
+        fakeBilling.restorePurchasesFailure = boom
         val analytics = FakeAnalyticsPort()
-        viewModel = createViewModel(analytics)
+        val logging = FakeLoggingPort()
+        viewModel = createViewModel(analytics, logging)
 
         viewModel.uiState.test {
             awaitContent()
@@ -212,6 +225,11 @@ class PaywallViewModelTest {
         assertEquals(USER_VISIBLE_ERROR_EVENT, event.name)
         assertEquals("paywall", event.params[PARAM_SCREEN])
         assertEquals("restore_purchases", event.params[PARAM_ACTION])
+        // STR-237: the boundary drain records the carried diagnostic exactly once.
+        assertEquals(1, logging.errors.size)
+        assertEquals("RestorePurchases", logging.errors.single().tag)
+        assertEquals("Failed to restore purchases: Sync down", logging.errors.single().message)
+        org.junit.jupiter.api.Assertions.assertSame(boom, logging.errors.single().throwable)
     }
 
     @Test

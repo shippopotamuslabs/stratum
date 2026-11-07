@@ -1,7 +1,7 @@
 package com.stratum.core.testing.telemetry
 
-import com.stratum.domain.telemetry.ClientLogBatch
-import com.stratum.domain.telemetry.TelemetryUploadPort
+import com.stratum.core.infrastructure.telemetry.ClientLogBatch
+import com.stratum.core.infrastructure.telemetry.TelemetryUploadPort
 
 /**
  * In-memory [TelemetryUploadPort] for unit tests. Records uploaded batches;

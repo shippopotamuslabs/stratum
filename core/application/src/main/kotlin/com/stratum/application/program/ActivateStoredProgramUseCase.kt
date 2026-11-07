@@ -1,6 +1,6 @@
 package com.stratum.application.program
 
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.schedule.resolveInitialCycleStartEpochDay
 import javax.inject.Inject
@@ -8,12 +8,14 @@ import kotlin.coroutines.cancellation.CancellationException
 import com.stratum.domain.program.Program
 
 /**
- * Outcome of [ActivateStoredProgramUseCase] (STR-243).
+ * Outcome of [ActivateStoredProgramUseCase] (STR-243; STR-237 Route (i)).
  *
  * The refusal branches are expected caller outcomes and are not logged; an
- * operational load/save failure is logged once via [LoggingPort.error] at the
- * use-case boundary and surfaces as [PersistenceFailed]. Coroutine
- * cancellation is not a branch: it propagates.
+ * operational load/save failure rides the [PersistenceFailed] branch as an
+ * [OperationalDiagnostic] (legacy tag + rendered message, real throwable as
+ * cause); the presentation boundary drains it exactly once through its
+ * module's DiagnosticDrain. Coroutine cancellation is not a branch: it
+ * propagates.
  */
 sealed interface ActivateStoredProgramResult {
     data object Success : ActivateStoredProgramResult
@@ -31,7 +33,9 @@ sealed interface ActivateStoredProgramResult {
     data object NoExercises : ActivateStoredProgramResult
 
     /** The activation load/save failed (repository / store I/O). */
-    data object PersistenceFailed : ActivateStoredProgramResult
+    data class PersistenceFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : ActivateStoredProgramResult
 }
 
 /**
@@ -45,7 +49,6 @@ sealed interface ActivateStoredProgramResult {
  */
 class ActivateStoredProgramUseCase @Inject constructor(
     private val programRepository: ProgramRepository,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(programId: ProgramId): ActivateStoredProgramResult =
         try {
@@ -53,8 +56,15 @@ class ActivateStoredProgramUseCase @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Throwable) {
-            loggingPort.error(TAG, "Failed to activate program: ${error.message}", error)
-            ActivateStoredProgramResult.PersistenceFailed
+            ActivateStoredProgramResult.PersistenceFailed(
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Failed to activate program: ${error.message}",
+                        cause = error,
+                    ),
+                ),
+            )
         }
 
     private suspend fun doInvoke(programId: ProgramId): ActivateStoredProgramResult {

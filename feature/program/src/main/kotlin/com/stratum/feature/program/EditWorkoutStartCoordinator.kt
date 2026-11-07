@@ -2,6 +2,7 @@ package com.stratum.feature.program
 
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.application.training.AbandonTrainingSessionResult
 import com.stratum.application.training.AbandonTrainingSessionUseCase
 import com.stratum.application.training.ObserveCycleProgressUseCase
@@ -25,6 +26,7 @@ internal class EditWorkoutStartCoordinator(
     private val observeCycleProgress: ObserveCycleProgressUseCase,
     private val abandonTrainingSession: AbandonTrainingSessionUseCase,
     private val manageWorkoutOverlay: ManageWorkoutOverlayUseCase,
+    private val diagnosticDrain: DiagnosticDrain,
 ) {
     enum class DirtyResolution {
         Save,
@@ -115,17 +117,35 @@ internal class EditWorkoutStartCoordinator(
 
     private suspend fun abandonActiveSessionOrNull(): String? {
         val session = observeCycleProgress().first().activeSession ?: return null
-        if (abandonTrainingSession(session.id) != AbandonTrainingSessionResult.Success) {
+        val abandonResult = abandonTrainingSession(session.id)
+        if (abandonResult is AbandonTrainingSessionResult.PersistenceFailed) {
+            diagnosticDrain.drain(abandonResult.diagnostics)
+        }
+        if (abandonResult != AbandonTrainingSessionResult.Success) {
             return MSG_ABANDON_FAILED
         }
-        manageWorkoutOverlay.clear()
+        diagnosticDrain.drain(manageWorkoutOverlay.clear())
         return null
     }
 
     private suspend fun startProgramWorkout(workoutId: WorkoutId): StartOutcome {
-        return when (startTrainingSession(StartTrainingSessionRequest.ProgramWorkout(workoutId))) {
+        return when (val result = startTrainingSession(StartTrainingSessionRequest.ProgramWorkout(workoutId))) {
             is StartTrainingSessionResult.Success -> StartOutcome.Navigate(workoutId.value)
-            is StartTrainingSessionResult.ActiveSessionExists -> StartOutcome.UserMessage(MSG_START_WORKOUT_FAILED)
+            is StartTrainingSessionResult.PersistenceFailed -> {
+                // STR-237: the domain-owned outcome carries the failure as a
+                // diagnostic value; render the legacy tag/message here and
+                // drain exactly once.
+                result.diagnostics.forEach { diagnostic ->
+                    diagnosticDrain.drain(
+                        OperationalDiagnostic(
+                            tag = TAG_START_TRAINING_SESSION,
+                            message = "Failed to start training session: ${diagnostic.cause.message}",
+                            cause = diagnostic.cause,
+                        ),
+                    )
+                }
+                StartOutcome.UserMessage(MSG_START_WORKOUT_FAILED)
+            }
             else -> StartOutcome.UserMessage(MSG_START_WORKOUT_FAILED)
         }
     }
@@ -141,6 +161,8 @@ internal class EditWorkoutStartCoordinator(
     }
 
     companion object {
+        /** Legacy tag of StartTrainingSessionUseCase's failure record (STR-237). */
+        const val TAG_START_TRAINING_SESSION = "StartTrainingSession"
         const val MSG_START_WORKOUT_FAILED = "Couldn't start that workout. Try again."
         const val MSG_ABANDON_FAILED = "Couldn't cancel the workout. Try again."
         const val MSG_START_BLOCKED_PLACEHOLDER =

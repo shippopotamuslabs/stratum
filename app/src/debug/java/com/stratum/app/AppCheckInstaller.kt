@@ -2,7 +2,7 @@ package com.stratum.app
 
 import com.google.firebase.appcheck.FirebaseAppCheck
 import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.core.infrastructure.logging.LoggingPort
 
 /**
  * Debug-only App Check install. Release uses the same FQCN under `src/release`.

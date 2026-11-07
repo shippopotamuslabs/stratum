@@ -1,6 +1,6 @@
 package com.stratum.application.checkin
 
-import com.stratum.core.testing.logging.FakeLoggingPort
+import com.stratum.domain.checkin.CheckInSkippedRowDiagnostic
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.response.FakeLiftWeeklyPerformanceRepository
@@ -425,22 +425,20 @@ class EvaluateCheckInUseCaseTest {
         perf: FakeLiftWeeklyPerformanceRepository = FakeLiftWeeklyPerformanceRepository(),
         events: FakeProgramChangeEventRepository = FakeProgramChangeEventRepository(),
         snapshots: FakeMuscleVolumeResponseSnapshotRepository = FakeMuscleVolumeResponseSnapshotRepository(),
-        logging: FakeLoggingPort = FakeLoggingPort(),
     ): EvaluateCheckInUseCase =
         EvaluateCheckInUseCase(
             programRepository = FakeProgramRepository(program),
             liftRepository = lifts,
             liftWeeklyPerformanceRepository = perf,
             programChangeEventRepository = events,
-            loggingPort = logging,
             rankSwapCandidates = RankSwapCandidatesUseCase(lifts),
             computeProgramMuscleVolume = ComputeProgramMuscleVolumeUseCase(),
             muscleVolumeResponseSnapshotRepository = snapshots,
         )
 
     @Test
-    @DisplayName("skipped program-change rows are drained to the log exactly once")
-    fun skippedRowsDrainedOnce() = runTest {
+    @DisplayName("skipped program-change rows ride the evaluation as diagnostics (STR-237 Special 2)")
+    fun skippedRowsCarriedAsDiagnostics() = runTest {
         val lifts = FakeLiftRepository()
         lifts.seedLifts(listOf(BENCH))
         val perf = FakeLiftWeeklyPerformanceRepository()
@@ -452,14 +450,16 @@ class EvaluateCheckInUseCaseTest {
                 eventType = ProgramChangeEventType.SCHEME_CHANGED,
             ),
         )
-        val logging = FakeLoggingPort()
         val program = singleLiftProgram(BENCH.id, setCount = 10, createdAt = now.minus(8 * 7, ChronoUnit.DAYS))
-        evaluateUseCase(program, lifts, perf, events, logging = logging)(CheckInSubjectiveFeedback(), now)
-        assertEquals(1, logging.warnings.size)
-        assertEquals("ProgramChangeEvents", logging.warnings.single().tag)
+        val evaluation = evaluateUseCase(program, lifts, perf, events)(CheckInSubjectiveFeedback(), now)
         assertEquals(
-            "Skipping undecodable program_change_event id=evt-bad type=SCHEME_CHANGED",
-            logging.warnings.single().message,
+            listOf(
+                CheckInSkippedRowDiagnostic(
+                    id = ProgramChangeEventId("evt-bad"),
+                    eventType = ProgramChangeEventType.SCHEME_CHANGED,
+                ),
+            ),
+            evaluation!!.diagnostics,
         )
     }
 

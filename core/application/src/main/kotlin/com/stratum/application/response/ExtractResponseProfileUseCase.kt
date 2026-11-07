@@ -5,7 +5,7 @@ import com.stratum.application.importing.InsightsAnalysisScope
 import com.stratum.application.importing.LiftTrainingInsightsRepository
 import com.stratum.application.importing.MuscleVolumeBaselineRepository
 import com.stratum.application.lift.LiftRepository
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.application.training.TrainingLogRepository
 import com.stratum.domain.training.toMovementPatternSet
@@ -39,16 +39,20 @@ import com.stratum.domain.training.LoggedSet
  *   and MEV/PV/RC landmarks.
  */
 /**
- * Outcome of [ExtractResponseProfileUseCase] (STR-243): the extracted
- * [ExtractResponseProfileSummary], or [Failed] when the extraction failed
- * operationally (repository reads/writes, persistence). The originating
- * throwable is logged once at the use-case boundary, so it never crosses as a
- * payload. Coroutine cancellation is not a branch: it propagates.
+ * Outcome of [ExtractResponseProfileUseCase] (STR-243; STR-237 Route (i)): the
+ * extracted [ExtractResponseProfileSummary], or [Failed] when the extraction
+ * failed operationally (repository reads/writes, persistence). On failure the
+ * operational-failure record rides the [Failed] branch as an
+ * [OperationalDiagnostic] (legacy tag + rendered message, real throwable as
+ * cause); the consuming boundary drains it exactly once. Coroutine
+ * cancellation is not a branch: it propagates.
  */
 sealed interface ExtractResponseProfileOutcome {
     data class Extracted(val summary: ExtractResponseProfileSummary) : ExtractResponseProfileOutcome
 
-    data object Failed : ExtractResponseProfileOutcome
+    data class Failed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : ExtractResponseProfileOutcome
 }
 
 class ExtractResponseProfileUseCase @Inject constructor(
@@ -60,7 +64,6 @@ class ExtractResponseProfileUseCase @Inject constructor(
     private val responseProfilePersistence: ResponseProfilePersistencePort,
     private val extractor: ResponseObservationExtractor,
     private val experimentRegistry: ExperimentRegistry,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(
         provenLiftIds: Set<LiftId> = emptySet(),
@@ -71,8 +74,15 @@ class ExtractResponseProfileUseCase @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Throwable) {
-            loggingPort.error(TAG, "Failed to extract response profile: ${error.message}", error)
-            ExtractResponseProfileOutcome.Failed
+            ExtractResponseProfileOutcome.Failed(
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Failed to extract response profile: ${error.message}",
+                        cause = error,
+                    ),
+                ),
+            )
         }
     }
 

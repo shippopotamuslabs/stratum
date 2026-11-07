@@ -31,7 +31,6 @@ import com.stratum.application.lift.SaveLiftNotesUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
-import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.application.program.GetProgramByIdUseCase
 import com.stratum.application.program.SaveWorkoutUseCase
 import com.stratum.domain.program.identity.WorkoutId
@@ -121,7 +120,6 @@ class WorkoutViewModel @Inject constructor(
     private val workoutEditSession: WorkoutEditSession,
     private val liveWorkoutSurfaces: LiveWorkoutSurfaces,
     observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
-    private val logError: LogErrorUseCase,
     private val saveLiftNotesUseCase: SaveLiftNotesUseCase,
     private val getPastSessionNotesForLift: GetPastSessionNotesForLiftUseCase,
     private val getLiftNoteLists: GetLiftNoteListsUseCase,
@@ -131,6 +129,7 @@ class WorkoutViewModel @Inject constructor(
     private val getRecentlyUsedEquipment: GetRecentlyUsedEquipmentForLiftUseCase,
     private val equipmentPickResult: EquipmentPickResult,
     private val rewriteSessionLiftEquipment: RewriteSessionLiftEquipmentUseCase,
+    private val diagnosticDrain: DiagnosticDrain,
 ) : ViewModel() {
 
     /**
@@ -250,7 +249,7 @@ class WorkoutViewModel @Inject constructor(
             observeLiftTrainingInsights = observeLiftTrainingInsights,
             manageWorkoutOverlay = manageWorkoutOverlay,
             getSessionPinnedNoteLists = getSessionPinnedNoteLists,
-            logError = logError,
+            diagnosticDrain = diagnosticDrain,
         )
 
     init {
@@ -309,7 +308,7 @@ class WorkoutViewModel @Inject constructor(
                     is EditSessionEvent.LiftSelected -> {
                         val activeWorkoutId = session.activeWorkoutId()?.value
                         if (event.workoutId != activeWorkoutId) {
-                            logError(
+                            diagnosticDrain.recordError(
                                 TAG,
                                 "Ignored LiftSelected: event workoutId (${event.workoutId}) " +
                                     "does not match active session ($activeWorkoutId)",
@@ -326,7 +325,7 @@ class WorkoutViewModel @Inject constructor(
                     is EditSessionEvent.LiftsSelected -> {
                         val activeWorkoutId = session.activeWorkoutId()?.value
                         if (event.workoutId != activeWorkoutId) {
-                            logError(
+                            diagnosticDrain.recordError(
                                 TAG,
                                 "Ignored LiftsSelected: event workoutId (${event.workoutId}) " +
                                     "does not match active session ($activeWorkoutId)",
@@ -343,7 +342,7 @@ class WorkoutViewModel @Inject constructor(
                         if (event.workoutId == activeWorkoutId) {
                             reorderLifts(event.orderedWorkoutLiftIds)
                         } else {
-                            logError(
+                            diagnosticDrain.recordError(
                                 TAG,
                                 "Ignored LiftsReordered: event workoutId (${event.workoutId}) " +
                                     "does not match active session ($activeWorkoutId)",
@@ -429,7 +428,13 @@ class WorkoutViewModel @Inject constructor(
                     if (workout == null) {
                         // Program template deleted mid-session: abandon orphan and surface empty.
                         if (session.cachedSessionId() != trainingSession.id) {
-                            processScopedAbandon.abandon(trainingSession.id) { /* recovery — best effort */ }
+                            // Recovery — best effort, but a failed delete still
+                            // drains its carried diagnostics exactly once (STR-237).
+                            processScopedAbandon.abandon(trainingSession.id) { result ->
+                                if (result is AbandonTrainingSessionResult.PersistenceFailed) {
+                                    diagnosticDrain.drain(result.diagnostics)
+                                }
+                            }
                         }
                         session.send(
                             SessionCommand.ApplyCycleSnapshot(
@@ -653,6 +658,9 @@ class WorkoutViewModel @Inject constructor(
                     newEquipmentId = EquipmentId(prompt.newId),
                 )
             rewriteInFlight = false
+            if (result is RewriteSessionLiftEquipmentResult.PersistenceFailed) {
+                diagnosticDrain.drain(result.diagnostics)
+            }
             if (result == RewriteSessionLiftEquipmentResult.Success) {
                 swapEquipment(WorkoutLiftId(prompt.workoutLiftId), EquipmentId(prompt.newId))
                 _equipmentRewritePrompt.value = null
@@ -825,7 +833,8 @@ class WorkoutViewModel @Inject constructor(
             val result =
                 when (outcome) {
                     is SaveLiftNotesOutcome.Success -> outcome.result
-                    SaveLiftNotesOutcome.PersistenceFailed -> {
+                    is SaveLiftNotesOutcome.PersistenceFailed -> {
+                        diagnosticDrain.drain(outcome.diagnostics)
                         _userMessage.value = MSG_NOTES_SAVE_FAILED
                         return@launch
                     }
@@ -870,7 +879,7 @@ class WorkoutViewModel @Inject constructor(
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (error: Throwable) {
-                    logError(TAG, "Session command dropped: ${error.message}", error)
+                    diagnosticDrain.recordError(TAG, "Session command dropped: ${error.message}", error)
                     _userMessage.value = MSG_SESSION_COMMAND_DROPPED
                 }
             }
@@ -901,7 +910,7 @@ class WorkoutViewModel @Inject constructor(
                 sessionObservationJob = null
                 session.send(SessionCommand.BeginAbandon)
                 session.send(SessionCommand.FinalizeAbandonLocal)
-                manageWorkoutOverlay.clear()
+                diagnosticDrain.drain(manageWorkoutOverlay.clear())
                 _events.send(WorkoutUiEvent.NavigateBackAfterAbandon)
             }
             return
@@ -917,6 +926,9 @@ class WorkoutViewModel @Inject constructor(
             session.send(SessionCommand.BeginAbandon)
             processScopedAbandon.abandon(trainingSessionId) { result ->
                 viewModelScope.launch {
+                    if (result is AbandonTrainingSessionResult.PersistenceFailed) {
+                        diagnosticDrain.drain(result.diagnostics)
+                    }
                     if (result != AbandonTrainingSessionResult.Success) {
                         session.send(SessionCommand.CancelAbandon)
                         retainLoadedUiForExit = false
@@ -938,7 +950,7 @@ class WorkoutViewModel @Inject constructor(
                     sessionObservationJob?.cancel()
                     sessionObservationJob = null
                     session.send(SessionCommand.FinalizeAbandonLocal)
-                    manageWorkoutOverlay.clear()
+                    diagnosticDrain.drain(manageWorkoutOverlay.clear())
                     _events.send(WorkoutUiEvent.NavigateBackAfterAbandon)
                 }
             }

@@ -4,7 +4,7 @@ package com.stratum.domain.subscription
  * Diagnostic value for a degraded-but-successful entitlement sync (diagnostics as
  * values, CODE_STYLE_RULES § "Partial success"). The repository returns these on
  * its diagnostics flow instead of logging them; the app-shell boundary drains
- * each one through `LoggingPort` exactly once. Diagnostics never reach the UI.
+ * each one through its error wiring exactly once. Diagnostics never reach the UI.
  * The Play purchase token is deliberately not carried: it must never be logged.
  */
 sealed interface EntitlementDiagnostic {

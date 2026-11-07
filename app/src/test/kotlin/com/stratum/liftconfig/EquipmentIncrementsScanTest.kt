@@ -5,6 +5,7 @@ import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.featureflag.FakeFeatureFlagRepository
 import com.stratum.core.testing.lift.FakeIncrementScanPort
 import com.stratum.core.testing.logging.FakeLoggingPort
+import com.stratum.app.DiagnosticDrain
 import com.stratum.core.testing.onboarding.FakeEquipmentProposalPreferences
 import com.stratum.core.testing.onboarding.FakeEquipmentRepository
 import com.stratum.core.testing.onboarding.FakeLiftRepository
@@ -94,35 +95,29 @@ class EquipmentIncrementsScanTest {
             setEquipmentIncrementTiers =
                 SetEquipmentIncrementTiersUseCase(
                     fakeEquipmentRepository,
-                    FakeLoggingPort(),
                 ),
             renameAndSetIncrementTiers =
                 RenameAndSetIncrementTiersUseCase(
                     fakeEquipmentRepository,
-                    FakeLoggingPort(),
                 ),
             forkEquipmentWithTiers =
                 ForkEquipmentWithTiersUseCase(
                     ForkEquipmentUseCase(
                         fakeEquipmentRepository,
-                        FakeLoggingPort(),
                     ),
                     SetEquipmentIncrementTiersUseCase(
                         fakeEquipmentRepository,
-                        FakeLoggingPort(),
                     ),
-                    SetLiftEquipmentUseCase(fakeLiftRepository, fakeEquipmentRepository, FakeLoggingPort()),
+                    SetLiftEquipmentUseCase(fakeLiftRepository, fakeEquipmentRepository),
                 ),
-            setLiftEquipment = SetLiftEquipmentUseCase(fakeLiftRepository, fakeEquipmentRepository, FakeLoggingPort()),
+            setLiftEquipment = SetLiftEquipmentUseCase(fakeLiftRepository, fakeEquipmentRepository),
             dismissEquipmentProposal =
                 DismissEquipmentProposalUseCase(
                     fakeProposalPrefs,
-                    FakeLoggingPort(),
                 ),
             deleteCustomEquipment =
                 DeleteCustomEquipmentUseCase(
                     fakeEquipmentRepository,
-                    FakeLoggingPort(),
                 ),
             getDeleteImpact =
                 GetEquipmentDeleteImpactUseCase(
@@ -139,10 +134,10 @@ class EquipmentIncrementsScanTest {
                 IncrementScanDelegate(
                     ScanIncrementTiersUseCase(
                         scanPort,
-                        FakeLoggingPort(),
                     ),
                     ObserveIncrementsAiScanUseCase(fakeFeatureFlags),
                 ),
+            diagnosticDrain = DiagnosticDrain(FakeLoggingPort()),
         )
 
     @Test

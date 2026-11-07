@@ -1,7 +1,9 @@
 package com.stratum.core.infrastructure.work
 
+import com.stratum.application.checkin.CheckInPreferenceResult
 import com.stratum.application.checkin.MarkCheckInPendingUseCase
 import com.stratum.application.importing.InsightsAnalysisScope
+import com.stratum.core.infrastructure.logging.LoggingPort
 import com.stratum.application.response.ExtractResponseProfileOutcome
 import com.stratum.application.response.ExtractResponseProfileUseCase
 import com.stratum.domain.response.RE_EXTRACT_MIN_COMPLETED_WORKOUTS
@@ -41,6 +43,7 @@ class ResponseModelingWork @Inject constructor(
     private val metadataRepository: ResponseProfileMetadataRepository,
     private val trainingLogRepository: TrainingLogRepository,
     private val markCheckInPending: MarkCheckInPendingUseCase,
+    private val loggingPort: LoggingPort,
 ) {
 
     sealed interface Outcome {
@@ -68,23 +71,36 @@ class ResponseModelingWork @Inject constructor(
             // Null metadata, enough new workouts, or forced history invalidation → full All-history extract.
 
             when (
-                extractResponseProfile(
-                    provenLiftIds = emptySet(),
-                    scope = InsightsAnalysisScope.All,
-                )
+                val outcome =
+                    extractResponseProfile(
+                        provenLiftIds = emptySet(),
+                        scope = InsightsAnalysisScope.All,
+                    )
             ) {
                 is ExtractResponseProfileOutcome.Extracted -> {
                     if (isReExtract && !forceHistoryInvalidation) {
                         // Extract watermark already advanced; mark pending check-in.
                         // History-invalidation force runs intentionally skip check-in.
-                        markCheckInPending(Instant.now())
+                        // STR-237: this worker is the boundary for the mark-pending
+                        // outcome — its failure diagnostics are recorded exactly once here.
+                        val pending = markCheckInPending(Instant.now())
+                        if (pending is CheckInPreferenceResult.PersistenceFailed) {
+                            pending.diagnostics.forEach { diagnostic ->
+                                loggingPort.error(diagnostic.tag, diagnostic.message, diagnostic.cause)
+                            }
+                        }
                     }
                     Outcome.Success
                 }
-                ExtractResponseProfileOutcome.Failed ->
-                    // The extract failure was logged once at the use case's boundary;
-                    // this value only drives the worker's retry decision + its log.
+                is ExtractResponseProfileOutcome.Failed -> {
+                    // STR-237: the extract failure record rides the outcome
+                    // branch; this worker is its boundary and records it
+                    // exactly once. The Failed value drives the retry decision.
+                    outcome.diagnostics.forEach { diagnostic ->
+                        loggingPort.error(diagnostic.tag, diagnostic.message, diagnostic.cause)
+                    }
                     Outcome.Failed(IllegalStateException("Response profile extraction failed."))
+                }
             }
         } catch (error: CancellationException) {
             throw error

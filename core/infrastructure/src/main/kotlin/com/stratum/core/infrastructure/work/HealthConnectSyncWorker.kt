@@ -10,7 +10,7 @@ import com.stratum.application.healthconnect.HealthSyncDiagnostic
 import com.stratum.application.healthconnect.HealthSyncFailureKind
 import com.stratum.application.healthconnect.toHealthFailureKind
 import com.stratum.domain.healthconnect.HealthFailureKind
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.core.infrastructure.logging.LoggingPort
 import com.stratum.domain.training.identity.TrainingSessionId
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject

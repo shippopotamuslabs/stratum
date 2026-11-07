@@ -1,0 +1,100 @@
+package com.stratum.core.infrastructure.logging
+
+import com.stratum.core.testing.logging.FakeLoggingPort
+import com.stratum.core.testing.telemetry.FakeAnalyticsPort
+import com.stratum.core.testing.telemetry.FakeCrashTelemetryPort
+import com.stratum.core.testing.telemetry.FakeOutcomeTelemetrySink
+import com.stratum.core.infrastructure.telemetry.TelemetryRouter
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertSame
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.Test
+
+class ProcessErrorSafetyNetTest {
+    private val fakeLogging = FakeLoggingPort()
+    private val sink = FakeOutcomeTelemetrySink()
+    private val crash = FakeCrashTelemetryPort()
+    private val analytics = FakeAnalyticsPort()
+    private val safetyNet = ProcessErrorSafetyNet(fakeLogging, TelemetryRouter(sink, crash, analytics))
+    private var previousHandler: Thread.UncaughtExceptionHandler? = null
+
+    @BeforeEach
+    fun captureHandler() {
+        previousHandler = Thread.getDefaultUncaughtExceptionHandler()
+    }
+
+    @AfterEach
+    fun restoreHandler() {
+        Thread.setDefaultUncaughtExceptionHandler(previousHandler)
+    }
+
+    @Test
+    @DisplayName("uncaught handler logs via LoggingPort then chains to previous handler")
+    fun uncaughtHandlerLogsAndChains() {
+        var chained: Throwable? = null
+        Thread.setDefaultUncaughtExceptionHandler { _, throwable ->
+            chained = throwable
+        }
+
+        safetyNet.installUncaughtExceptionHandler()
+        val failure = IllegalStateException("boom")
+        Thread.getDefaultUncaughtExceptionHandler()!!
+            .uncaughtException(Thread.currentThread(), failure)
+
+        assertEquals(1, fakeLogging.errors.size)
+        assertEquals("Uncaught", fakeLogging.errors.single().tag)
+        assertSame(failure, fakeLogging.errors.single().throwable)
+        assertEquals(false, fakeLogging.errors.single().recordsNonFatal)
+        assertTrue(fakeLogging.errors.single().message.contains("IllegalStateException"))
+        assertTrue(fakeLogging.errors.single().message.contains("boom"))
+        assertFalse(fakeLogging.errors.single().message.contains("\n"))
+        assertSame(failure, chained)
+    }
+
+    @Test
+    @DisplayName("uncaught handler passes a sanitized throwable to the previous handler")
+    fun uncaughtHandlerSanitizesFatalThrowable() {
+        var chained: Throwable? = null
+        Thread.setDefaultUncaughtExceptionHandler { _, throwable ->
+            chained = throwable
+        }
+
+        safetyNet.installUncaughtExceptionHandler()
+        val failure = IllegalStateException("boom user@example.com")
+        Thread.getDefaultUncaughtExceptionHandler()!!
+            .uncaughtException(Thread.currentThread(), failure)
+
+        val reported = chained!!
+        assertTrue(reported !== failure)
+        assertFalse(reported.message!!.contains("user@example.com"))
+        assertTrue(reported.message!!.contains("[REDACTED_EMAIL]"))
+        assertEquals(false, fakeLogging.errors.single().recordsNonFatal)
+        assertFalse(fakeLogging.errors.single().message.contains("user@example.com"))
+    }
+
+    @Test
+    @DisplayName("application CoroutineExceptionHandler routes unhandled child failures once")
+    fun applicationScopeHandlerLogs() = runTest {
+        val scope = CoroutineScope(
+            SupervisorJob() + safetyNet.applicationCoroutineExceptionHandler(),
+        )
+        val failure = RuntimeException("async boom")
+        scope.launch { throw failure }.join()
+
+        assertTrue(fakeLogging.errors.isEmpty(), "terminal boundary must not use the logging port")
+        assertSame(failure, crash.recordedExceptions.single())
+        val counter = analytics.events.single()
+        assertEquals(TelemetryRouter.EVENT_EXCEPTIONAL_OCCURRED, counter.name)
+        assertEquals("ApplicationScope", counter.params[TelemetryRouter.PARAM_BOUNDARY])
+        assertEquals("RuntimeException", counter.params[TelemetryRouter.PARAM_CLASS])
+        assertTrue(sink.outcomes.isEmpty())
+    }
+}

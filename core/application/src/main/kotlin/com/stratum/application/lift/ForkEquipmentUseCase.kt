@@ -1,7 +1,7 @@
 package com.stratum.application.lift
 
 import com.stratum.domain.lift.identity.EquipmentId
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.first
@@ -14,14 +14,15 @@ import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.uniqueifyForkEquipmentName
 
 /**
- * Outcome of forking equipment (STR-243).
+ * Outcome of forking equipment (STR-243; STR-237 Route (i)).
  *
  * Validation branches carry the validation results themselves
  * ([CatalogNames.Validation.Invalid], [IncrementTiersValidationResult.Invalid],
  * [MicroIncrementsValidationResult.Invalid]). The originating throwable of a failed
- * read or write goes once to the diagnostics channel ([LoggingPort.error]) at the
- * use-case boundary; it never crosses as a payload. Coroutine cancellation is not
- * a branch: it propagates as cancellation.
+ * read or write rides the [PersistenceFailed] branch as an [OperationalDiagnostic]
+ * (legacy tag + rendered message, real throwable as cause); the presentation
+ * boundary drains it exactly once through its module's DiagnosticDrain.
+ * Coroutine cancellation is not a branch: it propagates as cancellation.
  */
 sealed interface ForkEquipmentResult {
     data class Success(val forked: ForkedEquipment) : ForkEquipmentResult
@@ -37,7 +38,9 @@ sealed interface ForkEquipmentResult {
         ForkEquipmentResult
 
     /** The parent read or the copy write failed (repository / store I/O). */
-    data object PersistenceFailed : ForkEquipmentResult
+    data class PersistenceFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : ForkEquipmentResult
 }
 
 /**
@@ -57,7 +60,6 @@ data class ForkedEquipment(
 )
 class ForkEquipmentUseCase @Inject constructor(
     private val equipmentRepository: EquipmentRepository,
-    private val loggingPort: LoggingPort,
 ) {
     /**
      * Creates custom equipment named [newName] with a deep copy of [sourceEquipmentId]'s
@@ -119,8 +121,15 @@ class ForkEquipmentUseCase @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (t: Throwable) {
-            loggingPort.error(TAG, "Failed to fork equipment: ${t.message}", t)
-            ForkEquipmentResult.PersistenceFailed
+            ForkEquipmentResult.PersistenceFailed(
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Failed to fork equipment: ${t.message}",
+                        cause = t,
+                    ),
+                ),
+            )
         }
     }
 

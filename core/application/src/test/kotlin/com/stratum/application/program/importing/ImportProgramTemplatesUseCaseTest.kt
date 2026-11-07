@@ -1,6 +1,5 @@
 package com.stratum.application.program.importing
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 
 import com.stratum.core.testing.importing.FakeLiftNameResolverPort
 import com.stratum.core.testing.importing.FakeProgramTemplateImportPort
@@ -61,12 +60,10 @@ class ImportProgramTemplatesUseCaseTest {
         importPort: ProgramTemplateImportPort,
         testScheduler: TestCoroutineScheduler,
         completeOnboarding: CompleteOnboardingUseCase? = null,
-        loggingPort: com.stratum.domain.logging.LoggingPort = FakeLoggingPort(),
     ): ImportProgramTemplatesUseCase {
         val profileRepo = FakeUserTrainingProfileRepository()
         val liftRepo = FakeLiftRepository()
         return ImportProgramTemplatesUseCase(
-            loggingPort = loggingPort,
             importPort = importPort,
             resolver =
                 ResolveProgramTemplateLiftsUseCase(
@@ -239,7 +236,6 @@ class ImportProgramTemplatesUseCaseTest {
         // SUT is the thin-API onboarding wrapper (test_spec Gherkin), not core options.
         val wrapper =
             ImportProgramTemplateUseCase(
-                loggingPort = FakeLoggingPort(),
                 importPort = port,
                 resolver =
                     ResolveProgramTemplateLiftsUseCase(
@@ -576,7 +572,7 @@ class ImportProgramTemplatesUseCaseTest {
     }
 
     @Test
-    @DisplayName("Download failure value returns OperationalFailed and logs once at the boundary")
+    @DisplayName("Download failure value returns OperationalFailed carrying the failure diagnostic")
     fun downloadFailureIsOperational() = runTest {
         val failure = IllegalStateException("storage down")
         val port =
@@ -603,23 +599,24 @@ class ImportProgramTemplatesUseCaseTest {
                 override suspend fun downloadProgramTemplate(storagePath: String): Result<String> =
                     Result.failure(failure)
             }
-        val logging = FakeLoggingPort()
         val result =
             buildUseCase(
                 FakeProgramRepository(),
                 FakeOnboardingRepository(),
                 port,
                 testScheduler,
-                loggingPort = logging,
             )(
                 bytes = byteArrayOf(1),
                 fileName = "p.json",
                 options = libraryOnly,
             )
-        assertEquals(ProgramTemplateImportOutcome.OperationalFailed, result)
-        assertEquals(1, logging.errors.size)
-        assertEquals("ProgramTemplateImport", logging.errors.single().tag)
-        assertEquals("Program import failed: storage down", logging.errors.single().message)
-        assertSame(failure, logging.errors.single().throwable)
+        // STR-237: the record rides the branch as a diagnostic (legacy tag +
+        // rendered message, real throwable as cause); the boundary drains it
+        // exactly once.
+        val failed = result as ProgramTemplateImportOutcome.OperationalFailed
+        assertEquals(1, failed.diagnostics.size)
+        assertEquals("ProgramTemplateImport", failed.diagnostics.single().tag)
+        assertEquals("Program import failed: storage down", failed.diagnostics.single().message)
+        assertSame(failure, failed.diagnostics.single().cause)
     }
 }

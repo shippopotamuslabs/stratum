@@ -3,6 +3,7 @@ package com.stratum.liftconfig
 import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.logging.FakeLoggingPort
+import com.stratum.app.DiagnosticDrain
 import com.stratum.core.testing.onboarding.FakeEquipmentRepository
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
@@ -82,17 +83,14 @@ class ManageEquipmentViewModelTest {
                 addCustomEquipment =
                     AddCustomEquipmentUseCase(
                         fakeEquipmentRepository,
-                        logging,
                     ),
                 forkEquipment =
                     ForkEquipmentUseCase(
                         fakeEquipmentRepository,
-                        logging,
                     ),
                 deleteCustomEquipment =
                     DeleteCustomEquipmentUseCase(
                         fakeEquipmentRepository,
-                        logging,
                     ),
                 getDeleteImpact =
                     GetEquipmentDeleteImpactUseCase(
@@ -101,6 +99,7 @@ class ManageEquipmentViewModelTest {
                         FakeProgramRepository(),
                     ),
                 equipmentPickResult = equipmentPickResult,
+                diagnosticDrain = DiagnosticDrain(logging),
             )
     }
 
@@ -330,16 +329,15 @@ class ManageEquipmentViewModelTest {
                 addCustomEquipment =
                     AddCustomEquipmentUseCase(
                         equipmentRepo,
-                        logging,
                     ),
                 forkEquipment =
                     ForkEquipmentUseCase(
                         equipmentRepo,
-                        logging,
                     ),
-                deleteCustomEquipment = DeleteCustomEquipmentUseCase(equipmentRepo, logging),
+                deleteCustomEquipment = DeleteCustomEquipmentUseCase(equipmentRepo),
                 getDeleteImpact = GetEquipmentDeleteImpactUseCase(equipmentRepo, liftRepo, programRepo),
                 equipmentPickResult = EquipmentPickResult(),
+                diagnosticDrain = DiagnosticDrain(logging),
             )
         vm.uiState.test {
             // Wait for the catalog to contain both rows.

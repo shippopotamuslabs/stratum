@@ -24,6 +24,7 @@ import kotlinx.coroutines.launch
 class HistoryDaySessionsViewModel @Inject constructor(
     private val observeWorkoutHistoryCalendar: ObserveWorkoutHistoryCalendarUseCase,
     private val getWorkoutSessionDetail: GetWorkoutSessionDetailUseCase,
+    private val diagnosticDrain: DiagnosticDrain,
 ) : ViewModel() {
 
     private val _uiState =
@@ -64,6 +65,10 @@ class HistoryDaySessionsViewModel @Inject constructor(
                                     when (val result = getWorkoutSessionDetail(daySession.sessionId)) {
                                         is GetWorkoutSessionDetailResult.Success ->
                                             WorkoutSessionDetailUiMapper.toDaySummary(result.detail)
+                                        is GetWorkoutSessionDetailResult.PersistenceFailed -> {
+                                            diagnosticDrain.drain(result.diagnostics)
+                                            null
+                                        }
                                         else -> null
                                     }
                                 }

@@ -1,6 +1,6 @@
 package com.stratum.application.program
 
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.domain.program.schedule.resolveInitialCycleStartEpochDay
 import com.stratum.domain.training.ProgramChangeEvent
 import com.stratum.domain.training.ProgramChangeEventPayload
@@ -14,12 +14,14 @@ import kotlin.coroutines.cancellation.CancellationException
 import com.stratum.domain.program.Program
 
 /**
- * Outcome of [ActivateProgramUseCase] (STR-243).
+ * Outcome of [ActivateProgramUseCase] (STR-243; STR-237 Route (i)).
  *
  * The validation branches are expected caller outcomes and are not logged;
- * an operational save failure is logged once via [LoggingPort.error] at the
- * use-case boundary and surfaces as [PersistenceFailed]. Coroutine
- * cancellation is not a branch: it propagates.
+ * an operational save failure rides the [PersistenceFailed] branch as an
+ * [OperationalDiagnostic] (legacy tag + rendered message, real throwable as
+ * cause); the presentation boundary drains it exactly once through its
+ * module's DiagnosticDrain. Coroutine cancellation is not a branch: it
+ * propagates.
  */
 sealed interface ActivateProgramResult {
     data object Success : ActivateProgramResult
@@ -31,7 +33,9 @@ sealed interface ActivateProgramResult {
     data object NoExercises : ActivateProgramResult
 
     /** The activation save failed (repository / store I/O). */
-    data object PersistenceFailed : ActivateProgramResult
+    data class PersistenceFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : ActivateProgramResult
 }
 
 /**
@@ -44,7 +48,6 @@ sealed interface ActivateProgramResult {
 class ActivateProgramUseCase @Inject constructor(
     private val programRepository: ProgramRepository,
     private val programChangeEventRepository: ProgramChangeEventRepository,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(program: Program): ActivateProgramResult {
         if (program.workouts.isEmpty()) return ActivateProgramResult.NoWorkouts
@@ -70,8 +73,15 @@ class ActivateProgramUseCase @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Throwable) {
-            loggingPort.error(TAG, "Failed to activate program: ${error.message}", error)
-            ActivateProgramResult.PersistenceFailed
+            ActivateProgramResult.PersistenceFailed(
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Failed to activate program: ${error.message}",
+                        cause = error,
+                    ),
+                ),
+            )
         }
     }
 

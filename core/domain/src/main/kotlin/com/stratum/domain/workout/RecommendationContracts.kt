@@ -14,7 +14,7 @@ const val BACKOFF_REP_FLOOR: Int = 5
 
 /**
  * Overlay-only weight decision (D4). Production consumers typically only need the [Weight];
- * the branch is retained for tests and telemetry.
+ * the branch is retained for tests and reporting.
  *
  * - [Hold]: use this load (prescribed, re-anchored, or a successful too-easy bump).
  * - [Reduce]: use this lighter load so the last remaining set clears [BACKOFF_REP_FLOOR].

@@ -17,7 +17,6 @@ import com.stratum.application.auth.DeleteAccountUseCase
 import com.stratum.application.auth.LogoutUseCase
 import com.stratum.domain.auth.UserProfile
 import com.stratum.domain.checkin.CheckInPreferences
-import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.application.checkin.MarkCheckInPendingUseCase
 import com.stratum.application.checkin.ObserveCheckInPreferencesUseCase
 import com.stratum.application.checkin.SetCheckInEnabledUseCase
@@ -141,25 +140,24 @@ class SettingsViewModelTest {
                 ObserveHealthConnectSyncErrorsUseCase(fakeHealthConnectSyncStatus),
             observeEntitlement =
                 ObserveEntitlementUseCase(fakeEntitlementRepository),
-            setThemeFamily = SetThemeFamilyUseCase(fakeThemePreferences, FakeLoggingPort()),
-            setColorMode = SetColorModeUseCase(fakeThemePreferences, FakeLoggingPort()),
-            setCheckInEnabled = SetCheckInEnabledUseCase(fakeCheckInPreferences, FakeLoggingPort()),
+            setThemeFamily = SetThemeFamilyUseCase(fakeThemePreferences),
+            setColorMode = SetColorModeUseCase(fakeThemePreferences),
+            setCheckInEnabled = SetCheckInEnabledUseCase(fakeCheckInPreferences),
             setEquipmentProposalsEnabled =
-                SetEquipmentProposalsEnabledUseCase(fakeEquipmentProposals, FakeLoggingPort()),
+                SetEquipmentProposalsEnabledUseCase(fakeEquipmentProposals),
             setRepRangeShiftProposalsEnabled =
-                SetRepRangeShiftProposalsEnabledUseCase(fakeRepRangeProposals, FakeLoggingPort()),
+                SetRepRangeShiftProposalsEnabledUseCase(fakeRepRangeProposals),
             setWeightDisplayUnit =
-                SetWeightDisplayUnitUseCase(fakeWeightDisplayPreferences, FakeLoggingPort()),
+                SetWeightDisplayUnitUseCase(fakeWeightDisplayPreferences),
             setHealthConnectEnabled =
                 SetHealthConnectEnabledUseCase(
                     fakeHealthConnectPreferences,
                     fakeHealthConnectSync,
-                    FakeLoggingPort(),
                 ),
-            logError = LogErrorUseCase(loggingPort),
+            diagnosticDrain = DiagnosticDrain(loggingPort),
             clearHealthConnectSyncError =
-                ClearHealthConnectSyncErrorUseCase(fakeHealthConnectSyncStatus, FakeLoggingPort()),
-            markCheckInPending = MarkCheckInPendingUseCase(fakeCheckInPreferences, FakeLoggingPort()),
+                ClearHealthConnectSyncErrorUseCase(fakeHealthConnectSyncStatus),
+            markCheckInPending = MarkCheckInPendingUseCase(fakeCheckInPreferences),
             forceRefreshDerived = forceRefresh,
             logout = LogoutUseCase(
                 authManager = fakeAuth,
@@ -359,7 +357,7 @@ class SettingsViewModelTest {
     @Test
     @DisplayName("rebuild progress failure surfaces message without cooldown")
     fun rebuildProgressFailure() = runTest {
-        forceRefreshResult = ForceRefreshDerivedTrainingDataResult.PersistenceFailed
+        forceRefreshResult = ForceRefreshDerivedTrainingDataResult.PersistenceFailed(emptyList())
         subject = buildViewModel()
 
         subject.uiState.test {

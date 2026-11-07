@@ -9,16 +9,22 @@ package com.stratum.domain.healthconnect
  * boundary reports each one exactly once through its error-logging wiring.
  * Diagnostics never reach the UI.
  *
- * The failure kind is recorded here; the caught `Throwable` is logged once where it is
- * caught (in the metrics use case) and never stored on the diagnostic.
+ * The failure kind is recorded here. For [SnapshotReadFailed] the caught `Throwable`
+ * also rides the diagnostic as a §10 diagnostic value (Sean's AQ1 ruling, 2026-11-06,
+ * amending the earlier never-stored rule for this variant): the metrics use case
+ * records nothing, and the cause is recorded exactly once at the dashboard boundary
+ * drain.
  */
 sealed interface HealthConnectDiagnostic {
     /**
      * The snapshot read failed after grants were resolved, so the pages were assembled
      * from an empty snapshot — indistinguishable from "no metrics" without this record.
      * The read-side failure is unclassified, so the kind is always [HealthFailureKind.Unknown].
+     * [cause] is the real caught throwable, carried as a §10 diagnostic value and
+     * recorded exactly once at the dashboard boundary drain (AQ1 ruling, 2026-11-06).
      */
     data class SnapshotReadFailed(
         val kind: HealthFailureKind,
+        val cause: Throwable,
     ) : HealthConnectDiagnostic
 }

@@ -3,6 +3,7 @@ package com.stratum.liftconfig
 import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.logging.FakeLoggingPort
+import com.stratum.app.DiagnosticDrain
 import com.stratum.core.testing.onboarding.FakeEquipmentRepository
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.application.lift.AddCustomLiftUseCase
@@ -84,9 +85,10 @@ class CreateLiftViewModelTest {
         val logging = FakeLoggingPort()
         subject =
             CreateLiftViewModel(
-                addCustomLift = AddCustomLiftUseCase(fakeLiftRepository, logging),
+                addCustomLift = AddCustomLiftUseCase(fakeLiftRepository),
                 observeEquipmentCatalog = ObserveEquipmentCatalogUseCase(fakeEquipmentRepository),
                 equipmentPickResult = equipmentPickResult,
+                diagnosticDrain = DiagnosticDrain(logging),
             )
     }
 

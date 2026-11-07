@@ -78,7 +78,7 @@ class RunFullHistoricalImportUseCaseTest {
         )
         val (persist, rollback) = buildPersistAndRollback(trainingLogRepo, liftRepo)
         val useCase = RunFullHistoricalImportUseCase(
-            startHistoricalImport = StartHistoricalImportUseCase(jobRepo, FakeLoggingPort()),
+            startHistoricalImport = StartHistoricalImportUseCase(jobRepo),
             historicalImportPort = port,
             persistImportedHistory = persist,
             rollbackHistoricalImport = rollback,
@@ -138,7 +138,7 @@ class RunFullHistoricalImportUseCaseTest {
         val (persist, rollback) = buildPersistAndRollback(trainingLogRepo, liftRepo)
         val useCase =
             RunFullHistoricalImportUseCase(
-                startHistoricalImport = StartHistoricalImportUseCase(jobRepo, FakeLoggingPort()),
+                startHistoricalImport = StartHistoricalImportUseCase(jobRepo),
                 historicalImportPort = port,
                 persistImportedHistory = persist,
                 rollbackHistoricalImport = rollback,
@@ -198,7 +198,7 @@ class RunFullHistoricalImportUseCaseTest {
         val (persist, rollback) = buildPersistAndRollback(trainingLogRepo, liftRepo)
         val useCase =
             RunFullHistoricalImportUseCase(
-                startHistoricalImport = StartHistoricalImportUseCase(jobRepo, FakeLoggingPort()),
+                startHistoricalImport = StartHistoricalImportUseCase(jobRepo),
                 historicalImportPort = port,
                 persistImportedHistory = persist,
                 rollbackHistoricalImport = rollback,
@@ -271,7 +271,7 @@ class RunFullHistoricalImportUseCaseTest {
         val (persist, rollback) = buildPersistAndRollback(trainingLogRepo, liftRepo)
         val useCase =
             RunFullHistoricalImportUseCase(
-                startHistoricalImport = StartHistoricalImportUseCase(jobRepo, FakeLoggingPort()),
+                startHistoricalImport = StartHistoricalImportUseCase(jobRepo),
                 historicalImportPort = port,
                 persistImportedHistory = persist,
                 rollbackHistoricalImport = rollback,
@@ -342,8 +342,7 @@ class RunFullHistoricalImportUseCaseTest {
         val persistence = FakeResponseProfilePersistencePort()
         val extractResponseProfile =
             ExtractResponseProfileUseCase(
-                loggingPort = FakeLoggingPort(),
-                trainingLogRepository = trainingLogRepo,
+                                trainingLogRepository = trainingLogRepo,
                 liftRepository = liftRepo,
                 liftTrainingInsightsRepository = InMemoryLiftInsightsRepository(),
                 muscleVolumeBaselineRepository = InMemoryVolumeRepository(),
@@ -354,7 +353,6 @@ class RunFullHistoricalImportUseCaseTest {
             )
         val persist =
             PersistImportedHistoryUseCase(
-                loggingPort = FakeLoggingPort(),
                 trainingLogRepository = trainingLogRepo,
                 resolveImportLifts =
                     ResolveImportLiftsUseCase(
@@ -366,7 +364,6 @@ class RunFullHistoricalImportUseCaseTest {
                     ),
                 extractTrainingInsights =
                     ExtractTrainingInsightsUseCase(
-                        loggingPort = FakeLoggingPort(),
                         trainingLogRepository = trainingLogRepo,
                         liftTrainingInsightsRepository = InMemoryLiftInsightsRepository(),
                         supersetAffinityRepository = InMemorySupersetRepository(),
@@ -396,7 +393,6 @@ class RunFullHistoricalImportUseCaseTest {
     fun `start failure produces exactly one error record across producer and flow boundaries`() = runTest {
         val trainingLogRepo = FakeTrainingLogRepository()
         val liftRepo = FakeLiftRepository(initialLifts = minimalSeedCatalog())
-        val startLogging = FakeLoggingPort()
         val flowLogging = FakeLoggingPort()
         val throwingJobRepo =
             object : com.stratum.application.importing.ImportJobRepository by FakeImportJobRepository() {
@@ -405,7 +401,7 @@ class RunFullHistoricalImportUseCaseTest {
             }
         val (persist, rollback) = buildPersistAndRollback(trainingLogRepo, liftRepo)
         val useCase = RunFullHistoricalImportUseCase(
-            startHistoricalImport = StartHistoricalImportUseCase(throwingJobRepo, startLogging),
+            startHistoricalImport = StartHistoricalImportUseCase(throwingJobRepo),
             historicalImportPort = FakeHistoricalImportPort(snapshotSequence = emptyList()),
             persistImportedHistory = persist,
             rollbackHistoricalImport = rollback,
@@ -424,10 +420,16 @@ class RunFullHistoricalImportUseCaseTest {
 
         val failed = events.last() as HistoricalImportEvent.Failed
         assertEquals("Could not start import job", failed.message)
-        // The start producer logged the operational failure once at its own
-        // boundary; the flow's event builder adds no second record.
-        assertEquals(1, startLogging.errors.size)
-        assertTrue(flowLogging.errors.isEmpty())
+        // STR-237: the start producer carries the operational failure on its
+        // outcome as a diagnostic; the flow drains it exactly once through its
+        // own port, and the event builder adds no second record.
+        assertEquals(1, flowLogging.errors.size)
+        assertEquals("StartHistoricalImport", flowLogging.errors.single().tag)
+        assertEquals(
+            "Failed to start historical import: job repo down",
+            flowLogging.errors.single().message,
+        )
+        assertTrue(flowLogging.errors.single().throwable is IllegalStateException)
     }
 
     private fun testImportLiftResolutionLogger(): ImportLiftResolutionLogger =

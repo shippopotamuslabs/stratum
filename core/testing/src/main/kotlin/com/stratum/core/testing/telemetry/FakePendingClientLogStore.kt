@@ -1,7 +1,7 @@
 package com.stratum.core.testing.telemetry
 
-import com.stratum.domain.telemetry.ClientLogEntry
-import com.stratum.domain.telemetry.PendingClientLogStore
+import com.stratum.core.infrastructure.telemetry.ClientLogEntry
+import com.stratum.core.infrastructure.telemetry.PendingClientLogStore
 
 /**
  * In-memory [PendingClientLogStore] for unit tests. Seed via [pending];

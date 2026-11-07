@@ -1,7 +1,7 @@
 package com.stratum.application.lift
 
 import com.stratum.domain.lift.identity.LiftSessionNoteId
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.application.program.ProgramRepository
 import java.time.Instant
 import javax.inject.Inject
@@ -14,18 +14,21 @@ import com.stratum.domain.lift.SessionNoteInput
 import com.stratum.domain.lift.sanitizeLiftNoteBody
 
 /**
- * Outcome of saving lift notes (STR-243). [Success] carries the domain
- * [SaveLiftNotesResult] payload (whether the workout pin needs the session
- * overlay). The originating throwable of a failed write goes once to the
- * diagnostics channel ([LoggingPort.error]) at the use-case boundary; it
- * never crosses as a payload. Coroutine cancellation is not a branch: it
- * propagates.
+ * Outcome of saving lift notes (STR-243; STR-237 Route (i)). [Success] carries
+ * the domain [SaveLiftNotesResult] payload (whether the workout pin needs the
+ * session overlay). The originating throwable of a failed write rides the
+ * [PersistenceFailed] branch as an [OperationalDiagnostic] (legacy tag +
+ * rendered message, real throwable as cause); the presentation boundary
+ * drains it exactly once through its module's DiagnosticDrain. Coroutine
+ * cancellation is not a branch: it propagates.
  */
 sealed interface SaveLiftNotesOutcome {
     data class Success(val result: SaveLiftNotesResult) : SaveLiftNotesOutcome
 
     /** A note write failed (repository / store I/O). */
-    data object PersistenceFailed : SaveLiftNotesOutcome
+    data class PersistenceFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : SaveLiftNotesOutcome
 }
 
 /**
@@ -39,7 +42,6 @@ class SaveLiftNotesUseCase @Inject constructor(
     private val liftNotesRepository: LiftNotesRepository,
     private val liftRepository: LiftRepository,
     private val programRepository: ProgramRepository,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(command: SaveLiftNotesCommand): SaveLiftNotesOutcome =
         try {
@@ -76,8 +78,15 @@ class SaveLiftNotesUseCase @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (t: Throwable) {
-            loggingPort.error(TAG, "Failed to save lift notes: ${t.message}", t)
-            SaveLiftNotesOutcome.PersistenceFailed
+            SaveLiftNotesOutcome.PersistenceFailed(
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Failed to save lift notes: ${t.message}",
+                        cause = t,
+                    ),
+                ),
+            )
         }
 
     private suspend fun persistSessionNotes(

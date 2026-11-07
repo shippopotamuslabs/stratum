@@ -1,8 +1,8 @@
 package com.stratum.core.infrastructure.inference
 
-import com.stratum.domain.telemetry.ClientLogBatch
-import com.stratum.domain.telemetry.ClientLogEntry
-import com.stratum.domain.telemetry.ClientLogSeverity
+import com.stratum.core.infrastructure.telemetry.ClientLogBatch
+import com.stratum.core.infrastructure.telemetry.ClientLogEntry
+import com.stratum.core.infrastructure.telemetry.ClientLogSeverity
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.DisplayName

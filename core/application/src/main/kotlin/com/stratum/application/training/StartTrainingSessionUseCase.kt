@@ -1,6 +1,5 @@
 package com.stratum.application.training
 
-import com.stratum.domain.logging.LoggingPort
 import com.stratum.application.program.ProgramRepository
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.schedule.CycleSlot
@@ -11,6 +10,7 @@ import java.util.UUID
 import javax.inject.Inject
 import com.stratum.domain.training.StartTrainingSessionRequest
 import com.stratum.domain.training.StartTrainingSessionResult
+import com.stratum.domain.training.TrainingSessionFailureDiagnostic
 import com.stratum.domain.training.TrainingSession
 import com.stratum.domain.training.TrainingSessionKind
 import com.stratum.domain.program.Workout
@@ -20,7 +20,6 @@ import kotlin.coroutines.cancellation.CancellationException
 class StartTrainingSessionUseCase @Inject constructor(
     private val trainingLogRepository: TrainingLogRepository,
     private val programRepository: ProgramRepository,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(request: StartTrainingSessionRequest): StartTrainingSessionResult {
         return try {
@@ -85,13 +84,15 @@ class StartTrainingSessionUseCase @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (t: Throwable) {
-            loggingPort.error(TAG, "Failed to start training session: ${t.message}", t)
-            StartTrainingSessionResult.PersistenceFailed
+            StartTrainingSessionResult.PersistenceFailed(
+                diagnostics = listOf(
+                    TrainingSessionFailureDiagnostic(cause = t),
+                ),
+            )
         }
     }
 
     private companion object {
-        const val TAG = "StartTrainingSession"
         const val AD_HOC_WORKOUT_NAME = "Empty Workout"
     }
 }

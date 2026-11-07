@@ -8,12 +8,11 @@ import com.stratum.application.program.importing.ImportProgramTemplatesUseCase
 import com.stratum.application.program.importing.ProgramTemplateImportOutcome
 import com.stratum.domain.program.importing.ProgramImportActivation
 import com.stratum.domain.program.importing.ProgramImportRollbackDiagnostic
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.domain.program.importing.ProgramTemplateImportOptions
-import com.stratum.domain.logging.LogAnalyticsEventUseCase
-import com.stratum.domain.logging.LogErrorUseCase
-import com.stratum.domain.logging.PARAM_ACTION
-import com.stratum.domain.logging.PARAM_SCREEN
-import com.stratum.domain.logging.USER_VISIBLE_ERROR_EVENT
+import com.stratum.core.infrastructure.telemetry.PARAM_ACTION
+import com.stratum.core.infrastructure.telemetry.PARAM_SCREEN
+import com.stratum.core.infrastructure.telemetry.USER_VISIBLE_ERROR_EVENT
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,8 +36,8 @@ data class ImportProgramUiState(
 class ImportProgramViewModel @Inject constructor(
     private val importPrograms: ImportProgramTemplatesUseCase,
     private val authManager: AuthManager,
-    private val logAnalytics: LogAnalyticsEventUseCase,
-    private val logError: LogErrorUseCase,
+    private val logAnalytics: AnalyticsRecorder,
+    private val diagnosticDrain: DiagnosticDrain,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ImportProgramUiState())
     val uiState: StateFlow<ImportProgramUiState> = _uiState.asStateFlow()
@@ -117,6 +116,11 @@ class ImportProgramViewModel @Inject constructor(
                     }
                 }
                 else -> {
+                    // STR-237: an operational failure rides the OperationalFailed
+                    // branch as diagnostics and is drained here exactly once.
+                    if (outcome is ProgramTemplateImportOutcome.OperationalFailed) {
+                        diagnosticDrain.drain(outcome.diagnostics)
+                    }
                     // STR-256: a failed orphan rollback rides the PersistFailed branch as
                     // diagnostics and is drained here exactly once. User copy still derives
                     // from the primary message via userFacingImportError below.
@@ -124,11 +128,13 @@ class ImportProgramViewModel @Inject constructor(
                         outcome.diagnostics.forEach { diagnostic ->
                             when (diagnostic) {
                                 is ProgramImportRollbackDiagnostic.RollbackDeleteFailed ->
-                                    logError(
-                                        TAG_IMPORT_ROLLBACK,
-                                        "Program import rollback delete failed: " +
-                                            "program=${diagnostic.programId.value}",
-                                        diagnostic.cause,
+                                    diagnosticDrain.drain(
+                                        OperationalDiagnostic(
+                                            tag = TAG_IMPORT_ROLLBACK,
+                                            message = "Program import rollback delete failed: " +
+                                                "program=${diagnostic.programId.value}",
+                                            cause = diagnostic.cause,
+                                        ),
                                     )
                             }
                         }
@@ -187,7 +193,7 @@ internal fun userFacingImportError(outcome: ProgramTemplateImportOutcome): Strin
             sanitizedImportMessage("Import ended in non-terminal status: ${outcome.status}")
         ProgramTemplateImportOutcome.TimedOut ->
             sanitizedImportMessage("Timed out waiting for import to finish.")
-        ProgramTemplateImportOutcome.OperationalFailed -> "Import failed."
+        is ProgramTemplateImportOutcome.OperationalFailed -> "Import failed."
         is ProgramTemplateImportOutcome.Success -> "Import failed."
     }
 

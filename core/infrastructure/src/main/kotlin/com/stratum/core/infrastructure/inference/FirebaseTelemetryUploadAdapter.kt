@@ -1,8 +1,8 @@
 package com.stratum.core.infrastructure.inference
 
 import com.google.firebase.functions.FirebaseFunctions
-import com.stratum.domain.telemetry.ClientLogBatch
-import com.stratum.domain.telemetry.TelemetryUploadPort
+import com.stratum.core.infrastructure.telemetry.ClientLogBatch
+import com.stratum.core.infrastructure.telemetry.TelemetryUploadPort
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CancellationException
@@ -12,7 +12,7 @@ import kotlinx.coroutines.tasks.await
  * [TelemetryUploadPort] via the `ingestClientLogs` callable (STR-27 tier 2).
  *
  * Own failures are local-logcat only ([AndroidLoggingAdapter.debug]): routing
- * them back through [com.stratum.domain.logging.LoggingPort] would re-enqueue
+ * them back through [com.stratum.core.infrastructure.logging.LoggingPort] would re-enqueue
  * them into the buffer being flushed — an infinite feedback loop.
  */
 @Singleton

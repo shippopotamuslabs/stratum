@@ -1,6 +1,5 @@
 package com.stratum.application.lift
 
-import com.stratum.domain.logging.LoggingPort
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
 import com.stratum.domain.lift.IncrementLattice
@@ -17,10 +16,11 @@ import com.stratum.domain.lift.toStorageLb
  * editor prefill. Micro is best-effort: an invalid micro list is dropped while valid
  * tiers are kept.
  *
- * Empty/invalid outcomes are expected AI-read failures (not crashes), so they are
- * logged at breadcrumb level ([LoggingPort.warning]) with enough context to diagnose
- * the miss without the original photo — never as non-fatals. Callable-level failures
- * stay logged by the inference adapter; this use case only propagates them.
+ * Empty/invalid outcomes are expected AI-read failures (not crashes): they travel
+ * as the typed [ScanIncrementTiersResult] branches, which are the record the
+ * consumer acts on (STR-237: application has no logging capability).
+ * Callable-level failures stay logged by the inference adapter; this use case
+ * only propagates them.
  */
 data class ScannedIncrementTiers(
     val tiers: List<IncrementTier>,
@@ -61,7 +61,6 @@ sealed interface ScanIncrementTiersResult {
  */
 class ScanIncrementTiersUseCase @Inject constructor(
     private val port: IncrementScanPort,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(photo: ScanPhoto): ScanIncrementTiersResult {
         val scanned =
@@ -75,20 +74,10 @@ class ScanIncrementTiersUseCase @Inject constructor(
         val tiers =
             IncrementLattice.prepareScannedTiers(converted, complete = converted.size == rawRowCount)
         if (tiers.isEmpty()) {
-            loggingPort.warning(
-                TAG,
-                "incrementScanEmpty photoBytes=${photo.bytes.size} mimeType=${photo.mimeType} " +
-                    "scannedRows=$rawRowCount droppedRows=${rawRowCount - tiers.size}",
-            )
             return ScanIncrementTiersResult.Empty
         }
         val tierErrors = IncrementLattice.tierErrors(tiers)
         if (tierErrors.isNotEmpty()) {
-            loggingPort.warning(
-                TAG,
-                "incrementScanInvalid photoBytes=${photo.bytes.size} mimeType=${photo.mimeType} " +
-                    "tierCount=${tiers.size} errors=$tierErrors",
-            )
             return ScanIncrementTiersResult.InvalidTiers(
                 IncrementTiersValidationResult.Invalid(tierErrors),
             )
@@ -116,10 +105,4 @@ class ScanIncrementTiersUseCase @Inject constructor(
 
     private fun toStorageLb(amount: Double, unit: Weight.WeightUnit): Double =
         WeightConversion.convertAmount(amount, unit, Weight.WeightUnit.Lb)
-
-    private companion object {
-        // Matches FirebaseIncrementScanAdapter so empty/invalid breadcrumbs sit next
-        // to callable-failure logs for the same scan surface.
-        const val TAG = "StratumIncrementScan"
-    }
 }

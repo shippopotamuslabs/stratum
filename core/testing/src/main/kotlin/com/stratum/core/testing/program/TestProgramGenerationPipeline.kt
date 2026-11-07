@@ -3,8 +3,6 @@ package com.stratum.core.testing.program
 import com.stratum.application.program.generation.BuildProgramWorkoutsUseCase
 import com.stratum.application.program.generation.IntegrateAndValidateProgramUseCase
 import com.stratum.application.program.generation.PlanWeeklyVolumeUseCase
-import com.stratum.core.testing.logging.FakeLoggingPort
-import com.stratum.domain.program.ProgramGenerationTelemetryLogger
 import com.stratum.application.program.generation.pipeline.ProgramGenerationPipeline
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisPort
 
@@ -23,5 +21,4 @@ fun testProgramGenerationPipeline(
         buildProgramWorkouts = BuildProgramWorkoutsUseCase(),
         integrateAndValidate = IntegrateAndValidateProgramUseCase(),
         programSynthesisPort = programSynthesisPort,
-        telemetryLogger = ProgramGenerationTelemetryLogger(FakeLoggingPort()),
     )

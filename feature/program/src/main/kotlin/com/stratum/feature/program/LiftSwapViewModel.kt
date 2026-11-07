@@ -5,9 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.stratum.core.ui.component.LiftSwapFilterIntent
 import com.stratum.core.ui.component.LiftSwapOptionState
 import com.stratum.core.ui.component.LiftSwapSheetState
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.application.lift.RankSwapCandidatesUseCase
 import com.stratum.domain.lift.identity.LiftId
-import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.application.program.SwapWorkoutLiftDiagnostic
 import com.stratum.application.program.SwapWorkoutLiftResult
 import com.stratum.application.program.SwapWorkoutLiftUseCase
@@ -42,7 +42,7 @@ class LiftSwapViewModel @Inject constructor(
     private val rankSwapCandidates: RankSwapCandidatesUseCase,
     private val workoutEditSession: WorkoutEditSession,
     private val swapWorkoutLift: SwapWorkoutLiftUseCase,
-    private val logError: LogErrorUseCase,
+    private val diagnosticDrain: DiagnosticDrain,
 ) : ViewModel() {
     private val targetWorkoutId = MutableStateFlow<String?>(null)
     private val targetWorkoutLiftId = MutableStateFlow<String?>(null)
@@ -224,7 +224,7 @@ class LiftSwapViewModel @Inject constructor(
         when (commitMode) {
             LiftSwapCommitMode.PersistToProgram -> {
                 if (workoutLiftId.isNullOrBlank()) {
-                    logError(TAG, "Cannot persist swap to program: workoutLiftId is null or blank")
+                    diagnosticDrain.recordError(TAG, "Cannot persist swap to program: workoutLiftId is null or blank")
                     return
                 }
                 if (persistSwapJob?.isActive == true) return
@@ -238,8 +238,11 @@ class LiftSwapViewModel @Inject constructor(
                             SwapWorkoutLiftResult.NoActiveProgram,
                             is SwapWorkoutLiftResult.WorkoutLiftNotFound,
                             is SwapWorkoutLiftResult.EquipmentDeleted,
-                            SwapWorkoutLiftResult.PersistenceFailed,
                             -> _userMessage.value = MSG_SWAP_FAILED
+                            is SwapWorkoutLiftResult.PersistenceFailed -> {
+                                diagnosticDrain.drain(result.diagnostics)
+                                _userMessage.value = MSG_SWAP_FAILED
+                            }
                         }
                     }
             }
@@ -261,12 +264,14 @@ class LiftSwapViewModel @Inject constructor(
         for (diagnostic in diagnostics) {
             when (diagnostic) {
                 is SwapWorkoutLiftDiagnostic.PinnedNotesUnreadable ->
-                    logError(
-                        TAG,
-                        "Swap succeeded but pinned notes could not be read: " +
-                            "slot=${diagnostic.workoutLiftId.value} " +
-                            "newLift=${diagnostic.newLiftId.value} — proceeded with empty notes.",
-                        diagnostic.cause,
+                    diagnosticDrain.drain(
+                        OperationalDiagnostic(
+                            tag = TAG,
+                            message = "Swap succeeded but pinned notes could not be read: " +
+                                "slot=${diagnostic.workoutLiftId.value} " +
+                                "newLift=${diagnostic.newLiftId.value} — proceeded with empty notes.",
+                            cause = diagnostic.cause,
+                        ),
                     )
             }
         }

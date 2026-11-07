@@ -3,7 +3,7 @@ package com.stratum.core.infrastructure.inference
 import com.stratum.domain.importing.NearMissExerciseSample
 import com.stratum.domain.importing.ResolveImportLiftsSummary
 import com.stratum.domain.importing.UnmatchedExerciseSample
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.core.infrastructure.logging.LoggingPort
 import javax.inject.Inject
 import javax.inject.Singleton
 

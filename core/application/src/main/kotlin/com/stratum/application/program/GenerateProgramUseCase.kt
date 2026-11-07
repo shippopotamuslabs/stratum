@@ -10,9 +10,10 @@ import com.stratum.application.program.generation.pipeline.PipelineProgress
 import com.stratum.application.program.generation.pipeline.ProgramGenerationPipeline
 import com.stratum.application.program.generation.pipeline.ProgramGenerationPipelineResult
 import com.stratum.domain.program.generation.GenerateProgramFailureKind
+import com.stratum.domain.program.generation.GenerationFailureDiagnostic
+import com.stratum.domain.program.generation.GenerationSynthesisSummary
 import com.stratum.domain.program.generation.GenerateProgramResult
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisException
-import com.stratum.domain.telemetry.TelemetryRouter
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.schema.toDomainProgram
 import com.stratum.domain.program.generation.schema.toProgramNormalizationRequest
@@ -51,7 +52,6 @@ class GenerateProgramUseCase @Inject constructor(
     private val loadContext: ProgramGenerationContextLoader,
     private val pipeline: ProgramGenerationPipeline,
     private val liftRepository: LiftRepository,
-    private val telemetryRouter: TelemetryRouter,
     @DefaultDispatcher private val generationDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) {
     suspend operator fun invoke(
@@ -60,6 +60,10 @@ class GenerateProgramUseCase @Inject constructor(
         onProgress: ProgramGenerationProgressCallback = {},
     ): GenerateProgramResult =
         withContext(generationDispatcher) {
+            // Hoisted so a post-pipeline failure can carry the completed
+            // build's synthesis facts on the Unexpected branch (STR-237
+            // review round 1); assigned when the pipeline result lands.
+            var synthesisSummary: GenerationSynthesisSummary? = null
             try {
                 onProgress(ProgramGenerationProgress(ProgramGenerationProgressPhase.PreparingPayload))
                 val context =
@@ -90,13 +94,17 @@ class GenerateProgramUseCase @Inject constructor(
                                     ),
                             )
                     ) {
-                        is ProgramGenerationPipelineResult.Success -> pipelineResult.program
+                        is ProgramGenerationPipelineResult.Success -> {
+                            synthesisSummary = pipelineResult.synthesis
+                            pipelineResult.program to pipelineResult.synthesis
+                        }
                         is ProgramGenerationPipelineResult.ValidationRejected ->
                             // STR-243: the rejection travels as an outcome branch
                             // carrying the report end-to-end (STR-241 interim mapped
                             // it to a constructed exception value).
                             return@withContext GenerateProgramResult.ValidationRejected(
                                 pipelineResult.report,
+                                synthesis = pipelineResult.synthesis,
                             )
                         is ProgramGenerationPipelineResult.SynthesisRefused ->
                             // STR-243: the refusal travels as an outcome branch;
@@ -106,8 +114,9 @@ class GenerateProgramUseCase @Inject constructor(
                                 pipelineResult.refusal,
                             )
                     }
+                val normalizedProgram = normalized.first
                 var program =
-                    normalized.toDomainProgram(
+                    normalizedProgram.toDomainProgram(
                         restSecondsForLift = { id -> liftsById[id]?.resolvedDefaultRestSeconds() },
                     )
                         .retainOnlyKnownLifts(knownLiftIds)
@@ -138,7 +147,7 @@ class GenerateProgramUseCase @Inject constructor(
                                 ?: resolveInitialCycleStartEpochDay(program),
                     )
                 onProgress(ProgramGenerationProgress(ProgramGenerationProgressPhase.Complete))
-                GenerateProgramResult.Success(program)
+                GenerateProgramResult.Success(program, synthesis = synthesisSummary)
             } catch (error: kotlinx.coroutines.CancellationException) {
                 // Structured cancellation must not become a failure branch.
                 throw error
@@ -149,22 +158,23 @@ class GenerateProgramUseCase @Inject constructor(
                 // expected at the terminal boundary).
                 GenerateProgramResult.SynthesisFailed(error.message ?: FALLBACK_MESSAGE)
             } catch (error: Throwable) {
-                // Unbounded operational failure: recorded exactly once here at
-                // the boundary via the telemetry router (Crashlytics non-fatal
-                // + exceptional_occurred counter with the real throwable),
-                // restoring the pre-STR-243 exceptional record; the branch
-                // carries only the kind (STR-243). Terminal boundaries must
-                // not record it again.
-                telemetryRouter.recordExceptional(EXCEPTIONAL_BOUNDARY, error)
-                GenerateProgramResult.Unexpected(GenerateProgramFailureKind.OperationalFailure)
+                // Unbounded operational failure (STR-237 Special 1):
+                // application has no logging/telemetry capability, so this
+                // use case records nothing; the branch carries the kind plus
+                // a domain diagnostic holding the REAL throwable. The outcome
+                // consumer records it exactly once at its boundary
+                // (CreateProgramGenerateController via
+                // TelemetryRouter.recordExceptional; OnboardingViewModel via
+                // its recorder path).
+                GenerateProgramResult.Unexpected(
+                    kind = GenerateProgramFailureKind.OperationalFailure,
+                    diagnostics = listOf(GenerationFailureDiagnostic(cause = error)),
+                    synthesis = synthesisSummary,
+                )
             }
         }
 
     private companion object {
-        // Boundary name for the exceptional record: the same boundary the
-        // Create Program terminal boundary used before STR-243, so the
-        // exceptional_occurred counter's boundary/class params are unchanged.
-        const val EXCEPTIONAL_BOUNDARY = "CreateProgramGenerate"
         const val FALLBACK_MESSAGE = "Generation failed"
     }
 }

@@ -1,6 +1,5 @@
 package com.stratum.application.lift
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
@@ -20,7 +19,7 @@ class UpdateLiftMusclesUseCaseTest {
     @DisplayName("Given custom lift when muscles updated then repository reflects them")
     fun updatesMusclesOnCustom() = runTest {
         val repo = FakeLiftRepository(listOf(sampleLift(isCustom = true)))
-        val useCase = UpdateLiftMusclesUseCase(repo, FakeLoggingPort())
+        val useCase = UpdateLiftMusclesUseCase(repo)
 
         val result =
             useCase(
@@ -39,7 +38,7 @@ class UpdateLiftMusclesUseCaseTest {
     @DisplayName("Given catalog lift when muscles updated then fails without writing")
     fun rejectsCatalogLift() = runTest {
         val repo = FakeLiftRepository(listOf(sampleLift(isCustom = false)))
-        val useCase = UpdateLiftMusclesUseCase(repo, FakeLoggingPort())
+        val useCase = UpdateLiftMusclesUseCase(repo)
 
         val result =
             useCase(
@@ -56,7 +55,7 @@ class UpdateLiftMusclesUseCaseTest {
     @DisplayName("Given empty primary when updated then fails without writing")
     fun rejectsEmptyPrimary() = runTest {
         val repo = FakeLiftRepository(listOf(sampleLift(isCustom = true)))
-        val useCase = UpdateLiftMusclesUseCase(repo, FakeLoggingPort())
+        val useCase = UpdateLiftMusclesUseCase(repo)
 
         val result =
             useCase(
@@ -80,7 +79,7 @@ class UpdateLiftMusclesUseCaseTest {
     @DisplayName("Given secondary overlapping primary when updated then secondary is de-duped")
     fun deDupesSecondary() = runTest {
         val repo = FakeLiftRepository(listOf(sampleLift(isCustom = true)))
-        val useCase = UpdateLiftMusclesUseCase(repo, FakeLoggingPort())
+        val useCase = UpdateLiftMusclesUseCase(repo)
 
         val result =
             useCase(
@@ -99,7 +98,7 @@ class UpdateLiftMusclesUseCaseTest {
     @DisplayName("Given missing lift when muscles updated then LiftNotFound")
     fun missingLiftFails() = runTest {
         val repo = FakeLiftRepository()
-        val useCase = UpdateLiftMusclesUseCase(repo, FakeLoggingPort())
+        val useCase = UpdateLiftMusclesUseCase(repo)
 
         val result =
             useCase(

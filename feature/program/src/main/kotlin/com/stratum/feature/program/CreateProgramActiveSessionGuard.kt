@@ -26,6 +26,7 @@ internal class CreateProgramActiveSessionGuard(
     private val state: MutableStateFlow<CreateProgramUiState>,
     private val observeActiveSession: ObserveActiveSessionUseCase,
     private val abandonTrainingSession: AbandonTrainingSessionUseCase,
+    private val diagnosticDrain: DiagnosticDrain,
 ) {
     private var pendingPersistMode: CreateProgramPersistMode? = null
     private var pendingPersistOnDone: (() -> Unit)? = null
@@ -93,7 +94,11 @@ internal class CreateProgramActiveSessionGuard(
         val reason = state.value.pendingActiveSessionDiscard ?: return null
         val session = inProgressSessionOrNull()
         if (session != null) {
-            if (abandonTrainingSession(session.id) != AbandonTrainingSessionResult.Success) {
+            val abandonResult = abandonTrainingSession(session.id)
+            if (abandonResult is AbandonTrainingSessionResult.PersistenceFailed) {
+                diagnosticDrain.drain(abandonResult.diagnostics)
+            }
+            if (abandonResult != AbandonTrainingSessionResult.Success) {
                 pendingPersistMode = null
                 pendingPersistOnDone = null
                 state.update {

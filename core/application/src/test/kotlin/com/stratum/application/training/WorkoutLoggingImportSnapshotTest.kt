@@ -101,8 +101,7 @@ class WorkoutLoggingImportSnapshotTest {
         val persistence = FakeResponseProfilePersistencePort()
         val extractResponseProfile =
             ExtractResponseProfileUseCase(
-                loggingPort = FakeLoggingPort(),
-                trainingLogRepository = trainingLogRepo,
+                                trainingLogRepository = trainingLogRepo,
                 liftRepository = liftRepo,
                 liftTrainingInsightsRepository = insightsRepo,
                 muscleVolumeBaselineRepository = InMemoryVolumeRepository(),
@@ -112,7 +111,6 @@ class WorkoutLoggingImportSnapshotTest {
                 experimentRegistry = EmptyExperimentRegistry(),
             )
         return PersistImportedHistoryUseCase(
-            loggingPort = FakeLoggingPort(),
             trainingLogRepository = trainingLogRepo,
             resolveImportLifts =
                 ResolveImportLiftsUseCase(
@@ -124,7 +122,6 @@ class WorkoutLoggingImportSnapshotTest {
                 ),
             extractTrainingInsights =
                 ExtractTrainingInsightsUseCase(
-                    loggingPort = FakeLoggingPort(),
                     trainingLogRepository = trainingLogRepo,
                     liftTrainingInsightsRepository = insightsRepo,
                     supersetAffinityRepository = InMemorySupersetRepository(),

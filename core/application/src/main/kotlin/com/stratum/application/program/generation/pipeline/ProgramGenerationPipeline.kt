@@ -2,12 +2,12 @@
 
 package com.stratum.application.program.generation.pipeline
 
-import com.stratum.domain.program.ProgramGenerationTelemetryLogger
 import com.stratum.application.program.generation.BuildProgramWorkoutsUseCase
 import com.stratum.application.program.generation.IntegrateAndValidateOptions
 import com.stratum.application.program.generation.IntegrateAndValidateProgramResult
 import com.stratum.application.program.generation.IntegrateAndValidateProgramUseCase
 import com.stratum.application.program.generation.PlanWeeklyVolumeUseCase
+import com.stratum.domain.program.generation.GenerationSynthesisSummary
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.context.withResolvedCycleSpace
 import com.stratum.domain.program.generation.draft.ProgramDraft
@@ -46,8 +46,16 @@ data class PipelineOptions(
  * can map each branch to its failure value explicitly.
  */
 sealed interface ProgramGenerationPipelineResult {
-    data class Success(val program: NormalizedProgram) : ProgramGenerationPipelineResult
-    data class ValidationRejected(val report: ValidationReport) : ProgramGenerationPipelineResult
+    data class Success(
+        val program: NormalizedProgram,
+        val synthesis: GenerationSynthesisSummary? = null,
+    ) : ProgramGenerationPipelineResult
+
+    data class ValidationRejected(
+        val report: ValidationReport,
+        val synthesis: GenerationSynthesisSummary? = null,
+    ) : ProgramGenerationPipelineResult
+
     data class SynthesisRefused(val refusal: ProgramSynthesisRefusal) : ProgramGenerationPipelineResult
 }
 
@@ -56,7 +64,6 @@ open class ProgramGenerationPipeline @Inject constructor(
     private val buildProgramWorkouts: BuildProgramWorkoutsUseCase,
     private val integrateAndValidate: IntegrateAndValidateProgramUseCase,
     private val programSynthesisPort: ProgramSynthesisPort,
-    private val telemetryLogger: ProgramGenerationTelemetryLogger,
 ) {
     open suspend fun generate(
         context: ProgramGenerationContext,
@@ -87,10 +94,17 @@ open class ProgramGenerationPipeline @Inject constructor(
                 is BuildProgramOutcome.SynthesisRefused ->
                     return ProgramGenerationPipelineResult.SynthesisRefused(buildOutcome.refusal)
             }
-        telemetryLogger.logSynthesisComplete(context, buildResult)
-        // STR-254: drain slot-build diagnostics exactly once per generation through the
-        // pipeline's existing logging wiring. Diagnostics never reach the UI.
-        telemetryLogger.logGenerationDiagnostics(buildResult.diagnostics)
+        // STR-237 chunk 3: application has no logging capability, so the pipeline
+        // records nothing. The synthesis facts (incl. the STR-254 slot-build
+        // diagnostics, which never reach the UI) ride the outcome branches and
+        // the outcome boundary records them exactly once per generation.
+        val synthesis =
+            GenerationSynthesisSummary(
+                trainingDaysPerWeek = context.trainingDaysPerWeek,
+                cycleLength = buildResult.program.cycleLength,
+                objective = buildResult.synthesisObjective,
+                diagnostics = buildResult.diagnostics,
+            )
 
         val draft =
             ProgramDraft(
@@ -118,9 +132,9 @@ open class ProgramGenerationPipeline @Inject constructor(
             )
         ) {
             is IntegrateAndValidateProgramResult.Success ->
-                ProgramGenerationPipelineResult.Success(integrated.program)
+                ProgramGenerationPipelineResult.Success(integrated.program, synthesis)
             is IntegrateAndValidateProgramResult.ValidationRejected ->
-                ProgramGenerationPipelineResult.ValidationRejected(integrated.report)
+                ProgramGenerationPipelineResult.ValidationRejected(integrated.report, synthesis)
         }
     }
 }

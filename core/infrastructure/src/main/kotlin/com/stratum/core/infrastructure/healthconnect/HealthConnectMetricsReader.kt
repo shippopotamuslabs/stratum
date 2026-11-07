@@ -21,7 +21,7 @@ import com.stratum.domain.health.HrvSample
 import com.stratum.domain.health.SleepSessionSample
 import com.stratum.domain.health.SleepStageSample
 import com.stratum.domain.health.WeightSample
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.core.infrastructure.logging.LoggingPort
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.Period
 import javax.inject.Inject

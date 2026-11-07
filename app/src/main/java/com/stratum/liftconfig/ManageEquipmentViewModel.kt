@@ -16,6 +16,7 @@ import com.stratum.application.lift.ObserveEquipmentCatalogUseCase
 import com.stratum.domain.lift.SeedEquipmentIds
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.EquipmentPickResult
+import com.stratum.app.DiagnosticDrain
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
@@ -118,6 +119,7 @@ class ManageEquipmentViewModel @Inject constructor(
     private val deleteCustomEquipment: DeleteCustomEquipmentUseCase,
     private val getDeleteImpact: GetEquipmentDeleteImpactUseCase,
     private val equipmentPickResult: EquipmentPickResult,
+    private val diagnosticDrain: DiagnosticDrain,
 ) : ViewModel() {
 
     private val nameDraft = MutableStateFlow("")
@@ -238,8 +240,10 @@ class ManageEquipmentViewModel @Inject constructor(
                     forkFailure("Invalid increment tiers: ${result.validation.errors}")
                 is ForkEquipmentResult.InvalidMicro ->
                     forkFailure("Invalid micro increments: ${result.validation.errors}")
-                ForkEquipmentResult.PersistenceFailed ->
+                is ForkEquipmentResult.PersistenceFailed -> {
+                    diagnosticDrain.drain(result.diagnostics)
                     forkFailure(MSG_FORK_FAILED)
+                }
             }
         }
     }
@@ -273,8 +277,10 @@ class ManageEquipmentViewModel @Inject constructor(
                     _userMessage.value = "Invalid increment tiers: ${result.validation.errors}"
                 is AddCustomEquipmentResult.InvalidMicro ->
                     _userMessage.value = "Invalid micro increments: ${result.validation.errors}"
-                AddCustomEquipmentResult.PersistenceFailed ->
+                is AddCustomEquipmentResult.PersistenceFailed -> {
+                    diagnosticDrain.drain(result.diagnostics)
                     _userMessage.value = MSG_CREATE_FAILED
+                }
             }
         }
     }
@@ -356,8 +362,10 @@ class ManageEquipmentViewModel @Inject constructor(
                 is DeleteCustomEquipmentResult.NotDeletable ->
                     _userMessage.value =
                         "Equipment cannot be deleted (protected or missing, or a replacement is required)"
-                DeleteCustomEquipmentResult.PersistenceFailed ->
+                is DeleteCustomEquipmentResult.PersistenceFailed -> {
+                    diagnosticDrain.drain(result.diagnostics)
                     _userMessage.value = MSG_DELETE_FAILED
+                }
             }
         }
     }

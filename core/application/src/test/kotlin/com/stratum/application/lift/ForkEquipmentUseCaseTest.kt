@@ -1,6 +1,5 @@
 package com.stratum.application.lift
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeEquipmentRepository
 import com.stratum.domain.lift.identity.EquipmentId
 import kotlinx.coroutines.test.runTest
@@ -52,7 +51,6 @@ class ForkEquipmentUseCaseTest {
         subject =
             ForkEquipmentUseCase(
                 equipmentRepository = equipmentRepo,
-                loggingPort = FakeLoggingPort(),
             )
     }
 
@@ -252,11 +250,19 @@ class ForkEquipmentUseCaseTest {
     }
 
     @Test
-    @DisplayName("Given a repository failure when forked then PersistenceFailed (STR-243)")
+    @DisplayName("Given a repository failure when forked then PersistenceFailed carrying the failure diagnostic")
     fun forkPersistenceFailure() = runTest {
         equipmentRepo.failNextWrite = true
         val result = subject(cableId, "Cable copy")
 
-        assertEquals(ForkEquipmentResult.PersistenceFailed, result)
+        val failed = result as ForkEquipmentResult.PersistenceFailed
+        assertEquals(1, failed.diagnostics.size)
+        val diagnostic = failed.diagnostics.single()
+        assertEquals("ForkEquipment", diagnostic.tag)
+        assertEquals(
+            "Failed to fork equipment: Simulated equipment write failure",
+            diagnostic.message,
+        )
+        assertTrue(diagnostic.cause is IllegalStateException)
     }
 }

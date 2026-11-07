@@ -4,7 +4,7 @@ import com.stratum.domain.lift.Lift
 import com.stratum.application.lift.ObserveLiftCatalogUseCase
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.toStorageLb
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.domain.program.Program
 import com.stratum.application.program.ProgramRepository
 import com.stratum.domain.program.Workout
@@ -23,11 +23,12 @@ import kotlin.coroutines.cancellation.CancellationException
 /**
  * Outcome of loading a workout summary (STR-243).
  *
- * [SessionNotFound] carries the missing session id and leaves a warning
- * breadcrumb only, never a Crashlytics non-fatal, exactly as the former
- * `expectedFailure` path did. The originating throwable of an operational
- * load failure goes once to the diagnostics channel ([LoggingPort.error])
- * at the use-case boundary; it never crosses as a payload. Coroutine
+ * [SessionNotFound] carries the missing session id; its former warning
+ * breadcrumb is dropped — the branch itself is the record (STR-237). The
+ * originating throwable of an operational load failure rides the
+ * [PersistenceFailed] branch as an [OperationalDiagnostic] (legacy tag +
+ * rendered message, real throwable as cause); the presentation boundary
+ * drains it exactly once through its module's DiagnosticDrain. Coroutine
  * cancellation is not a branch: it propagates.
  */
 sealed interface GetWorkoutSummaryResult {
@@ -36,7 +37,9 @@ sealed interface GetWorkoutSummaryResult {
     data class SessionNotFound(val sessionId: TrainingSessionId) : GetWorkoutSummaryResult
 
     /** The summary load failed (repository / store I/O). */
-    data object PersistenceFailed : GetWorkoutSummaryResult
+    data class PersistenceFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : GetWorkoutSummaryResult
 }
 
 /**
@@ -49,12 +52,11 @@ class GetWorkoutSummaryUseCase @Inject constructor(
     private val trainingLogRepository: TrainingLogRepository,
     private val programRepository: ProgramRepository,
     private val observeLiftCatalog: ObserveLiftCatalogUseCase,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(sessionId: TrainingSessionId): GetWorkoutSummaryResult {
         // A missing session is expected (stale deep link), not an operational fault: load all
-        // reads in one logged block, then validate outside it so the miss leaves a breadcrumb
-        // only, never a Crashlytics non-fatal.
+        // reads in one boundary block, then validate outside it so the miss returns as a
+        // typed branch, never a Crashlytics non-fatal.
         val reads =
             try {
                 SummaryReads(
@@ -66,14 +68,18 @@ class GetWorkoutSummaryUseCase @Inject constructor(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (t: Throwable) {
-                loggingPort.error(TAG, "Failed to load workout summary: ${t.message}", t)
-                return GetWorkoutSummaryResult.PersistenceFailed
+                return GetWorkoutSummaryResult.PersistenceFailed(
+                    diagnostics = listOf(
+                        OperationalDiagnostic(
+                            tag = TAG,
+                            message = "Failed to load workout summary: ${t.message}",
+                            cause = t,
+                        ),
+                    ),
+                )
             }
         val session = reads.session
-            ?: run {
-                loggingPort.warning(TAG, "Training session ${sessionId.value} not found")
-                return GetWorkoutSummaryResult.SessionNotFound(sessionId)
-            }
+            ?: return GetWorkoutSummaryResult.SessionNotFound(sessionId)
         val loggedSets = reads.sets
         val liftNamesById = reads.lifts.associate { it.id to it.name }
         val program = reads.program
@@ -107,8 +113,15 @@ class GetWorkoutSummaryUseCase @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (t: Throwable) {
-            loggingPort.error(TAG, "Failed to load workout summary: ${t.message}", t)
-            GetWorkoutSummaryResult.PersistenceFailed
+            GetWorkoutSummaryResult.PersistenceFailed(
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Failed to load workout summary: ${t.message}",
+                        cause = t,
+                    ),
+                ),
+            )
         }
     }
 

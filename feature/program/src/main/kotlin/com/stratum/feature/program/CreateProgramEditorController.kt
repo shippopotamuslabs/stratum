@@ -42,6 +42,7 @@ internal class CreateProgramEditorController(
     private val workoutEditSession: WorkoutEditSession,
     private val activeSessionGuard: CreateProgramActiveSessionGuard,
     private val finishOnboarding: () -> Boolean,
+    private val diagnosticDrain: DiagnosticDrain,
 ) {
     var loadedProgramMeta: LoadedProgramMeta? = null
         private set
@@ -390,14 +391,38 @@ internal class CreateProgramEditorController(
         val failureMessage =
             when (mode) {
                 CreateProgramPersistMode.Activate ->
-                    activateProgram(draft.activate()).persistFailureMessage()
+                    activateProgram(draft.activate())
+                        .also { result ->
+                            if (result is ActivateProgramResult.PersistenceFailed) {
+                                diagnosticDrain.drain(result.diagnostics)
+                            }
+                        }
+                        .persistFailureMessage()
                 CreateProgramPersistMode.SavePreservingActive ->
-                    updateExistingProgram(draft).persistFailureMessage()
+                    updateExistingProgram(draft)
+                        .also { result ->
+                            if (result is UpdateExistingProgramResult.PersistenceFailed) {
+                                diagnosticDrain.drain(result.diagnostics)
+                            }
+                        }
+                        .persistFailureMessage()
                 CreateProgramPersistMode.SaveToLibrary ->
                     if (current.isEditingExisting) {
-                        updateExistingProgram(draft.deactivate()).persistFailureMessage()
+                        updateExistingProgram(draft.deactivate())
+                            .also { result ->
+                                if (result is UpdateExistingProgramResult.PersistenceFailed) {
+                                    diagnosticDrain.drain(result.diagnostics)
+                                }
+                            }
+                            .persistFailureMessage()
                     } else {
-                        saveProgramToLibrary(draft).persistFailureMessage()
+                        saveProgramToLibrary(draft)
+                            .also { result ->
+                                if (result is SaveProgramToLibraryResult.PersistenceFailed) {
+                                    diagnosticDrain.drain(result.diagnostics)
+                                }
+                            }
+                            .persistFailureMessage()
                     }
             }
         if (failureMessage == null) {
@@ -505,7 +530,7 @@ private fun ActivateProgramResult.persistFailureMessage(): String? =
         ActivateProgramResult.Success -> null
         ActivateProgramResult.NoWorkouts -> "Program must have at least one workout"
         ActivateProgramResult.NoExercises -> "Program must have at least one exercise"
-        ActivateProgramResult.PersistenceFailed -> "Couldn't save program. Try again."
+        is ActivateProgramResult.PersistenceFailed -> "Couldn't save program. Try again."
     }
 
 private fun SaveProgramToLibraryResult.persistFailureMessage(): String? =
@@ -513,7 +538,7 @@ private fun SaveProgramToLibraryResult.persistFailureMessage(): String? =
         SaveProgramToLibraryResult.Success -> null
         SaveProgramToLibraryResult.NoWorkouts -> "Program must have at least one workout"
         SaveProgramToLibraryResult.NoExercises -> "Program must have at least one exercise"
-        SaveProgramToLibraryResult.PersistenceFailed -> "Couldn't save program. Try again."
+        is SaveProgramToLibraryResult.PersistenceFailed -> "Couldn't save program. Try again."
     }
 
 private fun UpdateExistingProgramResult.persistFailureMessage(): String? =
@@ -521,5 +546,5 @@ private fun UpdateExistingProgramResult.persistFailureMessage(): String? =
         UpdateExistingProgramResult.Success -> null
         UpdateExistingProgramResult.NoWorkouts -> "Program must have at least one workout"
         UpdateExistingProgramResult.NoExercises -> "Program must have at least one exercise"
-        UpdateExistingProgramResult.PersistenceFailed -> "Couldn't save program. Try again."
+        is UpdateExistingProgramResult.PersistenceFailed -> "Couldn't save program. Try again."
     }

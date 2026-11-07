@@ -1,5 +1,6 @@
 package com.stratum.feature.onboarding
 
+import com.stratum.core.infrastructure.telemetry.ProgramGenerationTelemetryLogger
 import com.stratum.core.testing.program.FixedProgramGenerationContextLoader
 import com.stratum.core.testing.logging.FakeLoggingPort
 
@@ -178,11 +179,10 @@ internal object OnboardingViewModelTestFixtures {
                 updateUserTrainingProfile = UpdateUserTrainingProfileUseCase(fakeProfileRepository),
                 updateSpecialization = UpdateSpecializationUseCase(fakeSpecializationRepository),
                 saveOnboardingProgress = SaveOnboardingProgressUseCase(fakeRepository),
-                loggingPort = FakeLoggingPort(),
             ),
             getOnboardingStepCapabilities = GetOnboardingStepCapabilitiesUseCase(validateCurrentStep),
-            applyGymPreset = ApplyGymPresetUseCase(fakeLiftRepository, FakeLoggingPort()),
-            setSelectedPreset = SetSelectedPresetUseCase(fakeLiftRepository, FakeLoggingPort()),
+            applyGymPreset = ApplyGymPresetUseCase(fakeLiftRepository),
+            setSelectedPreset = SetSelectedPresetUseCase(fakeLiftRepository),
             executeHistoricalImport = ExecuteHistoricalImportUseCase(
                 validateImportFiles = com.stratum.application.importing.ValidateImportFilesUseCase(),
                 runHistoricalImport = RunHistoricalImportUseCase(fakeHistoricalImport),
@@ -203,16 +203,13 @@ internal object OnboardingViewModelTestFixtures {
                     ),
                 pipeline = testProgramGenerationPipeline(),
                 liftRepository = fakeLiftRepository,
-                telemetryRouter = com.stratum.domain.telemetry.TelemetryRouter(com.stratum.core.testing.telemetry.FakeOutcomeTelemetrySink(), com.stratum.core.testing.telemetry.FakeCrashTelemetryPort(), com.stratum.core.testing.telemetry.FakeAnalyticsPort()),
             ),
             activateProgram = com.stratum.application.program.ActivateProgramUseCase(
                 programRepository = fakeProgramRepository,
                 programChangeEventRepository = com.stratum.core.testing.training.NoOpProgramChangeEventRepository(),
-                loggingPort = FakeLoggingPort(),
             ),
             completeOnboarding = CompleteOnboardingUseCase(fakeRepository, fakeProfileRepository),
             importProgramTemplate = com.stratum.application.program.importing.ImportProgramTemplateUseCase(
-                loggingPort = FakeLoggingPort(),
                 importPort = com.stratum.core.testing.importing.FakeProgramTemplateImportPort(),
                 resolver = com.stratum.application.program.importing.ResolveProgramTemplateLiftsUseCase(
                     liftRepository = fakeLiftRepository,
@@ -223,9 +220,10 @@ internal object OnboardingViewModelTestFixtures {
                 profileRepository = fakeProfileRepository,
                 programChangeEventRepository = com.stratum.core.testing.training.NoOpProgramChangeEventRepository(),
             ),
-            logError = com.stratum.domain.logging.LogErrorUseCase(FakeLoggingPort()),
+            diagnosticDrain = DiagnosticDrain(FakeLoggingPort()),
+            generationLogger = ProgramGenerationTelemetryLogger(FakeLoggingPort()),
             logAnalytics =
-                com.stratum.domain.logging.LogAnalyticsEventUseCase(
+                AnalyticsRecorder(
                     com.stratum.core.testing.telemetry.FakeAnalyticsPort(),
                 ),
             observeWeightDisplayPreferences =
@@ -235,7 +233,6 @@ internal object OnboardingViewModelTestFixtures {
             setWeightDisplayUnit =
                 com.stratum.application.lift.SetWeightDisplayUnitUseCase(
                     weightDisplayPreferences,
-                    com.stratum.core.testing.logging.FakeLoggingPort(),
                 ),
         )
     }

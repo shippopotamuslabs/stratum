@@ -1,6 +1,5 @@
 package com.stratum.application.export
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.export.ExportTestFixtures.CLOCK_INSTANT
@@ -30,14 +29,12 @@ class ExportProgramsUseCaseTest {
 
     private lateinit var programRepo: FakeProgramRepository
     private lateinit var liftRepo: FakeLiftRepository
-    private lateinit var loggingPort: FakeLoggingPort
     private val clock: () -> Instant = { CLOCK_INSTANT }
 
     @BeforeEach
     fun setup() {
         programRepo = FakeProgramRepository()
         liftRepo = FakeLiftRepository()
-        loggingPort = FakeLoggingPort()
         seedDisplayNameLifts()
     }
 
@@ -46,7 +43,6 @@ class ExportProgramsUseCaseTest {
             programRepository = programRepository,
             liftRepository = liftRepo,
             clock = clock,
-            loggingPort = loggingPort,
         )
 
     private fun ExportProgramsResult.requireFile(): ExportFileResult =
@@ -175,7 +171,7 @@ class ExportProgramsUseCaseTest {
     }
 
     @Test
-    @DisplayName("Repository read failure returns PersistenceFailed and logs exactly once")
+    @DisplayName("Repository read failure returns PersistenceFailed carrying exactly one diagnostic")
     fun persistenceFailure() = runTest {
         val failure = IllegalStateException("room down")
         val throwingRepo =
@@ -186,11 +182,11 @@ class ExportProgramsUseCaseTest {
 
         val result = useCase(throwingRepo)(listOf(ProgramId("prog-active")))
 
-        assertEquals(ExportProgramsResult.PersistenceFailed, result)
-        assertEquals(1, loggingPort.errors.size)
-        val record = loggingPort.errors.single()
+        val failed = result as ExportProgramsResult.PersistenceFailed
+        assertEquals(1, failed.diagnostics.size)
+        val record = failed.diagnostics.single()
         assertEquals("ExportPrograms", record.tag)
         assertEquals("Failed to export programs: room down", record.message)
-        assertTrue(record.throwable === failure)
+        assertTrue(record.cause === failure)
     }
 }

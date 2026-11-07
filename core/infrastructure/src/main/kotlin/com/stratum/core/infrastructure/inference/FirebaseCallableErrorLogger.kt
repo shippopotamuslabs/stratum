@@ -1,7 +1,7 @@
 package com.stratum.core.infrastructure.inference
 
 import com.google.firebase.functions.FirebaseFunctionsException
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.core.infrastructure.logging.LoggingPort
 
 /**
  * Shared Firebase Callable failure logging for inference adapters. Keeps tag/message shape consistent

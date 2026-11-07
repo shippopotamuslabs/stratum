@@ -1,5 +1,6 @@
 package com.stratum.feature.onboarding
 
+import com.stratum.core.infrastructure.telemetry.ProgramGenerationTelemetryLogger
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.application.importing.CancelHistoricalImportUseCase
@@ -18,12 +19,11 @@ import com.stratum.application.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.application.lift.SetSelectedPresetResult
 import com.stratum.application.lift.SetSelectedPresetUseCase
 import com.stratum.application.lift.SetWeightDisplayUnitUseCase
+import com.stratum.application.lift.WeightDisplayPreferenceResult
 import com.stratum.domain.lift.Weight
-import com.stratum.domain.logging.LogAnalyticsEventUseCase
-import com.stratum.domain.logging.LogErrorUseCase
-import com.stratum.domain.logging.PARAM_ACTION
-import com.stratum.domain.logging.PARAM_SCREEN
-import com.stratum.domain.logging.USER_VISIBLE_ERROR_EVENT
+import com.stratum.core.infrastructure.telemetry.PARAM_ACTION
+import com.stratum.core.infrastructure.telemetry.PARAM_SCREEN
+import com.stratum.core.infrastructure.telemetry.USER_VISIBLE_ERROR_EVENT
 import com.stratum.application.onboarding.AdvanceOnboardingStepResult
 import com.stratum.application.onboarding.AdvanceOnboardingStepUseCase
 import com.stratum.application.onboarding.CompleteOnboardingUseCase
@@ -48,6 +48,7 @@ import com.stratum.application.program.ActivateProgramResult
 import com.stratum.application.program.ActivateProgramUseCase
 import com.stratum.application.program.GenerateProgramUseCase
 import com.stratum.domain.program.generation.GenerateProgramResult
+import com.stratum.domain.program.generation.GenerationSynthesisSummary
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisException
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisRefusal
 import com.stratum.domain.program.generation.validation.ProgramGenerationValidationException
@@ -89,8 +90,9 @@ class OnboardingViewModel @Inject constructor(
     private val activateProgram: ActivateProgramUseCase,
     private val completeOnboarding: CompleteOnboardingUseCase,
     private val importProgramTemplate: ImportProgramTemplateUseCase,
-    private val logError: LogErrorUseCase,
-    private val logAnalytics: LogAnalyticsEventUseCase,
+    private val logAnalytics: AnalyticsRecorder,
+    private val diagnosticDrain: DiagnosticDrain,
+    private val generationLogger: ProgramGenerationTelemetryLogger,
     observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
     private val setWeightDisplayUnit: SetWeightDisplayUnitUseCase,
 ) : ViewModel() {
@@ -400,9 +402,21 @@ class OnboardingViewModel @Inject constructor(
             // shipped preset-apply fallback.
             val failed =
                 if (preset != null) {
-                    applyGymPreset(preset) == ApplyGymPresetResult.PersistenceFailed
+                    when (val result = applyGymPreset(preset)) {
+                        is ApplyGymPresetResult.PersistenceFailed -> {
+                            diagnosticDrain.drain(result.diagnostics)
+                            true
+                        }
+                        ApplyGymPresetResult.Success -> false
+                    }
                 } else {
-                    setSelectedPreset(null) == SetSelectedPresetResult.PersistenceFailed
+                    when (val result = setSelectedPreset(null)) {
+                        is SetSelectedPresetResult.PersistenceFailed -> {
+                            diagnosticDrain.drain(result.diagnostics)
+                            true
+                        }
+                        SetSelectedPresetResult.Success -> false
+                    }
                 }
             ephemeral.update {
                 it.copy(
@@ -419,9 +433,13 @@ class OnboardingViewModel @Inject constructor(
      */
     fun onAppWeightUnitSelected(useKg: Boolean) {
         viewModelScope.launch {
-            setWeightDisplayUnit(
-                if (useKg) Weight.WeightUnit.Kg else Weight.WeightUnit.Lb,
-            )
+            val result =
+                setWeightDisplayUnit(
+                    if (useKg) Weight.WeightUnit.Kg else Weight.WeightUnit.Lb,
+                )
+            if (result is WeightDisplayPreferenceResult.PersistenceFailed) {
+                diagnosticDrain.drain(result.diagnostics)
+            }
         }
     }
 
@@ -670,10 +688,12 @@ class OnboardingViewModel @Inject constructor(
                     }
                 }
                 AdvanceOnboardingStepResult.NoOp -> Unit
-                AdvanceOnboardingStepResult.PersistenceFailed ->
+                is AdvanceOnboardingStepResult.PersistenceFailed -> {
+                    diagnosticDrain.drain(result.diagnostics)
                     ephemeral.update {
                         it.copy(navigationError = OnboardingProgramFlowOps.MSG_NAVIGATION_FAILED)
                     }
+                }
             }
         }
     }
@@ -705,10 +725,12 @@ class OnboardingViewModel @Inject constructor(
                         maybePrefillMinimumVolumeFromImport()
                     }
                 }
-                AdvanceOnboardingStepResult.PersistenceFailed ->
+                is AdvanceOnboardingStepResult.PersistenceFailed -> {
+                    diagnosticDrain.drain(result.diagnostics)
                     ephemeral.update {
                         it.copy(navigationError = OnboardingProgramFlowOps.MSG_NAVIGATION_FAILED)
                     }
+                }
                 else -> Unit
             }
         }
@@ -739,10 +761,12 @@ class OnboardingViewModel @Inject constructor(
                     clearImportProgramProgress()
                     ephemeral.update { it.copy(navigationError = null) }
                 }
-                AdvanceOnboardingStepResult.PersistenceFailed ->
+                is AdvanceOnboardingStepResult.PersistenceFailed -> {
+                    diagnosticDrain.drain(result.diagnostics)
                     ephemeral.update {
                         it.copy(navigationError = OnboardingProgramFlowOps.MSG_NAVIGATION_FAILED)
                     }
+                }
                 else -> Unit
             }
         }
@@ -804,7 +828,12 @@ class OnboardingViewModel @Inject constructor(
                         }
                     val program =
                         when (generateResult) {
-                            is GenerateProgramResult.Success -> generateResult.program
+                            is GenerateProgramResult.Success -> {
+                                // STR-237 chunk 3: the synthesis records ride
+                                // the outcome; this boundary records them once.
+                                generateResult.synthesis?.let { recordSynthesis(it) }
+                                generateResult.program
+                            }
                             is GenerateProgramResult.ValidationRejected,
                             is GenerateProgramResult.SynthesisRefused,
                             is GenerateProgramResult.SynthesisFailed,
@@ -899,7 +928,7 @@ class OnboardingViewModel @Inject constructor(
         userFacingMessage: String? = null,
         logDetail: String? = null,
     ) {
-        logError(
+        diagnosticDrain.recordError(
             OnboardingProgramFlowOps.TAG_IMPORT,
             OnboardingProgramFlowOps.fileReadFailureLogMessage(logDetail ?: userFacingMessage),
         )
@@ -920,11 +949,15 @@ class OnboardingViewModel @Inject constructor(
     }
 
     private fun setImportProgramError(outcome: ProgramTemplateImportOutcome) {
-        // OperationalFailed was already logged once at the use-case boundary
-        // (STR-243), so it has no log record here; the other branches are
-        // recorded with a constructed exception value for the record only.
+        // OperationalFailed carries its record on the branch as diagnostics
+        // (STR-237 Route (i)) and drains here exactly once, so it has no
+        // constructed log record; the other branches are recorded with a
+        // constructed exception value for the record only.
+        if (outcome is ProgramTemplateImportOutcome.OperationalFailed) {
+            diagnosticDrain.drain(outcome.diagnostics)
+        }
         OnboardingProgramFlowOps.importFailureLogThrowable(outcome)?.let { record ->
-            logError(
+            diagnosticDrain.recordError(
                 OnboardingProgramFlowOps.TAG_IMPORT,
                 OnboardingProgramFlowOps.importFailureLogMessage(outcome),
                 record,
@@ -950,7 +983,7 @@ class OnboardingViewModel @Inject constructor(
     }
 
     private fun logGenerateFailure(error: Throwable) {
-        logError(OnboardingProgramFlowOps.TAG, OnboardingProgramFlowOps.MSG_GENERATE_FAILED, error)
+        diagnosticDrain.recordError(OnboardingProgramFlowOps.TAG, OnboardingProgramFlowOps.MSG_GENERATE_FAILED, error)
         logAnalytics(
             USER_VISIBLE_ERROR_EVENT,
             mapOf(PARAM_SCREEN to "onboarding", PARAM_ACTION to "generate_program"),
@@ -958,23 +991,41 @@ class OnboardingViewModel @Inject constructor(
     }
 
     /**
-     * Records a generation failure branch (STR-243). An [GenerateProgramResult.Unexpected]
-     * failure was already recorded once at the use-case boundary via
-     * TelemetryRouter.recordExceptional, so only the analytics event fires for
-     * it here; the expected branches are recorded here with a constructed
-     * exception value for the log record only — the branch itself carries the
-     * typed facts.
+     * Records a generation failure branch (STR-243). An
+     * [GenerateProgramResult.Unexpected] failure rides the branch as a domain
+     * diagnostic carrying the real throwable (STR-237 Special 1) and is
+     * recorded here via the recorder path; the expected branches are recorded
+     * here with a constructed exception value for the log record only — the
+     * branch itself carries the typed facts. The analytics event below fires
+     * for every failure branch.
      */
+    /** Records a carried synthesis summary exactly once (info + slot diagnostics). */
+    private fun recordSynthesis(synthesis: GenerationSynthesisSummary) {
+        generationLogger.logSynthesisComplete(synthesis)
+        generationLogger.logGenerationDiagnostics(synthesis.diagnostics)
+    }
+
     private fun logGenerateFailure(result: GenerateProgramResult) {
+        // STR-237 chunk 3: a validation-rejected generation still completed its
+        // build, so its carried synthesis records are drained here exactly once.
+        // STR-237 review round 1: an Unexpected failure after the pipeline
+        // succeeded carries the same completed build's synthesis; drain it
+        // here exactly once as well (Success records at its call site only).
+        if (result is GenerateProgramResult.ValidationRejected) {
+            result.synthesis?.let { recordSynthesis(it) }
+        }
+        if (result is GenerateProgramResult.Unexpected) {
+            result.synthesis?.let { recordSynthesis(it) }
+        }
         when (result) {
             is GenerateProgramResult.SynthesisFailed ->
-                logError(
+                diagnosticDrain.recordError(
                     OnboardingProgramFlowOps.TAG,
                     OnboardingProgramFlowOps.MSG_GENERATE_FAILED,
                     ProgramSynthesisException(result.message),
                 )
             is GenerateProgramResult.SynthesisRefused ->
-                logError(
+                diagnosticDrain.recordError(
                     OnboardingProgramFlowOps.TAG,
                     OnboardingProgramFlowOps.MSG_GENERATE_FAILED,
                     ProgramSynthesisException(
@@ -985,14 +1036,24 @@ class OnboardingViewModel @Inject constructor(
                     ),
                 )
             is GenerateProgramResult.ValidationRejected ->
-                logError(
+                diagnosticDrain.recordError(
                     OnboardingProgramFlowOps.TAG,
                     OnboardingProgramFlowOps.MSG_GENERATE_FAILED,
                     ProgramGenerationValidationException(result.report),
                 )
-            is GenerateProgramResult.Success,
-            is GenerateProgramResult.Unexpected,
-            -> Unit
+            is GenerateProgramResult.Unexpected ->
+                // STR-237 Special 1: the branch carries the REAL throwable as
+                // a domain diagnostic; record each one exactly once here via
+                // the recorder path (this branch previously kept only the
+                // analytics event below — the gap Special 1 closes).
+                result.diagnostics.forEach { diagnostic ->
+                    diagnosticDrain.recordError(
+                        OnboardingProgramFlowOps.TAG,
+                        OnboardingProgramFlowOps.MSG_GENERATE_FAILED,
+                        diagnostic.cause,
+                    )
+                }
+            is GenerateProgramResult.Success -> Unit
         }
         logAnalytics(
             USER_VISIBLE_ERROR_EVENT,
@@ -1002,28 +1063,28 @@ class OnboardingViewModel @Inject constructor(
 
     /**
      * Records an activation failure after a successful generation (STR-243).
-     * A persistence failure was already logged once at the use-case boundary,
-     * so only the analytics event fires for it; the validation branches are
-     * recorded here with a constructed exception value for the log record
-     * only — the branch itself carries the typed facts.
+     * A persistence failure's record rides its branch as diagnostics
+     * (STR-237 Route (i)) and is drained here exactly once; the validation
+     * branches are recorded here with a constructed exception value for the
+     * log record only — the branch itself carries the typed facts.
      */
     private fun logActivateFailure(result: ActivateProgramResult) {
         when (result) {
             ActivateProgramResult.NoWorkouts ->
-                logError(
+                diagnosticDrain.recordError(
                     OnboardingProgramFlowOps.TAG,
                     OnboardingProgramFlowOps.MSG_GENERATE_FAILED,
                     IllegalArgumentException("Program must have at least one workout"),
                 )
             ActivateProgramResult.NoExercises ->
-                logError(
+                diagnosticDrain.recordError(
                     OnboardingProgramFlowOps.TAG,
                     OnboardingProgramFlowOps.MSG_GENERATE_FAILED,
                     IllegalArgumentException("Program must have at least one exercise"),
                 )
-            ActivateProgramResult.Success,
-            ActivateProgramResult.PersistenceFailed,
-            -> Unit
+            ActivateProgramResult.Success -> Unit
+            is ActivateProgramResult.PersistenceFailed ->
+                diagnosticDrain.drain(result.diagnostics)
         }
         logAnalytics(
             USER_VISIBLE_ERROR_EVENT,

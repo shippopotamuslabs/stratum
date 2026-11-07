@@ -38,6 +38,7 @@ class ProgramLibraryViewModel @Inject constructor(
     private val activateStoredProgram: ActivateStoredProgramUseCase,
     private val abandonTrainingSession: AbandonTrainingSessionUseCase,
     private val deleteProgram: DeleteProgramUseCase,
+    private val diagnosticDrain: DiagnosticDrain,
 ) : ViewModel() {
 
     private val expandedProgramIds = MutableStateFlow<Set<String>>(emptySet())
@@ -142,7 +143,8 @@ class ProgramLibraryViewModel @Inject constructor(
                             "Finish or abandon the session first."
                     pendingDeleteProgramId.value = null
                 }
-                DeleteProgramResult.PersistenceFailed -> {
+                is DeleteProgramResult.PersistenceFailed -> {
+                    diagnosticDrain.drain(result.diagnostics)
                     userMessage.value = "Couldn't delete program. Try again."
                     pendingDeleteProgramId.value = null
                 }
@@ -179,7 +181,11 @@ class ProgramLibraryViewModel @Inject constructor(
         viewModelScope.launch {
             val session = observeActiveSession().first()
             if (session != null && session.status == TrainingSessionStatus.IN_PROGRESS) {
-                if (abandonTrainingSession(session.id) != AbandonTrainingSessionResult.Success) {
+                val abandonResult = abandonTrainingSession(session.id)
+                if (abandonResult is AbandonTrainingSessionResult.PersistenceFailed) {
+                    diagnosticDrain.drain(abandonResult.diagnostics)
+                }
+                if (abandonResult != AbandonTrainingSessionResult.Success) {
                     userMessage.value =
                         "Couldn't discard the in-progress workout. Try again."
                     pendingActivateProgramId.value = null
@@ -202,8 +208,10 @@ class ProgramLibraryViewModel @Inject constructor(
                 userMessage.value = "Program must have at least one workout"
             ActivateStoredProgramResult.NoExercises ->
                 userMessage.value = "Program must have at least one exercise"
-            ActivateStoredProgramResult.PersistenceFailed ->
+            is ActivateStoredProgramResult.PersistenceFailed -> {
+                diagnosticDrain.drain(result.diagnostics)
                 userMessage.value = "Couldn't activate program. Try again."
+            }
         }
     }
 

@@ -41,6 +41,7 @@ class EditHistoricalWorkoutViewModel @Inject constructor(
     private val getCompletedSessionForEdit: GetCompletedSessionForEditUseCase,
     private val updateCompletedSessionSets: UpdateCompletedSessionSetsUseCase,
     private val observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
+    private val diagnosticDrain: DiagnosticDrain,
 ) : ViewModel() {
 
     private val _uiState =
@@ -68,6 +69,10 @@ class EditHistoricalWorkoutViewModel @Inject constructor(
             sessionId = id
             displayUnit = observeWeightDisplayPreferences().first().displayUnit
             when (val result = getCompletedSessionForEdit(id)) {
+                is GetCompletedSessionForEditResult.PersistenceFailed -> {
+                    diagnosticDrain.drain(result.diagnostics)
+                    _uiState.value = EditHistoricalWorkoutUiState.Error
+                }
                 is GetCompletedSessionForEditResult.Success -> {
                     val snapshot = result.snapshot
                     workoutName = snapshot.workoutName
@@ -182,6 +187,9 @@ class EditHistoricalWorkoutViewModel @Inject constructor(
                     _events.tryEmit(EditHistoricalWorkoutEvent.NavigateBack)
                 }
                 else -> {
+                    if (result is UpdateCompletedSessionSetsResult.PersistenceFailed) {
+                        diagnosticDrain.drain(result.diagnostics)
+                    }
                     publishLoaded()
                     // Same user copy the former exception messages carried, sourced
                     // from the branch kind (STR-243).
@@ -196,7 +204,7 @@ class EditHistoricalWorkoutViewModel @Inject constructor(
                                 "Completed session ${result.sessionId.value} must retain at least one set"
                             is UpdateCompletedSessionSetsResult.SetsBelongToAnotherSession ->
                                 "All desired sets must belong to session ${result.sessionId.value}"
-                            UpdateCompletedSessionSetsResult.PersistenceFailed ->
+                            is UpdateCompletedSessionSetsResult.PersistenceFailed ->
                                 "Could not save workout"
                             UpdateCompletedSessionSetsResult.Success -> "Could not save workout"
                         }

@@ -1,6 +1,5 @@
 package com.stratum.application.lift
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeEquipmentRepository
 import com.stratum.domain.lift.identity.EquipmentId
 import kotlinx.coroutines.test.runTest
@@ -23,7 +22,7 @@ class RenameEquipmentUseCaseTest {
     @DisplayName("Valid name renames the row (trimmed) and returns Success")
     fun renamesWithTrimmedName() = runTest {
         val repo = FakeEquipmentRepository(initial = listOf(equipment(equipmentId, "Old Name")))
-        val useCase = RenameEquipmentUseCase(repo, FakeLoggingPort())
+        val useCase = RenameEquipmentUseCase(repo)
 
         val result = useCase(equipmentId, "  New Name  ")
 
@@ -35,7 +34,7 @@ class RenameEquipmentUseCaseTest {
     @DisplayName("Blank name returns InvalidName carrying the validation and writes nothing")
     fun rejectsBlankName() = runTest {
         val repo = FakeEquipmentRepository(initial = listOf(equipment(equipmentId, "Old Name")))
-        val useCase = RenameEquipmentUseCase(repo, FakeLoggingPort())
+        val useCase = RenameEquipmentUseCase(repo)
 
         val result = useCase(equipmentId, "   ")
 
@@ -48,17 +47,23 @@ class RenameEquipmentUseCaseTest {
     }
 
     @Test
-    @DisplayName("Repository write failure returns PersistenceFailed with one error log")
+    @DisplayName("Repository write failure returns PersistenceFailed carrying the failure diagnostic")
     fun persistenceFailureOnWrite() = runTest {
         val repo = FakeEquipmentRepository(initial = listOf(equipment(equipmentId, "Old Name")))
         repo.failNextWrite = true
-        val logging = FakeLoggingPort()
-        val useCase = RenameEquipmentUseCase(repo, logging)
+        val useCase = RenameEquipmentUseCase(repo)
 
         val result = useCase(equipmentId, "New Name")
 
-        assertEquals(RenameEquipmentResult.PersistenceFailed, result)
-        assertEquals(1, logging.errors.size)
+        val failed = result as RenameEquipmentResult.PersistenceFailed
+        assertEquals(1, failed.diagnostics.size)
+        val diagnostic = failed.diagnostics.single()
+        assertEquals("RenameEquipment", diagnostic.tag)
+        assertEquals(
+            "Failed to rename equipment: Simulated equipment write failure",
+            diagnostic.message,
+        )
+        assertTrue(diagnostic.cause is IllegalStateException)
         assertEquals("Old Name", repo.current.single().name)
     }
 }

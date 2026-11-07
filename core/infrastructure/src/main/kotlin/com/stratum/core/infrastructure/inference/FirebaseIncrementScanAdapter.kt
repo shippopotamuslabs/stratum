@@ -7,7 +7,7 @@ import com.stratum.application.lift.IncrementScanPort
 import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.lift.ScanPhoto
 import com.stratum.domain.lift.ScannedTiers
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.core.infrastructure.logging.LoggingPort
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton

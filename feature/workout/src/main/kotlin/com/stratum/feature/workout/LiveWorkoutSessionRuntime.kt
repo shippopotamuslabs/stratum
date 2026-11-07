@@ -5,6 +5,7 @@ import com.stratum.core.ui.component.cleanupSupersetGroups
 import com.stratum.core.ui.component.linkSupersetWithAdjacent
 import com.stratum.core.ui.component.unlinkLiftFromSuperset
 import com.stratum.domain.importing.FatigueDecay
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.application.importing.ObserveLiftTrainingInsightsUseCase
 import com.stratum.domain.lift.EffectiveSteps
 import com.stratum.domain.lift.Equipment
@@ -15,7 +16,6 @@ import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.storageWeightFromDisplay
-import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.application.program.GetProgramByIdUseCase
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.ProgressionScheme
@@ -101,7 +101,7 @@ internal class LiveWorkoutSessionRuntime(
     val observeLiftTrainingInsights: ObserveLiftTrainingInsightsUseCase,
     val manageWorkoutOverlay: ManageWorkoutOverlayUseCase,
     val getSessionPinnedNoteLists: GetSessionPinnedNoteListsUseCase,
-    val logError: LogErrorUseCase,
+    val diagnosticDrain: DiagnosticDrain,
 ) {
     var activeWorkoutId: WorkoutId? = null
     var cachedProgramId: ProgramId? = null
@@ -255,7 +255,7 @@ internal class LiveWorkoutSessionRuntime(
     internal suspend fun flushOverlay() {
         val id = cachedSessionId ?: return
         val rev = overlayRevision
-        manageWorkoutOverlay.save(id, overlay)
+        drainOperationalDiagnostics(manageWorkoutOverlay.save(id, overlay))
         lastPersistedRevision = rev
     }
 
@@ -590,11 +590,28 @@ internal class LiveWorkoutSessionRuntime(
      * existing error-logging wiring. Diagnostics are log-only — never surfaced in
      * the UI.
      */
+    /**
+     * STR-237 Route (i): drains operational diagnostics carried on a use-case
+     * outcome branch exactly once through this runtime's existing recorder.
+     * Diagnostics are log-only — never surfaced in the UI.
+     */
+    internal fun drainOperationalDiagnostics(diagnostics: List<OperationalDiagnostic>) {
+        diagnosticDrain.drain(diagnostics)
+    }
+
+    /**
+     * STR-237 chunk 2: this record's cause is null by design (the §10
+     * [ProgressionDiagnostic] carries no throwable), so it does NOT ride the
+     * [OperationalDiagnostic] carrier — no cause is fabricated. The runtime is
+     * a non-ViewModel boundary component and records through its own
+     * sanctioned recorder, the module [DiagnosticDrain]'s direct-record path,
+     * with tag/message/null-cause unchanged.
+     */
     internal fun logProgressionDiagnostics(diagnostics: List<ProgressionDiagnostic>) {
         for (diagnostic in diagnostics) {
             when (diagnostic) {
                 is ProgressionDiagnostic.BaselineSkipped ->
-                    logError(
+                    diagnosticDrain.recordError(
                         TAG,
                         "Progression baseline skipped: " +
                             "lift=${liftNamesById[diagnostic.liftId] ?: diagnostic.liftId.value} " +

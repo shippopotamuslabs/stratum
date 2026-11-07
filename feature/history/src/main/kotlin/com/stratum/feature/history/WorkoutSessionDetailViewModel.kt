@@ -27,6 +27,7 @@ class WorkoutSessionDetailViewModel @Inject constructor(
     private val getWorkoutSessionDetail: GetWorkoutSessionDetailUseCase,
     private val updateCompletedSessionTimes: UpdateCompletedSessionTimesUseCase,
     private val observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
+    private val diagnosticDrain: DiagnosticDrain,
 ) : ViewModel() {
 
     private val _uiState =
@@ -85,8 +86,10 @@ class WorkoutSessionDetailViewModel @Inject constructor(
                         endedAt = endedAt,
                     )
                 when (result) {
-                    UpdateCompletedSessionTimesResult.Success ->
+                    is UpdateCompletedSessionTimesResult.Success -> {
+                        diagnosticDrain.drain(result.diagnostics)
                         loadInternal(sessionId, isInitial = false, zoneId = zoneId)
+                    }
                     else ->
                         // Same user copy the former exception messages carried, sourced
                         // from the branch kind (STR-243).
@@ -100,9 +103,11 @@ class WorkoutSessionDetailViewModel @Inject constructor(
                                 is UpdateCompletedSessionTimesResult.StartAfterFinish ->
                                     "Start time (${result.startedAt}) cannot be after " +
                                         "finish time (${result.endedAt})"
-                                UpdateCompletedSessionTimesResult.PersistenceFailed ->
+                                is UpdateCompletedSessionTimesResult.PersistenceFailed -> {
+                                    diagnosticDrain.drain(result.diagnostics)
                                     "Could not update workout time"
-                                UpdateCompletedSessionTimesResult.Success ->
+                                }
+                                is UpdateCompletedSessionTimesResult.Success ->
                                     "Could not update workout time"
                             }
                 }
@@ -124,6 +129,11 @@ class WorkoutSessionDetailViewModel @Inject constructor(
         val result = getWorkoutSessionDetail(TrainingSessionId(sessionId))
         _uiState.value =
             when (result) {
+                is GetWorkoutSessionDetailResult.PersistenceFailed -> {
+                    diagnosticDrain.drain(result.diagnostics)
+                    cachedDetail = null
+                    WorkoutSessionDetailUiState.Error
+                }
                 is GetWorkoutSessionDetailResult.Success -> {
                     cachedDetail = result.detail
                     WorkoutSessionDetailUiMapper.toDetailLoaded(result.detail, displayUnit, zoneId)

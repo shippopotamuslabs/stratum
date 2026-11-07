@@ -14,7 +14,7 @@ import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.lift.requireLoadTypeEquipmentAlignment
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.core.infrastructure.logging.LoggingPort
 import kotlinx.serialization.json.Json
 
 /**

@@ -3,9 +3,9 @@ package com.stratum.telemetry
 import com.stratum.domain.auth.AuthState
 import com.stratum.application.auth.GetAuthStateUseCase
 import com.stratum.domain.di.ApplicationScope
-import com.stratum.domain.logging.LoggingPort
-import com.stratum.domain.logging.collectLatestRestarting
-import com.stratum.domain.telemetry.CrashTelemetryPort
+import com.stratum.core.infrastructure.logging.LoggingPort
+import com.stratum.domain.coroutines.collectLatestRestarting
+import com.stratum.core.infrastructure.telemetry.CrashTelemetryPort
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
@@ -28,7 +28,7 @@ class TelemetryAuthListener @Inject constructor(
         if (job?.isActive == true) return
         job =
             scope.launch {
-                getAuthState().collectLatestRestarting(loggingPort, TAG) { state ->
+                getAuthState().collectLatestRestarting({ t, m, e -> loggingPort.error(t, m, e) }, TAG) { state ->
                     when (state) {
                         is AuthState.Authenticated -> {
                             crashTelemetryPort.setUserId(state.user.uid)

@@ -43,7 +43,6 @@ import com.stratum.domain.healthconnect.HealthFailureKind
 import com.stratum.application.workout.AnalyzeSessionRepRangeShiftProposalsUseCase
 import com.stratum.application.workout.ApplyRepRangeShiftUseCase
 import com.stratum.application.workout.RepRangeShiftDiagnostic
-import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.feature.workout.ui.EquipmentEditorDestination
 import com.stratum.feature.workout.ui.WorkoutCompleteEvent
 import com.stratum.feature.workout.ui.WorkoutCompleteUiState
@@ -714,7 +713,6 @@ class WorkoutCompleteViewModelTest {
                         seededLog,
                         programRepo,
                         ObserveLiftCatalogUseCase(liftRepo),
-                        logging,
                     ),
                 analyzeSessionEquipmentProposals =
                     AnalyzeSessionEquipmentProposalsUseCase(
@@ -726,7 +724,6 @@ class WorkoutCompleteViewModelTest {
                 applyEquipmentIncrementProposal =
                     ApplyEquipmentIncrementProposalUseCase(
                         equipmentRepository = equipmentRepo,
-                        loggingPort = logging,
                     ),
                 equipmentProposalPreferences = equipPrefs,
                 analyzeSessionRepRangeShiftProposals =
@@ -738,7 +735,6 @@ class WorkoutCompleteViewModelTest {
                         preferences = repRangePrefs,
                         extractTrainingInsights =
                             ExtractTrainingInsightsUseCase(
-                                loggingPort = FakeLoggingPort(),
                                 trainingLogRepository = seededLog,
                                 liftTrainingInsightsRepository = insightsRepo,
                                 supersetAffinityRepository = FakeSupersetAffinityRepository(),
@@ -753,16 +749,15 @@ class WorkoutCompleteViewModelTest {
                     ApplyRepRangeShiftUseCase(
                         programRepository = programRepo,
                         programChangeEventRepository = FakeProgramChangeEventRepository(),
-                        loggingPort = logging,
                     ),
                 repRangeShiftProposalPreferences = repRangePrefs,
-                logError = LogErrorUseCase(logging),
                 observeWeightDisplayPreferences =
                     ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
                 observeHealthConnectSyncErrors =
                     ObserveHealthConnectSyncErrorsUseCase(healthConnectSyncStatus),
                 clearHealthConnectSyncError =
-                    ClearHealthConnectSyncErrorUseCase(healthConnectSyncStatus, logging),
+                    ClearHealthConnectSyncErrorUseCase(healthConnectSyncStatus),
+                diagnosticDrain = DiagnosticDrain(logging),
             )
         return RepRangeHarness(viewModel, programRepo, repRangePrefs, sessionId)
     }
@@ -830,7 +825,6 @@ class WorkoutCompleteViewModelTest {
                         logRepo,
                         programRepo,
                         ObserveLiftCatalogUseCase(liftRepo),
-                        logging,
                     ),
                 analyzeSessionEquipmentProposals =
                     AnalyzeSessionEquipmentProposalsUseCase(
@@ -842,7 +836,6 @@ class WorkoutCompleteViewModelTest {
                 applyEquipmentIncrementProposal =
                     ApplyEquipmentIncrementProposalUseCase(
                         equipmentRepository = equipmentRepo,
-                        loggingPort = logging,
                     ),
                 equipmentProposalPreferences = prefs,
                 analyzeSessionRepRangeShiftProposals =
@@ -854,7 +847,6 @@ class WorkoutCompleteViewModelTest {
                         preferences = repRangePrefs,
                         extractTrainingInsights =
                             ExtractTrainingInsightsUseCase(
-                                loggingPort = FakeLoggingPort(),
                                 trainingLogRepository = logRepo,
                                 liftTrainingInsightsRepository = insightsRepo,
                                 supersetAffinityRepository = FakeSupersetAffinityRepository(),
@@ -869,16 +861,15 @@ class WorkoutCompleteViewModelTest {
                     ApplyRepRangeShiftUseCase(
                         programRepository = programRepo,
                         programChangeEventRepository = FakeProgramChangeEventRepository(),
-                        loggingPort = logging,
                     ),
                 repRangeShiftProposalPreferences = repRangePrefs,
-                logError = LogErrorUseCase(logging),
                 observeWeightDisplayPreferences =
                     ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
                 observeHealthConnectSyncErrors =
                     ObserveHealthConnectSyncErrorsUseCase(healthConnectSyncStatus),
                 clearHealthConnectSyncError =
-                    ClearHealthConnectSyncErrorUseCase(healthConnectSyncStatus, logging),
+                    ClearHealthConnectSyncErrorUseCase(healthConnectSyncStatus),
+                diagnosticDrain = DiagnosticDrain(logging),
             )
         return CableHarness(viewModel, prefs, equipmentRepo, liftRepo, sessionId)
     }
@@ -951,7 +942,6 @@ class WorkoutCompleteViewModelTest {
                         logRepo,
                         programRepo,
                         ObserveLiftCatalogUseCase(liftRepo),
-                        logging,
                     ),
                 analyzeSessionEquipmentProposals =
                     AnalyzeSessionEquipmentProposalsUseCase(
@@ -963,7 +953,6 @@ class WorkoutCompleteViewModelTest {
                 applyEquipmentIncrementProposal =
                     ApplyEquipmentIncrementProposalUseCase(
                         equipmentRepository = equipmentRepo,
-                        loggingPort = logging,
                     ),
                 equipmentProposalPreferences = prefs,
                 analyzeSessionRepRangeShiftProposals =
@@ -975,7 +964,6 @@ class WorkoutCompleteViewModelTest {
                         preferences = repRangePrefs,
                         extractTrainingInsights =
                             ExtractTrainingInsightsUseCase(
-                                loggingPort = FakeLoggingPort(),
                                 trainingLogRepository = logRepo,
                                 liftTrainingInsightsRepository = insightsRepo,
                                 supersetAffinityRepository = FakeSupersetAffinityRepository(),
@@ -989,16 +977,15 @@ class WorkoutCompleteViewModelTest {
                     ApplyRepRangeShiftUseCase(
                         programRepository = programRepo,
                         programChangeEventRepository = FakeProgramChangeEventRepository(),
-                        loggingPort = logging,
                     ),
                 repRangeShiftProposalPreferences = repRangePrefs,
-                logError = LogErrorUseCase(logging),
                 observeWeightDisplayPreferences =
                     ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
                 observeHealthConnectSyncErrors =
                     ObserveHealthConnectSyncErrorsUseCase(healthConnectSyncStatus),
                 clearHealthConnectSyncError =
-                    ClearHealthConnectSyncErrorUseCase(healthConnectSyncStatus, logging),
+                    ClearHealthConnectSyncErrorUseCase(healthConnectSyncStatus),
+                diagnosticDrain = DiagnosticDrain(logging),
             )
         return viewModel to logging
     }
@@ -1046,7 +1033,6 @@ class WorkoutCompleteViewModelTest {
                     logRepo,
                     programRepo,
                     ObserveLiftCatalogUseCase(liftRepo),
-                    logging,
                 ),
             analyzeSessionEquipmentProposals =
                 AnalyzeSessionEquipmentProposalsUseCase(
@@ -1058,7 +1044,6 @@ class WorkoutCompleteViewModelTest {
             applyEquipmentIncrementProposal =
                 ApplyEquipmentIncrementProposalUseCase(
                     equipmentRepository = equipmentRepo,
-                    loggingPort = logging,
                 ),
             equipmentProposalPreferences = prefs,
             analyzeSessionRepRangeShiftProposals =
@@ -1070,7 +1055,6 @@ class WorkoutCompleteViewModelTest {
                     preferences = repRangePrefs,
                     extractTrainingInsights =
                         ExtractTrainingInsightsUseCase(
-                            loggingPort = FakeLoggingPort(),
                             trainingLogRepository = logRepo,
                             liftTrainingInsightsRepository = insightsRepo,
                             supersetAffinityRepository = FakeSupersetAffinityRepository(),
@@ -1084,16 +1068,15 @@ class WorkoutCompleteViewModelTest {
                 ApplyRepRangeShiftUseCase(
                     programRepository = programRepo,
                     programChangeEventRepository = FakeProgramChangeEventRepository(),
-                    loggingPort = logging,
                 ),
             repRangeShiftProposalPreferences = repRangePrefs,
-            logError = LogErrorUseCase(logging),
             observeWeightDisplayPreferences =
                 ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
             observeHealthConnectSyncErrors =
                 ObserveHealthConnectSyncErrorsUseCase(healthConnectSyncStatus),
             clearHealthConnectSyncError =
-                ClearHealthConnectSyncErrorUseCase(healthConnectSyncStatus, logging),
+                ClearHealthConnectSyncErrorUseCase(healthConnectSyncStatus),
+            diagnosticDrain = DiagnosticDrain(logging),
         )
     }
 

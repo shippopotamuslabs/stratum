@@ -19,7 +19,7 @@ import com.stratum.application.auth.AuthManager
 import com.stratum.domain.auth.AuthState
 import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.di.ApplicationScope
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.core.infrastructure.logging.LoggingPort
 import com.stratum.application.subscription.BillingDiagnostic
 import com.stratum.application.subscription.BillingFlowOutcome
 import com.stratum.application.subscription.BillingPort

@@ -1,6 +1,6 @@
 package com.stratum.application.program
 
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.application.training.TrainingLogRepository
 import com.stratum.domain.training.TrainingSessionStatus
@@ -8,12 +8,14 @@ import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
- * Outcome of [DeleteProgramUseCase] (STR-243).
+ * Outcome of [DeleteProgramUseCase] (STR-243; STR-237 Route (i)).
  *
  * The refusal branches are expected caller outcomes and are not logged; an
- * operational load/delete failure is logged once via [LoggingPort.error] at
- * the use-case boundary and surfaces as [PersistenceFailed]. Coroutine
- * cancellation is not a branch: it propagates.
+ * operational load/delete failure rides the [PersistenceFailed] branch as an
+ * [OperationalDiagnostic] (legacy tag + rendered message, real throwable as
+ * cause); the presentation boundary drains it exactly once through its
+ * module's DiagnosticDrain. Coroutine cancellation is not a branch: it
+ * propagates.
  */
 sealed interface DeleteProgramResult {
     data object Success : DeleteProgramResult
@@ -25,7 +27,9 @@ sealed interface DeleteProgramResult {
     data class SessionInProgress(val programId: ProgramId) : DeleteProgramResult
 
     /** The delete failed (repository / store I/O). */
-    data object PersistenceFailed : DeleteProgramResult
+    data class PersistenceFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : DeleteProgramResult
 }
 
 /**
@@ -39,7 +43,6 @@ sealed interface DeleteProgramResult {
 class DeleteProgramUseCase @Inject constructor(
     private val programRepository: ProgramRepository,
     private val trainingLogRepository: TrainingLogRepository,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(programId: ProgramId): DeleteProgramResult {
         if (programId.isImportHistory) {
@@ -59,8 +62,15 @@ class DeleteProgramUseCase @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Throwable) {
-            loggingPort.error(TAG, "Failed to delete program: ${error.message}", error)
-            DeleteProgramResult.PersistenceFailed
+            DeleteProgramResult.PersistenceFailed(
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Failed to delete program: ${error.message}",
+                        cause = error,
+                    ),
+                ),
+            )
         }
     }
 

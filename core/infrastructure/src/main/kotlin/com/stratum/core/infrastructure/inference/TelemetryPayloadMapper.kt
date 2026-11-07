@@ -1,7 +1,7 @@
 package com.stratum.core.infrastructure.inference
 
-import com.stratum.domain.telemetry.ClientLogBatch
-import com.stratum.domain.telemetry.ClientLogEntry
+import com.stratum.core.infrastructure.telemetry.ClientLogBatch
+import com.stratum.core.infrastructure.telemetry.ClientLogEntry
 
 /**
  * Pure builder for the `ingestClientLogs` callable wire payload (STR-27 tier 2).

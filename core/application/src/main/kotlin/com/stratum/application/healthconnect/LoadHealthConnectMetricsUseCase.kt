@@ -13,7 +13,6 @@ import com.stratum.domain.health.DailyStepCount
 import com.stratum.domain.health.DailyVitalSample
 import com.stratum.domain.healthconnect.HealthConnectDiagnostic
 import com.stratum.domain.healthconnect.HealthFailureKind
-import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.health.HealthMetricType
 import com.stratum.domain.health.HealthMetricsPages
 import com.stratum.domain.health.HealthMetricsRequest
@@ -35,7 +34,6 @@ import com.stratum.domain.health.VITALS_RANGE_MIN_HISTORY_DAYS
 class LoadHealthConnectMetricsUseCase @Inject constructor(
     private val metricsPort: HealthConnectMetricsPort,
     private val preferencesPort: HealthConnectPreferencesPort,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(zone: ZoneId, now: Instant): HealthMetricsPages {
         val prefs = preferencesPort.getPreferences()
@@ -44,9 +42,11 @@ class LoadHealthConnectMetricsUseCase @Inject constructor(
         val granted = metricsPort.grantedReadTypes()
         if (granted.isEmpty()) return HealthMetricsPages.Hidden
         val request = HealthMetricsRequest(zone = zone, now = now)
-        // A read failure does not fail the load — it is recorded as a diagnostic and the
-        // pages are assembled from an empty snapshot (STR-257). Cancellation still
-        // propagates: it is not a degradation of this computation.
+        // A read failure does not fail the load — it is recorded as a diagnostic carrying
+        // the real cause and the pages are assembled from an empty snapshot (STR-257;
+        // the empty-snapshot manufacture itself is unchanged — STR-240 owns that
+        // behavior). Cancellation still propagates: it is not a degradation of this
+        // computation.
         var readDiagnostic: HealthConnectDiagnostic? = null
         val snapshot = try {
             metricsPort.readSnapshot(request)
@@ -54,15 +54,12 @@ class LoadHealthConnectMetricsUseCase @Inject constructor(
             throw e
         } catch (error: Throwable) {
             // The adapter throws raw vendor failures this use case cannot classify, so the
-            // kind is honestly Unknown. Logged exactly once here with the Throwable attached
-            // (STR-268 AQ1); the dashboard drain records the kind but logs nothing further.
-            loggingPort.error(
-                HEALTH_CONNECT_METRICS_TAG,
-                "Failed to read Health Connect snapshot — dashboard shows empty metrics",
-                error,
-            )
+            // kind is honestly Unknown. The failure is recorded as a diagnostic carrying
+            // the real cause (AQ1 ruling, 2026-11-06); this use case records nothing —
+            // the dashboard boundary drain records it exactly once.
             readDiagnostic = HealthConnectDiagnostic.SnapshotReadFailed(
                 kind = HealthFailureKind.Unknown,
+                cause = error,
             )
             HealthMetricsSnapshot(grantedTypes = granted)
         }

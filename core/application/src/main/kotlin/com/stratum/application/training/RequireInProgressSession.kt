@@ -26,11 +26,11 @@ internal suspend fun TrainingLogRepository.requireInProgressSession(
  * Outcome of the non-throwing in-progress session check ([checkInProgressSession]),
  * converted in STR-243 C5: the rejection branches carry the typed facts (session id,
  * actual status) instead of the raw [Throwable] the check used to carry, so callers
- * return their area outcome branches directly. The operational load failure is the
- * one branch that cannot carry its throwable: it goes to the diagnostics channel
- * through the caller's `onLoadFailure` callback (the caller logs it once with its
- * own legacy tag / "Failed to …" line) and the check reports the payload-free
- * [LoadFailed] kind.
+ * return their area outcome branches directly. The operational load failure's
+ * throwable is handed once to the caller's `onLoadFailure` callback (STR-237: the
+ * caller carries it on its failure branch as a diagnostic with its own legacy
+ * tag / "Failed to …" line, drained once at the presentation boundary) and the
+ * check reports the payload-free [LoadFailed] kind.
  */
 internal sealed interface InProgressSessionCheck {
     data class Ready(val session: TrainingSession) : InProgressSessionCheck
@@ -46,8 +46,8 @@ internal sealed interface InProgressSessionCheck {
 
     /**
      * The session load itself failed operationally. The originating throwable was
-     * already handed to the caller's diagnostics callback; it never crosses as a
-     * payload (STR-243).
+     * already handed to the caller's diagnostics callback, which carries it on the
+     * caller's failure branch (STR-237).
      */
     data object LoadFailed : InProgressSessionCheck
 }
@@ -58,10 +58,10 @@ internal sealed interface InProgressSessionCheck {
  * [InProgressSessionCheck.NotFound] when missing, or
  * [InProgressSessionCheck.NotInProgress] carrying the id and actual status when not
  * `IN_PROGRESS`. An operational load failure (e.g. a Room throw from `getSession`) is
- * passed once to [onLoadFailure] — the caller's diagnostics channel, which logs it
- * with the caller's exact legacy line — and reported as
- * [InProgressSessionCheck.LoadFailed], so the caller returns its failure branch
- * instead of letting the failure escape the invoke boundary.
+ * passed once to [onLoadFailure] — the caller's diagnostics channel, which carries
+ * it on the caller's failure branch with the caller's exact legacy line — and
+ * reported as [InProgressSessionCheck.LoadFailed], so the caller returns its
+ * failure branch instead of letting the failure escape the invoke boundary.
  * [CancellationException] from the load is never carried or reported to the
  * callback: it propagates as cancellation.
  */

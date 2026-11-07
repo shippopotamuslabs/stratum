@@ -165,7 +165,7 @@ internal object EquipmentProposalUiMapper {
             is ApplyEquipmentIncrementResult.InvalidName,
             is ApplyEquipmentIncrementResult.InvalidTiers,
             is ApplyEquipmentIncrementResult.EquipmentNotFound,
-            ApplyEquipmentIncrementResult.PersistenceFailed -> MSG_APPLY_FAILED
+            is ApplyEquipmentIncrementResult.PersistenceFailed -> MSG_APPLY_FAILED
         }
 
     /** Bands-only tier summary; adder copy composes via [formatAdderSuffix]. */

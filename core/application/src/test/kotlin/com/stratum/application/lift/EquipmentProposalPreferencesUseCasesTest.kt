@@ -1,10 +1,10 @@
 package com.stratum.application.lift
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeEquipmentProposalPreferences
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
@@ -18,7 +18,7 @@ class EquipmentProposalPreferencesUseCasesTest {
     @Test
     @DisplayName("setEnabled writes the flag and returns Success (STR-243)")
     fun setEnabledSuccess() = runTest {
-        val result = SetEquipmentProposalsEnabledUseCase(fake, FakeLoggingPort())(false)
+        val result = SetEquipmentProposalsEnabledUseCase(fake)(false)
         assertEquals(EquipmentProposalPreferenceResult.Success, result)
         assertTrue(!fake.isEnabled())
     }
@@ -26,14 +26,20 @@ class EquipmentProposalPreferencesUseCasesTest {
     @Test
     @DisplayName("setEnabled returns PersistenceFailed when the write throws (STR-243)")
     fun setEnabledPersistenceFailure() = runTest {
+        val failure = RuntimeException("store unavailable")
         val throwing =
             object : EquipmentProposalPreferences by fake {
                 override suspend fun setEnabled(enabled: Boolean) {
-                    throw RuntimeException("store unavailable")
+                    throw failure
                 }
             }
-        val result = SetEquipmentProposalsEnabledUseCase(throwing, FakeLoggingPort())(false)
-        assertEquals(EquipmentProposalPreferenceResult.PersistenceFailed, result)
+        val result = SetEquipmentProposalsEnabledUseCase(throwing)(false)
+        val failed = result as EquipmentProposalPreferenceResult.PersistenceFailed
+        assertEquals(1, failed.diagnostics.size)
+        val diagnostic = failed.diagnostics.single()
+        assertEquals("SetEquipmentProposalsEnabled", diagnostic.tag)
+        assertEquals("Failed to set equipment proposals enabled: store unavailable", diagnostic.message)
+        assertSame(failure, diagnostic.cause)
     }
 
     @Test
@@ -45,7 +51,7 @@ class EquipmentProposalPreferencesUseCasesTest {
                     throw CancellationException("cancelled")
                 }
             }
-        val subject = SetEquipmentProposalsEnabledUseCase(cancelling, FakeLoggingPort())
+        val subject = SetEquipmentProposalsEnabledUseCase(cancelling)
         assertThrows(CancellationException::class.java) {
             runBlocking { subject(false) }
         }

@@ -1,9 +1,9 @@
 package com.stratum.core.infrastructure.inference
 
-import com.stratum.domain.logging.LoggingPort
-import com.stratum.domain.telemetry.ClientLogBuffer
-import com.stratum.domain.telemetry.ClientLogSeverity
-import com.stratum.domain.telemetry.TelemetryPiiScrubber
+import com.stratum.core.infrastructure.logging.LoggingPort
+import com.stratum.core.infrastructure.telemetry.ClientLogBuffer
+import com.stratum.core.infrastructure.telemetry.ClientLogSeverity
+import com.stratum.core.infrastructure.telemetry.TelemetryPiiScrubber
 import javax.inject.Inject
 import javax.inject.Singleton
 

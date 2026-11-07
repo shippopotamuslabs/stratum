@@ -1,7 +1,6 @@
 package com.stratum.application.training
 
 import com.stratum.core.testing.healthconnect.FakeHealthConnectSchedulerPort
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.response.FakeResponseModelingSchedulerPort
@@ -112,7 +111,6 @@ class FinalizeTrainingSessionUseCaseTest {
                 extractTrainingInsights = buildInsightsComponents(repo).useCase,
                 refreshWeeklySeries = RefreshWeeklySeriesUseCase(repo, FakeLiftRepository(), FakeResponseProfilePersistencePort()),
             ),
-            loggingPort = FakeLoggingPort(),
             healthConnectScheduler = scheduler,
             refreshScope = CoroutineScope(Dispatchers.Unconfined),
         )
@@ -145,7 +143,6 @@ class FinalizeTrainingSessionUseCaseTest {
                 extractTrainingInsights = buildInsightsComponents(repo).useCase,
                 refreshWeeklySeries = RefreshWeeklySeriesUseCase(repo, FakeLiftRepository(), FakeResponseProfilePersistencePort()),
             ),
-            loggingPort = FakeLoggingPort(),
             healthConnectScheduler = scheduler,
             refreshScope = CoroutineScope(Dispatchers.Unconfined),
         )
@@ -153,7 +150,16 @@ class FinalizeTrainingSessionUseCaseTest {
         val result = useCase(TrainingSessionId("ts-live-hc-fail"))
 
         assertTrue(result is FinalizeTrainingSessionResult.Success)
-        assertEquals(TrainingSessionStatus.COMPLETED, (result as FinalizeTrainingSessionResult.Success).session.status)
+        val success = result as FinalizeTrainingSessionResult.Success
+        assertEquals(TrainingSessionStatus.COMPLETED, success.session.status)
+        // STR-237: the swallowed enqueue failure rides Success as one diagnostic.
+        val diagnostic = success.diagnostics.single()
+        assertEquals("FinalizeTrainingSession", diagnostic.tag)
+        assertEquals(
+            "Health Connect sync enqueue failed for ts-live-hc-fail",
+            diagnostic.message,
+        )
+        assertEquals("DataStore boom", diagnostic.cause.message)
     }
 
     @Test
@@ -191,7 +197,6 @@ class FinalizeTrainingSessionUseCaseTest {
                 extractTrainingInsights = insightsComponents.useCase,
                 refreshWeeklySeries = RefreshWeeklySeriesUseCase(repo, FakeLiftRepository(), persistence),
             ),
-            loggingPort = FakeLoggingPort(),
             refreshScope = CoroutineScope(Dispatchers.Unconfined),
         )
 
@@ -270,8 +275,7 @@ class FinalizeTrainingSessionUseCaseTest {
                         refreshWeeklySeries =
                             RefreshWeeklySeriesUseCase(repo, FakeLiftRepository(), persistence),
                     ),
-                loggingPort = FakeLoggingPort(),
-                refreshScope = CoroutineScope(Dispatchers.Unconfined),
+                    refreshScope = CoroutineScope(Dispatchers.Unconfined),
             )
 
         val result = useCase(TrainingSessionId("ts-live-1"))
@@ -308,7 +312,6 @@ class FinalizeTrainingSessionUseCaseTest {
                 extractTrainingInsights = insights.useCase,
                 refreshWeeklySeries = RefreshWeeklySeriesUseCase(repo, FakeLiftRepository(), persistence),
             ),
-            loggingPort = FakeLoggingPort(),
             responseModelingScheduler = modelingScheduler,
             refreshScope = refreshScope,
         )
@@ -338,7 +341,6 @@ class FinalizeTrainingSessionUseCaseTest {
         )
         repo.seedSession(WorkoutLoggingFixtures.inProgressSession(id = "ts-live-1"))
         val failingUseCase = ExtractTrainingInsightsUseCase(
-            loggingPort = FakeLoggingPort(),
             trainingLogRepository = repo,
             liftTrainingInsightsRepository = NoopLiftInsightsRepository(),
             supersetAffinityRepository = NoopSupersetRepository(),
@@ -356,7 +358,6 @@ class FinalizeTrainingSessionUseCaseTest {
                 extractTrainingInsights = failingUseCase,
                 refreshWeeklySeries = RefreshWeeklySeriesUseCase(repo, FakeLiftRepository(), persistence),
             ),
-            loggingPort = FakeLoggingPort(),
             refreshScope = CoroutineScope(Dispatchers.Unconfined),
         )
 
@@ -395,12 +396,12 @@ class FinalizeTrainingSessionUseCaseTest {
     }
 
     @Test
-    @DisplayName("Operational session load failure returns PersistenceFailed and logs once (STR-243)")
+    @DisplayName("Operational session load failure returns PersistenceFailed carrying exactly one diagnostic (STR-243)")
     fun operationalLoadFailureReturnsPersistenceFailed() = runTest {
         val programRepo = FakeProgramRepository(WorkoutLoggingFixtures.twoWorkoutProgram())
         val repo = FakeTrainingLogRepository(programRepository = programRepo)
-        repo.getSessionError = IllegalStateException("room load failed")
-        val logging = FakeLoggingPort()
+        val failure = IllegalStateException("room load failed")
+        repo.getSessionError = failure
         val useCase =
             FinalizeTrainingSessionUseCase(
                 trainingLogRepository = repo,
@@ -413,18 +414,19 @@ class FinalizeTrainingSessionUseCaseTest {
                         refreshWeeklySeries =
                             RefreshWeeklySeriesUseCase(repo, FakeLiftRepository(), FakeResponseProfilePersistencePort()),
                     ),
-                loggingPort = logging,
                 refreshScope = CoroutineScope(Dispatchers.Unconfined),
             )
 
         val result = useCase(TrainingSessionId("ts-live-1"))
 
-        assertEquals(FinalizeTrainingSessionResult.PersistenceFailed, result)
-        assertEquals(1, logging.errors.size)
+        val failed = result as FinalizeTrainingSessionResult.PersistenceFailed
+        val diagnostic = failed.diagnostics.single()
         assertEquals(
             "Failed to finalize training session ts-live-1: room load failed",
-            logging.errors.single().message,
+            diagnostic.message,
         )
+        assertEquals("FinalizeTrainingSession", diagnostic.tag)
+        org.junit.jupiter.api.Assertions.assertSame(failure, diagnostic.cause)
     }
 
     private suspend fun buildUseCase(
@@ -456,7 +458,6 @@ class FinalizeTrainingSessionUseCaseTest {
                 extractTrainingInsights = insights.useCase,
                 refreshWeeklySeries = RefreshWeeklySeriesUseCase(repo, FakeLiftRepository(), persistence),
             ),
-            loggingPort = FakeLoggingPort(),
             refreshScope = CoroutineScope(Dispatchers.Unconfined),
         )
     }
@@ -465,7 +466,6 @@ class FinalizeTrainingSessionUseCaseTest {
         val liftInsightsRepo = RecordingLiftInsightsRepository()
         val metadataRepo = RecordingMetadataRepository()
         val useCase = ExtractTrainingInsightsUseCase(
-            loggingPort = FakeLoggingPort(),
             trainingLogRepository = repo,
             liftTrainingInsightsRepository = liftInsightsRepo,
             supersetAffinityRepository = NoopSupersetRepository(),

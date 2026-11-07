@@ -100,8 +100,7 @@ class WorkoutLoggingMutationDefenseTest {
 
         val extractUseCase =
             ExtractResponseProfileUseCase(
-                loggingPort = FakeLoggingPort(),
-                trainingLogRepository = trainingLogRepo,
+                                trainingLogRepository = trainingLogRepo,
                 liftRepository = liftRepo,
                 liftTrainingInsightsRepository = InMemoryLiftInsightsRepository(),
                 muscleVolumeBaselineRepository = InMemoryVolumeRepository(),
@@ -139,8 +138,7 @@ class WorkoutLoggingMutationDefenseTest {
         val insightsRepo = InMemoryLiftInsightsRepository()
         val extractResponseProfile =
             ExtractResponseProfileUseCase(
-                loggingPort = FakeLoggingPort(),
-                trainingLogRepository = trainingLogRepo,
+                                trainingLogRepository = trainingLogRepo,
                 liftRepository = liftRepo,
                 liftTrainingInsightsRepository = insightsRepo,
                 muscleVolumeBaselineRepository = InMemoryVolumeRepository(),
@@ -150,7 +148,6 @@ class WorkoutLoggingMutationDefenseTest {
                 experimentRegistry = EmptyExperimentRegistry(),
             )
         return PersistImportedHistoryUseCase(
-            loggingPort = FakeLoggingPort(),
             trainingLogRepository = trainingLogRepo,
             resolveImportLifts =
                 ResolveImportLiftsUseCase(
@@ -162,7 +159,6 @@ class WorkoutLoggingMutationDefenseTest {
                 ),
             extractTrainingInsights =
                 ExtractTrainingInsightsUseCase(
-                    loggingPort = FakeLoggingPort(),
                     trainingLogRepository = trainingLogRepo,
                     liftTrainingInsightsRepository = insightsRepo,
                     supersetAffinityRepository = InMemorySupersetRepository(),

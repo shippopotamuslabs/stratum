@@ -1,6 +1,5 @@
 package com.stratum.application.training
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
@@ -40,7 +39,7 @@ class GetWorkoutSummaryUseCaseTest {
             programRepository = programRepo,
         )
         val liftRepo = FakeLiftRepository(initialLifts = listOf(benchLift()))
-        val useCase = GetWorkoutSummaryUseCase(logRepo, programRepo, ObserveLiftCatalogUseCase(liftRepo), FakeLoggingPort())
+        val useCase = GetWorkoutSummaryUseCase(logRepo, programRepo, ObserveLiftCatalogUseCase(liftRepo))
 
         val summary = (useCase(sessionId) as GetWorkoutSummaryResult.Success).summary
 
@@ -48,13 +47,12 @@ class GetWorkoutSummaryUseCaseTest {
     }
 
     @Test
-    @DisplayName("Missing session fails without non-fatal")
+    @DisplayName("Missing session returns SessionNotFound branch")
     fun missingSessionFailsWithoutNonFatal() = runTest {
         val programRepo = FakeProgramRepository(WorkoutLoggingFixtures.twoWorkoutProgram())
         val logRepo = FakeTrainingLogRepository(programRepository = programRepo)
         val liftRepo = FakeLiftRepository(initialLifts = listOf(benchLift()))
-        val logging = FakeLoggingPort()
-        val useCase = GetWorkoutSummaryUseCase(logRepo, programRepo, ObserveLiftCatalogUseCase(liftRepo), logging)
+        val useCase = GetWorkoutSummaryUseCase(logRepo, programRepo, ObserveLiftCatalogUseCase(liftRepo))
 
         val result = useCase(TrainingSessionId("missing"))
 
@@ -62,8 +60,6 @@ class GetWorkoutSummaryUseCaseTest {
             GetWorkoutSummaryResult.SessionNotFound(TrainingSessionId("missing")),
             result,
         )
-        assertEquals(0, logging.errors.size)
-        assertEquals(1, logging.warnings.size)
     }
 
     @Test
@@ -76,7 +72,7 @@ class GetWorkoutSummaryUseCaseTest {
             programRepository = programRepo,
         )
         val liftRepo = FakeLiftRepository(initialLifts = listOf(benchLift()))
-        val useCase = GetWorkoutSummaryUseCase(logRepo, programRepo, ObserveLiftCatalogUseCase(liftRepo), FakeLoggingPort())
+        val useCase = GetWorkoutSummaryUseCase(logRepo, programRepo, ObserveLiftCatalogUseCase(liftRepo))
 
         val summary = (useCase(TrainingSessionId("ts-1")) as GetWorkoutSummaryResult.Success).summary
 
@@ -94,7 +90,7 @@ class GetWorkoutSummaryUseCaseTest {
             programRepository = programRepo,
         )
         val liftRepo = FakeLiftRepository(initialLifts = listOf(benchLift()))
-        val useCase = GetWorkoutSummaryUseCase(logRepo, programRepo, ObserveLiftCatalogUseCase(liftRepo), FakeLoggingPort())
+        val useCase = GetWorkoutSummaryUseCase(logRepo, programRepo, ObserveLiftCatalogUseCase(liftRepo))
 
         // Add two logged sets for bench: 135×5 and 185×3
         logRepo.insertSet(
@@ -148,7 +144,6 @@ class GetWorkoutSummaryUseCaseTest {
             logRepo,
             programRepo,
             ObserveLiftCatalogUseCase(liftRepo),
-            FakeLoggingPort(),
         )
         logRepo.insertSet(bodyweightSet("set-8", reps = 8, setIndex = 0, isPr = false))
         logRepo.insertSet(bodyweightSet("set-12", reps = 12, setIndex = 1, isPr = true))
@@ -178,7 +173,6 @@ class GetWorkoutSummaryUseCaseTest {
             logRepo,
             programRepo,
             ObserveLiftCatalogUseCase(liftRepo),
-            FakeLoggingPort(),
         )
         logRepo.insertSet(
             LoggedSet(
@@ -232,7 +226,6 @@ class GetWorkoutSummaryUseCaseTest {
             logRepo,
             programRepo,
             ObserveLiftCatalogUseCase(liftRepo),
-            FakeLoggingPort(),
         )
         logRepo.insertSet(
             LoggedSet(
@@ -343,7 +336,6 @@ class GetWorkoutSummaryUseCaseTest {
             logRepo,
             programRepo,
             ObserveLiftCatalogUseCase(liftRepo),
-            FakeLoggingPort(),
         )
 
         val summary = (useCase(TrainingSessionId("ts-order")) as GetWorkoutSummaryResult.Success).summary
@@ -413,7 +405,6 @@ class GetWorkoutSummaryUseCaseTest {
             logRepo,
             programRepo,
             ObserveLiftCatalogUseCase(liftRepo),
-            FakeLoggingPort(),
         )
 
         val summary = (useCase(TrainingSessionId("ts-orphan")) as GetWorkoutSummaryResult.Success).summary

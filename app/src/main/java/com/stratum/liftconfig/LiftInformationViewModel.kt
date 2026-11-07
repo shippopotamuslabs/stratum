@@ -29,7 +29,8 @@ import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.application.training.GetLiftHistoryUseCase
 import com.stratum.application.training.LiftHistory
 import com.stratum.application.training.LiftHistoryDiagnostic
-import com.stratum.domain.logging.LogErrorUseCase
+import com.stratum.application.diagnostics.OperationalDiagnostic
+import com.stratum.app.DiagnosticDrain
 import com.stratum.domain.training.LoggedSet
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Instant
@@ -114,7 +115,7 @@ class LiftInformationViewModel @Inject constructor(
     private val setLiftDefaultRest: SetLiftDefaultRestUseCase,
     private val setLiftEquipment: SetLiftEquipmentUseCase,
     private val getLiftHistory: GetLiftHistoryUseCase,
-    private val logError: LogErrorUseCase,
+    private val diagnosticDrain: DiagnosticDrain,
     private val equipmentPickResult: EquipmentPickResult,
 ) : ViewModel() {
 
@@ -268,9 +269,11 @@ class LiftInformationViewModel @Inject constructor(
         if (pending == null) return
         val id = liftId.value ?: return
         viewModelScope.launch {
-            if (updateLiftMuscles(LiftId(id), pending.primary, pending.secondary) !=
-                UpdateLiftMusclesResult.Success
-            ) {
+            val result = updateLiftMuscles(LiftId(id), pending.primary, pending.secondary)
+            if (result is UpdateLiftMusclesResult.PersistenceFailed) {
+                diagnosticDrain.drain(result.diagnostics)
+            }
+            if (result != UpdateLiftMusclesResult.Success) {
                 _userMessage.value = MSG_SAVE_FAILED
             }
         }
@@ -309,9 +312,11 @@ class LiftInformationViewModel @Inject constructor(
                 } else {
                     lift.secondaryMuscles - muscle
                 }
-            if (updateLiftMuscles(LiftId(id), primary, secondary) !=
-                UpdateLiftMusclesResult.Success
-            ) {
+            val result = updateLiftMuscles(LiftId(id), primary, secondary)
+            if (result is UpdateLiftMusclesResult.PersistenceFailed) {
+                diagnosticDrain.drain(result.diagnostics)
+            }
+            if (result != UpdateLiftMusclesResult.Success) {
                 _userMessage.value = MSG_SAVE_FAILED
             }
         }
@@ -348,9 +353,11 @@ class LiftInformationViewModel @Inject constructor(
                 } else {
                     lift.secondaryMuscles
                 }
-            if (updateLiftMuscles(LiftId(id), primary, secondary) !=
-                UpdateLiftMusclesResult.Success
-            ) {
+            val result = updateLiftMuscles(LiftId(id), primary, secondary)
+            if (result is UpdateLiftMusclesResult.PersistenceFailed) {
+                diagnosticDrain.drain(result.diagnostics)
+            }
+            if (result != UpdateLiftMusclesResult.Success) {
                 _userMessage.value = MSG_SAVE_FAILED
             }
         }
@@ -394,8 +401,12 @@ class LiftInformationViewModel @Inject constructor(
     fun onSaveDefaultRest() {
         val id = liftId.value ?: return
         viewModelScope.launch {
-            when (setLiftDefaultRest(LiftId(id), restDraftSeconds.value)) {
+            when (val result = setLiftDefaultRest(LiftId(id), restDraftSeconds.value)) {
                 SetLiftDefaultRestResult.Success -> editingField.value = null
+                is SetLiftDefaultRestResult.PersistenceFailed -> {
+                    diagnosticDrain.drain(result.diagnostics)
+                    _userMessage.value = MSG_SAVE_FAILED
+                }
                 else -> _userMessage.value = MSG_SAVE_FAILED
             }
         }
@@ -439,8 +450,12 @@ class LiftInformationViewModel @Inject constructor(
      * [SetLiftEquipmentUseCase].
      */
     private suspend fun persistEquipment(id: LiftId, equipmentId: EquipmentId?) {
-        when (setLiftEquipment(id, equipmentId)) {
+        when (val result = setLiftEquipment(id, equipmentId)) {
             SetLiftEquipmentResult.Success -> editingField.value = null
+            is SetLiftEquipmentResult.PersistenceFailed -> {
+                diagnosticDrain.drain(result.diagnostics)
+                _userMessage.value = MSG_SAVE_FAILED
+            }
             else -> _userMessage.value = MSG_SAVE_FAILED
         }
     }
@@ -451,12 +466,17 @@ class LiftInformationViewModel @Inject constructor(
         val lift = latestLift.value ?: return
         viewModelScope.launch {
             when (
-                updateCustomLiftDetails(
-                    LiftId(id),
-                    transform(lift.toDetails()),
-                )
+                val result =
+                    updateCustomLiftDetails(
+                        LiftId(id),
+                        transform(lift.toDetails()),
+                    )
             ) {
                 UpdateCustomLiftDetailsResult.Success -> editingField.value = null
+                is UpdateCustomLiftDetailsResult.PersistenceFailed -> {
+                    diagnosticDrain.drain(result.diagnostics)
+                    _userMessage.value = MSG_SAVE_FAILED
+                }
                 else -> _userMessage.value = MSG_SAVE_FAILED
             }
         }
@@ -592,9 +612,9 @@ class LiftInformationViewModel @Inject constructor(
         DATE_FORMAT.format(instant.atZone(ZoneId.systemDefault()))
 
     /**
-     * STR-259: reports each history diagnostic exactly once through the screen's
-     * existing error-logging wiring. Diagnostics are log-only — never surfaced in
-     * the UI. Error level (not warning) so the bound failure travels attached,
+     * STR-259: reports each history diagnostic exactly once through the app
+     * [DiagnosticDrain]. Diagnostics are log-only — never surfaced in the UI.
+     * Error level (not warning) so the bound failure travels attached,
      * mirroring the STR-255 drain shape: `LoggingPort.warning` carries no
      * throwable and ViewModels must not inject `LoggingPort` directly.
      */
@@ -602,11 +622,13 @@ class LiftInformationViewModel @Inject constructor(
         for (diagnostic in diagnostics) {
             when (diagnostic) {
                 is LiftHistoryDiagnostic.LoadFailed ->
-                    logError(
-                        TAG,
-                        "Lift history failed to load for ${diagnostic.liftId.value} " +
-                            "— showing empty history.",
-                        diagnostic.cause,
+                    diagnosticDrain.drain(
+                        OperationalDiagnostic(
+                            tag = TAG,
+                            message = "Lift history failed to load for ${diagnostic.liftId.value} " +
+                                "— showing empty history.",
+                            cause = diagnostic.cause,
+                        ),
                     )
             }
         }

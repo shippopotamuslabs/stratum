@@ -1,26 +1,30 @@
 package com.stratum.application.training
 
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.domain.training.identity.TrainingSessionId
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
- * Outcome of abandoning a training session (STR-243). The originating throwable of
- * a failed delete goes once to the diagnostics channel ([LoggingPort.error]) at
- * the use-case boundary; it never crosses as a payload. Coroutine cancellation is
- * not a branch: it propagates.
+ * Outcome of abandoning a training session (STR-243; STR-237 Route (i)).
+ *
+ * The originating throwable of a failed delete rides the [PersistenceFailed]
+ * branch as an [OperationalDiagnostic] (legacy tag + rendered message, real
+ * throwable as cause); the presentation boundary drains it exactly once
+ * through its module's DiagnosticDrain. Coroutine cancellation is not a
+ * branch: it propagates.
  */
 sealed interface AbandonTrainingSessionResult {
     data object Success : AbandonTrainingSessionResult
 
     /** The session delete failed (repository / store I/O). */
-    data object PersistenceFailed : AbandonTrainingSessionResult
+    data class PersistenceFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : AbandonTrainingSessionResult
 }
 
 class AbandonTrainingSessionUseCase @Inject constructor(
     private val trainingLogRepository: TrainingLogRepository,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(sessionId: TrainingSessionId): AbandonTrainingSessionResult =
         try {
@@ -29,8 +33,15 @@ class AbandonTrainingSessionUseCase @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (t: Throwable) {
-            loggingPort.error(TAG, "Failed to abandon training session: ${t.message}", t)
-            AbandonTrainingSessionResult.PersistenceFailed
+            AbandonTrainingSessionResult.PersistenceFailed(
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Failed to abandon training session: ${t.message}",
+                        cause = t,
+                    ),
+                ),
+            )
         }
 
     private companion object {

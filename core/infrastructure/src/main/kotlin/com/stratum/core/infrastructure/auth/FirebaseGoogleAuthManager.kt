@@ -14,7 +14,7 @@ import com.stratum.application.auth.SignOutOutcome
 import com.stratum.domain.auth.AuthState
 import com.stratum.domain.auth.UserProfile
 import com.stratum.domain.di.ApplicationScope
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.core.infrastructure.logging.LoggingPort
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.cancellation.CancellationException

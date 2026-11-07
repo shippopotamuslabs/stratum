@@ -1,6 +1,5 @@
 package com.stratum.application.program
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
 import com.stratum.domain.program.identity.LiftSetId
@@ -22,7 +21,7 @@ class UpdateExistingProgramUseCaseTest {
     fun savesProgramTemplate() = runTest {
         val program = programWithLifts().activate()
         val programRepo = FakeProgramRepository(program)
-        val useCase = UpdateExistingProgramUseCase(programRepo, FakeLoggingPort())
+        val useCase = UpdateExistingProgramUseCase(programRepo)
 
         val renamed =
             program.copy(
@@ -50,14 +49,13 @@ class UpdateExistingProgramUseCaseTest {
     @DisplayName("Given program without workouts when invoked then failure without non-fatal")
     fun emptyProgramFailsWithoutNonFatal() = runTest {
         val program = programWithLifts().copy(workouts = emptyList())
-        val logging = FakeLoggingPort()
-        val useCase = UpdateExistingProgramUseCase(FakeProgramRepository(program), logging)
+        val useCase = UpdateExistingProgramUseCase(FakeProgramRepository(program))
 
         val result = useCase(program)
 
+        // STR-237: the former warning breadcrumb duplicated the typed branch
+        // fact and is dropped; the branch is the record.
         assertEquals(UpdateExistingProgramResult.NoWorkouts, result)
-        assertEquals(0, logging.errors.size)
-        assertEquals(1, logging.warnings.size)
     }
 
     @Test
@@ -65,14 +63,13 @@ class UpdateExistingProgramUseCaseTest {
     fun exerciselessProgramFailsWithoutNonFatal() = runTest {
         val base = programWithLifts()
         val program = base.copy(workouts = base.workouts.map { it.copy(workoutLifts = emptyList()) })
-        val logging = FakeLoggingPort()
-        val useCase = UpdateExistingProgramUseCase(FakeProgramRepository(program), logging)
+        val useCase = UpdateExistingProgramUseCase(FakeProgramRepository(program))
 
         val result = useCase(program)
 
+        // STR-237: the former warning breadcrumb duplicated the typed branch
+        // fact and is dropped; the branch is the record.
         assertEquals(UpdateExistingProgramResult.NoExercises, result)
-        assertEquals(0, logging.errors.size)
-        assertEquals(1, logging.warnings.size)
     }
 
     private fun programWithLifts(): Program {

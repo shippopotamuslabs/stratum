@@ -1,8 +1,8 @@
 package com.stratum.core.infrastructure.telemetry
 
-import com.stratum.domain.telemetry.ClientLogEntry
-import com.stratum.domain.telemetry.ClientLogSeverity
-import com.stratum.domain.telemetry.PendingClientLogStore
+import com.stratum.core.infrastructure.telemetry.ClientLogEntry
+import com.stratum.core.infrastructure.telemetry.ClientLogSeverity
+import com.stratum.core.infrastructure.telemetry.PendingClientLogStore
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull

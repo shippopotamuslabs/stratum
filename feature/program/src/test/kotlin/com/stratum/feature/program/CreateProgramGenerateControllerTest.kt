@@ -1,6 +1,8 @@
 package com.stratum.feature.program
 
+import com.stratum.core.infrastructure.telemetry.ProgramGenerationTelemetryLogger
 import com.stratum.core.testing.MainDispatcherRule
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.ui.trainingsetup.SESSION_BAND_KEY_MEDIUM
 import com.stratum.core.ui.trainingsetup.ScheduleDraftUi
 import com.stratum.core.ui.trainingsetup.isReadyForGeneration
@@ -16,35 +18,54 @@ import com.stratum.core.testing.telemetry.FakeAnalyticsPort
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.identity.LiftId
-import com.stratum.domain.logging.LogAnalyticsEventUseCase
 import com.stratum.core.testing.telemetry.FakeCrashTelemetryPort
 import com.stratum.core.testing.telemetry.FakeOutcomeTelemetrySink
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisException
-import com.stratum.domain.telemetry.ClientStage
-import com.stratum.domain.telemetry.OutcomeResult
-import com.stratum.domain.telemetry.OutcomeTelemetry
-import com.stratum.domain.telemetry.SynthesisTelemetry
-import com.stratum.domain.telemetry.TelemetryRouter
-import com.stratum.domain.telemetry.SynthesisTelemetry.Companion.EVENT_SYNTHESIS_CLIENT_STAGE
-import com.stratum.domain.telemetry.SynthesisTelemetry.Companion.EVENT_SYNTHESIS_RENDERED
-import com.stratum.domain.telemetry.SynthesisTelemetry.Companion.PARAM_DURATION_MS
-import com.stratum.domain.telemetry.SynthesisTelemetry.Companion.PARAM_JOB_ID
-import com.stratum.domain.telemetry.SynthesisTelemetry.Companion.PARAM_SESSION_ID
-import com.stratum.domain.telemetry.SynthesisTelemetry.Companion.PARAM_STAGE
-import com.stratum.domain.logging.PARAM_ACTION
-import com.stratum.domain.logging.PARAM_SCREEN
-import com.stratum.domain.logging.USER_VISIBLE_ERROR_EVENT
+import com.stratum.core.infrastructure.telemetry.ClientStage
+import com.stratum.core.infrastructure.telemetry.OutcomeResult
+import com.stratum.core.infrastructure.telemetry.OutcomeTelemetry
+import com.stratum.core.infrastructure.telemetry.SynthesisTelemetry
+import com.stratum.core.infrastructure.telemetry.TelemetryRouter
+import com.stratum.core.infrastructure.telemetry.SynthesisTelemetry.Companion.EVENT_SYNTHESIS_CLIENT_STAGE
+import com.stratum.core.infrastructure.telemetry.SynthesisTelemetry.Companion.EVENT_SYNTHESIS_RENDERED
+import com.stratum.core.infrastructure.telemetry.SynthesisTelemetry.Companion.PARAM_DURATION_MS
+import com.stratum.core.infrastructure.telemetry.SynthesisTelemetry.Companion.PARAM_JOB_ID
+import com.stratum.core.infrastructure.telemetry.SynthesisTelemetry.Companion.PARAM_SESSION_ID
+import com.stratum.core.infrastructure.telemetry.SynthesisTelemetry.Companion.PARAM_STAGE
+import com.stratum.core.infrastructure.telemetry.PARAM_ACTION
+import com.stratum.core.infrastructure.telemetry.PARAM_SCREEN
+import com.stratum.core.infrastructure.telemetry.USER_VISIBLE_ERROR_EVENT
 import com.stratum.application.onboarding.GetUserTrainingProfileUseCase
 import com.stratum.application.onboarding.UpdateSpecializationUseCase
 import com.stratum.application.onboarding.UpdateUserTrainingProfileUseCase
 import com.stratum.application.program.GenerateProgramUseCase
 import com.stratum.application.program.InferLastTrainedBucketUseCase
+import com.stratum.application.program.generation.BuildProgramWorkoutsUseCase
+import com.stratum.application.program.generation.IntegrateAndValidateProgramUseCase
+import com.stratum.application.program.generation.PlanWeeklyVolumeUseCase
+import com.stratum.application.program.generation.pipeline.PipelineOptions
+import com.stratum.application.program.generation.pipeline.ProgramGenerationPipeline
+import com.stratum.application.program.generation.pipeline.ProgramGenerationPipelineResult
+import com.stratum.core.testing.program.FakeProgramSynthesisPort
+import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.program.ProgressionScheme
+import com.stratum.domain.program.SetType
+import com.stratum.domain.program.generation.GenerationSynthesisSummary
+import com.stratum.domain.program.generation.context.ProgramGenerationContext
+import com.stratum.domain.program.generation.prescription.SynthesisObjectiveBreakdown
+import com.stratum.domain.program.generation.schema.NormalizedLift
+import com.stratum.domain.program.generation.schema.NormalizedProgram
+import com.stratum.domain.program.generation.schema.NormalizedSet
+import com.stratum.domain.program.generation.schema.NormalizedWorkout
+import com.stratum.domain.program.generation.schema.ProgramNormalizationRequest
+import com.stratum.domain.program.generation.slots.SlotGenerationDiagnostic
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
@@ -54,6 +75,9 @@ class CreateProgramGenerateControllerTest {
 
     @Test
     fun `generate failure records analytics and surfaces error state`() = runTest {
+        // STR-237 Special 1: a distinctive pre-created throwable — the record
+        // must carry THIS instance (class fidelity), not a constructed value.
+        val boom = IllegalArgumentException("boom")
         val analytics = FakeAnalyticsPort()
         val outcomes = FakeOutcomeTelemetrySink()
         val crash = FakeCrashTelemetryPort()
@@ -73,10 +97,10 @@ class CreateProgramGenerateControllerTest {
                 scope = backgroundScope,
                 generateProgram =
                     GenerateProgramUseCase(
-                        loadContext = FixedProgramGenerationContextLoader(error = { error("boom") }),
+                        loadContext =
+                            FixedProgramGenerationContextLoader(error = { throw boom }),
                         pipeline = testProgramGenerationPipeline(),
                         liftRepository = com.stratum.core.testing.onboarding.FakeLiftRepository(),
-                        telemetryRouter = TelemetryRouter(outcomes, crash, analytics),
                         generationDispatcher = UnconfinedTestDispatcher(testScheduler),
                     ),
                 updateUserTrainingProfile = UpdateUserTrainingProfileUseCase(profileRepo),
@@ -85,9 +109,10 @@ class CreateProgramGenerateControllerTest {
                 getUserTrainingProfile = GetUserTrainingProfileUseCase(profileRepo),
                 inferLastTrained = InferLastTrainedBucketUseCase(FakeTrainingLogRepository()),
                 onProgramGenerated = {},
-                logAnalytics = LogAnalyticsEventUseCase(analytics),
+                logAnalytics = AnalyticsRecorder(analytics),
                 synthesisTelemetry = SynthesisTelemetry(analytics::logEvent),
                 telemetryRouter = TelemetryRouter(outcomes, crash, analytics),
+                generationLogger = ProgramGenerationTelemetryLogger(FakeLoggingPort()),
             )
 
         assertTrue(
@@ -108,18 +133,95 @@ class CreateProgramGenerateControllerTest {
         val event = byName[USER_VISIBLE_ERROR_EVENT]?.single()
         assertEquals("create_program", event?.params?.get(PARAM_SCREEN))
         assertEquals("generate_program", event?.params?.get(PARAM_ACTION))
-        // Unexpected failure: never in the outcome stream; the use case
-        // recorded the original throwable exactly once via
-        // TelemetryRouter.recordExceptional — one non-fatal holding the real
-        // throwable plus one exceptional_occurred counter increment with the
-        // base boundary/class params (restored pre-STR-243 behaviour). The
-        // controller adds no second record.
+        // Unexpected failure: never in the outcome stream; STR-237 Special 1
+        // carries the REAL throwable on the branch and the controller records
+        // it exactly once via TelemetryRouter.recordExceptional: one
+        // non-fatal plus one exceptional_occurred counter increment with the
+        // base boundary/class params. Class fidelity: the recorded exception
+        // IS the fixture's throwable (assertSame), and the class param names
+        // its real class.
         assertTrue(outcomes.outcomes.isEmpty())
         assertEquals(1, crash.recordedExceptions.size)
-        assertTrue(crash.recordedExceptions.single() is IllegalStateException)
+        assertSame(boom, crash.recordedExceptions.single())
         val exceptional = byName[TelemetryRouter.EVENT_EXCEPTIONAL_OCCURRED]?.single()
         assertEquals("CreateProgramGenerate", exceptional?.params?.get(TelemetryRouter.PARAM_BOUNDARY))
-        assertEquals("IllegalStateException", exceptional?.params?.get(TelemetryRouter.PARAM_CLASS))
+        assertEquals("IllegalArgumentException", exceptional?.params?.get(TelemetryRouter.PARAM_CLASS))
+    }
+
+    @Test
+    fun `post-pipeline unexpected failure records carried synthesis exactly once`() = runTest {
+        // STR-237 review round 1: the pipeline succeeds and carries a
+        // synthesis summary with one slot diagnostic, but every built lift
+        // is unknown to the (empty) catalog, so post-pipeline sanitization
+        // empties the program and generation ends Unexpected. The boundary
+        // must record the synthesis exactly once (one warning for the one
+        // diagnostic) in addition to the exceptional record.
+        val analytics = FakeAnalyticsPort()
+        val outcomes = FakeOutcomeTelemetrySink()
+        val crash = FakeCrashTelemetryPort()
+        val generationLogging = FakeLoggingPort()
+        val profileRepo = FakeUserTrainingProfileRepository()
+        val state =
+            MutableStateFlow(
+                CreateProgramUiState(
+                    scheduleDraft =
+                        ScheduleDraftUi(
+                            sessionLengthSelection = SESSION_BAND_KEY_MEDIUM,
+                        ),
+                ),
+            )
+        val summary =
+            GenerationSynthesisSummary(
+                trainingDaysPerWeek = 3,
+                cycleLength = 7,
+                objective = SynthesisObjectiveBreakdown.ZERO,
+                diagnostics =
+                    listOf(
+                        SlotGenerationDiagnostic.CrossDomainTouchSkipped(
+                            patternName = "BogusPattern",
+                            muscle = MuscleGroup.Chest,
+                        ),
+                    ),
+            )
+        val controller =
+            CreateProgramGenerateController(
+                state = state,
+                scope = backgroundScope,
+                generateProgram =
+                    GenerateProgramUseCase(
+                        loadContext =
+                            FixedProgramGenerationContextLoader(
+                                context = scenarioContext(days = 3, specialization = emptyMap()),
+                            ),
+                        pipeline = UnknownLiftSynthesisPipeline(summary),
+                        liftRepository = com.stratum.core.testing.onboarding.FakeLiftRepository(),
+                        generationDispatcher = UnconfinedTestDispatcher(testScheduler),
+                    ),
+                updateUserTrainingProfile = UpdateUserTrainingProfileUseCase(profileRepo),
+                updateSpecialization =
+                    UpdateSpecializationUseCase(FakeSpecializationPreferenceRepository()),
+                getUserTrainingProfile = GetUserTrainingProfileUseCase(profileRepo),
+                inferLastTrained = InferLastTrainedBucketUseCase(FakeTrainingLogRepository()),
+                onProgramGenerated = {},
+                logAnalytics = AnalyticsRecorder(analytics),
+                synthesisTelemetry = SynthesisTelemetry(analytics::logEvent),
+                telemetryRouter = TelemetryRouter(outcomes, crash, analytics),
+                generationLogger = ProgramGenerationTelemetryLogger(generationLogging),
+            )
+
+        controller.generate()
+        testScheduler.runCurrent()
+        advanceUntilIdle()
+
+        assertEquals(CreateProgramGenerateState.Error, state.value.generateState)
+        // The exceptional record still fires exactly once for the require failure.
+        assertEquals(1, crash.recordedExceptions.size)
+        assertTrue(crash.recordedExceptions.single() is IllegalArgumentException)
+        // The synthesis record fires exactly once: one warning for the one
+        // carried slot diagnostic (a second recordSynthesis would double it).
+        val warning = generationLogging.warnings.single()
+        assertEquals("StratumProgramGeneration", warning.tag)
+        assertTrue(warning.message.contains("Cross-domain touch skipped"))
     }
 
     @Test
@@ -149,7 +251,6 @@ class CreateProgramGenerateControllerTest {
                             ),
                         pipeline = testProgramGenerationPipeline(),
                         liftRepository = com.stratum.core.testing.onboarding.FakeLiftRepository(),
-                        telemetryRouter = TelemetryRouter(outcomes, crash, analytics),
                         generationDispatcher = UnconfinedTestDispatcher(testScheduler),
                     ),
                 updateUserTrainingProfile = UpdateUserTrainingProfileUseCase(profileRepo),
@@ -158,9 +259,10 @@ class CreateProgramGenerateControllerTest {
                 getUserTrainingProfile = GetUserTrainingProfileUseCase(profileRepo),
                 inferLastTrained = InferLastTrainedBucketUseCase(FakeTrainingLogRepository()),
                 onProgramGenerated = {},
-                logAnalytics = LogAnalyticsEventUseCase(analytics),
+                logAnalytics = AnalyticsRecorder(analytics),
                 synthesisTelemetry = SynthesisTelemetry(analytics::logEvent),
                 telemetryRouter = TelemetryRouter(outcomes, crash, analytics),
+                generationLogger = ProgramGenerationTelemetryLogger(FakeLoggingPort()),
             )
 
         controller.generate()
@@ -226,7 +328,6 @@ class CreateProgramGenerateControllerTest {
                                         )
                                     },
                             ),
-                        telemetryRouter = TelemetryRouter(outcomes, crash, analytics),
                         generationDispatcher = UnconfinedTestDispatcher(testScheduler),
                     ),
                 updateUserTrainingProfile = UpdateUserTrainingProfileUseCase(profileRepo),
@@ -235,9 +336,10 @@ class CreateProgramGenerateControllerTest {
                 getUserTrainingProfile = GetUserTrainingProfileUseCase(profileRepo),
                 inferLastTrained = InferLastTrainedBucketUseCase(FakeTrainingLogRepository()),
                 onProgramGenerated = { program -> generatedProgram = program },
-                logAnalytics = LogAnalyticsEventUseCase(analytics),
+                logAnalytics = AnalyticsRecorder(analytics),
                 synthesisTelemetry = SynthesisTelemetry(analytics::logEvent),
                 telemetryRouter = TelemetryRouter(outcomes, crash, analytics),
+                generationLogger = ProgramGenerationTelemetryLogger(FakeLoggingPort()),
             )
 
         controller.generate()
@@ -282,4 +384,61 @@ class CreateProgramGenerateControllerTest {
             "success must not increment the exceptional counter",
         )
     }
+}
+
+/**
+ * Test double: returns a one-workout program whose only lift is unknown to
+ * the test's empty catalog, plus a carried [GenerationSynthesisSummary], so
+ * the post-pipeline failure boundary test exercises the real
+ * [GenerateProgramUseCase] sanitization path (STR-237 review round 1).
+ */
+private class UnknownLiftSynthesisPipeline(
+    private val synthesis: GenerationSynthesisSummary,
+) : ProgramGenerationPipeline(
+    planWeeklyVolume = PlanWeeklyVolumeUseCase(),
+    buildProgramWorkouts = BuildProgramWorkoutsUseCase(),
+    integrateAndValidate = IntegrateAndValidateProgramUseCase(),
+    programSynthesisPort = FakeProgramSynthesisPort(),
+) {
+    override suspend fun generate(
+        context: ProgramGenerationContext,
+        normalizationRequest: ProgramNormalizationRequest,
+        options: PipelineOptions,
+    ): ProgramGenerationPipelineResult =
+        ProgramGenerationPipelineResult.Success(
+            program =
+                NormalizedProgram(
+                    name = "Unknown Lifts Program",
+                    cycleLength = 1,
+                    restSlotIndices = emptySet(),
+                    workouts =
+                        listOf(
+                            NormalizedWorkout(
+                                name = "Day 1",
+                                weekday = "Monday",
+                                position = 0,
+                                workoutLifts =
+                                    listOf(
+                                        NormalizedLift(
+                                            liftId = "unknown-lift",
+                                            position = 0,
+                                            progressionScheme = ProgressionScheme.Double,
+                                            workoutLiftSets =
+                                                listOf(
+                                                    NormalizedSet(
+                                                        position = 0,
+                                                        setType = SetType.Standard,
+                                                        repMin = 6,
+                                                        repMax = 10,
+                                                        rirGoal = 2,
+                                                        isTopSet = true,
+                                                    ),
+                                                ),
+                                        ),
+                                    ),
+                            ),
+                        ),
+                ),
+            synthesis = synthesis,
+        )
 }

@@ -35,11 +35,9 @@ import com.stratum.application.importing.SupersetAffinityRepository
 import com.stratum.application.importing.ValidateImportFilesUseCase
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.core.testing.telemetry.FakeAnalyticsPort
-import com.stratum.domain.logging.LogAnalyticsEventUseCase
-import com.stratum.domain.logging.LogErrorUseCase
-import com.stratum.domain.logging.PARAM_ACTION
-import com.stratum.domain.logging.PARAM_SCREEN
-import com.stratum.domain.logging.USER_VISIBLE_ERROR_EVENT
+import com.stratum.core.infrastructure.telemetry.PARAM_ACTION
+import com.stratum.core.infrastructure.telemetry.PARAM_SCREEN
+import com.stratum.core.infrastructure.telemetry.USER_VISIBLE_ERROR_EVENT
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -164,8 +162,8 @@ class ImportLogsViewModelTest {
             executeImport = execute,
             cancelImport = cancel,
             authManager = auth,
-            logError = LogErrorUseCase(loggingPort),
-            logAnalytics = LogAnalyticsEventUseCase(analytics),
+            diagnosticDrain = DiagnosticDrain(loggingPort),
+            logAnalytics = AnalyticsRecorder(analytics),
             observeWeightDisplayPreferences =
                 com.stratum.application.lift.ObserveWeightDisplayPreferencesUseCase(
                     com.stratum.core.testing.lift.FakeWeightDisplayPreferencesRepository(),

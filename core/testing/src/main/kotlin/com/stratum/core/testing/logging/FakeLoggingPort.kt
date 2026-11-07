@@ -1,6 +1,6 @@
 package com.stratum.core.testing.logging
 
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.core.infrastructure.logging.LoggingPort
 
 /** In-memory [LoggingPort] for unit tests. Records errors for assertions; other levels are no-op. */
 class FakeLoggingPort : LoggingPort {

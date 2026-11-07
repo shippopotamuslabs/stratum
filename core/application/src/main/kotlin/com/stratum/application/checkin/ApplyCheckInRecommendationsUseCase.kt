@@ -16,17 +16,17 @@ import java.util.UUID
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
 import com.stratum.domain.checkin.CheckInApplyCommand
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.application.diagnostics.OperationalDiagnostic
 
 /**
- * Outcome of [ApplyCheckInRecommendationsUseCase] (STR-243).
+ * Outcome of [ApplyCheckInRecommendationsUseCase] (STR-243; STR-237 Route (i)).
  *
- * The refusal branches are expected caller outcomes and are not logged; an
- * operational load/save failure is logged once via [LoggingPort.error] at the
- * use-case boundary and surfaces as [PersistenceFailed]. A failed completion
- * write is logged once at the [CompleteCheckInUseCase] boundary and likewise
- * surfaces as [PersistenceFailed]. Coroutine cancellation is not a branch:
- * it propagates.
+ * The refusal branches are expected caller outcomes and carry no diagnostics;
+ * an operational load/save failure rides the [PersistenceFailed] branch as an
+ * [OperationalDiagnostic] and is drained exactly once at the presentation
+ * boundary. A failed completion write carries the [CompleteCheckInUseCase]
+ * branch's diagnostics through unchanged. Coroutine cancellation is not a
+ * branch: it propagates.
  */
 sealed interface ApplyCheckInRecommendationsResult {
     data object Success : ApplyCheckInRecommendationsResult
@@ -38,7 +38,9 @@ sealed interface ApplyCheckInRecommendationsResult {
     data class WorkoutLiftNotFound(val workoutLiftId: WorkoutLiftId) : ApplyCheckInRecommendationsResult
 
     /** The apply failed (repository / store I/O). */
-    data object PersistenceFailed : ApplyCheckInRecommendationsResult
+    data class PersistenceFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : ApplyCheckInRecommendationsResult
 }
 
 /**
@@ -51,17 +53,16 @@ class ApplyCheckInRecommendationsUseCase @Inject constructor(
     private val programRepository: ProgramRepository,
     private val programChangeEventRepository: ProgramChangeEventRepository,
     private val completeCheckIn: CompleteCheckInUseCase,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(
         commands: List<CheckInApplyCommand>,
         now: Instant = Instant.now(),
     ): ApplyCheckInRecommendationsResult {
         if (commands.isEmpty()) {
-            return when (completeCheckIn(now)) {
+            return when (val completion = completeCheckIn(now)) {
                 CheckInPreferenceResult.Success -> ApplyCheckInRecommendationsResult.Success
-                CheckInPreferenceResult.PersistenceFailed ->
-                    ApplyCheckInRecommendationsResult.PersistenceFailed
+                is CheckInPreferenceResult.PersistenceFailed ->
+                    ApplyCheckInRecommendationsResult.PersistenceFailed(completion.diagnostics)
             }
         }
         return try {
@@ -78,16 +79,23 @@ class ApplyCheckInRecommendationsUseCase @Inject constructor(
                 }
             programRepository.saveProgram(applied.program)
             applied.events.forEach { programChangeEventRepository.append(it) }
-            when (completeCheckIn(now)) {
+            when (val completion = completeCheckIn(now)) {
                 CheckInPreferenceResult.Success -> ApplyCheckInRecommendationsResult.Success
-                CheckInPreferenceResult.PersistenceFailed ->
-                    ApplyCheckInRecommendationsResult.PersistenceFailed
+                is CheckInPreferenceResult.PersistenceFailed ->
+                    ApplyCheckInRecommendationsResult.PersistenceFailed(completion.diagnostics)
             }
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Throwable) {
-            loggingPort.error(TAG, "Failed to apply check-in recommendations: ${error.message}", error)
-            ApplyCheckInRecommendationsResult.PersistenceFailed
+            ApplyCheckInRecommendationsResult.PersistenceFailed(
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Failed to apply check-in recommendations: ${error.message}",
+                        cause = error,
+                    ),
+                ),
+            )
         }
     }
 

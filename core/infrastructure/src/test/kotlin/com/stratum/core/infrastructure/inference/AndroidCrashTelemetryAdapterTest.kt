@@ -4,8 +4,8 @@ package com.stratum.core.infrastructure.inference
 
 import android.util.Log
 import com.google.firebase.crashlytics.FirebaseCrashlytics
-import com.stratum.domain.telemetry.SanitizedTelemetryException
-import com.stratum.domain.telemetry.TelemetryPiiScrubber
+import com.stratum.core.infrastructure.telemetry.SanitizedTelemetryException
+import com.stratum.core.infrastructure.telemetry.TelemetryPiiScrubber
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic

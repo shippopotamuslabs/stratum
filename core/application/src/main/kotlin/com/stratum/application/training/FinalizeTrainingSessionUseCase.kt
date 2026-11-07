@@ -2,7 +2,7 @@ package com.stratum.application.training
 
 import com.stratum.domain.di.ApplicationScope
 import com.stratum.application.healthconnect.HealthConnectSchedulerPort
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.application.program.ProgramRepository
 import com.stratum.application.response.ResponseModelingSchedulerPort
 import com.stratum.domain.training.identity.TrainingSessionId
@@ -23,13 +23,19 @@ import com.stratum.domain.response.RE_EXTRACT_MIN_COMPLETED_WORKOUTS
  *
  * The guard branches carry the typed facts the former constructed exceptions
  * carried ([SessionNotFound] / [SessionNotInProgress] with the session id and
- * actual status). The originating throwable of a failed finalize goes once to
- * the diagnostics channel ([LoggingPort.error]) at the use-case boundary; it
- * never crosses as a payload. Coroutine cancellation is not a branch: it
- * propagates.
+ * actual status). The originating throwable of a failed finalize rides the
+ * [PersistenceFailed] branch as an [OperationalDiagnostic] (legacy tag +
+ * rendered message, real throwable as cause); the presentation boundary
+ * drains it exactly once through its module's DiagnosticDrain. A best-effort
+ * Health Connect enqueue failure after the durable finalize rides
+ * [Success.diagnostics] the same way. Coroutine cancellation is not a branch:
+ * it propagates.
  */
 sealed interface FinalizeTrainingSessionResult {
-    data class Success(val session: TrainingSession) : FinalizeTrainingSessionResult
+    data class Success(
+        val session: TrainingSession,
+        val diagnostics: List<OperationalDiagnostic> = emptyList(),
+    ) : FinalizeTrainingSessionResult
 
     data class SessionNotFound(val sessionId: TrainingSessionId) : FinalizeTrainingSessionResult
 
@@ -39,7 +45,9 @@ sealed interface FinalizeTrainingSessionResult {
     ) : FinalizeTrainingSessionResult
 
     /** The finalize write failed (repository / store I/O). */
-    data object PersistenceFailed : FinalizeTrainingSessionResult
+    data class PersistenceFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : FinalizeTrainingSessionResult
 }
 
 class FinalizeTrainingSessionUseCase @Inject constructor(
@@ -47,7 +55,6 @@ class FinalizeTrainingSessionUseCase @Inject constructor(
     private val programRepository: ProgramRepository,
     private val computePersonalRecords: ComputePersonalRecordsUseCase,
     private val localDerivedStages: LocalDerivedTrainingStages,
-    private val loggingPort: LoggingPort,
     private val responseModelingScheduler: ResponseModelingSchedulerPort =
         NoOpResponseModelingScheduler,
     private val healthConnectScheduler: HealthConnectSchedulerPort =
@@ -122,8 +129,13 @@ class FinalizeTrainingSessionUseCase @Inject constructor(
 
             // The session + cycle effects are durable above. The derived-data refresh is
             // fire-and-forget on the application scope so completion returns (and the UI
-            // navigates) immediately; the dashboard tables refresh behind the user. Failures are
-            // swallowed inside LocalDerivedTrainingStages (LogAndContinue).
+            // navigates) immediately; the dashboard tables refresh behind the user.
+            // STR-237 STOP (chunk 1E): the stages run under LogAndContinue, so its
+            // stage-failure records now ride the returned result's diagnostics — but
+            // this launch discards the result and no boundary drainer exists on this
+            // path, so those records are not recorded. Draining them here would need
+            // a logging capability in application; restructuring the launch is a
+            // behavior change. See plans/STR-237/status.md (chunk 1E STOP).
             refreshScope.launch {
                 localDerivedStages.run(
                     includeInsights = true,
@@ -138,28 +150,35 @@ class FinalizeTrainingSessionUseCase @Inject constructor(
             responseModelingScheduler.enqueueRefresh()
 
             // Best-effort Health Connect enqueue — never fail finalize after Room persist.
-            try {
-                healthConnectScheduler.enqueueSync(completed.id)
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (error: Exception) {
-                loggingPort.error(
-                    TAG,
-                    "Health Connect sync enqueue failed for ${completed.id.value}",
-                    error,
-                )
-            }
+            val enqueueDiagnostics =
+                try {
+                    healthConnectScheduler.enqueueSync(completed.id)
+                    emptyList()
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (error: Exception) {
+                    listOf(
+                        OperationalDiagnostic(
+                            tag = TAG,
+                            message = "Health Connect sync enqueue failed for ${completed.id.value}",
+                            cause = error,
+                        ),
+                    )
+                }
 
-            FinalizeTrainingSessionResult.Success(completed)
+            FinalizeTrainingSessionResult.Success(completed, diagnostics = enqueueDiagnostics)
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (t: Throwable) {
-            loggingPort.error(
-                TAG,
-                "Failed to finalize training session ${sessionId.value}: ${t.message}",
-                t,
+            FinalizeTrainingSessionResult.PersistenceFailed(
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Failed to finalize training session ${sessionId.value}: ${t.message}",
+                        cause = t,
+                    ),
+                ),
             )
-            FinalizeTrainingSessionResult.PersistenceFailed
         }
     }
 

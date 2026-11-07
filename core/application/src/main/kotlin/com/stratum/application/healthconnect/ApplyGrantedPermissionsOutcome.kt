@@ -1,10 +1,13 @@
 package com.stratum.application.healthconnect
 
+import com.stratum.application.diagnostics.OperationalDiagnostic
+
 /**
  * Outcome of [SetHealthConnectEnabledUseCase.applyGrantedPermissions] (STR-243):
  * [Applied] carries any permission-query degradation the call tolerated as
  * [ApplyGrantedPermissionsDiagnostic]s; [PersistenceFailed] is the preference
- * write itself failing (logged once at the use-case boundary).
+ * write itself failing (its diagnostics ride the branch, drained once at the
+ * presentation boundary).
  *
  * Placement note (CODE_STYLE_GOSPEL §11): this type is owned by the application
  * layer, not the domain. The degradation it records is detected in use-case
@@ -21,7 +24,9 @@ sealed interface ApplyGrantedPermissionsOutcome {
     data object SdkUnavailable : ApplyGrantedPermissionsOutcome
 
     /** The preference write failed (store I/O). */
-    data object PersistenceFailed : ApplyGrantedPermissionsOutcome
+    data class PersistenceFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : ApplyGrantedPermissionsOutcome
 }
 
 /**

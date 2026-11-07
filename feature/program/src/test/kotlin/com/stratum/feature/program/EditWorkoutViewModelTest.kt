@@ -1082,15 +1082,15 @@ class EditWorkoutViewModelTest {
             observeProgram = ObserveProgramUseCase(repository),
             observeProgramById = com.stratum.application.program.ObserveProgramByIdUseCase(repository),
             observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
-            saveWorkoutUseCase = SaveWorkoutUseCase(repository, programChangeEvents, logging),
+            saveWorkoutUseCase = SaveWorkoutUseCase(repository, programChangeEvents),
             computeWorkoutMuscleVolume = ComputeWorkoutMuscleVolumeUseCase(),
             estimateWorkoutDurationMinutes = EstimateWorkoutDurationMinutesUseCase(),
             appendProgramChangeEvent = com.stratum.application.training.AppendProgramChangeEventUseCase(programChangeEvents),
             workoutEditSession = workoutEditSession,
-            startTrainingSession = StartTrainingSessionUseCase(trainingLog, repository, logging),
+            startTrainingSession = StartTrainingSessionUseCase(trainingLog, repository),
             observeCycleProgress = ObserveCycleProgressUseCase(repository, trainingLog),
-            abandonTrainingSession = AbandonTrainingSessionUseCase(trainingLog, logging),
-            manageWorkoutOverlay = ManageWorkoutOverlayUseCase(FakeWorkoutOverlayStore(), logging),
+            abandonTrainingSession = AbandonTrainingSessionUseCase(trainingLog),
+            manageWorkoutOverlay = ManageWorkoutOverlayUseCase(FakeWorkoutOverlayStore()),
             observeEquipmentCatalog = com.stratum.application.lift.ObserveEquipmentCatalogUseCase(equipmentRepository),
             getEquipment = com.stratum.application.lift.GetEquipmentUseCase(equipmentRepository),
             getRecentlyUsedEquipment = com.stratum.application.lift.GetRecentlyUsedEquipmentForLiftUseCase(
@@ -1098,6 +1098,7 @@ class EditWorkoutViewModelTest {
                 equipmentRepository,
             ),
             equipmentPickResult = equipmentPickResult,
+            diagnosticDrain = DiagnosticDrain(logging),
         )
     }
 

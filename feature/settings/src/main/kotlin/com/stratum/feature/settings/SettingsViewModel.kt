@@ -6,11 +6,13 @@ import com.stratum.application.auth.DeleteAccountResult
 import com.stratum.application.auth.DeleteAccountUseCase
 import com.stratum.application.auth.LogoutResult
 import com.stratum.application.auth.LogoutUseCase
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.application.sync.CloudSyncDiagnostic
 import com.stratum.application.checkin.CheckInPreferenceResult
 import com.stratum.application.checkin.MarkCheckInPendingUseCase
 import com.stratum.application.checkin.ObserveCheckInPreferencesUseCase
 import com.stratum.application.checkin.SetCheckInEnabledUseCase
+import com.stratum.application.healthconnect.ClearHealthConnectSyncErrorResult
 import com.stratum.application.healthconnect.ClearHealthConnectSyncErrorUseCase
 import com.stratum.application.healthconnect.ObserveHealthConnectPreferencesUseCase
 import com.stratum.application.healthconnect.ObserveHealthConnectSyncErrorsUseCase
@@ -20,7 +22,6 @@ import com.stratum.application.healthconnect.ApplyGrantedPermissionsOutcome
 import com.stratum.application.healthconnect.HealthConnectPermissionsQueryResult
 import com.stratum.application.healthconnect.SetHealthConnectEnabledResult
 import com.stratum.application.healthconnect.SetHealthConnectEnabledUseCase
-import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.domain.subscription.EntitlementSource
 import com.stratum.domain.subscription.EntitlementState
 import com.stratum.application.subscription.ObserveEntitlementUseCase
@@ -78,7 +79,7 @@ class SettingsViewModel @Inject constructor(
     private val setRepRangeShiftProposalsEnabled: SetRepRangeShiftProposalsEnabledUseCase,
     private val setWeightDisplayUnit: SetWeightDisplayUnitUseCase,
     private val setHealthConnectEnabled: SetHealthConnectEnabledUseCase,
-    private val logError: LogErrorUseCase,
+    private val diagnosticDrain: DiagnosticDrain,
     private val clearHealthConnectSyncError: ClearHealthConnectSyncErrorUseCase,
     private val markCheckInPending: MarkCheckInPendingUseCase,
     private val forceRefreshDerived: ForceRefreshDerivedTrainingData,
@@ -105,7 +106,10 @@ class SettingsViewModel @Inject constructor(
         observeHealthConnectSyncErrors()
             .onEach { kind ->
                 _userMessage.value = kind.toUserMessage()
-                clearHealthConnectSyncError()
+                val clearResult = clearHealthConnectSyncError()
+                if (clearResult is ClearHealthConnectSyncErrorResult.PersistenceFailed) {
+                    diagnosticDrain.drain(clearResult.diagnostics)
+                }
             }
             .launchIn(viewModelScope)
     }
@@ -181,12 +185,14 @@ class SettingsViewModel @Inject constructor(
 
     fun onHealthConnectEnabledChange(enabled: Boolean) {
         viewModelScope.launch {
-            when (setHealthConnectEnabled(enabled)) {
+            when (val result = setHealthConnectEnabled(enabled)) {
                 SetHealthConnectEnabledResult.Success -> Unit
                 SetHealthConnectEnabledResult.SdkUnavailable ->
                     _userMessage.value = MSG_HEALTH_SYNC_UNAVAILABLE
-                SetHealthConnectEnabledResult.PersistenceFailed ->
+                is SetHealthConnectEnabledResult.PersistenceFailed -> {
+                    diagnosticDrain.drain(result.diagnostics)
                     _userMessage.value = MSG_PREFS_FAILED
+                }
             }
         }
     }
@@ -210,8 +216,10 @@ class SettingsViewModel @Inject constructor(
                 logPermissionDiagnostics(outcome.diagnostics)
             ApplyGrantedPermissionsOutcome.SdkUnavailable ->
                 _userMessage.value = MSG_HEALTH_SYNC_UNAVAILABLE
-            ApplyGrantedPermissionsOutcome.PersistenceFailed ->
+            is ApplyGrantedPermissionsOutcome.PersistenceFailed -> {
+                diagnosticDrain.drain(outcome.diagnostics)
                 _userMessage.value = MSG_PREFS_FAILED
+            }
         }
     }
 
@@ -261,7 +269,9 @@ class SettingsViewModel @Inject constructor(
 
     fun onAppearanceSelected(appearance: AppearanceUi) {
         viewModelScope.launch {
-            if (setColorMode(appearance.toDomain()) == ThemePreferenceResult.PersistenceFailed) {
+            val result = setColorMode(appearance.toDomain())
+            if (result is ThemePreferenceResult.PersistenceFailed) {
+                diagnosticDrain.drain(result.diagnostics)
                 _userMessage.value = MSG_PREFS_FAILED
             }
         }
@@ -269,7 +279,9 @@ class SettingsViewModel @Inject constructor(
 
     fun onThemeFamilySelected(family: ThemeFamilyUi) {
         viewModelScope.launch {
-            if (setThemeFamily(family.toDomain()) == ThemePreferenceResult.PersistenceFailed) {
+            val result = setThemeFamily(family.toDomain())
+            if (result is ThemePreferenceResult.PersistenceFailed) {
+                diagnosticDrain.drain(result.diagnostics)
                 _userMessage.value = MSG_PREFS_FAILED
             }
         }
@@ -277,7 +289,9 @@ class SettingsViewModel @Inject constructor(
 
     fun onCheckInsEnabledChange(enabled: Boolean) {
         viewModelScope.launch {
-            if (setCheckInEnabled(enabled) == CheckInPreferenceResult.PersistenceFailed) {
+            val result = setCheckInEnabled(enabled)
+            if (result is CheckInPreferenceResult.PersistenceFailed) {
+                diagnosticDrain.drain(result.diagnostics)
                 _userMessage.value = MSG_PREFS_FAILED
             }
         }
@@ -285,7 +299,9 @@ class SettingsViewModel @Inject constructor(
 
     fun onWeightUnitSelected(unit: WeightUnitUi) {
         viewModelScope.launch {
-            if (setWeightDisplayUnit(unit.toDomain()) == WeightDisplayPreferenceResult.PersistenceFailed) {
+            val result = setWeightDisplayUnit(unit.toDomain())
+            if (result is WeightDisplayPreferenceResult.PersistenceFailed) {
+                diagnosticDrain.drain(result.diagnostics)
                 _userMessage.value = MSG_PREFS_FAILED
             }
         }
@@ -298,12 +314,24 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             val failed =
                 when (kind) {
-                    PostWorkoutSuggestionUi.EquipmentSteps ->
-                        setEquipmentProposalsEnabled(enabled) ==
-                            EquipmentProposalPreferenceResult.PersistenceFailed
-                    PostWorkoutSuggestionUi.RepRangeShift ->
-                        setRepRangeShiftProposalsEnabled(enabled) ==
-                            RepRangeShiftPreferenceResult.PersistenceFailed
+                    PostWorkoutSuggestionUi.EquipmentSteps -> {
+                        val result = setEquipmentProposalsEnabled(enabled)
+                        if (result is EquipmentProposalPreferenceResult.PersistenceFailed) {
+                            diagnosticDrain.drain(result.diagnostics)
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                    PostWorkoutSuggestionUi.RepRangeShift -> {
+                        val result = setRepRangeShiftProposalsEnabled(enabled)
+                        if (result is RepRangeShiftPreferenceResult.PersistenceFailed) {
+                            diagnosticDrain.drain(result.diagnostics)
+                            true
+                        } else {
+                            false
+                        }
+                    }
                 }
             if (failed) {
                 _userMessage.value = MSG_PREFS_FAILED
@@ -320,9 +348,14 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             val enable = setCheckInEnabled(true)
             val pending = markCheckInPending(Instant.now())
+            listOf(enable, pending).forEach { result ->
+                if (result is CheckInPreferenceResult.PersistenceFailed) {
+                    diagnosticDrain.drain(result.diagnostics)
+                }
+            }
             if (
-                enable == CheckInPreferenceResult.PersistenceFailed ||
-                pending == CheckInPreferenceResult.PersistenceFailed
+                enable is CheckInPreferenceResult.PersistenceFailed ||
+                pending is CheckInPreferenceResult.PersistenceFailed
             ) {
                 _userMessage.value = MSG_PREFS_FAILED
                 return@launch
@@ -354,7 +387,8 @@ class SettingsViewModel @Inject constructor(
         }
         rebuildProgressUi.update { it.copy(showConfirm = false, isRunning = true) }
         viewModelScope.launch {
-            when (forceRefreshDerived()) {
+            val forceRefreshOutcome = forceRefreshDerived()
+            when (forceRefreshOutcome) {
                 ForceRefreshDerivedTrainingDataResult.Success -> {
                     rebuildProgressUi.update {
                         it.copy(
@@ -365,7 +399,8 @@ class SettingsViewModel @Inject constructor(
                     }
                     _userMessage.value = MSG_FORCE_REFRESH_QUEUED
                 }
-                ForceRefreshDerivedTrainingDataResult.PersistenceFailed -> {
+                is ForceRefreshDerivedTrainingDataResult.PersistenceFailed -> {
+                    diagnosticDrain.drain(forceRefreshOutcome.diagnostics)
                     rebuildProgressUi.update { it.copy(isRunning = false) }
                     _userMessage.value = MSG_FORCE_REFRESH_FAILED
                 }
@@ -429,7 +464,13 @@ class SettingsViewModel @Inject constructor(
         diagnostics.forEach { diagnostic ->
             when (diagnostic) {
                 is CloudSyncDiagnostic.OperationFailed ->
-                    logError(TAG_AUTH, message, diagnostic.cause)
+                    diagnosticDrain.drain(
+                        OperationalDiagnostic(
+                            tag = TAG_AUTH,
+                            message = message,
+                            cause = diagnostic.cause,
+                        ),
+                    )
             }
         }
     }
@@ -533,10 +574,12 @@ class SettingsViewModel @Inject constructor(
         for (diagnostic in diagnostics) {
             when (diagnostic) {
                 is ApplyGrantedPermissionsDiagnostic.PermissionQueryFailed ->
-                    logError(
-                        TAG,
-                        "Health Connect permission query failed — preference left unchanged.",
-                        diagnostic.cause,
+                    diagnosticDrain.drain(
+                        OperationalDiagnostic(
+                            tag = TAG,
+                            message = "Health Connect permission query failed — preference left unchanged.",
+                            cause = diagnostic.cause,
+                        ),
                     )
             }
         }

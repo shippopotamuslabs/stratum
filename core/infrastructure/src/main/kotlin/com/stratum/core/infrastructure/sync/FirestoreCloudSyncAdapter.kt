@@ -6,12 +6,13 @@ import com.stratum.core.infrastructure.sync.CloudSyncFeatureGate
 import com.stratum.core.infrastructure.work.CloudSyncNotStartedException
 import com.stratum.core.infrastructure.work.CloudSyncScheduler
 import com.stratum.domain.di.IoDispatcher
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.core.infrastructure.logging.LoggingPort
 import com.stratum.domain.sync.CloudSessionState
 import com.stratum.application.sync.CloudSyncDiagnostic
 import com.stratum.application.sync.CloudSyncOutcome
 import com.stratum.application.sync.CloudSyncPort
 import com.stratum.domain.sync.SyncStatus
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.application.training.RebuildLocalDerivedTrainingDataResult
 import com.stratum.application.training.RebuildLocalDerivedTrainingDataUseCase
 import java.util.concurrent.atomic.AtomicReference
@@ -239,12 +240,25 @@ class FirestoreCloudSyncAdapter @Inject constructor(
             pull = { pullEngine.pull(userId).getOrThrow() },
             logError = { msg -> loggingPort.error(TAG, msg) },
             afterSuccessfulPull = {
-                if (
-                    rebuildLocalDerivedTrainingData() != RebuildLocalDerivedTrainingDataResult.Success
-                ) {
+                val rebuildResult = rebuildLocalDerivedTrainingData()
+                if (rebuildResult is RebuildLocalDerivedTrainingDataResult.PersistenceFailed) {
                     // Sync itself succeeded; charts may stay empty until the next clean pass
                     // or a local workout finalize (which also refreshes weekly series).
-                    // The rebuild already logged its stage failure inside the stages.
+                    // STR-237: the rebuild's stage records ride its outcome;
+                    // this adapter is their boundary — record each exactly
+                    // once, then keep this adapter's own breadcrumb.
+                    rebuildResult.diagnostics.forEach { diagnostic ->
+                        when (diagnostic.level) {
+                            OperationalDiagnostic.Level.ERROR ->
+                                loggingPort.error(
+                                    diagnostic.tag,
+                                    diagnostic.message,
+                                    diagnostic.cause,
+                                )
+                            OperationalDiagnostic.Level.WARNING ->
+                                loggingPort.warning(diagnostic.tag, diagnostic.message)
+                        }
+                    }
                     loggingPort.error(
                         TAG,
                         "post-pull derived rebuild failed",

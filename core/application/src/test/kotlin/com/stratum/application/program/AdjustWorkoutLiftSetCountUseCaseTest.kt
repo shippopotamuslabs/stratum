@@ -1,6 +1,5 @@
 package com.stratum.application.program
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeProgramChangeEventRepository
 import com.stratum.domain.lift.identity.LiftId
@@ -32,7 +31,7 @@ class AdjustWorkoutLiftSetCountUseCaseTest {
     fun addSets() = runTest {
         val repository = FakeProgramRepository(programWithSets(3))
         val events = FakeProgramChangeEventRepository()
-        val useCase = AdjustWorkoutLiftSetCountUseCase(repository, events, FakeLoggingPort())
+        val useCase = AdjustWorkoutLiftSetCountUseCase(repository, events)
 
         val result = useCase(workoutLiftId, delta = 1)
 
@@ -52,7 +51,7 @@ class AdjustWorkoutLiftSetCountUseCaseTest {
     @DisplayName("negative delta drops trailing non-top sets and never below 1")
     fun removeSetsKeepsFloor() = runTest {
         val repository = FakeProgramRepository(programWithSets(4))
-        val useCase = AdjustWorkoutLiftSetCountUseCase(repository, FakeProgramChangeEventRepository(), FakeLoggingPort())
+        val useCase = AdjustWorkoutLiftSetCountUseCase(repository, FakeProgramChangeEventRepository())
 
         assertEquals(AdjustWorkoutLiftSetCountResult.Success, useCase(workoutLiftId, delta = -2))
         assertEquals(2, repository.getProgram()!!.workouts.first().workoutLifts.first().sets.size)
@@ -113,8 +112,7 @@ class AdjustWorkoutLiftSetCountUseCaseTest {
             AdjustWorkoutLiftSetCountUseCase(
                 repository,
                 FakeProgramChangeEventRepository(),
-                FakeLoggingPort(),
-            )
+                            )
 
         val result = useCase(WorkoutLiftId("missing"), delta = 1)
 
@@ -125,20 +123,25 @@ class AdjustWorkoutLiftSetCountUseCaseTest {
     }
 
     @Test
-    @DisplayName("repository save failure returns PersistenceFailed with one error log")
+    @DisplayName("repository save failure returns PersistenceFailed carrying the failure diagnostic")
     fun persistenceFailureOnSaveError() = runTest {
         val repository = FakeProgramRepository(programWithSets(3), failOnSave = true)
-        val logging = FakeLoggingPort()
         val useCase =
             AdjustWorkoutLiftSetCountUseCase(
                 repository,
                 FakeProgramChangeEventRepository(),
-                logging,
             )
 
         val result = useCase(workoutLiftId, delta = 1)
 
-        assertEquals(AdjustWorkoutLiftSetCountResult.PersistenceFailed, result)
-        assertEquals(1, logging.errors.size)
+        val failed = result as AdjustWorkoutLiftSetCountResult.PersistenceFailed
+        assertEquals(1, failed.diagnostics.size)
+        val diagnostic = failed.diagnostics.single()
+        assertEquals("AdjustWorkoutLiftSetCount", diagnostic.tag)
+        assertEquals(
+            "Failed to adjust workout lift sets: FakeProgramRepository configured to fail on save",
+            diagnostic.message,
+        )
+        assertTrue(diagnostic.cause is IllegalStateException)
     }
 }

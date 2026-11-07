@@ -1,7 +1,6 @@
 package com.stratum.application.training
 
 import com.stratum.core.testing.healthconnect.FakeHealthConnectSchedulerPort
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.response.FakeResponseModelingSchedulerPort
@@ -78,7 +77,7 @@ class UpdateCompletedSessionTimesUseCaseTest {
         val newEnd = Instant.parse("2025-06-03T14:30:00Z") // 30 min duration
 
         val result = useCase(TrainingSessionId("ts-1"), newStart, newEnd)
-        assertEquals(UpdateCompletedSessionTimesResult.Success, result)
+        assertEquals(UpdateCompletedSessionTimesResult.Success(), result)
 
         val updated = logRepo.getSession(TrainingSessionId("ts-1"))!!
         assertEquals(newStart, updated.startedAt)
@@ -139,7 +138,7 @@ class UpdateCompletedSessionTimesUseCaseTest {
         val newEnd = Instant.parse("2025-06-03T15:00:00Z")
 
         val result = useCase(TrainingSessionId("ts-clustered"), newStart, newEnd)
-        assertEquals(UpdateCompletedSessionTimesResult.Success, result)
+        assertEquals(UpdateCompletedSessionTimesResult.Success(), result)
 
         val updatedSets = logRepo.getSetsForSession(TrainingSessionId("ts-clustered"))
         assertEquals(Instant.parse("2025-06-03T14:00:00Z"), updatedSets[0].completedAt)
@@ -176,7 +175,7 @@ class UpdateCompletedSessionTimesUseCaseTest {
             Instant.parse("2025-06-05T10:00:00Z"),
             Instant.parse("2025-06-05T11:00:00Z"),
         )
-        assertEquals(UpdateCompletedSessionTimesResult.Success, result)
+        assertEquals(UpdateCompletedSessionTimesResult.Success(), result)
         assertEquals(1, modelingScheduler.forceExtractCount)
         assertEquals(true, modelingScheduler.lastForceReplaceExisting)
     }
@@ -195,7 +194,16 @@ class UpdateCompletedSessionTimesUseCaseTest {
             Instant.parse("2025-06-01T14:00:00Z"),
             Instant.parse("2025-06-01T15:00:00Z"),
         )
-        assertEquals(UpdateCompletedSessionTimesResult.Success, result)
+        // STR-237: resilience preserved; the swallowed enqueue failure rides
+        // Success as exactly one diagnostic.
+        val success = result as UpdateCompletedSessionTimesResult.Success
+        val diagnostic = success.diagnostics.single()
+        assertEquals("UpdateCompletedSessionTimes", diagnostic.tag)
+        assertEquals(
+            "Health Connect sync enqueue failed for ts-1: HC Unavailable",
+            diagnostic.message,
+        )
+        assertEquals("HC Unavailable", diagnostic.cause.message)
     }
 
     @Test
@@ -269,7 +277,6 @@ class UpdateCompletedSessionTimesUseCaseTest {
             responseProfileMetadataRepository = metadataRepo,
             responseModelingScheduler = modelingScheduler,
             healthConnectScheduler = hcScheduler,
-            loggingPort = FakeLoggingPort(),
             refreshScope = CoroutineScope(Dispatchers.Unconfined),
         )
     }

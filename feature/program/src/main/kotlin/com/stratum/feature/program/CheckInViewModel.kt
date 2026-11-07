@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.stratum.application.checkin.ApplyCheckInRecommendationsResult
 import com.stratum.application.checkin.ApplyCheckInRecommendationsUseCase
 import com.stratum.application.checkin.CheckInPreferenceResult
+import com.stratum.application.diagnostics.OperationalDiagnostic
+import com.stratum.domain.checkin.CheckInSkippedRowDiagnostic
 import com.stratum.domain.checkin.CheckInSubjectiveFeedback
 import com.stratum.application.checkin.EvaluateCheckInUseCase
 import com.stratum.application.checkin.GetCheckInMuscleGroupsUseCase
@@ -41,6 +43,7 @@ class CheckInViewModel @Inject constructor(
     private val applyRecommendations: ApplyCheckInRecommendationsUseCase,
     private val getCheckInMuscleGroups: GetCheckInMuscleGroupsUseCase,
     private val rankSwapCandidates: RankSwapCandidatesUseCase,
+    private val diagnosticDrain: DiagnosticDrain,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CheckInUiState())
@@ -83,12 +86,14 @@ class CheckInViewModel @Inject constructor(
 
     fun skip() {
         viewModelScope.launch {
-            when (skipCheckIn()) {
+            when (val result = skipCheckIn()) {
                 CheckInPreferenceResult.Success -> dismiss()
-                CheckInPreferenceResult.PersistenceFailed ->
+                is CheckInPreferenceResult.PersistenceFailed -> {
+                    diagnosticDrain.drain(result.diagnostics)
                     _uiState.update {
                         it.copy(errorMessage = "Could not skip check-in")
                     }
+                }
             }
         }
     }
@@ -269,6 +274,9 @@ class CheckInViewModel @Inject constructor(
                     muscleSignals = muscleMap,
                 )
             val evaluation = evaluateCheckIn(subjective)
+            if (evaluation != null) {
+                drainSkippedRowDiagnostics(evaluation.diagnostics)
+            }
             if (evaluation == null) {
                 _uiState.update {
                     it.copy(
@@ -305,10 +313,35 @@ class CheckInViewModel @Inject constructor(
                     showApplyError("No active program found to apply check-in")
                 is ApplyCheckInRecommendationsResult.WorkoutLiftNotFound ->
                     showApplyError("Workout lift ${result.workoutLiftId.value} not found")
-                ApplyCheckInRecommendationsResult.PersistenceFailed ->
+                is ApplyCheckInRecommendationsResult.PersistenceFailed -> {
+                    diagnosticDrain.drain(result.diagnostics)
                     showApplyError("Could not apply check-in")
+                }
             }
         }
+    }
+
+    /**
+     * STR-237 Special 2: skipped-row diagnostics carried on the evaluation are
+     * recorded as warnings exactly once here, through the module drain. The
+     * skipped-row read carries no throwable, so the WARNING record carries the
+     * legacy tag and rendered message only (the drain's warning path attaches
+     * no cause).
+     */
+    private fun drainSkippedRowDiagnostics(diagnostics: List<CheckInSkippedRowDiagnostic>) {
+        diagnosticDrain.drain(
+            diagnostics.map { diagnostic ->
+                val message =
+                    "Skipping undecodable program_change_event " +
+                        "id=${diagnostic.id.value} type=${diagnostic.eventType}"
+                OperationalDiagnostic(
+                    tag = PROGRAM_CHANGE_EVENTS_TAG,
+                    message = message,
+                    cause = IllegalStateException(message),
+                    level = OperationalDiagnostic.Level.WARNING,
+                )
+            },
+        )
     }
 
     private fun showApplyError(message: String) {
@@ -336,6 +369,8 @@ class CheckInViewModel @Inject constructor(
         return programLiftIds + otherAcceptedSwaps - currentLiftId
     }
 }
+
+private const val PROGRAM_CHANGE_EVENTS_TAG = "ProgramChangeEvents"
 
 private fun RecoverySignalUi.toDomain(): RecoverySignal =
     when (this) {

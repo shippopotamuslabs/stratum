@@ -1,6 +1,6 @@
 package com.stratum.core.testing.telemetry
 
-import com.stratum.domain.telemetry.CrashTelemetryPort
+import com.stratum.core.infrastructure.telemetry.CrashTelemetryPort
 
 /**
  * In-memory [CrashTelemetryPort] for unit tests. Records user ID, screen name, breadcrumbs,

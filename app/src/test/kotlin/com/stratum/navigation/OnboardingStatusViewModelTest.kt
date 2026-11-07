@@ -46,13 +46,13 @@ class OnboardingStatusViewModelTest {
         val logging = FakeLoggingPort()
         return OnboardingStatusViewModel(
             observeComplete = ObserveOnboardingCompleteUseCase(fakeRepository),
-            reopenOnboardingWizard = ReopenOnboardingWizardUseCase(fakeRepository, logging),
+            reopenOnboardingWizard = ReopenOnboardingWizardUseCase(fakeRepository),
             discardActiveProgram =
                 DiscardActiveProgramUseCase(
                     programRepository = programRepository,
-                    deleteProgram = DeleteProgramUseCase(programRepository, trainingLog, logging),
-                    loggingPort = logging,
+                    deleteProgram = DeleteProgramUseCase(programRepository, trainingLog),
                 ),
+            diagnosticDrain = com.stratum.app.DiagnosticDrain(logging),
         )
     }
 

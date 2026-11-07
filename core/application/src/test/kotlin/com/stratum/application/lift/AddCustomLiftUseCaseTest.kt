@@ -1,10 +1,10 @@
 package com.stratum.application.lift
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.domain.onboarding.MuscleGroup
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
@@ -24,7 +24,7 @@ class AddCustomLiftUseCaseTest {
     @DisplayName("Given a valid definition when added then catalog contains the custom lift")
     fun addsValidCustomLift() = runTest {
         val repo = FakeLiftRepository()
-        val useCase = AddCustomLiftUseCase(repo, FakeLoggingPort())
+        val useCase = AddCustomLiftUseCase(repo)
 
         val result =
             useCase(
@@ -60,7 +60,7 @@ class AddCustomLiftUseCaseTest {
     @DisplayName("Given blank name when added then fails without writing")
     fun rejectsBlankName() = runTest {
         val repo = FakeLiftRepository()
-        val useCase = AddCustomLiftUseCase(repo, FakeLoggingPort())
+        val useCase = AddCustomLiftUseCase(repo)
 
         val result =
             useCase(
@@ -79,7 +79,7 @@ class AddCustomLiftUseCaseTest {
     @DisplayName("Given empty movement patterns when added then fails")
     fun rejectsEmptyPatterns() = runTest {
         val repo = FakeLiftRepository()
-        val useCase = AddCustomLiftUseCase(repo, FakeLoggingPort())
+        val useCase = AddCustomLiftUseCase(repo)
 
         val result =
             useCase(
@@ -98,7 +98,7 @@ class AddCustomLiftUseCaseTest {
     @DisplayName("Given empty primary muscles when added then fails")
     fun rejectsEmptyPrimaryMuscles() = runTest {
         val repo = FakeLiftRepository()
-        val useCase = AddCustomLiftUseCase(repo, FakeLoggingPort())
+        val useCase = AddCustomLiftUseCase(repo)
 
         val result =
             useCase(
@@ -117,7 +117,7 @@ class AddCustomLiftUseCaseTest {
     @DisplayName("Given rest outside allowed range when added then fails")
     fun rejectsInvalidRest() = runTest {
         val repo = FakeLiftRepository()
-        val useCase = AddCustomLiftUseCase(repo, FakeLoggingPort())
+        val useCase = AddCustomLiftUseCase(repo)
 
         val result =
             useCase(
@@ -144,7 +144,7 @@ class AddCustomLiftUseCaseTest {
     @DisplayName("Given blank equipment name when added then equipment is null")
     fun blankEquipmentBecomesNull() = runTest {
         val repo = FakeLiftRepository()
-        val useCase = AddCustomLiftUseCase(repo, FakeLoggingPort())
+        val useCase = AddCustomLiftUseCase(repo)
 
         val result =
             useCase(
@@ -162,14 +162,13 @@ class AddCustomLiftUseCaseTest {
     }
 
     @Test
-    @DisplayName("Given a failing repository write when added then PersistenceFailed and one error log")
+    @DisplayName("Given a failing repository write when added then PersistenceFailed carrying the failure diagnostic")
     fun persistenceFailureOnWrite() = runTest {
         val repo = FakeLiftRepository()
-        val logging = FakeLoggingPort()
+        val failure = IllegalStateException("write failed")
         val useCase =
             AddCustomLiftUseCase(
-                ThrowingAddLiftRepository(repo, IllegalStateException("write failed")),
-                logging,
+                ThrowingAddLiftRepository(repo, failure),
             )
 
         val result =
@@ -181,8 +180,12 @@ class AddCustomLiftUseCaseTest {
                 ),
             )
 
-        assertEquals(AddCustomLiftResult.PersistenceFailed, result)
-        assertEquals(1, logging.errors.size)
+        val failed = result as AddCustomLiftResult.PersistenceFailed
+        assertEquals(1, failed.diagnostics.size)
+        val diagnostic = failed.diagnostics.single()
+        assertEquals("AddCustomLift", diagnostic.tag)
+        assertEquals("Failed to add custom lift: write failed", diagnostic.message)
+        assertSame(failure, diagnostic.cause)
         assertTrue(repo.currentLifts.isEmpty())
     }
 
@@ -193,7 +196,6 @@ class AddCustomLiftUseCaseTest {
         val useCase =
             AddCustomLiftUseCase(
                 ThrowingAddLiftRepository(repo, CancellationException("cancelled")),
-                FakeLoggingPort(),
             )
 
         assertThrows(CancellationException::class.java) {

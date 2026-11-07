@@ -23,7 +23,7 @@ import com.stratum.core.infrastructure.seed.AssetLiftEmbeddingCatalog
 import com.stratum.core.infrastructure.seed.AssetLiftEquipmentCatalog
 import com.stratum.core.infrastructure.seed.EquipmentCatalogSeeder
 import com.stratum.core.infrastructure.seed.LiftCatalogSeeder
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.core.infrastructure.logging.LoggingPort
 import com.stratum.application.lift.EquipmentRepository
 import com.stratum.application.lift.LiftRepository
 import com.stratum.application.lift.MergeLiftsPort

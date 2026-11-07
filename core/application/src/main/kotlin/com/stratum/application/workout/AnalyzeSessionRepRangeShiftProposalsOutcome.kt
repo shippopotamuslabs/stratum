@@ -1,5 +1,6 @@
 package com.stratum.application.workout
 
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.domain.workout.RepRangeShiftProposal
 
@@ -18,6 +19,13 @@ import com.stratum.domain.workout.RepRangeShiftProposal
 data class AnalyzeSessionRepRangeShiftProposalsOutcome(
     val proposals: List<RepRangeShiftProposal> = emptyList(),
     val diagnostics: List<RepRangeShiftDiagnostic> = emptyList(),
+    /**
+     * Operational diagnostics propagated from a downstream use case whose
+     * outcome this analysis consumes (STR-237 chunk 1D: the insights extract
+     * refresh at the start of analysis). Drained exactly once at the feature
+     * boundary alongside [diagnostics].
+     */
+    val operationalDiagnostics: List<OperationalDiagnostic> = emptyList(),
 )
 
 /**

@@ -1,6 +1,5 @@
 package com.stratum.application.dashboard
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.response.FakeLiftWeeklyPerformanceRepository
 import com.stratum.core.testing.response.FakeMuscleWeeklyOutcomeIndexRepository
@@ -27,6 +26,7 @@ import java.time.ZoneOffset
 import java.time.temporal.ChronoUnit
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -52,7 +52,7 @@ class LoadGraphDetailUseCaseTest {
         when (this) {
             is LoadGraphDetailResult.Loaded -> series
             LoadGraphDetailResult.Empty -> null
-            LoadGraphDetailResult.Failed ->
+            is LoadGraphDetailResult.Failed ->
                 throw AssertionError("Expected a loaded graph detail, got Failed")
         }
 
@@ -196,20 +196,21 @@ class LoadGraphDetailUseCaseTest {
     }
 
     @Test
-    @DisplayName("returns Failed and logs exactly one error when the performance read throws (STR-243)")
+    @DisplayName("returns Failed carrying exactly one diagnostic when the performance read throws (STR-243/STR-237)")
     fun loadFailure() = runTest {
         val performanceRepo = FakeLiftWeeklyPerformanceRepository()
-        performanceRepo.getAllError = IllegalStateException("perf boom")
-        val logging = FakeLoggingPort()
-        val useCase = buildUseCase(performanceRepo = performanceRepo, logging = logging)
+        val cause = IllegalStateException("perf boom")
+        performanceRepo.getAllError = cause
+        val useCase = buildUseCase(performanceRepo = performanceRepo)
 
         val result = useCase(GraphDetailSubject.Lift(LiftId("bench")))
 
-        assertEquals(LoadGraphDetailResult.Failed, result)
-        assertEquals(1, logging.errors.size)
-        assertEquals("LoadGraphDetail", logging.errors.single().tag)
-        assertEquals("Failed to load graph detail: perf boom", logging.errors.single().message)
-        assertEquals("perf boom", logging.errors.single().throwable?.message)
+        val failed = result as LoadGraphDetailResult.Failed
+        assertEquals(1, failed.diagnostics.size)
+        val diagnostic = failed.diagnostics.single()
+        assertEquals("LoadGraphDetail", diagnostic.tag)
+        assertEquals("Failed to load graph detail: perf boom", diagnostic.message)
+        assertSame(cause, diagnostic.cause)
     }
 
     @Test
@@ -319,14 +320,12 @@ class LoadGraphDetailUseCaseTest {
         outcomeRepo: FakeMuscleWeeklyOutcomeIndexRepository = FakeMuscleWeeklyOutcomeIndexRepository(),
         liftRepo: FakeLiftRepository = FakeLiftRepository(),
         trainingLog: FakeTrainingLogRepository = FakeTrainingLogRepository(),
-        logging: FakeLoggingPort = FakeLoggingPort(),
     ): LoadGraphDetailUseCase = LoadGraphDetailUseCase(
         liftWeeklyPerformanceRepository = performanceRepo,
         muscleWeeklyStimulusRepository = stimulusRepo,
         muscleWeeklyOutcomeIndexRepository = outcomeRepo,
         liftRepository = liftRepo,
         trainingLogRepository = trainingLog,
-        loggingPort = logging,
     )
 
     private fun hardSet(

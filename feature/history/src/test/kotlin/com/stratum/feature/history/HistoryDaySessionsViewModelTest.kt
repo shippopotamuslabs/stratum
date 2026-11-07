@@ -156,13 +156,13 @@ class HistoryDaySessionsViewModelTest {
         logRepo: TrainingLogRepository,
         programRepo: FakeProgramRepository,
     ) = HistoryDaySessionsViewModel(
+        diagnosticDrain = DiagnosticDrain(FakeLoggingPort()),
         observeWorkoutHistoryCalendar = ObserveWorkoutHistoryCalendarUseCase(logRepo),
         getWorkoutSessionDetail =
             GetWorkoutSessionDetailUseCase(
                 trainingLogRepository = logRepo,
                 programRepository = programRepo,
                 computeLoggedSessionMuscleVolume = ComputeLoggedSessionMuscleVolumeUseCase(),
-                loggingPort = FakeLoggingPort(),
             ),
     )
 

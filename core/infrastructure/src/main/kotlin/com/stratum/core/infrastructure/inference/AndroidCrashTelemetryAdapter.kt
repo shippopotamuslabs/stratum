@@ -2,9 +2,9 @@ package com.stratum.core.infrastructure.inference
 
 import android.util.Log
 import com.google.firebase.crashlytics.FirebaseCrashlytics
-import com.stratum.domain.telemetry.CrashTelemetryPort
-import com.stratum.domain.telemetry.TelemetryPiiScrubber
-import com.stratum.domain.telemetry.TelemetryThrowableSanitizer
+import com.stratum.core.infrastructure.telemetry.CrashTelemetryPort
+import com.stratum.core.infrastructure.telemetry.TelemetryPiiScrubber
+import com.stratum.core.infrastructure.telemetry.TelemetryThrowableSanitizer
 import javax.inject.Inject
 import javax.inject.Singleton
 

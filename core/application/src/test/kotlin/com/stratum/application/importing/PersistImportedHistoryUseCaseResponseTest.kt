@@ -1,6 +1,5 @@
 package com.stratum.application.importing
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 
 import com.stratum.core.testing.importing.FakeCustomLiftInferencePort
 import com.stratum.core.testing.importing.FakeImportEquipmentInferencePort
@@ -88,7 +87,10 @@ class PersistImportedHistoryUseCaseResponseTest {
                 policy = ImportHistoryPersistPolicy.ReplaceImportOrigin,
             )
 
-        assertEquals(PersistImportedHistoryOutcome.Failed, result)
+        val failed = result as PersistImportedHistoryOutcome.Failed
+        // STR-237: the response-extract diagnostic rides the persist branch.
+        assertEquals(1, failed.diagnostics.size)
+        assertEquals("ExtractResponseProfile", failed.diagnostics.single().tag)
         assertEquals(0, trainingLogRepo.getImportSessions().size)
         assertEquals(0, persistence.epochRepository.getAll().size)
         assertEquals(0, persistence.volumeRepository.getAll().size)
@@ -116,7 +118,9 @@ class PersistImportedHistoryUseCaseResponseTest {
                 policy = ImportHistoryPersistPolicy.ReplaceImportOrigin,
             )
 
-        assertEquals(PersistImportedHistoryOutcome.Failed, result)
+        val failed = result as PersistImportedHistoryOutcome.Failed
+        assertEquals(1, failed.diagnostics.size)
+        assertEquals("ExtractResponseProfile", failed.diagnostics.single().tag)
         assertEquals(0, persistence.epochRepository.getAll().size)
         assertEquals(0, persistence.volumeRepository.getAll().size)
         assertNull(persistence.metadataRepository.get())
@@ -144,7 +148,15 @@ class PersistImportedHistoryUseCaseResponseTest {
                 policy = ImportHistoryPersistPolicy.ReplaceImportOrigin,
             )
 
-        assertEquals(PersistImportedHistoryOutcome.Failed, result)
+        // STR-237: the insights-extract failure's diagnostics propagate onto
+        // the persist branch (legacy tag + rendered message, real throwable).
+        val failed = result as PersistImportedHistoryOutcome.Failed
+        assertEquals(1, failed.diagnostics.size)
+        assertEquals("ExtractTrainingInsights", failed.diagnostics.single().tag)
+        assertEquals(
+            "Failed to extract training insights: insight extraction failed",
+            failed.diagnostics.single().message,
+        )
         assertEquals(0, trainingLogRepo.getImportSessions().size)
         assertEquals(0, persistence.epochRepository.getAll().size)
     }
@@ -159,8 +171,7 @@ class PersistImportedHistoryUseCaseResponseTest {
     ): PersistImportedHistoryUseCase {
         val extractResponseProfile =
             ExtractResponseProfileUseCase(
-                loggingPort = FakeLoggingPort(),
-                trainingLogRepository = trainingLogRepo,
+                                trainingLogRepository = trainingLogRepo,
                 liftRepository = liftRepo,
                 liftTrainingInsightsRepository = insightsRepo,
                 muscleVolumeBaselineRepository = InMemoryVolumeRepository(),
@@ -170,7 +181,6 @@ class PersistImportedHistoryUseCaseResponseTest {
                 experimentRegistry = EmptyExperimentRegistry(),
             )
         return PersistImportedHistoryUseCase(
-            loggingPort = FakeLoggingPort(),
             trainingLogRepository = trainingLogRepo,
             resolveImportLifts =
                 ResolveImportLiftsUseCase(
@@ -182,8 +192,7 @@ class PersistImportedHistoryUseCaseResponseTest {
                 ),
             extractTrainingInsights =
                 ExtractTrainingInsightsUseCase(
-                    loggingPort = FakeLoggingPort(),
-                    trainingLogRepository = trainingLogRepo,
+                            trainingLogRepository = trainingLogRepo,
                     liftTrainingInsightsRepository = insightsRepo,
                     supersetAffinityRepository = InMemorySupersetRepository(),
                     muscleVolumeBaselineRepository = InMemoryVolumeRepository(),

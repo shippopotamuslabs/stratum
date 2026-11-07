@@ -6,9 +6,9 @@ import com.google.android.gms.tasks.Tasks
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.functions.HttpsCallableReference
 import com.stratum.core.testing.telemetry.FakeCrashTelemetryPort
-import com.stratum.domain.telemetry.ClientLogBatch
-import com.stratum.domain.telemetry.ClientLogEntry
-import com.stratum.domain.telemetry.ClientLogSeverity
+import com.stratum.core.infrastructure.telemetry.ClientLogBatch
+import com.stratum.core.infrastructure.telemetry.ClientLogEntry
+import com.stratum.core.infrastructure.telemetry.ClientLogSeverity
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.unmockkAll

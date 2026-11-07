@@ -1,6 +1,5 @@
 package com.stratum.application.dashboard
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.response.FakeLiftWeeklyPerformanceRepository
@@ -30,6 +29,7 @@ import java.time.ZoneOffset
 import java.time.temporal.ChronoUnit
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -46,7 +46,7 @@ class LoadDashboardUseCaseTest {
         when (this) {
             is LoadDashboardResult.Loaded -> summary
             LoadDashboardResult.Empty -> null
-            LoadDashboardResult.Failed -> throw AssertionError("Expected a loaded dashboard, got Failed")
+            is LoadDashboardResult.Failed -> throw AssertionError("Expected a loaded dashboard, got Failed")
         }
     @Test
     fun `returns null when no weekly data exists in window`() = runTest {
@@ -517,19 +517,20 @@ class LoadDashboardUseCaseTest {
     }
 
     @Test
-    fun `returns Failed and logs exactly one error when weekly tables throw`() = runTest {
+    fun `returns Failed carrying exactly one diagnostic when weekly tables throw`() = runTest {
         val stimulusRepo = FakeMuscleWeeklyStimulusRepository()
-        stimulusRepo.getSinceError = IllegalStateException("stimulus boom")
-        val logging = FakeLoggingPort()
-        val useCase = buildUseCase(stimulusRepo = stimulusRepo, logging = logging)
+        val cause = IllegalStateException("stimulus boom")
+        stimulusRepo.getSinceError = cause
+        val useCase = buildUseCase(stimulusRepo = stimulusRepo)
 
         val result = useCase(now = NOW, zone = utc)
 
-        assertEquals(LoadDashboardResult.Failed, result)
-        assertEquals(1, logging.errors.size)
-        assertEquals("LoadDashboard", logging.errors.single().tag)
-        assertEquals("Failed to load dashboard: stimulus boom", logging.errors.single().message)
-        assertEquals("stimulus boom", logging.errors.single().throwable?.message)
+        val failed = result as LoadDashboardResult.Failed
+        assertEquals(1, failed.diagnostics.size)
+        val diagnostic = failed.diagnostics.single()
+        assertEquals("LoadDashboard", diagnostic.tag)
+        assertEquals("Failed to load dashboard: stimulus boom", diagnostic.message)
+        assertSame(cause, diagnostic.cause)
     }
 
     @Test
@@ -553,7 +554,6 @@ class LoadDashboardUseCaseTest {
         liftRepo: FakeLiftRepository = FakeLiftRepository(),
         trainingLog: FakeTrainingLogRepository = FakeTrainingLogRepository(),
         programLiftIds: Set<LiftId> = emptySet(),
-        logging: FakeLoggingPort = FakeLoggingPort(),
     ): LoadDashboardUseCase {
         val baseProgram = WorkoutLoggingFixtures.twoWorkoutProgram()
         val program = if (programLiftIds.isEmpty()) {
@@ -582,7 +582,6 @@ class LoadDashboardUseCaseTest {
             liftRepository = liftRepo,
             trainingLogRepository = trainingLog,
             programRepository = FakeProgramRepository(program),
-            loggingPort = logging,
         )
     }
 

@@ -10,7 +10,7 @@ import com.google.firebase.firestore.Query
 import com.stratum.core.infrastructure.sync.handlers.RemoteApplyOutcome
 import com.stratum.core.infrastructure.sync.handlers.SyncCollectionHandler
 import com.stratum.core.infrastructure.sync.handlers.SyncHandlerRegistry
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.core.infrastructure.logging.LoggingPort
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.tasks.await

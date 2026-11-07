@@ -25,6 +25,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
@@ -68,7 +69,8 @@ class ExportLogsViewModelTest {
     private fun buildVm(repo: FakeTrainingLogRepository = FakeTrainingLogRepository()): ExportLogsViewModel =
         ExportLogsViewModel(
             previewExport = PreviewExportTrainingLogsUseCase(repo, clock),
-            exportLogs = ExportTrainingLogsUseCase(repo, clock, FakeLoggingPort()),
+            exportLogs = ExportTrainingLogsUseCase(repo, clock),
+            diagnosticDrain = DiagnosticDrain(FakeLoggingPort()),
             zone = zone,
         )
 
@@ -123,5 +125,30 @@ class ExportLogsViewModelTest {
         assertEquals(LocalDate.of(2026, 1, 1), vm.uiState.value.customStart)
         assertEquals(LocalDate.of(2026, 1, 31), vm.uiState.value.customEnd)
         assertEquals(ExportRangePresetUi.Custom, vm.uiState.value.rangePreset)
+    }
+
+    @Test
+    @DisplayName("Export read failure drains exactly one error record (STR-237)")
+    fun exportFailureDrainsOnce() = runTest {
+        val repo = FakeTrainingLogRepository(listOf(sessionA()), listOf(setA1()))
+        val logging = FakeLoggingPort()
+        val vm =
+            ExportLogsViewModel(
+                previewExport = PreviewExportTrainingLogsUseCase(repo, clock),
+                exportLogs = ExportTrainingLogsUseCase(repo, clock),
+                diagnosticDrain = DiagnosticDrain(logging),
+                zone = zone,
+            )
+        advanceUntilIdle()
+        val cause = IllegalStateException("room down")
+        repo.getAllSessionsError = cause
+        vm.onExportClick()
+        advanceUntilIdle()
+
+        assertTrue(vm.uiState.value.error is ExportLogsErrorUi.Generic)
+        assertEquals(1, logging.errors.size)
+        assertEquals("ExportTrainingLogs", logging.errors.single().tag)
+        assertEquals("Failed to read training logs: room down", logging.errors.single().message)
+        org.junit.jupiter.api.Assertions.assertSame(cause, logging.errors.single().throwable)
     }
 }

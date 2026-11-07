@@ -1,6 +1,6 @@
 package com.stratum.application.program
 
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.training.CycleProgressResolver
 import com.stratum.application.training.TrainingLogRepository
@@ -14,12 +14,14 @@ import com.stratum.domain.program.slotIndexRemapAfterReorder
 import com.stratum.domain.program.toReorderDayItems
 
 /**
- * Outcome of [ReorderProgramCycleDaysUseCase] (STR-243).
+ * Outcome of [ReorderProgramCycleDaysUseCase] (STR-243; STR-237 Route (i)).
  *
  * [ProgramNotFound] is an expected caller outcome and is not logged; an
- * operational load/save failure is logged once via [LoggingPort.error] at the
- * use-case boundary and surfaces as [PersistenceFailed]. Coroutine
- * cancellation is not a branch: it propagates.
+ * operational load/save failure rides the [PersistenceFailed] branch as an
+ * [OperationalDiagnostic] (legacy tag + rendered message, real throwable as
+ * cause); the presentation boundary drains it exactly once through its
+ * module's DiagnosticDrain. Coroutine cancellation is not a branch: it
+ * propagates.
  */
 sealed interface ReorderProgramCycleDaysResult {
     data object Success : ReorderProgramCycleDaysResult
@@ -28,7 +30,9 @@ sealed interface ReorderProgramCycleDaysResult {
     data class ProgramNotFound(val programId: ProgramId) : ReorderProgramCycleDaysResult
 
     /** The reorder failed (repository / store I/O). */
-    data object PersistenceFailed : ReorderProgramCycleDaysResult
+    data class PersistenceFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : ReorderProgramCycleDaysResult
 }
 
 /**
@@ -41,7 +45,6 @@ sealed interface ReorderProgramCycleDaysResult {
 class ReorderProgramCycleDaysUseCase @Inject constructor(
     private val programRepository: ProgramRepository,
     private val trainingLogRepository: TrainingLogRepository,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(
         programId: ProgramId,
@@ -53,8 +56,15 @@ class ReorderProgramCycleDaysUseCase @Inject constructor(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Throwable) {
-                loggingPort.error(TAG, "Failed to reorder program cycle days: ${error.message}", error)
-                return ReorderProgramCycleDaysResult.PersistenceFailed
+                return ReorderProgramCycleDaysResult.PersistenceFailed(
+                    diagnostics = listOf(
+                        OperationalDiagnostic(
+                            tag = TAG,
+                            message = "Failed to reorder program cycle days: ${error.message}",
+                            cause = error,
+                        ),
+                    ),
+                )
             }
                 ?: return ReorderProgramCycleDaysResult.ProgramNotFound(programId)
         val reordered = program.reorderCycleDays(orderedDayIds)
@@ -90,8 +100,15 @@ class ReorderProgramCycleDaysUseCase @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Throwable) {
-            loggingPort.error(TAG, "Failed to reorder program cycle days: ${error.message}", error)
-            ReorderProgramCycleDaysResult.PersistenceFailed
+            ReorderProgramCycleDaysResult.PersistenceFailed(
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Failed to reorder program cycle days: ${error.message}",
+                        cause = error,
+                    ),
+                ),
+            )
         }
     }
 

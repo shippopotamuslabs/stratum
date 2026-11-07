@@ -1,7 +1,7 @@
 package com.stratum.application.training
 
 import com.stratum.domain.di.ApplicationScope
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.application.response.ResponseModelingSchedulerPort
 import com.stratum.application.response.ResponseProfileMetadataRepository
 import com.stratum.domain.training.identity.TrainingSessionId
@@ -22,9 +22,11 @@ import com.stratum.domain.response.ResponseProfileMetadata
  * The guard branches carry the typed facts the former constructed exceptions
  * carried ([SessionNotFound] / [SessionNotCompleted] with the session id and
  * actual status / [MustRetainAtLeastOneSet] / [SetsBelongToAnotherSession]).
- * The originating throwable of a failed write goes once to the diagnostics
- * channel ([LoggingPort.error]) at the use-case boundary; it never crosses
- * as a payload. Coroutine cancellation is not a branch: it propagates.
+ * The originating throwable of a failed write rides the [PersistenceFailed]
+ * branch as an [OperationalDiagnostic] (legacy tag + rendered message, real
+ * throwable as cause); the presentation boundary drains it exactly once
+ * through its module's DiagnosticDrain. Coroutine cancellation is not a
+ * branch: it propagates.
  */
 sealed interface UpdateCompletedSessionSetsResult {
     data object Success : UpdateCompletedSessionSetsResult
@@ -43,7 +45,9 @@ sealed interface UpdateCompletedSessionSetsResult {
         UpdateCompletedSessionSetsResult
 
     /** The set update failed (repository / store I/O). */
-    data object PersistenceFailed : UpdateCompletedSessionSetsResult
+    data class PersistenceFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : UpdateCompletedSessionSetsResult
 }
 
 /**
@@ -58,7 +62,6 @@ class UpdateCompletedSessionSetsUseCase @Inject constructor(
     private val metadataRepository: ResponseProfileMetadataRepository,
     private val responseModelingScheduler: ResponseModelingSchedulerPort =
         NoOpResponseModelingSchedulerForHistoryEdit,
-    private val loggingPort: LoggingPort,
     @ApplicationScope private val refreshScope: CoroutineScope =
         CoroutineScope(Dispatchers.Main.immediate),
 ) {
@@ -147,6 +150,10 @@ class UpdateCompletedSessionSetsUseCase @Inject constructor(
             updates = updates.distinctBy { it.id },
         )
 
+        // STR-237 STOP (chunk 1E): fire-and-forget LogAndContinue launch; the
+        // stages result (and the stage-failure diagnostics it now carries) is
+        // discarded — no boundary drainer exists on this path. See
+        // plans/STR-237/status.md (chunk 1E STOP).
         refreshScope.launch {
             localDerivedStages.run(
                 includeInsights = true,
@@ -163,8 +170,15 @@ class UpdateCompletedSessionSetsUseCase @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (t: Throwable) {
-            loggingPort.error(TAG, "Failed to update completed session sets: ${t.message}", t)
-            UpdateCompletedSessionSetsResult.PersistenceFailed
+            UpdateCompletedSessionSetsResult.PersistenceFailed(
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Failed to update completed session sets: ${t.message}",
+                        cause = t,
+                    ),
+                ),
+            )
         }
     }
 

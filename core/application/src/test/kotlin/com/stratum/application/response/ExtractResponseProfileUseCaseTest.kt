@@ -74,8 +74,7 @@ class ExtractResponseProfileUseCaseTest {
         val persistence = FakeResponseProfilePersistencePort()
         val useCase =
             ExtractResponseProfileUseCase(
-                loggingPort = FakeLoggingPort(),
-                trainingLogRepository = FakeTrainingLogRepository(),
+                                trainingLogRepository = FakeTrainingLogRepository(),
                 liftRepository = FakeLiftRepository(),
                 liftTrainingInsightsRepository = FakeLiftInsightsRepository(),
                 muscleVolumeBaselineRepository = FakeVolumeBaselineRepository(),
@@ -102,8 +101,7 @@ class ExtractResponseProfileUseCaseTest {
         // Seed as full history (includes what would be live + import).
         trainingLogRepo.replaceAll(fixture.sessions, fixture.sets)
         val useCase = ExtractResponseProfileUseCase(
-            loggingPort = FakeLoggingPort(),
-            trainingLogRepository = trainingLogRepo,
+                        trainingLogRepository = trainingLogRepo,
             liftRepository = liftRepo,
             liftTrainingInsightsRepository = FakeLiftInsightsRepository(),
             muscleVolumeBaselineRepository = FakeVolumeBaselineRepository(),
@@ -157,17 +155,15 @@ class ExtractResponseProfileUseCaseTest {
     }
 
     @Test
-    @DisplayName("Persistence failure returns Failed and logs once at the boundary")
+    @DisplayName("Persistence failure returns Failed carrying exactly one diagnostic (STR-237)")
     fun persistenceFailureReturnsFailed() = runTest {
         val fixture = ResponseFixtures.fixS7MultiEpoch()
         val liftRepo = FakeLiftRepository()
         liftRepo.seedLifts(fixture.lifts)
         val trainingLogRepo = FakeTrainingLogRepository()
         trainingLogRepo.replaceImportHistory(fixture.sessions, fixture.sets)
-        val logging = FakeLoggingPort()
         val useCase = ExtractResponseProfileUseCase(
-            loggingPort = logging,
-            trainingLogRepository = trainingLogRepo,
+                        trainingLogRepository = trainingLogRepo,
             liftRepository = liftRepo,
             liftTrainingInsightsRepository = FakeLiftInsightsRepository(),
             muscleVolumeBaselineRepository = FakeVolumeBaselineRepository(),
@@ -180,9 +176,12 @@ class ExtractResponseProfileUseCaseTest {
 
         val outcome = useCase(fixture.provenLiftIds)
 
-        assertEquals(ExtractResponseProfileOutcome.Failed, outcome)
-        assertEquals(1, logging.errors.size)
-        assertEquals("ExtractResponseProfile", logging.errors.single().tag)
+        val failed = outcome as ExtractResponseProfileOutcome.Failed
+        assertEquals(1, failed.diagnostics.size)
+        val diagnostic = failed.diagnostics.single()
+        assertEquals("ExtractResponseProfile", diagnostic.tag)
+        assertTrue(diagnostic.message.startsWith("Failed to extract response profile: "))
+        assertTrue(diagnostic.cause is IllegalStateException)
     }
 
     private suspend fun buildUseCase(
@@ -194,8 +193,7 @@ class ExtractResponseProfileUseCaseTest {
         val trainingLogRepo = FakeTrainingLogRepository()
         trainingLogRepo.replaceImportHistory(fixture.sessions, fixture.sets)
         return ExtractResponseProfileUseCase(
-            loggingPort = FakeLoggingPort(),
-            trainingLogRepository = trainingLogRepo,
+                        trainingLogRepository = trainingLogRepo,
             liftRepository = liftRepo,
             liftTrainingInsightsRepository = FakeLiftInsightsRepository(),
             muscleVolumeBaselineRepository = FakeVolumeBaselineRepository(),

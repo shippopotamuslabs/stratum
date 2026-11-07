@@ -4,17 +4,19 @@ import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
 import com.stratum.domain.healthconnect.HealthConnectPreferences
 import com.stratum.domain.healthconnect.HealthFailureKind
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.application.diagnostics.OperationalDiagnostic
 
 const val HEALTH_CONNECT_PREFS_TAG = "HealthConnectPrefs"
 const val HEALTH_CONNECT_METRICS_TAG = "HealthConnectMetrics"
 
 /**
- * Outcome of enabling/disabling Health Connect (STR-243).
+ * Outcome of enabling/disabling Health Connect (STR-243; STR-237 Route (i)).
  *
- * The originating throwable goes once to the diagnostics channel ([LoggingPort.error])
- * at the use-case boundary; it never crosses as a payload. Coroutine cancellation is
- * not a branch: it propagates as cancellation.
+ * On a failed write the port's [HealthSyncDiagnostic]s are re-rendered as
+ * [OperationalDiagnostic]s on the [PersistenceFailed] branch (legacy tag +
+ * message, real throwable as cause); the presentation boundary drains them
+ * exactly once. Coroutine cancellation is not a branch: it propagates as
+ * cancellation.
  */
 sealed interface SetHealthConnectEnabledResult {
     data object Success : SetHealthConnectEnabledResult
@@ -23,7 +25,9 @@ sealed interface SetHealthConnectEnabledResult {
     data object SdkUnavailable : SetHealthConnectEnabledResult
 
     /** The preferences write failed (store I/O). */
-    data object PersistenceFailed : SetHealthConnectEnabledResult
+    data class PersistenceFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : SetHealthConnectEnabledResult
 }
 
 /**
@@ -39,12 +43,14 @@ sealed interface HealthConnectPermissionsQueryResult {
     data object QueryFailed : HealthConnectPermissionsQueryResult
 }
 
-/** Outcome of clearing the sticky Health Connect sync error (STR-243). */
+/** Outcome of clearing the sticky Health Connect sync error (STR-243; STR-237 Route (i)). */
 sealed interface ClearHealthConnectSyncErrorResult {
     data object Success : ClearHealthConnectSyncErrorResult
 
     /** The sync-status write failed (store I/O). */
-    data object PersistenceFailed : ClearHealthConnectSyncErrorResult
+    data class PersistenceFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : ClearHealthConnectSyncErrorResult
 }
 
 class ObserveHealthConnectPreferencesUseCase @Inject constructor(
@@ -56,32 +62,32 @@ class ObserveHealthConnectPreferencesUseCase @Inject constructor(
 class SetHealthConnectEnabledUseCase @Inject constructor(
     private val preferencesPort: HealthConnectPreferencesPort,
     private val syncPort: HealthConnectSyncPort,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(enabled: Boolean): SetHealthConnectEnabledResult {
         if (enabled && !syncPort.isAvailable()) {
             return SetHealthConnectEnabledResult.SdkUnavailable
         }
         // The preferences repository returns write failures as an outcome
-        // without logging them. This use case is the drain boundary — its
-        // only callers are the Settings ViewModel (which branches on the
-        // outcome for UI state) and applyGrantedPermissions below — so each
-        // failure diagnostic is logged exactly once here.
+        // without logging them. Each failure diagnostic is re-rendered onto
+        // the outcome branch as an OperationalDiagnostic; the Settings
+        // ViewModel (or applyGrantedPermissions' boundary) drains it exactly
+        // once.
         return when (val outcome = preferencesPort.setEnabled(enabled)) {
             HealthConnectWriteOutcome.Success -> SetHealthConnectEnabledResult.Success
-            is HealthConnectWriteOutcome.Failed -> {
-                outcome.diagnostics.forEach { diagnostic ->
-                    when (diagnostic) {
-                        is HealthSyncDiagnostic.OperationFailed ->
-                            loggingPort.error(
-                                HEALTH_CONNECT_PREFS_TAG,
-                                "Failed to set Health Connect enabled: ${diagnostic.cause.message}",
-                                diagnostic.cause,
-                            )
-                    }
-                }
-                SetHealthConnectEnabledResult.PersistenceFailed
-            }
+            is HealthConnectWriteOutcome.Failed ->
+                SetHealthConnectEnabledResult.PersistenceFailed(
+                    diagnostics = outcome.diagnostics.map { diagnostic ->
+                        when (diagnostic) {
+                            is HealthSyncDiagnostic.OperationFailed ->
+                                OperationalDiagnostic(
+                                    tag = HEALTH_CONNECT_PREFS_TAG,
+                                    message = "Failed to set Health Connect enabled: " +
+                                        "${diagnostic.cause.message}",
+                                    cause = diagnostic.cause,
+                                )
+                        }
+                    },
+                )
         }
     }
 
@@ -110,12 +116,12 @@ class SetHealthConnectEnabledUseCase @Inject constructor(
                 )
             }
         }
-        return when (invoke(granted.any { it in requested })) {
+        return when (val enabledResult = invoke(granted.any { it in requested })) {
             SetHealthConnectEnabledResult.Success -> ApplyGrantedPermissionsOutcome.Applied()
             SetHealthConnectEnabledResult.SdkUnavailable ->
                 ApplyGrantedPermissionsOutcome.SdkUnavailable
-            SetHealthConnectEnabledResult.PersistenceFailed ->
-                ApplyGrantedPermissionsOutcome.PersistenceFailed
+            is SetHealthConnectEnabledResult.PersistenceFailed ->
+                ApplyGrantedPermissionsOutcome.PersistenceFailed(enabledResult.diagnostics)
         }
     }
 
@@ -150,30 +156,29 @@ class ObserveHealthConnectSyncErrorsUseCase @Inject constructor(
 
 class ClearHealthConnectSyncErrorUseCase @Inject constructor(
     private val syncStatusPort: HealthConnectSyncStatusPort,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(): ClearHealthConnectSyncErrorResult {
         // The sync-status repository returns write failures as an outcome
-        // without logging them. This use case is the drain boundary — its
-        // only callers are the Settings and Workout-complete ViewModels (which
-        // do not log) — so each failure diagnostic is logged exactly once
-        // here. Callers may ignore the returned outcome since the failure is
-        // already logged here.
+        // without logging them. Each failure diagnostic is re-rendered onto
+        // the outcome branch as an OperationalDiagnostic; the calling
+        // boundary (Settings / Workout-complete ViewModel) drains it exactly
+        // once — callers must not ignore a PersistenceFailed branch.
         return when (val outcome = syncStatusPort.clearPendingSyncError()) {
             HealthConnectWriteOutcome.Success -> ClearHealthConnectSyncErrorResult.Success
-            is HealthConnectWriteOutcome.Failed -> {
-                outcome.diagnostics.forEach { diagnostic ->
-                    when (diagnostic) {
-                        is HealthSyncDiagnostic.OperationFailed ->
-                            loggingPort.error(
-                                HEALTH_CONNECT_PREFS_TAG,
-                                "Failed to set Health Connect sync error: ${diagnostic.cause.message}",
-                                diagnostic.cause,
-                            )
-                    }
-                }
-                ClearHealthConnectSyncErrorResult.PersistenceFailed
-            }
+            is HealthConnectWriteOutcome.Failed ->
+                ClearHealthConnectSyncErrorResult.PersistenceFailed(
+                    diagnostics = outcome.diagnostics.map { diagnostic ->
+                        when (diagnostic) {
+                            is HealthSyncDiagnostic.OperationFailed ->
+                                OperationalDiagnostic(
+                                    tag = HEALTH_CONNECT_PREFS_TAG,
+                                    message = "Failed to set Health Connect sync error: " +
+                                        "${diagnostic.cause.message}",
+                                    cause = diagnostic.cause,
+                                )
+                        }
+                    },
+                )
         }
     }
 }

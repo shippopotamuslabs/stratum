@@ -1,6 +1,5 @@
 package com.stratum.application.lift
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.onboarding.FakeMergeLiftsPort
 import com.stratum.core.testing.program.FakeProgramRepository
@@ -58,7 +57,6 @@ class MergeLiftsUseCaseTest {
     private lateinit var programRepo: FakeProgramRepository
     private lateinit var mergePort: FakeMergeLiftsPort
     private lateinit var overlayStore: FakeWorkoutOverlayStore
-    private lateinit var logging: FakeLoggingPort
     private lateinit var rebuildLocalDerived: RebuildLocalDerivedTrainingDataUseCase
     private lateinit var subject: MergeLiftsUseCase
 
@@ -98,7 +96,6 @@ class MergeLiftsUseCaseTest {
         programRepo = FakeProgramRepository()
         mergePort = FakeMergeLiftsPort(liftRepo, logRepo, programRepo)
         overlayStore = FakeWorkoutOverlayStore()
-        logging = FakeLoggingPort()
         rebuildLocalDerived =
             RebuildLocalDerivedTrainingDataUseCase(
                 localDerivedStages =
@@ -107,7 +104,6 @@ class MergeLiftsUseCaseTest {
                         liftRepository = liftRepo,
                     ),
                 responseModelingScheduler = FakeResponseModelingSchedulerPort(),
-                loggingPort = logging,
             )
         subject =
             MergeLiftsUseCase(
@@ -117,7 +113,6 @@ class MergeLiftsUseCaseTest {
                 computePersonalRecords = ComputePersonalRecordsUseCase(logRepo),
                 rebuildLocalDerived = rebuildLocalDerived,
                 workoutOverlayStore = overlayStore,
-                loggingPort = logging,
             )
     }
 
@@ -444,7 +439,6 @@ class MergeLiftsUseCaseTest {
                 computePersonalRecords = ComputePersonalRecordsUseCase(FailingPrReadRepository(logRepo)),
                 rebuildLocalDerived = rebuildLocalDerived,
                 workoutOverlayStore = overlayStore,
-                loggingPort = logging,
             )
 
         val result = failingSubject(targetLiftId = targetId, sourceLiftIds = setOf(sourceAId))
@@ -577,7 +571,6 @@ class MergeLiftsUseCaseTest {
                     ),
                 rebuildLocalDerived = rebuildLocalDerived,
                 workoutOverlayStore = overlayStore,
-                loggingPort = logging,
             )
 
         var propagated: CancellationException? = null

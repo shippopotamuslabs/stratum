@@ -1,5 +1,6 @@
 package com.stratum.feature.onboarding
 
+import com.stratum.core.infrastructure.telemetry.ProgramGenerationTelemetryLogger
 import com.stratum.core.testing.program.FixedProgramGenerationContextLoader
 import com.stratum.core.testing.logging.FakeLoggingPort
 
@@ -79,11 +80,11 @@ class OnboardingImportProgramViewModelTest {
         }
         val event = analytics.events.single()
         assertEquals(
-            com.stratum.domain.logging.USER_VISIBLE_ERROR_EVENT,
+            com.stratum.core.infrastructure.telemetry.USER_VISIBLE_ERROR_EVENT,
             event.name,
         )
-        assertEquals("onboarding", event.params[com.stratum.domain.logging.PARAM_SCREEN])
-        assertEquals("import_program", event.params[com.stratum.domain.logging.PARAM_ACTION])
+        assertEquals("onboarding", event.params[com.stratum.core.infrastructure.telemetry.PARAM_SCREEN])
+        assertEquals("import_program", event.params[com.stratum.core.infrastructure.telemetry.PARAM_ACTION])
     }
 
     @Test
@@ -205,7 +206,6 @@ class OnboardingImportProgramViewModelTest {
         val liftRepo = FakeLiftRepository()
         val completeOnboarding = com.stratum.application.onboarding.CompleteOnboardingUseCase(onboardingRepo, profileRepo)
         val importUseCase = ImportProgramTemplateUseCase(
-            loggingPort = FakeLoggingPort(),
             importPort = importPort,
             resolver = ResolveProgramTemplateLiftsUseCase(liftRepo, FakeLiftNameResolverPort()),
             repository = programRepo,
@@ -270,18 +270,15 @@ class OnboardingImportProgramViewModelTest {
                     com.stratum.core.testing.onboarding.FakeSpecializationPreferenceRepository(),
                 ),
                 saveOnboardingProgress = com.stratum.application.onboarding.SaveOnboardingProgressUseCase(onboardingRepo),
-                loggingPort = com.stratum.core.testing.logging.FakeLoggingPort(),
             ),
             getOnboardingStepCapabilities = com.stratum.application.onboarding.GetOnboardingStepCapabilitiesUseCase(
                 validateCurrentStep,
             ),
             applyGymPreset = com.stratum.application.lift.ApplyGymPresetUseCase(
                 com.stratum.core.testing.onboarding.FakeLiftRepository(),
-                com.stratum.core.testing.logging.FakeLoggingPort(),
             ),
             setSelectedPreset = com.stratum.application.lift.SetSelectedPresetUseCase(
                 com.stratum.core.testing.onboarding.FakeLiftRepository(),
-                com.stratum.core.testing.logging.FakeLoggingPort(),
             ),
             executeHistoricalImport = com.stratum.application.importing.ExecuteHistoricalImportUseCase(
                 validateImportFiles = com.stratum.application.importing.ValidateImportFilesUseCase(),
@@ -304,18 +301,17 @@ class OnboardingImportProgramViewModelTest {
                 loadContext = FixedProgramGenerationContextLoader(error = { error("not used") }),
                 pipeline = com.stratum.core.testing.program.testProgramGenerationPipeline(),
                 liftRepository = liftRepo,
-                telemetryRouter = com.stratum.domain.telemetry.TelemetryRouter(com.stratum.core.testing.telemetry.FakeOutcomeTelemetrySink(), com.stratum.core.testing.telemetry.FakeCrashTelemetryPort(), com.stratum.core.testing.telemetry.FakeAnalyticsPort()),
             ),
             activateProgram = com.stratum.application.program.ActivateProgramUseCase(
                 programRepository = programRepo,
                 programChangeEventRepository = com.stratum.core.testing.training.NoOpProgramChangeEventRepository(),
-                loggingPort = FakeLoggingPort(),
             ),
             completeOnboarding = completeOnboarding,
             importProgramTemplate = importUseCase,
-            logError = com.stratum.domain.logging.LogErrorUseCase(FakeLoggingPort()),
+            diagnosticDrain = DiagnosticDrain(FakeLoggingPort()),
+            generationLogger = ProgramGenerationTelemetryLogger(FakeLoggingPort()),
             logAnalytics =
-                com.stratum.domain.logging.LogAnalyticsEventUseCase(
+                AnalyticsRecorder(
                     analytics,
                 ),
             observeWeightDisplayPreferences =
@@ -325,7 +321,6 @@ class OnboardingImportProgramViewModelTest {
             setWeightDisplayUnit =
                 com.stratum.application.lift.SetWeightDisplayUnitUseCase(
                     weightDisplayPreferences,
-                    com.stratum.core.testing.logging.FakeLoggingPort(),
                 ),
         )
         return Triple(viewModel, onboardingRepo, programRepo)

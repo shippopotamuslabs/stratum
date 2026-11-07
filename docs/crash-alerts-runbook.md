@@ -51,7 +51,7 @@ you know real session volume.
 
 | Code signal | Where | What it becomes in Crashlytics |
 |---|---|---|
-| `recordException` on user-visible failures | `AndroidCrashTelemetryAdapter` (via `LogErrorUseCase` branches) | Non-fatal issues → §2 "new non-fatal" emails |
+| `recordException` on user-visible failures | `AndroidCrashTelemetryAdapter` records the non-fatals; boundary `DiagnosticDrain`s feed it via `LoggingPort` (and `TelemetryRouter.recordExceptional` for generation outcomes) | Non-fatal issues → §2 "new non-fatal" emails |
 | Breadcrumb `log()` calls | Same adapter | Timeline on each issue for triage |
 | `flag_*` / `flag_exposure` custom keys | `FirebaseFeatureFlagRepository`, `TelemetryContextListener` | Segment crashes by flag cohort when triaging |
 | User ID bind/clear on auth change | `TelemetryAuthListener` | "How many users hit this" per issue |

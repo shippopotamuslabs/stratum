@@ -1,6 +1,5 @@
 package com.stratum.application.training
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.response.FakeResponseModelingSchedulerPort
 import com.stratum.core.testing.response.FakeResponseProfileMetadataRepository
@@ -385,14 +384,12 @@ class UpdateCompletedSessionSetsUseCaseTest {
                 ),
             metadataRepository = metadataRepo,
             responseModelingScheduler = scheduler,
-            loggingPort = FakeLoggingPort(),
             refreshScope = CoroutineScope(Dispatchers.Unconfined),
         )
     }
 
     private fun buildInsights(repo: FakeTrainingLogRepository): ExtractTrainingInsightsUseCase =
         ExtractTrainingInsightsUseCase(
-            loggingPort = FakeLoggingPort(),
             trainingLogRepository = repo,
             liftTrainingInsightsRepository = object : LiftTrainingInsightsRepository {
                 override suspend fun replaceAll(insights: List<LiftTrainingInsights>) = Unit

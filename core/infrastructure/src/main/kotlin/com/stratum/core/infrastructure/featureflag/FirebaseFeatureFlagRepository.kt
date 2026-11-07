@@ -8,9 +8,9 @@ import com.google.firebase.remoteconfig.FirebaseRemoteConfigFetchThrottledExcept
 import com.stratum.domain.di.IoDispatcher
 import com.stratum.domain.featureflag.FeatureFlag
 import com.stratum.application.featureflag.FeatureFlagRepository
-import com.stratum.domain.logging.LoggingPort
-import com.stratum.domain.telemetry.AnalyticsPort
-import com.stratum.domain.telemetry.CrashTelemetryPort
+import com.stratum.core.infrastructure.logging.LoggingPort
+import com.stratum.core.infrastructure.telemetry.AnalyticsPort
+import com.stratum.core.infrastructure.telemetry.CrashTelemetryPort
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.awaitClose

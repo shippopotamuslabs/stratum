@@ -273,7 +273,6 @@ class WorkoutSessionDetailViewModelTest {
                 responseProfileMetadataRepository = metadataRepo,
                 responseModelingScheduler = FakeResponseModelingSchedulerPort(),
                 healthConnectScheduler = FakeHealthConnectSchedulerPort(),
-                loggingPort = FakeLoggingPort(),
                 refreshScope = CoroutineScope(Dispatchers.Unconfined),
             )
         val vm =
@@ -283,11 +282,11 @@ class WorkoutSessionDetailViewModelTest {
                         trainingLogRepository = logRepo,
                         programRepository = programRepo,
                         computeLoggedSessionMuscleVolume = ComputeLoggedSessionMuscleVolumeUseCase(),
-                        loggingPort = FakeLoggingPort(),
                     ),
                 updateCompletedSessionTimes = updateTimes,
                 observeWeightDisplayPreferences =
                     ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
+                diagnosticDrain = DiagnosticDrain(FakeLoggingPort()),
             )
         return Pair(vm, logRepo)
     }

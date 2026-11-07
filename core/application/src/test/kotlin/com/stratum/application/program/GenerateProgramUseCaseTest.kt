@@ -1,9 +1,5 @@
 package com.stratum.application.program
 
-import com.stratum.core.testing.logging.FakeLoggingPort
-import com.stratum.core.testing.telemetry.FakeAnalyticsPort
-import com.stratum.core.testing.telemetry.FakeCrashTelemetryPort
-import com.stratum.core.testing.telemetry.FakeOutcomeTelemetrySink
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.program.FakeProgramSynthesisPort
@@ -25,6 +21,8 @@ import com.stratum.domain.program.generation.schema.NormalizedWorkout
 import com.stratum.domain.program.generation.schema.ProgramNormalizationRequest
 import com.stratum.domain.program.generation.GenerateProgramFailureKind
 import com.stratum.domain.program.generation.GenerateProgramResult
+import com.stratum.domain.program.generation.GenerationSynthesisSummary
+import com.stratum.domain.program.generation.prescription.SynthesisObjectiveBreakdown
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisException
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisRefusal
 import com.stratum.domain.program.generation.validation.ValidationIssue
@@ -38,12 +36,12 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import com.stratum.domain.program.generation.volume.planWeeklyVolume
-import com.stratum.domain.telemetry.TelemetryRouter
 import com.stratum.domain.training.ProgramChangeEventType
 import com.stratum.application.program.generation.BuildProgramWorkoutsUseCase
 import com.stratum.application.program.generation.IntegrateAndValidateProgramUseCase
@@ -53,7 +51,6 @@ import com.stratum.application.program.generation.pipeline.ProgramGenerationPipe
 import com.stratum.application.program.generation.pipeline.ProgramGenerationPipelineResult
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.ProgramGenerationProgressPhase
-import com.stratum.domain.program.ProgramGenerationTelemetryLogger
 import com.stratum.domain.program.ScheduleDayItem
 import com.stratum.domain.program.SetType
 import com.stratum.domain.program.buildWeeklySchedule
@@ -76,6 +73,11 @@ class GenerateProgramUseCaseTest {
             val result = useCase.invoke()
 
             assertTrue(result is GenerateProgramResult.Success)
+            // STR-237 chunk 3: the synthesis records ride the outcome to the
+            // boundary (the pipeline no longer records them itself).
+            val synthesis = (result as GenerateProgramResult.Success).synthesis
+            assertTrue(synthesis != null, "expected the synthesis summary to ride the Success branch")
+            assertTrue(synthesis!!.cycleLength > 0)
             assertTrue(programRepository.saveProgramCalls.isEmpty())
             assertNull(programRepository.current)
             assertFalse(result.requireProgram().isActive)
@@ -133,25 +135,27 @@ class GenerateProgramUseCaseTest {
     inner class FailurePath {
         @Test
         fun `invoke does not persist on generation failure`() = runTest {
-            val useCase = buildUseCase(this, contextLoader = FixedProgramGenerationContextLoader(error = { error("boom") }))
+            val boom = IllegalArgumentException("boom")
+            val useCase =
+                buildUseCase(
+                    this,
+                    contextLoader = FixedProgramGenerationContextLoader(error = { throw boom }),
+                )
 
             val result = useCase.invoke()
 
-            assertEquals(
-                GenerateProgramResult.Unexpected(GenerateProgramFailureKind.OperationalFailure),
-                result,
-            )
-            // The operational throwable is recorded exactly once at the
-            // boundary via TelemetryRouter.recordExceptional: one Crashlytics
-            // non-fatal holding the real throwable plus one
-            // exceptional_occurred counter increment with the base
-            // boundary/class params (restored pre-STR-243 behaviour).
-            assertEquals(1, crashTelemetry.recordedExceptions.size)
-            assertTrue(crashTelemetry.recordedExceptions.single() is IllegalStateException)
-            val exceptional = analyticsPort.events.single { it.name == TelemetryRouter.EVENT_EXCEPTIONAL_OCCURRED }
-            assertEquals("CreateProgramGenerate", exceptional.params[TelemetryRouter.PARAM_BOUNDARY])
-            assertEquals("IllegalStateException", exceptional.params[TelemetryRouter.PARAM_CLASS])
-            assertTrue(outcomeSink.outcomes.isEmpty())
+            // STR-237 Special 1: the use case records nothing (application
+            // has no telemetry capability); the Unexpected branch carries the
+            // REAL throwable as a domain diagnostic. The exactly-one
+            // exceptional record for this branch is asserted at the outcome
+            // consumer's test (CreateProgramGenerateControllerTest), where
+            // the record moved.
+            val unexpected = result as GenerateProgramResult.Unexpected
+            assertEquals(GenerateProgramFailureKind.OperationalFailure, unexpected.kind)
+            assertEquals(1, unexpected.diagnostics.size)
+            assertSame(boom, unexpected.diagnostics.single().cause)
+            // The failure happened before the pipeline returned: no synthesis to carry.
+            assertNull(unexpected.synthesis)
             assertTrue(programRepository.saveProgramCalls.isEmpty())
             assertNull(programRepository.current)
         }
@@ -170,10 +174,71 @@ class GenerateProgramUseCaseTest {
             val result = useCase.invoke()
 
             assertEquals(GenerateProgramResult.SynthesisFailed("quota exhausted"), result)
-            assertTrue(crashTelemetry.recordedExceptions.isEmpty())
-            assertTrue(analyticsPort.events.none { it.name == TelemetryRouter.EVENT_EXCEPTIONAL_OCCURRED })
             assertTrue(programRepository.saveProgramCalls.isEmpty())
             assertNull(programRepository.current)
+        }
+    }
+
+    @Nested
+    @DisplayName("Post-pipeline failure carries the synthesis summary on Unexpected")
+    inner class PostPipelineFailurePath {
+        @Test
+        fun `invoke carries synthesis when retainOnlyKnownLifts empties the program and require fails`() = runTest {
+            val summary =
+                GenerationSynthesisSummary(
+                    trainingDaysPerWeek = 3,
+                    cycleLength = 7,
+                    objective = SynthesisObjectiveBreakdown.ZERO,
+                )
+            // Every lift in the built program is unknown to the enabled
+            // catalog, so post-pipeline sanitization drops the only workout
+            // and the workouts-nonempty require throws.
+            val fixed =
+                NormalizedProgram(
+                    name = "Unknown Lifts Program",
+                    cycleLength = 1,
+                    restSlotIndices = emptySet(),
+                    workouts =
+                        listOf(
+                            NormalizedWorkout(
+                                name = "Day 1",
+                                weekday = "Monday",
+                                position = 0,
+                                workoutLifts =
+                                    listOf(
+                                        NormalizedLift(
+                                            liftId = "unknown-lift",
+                                            position = 0,
+                                            progressionScheme = ProgressionScheme.Double,
+                                            workoutLiftSets =
+                                                listOf(
+                                                    NormalizedSet(
+                                                        position = 0,
+                                                        setType = SetType.Standard,
+                                                        repMin = 6,
+                                                        repMax = 10,
+                                                        rirGoal = 2,
+                                                        isTopSet = true,
+                                                    ),
+                                                ),
+                                        ),
+                                    ),
+                            ),
+                        ),
+                )
+            val useCase =
+                buildUseCase(this, pipeline = SuccessWithSynthesisPipeline(fixed, summary))
+
+            val result = useCase.invoke()
+
+            val unexpected = result as GenerateProgramResult.Unexpected
+            assertEquals(GenerateProgramFailureKind.OperationalFailure, unexpected.kind)
+            assertSame(summary, unexpected.synthesis)
+            assertTrue(
+                unexpected.diagnostics.single().cause is IllegalArgumentException,
+                "expected the require failure, got ${unexpected.diagnostics.single().cause}",
+            )
+            assertTrue(programRepository.saveProgramCalls.isEmpty())
         }
     }
 
@@ -208,7 +273,6 @@ class GenerateProgramUseCaseTest {
             val result = useCase.invoke()
 
             assertEquals(GenerateProgramResult.ValidationRejected(report), result)
-            assertTrue(crashTelemetry.recordedExceptions.isEmpty())
             assertTrue(programRepository.saveProgramCalls.isEmpty())
             assertNull(programRepository.current)
         }
@@ -227,7 +291,6 @@ class GenerateProgramUseCaseTest {
                 GenerateProgramResult.SynthesisRefused(ProgramSynthesisRefusal.FeatureDisabled),
                 result,
             )
-            assertTrue(crashTelemetry.recordedExceptions.isEmpty())
         }
     }
 
@@ -263,9 +326,6 @@ class GenerateProgramUseCaseTest {
     }
 
     private lateinit var programRepository: FakeProgramRepository
-    private lateinit var crashTelemetry: FakeCrashTelemetryPort
-    private lateinit var analyticsPort: FakeAnalyticsPort
-    private lateinit var outcomeSink: FakeOutcomeTelemetrySink
 
     private fun GenerateProgramResult.requireProgram(): Program =
         (this as GenerateProgramResult.Success).program
@@ -280,13 +340,9 @@ class GenerateProgramUseCaseTest {
         pipeline: ProgramGenerationPipeline = testProgramGenerationPipeline(),
     ): GenerateProgramUseCase {
         programRepository = FakeProgramRepository()
-        crashTelemetry = FakeCrashTelemetryPort()
-        analyticsPort = FakeAnalyticsPort()
-        outcomeSink = FakeOutcomeTelemetrySink()
         return GenerateProgramUseCase(
             loadContext = contextLoader,
             pipeline = pipeline,
-            telemetryRouter = TelemetryRouter(outcomeSink, crashTelemetry, analyticsPort),
             liftRepository = FakeLiftRepository(
                 initialLifts =
                     enabledLiftIds.map { id ->
@@ -313,7 +369,7 @@ class GenerateProgramUseCaseTest {
         val repo = FakeProgramRepository()
         val generate = buildUseCase(this)
         val program = generate.invoke().requireProgram()
-        val activate = ActivateProgramUseCase(repo, events, FakeLoggingPort())
+        val activate = ActivateProgramUseCase(repo, events)
 
         assertEquals(ActivateProgramResult.Success, activate(program))
 
@@ -386,7 +442,6 @@ class GenerateProgramUseCaseTest {
                     ),
                 pipeline = FixedNormalizedProgramPipeline(fixedNormalized),
                 liftRepository = FakeLiftRepository(initialLifts = listOf(highLift)),
-                telemetryRouter = TelemetryRouter(FakeOutcomeTelemetrySink(), FakeCrashTelemetryPort(), FakeAnalyticsPort()),
                 generationDispatcher = UnconfinedTestDispatcher(testScheduler),
             )
 
@@ -407,6 +462,27 @@ class GenerateProgramUseCaseTest {
 }
 
 /**
+ * Test double: returns a fixed [NormalizedProgram] plus a synthesis summary,
+ * so the post-pipeline failure test can assert the summary rides the
+ * Unexpected branch (STR-237 review round 1).
+ */
+private class SuccessWithSynthesisPipeline(
+    private val fixed: NormalizedProgram,
+    private val synthesis: GenerationSynthesisSummary,
+) : ProgramGenerationPipeline(
+    planWeeklyVolume = PlanWeeklyVolumeUseCase(),
+    buildProgramWorkouts = BuildProgramWorkoutsUseCase(),
+    integrateAndValidate = IntegrateAndValidateProgramUseCase(),
+    programSynthesisPort = FakeProgramSynthesisPort(),
+) {
+    override suspend fun generate(
+        context: ProgramGenerationContext,
+        normalizationRequest: ProgramNormalizationRequest,
+        options: PipelineOptions,
+    ): ProgramGenerationPipelineResult = ProgramGenerationPipelineResult.Success(fixed, synthesis)
+}
+
+/**
  * Test double: returns a fixed [NormalizedProgram] so FPR-S3-006 exercises
  * [GenerateProgramUseCase] catalog → toDomainProgram wiring without full synthesis.
  */
@@ -417,7 +493,6 @@ private class FixedNormalizedProgramPipeline(
     buildProgramWorkouts = BuildProgramWorkoutsUseCase(),
     integrateAndValidate = IntegrateAndValidateProgramUseCase(),
     programSynthesisPort = FakeProgramSynthesisPort(),
-    telemetryLogger = ProgramGenerationTelemetryLogger(FakeLoggingPort()),
 ) {
     override suspend fun generate(
         context: ProgramGenerationContext,
@@ -437,7 +512,6 @@ private class ValidationRejectedPipeline(
     buildProgramWorkouts = BuildProgramWorkoutsUseCase(),
     integrateAndValidate = IntegrateAndValidateProgramUseCase(),
     programSynthesisPort = FakeProgramSynthesisPort(),
-    telemetryLogger = ProgramGenerationTelemetryLogger(FakeLoggingPort()),
 ) {
     override suspend fun generate(
         context: ProgramGenerationContext,
@@ -455,7 +529,6 @@ private class SynthesisRefusedPipeline : ProgramGenerationPipeline(
     buildProgramWorkouts = BuildProgramWorkoutsUseCase(),
     integrateAndValidate = IntegrateAndValidateProgramUseCase(),
     programSynthesisPort = FakeProgramSynthesisPort(),
-    telemetryLogger = ProgramGenerationTelemetryLogger(FakeLoggingPort()),
 ) {
     override suspend fun generate(
         context: ProgramGenerationContext,

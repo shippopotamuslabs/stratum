@@ -35,6 +35,7 @@ data class ExportProgramsUiState(
 class ExportProgramsViewModel @Inject constructor(
     private val previewPrograms: PreviewExportProgramsUseCase,
     private val exportPrograms: ExportProgramsUseCase,
+    private val diagnosticDrain: DiagnosticDrain,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ExportProgramsUiState())
     val uiState: StateFlow<ExportProgramsUiState> = _uiState.asStateFlow()
@@ -119,10 +120,12 @@ class ExportProgramsViewModel @Inject constructor(
                             errorMessage = "One or more programs could not be exported.",
                         )
                     }
-                ExportProgramsResult.PersistenceFailed ->
+                is ExportProgramsResult.PersistenceFailed -> {
+                    diagnosticDrain.drain(result.diagnostics)
                     _uiState.update {
                         it.copy(isExporting = false, errorMessage = "Export failed.")
                     }
+                }
             }
         }
     }

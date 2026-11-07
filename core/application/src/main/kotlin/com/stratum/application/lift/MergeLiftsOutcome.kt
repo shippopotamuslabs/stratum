@@ -1,5 +1,6 @@
 package com.stratum.application.lift
 
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.domain.lift.identity.LiftId
 
 /**
@@ -16,6 +17,13 @@ import com.stratum.domain.lift.identity.LiftId
  */
 data class MergeLiftsOutcome(
     val diagnostics: List<MergeLiftsDiagnostic> = emptyList(),
+    /**
+     * STR-237: operational records of tolerated degradations detected in
+     * use-case coordination (the post-merge derived-data rebuild), carried
+     * in the standard carrier and drained by the boundary's DiagnosticDrain
+     * alongside [diagnostics].
+     */
+    val operationalDiagnostics: List<OperationalDiagnostic> = emptyList(),
 )
 
 /**

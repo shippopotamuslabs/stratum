@@ -1,6 +1,5 @@
 package com.stratum.application.training
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeProgramChangeEventRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
@@ -19,7 +18,7 @@ class RecordRestDaySkipUseCaseTest {
     @DisplayName("WL-028 RecordRestDaySkipUseCase creates REST_DAY zero-set session")
     fun wl028_restDaySkipSession() = runTest {
         val repo = FakeTrainingLogRepository()
-        val useCase = RecordRestDaySkipUseCase(repo, FakeProgramRepository(program()), FakeLoggingPort())
+        val useCase = RecordRestDaySkipUseCase(repo, FakeProgramRepository(program()))
 
         // Prefer slot-index API (schedule identity); rest@1 on a Mon/Wed train week.
         val session = (useCase(slotIndex = 1) as RecordRestDaySkipResult.Success).session
@@ -33,7 +32,7 @@ class RecordRestDaySkipUseCaseTest {
     @Test
     @DisplayName("Returns failure when no active program exists")
     fun returnsFailureWhenNoActiveProgram() = runTest {
-        val useCase = RecordRestDaySkipUseCase(FakeTrainingLogRepository(), FakeProgramRepository(null), FakeLoggingPort())
+        val useCase = RecordRestDaySkipUseCase(FakeTrainingLogRepository(), FakeProgramRepository(null))
 
         val slotResult = useCase(slotIndex = 1)
         assertEquals(RecordRestDaySkipResult.NoActiveProgram, slotResult)
@@ -45,7 +44,7 @@ class RecordRestDaySkipUseCaseTest {
     @Test
     @DisplayName("Returns failure when slot is not a rest slot")
     fun returnsFailureWhenSlotNotRest() = runTest {
-        val useCase = RecordRestDaySkipUseCase(FakeTrainingLogRepository(), FakeProgramRepository(program()), FakeLoggingPort())
+        val useCase = RecordRestDaySkipUseCase(FakeTrainingLogRepository(), FakeProgramRepository(program()))
 
         // slot 0 is a training workout, not rest
         val result = useCase(slotIndex = 0)

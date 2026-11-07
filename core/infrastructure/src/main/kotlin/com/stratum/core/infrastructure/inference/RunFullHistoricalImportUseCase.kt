@@ -24,7 +24,7 @@ import com.stratum.application.importing.StartHistoricalImportOutcome
 import com.stratum.application.importing.StartHistoricalImportUseCase
 import com.stratum.domain.importing.UnsupportedImportFileException
 import com.stratum.domain.di.DefaultDispatcher
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.core.infrastructure.logging.LoggingPort
 import java.time.Instant
 import javax.inject.Inject
 import kotlin.time.Duration.Companion.milliseconds
@@ -127,8 +127,16 @@ class RunFullHistoricalImportUseCase @Inject constructor(
                         error("Import persist requires all sessions to have origin IMPORT.")
                     PersistImportedHistoryOutcome.NoValidSets ->
                         error("Import contained no valid training sets.")
-                    PersistImportedHistoryOutcome.Failed ->
+                    is PersistImportedHistoryOutcome.Failed -> {
+                        // STR-237: every failure path's diagnostics ride the
+                        // branch (response-extract, envelope, and propagated
+                        // insights-extract records) and are recorded exactly
+                        // once here, at the runner boundary.
+                        persistOutcome.diagnostics.forEach { diagnostic ->
+                            loggingPort.error(diagnostic.tag, diagnostic.message, diagnostic.cause)
+                        }
                         throw AlreadyLoggedImportFailureException("Import failed.")
+                    }
                 }
             summary.liftResolution?.let(importLiftResolutionLogger::log)
             emit(HistoricalImportEvent.Progress(ImportProgress(ImportProgressPhase.Complete)))
@@ -211,12 +219,20 @@ class RunFullHistoricalImportUseCase @Inject constructor(
         )
     }
 
-    /** Starts one file's import job; a producer failure arrives already logged at its boundary. */
+    /**
+     * Starts one file's import job; a producer failure's diagnostics ride the
+     * branch (STR-237) and are drained exactly once here before the
+     * already-logged marker propagates.
+     */
     private suspend fun startImportJob(): ImportJob =
         when (val startOutcome = startHistoricalImport()) {
             is StartHistoricalImportOutcome.Started -> startOutcome.job
-            StartHistoricalImportOutcome.Failed ->
+            is StartHistoricalImportOutcome.Failed -> {
+                startOutcome.diagnostics.forEach { diagnostic ->
+                    loggingPort.error(diagnostic.tag, diagnostic.message, diagnostic.cause)
+                }
                 throw AlreadyLoggedImportFailureException("Could not start import job")
+            }
         }
 
     private suspend fun convertSingleFile(

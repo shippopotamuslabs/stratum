@@ -4,8 +4,8 @@ import android.content.Context
 import android.os.Bundle
 import android.util.Log
 import com.google.firebase.analytics.FirebaseAnalytics
-import com.stratum.domain.telemetry.AnalyticsPort
-import com.stratum.domain.telemetry.TelemetryPiiScrubber
+import com.stratum.core.infrastructure.telemetry.AnalyticsPort
+import com.stratum.core.infrastructure.telemetry.TelemetryPiiScrubber
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton

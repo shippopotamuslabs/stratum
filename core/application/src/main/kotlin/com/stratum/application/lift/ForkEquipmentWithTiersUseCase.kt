@@ -2,6 +2,7 @@ package com.stratum.application.lift
 
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import javax.inject.Inject
 import com.stratum.domain.lift.CatalogNames
 import com.stratum.domain.lift.IncrementTier
@@ -10,14 +11,15 @@ import com.stratum.domain.lift.MicroIncrementsValidationResult
 import com.stratum.domain.lift.Weight
 
 /**
- * Outcome of the fork-with-tiers composite write (STR-243).
+ * Outcome of the fork-with-tiers composite write (STR-243; STR-237 Route (i)).
  *
  * The fork and tier-write steps surface their validation results on the matching
  * branches. The lift-reassignment step's failure kinds are enumerated on the
  * `Assignment*` branches, mapped one-to-one from [SetLiftEquipmentResult]
  * (STR-243 C4 retired the interim single `LiftAssignmentFailed` branch once
- * that use case returned typed outcomes; its operational failures are logged
- * once at its own boundary).
+ * that use case returned typed outcomes). Operational failures propagate
+ * unchanged: each step's [OperationalDiagnostic]s ride this composite's
+ * matching persistence branch, drained exactly once at the boundary.
  */
 sealed interface ForkEquipmentWithTiersResult {
     data class Success(val equipmentId: EquipmentId) : ForkEquipmentWithTiersResult
@@ -34,7 +36,9 @@ sealed interface ForkEquipmentWithTiersResult {
         ForkEquipmentWithTiersResult
 
     /** A repository read or write in the fork or tier-write step failed. */
-    data object PersistenceFailed : ForkEquipmentWithTiersResult
+    data class PersistenceFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : ForkEquipmentWithTiersResult
 
     /** The lift-reassignment step's lift was not found. */
     data class AssignmentLiftNotFound(val liftId: LiftId) : ForkEquipmentWithTiersResult
@@ -44,7 +48,9 @@ sealed interface ForkEquipmentWithTiersResult {
         ForkEquipmentWithTiersResult
 
     /** The lift-reassignment step's read or write failed. */
-    data object AssignmentPersistenceFailed : ForkEquipmentWithTiersResult
+    data class AssignmentPersistenceFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : ForkEquipmentWithTiersResult
 }
 
 /**
@@ -105,8 +111,8 @@ class ForkEquipmentWithTiersUseCase @Inject constructor(
                 ForkEquipmentWithTiersResult.InvalidTiers(validation)
             is ForkEquipmentResult.InvalidMicro ->
                 ForkEquipmentWithTiersResult.InvalidMicro(validation)
-            ForkEquipmentResult.PersistenceFailed ->
-                ForkEquipmentWithTiersResult.PersistenceFailed
+            is ForkEquipmentResult.PersistenceFailed ->
+                ForkEquipmentWithTiersResult.PersistenceFailed(diagnostics)
         }
 
     /** Maps an assignment failure onto this composite's matching branch; null on success. */
@@ -117,8 +123,8 @@ class ForkEquipmentWithTiersUseCase @Inject constructor(
                 ForkEquipmentWithTiersResult.AssignmentLiftNotFound(liftId)
             is SetLiftEquipmentResult.EquipmentDeleted ->
                 ForkEquipmentWithTiersResult.AssignmentEquipmentDeleted(equipmentId)
-            SetLiftEquipmentResult.PersistenceFailed ->
-                ForkEquipmentWithTiersResult.AssignmentPersistenceFailed
+            is SetLiftEquipmentResult.PersistenceFailed ->
+                ForkEquipmentWithTiersResult.AssignmentPersistenceFailed(diagnostics)
         }
 
     /** Maps a tier-write failure onto this composite's matching branch; null on success. */
@@ -129,7 +135,7 @@ class ForkEquipmentWithTiersUseCase @Inject constructor(
                 ForkEquipmentWithTiersResult.InvalidTiers(validation)
             is SetEquipmentIncrementTiersResult.InvalidMicro ->
                 ForkEquipmentWithTiersResult.InvalidMicro(validation)
-            SetEquipmentIncrementTiersResult.PersistenceFailed ->
-                ForkEquipmentWithTiersResult.PersistenceFailed
+            is SetEquipmentIncrementTiersResult.PersistenceFailed ->
+                ForkEquipmentWithTiersResult.PersistenceFailed(diagnostics)
         }
 }

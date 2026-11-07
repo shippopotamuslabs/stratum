@@ -2,7 +2,7 @@ package com.stratum.core.infrastructure.sync
 import com.stratum.core.infrastructure.sync.SyncFlags
 
 import com.stratum.core.infrastructure.work.CloudSyncScheduler
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.core.infrastructure.logging.LoggingPort
 import javax.inject.Inject
 import javax.inject.Singleton
 

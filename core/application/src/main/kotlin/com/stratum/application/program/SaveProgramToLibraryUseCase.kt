@@ -1,6 +1,6 @@
 package com.stratum.application.program
 
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.domain.training.ProgramChangeEvent
 import com.stratum.domain.training.ProgramChangeEventPayload
 import com.stratum.application.training.ProgramChangeEventRepository
@@ -13,12 +13,14 @@ import kotlin.coroutines.cancellation.CancellationException
 import com.stratum.domain.program.Program
 
 /**
- * Outcome of [SaveProgramToLibraryUseCase] (STR-243).
+ * Outcome of [SaveProgramToLibraryUseCase] (STR-243; STR-237 Route (i)).
  *
  * The validation branches are expected caller outcomes and are not logged;
- * an operational save failure is logged once via [LoggingPort.error] at the
- * use-case boundary and surfaces as [PersistenceFailed]. Coroutine
- * cancellation is not a branch: it propagates.
+ * an operational save failure rides the [PersistenceFailed] branch as an
+ * [OperationalDiagnostic] (legacy tag + rendered message, real throwable as
+ * cause); the presentation boundary drains it exactly once through its
+ * module's DiagnosticDrain. Coroutine cancellation is not a branch: it
+ * propagates.
  */
 sealed interface SaveProgramToLibraryResult {
     data object Success : SaveProgramToLibraryResult
@@ -30,7 +32,9 @@ sealed interface SaveProgramToLibraryResult {
     data object NoExercises : SaveProgramToLibraryResult
 
     /** The library save failed (repository / store I/O). */
-    data object PersistenceFailed : SaveProgramToLibraryResult
+    data class PersistenceFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : SaveProgramToLibraryResult
 }
 
 /**
@@ -39,7 +43,6 @@ sealed interface SaveProgramToLibraryResult {
 class SaveProgramToLibraryUseCase @Inject constructor(
     private val programRepository: ProgramRepository,
     private val programChangeEventRepository: ProgramChangeEventRepository,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(program: Program): SaveProgramToLibraryResult {
         if (program.workouts.isEmpty()) return SaveProgramToLibraryResult.NoWorkouts
@@ -62,8 +65,15 @@ class SaveProgramToLibraryUseCase @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Throwable) {
-            loggingPort.error(TAG, "Failed to save program to library: ${error.message}", error)
-            SaveProgramToLibraryResult.PersistenceFailed
+            SaveProgramToLibraryResult.PersistenceFailed(
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Failed to save program to library: ${error.message}",
+                        cause = error,
+                    ),
+                ),
+            )
         }
     }
 

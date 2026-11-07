@@ -4,7 +4,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.functions.FirebaseFunctions
 import com.stratum.application.auth.AccountDeletionOutcome
 import com.stratum.application.auth.AccountDeletionPort
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.core.infrastructure.logging.LoggingPort
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton

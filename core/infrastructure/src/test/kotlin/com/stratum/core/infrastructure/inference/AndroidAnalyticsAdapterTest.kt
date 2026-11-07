@@ -5,8 +5,8 @@ package com.stratum.core.infrastructure.inference
 import android.os.Bundle
 import android.util.Log
 import com.google.firebase.analytics.FirebaseAnalytics
-import com.stratum.domain.telemetry.TelemetryPiiScrubber
-import com.stratum.domain.telemetry.TelemetryRouter
+import com.stratum.core.infrastructure.telemetry.TelemetryPiiScrubber
+import com.stratum.core.infrastructure.telemetry.TelemetryRouter
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic

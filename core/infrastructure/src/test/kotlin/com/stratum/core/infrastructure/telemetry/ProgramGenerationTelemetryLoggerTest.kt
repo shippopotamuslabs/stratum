@@ -1,0 +1,103 @@
+package com.stratum.core.infrastructure.telemetry
+
+import com.stratum.core.testing.logging.FakeLoggingPort
+import com.stratum.core.testing.program.scenarioContext
+import com.stratum.core.infrastructure.logging.LoggingPort
+import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.program.generation.GenerationSynthesisSummary
+import com.stratum.domain.program.generation.prescription.SynthesisObjectiveBreakdown
+import com.stratum.domain.program.generation.slots.SlotGenerationDiagnostic
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.Test
+
+class ProgramGenerationTelemetryLoggerTest {
+    @Test
+    @DisplayName("Given synthesis result when logged then info includes unified flag and objective")
+    fun `logs unified synthesis objective breakdown`() {
+        val loggingPort = RecordingLoggingPort()
+        val logger = ProgramGenerationTelemetryLogger(loggingPort)
+        val context = scenarioContext(days = 4, specialization = mapOf("Chest" to "Specialize"))
+        val objective =
+            SynthesisObjectiveBreakdown(
+                total = 42L,
+                recoveryPenalty = 1L,
+                specializedMevShortfall = 2L,
+                coSpecializationImbalance = 0L,
+                specializeAimDeviation = 3L,
+                maintenanceAimDeviation = 0L,
+                minimumVolumeAimDeviation = 0L,
+                roleMinimumShortfall = 0L,
+                pushPullImbalance = 0L,
+                sessionFillShortfall = 0L,
+            )
+        logger.logSynthesisComplete(
+            GenerationSynthesisSummary(
+                trainingDaysPerWeek = context.trainingDaysPerWeek,
+                cycleLength = 4,
+                objective = objective,
+            ),
+        )
+
+        assertTrue(
+            loggingPort.infoMessages.any { message ->
+                message.contains("programSynthesis") &&
+                    message.contains("unified=true") &&
+                    message.contains("objectiveTotal=42")
+            },
+        )
+    }
+
+    @Test
+    @DisplayName("Given slot diagnostics when drained then each logs exactly one warning")
+    fun `drains each slot diagnostic exactly once at warning level`() {
+        val loggingPort = FakeLoggingPort()
+        val logger = ProgramGenerationTelemetryLogger(loggingPort)
+        val diagnostics =
+            listOf(
+                SlotGenerationDiagnostic.CrossDomainTouchSkipped("NotAPattern", MuscleGroup.Bicep),
+                SlotGenerationDiagnostic.SpecFocusMuscleUnrecognized("NotAMuscle", "ElbowFlexion"),
+            )
+
+        logger.logGenerationDiagnostics(diagnostics)
+
+        assertEquals(diagnostics.size, loggingPort.warnings.size)
+        assertTrue(
+            loggingPort.warnings[0].message.contains("NotAPattern") &&
+                loggingPort.warnings[0].message.contains("Bicep"),
+        )
+        assertTrue(
+            loggingPort.warnings[1].message.contains("NotAMuscle") &&
+                loggingPort.warnings[1].message.contains("ElbowFlexion"),
+        )
+    }
+
+    @Test
+    @DisplayName("Given no slot diagnostics when drained then nothing is logged")
+    fun `drains nothing when diagnostics are empty`() {
+        val loggingPort = FakeLoggingPort()
+        val logger = ProgramGenerationTelemetryLogger(loggingPort)
+
+        logger.logGenerationDiagnostics(emptyList())
+
+        assertTrue(loggingPort.warnings.isEmpty())
+        assertTrue(loggingPort.errors.isEmpty())
+    }
+
+    private class RecordingLoggingPort : LoggingPort {
+        val infoMessages = mutableListOf<String>()
+
+        override fun debug(tag: String, message: String) = Unit
+
+        override fun info(tag: String, message: String) {
+            infoMessages += message
+        }
+
+        override fun warning(tag: String, message: String) = Unit
+
+        override fun error(tag: String, message: String, throwable: Throwable?) = Unit
+
+        override fun errorSkippingNonFatal(tag: String, message: String, throwable: Throwable) = Unit
+    }
+}

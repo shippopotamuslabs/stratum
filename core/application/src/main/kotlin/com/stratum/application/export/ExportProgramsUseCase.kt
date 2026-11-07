@@ -2,7 +2,7 @@ package com.stratum.application.export
 
 import com.stratum.application.lift.LiftRepository
 import com.stratum.domain.lift.identity.LiftId
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.domain.program.Program
 import com.stratum.application.program.ProgramRepository
 import com.stratum.domain.program.identity.ProgramId
@@ -22,9 +22,10 @@ import com.stratum.domain.lift.Lift
  * [NoProgramsSelected] and [ProgramsNotExportable] are the enumerated caller
  * refusals (formerly `require` failures) and are not logged;
  * [ProgramsNotExportable] carries the ids that could not be exported
- * (import-history or unresolvable). An operational failure is logged once via
- * [LoggingPort.error] at the use-case boundary and surfaces as
- * [PersistenceFailed]. Coroutine cancellation is not a branch: it propagates.
+ * (import-history or unresolvable). An operational failure rides the
+ * [PersistenceFailed] branch as an [OperationalDiagnostic] and is drained
+ * exactly once at the presentation boundary. Coroutine cancellation is not
+ * a branch: it propagates.
  */
 sealed interface ExportProgramsResult {
     data class Success(val file: ExportFileResult) : ExportProgramsResult
@@ -38,22 +39,22 @@ sealed interface ExportProgramsResult {
     ) : ExportProgramsResult
 
     /** The export failed (repository / store I/O). */
-    data object PersistenceFailed : ExportProgramsResult
+    data class PersistenceFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : ExportProgramsResult
 }
 
 class ExportProgramsUseCase(
     private val programRepository: ProgramRepository,
     private val liftRepository: LiftRepository,
     private val clock: () -> Instant,
-    private val loggingPort: LoggingPort,
 ) {
     /** Hilt entry: wall clock. Unit tests use the primary constructor with a fixed clock. */
     @Inject
     constructor(
         programRepository: ProgramRepository,
         liftRepository: LiftRepository,
-        loggingPort: LoggingPort,
-    ) : this(programRepository, liftRepository, { Instant.now() }, loggingPort)
+    ) : this(programRepository, liftRepository, { Instant.now() })
 
     /**
      * Exports selected programs (must be non-empty, all resolvable, none import-history)
@@ -106,8 +107,15 @@ class ExportProgramsUseCase(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Throwable) {
-            loggingPort.error(TAG, "Failed to export programs: ${error.message}", error)
-            ExportProgramsResult.PersistenceFailed
+            ExportProgramsResult.PersistenceFailed(
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Failed to export programs: ${error.message}",
+                        cause = error,
+                    ),
+                ),
+            )
         }
     }
 

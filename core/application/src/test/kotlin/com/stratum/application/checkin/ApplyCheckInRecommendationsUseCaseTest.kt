@@ -1,6 +1,5 @@
 package com.stratum.application.checkin
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.application.program.ProgramRepository
 import com.stratum.core.testing.checkin.FakeCheckInPreferencesRepository
 import com.stratum.core.testing.program.FakeProgramRepository
@@ -49,8 +48,7 @@ class ApplyCheckInRecommendationsUseCaseTest {
             ApplyCheckInRecommendationsUseCase(
                 programRepository = programRepo,
                 programChangeEventRepository = events,
-                completeCheckIn = CompleteCheckInUseCase(prefs, FakeLoggingPort()),
-                loggingPort = FakeLoggingPort(),
+                completeCheckIn = CompleteCheckInUseCase(prefs),
             )
 
         val result =
@@ -85,8 +83,7 @@ class ApplyCheckInRecommendationsUseCaseTest {
             ApplyCheckInRecommendationsUseCase(
                 programRepository = programRepo,
                 programChangeEventRepository = FakeProgramChangeEventRepository(),
-                completeCheckIn = CompleteCheckInUseCase(prefs, FakeLoggingPort()),
-                loggingPort = FakeLoggingPort(),
+                completeCheckIn = CompleteCheckInUseCase(prefs),
             )
 
         assertEquals(ApplyCheckInRecommendationsResult.Success, useCase(emptyList()))
@@ -102,8 +99,7 @@ class ApplyCheckInRecommendationsUseCaseTest {
             ApplyCheckInRecommendationsUseCase(
                 programRepository = programRepo,
                 programChangeEventRepository = FakeProgramChangeEventRepository(),
-                completeCheckIn = CompleteCheckInUseCase(FakeCheckInPreferencesRepository(), FakeLoggingPort()),
-                loggingPort = FakeLoggingPort(),
+                completeCheckIn = CompleteCheckInUseCase(FakeCheckInPreferencesRepository()),
             )
         useCase(listOf(CheckInApplyCommand.SetWorkingSets(workoutLiftId, 3)))
         useCase(listOf(CheckInApplyCommand.SetWorkingSets(workoutLiftId, 3)))
@@ -117,8 +113,7 @@ class ApplyCheckInRecommendationsUseCaseTest {
             ApplyCheckInRecommendationsUseCase(
                 programRepository = FakeProgramRepository(null),
                 programChangeEventRepository = FakeProgramChangeEventRepository(),
-                completeCheckIn = CompleteCheckInUseCase(FakeCheckInPreferencesRepository(), FakeLoggingPort()),
-                loggingPort = FakeLoggingPort(),
+                completeCheckIn = CompleteCheckInUseCase(FakeCheckInPreferencesRepository()),
             )
 
         val result = useCase(listOf(CheckInApplyCommand.SetWorkingSets(workoutLiftId, 3)))
@@ -132,8 +127,7 @@ class ApplyCheckInRecommendationsUseCaseTest {
             ApplyCheckInRecommendationsUseCase(
                 programRepository = FakeProgramRepository(programWithSets(3, "bench")),
                 programChangeEventRepository = FakeProgramChangeEventRepository(),
-                completeCheckIn = CompleteCheckInUseCase(FakeCheckInPreferencesRepository(), FakeLoggingPort()),
-                loggingPort = FakeLoggingPort(),
+                completeCheckIn = CompleteCheckInUseCase(FakeCheckInPreferencesRepository()),
             )
 
         val missingId = WorkoutLiftId("missing")
@@ -145,33 +139,31 @@ class ApplyCheckInRecommendationsUseCaseTest {
     }
 
     @Test
-    @DisplayName("save failure returns PersistenceFailed and logs exactly one error (STR-243)")
+    @DisplayName("save failure returns PersistenceFailed carrying exactly one diagnostic (STR-243/STR-237)")
     fun persistenceFailureOnSaveError() = runTest {
-        val logging = FakeLoggingPort()
         val useCase =
             ApplyCheckInRecommendationsUseCase(
                 programRepository = FakeProgramRepository(programWithSets(3, "bench"), failOnSave = true),
                 programChangeEventRepository = FakeProgramChangeEventRepository(),
-                completeCheckIn = CompleteCheckInUseCase(FakeCheckInPreferencesRepository(), FakeLoggingPort()),
-                loggingPort = logging,
+                completeCheckIn = CompleteCheckInUseCase(FakeCheckInPreferencesRepository()),
             )
 
         val result = useCase(listOf(CheckInApplyCommand.SetWorkingSets(workoutLiftId, 4)))
 
-        assertEquals(ApplyCheckInRecommendationsResult.PersistenceFailed, result)
-        assertEquals(1, logging.errors.size)
-        assertEquals("ApplyCheckIn", logging.errors.single().tag)
+        val failed = result as ApplyCheckInRecommendationsResult.PersistenceFailed
+        assertEquals(1, failed.diagnostics.size)
+        val diagnostic = failed.diagnostics.single()
+        assertEquals("ApplyCheckIn", diagnostic.tag)
         assertEquals(
             "Failed to apply check-in recommendations: FakeProgramRepository configured to fail on save",
-            logging.errors.single().message,
+            diagnostic.message,
         )
-        assertTrue(logging.errors.single().throwable is IllegalStateException)
+        assertTrue(diagnostic.cause is IllegalStateException)
     }
 
     @Test
-    @DisplayName("completion failure returns PersistenceFailed, logged once at the completion boundary (STR-243)")
+    @DisplayName("completion failure returns PersistenceFailed carrying the completion diagnostic (STR-243/STR-237)")
     fun persistenceFailureOnCompleteError() = runTest {
-        val logging = FakeLoggingPort()
         val failingPrefs =
             object : CheckInPreferencesRepository by FakeCheckInPreferencesRepository() {
                 override suspend fun complete(now: Instant) {
@@ -182,15 +174,17 @@ class ApplyCheckInRecommendationsUseCaseTest {
             ApplyCheckInRecommendationsUseCase(
                 programRepository = FakeProgramRepository(programWithSets(3, "bench")),
                 programChangeEventRepository = FakeProgramChangeEventRepository(),
-                completeCheckIn = CompleteCheckInUseCase(failingPrefs, logging),
-                loggingPort = logging,
+                completeCheckIn = CompleteCheckInUseCase(failingPrefs),
             )
 
         val result = useCase(emptyList())
 
-        assertEquals(ApplyCheckInRecommendationsResult.PersistenceFailed, result)
-        assertEquals(1, logging.errors.size)
-        assertEquals("CompleteCheckIn", logging.errors.single().tag)
+        val failed = result as ApplyCheckInRecommendationsResult.PersistenceFailed
+        assertEquals(1, failed.diagnostics.size)
+        val diagnostic = failed.diagnostics.single()
+        assertEquals("CompleteCheckIn", diagnostic.tag)
+        assertEquals("Failed to complete check-in: prefs boom", diagnostic.message)
+        assertTrue(diagnostic.cause is IllegalStateException)
     }
 
     @Test
@@ -205,8 +199,7 @@ class ApplyCheckInRecommendationsUseCaseTest {
             ApplyCheckInRecommendationsUseCase(
                 programRepository = cancellingRepo,
                 programChangeEventRepository = FakeProgramChangeEventRepository(),
-                completeCheckIn = CompleteCheckInUseCase(FakeCheckInPreferencesRepository(), FakeLoggingPort()),
-                loggingPort = FakeLoggingPort(),
+                completeCheckIn = CompleteCheckInUseCase(FakeCheckInPreferencesRepository()),
             )
 
         org.junit.jupiter.api.Assertions.assertThrows(

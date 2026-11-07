@@ -1,12 +1,12 @@
 package com.stratum.telemetry
 
 import com.stratum.domain.di.ApplicationScope
-import com.stratum.domain.logging.LoggingPort
-import com.stratum.domain.logging.collectLatestRestarting
+import com.stratum.core.infrastructure.logging.LoggingPort
+import com.stratum.domain.coroutines.collectLatestRestarting
 import com.stratum.application.subscription.ObserveEntitlementUseCase
 import com.stratum.application.subscription.SUBSCRIPTION_REPO_TAG
-import com.stratum.domain.telemetry.CrashTelemetryPort
-import com.stratum.domain.telemetry.toTelemetryTier
+import com.stratum.core.infrastructure.telemetry.CrashTelemetryPort
+import com.stratum.core.infrastructure.telemetry.toTelemetryTier
 import com.stratum.application.training.ObserveActiveSessionUseCase
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -38,13 +38,13 @@ class TelemetryContextListener @Inject constructor(
                         // Single drain point for the entitlement-changed debug: the repository
                         // flow is distinctUntilChanged, and diagnostics/sync errors are drained
                         // by EntitlementDiagnosticsListener — do not add another collector.
-                        observeEntitlement().collectLatestRestarting(loggingPort, TAG) { state ->
+                        observeEntitlement().collectLatestRestarting({ t, m, e -> loggingPort.error(t, m, e) }, TAG) { state ->
                             loggingPort.debug(SUBSCRIPTION_REPO_TAG, "Entitlement changed: $state")
                             crashTelemetryPort.setSubscriptionTier(state.toTelemetryTier())
                         }
                     }
                     launch {
-                        observeActiveSession().collectLatestRestarting(loggingPort, TAG) { session ->
+                        observeActiveSession().collectLatestRestarting({ t, m, e -> loggingPort.error(t, m, e) }, TAG) { session ->
                             crashTelemetryPort.setActiveWorkoutId(session?.workoutId?.value)
                         }
                     }

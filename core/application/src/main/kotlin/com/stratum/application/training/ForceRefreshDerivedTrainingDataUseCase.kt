@@ -1,20 +1,25 @@
 package com.stratum.application.training
 
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.application.response.ResponseModelingSchedulerPort
 import javax.inject.Inject
 import com.stratum.domain.response.RE_EXTRACT_MIN_COMPLETED_WORKOUTS
 
 /**
- * Outcome of a forced derived-data refresh (STR-243). The stage that failed is
- * identified on [LocalDerivedTrainingStagesResult] and was already logged
- * inside the stages; this outcome carries only the failure kind. Coroutine
- * cancellation is not a branch: it propagates out of the stages.
+ * Outcome of a forced derived-data refresh (STR-243; STR-237 Route (i)).
+ * The stage that failed is identified on [LocalDerivedTrainingStagesResult];
+ * its failure records ride [PersistenceFailed.diagnostics] unchanged from
+ * the stages result, and the boundary that owns this result drains them
+ * exactly once. Coroutine cancellation is not a branch: it propagates out of
+ * the stages.
  */
 sealed interface ForceRefreshDerivedTrainingDataResult {
     data object Success : ForceRefreshDerivedTrainingDataResult
 
     /** A derived-data stage failed (see [LocalDerivedTrainingStagesResult]). */
-    data object PersistenceFailed : ForceRefreshDerivedTrainingDataResult
+    data class PersistenceFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : ForceRefreshDerivedTrainingDataResult
 }
 
 /**
@@ -47,8 +52,15 @@ class ForceRefreshDerivedTrainingDataUseCase @Inject constructor(
                 failPolicy = LocalDerivedTrainingStages.FailPolicy.Throw,
                 logTag = TAG,
             )
-        if (stagesResult != LocalDerivedTrainingStagesResult.Success) {
-            return ForceRefreshDerivedTrainingDataResult.PersistenceFailed
+        if (stagesResult !is LocalDerivedTrainingStagesResult.Success) {
+            val diagnostics =
+                when (stagesResult) {
+                    is LocalDerivedTrainingStagesResult.InsightsFailed -> stagesResult.diagnostics
+                    is LocalDerivedTrainingStagesResult.WeeklySeriesFailed -> stagesResult.diagnostics
+                    is LocalDerivedTrainingStagesResult.PersistenceFailed -> stagesResult.diagnostics
+                    is LocalDerivedTrainingStagesResult.Success -> emptyList()
+                }
+            return ForceRefreshDerivedTrainingDataResult.PersistenceFailed(diagnostics)
         }
         // Non-blocking: worker skips the 20-workout gate. KEEP on re-tap so we don't cancel
         // an in-flight recovery extract.

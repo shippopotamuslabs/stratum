@@ -8,9 +8,9 @@ import com.google.firebase.appcheck.FirebaseAppCheck
 import com.stratum.app.AppCheckInstaller
 import com.stratum.domain.di.ApplicationScope
 import com.stratum.application.featureflag.FeatureFlagRepository
-import com.stratum.domain.logging.LoggingPort
-import com.stratum.domain.logging.ProcessErrorSafetyNet
-import com.stratum.domain.telemetry.ClientLogBuffer
+import com.stratum.core.infrastructure.logging.LoggingPort
+import com.stratum.core.infrastructure.logging.ProcessErrorSafetyNet
+import com.stratum.core.infrastructure.telemetry.ClientLogBuffer
 import com.stratum.feature.workout.notification.WorkoutNotificationCoordinator
 import com.stratum.subscription.EntitlementDiagnosticsListener
 import com.stratum.sync.CloudSyncAuthListener

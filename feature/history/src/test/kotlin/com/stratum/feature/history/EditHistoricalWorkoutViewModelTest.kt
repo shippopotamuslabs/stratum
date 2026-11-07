@@ -251,7 +251,6 @@ class EditHistoricalWorkoutViewModelTest {
                     ),
                 metadataRepository = metadataRepo,
                 responseModelingScheduler = FakeResponseModelingSchedulerPort(),
-                loggingPort = FakeLoggingPort(),
                 refreshScope = CoroutineScope(Dispatchers.Unconfined),
             )
         val vm =
@@ -261,11 +260,11 @@ class EditHistoricalWorkoutViewModelTest {
                         trainingLogRepository = logRepo,
                         programRepository = programRepo,
                         liftRepository = liftRepo,
-                        loggingPort = FakeLoggingPort(),
                     ),
                 updateCompletedSessionSets = update,
                 observeWeightDisplayPreferences =
                     ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
+                diagnosticDrain = DiagnosticDrain(FakeLoggingPort()),
             )
         return Env(vm, logRepo)
     }

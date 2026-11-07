@@ -1,7 +1,7 @@
 package com.stratum.application.program.importing
 
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.domain.di.DefaultDispatcher
-import com.stratum.domain.logging.LoggingPort
 import com.stratum.application.onboarding.CompleteOnboardingUseCase
 import com.stratum.domain.onboarding.UserTrainingProfile
 import com.stratum.application.onboarding.UserTrainingProfileRepository
@@ -57,9 +57,10 @@ class ProgramTemplateRejectedException(message: String) : Exception(message)
  * carries the primary failure's message (the user-facing copy source, as when
  * the primary crossed as a Throwable) and the STR-256 rollback diagnostics to
  * drain at the boundary. [OperationalFailed] covers the remaining operational
- * failures (upload / poll / download / parse / pre-persist reads); the
- * originating throwable is logged once at the use-case boundary and never
- * crosses. Coroutine cancellation — including a
+ * failures (upload / poll / download / parse / pre-persist reads) and carries
+ * them as [OperationalDiagnostic]s (legacy tag + rendered message, real
+ * throwable as cause) for the boundary to drain exactly once (STR-237
+ * Route (i)). Coroutine cancellation — including a
  * cancellation carried as a port [Result] failure value (STR-241 F6) — is not
  * a branch: it propagates as a throw, with any rollback evidence attached
  * (STR-256).
@@ -82,7 +83,9 @@ sealed interface ProgramTemplateImportOutcome {
         val diagnostics: List<ProgramImportRollbackDiagnostic>,
     ) : ProgramTemplateImportOutcome
 
-    data object OperationalFailed : ProgramTemplateImportOutcome
+    data class OperationalFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : ProgramTemplateImportOutcome
 }
 
 /** Marker for the poll deadline inside [ImportProgramTemplatesUseCase]; never crosses the use case. */
@@ -127,7 +130,6 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
     private val completeOnboarding: CompleteOnboardingUseCase,
     private val profileRepository: UserTrainingProfileRepository,
     private val programChangeEventRepository: ProgramChangeEventRepository,
-    private val loggingPort: LoggingPort,
     @DefaultDispatcher private val importDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) {
     open suspend operator fun invoke(
@@ -145,8 +147,9 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
             val jobId = ProgramTemplateImportJobId(UUID.randomUUID().toString())
             importPort.uploadAndStart(jobId, bytes, fileName)
                 .getOrElseRethrowingCancellation { error ->
-                    logOperationalFailure(error)
-                    return@withContext ProgramTemplateImportOutcome.OperationalFailed
+                    return@withContext ProgramTemplateImportOutcome.OperationalFailed(
+                        operationalDiagnostics(error),
+                    )
                 }
 
             // A poll failure (or the deadline) throws out of pollUntilTerminal and
@@ -175,8 +178,9 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
             onProgress(ProgramTemplateImportPhase.MatchingCatalog)
             val templateJson = importPort.downloadProgramTemplate(templateStoragePath)
                 .getOrElseRethrowingCancellation { error ->
-                    logOperationalFailure(error)
-                    return@withContext ProgramTemplateImportOutcome.OperationalFailed
+                    return@withContext ProgramTemplateImportOutcome.OperationalFailed(
+                        operationalDiagnostics(error),
+                    )
                 }
             val parsed = parseAll(templateJson)
             require(parsed.isNotEmpty()) { "Imported template has no programs" }
@@ -281,19 +285,24 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
             // envelope's own operational throws surface as OperationalFailed.
             ProgramTemplateImportOutcome.TimedOut
         } catch (error: Throwable) {
-            logOperationalFailure(error)
-            ProgramTemplateImportOutcome.OperationalFailed
+            ProgramTemplateImportOutcome.OperationalFailed(operationalDiagnostics(error))
         }
     }
 
     /**
-     * Records an operational failure once at this boundary (STR-243) before it
-     * surfaces as [ProgramTemplateImportOutcome.OperationalFailed]; consumers
-     * of that branch do not log it again.
+     * Builds the [ProgramTemplateImportOutcome.OperationalFailed] diagnostics
+     * for an operational failure (STR-237 Route (i)): the legacy boundary
+     * record (tag + rendered message, real throwable as cause) rides the
+     * branch; consumers drain it exactly once and do not log it again.
      */
-    private fun logOperationalFailure(error: Throwable) {
-        loggingPort.error(TAG, "Program import failed: ${error.message}", error)
-    }
+    private fun operationalDiagnostics(error: Throwable): List<OperationalDiagnostic> =
+        listOf(
+            OperationalDiagnostic(
+                tag = TAG,
+                message = "Program import failed: ${error.message}",
+                cause = error,
+            ),
+        )
 
     /**
      * Re-attaches rollback evidence to a surfaced cancellation (STR-256): coroutine

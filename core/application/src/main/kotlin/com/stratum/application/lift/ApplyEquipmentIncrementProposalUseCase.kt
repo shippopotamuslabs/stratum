@@ -1,7 +1,7 @@
 package com.stratum.application.lift
 
 import com.stratum.domain.lift.identity.EquipmentId
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
 import com.stratum.domain.lift.CatalogNames
@@ -14,15 +14,19 @@ import com.stratum.domain.lift.IncrementTiersValidationResult
 
 /**
  * Outcome of applying a chosen [EquipmentIncrementRemedy] (STR-243: the success
- * branches are the original pair; the failure branches complete the type).
+ * branches are the original pair; the failure branches complete the type;
+ * STR-237 Route (i) for the operational-failure carrier).
  *
  * Validation branches carry the validation results themselves
  * ([CatalogNames.Validation.Invalid], [IncrementTiersValidationResult.Invalid]).
- * Expected refusals (missing equipment, invalid fork name) leave a breadcrumb only
- * ([LoggingPort.warning]), never a Crashlytics non-fatal. The originating throwable
- * of a failed read or write goes once to the diagnostics channel
- * ([LoggingPort.error]) at the use-case boundary; it never crosses as a payload.
- * Coroutine cancellation is not a branch: it propagates as cancellation.
+ * Expected refusals (missing equipment, invalid fork name) are carried by their
+ * typed branches ([EquipmentNotFound], [InvalidName]) — the branch is the record
+ * the consumer acts on, so they leave no separate breadcrumb and never become a
+ * Crashlytics non-fatal. The originating throwable of a failed read or write
+ * rides the [PersistenceFailed] branch as an [OperationalDiagnostic] (legacy
+ * tag + rendered message, real throwable as cause); the presentation boundary
+ * drains it exactly once through its module's DiagnosticDrain. Coroutine
+ * cancellation is not a branch: it propagates as cancellation.
  */
 sealed interface ApplyEquipmentIncrementResult {
     data class Amended(val equipmentId: EquipmentId) : ApplyEquipmentIncrementResult
@@ -38,7 +42,9 @@ sealed interface ApplyEquipmentIncrementResult {
     data class EquipmentNotFound(val equipmentId: EquipmentId) : ApplyEquipmentIncrementResult
 
     /** A repository read or write failed (repository / store I/O). */
-    data object PersistenceFailed : ApplyEquipmentIncrementResult
+    data class PersistenceFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : ApplyEquipmentIncrementResult
 }
 
 /**
@@ -53,7 +59,6 @@ sealed interface ApplyEquipmentIncrementResult {
  */
 class ApplyEquipmentIncrementProposalUseCase @Inject constructor(
     private val equipmentRepository: EquipmentRepository,
-    private val loggingPort: LoggingPort,
 ) {
     /**
      * Applies [remedy] (defaults to [EquipmentIncrementProposal.primary] when called with a
@@ -97,8 +102,15 @@ class ApplyEquipmentIncrementProposalUseCase @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (t: Throwable) {
-            loggingPort.error(TAG, "Failed to apply equipment increment remedy: ${t.message}", t)
-            ApplyEquipmentIncrementResult.PersistenceFailed
+            ApplyEquipmentIncrementResult.PersistenceFailed(
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Failed to apply equipment increment remedy: ${t.message}",
+                        cause = t,
+                    ),
+                ),
+            )
         }
     }
 
@@ -111,7 +123,7 @@ class ApplyEquipmentIncrementProposalUseCase @Inject constructor(
     /**
      * Validates [remedy] before any write. Returns the failure branch to surface, or null
      * when the remedy may be applied. Validation failures are expected caller outcomes,
-     * not operational faults: breadcrumb only, never a Crashlytics non-fatal.
+     * not operational faults: the typed branch is the record, never a Crashlytics non-fatal.
      */
     private suspend fun validateRemedy(
         remedy: EquipmentIncrementRemedy,
@@ -124,7 +136,8 @@ class ApplyEquipmentIncrementProposalUseCase @Inject constructor(
         }
         // Fail clearly when the clustered equipment was deleted between propose and accept
         // (setIncrementTiers alone may no-op on a missing row). A missing row is an expected
-        // race, not an operational fault: breadcrumb only, never a Crashlytics non-fatal.
+        // race, not an operational fault: the EquipmentNotFound branch carries the fact,
+        // never a Crashlytics non-fatal.
         if (remedy is EquipmentIncrementRemedy.AmendEquipmentTiers) {
             val existing =
                 try {
@@ -132,25 +145,23 @@ class ApplyEquipmentIncrementProposalUseCase @Inject constructor(
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (t: Throwable) {
-                    loggingPort.error(
-                        TAG,
-                        "Failed to read equipment for increment remedy: ${t.message}",
-                        t,
+                    return ApplyEquipmentIncrementResult.PersistenceFailed(
+                        diagnostics = listOf(
+                            OperationalDiagnostic(
+                                tag = TAG,
+                                message = "Failed to read equipment for increment remedy: ${t.message}",
+                                cause = t,
+                            ),
+                        ),
                     )
-                    return ApplyEquipmentIncrementResult.PersistenceFailed
                 }
             if (existing == null) {
-                loggingPort.warning(
-                    TAG,
-                    "Equipment ${remedy.equipmentId.value} not found for increment remedy",
-                )
                 return ApplyEquipmentIncrementResult.EquipmentNotFound(remedy.equipmentId)
             }
         }
         if (remedy is EquipmentIncrementRemedy.ForkCustomEquipment) {
             val nameResult = CatalogNames.validateEquipmentName(remedy.suggestedName)
             if (nameResult is CatalogNames.Validation.Invalid) {
-                loggingPort.warning(TAG, "Equipment name is required for increment remedy")
                 return ApplyEquipmentIncrementResult.InvalidName(nameResult)
             }
         }

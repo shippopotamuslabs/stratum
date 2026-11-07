@@ -1,6 +1,5 @@
 package com.stratum.application.training
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.response.FakeResponseModelingSchedulerPort
 import com.stratum.core.testing.response.FakeResponseProfilePersistencePort
@@ -87,7 +86,6 @@ class RebuildLocalDerivedTrainingDataUseCaseTest {
                     persistence = persistence,
                 ),
             responseModelingScheduler = modelingScheduler,
-            loggingPort = FakeLoggingPort(),
         )
 
     private fun lift(id: LiftId, muscle: MuscleGroup): Lift =

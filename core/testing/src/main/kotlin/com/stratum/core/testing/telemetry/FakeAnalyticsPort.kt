@@ -1,6 +1,6 @@
 package com.stratum.core.testing.telemetry
 
-import com.stratum.domain.telemetry.AnalyticsPort
+import com.stratum.core.infrastructure.telemetry.AnalyticsPort
 
 /** In-memory [AnalyticsPort] for unit tests. Records events for state-based assertions. */
 class FakeAnalyticsPort : AnalyticsPort {

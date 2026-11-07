@@ -73,7 +73,6 @@ class AnalyzeSessionRepRangeShiftProposalsUseCaseTest {
                 preferences = prefs,
                 extractTrainingInsights =
                     ExtractTrainingInsightsUseCase(
-                        loggingPort = FakeLoggingPort(),
                         trainingLogRepository = logRepo,
                         liftTrainingInsightsRepository = insightsRepo,
                         supersetAffinityRepository = FakeSupersetAffinityRepository(),

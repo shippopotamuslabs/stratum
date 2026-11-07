@@ -1,19 +1,21 @@
 package com.stratum.application.program
 
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.domain.program.identity.ProgramId
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
 import com.stratum.domain.program.Program
 
 /**
- * Outcome of [DiscardActiveProgramUseCase] (STR-243).
+ * Outcome of [DiscardActiveProgramUseCase] (STR-243; STR-237 Route (i)).
  *
  * The refusal branches mirror the [DeleteProgramUseCase] refusals for the
- * active program; an operational inspect failure is logged once via
- * [LoggingPort.error] at this use-case boundary (a delete failure is logged
- * once inside [DeleteProgramUseCase]) and surfaces as [PersistenceFailed].
- * Coroutine cancellation is not a branch: it propagates.
+ * active program; an operational inspect failure rides this
+ * [PersistenceFailed] branch as an [OperationalDiagnostic] (legacy tag +
+ * rendered message, real throwable as cause), and a delete failure's
+ * diagnostics propagate unchanged from [DeleteProgramResult.PersistenceFailed].
+ * The presentation boundary drains them exactly once through its module's
+ * DiagnosticDrain. Coroutine cancellation is not a branch: it propagates.
  */
 sealed interface DiscardActiveProgramResult {
     data object Success : DiscardActiveProgramResult
@@ -25,7 +27,9 @@ sealed interface DiscardActiveProgramResult {
     data class SessionInProgress(val programId: ProgramId) : DiscardActiveProgramResult
 
     /** Inspecting or deleting the active program failed (repository / store I/O). */
-    data object PersistenceFailed : DiscardActiveProgramResult
+    data class PersistenceFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : DiscardActiveProgramResult
 }
 
 /**
@@ -36,7 +40,6 @@ sealed interface DiscardActiveProgramResult {
 class DiscardActiveProgramUseCase @Inject constructor(
     private val programRepository: ProgramRepository,
     private val deleteProgram: DeleteProgramUseCase,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(): DiscardActiveProgramResult {
         val active =
@@ -45,8 +48,15 @@ class DiscardActiveProgramUseCase @Inject constructor(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Throwable) {
-                loggingPort.error(TAG, "Failed to inspect active program: ${error.message}", error)
-                return DiscardActiveProgramResult.PersistenceFailed
+                return DiscardActiveProgramResult.PersistenceFailed(
+                    diagnostics = listOf(
+                        OperationalDiagnostic(
+                            tag = TAG,
+                            message = "Failed to inspect active program: ${error.message}",
+                            cause = error,
+                        ),
+                    ),
+                )
             }
                 ?: return DiscardActiveProgramResult.Success
 
@@ -56,7 +66,8 @@ class DiscardActiveProgramUseCase @Inject constructor(
                 DiscardActiveProgramResult.ImportHistoryProgram(deleteResult.programId)
             is DeleteProgramResult.SessionInProgress ->
                 DiscardActiveProgramResult.SessionInProgress(deleteResult.programId)
-            DeleteProgramResult.PersistenceFailed -> DiscardActiveProgramResult.PersistenceFailed
+            is DeleteProgramResult.PersistenceFailed ->
+                DiscardActiveProgramResult.PersistenceFailed(deleteResult.diagnostics)
         }
     }
 

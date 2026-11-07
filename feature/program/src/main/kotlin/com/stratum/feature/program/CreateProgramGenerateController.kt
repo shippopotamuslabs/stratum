@@ -19,23 +19,24 @@ import com.stratum.application.program.InferLastTrainedBucketUseCase
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.ProgramGenerationProgress
 import com.stratum.domain.program.ProgramGenerationProgressPhase
-import com.stratum.domain.logging.LogAnalyticsEventUseCase
-import com.stratum.domain.logging.PARAM_ACTION
-import com.stratum.domain.logging.PARAM_SCREEN
-import com.stratum.domain.logging.USER_VISIBLE_ERROR_EVENT
-import com.stratum.domain.telemetry.ClientStage
-import com.stratum.domain.telemetry.ClientStageCorrelation
-import com.stratum.domain.telemetry.OutcomeResult
-import com.stratum.domain.telemetry.OutcomeTelemetry
-import com.stratum.domain.telemetry.OutcomeTelemetry.Companion.USE_CASE_PROGRAM_GENERATION
-import com.stratum.domain.telemetry.SynthesisTelemetry
-import com.stratum.domain.telemetry.TelemetryRouter
+import com.stratum.core.infrastructure.telemetry.PARAM_ACTION
+import com.stratum.core.infrastructure.telemetry.PARAM_SCREEN
+import com.stratum.core.infrastructure.telemetry.USER_VISIBLE_ERROR_EVENT
+import com.stratum.core.infrastructure.telemetry.ClientStage
+import com.stratum.core.infrastructure.telemetry.ClientStageCorrelation
+import com.stratum.core.infrastructure.telemetry.OutcomeResult
+import com.stratum.core.infrastructure.telemetry.OutcomeTelemetry
+import com.stratum.core.infrastructure.telemetry.OutcomeTelemetry.Companion.USE_CASE_PROGRAM_GENERATION
+import com.stratum.core.infrastructure.telemetry.SynthesisTelemetry
+import com.stratum.core.infrastructure.telemetry.TelemetryRouter
 import com.stratum.domain.program.generation.GenerateProgramResult
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisException
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisRefusal
 import com.stratum.domain.program.generation.validation.ProgramGenerationValidationException
 import com.stratum.domain.program.generation.validationUserMessage
-import com.stratum.domain.telemetry.classifyGenerateOutcome
+import com.stratum.core.infrastructure.telemetry.ProgramGenerationTelemetryLogger
+import com.stratum.domain.program.generation.GenerationSynthesisSummary
+import com.stratum.core.infrastructure.telemetry.classifyGenerateOutcome
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -57,9 +58,10 @@ internal class CreateProgramGenerateController(
     private val getUserTrainingProfile: GetUserTrainingProfileUseCase,
     private val inferLastTrained: InferLastTrainedBucketUseCase,
     private val onProgramGenerated: (Program) -> Unit,
-    private val logAnalytics: LogAnalyticsEventUseCase,
+    private val logAnalytics: AnalyticsRecorder,
     private val synthesisTelemetry: SynthesisTelemetry,
     private val telemetryRouter: TelemetryRouter,
+    private val generationLogger: ProgramGenerationTelemetryLogger,
 ) {
     private var generateJob: Job? = null
 
@@ -216,7 +218,12 @@ internal class CreateProgramGenerateController(
                     }
                 val program =
                     when (result) {
-                        is GenerateProgramResult.Success -> result.program
+                        is GenerateProgramResult.Success -> {
+                            // STR-237 chunk 3: the synthesis records ride the
+                            // outcome; this boundary records them exactly once.
+                            result.synthesis?.let { recordSynthesis(it) }
+                            result.program
+                        }
                         is GenerateProgramResult.ValidationRejected,
                         is GenerateProgramResult.SynthesisRefused,
                         is GenerateProgramResult.SynthesisFailed,
@@ -248,7 +255,25 @@ internal class CreateProgramGenerateController(
             }
     }
 
+    /** Records a carried synthesis summary exactly once (info + slot diagnostics). */
+    private fun recordSynthesis(synthesis: GenerationSynthesisSummary) {
+        generationLogger.logSynthesisComplete(synthesis)
+        generationLogger.logGenerationDiagnostics(synthesis.diagnostics)
+    }
+
     private fun publishGenerateFailure(result: GenerateProgramResult) {
+        // STR-237 chunk 3: a validation-rejected generation still completed its
+        // build, so its carried synthesis records are drained here exactly once.
+        // STR-237 review round 1: an Unexpected failure after the pipeline
+        // succeeded carries the same completed build's synthesis; drain it
+        // here exactly once as well (this is the only recordSynthesis call
+        // on either failure path — Success records in generate()).
+        if (result is GenerateProgramResult.ValidationRejected) {
+            result.synthesis?.let { recordSynthesis(it) }
+        }
+        if (result is GenerateProgramResult.Unexpected) {
+            result.synthesis?.let { recordSynthesis(it) }
+        }
         // STR-242: one home per class — the expected-vs-exceptional split lives
         // in classifyGenerateOutcome, keyed on the STR-243 outcome branches.
         val outcome = classifyGenerateOutcome(result)
@@ -262,11 +287,16 @@ internal class CreateProgramGenerateController(
                 GENERATE_LOG_TAG,
                 ProgramGenerationValidationException(result.report),
             )
+        } else if (result is GenerateProgramResult.Unexpected) {
+            // STR-237 Special 1: the branch carries the REAL throwable as a
+            // domain diagnostic (superseding slice A's constructed exception
+            // value), so the exceptional record lives here at the outcome
+            // consumer with class fidelity restored — exactly one record
+            // (non-fatal + exceptional_occurred counter) per diagnostic.
+            result.diagnostics.forEach { diagnostic ->
+                telemetryRouter.recordExceptional(GENERATE_LOG_TAG, diagnostic.cause)
+            }
         }
-        // GenerateProgramResult.Unexpected gets no record here: the use case
-        // already recorded the original throwable exactly once via
-        // TelemetryRouter.recordExceptional (non-fatal + exceptional_occurred
-        // counter), so the exceptional fact still has exactly one record.
         logAnalytics(
             USER_VISIBLE_ERROR_EVENT,
             mapOf(PARAM_SCREEN to "create_program", PARAM_ACTION to "generate_program"),

@@ -1,6 +1,5 @@
 package com.stratum.application.lift
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeDeleteLiftPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
@@ -62,7 +61,6 @@ class DeleteLiftUseCaseTest {
         logRepo = FakeTrainingLogRepository()
         programRepo = FakeProgramRepository()
         deletePort = FakeDeleteLiftPort(liftRepo, programRepo)
-        val logging = FakeLoggingPort()
         subject =
             DeleteLiftUseCase(
                 deleteLiftPort = deletePort,
@@ -74,17 +72,15 @@ class DeleteLiftUseCaseTest {
                                 liftRepository = liftRepo,
                             ),
                         responseModelingScheduler = FakeResponseModelingSchedulerPort(),
-                        loggingPort = logging,
                     ),
-                loggingPort = logging,
             )
     }
 
     @Test
     @DisplayName("Seed and custom lifts delete through the same tombstone path")
     fun seedAndCustomBothTombstone() = runTest {
-        assertEquals(DeleteLiftResult.Success, subject(seedId))
-        assertEquals(DeleteLiftResult.Success, subject(customId))
+        assertEquals(DeleteLiftResult.Success(), subject(seedId))
+        assertEquals(DeleteLiftResult.Success(), subject(customId))
 
         val seed = liftRepo.currentLifts.single { it.id == seedId }
         val custom = liftRepo.currentLifts.single { it.id == customId }
@@ -112,7 +108,7 @@ class DeleteLiftUseCaseTest {
             ),
         )
 
-        assertEquals(DeleteLiftResult.Success, subject(seedId))
+        assertEquals(DeleteLiftResult.Success(), subject(seedId))
 
         val active = programRepo.getProgramById(ProgramId("prog-1"))!!
         assertEquals(listOf(otherId), active.workouts.single().workoutLifts.map { it.liftId })
@@ -128,7 +124,7 @@ class DeleteLiftUseCaseTest {
             loggedSet(id = "set-1", liftId = seedId, isPr = true)
         logRepo.seedSet(original)
 
-        assertEquals(DeleteLiftResult.Success, subject(seedId))
+        assertEquals(DeleteLiftResult.Success(), subject(seedId))
 
         val after = logRepo.getAllSets().single()
         assertEquals(original, after)
@@ -139,9 +135,9 @@ class DeleteLiftUseCaseTest {
     @Test
     @DisplayName("Re-delete of a tombstoned lift is a no-op success")
     fun redeleteIsNoOpSuccess() = runTest {
-        assertEquals(DeleteLiftResult.Success, subject(seedId))
+        assertEquals(DeleteLiftResult.Success(), subject(seedId))
         val slotsBefore = deletePort.deleteCallCount
-        assertEquals(DeleteLiftResult.Success, subject(seedId))
+        assertEquals(DeleteLiftResult.Success(), subject(seedId))
         assertEquals(slotsBefore + 1, deletePort.deleteCallCount)
         assertTrue(liftRepo.currentLifts.single { it.id == seedId }.isDeleted)
     }
@@ -149,7 +145,7 @@ class DeleteLiftUseCaseTest {
     @Test
     @DisplayName("Deleting a missing lift succeeds as a no-op")
     fun missingLiftIsNoOpSuccess() = runTest {
-        assertEquals(DeleteLiftResult.Success, subject(LiftId("nope")))
+        assertEquals(DeleteLiftResult.Success(), subject(LiftId("nope")))
         assertFalse(liftRepo.currentLifts.any { it.isDeleted })
     }
 
@@ -167,12 +163,16 @@ class DeleteLiftUseCaseTest {
                                 liftRepository = liftRepo,
                             ),
                         responseModelingScheduler = FakeResponseModelingSchedulerPort(),
-                        loggingPort = FakeLoggingPort(),
                     ),
-                loggingPort = FakeLoggingPort(),
             )
 
-        assertEquals(DeleteLiftResult.PersistenceFailed, failing(seedId))
+        val result = failing(seedId)
+        val failed = result as DeleteLiftResult.PersistenceFailed
+        assertEquals(1, failed.diagnostics.size)
+        val diagnostic = failed.diagnostics.single()
+        assertEquals("DeleteLift", diagnostic.tag)
+        assertEquals("Failed to delete lift: Fake delete failure", diagnostic.message)
+        assertTrue(diagnostic.cause is IllegalStateException)
         assertFalse(liftRepo.currentLifts.single { it.id == seedId }.isDeleted)
     }
 

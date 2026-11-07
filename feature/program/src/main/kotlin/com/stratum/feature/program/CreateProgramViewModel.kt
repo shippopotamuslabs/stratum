@@ -1,11 +1,11 @@
 package com.stratum.feature.program
 
+import com.stratum.core.infrastructure.telemetry.ProgramGenerationTelemetryLogger
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.application.lift.ObserveLiftCatalogUseCase
-import com.stratum.domain.logging.LogAnalyticsEventUseCase
-import com.stratum.domain.telemetry.SynthesisTelemetry
-import com.stratum.domain.telemetry.TelemetryRouter
+import com.stratum.core.infrastructure.telemetry.SynthesisTelemetry
+import com.stratum.core.infrastructure.telemetry.TelemetryRouter
 import com.stratum.application.onboarding.CompleteOnboardingUseCase
 import com.stratum.application.onboarding.GetUserTrainingProfileUseCase
 import com.stratum.application.onboarding.UpdateSpecializationUseCase
@@ -43,7 +43,7 @@ import kotlinx.coroutines.launch
  * - [CreateProgramEditorController] — day/lift editor + save/activate
  */
 @HiltViewModel
-@Suppress("TooManyFunctions") // Thin route façade: delegates generate + editor controller APIs.
+@Suppress("LongParameterList", "TooManyFunctions") // Hilt façade over the two controllers.
 class CreateProgramViewModel @Inject constructor(
     generateProgram: GenerateProgramUseCase,
     activateProgram: ActivateProgramUseCase,
@@ -61,8 +61,10 @@ class CreateProgramViewModel @Inject constructor(
     private val workoutEditSession: WorkoutEditSession,
     observeActiveSession: ObserveActiveSessionUseCase,
     abandonTrainingSession: AbandonTrainingSessionUseCase,
-    logAnalytics: LogAnalyticsEventUseCase,
+    logAnalytics: AnalyticsRecorder,
     telemetryRouter: TelemetryRouter,
+    diagnosticDrain: DiagnosticDrain,
+    generationLogger: ProgramGenerationTelemetryLogger,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
@@ -80,6 +82,7 @@ class CreateProgramViewModel @Inject constructor(
             state = _uiState,
             observeActiveSession = observeActiveSession,
             abandonTrainingSession = abandonTrainingSession,
+            diagnosticDrain = diagnosticDrain,
         )
 
     private val editor =
@@ -96,6 +99,7 @@ class CreateProgramViewModel @Inject constructor(
             workoutEditSession = workoutEditSession,
             activeSessionGuard = activeSessionGuard,
             finishOnboarding = { finishOnboarding },
+            diagnosticDrain = diagnosticDrain,
         )
 
     private val generate =
@@ -113,6 +117,7 @@ class CreateProgramViewModel @Inject constructor(
             logAnalytics = logAnalytics,
             synthesisTelemetry = SynthesisTelemetry(logAnalytics::invoke),
             telemetryRouter = telemetryRouter,
+            generationLogger = generationLogger,
         )
 
     init {

@@ -1,6 +1,5 @@
 package com.stratum.application.importing
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 
 import com.stratum.core.testing.importing.FakeCustomLiftInferencePort
 import com.stratum.core.testing.importing.FakeImportEquipmentInferencePort
@@ -75,7 +74,6 @@ class PersistImportedHistoryMergeTest {
         val persistence = FakeResponseProfilePersistencePort()
         val extractInsights =
             ExtractTrainingInsightsUseCase(
-                loggingPort = FakeLoggingPort(),
                 trainingLogRepository = trainingLogRepo,
                 liftTrainingInsightsRepository = insightsRepo,
                 supersetAffinityRepository = InMemorySupersetRepository(),
@@ -85,8 +83,7 @@ class PersistImportedHistoryMergeTest {
             )
         val extractResponse =
             ExtractResponseProfileUseCase(
-                loggingPort = FakeLoggingPort(),
-                trainingLogRepository = trainingLogRepo,
+                                trainingLogRepository = trainingLogRepo,
                 liftRepository = liftRepo,
                 liftTrainingInsightsRepository = insightsRepo,
                 muscleVolumeBaselineRepository = volumeRepo,
@@ -96,7 +93,6 @@ class PersistImportedHistoryMergeTest {
                 experimentRegistry = EmptyExperimentRegistry(),
             )
         return PersistImportedHistoryUseCase(
-            loggingPort = FakeLoggingPort(),
             trainingLogRepository = trainingLogRepo,
             resolveImportLifts =
                 ResolveImportLiftsUseCase(
@@ -160,7 +156,16 @@ class PersistImportedHistoryMergeTest {
                 sourceKind = ImportDedupeSourceKind.ThirdParty,
                 zone = ZONE_NY,
             )
-        assertEquals(PersistImportedHistoryOutcome.Failed, result)
+        // STR-237: the insights-extract failure's diagnostics propagate onto
+        // the persist branch (legacy tag + rendered message, real throwable).
+        val failed = result as PersistImportedHistoryOutcome.Failed
+        assertEquals(1, failed.diagnostics.size)
+        assertEquals("ExtractTrainingInsights", failed.diagnostics.single().tag)
+        assertEquals(
+            "Failed to extract training insights: insights boom",
+            failed.diagnostics.single().message,
+        )
+        assertTrue(failed.diagnostics.single().cause is RuntimeException)
         assertEquals(2, repo.getImportSessions().size)
     }
 
@@ -195,7 +200,13 @@ class PersistImportedHistoryMergeTest {
                 sets = listOf(set("set-new", "imp-new")),
                 policy = ImportHistoryPersistPolicy.ReplaceImportOrigin,
             )
-        assertEquals(PersistImportedHistoryOutcome.Failed, result)
+        val failed = result as PersistImportedHistoryOutcome.Failed
+        assertEquals(1, failed.diagnostics.size)
+        assertEquals("ExtractTrainingInsights", failed.diagnostics.single().tag)
+        assertEquals(
+            "Failed to extract training insights: replace boom",
+            failed.diagnostics.single().message,
+        )
         assertEquals(0, repo.getImportSessions().size)
     }
 
@@ -263,7 +274,12 @@ class PersistImportedHistoryMergeTest {
                 sourceKind = ImportDedupeSourceKind.ThirdParty,
                 zone = ZONE_NY,
             )
-        assertEquals(PersistImportedHistoryOutcome.Failed, result)
+        val failed = result as PersistImportedHistoryOutcome.Failed
+        assertEquals(1, failed.diagnostics.size)
+        assertEquals(
+            "Failed to extract training insights: insights boom",
+            failed.diagnostics.single().message,
+        )
         // Appended import rows removed
         assertFalse(repo.getAllSessions().any { it.id.value == "imp-new" })
         assertFalse(repo.getAllSets().any { it.id.value == "set-new" })

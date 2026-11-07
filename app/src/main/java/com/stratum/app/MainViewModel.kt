@@ -11,12 +11,12 @@ import com.stratum.application.auth.LoginWithGoogleResult
 import com.stratum.application.auth.LoginWithGoogleUseCase
 import com.stratum.application.auth.LogoutResult
 import com.stratum.application.auth.LogoutUseCase
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.application.sync.CloudSyncDiagnostic
 import com.stratum.domain.sync.CloudSessionState
 import com.stratum.application.sync.ObserveCloudSessionStateUseCase
 import com.stratum.application.sync.StartCloudSyncUseCase
 import com.stratum.application.theme.ObserveThemePreferencesUseCase
-import com.stratum.domain.logging.LogErrorUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,7 +35,7 @@ class MainViewModel @Inject constructor(
     private val startCloudSync: StartCloudSyncUseCase,
     observeSessionState: ObserveCloudSessionStateUseCase,
     observeThemePreferences: ObserveThemePreferencesUseCase,
-    private val logError: LogErrorUseCase,
+    private val diagnosticDrain: DiagnosticDrain,
 ) : ViewModel() {
     private val signInError = MutableStateFlow<String?>(null)
     private val authenticatedUserId = MutableStateFlow<String?>(null)
@@ -138,7 +138,13 @@ class MainViewModel @Inject constructor(
         diagnostics.forEach { diagnostic ->
             when (diagnostic) {
                 is CloudSyncDiagnostic.OperationFailed ->
-                    logError(TAG_AUTH, MSG_SYNC_RESTART_FAILED, diagnostic.cause)
+                    diagnosticDrain.drain(
+                        OperationalDiagnostic(
+                            tag = TAG_AUTH,
+                            message = MSG_SYNC_RESTART_FAILED,
+                            cause = diagnostic.cause,
+                        ),
+                    )
             }
         }
     }

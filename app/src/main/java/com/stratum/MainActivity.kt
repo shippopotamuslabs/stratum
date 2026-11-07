@@ -23,8 +23,8 @@ import com.stratum.core.infrastructure.subscription.BillingHostContext
 import com.stratum.core.ui.component.LocalUiRenderErrorReporter
 import com.stratum.core.ui.component.UiRenderErrorReporter
 import com.stratum.core.ui.theme.StratumTheme
-import com.stratum.domain.logging.LoggingPort
-import com.stratum.domain.telemetry.CrashTelemetryPort
+import com.stratum.core.infrastructure.logging.LoggingPort
+import com.stratum.core.infrastructure.telemetry.CrashTelemetryPort
 import com.stratum.feature.workout.notification.WorkoutNavExtras
 import com.stratum.navigation.StratumNavHost
 import dagger.hilt.android.AndroidEntryPoint

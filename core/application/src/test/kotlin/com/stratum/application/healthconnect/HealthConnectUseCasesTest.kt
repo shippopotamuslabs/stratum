@@ -3,7 +3,6 @@ package com.stratum.application.healthconnect
 import com.stratum.core.testing.healthconnect.FakeHealthConnectPreferencesRepository
 import com.stratum.core.testing.healthconnect.FakeHealthConnectSyncPort
 import com.stratum.core.testing.healthconnect.FakeHealthConnectSyncStatusPort
-import com.stratum.core.testing.logging.FakeLoggingPort
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.assertThrows
@@ -21,15 +20,13 @@ class HealthConnectUseCasesTest {
 
     private lateinit var preferencesRepo: FakeHealthConnectPreferencesRepository
     private lateinit var syncPort: FakeHealthConnectSyncPort
-    private lateinit var loggingPort: FakeLoggingPort
     private lateinit var setEnabledUseCase: SetHealthConnectEnabledUseCase
 
     @BeforeEach
     fun setup() {
         preferencesRepo = FakeHealthConnectPreferencesRepository()
         syncPort = FakeHealthConnectSyncPort()
-        loggingPort = FakeLoggingPort()
-        setEnabledUseCase = SetHealthConnectEnabledUseCase(preferencesRepo, syncPort, loggingPort)
+        setEnabledUseCase = SetHealthConnectEnabledUseCase(preferencesRepo, syncPort)
     }
 
     @Test
@@ -99,14 +96,17 @@ class HealthConnectUseCasesTest {
     }
 
     @Test
-    @DisplayName("applyGrantedPermissions maps a failing preference write to PersistenceFailed")
+    @DisplayName("applyGrantedPermissions maps a failing preference write to PersistenceFailed carrying the diagnostic")
     fun applyGrantedPermissionsWriteFailure() = runTest {
         syncPort.granted = setOf("write")
-        preferencesRepo.setEnabledFailure = IllegalStateException("datastore blip")
+        val cause = IllegalStateException("datastore blip")
+        preferencesRepo.setEnabledFailure = cause
 
         val result = setEnabledUseCase.applyGrantedPermissions(setOf("write"))
 
-        assertEquals(ApplyGrantedPermissionsOutcome.PersistenceFailed, result)
+        val failed = result as ApplyGrantedPermissionsOutcome.PersistenceFailed
+        assertEquals(1, failed.diagnostics.size)
+        assertSame(cause, failed.diagnostics.single().cause)
     }
 
     @Test
@@ -156,7 +156,7 @@ class HealthConnectUseCasesTest {
     }
 
     @Test
-    @DisplayName("STR-263: failing prefs write returns PersistenceFailed and logs exactly once")
+    @DisplayName("STR-263/STR-237: failing prefs write returns PersistenceFailed carrying exactly one diagnostic")
     fun setEnabledFailureLogsOnce() = runTest {
         syncPort.isAvailable = true
         val cause = IllegalStateException("datastore blip")
@@ -164,35 +164,33 @@ class HealthConnectUseCasesTest {
 
         val result = setEnabledUseCase(true)
 
-        assertEquals(SetHealthConnectEnabledResult.PersistenceFailed, result)
+        val failed = result as SetHealthConnectEnabledResult.PersistenceFailed
         assertEquals(false, preferencesRepo.getPreferences().enabled)
-        assertEquals(1, loggingPort.errors.size)
-        val entry = loggingPort.errors.single()
-        assertEquals("HealthConnectPrefs", entry.tag)
-        assertTrue(entry.message.startsWith("Failed to set Health Connect enabled"))
-        assertSame(cause, entry.throwable)
+        assertEquals(1, failed.diagnostics.size)
+        val diagnostic = failed.diagnostics.single()
+        assertEquals("HealthConnectPrefs", diagnostic.tag)
+        assertEquals("Failed to set Health Connect enabled: datastore blip", diagnostic.message)
+        assertSame(cause, diagnostic.cause)
     }
 
     @Test
-    @DisplayName("STR-263: SDK-unavailable short-circuit fails without logging")
+    @DisplayName("STR-263: SDK-unavailable short-circuit returns SdkUnavailable")
     fun setEnabledUnavailableShortCircuitDoesNotLog() = runTest {
         syncPort.isAvailable = false
 
         val result = setEnabledUseCase(true)
 
         assertEquals(SetHealthConnectEnabledResult.SdkUnavailable, result)
-        assertTrue(loggingPort.errors.isEmpty())
     }
 
     @Test
-    @DisplayName("STR-263: successful write logs nothing")
+    @DisplayName("STR-263: successful write returns Success")
     fun setEnabledSuccessDoesNotLog() = runTest {
         syncPort.isAvailable = true
 
         val result = setEnabledUseCase(false)
 
         assertEquals(SetHealthConnectEnabledResult.Success, result)
-        assertTrue(loggingPort.errors.isEmpty())
     }
 
     @Test
@@ -209,34 +207,31 @@ class HealthConnectUseCasesTest {
     }
 
     @Test
-    @DisplayName("STR-263: clear failure logs exactly once with the sync-error message")
+    @DisplayName("STR-263/STR-237: clear failure returns PersistenceFailed carrying exactly one diagnostic")
     fun clearSyncErrorFailureLogsOnce() = runTest {
         val syncStatus = FakeHealthConnectSyncStatusPort()
-        val clearLogging = FakeLoggingPort()
-        val clearUseCase = ClearHealthConnectSyncErrorUseCase(syncStatus, clearLogging)
+        val clearUseCase = ClearHealthConnectSyncErrorUseCase(syncStatus)
         val cause = IllegalStateException("datastore blip")
         syncStatus.failure = cause
 
         val result = clearUseCase()
 
-        assertEquals(ClearHealthConnectSyncErrorResult.PersistenceFailed, result)
-        assertEquals(1, clearLogging.errors.size)
-        val entry = clearLogging.errors.single()
-        assertEquals("HealthConnectPrefs", entry.tag)
-        assertTrue(entry.message.startsWith("Failed to set Health Connect sync error"))
-        assertSame(cause, entry.throwable)
+        val failed = result as ClearHealthConnectSyncErrorResult.PersistenceFailed
+        assertEquals(1, failed.diagnostics.size)
+        val diagnostic = failed.diagnostics.single()
+        assertEquals("HealthConnectPrefs", diagnostic.tag)
+        assertEquals("Failed to set Health Connect sync error: datastore blip", diagnostic.message)
+        assertSame(cause, diagnostic.cause)
     }
 
     @Test
-    @DisplayName("STR-263: clear success logs nothing")
+    @DisplayName("STR-263: clear success returns Success")
     fun clearSyncErrorSuccessDoesNotLog() = runTest {
         val syncStatus = FakeHealthConnectSyncStatusPort()
-        val clearLogging = FakeLoggingPort()
-        val clearUseCase = ClearHealthConnectSyncErrorUseCase(syncStatus, clearLogging)
+        val clearUseCase = ClearHealthConnectSyncErrorUseCase(syncStatus)
 
         val result = clearUseCase()
 
         assertEquals(ClearHealthConnectSyncErrorResult.Success, result)
-        assertTrue(clearLogging.errors.isEmpty())
     }
 }

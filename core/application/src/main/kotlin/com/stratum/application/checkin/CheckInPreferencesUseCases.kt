@@ -1,6 +1,6 @@
 package com.stratum.application.checkin
 
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import java.time.Instant
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
@@ -9,17 +9,21 @@ import kotlinx.coroutines.flow.map
 import com.stratum.domain.checkin.CheckInPreferences
 
 /**
- * Outcome of a check-in preferences write (STR-243).
+ * Outcome of a check-in preferences write (STR-243; STR-237 Route (i)).
  *
- * The originating throwable goes once to the diagnostics channel ([LoggingPort.error])
- * at the use-case boundary; it never crosses as a payload. Coroutine cancellation is
- * not a branch: it propagates as cancellation.
+ * The originating throwable rides the [PersistenceFailed] branch as an
+ * [OperationalDiagnostic] (legacy tag + rendered message, real throwable as
+ * cause); the presentation boundary drains it exactly once through its
+ * module's DiagnosticDrain. Coroutine cancellation is not a branch: it
+ * propagates as cancellation.
  */
 sealed interface CheckInPreferenceResult {
     data object Success : CheckInPreferenceResult
 
     /** The preferences write failed (repository / store I/O). */
-    data object PersistenceFailed : CheckInPreferenceResult
+    data class PersistenceFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : CheckInPreferenceResult
 }
 
 class ObserveCheckInPreferencesUseCase @Inject constructor(
@@ -37,7 +41,6 @@ class ObservePendingCheckInUseCase @Inject constructor(
 
 class SetCheckInEnabledUseCase @Inject constructor(
     private val repository: CheckInPreferencesRepository,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(enabled: Boolean): CheckInPreferenceResult =
         try {
@@ -46,8 +49,15 @@ class SetCheckInEnabledUseCase @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (t: Throwable) {
-            loggingPort.error(TAG, "Failed to set check-in enabled: ${t.message}", t)
-            CheckInPreferenceResult.PersistenceFailed
+            CheckInPreferenceResult.PersistenceFailed(
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Failed to set check-in enabled: ${t.message}",
+                        cause = t,
+                    ),
+                ),
+            )
         }
 
     private companion object {
@@ -57,7 +67,6 @@ class SetCheckInEnabledUseCase @Inject constructor(
 
 class SkipCheckInUseCase @Inject constructor(
     private val repository: CheckInPreferencesRepository,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(now: Instant = Instant.now()): CheckInPreferenceResult =
         try {
@@ -66,8 +75,15 @@ class SkipCheckInUseCase @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (t: Throwable) {
-            loggingPort.error(TAG, "Failed to skip check-in: ${t.message}", t)
-            CheckInPreferenceResult.PersistenceFailed
+            CheckInPreferenceResult.PersistenceFailed(
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Failed to skip check-in: ${t.message}",
+                        cause = t,
+                    ),
+                ),
+            )
         }
 
     private companion object {
@@ -77,7 +93,6 @@ class SkipCheckInUseCase @Inject constructor(
 
 class CompleteCheckInUseCase @Inject constructor(
     private val repository: CheckInPreferencesRepository,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(now: Instant = Instant.now()): CheckInPreferenceResult =
         try {
@@ -86,8 +101,15 @@ class CompleteCheckInUseCase @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (t: Throwable) {
-            loggingPort.error(TAG, "Failed to complete check-in: ${t.message}", t)
-            CheckInPreferenceResult.PersistenceFailed
+            CheckInPreferenceResult.PersistenceFailed(
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Failed to complete check-in: ${t.message}",
+                        cause = t,
+                    ),
+                ),
+            )
         }
 
     private companion object {
@@ -102,7 +124,6 @@ class CompleteCheckInUseCase @Inject constructor(
  */
 class MarkCheckInPendingUseCase @Inject constructor(
     private val repository: CheckInPreferencesRepository,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(extractedAt: Instant = Instant.now()): CheckInPreferenceResult =
         try {
@@ -111,8 +132,15 @@ class MarkCheckInPendingUseCase @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (t: Throwable) {
-            loggingPort.error(TAG, "Failed to mark check-in pending: ${t.message}", t)
-            CheckInPreferenceResult.PersistenceFailed
+            CheckInPreferenceResult.PersistenceFailed(
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Failed to mark check-in pending: ${t.message}",
+                        cause = t,
+                    ),
+                ),
+            )
         }
 
     private companion object {

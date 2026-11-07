@@ -81,8 +81,9 @@ internal object OnboardingProgramFlowOps {
     /**
      * Exception value for the import-failure log record only (STR-243): the outcome
      * branch carries the typed facts, and the record keeps the legacy exception shape
-     * built from them. [ProgramTemplateImportOutcome.OperationalFailed] was already
-     * logged once at the use-case boundary, so it has no record value here.
+     * built from them. [ProgramTemplateImportOutcome.OperationalFailed] carries its
+     * record as diagnostics drained by the ViewModel (STR-237), so it has no record
+     * value here.
      */
     fun importFailureLogThrowable(outcome: ProgramTemplateImportOutcome): Throwable? =
         when (outcome) {
@@ -105,7 +106,7 @@ internal object OnboardingProgramFlowOps {
                 IllegalStateException("Import ended in non-terminal status: ${outcome.status}")
             ProgramTemplateImportOutcome.TimedOut ->
                 IllegalStateException("Timed out waiting for import to finish.")
-            ProgramTemplateImportOutcome.OperationalFailed -> null
+            is ProgramTemplateImportOutcome.OperationalFailed -> null
             is ProgramTemplateImportOutcome.Success -> null
         }
 

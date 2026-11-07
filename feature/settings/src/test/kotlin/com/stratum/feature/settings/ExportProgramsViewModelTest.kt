@@ -92,8 +92,8 @@ class ExportProgramsViewModelTest {
                     programRepository = repo,
                     liftRepository = FakeLiftRepository(),
                     clock = clock,
-                    loggingPort = FakeLoggingPort(),
                 ),
+            diagnosticDrain = DiagnosticDrain(FakeLoggingPort()),
         )
     }
 
@@ -166,5 +166,39 @@ class ExportProgramsViewModelTest {
         advanceUntilIdle()
         assertEquals(3, vm.uiState.value.selectedIds.size)
         assertTrue(vm.uiState.value.selectedIds.containsAll(listOf("a", "b", "c")))
+    }
+
+    @Test
+    @DisplayName("Export failure drains exactly one error record (STR-237)")
+    fun exportFailureDrainsOnce() = runTest {
+        val cause = IllegalStateException("room down")
+        val base = FakeProgramRepository()
+        base.saveProgram(program("prog-1", "Alpha", isActive = true))
+        val throwing =
+            object : com.stratum.application.program.ProgramRepository by base {
+                override suspend fun getProgramById(id: ProgramId): Program? = throw cause
+            }
+        val logging = FakeLoggingPort()
+        val vm =
+            ExportProgramsViewModel(
+                previewPrograms = PreviewExportProgramsUseCase(throwing),
+                exportPrograms =
+                    ExportProgramsUseCase(
+                        programRepository = throwing,
+                        liftRepository = FakeLiftRepository(),
+                        clock = clock,
+                    ),
+                diagnosticDrain = DiagnosticDrain(logging),
+            )
+        advanceUntilIdle()
+        vm.onToggleProgram("prog-1")
+        vm.onExportClick()
+        advanceUntilIdle()
+
+        assertEquals("Export failed.", vm.uiState.value.errorMessage)
+        assertEquals(1, logging.errors.size)
+        assertEquals("ExportPrograms", logging.errors.single().tag)
+        assertEquals("Failed to export programs: room down", logging.errors.single().message)
+        org.junit.jupiter.api.Assertions.assertSame(cause, logging.errors.single().throwable)
     }
 }

@@ -89,6 +89,12 @@ internal suspend fun LiveWorkoutSessionRuntime.handleCompleteWorkout(cmd: Sessio
         if (templateToSave != null) {
             val updated = applyOverlayToWorkout(templateToSave, overlay, tombstonedEquipmentIds, tombstonedLiftIds)
             val saveResult = saveWorkoutUseCase(workoutId, updated)
+            if (saveResult is SaveWorkoutResult.PersistenceFailed) {
+                // STR-237 Route (i): the failure record rides the branch as
+                // diagnostics; this runtime boundary drains them exactly once
+                // through its existing recorder.
+                drainOperationalDiagnostics(saveResult.diagnostics)
+            }
             if (saveResult != SaveWorkoutResult.Success) {
                 effects.publishUserMessage(LiveWorkoutSessionRuntime.MSG_COMPLETE_FAILED)
                 return
@@ -105,6 +111,17 @@ internal suspend fun LiveWorkoutSessionRuntime.handleCompleteWorkout(cmd: Sessio
         // while NavHost is still composing this route during the exit transition.
         effects.setRetainLoadedUiForExit(true)
         val finalizeResult = finalizeTrainingSession(sessionId)
+        // STR-237 Route (i): finalize's records ride its outcome branches;
+        // this runtime boundary drains them exactly once through its
+        // existing recorder (PersistenceFailed's failure, Success's
+        // best-effort Health Connect enqueue failure).
+        when (finalizeResult) {
+            is FinalizeTrainingSessionResult.PersistenceFailed ->
+                drainOperationalDiagnostics(finalizeResult.diagnostics)
+            is FinalizeTrainingSessionResult.Success ->
+                drainOperationalDiagnostics(finalizeResult.diagnostics)
+            else -> Unit
+        }
         if (finalizeResult !is FinalizeTrainingSessionResult.Success) {
             effects.setRetainLoadedUiForExit(false)
             // Do NOT clear templateSavedThisComplete — template is already durable;
@@ -119,7 +136,7 @@ internal suspend fun LiveWorkoutSessionRuntime.handleCompleteWorkout(cmd: Sessio
             return
         }
         templateSavedThisComplete = false
-        manageWorkoutOverlay.clear()
+        drainOperationalDiagnostics(manageWorkoutOverlay.clear())
         effects.clearLiveSurfaces()
         effects.emitEvent(WorkoutUiEvent.NavigateToFinalize(sessionId.value))
         // Terminal: drop session ids so double-complete / late mutators no-op.

@@ -1,7 +1,5 @@
 package com.stratum.application.importing
 
-import com.stratum.core.testing.logging.FakeLoggingPort
-
 import com.stratum.core.testing.importing.FakeImportJobRepository
 import java.time.Instant
 import kotlinx.coroutines.test.runTest
@@ -20,7 +18,7 @@ class StartHistoricalImportUseCaseTest {
     @DisplayName("Given no active job when started then creates a pending job")
     fun createsFreshJobWhenNoneActive() = runTest {
         val jobRepo = FakeImportJobRepository()
-        val subject = StartHistoricalImportUseCase(jobRepo, FakeLoggingPort())
+        val subject = StartHistoricalImportUseCase(jobRepo)
 
         val job = (subject() as StartHistoricalImportOutcome.Started).job
 
@@ -37,7 +35,7 @@ class StartHistoricalImportUseCaseTest {
             updatedAt = Instant.parse("2025-01-01T00:00:00Z"),
         )
         jobRepo.updateJob(stuck)
-        val subject = StartHistoricalImportUseCase(jobRepo, FakeLoggingPort())
+        val subject = StartHistoricalImportUseCase(jobRepo)
 
         val job = (subject() as StartHistoricalImportOutcome.Started).job
 
@@ -54,7 +52,7 @@ class StartHistoricalImportUseCaseTest {
         val jobRepo = FakeImportJobRepository()
         val completed = jobRepo.createJob().copy(status = ImportJobStatus.Completed)
         jobRepo.updateJob(completed)
-        val subject = StartHistoricalImportUseCase(jobRepo, FakeLoggingPort())
+        val subject = StartHistoricalImportUseCase(jobRepo)
 
         val job = (subject() as StartHistoricalImportOutcome.Started).job
 
@@ -65,20 +63,22 @@ class StartHistoricalImportUseCaseTest {
     }
 
     @Test
-    @DisplayName("Given a failing job repository when started then Failed and one error is logged")
+    @DisplayName("Given a failing job repository when started then Failed carries the failure diagnostic")
     fun returnsFailedWhenRepositoryThrows() = runTest {
         val failure = IllegalStateException("room down")
         val jobRepo = object : ImportJobRepository by FakeImportJobRepository() {
             override suspend fun createJob(): ImportJob = throw failure
         }
-        val logging = FakeLoggingPort()
-        val subject = StartHistoricalImportUseCase(jobRepo, logging)
+        val subject = StartHistoricalImportUseCase(jobRepo)
 
-        assertEquals(StartHistoricalImportOutcome.Failed, subject())
-        assertEquals(1, logging.errors.size)
-        assertEquals("StartHistoricalImport", logging.errors.single().tag)
-        assertEquals("Failed to start historical import: room down", logging.errors.single().message)
-        assertEquals(failure, logging.errors.single().throwable)
+        // STR-237: the record rides the branch as a diagnostic (legacy tag +
+        // rendered message, real throwable as cause); the boundary drains it
+        // exactly once.
+        val failed = subject() as StartHistoricalImportOutcome.Failed
+        assertEquals(1, failed.diagnostics.size)
+        assertEquals("StartHistoricalImport", failed.diagnostics.single().tag)
+        assertEquals("Failed to start historical import: room down", failed.diagnostics.single().message)
+        assertEquals(failure, failed.diagnostics.single().cause)
     }
 
     @Test
@@ -87,7 +87,7 @@ class StartHistoricalImportUseCaseTest {
         val jobRepo = object : ImportJobRepository by FakeImportJobRepository() {
             override suspend fun createJob(): ImportJob = throw CancellationException("cancelled")
         }
-        val subject = StartHistoricalImportUseCase(jobRepo, FakeLoggingPort())
+        val subject = StartHistoricalImportUseCase(jobRepo)
 
         var thrown: Throwable? = null
         try {

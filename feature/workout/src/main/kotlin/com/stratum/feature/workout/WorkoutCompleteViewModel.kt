@@ -6,6 +6,8 @@ import com.stratum.core.ui.component.RIR_NONE_LABEL
 import com.stratum.core.ui.component.formatSetPerformance
 import com.stratum.core.ui.component.formatWeightAmountForDisplay
 import com.stratum.core.ui.component.formatWorkoutDuration
+import com.stratum.application.diagnostics.OperationalDiagnostic
+import com.stratum.application.healthconnect.ClearHealthConnectSyncErrorResult
 import com.stratum.application.healthconnect.ClearHealthConnectSyncErrorUseCase
 import com.stratum.application.healthconnect.ObserveHealthConnectSyncErrorsUseCase
 import com.stratum.domain.healthconnect.HealthFailureKind
@@ -24,7 +26,6 @@ import com.stratum.application.workout.RepRangeShiftDiagnostic
 import com.stratum.domain.workout.ApplyRepRangeShiftResult
 import com.stratum.application.workout.ApplyRepRangeShiftUseCase
 import com.stratum.application.workout.RepRangeShiftProposalPreferences
-import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.feature.workout.ui.EquipmentProposalUiMapper
 import com.stratum.feature.workout.ui.LiftBestSetUi
 import com.stratum.feature.workout.ui.RepRangeShiftUiMapper
@@ -63,10 +64,10 @@ class WorkoutCompleteViewModel @Inject constructor(
     private val analyzeSessionRepRangeShiftProposals: AnalyzeSessionRepRangeShiftProposalsUseCase,
     private val applyRepRangeShift: ApplyRepRangeShiftUseCase,
     private val repRangeShiftProposalPreferences: RepRangeShiftProposalPreferences,
-    private val logError: LogErrorUseCase,
     private val observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
     observeHealthConnectSyncErrors: ObserveHealthConnectSyncErrorsUseCase,
     private val clearHealthConnectSyncError: ClearHealthConnectSyncErrorUseCase,
+    private val diagnosticDrain: DiagnosticDrain,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<WorkoutCompleteUiState>(WorkoutCompleteUiState.Loading)
@@ -88,7 +89,10 @@ class WorkoutCompleteViewModel @Inject constructor(
             .onEach { kind ->
                 enqueueUserMessage(kind.toUserMessage())
                 publishNextUserMessage()
-                clearHealthConnectSyncError()
+                val clearResult = clearHealthConnectSyncError()
+                if (clearResult is ClearHealthConnectSyncErrorResult.PersistenceFailed) {
+                    diagnosticDrain.drain(clearResult.diagnostics)
+                }
             }
             .launchIn(viewModelScope)
     }
@@ -104,6 +108,10 @@ class WorkoutCompleteViewModel @Inject constructor(
                 if (generation != loadGeneration) return@launch
                 _uiState.value =
                     when (result) {
+                        is GetWorkoutSummaryResult.PersistenceFailed -> {
+                            diagnosticDrain.drain(result.diagnostics)
+                            WorkoutCompleteUiState.Error
+                        }
                         is GetWorkoutSummaryResult.Success -> {
                             val summary = result.summary
                             val trainingSessionId = TrainingSessionId(sessionId)
@@ -123,6 +131,10 @@ class WorkoutCompleteViewModel @Inject constructor(
                                 }
                             logEquipmentDiagnostics(equipmentOutcome.diagnostics)
                             logRepRangeDiagnostics(repRangeOutcome.diagnostics)
+                            // STR-237: operational diagnostics propagated from
+                            // the rep-range analysis's insights extract drain
+                            // here exactly once.
+                            diagnosticDrain.drain(repRangeOutcome.operationalDiagnostics)
                             val equipmentProposals = equipmentOutcome.proposals
                             val repRangeProposals = repRangeOutcome.proposals
                             if (generation != loadGeneration) {
@@ -219,10 +231,48 @@ class WorkoutCompleteViewModel @Inject constructor(
                         )
                     when (result) {
                         is ApplyRepRangeShiftResult.Success -> {
+                            // STR-237: a tolerated post-save event-append
+                            // failure rides Success as a domain diagnostic;
+                            // render the legacy record and drain it once.
+                            result.diagnostics.forEach { diagnostic ->
+                                diagnosticDrain.drain(
+                                    OperationalDiagnostic(
+                                        tag = TAG_APPLY_REP_RANGE_SHIFT,
+                                        message = "Program saved but WORKOUT_EDITED event failed " +
+                                            "for ${proposal.workoutLiftId.value}: " +
+                                            "${diagnostic.cause.message}",
+                                        cause = diagnostic.cause,
+                                    ),
+                                )
+                            }
                             settled = true
                             enqueueUserMessage(RepRangeShiftUiMapper.successMessage(proposal))
                             applyRepRangeSnapshot(
                                 repRangeSession.completeSuccess(
+                                    proposalId = proposalId,
+                                    message = "",
+                                ),
+                            )
+                            publishNextUserMessage()
+                        }
+                        is ApplyRepRangeShiftResult.PersistenceFailed -> {
+                            // STR-237: the apply failure record rides the
+                            // branch as a domain diagnostic; render the legacy
+                            // record and drain it once, then the failure UI.
+                            result.diagnostics.forEach { diagnostic ->
+                                diagnosticDrain.drain(
+                                    OperationalDiagnostic(
+                                        tag = TAG_APPLY_REP_RANGE_SHIFT,
+                                        message = "Failed to apply rep-range shift for " +
+                                            proposal.workoutLiftId.value,
+                                        cause = diagnostic.cause,
+                                    ),
+                                )
+                            }
+                            settled = true
+                            enqueueUserMessage(RepRangeShiftUiMapper.MSG_APPLY_FAILED)
+                            applyRepRangeSnapshot(
+                                repRangeSession.completeFailure(
                                     proposalId = proposalId,
                                     message = "",
                                 ),
@@ -349,7 +399,11 @@ class WorkoutCompleteViewModel @Inject constructor(
                 // STR-243 C3: branch on the outcome type — the Amended/Forked
                 // branches are success; every failure branch gets the same
                 // user copy as the old onFailure path.
-                when (val outcome = applyEquipmentIncrementProposal(remedy)) {
+                val outcome = applyEquipmentIncrementProposal(remedy)
+                if (outcome is ApplyEquipmentIncrementResult.PersistenceFailed) {
+                    diagnosticDrain.drain(outcome.diagnostics)
+                }
+                when (outcome) {
                     is ApplyEquipmentIncrementResult.Amended,
                     is ApplyEquipmentIncrementResult.Forked -> {
                         settled = true
@@ -367,7 +421,7 @@ class WorkoutCompleteViewModel @Inject constructor(
                     is ApplyEquipmentIncrementResult.InvalidName,
                     is ApplyEquipmentIncrementResult.InvalidTiers,
                     is ApplyEquipmentIncrementResult.EquipmentNotFound,
-                    ApplyEquipmentIncrementResult.PersistenceFailed -> {
+                    is ApplyEquipmentIncrementResult.PersistenceFailed -> {
                         settled = true
                         enqueueUserMessage(EquipmentProposalUiMapper.MSG_APPLY_FAILED)
                         applyEquipmentSnapshot(
@@ -427,11 +481,13 @@ class WorkoutCompleteViewModel @Inject constructor(
         for (diagnostic in diagnostics) {
             when (diagnostic) {
                 is EquipmentProposalDiagnostic.AnalysisFailed ->
-                    logError(
-                        TAG,
-                        "Session equipment analysis failed for ${diagnostic.sessionId.value} " +
-                            "— showing no proposals.",
-                        diagnostic.cause,
+                    diagnosticDrain.drain(
+                        OperationalDiagnostic(
+                            tag = TAG,
+                            message = "Session equipment analysis failed for " +
+                                "${diagnostic.sessionId.value} — showing no proposals.",
+                            cause = diagnostic.cause,
+                        ),
                     )
             }
         }
@@ -448,11 +504,13 @@ class WorkoutCompleteViewModel @Inject constructor(
         for (diagnostic in diagnostics) {
             when (diagnostic) {
                 is RepRangeShiftDiagnostic.AnalysisFailed ->
-                    logError(
-                        TAG,
-                        "Session rep-range shift analysis failed for ${diagnostic.sessionId.value} " +
-                            "— showing no proposals.",
-                        diagnostic.cause,
+                    diagnosticDrain.drain(
+                        OperationalDiagnostic(
+                            tag = TAG,
+                            message = "Session rep-range shift analysis failed for " +
+                                "${diagnostic.sessionId.value} — showing no proposals.",
+                            cause = diagnostic.cause,
+                        ),
                     )
             }
         }
@@ -474,6 +532,9 @@ class WorkoutCompleteViewModel @Inject constructor(
 
     private companion object {
         const val TAG = "WorkoutCompleteViewModel"
+
+        /** Legacy tag the apply use case recorded under (STR-237 boundary render). */
+        const val TAG_APPLY_REP_RANGE_SHIFT = "ApplyRepRangeShift"
     }
 
     private fun updateLoaded(

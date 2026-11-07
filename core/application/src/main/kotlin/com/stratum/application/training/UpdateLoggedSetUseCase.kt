@@ -1,8 +1,7 @@
 package com.stratum.application.training
 
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.domain.training.identity.TrainingSessionId
-import com.stratum.domain.training.TrainingSessionNotInProgressException
 import com.stratum.domain.training.TrainingSessionStatus
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
@@ -12,9 +11,12 @@ import com.stratum.domain.training.LoggedSet
  * Outcome of updating a logged set (STR-243).
  *
  * The session-guard branches carry the seam's typed facts ([SessionNotFound] /
- * [SessionNotInProgress]). The originating throwable of a failed write goes once
- * to the diagnostics channel ([LoggingPort.error]) at the use-case boundary; it
- * never crosses as a payload. Coroutine cancellation is not a branch: it
+ * [SessionNotInProgress]). The originating throwable of a failed write rides
+ * the [PersistenceFailed] branch as an [OperationalDiagnostic] (legacy tag +
+ * rendered message, real throwable as cause); the presentation boundary drains
+ * it exactly once through its module's DiagnosticDrain. The guard branches'
+ * former error breadcrumbs are dropped: their facts are the branches
+ * themselves (STR-237). Coroutine cancellation is not a branch: it
  * propagates.
  */
 sealed interface UpdateLoggedSetResult {
@@ -28,7 +30,9 @@ sealed interface UpdateLoggedSetResult {
     ) : UpdateLoggedSetResult
 
     /** The set write failed (repository / store I/O). */
-    data object PersistenceFailed : UpdateLoggedSetResult
+    data class PersistenceFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : UpdateLoggedSetResult
 }
 
 /**
@@ -37,29 +41,30 @@ sealed interface UpdateLoggedSetResult {
  */
 class UpdateLoggedSetUseCase @Inject constructor(
     private val trainingLogRepository: TrainingLogRepository,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(set: LoggedSet): UpdateLoggedSetResult {
         // Single load via the seam check: a missing / non-live session is returned as a
-        // typed branch (never thrown) and logged once with the same line the write
-        // envelope below produces; an operational load failure is logged once by the
-        // seam callback with that same line and returned as PersistenceFailed.
+        // typed branch (never thrown); an operational load failure is captured by the
+        // seam callback as a diagnostic with the same legacy line the write envelope
+        // below produces and returned on PersistenceFailed.
         // Cancellation from the load propagates as cancellation out of the check.
+        var loadDiagnostic: OperationalDiagnostic? = null
         when (val check = trainingLogRepository.checkInProgressSession(set.sessionId) { error ->
-            loggingPort.error(TAG, "Failed to update logged set: ${error.message}", error)
+            loadDiagnostic =
+                OperationalDiagnostic(
+                    tag = TAG,
+                    message = "Failed to update logged set: ${error.message}",
+                    cause = error,
+                )
         }) {
-            is InProgressSessionCheck.NotFound -> {
-                val error =
-                    IllegalArgumentException("Training session ${check.sessionId.value} not found")
-                loggingPort.error(TAG, "Failed to update logged set: ${error.message}", error)
+            is InProgressSessionCheck.NotFound ->
                 return UpdateLoggedSetResult.SessionNotFound(check.sessionId)
-            }
-            is InProgressSessionCheck.NotInProgress -> {
-                val error = TrainingSessionNotInProgressException(check.sessionId, check.status)
-                loggingPort.error(TAG, "Failed to update logged set: ${error.message}", error)
+            is InProgressSessionCheck.NotInProgress ->
                 return UpdateLoggedSetResult.SessionNotInProgress(check.sessionId, check.status)
-            }
-            InProgressSessionCheck.LoadFailed -> return UpdateLoggedSetResult.PersistenceFailed
+            InProgressSessionCheck.LoadFailed ->
+                return UpdateLoggedSetResult.PersistenceFailed(
+                    diagnostics = listOf(checkNotNull(loadDiagnostic)),
+                )
             is InProgressSessionCheck.Ready -> Unit
         }
         return try {
@@ -68,8 +73,15 @@ class UpdateLoggedSetUseCase @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (t: Throwable) {
-            loggingPort.error(TAG, "Failed to update logged set: ${t.message}", t)
-            UpdateLoggedSetResult.PersistenceFailed
+            UpdateLoggedSetResult.PersistenceFailed(
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Failed to update logged set: ${t.message}",
+                        cause = t,
+                    ),
+                ),
+            )
         }
     }
 

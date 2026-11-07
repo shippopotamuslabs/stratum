@@ -11,7 +11,6 @@ import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.application.lift.RankSwapCandidatesUseCase
 import com.stratum.domain.lift.identity.LiftId
-import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.Program
@@ -71,9 +70,8 @@ class LiftSwapViewModelTest {
                     programRepository,
                     NoOpProgramChangeEventRepository(),
                     com.stratum.core.testing.onboarding.FakeEquipmentRepository(),
-                    fakeLoggingPort,
                 ),
-                logError = LogErrorUseCase(fakeLoggingPort),
+                diagnosticDrain = DiagnosticDrain(fakeLoggingPort),
             )
     }
 
@@ -345,8 +343,8 @@ class LiftSwapViewModelTest {
     }
 
     @Test
-    @DisplayName("Given PersistToProgram when swap fails then user message is shown and a warning is logged")
-    fun persistToProgramLogsWarningWhenSwapFails() = runTest {
+    @DisplayName("Given PersistToProgram when swap fails then user message is shown and no record is logged")
+    fun persistToProgramShowsMessageWhenSwapFails() = runTest {
         viewModel.initialize(
             workoutId = WORKOUT_ID,
             workoutLiftId = "wl-nonexistent",
@@ -363,11 +361,12 @@ class LiftSwapViewModelTest {
             advanceUntilIdle()
             assertFalse(completed)
             assertEquals("Couldn't swap that lift. Try again.", viewModel.userMessage.value)
-            // STR-243: a stale workout-lift id is an expected branch — the use case
-            // records it once as a warning breadcrumb, never as an error/non-fatal,
-            // and the ViewModel no longer logs a second error for it.
+            // STR-237: a stale workout-lift id is an expected branch — the typed
+            // branch is the record; the use case's former warning breadcrumb
+            // duplicated the branch fact and is dropped, so nothing is logged
+            // here (never an error/non-fatal either).
             assertTrue(fakeLoggingPort.errors.isEmpty())
-            assertTrue(fakeLoggingPort.warnings.any { it.message.contains("Failed to swap workout lift") })
+            assertTrue(fakeLoggingPort.warnings.isEmpty())
             cancelAndIgnoreRemainingEvents()
         }
     }

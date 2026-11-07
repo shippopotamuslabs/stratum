@@ -1,7 +1,7 @@
 package com.stratum.application.lift
 
 import com.stratum.domain.lift.identity.LiftId
-import com.stratum.domain.logging.LoggingPort
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.application.training.ComputePersonalRecordsUseCase
 import com.stratum.application.training.RebuildLocalDerivedTrainingDataResult
 import com.stratum.application.training.RebuildLocalDerivedTrainingDataUseCase
@@ -13,15 +13,16 @@ import com.stratum.domain.lift.Lift
 import com.stratum.domain.program.Program
 
 /**
- * Outcome of merging lifts (STR-243).
+ * Outcome of merging lifts (STR-243; STR-237 Route (i)).
  *
  * The precondition branches enumerate the invoke guards: no sources, the
  * target named as its own source, and a selection that does not fully
  * resolve. [Success] carries the [MergeLiftsOutcome] (with its §10
- * diagnostics). The originating throwable of a failed merge goes once to the
- * diagnostics channel ([LoggingPort.error]) at the use-case boundary; it
- * never crosses as a payload. Coroutine cancellation is not a branch: it
- * propagates.
+ * diagnostics). The originating throwable of a failed merge rides the
+ * [PersistenceFailed] branch as an [OperationalDiagnostic] (legacy tag +
+ * rendered message, real throwable as cause); the presentation boundary
+ * drains it exactly once through its module's DiagnosticDrain. Coroutine
+ * cancellation is not a branch: it propagates.
  */
 sealed interface MergeLiftsResult {
     data class Success(val outcome: MergeLiftsOutcome) : MergeLiftsResult
@@ -36,7 +37,9 @@ sealed interface MergeLiftsResult {
     data object LiftsNotFound : MergeLiftsResult
 
     /** A repository read or write in the merge failed. */
-    data object PersistenceFailed : MergeLiftsResult
+    data class PersistenceFailed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : MergeLiftsResult
 }
 
 /**
@@ -62,7 +65,6 @@ class MergeLiftsUseCase @Inject constructor(
     private val computePersonalRecords: ComputePersonalRecordsUseCase,
     private val rebuildLocalDerived: RebuildLocalDerivedTrainingDataUseCase,
     private val workoutOverlayStore: WorkoutOverlayStore,
-    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(
         targetLiftId: LiftId,
@@ -102,18 +104,35 @@ class MergeLiftsUseCase @Inject constructor(
 
             val prDiagnostic = recomputePersonalRecords(targetLiftId)
 
-            if (rebuildLocalDerived() != RebuildLocalDerivedTrainingDataResult.Success) {
-                loggingPort.warning(
-                    TAG,
-                    "Merge succeeded but derived training rebuild failed",
-                )
-            }
-            MergeLiftsResult.Success(MergeLiftsOutcome(diagnostics = listOfNotNull(prDiagnostic)))
+            // A failed rebuild's stage records ride the rebuild outcome;
+            // they ride this outcome onward to the boundary drain unchanged
+            // (STR-237: exactly one record per failure, no duplicate
+            // breadcrumb).
+            val rebuildResult = rebuildLocalDerived()
+            val rebuildDiagnostics =
+                if (rebuildResult is RebuildLocalDerivedTrainingDataResult.PersistenceFailed) {
+                    rebuildResult.diagnostics
+                } else {
+                    emptyList()
+                }
+            MergeLiftsResult.Success(
+                MergeLiftsOutcome(
+                    diagnostics = listOfNotNull(prDiagnostic),
+                    operationalDiagnostics = rebuildDiagnostics,
+                ),
+            )
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (t: Throwable) {
-            loggingPort.error(TAG, "Failed to merge lifts: ${t.message}", t)
-            MergeLiftsResult.PersistenceFailed
+            MergeLiftsResult.PersistenceFailed(
+                diagnostics = listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Failed to merge lifts: ${t.message}",
+                        cause = t,
+                    ),
+                ),
+            )
         }
     }
 

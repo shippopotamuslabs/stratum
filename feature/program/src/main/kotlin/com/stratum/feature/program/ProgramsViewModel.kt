@@ -7,6 +7,8 @@ import com.stratum.application.program.ComputeProgramMuscleVolumeUseCase
 import com.stratum.application.program.ObserveProgramUseCase
 import com.stratum.application.program.ObserveProgramsUiPreferencesUseCase
 import com.stratum.application.program.SetExpandedWorkoutIdUseCase
+import com.stratum.application.program.ProgramsUiPreferenceResult
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.training.StartTrainingSessionResult
@@ -80,6 +82,7 @@ class ProgramsViewModel @Inject constructor(
     private val manageWorkoutOverlay: ManageWorkoutOverlayUseCase,
     observeProgramsUiPreferences: ObserveProgramsUiPreferencesUseCase,
     private val setExpandedWorkoutId: SetExpandedWorkoutIdUseCase,
+    private val diagnosticDrain: DiagnosticDrain,
 ) : ViewModel() {
 
     /** Transient snackbar copy; cleared via [userMessageShown] after the UI presents it. */
@@ -111,10 +114,9 @@ class ProgramsViewModel @Inject constructor(
                 .distinctUntilChanged()
                 .collect { orphanSessionId ->
                     if (orphanSessionId != null) {
-                        if (
-                            abandonTrainingSession(orphanSessionId) ==
-                                AbandonTrainingSessionResult.PersistenceFailed
-                        ) {
+                        val abandonResult = abandonTrainingSession(orphanSessionId)
+                        if (abandonResult is AbandonTrainingSessionResult.PersistenceFailed) {
+                            diagnosticDrain.drain(abandonResult.diagnostics)
                             showUserMessage(MSG_ABANDON_FAILED)
                         }
                     }
@@ -162,7 +164,10 @@ class ProgramsViewModel @Inject constructor(
 
     fun setExpandedWorkout(workoutId: String?) {
         viewModelScope.launch {
-            setExpandedWorkoutId(workoutId)
+            val result = setExpandedWorkoutId(workoutId)
+            if (result is ProgramsUiPreferenceResult.PersistenceFailed) {
+                diagnosticDrain.drain(result.diagnostics)
+            }
         }
     }
 
@@ -191,6 +196,10 @@ class ProgramsViewModel @Inject constructor(
                 is StartTrainingSessionResult.ActiveSessionExists -> {
                     handleActiveSessionConflict()
                 }
+                is StartTrainingSessionResult.PersistenceFailed -> {
+                    drainStartFailure(result)
+                    showUserMessage(MSG_START_WORKOUT_FAILED)
+                }
                 else -> {
                     showUserMessage(MSG_START_WORKOUT_FAILED)
                 }
@@ -206,9 +215,30 @@ class ProgramsViewModel @Inject constructor(
             is StartTrainingSessionResult.ActiveSessionExists -> {
                 handleActiveSessionConflict()
             }
+            is StartTrainingSessionResult.PersistenceFailed -> {
+                drainStartFailure(result)
+                showUserMessage(MSG_START_WORKOUT_FAILED)
+            }
             else -> {
                 showUserMessage(MSG_START_WORKOUT_FAILED)
             }
+        }
+    }
+
+    /**
+     * STR-237: the domain-owned outcome carries the failure as diagnostic
+     * values (cause only); render the legacy tag/message here and drain
+     * exactly once — the same shape as EditWorkoutStartCoordinator.
+     */
+    private fun drainStartFailure(result: StartTrainingSessionResult.PersistenceFailed) {
+        result.diagnostics.forEach { diagnostic ->
+            diagnosticDrain.drain(
+                OperationalDiagnostic(
+                    tag = EditWorkoutStartCoordinator.TAG_START_TRAINING_SESSION,
+                    message = "Failed to start training session: ${diagnostic.cause.message}",
+                    cause = diagnostic.cause,
+                ),
+            )
         }
     }
 
@@ -299,20 +329,27 @@ class ProgramsViewModel @Inject constructor(
             val progress = observeCycleProgress().first()
             val activeSession = progress.activeSession ?: return@launch
             val result = abandonTrainingSession(activeSession.id)
+            if (result is AbandonTrainingSessionResult.PersistenceFailed) {
+                diagnosticDrain.drain(result.diagnostics)
+            }
             // Success is silent — cancel from the chip is intentional, not a failure to report.
             if (result != AbandonTrainingSessionResult.Success) {
                 showUserMessage(MSG_ABANDON_FAILED)
             } else {
                 // Match live-screen abandon: drop process-scoped overlay so a new session
                 // cannot restore a dead session's structure from DataStore.
-                manageWorkoutOverlay.clear()
+                diagnosticDrain.drain(manageWorkoutOverlay.clear())
             }
         }
     }
 
     fun skipWorkout(workoutId: String) {
         viewModelScope.launch {
-            if (recordWorkoutSkip(WorkoutId(workoutId)) !is RecordWorkoutSkipResult.Success) {
+            val result = recordWorkoutSkip(WorkoutId(workoutId))
+            if (result is RecordWorkoutSkipResult.PersistenceFailed) {
+                diagnosticDrain.drain(result.diagnostics)
+            }
+            if (result !is RecordWorkoutSkipResult.Success) {
                 showUserMessage(MSG_SKIP_FAILED)
             }
         }
@@ -320,7 +357,11 @@ class ProgramsViewModel @Inject constructor(
 
     fun unskipWorkout(workoutId: String) {
         viewModelScope.launch {
-            if (unskipWorkout(WorkoutId(workoutId)) != UnskipWorkoutResult.Success) {
+            val result = unskipWorkout(WorkoutId(workoutId))
+            if (result is UnskipWorkoutResult.PersistenceFailed) {
+                diagnosticDrain.drain(result.diagnostics)
+            }
+            if (result != UnskipWorkoutResult.Success) {
                 showUserMessage(MSG_UNSKIP_FAILED)
             }
         }
@@ -328,7 +369,11 @@ class ProgramsViewModel @Inject constructor(
 
     fun skipRestDay(slotIndex: Int) {
         viewModelScope.launch {
-            if (recordRestDaySkip(slotIndex) !is RecordRestDaySkipResult.Success) {
+            val result = recordRestDaySkip(slotIndex)
+            if (result is RecordRestDaySkipResult.PersistenceFailed) {
+                diagnosticDrain.drain(result.diagnostics)
+            }
+            if (result !is RecordRestDaySkipResult.Success) {
                 showUserMessage(MSG_SKIP_FAILED)
             }
         }
@@ -336,7 +381,11 @@ class ProgramsViewModel @Inject constructor(
 
     fun unskipRestDay(slotIndex: Int) {
         viewModelScope.launch {
-            if (unskipWorkout.unskipRestSlot(slotIndex) != UnskipWorkoutResult.Success) {
+            val result = unskipWorkout.unskipRestSlot(slotIndex)
+            if (result is UnskipWorkoutResult.PersistenceFailed) {
+                diagnosticDrain.drain(result.diagnostics)
+            }
+            if (result != UnskipWorkoutResult.Success) {
                 showUserMessage(MSG_UNSKIP_FAILED)
             }
         }
@@ -347,11 +396,14 @@ class ProgramsViewModel @Inject constructor(
             val progress = observeCycleProgress().first()
             progress.activeSession?.let { session ->
                 val abandonResult = abandonTrainingSession(session.id)
+                if (abandonResult is AbandonTrainingSessionResult.PersistenceFailed) {
+                    diagnosticDrain.drain(abandonResult.diagnostics)
+                }
                 if (abandonResult != AbandonTrainingSessionResult.Success) {
                     showUserMessage(MSG_ABANDON_FAILED)
                     return@launch
                 }
-                manageWorkoutOverlay.clear()
+                diagnosticDrain.drain(manageWorkoutOverlay.clear())
             }
             when (action) {
                 is ProgramsStartAction.StartWorkout ->
