@@ -1,7 +1,7 @@
 package com.stratum.application.program.importing
 
-import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.di.DefaultDispatcher
+import com.stratum.domain.logging.LoggingPort
 import com.stratum.application.onboarding.CompleteOnboardingUseCase
 import com.stratum.domain.onboarding.UserTrainingProfile
 import com.stratum.application.onboarding.UserTrainingProfileRepository
@@ -37,21 +37,72 @@ import com.stratum.domain.program.Workout
 
 typealias ProgramTemplateImportProgressCallback = suspend (ProgramTemplateImportPhase) -> Unit
 
-/** Carried as a [Result] failure value when the server rejects the uploaded file as not a workout program. */
+/**
+ * The server's rejection of the uploaded file as not a workout program. Since
+ * STR-243 the rejection crosses as [ProgramTemplateImportOutcome.Rejected];
+ * this type is constructed only at presentation boundaries that need an
+ * exception value for a log record of the rejection.
+ */
 class ProgramTemplateRejectedException(message: String) : Exception(message)
+
+/**
+ * Outcome of [ImportProgramTemplatesUseCase] (STR-243).
+ *
+ * [Success] carries the import result. The terminal server statuses are typed
+ * branches carrying the facts consumers branch on: [Rejected] and [Failed]
+ * carry the server-provided message (or the use case's default copy),
+ * [ReadyWithoutPath] is a Ready job with no template to download,
+ * [NonTerminal] carries the status the job ended in, and [TimedOut] is the
+ * poll deadline expiring. [PersistFailed] is the phase-2 persist failure: it
+ * carries the primary failure's message (the user-facing copy source, as when
+ * the primary crossed as a Throwable) and the STR-256 rollback diagnostics to
+ * drain at the boundary. [OperationalFailed] covers the remaining operational
+ * failures (upload / poll / download / parse / pre-persist reads); the
+ * originating throwable is logged once at the use-case boundary and never
+ * crosses. Coroutine cancellation — including a
+ * cancellation carried as a port [Result] failure value (STR-241 F6) — is not
+ * a branch: it propagates as a throw, with any rollback evidence attached
+ * (STR-256).
+ */
+sealed interface ProgramTemplateImportOutcome {
+    data class Success(val result: ProgramTemplateImportResult) : ProgramTemplateImportOutcome
+
+    data class Rejected(val message: String) : ProgramTemplateImportOutcome
+
+    data class Failed(val message: String) : ProgramTemplateImportOutcome
+
+    data object ReadyWithoutPath : ProgramTemplateImportOutcome
+
+    data class NonTerminal(val status: RemoteProgramTemplateJobStatus) : ProgramTemplateImportOutcome
+
+    data object TimedOut : ProgramTemplateImportOutcome
+
+    data class PersistFailed(
+        val message: String?,
+        val diagnostics: List<ProgramImportRollbackDiagnostic>,
+    ) : ProgramTemplateImportOutcome
+
+    data object OperationalFailed : ProgramTemplateImportOutcome
+}
+
+/** Marker for the poll deadline inside [ImportProgramTemplatesUseCase]; never crosses the use case. */
+private class ImportPollTimeoutException : Exception("Timed out waiting for import to finish.")
 
 /**
  * Phase-2 persist failure where at least one rollback delete also failed (STR-256).
  *
- * The rollback shape stays fire-and-forget per id: every persisted id still gets its delete
- * attempt. When one or more deletes fail, the evidence rides this failure object instead of
- * being discarded: [message] is exactly the primary persist failure's message and [cause] is
- * the primary itself, so user-facing copy derived from the failure is unchanged; [diagnostics]
- * carries each failed delete with its program id. Each delete cause is also attached via
- * [addSuppressed] so boundaries that log the failure object emit the full evidence in that
- * single emission. Thrown only when at least one rollback failed — a clean rollback rethrows
- * the primary bare. A [CancellationException] primary is never wrapped: it is rethrown as-is
- * with the rollback causes suppressed on it.
+ * Internal carrier inside [ImportProgramTemplatesUseCase]: at the use case's edge it is
+ * mapped onto [ProgramTemplateImportOutcome.PersistFailed], which carries the same
+ * [message] and [diagnostics]. The rollback shape stays fire-and-forget per id: every
+ * persisted id still gets its delete attempt. When one or more deletes fail, the evidence
+ * rides this failure object instead of being discarded: [message] is exactly the primary
+ * persist failure's message and [cause] is the primary itself, so user-facing copy derived
+ * from the failure is unchanged; [diagnostics] carries each failed delete with its program
+ * id. Each delete cause is also attached via [addSuppressed] so boundaries that log the
+ * failure object emit the full evidence in that single emission. Thrown only when at least
+ * one rollback failed — a clean rollback rethrows the primary bare. A
+ * [CancellationException] primary is never wrapped: it is rethrown as-is with the rollback
+ * causes suppressed on it.
  */
 class ProgramImportRollbackException(
     cause: Throwable,
@@ -76,6 +127,7 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
     private val completeOnboarding: CompleteOnboardingUseCase,
     private val profileRepository: UserTrainingProfileRepository,
     private val programChangeEventRepository: ProgramChangeEventRepository,
+    private val loggingPort: LoggingPort,
     @DefaultDispatcher private val importDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) {
     open suspend operator fun invoke(
@@ -83,48 +135,49 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
         fileName: String,
         options: ProgramTemplateImportOptions,
         onProgress: ProgramTemplateImportProgressCallback = {},
-    ): Result<ProgramTemplateImportResult> {
+    ): ProgramTemplateImportOutcome {
         // Rollback diagnostics collected inside; re-attached below when the surfaced
         // failure is a cancellation the platform normalized (see below).
         val rollbackFailures = mutableListOf<ProgramImportRollbackDiagnostic>()
-        val result = runImportBlock(rollbackFailures) {
+        return try {
             withContext(importDispatcher) {
             onProgress(ProgramTemplateImportPhase.Uploading)
             val jobId = ProgramTemplateImportJobId(UUID.randomUUID().toString())
             importPort.uploadAndStart(jobId, bytes, fileName)
-                .getOrElseRethrowingCancellation { return@withContext Result.failure(it) }
+                .getOrElseRethrowingCancellation { error ->
+                    logOperationalFailure(error)
+                    return@withContext ProgramTemplateImportOutcome.OperationalFailed
+                }
 
+            // A poll failure (or the deadline) throws out of pollUntilTerminal and
+            // surfaces through the envelope below as OperationalFailed / TimedOut.
             val snapshot = pollUntilTerminal(jobId, onProgress)
-                .getOrElseRethrowingCancellation { return@withContext Result.failure(it) }
-            // Expected terminal outcomes are returned as failure values, never thrown:
-            // the exception types are constructed as Result payloads (STR-241).
+            // Expected terminal outcomes are returned as outcome branches, never thrown
+            // (STR-241 constructed them as Result payloads; STR-243 makes them branches).
             when (snapshot.status) {
                 RemoteProgramTemplateJobStatus.Rejected ->
-                    return@withContext Result.failure(
-                        ProgramTemplateRejectedException(
-                            snapshot.errorMessage ?: "This file does not look like a workout program.",
-                        ),
+                    return@withContext ProgramTemplateImportOutcome.Rejected(
+                        snapshot.errorMessage ?: "This file does not look like a workout program.",
                     )
                 RemoteProgramTemplateJobStatus.Failed ->
-                    return@withContext Result.failure(
-                        IllegalStateException(snapshot.errorMessage ?: "Import failed."),
+                    return@withContext ProgramTemplateImportOutcome.Failed(
+                        snapshot.errorMessage ?: "Import failed.",
                     )
                 RemoteProgramTemplateJobStatus.Ready -> Unit
                 else ->
-                    return@withContext Result.failure(
-                        IllegalStateException("Import ended in non-terminal status: ${snapshot.status}"),
-                    )
+                    return@withContext ProgramTemplateImportOutcome.NonTerminal(snapshot.status)
             }
 
             val templateStoragePath =
                 snapshot.programTemplateStoragePath
-                    ?: return@withContext Result.failure(
-                        IllegalStateException("Ready job has no template path."),
-                    )
+                    ?: return@withContext ProgramTemplateImportOutcome.ReadyWithoutPath
 
             onProgress(ProgramTemplateImportPhase.MatchingCatalog)
             val templateJson = importPort.downloadProgramTemplate(templateStoragePath)
-                .getOrElseRethrowingCancellation { return@withContext Result.failure(it) }
+                .getOrElseRethrowingCancellation { error ->
+                    logOperationalFailure(error)
+                    return@withContext ProgramTemplateImportOutcome.OperationalFailed
+                }
             val parsed = parseAll(templateJson)
             require(parsed.isNotEmpty()) { "Imported template has no programs" }
 
@@ -195,7 +248,16 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
                     importedIds += programId
                 }
             } catch (error: Throwable) {
-                throw resolveRollbackThrow(error, importedIds, rollbackFailures)
+                val thrown = resolveRollbackThrow(error, importedIds, rollbackFailures)
+                // A cancellation primary propagates as a throw (STR-256); any other
+                // primary surfaces as the PersistFailed branch, with the rollback
+                // wrapper's diagnostics when deletes also failed.
+                if (thrown is CancellationException) throw thrown
+                return@withContext ProgramTemplateImportOutcome.PersistFailed(
+                    message = thrown.message,
+                    diagnostics =
+                        (thrown as? ProgramImportRollbackException)?.diagnostics ?: emptyList(),
+                )
             }
 
             if (options.completeOnboarding && importedIds.isNotEmpty()) {
@@ -203,33 +265,35 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
                 completeOnboarding(profile)
             }
             onProgress(ProgramTemplateImportPhase.Complete)
-            Result.success(
+            ProgramTemplateImportOutcome.Success(
                 ProgramTemplateImportResult(
                     importedProgramIds = importedIds,
                     skippedProgramCount = skipped,
                 ),
             )
             }
+        } catch (cancelled: CancellationException) {
+            // A cancellation propagates as a throw with the rollback evidence
+            // re-attached (STR-256, see [withRollbackEvidence]).
+            throw cancelled.withRollbackEvidence(rollbackFailures)
+        } catch (_: ImportPollTimeoutException) {
+            // Flatten: the block returns expected failures as outcome branches; the
+            // envelope's own operational throws surface as OperationalFailed.
+            ProgramTemplateImportOutcome.TimedOut
+        } catch (error: Throwable) {
+            logOperationalFailure(error)
+            ProgramTemplateImportOutcome.OperationalFailed
         }
-        // Flatten: the block returns expected failures as Result values; the envelope's
-        // own failures (operational throws caught by runCatchingCancellable) pass through.
-        return result.getOrElse { return Result.failure(it) }
     }
 
     /**
-     * Runs [block] as the import's Result envelope (STR-239): ordinary failures return
-     * as a [Result]; a cancellation propagates as a throw with the rollback evidence
-     * re-attached (STR-256, see [withRollbackEvidence]).
+     * Records an operational failure once at this boundary (STR-243) before it
+     * surfaces as [ProgramTemplateImportOutcome.OperationalFailed]; consumers
+     * of that branch do not log it again.
      */
-    private suspend fun <T> runImportBlock(
-        rollbackFailures: List<ProgramImportRollbackDiagnostic>,
-        block: suspend () -> T,
-    ): Result<T> =
-        try {
-            runCatchingCancellable(block)
-        } catch (cancelled: CancellationException) {
-            throw cancelled.withRollbackEvidence(rollbackFailures)
-        }
+    private fun logOperationalFailure(error: Throwable) {
+        loggingPort.error(TAG, "Program import failed: ${error.message}", error)
+    }
 
     /**
      * Re-attaches rollback evidence to a surfaced cancellation (STR-256): coroutine
@@ -253,7 +317,7 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
      * its delete attempt via [collectRollbackFailures], then a [CancellationException] primary
      * is returned as-is with the rollback causes attached (never wrapped), a persist failure
      * with failed deletes becomes a [ProgramImportRollbackException], and a clean rollback
-     * returns the primary bare. The in-catch attach is repeated after runCatchingCancellable because
+     * returns the primary bare. The in-catch attach is repeated at the invoke boundary catch because
      * coroutine machinery may normalize the rethrown instance (message-only copy) once the
      * block has suspended — the in-catch attach alone would be silently dropped in practice.
      */
@@ -318,35 +382,32 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
     private suspend fun pollUntilTerminal(
         jobId: ProgramTemplateImportJobId,
         onProgress: ProgramTemplateImportProgressCallback,
-    ): Result<ProgramTemplateJobSnapshot> {
-        // Direct Result propagation (STR-241): the loop itself returns the poll
-        // outcome as a Result — a mid-poll failure wins over the timeout and over
-        // any non-terminal snapshot. A CancellationException thrown by the port or
-        // the delay propagates as cancellation (no catch here), and one carried as
-        // a poll Result failure value is rethrown for the same reason.
+    ): ProgramTemplateJobSnapshot {
+        // Direct propagation (STR-241): a mid-poll failure wins over the timeout and
+        // over any non-terminal snapshot, so a poll failure value is rethrown here and
+        // surfaces through the invoke envelope. A CancellationException thrown by the
+        // port or the delay propagates as cancellation (no catch here), and one carried
+        // as a poll Result failure value is rethrown for the same reason. The deadline
+        // surfaces as [ImportPollTimeoutException].
         val pollOutcome =
             withTimeoutOrNull(POLL_TIMEOUT_MS) {
-                var outcome: Result<ProgramTemplateJobSnapshot>? = null
-                while (outcome == null) {
+                var terminal: ProgramTemplateJobSnapshot? = null
+                while (terminal == null) {
                     delay(POLL_INTERVAL_MS)
                     val result = importPort.pollJobStatus(jobId)
                     val failure = result.exceptionOrNull()
                     if (failure != null) {
-                        if (failure is CancellationException) throw failure
-                        outcome = Result.failure(failure)
-                    } else {
-                        val snapshot = result.getOrNull()
-                        snapshot?.progressPhase?.let { onProgress(it) }
-                        if (snapshot != null && snapshot.status.isTerminal()) {
-                            outcome = Result.success(snapshot)
-                        }
+                        throw failure
+                    }
+                    val snapshot = result.getOrNull()
+                    snapshot?.progressPhase?.let { onProgress(it) }
+                    if (snapshot != null && snapshot.status.isTerminal()) {
+                        terminal = snapshot
                     }
                 }
-                outcome
+                terminal
             }
-        return pollOutcome ?: Result.failure(
-            IllegalStateException("Timed out waiting for import to finish."),
-        )
+        return pollOutcome ?: throw ImportPollTimeoutException()
     }
 
     private fun RemoteProgramTemplateJobStatus.isTerminal(): Boolean =
@@ -355,6 +416,7 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
             this == RemoteProgramTemplateJobStatus.Failed
 
     private companion object {
+        const val TAG = "ProgramTemplateImport"
         const val POLL_INTERVAL_MS = 2_000L
         const val POLL_TIMEOUT_MS = 5 * 60 * 1_000L
     }

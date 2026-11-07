@@ -5,11 +5,10 @@ import androidx.lifecycle.viewModelScope
 import com.stratum.application.auth.AuthManager
 import com.stratum.domain.auth.AuthState
 import com.stratum.application.program.importing.ImportProgramTemplatesUseCase
+import com.stratum.application.program.importing.ProgramTemplateImportOutcome
 import com.stratum.domain.program.importing.ProgramImportActivation
 import com.stratum.domain.program.importing.ProgramImportRollbackDiagnostic
 import com.stratum.domain.program.importing.ProgramTemplateImportOptions
-import com.stratum.application.program.importing.ProgramImportRollbackException
-import com.stratum.application.program.importing.ProgramTemplateRejectedException
 import com.stratum.domain.logging.LogAnalyticsEventUseCase
 import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.domain.logging.PARAM_ACTION
@@ -17,7 +16,6 @@ import com.stratum.domain.logging.PARAM_SCREEN
 import com.stratum.domain.logging.USER_VISIBLE_ERROR_EVENT
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -79,7 +77,10 @@ class ImportProgramViewModel @Inject constructor(
                     phase = ImportProgramPhaseUi.Uploading,
                 )
             }
-            val result =
+            // Cancellation is never a user-visible import error: the use case rethrows
+            // it, so this coroutine cancels before any analytics logging or uiState
+            // update below.
+            val outcome =
                 importPrograms(
                     bytes = bytes,
                     fileName = fileName,
@@ -100,10 +101,10 @@ class ImportProgramViewModel @Inject constructor(
                         }
                     },
                 )
-            result.fold(
-                onSuccess = { importResult ->
-                    val imported = importResult.importedProgramIds.size
-                    val skipped = importResult.skippedProgramCount
+            when (outcome) {
+                is ProgramTemplateImportOutcome.Success -> {
+                    val imported = outcome.result.importedProgramIds.size
+                    val skipped = outcome.result.skippedProgramCount
                     _uiState.update {
                         it.copy(
                             phase = ImportProgramPhaseUi.Complete,
@@ -114,23 +115,22 @@ class ImportProgramViewModel @Inject constructor(
                             errorMessage = null,
                         )
                     }
-                },
-                onFailure = { error ->
-                    // Cancellation is never a user-visible import error: rethrow before
-                    // any analytics logging or uiState update so the coroutine cancels.
-                    if (error is CancellationException) throw error
-                    // STR-256: a failed orphan rollback rides the failure as diagnostics and
-                    // is drained here exactly once. User copy still derives from the primary
-                    // message via userFacingImportError below.
-                    (error as? ProgramImportRollbackException)?.diagnostics?.forEach { diagnostic ->
-                        when (diagnostic) {
-                            is ProgramImportRollbackDiagnostic.RollbackDeleteFailed ->
-                                logError(
-                                    TAG_IMPORT_ROLLBACK,
-                                    "Program import rollback delete failed: " +
-                                        "program=${diagnostic.programId.value}",
-                                    diagnostic.cause,
-                                )
+                }
+                else -> {
+                    // STR-256: a failed orphan rollback rides the PersistFailed branch as
+                    // diagnostics and is drained here exactly once. User copy still derives
+                    // from the primary message via userFacingImportError below.
+                    if (outcome is ProgramTemplateImportOutcome.PersistFailed) {
+                        outcome.diagnostics.forEach { diagnostic ->
+                            when (diagnostic) {
+                                is ProgramImportRollbackDiagnostic.RollbackDeleteFailed ->
+                                    logError(
+                                        TAG_IMPORT_ROLLBACK,
+                                        "Program import rollback delete failed: " +
+                                            "program=${diagnostic.programId.value}",
+                                        diagnostic.cause,
+                                    )
+                            }
                         }
                     }
                     logAnalytics(
@@ -141,11 +141,11 @@ class ImportProgramViewModel @Inject constructor(
                         it.copy(
                             phase = null,
                             isImporting = false,
-                            errorMessage = userFacingImportError(error),
+                            errorMessage = userFacingImportError(outcome),
                         )
                     }
-                },
-            )
+                }
+            }
         }
     }
 
@@ -170,18 +170,31 @@ class ImportProgramViewModel @Inject constructor(
 }
 
 /**
- * Maps domain/Room failures to copy safe for users. Never surfaces SQLite/Room constraint text.
+ * Maps an import outcome branch to copy safe for users (STR-243: the branch is
+ * the contract, not a Throwable). A rejection surfaces its server message
+ * verbatim; failure branches carrying a message pass through
+ * [sanitizedImportMessage] so SQLite/Room constraint text never surfaces.
  */
-internal fun userFacingImportError(error: Throwable): String {
-    when (error) {
-        is ProgramTemplateRejectedException -> {
-            val msg = error.message?.takeIf { it.isNotBlank() }
-            if (msg != null) return msg
-        }
-        else -> Unit
+internal fun userFacingImportError(outcome: ProgramTemplateImportOutcome): String =
+    when (outcome) {
+        is ProgramTemplateImportOutcome.Rejected ->
+            outcome.message.takeIf { it.isNotBlank() } ?: "Import failed."
+        is ProgramTemplateImportOutcome.Failed -> sanitizedImportMessage(outcome.message)
+        is ProgramTemplateImportOutcome.PersistFailed -> sanitizedImportMessage(outcome.message)
+        ProgramTemplateImportOutcome.ReadyWithoutPath ->
+            sanitizedImportMessage("Ready job has no template path.")
+        is ProgramTemplateImportOutcome.NonTerminal ->
+            sanitizedImportMessage("Import ended in non-terminal status: ${outcome.status}")
+        ProgramTemplateImportOutcome.TimedOut ->
+            sanitizedImportMessage("Timed out waiting for import to finish.")
+        ProgramTemplateImportOutcome.OperationalFailed -> "Import failed."
+        is ProgramTemplateImportOutcome.Success -> "Import failed."
     }
-    val raw = error.message.orEmpty()
-    if (looksLikeDatabaseConstraint(raw) || looksLikeDatabaseConstraint(error.toString())) {
+
+/** Sanitizes a branch-carried failure message for users. Never surfaces SQLite/Room constraint text. */
+private fun sanitizedImportMessage(message: String?): String {
+    val raw = message.orEmpty()
+    if (looksLikeDatabaseConstraint(raw)) {
         return "Couldn't save this program. Try again or pick a different file."
     }
     if (raw.isNotBlank() && !looksLikeInternalException(raw)) {

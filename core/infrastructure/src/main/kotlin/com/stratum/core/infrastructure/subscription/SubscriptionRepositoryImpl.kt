@@ -2,17 +2,21 @@ package com.stratum.core.infrastructure.subscription
 
 import com.stratum.application.auth.AuthManager
 import com.stratum.domain.auth.AuthState
-import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.di.ApplicationScope
 import com.stratum.application.subscription.BillingPort
 import com.stratum.application.subscription.EntitlementRepository
 import com.stratum.domain.subscription.ComplimentaryAccess
 import com.stratum.domain.subscription.EntitlementDiagnostic
 import com.stratum.domain.subscription.EntitlementState
+import com.stratum.application.subscription.BillingDiagnostic
+import com.stratum.application.subscription.PlayEntitlementSyncOutcome
 import com.stratum.application.subscription.PlayEntitlementSyncPort
+import com.stratum.application.subscription.RefreshEntitlementOutcome
+import com.stratum.application.subscription.RestorePurchasesOutcome
 import com.stratum.domain.subscription.SubscriptionPurchase
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
@@ -62,14 +66,13 @@ class SubscriptionRepositoryImpl @Inject constructor(
             }
         }.distinctUntilChanged()
 
-    override suspend fun refreshEntitlement(): Result<EntitlementState> {
-        val restoreResult = billingPort.restorePurchases()
-        if (restoreResult.isFailure) {
-            return Result.failure(
-                restoreResult.exceptionOrNull() ?: IllegalStateException("Failed to restore purchases"),
-            )
-        }
-        return runCatchingCancellable {
+    override suspend fun refreshEntitlement(): RefreshEntitlementOutcome {
+        try {
+            when (val restore = billingPort.restorePurchases()) {
+                RestorePurchasesOutcome.Success -> Unit
+                is RestorePurchasesOutcome.Failed ->
+                    return RefreshEntitlementOutcome.Failed(restore.diagnostics)
+            }
             val auth = authManager.authState.value
             val purchases = billingPort.activePurchases.first()
             val complimentary = if (auth is AuthState.Authenticated) {
@@ -87,7 +90,13 @@ class SubscriptionRepositoryImpl @Inject constructor(
             check(state !is EntitlementState.Loading || auth !is AuthState.Authenticated) {
                 "Entitlement refresh could not verify complimentary access"
             }
-            state
+            return RefreshEntitlementOutcome.Success(state)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            return RefreshEntitlementOutcome.Failed(
+                listOf(BillingDiagnostic.OperationFailed(error)),
+            )
         }
     }
 
@@ -96,10 +105,16 @@ class SubscriptionRepositoryImpl @Inject constructor(
             val token = purchase.purchaseToken
             if (token.isBlank()) continue
             applicationScope.launch {
-                playEntitlementSync.syncPurchaseToken(token)
-                    .onFailure { error ->
-                        diagnosticsChannel.trySend(EntitlementDiagnostic.PlaySyncFailed(error))
-                    }
+                // The port returns its outcome; a Failed branch's diagnostics
+                // are already the PlaySyncFailed values this channel carries,
+                // forwarded exactly once. Cancellation still propagates.
+                when (val outcome = playEntitlementSync.syncPurchaseToken(token)) {
+                    is PlayEntitlementSyncOutcome.Success -> Unit
+                    is PlayEntitlementSyncOutcome.Failed ->
+                        outcome.diagnostics.forEach { diagnostic ->
+                            diagnosticsChannel.trySend(diagnostic)
+                        }
+                }
             }
         }
     }

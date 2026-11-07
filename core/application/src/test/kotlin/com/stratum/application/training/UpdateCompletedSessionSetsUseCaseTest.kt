@@ -57,7 +57,7 @@ class UpdateCompletedSessionSetsUseCaseTest {
             )
         val result = useCase(sessionId, listOf(amended))
 
-        assertTrue(result.isSuccess)
+        assertEquals(UpdateCompletedSessionSetsResult.Success, result)
         val stored = repo.getSetsForSession(sessionId).single()
         assertEquals(145.0, stored.weight.amount)
         assertEquals(6, stored.reps)
@@ -75,7 +75,13 @@ class UpdateCompletedSessionSetsUseCaseTest {
 
         val result = useCase(sessionId, listOf(set.copy(reps = 10)))
 
-        assertTrue(result.isFailure)
+        assertEquals(
+            UpdateCompletedSessionSetsResult.SessionNotCompleted(
+                sessionId,
+                com.stratum.domain.training.TrainingSessionStatus.IN_PROGRESS,
+            ),
+            result,
+        )
         assertEquals(8, repo.getSetsForSession(sessionId).single().reps)
     }
 
@@ -87,8 +93,10 @@ class UpdateCompletedSessionSetsUseCaseTest {
 
         val result = useCase(TrainingSessionId("non-existent"), listOf(loggedSet("set-1")))
 
-        assertTrue(result.isFailure)
-        assertTrue(result.exceptionOrNull() is IllegalArgumentException)
+        assertEquals(
+            UpdateCompletedSessionSetsResult.SessionNotFound(TrainingSessionId("non-existent")),
+            result,
+        )
     }
 
     @Test
@@ -100,8 +108,7 @@ class UpdateCompletedSessionSetsUseCaseTest {
 
         val result = useCase(sessionId, emptyList())
 
-        assertTrue(result.isFailure)
-        assertTrue(result.exceptionOrNull() is IllegalArgumentException)
+        assertEquals(UpdateCompletedSessionSetsResult.MustRetainAtLeastOneSet(sessionId), result)
     }
 
     @Test
@@ -119,7 +126,7 @@ class UpdateCompletedSessionSetsUseCaseTest {
             loggedSet("set-3", setIndex = 1, weight = 140.0, reps = 5, rir = 2)
         val result = useCase(sessionId, listOf(keep, added))
 
-        assertTrue(result.isSuccess)
+        assertEquals(UpdateCompletedSessionSetsResult.Success, result)
         val ids = repo.getSetsForSession(sessionId).map { it.id.value }.toSet()
         assertEquals(setOf("set-1", "set-3"), ids)
         assertEquals(2, repo.getSetsForSession(sessionId).size)
@@ -166,7 +173,7 @@ class UpdateCompletedSessionSetsUseCaseTest {
                 reps = 5,
                 rir = 0,
             )
-        assertTrue(useCase(sessionId, listOf(demoted)).isSuccess)
+        assertEquals(UpdateCompletedSessionSetsResult.Success, useCase(sessionId, listOf(demoted)))
 
         val older = repo.getSetsForLift(liftId).first { it.id.value == "older-strong" }
         val current = repo.getSetsForLift(liftId).first { it.id.value == "current-pr" }
@@ -208,7 +215,7 @@ class UpdateCompletedSessionSetsUseCaseTest {
         val useCase = buildUseCase(repo)
 
         val demoted = currentPr.copy(reps = 8)
-        assertTrue(useCase(sessionId, listOf(demoted)).isSuccess)
+        assertEquals(UpdateCompletedSessionSetsResult.Success, useCase(sessionId, listOf(demoted)))
 
         val older = repo.getSetsForLift(liftId).first { it.id.value == "older-strong" }
         val current = repo.getSetsForLift(liftId).first { it.id.value == "current-pr" }
@@ -245,7 +252,7 @@ class UpdateCompletedSessionSetsUseCaseTest {
         repo.seedSet(backoff)
         val useCase = buildUseCase(repo)
 
-        assertTrue(useCase(sessionId, listOf(working, backoff)).isSuccess)
+        assertEquals(UpdateCompletedSessionSetsResult.Success, useCase(sessionId, listOf(working, backoff)))
 
         val stored = repo.getSetsForLift(liftId)
         assertTrue(stored.first { it.id.value == "work" }.isPersonalRecord)
@@ -277,7 +284,7 @@ class UpdateCompletedSessionSetsUseCaseTest {
         val scheduler = FakeResponseModelingSchedulerPort()
         val useCase = buildUseCase(repo, scheduler, metadataRepo)
 
-        assertTrue(useCase(sessionId, listOf(set.copy(reps = 7))).isSuccess)
+        assertEquals(UpdateCompletedSessionSetsResult.Success, useCase(sessionId, listOf(set.copy(reps = 7))))
         assertEquals(1, scheduler.historyInvalidationCount)
         assertEquals(0, scheduler.enqueueCount)
     }
@@ -307,7 +314,7 @@ class UpdateCompletedSessionSetsUseCaseTest {
         val scheduler = FakeResponseModelingSchedulerPort()
         val useCase = buildUseCase(repo, scheduler, metadataRepo)
 
-        assertTrue(useCase(sessionId, listOf(set.copy(reps = 7))).isSuccess)
+        assertEquals(UpdateCompletedSessionSetsResult.Success, useCase(sessionId, listOf(set.copy(reps = 7))))
         assertEquals(0, scheduler.historyInvalidationCount)
         assertEquals(0, scheduler.enqueueCount)
     }
@@ -322,8 +329,21 @@ class UpdateCompletedSessionSetsUseCaseTest {
         val scheduler = FakeResponseModelingSchedulerPort()
         val useCase = buildUseCase(repo, scheduler, FakeResponseProfileMetadataRepository())
 
-        assertTrue(useCase(sessionId, listOf(set.copy(reps = 7))).isSuccess)
+        assertEquals(UpdateCompletedSessionSetsResult.Success, useCase(sessionId, listOf(set.copy(reps = 7))))
         assertEquals(0, scheduler.historyInvalidationCount)
+    }
+
+    @Test
+    @DisplayName("returns SetsBelongToAnotherSession when a desired set belongs elsewhere (STR-243)")
+    fun returnsFailureWhenDesiredSetBelongsElsewhere() = runTest {
+        val repo = FakeTrainingLogRepository()
+        repo.seedSession(completedSession())
+        val useCase = buildUseCase(repo)
+
+        val foreign = loggedSet("set-foreign", sessionId = TrainingSessionId("other-session"))
+        val result = useCase(sessionId, listOf(foreign))
+
+        assertEquals(UpdateCompletedSessionSetsResult.SetsBelongToAnotherSession(sessionId), result)
     }
 
     private fun completedSession(id: String = sessionId.value): TrainingSession =
@@ -372,6 +392,7 @@ class UpdateCompletedSessionSetsUseCaseTest {
 
     private fun buildInsights(repo: FakeTrainingLogRepository): ExtractTrainingInsightsUseCase =
         ExtractTrainingInsightsUseCase(
+            loggingPort = FakeLoggingPort(),
             trainingLogRepository = repo,
             liftTrainingInsightsRepository = object : LiftTrainingInsightsRepository {
                 override suspend fun replaceAll(insights: List<LiftTrainingInsights>) = Unit

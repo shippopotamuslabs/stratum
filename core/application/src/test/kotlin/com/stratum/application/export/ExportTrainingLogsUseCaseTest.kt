@@ -26,6 +26,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import com.stratum.domain.lift.WeightConversion
 import com.stratum.domain.lift.identity.EquipmentId
+import com.stratum.domain.export.ExportFileResult
 import com.stratum.domain.export.ExportLogRange
 import com.stratum.domain.lift.Weight
 
@@ -39,6 +40,13 @@ class ExportTrainingLogsUseCaseTest {
             clock = clock,
             loggingPort = FakeLoggingPort(),
         )
+
+    /** Unwraps a successful export outcome to the file the pre-STR-243 Result carried. */
+    private fun ExportTrainingLogsResult.requireFile(): ExportFileResult =
+        when (this) {
+            is ExportTrainingLogsResult.Success -> file
+            else -> throw AssertionError("Expected Success, got $this")
+        }
 
     private fun decodeRoot(bytes: ByteArray): JsonObject =
         JsonReader(bytes.decodeToString()).readRootObject()
@@ -63,8 +71,8 @@ class ExportTrainingLogsUseCaseTest {
             initialSets = listOf(setA1, setB1, setLive1),
         )
         val result = useCase(repo)(ExportLogRange.AllTime)
-        assertTrue(result.isSuccess)
-        val root = decodeRoot(result.getOrThrow().bytes)
+        assertTrue(result is ExportTrainingLogsResult.Success)
+        val root = decodeRoot(result.requireFile().bytes)
         assertEquals(setOf("sess-a", "sess-b", "sess-live"), sessionIds(root).toSet())
         assertEquals(setOf("set-a1", "set-b1", "set-live1"), setIds(root).toSet())
     }
@@ -77,8 +85,8 @@ class ExportTrainingLogsUseCaseTest {
             initialSets = listOf(setA1, setOld1),
         )
         val result = useCase(repo)(ExportLogRange.LastDays(days = 30, zone = ZONE_NY))
-        assertTrue(result.isSuccess)
-        val root = decodeRoot(result.getOrThrow().bytes)
+        assertTrue(result is ExportTrainingLogsResult.Success)
+        val root = decodeRoot(result.requireFile().bytes)
         assertEquals(listOf("sess-a"), sessionIds(root))
         assertEquals(listOf("set-a1"), setIds(root))
         val range = root.requireObject("range")
@@ -98,8 +106,8 @@ class ExportTrainingLogsUseCaseTest {
             initialSets = listOf(set60, set120),
         )
         val result = useCase(repo)(ExportLogRange.LastDays(days = 90, zone = ZONE_NY))
-        assertTrue(result.isSuccess)
-        val root = decodeRoot(result.getOrThrow().bytes)
+        assertTrue(result is ExportTrainingLogsResult.Success)
+        val root = decodeRoot(result.requireFile().bytes)
         assertEquals(listOf("sess-60"), sessionIds(root))
         assertEquals(listOf("set-60"), setIds(root))
     }
@@ -116,8 +124,8 @@ class ExportTrainingLogsUseCaseTest {
             initialSets = listOf(setYtd, setPrev),
         )
         val result = useCase(repo)(ExportLogRange.YearToDate(zone = ZONE_NY))
-        assertTrue(result.isSuccess)
-        val root = decodeRoot(result.getOrThrow().bytes)
+        assertTrue(result is ExportTrainingLogsResult.Success)
+        val root = decodeRoot(result.requireFile().bytes)
         assertEquals(listOf("sess-ytd"), sessionIds(root))
         assertEquals(listOf("set-ytd"), setIds(root))
         assertEquals("year_to_date", root.requireObject("range").requireString("kind"))
@@ -142,29 +150,28 @@ class ExportTrainingLogsUseCaseTest {
                     zone = ZONE_NY,
                 ),
             )
-        assertTrue(result.isSuccess)
-        val root = decodeRoot(result.getOrThrow().bytes)
+        assertTrue(result is ExportTrainingLogsResult.Success)
+        val root = decodeRoot(result.requireFile().bytes)
         assertEquals(listOf("sess-mid"), sessionIds(root))
         assertEquals(listOf("set-mid"), setIds(root))
         assertEquals("custom", root.requireObject("range").requireString("kind"))
     }
 
     @Test
-    @DisplayName("IE-S1-006 Export Custom with start after end fails")
+    @DisplayName("IE-S1-006 Export Custom with start after end returns InvalidRange carrying both dates")
     fun ieS1_006_exportCustomInverted() = runTest {
         val repo = FakeTrainingLogRepository()
+        val start = LocalDate.of(2026, 7, 10)
+        val end = LocalDate.of(2026, 7, 1)
         val result =
             useCase(repo)(
                 ExportLogRange.Custom(
-                    startDate = LocalDate.of(2026, 7, 10),
-                    endDateInclusive = LocalDate.of(2026, 7, 1),
+                    startDate = start,
+                    endDateInclusive = end,
                     zone = ZONE_NY,
                 ),
             )
-        assertTrue(result.isFailure)
-        val ex = result.exceptionOrNull()
-        assertTrue(ex is IllegalArgumentException)
-        assertEquals("Start date must be on or before end date.", ex!!.message)
+        assertEquals(ExportTrainingLogsResult.InvalidRange(start, end), result)
     }
 
     @Test
@@ -175,8 +182,8 @@ class ExportTrainingLogsUseCaseTest {
             initialSets = listOf(setA1),
         )
         val result = useCase(repo)(ExportLogRange.AllTime)
-        assertTrue(result.isSuccess)
-        val root = decodeRoot(result.getOrThrow().bytes)
+        assertTrue(result is ExportTrainingLogsResult.Success)
+        val root = decodeRoot(result.requireFile().bytes)
         assertEquals("stratum.export.logs", root.requireString("schema"))
         assertEquals(1, root.requireInt("schemaVersion"))
         assertEquals("stratum", root.requireString("source"))
@@ -192,8 +199,8 @@ class ExportTrainingLogsUseCaseTest {
             initialSets = listOf(setB1),
         )
         val result = useCase(repo)(ExportLogRange.AllTime)
-        assertTrue(result.isSuccess)
-        val root = decodeRoot(result.getOrThrow().bytes)
+        assertTrue(result is ExportTrainingLogsResult.Success)
+        val root = decodeRoot(result.requireFile().bytes)
         val sets = root.requireObject("history").requireArray("sets")
         assertEquals(1, sets.values.size)
         val setObj = sets.values.first() as JsonObject
@@ -217,8 +224,8 @@ class ExportTrainingLogsUseCaseTest {
             initialSets = listOf(withEquipment),
         )
         val result = useCase(repo)(ExportLogRange.AllTime)
-        assertTrue(result.isSuccess)
-        val root = decodeRoot(result.getOrThrow().bytes)
+        assertTrue(result is ExportTrainingLogsResult.Success)
+        val root = decodeRoot(result.requireFile().bytes)
         val sets = root.requireObject("history").requireArray("sets")
         val setObj = sets.values.first() as JsonObject
         assertEquals("eq-cable", setObj.requireString("equipmentId"))
@@ -231,8 +238,8 @@ class ExportTrainingLogsUseCaseTest {
         val logged = set("stable-set-9", "stable-sess-9")
         val repo = FakeTrainingLogRepository(listOf(sess), listOf(logged))
         val result = useCase(repo)(ExportLogRange.AllTime)
-        assertTrue(result.isSuccess)
-        val root = decodeRoot(result.getOrThrow().bytes)
+        assertTrue(result is ExportTrainingLogsResult.Success)
+        val root = decodeRoot(result.requireFile().bytes)
         val history = root.requireObject("history")
         val sessions = history.requireArray("sessions")
         val sets = history.requireArray("sets")
@@ -244,7 +251,7 @@ class ExportTrainingLogsUseCaseTest {
     }
 
     @Test
-    @DisplayName("IE-S1-009 Empty selection fails without file result")
+    @DisplayName("IE-S1-009 Empty selection returns NoLogsInRange without file result")
     fun ieS1_009_emptyRange() = runTest {
         val logging = FakeLoggingPort()
         val repo = FakeTrainingLogRepository()
@@ -254,15 +261,12 @@ class ExportTrainingLogsUseCaseTest {
                 clock = clock,
                 loggingPort = logging,
             )(ExportLogRange.LastDays(30, ZONE_NY))
-        assertTrue(result.isFailure)
-        val ex = result.exceptionOrNull()
-        assertTrue(ex is IllegalArgumentException)
-        assertEquals("No training logs in the selected range.", ex!!.message)
+        assertEquals(ExportTrainingLogsResult.NoLogsInRange, result)
         assertTrue(logging.errors.isEmpty())
     }
 
     @Test
-    @DisplayName("Repository read failure is logged and returned")
+    @DisplayName("Repository read failure is logged once and returned as PersistenceFailed")
     fun repositoryReadFailureIsLogged() = runTest {
         val logging = FakeLoggingPort()
         val repo = FakeTrainingLogRepository()
@@ -273,10 +277,30 @@ class ExportTrainingLogsUseCaseTest {
                 clock = clock,
                 loggingPort = logging,
             )(ExportLogRange.AllTime)
-        assertTrue(result.isFailure)
-        assertEquals("room down", result.exceptionOrNull()?.message)
+        assertEquals(ExportTrainingLogsResult.PersistenceFailed, result)
         assertEquals(1, logging.errors.size)
         assertEquals("ExportTrainingLogs", logging.errors.single().tag)
+        assertEquals("Failed to read training logs: room down", logging.errors.single().message)
+        assertEquals("room down", logging.errors.single().throwable?.message)
+    }
+
+    @Test
+    @DisplayName("Cancellation propagates instead of being captured (STR-243)")
+    fun cancellationPropagates() {
+        val repo = FakeTrainingLogRepository()
+        repo.getAllSessionsError =
+            kotlin.coroutines.cancellation.CancellationException("cancelled")
+        org.junit.jupiter.api.Assertions.assertThrows(
+            kotlin.coroutines.cancellation.CancellationException::class.java,
+        ) {
+            kotlinx.coroutines.runBlocking {
+                ExportTrainingLogsUseCase(
+                    trainingLogRepository = repo,
+                    clock = clock,
+                    loggingPort = FakeLoggingPort(),
+                )(ExportLogRange.AllTime)
+            }
+        }
     }
 
     @Test
@@ -284,8 +308,8 @@ class ExportTrainingLogsUseCaseTest {
     fun ieS1_011_mimeAndFilename() = runTest {
         val repo = FakeTrainingLogRepository(listOf(sessionA), listOf(setA1))
         val result = useCase(repo)(ExportLogRange.AllTime)
-        assertTrue(result.isSuccess)
-        val file = result.getOrThrow()
+        assertTrue(result is ExportTrainingLogsResult.Success)
+        val file = result.requireFile()
         assertEquals("application/json", file.mimeType)
         assertEquals("stratum-logs-20260716-150000.json", file.fileName)
     }
@@ -297,8 +321,8 @@ class ExportTrainingLogsUseCaseTest {
         val logged = set("must-export-set", "must-export-id")
         val repo = FakeTrainingLogRepository(listOf(sess), listOf(logged))
         val result = useCase(repo)(ExportLogRange.AllTime)
-        assertTrue(result.isSuccess)
-        val root = decodeRoot(result.getOrThrow().bytes)
+        assertTrue(result is ExportTrainingLogsResult.Success)
+        val root = decodeRoot(result.requireFile().bytes)
         val sessionObj = root.requireObject("history").requireArray("sessions").values[0] as JsonObject
         assertEquals("must-export-id", sessionObj.requireString("id"))
         assertTrue(sessionObj.entries.containsKey("id"))
@@ -314,8 +338,8 @@ class ExportTrainingLogsUseCaseTest {
             initialSets = listOf(none, withPartials),
         )
         val result = useCase(repo)(ExportLogRange.AllTime)
-        assertTrue(result.isSuccess)
-        val sets = decodeRoot(result.getOrThrow().bytes)
+        assertTrue(result is ExportTrainingLogsResult.Success)
+        val sets = decodeRoot(result.requireFile().bytes)
             .requireObject("history")
             .requireArray("sets")
             .values

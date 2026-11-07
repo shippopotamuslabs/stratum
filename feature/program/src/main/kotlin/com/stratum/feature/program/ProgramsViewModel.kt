@@ -10,16 +10,20 @@ import com.stratum.application.program.SetExpandedWorkoutIdUseCase
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.training.StartTrainingSessionResult
+import com.stratum.application.training.AbandonTrainingSessionResult
 import com.stratum.application.training.AbandonTrainingSessionUseCase
 import com.stratum.application.training.GetLoggedSetsForSessionUseCase
 import com.stratum.application.training.ObserveCycleProgressUseCase
+import com.stratum.application.training.RecordRestDaySkipResult
 import com.stratum.application.training.RecordRestDaySkipUseCase
+import com.stratum.application.training.RecordWorkoutSkipResult
 import com.stratum.application.training.RecordWorkoutSkipUseCase
 import com.stratum.domain.training.StartTrainingSessionRequest
 import com.stratum.application.training.StartTrainingSessionUseCase
 import com.stratum.domain.training.TrainingSession
 import com.stratum.domain.training.TrainingSessionDisplayName
 import com.stratum.domain.training.TrainingSessionKind
+import com.stratum.application.training.UnskipWorkoutResult
 import com.stratum.application.training.UnskipWorkoutUseCase
 import com.stratum.domain.training.isOrphanedAgainstActiveProgram
 import com.stratum.domain.training.liveWorkoutRouteId
@@ -107,8 +111,12 @@ class ProgramsViewModel @Inject constructor(
                 .distinctUntilChanged()
                 .collect { orphanSessionId ->
                     if (orphanSessionId != null) {
-                        abandonTrainingSession(orphanSessionId)
-                            .onFailure { showUserMessage(MSG_ABANDON_FAILED) }
+                        if (
+                            abandonTrainingSession(orphanSessionId) ==
+                                AbandonTrainingSessionResult.PersistenceFailed
+                        ) {
+                            showUserMessage(MSG_ABANDON_FAILED)
+                        }
                     }
                 }
         }
@@ -292,7 +300,7 @@ class ProgramsViewModel @Inject constructor(
             val activeSession = progress.activeSession ?: return@launch
             val result = abandonTrainingSession(activeSession.id)
             // Success is silent — cancel from the chip is intentional, not a failure to report.
-            if (result.isFailure) {
+            if (result != AbandonTrainingSessionResult.Success) {
                 showUserMessage(MSG_ABANDON_FAILED)
             } else {
                 // Match live-screen abandon: drop process-scoped overlay so a new session
@@ -304,29 +312,33 @@ class ProgramsViewModel @Inject constructor(
 
     fun skipWorkout(workoutId: String) {
         viewModelScope.launch {
-            recordWorkoutSkip(WorkoutId(workoutId))
-                .onFailure { showUserMessage(MSG_SKIP_FAILED) }
+            if (recordWorkoutSkip(WorkoutId(workoutId)) !is RecordWorkoutSkipResult.Success) {
+                showUserMessage(MSG_SKIP_FAILED)
+            }
         }
     }
 
     fun unskipWorkout(workoutId: String) {
         viewModelScope.launch {
-            unskipWorkout(WorkoutId(workoutId))
-                .onFailure { showUserMessage(MSG_UNSKIP_FAILED) }
+            if (unskipWorkout(WorkoutId(workoutId)) != UnskipWorkoutResult.Success) {
+                showUserMessage(MSG_UNSKIP_FAILED)
+            }
         }
     }
 
     fun skipRestDay(slotIndex: Int) {
         viewModelScope.launch {
-            recordRestDaySkip(slotIndex)
-                .onFailure { showUserMessage(MSG_SKIP_FAILED) }
+            if (recordRestDaySkip(slotIndex) !is RecordRestDaySkipResult.Success) {
+                showUserMessage(MSG_SKIP_FAILED)
+            }
         }
     }
 
     fun unskipRestDay(slotIndex: Int) {
         viewModelScope.launch {
-            unskipWorkout.unskipRestSlot(slotIndex)
-                .onFailure { showUserMessage(MSG_UNSKIP_FAILED) }
+            if (unskipWorkout.unskipRestSlot(slotIndex) != UnskipWorkoutResult.Success) {
+                showUserMessage(MSG_UNSKIP_FAILED)
+            }
         }
     }
 
@@ -335,7 +347,7 @@ class ProgramsViewModel @Inject constructor(
             val progress = observeCycleProgress().first()
             progress.activeSession?.let { session ->
                 val abandonResult = abandonTrainingSession(session.id)
-                if (abandonResult.isFailure) {
+                if (abandonResult != AbandonTrainingSessionResult.Success) {
                     showUserMessage(MSG_ABANDON_FAILED)
                     return@launch
                 }

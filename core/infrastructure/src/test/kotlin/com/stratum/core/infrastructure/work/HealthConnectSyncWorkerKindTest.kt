@@ -1,6 +1,5 @@
 package com.stratum.core.infrastructure.work
 
-import com.stratum.application.healthconnect.HealthSyncFailure
 import com.stratum.application.healthconnect.HealthSyncFailureKind
 import com.stratum.domain.healthconnect.HealthFailureKind
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -10,39 +9,38 @@ import org.junit.jupiter.api.Test
 class HealthConnectSyncWorkerKindTest {
 
     @Test
-    @DisplayName("unavailable factory maps to Unavailable")
+    @DisplayName("unavailable (Terminal) kind maps to Unavailable")
     fun unavailableMapsToUnavailable() {
         assertEquals(
             HealthFailureKind.Unavailable,
-            HealthSyncFailure.unavailable().toHealthFailureKind(),
+            HealthSyncFailureKind.Terminal.toStickyHealthFailureKind(),
         )
     }
 
     @Test
-    @DisplayName("permission-denied factory maps to PermissionDenied")
+    @DisplayName("permission-denied (UserActionable) kind maps to PermissionDenied")
     fun permissionDeniedMapsToPermissionDenied() {
         assertEquals(
             HealthFailureKind.PermissionDenied,
-            HealthSyncFailure.permissionDenied().toHealthFailureKind(),
+            HealthSyncFailureKind.UserActionable.toStickyHealthFailureKind(),
         )
     }
 
     @Test
-    @DisplayName("transient failure maps to Unknown")
+    @DisplayName("transient kind maps to Unknown")
     fun transientMapsToUnknown() {
         assertEquals(
             HealthFailureKind.Unknown,
-            HealthSyncFailure(HealthSyncFailureKind.Transient, "retryable blip")
-                .toHealthFailureKind(),
+            HealthSyncFailureKind.Transient.toStickyHealthFailureKind(),
         )
     }
 
     @Test
-    @DisplayName("unclassified throwable maps to Unknown")
+    @DisplayName("unclassified (null kind) maps to Unknown")
     fun rawThrowableMapsToUnknown() {
         assertEquals(
             HealthFailureKind.Unknown,
-            IllegalStateException("vendor blip").toHealthFailureKind(),
+            (null as HealthSyncFailureKind?).toStickyHealthFailureKind(),
         )
     }
 }

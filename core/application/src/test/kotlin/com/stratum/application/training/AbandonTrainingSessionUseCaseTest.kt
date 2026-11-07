@@ -26,14 +26,14 @@ class AbandonTrainingSessionUseCaseTest {
         )
         val useCase = AbandonTrainingSessionUseCase(repo, FakeLoggingPort())
 
-        useCase(TrainingSessionId("ts-live-1")).getOrThrow()
+        assertEquals(AbandonTrainingSessionResult.Success, useCase(TrainingSessionId("ts-live-1")))
 
         assertNull(repo.getSession(TrainingSessionId("ts-live-1")))
         assertTrue(repo.getSetsForSession(TrainingSessionId("ts-live-1")).isEmpty())
     }
 
     @Test
-    @DisplayName("Delete failure is returned as Result.failure and logged")
+    @DisplayName("Delete failure is returned as PersistenceFailed and logged")
     fun deleteFailureIsReturned() = runTest {
         val repo = FakeTrainingLogRepository()
         repo.seedSession(WorkoutLoggingFixtures.inProgressSession(id = "ts-live-1"))
@@ -43,8 +43,8 @@ class AbandonTrainingSessionUseCaseTest {
 
         val result = useCase(TrainingSessionId("ts-live-1"))
 
-        assertTrue(result.isFailure)
-        assertEquals("delete boom", result.exceptionOrNull()?.message)
+        assertEquals(AbandonTrainingSessionResult.PersistenceFailed, result)
+        assertEquals("Failed to abandon training session: delete boom", logging.errors.single().message)
         assertEquals("AbandonTrainingSession", logging.errors.single().tag)
         assertNotNull(repo.getSession(TrainingSessionId("ts-live-1")))
     }

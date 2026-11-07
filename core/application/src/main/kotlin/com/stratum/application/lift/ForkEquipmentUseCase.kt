@@ -2,16 +2,43 @@ package com.stratum.application.lift
 
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.logging.LoggingPort
-import com.stratum.domain.logging.runCatchingLogged
 import javax.inject.Inject
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.first
 import com.stratum.domain.lift.CatalogNames
 import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.IncrementLattice
-import com.stratum.domain.lift.IncrementTiersInvalidException
-import com.stratum.domain.lift.MicroIncrementsInvalidException
+import com.stratum.domain.lift.IncrementTiersValidationResult
+import com.stratum.domain.lift.MicroIncrementsValidationResult
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.uniqueifyForkEquipmentName
+
+/**
+ * Outcome of forking equipment (STR-243).
+ *
+ * Validation branches carry the validation results themselves
+ * ([CatalogNames.Validation.Invalid], [IncrementTiersValidationResult.Invalid],
+ * [MicroIncrementsValidationResult.Invalid]). The originating throwable of a failed
+ * read or write goes once to the diagnostics channel ([LoggingPort.error]) at the
+ * use-case boundary; it never crosses as a payload. Coroutine cancellation is not
+ * a branch: it propagates as cancellation.
+ */
+sealed interface ForkEquipmentResult {
+    data class Success(val forked: ForkedEquipment) : ForkEquipmentResult
+
+    data class InvalidName(val validation: CatalogNames.Validation.Invalid) : ForkEquipmentResult
+
+    data class EquipmentNotFound(val equipmentId: EquipmentId) : ForkEquipmentResult
+
+    data class InvalidTiers(val validation: IncrementTiersValidationResult.Invalid) :
+        ForkEquipmentResult
+
+    data class InvalidMicro(val validation: MicroIncrementsValidationResult.Invalid) :
+        ForkEquipmentResult
+
+    /** The parent read or the copy write failed (repository / store I/O). */
+    data object PersistenceFailed : ForkEquipmentResult
+}
 
 /**
  * Copies an existing equipment row's default tiers into a new custom equipment entry.
@@ -48,31 +75,38 @@ class ForkEquipmentUseCase @Inject constructor(
         newName: String,
         micro: List<Weight>? = null,
         validateMicroAgainstSource: Boolean = true,
-    ): Result<ForkedEquipment> {
-        val trimmed = CatalogNames.equipmentNameResult(newName).getOrElse { return Result.failure(it) }
-        val parent =
-            equipmentRepository.getEquipment(sourceEquipmentId)
-                ?: return Result.failure(IllegalArgumentException("Equipment not found"))
-        val tiers = parent.incrementTiers
-        // Fork semantics live on the model (STR-169): null inherits the parent's stops.
-        val resolvedMicro = parent.resolvedForkMicro(micro)
-        // Constructing the lattice is the validation (STR-165). Tier rules always
-        // apply to the parent's bands; micro rules apply only on the source-check
-        // path (explicit stops for replacement tiers are validated at the
-        // destination write instead).
-        if (tiers.isNotEmpty()) {
-            val tierErrors = IncrementLattice.tierErrors(tiers)
-            if (tierErrors.isNotEmpty()) {
-                return Result.failure(IncrementTiersInvalidException(tierErrors))
+    ): ForkEquipmentResult {
+        val trimmed =
+            when (val nameResult = CatalogNames.validateEquipmentName(newName)) {
+                is CatalogNames.Validation.Valid -> nameResult.name
+                is CatalogNames.Validation.Invalid ->
+                    return ForkEquipmentResult.InvalidName(nameResult)
             }
-        }
-        if (validateMicroAgainstSource && resolvedMicro.isNotEmpty()) {
-            val microErrors = IncrementLattice.microErrors(tiers, resolvedMicro)
-            if (microErrors.isNotEmpty()) {
-                return Result.failure(MicroIncrementsInvalidException(microErrors))
+        return try {
+            val parent =
+                equipmentRepository.getEquipment(sourceEquipmentId)
+                    ?: return ForkEquipmentResult.EquipmentNotFound(sourceEquipmentId)
+            val tiers = parent.incrementTiers
+            // Fork semantics live on the model (STR-169): null inherits the parent's stops.
+            val resolvedMicro = parent.resolvedForkMicro(micro)
+            // The lattice rules are the validation (STR-165). Tier rules always
+            // apply to the parent's bands; micro rules apply only on the source-check
+            // path (explicit stops for replacement tiers are validated at the
+            // destination write instead).
+            if (tiers.isNotEmpty()) {
+                when (val tiersResult = IncrementLattice.validateTiers(tiers)) {
+                    is IncrementTiersValidationResult.Invalid ->
+                        return ForkEquipmentResult.InvalidTiers(tiersResult)
+                    IncrementTiersValidationResult.Valid -> Unit
+                }
             }
-        }
-        return runCatchingLogged(loggingPort, TAG, "Failed to fork equipment") {
+            if (validateMicroAgainstSource && resolvedMicro.isNotEmpty()) {
+                when (val microResult = IncrementLattice.validateMicro(tiers, resolvedMicro)) {
+                    is MicroIncrementsValidationResult.Invalid ->
+                        return ForkEquipmentResult.InvalidMicro(microResult)
+                    MicroIncrementsValidationResult.Valid -> Unit
+                }
+            }
             // STR-246: the saved name is the requested name when unique; on a collision
             // the shared policy appends the lowest free numbered suffix — never "(copy)".
             val liveNames =
@@ -81,7 +115,12 @@ class ForkEquipmentUseCase @Inject constructor(
                     .map { it.name }
             val resolvedName = uniqueifyForkEquipmentName(trimmed, liveNames)
             val id = equipmentRepository.addCustomEquipment(resolvedName, tiers, resolvedMicro)
-            ForkedEquipment(id, resolvedMicro)
+            ForkEquipmentResult.Success(ForkedEquipment(id, resolvedMicro))
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (t: Throwable) {
+            loggingPort.error(TAG, "Failed to fork equipment: ${t.message}", t)
+            ForkEquipmentResult.PersistenceFailed
         }
     }
 

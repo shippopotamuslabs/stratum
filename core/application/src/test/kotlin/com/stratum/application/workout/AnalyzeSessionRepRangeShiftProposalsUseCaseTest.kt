@@ -1,5 +1,7 @@
 package com.stratum.application.workout
 
+import com.stratum.core.testing.logging.FakeLoggingPort
+
 import com.stratum.core.testing.importing.FakeImportAnalysisMetadataRepository
 import com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository
 import com.stratum.core.testing.importing.FakeMuscleVolumeBaselineRepository
@@ -71,6 +73,7 @@ class AnalyzeSessionRepRangeShiftProposalsUseCaseTest {
                 preferences = prefs,
                 extractTrainingInsights =
                     ExtractTrainingInsightsUseCase(
+                        loggingPort = FakeLoggingPort(),
                         trainingLogRepository = logRepo,
                         liftTrainingInsightsRepository = insightsRepo,
                         supersetAffinityRepository = FakeSupersetAffinityRepository(),

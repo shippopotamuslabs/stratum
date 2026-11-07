@@ -1,6 +1,7 @@
 package com.stratum.liftconfig
 
 import com.stratum.application.featureflag.ObserveIncrementsAiScanUseCase
+import com.stratum.application.lift.ScanIncrementTiersResult
 import com.stratum.application.lift.ScanIncrementTiersUseCase
 import com.stratum.domain.lift.ScanPhoto
 import com.stratum.domain.lift.Weight
@@ -143,7 +144,8 @@ class IncrementScanDelegate @Inject constructor(
     ): ScannedDrafts? {
         if (!observeIncrementsAiScan().first()) return null
         _scanState.value = IncrementScanState.Scanning
-        val scanned = scanIncrementTiers(photo).getOrNull()
+        val scanned =
+            (scanIncrementTiers(photo) as? ScanIncrementTiersResult.Success)?.scanned
         val tierDrafts =
             scanned?.tiers?.map { IncrementTierDraftOps.toDraft(it, displayUnit) }.orEmpty()
         val drafts =

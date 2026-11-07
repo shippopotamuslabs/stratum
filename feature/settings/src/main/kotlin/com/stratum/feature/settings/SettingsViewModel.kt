@@ -2,10 +2,12 @@ package com.stratum.feature.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.stratum.application.auth.AuthDeleteAfterAccountWipeException
+import com.stratum.application.auth.DeleteAccountResult
 import com.stratum.application.auth.DeleteAccountUseCase
-import com.stratum.application.auth.LocalCleanupAfterAccountDeletionException
+import com.stratum.application.auth.LogoutResult
 import com.stratum.application.auth.LogoutUseCase
+import com.stratum.application.sync.CloudSyncDiagnostic
+import com.stratum.application.checkin.CheckInPreferenceResult
 import com.stratum.application.checkin.MarkCheckInPendingUseCase
 import com.stratum.application.checkin.ObserveCheckInPreferencesUseCase
 import com.stratum.application.checkin.SetCheckInEnabledUseCase
@@ -14,6 +16,9 @@ import com.stratum.application.healthconnect.ObserveHealthConnectPreferencesUseC
 import com.stratum.application.healthconnect.ObserveHealthConnectSyncErrorsUseCase
 import com.stratum.domain.healthconnect.HealthFailureKind
 import com.stratum.application.healthconnect.ApplyGrantedPermissionsDiagnostic
+import com.stratum.application.healthconnect.ApplyGrantedPermissionsOutcome
+import com.stratum.application.healthconnect.HealthConnectPermissionsQueryResult
+import com.stratum.application.healthconnect.SetHealthConnectEnabledResult
 import com.stratum.application.healthconnect.SetHealthConnectEnabledUseCase
 import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.domain.subscription.EntitlementSource
@@ -21,16 +26,21 @@ import com.stratum.domain.subscription.EntitlementState
 import com.stratum.application.subscription.ObserveEntitlementUseCase
 import com.stratum.application.lift.ObserveEquipmentProposalsEnabledUseCase
 import com.stratum.application.lift.ObserveWeightDisplayPreferencesUseCase
+import com.stratum.application.lift.EquipmentProposalPreferenceResult
 import com.stratum.application.lift.SetEquipmentProposalsEnabledUseCase
 import com.stratum.application.lift.SetWeightDisplayUnitUseCase
+import com.stratum.application.lift.WeightDisplayPreferenceResult
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.theme.ColorMode
 import com.stratum.application.theme.ObserveThemePreferencesUseCase
 import com.stratum.application.theme.SetColorModeUseCase
 import com.stratum.application.theme.SetThemeFamilyUseCase
+import com.stratum.application.theme.ThemePreferenceResult
 import com.stratum.domain.theme.ThemeFamily
 import com.stratum.application.training.ForceRefreshDerivedTrainingData
+import com.stratum.application.training.ForceRefreshDerivedTrainingDataResult
 import com.stratum.application.workout.ObserveRepRangeShiftProposalsEnabledUseCase
+import com.stratum.application.workout.RepRangeShiftPreferenceResult
 import com.stratum.application.workout.SetRepRangeShiftProposalsEnabledUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Instant
@@ -171,8 +181,12 @@ class SettingsViewModel @Inject constructor(
 
     fun onHealthConnectEnabledChange(enabled: Boolean) {
         viewModelScope.launch {
-            setHealthConnectEnabled(enabled).onFailure { error ->
-                _userMessage.value = error.message ?: MSG_PREFS_FAILED
+            when (setHealthConnectEnabled(enabled)) {
+                SetHealthConnectEnabledResult.Success -> Unit
+                SetHealthConnectEnabledResult.SdkUnavailable ->
+                    _userMessage.value = MSG_HEALTH_SYNC_UNAVAILABLE
+                SetHealthConnectEnabledResult.PersistenceFailed ->
+                    _userMessage.value = MSG_PREFS_FAILED
             }
         }
     }
@@ -183,12 +197,21 @@ class SettingsViewModel @Inject constructor(
      */
     fun onHealthConnectPermissionSheetClosed() {
         viewModelScope.launch {
-            setHealthConnectEnabled.applyGrantedPermissions(HealthConnectLaunchPermissions.all)
-                .onSuccess { outcome -> logPermissionDiagnostics(outcome.diagnostics) }
-                .onFailure { error ->
-                    _userMessage.value = error.message ?: MSG_PREFS_FAILED
-                }
+            handleApplyGrantedPermissions(
+                setHealthConnectEnabled.applyGrantedPermissions(HealthConnectLaunchPermissions.all),
+            )
             loadHealthConnectGrants()
+        }
+    }
+
+    private fun handleApplyGrantedPermissions(outcome: ApplyGrantedPermissionsOutcome) {
+        when (outcome) {
+            is ApplyGrantedPermissionsOutcome.Applied ->
+                logPermissionDiagnostics(outcome.diagnostics)
+            ApplyGrantedPermissionsOutcome.SdkUnavailable ->
+                _userMessage.value = MSG_HEALTH_SYNC_UNAVAILABLE
+            ApplyGrantedPermissionsOutcome.PersistenceFailed ->
+                _userMessage.value = MSG_PREFS_FAILED
         }
     }
 
@@ -202,15 +225,18 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             loadHealthConnectGrants()
             val requested = focus.requestedPermissions()
-            val missing = setHealthConnectEnabled
-                .permissionsStillNeeded(requested)
-                .getOrElse { requested }
+            val missing = when (
+                val query = setHealthConnectEnabled.permissionsStillNeeded(requested)
+            ) {
+                is HealthConnectPermissionsQueryResult.Success -> query.permissions
+                HealthConnectPermissionsQueryResult.QueryFailed -> requested
+            }
             if (missing.isEmpty()) {
-                setHealthConnectEnabled.applyGrantedPermissions(HealthConnectLaunchPermissions.all)
-                    .onSuccess { outcome -> logPermissionDiagnostics(outcome.diagnostics) }
-                    .onFailure { error ->
-                        _userMessage.value = error.message ?: MSG_PREFS_FAILED
-                    }
+                handleApplyGrantedPermissions(
+                    setHealthConnectEnabled.applyGrantedPermissions(
+                        HealthConnectLaunchPermissions.all,
+                    ),
+                )
                 _healthConnectPermissionAction.emit(HealthConnectPermissionAction.OpenSettings)
             } else {
                 _healthConnectPermissionAction.emit(HealthConnectPermissionAction.Request(missing))
@@ -227,14 +253,15 @@ class SettingsViewModel @Inject constructor(
     }
 
     private suspend fun loadHealthConnectGrants() {
-        setHealthConnectEnabled.grantedPermissions().onSuccess { granted ->
-            healthConnectGranted.value = granted
+        val query = setHealthConnectEnabled.grantedPermissions()
+        if (query is HealthConnectPermissionsQueryResult.Success) {
+            healthConnectGranted.value = query.permissions
         }
     }
 
     fun onAppearanceSelected(appearance: AppearanceUi) {
         viewModelScope.launch {
-            setColorMode(appearance.toDomain()).onFailure {
+            if (setColorMode(appearance.toDomain()) == ThemePreferenceResult.PersistenceFailed) {
                 _userMessage.value = MSG_PREFS_FAILED
             }
         }
@@ -242,7 +269,7 @@ class SettingsViewModel @Inject constructor(
 
     fun onThemeFamilySelected(family: ThemeFamilyUi) {
         viewModelScope.launch {
-            setThemeFamily(family.toDomain()).onFailure {
+            if (setThemeFamily(family.toDomain()) == ThemePreferenceResult.PersistenceFailed) {
                 _userMessage.value = MSG_PREFS_FAILED
             }
         }
@@ -250,7 +277,7 @@ class SettingsViewModel @Inject constructor(
 
     fun onCheckInsEnabledChange(enabled: Boolean) {
         viewModelScope.launch {
-            setCheckInEnabled(enabled).onFailure {
+            if (setCheckInEnabled(enabled) == CheckInPreferenceResult.PersistenceFailed) {
                 _userMessage.value = MSG_PREFS_FAILED
             }
         }
@@ -258,7 +285,7 @@ class SettingsViewModel @Inject constructor(
 
     fun onWeightUnitSelected(unit: WeightUnitUi) {
         viewModelScope.launch {
-            setWeightDisplayUnit(unit.toDomain()).onFailure {
+            if (setWeightDisplayUnit(unit.toDomain()) == WeightDisplayPreferenceResult.PersistenceFailed) {
                 _userMessage.value = MSG_PREFS_FAILED
             }
         }
@@ -269,14 +296,16 @@ class SettingsViewModel @Inject constructor(
         enabled: Boolean,
     ) {
         viewModelScope.launch {
-            val result =
+            val failed =
                 when (kind) {
                     PostWorkoutSuggestionUi.EquipmentSteps ->
-                        setEquipmentProposalsEnabled(enabled)
+                        setEquipmentProposalsEnabled(enabled) ==
+                            EquipmentProposalPreferenceResult.PersistenceFailed
                     PostWorkoutSuggestionUi.RepRangeShift ->
-                        setRepRangeShiftProposalsEnabled(enabled)
+                        setRepRangeShiftProposalsEnabled(enabled) ==
+                            RepRangeShiftPreferenceResult.PersistenceFailed
                 }
-            result.onFailure {
+            if (failed) {
                 _userMessage.value = MSG_PREFS_FAILED
             }
         }
@@ -291,7 +320,10 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             val enable = setCheckInEnabled(true)
             val pending = markCheckInPending(Instant.now())
-            if (enable.isFailure || pending.isFailure) {
+            if (
+                enable == CheckInPreferenceResult.PersistenceFailed ||
+                pending == CheckInPreferenceResult.PersistenceFailed
+            ) {
                 _userMessage.value = MSG_PREFS_FAILED
                 return@launch
             }
@@ -322,8 +354,8 @@ class SettingsViewModel @Inject constructor(
         }
         rebuildProgressUi.update { it.copy(showConfirm = false, isRunning = true) }
         viewModelScope.launch {
-            forceRefreshDerived()
-                .onSuccess {
+            when (forceRefreshDerived()) {
+                ForceRefreshDerivedTrainingDataResult.Success -> {
                     rebuildProgressUi.update {
                         it.copy(
                             isRunning = false,
@@ -333,10 +365,11 @@ class SettingsViewModel @Inject constructor(
                     }
                     _userMessage.value = MSG_FORCE_REFRESH_QUEUED
                 }
-                .onFailure {
+                ForceRefreshDerivedTrainingDataResult.PersistenceFailed -> {
                     rebuildProgressUi.update { it.copy(isRunning = false) }
                     _userMessage.value = MSG_FORCE_REFRESH_FAILED
                 }
+            }
         }
     }
 
@@ -365,16 +398,38 @@ class SettingsViewModel @Inject constructor(
         if (!claimed) return
         viewModelScope.launch {
             try {
-                logout().onFailure { error ->
-                    // STR-256: the primary stays UI-only; a failed compensating sync restart
-                    // rides it as suppressed and is drained here exactly once.
-                    error.suppressed.forEach { restartError ->
-                        logError(TAG_AUTH, MSG_SYNC_RESTART_FAILED_LOGOUT, restartError)
+                when (val result = logout()) {
+                    LogoutResult.Success -> Unit
+                    is LogoutResult.WipeFailed -> {
+                        drainRestartDiagnostics(
+                            result.restartDiagnostics,
+                            MSG_SYNC_RESTART_FAILED_LOGOUT,
+                        )
+                        _userMessage.value = MSG_LOGOUT_FAILED
                     }
-                    _userMessage.value = MSG_LOGOUT_FAILED
+                    is LogoutResult.SignOutFailed -> {
+                        drainRestartDiagnostics(
+                            result.restartDiagnostics,
+                            MSG_SYNC_RESTART_FAILED_LOGOUT,
+                        )
+                        _userMessage.value = MSG_LOGOUT_FAILED
+                    }
                 }
             } finally {
                 accountUi.value = AccountUi.Idle
+            }
+        }
+    }
+
+    /** STR-256: a failed compensating sync restart is drained here exactly once. */
+    private fun drainRestartDiagnostics(
+        diagnostics: List<CloudSyncDiagnostic>,
+        message: String,
+    ) {
+        diagnostics.forEach { diagnostic ->
+            when (diagnostic) {
+                is CloudSyncDiagnostic.OperationFailed ->
+                    logError(TAG_AUTH, message, diagnostic.cause)
             }
         }
     }
@@ -404,22 +459,24 @@ class SettingsViewModel @Inject constructor(
         if (!claimed) return
         viewModelScope.launch {
             try {
-                deleteAccount()
-                    .onFailure { error ->
-                        // STR-256: the primary stays UI-only; a failed compensating sync restart
-                        // rides it as suppressed and is drained here exactly once.
-                        error.suppressed.forEach { restartError ->
-                            logError(TAG_AUTH, MSG_SYNC_RESTART_FAILED_DELETE, restartError)
-                        }
-                        _userMessage.value =
-                            when (error) {
-                                is LocalCleanupAfterAccountDeletionException ->
-                                    MSG_DELETE_LOCAL_CLEANUP_FAILED
-                                is AuthDeleteAfterAccountWipeException ->
-                                    MSG_DELETE_AUTH_FAILED
-                                else -> MSG_DELETE_FAILED
-                            }
+                when (val result = deleteAccount()) {
+                    DeleteAccountResult.Success -> Unit
+                    DeleteAccountResult.NotSignedIn ->
+                        _userMessage.value = MSG_DELETE_FAILED
+                    is DeleteAccountResult.RemoteDataFailed -> {
+                        // STR-256: a failed compensating sync restart is drained here
+                        // exactly once.
+                        drainRestartDiagnostics(
+                            result.restartDiagnostics,
+                            MSG_SYNC_RESTART_FAILED_DELETE,
+                        )
+                        _userMessage.value = MSG_DELETE_FAILED
                     }
+                    DeleteAccountResult.LocalCleanupFailed ->
+                        _userMessage.value = MSG_DELETE_LOCAL_CLEANUP_FAILED
+                    DeleteAccountResult.AuthDeleteFailed ->
+                        _userMessage.value = MSG_DELETE_AUTH_FAILED
+                }
             } finally {
                 accountUi.value = AccountUi.Idle
             }
@@ -457,7 +514,7 @@ class SettingsViewModel @Inject constructor(
 
     /**
      * Translates the sticky sync-error kind to the existing shipped user text (STR-268).
-     * The strings are the HealthSyncFailure factory wordings — no new copy.
+     * The strings are the Health Connect classification wordings — no new copy.
      */
     private fun HealthFailureKind.toUserMessage(): String =
         when (this) {

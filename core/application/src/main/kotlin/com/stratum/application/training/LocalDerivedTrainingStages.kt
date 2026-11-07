@@ -1,6 +1,7 @@
 package com.stratum.application.training
 
 import com.stratum.domain.di.DefaultDispatcher
+import com.stratum.application.importing.ExtractTrainingInsightsOutcome
 import com.stratum.application.importing.ExtractTrainingInsightsUseCase
 import com.stratum.application.importing.InsightsAnalysisScope
 import com.stratum.domain.logging.LoggingPort
@@ -10,6 +11,27 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
+
+/**
+ * Outcome of a [LocalDerivedTrainingStages] run (STR-243).
+ *
+ * Stage failures are identified by kind ([InsightsFailed] /
+ * [WeeklySeriesFailed]). The weekly-series stage's originating throwable is
+ * logged once inside the stages (with the caller's log tag) before the branch
+ * is returned; the insights stage's throwable is logged once at
+ * [ExtractTrainingInsightsUseCase]'s own boundary, so neither crosses as a
+ * payload. [PersistenceFailed] covers a failure of the stage runner itself.
+ * Coroutine cancellation is not a branch: it propagates.
+ */
+sealed interface LocalDerivedTrainingStagesResult {
+    data object Success : LocalDerivedTrainingStagesResult
+
+    data object InsightsFailed : LocalDerivedTrainingStagesResult
+
+    data object WeeklySeriesFailed : LocalDerivedTrainingStagesResult
+
+    data object PersistenceFailed : LocalDerivedTrainingStagesResult
+}
 
 /**
  * Shared insights + weekly-series stages used by post-finalize refresh, cloud-hydrate rebuild, and
@@ -39,22 +61,15 @@ class LocalDerivedTrainingStages @Inject constructor(
         includeInsights: Boolean,
         failPolicy: FailPolicy,
         logTag: String,
-    ): Result<Unit> =
+    ): LocalDerivedTrainingStagesResult =
         try {
             withContext(defaultDispatcher) {
                 if (includeInsights) {
-                    val insightsResult = extractTrainingInsights(scope = InsightsAnalysisScope.All)
-                    if (insightsResult.isFailure) {
-                        val error = insightsResult.exceptionOrNull()
-                        loggingPort.error(
-                            logTag,
-                            "Insights rollup failed: ${error?.message}",
-                            error,
-                        )
+                    val insightsOutcome = extractTrainingInsights(scope = InsightsAnalysisScope.All)
+                    if (insightsOutcome is ExtractTrainingInsightsOutcome.Failed) {
+                        // Already logged once at the extract use case's boundary.
                         if (failPolicy == FailPolicy.Throw) {
-                            return@withContext Result.failure(
-                                error ?: IllegalStateException("Insights rollup failed"),
-                            )
+                            return@withContext LocalDerivedTrainingStagesResult.InsightsFailed
                         }
                     }
                 }
@@ -68,16 +83,17 @@ class LocalDerivedTrainingStages @Inject constructor(
                         error,
                     )
                     if (failPolicy == FailPolicy.Throw) {
-                        return@withContext Result.failure(
-                            error ?: IllegalStateException("Weekly series rebuild failed"),
-                        )
+                        return@withContext LocalDerivedTrainingStagesResult.WeeklySeriesFailed
                     }
                 }
-                Result.success(Unit)
+                LocalDerivedTrainingStagesResult.Success
             }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
-            Result.failure(e)
+            // The stage runner itself failed (not a stage result): log the
+            // throwable once here, at the boundary, and return the kind.
+            loggingPort.error(logTag, "Local derived stages failed: ${e.message}", e)
+            LocalDerivedTrainingStagesResult.PersistenceFailed
         }
 }

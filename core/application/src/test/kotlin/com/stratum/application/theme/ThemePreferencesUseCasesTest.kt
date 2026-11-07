@@ -49,4 +49,34 @@ class ThemePreferencesUseCasesTest {
         setColorMode(ColorMode.Dark)
         assertEquals(ColorMode.Dark, fakeRepository.current.colorMode)
     }
+
+    @Test
+    @DisplayName("setFamily returns PersistenceFailed when the repository write throws (STR-243)")
+    fun setFamilyPersistenceFailure() = runTest {
+        val throwing =
+            object : ThemePreferencesRepository by fakeRepository {
+                override suspend fun setFamily(family: ThemeFamily) {
+                    throw RuntimeException("store unavailable")
+                }
+            }
+        val result = SetThemeFamilyUseCase(throwing, FakeLoggingPort())(ThemeFamily.NeoBrutalist)
+        assertEquals(ThemePreferenceResult.PersistenceFailed, result)
+    }
+
+    @Test
+    @DisplayName("setColorMode propagates CancellationException instead of capturing it (STR-243)")
+    fun setColorModeCancellationPropagates() {
+        val cancelling =
+            object : ThemePreferencesRepository by fakeRepository {
+                override suspend fun setColorMode(colorMode: ColorMode) {
+                    throw kotlin.coroutines.cancellation.CancellationException("cancelled")
+                }
+            }
+        val subject = SetColorModeUseCase(cancelling, FakeLoggingPort())
+        org.junit.jupiter.api.Assertions.assertThrows(
+            kotlin.coroutines.cancellation.CancellationException::class.java,
+        ) {
+            kotlinx.coroutines.runBlocking { subject(ColorMode.Dark) }
+        }
+    }
 }

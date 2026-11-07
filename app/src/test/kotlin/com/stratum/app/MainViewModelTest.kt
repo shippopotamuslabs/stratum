@@ -176,9 +176,9 @@ class MainViewModelTest {
         fakeAuth.setState(
             AuthState.Authenticated(UserProfile("uid-1", "A", "a@x.com", null)),
         )
-        fakeCloudSync.wipeResult = Result.failure(IllegalStateException("wipe failed"))
+        fakeCloudSync.wipeFailure = IllegalStateException("wipe failed")
         val restartError = IllegalStateException("restart failed")
-        fakeCloudSync.startResult = Result.failure(restartError)
+        fakeCloudSync.startFailure = restartError
         subject = buildViewModel()
         advanceUntilIdle()
 

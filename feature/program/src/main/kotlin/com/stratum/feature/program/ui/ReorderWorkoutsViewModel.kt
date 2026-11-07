@@ -2,6 +2,7 @@ package com.stratum.feature.program.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.stratum.application.program.ReorderProgramCycleDaysResult
 import com.stratum.application.program.ReorderProgramCycleDaysUseCase
 import com.stratum.domain.program.identity.ProgramId
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -75,9 +76,12 @@ class ReorderWorkoutsViewModel @Inject constructor(
         if (orderedIds.isEmpty()) return
         persistJob =
             viewModelScope.launch {
-                reorderProgramCycleDays(ProgramId(programId), orderedIds)
-                    .onSuccess { onDone() }
-                    .onFailure { _userMessage.value = MSG_REORDER_FAILED }
+                when (reorderProgramCycleDays(ProgramId(programId), orderedIds)) {
+                    ReorderProgramCycleDaysResult.Success -> onDone()
+                    is ReorderProgramCycleDaysResult.ProgramNotFound,
+                    ReorderProgramCycleDaysResult.PersistenceFailed,
+                    -> _userMessage.value = MSG_REORDER_FAILED
+                }
             }
     }
 

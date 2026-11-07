@@ -5,11 +5,12 @@ import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.stratum.application.healthconnect.HEALTH_CONNECT_PREFS_TAG
-import com.stratum.application.healthconnect.HealthSyncFailure
+import com.stratum.application.healthconnect.HealthConnectWriteOutcome
+import com.stratum.application.healthconnect.HealthSyncDiagnostic
+import com.stratum.application.healthconnect.HealthSyncFailureKind
 import com.stratum.application.healthconnect.toHealthFailureKind
 import com.stratum.domain.healthconnect.HealthFailureKind
 import com.stratum.domain.logging.LoggingPort
-import com.stratum.domain.logging.onFailureLogged
 import com.stratum.domain.training.identity.TrainingSessionId
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -35,10 +36,10 @@ class HealthConnectSyncWorker @AssistedInject constructor(
             is HealthConnectSyncWork.Outcome.TerminalFailure -> {
                 loggingPort.error(
                     TAG,
-                    "Health Connect sync terminal failure: ${outcome.error.message}",
-                    outcome.error,
+                    "Health Connect sync terminal failure: ${outcome.message}",
+                    outcome.cause,
                 )
-                reportStickySyncError(outcome.error.toHealthFailureKind())
+                reportStickySyncError(outcome.kind.toStickyHealthFailureKind())
                 Result.failure()
             }
 
@@ -49,11 +50,11 @@ class HealthConnectSyncWorker @AssistedInject constructor(
                         maxRetries = 2,
                         tag = TAG,
                         taskDescription = "Health Connect sync",
-                        error = outcome.error,
+                        error = outcome.cause,
                         loggingPort = loggingPort,
                     )
                 if (result == Result.failure()) {
-                    reportStickySyncError(outcome.error.toHealthFailureKind())
+                    reportStickySyncError(outcome.kind.toStickyHealthFailureKind())
                 }
                 result
             }
@@ -62,15 +63,23 @@ class HealthConnectSyncWorker @AssistedInject constructor(
 
     /**
      * Persists the sticky sync error for UI surfacing. The work layer returns
-     * the write failure as a value without logging it; this worker is the
-     * drain boundary, so each failure is logged exactly once here.
+     * the write failure as an outcome without logging it; this worker is the
+     * drain boundary, so each failure diagnostic is logged exactly once here.
      */
     private suspend fun reportStickySyncError(kind: HealthFailureKind) {
-        work.reportTerminalFailure(kind).onFailureLogged(
-            loggingPort,
-            HEALTH_CONNECT_PREFS_TAG,
-            "Failed to set Health Connect sync error",
-        )
+        val outcome = work.reportTerminalFailure(kind)
+        if (outcome is HealthConnectWriteOutcome.Failed) {
+            outcome.diagnostics.forEach { diagnostic ->
+                when (diagnostic) {
+                    is HealthSyncDiagnostic.OperationFailed ->
+                        loggingPort.error(
+                            HEALTH_CONNECT_PREFS_TAG,
+                            "Failed to set Health Connect sync error: ${diagnostic.cause.message}",
+                            diagnostic.cause,
+                        )
+                }
+            }
+        }
     }
 
     private companion object {
@@ -79,8 +88,9 @@ class HealthConnectSyncWorker @AssistedInject constructor(
 }
 
 /**
- * Derives the sticky kind from the outcome error (D8): classified application
- * failures map by kind; unclassified throwables persist as [HealthFailureKind.Unknown].
+ * Derives the sticky kind from a sync failure's classification (D8): a
+ * classified failure maps by kind; an unclassified (work-local) failure
+ * persists as [HealthFailureKind.Unknown].
  */
-internal fun Throwable.toHealthFailureKind(): HealthFailureKind =
-    (this as? HealthSyncFailure)?.kind?.toHealthFailureKind() ?: HealthFailureKind.Unknown
+internal fun HealthSyncFailureKind?.toStickyHealthFailureKind(): HealthFailureKind =
+    this?.toHealthFailureKind() ?: HealthFailureKind.Unknown

@@ -1,5 +1,7 @@
 package com.stratum.application.importing
 
+import com.stratum.core.testing.logging.FakeLoggingPort
+
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
@@ -68,6 +70,7 @@ class ExtractTrainingInsightsUseCaseTest {
         trainingLogRepo.replaceImportHistory(sessions, sets)
         val insightsRepo = InMemoryLiftInsightsRepository()
         val useCase = ExtractTrainingInsightsUseCase(
+            loggingPort = FakeLoggingPort(),
             trainingLogRepository = trainingLogRepo,
             liftTrainingInsightsRepository = insightsRepo,
             supersetAffinityRepository = InMemorySupersetRepository(),
@@ -76,7 +79,7 @@ class ExtractTrainingInsightsUseCaseTest {
             liftRepository = liftRepo,
         )
 
-        val summary = useCase().getOrThrow()
+        val summary = (useCase() as ExtractTrainingInsightsOutcome.Extracted).summary
 
         assertTrue(summary.liftsWithInsights > 0)
         assertTrue(insightsRepo.stored.isNotEmpty())
@@ -151,6 +154,7 @@ class ExtractTrainingInsightsUseCaseTest {
         val liftInsightsRepo = InMemoryLiftInsightsRepository()
         val metadataRepo = InMemoryMetadataRepository()
         val useCase = ExtractTrainingInsightsUseCase(
+            loggingPort = FakeLoggingPort(),
             trainingLogRepository = trainingLogRepo,
             liftTrainingInsightsRepository = liftInsightsRepo,
             supersetAffinityRepository = InMemorySupersetRepository(),
@@ -160,12 +164,12 @@ class ExtractTrainingInsightsUseCaseTest {
         )
 
         // ImportOnly sees only Hack Squat.
-        useCase().getOrThrow()
+        assertTrue(useCase() is ExtractTrainingInsightsOutcome.Extracted)
         val importOnlyLifts = liftInsightsRepo.stored.map { it.liftId }.toSet()
         assertEquals(setOf(squatId), importOnlyLifts, "ImportOnly should analyze only imported lifts")
 
         // All sees both Hack Squat and DB Curl.
-        useCase(scope = InsightsAnalysisScope.All).getOrThrow()
+        assertTrue(useCase(scope = InsightsAnalysisScope.All) is ExtractTrainingInsightsOutcome.Extracted)
         val allLifts = liftInsightsRepo.stored.map { it.liftId }.toSet()
         assertEquals(setOf(squatId, curlId), allLifts, "All scope should analyze imported + live lifts")
     }
@@ -221,6 +225,7 @@ class ExtractTrainingInsightsUseCaseTest {
             )
         }
         val useCase = ExtractTrainingInsightsUseCase(
+            loggingPort = FakeLoggingPort(),
             trainingLogRepository = trainingLogRepo,
             liftTrainingInsightsRepository = InMemoryLiftInsightsRepository(),
             supersetAffinityRepository = InMemorySupersetRepository(),
@@ -229,13 +234,62 @@ class ExtractTrainingInsightsUseCaseTest {
             liftRepository = liftRepo,
         )
 
-        useCase(scope = InsightsAnalysisScope.All).getOrThrow()
+        assertTrue(useCase(scope = InsightsAnalysisScope.All) is ExtractTrainingInsightsOutcome.Extracted)
 
         assertEquals(
             listOf(provenId),
             metadataRepo.stored?.provenLiftIds,
             "All-scope refresh must preserve previously proven lift ids",
         )
+    }
+
+    @Test
+    fun `repository failure returns Failed and logs the throwable once at the boundary`() = runTest {
+        val failure = IllegalStateException("room down")
+        val trainingLogRepo = FakeTrainingLogRepository()
+        trainingLogRepo.getAllSessionsError = failure
+        val logging = FakeLoggingPort()
+        val useCase = ExtractTrainingInsightsUseCase(
+            loggingPort = logging,
+            trainingLogRepository = trainingLogRepo,
+            liftTrainingInsightsRepository = InMemoryLiftInsightsRepository(),
+            supersetAffinityRepository = InMemorySupersetRepository(),
+            muscleVolumeBaselineRepository = InMemoryVolumeRepository(),
+            importAnalysisMetadataRepository = InMemoryMetadataRepository(),
+            liftRepository = FakeLiftRepository(),
+        )
+
+        val outcome = useCase(scope = InsightsAnalysisScope.All)
+
+        assertEquals(ExtractTrainingInsightsOutcome.Failed, outcome)
+        assertEquals(1, logging.errors.size)
+        assertEquals("ExtractTrainingInsights", logging.errors.single().tag)
+        assertEquals("Failed to extract training insights: room down", logging.errors.single().message)
+        assertEquals(failure, logging.errors.single().throwable)
+    }
+
+    @Test
+    fun `cancellation propagates instead of returning Failed`() = runTest {
+        val trainingLogRepo = FakeTrainingLogRepository()
+        trainingLogRepo.getAllSessionsError = kotlinx.coroutines.CancellationException("cancelled")
+        val useCase = ExtractTrainingInsightsUseCase(
+            loggingPort = FakeLoggingPort(),
+            trainingLogRepository = trainingLogRepo,
+            liftTrainingInsightsRepository = InMemoryLiftInsightsRepository(),
+            supersetAffinityRepository = InMemorySupersetRepository(),
+            muscleVolumeBaselineRepository = InMemoryVolumeRepository(),
+            importAnalysisMetadataRepository = InMemoryMetadataRepository(),
+            liftRepository = FakeLiftRepository(),
+        )
+
+        var thrown: Throwable? = null
+        try {
+            useCase(scope = InsightsAnalysisScope.All)
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            thrown = cancelled
+        }
+
+        assertEquals("cancelled", thrown?.message)
     }
 
     private fun importSet(

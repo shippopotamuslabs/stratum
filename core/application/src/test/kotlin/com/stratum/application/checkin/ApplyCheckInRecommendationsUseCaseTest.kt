@@ -1,6 +1,7 @@
 package com.stratum.application.checkin
 
 import com.stratum.core.testing.logging.FakeLoggingPort
+import com.stratum.application.program.ProgramRepository
 import com.stratum.core.testing.checkin.FakeCheckInPreferencesRepository
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeProgramChangeEventRepository
@@ -60,7 +61,7 @@ class ApplyCheckInRecommendationsUseCaseTest {
                 ),
             )
 
-        assertTrue(result.isSuccess)
+        assertEquals(ApplyCheckInRecommendationsResult.Success, result)
         assertEquals(1, programRepo.saveProgramCalls.size)
         val saved = programRepo.getProgram()!!
         val lift = saved.workouts.first().workoutLifts.first()
@@ -88,7 +89,7 @@ class ApplyCheckInRecommendationsUseCaseTest {
                 loggingPort = FakeLoggingPort(),
             )
 
-        assertTrue(useCase(emptyList()).isSuccess)
+        assertEquals(ApplyCheckInRecommendationsResult.Success, useCase(emptyList()))
         assertEquals(0, programRepo.saveProgramCalls.size)
         assertNull(prefs.current.pendingSinceExtractedAt)
     }
@@ -104,14 +105,14 @@ class ApplyCheckInRecommendationsUseCaseTest {
                 completeCheckIn = CompleteCheckInUseCase(FakeCheckInPreferencesRepository(), FakeLoggingPort()),
                 loggingPort = FakeLoggingPort(),
             )
-        useCase(listOf(CheckInApplyCommand.SetWorkingSets(workoutLiftId, 3))).getOrThrow()
-        useCase(listOf(CheckInApplyCommand.SetWorkingSets(workoutLiftId, 3))).getOrThrow()
+        useCase(listOf(CheckInApplyCommand.SetWorkingSets(workoutLiftId, 3)))
+        useCase(listOf(CheckInApplyCommand.SetWorkingSets(workoutLiftId, 3)))
         assertEquals(3, programRepo.getProgram()!!.workouts.first().workoutLifts.first().sets.size)
     }
 
     @Test
-    @DisplayName("returns failure when no active program exists")
-    fun returnsFailureWhenNoActiveProgram() = runTest {
+    @DisplayName("returns NoActiveProgram when no active program exists")
+    fun returnsNoActiveProgramWhenNoActiveProgram() = runTest {
         val useCase =
             ApplyCheckInRecommendationsUseCase(
                 programRepository = FakeProgramRepository(null),
@@ -121,13 +122,12 @@ class ApplyCheckInRecommendationsUseCaseTest {
             )
 
         val result = useCase(listOf(CheckInApplyCommand.SetWorkingSets(workoutLiftId, 3)))
-        assertTrue(result.isFailure)
-        assertTrue(result.exceptionOrNull() is IllegalStateException)
+        assertEquals(ApplyCheckInRecommendationsResult.NoActiveProgram, result)
     }
 
     @Test
-    @DisplayName("returns failure when workout lift not found")
-    fun returnsFailureWhenWorkoutLiftNotFound() = runTest {
+    @DisplayName("returns WorkoutLiftNotFound when workout lift not found")
+    fun returnsWorkoutLiftNotFoundWhenWorkoutLiftNotFound() = runTest {
         val useCase =
             ApplyCheckInRecommendationsUseCase(
                 programRepository = FakeProgramRepository(programWithSets(3, "bench")),
@@ -138,12 +138,84 @@ class ApplyCheckInRecommendationsUseCaseTest {
 
         val missingId = WorkoutLiftId("missing")
         val swapResult = useCase(listOf(CheckInApplyCommand.Swap(missingId, LiftId("squat"))))
-        assertTrue(swapResult.isFailure)
-        assertTrue(swapResult.exceptionOrNull() is IllegalArgumentException)
+        assertEquals(ApplyCheckInRecommendationsResult.WorkoutLiftNotFound(missingId), swapResult)
 
         val setsResult = useCase(listOf(CheckInApplyCommand.SetWorkingSets(missingId, 4)))
-        assertTrue(setsResult.isFailure)
-        assertTrue(setsResult.exceptionOrNull() is IllegalArgumentException)
+        assertEquals(ApplyCheckInRecommendationsResult.WorkoutLiftNotFound(missingId), setsResult)
+    }
+
+    @Test
+    @DisplayName("save failure returns PersistenceFailed and logs exactly one error (STR-243)")
+    fun persistenceFailureOnSaveError() = runTest {
+        val logging = FakeLoggingPort()
+        val useCase =
+            ApplyCheckInRecommendationsUseCase(
+                programRepository = FakeProgramRepository(programWithSets(3, "bench"), failOnSave = true),
+                programChangeEventRepository = FakeProgramChangeEventRepository(),
+                completeCheckIn = CompleteCheckInUseCase(FakeCheckInPreferencesRepository(), FakeLoggingPort()),
+                loggingPort = logging,
+            )
+
+        val result = useCase(listOf(CheckInApplyCommand.SetWorkingSets(workoutLiftId, 4)))
+
+        assertEquals(ApplyCheckInRecommendationsResult.PersistenceFailed, result)
+        assertEquals(1, logging.errors.size)
+        assertEquals("ApplyCheckIn", logging.errors.single().tag)
+        assertEquals(
+            "Failed to apply check-in recommendations: FakeProgramRepository configured to fail on save",
+            logging.errors.single().message,
+        )
+        assertTrue(logging.errors.single().throwable is IllegalStateException)
+    }
+
+    @Test
+    @DisplayName("completion failure returns PersistenceFailed, logged once at the completion boundary (STR-243)")
+    fun persistenceFailureOnCompleteError() = runTest {
+        val logging = FakeLoggingPort()
+        val failingPrefs =
+            object : CheckInPreferencesRepository by FakeCheckInPreferencesRepository() {
+                override suspend fun complete(now: Instant) {
+                    throw IllegalStateException("prefs boom")
+                }
+            }
+        val useCase =
+            ApplyCheckInRecommendationsUseCase(
+                programRepository = FakeProgramRepository(programWithSets(3, "bench")),
+                programChangeEventRepository = FakeProgramChangeEventRepository(),
+                completeCheckIn = CompleteCheckInUseCase(failingPrefs, logging),
+                loggingPort = logging,
+            )
+
+        val result = useCase(emptyList())
+
+        assertEquals(ApplyCheckInRecommendationsResult.PersistenceFailed, result)
+        assertEquals(1, logging.errors.size)
+        assertEquals("CompleteCheckIn", logging.errors.single().tag)
+    }
+
+    @Test
+    @DisplayName("Cancellation propagates instead of being captured (STR-243)")
+    fun cancellationPropagates() {
+        val cancellingRepo =
+            object : ProgramRepository by FakeProgramRepository(programWithSets(3, "bench")) {
+                override suspend fun getProgram(): Program? =
+                    throw kotlin.coroutines.cancellation.CancellationException("cancelled")
+            }
+        val useCase =
+            ApplyCheckInRecommendationsUseCase(
+                programRepository = cancellingRepo,
+                programChangeEventRepository = FakeProgramChangeEventRepository(),
+                completeCheckIn = CompleteCheckInUseCase(FakeCheckInPreferencesRepository(), FakeLoggingPort()),
+                loggingPort = FakeLoggingPort(),
+            )
+
+        org.junit.jupiter.api.Assertions.assertThrows(
+            kotlin.coroutines.cancellation.CancellationException::class.java,
+        ) {
+            kotlinx.coroutines.runBlocking {
+                useCase(listOf(CheckInApplyCommand.SetWorkingSets(workoutLiftId, 3)))
+            }
+        }
     }
 
     private fun programWithSets(setCount: Int, liftId: String): Program {

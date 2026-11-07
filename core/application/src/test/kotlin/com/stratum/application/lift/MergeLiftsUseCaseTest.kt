@@ -155,7 +155,7 @@ class MergeLiftsUseCaseTest {
 
         val result = subject(targetLiftId = targetId, sourceLiftIds = setOf(sourceAId, sourceBId))
 
-        assertTrue(result.isSuccess)
+        assertTrue(result is MergeLiftsResult.Success)
         val remaining = logRepo.getAllSets()
         assertEquals(3, remaining.size)
         assertTrue(remaining.all { it.liftId == targetId })
@@ -170,7 +170,7 @@ class MergeLiftsUseCaseTest {
     fun deletesCustomSourcesKeepsTargetMetadata() = runTest {
         val result = subject(targetLiftId = targetId, sourceLiftIds = setOf(sourceAId))
 
-        assertTrue(result.isSuccess)
+        assertTrue(result is MergeLiftsResult.Success)
         assertNull(liftRepo.currentLifts.firstOrNull { it.id == sourceAId })
         assertTrue(liftRepo.currentLifts.any { it.id == sourceBId })
         val survivor = liftRepo.currentLifts.single { it.id == targetId }
@@ -184,7 +184,7 @@ class MergeLiftsUseCaseTest {
     fun tombstonesSeedSources() = runTest {
         val result = subject(targetLiftId = targetId, sourceLiftIds = setOf(seedSourceId))
 
-        assertTrue(result.isSuccess)
+        assertTrue(result is MergeLiftsResult.Success)
         val tombstoned = liftRepo.currentLifts.singleOrNull { it.id == seedSourceId }
         assertNotNull(tombstoned)
         // STR-131: tombstoned, with enabled left as-is; gone from catalog reads.
@@ -199,7 +199,7 @@ class MergeLiftsUseCaseTest {
     fun seedIntoCustomTargetTombstones() = runTest {
         val result = subject(targetLiftId = sourceAId, sourceLiftIds = setOf(seedSourceId))
 
-        assertTrue(result.isSuccess)
+        assertTrue(result is MergeLiftsResult.Success)
         assertTrue(liftRepo.currentLifts.single { it.id == seedSourceId }.isDeleted)
         val survivor = liftRepo.currentLifts.single { it.id == sourceAId }
         assertFalse(survivor.isDeleted)
@@ -214,7 +214,7 @@ class MergeLiftsUseCaseTest {
                 sourceLiftIds = setOf(seedSourceId, sourceAId),
             )
 
-        assertTrue(result.isSuccess)
+        assertTrue(result is MergeLiftsResult.Success)
         assertTrue(liftRepo.currentLifts.single { it.id == seedSourceId }.isDeleted)
         assertNull(liftRepo.currentLifts.firstOrNull { it.id == sourceAId })
     }
@@ -263,7 +263,7 @@ class MergeLiftsUseCaseTest {
 
         val result = subject(targetLiftId = targetId, sourceLiftIds = setOf(sourceAId))
 
-        assertTrue(result.isSuccess)
+        assertTrue(result is MergeLiftsResult.Success)
         val saved = programRepo.getProgram()!!
         val slots = saved.workouts.single().workoutLifts
         // Both slots remain; source is re-pointed onto the survivor (duplicates allowed).
@@ -323,7 +323,7 @@ class MergeLiftsUseCaseTest {
                 sourceLiftIds = setOf(sourceAId, sourceBId),
             )
 
-        assertTrue(result.isSuccess)
+        assertTrue(result is MergeLiftsResult.Success)
         val slots = programRepo.getProgram()!!.workouts.single().workoutLifts
         assertEquals(2, slots.size)
         assertEquals(
@@ -353,7 +353,7 @@ class MergeLiftsUseCaseTest {
 
         val result = subject(targetLiftId = targetId, sourceLiftIds = setOf(sourceAId, sourceBId))
 
-        assertTrue(result.isSuccess)
+        assertTrue(result is MergeLiftsResult.Success)
         val stored = overlayStore.storedOverlay()
         assertEquals(targetId, stored.swappedLifts[WorkoutLiftId("wl-template")])
         assertEquals(targetId, stored.addedLifts.single().liftId)
@@ -365,7 +365,7 @@ class MergeLiftsUseCaseTest {
         // No IN_PROGRESS session seeded.
         val result = subject(targetLiftId = targetId, sourceLiftIds = setOf(sourceAId))
 
-        assertTrue(result.isSuccess)
+        assertTrue(result is MergeLiftsResult.Success)
         assertEquals(0, overlayStore.saveCallCount)
         assertNull(overlayStore.storedSessionId())
     }
@@ -378,7 +378,7 @@ class MergeLiftsUseCaseTest {
 
         val result = subject(targetLiftId = targetId, sourceLiftIds = setOf(sourceAId))
 
-        assertTrue(result.isSuccess)
+        assertTrue(result is MergeLiftsResult.Success)
         assertEquals(0, overlayStore.saveCallCount)
     }
 
@@ -418,7 +418,7 @@ class MergeLiftsUseCaseTest {
 
         val result = subject(targetLiftId = targetId, sourceLiftIds = setOf(seedSourceId))
 
-        assertTrue(result.isSuccess)
+        assertTrue(result is MergeLiftsResult.Success)
         val saved = programRepo.getProgramById(ProgramId("lib-1"))!!
         assertEquals(targetId, saved.workouts.single().workoutLifts.single().liftId)
     }
@@ -449,8 +449,8 @@ class MergeLiftsUseCaseTest {
 
         val result = failingSubject(targetLiftId = targetId, sourceLiftIds = setOf(sourceAId))
 
-        assertTrue(result.isSuccess)
-        val outcome = result.getOrThrow()
+        assertTrue(result is MergeLiftsResult.Success)
+        val outcome = (result as MergeLiftsResult.Success).outcome
         assertEquals(1, outcome.diagnostics.size)
         val diagnostic = outcome.diagnostics.single() as MergeLiftsDiagnostic.PersonalRecordsNotRecomputed
         assertEquals(targetId, diagnostic.targetLiftId)
@@ -475,15 +475,15 @@ class MergeLiftsUseCaseTest {
 
         val result = subject(targetLiftId = targetId, sourceLiftIds = setOf(sourceAId))
 
-        assertTrue(result.isSuccess)
-        assertTrue(result.getOrThrow().diagnostics.isEmpty())
+        assertTrue(result is MergeLiftsResult.Success)
+        assertTrue((result as MergeLiftsResult.Success).outcome.diagnostics.isEmpty())
     }
 
     @Test
     @DisplayName("Given empty sources when invoked then fails")
     fun rejectsEmptySources() = runTest {
         val result = subject(targetLiftId = targetId, sourceLiftIds = emptySet())
-        assertTrue(result.isFailure)
+        assertEquals(MergeLiftsResult.NoSourceLifts, result)
         assertEquals(0, mergePort.applyMergeCallCount)
     }
 
@@ -491,7 +491,7 @@ class MergeLiftsUseCaseTest {
     @DisplayName("Given target also in sources when invoked then fails")
     fun rejectsTargetInSources() = runTest {
         val result = subject(targetLiftId = targetId, sourceLiftIds = setOf(targetId, sourceAId))
-        assertTrue(result.isFailure)
+        assertEquals(MergeLiftsResult.TargetIsSource, result)
         assertEquals(0, mergePort.applyMergeCallCount)
     }
 
@@ -500,7 +500,7 @@ class MergeLiftsUseCaseTest {
     fun rejectsMissingLift() = runTest {
         val unknownId = LiftId("unknown-lift")
         val result = subject(targetLiftId = targetId, sourceLiftIds = setOf(unknownId))
-        assertTrue(result.isFailure)
+        assertEquals(MergeLiftsResult.LiftsNotFound, result)
         assertEquals(0, mergePort.applyMergeCallCount)
     }
 

@@ -36,13 +36,15 @@ class CloudSyncAuthListener @Inject constructor(
                 getAuthState().collectLatestRestarting(loggingPort, TAG) { state ->
                     when (state) {
                         is AuthState.Authenticated -> {
-                            startCloudSync(state.user.uid).onFailure { error ->
-                                loggingPort.error(
-                                    TAG,
-                                    "startCloudSync failed: ${error.message}",
-                                    error,
-                                )
-                            }
+                            // A failed start is error-logged exactly once by
+                            // the sync adapter at its own boundary. The Failed
+                            // outcome does carry diagnostics for the boundaries
+                            // that must classify or drain them (the sync
+                            // worker, the compensating restart after a logout /
+                            // account-deletion failure) — this listener is not
+                            // a drain site, because the adapter already logged
+                            // the failure once.
+                            startCloudSync(state.user.uid)
                         }
                         AuthState.Unauthenticated, is AuthState.Error -> {
                             stopCloudSync()

@@ -43,7 +43,7 @@ class UpdateCustomLiftDetailsUseCaseTest {
                     ),
             )
 
-        assertTrue(result.isSuccess)
+        assertEquals(UpdateCustomLiftDetailsResult.Success, result)
         val lift = repo.currentLifts.single()
         assertEquals(setOf(MovementPattern.ShoulderAdduction), lift.movementPatterns)
         assertEquals(MuscleLengthBias.Lengthened, lift.muscleLengthBias)
@@ -70,7 +70,7 @@ class UpdateCustomLiftDetailsUseCaseTest {
                     ),
             )
 
-        assertTrue(result.isFailure)
+        assertEquals(UpdateCustomLiftDetailsResult.CatalogLiftNotEditable(liftId), result)
         val lift = repo.currentLifts.single()
         assertEquals(setOf(MovementPattern.HorizontalPress), lift.movementPatterns)
         assertNull(lift.equipmentId)
@@ -95,7 +95,36 @@ class UpdateCustomLiftDetailsUseCaseTest {
                     ),
             )
 
-        assertTrue(result.isFailure)
+        assertEquals(
+            UpdateCustomLiftDetailsResult.InvalidField(
+                CustomLiftFieldValidation.Invalid(
+                    CustomLiftFieldRules.MOVEMENT_PATTERNS_REQUIRED_MESSAGE,
+                ),
+            ),
+            result,
+        )
+    }
+
+    @Test
+    @DisplayName("Given missing lift when details updated then LiftNotFound")
+    fun missingLiftFails() = runTest {
+        val repo = FakeLiftRepository()
+        val useCase = UpdateCustomLiftDetailsUseCase(repo, FakeLoggingPort())
+
+        val result =
+            useCase(
+                id = liftId,
+                details =
+                    CustomLiftDetails(
+                        movementPatterns = setOf(MovementPattern.HipHinge),
+                        muscleLengthBias = MuscleLengthBias.MidRange,
+                        fatigueProfile = FatigueProfile.Low,
+                        loadType = LoadType.Weighted,
+                        equipmentId = null,
+                    ),
+            )
+
+        assertEquals(UpdateCustomLiftDetailsResult.LiftNotFound(liftId), result)
     }
 
     private fun sampleLift(isCustom: Boolean): Lift =

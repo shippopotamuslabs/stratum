@@ -5,8 +5,10 @@
 # direction, so this list shrinks (or its counts drop) as later tickets convert sites.
 #
 # Shrinking tickets: STR-240 owns the domain enum/parse files and the sanitizer
-# entries below. STR-241 and STR-243 do not touch allowlisted files. STR-237 MOVES
-# TelemetryThrowableSanitizer — that is a path update in this file, not a shrink.
+# entries below. STR-241 does not touch allowlisted files. STR-243 converted the
+# IncrementLattice constructor-validation site, so its entry is removed below.
+# STR-237 MOVES TelemetryThrowableSanitizer — that is a path update in this
+# file, not a shrink.
 #
 # --- :core:domain — enum/parse getOrNull sites, non-suspend (STR-240 owns) ---
 core/domain/src/main/kotlin/com/stratum/domain/importing/GlobalVolumePriors.kt 1 # enum valueOf parse, non-suspend (STR-240)
@@ -22,7 +24,6 @@ core/domain/src/main/kotlin/com/stratum/domain/program/generation/synthesis/wire
 core/domain/src/main/kotlin/com/stratum/domain/program/generation/synthesis/wire/ResultWireCodec.kt 2 # enumValueOf/decode-or-null, non-suspend (STR-240)
 core/domain/src/main/kotlin/com/stratum/domain/program/generation/volume/VolumeTargetPlanner.kt 1 # enum valueOf parse, non-suspend (STR-240)
 # --- :core:domain — non-suspend, result consumed by the caller ---
-core/domain/src/main/kotlin/com/stratum/domain/lift/IncrementLattice.kt 1 # constructor-validation-as-Result, non-suspend, result consumed
 core/domain/src/main/kotlin/com/stratum/domain/program/ProgramSchedule.kt 1 # fallback computation, non-suspend, result consumed via fold
 core/domain/src/main/kotlin/com/stratum/domain/program/schedule/ProgramCycleSpace.kt 1 # invariant-failure-to-empty, non-suspend, result consumed via getOrDefault
 core/domain/src/main/kotlin/com/stratum/domain/telemetry/TelemetryThrowableSanitizer.kt 3 # best-effort reflection reconstruction, non-suspend (STR-237 moves this file — path update, not a shrink; STR-240 owns the sanitizer entries)

@@ -11,10 +11,12 @@ import com.stratum.application.healthconnect.ObserveHealthConnectSyncErrorsUseCa
 import com.stratum.domain.healthconnect.HealthFailureKind
 import com.stratum.application.lift.AnalyzeSessionEquipmentProposalsUseCase
 import com.stratum.application.lift.ApplyEquipmentIncrementProposalUseCase
+import com.stratum.application.lift.ApplyEquipmentIncrementResult
 import com.stratum.application.lift.EquipmentProposalDiagnostic
 import com.stratum.domain.lift.EquipmentIncrementRemedy
 import com.stratum.application.lift.EquipmentProposalPreferences
 import com.stratum.application.lift.ObserveWeightDisplayPreferencesUseCase
+import com.stratum.application.training.GetWorkoutSummaryResult
 import com.stratum.application.training.GetWorkoutSummaryUseCase
 import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.application.workout.AnalyzeSessionRepRangeShiftProposalsUseCase
@@ -101,8 +103,9 @@ class WorkoutCompleteViewModel @Inject constructor(
                 val result = getWorkoutSummary(TrainingSessionId(sessionId))
                 if (generation != loadGeneration) return@launch
                 _uiState.value =
-                    result.fold(
-                        onSuccess = { summary ->
+                    when (result) {
+                        is GetWorkoutSummaryResult.Success -> {
+                            val summary = result.summary
                             val trainingSessionId = TrainingSessionId(sessionId)
                             // Parallel analyze; each use case degrades to an empty
                             // outcome carrying diagnostics, drained once below.
@@ -123,8 +126,8 @@ class WorkoutCompleteViewModel @Inject constructor(
                             val equipmentProposals = equipmentOutcome.proposals
                             val repRangeProposals = repRangeOutcome.proposals
                             if (generation != loadGeneration) {
-                                return@fold _uiState.value
-                            }
+                                _uiState.value
+                            } else {
                             val equipmentSnap =
                                 equipmentSession.load(
                                     equipmentProposals,
@@ -166,9 +169,10 @@ class WorkoutCompleteViewModel @Inject constructor(
                                 blastRadiusConfirm = equipmentSnap.blastRadiusConfirm,
                                 userMessage = null,
                             )
-                        },
-                        onFailure = { WorkoutCompleteUiState.Error },
-                    )
+                            }
+                        }
+                        else -> WorkoutCompleteUiState.Error
+                    }
             }
     }
 
@@ -342,9 +346,12 @@ class WorkoutCompleteViewModel @Inject constructor(
         viewModelScope.launch {
             var settled = false
             try {
-                val result = applyEquipmentIncrementProposal(remedy)
-                result
-                    .onSuccess { outcome ->
+                // STR-243 C3: branch on the outcome type — the Amended/Forked
+                // branches are success; every failure branch gets the same
+                // user copy as the old onFailure path.
+                when (val outcome = applyEquipmentIncrementProposal(remedy)) {
+                    is ApplyEquipmentIncrementResult.Amended,
+                    is ApplyEquipmentIncrementResult.Forked -> {
                         settled = true
                         enqueueUserMessage(
                             EquipmentProposalUiMapper.successMessage(outcome, remedy),
@@ -357,7 +364,10 @@ class WorkoutCompleteViewModel @Inject constructor(
                         )
                         publishNextUserMessage()
                     }
-                    .onFailure {
+                    is ApplyEquipmentIncrementResult.InvalidName,
+                    is ApplyEquipmentIncrementResult.InvalidTiers,
+                    is ApplyEquipmentIncrementResult.EquipmentNotFound,
+                    ApplyEquipmentIncrementResult.PersistenceFailed -> {
                         settled = true
                         enqueueUserMessage(EquipmentProposalUiMapper.MSG_APPLY_FAILED)
                         applyEquipmentSnapshot(
@@ -368,6 +378,7 @@ class WorkoutCompleteViewModel @Inject constructor(
                         )
                         publishNextUserMessage()
                     }
+                }
             } finally {
                 if (!settled) {
                     applyEquipmentSnapshot(equipmentSession.releaseApply(proposalId))
@@ -449,7 +460,7 @@ class WorkoutCompleteViewModel @Inject constructor(
 
     /**
      * Translates the sticky sync-error kind to the existing shipped user text (STR-268).
-     * The strings are the HealthSyncFailure factory wordings — no new copy. Kept as
+     * The strings are the Health Connect classification wordings — no new copy. Kept as
      * literals here following this screen's precedent (mapper/inline message text).
      */
     private fun HealthFailureKind.toUserMessage(): String =

@@ -1,9 +1,8 @@
 package com.stratum.application.program
 
+import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.logging.LoggingPort
-import com.stratum.domain.logging.expectedFailure
-import com.stratum.domain.logging.runCatchingLogged
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.training.ProgramChangeEvent
 import com.stratum.domain.training.ProgramChangeEventPayload
@@ -19,6 +18,32 @@ import com.stratum.application.lift.EquipmentRepository
 import com.stratum.domain.workout.LiftSwapped
 
 /**
+ * Outcome of [SwapWorkoutLiftUseCase] (STR-243).
+ *
+ * [Success] carries the [SwapWorkoutLiftOutcome] (with its §10 diagnostics).
+ * The expected refusal branches leave a warning breadcrumb only, never a
+ * Crashlytics non-fatal, exactly as the former `expectedFailure` path did; an
+ * operational load/save failure is logged once via [LoggingPort.error] at the
+ * use-case boundary and surfaces as [PersistenceFailed]. Coroutine
+ * cancellation is not a branch: it propagates.
+ */
+sealed interface SwapWorkoutLiftResult {
+    data class Success(val outcome: SwapWorkoutLiftOutcome) : SwapWorkoutLiftResult
+
+    /** There is no active program to swap a lift in. */
+    data object NoActiveProgram : SwapWorkoutLiftResult
+
+    /** The target workout lift is not part of the active program. */
+    data class WorkoutLiftNotFound(val workoutLiftId: WorkoutLiftId) : SwapWorkoutLiftResult
+
+    /** A slot in the updated program still points at deleted (tombstoned) equipment. */
+    data class EquipmentDeleted(val equipmentIds: List<EquipmentId>) : SwapWorkoutLiftResult
+
+    /** The swap failed (repository / store I/O). */
+    data object PersistenceFailed : SwapWorkoutLiftResult
+}
+
+/**
  * Use case to swap the lift on a specific workout lift in the active program.
  * Modifies the template in memory and saves the updated program to persistence.
  */
@@ -31,25 +56,27 @@ class SwapWorkoutLiftUseCase @Inject constructor(
     suspend operator fun invoke(
         workoutLiftId: WorkoutLiftId,
         newLiftId: LiftId,
-    ): Result<SwapWorkoutLiftOutcome> {
-        val program =
-            try {
-                programRepository.getProgram()
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (error: Throwable) {
-                loggingPort.error(TAG, "Failed to swap workout lift: ${error.message}", error)
-                return Result.failure(error)
-            }
+    ): SwapWorkoutLiftResult =
+        try {
+            doInvoke(workoutLiftId, newLiftId)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            loggingPort.error(TAG, "Failed to swap workout lift: ${error.message}", error)
+            SwapWorkoutLiftResult.PersistenceFailed
+        }
+
+    private suspend fun doInvoke(
+        workoutLiftId: WorkoutLiftId,
+        newLiftId: LiftId,
+    ): SwapWorkoutLiftResult {
+        val program = programRepository.getProgram()
 
         if (program == null) {
             // Expected domain state (no active program), not an operational fault: breadcrumb
             // only, so this never becomes a Crashlytics non-fatal.
-            return loggingPort.expectedFailure(
-                TAG,
-                IllegalStateException("No active program found to swap lift"),
-                "Failed to swap workout lift: no active program",
-            )
+            loggingPort.warning(TAG, "Failed to swap workout lift: no active program")
+            return SwapWorkoutLiftResult.NoActiveProgram
         }
 
         // STR-127: row-held state is scoped to the (slot, lift) pair. The incoming
@@ -87,11 +114,11 @@ class SwapWorkoutLiftUseCase @Inject constructor(
 
         if (targetLift == null) {
             // Expected stale-id outcome, not an operational fault: breadcrumb only.
-            return loggingPort.expectedFailure(
+            loggingPort.warning(
                 TAG,
-                IllegalArgumentException("Workout lift with ID $workoutLiftId not found in the program"),
                 "Failed to swap workout lift: workout lift $workoutLiftId not found",
             )
+            return SwapWorkoutLiftResult.WorkoutLiftNotFound(workoutLiftId)
         }
 
         val previousLiftId = targetLift.liftId
@@ -115,28 +142,31 @@ class SwapWorkoutLiftUseCase @Inject constructor(
                 .distinct()
                 .filter { id -> equipmentRepository.getEquipment(id)?.isTombstoned == true }
         if (orphaned.isNotEmpty()) {
-            return Result.failure(
-                IllegalStateException("Deleted equipment is still assigned; pick a live equipment first"),
+            // Expected refusal (a slot still points at tombstoned equipment): breadcrumb only.
+            loggingPort.warning(
+                TAG,
+                "Failed to swap workout lift: deleted equipment is still assigned",
             )
+            return SwapWorkoutLiftResult.EquipmentDeleted(orphaned)
         }
-        return runCatchingLogged(loggingPort, TAG, "Failed to swap workout lift") {
-            programRepository.saveProgram(updatedProgram)
-            programChangeEventRepository.append(
-                ProgramChangeEvent(
-                    id = ProgramChangeEventId(UUID.randomUUID().toString()),
-                    programId = program.id,
-                    eventType = ProgramChangeEventType.LIFT_SWAPPED,
-                    occurredAt = Instant.now(),
-                    payload =
-                        ProgramChangeEventPayload.LiftSwapped(
-                            workoutLiftId = workoutLiftId,
-                            previousLiftId = previousLiftId,
-                            newLiftId = newLiftId,
-                        ),
-                ),
-            )
-            SwapWorkoutLiftOutcome(diagnostics = listOfNotNull(notesDiagnostic))
-        }
+        programRepository.saveProgram(updatedProgram)
+        programChangeEventRepository.append(
+            ProgramChangeEvent(
+                id = ProgramChangeEventId(UUID.randomUUID().toString()),
+                programId = program.id,
+                eventType = ProgramChangeEventType.LIFT_SWAPPED,
+                occurredAt = Instant.now(),
+                payload =
+                    ProgramChangeEventPayload.LiftSwapped(
+                        workoutLiftId = workoutLiftId,
+                        previousLiftId = previousLiftId,
+                        newLiftId = newLiftId,
+                    ),
+            ),
+        )
+        return SwapWorkoutLiftResult.Success(
+            SwapWorkoutLiftOutcome(diagnostics = listOfNotNull(notesDiagnostic)),
+        )
     }
 
     private companion object {

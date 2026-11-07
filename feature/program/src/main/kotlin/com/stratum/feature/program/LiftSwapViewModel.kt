@@ -9,6 +9,7 @@ import com.stratum.application.lift.RankSwapCandidatesUseCase
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.application.program.SwapWorkoutLiftDiagnostic
+import com.stratum.application.program.SwapWorkoutLiftResult
 import com.stratum.application.program.SwapWorkoutLiftUseCase
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.workout.WorkoutEditSession
@@ -229,15 +230,17 @@ class LiftSwapViewModel @Inject constructor(
                 if (persistSwapJob?.isActive == true) return
                 persistSwapJob =
                     viewModelScope.launch {
-                        swapWorkoutLift(WorkoutLiftId(workoutLiftId), LiftId(newLiftId))
-                            .onSuccess { outcome ->
-                                logSwapDiagnostics(outcome.diagnostics)
+                        when (val result = swapWorkoutLift(WorkoutLiftId(workoutLiftId), LiftId(newLiftId))) {
+                            is SwapWorkoutLiftResult.Success -> {
+                                logSwapDiagnostics(result.outcome.diagnostics)
                                 onComplete()
                             }
-                            .onFailure { error ->
-                                logError(TAG, "Failed to persist lift swap in program: ${error.message}", error)
-                                _userMessage.value = MSG_SWAP_FAILED
-                            }
+                            SwapWorkoutLiftResult.NoActiveProgram,
+                            is SwapWorkoutLiftResult.WorkoutLiftNotFound,
+                            is SwapWorkoutLiftResult.EquipmentDeleted,
+                            SwapWorkoutLiftResult.PersistenceFailed,
+                            -> _userMessage.value = MSG_SWAP_FAILED
+                        }
                     }
             }
             LiftSwapCommitMode.EditSession -> {

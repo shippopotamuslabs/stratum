@@ -205,6 +205,7 @@ class OnboardingImportProgramViewModelTest {
         val liftRepo = FakeLiftRepository()
         val completeOnboarding = com.stratum.application.onboarding.CompleteOnboardingUseCase(onboardingRepo, profileRepo)
         val importUseCase = ImportProgramTemplateUseCase(
+            loggingPort = FakeLoggingPort(),
             importPort = importPort,
             resolver = ResolveProgramTemplateLiftsUseCase(liftRepo, FakeLiftNameResolverPort()),
             repository = programRepo,
@@ -276,9 +277,11 @@ class OnboardingImportProgramViewModelTest {
             ),
             applyGymPreset = com.stratum.application.lift.ApplyGymPresetUseCase(
                 com.stratum.core.testing.onboarding.FakeLiftRepository(),
+                com.stratum.core.testing.logging.FakeLoggingPort(),
             ),
             setSelectedPreset = com.stratum.application.lift.SetSelectedPresetUseCase(
                 com.stratum.core.testing.onboarding.FakeLiftRepository(),
+                com.stratum.core.testing.logging.FakeLoggingPort(),
             ),
             executeHistoricalImport = com.stratum.application.importing.ExecuteHistoricalImportUseCase(
                 validateImportFiles = com.stratum.application.importing.ValidateImportFilesUseCase(),
@@ -301,10 +304,12 @@ class OnboardingImportProgramViewModelTest {
                 loadContext = FixedProgramGenerationContextLoader(error = { error("not used") }),
                 pipeline = com.stratum.core.testing.program.testProgramGenerationPipeline(),
                 liftRepository = liftRepo,
+                telemetryRouter = com.stratum.domain.telemetry.TelemetryRouter(com.stratum.core.testing.telemetry.FakeOutcomeTelemetrySink(), com.stratum.core.testing.telemetry.FakeCrashTelemetryPort(), com.stratum.core.testing.telemetry.FakeAnalyticsPort()),
             ),
             activateProgram = com.stratum.application.program.ActivateProgramUseCase(
                 programRepository = programRepo,
                 programChangeEventRepository = com.stratum.core.testing.training.NoOpProgramChangeEventRepository(),
+                loggingPort = FakeLoggingPort(),
             ),
             completeOnboarding = completeOnboarding,
             importProgramTemplate = importUseCase,

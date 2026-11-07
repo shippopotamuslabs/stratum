@@ -7,8 +7,12 @@ import androidx.health.connect.client.records.ExerciseSegment
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.metadata.Device
 import androidx.health.connect.client.records.metadata.Metadata
+import com.stratum.application.healthconnect.HEALTH_SYNC_UNAVAILABLE_MESSAGE
+import com.stratum.application.healthconnect.HealthConnectGrantedPermissionsOutcome
+import com.stratum.application.healthconnect.HealthConnectPushOutcome
 import com.stratum.application.healthconnect.HealthConnectSyncPort
-import com.stratum.domain.coroutines.runCatchingCancellable
+import com.stratum.application.healthconnect.HealthSyncDiagnostic
+import com.stratum.application.healthconnect.HealthSyncFailureKind
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.TrainingSession
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -36,25 +40,44 @@ class HealthConnectManager @Inject constructor(
         return grantedPermissions.contains(writePermission)
     }
 
-    override suspend fun grantedPermissions(): Result<Set<String>> {
+    override suspend fun grantedPermissions(): HealthConnectGrantedPermissionsOutcome {
         if (!isAvailable()) {
-            return Result.failure(HealthConnectUnavailableException().toHealthSyncFailure())
+            val cause = HealthConnectUnavailableException()
+            return HealthConnectGrantedPermissionsOutcome.Failed(
+                kind = HealthSyncFailureKind.Terminal,
+                message = HEALTH_SYNC_UNAVAILABLE_MESSAGE,
+                diagnostics = listOf(HealthSyncDiagnostic.OperationFailed(cause)),
+            )
         }
         return try {
-            Result.success(
+            HealthConnectGrantedPermissionsOutcome.Success(
                 HealthConnectClient.getOrCreate(context).permissionController.getGrantedPermissions(),
             )
         } catch (e: CancellationException) {
             throw e
         } catch (error: Throwable) {
-            Result.failure(error.toHealthSyncFailure())
+            classifiedGrantedPermissionsFailure(error)
         }
     }
 
     override suspend fun pushSession(
         session: TrainingSession,
         sets: List<LoggedSet>,
-    ): Result<Unit> = runCatchingCancellable<Unit> {
+    ): HealthConnectPushOutcome {
+        try {
+            pushSessionOrThrow(session, sets)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (error: Throwable) {
+            return classifiedPushFailure(error)
+        }
+        return HealthConnectPushOutcome.Success
+    }
+
+    private suspend fun pushSessionOrThrow(
+        session: TrainingSession,
+        sets: List<LoggedSet>,
+    ) {
         if (!isAvailable()) {
             throw HealthConnectUnavailableException()
         }
@@ -89,13 +112,7 @@ class HealthConnectManager @Inject constructor(
         )
 
         client.insertRecords(listOf(record))
-    }.fold(
-        onSuccess = { Result.success(it) },
-        onFailure = {
-            if (it is CancellationException) throw it
-            Result.failure(it.toHealthSyncFailure())
-        },
-    )
+    }
 
     private fun buildSessionRecord(
         startTime: Instant,
@@ -171,4 +188,31 @@ class HealthConnectManager @Inject constructor(
             return builder.toString().trimEnd()
         }
     }
+}
+
+/**
+ * Builds the push Failed branch for a caught vendor failure (B4 seam): the
+ * classified kind/message ride the branch, and the diagnostic cause is the
+ * identical vendor [error] — never a copy or a synthesized substitute.
+ * Internal so unit tests can pin that cause identity without the SDK.
+ */
+internal fun classifiedPushFailure(error: Throwable): HealthConnectPushOutcome.Failed {
+    val classified = error.toClassifiedHealthSyncFailure()
+    return HealthConnectPushOutcome.Failed(
+        kind = classified.kind,
+        message = classified.message,
+        diagnostics = listOf(HealthSyncDiagnostic.OperationFailed(error)),
+    )
+}
+
+/** Granted-permissions twin of [classifiedPushFailure] — same cause-identity invariant. */
+internal fun classifiedGrantedPermissionsFailure(
+    error: Throwable,
+): HealthConnectGrantedPermissionsOutcome.Failed {
+    val classified = error.toClassifiedHealthSyncFailure()
+    return HealthConnectGrantedPermissionsOutcome.Failed(
+        kind = classified.kind,
+        message = classified.message,
+        diagnostics = listOf(HealthSyncDiagnostic.OperationFailed(error)),
+    )
 }

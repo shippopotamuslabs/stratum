@@ -1,12 +1,12 @@
 package com.stratum.application.auth
 
+import com.stratum.application.sync.CloudSyncDiagnostic
 import com.stratum.core.testing.auth.FakeAccountDeletionPort
 import com.stratum.core.testing.auth.FakeAuthManager
 import com.stratum.core.testing.sync.FakeCloudSyncPort
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
@@ -30,7 +30,7 @@ class DeleteAccountUseCaseTest {
 
         val result = subject()
 
-        assertTrue(result.isSuccess)
+        assertEquals(DeleteAccountResult.Success, result)
         assertEquals(1, remote.deleteDataCount)
         assertEquals(1, remote.deleteAuthCount)
         assertEquals(listOf("stop", "wipe"), port.callOrder)
@@ -40,7 +40,7 @@ class DeleteAccountUseCaseTest {
     }
 
     @Test
-    @DisplayName("Given unauthenticated when delete then failure without side effects")
+    @DisplayName("Given unauthenticated when delete then not-signed-in branch without side effects")
     fun deleteUnauthenticatedFails() = runTest {
         val auth = FakeAuthManager(AuthState.Unauthenticated)
         val remote = FakeAccountDeletionPort()
@@ -49,7 +49,7 @@ class DeleteAccountUseCaseTest {
 
         val result = subject()
 
-        assertTrue(result.isFailure)
+        assertEquals(DeleteAccountResult.NotSignedIn, result)
         assertEquals(0, remote.deleteDataCount)
         assertEquals(0, remote.deleteAuthCount)
         assertEquals(emptyList<String>(), port.callOrder)
@@ -62,42 +62,49 @@ class DeleteAccountUseCaseTest {
         val user = UserProfile("uid-1", "A", "a@example.com", null)
         val auth = FakeAuthManager(AuthState.Authenticated(user))
         val remote = FakeAccountDeletionPort().apply {
-            deleteDataResult = Result.failure(IllegalStateException("cloud failed"))
+            deleteDataFailure = IllegalStateException("cloud failed")
         }
         val port = FakeCloudSyncPort()
         val subject = buildSubject(auth, remote, port)
 
         val result = subject()
 
-        assertTrue(result.isFailure)
+        assertTrue(result is DeleteAccountResult.RemoteDataFailed)
+        // Restart succeeded, so no restart diagnostics ride the branch.
+        assertEquals(
+            emptyList<CloudSyncDiagnostic>(),
+            (result as DeleteAccountResult.RemoteDataFailed).restartDiagnostics,
+        )
         assertEquals(1, remote.deleteDataCount)
         assertEquals(0, remote.deleteAuthCount)
         assertEquals(listOf("stop", "start"), port.callOrder)
         assertEquals(0, auth.signOutCount)
         assertTrue(auth.authState.value is AuthState.Authenticated)
-        assertTrue(result.exceptionOrNull()!!.suppressed.isEmpty())
     }
 
     @Test
-    @DisplayName("Given remote data fails and restart fails when delete then primary carries restart suppressed")
-    fun remoteDataFailureAndRestartFailureAttachesSuppressed() = runTest {
+    @DisplayName("Given remote data fails and restart fails when delete then branch carries restart diagnostic")
+    fun remoteDataFailureAndRestartFailureCarriesDiagnostic() = runTest {
         val user = UserProfile("uid-1", "A", "a@example.com", null)
         val auth = FakeAuthManager(AuthState.Authenticated(user))
-        val remoteError = IllegalStateException("cloud failed")
         val remote = FakeAccountDeletionPort().apply {
-            deleteDataResult = Result.failure(remoteError)
+            deleteDataFailure = IllegalStateException("cloud failed")
         }
         val restartError = IllegalStateException("restart failed")
         val port = FakeCloudSyncPort().apply {
-            startResult = Result.failure(restartError)
+            startFailure = restartError
         }
         val subject = buildSubject(auth, remote, port)
 
         val result = subject()
 
-        assertTrue(result.isFailure)
-        assertSame(remoteError, result.exceptionOrNull())
-        assertEquals(listOf(restartError), result.exceptionOrNull()!!.suppressed.toList())
+        assertTrue(result is DeleteAccountResult.RemoteDataFailed)
+        val diagnostics = (result as DeleteAccountResult.RemoteDataFailed).restartDiagnostics
+        assertEquals(1, diagnostics.size)
+        assertSame(
+            restartError,
+            (diagnostics.single() as CloudSyncDiagnostic.OperationFailed).cause,
+        )
         assertEquals(1, remote.deleteDataCount)
         assertEquals(0, remote.deleteAuthCount)
         assertEquals(0, auth.signOutCount)
@@ -110,10 +117,10 @@ class DeleteAccountUseCaseTest {
         val user = UserProfile("uid-1", "A", "a@example.com", null)
         val auth = FakeAuthManager(AuthState.Authenticated(user))
         val remote = FakeAccountDeletionPort().apply {
-            deleteDataResult = Result.failure(IllegalStateException("cloud failed"))
+            deleteDataFailure = IllegalStateException("cloud failed")
         }
         val port = FakeCloudSyncPort().apply {
-            startThrowable = CancellationException("restart cancelled")
+            startFailure = CancellationException("restart cancelled")
         }
         val subject = buildSubject(auth, remote, port)
 
@@ -131,23 +138,19 @@ class DeleteAccountUseCaseTest {
     }
 
     @Test
-    @DisplayName("Given wipe fails after remote data when delete then typed local cleanup failure")
+    @DisplayName("Given wipe fails after remote data when delete then local cleanup branch")
     fun wipeFailureAfterRemoteData() = runTest {
         val user = UserProfile("uid-1", "A", "a@example.com", null)
         val auth = FakeAuthManager(AuthState.Authenticated(user))
         val remote = FakeAccountDeletionPort()
         val port = FakeCloudSyncPort().apply {
-            wipeResult = Result.failure(IllegalStateException("wipe failed"))
+            wipeFailure = IllegalStateException("wipe failed")
         }
         val subject = buildSubject(auth, remote, port)
 
         val result = subject()
 
-        assertTrue(result.isFailure)
-        assertInstanceOf(
-            LocalCleanupAfterAccountDeletionException::class.java,
-            result.exceptionOrNull(),
-        )
+        assertEquals(DeleteAccountResult.LocalCleanupFailed, result)
         assertEquals(1, remote.deleteDataCount)
         assertEquals(0, remote.deleteAuthCount)
         // Must not restart sync after cloud data is already gone (would re-upload).
@@ -157,23 +160,19 @@ class DeleteAccountUseCaseTest {
     }
 
     @Test
-    @DisplayName("Given auth delete fails after wipe when delete then typed auth failure and no sign out")
+    @DisplayName("Given auth delete fails after wipe when delete then auth branch and no sign out")
     fun authDeleteFailureAfterWipe() = runTest {
         val user = UserProfile("uid-1", "A", "a@example.com", null)
         val auth = FakeAuthManager(AuthState.Authenticated(user))
         val remote = FakeAccountDeletionPort().apply {
-            deleteAuthResult = Result.failure(IllegalStateException("auth delete failed"))
+            deleteAuthFailure = IllegalStateException("auth delete failed")
         }
         val port = FakeCloudSyncPort()
         val subject = buildSubject(auth, remote, port)
 
         val result = subject()
 
-        assertTrue(result.isFailure)
-        assertInstanceOf(
-            AuthDeleteAfterAccountWipeException::class.java,
-            result.exceptionOrNull(),
-        )
+        assertEquals(DeleteAccountResult.AuthDeleteFailed, result)
         assertEquals(1, remote.deleteDataCount)
         assertEquals(1, remote.deleteAuthCount)
         assertEquals(listOf("stop", "wipe"), port.callOrder)
@@ -185,7 +184,7 @@ class DeleteAccountUseCaseTest {
     fun signOutFailureAfterAuthDeleteIsBestEffort() = runTest {
         val user = UserProfile("uid-1", "A", "a@example.com", null)
         val auth = FakeAuthManager(AuthState.Authenticated(user)).apply {
-            signOutResult = Result.failure(IllegalStateException("credential clear failed"))
+            signOutFailure = IllegalStateException("credential clear failed")
         }
         val remote = FakeAccountDeletionPort()
         val port = FakeCloudSyncPort()
@@ -193,7 +192,7 @@ class DeleteAccountUseCaseTest {
 
         val result = subject()
 
-        assertTrue(result.isSuccess)
+        assertEquals(DeleteAccountResult.Success, result)
         assertEquals(1, remote.deleteAuthCount)
         assertEquals(1, auth.signOutCount)
         assertEquals(listOf("stop", "wipe"), port.callOrder)

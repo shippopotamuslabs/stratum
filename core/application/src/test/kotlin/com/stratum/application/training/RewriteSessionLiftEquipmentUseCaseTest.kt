@@ -33,7 +33,7 @@ class RewriteSessionLiftEquipmentUseCaseTest {
         val useCase = RewriteSessionLiftEquipmentUseCase(repo, FakeLoggingPort())
         val result = useCase(sessionId, LiftId("lift-1"), EquipmentId("ssb"))
 
-        assertTrue(result.isSuccess)
+        assertEquals(RewriteSessionLiftEquipmentResult.Success, result)
         val byId = repo.getAllSets().associateBy { it.id.value }
         assertEquals(EquipmentId("ssb"), byId.getValue("ls-1").equipmentId)
         assertEquals(EquipmentId("ssb"), byId.getValue("ls-2").equipmentId)
@@ -53,14 +53,20 @@ class RewriteSessionLiftEquipmentUseCaseTest {
         val useCase = RewriteSessionLiftEquipmentUseCase(repo, logging)
         val result = useCase(sessionId, LiftId("lift-1"), EquipmentId("ssb"))
 
-        assertTrue(result.isFailure)
-        assertTrue(result.exceptionOrNull() is TrainingSessionNotInProgressException)
+        assertEquals(
+            RewriteSessionLiftEquipmentResult.SessionNotInProgress(
+                sessionId,
+                com.stratum.domain.training.TrainingSessionStatus.COMPLETED,
+            ),
+            result,
+        )
         assertEquals(EquipmentId("barbell"), repo.getAllSets().single().equipmentId)
         assertEquals(1, logging.errors.size)
+        assertTrue(logging.errors.single().throwable is TrainingSessionNotInProgressException)
     }
 
     @Test
-    @DisplayName("operational getSession failure returns Result failure with exactly one error log")
+    @DisplayName("operational getSession failure returns PersistenceFailed with exactly one error log")
     fun operationalLoadFailureReturnsFailureAndLogsOnce() = runTest {
         val repo = FakeTrainingLogRepository()
         val failure = IllegalStateException("room load failed")
@@ -71,8 +77,7 @@ class RewriteSessionLiftEquipmentUseCaseTest {
 
         val result = useCase(sessionId, LiftId("lift-1"), EquipmentId("ssb"))
 
-        assertTrue(result.isFailure)
-        assertEquals(failure, result.exceptionOrNull())
+        assertEquals(RewriteSessionLiftEquipmentResult.PersistenceFailed, result)
         assertEquals(1, logging.errors.size)
         assertEquals(
             "Failed to rewrite session lift equipment: ${failure.message}",

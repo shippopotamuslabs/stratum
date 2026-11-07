@@ -1,5 +1,6 @@
 package com.stratum.application.program
 
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.NoOpProgramChangeEventRepository
@@ -69,11 +70,12 @@ class AddWorkoutLiftUseCaseTest {
                 repository,
                 NoOpProgramChangeEventRepository(),
                 FakeLiftRepository(listOf(compoundSquat)),
+                FakeLoggingPort(),
             )
 
         val result = useCase(targetWorkoutId, newLiftId)
 
-        assertTrue(result.isSuccess)
+        assertEquals(AddWorkoutLiftResult.Success, result)
         val workout = repository.getProgram()?.workouts?.first()
         assertEquals(1, workout?.workoutLifts?.size)
         val addedLift = workout?.workoutLifts?.first()
@@ -130,14 +132,99 @@ class AddWorkoutLiftUseCaseTest {
                 repository,
                 NoOpProgramChangeEventRepository(),
                 FakeLiftRepository(listOf(isolationWithOverride)),
+                FakeLoggingPort(),
             )
 
         val result = useCase(targetWorkoutId, newLiftId)
 
-        assertTrue(result.isSuccess)
+        assertEquals(AddWorkoutLiftResult.Success, result)
         assertEquals(
             90,
             repository.getProgram()?.workouts?.first()?.workoutLifts?.first()?.sets?.first()?.restSeconds,
         )
+    }
+
+    @Test
+    @DisplayName("Given no active program when add is called then NoActiveProgram")
+    fun noActiveProgram() = runTest {
+        val useCase =
+            AddWorkoutLiftUseCase(
+                FakeProgramRepository(null),
+                NoOpProgramChangeEventRepository(),
+                FakeLiftRepository(emptyList()),
+                FakeLoggingPort(),
+            )
+
+        val result = useCase(WorkoutId("w-1"), LiftId("squat"))
+
+        assertEquals(AddWorkoutLiftResult.NoActiveProgram, result)
+    }
+
+    @Test
+    @DisplayName("Given unknown workout when add is called then WorkoutNotFound")
+    fun workoutNotFound() = runTest {
+        val repository =
+            FakeProgramRepository(
+                Program(
+                    id = ProgramId("p-1"),
+                    name = "Push Program",
+                    createdAt = Instant.now(),
+                    cycleLength = 1,
+                    trainingWeekdays = setOf(Weekday.Monday),
+                    workouts = emptyList(),
+                ),
+            )
+        val useCase =
+            AddWorkoutLiftUseCase(
+                repository,
+                NoOpProgramChangeEventRepository(),
+                FakeLiftRepository(emptyList()),
+                FakeLoggingPort(),
+            )
+
+        val result = useCase(WorkoutId("missing"), LiftId("squat"))
+
+        assertEquals(AddWorkoutLiftResult.WorkoutNotFound(WorkoutId("missing")), result)
+    }
+
+    @Test
+    @DisplayName("Given repository save failure when add is called then PersistenceFailed with one error log")
+    fun persistenceFailureOnSaveError() = runTest {
+        val targetWorkoutId = WorkoutId("w-1")
+        val repository =
+            FakeProgramRepository(
+                Program(
+                    id = ProgramId("p-1"),
+                    name = "Push Program",
+                    createdAt = Instant.now(),
+                    cycleLength = 1,
+                    trainingWeekdays = setOf(Weekday.Monday),
+                    workouts =
+                        listOf(
+                            Workout(
+                                id = targetWorkoutId,
+                                programId = ProgramId("p-1"),
+                                name = "Push Day",
+                                weekday = Weekday.Monday,
+                                position = 0,
+                                workoutLifts = emptyList(),
+                            ),
+                        ),
+                ),
+                failOnSave = true,
+            )
+        val logging = FakeLoggingPort()
+        val useCase =
+            AddWorkoutLiftUseCase(
+                repository,
+                NoOpProgramChangeEventRepository(),
+                FakeLiftRepository(emptyList()),
+                logging,
+            )
+
+        val result = useCase(targetWorkoutId, LiftId("squat"))
+
+        assertEquals(AddWorkoutLiftResult.PersistenceFailed, result)
+        assertEquals(1, logging.errors.size)
     }
 }

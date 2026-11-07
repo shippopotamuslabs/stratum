@@ -56,13 +56,17 @@ class ForkEquipmentUseCaseTest {
             )
     }
 
+    private fun ForkEquipmentResult.successForked(): ForkedEquipment {
+        assertTrue(this is ForkEquipmentResult.Success)
+        return (this as ForkEquipmentResult.Success).forked
+    }
+
     @Test
     @DisplayName("Given seed parent when forked then new custom has copied tiers and seed is untouched")
     fun forksSeedCopiesTiers() = runTest {
         val result = subject(cableId, "Life Fitness cables")
 
-        assertTrue(result.isSuccess)
-        val newId = result.getOrThrow().id
+        val newId = result.successForked().id
         assertNotEquals(cableId, newId)
         val forked = equipmentRepo.getEquipment(newId)!!
         assertEquals("Life Fitness cables", forked.name)
@@ -77,8 +81,7 @@ class ForkEquipmentUseCaseTest {
     fun forksCustomParent() = runTest {
         val result = subject(customId, "My stack (copy)")
 
-        assertTrue(result.isSuccess)
-        val forked = equipmentRepo.getEquipment(result.getOrThrow().id)!!
+        val forked = equipmentRepo.getEquipment(result.successForked().id)!!
         assertEquals(
             listOf(IncrementTier(Weight(0.0, lb), null, Weight(2.5, lb))),
             forked.incrementTiers,
@@ -93,8 +96,7 @@ class ForkEquipmentUseCaseTest {
     fun forkWithCollidingNameGetsNumberedSuffix() = runTest {
         val result = subject(cableId, "Cables")
 
-        assertTrue(result.isSuccess)
-        val forked = equipmentRepo.getEquipment(result.getOrThrow().id)!!
+        val forked = equipmentRepo.getEquipment(result.successForked().id)!!
         assertEquals("Cables (1)", forked.name)
     }
 
@@ -104,25 +106,25 @@ class ForkEquipmentUseCaseTest {
         subject(cableId, "Cables")
         val result = subject(cableId, "Cables")
 
-        assertTrue(result.isSuccess)
-        val forked = equipmentRepo.getEquipment(result.getOrThrow().id)!!
+        val forked = equipmentRepo.getEquipment(result.successForked().id)!!
         assertEquals("Cables (2)", forked.name)
     }
 
     @Test
-    @DisplayName("Given blank name when forked then failure and no write")
+    @DisplayName("Given blank name when forked then InvalidName and no write")
     fun rejectsBlankName() = runTest {
         val before = equipmentRepo.current.size
         val result = subject(cableId, "   ")
-        assertTrue(result.isFailure)
+        assertTrue(result is ForkEquipmentResult.InvalidName)
         assertEquals(before, equipmentRepo.current.size)
     }
 
     @Test
-    @DisplayName("Given missing parent when forked then failure")
+    @DisplayName("Given missing parent when forked then EquipmentNotFound")
     fun rejectsMissingParent() = runTest {
-        val result = subject(EquipmentId("missing"), "Copy")
-        assertTrue(result.isFailure)
+        val missingId = EquipmentId("missing")
+        val result = subject(missingId, "Copy")
+        assertEquals(ForkEquipmentResult.EquipmentNotFound(missingId), result)
     }
 
     @Test
@@ -143,8 +145,7 @@ class ForkEquipmentUseCaseTest {
 
         val result = subject(parentId, "Pin copy")
 
-        assertTrue(result.isSuccess)
-        assertEquals(stops, equipmentRepo.getEquipment(result.getOrThrow().id)?.microIncrements)
+        assertEquals(stops, equipmentRepo.getEquipment(result.successForked().id)?.microIncrements)
         assertEquals(stops, equipmentRepo.getEquipment(parentId)?.microIncrements)
     }
 
@@ -165,8 +166,7 @@ class ForkEquipmentUseCaseTest {
 
         val result = subject(parentId, "Pin copy", micro = listOf(Weight(2.5, lb)))
 
-        assertTrue(result.isSuccess)
-        val forked = equipmentRepo.getEquipment(result.getOrThrow().id)!!
+        val forked = equipmentRepo.getEquipment(result.successForked().id)!!
         assertEquals(listOf(Weight(2.5, lb)), forked.microIncrements)
         assertEquals(
             listOf(Weight(2.5, lb), Weight(5.0, lb)),
@@ -191,8 +191,7 @@ class ForkEquipmentUseCaseTest {
 
         val result = subject(parentId, "Pin copy", micro = emptyList())
 
-        assertTrue(result.isSuccess)
-        assertEquals(emptyList<Weight>(), equipmentRepo.getEquipment(result.getOrThrow().id)?.microIncrements)
+        assertEquals(emptyList<Weight>(), equipmentRepo.getEquipment(result.successForked().id)?.microIncrements)
         assertEquals(
             listOf(Weight(2.5, lb)),
             equipmentRepo.getEquipment(parentId)?.microIncrements,
@@ -200,12 +199,12 @@ class ForkEquipmentUseCaseTest {
     }
 
     @Test
-    @DisplayName("Given stop above the largest band when forked then failure and no write")
+    @DisplayName("Given stop above the largest band when forked then InvalidMicro and no write")
     fun forkRejectsInvalidMicro() = runTest {
         val before = equipmentRepo.current.size
         val result = subject(cableId, "Cable copy", micro = listOf(Weight(20.0, lb)))
 
-        assertTrue(result.isFailure)
+        assertTrue(result is ForkEquipmentResult.InvalidMicro)
         assertEquals(before, equipmentRepo.current.size)
     }
 
@@ -224,8 +223,7 @@ class ForkEquipmentUseCaseTest {
                 validateMicroAgainstSource = false,
             )
 
-        assertTrue(result.isSuccess)
-        val forked = result.getOrThrow()
+        val forked = result.successForked()
         assertEquals(listOf(Weight(5.0, lb)), forked.microIncrements)
         assertEquals(
             listOf(Weight(5.0, lb)),
@@ -248,9 +246,17 @@ class ForkEquipmentUseCaseTest {
         )
 
         val result = subject(emptyId, "Empty copy")
-        assertTrue(result.isSuccess)
-        val forked = equipmentRepo.getEquipment(result.getOrThrow().id)!!
+        val forked = equipmentRepo.getEquipment(result.successForked().id)!!
         // Fake/repo default single band when empty tiers passed.
         assertTrue(forked.incrementTiers.isNotEmpty())
+    }
+
+    @Test
+    @DisplayName("Given a repository failure when forked then PersistenceFailed (STR-243)")
+    fun forkPersistenceFailure() = runTest {
+        equipmentRepo.failNextWrite = true
+        val result = subject(cableId, "Cable copy")
+
+        assertEquals(ForkEquipmentResult.PersistenceFailed, result)
     }
 }

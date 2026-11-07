@@ -14,7 +14,7 @@ class CustomLiftFieldRulesTest {
         val result = CustomLiftFieldRules.validateMovementPatterns(emptySet())
         assertEquals(
             CustomLiftFieldRules.MOVEMENT_PATTERNS_REQUIRED_MESSAGE,
-            result.exceptionOrNull()?.message,
+            (result as CustomLiftFieldValidation.Invalid).message,
         )
     }
 
@@ -24,16 +24,24 @@ class CustomLiftFieldRulesTest {
         val result = CustomLiftFieldRules.validatePrimaryMuscles(emptySet())
         assertEquals(
             CustomLiftFieldRules.PRIMARY_MUSCLES_REQUIRED_MESSAGE,
-            result.exceptionOrNull()?.message,
+            (result as CustomLiftFieldValidation.Invalid).message,
         )
     }
 
     @Test
     @DisplayName("Rest override outside the shared range fails; inside and absent pass")
     fun restRangeRule() {
-        assertTrue(CustomLiftFieldRules.validateDefaultRestSeconds(null).isSuccess)
-        assertTrue(CustomLiftFieldRules.validateDefaultRestSeconds(150).isSuccess)
-        assertTrue(CustomLiftFieldRules.validateDefaultRestSeconds(9999).isFailure)
+        assertEquals(
+            CustomLiftFieldValidation.Valid,
+            CustomLiftFieldRules.validateDefaultRestSeconds(null),
+        )
+        assertEquals(
+            CustomLiftFieldValidation.Valid,
+            CustomLiftFieldRules.validateDefaultRestSeconds(150),
+        )
+        assertTrue(
+            CustomLiftFieldRules.validateDefaultRestSeconds(9999) is CustomLiftFieldValidation.Invalid,
+        )
     }
 
     @Test

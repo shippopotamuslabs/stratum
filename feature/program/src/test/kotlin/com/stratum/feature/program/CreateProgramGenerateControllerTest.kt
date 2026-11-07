@@ -76,6 +76,7 @@ class CreateProgramGenerateControllerTest {
                         loadContext = FixedProgramGenerationContextLoader(error = { error("boom") }),
                         pipeline = testProgramGenerationPipeline(),
                         liftRepository = com.stratum.core.testing.onboarding.FakeLiftRepository(),
+                        telemetryRouter = TelemetryRouter(outcomes, crash, analytics),
                         generationDispatcher = UnconfinedTestDispatcher(testScheduler),
                     ),
                 updateUserTrainingProfile = UpdateUserTrainingProfileUseCase(profileRepo),
@@ -100,17 +101,25 @@ class CreateProgramGenerateControllerTest {
         advanceUntilIdle()
 
         assertEquals(CreateProgramGenerateState.Error, state.value.generateState)
+        // STR-243: an unexpected failure surfaces the generic fallback copy,
+        // never the raw exception message.
+        assertEquals("Generation failed", state.value.generateErrorMessage)
         val byName = analytics.events.groupBy { it.name }
         val event = byName[USER_VISIBLE_ERROR_EVENT]?.single()
         assertEquals("create_program", event?.params?.get(PARAM_SCREEN))
         assertEquals("generate_program", event?.params?.get(PARAM_ACTION))
-        // Unexpected failure: recorded once through the router (non-fatal +
-        // bare counter), never in the outcome stream.
+        // Unexpected failure: never in the outcome stream; the use case
+        // recorded the original throwable exactly once via
+        // TelemetryRouter.recordExceptional — one non-fatal holding the real
+        // throwable plus one exceptional_occurred counter increment with the
+        // base boundary/class params (restored pre-STR-243 behaviour). The
+        // controller adds no second record.
         assertTrue(outcomes.outcomes.isEmpty())
-        assertEquals("IllegalStateException", crash.recordedExceptions.single()::class.simpleName)
-        val counter = byName[TelemetryRouter.EVENT_EXCEPTIONAL_OCCURRED]?.single()
-        assertEquals("CreateProgramGenerate", counter?.params?.get(TelemetryRouter.PARAM_BOUNDARY))
-        assertEquals("IllegalStateException", counter?.params?.get(TelemetryRouter.PARAM_CLASS))
+        assertEquals(1, crash.recordedExceptions.size)
+        assertTrue(crash.recordedExceptions.single() is IllegalStateException)
+        val exceptional = byName[TelemetryRouter.EVENT_EXCEPTIONAL_OCCURRED]?.single()
+        assertEquals("CreateProgramGenerate", exceptional?.params?.get(TelemetryRouter.PARAM_BOUNDARY))
+        assertEquals("IllegalStateException", exceptional?.params?.get(TelemetryRouter.PARAM_CLASS))
     }
 
     @Test
@@ -140,6 +149,7 @@ class CreateProgramGenerateControllerTest {
                             ),
                         pipeline = testProgramGenerationPipeline(),
                         liftRepository = com.stratum.core.testing.onboarding.FakeLiftRepository(),
+                        telemetryRouter = TelemetryRouter(outcomes, crash, analytics),
                         generationDispatcher = UnconfinedTestDispatcher(testScheduler),
                     ),
                 updateUserTrainingProfile = UpdateUserTrainingProfileUseCase(profileRepo),
@@ -158,6 +168,8 @@ class CreateProgramGenerateControllerTest {
         advanceUntilIdle()
 
         assertEquals(CreateProgramGenerateState.Error, state.value.generateState)
+        // The adapter's user-safe message is the surfaced copy, unchanged.
+        assertEquals("quota exhausted", state.value.generateErrorMessage)
         val outcome = outcomes.outcomes.single()
         assertEquals(OutcomeTelemetry.USE_CASE_PROGRAM_GENERATION, outcome.useCase)
         assertEquals(
@@ -214,6 +226,7 @@ class CreateProgramGenerateControllerTest {
                                         )
                                     },
                             ),
+                        telemetryRouter = TelemetryRouter(outcomes, crash, analytics),
                         generationDispatcher = UnconfinedTestDispatcher(testScheduler),
                     ),
                 updateUserTrainingProfile = UpdateUserTrainingProfileUseCase(profileRepo),

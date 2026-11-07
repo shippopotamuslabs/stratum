@@ -16,7 +16,6 @@ import org.junit.jupiter.api.Test
 import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.EquipmentIncrementRemedy
 import com.stratum.domain.lift.IncrementTier
-import com.stratum.domain.lift.IncrementTiersInvalidException
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.Weight
@@ -89,10 +88,9 @@ class ApplyEquipmentIncrementProposalUseCaseTest {
 
             val result = subject(remedy)
 
-            assertTrue(result.isSuccess)
             assertEquals(
                 ApplyEquipmentIncrementResult.Amended(customId),
-                result.getOrNull(),
+                result,
             )
             assertEquals(proposed, equipmentRepo.getEquipment(customId)?.incrementTiers)
         }
@@ -113,8 +111,11 @@ class ApplyEquipmentIncrementProposalUseCaseTest {
                     EquipmentIncrementRemedy.AmendEquipmentTiers(customId, invalid),
                 )
 
-            assertTrue(result.isFailure)
-            assertTrue(result.exceptionOrNull() is IncrementTiersInvalidException)
+            assertTrue(result is ApplyEquipmentIncrementResult.InvalidTiers)
+            assertTrue(
+                (result as ApplyEquipmentIncrementResult.InvalidTiers).validation.errors
+                    .contains(com.stratum.domain.lift.IncrementTiersValidationError.NotContiguous),
+            )
             assertEquals(before, equipmentRepo.getEquipment(customId)?.incrementTiers)
         }
 
@@ -130,14 +131,28 @@ class ApplyEquipmentIncrementProposalUseCaseTest {
                     ),
                 )
 
-            assertTrue(result.isFailure)
-            val error = result.exceptionOrNull()
-            assertTrue(error is IllegalArgumentException)
-            assertTrue(
-                error?.message?.contains("Equipment not found", ignoreCase = true) == true,
+            assertEquals(
+                ApplyEquipmentIncrementResult.EquipmentNotFound(missingId),
+                result,
             )
             assertEquals(0, logging.errors.size)
             assertEquals(1, logging.warnings.size)
+        }
+
+        @Test
+        @DisplayName("Given a repository failure when amend applied then PersistenceFailed (STR-243)")
+        fun persistenceFailure() = runTest {
+            equipmentRepo.failNextWrite = true
+            val result =
+                subject(
+                    EquipmentIncrementRemedy.AmendEquipmentTiers(
+                        equipmentId = customId,
+                        tiers = proposed,
+                    ),
+                )
+
+            assertEquals(ApplyEquipmentIncrementResult.PersistenceFailed, result)
+            assertEquals(1, logging.errors.size)
         }
     }
 
@@ -156,8 +171,8 @@ class ApplyEquipmentIncrementProposalUseCaseTest {
 
             val result = subject(remedy)
 
-            assertTrue(result.isSuccess)
-            val forked = result.getOrNull() as ApplyEquipmentIncrementResult.Forked
+            assertTrue(result is ApplyEquipmentIncrementResult.Forked)
+            val forked = result as ApplyEquipmentIncrementResult.Forked
             val created = equipmentRepo.getEquipment(forked.equipmentId)
             assertEquals("Lat pulldown stack", created?.name)
             assertEquals(true, created?.isCustom)
@@ -178,8 +193,11 @@ class ApplyEquipmentIncrementProposalUseCaseTest {
                         assignLiftIds = listOf(latId),
                     ),
                 )
-            assertTrue(result.isFailure)
-            assertTrue(result.exceptionOrNull() is IllegalArgumentException)
+            assertTrue(result is ApplyEquipmentIncrementResult.InvalidName)
+            assertEquals(
+                "Equipment name is required",
+                (result as ApplyEquipmentIncrementResult.InvalidName).validation.message,
+            )
             assertEquals(0, logging.errors.size)
             assertEquals(1, logging.warnings.size)
         }

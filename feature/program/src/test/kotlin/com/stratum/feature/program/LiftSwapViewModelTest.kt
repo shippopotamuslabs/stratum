@@ -345,8 +345,8 @@ class LiftSwapViewModelTest {
     }
 
     @Test
-    @DisplayName("Given PersistToProgram when swap fails then user message is shown and error is logged")
-    fun persistToProgramLogsErrorWhenSwapFails() = runTest {
+    @DisplayName("Given PersistToProgram when swap fails then user message is shown and a warning is logged")
+    fun persistToProgramLogsWarningWhenSwapFails() = runTest {
         viewModel.initialize(
             workoutId = WORKOUT_ID,
             workoutLiftId = "wl-nonexistent",
@@ -363,8 +363,11 @@ class LiftSwapViewModelTest {
             advanceUntilIdle()
             assertFalse(completed)
             assertEquals("Couldn't swap that lift. Try again.", viewModel.userMessage.value)
-            assertTrue(fakeLoggingPort.errors.isNotEmpty())
-            assertTrue(fakeLoggingPort.errors.any { it.message.contains("Failed to persist lift swap") })
+            // STR-243: a stale workout-lift id is an expected branch — the use case
+            // records it once as a warning breadcrumb, never as an error/non-fatal,
+            // and the ViewModel no longer logs a second error for it.
+            assertTrue(fakeLoggingPort.errors.isEmpty())
+            assertTrue(fakeLoggingPort.warnings.any { it.message.contains("Failed to swap workout lift") })
             cancelAndIgnoreRemainingEvents()
         }
     }

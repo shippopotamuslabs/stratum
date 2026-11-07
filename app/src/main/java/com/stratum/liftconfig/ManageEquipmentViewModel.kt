@@ -2,8 +2,11 @@ package com.stratum.liftconfig
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.stratum.application.lift.AddCustomEquipmentResult
 import com.stratum.application.lift.AddCustomEquipmentUseCase
+import com.stratum.application.lift.DeleteCustomEquipmentResult
 import com.stratum.application.lift.DeleteCustomEquipmentUseCase
+import com.stratum.application.lift.ForkEquipmentResult
 import com.stratum.domain.lift.Equipment
 import com.stratum.application.lift.GetEquipmentDeleteImpactUseCase
 import com.stratum.application.lift.ForkEquipmentUseCase
@@ -221,20 +224,30 @@ class ManageEquipmentViewModel @Inject constructor(
         if (name.isEmpty() || fork.isForking) return
         viewModelScope.launch {
             forkDraft.value = fork.copy(isForking = true)
-            val result = forkEquipment(EquipmentId(sourceId), name)
-            result
-                .onSuccess { forked ->
+            when (val result = forkEquipment(EquipmentId(sourceId), name)) {
+                is ForkEquipmentResult.Success -> {
                     forkDraft.value = ForkDraft()
                     _userMessage.value = "Created $name."
-                    _events.send(ManageEquipmentEvent.Forked(forked.id.value))
+                    _events.send(ManageEquipmentEvent.Forked(result.forked.id.value))
                 }
-                .onFailure { error ->
-                    forkDraft.value = forkDraft.value.copy(isForking = false)
-                    _userMessage.value =
-                        error.message?.takeIf { it.isNotBlank() }
-                            ?: MSG_FORK_FAILED
-                }
+                is ForkEquipmentResult.InvalidName ->
+                    forkFailure(result.validation.message)
+                is ForkEquipmentResult.EquipmentNotFound ->
+                    forkFailure("Equipment not found")
+                is ForkEquipmentResult.InvalidTiers ->
+                    forkFailure("Invalid increment tiers: ${result.validation.errors}")
+                is ForkEquipmentResult.InvalidMicro ->
+                    forkFailure("Invalid micro increments: ${result.validation.errors}")
+                ForkEquipmentResult.PersistenceFailed ->
+                    forkFailure(MSG_FORK_FAILED)
+            }
         }
+    }
+
+    /** Surfaces a fork failure: back to editing, with the branch's user copy. */
+    private fun forkFailure(message: String) {
+        forkDraft.value = forkDraft.value.copy(isForking = false)
+        _userMessage.value = message.takeIf { it.isNotBlank() } ?: MSG_FORK_FAILED
     }
 
     /**
@@ -248,17 +261,21 @@ class ManageEquipmentViewModel @Inject constructor(
             isCreating.value = true
             val result = addCustomEquipment(name)
             isCreating.value = false
-            result
-                .onSuccess { id ->
+            when (result) {
+                is AddCustomEquipmentResult.Success -> {
                     nameDraft.value = ""
                     showCreateSheet.value = false
-                    _events.send(ManageEquipmentEvent.Created(id.value))
+                    _events.send(ManageEquipmentEvent.Created(result.equipmentId.value))
                 }
-                .onFailure { error ->
-                    _userMessage.value =
-                        error.message?.takeIf { it.isNotBlank() }
-                            ?: MSG_CREATE_FAILED
-                }
+                is AddCustomEquipmentResult.InvalidName ->
+                    _userMessage.value = result.validation.message
+                is AddCustomEquipmentResult.InvalidTiers ->
+                    _userMessage.value = "Invalid increment tiers: ${result.validation.errors}"
+                is AddCustomEquipmentResult.InvalidMicro ->
+                    _userMessage.value = "Invalid micro increments: ${result.validation.errors}"
+                AddCustomEquipmentResult.PersistenceFailed ->
+                    _userMessage.value = MSG_CREATE_FAILED
+            }
         }
     }
 
@@ -331,15 +348,17 @@ class ManageEquipmentViewModel @Inject constructor(
         viewModelScope.launch {
             val result = deleteCustomEquipment(EquipmentId(pending.id), replacement)
             pendingDelete.value = null
-            result
-                .onSuccess {
+            // STR-243 C4: branch on the outcome kinds; the user copy is sourced
+            // from the kind (NotDeletable carries the shipped refusal copy).
+            when (result) {
+                DeleteCustomEquipmentResult.Success ->
                     _userMessage.value = "Deleted ${pending.name}."
-                }
-                .onFailure { error ->
+                is DeleteCustomEquipmentResult.NotDeletable ->
                     _userMessage.value =
-                        error.message?.takeIf { it.isNotBlank() }
-                            ?: MSG_DELETE_FAILED
-                }
+                        "Equipment cannot be deleted (protected or missing, or a replacement is required)"
+                DeleteCustomEquipmentResult.PersistenceFailed ->
+                    _userMessage.value = MSG_DELETE_FAILED
+            }
         }
     }
 

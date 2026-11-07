@@ -12,8 +12,10 @@ import com.stratum.domain.importing.ImportHistoryPersistPolicy
 import com.stratum.domain.importing.ImportProgress
 import com.stratum.domain.importing.ImportProgressPhase
 import com.stratum.application.importing.RefreshPersistedImportStateUseCase
+import com.stratum.application.lift.ApplyGymPresetResult
 import com.stratum.application.lift.ApplyGymPresetUseCase
 import com.stratum.application.lift.ObserveWeightDisplayPreferencesUseCase
+import com.stratum.application.lift.SetSelectedPresetResult
 import com.stratum.application.lift.SetSelectedPresetUseCase
 import com.stratum.application.lift.SetWeightDisplayUnitUseCase
 import com.stratum.domain.lift.Weight
@@ -42,11 +44,17 @@ import com.stratum.core.ui.trainingsetup.withTrainingDayCount
 import com.stratum.domain.onboarding.AdditiveSetEdit
 import com.stratum.application.onboarding.ValidateMinimumVolumeStepUseCase
 import com.stratum.domain.onboarding.toggleInAdditiveSetEdit
+import com.stratum.application.program.ActivateProgramResult
 import com.stratum.application.program.ActivateProgramUseCase
 import com.stratum.application.program.GenerateProgramUseCase
+import com.stratum.domain.program.generation.GenerateProgramResult
+import com.stratum.domain.program.generation.synthesis.ProgramSynthesisException
+import com.stratum.domain.program.generation.synthesis.ProgramSynthesisRefusal
+import com.stratum.domain.program.generation.validation.ProgramGenerationValidationException
 import com.stratum.domain.program.ProgramGenerationProgress
 import com.stratum.domain.program.ProgramGenerationProgressPhase
 import com.stratum.application.program.importing.ImportProgramTemplateUseCase
+import com.stratum.application.program.importing.ProgramTemplateImportOutcome
 import com.stratum.domain.program.importing.ProgramTemplateImportPhase
 import com.stratum.domain.program.schedule.GenerationCycleDefaults
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -388,19 +396,18 @@ class OnboardingViewModel @Inject constructor(
                 )
             }
             importResumeState.value = null
-            val result =
+            // STR-243 C4: branch on the outcome kinds; the failure copy is the
+            // shipped preset-apply fallback.
+            val failed =
                 if (preset != null) {
-                    applyGymPreset(preset)
+                    applyGymPreset(preset) == ApplyGymPresetResult.PersistenceFailed
                 } else {
-                    setSelectedPreset(null)
+                    setSelectedPreset(null) == SetSelectedPresetResult.PersistenceFailed
                 }
             ephemeral.update {
                 it.copy(
                     applyingPreset = false,
-                    presetApplyError = result.fold(
-                        onSuccess = { null },
-                        onFailure = { error -> error.toPresetApplyErrorMessage() },
-                    ),
+                    presetApplyError = if (failed) PRESET_APPLY_ERROR_FALLBACK else null,
                 )
             }
         }
@@ -795,18 +802,27 @@ class OnboardingViewModel @Inject constructor(
                                 publishGenerateProgress(progress)
                             }
                         }
-                    val program = generateResult.getOrElse { error ->
-                        logGenerateFailure(error)
-                        ephemeral.update(OnboardingProgramFlowOps::generateFailed)
-                        return@launch
-                    }
+                    val program =
+                        when (generateResult) {
+                            is GenerateProgramResult.Success -> generateResult.program
+                            is GenerateProgramResult.ValidationRejected,
+                            is GenerateProgramResult.SynthesisRefused,
+                            is GenerateProgramResult.SynthesisFailed,
+                            is GenerateProgramResult.Unexpected,
+                            -> {
+                                logGenerateFailure(generateResult)
+                                ephemeral.update(OnboardingProgramFlowOps::generateFailed)
+                                return@launch
+                            }
+                        }
                     withContext(Dispatchers.Main.immediate) {
                         publishGenerateProgress(
                             ProgramGenerationProgress(ProgramGenerationProgressPhase.SavingProgram),
                         )
                     }
-                    activateProgram(program).onFailure { error ->
-                        logGenerateFailure(error)
+                    val activateResult = activateProgram(program)
+                    if (activateResult != ActivateProgramResult.Success) {
+                        logActivateFailure(activateResult)
                         ephemeral.update(OnboardingProgramFlowOps::generateFailed)
                         return@launch
                     }
@@ -854,25 +870,22 @@ class OnboardingViewModel @Inject constructor(
         importProgramJob?.cancel()
         importProgramJob =
             viewModelScope.launch {
-                val result =
+                val outcome =
                     importProgramTemplate(file.bytes, file.fileName) { phase ->
                         withContext(Dispatchers.Main.immediate) {
                             publishImportProgramProgress(phase)
                         }
                     }
-                result.fold(
-                    onSuccess = {
+                when (outcome) {
+                    is ProgramTemplateImportOutcome.Success ->
                         ephemeral.update {
                             it.copy(
                                 importProgramState = ImportProgramState.Idle,
                                 importMaxTimelineIndex = 0,
                             )
                         }
-                    },
-                    onFailure = { error ->
-                        setImportProgramError(error)
-                    },
-                )
+                    else -> setImportProgramError(outcome)
+                }
             }
     }
 
@@ -906,17 +919,22 @@ class OnboardingViewModel @Inject constructor(
         ephemeral.update { OnboardingProgramFlowOps.withImportProgramProgress(it, phase) }
     }
 
-    private fun setImportProgramError(error: Throwable) {
-        logError(
-            OnboardingProgramFlowOps.TAG_IMPORT,
-            OnboardingProgramFlowOps.importFailureLogMessage(error),
-            error,
-        )
+    private fun setImportProgramError(outcome: ProgramTemplateImportOutcome) {
+        // OperationalFailed was already logged once at the use-case boundary
+        // (STR-243), so it has no log record here; the other branches are
+        // recorded with a constructed exception value for the record only.
+        OnboardingProgramFlowOps.importFailureLogThrowable(outcome)?.let { record ->
+            logError(
+                OnboardingProgramFlowOps.TAG_IMPORT,
+                OnboardingProgramFlowOps.importFailureLogMessage(outcome),
+                record,
+            )
+        }
         logAnalytics(
             USER_VISIBLE_ERROR_EVENT,
             mapOf(PARAM_SCREEN to "onboarding", PARAM_ACTION to "import_program"),
         )
-        ephemeral.update { OnboardingProgramFlowOps.importProgramFailed(it, error) }
+        ephemeral.update { OnboardingProgramFlowOps.importProgramFailed(it, outcome) }
     }
 
     /** Cancels an in-flight import and resets import UI so it cannot leak across paths/steps. */
@@ -933,6 +951,80 @@ class OnboardingViewModel @Inject constructor(
 
     private fun logGenerateFailure(error: Throwable) {
         logError(OnboardingProgramFlowOps.TAG, OnboardingProgramFlowOps.MSG_GENERATE_FAILED, error)
+        logAnalytics(
+            USER_VISIBLE_ERROR_EVENT,
+            mapOf(PARAM_SCREEN to "onboarding", PARAM_ACTION to "generate_program"),
+        )
+    }
+
+    /**
+     * Records a generation failure branch (STR-243). An [GenerateProgramResult.Unexpected]
+     * failure was already recorded once at the use-case boundary via
+     * TelemetryRouter.recordExceptional, so only the analytics event fires for
+     * it here; the expected branches are recorded here with a constructed
+     * exception value for the log record only — the branch itself carries the
+     * typed facts.
+     */
+    private fun logGenerateFailure(result: GenerateProgramResult) {
+        when (result) {
+            is GenerateProgramResult.SynthesisFailed ->
+                logError(
+                    OnboardingProgramFlowOps.TAG,
+                    OnboardingProgramFlowOps.MSG_GENERATE_FAILED,
+                    ProgramSynthesisException(result.message),
+                )
+            is GenerateProgramResult.SynthesisRefused ->
+                logError(
+                    OnboardingProgramFlowOps.TAG,
+                    OnboardingProgramFlowOps.MSG_GENERATE_FAILED,
+                    ProgramSynthesisException(
+                        when (result.refusal) {
+                            ProgramSynthesisRefusal.FeatureDisabled ->
+                                ProgramSynthesisException.MESSAGE_SYNTHESIS_PAUSED
+                        },
+                    ),
+                )
+            is GenerateProgramResult.ValidationRejected ->
+                logError(
+                    OnboardingProgramFlowOps.TAG,
+                    OnboardingProgramFlowOps.MSG_GENERATE_FAILED,
+                    ProgramGenerationValidationException(result.report),
+                )
+            is GenerateProgramResult.Success,
+            is GenerateProgramResult.Unexpected,
+            -> Unit
+        }
+        logAnalytics(
+            USER_VISIBLE_ERROR_EVENT,
+            mapOf(PARAM_SCREEN to "onboarding", PARAM_ACTION to "generate_program"),
+        )
+    }
+
+    /**
+     * Records an activation failure after a successful generation (STR-243).
+     * A persistence failure was already logged once at the use-case boundary,
+     * so only the analytics event fires for it; the validation branches are
+     * recorded here with a constructed exception value for the log record
+     * only — the branch itself carries the typed facts.
+     */
+    private fun logActivateFailure(result: ActivateProgramResult) {
+        when (result) {
+            ActivateProgramResult.NoWorkouts ->
+                logError(
+                    OnboardingProgramFlowOps.TAG,
+                    OnboardingProgramFlowOps.MSG_GENERATE_FAILED,
+                    IllegalArgumentException("Program must have at least one workout"),
+                )
+            ActivateProgramResult.NoExercises ->
+                logError(
+                    OnboardingProgramFlowOps.TAG,
+                    OnboardingProgramFlowOps.MSG_GENERATE_FAILED,
+                    IllegalArgumentException("Program must have at least one exercise"),
+                )
+            ActivateProgramResult.Success,
+            ActivateProgramResult.PersistenceFailed,
+            -> Unit
+        }
         logAnalytics(
             USER_VISIBLE_ERROR_EVENT,
             mapOf(PARAM_SCREEN to "onboarding", PARAM_ACTION to "generate_program"),

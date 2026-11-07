@@ -5,10 +5,13 @@ import androidx.lifecycle.viewModelScope
 import com.stratum.domain.subscription.BillingPurchaseResult
 import com.stratum.domain.subscription.EntitlementSource
 import com.stratum.domain.subscription.EntitlementState
+import com.stratum.application.subscription.GetSubscriptionProductsResult
 import com.stratum.application.subscription.GetSubscriptionProductsUseCase
 import com.stratum.application.subscription.ObserveBillingPurchaseResultsUseCase
 import com.stratum.application.subscription.ObserveEntitlementUseCase
+import com.stratum.application.subscription.PurchaseSubscriptionResult
 import com.stratum.application.subscription.PurchaseSubscriptionUseCase
+import com.stratum.application.subscription.RestorePurchasesResult
 import com.stratum.application.subscription.RestorePurchasesUseCase
 import com.stratum.domain.subscription.SubscriptionCatalog
 import com.stratum.domain.subscription.SubscriptionProduct
@@ -162,8 +165,9 @@ class PaywallViewModel @Inject constructor(
             transientState.update {
                 it.copy(loadError = null, products = emptyList(), selectedProductId = null)
             }
-            getSubscriptionProducts()
-                .onSuccess { products ->
+            when (val result = getSubscriptionProducts()) {
+                is GetSubscriptionProductsResult.Success -> {
+                    val products = result.products
                     if (products.isEmpty()) {
                         transientState.update { it.copy(loadError = PaywallCopy.LOAD_ERROR) }
                     } else {
@@ -178,13 +182,14 @@ class PaywallViewModel @Inject constructor(
                         }
                     }
                 }
-                .onFailure {
+                GetSubscriptionProductsResult.Failed -> {
                     logAnalytics(
                         USER_VISIBLE_ERROR_EVENT,
                         mapOf(PARAM_SCREEN to "paywall", PARAM_ACTION to "load_offerings"),
                     )
                     transientState.update { it.copy(loadError = PaywallCopy.LOAD_ERROR) }
                 }
+            }
         }
     }
 
@@ -205,11 +210,12 @@ class PaywallViewModel @Inject constructor(
             // NOTE: user-visible purchase failures are deliberately NOT counted here —
             // billing-flow cancellations surface on this branch and are not errors.
             // Counting it needs cancellation discrimination first.
-            purchaseSubscription(product).onFailure { error ->
+            val result = purchaseSubscription(product)
+            if (result is PurchaseSubscriptionResult.Failed) {
                 transientState.update {
                     it.copy(
                         isPurchasing = false,
-                        errorMessage = error.message ?: PaywallCopy.PURCHASE_FAILED,
+                        errorMessage = result.message ?: PaywallCopy.PURCHASE_FAILED,
                     )
                 }
             }
@@ -221,8 +227,9 @@ class PaywallViewModel @Inject constructor(
             transientState.update {
                 it.copy(isRestoring = true, errorMessage = null, userMessage = null)
             }
-            restorePurchases()
-                .onSuccess { entitlement ->
+            when (val result = restorePurchases()) {
+                is RestorePurchasesResult.Success -> {
+                    val entitlement = result.entitlement
                     if (entitlement is EntitlementState.Entitled) {
                         transientState.update {
                             it.copy(isRestoring = false, userMessage = PaywallCopy.RESTORE_SUCCESS)
@@ -236,17 +243,18 @@ class PaywallViewModel @Inject constructor(
                         _events.send(PaywallUiEvent.ShowMessage(PaywallCopy.RESTORE_NONE))
                     }
                 }
-                .onFailure { error ->
+                is RestorePurchasesResult.Failed -> {
                     logAnalytics(
                         USER_VISIBLE_ERROR_EVENT,
                         mapOf(PARAM_SCREEN to "paywall", PARAM_ACTION to "restore_purchases"),
                     )
-                    val message = error.message ?: PaywallCopy.RESTORE_FAILED
+                    val message = result.message ?: PaywallCopy.RESTORE_FAILED
                     transientState.update {
                         it.copy(isRestoring = false, errorMessage = message, userMessage = message)
                     }
                     _events.send(PaywallUiEvent.ShowMessage(message))
                 }
+            }
         }
     }
 

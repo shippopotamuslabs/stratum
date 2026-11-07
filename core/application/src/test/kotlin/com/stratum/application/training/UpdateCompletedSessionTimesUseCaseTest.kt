@@ -78,7 +78,7 @@ class UpdateCompletedSessionTimesUseCaseTest {
         val newEnd = Instant.parse("2025-06-03T14:30:00Z") // 30 min duration
 
         val result = useCase(TrainingSessionId("ts-1"), newStart, newEnd)
-        assertTrue(result.isSuccess)
+        assertEquals(UpdateCompletedSessionTimesResult.Success, result)
 
         val updated = logRepo.getSession(TrainingSessionId("ts-1"))!!
         assertEquals(newStart, updated.startedAt)
@@ -139,7 +139,7 @@ class UpdateCompletedSessionTimesUseCaseTest {
         val newEnd = Instant.parse("2025-06-03T15:00:00Z")
 
         val result = useCase(TrainingSessionId("ts-clustered"), newStart, newEnd)
-        assertTrue(result.isSuccess)
+        assertEquals(UpdateCompletedSessionTimesResult.Success, result)
 
         val updatedSets = logRepo.getSetsForSession(TrainingSessionId("ts-clustered"))
         assertEquals(Instant.parse("2025-06-03T14:00:00Z"), updatedSets[0].completedAt)
@@ -176,7 +176,7 @@ class UpdateCompletedSessionTimesUseCaseTest {
             Instant.parse("2025-06-05T10:00:00Z"),
             Instant.parse("2025-06-05T11:00:00Z"),
         )
-        assertTrue(result.isSuccess)
+        assertEquals(UpdateCompletedSessionTimesResult.Success, result)
         assertEquals(1, modelingScheduler.forceExtractCount)
         assertEquals(true, modelingScheduler.lastForceReplaceExisting)
     }
@@ -195,7 +195,7 @@ class UpdateCompletedSessionTimesUseCaseTest {
             Instant.parse("2025-06-01T14:00:00Z"),
             Instant.parse("2025-06-01T15:00:00Z"),
         )
-        assertTrue(result.isSuccess)
+        assertEquals(UpdateCompletedSessionTimesResult.Success, result)
     }
 
     @Test
@@ -209,7 +209,10 @@ class UpdateCompletedSessionTimesUseCaseTest {
             Instant.parse("2025-06-01T14:00:00Z"),
             Instant.parse("2025-06-01T15:00:00Z"),
         )
-        assertTrue(result.isFailure)
+        assertEquals(
+            UpdateCompletedSessionTimesResult.SessionNotFound(TrainingSessionId("missing")),
+            result,
+        )
     }
 
     @Test
@@ -224,7 +227,13 @@ class UpdateCompletedSessionTimesUseCaseTest {
             Instant.parse("2025-06-01T14:00:00Z"),
             Instant.parse("2025-06-01T15:00:00Z"),
         )
-        assertTrue(result.isFailure)
+        assertEquals(
+            UpdateCompletedSessionTimesResult.SessionNotCompleted(
+                TrainingSessionId("ts-ip"),
+                com.stratum.domain.training.TrainingSessionStatus.IN_PROGRESS,
+            ),
+            result,
+        )
     }
 
     @Test
@@ -238,7 +247,7 @@ class UpdateCompletedSessionTimesUseCaseTest {
         val end = Instant.parse("2025-06-01T15:00:00Z")
 
         val result = useCase(TrainingSessionId("ts-1"), start, end)
-        assertTrue(result.isFailure)
+        assertEquals(UpdateCompletedSessionTimesResult.StartAfterFinish(start, end), result)
     }
 
     private fun buildUseCase(

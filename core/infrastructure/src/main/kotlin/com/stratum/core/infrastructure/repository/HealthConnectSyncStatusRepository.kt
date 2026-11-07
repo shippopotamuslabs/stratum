@@ -2,6 +2,7 @@ package com.stratum.core.infrastructure.repository
 
 import com.stratum.application.healthconnect.HealthConnectPreferencesPort
 import com.stratum.application.healthconnect.HealthConnectSyncStatusPort
+import com.stratum.application.healthconnect.HealthConnectWriteOutcome
 import com.stratum.domain.healthconnect.HealthFailureKind
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -25,9 +26,10 @@ class HealthConnectSyncStatusRepository @Inject constructor(
             .distinctUntilChanged()
             .filterNotNull()
 
-    override suspend fun reportSyncError(kind: HealthFailureKind): Result<Unit> =
-        preferencesPort.setPendingSyncError(kind)
+    override suspend fun reportSyncError(
+        kind: HealthFailureKind,
+    ): HealthConnectWriteOutcome = preferencesPort.setPendingSyncError(kind)
 
-    override suspend fun clearPendingSyncError(): Result<Unit> =
+    override suspend fun clearPendingSyncError(): HealthConnectWriteOutcome =
         preferencesPort.setPendingSyncError(null)
 }

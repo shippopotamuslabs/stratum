@@ -9,6 +9,19 @@ import com.stratum.application.dashboard.LoadDashboardUseCase
 import com.stratum.application.sync.CloudSyncPort
 
 /**
+ * Outcome of rebuilding local derived training data (STR-243). The stage that
+ * failed is identified on [LocalDerivedTrainingStagesResult] and was already
+ * logged inside the stages; this outcome carries only the failure kind.
+ * Coroutine cancellation is not a branch: it propagates out of the stages.
+ */
+sealed interface RebuildLocalDerivedTrainingDataResult {
+    data object Success : RebuildLocalDerivedTrainingDataResult
+
+    /** A derived-data stage failed (see [LocalDerivedTrainingStagesResult]). */
+    data object PersistenceFailed : RebuildLocalDerivedTrainingDataResult
+}
+
+/**
  * Rebuilds device-local derived training tables that are intentionally **not** cloud-synced
  * (see [com.stratum.application.sync.CloudSyncPort] incomplete surface).
  *
@@ -31,25 +44,26 @@ class RebuildLocalDerivedTrainingDataUseCase @Inject constructor(
     private val responseModelingScheduler: ResponseModelingSchedulerPort,
     private val loggingPort: LoggingPort,
 ) {
-    suspend operator fun invoke(): Result<Unit> {
+    suspend operator fun invoke(): RebuildLocalDerivedTrainingDataResult {
         val stagesResult =
             localDerivedStages.run(
                 includeInsights = false,
                 failPolicy = LocalDerivedTrainingStages.FailPolicy.Throw,
                 logTag = TAG,
             )
-        if (stagesResult.isFailure) {
-            // Stage already logged; keep a top-level breadcrumb for hydrate callers.
-            loggingPort.error(
+        if (stagesResult != LocalDerivedTrainingStagesResult.Success) {
+            // Stage already logged as an error with its throwable inside the
+            // stages; keep a top-level warning breadcrumb for hydrate callers
+            // (no throwable crosses here, and the failure is not logged twice).
+            loggingPort.warning(
                 TAG,
-                "Weekly series rebuild failed: ${stagesResult.exceptionOrNull()?.message}",
-                stagesResult.exceptionOrNull(),
+                "Weekly series rebuild failed",
             )
-            return stagesResult
+            return RebuildLocalDerivedTrainingDataResult.PersistenceFailed
         }
         // Non-blocking enqueue — worker owns gates / extract cost.
         responseModelingScheduler.enqueueRefresh()
-        return Result.success(Unit)
+        return RebuildLocalDerivedTrainingDataResult.Success
     }
 
     private companion object {

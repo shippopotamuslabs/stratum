@@ -239,8 +239,8 @@ class OnboardingGenerateViewModelTest {
             getOnboardingStepCapabilities = com.stratum.application.onboarding.GetOnboardingStepCapabilitiesUseCase(
                 validateCurrentStep,
             ),
-            applyGymPreset = ApplyGymPresetUseCase(com.stratum.core.testing.onboarding.FakeLiftRepository()),
-            setSelectedPreset = SetSelectedPresetUseCase(com.stratum.core.testing.onboarding.FakeLiftRepository()),
+            applyGymPreset = ApplyGymPresetUseCase(com.stratum.core.testing.onboarding.FakeLiftRepository(), FakeLoggingPort()),
+            setSelectedPreset = SetSelectedPresetUseCase(com.stratum.core.testing.onboarding.FakeLiftRepository(), FakeLoggingPort()),
             executeHistoricalImport = com.stratum.application.importing.ExecuteHistoricalImportUseCase(
                 validateImportFiles = com.stratum.application.importing.ValidateImportFilesUseCase(),
                 runHistoricalImport = com.stratum.application.importing.RunHistoricalImportUseCase(
@@ -262,14 +262,17 @@ class OnboardingGenerateViewModelTest {
                 loadContext = contextLoader,
                 pipeline = testProgramGenerationPipeline(),
                 liftRepository = liftRepo,
+                telemetryRouter = com.stratum.domain.telemetry.TelemetryRouter(com.stratum.core.testing.telemetry.FakeOutcomeTelemetrySink(), com.stratum.core.testing.telemetry.FakeCrashTelemetryPort(), com.stratum.core.testing.telemetry.FakeAnalyticsPort()),
                 generationDispatcher = generationDispatcher,
             ),
             activateProgram = com.stratum.application.program.ActivateProgramUseCase(
                 programRepository = programRepo,
                 programChangeEventRepository = com.stratum.core.testing.training.NoOpProgramChangeEventRepository(),
+                loggingPort = FakeLoggingPort(),
             ),
             completeOnboarding = CompleteOnboardingUseCase(onboardingRepo, profileRepo),
             importProgramTemplate = com.stratum.application.program.importing.ImportProgramTemplateUseCase(
+                loggingPort = FakeLoggingPort(),
                 importPort = com.stratum.core.testing.importing.FakeProgramTemplateImportPort(),
                 resolver = com.stratum.application.program.importing.ResolveProgramTemplateLiftsUseCase(
                     liftRepository = liftRepo,

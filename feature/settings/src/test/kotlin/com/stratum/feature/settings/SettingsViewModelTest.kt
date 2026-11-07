@@ -37,6 +37,7 @@ import com.stratum.application.theme.SetThemeFamilyUseCase
 import com.stratum.domain.theme.ThemeFamily
 import com.stratum.domain.theme.ThemePreferences
 import com.stratum.application.training.ForceRefreshDerivedTrainingData
+import com.stratum.application.training.ForceRefreshDerivedTrainingDataResult
 import com.stratum.application.workout.ObserveRepRangeShiftProposalsEnabledUseCase
 import com.stratum.application.workout.SetRepRangeShiftProposalsEnabledUseCase
 import kotlinx.coroutines.CompletableDeferred
@@ -87,13 +88,14 @@ class SettingsViewModelTest {
     private lateinit var loggingPort: FakeLoggingPort
     private lateinit var subject: SettingsViewModel
     private var forceRefreshCalls = 0
-    private var forceRefreshResult: Result<Unit> = Result.success(Unit)
+    private var forceRefreshResult: ForceRefreshDerivedTrainingDataResult =
+        ForceRefreshDerivedTrainingDataResult.Success
     private var forceRefreshGate: CompletableDeferred<Unit>? = null
 
     @BeforeEach
     fun setup() {
         forceRefreshCalls = 0
-        forceRefreshResult = Result.success(Unit)
+        forceRefreshResult = ForceRefreshDerivedTrainingDataResult.Success
         forceRefreshGate = null
         fakeThemePreferences.seed(ThemePreferences())
         fakeCheckInPreferences.seed(CheckInPreferences())
@@ -357,7 +359,7 @@ class SettingsViewModelTest {
     @Test
     @DisplayName("rebuild progress failure surfaces message without cooldown")
     fun rebuildProgressFailure() = runTest {
-        forceRefreshResult = Result.failure(IllegalStateException("boom"))
+        forceRefreshResult = ForceRefreshDerivedTrainingDataResult.PersistenceFailed
         subject = buildViewModel()
 
         subject.uiState.test {
@@ -436,7 +438,7 @@ class SettingsViewModelTest {
     @Test
     @DisplayName("When logout fails then userMessage is set and in-flight clears")
     fun logoutFailureSurfacesMessage() = runTest {
-        fakeCloudSync.wipeResult = Result.failure(IllegalStateException("wipe failed"))
+        fakeCloudSync.wipeFailure = IllegalStateException("wipe failed")
         subject = buildViewModel()
 
         subject.onLogoutClick()
@@ -455,8 +457,8 @@ class SettingsViewModelTest {
     @DisplayName("When logout and restart fail then restart is logged once and message stays generic")
     fun logoutAndRestartFailureLogsRestartOnce() = runTest {
         val restartError = IllegalStateException("restart failed")
-        fakeCloudSync.wipeResult = Result.failure(IllegalStateException("wipe failed"))
-        fakeCloudSync.startResult = Result.failure(restartError)
+        fakeCloudSync.wipeFailure = IllegalStateException("wipe failed")
+        fakeCloudSync.startFailure = restartError
         subject = buildViewModel()
 
         subject.onLogoutClick()
@@ -539,8 +541,7 @@ class SettingsViewModelTest {
     @Test
     @DisplayName("When auth delete fails after wipe then distinct finish-account message")
     fun deleteAccountAuthFailureSurfacesGuidance() = runTest {
-        fakeAccountDeletion.deleteAuthResult =
-            Result.failure(IllegalStateException("auth delete failed"))
+        fakeAccountDeletion.deleteAuthFailure = IllegalStateException("auth delete failed")
         subject = buildViewModel()
 
         subject.onDeleteAccountClick()
@@ -560,7 +561,7 @@ class SettingsViewModelTest {
     @Test
     @DisplayName("When remote delete fails then generic userMessage is set")
     fun deleteAccountFailureSurfacesMessage() = runTest {
-        fakeAccountDeletion.deleteDataResult = Result.failure(IllegalStateException("cloud failed"))
+        fakeAccountDeletion.deleteDataFailure = IllegalStateException("cloud failed")
         subject = buildViewModel()
 
         subject.onDeleteAccountClick()
@@ -579,8 +580,8 @@ class SettingsViewModelTest {
     @DisplayName("When delete and restart fail then restart is logged once and message stays generic")
     fun deleteAccountAndRestartFailureLogsRestartOnce() = runTest {
         val restartError = IllegalStateException("restart failed")
-        fakeAccountDeletion.deleteDataResult = Result.failure(IllegalStateException("cloud failed"))
-        fakeCloudSync.startResult = Result.failure(restartError)
+        fakeAccountDeletion.deleteDataFailure = IllegalStateException("cloud failed")
+        fakeCloudSync.startFailure = restartError
         subject = buildViewModel()
 
         subject.onDeleteAccountClick()
@@ -598,7 +599,7 @@ class SettingsViewModelTest {
     @Test
     @DisplayName("When local wipe fails after cloud data delete then local-cleanup guidance snackbar")
     fun deleteAccountLocalCleanupFailureSurfacesGuidance() = runTest {
-        fakeCloudSync.wipeResult = Result.failure(IllegalStateException("wipe failed"))
+        fakeCloudSync.wipeFailure = IllegalStateException("wipe failed")
         subject = buildViewModel()
 
         subject.onDeleteAccountClick()

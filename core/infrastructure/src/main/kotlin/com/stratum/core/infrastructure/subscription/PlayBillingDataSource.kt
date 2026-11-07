@@ -20,7 +20,11 @@ import com.stratum.domain.auth.AuthState
 import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.di.ApplicationScope
 import com.stratum.domain.logging.LoggingPort
+import com.stratum.application.subscription.BillingDiagnostic
+import com.stratum.application.subscription.BillingFlowOutcome
 import com.stratum.application.subscription.BillingPort
+import com.stratum.application.subscription.RestorePurchasesOutcome
+import com.stratum.application.subscription.SubscriptionProductsOutcome
 import com.stratum.domain.subscription.BillingPurchaseResult
 import com.stratum.domain.subscription.SubscriptionCatalog
 import com.stratum.domain.subscription.SubscriptionProduct
@@ -98,7 +102,19 @@ class PlayBillingDataSource @Inject constructor(
         }
     }
 
-    override suspend fun querySubscriptionProducts(): Result<List<SubscriptionProduct>> = runCatchingCancellable {
+    override suspend fun querySubscriptionProducts(): SubscriptionProductsOutcome =
+        try {
+            SubscriptionProductsOutcome.Success(querySubscriptionProductsOrThrow())
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            SubscriptionProductsOutcome.Failed(
+                message = error.message,
+                diagnostics = listOf(BillingDiagnostic.OperationFailed(error)),
+            )
+        }
+
+    private suspend fun querySubscriptionProductsOrThrow(): List<SubscriptionProduct> {
         if (!ensureConnected()) {
             error("Failed to connect to Google Play Billing service")
         }
@@ -125,14 +141,29 @@ class PlayBillingDataSource @Inject constructor(
         val detailsList = productDetailsResult.productDetailsList ?: emptyList()
         cachedProductDetails = detailsList.associateBy { it.productId }
 
-        detailsList.mapNotNull(PlaySubscriptionMapper::toDomain)
+        return detailsList.mapNotNull(PlaySubscriptionMapper::toDomain)
             .filter { SubscriptionCatalog.isKnownProductId(it.productId) }
             .sortedBy { product ->
                 if (product.productId == SubscriptionCatalog.ANNUAL_PRODUCT_ID) 0 else 1
             }
     }
 
-    override suspend fun launchBillingFlow(product: SubscriptionProduct): Result<Unit> = runCatchingCancellable {
+    override suspend fun launchBillingFlow(
+        product: SubscriptionProduct,
+    ): BillingFlowOutcome =
+        try {
+            launchBillingFlowOrThrow(product)
+            BillingFlowOutcome.Success
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            BillingFlowOutcome.Failed(
+                message = error.message,
+                diagnostics = listOf(BillingDiagnostic.OperationFailed(error)),
+            )
+        }
+
+    private suspend fun launchBillingFlowOrThrow(product: SubscriptionProduct) {
         if (!ensureConnected()) {
             error("Failed to connect to Google Play Billing service")
         }
@@ -148,7 +179,7 @@ class PlayBillingDataSource @Inject constructor(
         }
 
         val details = cachedProductDetails[product.productId]
-            ?: querySubscriptionProducts().getOrThrow().let {
+            ?: querySubscriptionProductsOrThrow().let {
                 cachedProductDetails[product.productId]
                     ?: error("Product details not available for ${product.productId}")
             }
@@ -172,9 +203,18 @@ class PlayBillingDataSource @Inject constructor(
         }
     }
 
-    override suspend fun restorePurchases(): Result<Unit> = runCatchingCancellable {
-        queryAndPublishActivePurchases()
-    }
+    override suspend fun restorePurchases(): RestorePurchasesOutcome =
+        try {
+            queryAndPublishActivePurchases()
+            RestorePurchasesOutcome.Success
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            RestorePurchasesOutcome.Failed(
+                message = error.message,
+                diagnostics = listOf(BillingDiagnostic.OperationFailed(error)),
+            )
+        }
 
     private fun emitPurchaseResult(billingResult: BillingResult, purchases: List<Purchase>?) {
         val result = when (billingResult.responseCode) {

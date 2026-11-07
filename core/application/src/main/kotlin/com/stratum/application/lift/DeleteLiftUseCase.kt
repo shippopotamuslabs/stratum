@@ -2,9 +2,23 @@ package com.stratum.application.lift
 
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.logging.LoggingPort
-import com.stratum.domain.logging.runCatchingLogged
 import com.stratum.application.training.RebuildLocalDerivedTrainingDataUseCase
 import javax.inject.Inject
+import kotlin.coroutines.cancellation.CancellationException
+
+/**
+ * Outcome of deleting a lift (STR-243). A missing or already-tombstoned lift
+ * is a no-op [Success], matching the port contract. The originating throwable
+ * of a failed delete goes once to the diagnostics channel
+ * ([LoggingPort.error]) at the use-case boundary; it never crosses as a
+ * payload. Coroutine cancellation is not a branch: it propagates.
+ */
+sealed interface DeleteLiftResult {
+    data object Success : DeleteLiftResult
+
+    /** The tombstone write failed (repository / store I/O). */
+    data object PersistenceFailed : DeleteLiftResult
+}
 
 /**
  * Deletes a lift (STR-131): seed and custom alike, delete means delete — the
@@ -20,18 +34,27 @@ class DeleteLiftUseCase @Inject constructor(
     private val rebuildDerived: RebuildLocalDerivedTrainingDataUseCase,
     private val loggingPort: LoggingPort,
 ) {
-    suspend operator fun invoke(id: LiftId): Result<Unit> {
+    suspend operator fun invoke(id: LiftId): DeleteLiftResult {
         val tombstoned =
-            runCatchingLogged(loggingPort, TAG, "Failed to delete lift") {
+            try {
                 deleteLiftPort.deleteLift(id)
-            }.getOrElse { return Result.failure(it) }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (t: Throwable) {
+                loggingPort.error(TAG, "Failed to delete lift: ${t.message}", t)
+                return DeleteLiftResult.PersistenceFailed
+            }
 
         if (tombstoned) {
-            runCatchingLogged(loggingPort, TAG, "Derived rebuild after lift delete failed") {
+            try {
                 rebuildDerived()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (t: Throwable) {
+                loggingPort.error(TAG, "Derived rebuild after lift delete failed: ${t.message}", t)
             }
         }
-        return Result.success(Unit)
+        return DeleteLiftResult.Success
     }
 
     private companion object {

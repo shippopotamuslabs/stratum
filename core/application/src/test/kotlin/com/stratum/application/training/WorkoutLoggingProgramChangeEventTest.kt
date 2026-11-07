@@ -1,5 +1,6 @@
 package com.stratum.application.training
 
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeProgramChangeEventRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
@@ -33,9 +34,9 @@ class WorkoutLoggingProgramChangeEventTest {
                 programRepository = programRepo,
                 programChangeEventRepository = events,
             )
-        val useCase = RecordWorkoutSkipUseCase(logRepo, programRepo)
+        val useCase = RecordWorkoutSkipUseCase(logRepo, programRepo, FakeLoggingPort())
 
-        useCase(WorkoutLoggingFixtures.workoutBId).getOrThrow()
+        useCase(WorkoutLoggingFixtures.workoutBId)
 
         val appended = events.getEventsForProgram(WorkoutLoggingFixtures.programId).events
         assertEquals(1, appended.size)

@@ -1,6 +1,5 @@
 package com.stratum.application.workout
 
-import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.application.program.ProgramRepository
 import com.stratum.domain.program.ProgressionRepRangePolicy
@@ -21,6 +20,7 @@ import com.stratum.domain.workout.ApplyRepRangeShiftResult
 import com.stratum.domain.workout.RepRangeShiftInput
 import com.stratum.domain.workout.evaluateRepRangeShift
 import com.stratum.domain.program.Program
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * Applies a post-workout rep-range shift to a single [WorkoutLift] in the active program.
@@ -66,9 +66,11 @@ class ApplyRepRangeShiftUseCase @Inject constructor(
                     setCount = setCount,
                 )
             }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (t: Throwable) {
             loggingPort.error(TAG, "Failed to apply rep-range shift for ${workoutLiftId.value}", t)
-            ApplyRepRangeShiftResult.Failure(t)
+            ApplyRepRangeShiftResult.PersistenceFailed
         }
     }
 
@@ -114,7 +116,7 @@ class ApplyRepRangeShiftUseCase @Inject constructor(
             )
         programRepository.saveProgram(program.replaceWorkoutLift(updatedLift))
         // Template is durable; event is audit-only — do not fail Accept if append breaks.
-        runCatchingCancellable {
+        try {
             programChangeEventRepository.append(
                 ProgramChangeEvent(
                     id = ProgramChangeEventId(UUID.randomUUID().toString()),
@@ -124,7 +126,9 @@ class ApplyRepRangeShiftUseCase @Inject constructor(
                     payload = ProgramChangeEventPayload.WorkoutEdited(parentWorkout.id),
                 ),
             )
-        }.onFailure { error ->
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
             loggingPort.error(
                 TAG,
                 "Program saved but WORKOUT_EDITED event failed for ${workoutLiftId.value}: " +

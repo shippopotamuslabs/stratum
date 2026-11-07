@@ -1,5 +1,6 @@
 package com.stratum.application.program
 
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeProgramChangeEventRepository
 import com.stratum.domain.lift.identity.LiftId
@@ -31,11 +32,11 @@ class AdjustWorkoutLiftSetCountUseCaseTest {
     fun addSets() = runTest {
         val repository = FakeProgramRepository(programWithSets(3))
         val events = FakeProgramChangeEventRepository()
-        val useCase = AdjustWorkoutLiftSetCountUseCase(repository, events)
+        val useCase = AdjustWorkoutLiftSetCountUseCase(repository, events, FakeLoggingPort())
 
         val result = useCase(workoutLiftId, delta = 1)
 
-        assertTrue(result.isSuccess)
+        assertEquals(AdjustWorkoutLiftSetCountResult.Success, result)
         val sets = repository.getProgram()!!.workouts.first().workoutLifts.first().sets
         assertEquals(4, sets.size)
         assertEquals(false, sets.last().isTopSet)
@@ -51,12 +52,12 @@ class AdjustWorkoutLiftSetCountUseCaseTest {
     @DisplayName("negative delta drops trailing non-top sets and never below 1")
     fun removeSetsKeepsFloor() = runTest {
         val repository = FakeProgramRepository(programWithSets(4))
-        val useCase = AdjustWorkoutLiftSetCountUseCase(repository, FakeProgramChangeEventRepository())
+        val useCase = AdjustWorkoutLiftSetCountUseCase(repository, FakeProgramChangeEventRepository(), FakeLoggingPort())
 
-        useCase(workoutLiftId, delta = -2).getOrThrow()
+        assertEquals(AdjustWorkoutLiftSetCountResult.Success, useCase(workoutLiftId, delta = -2))
         assertEquals(2, repository.getProgram()!!.workouts.first().workoutLifts.first().sets.size)
 
-        useCase(workoutLiftId, delta = -10).getOrThrow()
+        assertEquals(AdjustWorkoutLiftSetCountResult.Success, useCase(workoutLiftId, delta = -10))
         assertEquals(1, repository.getProgram()!!.workouts.first().workoutLifts.first().sets.size)
     }
 
@@ -102,5 +103,42 @@ class AdjustWorkoutLiftSetCountUseCaseTest {
                     ),
                 ),
         )
+    }
+
+    @Test
+    @DisplayName("unknown workout lift returns WorkoutLiftNotFound")
+    fun workoutLiftNotFound() = runTest {
+        val repository = FakeProgramRepository(programWithSets(3))
+        val useCase =
+            AdjustWorkoutLiftSetCountUseCase(
+                repository,
+                FakeProgramChangeEventRepository(),
+                FakeLoggingPort(),
+            )
+
+        val result = useCase(WorkoutLiftId("missing"), delta = 1)
+
+        assertEquals(
+            AdjustWorkoutLiftSetCountResult.WorkoutLiftNotFound(WorkoutLiftId("missing")),
+            result,
+        )
+    }
+
+    @Test
+    @DisplayName("repository save failure returns PersistenceFailed with one error log")
+    fun persistenceFailureOnSaveError() = runTest {
+        val repository = FakeProgramRepository(programWithSets(3), failOnSave = true)
+        val logging = FakeLoggingPort()
+        val useCase =
+            AdjustWorkoutLiftSetCountUseCase(
+                repository,
+                FakeProgramChangeEventRepository(),
+                logging,
+            )
+
+        val result = useCase(workoutLiftId, delta = 1)
+
+        assertEquals(AdjustWorkoutLiftSetCountResult.PersistenceFailed, result)
+        assertEquals(1, logging.errors.size)
     }
 }

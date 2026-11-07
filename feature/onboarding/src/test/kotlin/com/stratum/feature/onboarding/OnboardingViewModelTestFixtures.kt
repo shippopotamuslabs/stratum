@@ -181,8 +181,8 @@ internal object OnboardingViewModelTestFixtures {
                 loggingPort = FakeLoggingPort(),
             ),
             getOnboardingStepCapabilities = GetOnboardingStepCapabilitiesUseCase(validateCurrentStep),
-            applyGymPreset = ApplyGymPresetUseCase(fakeLiftRepository),
-            setSelectedPreset = SetSelectedPresetUseCase(fakeLiftRepository),
+            applyGymPreset = ApplyGymPresetUseCase(fakeLiftRepository, FakeLoggingPort()),
+            setSelectedPreset = SetSelectedPresetUseCase(fakeLiftRepository, FakeLoggingPort()),
             executeHistoricalImport = ExecuteHistoricalImportUseCase(
                 validateImportFiles = com.stratum.application.importing.ValidateImportFilesUseCase(),
                 runHistoricalImport = RunHistoricalImportUseCase(fakeHistoricalImport),
@@ -203,13 +203,16 @@ internal object OnboardingViewModelTestFixtures {
                     ),
                 pipeline = testProgramGenerationPipeline(),
                 liftRepository = fakeLiftRepository,
+                telemetryRouter = com.stratum.domain.telemetry.TelemetryRouter(com.stratum.core.testing.telemetry.FakeOutcomeTelemetrySink(), com.stratum.core.testing.telemetry.FakeCrashTelemetryPort(), com.stratum.core.testing.telemetry.FakeAnalyticsPort()),
             ),
             activateProgram = com.stratum.application.program.ActivateProgramUseCase(
                 programRepository = fakeProgramRepository,
                 programChangeEventRepository = com.stratum.core.testing.training.NoOpProgramChangeEventRepository(),
+                loggingPort = FakeLoggingPort(),
             ),
             completeOnboarding = CompleteOnboardingUseCase(fakeRepository, fakeProfileRepository),
             importProgramTemplate = com.stratum.application.program.importing.ImportProgramTemplateUseCase(
+                loggingPort = FakeLoggingPort(),
                 importPort = com.stratum.core.testing.importing.FakeProgramTemplateImportPort(),
                 resolver = com.stratum.application.program.importing.ResolveProgramTemplateLiftsUseCase(
                     liftRepository = fakeLiftRepository,

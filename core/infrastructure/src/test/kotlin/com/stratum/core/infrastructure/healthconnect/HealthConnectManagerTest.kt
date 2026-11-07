@@ -1,5 +1,7 @@
 package com.stratum.core.infrastructure.healthconnect
 
+import com.stratum.application.healthconnect.HealthSyncDiagnostic
+import com.stratum.application.healthconnect.HealthSyncFailureKind
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
@@ -11,11 +13,63 @@ import com.stratum.domain.training.TrainingSessionOrigin
 import com.stratum.domain.training.TrainingSessionStatus
 import com.stratum.domain.training.identity.TrainingSessionId
 import java.time.Instant
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 
 class HealthConnectManagerTest {
+
+    @Test
+    @DisplayName("B4: failing push returns Failed whose diagnostic cause is the identical vendor throwable")
+    fun pushFailureCauseIdentity() {
+        val vendor = RuntimeException("sdk insert died")
+
+        val outcome = classifiedPushFailure(vendor)
+
+        assertEquals(HealthSyncFailureKind.Transient, outcome.kind)
+        assertEquals("sdk insert died", outcome.message)
+        assertSame(
+            vendor,
+            (outcome.diagnostics.single() as HealthSyncDiagnostic.OperationFailed).cause,
+        )
+    }
+
+    @Test
+    @DisplayName("B4: failing granted-permissions query returns Failed whose diagnostic cause is the identical vendor throwable")
+    fun grantedPermissionsFailureCauseIdentity() {
+        val vendor = HealthConnectPermissionDeniedException()
+
+        val outcome = classifiedGrantedPermissionsFailure(vendor)
+
+        assertEquals(HealthSyncFailureKind.UserActionable, outcome.kind)
+        assertEquals("Health Connect write permission is not granted", outcome.message)
+        assertSame(
+            vendor,
+            (outcome.diagnostics.single() as HealthSyncDiagnostic.OperationFailed).cause,
+        )
+    }
+
+    @Test
+    @DisplayName("B4: unavailable granted-permissions query keeps Terminal classification and cause identity")
+    fun grantedPermissionsUnavailableCauseIdentity() {
+        val vendor = HealthConnectUnavailableException()
+
+        val outcome = classifiedGrantedPermissionsFailure(vendor)
+
+        assertEquals(HealthSyncFailureKind.Terminal, outcome.kind)
+        assertSame(
+            vendor,
+            (outcome.diagnostics.single() as HealthSyncDiagnostic.OperationFailed).cause,
+        )
+        val pushOutcome = classifiedPushFailure(vendor)
+        assertEquals(HealthSyncFailureKind.Terminal, pushOutcome.kind)
+        assertSame(
+            vendor,
+            (pushOutcome.diagnostics.single() as HealthSyncDiagnostic.OperationFailed).cause,
+        )
+    }
 
     @Test
     @DisplayName("formatSessionNotes formats title, exercises, sets, reps, weight, RIR, and PRs")

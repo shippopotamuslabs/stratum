@@ -104,6 +104,7 @@ class ImportExportOnboardingRegressionTest {
         val completeOnboarding = CompleteOnboardingUseCase(onboardingRepo, profileRepo)
         val importUseCase =
             ImportProgramTemplateUseCase(
+                loggingPort = FakeLoggingPort(),
                 importPort = importPort,
                 resolver =
                     ResolveProgramTemplateLiftsUseCase(
@@ -174,8 +175,8 @@ class ImportExportOnboardingRegressionTest {
                     loggingPort = FakeLoggingPort(),
                 ),
             getOnboardingStepCapabilities = GetOnboardingStepCapabilitiesUseCase(validateCurrentStep),
-            applyGymPreset = ApplyGymPresetUseCase(liftRepo),
-            setSelectedPreset = SetSelectedPresetUseCase(liftRepo),
+            applyGymPreset = ApplyGymPresetUseCase(liftRepo, FakeLoggingPort()),
+            setSelectedPreset = SetSelectedPresetUseCase(liftRepo, FakeLoggingPort()),
             executeHistoricalImport =
                 ExecuteHistoricalImportUseCase(
                     validateImportFiles = ValidateImportFilesUseCase(),
@@ -198,11 +199,13 @@ class ImportExportOnboardingRegressionTest {
                     loadContext = FixedProgramGenerationContextLoader(error = { error("not used") }),
                     pipeline = testProgramGenerationPipeline(),
                     liftRepository = liftRepo,
+                    telemetryRouter = com.stratum.domain.telemetry.TelemetryRouter(com.stratum.core.testing.telemetry.FakeOutcomeTelemetrySink(), com.stratum.core.testing.telemetry.FakeCrashTelemetryPort(), com.stratum.core.testing.telemetry.FakeAnalyticsPort()),
                 ),
             activateProgram =
                 ActivateProgramUseCase(
                     programRepository = programRepo,
                     programChangeEventRepository = NoOpProgramChangeEventRepository(),
+                    loggingPort = FakeLoggingPort(),
                 ),
             completeOnboarding = completeOnboarding,
             importProgramTemplate = importUseCase,

@@ -12,9 +12,13 @@ import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.application.lift.ObserveLiftCatalogUseCase
 import com.stratum.application.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.SeedEquipmentIds
+import com.stratum.application.lift.SetLiftDefaultRestResult
 import com.stratum.application.lift.SetLiftDefaultRestUseCase
+import com.stratum.application.lift.SetLiftEquipmentResult
 import com.stratum.application.lift.SetLiftEquipmentUseCase
+import com.stratum.application.lift.UpdateCustomLiftDetailsResult
 import com.stratum.application.lift.UpdateCustomLiftDetailsUseCase
+import com.stratum.application.lift.UpdateLiftMusclesResult
 import com.stratum.application.lift.UpdateLiftMusclesUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.classifyLiftCategory
@@ -264,8 +268,11 @@ class LiftInformationViewModel @Inject constructor(
         if (pending == null) return
         val id = liftId.value ?: return
         viewModelScope.launch {
-            updateLiftMuscles(LiftId(id), pending.primary, pending.secondary)
-                .onFailure { _userMessage.value = MSG_SAVE_FAILED }
+            if (updateLiftMuscles(LiftId(id), pending.primary, pending.secondary) !=
+                UpdateLiftMusclesResult.Success
+            ) {
+                _userMessage.value = MSG_SAVE_FAILED
+            }
         }
     }
 
@@ -302,8 +309,11 @@ class LiftInformationViewModel @Inject constructor(
                 } else {
                     lift.secondaryMuscles - muscle
                 }
-            updateLiftMuscles(LiftId(id), primary, secondary)
-                .onFailure { _userMessage.value = MSG_SAVE_FAILED }
+            if (updateLiftMuscles(LiftId(id), primary, secondary) !=
+                UpdateLiftMusclesResult.Success
+            ) {
+                _userMessage.value = MSG_SAVE_FAILED
+            }
         }
     }
 
@@ -338,8 +348,11 @@ class LiftInformationViewModel @Inject constructor(
                 } else {
                     lift.secondaryMuscles
                 }
-            updateLiftMuscles(LiftId(id), primary, secondary)
-                .onFailure { _userMessage.value = MSG_SAVE_FAILED }
+            if (updateLiftMuscles(LiftId(id), primary, secondary) !=
+                UpdateLiftMusclesResult.Success
+            ) {
+                _userMessage.value = MSG_SAVE_FAILED
+            }
         }
     }
 
@@ -381,9 +394,10 @@ class LiftInformationViewModel @Inject constructor(
     fun onSaveDefaultRest() {
         val id = liftId.value ?: return
         viewModelScope.launch {
-            setLiftDefaultRest(LiftId(id), restDraftSeconds.value)
-                .onSuccess { editingField.value = null }
-                .onFailure { _userMessage.value = MSG_SAVE_FAILED }
+            when (setLiftDefaultRest(LiftId(id), restDraftSeconds.value)) {
+                SetLiftDefaultRestResult.Success -> editingField.value = null
+                else -> _userMessage.value = MSG_SAVE_FAILED
+            }
         }
     }
 
@@ -425,9 +439,10 @@ class LiftInformationViewModel @Inject constructor(
      * [SetLiftEquipmentUseCase].
      */
     private suspend fun persistEquipment(id: LiftId, equipmentId: EquipmentId?) {
-        setLiftEquipment(id, equipmentId)
-            .onSuccess { editingField.value = null }
-            .onFailure { _userMessage.value = MSG_SAVE_FAILED }
+        when (setLiftEquipment(id, equipmentId)) {
+            SetLiftEquipmentResult.Success -> editingField.value = null
+            else -> _userMessage.value = MSG_SAVE_FAILED
+        }
     }
 
     private fun persistDetails(transform: (CustomLiftDetails) -> CustomLiftDetails) {
@@ -435,12 +450,15 @@ class LiftInformationViewModel @Inject constructor(
         val id = liftId.value ?: return
         val lift = latestLift.value ?: return
         viewModelScope.launch {
-            updateCustomLiftDetails(
-                LiftId(id),
-                transform(lift.toDetails()),
-            )
-                .onSuccess { editingField.value = null }
-                .onFailure { _userMessage.value = MSG_SAVE_FAILED }
+            when (
+                updateCustomLiftDetails(
+                    LiftId(id),
+                    transform(lift.toDetails()),
+                )
+            ) {
+                UpdateCustomLiftDetailsResult.Success -> editingField.value = null
+                else -> _userMessage.value = MSG_SAVE_FAILED
+            }
         }
     }
 

@@ -1,5 +1,8 @@
 package com.stratum.application.training
 
+import com.stratum.core.testing.logging.FakeLoggingPort
+import com.stratum.application.importing.PersistImportedHistoryOutcome
+
 import com.stratum.core.testing.importing.FakeCustomLiftInferencePort
 import com.stratum.core.testing.importing.FakeImportEquipmentInferencePort
 import com.stratum.core.testing.importing.FakeLiftEquipmentCatalog
@@ -22,6 +25,7 @@ import java.time.Instant
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import com.stratum.application.importing.EnrichCustomLiftsUseCase
@@ -47,11 +51,13 @@ class WorkoutLoggingImportSnapshotTest {
             liftRepo = liftRepo,
         )
 
-        useCase(
-            sessions = listOf(WorkoutLoggingFixtures.importTrainingSession()),
-            sets = listOf(WorkoutLoggingFixtures.importLoggedSet()),
-            policy = ImportHistoryPersistPolicy.ReplaceImportOrigin,
-        ).getOrThrow()
+        assertTrue(
+            useCase(
+                sessions = listOf(WorkoutLoggingFixtures.importTrainingSession()),
+                sets = listOf(WorkoutLoggingFixtures.importLoggedSet()),
+                policy = ImportHistoryPersistPolicy.ReplaceImportOrigin,
+            ) is PersistImportedHistoryOutcome.Persisted,
+        )
 
         val stored = trainingLogRepo.getImportSets().single()
         assertEquals("Barbell Bench Press", stored.liftContext.liftName)
@@ -69,11 +75,13 @@ class WorkoutLoggingImportSnapshotTest {
             liftRepo = FakeLiftRepository(initialLifts = lifts),
         )
 
-        useCase(
-            sessions = listOf(WorkoutLoggingFixtures.importTrainingSession()),
-            sets = listOf(WorkoutLoggingFixtures.importLoggedSet()),
-            policy = ImportHistoryPersistPolicy.ReplaceImportOrigin,
-        ).getOrThrow()
+        assertTrue(
+            useCase(
+                sessions = listOf(WorkoutLoggingFixtures.importTrainingSession()),
+                sets = listOf(WorkoutLoggingFixtures.importLoggedSet()),
+                policy = ImportHistoryPersistPolicy.ReplaceImportOrigin,
+            ) is PersistImportedHistoryOutcome.Persisted,
+        )
 
         val liftContext = trainingLogRepo.getImportSets().single().liftContext
         assertNull(liftContext.workoutLiftId)
@@ -93,6 +101,7 @@ class WorkoutLoggingImportSnapshotTest {
         val persistence = FakeResponseProfilePersistencePort()
         val extractResponseProfile =
             ExtractResponseProfileUseCase(
+                loggingPort = FakeLoggingPort(),
                 trainingLogRepository = trainingLogRepo,
                 liftRepository = liftRepo,
                 liftTrainingInsightsRepository = insightsRepo,
@@ -103,6 +112,7 @@ class WorkoutLoggingImportSnapshotTest {
                 experimentRegistry = EmptyExperimentRegistry(),
             )
         return PersistImportedHistoryUseCase(
+            loggingPort = FakeLoggingPort(),
             trainingLogRepository = trainingLogRepo,
             resolveImportLifts =
                 ResolveImportLiftsUseCase(
@@ -114,6 +124,7 @@ class WorkoutLoggingImportSnapshotTest {
                 ),
             extractTrainingInsights =
                 ExtractTrainingInsightsUseCase(
+                    loggingPort = FakeLoggingPort(),
                     trainingLogRepository = trainingLogRepo,
                     liftTrainingInsightsRepository = insightsRepo,
                     supersetAffinityRepository = InMemorySupersetRepository(),

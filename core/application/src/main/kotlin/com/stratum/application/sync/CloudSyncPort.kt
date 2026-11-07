@@ -26,6 +26,14 @@ import com.stratum.domain.lift.residual
  *
  * Incomplete surface (not synced by design): response-modeling tables, import job metadata,
  * insights, theme prefs, workout overlays — multi-device may recompute or diverge for those.
+ *
+ * Failure shape (STR-243 remediation, Sean's E1 ruling): operations return
+ * [CloudSyncOutcome]. No exception crosses this port in place of an outcome
+ * (coroutine cancellation still propagates). The adapter logs an operational
+ * failure once at its own boundary before returning [CloudSyncOutcome.Failed];
+ * the failure's cause rides the branch only as a [CloudSyncDiagnostic] value
+ * for boundaries that must classify or drain it (the sync worker, the
+ * compensating-restart seam) — never as a raw `Result` payload.
  */
 interface CloudSyncPort {
     val syncStatus: StateFlow<SyncStatus>
@@ -39,7 +47,7 @@ interface CloudSyncPort {
     /**
      * Begin sync for [userId]: account isolation, upload pending, hydrate/pull.
      */
-    suspend fun start(userId: String): Result<Unit>
+    suspend fun start(userId: String): CloudSyncOutcome
 
     /** Tear down the current sync session (not an account wipe). */
     suspend fun stop()
@@ -47,12 +55,49 @@ interface CloudSyncPort {
     /**
      * One-shot push of dirty rows then pull remote changes. Safe to call while [start] is active.
      */
-    suspend fun requestSync(): Result<Unit>
+    suspend fun requestSync(): CloudSyncOutcome
 
     /**
      * Atomic logout teardown: cancel workers, clear active uid, wipe Room user data and
      * durable hydrate/cursors for [userId]. Last-account ownership is retained so a different
      * uid on the next [start] still triggers a wipe. Safe to call without a prior [stop].
      */
-    suspend fun endSessionAndWipe(userId: String): Result<Unit>
+    suspend fun endSessionAndWipe(userId: String): CloudSyncOutcome
+}
+
+/**
+ * Outcome of a cloud sync operation (STR-243).
+ *
+ * [Failed] carries the operation's failure as [CloudSyncDiagnostic] values:
+ * the adapter logs the operational failure once at its own boundary, and a
+ * boundary that must classify the failure (the sync worker's
+ * NotStarted / ResidualBacklog / Unexpected discrimination) or drain it (the
+ * compensating sync restart after a logout / account-deletion failure) reads
+ * the cause from the diagnostic — the throwable never crosses as a thrown
+ * exception or a raw `Result` payload. Coroutine cancellation is not a
+ * branch: it propagates as cancellation.
+ */
+sealed interface CloudSyncOutcome {
+    data object Success : CloudSyncOutcome
+
+    data class Failed(
+        val diagnostics: List<CloudSyncDiagnostic>,
+    ) : CloudSyncOutcome {
+        init {
+            require(diagnostics.isNotEmpty()) {
+                "CloudSyncOutcome.Failed requires at least one diagnostic."
+            }
+        }
+    }
+}
+
+/**
+ * A sync operation failure recorded as data (§10 diagnostics channel). The
+ * boundary drains each diagnostic through `LoggingPort.error` with the
+ * throwable attached; diagnostics never reach UI state.
+ */
+sealed interface CloudSyncDiagnostic {
+    data class OperationFailed(
+        val cause: Throwable,
+    ) : CloudSyncDiagnostic
 }

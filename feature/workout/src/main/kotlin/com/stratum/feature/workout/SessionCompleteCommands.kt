@@ -13,6 +13,7 @@ import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.storageWeightFromDisplay
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.ProgressionScheme
+import com.stratum.application.program.SaveWorkoutResult
 import com.stratum.application.program.SaveWorkoutUseCase
 import com.stratum.domain.program.Workout
 import com.stratum.domain.program.WorkoutLift
@@ -22,6 +23,7 @@ import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.program.identity.WorkoutSupersetGroupId
 import com.stratum.application.training.DeleteLoggedSetUseCase
+import com.stratum.application.training.FinalizeTrainingSessionResult
 import com.stratum.application.training.FinalizeTrainingSessionUseCase
 import com.stratum.application.training.GetLoggedSetsForSessionUseCase
 import com.stratum.domain.training.LogSetCommand
@@ -87,7 +89,7 @@ internal suspend fun LiveWorkoutSessionRuntime.handleCompleteWorkout(cmd: Sessio
         if (templateToSave != null) {
             val updated = applyOverlayToWorkout(templateToSave, overlay, tombstonedEquipmentIds, tombstonedLiftIds)
             val saveResult = saveWorkoutUseCase(workoutId, updated)
-            if (saveResult.isFailure) {
+            if (saveResult != SaveWorkoutResult.Success) {
                 effects.publishUserMessage(LiveWorkoutSessionRuntime.MSG_COMPLETE_FAILED)
                 return
             }
@@ -103,7 +105,7 @@ internal suspend fun LiveWorkoutSessionRuntime.handleCompleteWorkout(cmd: Sessio
         // while NavHost is still composing this route during the exit transition.
         effects.setRetainLoadedUiForExit(true)
         val finalizeResult = finalizeTrainingSession(sessionId)
-        if (finalizeResult.isFailure) {
+        if (finalizeResult !is FinalizeTrainingSessionResult.Success) {
             effects.setRetainLoadedUiForExit(false)
             // Do NOT clear templateSavedThisComplete — template is already durable;
             // retry is finalize-only (see flag comment above).

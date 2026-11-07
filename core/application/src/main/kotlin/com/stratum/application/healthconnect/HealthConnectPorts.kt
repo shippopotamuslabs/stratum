@@ -10,21 +10,104 @@ import com.stratum.domain.health.HealthMetricType
 import com.stratum.domain.health.HealthMetricsRequest
 import com.stratum.domain.health.HealthMetricsSnapshot
 
-/** Port for reading and persisting Health Connect integration preferences. */
+/**
+ * A Health Connect operation failure recorded as data (§10 diagnostics
+ * channel). A boundary that owns the failure's log record drains each
+ * diagnostic through `LoggingPort.error` with the throwable attached;
+ * diagnostics never reach UI state.
+ */
+sealed interface HealthSyncDiagnostic {
+    data class OperationFailed(
+        val cause: Throwable,
+    ) : HealthSyncDiagnostic
+}
+
+/**
+ * Outcome of a Health Connect store write (preferences / sync-status) at a
+ * port (STR-243 remediation, Sean's E1 ruling): no exception crosses the port
+ * in place of an outcome (coroutine cancellation still propagates). The
+ * [Failed] branch carries the originating throwable only as a
+ * [HealthSyncDiagnostic] value, for the boundary that logs it exactly once.
+ */
+sealed interface HealthConnectWriteOutcome {
+    data object Success : HealthConnectWriteOutcome
+
+    data class Failed(
+        val diagnostics: List<HealthSyncDiagnostic>,
+    ) : HealthConnectWriteOutcome {
+        init {
+            require(diagnostics.isNotEmpty()) {
+                "HealthConnectWriteOutcome.Failed requires at least one diagnostic."
+            }
+        }
+    }
+}
+
+/** Outcome of a Health Connect granted-permissions query at the sync port. */
+sealed interface HealthConnectGrantedPermissionsOutcome {
+    data class Success(val permissions: Set<String>) : HealthConnectGrantedPermissionsOutcome
+
+    data class Failed(
+        val kind: HealthSyncFailureKind,
+        val message: String?,
+        val diagnostics: List<HealthSyncDiagnostic>,
+    ) : HealthConnectGrantedPermissionsOutcome {
+        init {
+            require(diagnostics.isNotEmpty()) {
+                "HealthConnectGrantedPermissionsOutcome.Failed requires at least one diagnostic."
+            }
+        }
+    }
+}
+
+/** Outcome of pushing a session to Health Connect at the sync port. */
+sealed interface HealthConnectPushOutcome {
+    data object Success : HealthConnectPushOutcome
+
+    data class Failed(
+        val kind: HealthSyncFailureKind,
+        val message: String?,
+        val diagnostics: List<HealthSyncDiagnostic>,
+    ) : HealthConnectPushOutcome {
+        init {
+            require(diagnostics.isNotEmpty()) {
+                "HealthConnectPushOutcome.Failed requires at least one diagnostic."
+            }
+        }
+    }
+}
+
+/**
+ * Port for reading and persisting Health Connect integration preferences.
+ *
+ * Writes return [HealthConnectWriteOutcome] (STR-243 remediation): the
+ * repository never logs — the use case is the drain boundary for the
+ * diagnostic the failure branch carries.
+ */
 interface HealthConnectPreferencesPort {
     fun observePreferences(): Flow<HealthConnectPreferences>
     suspend fun getPreferences(): HealthConnectPreferences
-    suspend fun setEnabled(enabled: Boolean): Result<Unit>
-    suspend fun setPendingSyncError(kind: HealthFailureKind?): Result<Unit>
+    suspend fun setEnabled(enabled: Boolean): HealthConnectWriteOutcome
+    suspend fun setPendingSyncError(kind: HealthFailureKind?): HealthConnectWriteOutcome
 }
 
-/** Port for interacting with Health Connect SDK (pushing exercise records & permission checks). */
+/**
+ * Port for interacting with Health Connect SDK (pushing exercise records & permission checks).
+ *
+ * Operations return their sealed outcomes (STR-243 remediation): the adapter
+ * translates vendor SDK failures into the [HealthSyncFailureKind]
+ * classification at this boundary, so no vendor type, no thrown
+ * classification, and no raw-`Result` failure payload crosses the port.
+ */
 interface HealthConnectSyncPort {
     suspend fun isAvailable(): Boolean
     suspend fun hasWritePermission(): Boolean
-    /** Currently granted Health Connect permissions, or a failure if the SDK cannot be queried. */
-    suspend fun grantedPermissions(): Result<Set<String>>
-    suspend fun pushSession(session: TrainingSession, sets: List<LoggedSet>): Result<Unit>
+    /** Currently granted Health Connect permissions; a failed SDK query is the outcome's Failed branch. */
+    suspend fun grantedPermissions(): HealthConnectGrantedPermissionsOutcome
+    suspend fun pushSession(
+        session: TrainingSession,
+        sets: List<LoggedSet>,
+    ): HealthConnectPushOutcome
 }
 
 /**
@@ -36,11 +119,11 @@ interface HealthConnectSchedulerPort {
     suspend fun enqueueSync(sessionId: TrainingSessionId)
 }
 
-/** Port for durable sync-error surfacing to UI (sticky until cleared). */
+/** Port for durable sync-error surfacing to UI (sticky until cleared). Writes return [HealthConnectWriteOutcome]. */
 interface HealthConnectSyncStatusPort {
     fun observePendingSyncErrors(): Flow<HealthFailureKind>
-    suspend fun reportSyncError(kind: HealthFailureKind): Result<Unit>
-    suspend fun clearPendingSyncError(): Result<Unit>
+    suspend fun reportSyncError(kind: HealthFailureKind): HealthConnectWriteOutcome
+    suspend fun clearPendingSyncError(): HealthConnectWriteOutcome
 }
 
 /** Port for reading Health Connect metrics for the dashboard pager. */

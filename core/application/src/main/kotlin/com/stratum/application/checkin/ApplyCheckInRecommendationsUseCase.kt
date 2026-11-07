@@ -14,10 +14,32 @@ import com.stratum.domain.training.identity.ProgramChangeEventId
 import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
+import kotlin.coroutines.cancellation.CancellationException
 import com.stratum.domain.checkin.CheckInApplyCommand
 import com.stratum.domain.logging.LoggingPort
-import com.stratum.domain.logging.runCatchingLogged
-import com.stratum.domain.workout.LiftSwapped
+
+/**
+ * Outcome of [ApplyCheckInRecommendationsUseCase] (STR-243).
+ *
+ * The refusal branches are expected caller outcomes and are not logged; an
+ * operational load/save failure is logged once via [LoggingPort.error] at the
+ * use-case boundary and surfaces as [PersistenceFailed]. A failed completion
+ * write is logged once at the [CompleteCheckInUseCase] boundary and likewise
+ * surfaces as [PersistenceFailed]. Coroutine cancellation is not a branch:
+ * it propagates.
+ */
+sealed interface ApplyCheckInRecommendationsResult {
+    data object Success : ApplyCheckInRecommendationsResult
+
+    /** No active program exists to apply the accepted commands to. */
+    data object NoActiveProgram : ApplyCheckInRecommendationsResult
+
+    /** A command referenced a workout lift that is not in the active program. */
+    data class WorkoutLiftNotFound(val workoutLiftId: WorkoutLiftId) : ApplyCheckInRecommendationsResult
+
+    /** The apply failed (repository / store I/O). */
+    data object PersistenceFailed : ApplyCheckInRecommendationsResult
+}
 
 /**
  * Applies accepted check-in mutations in a **single** program load/save, then clears pending.
@@ -29,40 +51,64 @@ class ApplyCheckInRecommendationsUseCase @Inject constructor(
     private val programRepository: ProgramRepository,
     private val programChangeEventRepository: ProgramChangeEventRepository,
     private val completeCheckIn: CompleteCheckInUseCase,
-    private val loggingPort: com.stratum.domain.logging.LoggingPort,
+    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(
         commands: List<CheckInApplyCommand>,
         now: Instant = Instant.now(),
-    ): Result<Unit> {
-        if (commands.isNotEmpty()) {
-            val program =
-                programRepository.getProgram()
-                    ?: return Result.failure(IllegalStateException("No active program found to apply check-in"))
-            val (updated, events) =
-                applyAll(program, commands, now).getOrElse { return Result.failure(it) }
-            return com.stratum.domain.logging.runCatchingLogged(
-                loggingPort,
-                TAG,
-                "Failed to apply check-in recommendations",
-            ) {
-                programRepository.saveProgram(updated)
-                events.forEach { programChangeEventRepository.append(it) }
-                completeCheckIn(now).getOrThrow()
+    ): ApplyCheckInRecommendationsResult {
+        if (commands.isEmpty()) {
+            return when (completeCheckIn(now)) {
+                CheckInPreferenceResult.Success -> ApplyCheckInRecommendationsResult.Success
+                CheckInPreferenceResult.PersistenceFailed ->
+                    ApplyCheckInRecommendationsResult.PersistenceFailed
             }
         }
-        return completeCheckIn(now)
+        return try {
+            val program =
+                programRepository.getProgram()
+                    ?: return ApplyCheckInRecommendationsResult.NoActiveProgram
+            val applied =
+                when (val applyResult = applyAll(program, commands, now)) {
+                    is ApplyAllResult.WorkoutLiftNotFound ->
+                        return ApplyCheckInRecommendationsResult.WorkoutLiftNotFound(
+                            applyResult.workoutLiftId,
+                        )
+                    is ApplyAllResult.Applied -> applyResult
+                }
+            programRepository.saveProgram(applied.program)
+            applied.events.forEach { programChangeEventRepository.append(it) }
+            when (completeCheckIn(now)) {
+                CheckInPreferenceResult.Success -> ApplyCheckInRecommendationsResult.Success
+                CheckInPreferenceResult.PersistenceFailed ->
+                    ApplyCheckInRecommendationsResult.PersistenceFailed
+            }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            loggingPort.error(TAG, "Failed to apply check-in recommendations: ${error.message}", error)
+            ApplyCheckInRecommendationsResult.PersistenceFailed
+        }
     }
 
     private companion object {
         const val TAG = "ApplyCheckIn"
     }
 
+    private sealed interface ApplyAllResult {
+        data class Applied(
+            val program: Program,
+            val events: List<ProgramChangeEvent>,
+        ) : ApplyAllResult
+
+        data class WorkoutLiftNotFound(val workoutLiftId: WorkoutLiftId) : ApplyAllResult
+    }
+
     private fun applyAll(
         program: Program,
         commands: List<CheckInApplyCommand>,
         now: Instant,
-    ): Result<Pair<Program, List<ProgramChangeEvent>>> {
+    ): ApplyAllResult {
         var current = program
         val events = mutableListOf<ProgramChangeEvent>()
 
@@ -71,9 +117,7 @@ class ApplyCheckInRecommendationsUseCase @Inject constructor(
                 is CheckInApplyCommand.Swap -> {
                     val hit =
                         findWorkoutLift(current.workouts, command.workoutLiftId)
-                            ?: return Result.failure(
-                                IllegalArgumentException("Workout lift ${command.workoutLiftId.value} not found"),
-                            )
+                            ?: return ApplyAllResult.WorkoutLiftNotFound(command.workoutLiftId)
                     val (workout, lift) = hit
                     val previousLiftId = lift.liftId
                     current = current.replaceWorkoutLift(lift.copy(liftId = command.newLiftId))
@@ -95,9 +139,7 @@ class ApplyCheckInRecommendationsUseCase @Inject constructor(
                     if (command.targetSetCount >= 1) {
                         val hit =
                             findWorkoutLift(current.workouts, command.workoutLiftId)
-                                ?: return Result.failure(
-                                    IllegalArgumentException("Workout lift ${command.workoutLiftId.value} not found"),
-                                )
+                                ?: return ApplyAllResult.WorkoutLiftNotFound(command.workoutLiftId)
                         val (workout, lift) = hit
                         if (lift.sets.size != command.targetSetCount) {
                             current =
@@ -120,7 +162,7 @@ class ApplyCheckInRecommendationsUseCase @Inject constructor(
                 }
             }
         }
-        return Result.success(current to events)
+        return ApplyAllResult.Applied(current, events)
     }
 
     private fun findWorkoutLift(

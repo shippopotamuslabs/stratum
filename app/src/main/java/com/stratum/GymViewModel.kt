@@ -11,16 +11,19 @@ import com.stratum.core.ui.component.LiftSwapOptionState
 import com.stratum.core.ui.component.LiftSwapSheetState
 import com.stratum.core.ui.component.defaultMuscleFilterTiers
 import com.stratum.core.ui.component.toVolumeDisplayName
+import com.stratum.application.lift.DeleteLiftResult
 import com.stratum.application.lift.DeleteLiftUseCase
 import com.stratum.application.lift.GetLiftDeleteImpactUseCase
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.LiftCategory
 import com.stratum.domain.lift.LiftDeleteImpact
 import com.stratum.application.lift.MergeLiftsDiagnostic
+import com.stratum.application.lift.MergeLiftsResult
 import com.stratum.application.lift.MergeLiftsUseCase
 import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.application.lift.ObserveLiftCatalogUseCase
+import com.stratum.application.lift.SetLiftEnabledResult
 import com.stratum.application.lift.SetLiftEnabledUseCase
 import com.stratum.domain.lift.classifyLiftCategory
 import com.stratum.domain.lift.identity.LiftId
@@ -188,7 +191,7 @@ class GymViewModel @Inject constructor(
 
     fun toggleLiftEnabled(id: String, enabled: Boolean) {
         viewModelScope.launch {
-            setLiftEnabled(LiftId(id), enabled).onFailure {
+            if (setLiftEnabled(LiftId(id), enabled) == SetLiftEnabledResult.PersistenceFailed) {
                 _userMessage.value = MSG_TOGGLE_FAILED
             }
         }
@@ -243,15 +246,19 @@ class GymViewModel @Inject constructor(
         isMerging.value = true
         viewModelScope.launch {
             try {
-                mergeLifts(
-                    targetLiftId = LiftId(targetLiftId),
-                    sourceLiftIds = sourceIds,
-                ).onSuccess { outcome ->
-                    logMergeDiagnostics(outcome.diagnostics)
-                    mergeSelection.value = MergeSelection()
-                    _userMessage.value = MSG_MERGE_SUCCESS
-                }.onFailure {
-                    _userMessage.value = MSG_MERGE_FAILED
+                when (
+                    val result =
+                        mergeLifts(
+                            targetLiftId = LiftId(targetLiftId),
+                            sourceLiftIds = sourceIds,
+                        )
+                ) {
+                    is MergeLiftsResult.Success -> {
+                        logMergeDiagnostics(result.outcome.diagnostics)
+                        mergeSelection.value = MergeSelection()
+                        _userMessage.value = MSG_MERGE_SUCCESS
+                    }
+                    else -> _userMessage.value = MSG_MERGE_FAILED
                 }
             } finally {
                 isMerging.value = false
@@ -292,13 +299,12 @@ class GymViewModel @Inject constructor(
         deleteInFlight = true
         viewModelScope.launch {
             try {
-                deleteLift(LiftId(pending.id))
-                    .onSuccess {
+                when (deleteLift(LiftId(pending.id))) {
+                    DeleteLiftResult.Success ->
                         _userMessage.value = "Deleted ${pending.name}."
-                    }
-                    .onFailure {
+                    DeleteLiftResult.PersistenceFailed ->
                         _userMessage.value = MSG_DELETE_FAILED
-                    }
+                }
             } finally {
                 deleteInFlight = false
             }

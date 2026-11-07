@@ -30,6 +30,11 @@ import com.stratum.domain.telemetry.OutcomeTelemetry
 import com.stratum.domain.telemetry.OutcomeTelemetry.Companion.USE_CASE_PROGRAM_GENERATION
 import com.stratum.domain.telemetry.SynthesisTelemetry
 import com.stratum.domain.telemetry.TelemetryRouter
+import com.stratum.domain.program.generation.GenerateProgramResult
+import com.stratum.domain.program.generation.synthesis.ProgramSynthesisException
+import com.stratum.domain.program.generation.synthesis.ProgramSynthesisRefusal
+import com.stratum.domain.program.generation.validation.ProgramGenerationValidationException
+import com.stratum.domain.program.generation.validationUserMessage
 import com.stratum.domain.telemetry.classifyGenerateOutcome
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -175,7 +180,7 @@ internal class CreateProgramGenerateController(
         generateJob?.cancel()
         // STR-13 trace: tap time anchors the tap-to-rendered duration. The cloud
         // jobId is created inside FirebaseProgramSynthesisAdapter.synthesize and
-        // ProgramSynthesisPort/GenerateProgramUseCase expose only Result<Program>
+        // ProgramSynthesisPort/GenerateProgramUseCase expose only GenerateProgramResult
         // (no job identity), so it cannot reach this layer without leaking
         // inference identity through domain. This leg stays session-keyed per
         // STR-19 (job_id omitted, never overloaded); join to server legs via
@@ -210,9 +215,16 @@ internal class CreateProgramGenerateController(
                         }
                     }
                 val program =
-                    result.getOrElse { error ->
-                        publishGenerateFailure(error)
-                        return@launch
+                    when (result) {
+                        is GenerateProgramResult.Success -> result.program
+                        is GenerateProgramResult.ValidationRejected,
+                        is GenerateProgramResult.SynthesisRefused,
+                        is GenerateProgramResult.SynthesisFailed,
+                        is GenerateProgramResult.Unexpected,
+                        -> {
+                            publishGenerateFailure(result)
+                            return@launch
+                        }
                     }
                 generateTimer.stop()
                 val editorTimer =
@@ -236,19 +248,25 @@ internal class CreateProgramGenerateController(
             }
     }
 
-    private fun publishGenerateFailure(error: Throwable) {
+    private fun publishGenerateFailure(result: GenerateProgramResult) {
         // STR-242: one home per class — the expected-vs-exceptional split lives
-        // in classifyGenerateOutcome; anything without an outcome home stays on
-        // the Crashlytics path until slice 2 routes it through the router.
-        val outcome = classifyGenerateOutcome(error)
+        // in classifyGenerateOutcome, keyed on the STR-243 outcome branches.
+        val outcome = classifyGenerateOutcome(result)
         if (outcome != null) {
             telemetryRouter.emitOutcome(outcome)
-        } else {
-            // Terminal boundary: recorded once through the router (non-fatal +
-            // bare counter) instead of the logging port, so the exceptional
-            // fact has exactly one record.
-            telemetryRouter.recordExceptional(GENERATE_LOG_TAG, error)
+        } else if (result is GenerateProgramResult.ValidationRejected) {
+            // No throwable exists for a validation rejection: the exception
+            // value is constructed for the router record only (its message is
+            // the report-derived copy); the branch carries the typed facts.
+            telemetryRouter.recordExceptional(
+                GENERATE_LOG_TAG,
+                ProgramGenerationValidationException(result.report),
+            )
         }
+        // GenerateProgramResult.Unexpected gets no record here: the use case
+        // already recorded the original throwable exactly once via
+        // TelemetryRouter.recordExceptional (non-fatal + exceptional_occurred
+        // counter), so the exceptional fact still has exactly one record.
         logAnalytics(
             USER_VISIBLE_ERROR_EVENT,
             mapOf(PARAM_SCREEN to "create_program", PARAM_ACTION to "generate_program"),
@@ -256,11 +274,25 @@ internal class CreateProgramGenerateController(
         state.update {
             it.copy(
                 generateState = CreateProgramGenerateState.Error,
-                generateErrorMessage = error.message ?: "Generation failed",
+                generateErrorMessage = result.generateUserMessage(),
                 step = CreateProgramStep.Generating,
             )
         }
     }
+
+    /** User-facing copy per failure branch — the same copy the retired exception messages carried. */
+    private fun GenerateProgramResult.generateUserMessage(): String =
+        when (this) {
+            is GenerateProgramResult.SynthesisFailed -> message
+            is GenerateProgramResult.SynthesisRefused ->
+                when (refusal) {
+                    ProgramSynthesisRefusal.FeatureDisabled ->
+                        ProgramSynthesisException.MESSAGE_SYNTHESIS_PAUSED
+                }
+            is GenerateProgramResult.ValidationRejected -> report.validationUserMessage()
+            is GenerateProgramResult.Unexpected -> "Generation failed"
+            is GenerateProgramResult.Success -> "Generation failed"
+        }
 
     private suspend fun flushPreferencesForGeneration() {
         val current = state.value

@@ -3,7 +3,6 @@ package com.stratum.application.training
 import com.stratum.domain.di.ApplicationScope
 import com.stratum.application.healthconnect.HealthConnectSchedulerPort
 import com.stratum.domain.logging.LoggingPort
-import com.stratum.domain.logging.runCatchingLogged
 import com.stratum.application.response.ResponseModelingSchedulerPort
 import com.stratum.application.response.ResponseProfileMetadataRepository
 import com.stratum.domain.training.identity.TrainingSessionId
@@ -16,6 +15,35 @@ import kotlinx.coroutines.launch
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.TrainingSession
 import com.stratum.domain.training.TrainingSessionStatus
+
+/**
+ * Outcome of updating a completed session's times (STR-243).
+ *
+ * The guard branches carry the typed facts the former constructed exceptions
+ * carried ([SessionNotFound] / [SessionNotCompleted] with the session id and
+ * actual status / [StartAfterFinish] with both timestamps). The originating
+ * throwable of a failed write goes once to the diagnostics channel
+ * ([LoggingPort.error]) at the use-case boundary; it never crosses as a
+ * payload. Coroutine cancellation is not a branch: it propagates.
+ */
+sealed interface UpdateCompletedSessionTimesResult {
+    data object Success : UpdateCompletedSessionTimesResult
+
+    data class SessionNotFound(val sessionId: TrainingSessionId) : UpdateCompletedSessionTimesResult
+
+    data class SessionNotCompleted(
+        val sessionId: TrainingSessionId,
+        val status: TrainingSessionStatus,
+    ) : UpdateCompletedSessionTimesResult
+
+    data class StartAfterFinish(
+        val startedAt: Instant,
+        val endedAt: Instant,
+    ) : UpdateCompletedSessionTimesResult
+
+    /** The time update failed (repository / store I/O). */
+    data object PersistenceFailed : UpdateCompletedSessionTimesResult
+}
 
 /**
  * Updates the start and finish timestamps of a **completed** training session.
@@ -39,32 +67,24 @@ class UpdateCompletedSessionTimesUseCase @Inject constructor(
         sessionId: TrainingSessionId,
         startedAt: Instant,
         endedAt: Instant,
-    ): Result<Unit> {
-        val session =
-            trainingLogRepository.getSession(sessionId)
-                ?: return Result.failure(
-                    IllegalArgumentException("Training session ${sessionId.value} not found"),
-                )
-        // The completed guard and the start-after-finish rule are model rules (STR-166):
-        // retime() enforces both as a backstop and returns the moved session; the use case
-        // pre-checks both so the expected failures are returned as values, never thrown.
-        if (session.status != TrainingSessionStatus.COMPLETED) {
-            return Result.failure(
-                TrainingSession.notCompletedException(session),
-            )
-        }
-        if (startedAt.isAfter(endedAt)) {
-            return Result.failure(
-                TrainingSession.startAfterFinishException(startedAt, endedAt),
-            )
-        }
-        val updatedSession = session.retime(newStartedAt = startedAt, newEndedAt = endedAt)
+    ): UpdateCompletedSessionTimesResult {
+        // The session load sits inside the boundary try (C3 precedent): a throwing
+        // load is logged once and returned as PersistenceFailed instead of escaping.
+        return try {
+            val session =
+                trainingLogRepository.getSession(sessionId)
+                    ?: return UpdateCompletedSessionTimesResult.SessionNotFound(sessionId)
+            // The completed guard and the start-after-finish rule are model rules (STR-166):
+            // retime() enforces both as a backstop and returns the moved session; the use case
+            // pre-checks both so the expected failures are returned as branches, never thrown.
+            if (session.status != TrainingSessionStatus.COMPLETED) {
+                return UpdateCompletedSessionTimesResult.SessionNotCompleted(session.id, session.status)
+            }
+            if (startedAt.isAfter(endedAt)) {
+                return UpdateCompletedSessionTimesResult.StartAfterFinish(startedAt, endedAt)
+            }
+            val updatedSession = session.retime(newStartedAt = startedAt, newEndedAt = endedAt)
 
-        return runCatchingLogged(
-            loggingPort = loggingPort,
-            tag = TAG,
-            message = "Failed to update completed session times",
-        ) {
             val wasInModel = sessionWasInLastModelingRun(session)
 
         val currentSets = trainingLogRepository.getSetsForSession(sessionId)
@@ -102,15 +122,21 @@ class UpdateCompletedSessionTimesUseCase @Inject constructor(
             responseModelingScheduler.enqueueForceExtract(replaceExisting = true)
         }
 
-        refreshScope.launch {
-            localDerivedStages.run(
-                includeInsights = true,
-                failPolicy = LocalDerivedTrainingStages.FailPolicy.LogAndContinue,
-                logTag = TAG,
-            )
+            refreshScope.launch {
+                localDerivedStages.run(
+                    includeInsights = true,
+                    failPolicy = LocalDerivedTrainingStages.FailPolicy.LogAndContinue,
+                    logTag = TAG,
+                )
+            }
+            UpdateCompletedSessionTimesResult.Success
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (t: Throwable) {
+            loggingPort.error(TAG, "Failed to update completed session times: ${t.message}", t)
+            UpdateCompletedSessionTimesResult.PersistenceFailed
         }
     }
-}
 
     internal fun shiftSetTimestamps(
         sets: List<LoggedSet>,

@@ -6,10 +6,12 @@ import com.stratum.core.infrastructure.healthconnect.healthConnectPreferencesDat
 import com.stratum.domain.healthconnect.HealthConnectPreferences
 import com.stratum.domain.healthconnect.HealthFailureKind
 import com.stratum.application.healthconnect.HealthConnectPreferencesPort
+import com.stratum.application.healthconnect.HealthConnectWriteOutcome
+import com.stratum.application.healthconnect.HealthSyncDiagnostic
+import kotlin.coroutines.cancellation.CancellationException
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -25,21 +27,26 @@ class DataStoreHealthConnectPreferencesRepository @Inject constructor(
     override suspend fun getPreferences(): HealthConnectPreferences =
         context.healthConnectPreferencesDataStore.data.first().toDomain()
 
-    override suspend fun setEnabled(enabled: Boolean): Result<Unit> =
+    override suspend fun setEnabled(enabled: Boolean): HealthConnectWriteOutcome =
         writePreferences { current -> current.copy(enabled = enabled) }
 
-    override suspend fun setPendingSyncError(kind: HealthFailureKind?): Result<Unit> =
+    override suspend fun setPendingSyncError(
+        kind: HealthFailureKind?,
+    ): HealthConnectWriteOutcome =
         writePreferences { current -> current.copy(pendingSyncErrorKind = kind?.name) }
 
     private suspend fun writePreferences(
         transform: suspend (HealthConnectPreferencesRecord) -> HealthConnectPreferencesRecord,
-    ): Result<Unit> =
+    ): HealthConnectWriteOutcome {
         try {
             context.healthConnectPreferencesDataStore.updateData(transform)
-            Result.success(Unit)
         } catch (cancelled: CancellationException) {
             throw cancelled
-        } catch (error: Exception) {
-            Result.failure(error)
+        } catch (error: Throwable) {
+            return HealthConnectWriteOutcome.Failed(
+                listOf(HealthSyncDiagnostic.OperationFailed(error)),
+            )
         }
+        return HealthConnectWriteOutcome.Success
+    }
 }

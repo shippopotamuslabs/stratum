@@ -1,5 +1,6 @@
 package com.stratum.application.program
 
+import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.training.ProgramChangeEvent
 import com.stratum.domain.training.ProgramChangeEventPayload
@@ -9,9 +10,32 @@ import com.stratum.domain.training.identity.ProgramChangeEventId
 import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
+import kotlin.coroutines.cancellation.CancellationException
 import com.stratum.domain.program.Workout
 import com.stratum.domain.program.WorkoutLift
 import com.stratum.domain.program.WorkoutLiftSetAdjuster
+
+/**
+ * Outcome of [AdjustWorkoutLiftSetCountUseCase] (STR-243).
+ *
+ * The refusal branches are expected caller outcomes and are not logged; an
+ * operational load/save failure is logged once via [LoggingPort.error] at the
+ * use-case boundary and surfaces as [PersistenceFailed]. Coroutine
+ * cancellation is not a branch: it propagates.
+ */
+sealed interface AdjustWorkoutLiftSetCountResult {
+    data object Success : AdjustWorkoutLiftSetCountResult
+
+    /** There is no active program to adjust sets in. */
+    data object NoActiveProgram : AdjustWorkoutLiftSetCountResult
+
+    /** The target workout lift is not part of the active program. */
+    data class WorkoutLiftNotFound(val workoutLiftId: WorkoutLiftId) :
+        AdjustWorkoutLiftSetCountResult
+
+    /** The adjust failed (repository / store I/O). */
+    data object PersistenceFailed : AdjustWorkoutLiftSetCountResult
+}
 
 /**
  * Adds or removes working sets on a single [WorkoutLift] in the active program template.
@@ -23,33 +47,46 @@ import com.stratum.domain.program.WorkoutLiftSetAdjuster
 class AdjustWorkoutLiftSetCountUseCase @Inject constructor(
     private val programRepository: ProgramRepository,
     private val programChangeEventRepository: ProgramChangeEventRepository,
+    private val loggingPort: LoggingPort,
 ) {
-    suspend operator fun invoke(workoutLiftId: WorkoutLiftId, delta: Int): Result<Unit> {
-        if (delta == 0) return Result.success(Unit)
-        val program =
-            programRepository.getProgram()
-                ?: return Result.failure(IllegalStateException("No active program found to adjust sets"))
+    suspend operator fun invoke(
+        workoutLiftId: WorkoutLiftId,
+        delta: Int,
+    ): AdjustWorkoutLiftSetCountResult {
+        if (delta == 0) return AdjustWorkoutLiftSetCountResult.Success
+        return try {
+            val program =
+                programRepository.getProgram()
+                    ?: return AdjustWorkoutLiftSetCountResult.NoActiveProgram
 
-        val hit =
-            program.workouts.firstNotNullOfOrNull { workout ->
-                workout.workoutLifts.firstOrNull { it.id == workoutLiftId }?.let { workout to it }
-            }
-                ?: return Result.failure(
-                    IllegalArgumentException("Workout lift ${workoutLiftId.value} not found in the program"),
-                )
-        val (parentWorkout, targetLift) = hit
-        val updatedLift = WorkoutLiftSetAdjuster.withDelta(targetLift, delta)
+            val hit =
+                program.workouts.firstNotNullOfOrNull { workout ->
+                    workout.workoutLifts.firstOrNull { it.id == workoutLiftId }?.let { workout to it }
+                }
+                    ?: return AdjustWorkoutLiftSetCountResult.WorkoutLiftNotFound(workoutLiftId)
+            val (parentWorkout, targetLift) = hit
+            val updatedLift = WorkoutLiftSetAdjuster.withDelta(targetLift, delta)
 
-        programRepository.saveProgram(program.replaceWorkoutLift(updatedLift))
-        programChangeEventRepository.append(
-            ProgramChangeEvent(
-                id = ProgramChangeEventId(UUID.randomUUID().toString()),
-                programId = program.id,
-                eventType = ProgramChangeEventType.WORKOUT_EDITED,
-                occurredAt = Instant.now(),
-                payload = ProgramChangeEventPayload.WorkoutEdited(parentWorkout.id),
-            ),
-        )
-        return Result.success(Unit)
+            programRepository.saveProgram(program.replaceWorkoutLift(updatedLift))
+            programChangeEventRepository.append(
+                ProgramChangeEvent(
+                    id = ProgramChangeEventId(UUID.randomUUID().toString()),
+                    programId = program.id,
+                    eventType = ProgramChangeEventType.WORKOUT_EDITED,
+                    occurredAt = Instant.now(),
+                    payload = ProgramChangeEventPayload.WorkoutEdited(parentWorkout.id),
+                ),
+            )
+            AdjustWorkoutLiftSetCountResult.Success
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            loggingPort.error(TAG, "Failed to adjust workout lift sets: ${error.message}", error)
+            AdjustWorkoutLiftSetCountResult.PersistenceFailed
+        }
+    }
+
+    private companion object {
+        const val TAG = "AdjustWorkoutLiftSetCount"
     }
 }

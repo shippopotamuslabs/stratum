@@ -56,6 +56,96 @@ class AdvanceOnboardingStepUseCaseTest {
     }
 
     @Test
+    @DisplayName("Given a failing profile write when advancing then PersistenceFailed and one legacy error log (STR-243 rider)")
+    fun forwardPersistenceFailedLogsOnce() = runTest {
+        val failure = IllegalStateException("room down")
+        val throwingProfileRepo = object : UserTrainingProfileRepository by fakeProfile {
+            override suspend fun saveProfile(profile: UserTrainingProfile) {
+                throw failure
+            }
+        }
+        val logging = FakeLoggingPort()
+        val failingSubject = AdvanceOnboardingStepUseCase(
+            validateCurrentStep = ValidateCurrentOnboardingStepUseCase(
+                validateProfileStep = ValidateProfileStepUseCase(),
+                validateScheduleStep = ValidateScheduleStepUseCase(),
+                validateSpecializationStep = ValidateSpecializationStepUseCase(),
+                validateMinimumVolumeStep = ValidateMinimumVolumeStepUseCase(),
+                validateGymLiftsStep = ValidateGymLiftsStepUseCase(),
+            ),
+            updateUserTrainingProfile = UpdateUserTrainingProfileUseCase(throwingProfileRepo),
+            updateSpecialization = UpdateSpecializationUseCase(fakeSpecialization),
+            saveOnboardingProgress = SaveOnboardingProgressUseCase(fakeOnboarding),
+            loggingPort = logging,
+        )
+        val profile = UserTrainingProfile(
+            trainingAge = TrainingAge.Intermediate,
+            lastTrained = LastTrainedBucket.WithinLastThreeMonths,
+        )
+
+        val result = failingSubject(
+            currentStep = OnboardingStep.Profile,
+            direction = OnboardingStepDirection.Forward,
+            profile = profile,
+            specialization = SpecializationPreference.Empty,
+            lifts = emptyList(),
+            selectedPreset = null,
+        )
+
+        assertEquals(AdvanceOnboardingStepResult.PersistenceFailed, result)
+        assertEquals(1, logging.errors.size)
+        assertEquals("AdvanceOnboardingStep", logging.errors.single().tag)
+        assertEquals("Failed to advance onboarding step: room down", logging.errors.single().message)
+        assertEquals(failure, logging.errors.single().throwable)
+        assertEquals(OnboardingStep.Profile, fakeOnboarding.current.currentStep)
+    }
+
+    @Test
+    @DisplayName("Given a cancellation from the profile write when advancing then it propagates (STR-243 rider)")
+    fun forwardCancellationPropagates() = runTest {
+        val cancellingProfileRepo = object : UserTrainingProfileRepository by fakeProfile {
+            override suspend fun saveProfile(profile: UserTrainingProfile) {
+                throw kotlinx.coroutines.CancellationException("cancelled")
+            }
+        }
+        val logging = FakeLoggingPort()
+        val cancellingSubject = AdvanceOnboardingStepUseCase(
+            validateCurrentStep = ValidateCurrentOnboardingStepUseCase(
+                validateProfileStep = ValidateProfileStepUseCase(),
+                validateScheduleStep = ValidateScheduleStepUseCase(),
+                validateSpecializationStep = ValidateSpecializationStepUseCase(),
+                validateMinimumVolumeStep = ValidateMinimumVolumeStepUseCase(),
+                validateGymLiftsStep = ValidateGymLiftsStepUseCase(),
+            ),
+            updateUserTrainingProfile = UpdateUserTrainingProfileUseCase(cancellingProfileRepo),
+            updateSpecialization = UpdateSpecializationUseCase(fakeSpecialization),
+            saveOnboardingProgress = SaveOnboardingProgressUseCase(fakeOnboarding),
+            loggingPort = logging,
+        )
+        val profile = UserTrainingProfile(
+            trainingAge = TrainingAge.Intermediate,
+            lastTrained = LastTrainedBucket.WithinLastThreeMonths,
+        )
+
+        var thrown: Throwable? = null
+        try {
+            cancellingSubject(
+                currentStep = OnboardingStep.Profile,
+                direction = OnboardingStepDirection.Forward,
+                profile = profile,
+                specialization = SpecializationPreference.Empty,
+                lifts = emptyList(),
+                selectedPreset = null,
+            )
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            thrown = cancelled
+        }
+
+        assertEquals("cancelled", thrown?.message)
+        assertTrue(logging.errors.isEmpty())
+    }
+
+    @Test
     @DisplayName("Given invalid profile when advancing forward then validation fails and step unchanged")
     fun forwardValidationFailed() = runTest {
         val result = subject(

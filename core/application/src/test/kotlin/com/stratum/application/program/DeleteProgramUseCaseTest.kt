@@ -6,6 +6,7 @@ import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
 import com.stratum.domain.program.identity.ProgramId
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
@@ -23,7 +24,7 @@ class DeleteProgramUseCaseTest {
 
         val result = useCase(program.id)
 
-        assertTrue(result.isSuccess)
+        assertEquals(DeleteProgramResult.Success, result)
         assertNull(programRepo.getProgramById(program.id))
     }
 
@@ -39,7 +40,7 @@ class DeleteProgramUseCaseTest {
 
         val result = useCase(program.id)
 
-        assertTrue(result.isFailure)
+        assertEquals(DeleteProgramResult.SessionInProgress(program.id), result)
         assertTrue(programRepo.getProgramById(program.id) != null)
     }
 
@@ -53,6 +54,6 @@ class DeleteProgramUseCaseTest {
 
         val result = useCase(ProgramId.ImportHistory)
 
-        assertTrue(result.isFailure)
+        assertEquals(DeleteProgramResult.ImportHistoryProgram(ProgramId.ImportHistory), result)
     }
 }

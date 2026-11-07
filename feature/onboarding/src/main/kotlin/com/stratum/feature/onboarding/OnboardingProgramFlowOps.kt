@@ -2,6 +2,8 @@ package com.stratum.feature.onboarding
 
 import com.stratum.domain.program.ProgramGenerationProgress
 import com.stratum.domain.program.importing.ProgramTemplateImportPhase
+import com.stratum.application.program.importing.ProgramImportRollbackException
+import com.stratum.application.program.importing.ProgramTemplateImportOutcome
 import com.stratum.application.program.importing.ProgramTemplateRejectedException
 
 /**
@@ -48,14 +50,17 @@ internal object OnboardingProgramFlowOps {
             generateErrorMessage = null,
         )
 
-    fun importProgramFailed(state: OnboardingEphemeralState, error: Throwable): OnboardingEphemeralState =
+    fun importProgramFailed(
+        state: OnboardingEphemeralState,
+        outcome: ProgramTemplateImportOutcome,
+    ): OnboardingEphemeralState =
         state.copy(
-            importProgramState = importProgramStateFor(error),
+            importProgramState = importProgramStateFor(outcome),
             importMaxTimelineIndex = 0,
         )
 
-    fun importProgramStateFor(error: Throwable): ImportProgramState =
-        if (error is ProgramTemplateRejectedException) {
+    fun importProgramStateFor(outcome: ProgramTemplateImportOutcome): ImportProgramState =
+        if (outcome is ProgramTemplateImportOutcome.Rejected) {
             ImportProgramState.Rejected(null)
         } else {
             ImportProgramState.Error(null)
@@ -65,12 +70,43 @@ internal object OnboardingProgramFlowOps {
      * Log detail for import failures. UI keeps a generic message so Firebase codes never leak;
      * server rejection text is still logged for debugging (calculator vs empty vs not-a-program).
      */
-    fun importFailureLogMessage(error: Throwable): String =
-        if (error is ProgramTemplateRejectedException) {
-            val serverMessage = error.message?.takeIf { it.isNotBlank() }
+    fun importFailureLogMessage(outcome: ProgramTemplateImportOutcome): String =
+        if (outcome is ProgramTemplateImportOutcome.Rejected) {
+            val serverMessage = outcome.message.takeIf { it.isNotBlank() }
             "Program import rejected: ${serverMessage ?: "(no server message)"}"
         } else {
             MSG_IMPORT_FAILED
+        }
+
+    /**
+     * Exception value for the import-failure log record only (STR-243): the outcome
+     * branch carries the typed facts, and the record keeps the legacy exception shape
+     * built from them. [ProgramTemplateImportOutcome.OperationalFailed] was already
+     * logged once at the use-case boundary, so it has no record value here.
+     */
+    fun importFailureLogThrowable(outcome: ProgramTemplateImportOutcome): Throwable? =
+        when (outcome) {
+            is ProgramTemplateImportOutcome.Rejected ->
+                ProgramTemplateRejectedException(outcome.message)
+            is ProgramTemplateImportOutcome.Failed ->
+                IllegalStateException(outcome.message)
+            is ProgramTemplateImportOutcome.PersistFailed ->
+                if (outcome.diagnostics.isNotEmpty()) {
+                    ProgramImportRollbackException(
+                        cause = IllegalStateException(outcome.message),
+                        diagnostics = outcome.diagnostics,
+                    )
+                } else {
+                    IllegalStateException(outcome.message)
+                }
+            ProgramTemplateImportOutcome.ReadyWithoutPath ->
+                IllegalStateException("Ready job has no template path.")
+            is ProgramTemplateImportOutcome.NonTerminal ->
+                IllegalStateException("Import ended in non-terminal status: ${outcome.status}")
+            ProgramTemplateImportOutcome.TimedOut ->
+                IllegalStateException("Timed out waiting for import to finish.")
+            ProgramTemplateImportOutcome.OperationalFailed -> null
+            is ProgramTemplateImportOutcome.Success -> null
         }
 
     fun fileReadFailureLogMessage(message: String?): String =

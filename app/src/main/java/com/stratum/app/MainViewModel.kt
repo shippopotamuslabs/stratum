@@ -3,12 +3,15 @@ package com.stratum.app
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.app.theme.toUi
-import com.stratum.core.ui.auth.toGoogleSignInMessage
+import com.stratum.core.ui.auth.loginFailureToGoogleSignInMessage
 import com.stratum.core.ui.theme.ThemePreferences
 import com.stratum.domain.auth.AuthState
 import com.stratum.application.auth.GetAuthStateUseCase
+import com.stratum.application.auth.LoginWithGoogleResult
 import com.stratum.application.auth.LoginWithGoogleUseCase
+import com.stratum.application.auth.LogoutResult
 import com.stratum.application.auth.LogoutUseCase
+import com.stratum.application.sync.CloudSyncDiagnostic
 import com.stratum.domain.sync.CloudSessionState
 import com.stratum.application.sync.ObserveCloudSessionStateUseCase
 import com.stratum.application.sync.StartCloudSyncUseCase
@@ -95,8 +98,11 @@ class MainViewModel @Inject constructor(
     fun onSignInWithGoogle() {
         viewModelScope.launch {
             signInError.value = null
-            loginWithGoogle().onFailure { error ->
-                signInError.value = error.toGoogleSignInMessage()
+            when (val result = loginWithGoogle()) {
+                is LoginWithGoogleResult.Success -> Unit
+                is LoginWithGoogleResult.Failed ->
+                    signInError.value =
+                        loginFailureToGoogleSignInMessage(result.kind, result.message)
             }
         }
     }
@@ -112,14 +118,27 @@ class MainViewModel @Inject constructor(
     fun onSignOutFromShell() {
         viewModelScope.launch {
             signInError.value = null
-            logout().onFailure { error ->
-                // STR-256: the primary stays UI-only; a failed compensating sync restart
-                // rides it as suppressed and is drained here exactly once.
-                error.suppressed.forEach { restartError ->
-                    logError(TAG_AUTH, MSG_SYNC_RESTART_FAILED, restartError)
+            val result = logout()
+            if (result !is LogoutResult.Success) {
+                when (result) {
+                    is LogoutResult.WipeFailed ->
+                        drainRestartDiagnostics(result.restartDiagnostics)
+                    is LogoutResult.SignOutFailed ->
+                        drainRestartDiagnostics(result.restartDiagnostics)
+                    LogoutResult.Success -> Unit
                 }
                 // Keep shell copy non-technical.
                 signInError.value = "Couldn't sign out. Try again."
+            }
+        }
+    }
+
+    /** STR-256: a failed compensating sync restart is drained here exactly once. */
+    private fun drainRestartDiagnostics(diagnostics: List<CloudSyncDiagnostic>) {
+        diagnostics.forEach { diagnostic ->
+            when (diagnostic) {
+                is CloudSyncDiagnostic.OperationFailed ->
+                    logError(TAG_AUTH, MSG_SYNC_RESTART_FAILED, diagnostic.cause)
             }
         }
     }
@@ -142,7 +161,7 @@ class MainViewModel @Inject constructor(
             AuthState.Loading -> ShellUiState.CheckingAuth
             AuthState.Unauthenticated -> ShellUiState.SignedOut
             is AuthState.Error ->
-                ShellUiState.SignInError(RuntimeException(auth.message).toGoogleSignInMessage())
+                ShellUiState.SignInError(loginFailureToGoogleSignInMessage(auth.kind, auth.message))
             is AuthState.Authenticated -> {
                 if (hasEntered) {
                     ShellUiState.Ready

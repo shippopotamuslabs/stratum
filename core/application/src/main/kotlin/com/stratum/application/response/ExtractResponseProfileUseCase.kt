@@ -5,12 +5,13 @@ import com.stratum.application.importing.InsightsAnalysisScope
 import com.stratum.application.importing.LiftTrainingInsightsRepository
 import com.stratum.application.importing.MuscleVolumeBaselineRepository
 import com.stratum.application.lift.LiftRepository
-import com.stratum.domain.coroutines.runCatchingCancellable
+import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.application.training.TrainingLogRepository
 import com.stratum.domain.training.toMovementPatternSet
 import java.time.Instant
 import javax.inject.Inject
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.first
 import com.stratum.domain.response.ExtractResponseProfileSummary
 import com.stratum.domain.response.ExtractedResponseProfile
@@ -37,6 +38,19 @@ import com.stratum.domain.training.LoggedSet
  *   with [InsightsAnalysisScope.All] so live workouts refresh outcome indices, volume posture,
  *   and MEV/PV/RC landmarks.
  */
+/**
+ * Outcome of [ExtractResponseProfileUseCase] (STR-243): the extracted
+ * [ExtractResponseProfileSummary], or [Failed] when the extraction failed
+ * operationally (repository reads/writes, persistence). The originating
+ * throwable is logged once at the use-case boundary, so it never crosses as a
+ * payload. Coroutine cancellation is not a branch: it propagates.
+ */
+sealed interface ExtractResponseProfileOutcome {
+    data class Extracted(val summary: ExtractResponseProfileSummary) : ExtractResponseProfileOutcome
+
+    data object Failed : ExtractResponseProfileOutcome
+}
+
 class ExtractResponseProfileUseCase @Inject constructor(
     private val trainingLogRepository: TrainingLogRepository,
     private val liftRepository: LiftRepository,
@@ -46,11 +60,26 @@ class ExtractResponseProfileUseCase @Inject constructor(
     private val responseProfilePersistence: ResponseProfilePersistencePort,
     private val extractor: ResponseObservationExtractor,
     private val experimentRegistry: ExperimentRegistry,
+    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(
         provenLiftIds: Set<LiftId> = emptySet(),
         scope: InsightsAnalysisScope = InsightsAnalysisScope.ImportOnly,
-    ): Result<ExtractResponseProfileSummary> = runCatchingCancellable {
+    ): ExtractResponseProfileOutcome {
+        return try {
+            ExtractResponseProfileOutcome.Extracted(extract(provenLiftIds, scope))
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            loggingPort.error(TAG, "Failed to extract response profile: ${error.message}", error)
+            ExtractResponseProfileOutcome.Failed
+        }
+    }
+
+    private suspend fun extract(
+        provenLiftIds: Set<LiftId>,
+        scope: InsightsAnalysisScope,
+    ): ExtractResponseProfileSummary {
         // All-history refresh must not clobber proven-lift provenance recorded at import.
         val effectiveProvenLiftIds =
             if (scope == InsightsAnalysisScope.All && provenLiftIds.isEmpty()) {
@@ -130,7 +159,7 @@ class ExtractResponseProfileUseCase @Inject constructor(
             ),
         )
 
-        ExtractResponseProfileSummary(
+        return ExtractResponseProfileSummary(
             epochsSegmented = output.epochs.size,
             musclesWithVolumeResponse = output.volumeResponses.map { it.muscle }.distinct().size,
             patternsWithEffectiveness =
@@ -144,6 +173,8 @@ class ExtractResponseProfileUseCase @Inject constructor(
     }
 
     companion object {
+        private const val TAG = "ExtractResponseProfile"
+
         data class SnapshotStimulusResult(
             val horizontalPushCredit: Double,
             val verticalPullCredit: Double,

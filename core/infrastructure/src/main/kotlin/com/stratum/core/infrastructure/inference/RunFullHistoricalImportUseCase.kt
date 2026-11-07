@@ -15,10 +15,12 @@ import com.stratum.domain.importing.ImportProgressPhase
 import com.stratum.domain.importing.HistoricalImportResumeState
 import com.stratum.domain.importing.ImportedHistoryChunk
 import com.stratum.application.importing.MergeImportedHistoryUseCase
+import com.stratum.application.importing.PersistImportedHistoryOutcome
 import com.stratum.application.importing.PersistImportedHistoryUseCase
 import com.stratum.application.importing.RollbackHistoricalImportUseCase
 import com.stratum.domain.importing.ImportFailureKind
 import com.stratum.domain.importing.RemoteImportJobStatus
+import com.stratum.application.importing.StartHistoricalImportOutcome
 import com.stratum.application.importing.StartHistoricalImportUseCase
 import com.stratum.domain.importing.UnsupportedImportFileException
 import com.stratum.domain.di.DefaultDispatcher
@@ -107,16 +109,27 @@ class RunFullHistoricalImportUseCase @Inject constructor(
             // skip; all other sessions use ThirdParty content fingerprint. Do not collapse a
             // mixed batch to a single global sourceKind.
             val summary =
-                persistImportedHistory(
-                    sessions = merged.sessions,
-                    sets = merged.sets,
-                    onProgress = { progress ->
-                        emit(HistoricalImportEvent.Progress(progress))
-                    },
-                    policy = persistPolicy,
-                    sourceKind = ImportDedupeSourceKind.ThirdParty,
-                    stableIdSessionIds = merged.stableIdSessionIds,
-                ).getOrThrow()
+                when (
+                    val persistOutcome =
+                        persistImportedHistory(
+                            sessions = merged.sessions,
+                            sets = merged.sets,
+                            onProgress = { progress ->
+                                emit(HistoricalImportEvent.Progress(progress))
+                            },
+                            policy = persistPolicy,
+                            sourceKind = ImportDedupeSourceKind.ThirdParty,
+                            stableIdSessionIds = merged.stableIdSessionIds,
+                        )
+                ) {
+                    is PersistImportedHistoryOutcome.Persisted -> persistOutcome.summary
+                    PersistImportedHistoryOutcome.SessionsNotImportOrigin ->
+                        error("Import persist requires all sessions to have origin IMPORT.")
+                    PersistImportedHistoryOutcome.NoValidSets ->
+                        error("Import contained no valid training sets.")
+                    PersistImportedHistoryOutcome.Failed ->
+                        throw AlreadyLoggedImportFailureException("Import failed.")
+                }
             summary.liftResolution?.let(importLiftResolutionLogger::log)
             emit(HistoricalImportEvent.Progress(ImportProgress(ImportProgressPhase.Complete)))
             emit(
@@ -134,6 +147,21 @@ class RunFullHistoricalImportUseCase @Inject constructor(
                     chunks = chunks,
                     persistPolicy = persistPolicy,
                     fallbackWeightUnit = effectiveFallback,
+                ),
+            )
+        } catch (error: AlreadyLoggedImportFailureException) {
+            // The producer (start / persist / extract) already error-logged the
+            // operational failure once at its own boundary; the event builder
+            // must not add a second, stack-free record for the same fact.
+            emit(
+                buildImportFailureEvent(
+                    error = error,
+                    kind = ImportFailureKind.Generic,
+                    allFiles = allFiles,
+                    chunks = chunks,
+                    persistPolicy = persistPolicy,
+                    fallbackWeightUnit = effectiveFallback,
+                    alreadyLogged = true,
                 ),
             )
         } catch (error: Throwable) {
@@ -157,13 +185,19 @@ class RunFullHistoricalImportUseCase @Inject constructor(
         chunks: List<ImportedHistoryChunk>,
         persistPolicy: ImportHistoryPersistPolicy,
         fallbackWeightUnit: com.stratum.domain.lift.Weight.WeightUnit,
+        alreadyLogged: Boolean = false,
     ): HistoricalImportEvent.Failed {
         // Merge path must not wipe prior local import history on failure.
         if (persistPolicy == ImportHistoryPersistPolicy.ReplaceImportOrigin) {
             rollbackHistoricalImport()
         }
         val message = error.message ?: "Import failed."
-        loggingPort.error(TAG, "Historical import failed: $message", error)
+        // Failures that originated elsewhere in this flow (conversion, port
+        // calls, polling) are logged here as sole owner; producer failures
+        // arrive alreadyLogged and keep their single boundary record.
+        if (!alreadyLogged) {
+            loggingPort.error(TAG, "Historical import failed: $message", error)
+        }
         val resumeState =
             HistoricalImportResumeState(
                 files = allFiles,
@@ -177,6 +211,14 @@ class RunFullHistoricalImportUseCase @Inject constructor(
         )
     }
 
+    /** Starts one file's import job; a producer failure arrives already logged at its boundary. */
+    private suspend fun startImportJob(): ImportJob =
+        when (val startOutcome = startHistoricalImport()) {
+            is StartHistoricalImportOutcome.Started -> startOutcome.job
+            StartHistoricalImportOutcome.Failed ->
+                throw AlreadyLoggedImportFailureException("Could not start import job")
+        }
+
     private suspend fun convertSingleFile(
         file: ImportFileInput,
         fileIndex: Int,
@@ -184,9 +226,7 @@ class RunFullHistoricalImportUseCase @Inject constructor(
         fallbackWeightUnit: com.stratum.domain.lift.Weight.WeightUnit,
         onProgress: suspend (ImportProgress) -> Unit,
     ): ImportedHistoryChunk? {
-        val job = startHistoricalImport().getOrElse { error ->
-            error("Could not start import job: ${error.message}")
-        }
+        val job = startImportJob()
         try {
             onProgress(
                 ImportProgress(
@@ -317,6 +357,16 @@ class RunFullHistoricalImportUseCase @Inject constructor(
             ),
         )
     }
+
+    /**
+     * Marker for a producer failure (StartHistoricalImport / PersistImportedHistory —
+     * including the extract use cases it drives) that was already error-logged
+     * exactly once at the producer's own boundary before surfacing as its
+     * `Failed` outcome branch. Carries only the user-facing message for the
+     * failure event; [buildImportFailureEvent] skips its own error log for this
+     * type so the failure produces exactly one error record, with the real stack.
+     */
+    private class AlreadyLoggedImportFailureException(message: String) : Exception(message)
 
     companion object {
         private const val TAG = "StratumImport"

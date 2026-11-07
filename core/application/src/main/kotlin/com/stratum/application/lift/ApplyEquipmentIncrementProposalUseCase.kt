@@ -2,27 +2,47 @@ package com.stratum.application.lift
 
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.logging.LoggingPort
-import com.stratum.domain.logging.expectedFailure
-import com.stratum.domain.logging.runCatchingLogged
 import javax.inject.Inject
+import kotlin.coroutines.cancellation.CancellationException
 import com.stratum.domain.lift.CatalogNames
 import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.EquipmentIncrementProposal
 import com.stratum.domain.lift.EquipmentIncrementRemedy
 import com.stratum.domain.lift.IncrementLattice
 import com.stratum.domain.lift.IncrementTier
+import com.stratum.domain.lift.IncrementTiersValidationResult
 
 /**
- * Outcome of applying a chosen [EquipmentIncrementRemedy].
+ * Outcome of applying a chosen [EquipmentIncrementRemedy] (STR-243: the success
+ * branches are the original pair; the failure branches complete the type).
+ *
+ * Validation branches carry the validation results themselves
+ * ([CatalogNames.Validation.Invalid], [IncrementTiersValidationResult.Invalid]).
+ * Expected refusals (missing equipment, invalid fork name) leave a breadcrumb only
+ * ([LoggingPort.warning]), never a Crashlytics non-fatal. The originating throwable
+ * of a failed read or write goes once to the diagnostics channel
+ * ([LoggingPort.error]) at the use-case boundary; it never crosses as a payload.
+ * Coroutine cancellation is not a branch: it propagates as cancellation.
  */
 sealed interface ApplyEquipmentIncrementResult {
     data class Amended(val equipmentId: EquipmentId) : ApplyEquipmentIncrementResult
 
     data class Forked(val equipmentId: EquipmentId) : ApplyEquipmentIncrementResult
+
+    data class InvalidName(val validation: CatalogNames.Validation.Invalid) :
+        ApplyEquipmentIncrementResult
+
+    data class InvalidTiers(val validation: IncrementTiersValidationResult.Invalid) :
+        ApplyEquipmentIncrementResult
+
+    data class EquipmentNotFound(val equipmentId: EquipmentId) : ApplyEquipmentIncrementResult
+
+    /** A repository read or write failed (repository / store I/O). */
+    data object PersistenceFailed : ApplyEquipmentIncrementResult
 }
 
 /**
- * Validates (by constructing the [IncrementLattice]) and persists a user-accepted
+ * Validates (against the [IncrementLattice] rules) and persists a user-accepted
  * [EquipmentIncrementRemedy] from post-workout proposals
  * (or any caller that already ranked a fix).
  *
@@ -42,20 +62,22 @@ class ApplyEquipmentIncrementProposalUseCase @Inject constructor(
     suspend operator fun invoke(
         proposal: EquipmentIncrementProposal,
         remedy: EquipmentIncrementRemedy = proposal.primary,
-    ): Result<ApplyEquipmentIncrementResult> = invoke(remedy)
+    ): ApplyEquipmentIncrementResult = invoke(remedy)
 
     suspend operator fun invoke(
         remedy: EquipmentIncrementRemedy,
-    ): Result<ApplyEquipmentIncrementResult> {
+    ): ApplyEquipmentIncrementResult {
         validateRemedy(remedy)?.let { return it }
         // The fork name is resolved to a value here (STR-169 name rule), not
-        // re-derived inside the write: an invalid name is a Result failure.
+        // re-derived inside the write: an invalid name is a failure branch.
+        // (validateRemedy already rejected an invalid fork name, so this is the
+        // valid name or null for non-fork remedies.)
         val forkName =
             (remedy as? EquipmentIncrementRemedy.ForkCustomEquipment)?.let {
-                CatalogNames.equipmentNameResult(it.suggestedName)
-                    .getOrElse { error -> return Result.failure(error) }
+                (CatalogNames.validateEquipmentName(it.suggestedName) as? CatalogNames.Validation.Valid)
+                    ?.name
             }
-        return runCatchingLogged(loggingPort, TAG, "Failed to apply equipment increment remedy") {
+        return try {
             when (remedy) {
                 is EquipmentIncrementRemedy.AmendEquipmentTiers -> {
                     equipmentRepository.setIncrementTiers(remedy.equipmentId, remedy.tiers)
@@ -72,6 +94,11 @@ class ApplyEquipmentIncrementProposalUseCase @Inject constructor(
                     ApplyEquipmentIncrementResult.Forked(id)
                 }
             }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (t: Throwable) {
+            loggingPort.error(TAG, "Failed to apply equipment increment remedy: ${t.message}", t)
+            ApplyEquipmentIncrementResult.PersistenceFailed
         }
     }
 
@@ -82,38 +109,49 @@ class ApplyEquipmentIncrementProposalUseCase @Inject constructor(
         }
 
     /**
-     * Validates [remedy] before any write. Returns the failure to surface, or null when the
-     * remedy may be applied. Validation failures are expected caller outcomes, not
-     * operational faults: breadcrumb only, never a Crashlytics non-fatal.
+     * Validates [remedy] before any write. Returns the failure branch to surface, or null
+     * when the remedy may be applied. Validation failures are expected caller outcomes,
+     * not operational faults: breadcrumb only, never a Crashlytics non-fatal.
      */
     private suspend fun validateRemedy(
         remedy: EquipmentIncrementRemedy,
-    ): Result<ApplyEquipmentIncrementResult>? {
-        // Constructing the lattice is the validation (STR-165).
-        IncrementLattice.resultOf(remedy.tiers()).onFailure { return Result.failure(it) }
+    ): ApplyEquipmentIncrementResult? {
+        // The lattice rules are the validation (STR-165).
+        when (val tiersResult = IncrementLattice.validateTiers(remedy.tiers())) {
+            is IncrementTiersValidationResult.Invalid ->
+                return ApplyEquipmentIncrementResult.InvalidTiers(tiersResult)
+            IncrementTiersValidationResult.Valid -> Unit
+        }
         // Fail clearly when the clustered equipment was deleted between propose and accept
         // (setIncrementTiers alone may no-op on a missing row). A missing row is an expected
         // race, not an operational fault: breadcrumb only, never a Crashlytics non-fatal.
         if (remedy is EquipmentIncrementRemedy.AmendEquipmentTiers) {
             val existing =
-                runCatchingLogged(loggingPort, TAG, "Failed to read equipment for increment remedy") {
+                try {
                     equipmentRepository.getEquipment(remedy.equipmentId)
-                }.getOrElse { return Result.failure(it) }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (t: Throwable) {
+                    loggingPort.error(
+                        TAG,
+                        "Failed to read equipment for increment remedy: ${t.message}",
+                        t,
+                    )
+                    return ApplyEquipmentIncrementResult.PersistenceFailed
+                }
             if (existing == null) {
-                return loggingPort.expectedFailure(
+                loggingPort.warning(
                     TAG,
-                    IllegalArgumentException("Equipment not found"),
                     "Equipment ${remedy.equipmentId.value} not found for increment remedy",
                 )
+                return ApplyEquipmentIncrementResult.EquipmentNotFound(remedy.equipmentId)
             }
         }
         if (remedy is EquipmentIncrementRemedy.ForkCustomEquipment) {
-            CatalogNames.equipmentNameResult(remedy.suggestedName).exceptionOrNull()?.let { error ->
-                return loggingPort.expectedFailure(
-                    TAG,
-                    error,
-                    "Equipment name is required for increment remedy",
-                )
+            val nameResult = CatalogNames.validateEquipmentName(remedy.suggestedName)
+            if (nameResult is CatalogNames.Validation.Invalid) {
+                loggingPort.warning(TAG, "Equipment name is required for increment remedy")
+                return ApplyEquipmentIncrementResult.InvalidName(nameResult)
             }
         }
         return null

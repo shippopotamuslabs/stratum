@@ -1,8 +1,10 @@
 package com.stratum.application.sync
 
 import com.stratum.core.testing.sync.FakeCloudSyncPort
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import com.stratum.domain.sync.CloudSessionState
@@ -19,12 +21,12 @@ class CloudSyncUseCasesTest {
 
         assertEquals(CloudSessionState.Inactive, observeSession().value)
 
-        assertEquals(Result.success(Unit), start("uid-1"))
+        assertEquals(CloudSyncOutcome.Success, start("uid-1"))
         assertEquals("uid-1", port.startedUserId)
         assertEquals(1, port.startCount)
         assertEquals(CloudSessionState.Ready("uid-1"), observeSession().value)
 
-        assertEquals(Result.success(Unit), request())
+        assertEquals(CloudSyncOutcome.Success, request())
         assertEquals(1, port.requestCount)
 
         stop()
@@ -32,9 +34,69 @@ class CloudSyncUseCasesTest {
         assertEquals(null, port.startedUserId)
         assertEquals(CloudSessionState.Inactive, observeSession().value)
 
-        assertEquals(Result.success(Unit), wipe("uid-1"))
+        assertEquals(CloudSyncOutcome.Success, wipe("uid-1"))
         assertEquals(1, port.wipeCount)
         assertEquals("uid-1", port.lastWipedUserId)
         assertTrue(port.callOrder.contains("wipe"))
+    }
+
+    @Test
+    fun portFailureReturnsFailedOutcome() = runTest {
+        val port = FakeCloudSyncPort()
+        val failure = IllegalStateException("sync boom")
+        port.startFailure = failure
+        val start = StartCloudSyncUseCase(port)
+
+        // The Failed branch carries the failure only as a diagnostic value:
+        // the throwable's single log record is the port adapter's own
+        // boundary log; the cause rides for classifiers/drains, never thrown.
+        val outcome = start("uid-1")
+        assertTrue(outcome is CloudSyncOutcome.Failed)
+        assertSame(
+            failure,
+            ((outcome as CloudSyncOutcome.Failed).diagnostics.single()
+                as CloudSyncDiagnostic.OperationFailed).cause,
+        )
+    }
+
+    @Test
+    fun restartDiagnosticsCarryTheRestartFailureCause() = runTest {
+        val port = FakeCloudSyncPort()
+        val failure = IllegalStateException("sync boom")
+        port.startFailure = failure
+        val start = StartCloudSyncUseCase(port)
+
+        val diagnostics = start.restartDiagnostics("uid-1")
+
+        assertEquals(1, diagnostics.size)
+        assertSame(
+            failure,
+            (diagnostics.single() as CloudSyncDiagnostic.OperationFailed).cause,
+        )
+    }
+
+    @Test
+    fun restartDiagnosticsEmptyOnSuccess() = runTest {
+        val port = FakeCloudSyncPort()
+        val start = StartCloudSyncUseCase(port)
+
+        assertTrue(start.restartDiagnostics("uid-1").isEmpty())
+        assertEquals(1, port.startCount)
+    }
+
+    @Test
+    fun portCancellationPropagates() = runTest {
+        val port = FakeCloudSyncPort()
+        port.requestFailure = CancellationException("cancelled")
+        val request = RequestCloudSyncUseCase(port)
+
+        var thrown: Throwable? = null
+        try {
+            request()
+        } catch (error: CancellationException) {
+            thrown = error
+        }
+
+        assertTrue(thrown is CancellationException)
     }
 }

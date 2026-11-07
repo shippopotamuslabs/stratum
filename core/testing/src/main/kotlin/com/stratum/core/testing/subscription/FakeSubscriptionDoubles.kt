@@ -1,11 +1,18 @@
 package com.stratum.core.testing.subscription
 
+import com.stratum.application.subscription.BillingDiagnostic
+import com.stratum.application.subscription.BillingFlowOutcome
 import com.stratum.application.subscription.BillingPort
 import com.stratum.domain.subscription.BillingPurchaseResult
 import com.stratum.application.subscription.EntitlementRepository
 import com.stratum.domain.subscription.EntitlementDiagnostic
 import com.stratum.domain.subscription.EntitlementState
+import com.stratum.application.subscription.PlayEntitlementSyncOutcome
 import com.stratum.application.subscription.PlayEntitlementSyncPort
+import com.stratum.application.subscription.RefreshEntitlementOutcome
+import com.stratum.application.subscription.RestorePurchasesOutcome
+import com.stratum.application.subscription.SubscriptionProductsOutcome
+import kotlinx.coroutines.CancellationException
 import com.stratum.domain.subscription.SubscriptionCatalog
 import com.stratum.domain.subscription.SubscriptionProduct
 import com.stratum.domain.subscription.SubscriptionPurchase
@@ -59,10 +66,20 @@ class FakeBillingPort(
         ),
     )
 
-    var launchBillingResult: Result<Unit> = Result.success(Unit)
-    var restorePurchasesResult: Result<Unit> = Result.success(Unit)
+    /**
+     * When non-null, the corresponding operation returns its Failed outcome
+     * carrying this error as the diagnostic cause. A [CancellationException]
+     * still throws — cancellation is never an outcome branch.
+     */
+    var launchBillingFailure: Throwable? = null
+    var restorePurchasesFailure: Throwable? = null
     var lastLaunchedProduct: SubscriptionProduct? = null
     var queryException: Throwable? = null
+
+    private fun failureOutcome(failure: Throwable): List<BillingDiagnostic> {
+        if (failure is CancellationException) throw failure
+        return listOf(BillingDiagnostic.OperationFailed(failure))
+    }
 
     fun setPurchases(purchases: List<SubscriptionPurchase>) {
         purchasesState.value = purchases
@@ -72,17 +89,27 @@ class FakeBillingPort(
         purchaseResultsFlow.tryEmit(result)
     }
 
-    override suspend fun querySubscriptionProducts(): Result<List<SubscriptionProduct>> {
-        queryException?.let { return Result.failure(it) }
-        return Result.success(availableProducts)
+    override suspend fun querySubscriptionProducts(): SubscriptionProductsOutcome {
+        queryException?.let { failure ->
+            return SubscriptionProductsOutcome.Failed(failure.message, failureOutcome(failure))
+        }
+        return SubscriptionProductsOutcome.Success(availableProducts)
     }
 
-    override suspend fun launchBillingFlow(product: SubscriptionProduct): Result<Unit> {
+    override suspend fun launchBillingFlow(product: SubscriptionProduct): BillingFlowOutcome {
         lastLaunchedProduct = product
-        return launchBillingResult
+        launchBillingFailure?.let { failure ->
+            return BillingFlowOutcome.Failed(failure.message, failureOutcome(failure))
+        }
+        return BillingFlowOutcome.Success
     }
 
-    override suspend fun restorePurchases(): Result<Unit> = restorePurchasesResult
+    override suspend fun restorePurchases(): RestorePurchasesOutcome {
+        restorePurchasesFailure?.let { failure ->
+            return RestorePurchasesOutcome.Failed(failure.message, failureOutcome(failure))
+        }
+        return RestorePurchasesOutcome.Success
+    }
 }
 
 class FakeEntitlementRepository(
@@ -123,10 +150,21 @@ class FakeEntitlementRepository(
             )
         }
 
-    var refreshResult: Result<EntitlementState>? = null
+    /** When non-null, [refreshEntitlement] returns this state instead of the current one. */
+    var refreshResult: EntitlementState? = null
 
-    override suspend fun refreshEntitlement(): Result<EntitlementState> =
-        refreshResult ?: Result.success(state.value)
+    /** When non-null, [refreshEntitlement] returns Failed carrying this as the diagnostic cause. */
+    var refreshFailure: Throwable? = null
+
+    override suspend fun refreshEntitlement(): RefreshEntitlementOutcome {
+        refreshFailure?.let { failure ->
+            if (failure is CancellationException) throw failure
+            return RefreshEntitlementOutcome.Failed(
+                listOf(BillingDiagnostic.OperationFailed(failure)),
+            )
+        }
+        return RefreshEntitlementOutcome.Success(refreshResult ?: state.value)
+    }
 
     override fun observeEntitlementDiagnostics(): Flow<EntitlementDiagnostic> =
         diagnosticsChannel.receiveAsFlow()
@@ -134,10 +172,21 @@ class FakeEntitlementRepository(
 
 class FakePlayEntitlementSyncPort : PlayEntitlementSyncPort {
     val syncedTokens = mutableListOf<String>()
-    var syncResult: Result<Boolean> = Result.success(true)
+    var syncValue: Boolean = true
 
-    override suspend fun syncPurchaseToken(purchaseToken: String): Result<Boolean> {
+    /** When non-null, [syncPurchaseToken] returns Failed carrying this as a PlaySyncFailed diagnostic. */
+    var syncFailure: Throwable? = null
+
+    override suspend fun syncPurchaseToken(
+        purchaseToken: String,
+    ): PlayEntitlementSyncOutcome {
         syncedTokens += purchaseToken
-        return syncResult
+        syncFailure?.let { failure ->
+            if (failure is CancellationException) throw failure
+            return PlayEntitlementSyncOutcome.Failed(
+                listOf(EntitlementDiagnostic.PlaySyncFailed(failure)),
+            )
+        }
+        return PlayEntitlementSyncOutcome.Success(syncValue)
     }
 }

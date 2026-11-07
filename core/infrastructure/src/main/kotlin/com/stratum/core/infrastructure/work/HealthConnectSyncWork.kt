@@ -1,9 +1,13 @@
 package com.stratum.core.infrastructure.work
 
+import com.stratum.application.healthconnect.HealthConnectPushOutcome
 import com.stratum.application.healthconnect.HealthConnectPreferencesPort
 import com.stratum.application.healthconnect.HealthConnectSyncPort
 import com.stratum.application.healthconnect.HealthConnectSyncStatusPort
-import com.stratum.application.healthconnect.isTerminalHealthSyncFailure
+import com.stratum.application.healthconnect.HealthConnectWriteOutcome
+import com.stratum.application.healthconnect.HealthSyncDiagnostic
+import com.stratum.application.healthconnect.HealthSyncFailureKind
+import com.stratum.application.healthconnect.isTerminal
 import com.stratum.domain.healthconnect.HealthFailureKind
 import com.stratum.application.training.TrainingLogRepository
 import com.stratum.domain.training.identity.TrainingSessionId
@@ -25,11 +29,24 @@ class HealthConnectSyncWork @Inject constructor(
 
         data object Success : Outcome
 
-        /** Permanent failure; report once and do not retry. */
-        data class TerminalFailure(val error: Throwable) : Outcome
+        /**
+         * Permanent failure; report once and do not retry. [kind] is the port
+         * failure's classification, or null for a work-local failure (missing
+         * session) that has no classification. [cause] is the originating
+         * throwable for the worker's single log record.
+         */
+        data class TerminalFailure(
+            val kind: HealthSyncFailureKind?,
+            val message: String?,
+            val cause: Throwable?,
+        ) : Outcome
 
         /** Transient failure; WorkManager may retry without emitting yet. */
-        data class RetryableFailure(val error: Throwable) : Outcome
+        data class RetryableFailure(
+            val kind: HealthSyncFailureKind?,
+            val message: String?,
+            val cause: Throwable?,
+        ) : Outcome
     }
 
     suspend fun run(sessionId: TrainingSessionId): Outcome {
@@ -42,23 +59,27 @@ class HealthConnectSyncWork @Inject constructor(
 
         val session = trainingLogRepository.getSession(sessionId)
             ?: return Outcome.TerminalFailure(
-                IllegalStateException("Training session ${sessionId.value} not found"),
+                kind = null,
+                message = "Training session ${sessionId.value} not found",
+                cause = IllegalStateException("Training session ${sessionId.value} not found"),
             )
 
         val sets = trainingLogRepository.getSetsForSession(sessionId)
-        val syncResult = healthConnectSyncPort.pushSession(session, sets)
-        return syncResult.fold(
-            onSuccess = { Outcome.Success },
-            onFailure = { error ->
-                if (error.isTerminalHealthSyncFailure()) {
-                    Outcome.TerminalFailure(error)
+        return when (val outcome = healthConnectSyncPort.pushSession(session, sets)) {
+            HealthConnectPushOutcome.Success -> Outcome.Success
+            is HealthConnectPushOutcome.Failed -> {
+                val cause = outcome.diagnostics
+                    .filterIsInstance<HealthSyncDiagnostic.OperationFailed>()
+                    .firstOrNull()?.cause
+                if (outcome.kind.isTerminal()) {
+                    Outcome.TerminalFailure(outcome.kind, outcome.message, cause)
                 } else {
-                    Outcome.RetryableFailure(error)
+                    Outcome.RetryableFailure(outcome.kind, outcome.message, cause)
                 }
-            },
-        )
+            }
+        }
     }
 
-    suspend fun reportTerminalFailure(kind: HealthFailureKind): Result<Unit> =
+    suspend fun reportTerminalFailure(kind: HealthFailureKind): HealthConnectWriteOutcome =
         healthConnectSyncStatusPort.reportSyncError(kind)
 }

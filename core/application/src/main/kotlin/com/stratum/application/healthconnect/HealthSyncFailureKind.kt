@@ -10,6 +10,11 @@ import com.stratum.domain.healthconnect.HealthFailureKind
  * into this classification at the port so vendor types never cross the boundary;
  * the domain stays free of vendor failure states (STR-266; see the STR-265
  * separation map failure section).
+ *
+ * This kind is the classification VALUE carried on the sync port's failure
+ * branches (STR-243 remediation, Sean's E1 ruling): the former
+ * `HealthSyncFailure` Throwable no longer exists — a failure's cause rides
+ * the branch only as a [HealthSyncDiagnostic] value where a catch site used it.
  */
 enum class HealthSyncFailureKind {
     /**
@@ -28,40 +33,19 @@ enum class HealthSyncFailureKind {
     Transient,
 }
 
-/**
- * Application-port failure for Health Connect sync work.
- *
- * Product-language (no `HealthConnect` vendor prefix in the type name); the
- * message strings keep the exact user-visible wording defined here via the
- * [unavailable] and [permissionDenied] factories.
- */
-class HealthSyncFailure(
-    val kind: HealthSyncFailureKind,
-    message: String? = null,
-    cause: Throwable? = null,
-) : IllegalStateException(message, cause) {
-    companion object {
-        fun unavailable(cause: Throwable? = null): HealthSyncFailure =
-            HealthSyncFailure(
-                HealthSyncFailureKind.Terminal,
-                "Health Connect SDK is not available on this device",
-                cause,
-            )
+/** User-visible wording for a [HealthSyncFailureKind.Terminal] unavailable failure. */
+const val HEALTH_SYNC_UNAVAILABLE_MESSAGE =
+    "Health Connect SDK is not available on this device"
 
-        fun permissionDenied(cause: Throwable? = null): HealthSyncFailure =
-            HealthSyncFailure(
-                HealthSyncFailureKind.UserActionable,
-                "Health Connect write permission is not granted",
-                cause,
-            )
-    }
-}
+/** User-visible wording for a [HealthSyncFailureKind.UserActionable] permission failure. */
+const val HEALTH_SYNC_PERMISSION_DENIED_MESSAGE =
+    "Health Connect write permission is not granted"
 
 /**
  * Maps the application-port sync classification to the agnostic domain kind that
  * persists as the sticky sync error (STR-268). The only Terminal source today is
- * the unavailable factory and the only UserActionable source is the
- * permission-denied factory, so the mapping is lossless against today's texts.
+ * the unavailable failure and the only UserActionable source is the
+ * permission-denied failure, so the mapping is lossless against today's texts.
  */
 fun HealthSyncFailureKind.toHealthFailureKind(): HealthFailureKind =
     when (this) {
@@ -72,8 +56,7 @@ fun HealthSyncFailureKind.toHealthFailureKind(): HealthFailureKind =
 
 /**
  * Retry decision for sync work: true when the failure is terminal or only
- * fixable by user action. Unclassified throwables are transient (false).
+ * fixable by user action (retrying unchanged cannot succeed).
  */
-fun Throwable.isTerminalHealthSyncFailure(): Boolean =
-    (this as? HealthSyncFailure)?.kind == HealthSyncFailureKind.Terminal ||
-        (this as? HealthSyncFailure)?.kind == HealthSyncFailureKind.UserActionable
+fun HealthSyncFailureKind.isTerminal(): Boolean =
+    this == HealthSyncFailureKind.Terminal || this == HealthSyncFailureKind.UserActionable

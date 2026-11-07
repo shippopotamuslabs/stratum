@@ -17,7 +17,7 @@ class CloudSyncWorkResultTest {
     fun `success outcome maps to success`() {
         val result =
             mapCloudSyncWorkResult(
-                outcome = Result.success(Unit),
+                failure = null,
                 runAttemptCount = 0,
                 loggingPort = fakeLogging,
             )
@@ -31,7 +31,7 @@ class CloudSyncWorkResultTest {
     fun `not started maps to success without retry`() {
         val result =
             mapCloudSyncWorkResult(
-                outcome = Result.failure(CloudSyncNotStartedException()),
+                failure = CloudSyncNotStartedException(),
                 runAttemptCount = 0,
                 loggingPort = fakeLogging,
             )
@@ -43,7 +43,7 @@ class CloudSyncWorkResultTest {
     fun `residual exception retries without consuming bounded attempts`() {
         val result =
             mapCloudSyncWorkResult(
-                outcome = Result.failure(CloudSyncResidualException("dirty leftover")),
+                failure = CloudSyncResidualException("dirty leftover"),
                 runAttemptCount = 99,
                 loggingPort = fakeLogging,
             )
@@ -58,13 +58,13 @@ class CloudSyncWorkResultTest {
         val error = IllegalStateException("permission denied")
         val retry =
             mapCloudSyncWorkResult(
-                outcome = Result.failure(error),
+                failure = error,
                 runAttemptCount = 1,
                 loggingPort = fakeLogging,
             )
         val giveUp =
             mapCloudSyncWorkResult(
-                outcome = Result.failure(error),
+                failure = error,
                 runAttemptCount = DEFAULT_WORKER_MAX_RETRIES,
                 loggingPort = fakeLogging,
             )
@@ -78,7 +78,7 @@ class CloudSyncWorkResultTest {
 
     @Test
     fun `successful sync classifies to success outcome`() {
-        val outcome = classifySyncOutcome(Result.success(Unit))
+        val outcome = classifySyncOutcome(null)
 
         assertEquals(
             OutcomeTelemetry(
@@ -91,7 +91,7 @@ class CloudSyncWorkResultTest {
 
     @Test
     fun `not started classifies to expected failure`() {
-        val outcome = classifySyncOutcome(Result.failure(CloudSyncNotStartedException()))
+        val outcome = classifySyncOutcome(CloudSyncNotStartedException())
 
         assertEquals(
             OutcomeTelemetry(
@@ -104,7 +104,7 @@ class CloudSyncWorkResultTest {
 
     @Test
     fun `residual backlog classifies to expected failure`() {
-        val outcome = classifySyncOutcome(Result.failure(CloudSyncResidualException("dirty")))
+        val outcome = classifySyncOutcome(CloudSyncResidualException("dirty"))
 
         assertEquals(
             OutcomeTelemetry(
@@ -117,7 +117,7 @@ class CloudSyncWorkResultTest {
 
     @Test
     fun `unexpected failure has no outcome home`() {
-        assertNull(classifySyncOutcome(Result.failure(IllegalStateException("permission denied"))))
+        assertNull(classifySyncOutcome(IllegalStateException("permission denied")))
     }
 
     @Test
@@ -127,7 +127,7 @@ class CloudSyncWorkResultTest {
 
         val result =
             mapCloudSyncWorkResult(
-                outcome = Result.failure(error),
+                failure = error,
                 runAttemptCount = DEFAULT_WORKER_MAX_RETRIES,
                 loggingPort = fakeLogging,
                 onTerminalExceptional = recorded::add,
@@ -145,7 +145,7 @@ class CloudSyncWorkResultTest {
 
         val result =
             mapCloudSyncWorkResult(
-                outcome = Result.failure(error),
+                failure = error,
                 runAttemptCount = 1,
                 loggingPort = fakeLogging,
                 onTerminalExceptional = recorded::add,

@@ -159,6 +159,13 @@ internal object EquipmentProposalUiMapper {
                 if (name.isNotEmpty()) "Created $name." else "Created custom equipment."
             }
             is ApplyEquipmentIncrementResult.Amended -> "Updated equipment steps."
+            // STR-243 C3: failure branches complete the outcome type; the only
+            // caller passes success branches, so failures map to the apply-failed
+            // copy defensively.
+            is ApplyEquipmentIncrementResult.InvalidName,
+            is ApplyEquipmentIncrementResult.InvalidTiers,
+            is ApplyEquipmentIncrementResult.EquipmentNotFound,
+            ApplyEquipmentIncrementResult.PersistenceFailed -> MSG_APPLY_FAILED
         }
 
     /** Bands-only tier summary; adder copy composes via [formatAdderSuffix]. */

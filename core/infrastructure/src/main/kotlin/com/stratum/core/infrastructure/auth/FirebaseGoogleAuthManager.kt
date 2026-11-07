@@ -9,13 +9,15 @@ import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.stratum.application.auth.AuthManager
+import com.stratum.application.auth.LoginWithGoogleResult
+import com.stratum.application.auth.SignOutOutcome
 import com.stratum.domain.auth.AuthState
 import com.stratum.domain.auth.UserProfile
-import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.di.ApplicationScope
 import com.stratum.domain.logging.LoggingPort
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -55,7 +57,40 @@ class FirebaseGoogleAuthManager @Inject constructor(
         }
     }
 
-    override suspend fun signInWithGoogle(): Result<UserProfile> = runCatchingCancellable {
+    override suspend fun signInWithGoogle(): LoginWithGoogleResult {
+        try {
+            return LoginWithGoogleResult.Success(signInWithGoogleOrThrow())
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            return recordSignInFailure(error)
+        }
+    }
+
+    /**
+     * The single population site for a classified sign-in failure (E2).
+     *
+     * Single-locals invariant: [error]'s classification and message are
+     * computed exactly once, into the single locals `kind` and `message`,
+     * and those same locals populate BOTH carriers — the returned
+     * [LoginWithGoogleResult.Failed] and the [AuthState.Error] auth-state
+     * emission — so the two can never diverge. The state's message is
+     * non-null by type, so a null `message` rides the state as "" while the
+     * outcome branch keeps the null. The failure is logged exactly once
+     * here, at the adapter boundary.
+     *
+     * Internal (not private) as the unit-test seam: tests drive this handler
+     * directly and assert the two carriers agree.
+     */
+    internal fun recordSignInFailure(error: Throwable): LoginWithGoogleResult.Failed {
+        loggingPort.error(TAG, "Google sign-in failed: ${error.message}", error)
+        val kind = error.signInFailureKind()
+        val message = error.message
+        _authState.value = AuthState.Error(kind, message ?: "")
+        return LoginWithGoogleResult.Failed(kind, message)
+    }
+
+    private suspend fun signInWithGoogleOrThrow(): UserProfile {
         require(googleServerClientId.isNotBlank()) {
             "Google Sign-In configuration missing: default_web_client_id is blank."
         }
@@ -81,21 +116,25 @@ class FirebaseGoogleAuthManager @Inject constructor(
         }
         val authResult = firebaseAuth.signInWithCredential(firebaseCredential).await()
         val user = authResult.user ?: error("Firebase sign in failed")
-        UserProfile(
+        return UserProfile(
             uid = user.uid,
             displayName = user.displayName,
             email = user.email,
             photoUrl = user.photoUrl?.toString(),
         )
-    }.onFailure { error ->
-        loggingPort.error(TAG, "Google sign-in failed: ${error.message}", error)
     }
 
-    override suspend fun signOut(): Result<Unit> = runCatchingCancellable {
-        firebaseAuth.signOut()
-        credentialManager.clearCredentialState(ClearCredentialStateRequest())
-    }.onFailure { error ->
-        loggingPort.error(TAG, "Google sign-out failed: ${error.message}", error)
+    override suspend fun signOut(): SignOutOutcome {
+        try {
+            firebaseAuth.signOut()
+            credentialManager.clearCredentialState(ClearCredentialStateRequest())
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            loggingPort.error(TAG, "Google sign-out failed: ${error.message}", error)
+            return SignOutOutcome.Failed
+        }
+        return SignOutOutcome.Success
     }
 
     private companion object {
