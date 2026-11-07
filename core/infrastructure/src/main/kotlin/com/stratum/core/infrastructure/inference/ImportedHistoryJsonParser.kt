@@ -8,6 +8,7 @@ import com.stratum.domain.lift.toStorageLb
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.TrainingSession
 import com.stratum.domain.training.identity.TrainingSessionId
+import java.time.Instant
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -58,8 +59,8 @@ internal object ImportedHistoryJsonParser {
             document.sessions.map { dto ->
                 ImportHistoryTrainingMapper.parseSession(
                     id = dto.id,
-                    startedAt = ImportTimestamps.parse(dto.startedAt),
-                    endedAt = dto.endedAt?.let(ImportTimestamps::parse),
+                    startedAt = parseTimestamp(dto.startedAt),
+                    endedAt = dto.endedAt?.let { parseTimestamp(it) },
                     sourceApp = dto.sourceApp,
                 )
             }
@@ -78,10 +79,14 @@ internal object ImportedHistoryJsonParser {
                     weight = Weight(dto.weightAmount, unit).toStorageLb(),
                     reps = dto.reps,
                     rir = dto.rir,
-                    completedAt = ImportTimestamps.parse(dto.completedAt),
+                    completedAt = parseTimestamp(dto.completedAt),
                     partialReps = dto.partialReps,
                 )
             }
         return sessions to sets
     }
+
+    /** Translates a format miss into the typed parser-boundary failure (E4 translate). */
+    private fun parseTimestamp(value: String): Instant =
+        ImportTimestamps.parseOrNull(value) ?: throw ImportedHistoryFormatException(value)
 }

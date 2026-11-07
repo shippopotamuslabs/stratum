@@ -4,6 +4,7 @@ import com.stratum.domain.lift.Weight
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 
 @DisplayName("ImportedHistoryJsonParser")
 class ImportedHistoryJsonParserTest {
@@ -102,5 +103,26 @@ class ImportedHistoryJsonParserTest {
         assertEquals(1, sets.size)
         assertEquals(Weight.WeightUnit.Lb, sets[0].weight.unit)
         assertEquals(100.0 * 1.0 / 0.45359237, sets[0].weight.amount, 1e-6)
+    }
+
+    @Test
+    @DisplayName("unsupported timestamp format throws typed exception carrying the value")
+    fun unsupportedTimestampFormatThrows() {
+        val payload =
+            """
+            {
+              "sessions": [
+                {"id": "s1", "startedAt": "not-a-date"}
+              ],
+              "sets": []
+            }
+            """.trimIndent()
+
+        val exception =
+            assertThrows<ImportedHistoryFormatException> {
+                ImportedHistoryJsonParser.parse(payload, fallbackWeightUnit = Weight.WeightUnit.Kg)
+            }
+
+        assertEquals("not-a-date", exception.value)
     }
 }
