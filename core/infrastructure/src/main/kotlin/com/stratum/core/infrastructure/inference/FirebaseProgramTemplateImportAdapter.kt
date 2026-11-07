@@ -4,7 +4,6 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.storage.FirebaseStorage
 import com.stratum.domain.coroutines.runCatchingCancellable
-import com.stratum.core.infrastructure.logging.LoggingPort
 import com.stratum.domain.program.importing.ProgramTemplateImportJobId
 import com.stratum.domain.program.importing.ProgramTemplateImportPhase
 import com.stratum.application.program.importing.ProgramTemplateImportPort
@@ -20,14 +19,13 @@ import kotlinx.coroutines.tasks.await
  * `getProgramTemplateJobStatus` Callable Functions, and downloads the normalized template JSON.
  *
  * Mirrors [FirebaseHistoricalImportAdapter] but targets the program-template job collection and
- * Storage prefix. All Callable invocations require an authenticated user. Every failure is logged
- * via [LoggingPort] (full detail, including Firebase error codes) so the UI can show a generic
- * user-friendly message without surfacing internal error text.
+ * Storage prefix. All Callable invocations require an authenticated user. Failures are returned
+ * as [Result.failure] with the real cause and are recorded exactly once at the boundary: the
+ * import use case carries them as diagnostics on its outcome and the settings/onboarding
+ * boundaries drain them (STR-238). This adapter records nothing on the propagate path.
  */
 @Singleton
-class FirebaseProgramTemplateImportAdapter @Inject constructor(
-    private val loggingPort: LoggingPort,
-) : ProgramTemplateImportPort {
+class FirebaseProgramTemplateImportAdapter @Inject constructor() : ProgramTemplateImportPort {
     private val storage: FirebaseStorage = FirebaseStorage.getInstance()
     private val functions: FirebaseFunctions = FirebaseFunctions.getInstance()
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
@@ -50,8 +48,6 @@ class FirebaseProgramTemplateImportAdapter @Inject constructor(
                 ),
             ).await()
         Unit
-    }.onFailure { error ->
-        FirebaseCallableErrorLogger.logFailure(loggingPort, TAG, START_CALLABLE, error)
     }
 
     override suspend fun pollJobStatus(
@@ -70,16 +66,12 @@ class FirebaseProgramTemplateImportAdapter @Inject constructor(
             programTemplateStoragePath = map["programTemplateStoragePath"] as? String,
             errorMessage = map["errorMessage"] as? String,
         )
-    }.onFailure { error ->
-        FirebaseCallableErrorLogger.logFailure(loggingPort, TAG, STATUS_CALLABLE, error)
     }
 
     override suspend fun downloadProgramTemplate(storagePath: String): Result<String> =
         runCatchingCancellable {
             val bytes = storage.reference.child(storagePath).getBytes(MAX_DOWNLOAD_BYTES).await()
             bytes.decodeToString()
-        }.onFailure { error ->
-            loggingPort.error(TAG, "downloadProgramTemplate failed for $storagePath", error)
         }
 
     private fun requireUid(): String =
@@ -105,7 +97,6 @@ class FirebaseProgramTemplateImportAdapter @Inject constructor(
     }
 
     private companion object {
-        const val TAG = "ProgramTemplateImport"
         const val START_CALLABLE = "startProgramTemplateImport"
         const val STATUS_CALLABLE = "getProgramTemplateJobStatus"
         const val MAX_DOWNLOAD_BYTES = 10L * 1024L * 1024L

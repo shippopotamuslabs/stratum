@@ -1,10 +1,12 @@
 package com.stratum.sync
 
 import com.stratum.domain.auth.AuthState
+import com.stratum.app.DiagnosticDrain
 import com.stratum.application.auth.GetAuthStateUseCase
 import com.stratum.domain.di.ApplicationScope
-import com.stratum.core.infrastructure.logging.LoggingPort
 import com.stratum.domain.coroutines.collectLatestRestarting
+import com.stratum.application.sync.CloudSyncOperation
+import com.stratum.application.sync.CloudSyncOutcome
 import com.stratum.application.sync.StartCloudSyncUseCase
 import com.stratum.application.sync.StopCloudSyncUseCase
 import javax.inject.Inject
@@ -24,7 +26,7 @@ class CloudSyncAuthListener @Inject constructor(
     private val getAuthState: GetAuthStateUseCase,
     private val startCloudSync: StartCloudSyncUseCase,
     private val stopCloudSync: StopCloudSyncUseCase,
-    private val loggingPort: LoggingPort,
+    private val diagnosticDrain: DiagnosticDrain,
     @ApplicationScope private val scope: CoroutineScope,
 ) {
     private var job: Job? = null
@@ -33,18 +35,30 @@ class CloudSyncAuthListener @Inject constructor(
         if (job?.isActive == true) return
         job =
             scope.launch {
-                getAuthState().collectLatestRestarting({ t, m, e -> loggingPort.error(t, m, e) }, TAG) { state ->
+                getAuthState().collectLatestRestarting(
+                    { t, m, e -> diagnosticDrain.recordError(t, m, e) },
+                    TAG,
+                ) { state ->
                     when (state) {
                         is AuthState.Authenticated -> {
-                            // A failed start is error-logged exactly once by
-                            // the sync adapter at its own boundary. The Failed
-                            // outcome does carry diagnostics for the boundaries
-                            // that must classify or drain them (the sync
-                            // worker, the compensating restart after a logout /
-                            // account-deletion failure) — this listener is not
-                            // a drain site, because the adapter already logged
-                            // the failure once.
-                            startCloudSync(state.user.uid)
+                            // This listener is the single recorder for its own
+                            // start invocations (STR-238): a Failed outcome's
+                            // diagnostics are drained here exactly once through
+                            // the drain facade's sync entry point, rendered by
+                            // the shared factory in the sync adapter's
+                            // tag/message shape for a start failure so the
+                            // record matches the adapter's legacy log line for
+                            // the same failure. Restart invocations are a
+                            // different path — their diagnostics ride the
+                            // logout / account-deletion results and drain at
+                            // the Settings / shell boundaries, never here.
+                            val outcome = startCloudSync(state.user.uid)
+                            if (outcome is CloudSyncOutcome.Failed) {
+                                diagnosticDrain.drainSync(
+                                    outcome.diagnostics,
+                                    CloudSyncOperation.Start,
+                                )
+                            }
                         }
                         AuthState.Unauthenticated, is AuthState.Error -> {
                             stopCloudSync()

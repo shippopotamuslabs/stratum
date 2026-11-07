@@ -48,6 +48,7 @@ import com.stratum.application.program.ActivateProgramResult
 import com.stratum.application.program.ActivateProgramUseCase
 import com.stratum.application.program.GenerateProgramUseCase
 import com.stratum.domain.program.generation.GenerateProgramResult
+import com.stratum.domain.program.generation.GenerationFailureDiagnostic
 import com.stratum.domain.program.generation.GenerationSynthesisSummary
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisException
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisRefusal
@@ -1005,6 +1006,21 @@ class OnboardingViewModel @Inject constructor(
         generationLogger.logGenerationDiagnostics(synthesis.diagnostics)
     }
 
+    /**
+     * Drains carried generation-failure diagnostics exactly once each, in
+     * the generation-failure record shape. Shared by the branches whose
+     * diagnostics ride the result (SynthesisFailed, Unexpected).
+     */
+    private fun drainGenerationDiagnostics(diagnostics: List<GenerationFailureDiagnostic>) {
+        diagnostics.forEach { diagnostic ->
+            diagnosticDrain.recordError(
+                OnboardingProgramFlowOps.TAG,
+                OnboardingProgramFlowOps.MSG_GENERATE_FAILED,
+                diagnostic.cause,
+            )
+        }
+    }
+
     private fun logGenerateFailure(result: GenerateProgramResult) {
         // STR-237 chunk 3: a validation-rejected generation still completed its
         // build, so its carried synthesis records are drained here exactly once.
@@ -1019,11 +1035,12 @@ class OnboardingViewModel @Inject constructor(
         }
         when (result) {
             is GenerateProgramResult.SynthesisFailed ->
-                diagnosticDrain.recordError(
-                    OnboardingProgramFlowOps.TAG,
-                    OnboardingProgramFlowOps.MSG_GENERATE_FAILED,
-                    ProgramSynthesisException(result.message),
-                )
+                // STR-238: the branch carries the real caught
+                // ProgramSynthesisException as a diagnostic (its cause chain
+                // preserves the vendor error); drain each carried cause
+                // exactly once instead of constructing an exception from
+                // result.message. Production carries exactly one diagnostic.
+                drainGenerationDiagnostics(result.diagnostics)
             is GenerateProgramResult.SynthesisRefused ->
                 diagnosticDrain.recordError(
                     OnboardingProgramFlowOps.TAG,
@@ -1046,13 +1063,7 @@ class OnboardingViewModel @Inject constructor(
                 // a domain diagnostic; record each one exactly once here via
                 // the recorder path (this branch previously kept only the
                 // analytics event below — the gap Special 1 closes).
-                result.diagnostics.forEach { diagnostic ->
-                    diagnosticDrain.recordError(
-                        OnboardingProgramFlowOps.TAG,
-                        OnboardingProgramFlowOps.MSG_GENERATE_FAILED,
-                        diagnostic.cause,
-                    )
-                }
+                drainGenerationDiagnostics(result.diagnostics)
             is GenerateProgramResult.Success -> Unit
         }
         logAnalytics(

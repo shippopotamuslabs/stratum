@@ -1,5 +1,6 @@
 package com.stratum.application.auth
 
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.application.sync.CloudSyncDiagnostic
 import com.stratum.core.testing.auth.FakeAccountDeletionPort
 import com.stratum.core.testing.auth.FakeAuthManager
@@ -30,7 +31,12 @@ class DeleteAccountUseCaseTest {
 
         val result = subject()
 
-        assertEquals(DeleteAccountResult.Success, result)
+        assertTrue(result is DeleteAccountResult.Success)
+        // Sign-out succeeded, so no sign-out diagnostics ride the branch.
+        assertEquals(
+            emptyList<OperationalDiagnostic>(),
+            (result as DeleteAccountResult.Success).signOutDiagnostics,
+        )
         assertEquals(1, remote.deleteDataCount)
         assertEquals(1, remote.deleteAuthCount)
         assertEquals(listOf("stop", "wipe"), port.callOrder)
@@ -61,8 +67,9 @@ class DeleteAccountUseCaseTest {
     fun remoteDataFailureLeavesLocalIntactAndRestartsSync() = runTest {
         val user = UserProfile("uid-1", "A", "a@example.com", null)
         val auth = FakeAuthManager(AuthState.Authenticated(user))
+        val cloudError = IllegalStateException("cloud failed")
         val remote = FakeAccountDeletionPort().apply {
-            deleteDataFailure = IllegalStateException("cloud failed")
+            deleteDataFailure = cloudError
         }
         val port = FakeCloudSyncPort()
         val subject = buildSubject(auth, remote, port)
@@ -75,6 +82,12 @@ class DeleteAccountUseCaseTest {
             emptyList<CloudSyncDiagnostic>(),
             (result as DeleteAccountResult.RemoteDataFailed).restartDiagnostics,
         )
+        // STR-238: the primary deletion failure's diagnostics ride the
+        // branch, carrying the real cause for the boundary's drain.
+        val deletionDiagnostics =
+            (result as DeleteAccountResult.RemoteDataFailed).deletionDiagnostics
+        assertEquals(1, deletionDiagnostics.size)
+        assertSame(cloudError, deletionDiagnostics.single().cause)
         assertEquals(1, remote.deleteDataCount)
         assertEquals(0, remote.deleteAuthCount)
         assertEquals(listOf("stop", "start"), port.callOrder)
@@ -143,14 +156,24 @@ class DeleteAccountUseCaseTest {
         val user = UserProfile("uid-1", "A", "a@example.com", null)
         val auth = FakeAuthManager(AuthState.Authenticated(user))
         val remote = FakeAccountDeletionPort()
+        val wipeError = IllegalStateException("wipe failed")
         val port = FakeCloudSyncPort().apply {
-            wipeFailure = IllegalStateException("wipe failed")
+            wipeFailure = wipeError
         }
         val subject = buildSubject(auth, remote, port)
 
         val result = subject()
 
-        assertEquals(DeleteAccountResult.LocalCleanupFailed, result)
+        assertTrue(result is DeleteAccountResult.LocalCleanupFailed)
+        // STR-238: the primary wipe failure's diagnostics ride the branch,
+        // carrying the real cause for the boundary's exactly-once drain.
+        val wipeDiagnostics =
+            (result as DeleteAccountResult.LocalCleanupFailed).wipeDiagnostics
+        assertEquals(1, wipeDiagnostics.size)
+        assertSame(
+            wipeError,
+            wipeDiagnostics.single().cause,
+        )
         assertEquals(1, remote.deleteDataCount)
         assertEquals(0, remote.deleteAuthCount)
         // Must not restart sync after cloud data is already gone (would re-upload).
@@ -164,15 +187,22 @@ class DeleteAccountUseCaseTest {
     fun authDeleteFailureAfterWipe() = runTest {
         val user = UserProfile("uid-1", "A", "a@example.com", null)
         val auth = FakeAuthManager(AuthState.Authenticated(user))
+        val authError = IllegalStateException("auth delete failed")
         val remote = FakeAccountDeletionPort().apply {
-            deleteAuthFailure = IllegalStateException("auth delete failed")
+            deleteAuthFailure = authError
         }
         val port = FakeCloudSyncPort()
         val subject = buildSubject(auth, remote, port)
 
         val result = subject()
 
-        assertEquals(DeleteAccountResult.AuthDeleteFailed, result)
+        assertTrue(result is DeleteAccountResult.AuthDeleteFailed)
+        // STR-238: the auth-deletion failure's diagnostics ride the branch,
+        // carrying the real cause for the boundary's drain.
+        val deletionDiagnostics =
+            (result as DeleteAccountResult.AuthDeleteFailed).deletionDiagnostics
+        assertEquals(1, deletionDiagnostics.size)
+        assertSame(authError, deletionDiagnostics.single().cause)
         assertEquals(1, remote.deleteDataCount)
         assertEquals(1, remote.deleteAuthCount)
         assertEquals(listOf("stop", "wipe"), port.callOrder)
@@ -183,8 +213,9 @@ class DeleteAccountUseCaseTest {
     @DisplayName("Given signOut fails after auth delete when delete then still success")
     fun signOutFailureAfterAuthDeleteIsBestEffort() = runTest {
         val user = UserProfile("uid-1", "A", "a@example.com", null)
+        val signOutError = IllegalStateException("credential clear failed")
         val auth = FakeAuthManager(AuthState.Authenticated(user)).apply {
-            signOutFailure = IllegalStateException("credential clear failed")
+            signOutFailure = signOutError
         }
         val remote = FakeAccountDeletionPort()
         val port = FakeCloudSyncPort()
@@ -192,7 +223,14 @@ class DeleteAccountUseCaseTest {
 
         val result = subject()
 
-        assertEquals(DeleteAccountResult.Success, result)
+        assertTrue(result is DeleteAccountResult.Success)
+        // STR-238: the best-effort sign-out failure never retypes the
+        // outcome, but its diagnostics ride the Success branch so the
+        // boundary still records it exactly once.
+        val signOutDiagnostics =
+            (result as DeleteAccountResult.Success).signOutDiagnostics
+        assertEquals(1, signOutDiagnostics.size)
+        assertSame(signOutError, signOutDiagnostics.single().cause)
         assertEquals(1, remote.deleteAuthCount)
         assertEquals(1, auth.signOutCount)
         assertEquals(listOf("stop", "wipe"), port.callOrder)

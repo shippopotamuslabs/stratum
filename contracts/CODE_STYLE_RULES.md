@@ -21,7 +21,7 @@ Stratum uses **containment below, UI reaction above** — not try/catch/rethrow 
 
 | Layer | Pattern | Logging |
 |-------|---------|---------|
-| **Infrastructure adapter** (Firebase, credentials, Room-backed auth) | `runCatching { … }.onFailure { log; Result.failure(mapped) }` | `LoggingPort.error` once, with tag + context |
+| **Infrastructure adapter** (Firebase, credentials, Room-backed auth) | Translate with cause, or recover fully; never log a failure you propagate | No logging on the propagate path; infrastructure may log its own completed work as operational telemetry |
 | **Use case (orchestration)** | `runCatching` or propagate `Result`; return `Result<T>`, sealed types, or `Flow<Event>` | No logging capability: use cases (and domain) hold no logging port or logger and make no log calls; operational failures ride the outcome's diagnostics and are recorded once at the boundary |
 | **Repository implementation** (infrastructure) | Plain `suspend` / `Flow`; let exceptions propagate to the caller's `runCatching` | No logging |
 | **ViewModel** | Branch on `Result` / sealed type / Flow event → `UiState` | No logging; map to user-visible strings |

@@ -69,8 +69,6 @@ class FirestoreRemotePullEngine @Inject constructor(
             }
             if (!anyFailures) {
                 stateStore.setHydrated(userId, true)
-            } else if (!stateStore.isHydrated(userId)) {
-                loggingPort.error(TAG, "pull incomplete; will retry failed docs before hydrated")
             }
             Result.success(
                 PullResult(
@@ -84,7 +82,6 @@ class FirestoreRemotePullEngine @Inject constructor(
             // incorrectly into Result.failure).
             throw error
         } catch (error: Exception) {
-            loggingPort.error(TAG, "pull failed: ${error.message}", error)
             Result.failure(error)
         }
 
@@ -113,7 +110,7 @@ class FirestoreRemotePullEngine @Inject constructor(
             if (page.isEmpty()) {
                 morePages = false
             } else {
-                val pageResult = applyPage(handler, collection, page, localDeviceId)
+                val pageResult = applyPage(handler, page, localDeviceId)
                 if (pageResult.lastSafeDoc != null) {
                     safeCursor =
                         PullCursorRecord(
@@ -178,7 +175,6 @@ class FirestoreRemotePullEngine @Inject constructor(
 
     private suspend fun applyPage(
         handler: SyncCollectionHandler,
-        collection: SyncCollection,
         docs: List<DocumentSnapshot>,
         localDeviceId: String,
     ): PageApplyResult {
@@ -186,7 +182,6 @@ class FirestoreRemotePullEngine @Inject constructor(
         for (doc in docs) {
             val data = doc.data
             if (data == null) {
-                loggingPort.error(TAG, "Missing document data for ${collection.firestorePath}/${doc.id}")
                 return PageApplyResult(lastSafeDoc = lastSafe, hadFailures = true)
             }
             val remoteUpdated =
@@ -242,18 +237,12 @@ class FirestoreRemotePullEngine @Inject constructor(
                 } else {
                     val ok = handler.upsertFromRemote(id, data)
                     if (!ok) {
-                        loggingPort.error(TAG, "Decode failed for ${handler.collection.firestorePath}/$id")
                         RemoteApplyOutcome.Failed
                     } else {
                         RemoteApplyOutcome.Applied
                     }
                 }
-            } catch (e: SQLiteConstraintException) {
-                loggingPort.error(
-                    TAG,
-                    "FK/constraint failure for ${handler.collection.firestorePath}/$id: ${e.message}",
-                    e,
-                )
+            } catch (_: SQLiteConstraintException) {
                 RemoteApplyOutcome.Failed
             }
         }

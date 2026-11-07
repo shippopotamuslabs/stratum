@@ -3,12 +3,13 @@ import com.stratum.core.infrastructure.sync.CloudSyncResidualException
 import com.stratum.core.infrastructure.sync.UserOwnedWriteCoordinator
 import com.stratum.core.infrastructure.sync.CloudSyncFeatureGate
 
-import com.stratum.core.infrastructure.work.CloudSyncNotStartedException
 import com.stratum.core.infrastructure.work.CloudSyncScheduler
 import com.stratum.domain.di.IoDispatcher
 import com.stratum.core.infrastructure.logging.LoggingPort
 import com.stratum.domain.sync.CloudSessionState
+import com.stratum.application.sync.CLOUD_SYNC_LOG_TAG
 import com.stratum.application.sync.CloudSyncDiagnostic
+import com.stratum.application.sync.CloudSyncNotStartedException
 import com.stratum.application.sync.CloudSyncOutcome
 import com.stratum.application.sync.CloudSyncPort
 import com.stratum.domain.sync.SyncStatus
@@ -104,7 +105,6 @@ class FirestoreCloudSyncAdapter @Inject constructor(
                 } catch (error: CancellationException) {
                     throw error
                 } catch (error: Throwable) {
-                    loggingPort.error(TAG, "start failed: ${error.message}", error)
                     activeUserId.set(null)
                     _syncStatus.value = SyncStatus.Error(error.message ?: "sync start failed")
                     _sessionState.value =
@@ -124,7 +124,6 @@ class FirestoreCloudSyncAdapter @Inject constructor(
                 } catch (error: CancellationException) {
                     throw error
                 } catch (error: Throwable) {
-                    loggingPort.error(TAG, "start push/pull failed: ${error.message}", error)
                     _syncStatus.value = SyncStatus.Error(error.message ?: "sync start failed")
                     try {
                         cloudSyncScheduler.enqueueSoon()
@@ -137,6 +136,18 @@ class FirestoreCloudSyncAdapter @Inject constructor(
                     }
                     if (localAlreadyUsable || _sessionState.value is CloudSessionState.Ready) {
                         // Keep shell open; background worker retries residual/network work.
+                        // Thermos round 1 (A2): this swallow-to-Success branch
+                        // has no Failed outcome for a boundary to drain, so —
+                        // like the B12 recovery-enqueue record above, which
+                        // also has no outcome path — the adapter records this
+                        // failure itself, exactly once, in the legacy shape.
+                        // Every other start failure returns Failed unrecorded
+                        // here; the boundary drains own those.
+                        loggingPort.error(
+                            TAG,
+                            "start push/pull failed: ${error.message}",
+                            error,
+                        )
                         return@withLock CloudSyncOutcome.Success
                     }
                     _sessionState.value =
@@ -182,7 +193,6 @@ class FirestoreCloudSyncAdapter @Inject constructor(
                 } catch (error: CancellationException) {
                     throw error
                 } catch (error: Throwable) {
-                    loggingPort.error(TAG, "requestSync failed: ${error.message}", error)
                     _syncStatus.value = SyncStatus.Error(error.message ?: "request sync failed")
                     // Do not enqueueSoon(REPLACE) here. Residual failures retry via WorkManager
                     // backoff; other failures give up after bounded retries. UI/scheduler retries
@@ -215,7 +225,6 @@ class FirestoreCloudSyncAdapter @Inject constructor(
                 } catch (error: CancellationException) {
                     throw error
                 } catch (error: Throwable) {
-                    loggingPort.error(TAG, "endSessionAndWipe failed: ${error.message}", error)
                     CloudSyncOutcome.Failed(
                         listOf(CloudSyncDiagnostic.OperationFailed(error)),
                     )
@@ -238,7 +247,6 @@ class FirestoreCloudSyncAdapter @Inject constructor(
             uploadUntilIdle = { uploadEngine.uploadUntilIdle(userId).getOrThrow() },
             hasDirtyResidual = { uploadEngine.hasResidualPending() },
             pull = { pullEngine.pull(userId).getOrThrow() },
-            logError = { msg -> loggingPort.error(TAG, msg) },
             afterSuccessfulPull = {
                 val rebuildResult = rebuildLocalDerivedTrainingData()
                 if (rebuildResult is RebuildLocalDerivedTrainingDataResult.PersistenceFailed) {
@@ -246,7 +254,7 @@ class FirestoreCloudSyncAdapter @Inject constructor(
                     // or a local workout finalize (which also refreshes weekly series).
                     // STR-237: the rebuild's stage records ride its outcome;
                     // this adapter is their boundary — record each exactly
-                    // once, then keep this adapter's own breadcrumb.
+                    // once (STR-238: no duplicate breadcrumb on top).
                     rebuildResult.diagnostics.forEach { diagnostic ->
                         when (diagnostic.level) {
                             OperationalDiagnostic.Level.ERROR ->
@@ -259,10 +267,6 @@ class FirestoreCloudSyncAdapter @Inject constructor(
                                 loggingPort.warning(diagnostic.tag, diagnostic.message)
                         }
                     }
-                    loggingPort.error(
-                        TAG,
-                        "post-pull derived rebuild failed",
-                    )
                 }
             },
         )
@@ -301,7 +305,7 @@ class FirestoreCloudSyncAdapter @Inject constructor(
     }
 
     private companion object {
-        const val TAG = "FirestoreCloudSync"
+        const val TAG = CLOUD_SYNC_LOG_TAG
         const val MSG_SESSION_FAILED = "Couldn't load your training data"
     }
 }

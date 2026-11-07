@@ -336,6 +336,45 @@ class DashboardViewModelTest {
     }
 
     @Test
+    @DisplayName("refresh drains a failed UI-triggered sync pass exactly once")
+    fun refreshDrainsFailedSyncPassOnce() = runTest {
+        val cloudSync = FakeCloudSyncPort()
+        val syncError = IllegalStateException("sync pass boom")
+        cloudSync.requestFailure = syncError
+        val logging = FakeLoggingPort()
+        val viewModel = buildViewModel(cloudSync = cloudSync, logging = logging)
+        advanceUntilIdle()
+
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        // STR-238: the invoking boundary records the failed pass exactly
+        // once, in the sync adapter's tag/message shape, real cause attached.
+        assertEquals(1, logging.errors.size)
+        assertEquals("FirestoreCloudSync", logging.errors.single().tag)
+        assertEquals("requestSync failed: sync pass boom", logging.errors.single().message)
+        assertSame(syncError, logging.errors.single().throwable)
+    }
+
+    @Test
+    @DisplayName("refresh does not record a not-started sync pass")
+    fun refreshDoesNotRecordNotStartedSyncPass() = runTest {
+        val cloudSync = FakeCloudSyncPort()
+        cloudSync.requestFailure =
+            com.stratum.application.sync.CloudSyncNotStartedException()
+        val logging = FakeLoggingPort()
+        val viewModel = buildViewModel(cloudSync = cloudSync, logging = logging)
+        advanceUntilIdle()
+
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        // Thermos round 1: the not-started condition mirrors
+        // CloudSyncWorker's no-op success classification — zero records.
+        assertTrue(logging.errors.isEmpty())
+    }
+
+    @Test
     @DisplayName("openLiftGraph loads full history into Ready detail state")
     fun openLiftGraphReady() = runTest {
         val benchId = LiftId("bench")

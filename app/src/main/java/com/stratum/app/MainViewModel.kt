@@ -11,8 +11,9 @@ import com.stratum.application.auth.LoginWithGoogleResult
 import com.stratum.application.auth.LoginWithGoogleUseCase
 import com.stratum.application.auth.LogoutResult
 import com.stratum.application.auth.LogoutUseCase
-import com.stratum.application.diagnostics.OperationalDiagnostic
-import com.stratum.application.sync.CloudSyncDiagnostic
+import com.stratum.application.auth.records
+import com.stratum.application.sync.CloudSyncOperation
+import com.stratum.application.sync.CloudSyncOutcome
 import com.stratum.domain.sync.CloudSessionState
 import com.stratum.application.sync.ObserveCloudSessionStateUseCase
 import com.stratum.application.sync.StartCloudSyncUseCase
@@ -100,9 +101,14 @@ class MainViewModel @Inject constructor(
             signInError.value = null
             when (val result = loginWithGoogle()) {
                 is LoginWithGoogleResult.Success -> Unit
-                is LoginWithGoogleResult.Failed ->
+                is LoginWithGoogleResult.Failed -> {
+                    // STR-238: the sign-in failure's §10 diagnostics are
+                    // drained here exactly once — this boundary is the
+                    // single recording owner (the adapter records nothing).
+                    diagnosticDrain.drain(result.diagnostics)
                     signInError.value =
                         loginFailureToGoogleSignInMessage(result.kind, result.message)
+                }
             }
         }
     }
@@ -111,7 +117,10 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch {
             val uid = authenticatedUserId.value ?: return@launch
             signInError.value = null
-            startCloudSync(uid)
+            val outcome = startCloudSync(uid)
+            if (outcome is CloudSyncOutcome.Failed) {
+                diagnosticDrain.drainSync(outcome.diagnostics, CloudSyncOperation.Start)
+            }
         }
     }
 
@@ -120,38 +129,20 @@ class MainViewModel @Inject constructor(
             signInError.value = null
             val result = logout()
             if (result !is LogoutResult.Success) {
-                when (result) {
-                    is LogoutResult.WipeFailed ->
-                        drainRestartDiagnostics(result.restartDiagnostics)
-                    is LogoutResult.SignOutFailed ->
-                        drainRestartDiagnostics(result.restartDiagnostics)
-                    LogoutResult.Success -> Unit
-                }
+                // STR-238: the result's accessor returns the branch's full
+                // ordered record list (primary failure first, compensating
+                // restart second, restart rendered under this boundary's
+                // tag) — drained here exactly once in a single call.
+                diagnosticDrain.drain(result.records(TAG_AUTH))
                 // Keep shell copy non-technical.
                 signInError.value = "Couldn't sign out. Try again."
             }
         }
     }
 
-    /** STR-256: a failed compensating sync restart is drained here exactly once. */
-    private fun drainRestartDiagnostics(diagnostics: List<CloudSyncDiagnostic>) {
-        diagnostics.forEach { diagnostic ->
-            when (diagnostic) {
-                is CloudSyncDiagnostic.OperationFailed ->
-                    diagnosticDrain.drain(
-                        OperationalDiagnostic(
-                            tag = TAG_AUTH,
-                            message = MSG_SYNC_RESTART_FAILED,
-                            cause = diagnostic.cause,
-                        ),
-                    )
-            }
-        }
-    }
-
     private companion object {
+        /** This boundary's tag for compensating-restart records. */
         const val TAG_AUTH = "ShellAuth"
-        const val MSG_SYNC_RESTART_FAILED = "Cloud sync restart failed after sign-out failure."
     }
 
     private fun mapShellState(

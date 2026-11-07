@@ -1,5 +1,7 @@
 package com.stratum.application.auth
 
+import com.stratum.application.diagnostics.OperationalDiagnostic
+
 /**
  * Server-side cascade delete for the signed-in user's cloud account.
  * Implemented via Firebase Callable (Admin SDK) — clients cannot hard-delete Firestore sync docs.
@@ -9,10 +11,10 @@ package com.stratum.application.auth
  *
  * Operations return [AccountDeletionOutcome] (STR-243 remediation, Sean's E1
  * ruling): no exception crosses this port in place of an outcome (coroutine
- * cancellation still propagates). The adapter logs an operational failure
- * once at its own boundary (FirebaseCallableErrorLogger) before returning
- * [AccountDeletionOutcome.Failed], so the branch needs no diagnostic payload
- * for a second drain.
+ * cancellation still propagates). A failed phase returns
+ * [AccountDeletionOutcome.Failed] carrying the failure as §10
+ * [OperationalDiagnostic]s (STR-238): the adapter records nothing, and the
+ * terminal boundary (Settings) drains the diagnostics exactly once.
  */
 interface AccountDeletionPort {
     /**
@@ -32,6 +34,18 @@ interface AccountDeletionPort {
 sealed interface AccountDeletionOutcome {
     data object Success : AccountDeletionOutcome
 
-    /** The phase failed; the adapter already logged it exactly once. */
-    data object Failed : AccountDeletionOutcome
+    /**
+     * The phase failed. [diagnostics] carries the real cause as §10
+     * diagnostics for the terminal boundary's exactly-once drain
+     * (STR-238); the adapter records nothing.
+     */
+    data class Failed(
+        val diagnostics: List<OperationalDiagnostic>,
+    ) : AccountDeletionOutcome {
+        init {
+            require(diagnostics.isNotEmpty()) {
+                "AccountDeletionOutcome.Failed requires at least one diagnostic."
+            }
+        }
+    }
 }

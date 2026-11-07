@@ -2,6 +2,7 @@ package com.stratum.core.testing.auth
 
 import com.stratum.application.auth.AccountDeletionOutcome
 import com.stratum.application.auth.AccountDeletionPort
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import kotlinx.coroutines.CancellationException
 
 class FakeAccountDeletionPort : AccountDeletionPort {
@@ -27,13 +28,23 @@ class FakeAccountDeletionPort : AccountDeletionPort {
         deleteDataCount++
         val failure = deleteDataFailure ?: return AccountDeletionOutcome.Success
         if (failure is CancellationException) throw failure
-        return AccountDeletionOutcome.Failed
+        return AccountDeletionOutcome.Failed(diagnosticsFor("data", failure))
     }
 
     override suspend fun deleteRemoteAuthUser(): AccountDeletionOutcome {
         deleteAuthCount++
         val failure = deleteAuthFailure ?: return AccountDeletionOutcome.Success
         if (failure is CancellationException) throw failure
-        return AccountDeletionOutcome.Failed
+        return AccountDeletionOutcome.Failed(diagnosticsFor("auth", failure))
     }
+
+    /** Mirrors the real adapter's §10 carrier shape for a generic (non-callable) failure. */
+    private fun diagnosticsFor(phase: String, failure: Throwable): List<OperationalDiagnostic> =
+        listOf(
+            OperationalDiagnostic(
+                tag = "StratumDeleteAccount",
+                message = "deleteAccount($phase) failed: ${failure.message}",
+                cause = failure,
+            ),
+        )
 }

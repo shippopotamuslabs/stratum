@@ -21,7 +21,21 @@ class GenerateOutcomeClassificationTest {
     @Test
     @DisplayName("synthesis failed branch maps to the expected-failure outcome fact")
     fun synthesisFailedBranchIsExpected() {
-        val outcome = classifyGenerateOutcome(GenerateProgramResult.SynthesisFailed("quota exhausted"))
+        // Thermos round 1: SynthesisFailed diagnostics are non-empty — the
+        // branch carries the caught ProgramSynthesisException as its
+        // diagnostic cause, exactly as GenerateProgramUseCase populates it.
+        val outcome = classifyGenerateOutcome(
+            GenerateProgramResult.SynthesisFailed(
+                "quota exhausted",
+                diagnostics = listOf(
+                    com.stratum.domain.program.generation.GenerationFailureDiagnostic(
+                        cause = com.stratum.domain.program.generation.synthesis.ProgramSynthesisException(
+                            "quota exhausted",
+                        ),
+                    ),
+                ),
+            ),
+        )
 
         assertEquals(expectedOutcome, outcome)
     }

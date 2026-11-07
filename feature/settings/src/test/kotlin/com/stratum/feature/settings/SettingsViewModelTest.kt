@@ -436,7 +436,8 @@ class SettingsViewModelTest {
     @Test
     @DisplayName("When logout fails then userMessage is set and in-flight clears")
     fun logoutFailureSurfacesMessage() = runTest {
-        fakeCloudSync.wipeFailure = IllegalStateException("wipe failed")
+        val wipeError = IllegalStateException("wipe failed")
+        fakeCloudSync.wipeFailure = wipeError
         subject = buildViewModel()
 
         subject.onLogoutClick()
@@ -447,15 +448,20 @@ class SettingsViewModelTest {
         assertEquals(0, fakeAuth.signOutCount)
         assertEquals("Couldn't sign out. Try again.", subject.userMessage.value)
         assertFalse(subject.uiState.value.isLoggingOut)
-        // Clean restart: nothing extra is logged.
-        assertTrue(loggingPort.errors.isEmpty())
+        // STR-238: the primary wipe failure is logged exactly once at this
+        // boundary (adapter shape, real cause); the clean restart adds none.
+        assertEquals(1, loggingPort.errors.size)
+        assertEquals("FirestoreCloudSync", loggingPort.errors.single().tag)
+        assertEquals("endSessionAndWipe failed: wipe failed", loggingPort.errors.single().message)
+        assertSame(wipeError, loggingPort.errors.single().throwable)
     }
 
     @Test
-    @DisplayName("When logout and restart fail then restart is logged once and message stays generic")
-    fun logoutAndRestartFailureLogsRestartOnce() = runTest {
+    @DisplayName("When logout and restart fail then wipe and restart are each logged once and message stays generic")
+    fun logoutAndRestartFailureLogsWipeAndRestartOnceEach() = runTest {
+        val wipeError = IllegalStateException("wipe failed")
         val restartError = IllegalStateException("restart failed")
-        fakeCloudSync.wipeFailure = IllegalStateException("wipe failed")
+        fakeCloudSync.wipeFailure = wipeError
         fakeCloudSync.startFailure = restartError
         subject = buildViewModel()
 
@@ -465,8 +471,17 @@ class SettingsViewModelTest {
 
         assertEquals(0, fakeAuth.signOutCount)
         assertEquals("Couldn't sign out. Try again.", subject.userMessage.value)
-        assertEquals(1, loggingPort.errors.size)
-        assertEquals(restartError, loggingPort.errors.single().throwable)
+        // STR-238 + STR-256: one wipe record and one restart record.
+        assertEquals(2, loggingPort.errors.size)
+        assertEquals(1, loggingPort.errors.count { it.throwable == wipeError })
+        assertEquals(1, loggingPort.errors.count { it.throwable == restartError })
+        // Thermos round 2: the record ORDER is pinned — the primary (wipe)
+        // record first, the compensating restart record second (the
+        // recording fake preserves append order).
+        assertEquals(
+            listOf(wipeError, restartError),
+            loggingPort.errors.map { it.throwable },
+        )
         assertFalse(subject.uiState.value.isLoggingOut)
     }
 
@@ -539,7 +554,8 @@ class SettingsViewModelTest {
     @Test
     @DisplayName("When auth delete fails after wipe then distinct finish-account message")
     fun deleteAccountAuthFailureSurfacesGuidance() = runTest {
-        fakeAccountDeletion.deleteAuthFailure = IllegalStateException("auth delete failed")
+        val authError = IllegalStateException("auth delete failed")
+        fakeAccountDeletion.deleteAuthFailure = authError
         subject = buildViewModel()
 
         subject.onDeleteAccountClick()
@@ -549,6 +565,15 @@ class SettingsViewModelTest {
         assertEquals(1, fakeAccountDeletion.deleteDataCount)
         assertEquals(1, fakeAccountDeletion.deleteAuthCount)
         assertEquals(0, fakeAuth.signOutCount)
+        // STR-238: the primary auth-deletion failure is logged exactly once
+        // at this boundary (adapter shape, real cause).
+        assertEquals(1, loggingPort.errors.size)
+        assertEquals("StratumDeleteAccount", loggingPort.errors.single().tag)
+        assertEquals(
+            "deleteAccount(auth) failed: auth delete failed",
+            loggingPort.errors.single().message,
+        )
+        assertSame(authError, loggingPort.errors.single().throwable)
         assertTrue(
             subject.userMessage.value?.contains("fully closed") == true ||
                 subject.userMessage.value?.contains("Try Delete account again") == true,
@@ -559,7 +584,8 @@ class SettingsViewModelTest {
     @Test
     @DisplayName("When remote delete fails then generic userMessage is set")
     fun deleteAccountFailureSurfacesMessage() = runTest {
-        fakeAccountDeletion.deleteDataFailure = IllegalStateException("cloud failed")
+        val cloudError = IllegalStateException("cloud failed")
+        fakeAccountDeletion.deleteDataFailure = cloudError
         subject = buildViewModel()
 
         subject.onDeleteAccountClick()
@@ -571,14 +597,25 @@ class SettingsViewModelTest {
         assertEquals(0, fakeAuth.signOutCount)
         assertEquals("Couldn't delete account. Try again.", subject.userMessage.value)
         assertFalse(subject.uiState.value.isDeletingAccount)
-        assertTrue(loggingPort.errors.isEmpty())
+        // STR-238: the primary deletion failure is logged exactly once at
+        // this boundary (adapter shape, real cause); the clean restart
+        // adds none. (Pre-STR-238 this asserted zero records because the
+        // adapter's own log was the only record and was not visible here.)
+        assertEquals(1, loggingPort.errors.size)
+        assertEquals("StratumDeleteAccount", loggingPort.errors.single().tag)
+        assertEquals(
+            "deleteAccount(data) failed: cloud failed",
+            loggingPort.errors.single().message,
+        )
+        assertSame(cloudError, loggingPort.errors.single().throwable)
     }
 
     @Test
-    @DisplayName("When delete and restart fail then restart is logged once and message stays generic")
-    fun deleteAccountAndRestartFailureLogsRestartOnce() = runTest {
+    @DisplayName("When delete and restart fail then each is logged once and message stays generic")
+    fun deleteAccountAndRestartFailureLogsEachOnce() = runTest {
+        val cloudError = IllegalStateException("cloud failed")
         val restartError = IllegalStateException("restart failed")
-        fakeAccountDeletion.deleteDataFailure = IllegalStateException("cloud failed")
+        fakeAccountDeletion.deleteDataFailure = cloudError
         fakeCloudSync.startFailure = restartError
         subject = buildViewModel()
 
@@ -589,15 +626,68 @@ class SettingsViewModelTest {
         assertEquals(1, fakeAccountDeletion.deleteDataCount)
         assertEquals(0, fakeAuth.signOutCount)
         assertEquals("Couldn't delete account. Try again.", subject.userMessage.value)
+        // STR-238 + STR-256: one deletion record and one restart record.
+        assertEquals(2, loggingPort.errors.size)
+        assertEquals(1, loggingPort.errors.count { it.throwable == cloudError })
+        assertEquals(1, loggingPort.errors.count { it.throwable == restartError })
+        assertFalse(subject.uiState.value.isDeletingAccount)
+    }
+
+    @Test
+    @DisplayName("When sign-out fails after wipe then sign-out failure is logged once and message stays generic")
+    fun logoutSignOutFailureLogsSignOutFailureOnce() = runTest {
+        val signOutError = IllegalStateException("sign-out failed")
+        fakeAuth.signOutFailure = signOutError
+        subject = buildViewModel()
+
+        subject.onLogoutClick()
+        subject.onLogoutConfirmed()
+        advanceUntilIdle()
+
+        assertEquals(1, fakeAuth.signOutCount)
+        assertEquals("Couldn't sign out. Try again.", subject.userMessage.value)
+        // STR-238: the primary sign-out failure is logged exactly once at
+        // this boundary (adapter shape, real cause); the clean restart
+        // adds none.
         assertEquals(1, loggingPort.errors.size)
-        assertEquals(restartError, loggingPort.errors.single().throwable)
+        assertEquals("StratumGoogleAuth", loggingPort.errors.single().tag)
+        assertEquals(
+            "Google sign-out failed: sign-out failed",
+            loggingPort.errors.single().message,
+        )
+        assertSame(signOutError, loggingPort.errors.single().throwable)
+        assertFalse(subject.uiState.value.isLoggingOut)
+    }
+
+    @Test
+    @DisplayName("When delete succeeds but sign-out fails then sign-out failure is logged once and no message shows")
+    fun deleteAccountSignOutFailureLogsSignOutFailureOnce() = runTest {
+        val signOutError = IllegalStateException("credential clear failed")
+        fakeAuth.signOutFailure = signOutError
+        subject = buildViewModel()
+
+        subject.onDeleteAccountClick()
+        subject.onDeleteAccountConfirmed()
+        advanceUntilIdle()
+
+        assertEquals(1, fakeAccountDeletion.deleteDataCount)
+        assertEquals(1, fakeAccountDeletion.deleteAuthCount)
+        assertEquals(1, fakeAuth.signOutCount)
+        assertNull(subject.userMessage.value)
+        // STR-238: deletion succeeded, so no user message — but the
+        // best-effort sign-out failure is still recorded exactly once at
+        // this boundary via the Success branch's diagnostics.
+        assertEquals(1, loggingPort.errors.size)
+        assertEquals("StratumGoogleAuth", loggingPort.errors.single().tag)
+        assertSame(signOutError, loggingPort.errors.single().throwable)
         assertFalse(subject.uiState.value.isDeletingAccount)
     }
 
     @Test
     @DisplayName("When local wipe fails after cloud data delete then local-cleanup guidance snackbar")
     fun deleteAccountLocalCleanupFailureSurfacesGuidance() = runTest {
-        fakeCloudSync.wipeFailure = IllegalStateException("wipe failed")
+        val wipeError = IllegalStateException("wipe failed")
+        fakeCloudSync.wipeFailure = wipeError
         subject = buildViewModel()
 
         subject.onDeleteAccountClick()
@@ -607,6 +697,12 @@ class SettingsViewModelTest {
         assertEquals(1, fakeAccountDeletion.deleteDataCount)
         assertEquals(0, fakeAccountDeletion.deleteAuthCount)
         assertEquals(0, fakeAuth.signOutCount)
+        // STR-238: the primary wipe failure is logged exactly once at this
+        // boundary (adapter shape, real cause).
+        assertEquals(1, loggingPort.errors.size)
+        assertEquals("FirestoreCloudSync", loggingPort.errors.single().tag)
+        assertEquals("endSessionAndWipe failed: wipe failed", loggingPort.errors.single().message)
+        assertSame(wipeError, loggingPort.errors.single().throwable)
         assertTrue(fakeAuth.authState.value is AuthState.Authenticated)
         assertTrue(
             subject.userMessage.value?.contains("clear the app") == true ||

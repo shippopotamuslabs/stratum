@@ -1,5 +1,6 @@
 package com.stratum.sync
 
+import com.stratum.app.DiagnosticDrain
 import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.auth.FakeAuthManager
 import com.stratum.core.testing.logging.FakeLoggingPort
@@ -15,6 +16,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
@@ -33,7 +35,7 @@ class CloudSyncAuthListenerTest {
             getAuthState = GetAuthStateUseCase(authManager),
             startCloudSync = StartCloudSyncUseCase(cloudSyncPort),
             stopCloudSync = StopCloudSyncUseCase(cloudSyncPort),
-            loggingPort = loggingPort,
+            diagnosticDrain = DiagnosticDrain(loggingPort),
             scope = scope,
         )
 
@@ -99,10 +101,11 @@ class CloudSyncAuthListenerTest {
         }
 
     @Test
-    fun `startCloudSync failure is not re-logged by the listener and does not kill it`() =
+    fun `startCloudSync failure is drained exactly once by the listener and does not kill it`() =
         runTest {
             val logging = FakeLoggingPort()
-            cloudSyncPort.startFailure = IllegalStateException("sync start boom")
+            val startError = IllegalStateException("sync start boom")
+            cloudSyncPort.startFailure = startError
             val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
             val listener = createListener(scope, logging)
             listener.start()
@@ -110,10 +113,14 @@ class CloudSyncAuthListenerTest {
             val user = UserProfile("user-abc", "Test User", "test@example.com", null)
             authManager.setState(AuthState.Authenticated(user))
 
-            // The failed start's single error record is the sync adapter's own
-            // log at its boundary; the listener drains nothing (the outcome
-            // carries no diagnostics payload), so no second record here.
-            assertTrue(logging.errors.isEmpty())
+            // STR-238: the listener is the single recorder for its own start
+            // invocations — the failed start's diagnostics drain here exactly
+            // once, in the sync adapter's tag/message shape for a start
+            // failure, with the real cause attached.
+            assertEquals(1, logging.errors.size)
+            assertEquals("FirestoreCloudSync", logging.errors.single().tag)
+            assertEquals("start failed: sync start boom", logging.errors.single().message)
+            assertSame(startError, logging.errors.single().throwable)
             val stopsBeforeSignOut = cloudSyncPort.stopCount
             authManager.setState(AuthState.Unauthenticated)
             assertEquals(stopsBeforeSignOut + 1, cloudSyncPort.stopCount)

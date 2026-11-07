@@ -1,6 +1,7 @@
 package com.stratum.core.infrastructure.work
 
 import androidx.work.ListenableWorker
+import com.stratum.application.sync.CloudSyncNotStartedException
 import com.stratum.core.infrastructure.sync.CloudSyncResidualException
 import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.infrastructure.telemetry.OutcomeResult

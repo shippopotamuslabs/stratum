@@ -29,7 +29,6 @@ class SyncPushPullPassTest {
             },
             hasDirtyResidual = { false },
             pull = { PullResult(hadFailures = false, hydrated = true) },
-            logError = {},
         )
         assertEquals(1, uploads)
         assertEquals(listOf(SyncStatus.Syncing, SyncStatus.Idle), statuses)
@@ -50,7 +49,6 @@ class SyncPushPullPassTest {
             },
             hasDirtyResidual = { uploads == 1 }, // dirty only after first upload (post-pull demotion)
             pull = { PullResult(hadFailures = false, hydrated = true) },
-            logError = {},
         )
         assertEquals(2, uploads)
         assertEquals(SyncStatus.Idle, statuses.last())
@@ -69,7 +67,6 @@ class SyncPushPullPassTest {
                     uploadUntilIdle = { true },
                     hasDirtyResidual = { false },
                     pull = { error("pull must not run") },
-                    logError = {},
                 )
             }
         val ex = outcome.exceptionOrNull()
@@ -97,7 +94,6 @@ class SyncPushPullPassTest {
                     },
                     hasDirtyResidual = { true },
                     pull = { PullResult(hadFailures = false, hydrated = true) },
-                    logError = {},
                 )
             }
         val ex = outcome.exceptionOrNull()
@@ -120,7 +116,6 @@ class SyncPushPullPassTest {
                     uploadUntilIdle = { false },
                     hasDirtyResidual = { false },
                     pull = { PullResult(hadFailures = true, hydrated = true) },
-                    logError = {},
                 )
             }
         val ex = outcome.exceptionOrNull()
@@ -143,7 +138,6 @@ class SyncPushPullPassTest {
                     uploadUntilIdle = { false },
                     hasDirtyResidual = { false },
                     pull = { PullResult(hadFailures = true, hydrated = false) },
-                    logError = {},
                 )
             }
         val ex = outcome.exceptionOrNull()
@@ -165,7 +159,6 @@ class SyncPushPullPassTest {
             uploadUntilIdle = { false },
             hasDirtyResidual = { false },
             pull = { PullResult(hadFailures = false, hydrated = true) },
-            logError = {},
             afterSuccessfulPull = {
                 rebuildAtStatus = statuses.lastOrNull()
             },
@@ -187,7 +180,6 @@ class SyncPushPullPassTest {
                     uploadUntilIdle = { false },
                     hasDirtyResidual = { false },
                     pull = { PullResult(hadFailures = true, hydrated = true) },
-                    logError = {},
                     afterSuccessfulPull = { rebuildRan = true },
                 )
             }

@@ -14,12 +14,22 @@ internal object FirebaseCallableErrorLogger {
         callableName: String,
         error: Throwable,
     ) {
-        val message =
-            when (error) {
-                is FirebaseFunctionsException ->
-                    "$callableName callable failed: code=${error.code} message=${error.message}"
-                else -> "$callableName failed: ${error.message}"
-            }
-        loggingPort.error(tag, message, error)
+        loggingPort.error(tag, failureMessage(callableName, error), error)
     }
+
+    /**
+     * The rendered failure message for a callable failure, without recording
+     * it. Adapters whose outcome carries the failure as a §10 diagnostic
+     * (STR-238) render the diagnostic's message with this so the boundary
+     * record keeps the exact shape [logFailure] would have produced.
+     */
+    fun failureMessage(
+        callableName: String,
+        error: Throwable,
+    ): String =
+        when (error) {
+            is FirebaseFunctionsException ->
+                "$callableName callable failed: code=${error.code} message=${error.message}"
+            else -> "$callableName failed: ${error.message}"
+        }
 }

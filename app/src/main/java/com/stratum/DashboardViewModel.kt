@@ -34,6 +34,9 @@ import com.stratum.domain.lift.WeightConversion
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.shortLabel
 import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.application.sync.CloudSyncOperation
+import com.stratum.application.sync.CloudSyncOutcome
+import com.stratum.application.sync.isNotStarted
 import com.stratum.application.sync.ObserveCloudSyncStatusUseCase
 import com.stratum.application.sync.RequestCloudSyncUseCase
 import com.stratum.domain.sync.SyncStatus
@@ -208,7 +211,21 @@ class DashboardViewModel(
         if (_isRefreshing.value) return
         _isRefreshing.value = true
         viewModelScope.launch {
-            requestCloudSync()
+            val outcome = requestCloudSync()
+            if (outcome is CloudSyncOutcome.Failed) {
+                // STR-238: this ViewModel invoked the pass, so it is the
+                // pass's recording boundary — its failures drain here
+                // exactly once through the drain facade's sync entry point
+                // (shared factory rendering, requestSync shape; log-only,
+                // never surfaced in the UI). The not-started exclusion
+                // lives at this call only (NOT baked into the factory):
+                // mirroring CloudSyncWorker's classification
+                // (classifySyncWork → NotStarted → no-op success), a
+                // not-started pass (no active session) is not an error and
+                // records nothing — pre-STR-238 it was returned unlogged.
+                val recordable = outcome.diagnostics.filterNot { it.isNotStarted }
+                diagnosticDrain.drainSync(recordable, CloudSyncOperation.RequestSync)
+            }
         }
         load()
         val boardJob = loadJob
