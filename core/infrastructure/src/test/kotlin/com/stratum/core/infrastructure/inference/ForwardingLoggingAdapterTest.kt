@@ -1,5 +1,6 @@
 package com.stratum.core.infrastructure.inference
 
+import com.stratum.core.infrastructure.logging.AndroidLoggingAdapter
 import com.stratum.core.testing.telemetry.FakeCrashTelemetryPort
 import com.stratum.core.testing.telemetry.FakePendingClientLogStore
 import com.stratum.core.testing.telemetry.FakeTelemetryUploadPort
@@ -45,6 +46,7 @@ class ForwardingLoggingAdapterTest {
                 scope = scope,
                 upload = upload,
                 pendingStore = store,
+                localLog = AndroidLoggingAdapter(telemetry),
                 appVersion = "test-version",
             )
         return Fixture(ForwardingLoggingAdapter(AndroidLoggingAdapter(telemetry), buffer), buffer)

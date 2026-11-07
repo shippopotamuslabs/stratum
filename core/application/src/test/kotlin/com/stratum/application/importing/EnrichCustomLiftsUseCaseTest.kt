@@ -6,10 +6,13 @@ import com.stratum.domain.lift.SeedEquipmentIds
 import com.stratum.domain.onboarding.MuscleGroup
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertSame
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import com.stratum.domain.importing.InferredCustomLiftMetadata
 import com.stratum.domain.importing.InferredEquipmentLoading
+import com.stratum.domain.importing.ResolveImportLiftsDiagnostic
 
 class EnrichCustomLiftsUseCaseTest {
     @Test
@@ -39,6 +42,7 @@ class EnrichCustomLiftsUseCaseTest {
     @Test
     @DisplayName("Given a failed batch when enriching then other batches still contribute results")
     fun toleratesPartialBatchFailures() = runTest {
+        val failure = IllegalStateException("timeout")
         val inference =
             object : CustomLiftInferencePort {
                 var calls = 0
@@ -48,7 +52,7 @@ class EnrichCustomLiftsUseCaseTest {
                 ): Result<List<InferredCustomLiftMetadata>> {
                     calls += 1
                     return if (calls == 1) {
-                        Result.failure(IllegalStateException("timeout"))
+                        Result.failure(failure)
                     } else {
                         Result.success(
                             candidates.map { candidate ->
@@ -79,6 +83,30 @@ class EnrichCustomLiftsUseCaseTest {
         assertEquals(2, outcome.batchesAttempted)
         assertEquals(1, outcome.batchesFailed)
         assertEquals("timeout", outcome.lastFailureMessage)
+        // STR-240 chunk 8: beside the unchanged count/message fields, the failed
+        // batch's real cause rides the outcome as a diagnostic (assertSame) —
+        // the carrier the import summary forwards to the boundary.
+        assertEquals(
+            listOf(ResolveImportLiftsDiagnostic.CustomLiftInferenceFailed(failure)),
+            outcome.diagnostics,
+        )
+        assertSame(
+            failure,
+            (outcome.diagnostics.single() as ResolveImportLiftsDiagnostic.CustomLiftInferenceFailed).cause,
+        )
+    }
+
+    @Test
+    @DisplayName("Given all batches succeed when enriching then the outcome carries no diagnostics")
+    fun successfulBatchesCarryNoDiagnostics() = runTest {
+        val inference = FakeCustomLiftInferencePort()
+        val subject = EnrichCustomLiftsUseCase(inference)
+
+        val outcome =
+            subject(listOf(UnmatchedExerciseCandidate("BrandX Widget", loggedSetCount = 3)))
+
+        assertTrue(outcome.diagnostics.isEmpty())
+        assertEquals(0, outcome.batchesFailed)
     }
 
     @Test

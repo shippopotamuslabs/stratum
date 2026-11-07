@@ -66,7 +66,8 @@ data class ProgramSynthesisWireRequest(
  *   inferred from legacy `sessions[].sessionType` when absent/empty)
  * - `diagnostics`: array of slot-build diagnostic objects (STR-254), each with a `kind`
  *   plus kind-specific fields (optional on **decode** — absent means no diagnostics;
- *   unknown kinds are dropped)
+ *   a malformed entry is carried as a `SlotDiagnosticUndecodable` diagnostic holding
+ *   its raw wire content, never dropped silently)
  *
  * Enums serialize as **enum name** strings (`MuscleGroup.Chest` → `"Chest"`).
  *

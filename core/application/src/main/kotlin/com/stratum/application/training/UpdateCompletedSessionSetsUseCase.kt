@@ -8,7 +8,6 @@ import com.stratum.domain.training.identity.TrainingSessionId
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.PersonalRecordScoring
 import com.stratum.domain.training.TrainingSession
@@ -71,10 +70,18 @@ class UpdateCompletedSessionSetsUseCase @Inject constructor(
      * Sets whose ids already exist are updated; new ids are inserted; missing ids are deleted.
      * Session set changes and PR flag updates land in one
      * [TrainingLogRepository.applySetMutations] transaction.
+     *
+     * @param onRefreshDiagnostics boundary-supplied diagnostics callback for the
+     * post-edit derived-data refresh (CollectLatestRestarting precedent: a
+     * boundary-owned callback, NOT a logging capability in application — the
+     * caller drains the delivered diagnostics through its own DiagnosticDrain).
+     * No default: every caller wires it explicitly. See the shared
+     * [launchDerivedRefresh] launcher for the exact delivery convention.
      */
     suspend operator fun invoke(
         sessionId: TrainingSessionId,
         desiredSets: List<LoggedSet>,
+        onRefreshDiagnostics: (List<OperationalDiagnostic>) -> Unit,
     ): UpdateCompletedSessionSetsResult {
         // The session load sits inside the boundary try (C3 precedent): a throwing
         // load is logged once and returned as PersistenceFailed instead of escaping.
@@ -150,17 +157,10 @@ class UpdateCompletedSessionSetsUseCase @Inject constructor(
             updates = updates.distinctBy { it.id },
         )
 
-        // STR-237 STOP (chunk 1E): fire-and-forget LogAndContinue launch; the
-        // stages result (and the stage-failure diagnostics it now carries) is
-        // discarded — no boundary drainer exists on this path. See
-        // plans/STR-237/status.md (chunk 1E STOP).
-        refreshScope.launch {
-            localDerivedStages.run(
-                includeInsights = true,
-                failPolicy = LocalDerivedTrainingStages.FailPolicy.LogAndContinue,
-                logTag = TAG,
-            )
-        }
+        // STR-240 chunk 7: the refresh's stage-failure diagnostics are
+        // delivered via onRefreshDiagnostics — see the shared
+        // [launchDerivedRefresh] launcher.
+        refreshScope.launchDerivedRefresh(localDerivedStages, TAG, onRefreshDiagnostics)
 
             if (sessionWasInLastModelingRun(session)) {
                 // REPLACE so amended sets always re-enter the model even if a job is pending.

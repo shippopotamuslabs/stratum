@@ -1,6 +1,7 @@
 package com.stratum.core.infrastructure.inference
 
 import com.google.firebase.functions.FirebaseFunctions
+import com.stratum.core.infrastructure.logging.AndroidLoggingAdapter
 import com.stratum.core.infrastructure.telemetry.ClientLogBatch
 import com.stratum.core.infrastructure.telemetry.TelemetryUploadPort
 import javax.inject.Inject

@@ -58,7 +58,7 @@ object GlobalVolumePriors {
     }
 
     fun forTrainingAgeName(trainingAge: String?): ResolvedGlobalVolumePriors =
-        forTrainingAge(trainingAge?.let { runCatching { TrainingAge.valueOf(it) }.getOrNull() })
+        forTrainingAge(trainingAge?.let { TrainingAge.parseOrNull(it) })
 
     private fun roundHalfSet(value: Double): Double = round(value * 2) / 2.0
 }

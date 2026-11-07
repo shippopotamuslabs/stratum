@@ -5,6 +5,7 @@ package com.stratum.core.infrastructure.inference
 import com.google.android.gms.tasks.Tasks
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.functions.HttpsCallableReference
+import com.stratum.core.infrastructure.logging.AndroidLoggingAdapter
 import com.stratum.core.testing.telemetry.FakeCrashTelemetryPort
 import com.stratum.core.infrastructure.telemetry.ClientLogBatch
 import com.stratum.core.infrastructure.telemetry.ClientLogEntry

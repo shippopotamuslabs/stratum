@@ -10,7 +10,6 @@ import com.stratum.domain.importing.InferredEquipmentLoading
 import com.stratum.application.importing.UnmatchedExerciseCandidate
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.SeedEquipmentIds
-import com.stratum.core.infrastructure.logging.LoggingPort
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -22,11 +21,14 @@ import kotlinx.coroutines.tasks.await
  * Decodes the **server-normalized** payload (`loading: { type, ... }` + movementPattern).
  * Primary/secondary muscles are always derived from pattern via [ImportStubLiftGuesser]
  * (LLM free-form muscle tags are ignored). Unknown loading becomes the seed Default lattice.
+ *
+ * This adapter records nothing for a failure (STR-240 chunk 8, closing STR-238's
+ * interim A12 exception): the failure rides the returned [Result] into
+ * `EnrichCustomLiftsUseCase`, which carries it as a diagnostic on the import
+ * summary to the import boundary, which records it exactly once.
  */
 @Singleton
-class FirebaseCustomLiftInferenceAdapter @Inject constructor(
-    private val loggingPort: LoggingPort,
-) : CustomLiftInferencePort {
+class FirebaseCustomLiftInferenceAdapter @Inject constructor() : CustomLiftInferencePort {
     private val functions: FirebaseFunctions = FirebaseFunctions.getInstance()
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
 
@@ -50,8 +52,6 @@ class FirebaseCustomLiftInferenceAdapter @Inject constructor(
             )
         val result = callable.call(payload).await()
         parseResponse(result.data)
-    }.onFailure { error ->
-        FirebaseCallableErrorLogger.logFailure(loggingPort, TAG, CALLABLE_NAME, error)
     }
 
     private fun requireAuth() {

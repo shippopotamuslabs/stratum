@@ -1,6 +1,11 @@
 package com.stratum.application.training
 
+import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.core.testing.healthconnect.FakeHealthConnectSchedulerPort
+import com.stratum.core.testing.importing.FakeImportAnalysisMetadataRepository
+import com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository
+import com.stratum.core.testing.importing.FakeMuscleVolumeBaselineRepository
+import com.stratum.core.testing.importing.FakeSupersetAffinityRepository
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.response.FakeResponseModelingSchedulerPort
@@ -50,7 +55,7 @@ class FinalizeTrainingSessionUseCaseTest {
     fun wl023_finalizeMarksCompleted() = runTest {
         val useCase = buildUseCase()
 
-        val result = useCase(TrainingSessionId("ts-live-1"))
+        val result = useCase(TrainingSessionId("ts-live-1"), onRefreshDiagnostics = {})
 
         val session = (result as FinalizeTrainingSessionResult.Success).session
         assertEquals(TrainingSessionStatus.COMPLETED, session.status)
@@ -63,7 +68,7 @@ class FinalizeTrainingSessionUseCaseTest {
         val programRepo = FakeProgramRepository(WorkoutLoggingFixtures.twoWorkoutProgram(cyclePosition = 0))
         val useCase = buildUseCase(programRepo)
 
-        useCase(TrainingSessionId("ts-live-1"))
+        useCase(TrainingSessionId("ts-live-1"), onRefreshDiagnostics = {})
 
         assertEquals(1, programRepo.getProgram()?.cyclePosition)
     }
@@ -74,7 +79,7 @@ class FinalizeTrainingSessionUseCaseTest {
         val programRepo = FakeProgramRepository(WorkoutLoggingFixtures.twoWorkoutProgram(cyclePosition = 0))
         val useCase = buildUseCase(programRepo)
 
-        useCase(TrainingSessionId("ts-adhoc"))
+        useCase(TrainingSessionId("ts-adhoc"), onRefreshDiagnostics = {})
 
         assertEquals(0, programRepo.getProgram()?.cyclePosition)
         assertEquals(1, programRepo.getProgram()?.currentCycleNumber)
@@ -86,7 +91,7 @@ class FinalizeTrainingSessionUseCaseTest {
         val events = FakeProgramChangeEventRepository()
         val useCase = buildUseCase(eventRepository = events)
 
-        useCase(TrainingSessionId("ts-live-1"))
+        useCase(TrainingSessionId("ts-live-1"), onRefreshDiagnostics = {})
 
         assertEquals(0, events.getEventsForProgram(WorkoutLoggingFixtures.programId).events.size)
     }
@@ -115,7 +120,7 @@ class FinalizeTrainingSessionUseCaseTest {
             refreshScope = CoroutineScope(Dispatchers.Unconfined),
         )
 
-        useCase(TrainingSessionId("ts-live-hc"))
+        useCase(TrainingSessionId("ts-live-hc"), onRefreshDiagnostics = {})
 
         assertEquals(1, scheduler.enqueuedSessionIds.size)
         assertEquals(TrainingSessionId("ts-live-hc"), scheduler.enqueuedSessionIds.first())
@@ -147,7 +152,7 @@ class FinalizeTrainingSessionUseCaseTest {
             refreshScope = CoroutineScope(Dispatchers.Unconfined),
         )
 
-        val result = useCase(TrainingSessionId("ts-live-hc-fail"))
+        val result = useCase(TrainingSessionId("ts-live-hc-fail"), onRefreshDiagnostics = {})
 
         assertTrue(result is FinalizeTrainingSessionResult.Success)
         val success = result as FinalizeTrainingSessionResult.Success
@@ -200,7 +205,7 @@ class FinalizeTrainingSessionUseCaseTest {
             refreshScope = CoroutineScope(Dispatchers.Unconfined),
         )
 
-        useCase(TrainingSessionId("ts-live-1"))
+        useCase(TrainingSessionId("ts-live-1"), onRefreshDiagnostics = {})
 
         val updatedSets = repo.getSetsForSession(TrainingSessionId("ts-live-1"))
         assertEquals(1, updatedSets.size)
@@ -278,7 +283,7 @@ class FinalizeTrainingSessionUseCaseTest {
                     refreshScope = CoroutineScope(Dispatchers.Unconfined),
             )
 
-        val result = useCase(TrainingSessionId("ts-live-1"))
+        val result = useCase(TrainingSessionId("ts-live-1"), onRefreshDiagnostics = {})
         assertTrue(result is FinalizeTrainingSessionResult.Success)
         assertTrue(
             repo.getSetsForSession(TrainingSessionId("ts-live-1")).single().isPersonalRecord,
@@ -317,7 +322,7 @@ class FinalizeTrainingSessionUseCaseTest {
         )
 
         // invoke() must return before the refresh runs (dispatcher hasn't advanced).
-        val result = useCase(TrainingSessionId("ts-live-1"))
+        val result = useCase(TrainingSessionId("ts-live-1"), onRefreshDiagnostics = {})
         assertTrue(result is FinalizeTrainingSessionResult.Success)
         assertEquals(TrainingSessionStatus.COMPLETED, (result as FinalizeTrainingSessionResult.Success).session.status)
         assertTrue(insights.metadataRepo.saved == null, "refresh must not have run before the scheduler advances")
@@ -361,17 +366,72 @@ class FinalizeTrainingSessionUseCaseTest {
             refreshScope = CoroutineScope(Dispatchers.Unconfined),
         )
 
-        val result = useCase(TrainingSessionId("ts-live-1"))
+        val result = useCase(TrainingSessionId("ts-live-1"), onRefreshDiagnostics = {})
 
         assertTrue(result is FinalizeTrainingSessionResult.Success, "finalize must succeed even if insights refresh fails")
         assertEquals(TrainingSessionStatus.COMPLETED, (result as FinalizeTrainingSessionResult.Success).session.status)
     }
 
     @Test
+    @DisplayName("Refresh stage failure diagnostics are delivered to onRefreshDiagnostics exactly once (STR-240)")
+    fun finalizeDeliversRefreshDiagnosticsExactlyOnce() = runTest {
+        val programRepo = FakeProgramRepository(WorkoutLoggingFixtures.twoWorkoutProgram())
+        val events = FakeProgramChangeEventRepository()
+        val repo = FakeTrainingLogRepository(programRepository = programRepo, programChangeEventRepository = events)
+        repo.seedSession(WorkoutLoggingFixtures.inProgressSession(id = "ts-live-1"))
+        val failure = RuntimeException("simulated refresh failure")
+        val failingInsights = ExtractTrainingInsightsUseCase(
+            trainingLogRepository = repo,
+            liftTrainingInsightsRepository = FakeLiftTrainingInsightsRepository(),
+            supersetAffinityRepository = FakeSupersetAffinityRepository(),
+            muscleVolumeBaselineRepository = FakeMuscleVolumeBaselineRepository(),
+            importAnalysisMetadataRepository = FakeImportAnalysisMetadataRepository(getFailure = failure),
+            liftRepository = FakeLiftRepository(),
+        )
+        val persistence = FakeResponseProfilePersistencePort()
+        val useCase = FinalizeTrainingSessionUseCase(
+            trainingLogRepository = repo,
+            programRepository = programRepo,
+            computePersonalRecords = ComputePersonalRecordsUseCase(repo),
+            localDerivedStages = localDerivedTrainingStages(
+                trainingLog = repo,
+                extractTrainingInsights = failingInsights,
+                refreshWeeklySeries = RefreshWeeklySeriesUseCase(repo, FakeLiftRepository(), persistence),
+            ),
+            refreshScope = CoroutineScope(Dispatchers.Unconfined),
+        )
+        val deliveries = mutableListOf<List<OperationalDiagnostic>>()
+
+        val result = useCase(TrainingSessionId("ts-live-1"), onRefreshDiagnostics = { deliveries += it })
+
+        assertTrue(result is FinalizeTrainingSessionResult.Success)
+        // Exactly one delivery, carrying exactly the extract failure's diagnostic.
+        val diagnostic = deliveries.single().single()
+        assertEquals("ExtractTrainingInsights", diagnostic.tag)
+        assertEquals(
+            "Failed to extract training insights: simulated refresh failure",
+            diagnostic.message,
+        )
+        org.junit.jupiter.api.Assertions.assertSame(failure, diagnostic.cause)
+    }
+
+    @Test
+    @DisplayName("Refresh callback is not invoked when the refresh produces no diagnostics (STR-240)")
+    fun finalizeDoesNotDeliverOnCleanRefresh() = runTest {
+        val useCase = buildUseCase()
+        val deliveries = mutableListOf<List<OperationalDiagnostic>>()
+
+        val result = useCase(TrainingSessionId("ts-live-1"), onRefreshDiagnostics = { deliveries += it })
+
+        assertTrue(result is FinalizeTrainingSessionResult.Success)
+        assertTrue(deliveries.isEmpty())
+    }
+
+    @Test
     @DisplayName("Returns SessionNotFound when session not found")
     fun returnsFailureWhenSessionNotFound() = runTest {
         val useCase = buildUseCase()
-        val result = useCase(TrainingSessionId("missing"))
+        val result = useCase(TrainingSessionId("missing"), onRefreshDiagnostics = {})
         assertEquals(
             FinalizeTrainingSessionResult.SessionNotFound(TrainingSessionId("missing")),
             result,
@@ -385,7 +445,7 @@ class FinalizeTrainingSessionUseCaseTest {
         val repo = FakeTrainingLogRepository(programRepository = programRepo)
         repo.seedSession(WorkoutLoggingFixtures.completedLiveSession(id = "ts-completed"))
         val useCase = buildUseCase(programRepo = programRepo, repo = repo)
-        val result = useCase(TrainingSessionId("ts-completed"))
+        val result = useCase(TrainingSessionId("ts-completed"), onRefreshDiagnostics = {})
         assertEquals(
             FinalizeTrainingSessionResult.SessionNotInProgress(
                 TrainingSessionId("ts-completed"),
@@ -417,7 +477,7 @@ class FinalizeTrainingSessionUseCaseTest {
                 refreshScope = CoroutineScope(Dispatchers.Unconfined),
             )
 
-        val result = useCase(TrainingSessionId("ts-live-1"))
+        val result = useCase(TrainingSessionId("ts-live-1"), onRefreshDiagnostics = {})
 
         val failed = result as FinalizeTrainingSessionResult.PersistenceFailed
         val diagnostic = failed.diagnostics.single()

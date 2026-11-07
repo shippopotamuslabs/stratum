@@ -127,8 +127,7 @@ fun computeAllWeeklyTargets(context: ProgramGenerationContext): WeeklyVolumeTarg
  * (e.g. legacy snapshot entries) default to Maintenance.
  */
 internal fun specializationLevelForMuscle(muscle: String, context: ProgramGenerationContext): String =
-    runCatching { MuscleGroup.valueOf(muscle) }
-        .getOrNull()
+    MuscleGroup.parseOrNull(muscle)
         ?.let { context.specialization[it] }
         ?.name
         ?: SpecializationLevel.Maintenance.name

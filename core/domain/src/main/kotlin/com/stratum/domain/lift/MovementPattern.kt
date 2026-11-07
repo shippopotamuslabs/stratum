@@ -1,5 +1,7 @@
 package com.stratum.domain.lift
 
+import com.stratum.domain.enumParseOrNull
+
 
 /**
  * How a [Lift] moves — the categorical slot a lift occupies (squat pattern, horizontal push,
@@ -60,6 +62,10 @@ enum class MovementPattern {
     // Primary Target: Adductors
     HipAdduction,
     ;
+
+    companion object {
+        fun parseOrNull(raw: String): MovementPattern? = enumParseOrNull(raw)
+    }
 
     /**
      * Human-readable label for UI grouping. Display strings live in the domain here (not the

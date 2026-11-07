@@ -1,21 +1,35 @@
 package com.stratum.core.testing.importing
 
 import com.stratum.domain.importing.LiftNameMatchEvaluation
+import com.stratum.application.importing.EmbeddingBatchFailure
 import com.stratum.application.importing.LiftNameResolverPort
 import com.stratum.domain.lift.identity.LiftId
 
 /**
  * Fake [LiftNameResolverPort]. Resolves names via an explicit [matches] map (normalized exact
  * match); any name not in the map returns null (the caller then creates a custom lift).
+ *
+ * [embeddingFailure] gives the resolver an embedding-failure mode (mirroring
+ * the hybrid resolver's failing batch): [embeddingBatchFailure] then returns
+ * that exact instance as the snapshot's cause. Resolution itself is unchanged.
  */
 class FakeLiftNameResolverPort(
     private val matches: Map<String, LiftId> = emptyMap(),
+    private val embeddingFailure: Throwable? = null,
 ) : LiftNameResolverPort {
     val preparedBatches = mutableListOf<List<String>>()
 
     override suspend fun prepareBatch(exerciseNames: List<String>) {
         preparedBatches += exerciseNames
     }
+
+    override fun embeddingBatchFailure(): EmbeddingBatchFailure? =
+        embeddingFailure?.let { failure ->
+            EmbeddingBatchFailure(
+                message = failure.message ?: failure::class.simpleName ?: "unknown",
+                cause = failure,
+            )
+        }
 
     override fun resolve(
         exerciseNameRaw: String,

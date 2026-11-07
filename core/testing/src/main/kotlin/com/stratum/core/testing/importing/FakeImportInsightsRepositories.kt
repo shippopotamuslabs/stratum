@@ -64,9 +64,15 @@ class FakeMuscleVolumeBaselineRepository(
 /**
  * In-memory [ImportAnalysisMetadataRepository]. Stores a single metadata row (upsert on save,
  * cleared on [clear]).
+ *
+ * Failure mode: [getFailure] makes [get] throw that exact throwable (so tests can assert the
+ * real cause is carried, e.g. by identity) — the mode that makes an insights extract fail and
+ * its failure ride a diagnostics-carrying result (mirrors
+ * [com.stratum.core.testing.importing.FakeImportEquipmentInferencePort]'s `failure` mode).
  */
 class FakeImportAnalysisMetadataRepository(
     initial: ImportAnalysisMetadata? = null,
+    private val getFailure: Throwable? = null,
 ) : ImportAnalysisMetadataRepository {
     private var metadata: ImportAnalysisMetadata? = initial
 
@@ -74,7 +80,10 @@ class FakeImportAnalysisMetadataRepository(
         this.metadata = metadata
     }
 
-    override suspend fun get(): ImportAnalysisMetadata? = metadata
+    override suspend fun get(): ImportAnalysisMetadata? {
+        getFailure?.let { throw it }
+        return metadata
+    }
 
     override suspend fun clear() {
         metadata = null

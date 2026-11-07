@@ -1,5 +1,6 @@
 package com.stratum.domain.lift
 
+import com.stratum.domain.enumParseOrNull
 import com.stratum.domain.program.generation.reference.LiftStressClass
 
 /**
@@ -16,4 +17,9 @@ enum class FatigueProfile {
 
     /** Lighter accessories — not single-joint only. Was Isolation (kinematic). */
     Low,
+    ;
+
+    companion object {
+        fun parseOrNull(raw: String): FatigueProfile? = enumParseOrNull(raw)
+    }
 }

@@ -135,6 +135,12 @@ class RunFullHistoricalImportUseCase @Inject constructor(
                         persistOutcome.diagnostics.forEach { diagnostic ->
                             loggingPort.error(diagnostic.tag, diagnostic.message, diagnostic.cause)
                         }
+                        // Fix 7: when resolution succeeded before the persist
+                        // failure, its diagnostics ride the branch too and are
+                        // recorded exactly once here via the resolution
+                        // logger — the success path's logger call below never
+                        // runs for this import, so there is no double record.
+                        importLiftResolutionLogger.logDiagnostics(persistOutcome.resolutionDiagnostics)
                         throw AlreadyLoggedImportFailureException("Import failed.")
                     }
                 }

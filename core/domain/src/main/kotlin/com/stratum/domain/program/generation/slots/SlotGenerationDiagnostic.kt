@@ -38,6 +38,17 @@ sealed interface SlotGenerationDiagnostic {
         val muscleName: String,
         val patternName: String,
     ) : SlotGenerationDiagnostic
+
+    /**
+     * A slot-diagnostic entry on the synthesis wire could not be decoded — an unknown
+     * `kind`, an unrecognized field value, a missing field, or an entry that is not an
+     * object — so that entry produced no decoded diagnostic of its own kind. [entry]
+     * carries the entry's raw wire content, so the loss is identified at the boundary
+     * instead of the entry vanishing silently (STR-240).
+     */
+    data class SlotDiagnosticUndecodable(
+        val entry: String,
+    ) : SlotGenerationDiagnostic
 }
 
 /**
@@ -50,7 +61,7 @@ internal fun MutableList<SlotGenerationDiagnostic>?.parseTouchPatternOrRecord(
     patternName: String,
     muscle: MuscleGroup,
 ): MovementPattern? {
-    val parsed = runCatching { MovementPattern.valueOf(patternName) }.getOrNull()
+    val parsed = MovementPattern.parseOrNull(patternName)
     if (parsed == null) {
         this?.add(SlotGenerationDiagnostic.CrossDomainTouchSkipped(patternName, muscle))
     }
@@ -66,7 +77,7 @@ internal fun MutableList<SlotGenerationDiagnostic>?.parseSpecFocusPatternOrRecor
     patternName: String,
     muscle: MuscleGroup,
 ): MovementPattern? {
-    val parsed = runCatching { MovementPattern.valueOf(patternName) }.getOrNull()
+    val parsed = MovementPattern.parseOrNull(patternName)
     if (parsed == null) {
         this?.add(SlotGenerationDiagnostic.SpecFocusSlotSkipped(patternName, muscle))
     }
@@ -82,7 +93,7 @@ internal fun MutableList<SlotGenerationDiagnostic>?.parseSpecFocusMuscleOrRecord
     muscleName: String,
     patternName: String,
 ): MuscleGroup? {
-    val parsed = runCatching { MuscleGroup.valueOf(muscleName) }.getOrNull()
+    val parsed = MuscleGroup.parseOrNull(muscleName)
     if (parsed == null) {
         this?.add(SlotGenerationDiagnostic.SpecFocusMuscleUnrecognized(muscleName, patternName))
     }

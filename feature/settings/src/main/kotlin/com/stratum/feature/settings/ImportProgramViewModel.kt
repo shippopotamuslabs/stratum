@@ -102,6 +102,11 @@ class ImportProgramViewModel @Inject constructor(
                 )
             when (outcome) {
                 is ProgramTemplateImportOutcome.Success -> {
+                    // STR-240 chunk 8b: a degraded-but-successful import (lift-name
+                    // embedding batch failed during resolution) carries its record
+                    // on the Success branch as diagnostics and is drained here
+                    // exactly once; diagnostics never reach the UI state.
+                    diagnosticDrain.drain(outcome.diagnostics)
                     val imported = outcome.result.importedProgramIds.size
                     val skipped = outcome.result.skippedProgramCount
                     _uiState.update {
@@ -120,11 +125,21 @@ class ImportProgramViewModel @Inject constructor(
                     // branch as diagnostics and is drained here exactly once.
                     if (outcome is ProgramTemplateImportOutcome.OperationalFailed) {
                         diagnosticDrain.drain(outcome.diagnostics)
+                        // Thermos round-2 edge: a degraded resolve's embedding
+                        // diagnostic rides this branch too when the operational
+                        // failure surfaced after it (e.g. a post-persist throw)
+                        // and drains here exactly once (the Success /
+                        // PersistFailed drains never run for this import).
+                        diagnosticDrain.drain(outcome.embeddingDiagnostics)
                     }
                     // STR-256: a failed orphan rollback rides the PersistFailed branch as
                     // diagnostics and is drained here exactly once. User copy still derives
                     // from the primary message via userFacingImportError below.
                     if (outcome is ProgramTemplateImportOutcome.PersistFailed) {
+                        // Fix 7: a degraded resolve's embedding diagnostic rides
+                        // this branch too and drains here exactly once (the
+                        // Success drain never runs for this import).
+                        diagnosticDrain.drain(outcome.embeddingDiagnostics)
                         outcome.diagnostics.forEach { diagnostic ->
                             when (diagnostic) {
                                 is ProgramImportRollbackDiagnostic.RollbackDeleteFailed ->

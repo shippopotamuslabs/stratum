@@ -10,23 +10,9 @@
 # STR-237 moved TelemetryThrowableSanitizer — that was a path update in this
 # file, not a shrink.
 #
-# --- :core:domain — enum/parse getOrNull sites, non-suspend (STR-240 owns) ---
-core/domain/src/main/kotlin/com/stratum/domain/importing/GlobalVolumePriors.kt 1 # enum valueOf parse, non-suspend (STR-240)
-core/domain/src/main/kotlin/com/stratum/domain/program/generation/build/WorkoutAssembler.kt 2 # enum valueOf parses, non-suspend (STR-240)
-core/domain/src/main/kotlin/com/stratum/domain/program/generation/reference/MuscleRecoveryScheduling.kt 1 # enum valueOf parse, non-suspend (STR-240)
-core/domain/src/main/kotlin/com/stratum/domain/program/generation/schema/ProgramDomainMapper.kt 1 # enum valueOf parse, non-suspend (STR-240)
-core/domain/src/main/kotlin/com/stratum/domain/program/generation/schema/ProgramNormalizer.kt 2 # enum valueOf parses, non-suspend (STR-240)
-core/domain/src/main/kotlin/com/stratum/domain/program/generation/slots/SlotGenerationDiagnostic.kt 3 # enum valueOf parses, non-suspend (STR-240)
-core/domain/src/main/kotlin/com/stratum/domain/program/generation/structure/SlotRegionCompatibility.kt 1 # enum valueOf parse, non-suspend (STR-240)
-core/domain/src/main/kotlin/com/stratum/domain/program/generation/synthesis/PlaceholderSessionNames.kt 1 # enum valueOf parse, non-suspend (STR-240)
-core/domain/src/main/kotlin/com/stratum/domain/program/generation/synthesis/SynthesisMaterializer.kt 2 # enum valueOf parses, non-suspend (STR-240)
-core/domain/src/main/kotlin/com/stratum/domain/program/generation/synthesis/wire/ContextWireCodec.kt 1 # enumValueOf decode-or-null, non-suspend (STR-240)
-core/domain/src/main/kotlin/com/stratum/domain/program/generation/synthesis/wire/ResultWireCodec.kt 2 # enumValueOf/decode-or-null, non-suspend (STR-240)
-core/domain/src/main/kotlin/com/stratum/domain/program/generation/volume/VolumeTargetPlanner.kt 1 # enum valueOf parse, non-suspend (STR-240)
 # --- :core:domain — non-suspend, result consumed by the caller ---
 core/domain/src/main/kotlin/com/stratum/domain/program/ProgramSchedule.kt 1 # fallback computation, non-suspend, result consumed via fold
 core/domain/src/main/kotlin/com/stratum/domain/program/schedule/ProgramCycleSpace.kt 1 # invariant-failure-to-empty, non-suspend, result consumed via getOrDefault
-core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/telemetry/TelemetryThrowableSanitizer.kt 3 # best-effort reflection reconstruction, non-suspend (STR-237 moved this file — path update, not a shrink; STR-240 owns the sanitizer entries)
 #
 # --- :core:infrastructure — enum/decode control flow — permanent: blocks are non-suspend, so plain runCatching cannot absorb coroutine cancellation there ---
 core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/db/EnumConverters.kt 49 # Room @TypeConverter enum/ID decodes via getOrNull, non-suspend

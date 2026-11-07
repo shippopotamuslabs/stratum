@@ -907,13 +907,19 @@ class OnboardingViewModel @Inject constructor(
                         }
                     }
                 when (outcome) {
-                    is ProgramTemplateImportOutcome.Success ->
+                    is ProgramTemplateImportOutcome.Success -> {
+                        // STR-240 chunk 8b: a degraded-but-successful import
+                        // (lift-name embedding batch failed during resolution)
+                        // carries its record on the Success branch as diagnostics
+                        // and is drained here exactly once.
+                        diagnosticDrain.drain(outcome.diagnostics)
                         ephemeral.update {
                             it.copy(
                                 importProgramState = ImportProgramState.Idle,
                                 importMaxTimelineIndex = 0,
                             )
                         }
+                    }
                     else -> setImportProgramError(outcome)
                 }
             }
@@ -956,6 +962,19 @@ class OnboardingViewModel @Inject constructor(
         // constructed exception value for the record only.
         if (outcome is ProgramTemplateImportOutcome.OperationalFailed) {
             diagnosticDrain.drain(outcome.diagnostics)
+            // Thermos round-2 edge: a degraded resolve's embedding diagnostic
+            // rides this branch too when the operational failure surfaced
+            // after it (e.g. a post-persist throw) and drains here exactly
+            // once (the Success / PersistFailed drains never run for this
+            // import).
+            diagnosticDrain.drain(outcome.embeddingDiagnostics)
+        }
+        // Fix 7: a degraded resolve's embedding diagnostic rides the
+        // PersistFailed branch too and drains here exactly once (the Success
+        // drain never runs for this import); the primary persist failure is
+        // still recorded via importFailureLogThrowable below.
+        if (outcome is ProgramTemplateImportOutcome.PersistFailed) {
+            diagnosticDrain.drain(outcome.embeddingDiagnostics)
         }
         OnboardingProgramFlowOps.importFailureLogThrowable(outcome)?.let { record ->
             diagnosticDrain.recordError(

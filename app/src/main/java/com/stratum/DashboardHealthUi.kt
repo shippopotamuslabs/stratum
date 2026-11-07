@@ -5,6 +5,7 @@ import com.stratum.core.ui.component.TrendPointUi
 import com.stratum.domain.health.ActivityMetrics
 import com.stratum.domain.health.DailyVitalSample
 import com.stratum.domain.health.HEALTH_METRICS_DAY_COUNT
+import com.stratum.domain.health.HealthMetricsAvailability
 import com.stratum.domain.health.HealthMetricsPages
 import com.stratum.domain.health.NightlySleepDuration
 import com.stratum.domain.health.RecoveryMetrics
@@ -26,6 +27,8 @@ const val HEALTH_PAGER_PAGE_COUNT = 3
 
 data class DashboardHealthUiState(
     val visible: Boolean = false,
+    /** True when the metrics load degraded (STR-240): renders as unavailable, with no pages. */
+    val unavailable: Boolean = false,
     val selectedPage: Int = 0,
     val activity: ActivityHealthPageUi = ActivityHealthPageUi(),
     val weight: WeightHealthPageUi = WeightHealthPageUi(),
@@ -115,6 +118,11 @@ internal fun HealthMetricsPages.toHealthUi(
     displayUnit: Weight.WeightUnit,
     zone: ZoneId,
 ): DashboardHealthUiState {
+    // Degraded pages (STR-240) render as unavailable: no assembled metrics are mapped,
+    // so no zero-filled charts and no "no data" empty copy can reach the pager.
+    if (availability == HealthMetricsAvailability.Degraded) {
+        return DashboardHealthUiState(visible = true, unavailable = true)
+    }
     if (!visible) return DashboardHealthUiState()
     return DashboardHealthUiState(
         visible = true,

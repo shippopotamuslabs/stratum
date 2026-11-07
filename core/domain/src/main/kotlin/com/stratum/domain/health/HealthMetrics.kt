@@ -111,10 +111,22 @@ data class HrvSample(
     val rmssdMillis: Double,
 )
 
+/** Whether assembled pages carry real metrics or an explicit degraded state (STR-240). */
+enum class HealthMetricsAvailability {
+    Available,
+    Degraded,
+}
+
 /**
  * Assembled pager pages. [visible] is false when the dashboard should keep today's chrome.
  * [diagnostics] records non-fatal degradations the load tolerated (STR-257) — empty on
  * every hidden or fully successful load. Log-only at the boundary; never UI state.
+ *
+ * [availability] is [HealthMetricsAvailability.Degraded] when the snapshot read failed
+ * (STR-240): the pages then carry the [HealthConnectDiagnostic.SnapshotReadFailed]
+ * diagnostic and no assembled metrics — the metric fields hold their empty defaults and
+ * must not be rendered; the dashboard renders the degraded state as unavailable instead
+ * of the zero-filled charts an assembled empty snapshot would produce.
  */
 data class HealthMetricsPages(
     val visible: Boolean,
@@ -122,9 +134,46 @@ data class HealthMetricsPages(
     val weight: WeightMetrics = WeightMetrics(),
     val recovery: RecoveryMetrics = RecoveryMetrics(),
     val diagnostics: List<HealthConnectDiagnostic> = emptyList(),
+    val availability: HealthMetricsAvailability = HealthMetricsAvailability.Available,
 ) {
+    init {
+        // Degraded is a single coherent state, not a flag that can be combined
+        // with assembled metrics or detached from its failure diagnostic:
+        // it exists exactly because the snapshot read failed, and it carries
+        // no metrics (the dashboard renders it as unavailable instead).
+        if (availability == HealthMetricsAvailability.Degraded) {
+            require(diagnostics.any { it is HealthConnectDiagnostic.SnapshotReadFailed }) {
+                "Degraded pages must carry a SnapshotReadFailed diagnostic"
+            }
+            require(
+                activity == ActivityMetrics() &&
+                    weight == WeightMetrics() &&
+                    recovery == RecoveryMetrics(),
+            ) {
+                "Degraded pages must carry the empty metric defaults, not assembled metrics"
+            }
+        } else {
+            require(diagnostics.none { it is HealthConnectDiagnostic.SnapshotReadFailed }) {
+                "Available pages must not carry a SnapshotReadFailed diagnostic"
+            }
+        }
+    }
+
     companion object {
         val Hidden: HealthMetricsPages = HealthMetricsPages(visible = false)
+
+        /**
+         * Canonical Degraded construction: visible pages carrying exactly the
+         * snapshot-read failure [diagnostic] and the empty metric defaults.
+         */
+        fun degraded(
+            diagnostic: HealthConnectDiagnostic.SnapshotReadFailed,
+        ): HealthMetricsPages =
+            HealthMetricsPages(
+                visible = true,
+                diagnostics = listOf(diagnostic),
+                availability = HealthMetricsAvailability.Degraded,
+            )
     }
 }
 

@@ -7,11 +7,9 @@ import com.stratum.application.lift.IncrementScanPort
 import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.lift.ScanPhoto
 import com.stratum.domain.lift.ScannedTiers
-import com.stratum.core.infrastructure.logging.LoggingPort
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.tasks.await
 
 /**
@@ -22,10 +20,14 @@ import kotlinx.coroutines.tasks.await
  * malformed tier rows and micro stops are dropped, but a structurally invalid payload
  * fails the returned [Result], never throws past it — except coroutine cancellation,
  * which is always rethrown).
+ *
+ * This adapter records nothing for a failure (STR-240 chunk 8, closing STR-238's
+ * interim A13 exception): the failure rides the returned [Result] into
+ * `ScanIncrementTiersUseCase`, whose `ScanFailed` branch carries it as a
+ * diagnostic to the :app lift-config boundary, which records it exactly once.
  */
 @Singleton
 class FirebaseIncrementScanAdapter @Inject constructor(
-    private val loggingPort: LoggingPort,
     private val functions: FirebaseFunctions,
     private val auth: FirebaseAuth,
 ) : IncrementScanPort {
@@ -43,9 +45,6 @@ class FirebaseIncrementScanAdapter @Inject constructor(
                 )
             val result = callable.call(payload).await()
             parseResponse(result.data)
-        }.onFailure { error ->
-            if (error is CancellationException) throw error
-            FirebaseCallableErrorLogger.logFailure(loggingPort, TAG, CALLABLE_NAME, error)
         }
 
     private fun requireAuth() {

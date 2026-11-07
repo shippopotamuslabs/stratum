@@ -84,6 +84,10 @@ class WorkoutSessionDetailViewModel @Inject constructor(
                         sessionId = TrainingSessionId(sessionId),
                         startedAt = startedAt,
                         endedAt = endedAt,
+                        // STR-240 chunk 7: the post-edit refresh's stage-failure
+                        // diagnostics are delivered through the boundary callback
+                        // and drained here.
+                        onRefreshDiagnostics = { diagnostics -> diagnosticDrain.drain(diagnostics) },
                     )
                 when (result) {
                     is UpdateCompletedSessionTimesResult.Success -> {

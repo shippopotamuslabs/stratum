@@ -159,7 +159,7 @@ private fun normalizeSets(
 }
 
 private fun parseTrainingAge(trainingAge: String): TrainingAge? =
-    runCatching { TrainingAge.valueOf(trainingAge) }.getOrNull()
+    TrainingAge.parseOrNull(trainingAge)
 
 private fun parseLastTrained(lastTrained: String?): LastTrainedBucket? =
-    lastTrained?.let { runCatching { LastTrainedBucket.valueOf(it) }.getOrNull() }
+    lastTrained?.let { LastTrainedBucket.parseOrNull(it) }

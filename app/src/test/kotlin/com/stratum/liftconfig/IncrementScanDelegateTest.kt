@@ -1,8 +1,10 @@
 package com.stratum.liftconfig
 
+import com.stratum.app.DiagnosticDrain
 import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.featureflag.FakeFeatureFlagRepository
 import com.stratum.core.testing.lift.FakeIncrementScanPort
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.domain.featureflag.AppFeatureFlag
 import com.stratum.application.featureflag.ObserveIncrementsAiScanUseCase
 import com.stratum.application.lift.IncrementScanPort
@@ -18,6 +20,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -40,6 +43,7 @@ class IncrementScanDelegateTest {
 
     private val fakePort = FakeIncrementScanPort()
     private val fakeFeatureFlags = FakeFeatureFlagRepository()
+    private val fakeLogging = FakeLoggingPort()
 
     private fun subject(port: IncrementScanPort = fakePort) =
         IncrementScanDelegate(
@@ -47,6 +51,7 @@ class IncrementScanDelegateTest {
                 port,
             ),
             ObserveIncrementsAiScanUseCase(fakeFeatureFlags),
+            DiagnosticDrain(fakeLogging),
         )
 
     @BeforeEach
@@ -132,6 +137,27 @@ class IncrementScanDelegateTest {
 
         assertNull(result)
         assertEquals(IncrementScanState.Failed, delegate.scanState.value)
+    }
+
+    @Test
+    @DisplayName("Given a port failure when run then the boundary drain records the real cause exactly once")
+    fun portFailureDrainsExactlyOnce() = runTest {
+        // STR-240 chunk 8: the delegate is the boundary — the ScanFailed
+        // carrier's diagnostic becomes exactly one record here, with the
+        // exact originating throwable attached (the adapter records zero).
+        fakeFeatureFlags.setFlag(AppFeatureFlag.INCREMENTS_AI_SCAN, true)
+        val failure = RuntimeException("network")
+        fakePort.result = Result.failure(failure)
+        val delegate = subject()
+
+        val result = delegate.scan(photo, lb)
+
+        assertNull(result)
+        assertEquals(1, fakeLogging.errors.size)
+        val logged = fakeLogging.errors.single()
+        assertEquals("StratumIncrementScan", logged.tag)
+        assertEquals("inferEquipmentIncrements failed: network", logged.message)
+        assertSame(failure, logged.throwable)
     }
 
     @Test

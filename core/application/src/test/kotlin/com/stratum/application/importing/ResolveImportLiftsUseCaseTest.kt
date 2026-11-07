@@ -24,6 +24,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -33,6 +34,7 @@ import com.stratum.domain.importing.ImportCatalogProgressStep
 import com.stratum.domain.importing.InferredCustomLiftMetadata
 import com.stratum.domain.importing.InferredEquipmentLoading
 import com.stratum.domain.importing.LiftNameMatchEvaluation
+import com.stratum.domain.importing.ResolveImportLiftsDiagnostic
 import com.stratum.domain.lift.residual
 
 class ResolveImportLiftsUseCaseTest {
@@ -667,6 +669,102 @@ class ResolveImportLiftsUseCaseTest {
         assertEquals(seatedId, outcome.resolvedSets.single().liftId)
         assertEquals(0, outcome.summary.customLiftsCreated)
         assertEquals(1, outcome.summary.distinctPreCustomCatalogLiftsEnabled)
+    }
+
+    @Test
+    @DisplayName("Given equipment inference failure when resolving then summary carries the real cause as a diagnostic and import still completes")
+    fun equipmentInferenceFailureRidesSummaryAsDiagnostic() = runTest {
+        val failure = IllegalStateException("equipment inference down")
+        val equipmentInference = FakeImportEquipmentInferencePort(failure = failure)
+        val liftRepo = FakeLiftRepository(initialLifts = minimalSeedCatalog())
+        val subject = buildSubject(liftRepo, equipmentInference = equipmentInference)
+
+        val outcome = subject(listOf(loggedSet(exerciseNameRaw = "Katana Special Gizmo")))
+
+        assertEquals(listOf(listOf("Katana Special Gizmo")), equipmentInference.invocations)
+        // The failure rides the summary (the channel Persist forwards as liftResolution to
+        // the import boundary logger) as an exact diagnostic value with the real cause.
+        assertEquals(
+            listOf(ResolveImportLiftsDiagnostic.EquipmentInferenceFailed(failure)),
+            outcome.summary.diagnostics,
+        )
+        assertSame(
+            failure,
+            (outcome.summary.diagnostics.single() as ResolveImportLiftsDiagnostic.EquipmentInferenceFailed).cause,
+        )
+        // Degraded success behavior is unchanged: no inferred equipment, no Tier B
+        // enablement from inference, and the rest of the resolution completes as before.
+        assertTrue(outcome.summary.confirmedEquipment.isEmpty())
+        assertEquals(0, outcome.summary.tierBLiftsEnabled)
+        assertEquals(1, outcome.summary.customLiftsSkipped)
+        assertEquals(1, outcome.resolvedSets.size)
+        assertFalse(outcome.summary.embeddingBatchFailed)
+    }
+
+    @Test
+    @DisplayName("Given custom lift inference failure when resolving then summary carries the real cause as a diagnostic beside the count and message")
+    fun customLiftInferenceFailureRidesSummaryAsDiagnostic() = runTest {
+        // STR-240 chunk 8 (A12): the batch failure's cause rides the summary
+        // diagnostics channel; the count/message summary fields are unchanged.
+        val failure = IllegalStateException("custom lift inference down")
+        val customInference = FakeCustomLiftInferencePort(failure = failure)
+        val liftRepo = FakeLiftRepository(initialLifts = minimalSeedCatalog())
+        val subject = buildSubject(liftRepo, customInference = customInference)
+
+        val outcome = subject(listOf(loggedSet(exerciseNameRaw = "Katana Special Gizmo")))
+
+        assertEquals(1, customInference.invocations.size)
+        assertEquals(
+            listOf(ResolveImportLiftsDiagnostic.CustomLiftInferenceFailed(failure)),
+            outcome.summary.diagnostics,
+        )
+        assertSame(
+            failure,
+            (outcome.summary.diagnostics.single() as ResolveImportLiftsDiagnostic.CustomLiftInferenceFailed).cause,
+        )
+        assertEquals(1, outcome.summary.customLiftInferenceBatchesAttempted)
+        assertEquals(1, outcome.summary.customLiftInferenceBatchesFailed)
+        assertEquals("custom lift inference down", outcome.summary.customLiftInferenceLastError)
+        assertEquals(1, outcome.summary.customLiftsSkipped)
+    }
+
+    @Test
+    @DisplayName("Given embedding batch failure when resolving then summary carries the real cause as a diagnostic beside the message string")
+    fun embeddingFailureRidesSummaryAsDiagnostic() = runTest {
+        // STR-240 chunk 8 (A14): the embedding failure rides the summary
+        // diagnostics channel with its real cause; the bool/message summary
+        // fields are unchanged and resolution still completes on pure BM25.
+        val failure = IllegalStateException("embedding down")
+        val liftRepo = FakeLiftRepository(initialLifts = minimalSeedCatalog())
+        val subject =
+            ResolveImportLiftsUseCase(
+                liftRepository = liftRepo,
+                liftNameResolver =
+                    HybridLiftNameResolver(
+                        bm25 = Bm25LiftNameResolver(),
+                        catalogEmbeddings = FakeLiftEmbeddingCatalog(),
+                        nameEmbedding =
+                            FakeLiftNameEmbeddingPort(result = Result.failure(failure)),
+                    ),
+                enrichCustomLifts = EnrichCustomLiftsUseCase(FakeCustomLiftInferencePort()),
+                equipmentCatalogPort = FakeLiftEquipmentCatalog(),
+                equipmentInferencePort = FakeImportEquipmentInferencePort(),
+                resolutionDispatcher = UnconfinedTestDispatcher(testScheduler),
+            )
+
+        val outcome = subject(listOf(loggedSet(exerciseNameRaw = "Katana Special Gizmo")))
+
+        assertTrue(outcome.summary.embeddingBatchFailed)
+        assertEquals("embedding down", outcome.summary.embeddingBatchError)
+        assertEquals(
+            listOf(ResolveImportLiftsDiagnostic.LiftNameEmbeddingFailed(failure)),
+            outcome.summary.diagnostics,
+        )
+        assertSame(
+            failure,
+            (outcome.summary.diagnostics.single() as ResolveImportLiftsDiagnostic.LiftNameEmbeddingFailed).cause,
+        )
+        assertEquals(1, outcome.resolvedSets.size)
     }
 
     private class CountingLiftNameResolver(

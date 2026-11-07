@@ -1,6 +1,8 @@
 package com.stratum.core.infrastructure.inference
 
+import com.stratum.application.importing.toOperationalDiagnostic
 import com.stratum.domain.importing.NearMissExerciseSample
+import com.stratum.domain.importing.ResolveImportLiftsDiagnostic
 import com.stratum.domain.importing.ResolveImportLiftsSummary
 import com.stratum.domain.importing.UnmatchedExerciseSample
 import com.stratum.core.infrastructure.logging.LoggingPort
@@ -41,24 +43,15 @@ class ImportLiftResolutionLogger @Inject constructor(
             },
         )
 
-        if (summary.customLiftInferenceBatchesFailed > 0 || summary.customLiftsSkipped > 0) {
-            loggingPort.warning(
-                TAG,
-                "Custom lift inference failed for ${summary.customLiftInferenceBatchesFailed}/" +
-                    "${summary.customLiftInferenceBatchesAttempted} batches " +
-                    "(${summary.customLiftLlmInferredCount} LLM, " +
-                    "${summary.customLiftsSkipped} skipped). " +
-                    "Last error: ${summary.customLiftInferenceLastError ?: "unknown"}",
-            )
-        }
-
-        if (summary.embeddingBatchFailed) {
-            loggingPort.warning(
-                TAG,
-                "Lift name embedding failed — gray-zone matches may be unresolved. " +
-                    "Error: ${summary.embeddingBatchError ?: "unknown"}",
-            )
-        }
+        // §10 diagnostics carried on the summary are recorded here, exactly once each,
+        // with the real cause attached (this logger is called once per import, from
+        // RunFullHistoricalImportUseCase, and is the only drain of the summary).
+        // These per-failure records supersede the former aggregate warnings for the
+        // custom-lift and embedding failures (STR-240 chunk 8): those warnings were
+        // message-only records of the same failures, so keeping them would record
+        // each failure twice. The counts (batches attempted/failed, LLM-inferred,
+        // skipped, last error, embedding failed) remain on the info summary above.
+        logDiagnostics(summary.diagnostics)
 
         if (summary.seedCatalogLiftCount < MIN_EXPECTED_SEED_CATALOG_LIFTS) {
             loggingPort.warning(
@@ -80,6 +73,40 @@ class ImportLiftResolutionLogger @Inject constructor(
 
         summary.unmatchedExerciseSamples.forEach(::logUnmatched)
         summary.nearMissSamples.forEach(::logNearMiss)
+    }
+
+    /**
+     * Records each carried resolution diagnostic exactly once, with its real
+     * cause. Called by [log] on the success path; the import runner also calls
+     * it on the persist-failure path with the diagnostics the failed outcome
+     * carries from the succeeded resolution (Fix 7) — exactly one of the two
+     * paths runs per import, so no diagnostic is recorded twice.
+     */
+    fun logDiagnostics(diagnostics: List<ResolveImportLiftsDiagnostic>) {
+        diagnostics.forEach { diagnostic ->
+            when (diagnostic) {
+                is ResolveImportLiftsDiagnostic.EquipmentInferenceFailed ->
+                    loggingPort.error(
+                        TAG,
+                        "Import equipment inference failed — Tier B equipment enablement " +
+                            "may be missing. Error: ${diagnostic.cause.message ?: "unknown"}",
+                        diagnostic.cause,
+                    )
+                is ResolveImportLiftsDiagnostic.CustomLiftInferenceFailed ->
+                    loggingPort.error(
+                        TAG,
+                        "Import custom lift inference failed — names in that batch have " +
+                            "no inferred metadata. Error: ${diagnostic.cause.message ?: "unknown"}",
+                        diagnostic.cause,
+                    )
+                is ResolveImportLiftsDiagnostic.LiftNameEmbeddingFailed -> {
+                    // Canonical rendering (Fix 5): the same conversion the
+                    // template-import flow drains, with this flow's tag.
+                    val rendered = diagnostic.toOperationalDiagnostic(TAG)
+                    loggingPort.error(rendered.tag, rendered.message, rendered.cause)
+                }
+            }
+        }
     }
 
     private fun logUnmatched(sample: UnmatchedExerciseSample) {

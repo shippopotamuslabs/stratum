@@ -42,6 +42,7 @@ import com.stratum.domain.importing.LiftNameMatchEvaluation
 import com.stratum.domain.importing.MergeImportStats
 import com.stratum.domain.importing.NearMissExerciseSample
 import com.stratum.application.importing.ResidualLiftNameResolution
+import com.stratum.domain.importing.ResolveImportLiftsDiagnostic
 import com.stratum.domain.importing.ResolveImportLiftsResult
 import com.stratum.domain.importing.ResolveImportLiftsSummary
 import com.stratum.domain.importing.TrainingInsightsExtractor
@@ -249,11 +250,9 @@ class ResolveImportLiftsUseCase @Inject constructor(
             val equipmentJob =
                 async {
                     if (equipmentInferenceNames.isEmpty()) {
-                        emptyMap()
+                        Result.success(emptyMap())
                     } else {
-                        equipmentInferencePort
-                            .inferEquipment(equipmentInferenceNames)
-                            .getOrDefault(emptyMap())
+                        equipmentInferencePort.inferEquipment(equipmentInferenceNames)
                     }
                 }
 
@@ -273,8 +272,30 @@ class ResolveImportLiftsUseCase @Inject constructor(
             val provenLiftIds: Set<LiftId> =
                 applied.preCustomCatalogMatchIds + afterCustoms.customLiftIds
 
-            // Stage 5: Tier A/B enablement + sparse fallback.
-            val inferredEquipment = equipmentJob.await()
+            // Stage 5: Tier A/B enablement + sparse fallback. An equipment-inference
+            // failure degrades to an empty inferred map, but it is not silent: the real
+            // cause rides the summary as a §10 diagnostic, recorded exactly once at the
+            // import boundary that surfaces the summary.
+            val equipmentResult = equipmentJob.await()
+            val inferredEquipment = equipmentResult.getOrDefault(emptyMap())
+            val importDiagnostics =
+                equipmentResult.exceptionOrNull()?.let { error ->
+                    listOf(ResolveImportLiftsDiagnostic.EquipmentInferenceFailed(error))
+                } ?: emptyList()
+            // The embedding batch failure (stage 1–2) rides the same summary channel
+            // as a diagnostic with its real cause, beside the bool/message fields
+            // below (STR-240 chunk 8, closing STR-238's interim A14 exception).
+            // The failure snapshot is read ONCE here; the diagnostic and the
+            // summary's bool/message fields all derive from this same value.
+            val embeddingFailure = liftNameResolver.embeddingBatchFailure()
+            val embeddingDiagnostic =
+                embeddingFailure?.let { failure ->
+                    ResolveImportLiftsDiagnostic.LiftNameEmbeddingFailed(failure.cause)
+                }
+            val summaryDiagnostics =
+                listOfNotNull(embeddingDiagnostic) +
+                    afterCustoms.customLiftInferenceDiagnostics +
+                    importDiagnostics
             val confirmedEquipment =
                 confirmedEquipment(
                     inferredEquipment = inferredEquipment,
@@ -301,7 +322,6 @@ class ResolveImportLiftsUseCase @Inject constructor(
                     )
                 }
 
-            val embeddingBatchError = liftNameResolver.embeddingBatchFailure()
             ResolveImportLiftsResult(
                 resolvedSets = afterCustoms.finalResolvedSets,
                 provenLiftIds = provenLiftIds,
@@ -340,8 +360,9 @@ class ResolveImportLiftsUseCase @Inject constructor(
                         customLiftLlmInferredCount = afterCustoms.customLiftLlmInferredCount,
                         customLiftsSkipped = afterCustoms.customLiftsSkipped,
                         customLiftInferenceLastError = afterCustoms.customLiftInferenceLastError,
-                        embeddingBatchFailed = embeddingBatchError != null,
-                        embeddingBatchError = embeddingBatchError,
+                        embeddingBatchFailed = embeddingFailure != null,
+                        embeddingBatchError = embeddingFailure?.message,
+                        diagnostics = summaryDiagnostics,
                     ),
             )
         }
@@ -367,6 +388,7 @@ class ResolveImportLiftsUseCase @Inject constructor(
         val customLiftInferenceBatchesFailed: Int,
         val customLiftLlmInferredCount: Int,
         val customLiftInferenceLastError: String?,
+        val customLiftInferenceDiagnostics: List<ResolveImportLiftsDiagnostic>,
     )
 
     private data class EnablementResult(
@@ -464,6 +486,7 @@ class ResolveImportLiftsUseCase @Inject constructor(
                 customLiftInferenceBatchesFailed = 0,
                 customLiftLlmInferredCount = 0,
                 customLiftInferenceLastError = null,
+                customLiftInferenceDiagnostics = emptyList(),
             )
         }
         val candidates =
@@ -549,6 +572,7 @@ class ResolveImportLiftsUseCase @Inject constructor(
             customLiftInferenceBatchesFailed = enrichment.batchesFailed,
             customLiftLlmInferredCount = customLiftLlmInferredCount,
             customLiftInferenceLastError = enrichment.lastFailureMessage,
+            customLiftInferenceDiagnostics = enrichment.diagnostics,
         )
     }
 
@@ -788,6 +812,15 @@ sealed interface PersistImportedHistoryOutcome {
 
     data class Failed(
         val diagnostics: List<OperationalDiagnostic>,
+        /**
+         * Resolution diagnostics from the lift-resolution summary when
+         * resolution succeeded before this failure (Thermos round-1 Fix 7):
+         * they are recorded exactly once at the import boundary via
+         * `ImportLiftResolutionLogger` alongside [diagnostics], instead of
+         * being dropped with the un-persisted summary. Empty when the failure
+         * happened before (or without) a resolution.
+         */
+        val resolutionDiagnostics: List<ResolveImportLiftsDiagnostic> = emptyList(),
     ) : PersistImportedHistoryOutcome
 }
 
@@ -826,18 +859,31 @@ class PersistImportedHistoryUseCase @Inject constructor(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Throwable) {
-            PersistImportedHistoryOutcome.Failed(
-                diagnostics =
-                    listOf(
-                        OperationalDiagnostic(
-                            tag = TAG,
-                            message = "Failed to persist imported history: ${error.message}",
-                            cause = error,
-                        ),
-                    ),
-            )
+            envelopeFailed(error)
         }
     }
+
+    /**
+     * This use case's own envelope failure (legacy tag + rendered message,
+     * real throwable as cause). [resolutionDiagnostics] carries the succeeded
+     * resolution's diagnostics when the failure came after resolution
+     * (Fix 7); the default covers failures before any resolution.
+     */
+    private fun envelopeFailed(
+        error: Throwable,
+        resolutionDiagnostics: List<ResolveImportLiftsDiagnostic> = emptyList(),
+    ): PersistImportedHistoryOutcome.Failed =
+        PersistImportedHistoryOutcome.Failed(
+            diagnostics =
+                listOf(
+                    OperationalDiagnostic(
+                        tag = TAG,
+                        message = "Failed to persist imported history: ${error.message}",
+                        cause = error,
+                    ),
+                ),
+            resolutionDiagnostics = resolutionDiagnostics,
+        )
 
     private suspend fun invokeMerge(
         sessions: List<TrainingSession>,
@@ -898,38 +944,48 @@ class PersistImportedHistoryUseCase @Inject constructor(
             }
         }
         val outcome = resolveImportLifts(filtered.sets, onProgress = onProgress)
-        val factory = loggedLiftContextFactory ?: com.stratum.domain.training.DefaultLoggedLiftContextFactory()
-        val lifts = liftRepository.observeLifts().first().associateBy { it.id }
-        val enrichedSets =
-            outcome.resolvedSets.map { set ->
-                ImportHistoryTrainingMapper.enrichLiftContext(set, factory, lifts)
-            }
-        val computation =
-            computePersonalRecords(enrichedSets).getOrThrow()
+        // Everything after resolution: a thrown failure surfaces as the same
+        // envelope Failed the invoke catch builds, now carrying the succeeded
+        // resolution's diagnostics on the branch (Fix 7) instead of dropping
+        // them with the un-persisted summary.
+        return try {
+            val factory = loggedLiftContextFactory ?: com.stratum.domain.training.DefaultLoggedLiftContextFactory()
+            val lifts = liftRepository.observeLifts().first().associateBy { it.id }
+            val enrichedSets =
+                outcome.resolvedSets.map { set ->
+                    ImportHistoryTrainingMapper.enrichLiftContext(set, factory, lifts)
+                }
+            val computation =
+                computePersonalRecords(enrichedSets).getOrThrow()
 
-        onProgress(
-            ImportProgress(
-                phase = ImportProgressPhase.EnrichingCustomLifts,
-                catalogStep = ImportCatalogProgressStep.SavingHistory,
-            ),
-        )
-        // Historical PR/e1RM updates (demote and promote). Invert flags on unwind.
-        val historicalPrUpdates = computation.oldPrSetsToUpdate
-        val restorePrSets =
-            historicalPrUpdates.map { it.copy(isPersonalRecord = !it.isPersonalRecord) }
-        if (historicalPrUpdates.isNotEmpty()) {
-            trainingLogRepository.updateSets(historicalPrUpdates)
+            onProgress(
+                ImportProgress(
+                    phase = ImportProgressPhase.EnrichingCustomLifts,
+                    catalogStep = ImportCatalogProgressStep.SavingHistory,
+                ),
+            )
+            // Historical PR/e1RM updates (demote and promote). Invert flags on unwind.
+            val historicalPrUpdates = computation.oldPrSetsToUpdate
+            val restorePrSets =
+                historicalPrUpdates.map { it.copy(isPersonalRecord = !it.isPersonalRecord) }
+            if (historicalPrUpdates.isNotEmpty()) {
+                trainingLogRepository.updateSets(historicalPrUpdates)
+            }
+            val appendedSessions = filtered.sessions
+            val appendedSets = computation.updatedIncomingSets
+            trainingLogRepository.appendImportHistory(appendedSessions, appendedSets)
+            onProgress(
+                ImportProgress(
+                    phase = ImportProgressPhase.ExtractingInsights,
+                    catalogStep = ImportCatalogProgressStep.AnalyzingPatterns,
+                ),
+            )
+            finishMerge(outcome, appendedSessions, appendedSets, restorePrSets, mergeStats)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            envelopeFailed(error, resolutionDiagnostics = outcome.summary.diagnostics)
         }
-        val appendedSessions = filtered.sessions
-        val appendedSets = computation.updatedIncomingSets
-        trainingLogRepository.appendImportHistory(appendedSessions, appendedSets)
-        onProgress(
-            ImportProgress(
-                phase = ImportProgressPhase.ExtractingInsights,
-                catalogStep = ImportCatalogProgressStep.AnalyzingPatterns,
-            ),
-        )
-        return finishMerge(outcome, appendedSessions, appendedSets, restorePrSets, mergeStats)
     }
 
     /**
@@ -961,7 +1017,10 @@ class PersistImportedHistoryUseCase @Inject constructor(
                     )
                 is ExtractTrainingInsightsOutcome.Failed -> {
                     unwindMergeAppend(appendedSessions, appendedSets, restorePrSets)
-                    return PersistImportedHistoryOutcome.Failed(insightsOutcome.diagnostics)
+                    return PersistImportedHistoryOutcome.Failed(
+                        insightsOutcome.diagnostics,
+                        resolutionDiagnostics = outcome.summary.diagnostics,
+                    )
                 }
             }
         val responseOutcome =
@@ -975,7 +1034,10 @@ class PersistImportedHistoryUseCase @Inject constructor(
             is ExtractResponseProfileOutcome.Extracted -> Unit
             is ExtractResponseProfileOutcome.Failed -> {
                 unwindMergeAppend(appendedSessions, appendedSets, restorePrSets)
-                return PersistImportedHistoryOutcome.Failed(responseOutcome.diagnostics)
+                return PersistImportedHistoryOutcome.Failed(
+                    responseOutcome.diagnostics,
+                    resolutionDiagnostics = outcome.summary.diagnostics,
+                )
             }
         }
         liftRepository.setUsedHistoricalImport(true)
@@ -1020,6 +1082,30 @@ class PersistImportedHistoryUseCase @Inject constructor(
             return PersistImportedHistoryOutcome.NoValidSets
         }
         val outcome = resolveImportLifts(sanitizedSets, onProgress = onProgress)
+        // Everything after resolution: a thrown failure surfaces as the same
+        // envelope Failed the invoke catch builds, now carrying the succeeded
+        // resolution's diagnostics on the branch (Fix 7). The extract-failure
+        // returns inside carry them the same way.
+        return try {
+            persistResolvedReplace(sessions, outcome, onProgress)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            envelopeFailed(error, resolutionDiagnostics = outcome.summary.diagnostics)
+        }
+    }
+
+    /**
+     * Post-resolution replace tail: enrich, replace history, run the extracts.
+     * Extract outcome failures roll back and return [PersistImportedHistoryOutcome.Failed]
+     * carrying the resolution diagnostics; thrown failures propagate to
+     * [invokeReplace]'s envelope catch, which carries them the same way.
+     */
+    private suspend fun persistResolvedReplace(
+        sessions: List<TrainingSession>,
+        outcome: ResolveImportLiftsResult,
+        onProgress: ImportProgressCallback,
+    ): PersistImportedHistoryOutcome {
         val factory = loggedLiftContextFactory ?: com.stratum.domain.training.DefaultLoggedLiftContextFactory()
         val lifts = liftRepository.observeLifts().first().associateBy { it.id }
         val enrichedSets =
@@ -1063,7 +1149,10 @@ class PersistImportedHistoryUseCase @Inject constructor(
                     insightsOutcome.summary.copy(liftResolution = outcome.summary)
                 is ExtractTrainingInsightsOutcome.Failed -> {
                     trainingLogRepository.replaceImportHistory(emptyList(), emptyList())
-                    return PersistImportedHistoryOutcome.Failed(insightsOutcome.diagnostics)
+                    return PersistImportedHistoryOutcome.Failed(
+                        insightsOutcome.diagnostics,
+                        resolutionDiagnostics = outcome.summary.diagnostics,
+                    )
                 }
             }
         val responseOutcome =
@@ -1079,7 +1168,10 @@ class PersistImportedHistoryUseCase @Inject constructor(
             is ExtractResponseProfileOutcome.Failed -> {
                 trainingLogRepository.replaceImportHistory(emptyList(), emptyList())
                 responseProfilePersistence.clearAll()
-                return PersistImportedHistoryOutcome.Failed(responseOutcome.diagnostics)
+                return PersistImportedHistoryOutcome.Failed(
+                    responseOutcome.diagnostics,
+                    resolutionDiagnostics = outcome.summary.diagnostics,
+                )
             }
         }
         liftRepository.setUsedHistoricalImport(true)

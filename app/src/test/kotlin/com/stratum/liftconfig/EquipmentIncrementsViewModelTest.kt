@@ -124,6 +124,7 @@ class EquipmentIncrementsViewModelTest {
                             FakeIncrementScanPort(),
                         ),
                         ObserveIncrementsAiScanUseCase(fakeFeatureFlags),
+                        DiagnosticDrain(FakeLoggingPort()),
                     ),
                 diagnosticDrain = DiagnosticDrain(FakeLoggingPort()),
             )

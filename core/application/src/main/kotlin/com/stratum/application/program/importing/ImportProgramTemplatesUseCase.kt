@@ -1,6 +1,7 @@
 package com.stratum.application.program.importing
 
 import com.stratum.application.diagnostics.OperationalDiagnostic
+import com.stratum.application.importing.toOperationalDiagnostic
 import com.stratum.domain.di.DefaultDispatcher
 import com.stratum.application.onboarding.CompleteOnboardingUseCase
 import com.stratum.domain.onboarding.UserTrainingProfile
@@ -48,7 +49,11 @@ class ProgramTemplateRejectedException(message: String) : Exception(message)
 /**
  * Outcome of [ImportProgramTemplatesUseCase] (STR-243).
  *
- * [Success] carries the import result. The terminal server statuses are typed
+ * [Success] carries the import result plus any non-fatal degradation diagnostics
+ * (§10): a lift-name embedding batch failure during template resolution degrades
+ * matching to pure BM25 but does not fail the import, so its real cause rides
+ * [Success.diagnostics] as an [OperationalDiagnostic] for the boundary to record
+ * exactly once (STR-240 chunk 8b). The terminal server statuses are typed
  * branches carrying the facts consumers branch on: [Rejected] and [Failed]
  * carry the server-provided message (or the use case's default copy),
  * [ReadyWithoutPath] is a Ready job with no template to download,
@@ -66,7 +71,10 @@ class ProgramTemplateRejectedException(message: String) : Exception(message)
  * (STR-256).
  */
 sealed interface ProgramTemplateImportOutcome {
-    data class Success(val result: ProgramTemplateImportResult) : ProgramTemplateImportOutcome
+    data class Success(
+        val result: ProgramTemplateImportResult,
+        val diagnostics: List<OperationalDiagnostic> = emptyList(),
+    ) : ProgramTemplateImportOutcome
 
     data class Rejected(val message: String) : ProgramTemplateImportOutcome
 
@@ -81,10 +89,32 @@ sealed interface ProgramTemplateImportOutcome {
     data class PersistFailed(
         val message: String?,
         val diagnostics: List<ProgramImportRollbackDiagnostic>,
+        /**
+         * The degraded resolve's embedding diagnostic when resolution was
+         * degraded before the persist failed (Fix 7): carried here so the
+         * boundary records it exactly once on this path too, converted via
+         * the canonical [com.stratum.application.importing.toOperationalDiagnostic]
+         * rendering — the [Success] path's drain is unchanged and never runs
+         * for the same import. Empty when the resolve was not degraded.
+         */
+        val embeddingDiagnostics: List<OperationalDiagnostic> = emptyList(),
     ) : ProgramTemplateImportOutcome
 
     data class OperationalFailed(
         val diagnostics: List<OperationalDiagnostic>,
+        /**
+         * The degraded resolve's embedding diagnostic when resolution was
+         * degraded before the operational failure surfaced (Thermos round-2
+         * edge): an operational failure after a successful persist (e.g.
+         * completing onboarding throws) must not drop the embedding record —
+         * the program was imported with degraded matching. Carried here so
+         * the boundary records it exactly once on this path too, converted
+         * via the canonical
+         * [com.stratum.application.importing.toOperationalDiagnostic]
+         * rendering — the [Success] / [PersistFailed] drains never run for
+         * the same import. Empty when no resolve ran or it was not degraded.
+         */
+        val embeddingDiagnostics: List<OperationalDiagnostic> = emptyList(),
     ) : ProgramTemplateImportOutcome
 }
 
@@ -141,6 +171,13 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
         // Rollback diagnostics collected inside; re-attached below when the surfaced
         // failure is a cancellation the platform normalized (see below).
         val rollbackFailures = mutableListOf<ProgramImportRollbackDiagnostic>()
+        // STR-240 chunk 8b: the first embedding-batch failure in this import,
+        // captured inside the resolve loop below. Declared at invoke scope —
+        // not inside the block — so the outer envelope can carry it on the
+        // OperationalFailed branch when a post-resolve failure (e.g. a
+        // post-persist completeOnboarding throw) surfaces there; the
+        // Success / PersistFailed branches inside read the same value.
+        var embeddingDiagnostic: OperationalDiagnostic? = null
         return try {
             withContext(importDispatcher) {
             onProgress(ProgramTemplateImportPhase.Uploading)
@@ -195,10 +232,13 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
             val resolvedThisBatch = mutableListOf<com.stratum.domain.program.Program>()
             var skipped = 0
             var activatedFirst = false
-
+            // The first embedding-batch failure is kept (see the invoke-scope
+            // declaration above): later templates in the same file degrade the
+            // same way and do not re-carry it — one record per import.
             for (item in parsed) {
                 require(item.template.workouts.isNotEmpty()) { "Imported template has no workouts" }
                 val resolved = resolver.invoke(item.template)
+                embeddingDiagnostic = firstEmbeddingDiagnostic(embeddingDiagnostic)
                 // Prefer stable export id when present. Resolve mints a random Program.id and
                 // stamps it on every Workout.programId — rebind the whole hierarchy so Room FKs
                 // (workouts.program_id → programs.id) stay consistent.
@@ -261,6 +301,7 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
                     message = thrown.message,
                     diagnostics =
                         (thrown as? ProgramImportRollbackException)?.diagnostics ?: emptyList(),
+                    embeddingDiagnostics = listOfNotNull(embeddingDiagnostic),
                 )
             }
 
@@ -274,6 +315,7 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
                     importedProgramIds = importedIds,
                     skippedProgramCount = skipped,
                 ),
+                diagnostics = listOfNotNull(embeddingDiagnostic),
             )
             }
         } catch (cancelled: CancellationException) {
@@ -285,7 +327,14 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
             // envelope's own operational throws surface as OperationalFailed.
             ProgramTemplateImportOutcome.TimedOut
         } catch (error: Throwable) {
-            ProgramTemplateImportOutcome.OperationalFailed(operationalDiagnostics(error))
+            // A failure surfacing here after a degraded resolve (post-persist
+            // throws included) carries the captured embedding diagnostic so the
+            // boundary records it exactly once; before any resolve the captured
+            // value is still null and the branch carries nothing extra.
+            ProgramTemplateImportOutcome.OperationalFailed(
+                diagnostics = operationalDiagnostics(error),
+                embeddingDiagnostics = listOfNotNull(embeddingDiagnostic),
+            )
         }
     }
 
@@ -303,6 +352,24 @@ open class ImportProgramTemplatesUseCase @Inject constructor(
                 cause = error,
             ),
         )
+
+    /**
+     * Keeps the first embedding-batch failure seen in this import (STR-240 chunk
+     * 8b): reads the resolver's post-invoke diagnostic while [current] is still
+     * null, and returns [current] unchanged once one is carried — one record per
+     * import, however many templates the file held. The diagnostic is rendered
+     * through the canonical [toOperationalDiagnostic] conversion with this
+     * flow's tag — the same conversion the historical-import boundary renders
+     * for the same failure, so both flows' records are byte-identical apart
+     * from the tag. The two flows are distinct invocations — a historical
+     * import records its own failure on its summary channel and a template
+     * import records its own here — so no failure is recorded twice across
+     * flows.
+     */
+    private fun firstEmbeddingDiagnostic(
+        current: OperationalDiagnostic?,
+    ): OperationalDiagnostic? =
+        current ?: resolver.embeddingBatchFailureDiagnostic()?.toOperationalDiagnostic(TAG)
 
     /**
      * Re-attaches rollback evidence to a surfaced cancellation (STR-256): coroutine

@@ -75,6 +75,7 @@
     <string name="dashboard_health_weight">Weight</string>
     <string name="dashboard_health_recovery">Recovery</string>
     <string name="dashboard_health_disabled_prompt">Enable Health Connect in Settings to see steps, weight, and sleep metrics</string>
+    <string name="dashboard_health_unavailable">Health Connect metrics are unavailable</string>
     <string name="dashboard_health_steps_empty">No steps in the last 7 days</string>
     <string name="dashboard_health_weight_empty">No weight in the last 7 days</string>
     <string name="dashboard_health_sleep_empty">No sleep in the last 7 nights</string>

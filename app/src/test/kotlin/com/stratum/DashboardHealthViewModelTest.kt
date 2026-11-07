@@ -219,7 +219,7 @@ class DashboardHealthViewModelTest {
     }
 
     @Test
-    @DisplayName("STR-237 AQ1: snapshot read failure logs exactly once at the dashboard drain")
+    @DisplayName("STR-237 AQ1 + STR-240: read failure logs exactly once at the drain and publishes unavailable")
     fun readFailureLogsOnceAtDashboardDrain() = runTest {
         val healthPrefs = FakeHealthConnectPreferencesRepository()
         healthPrefs.setPreferences(HealthConnectPreferences(enabled = true))
@@ -249,9 +249,15 @@ class DashboardHealthViewModelTest {
             logged.message,
         )
         assertSame(cause, logged.throwable)
-        // The failure is log-only: empty pages still publish and carry no diagnostic in UI state.
-        assertEquals(true, viewModel.healthUiState.value.visible)
-        assertEquals(null, viewModel.healthUiState.value.activity.todayStepsText)
+        // STR-240 supersedes the AQ1-era "empty pages still publish" pin: the degraded
+        // pages publish as unavailable (visible, no chart, no page data), and the
+        // diagnostic itself still never reaches UI state.
+        val health = viewModel.healthUiState.value
+        assertEquals(true, health.visible)
+        assertEquals(true, health.unavailable)
+        assertEquals(false, health.hasChart())
+        assertEquals(null, health.activity.todayStepsText)
+        assertTrue(health.activity.dailyPoints.isEmpty())
     }
 
     private fun buildViewModel(

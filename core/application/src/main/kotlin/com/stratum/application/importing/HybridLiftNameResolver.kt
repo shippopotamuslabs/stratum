@@ -25,7 +25,7 @@ class HybridLiftNameResolver(
     // ConcurrentHashMap: this resolver is a process-wide singleton; concurrent imports must not
     // tear the query-vector map during residual re-resolve.
     private val queryEmbeddings = ConcurrentHashMap<String, FloatArray>()
-    @Volatile private var embeddingBatchError: String? = null
+    @Volatile private var embeddingBatchFailure: EmbeddingBatchFailure? = null
 
     /**
      * Prefetch query embeddings for residual [exerciseNames] only. Always clears prior batch state
@@ -34,7 +34,7 @@ class HybridLiftNameResolver(
      */
     override suspend fun prepareBatch(exerciseNames: List<String>) {
         queryEmbeddings.clear()
-        embeddingBatchError = null
+        embeddingBatchFailure = null
         val rawToTrimmed =
             exerciseNames
                 .map { raw -> raw to raw.trim() }
@@ -52,10 +52,16 @@ class HybridLiftNameResolver(
                     }
                 }
             }
-            .onFailure { error -> embeddingBatchError = error.message ?: error::class.simpleName }
+            .onFailure { error ->
+                embeddingBatchFailure =
+                    EmbeddingBatchFailure(
+                        message = error.message ?: error::class.simpleName ?: "unknown",
+                        cause = error,
+                    )
+            }
     }
 
-    override fun embeddingBatchFailure(): String? = embeddingBatchError
+    override fun embeddingBatchFailure(): EmbeddingBatchFailure? = embeddingBatchFailure
 
     override fun resolve(exerciseNameRaw: String, catalogNames: Map<LiftId, String>): LiftId? =
         evaluate(exerciseNameRaw, catalogNames).matchedLiftId

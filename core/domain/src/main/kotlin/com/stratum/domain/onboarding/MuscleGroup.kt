@@ -1,5 +1,6 @@
 package com.stratum.domain.onboarding
 
+import com.stratum.domain.enumParseOrNull
 import com.stratum.domain.lift.MovementPattern
 
 /**
@@ -41,6 +42,10 @@ enum class MuscleGroup {
     Abductor,
     Adductor,
     ;
+
+    companion object {
+        fun parseOrNull(raw: String): MuscleGroup? = enumParseOrNull(raw)
+    }
 
     /**
      * Human-readable label — single source of truth for UI and lift summaries.

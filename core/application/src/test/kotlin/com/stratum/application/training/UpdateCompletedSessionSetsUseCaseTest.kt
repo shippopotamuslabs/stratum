@@ -1,5 +1,10 @@
 package com.stratum.application.training
 
+import com.stratum.application.diagnostics.OperationalDiagnostic
+import com.stratum.core.testing.importing.FakeImportAnalysisMetadataRepository
+import com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository
+import com.stratum.core.testing.importing.FakeMuscleVolumeBaselineRepository
+import com.stratum.core.testing.importing.FakeSupersetAffinityRepository
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.response.FakeResponseModelingSchedulerPort
 import com.stratum.core.testing.response.FakeResponseProfileMetadataRepository
@@ -54,7 +59,7 @@ class UpdateCompletedSessionSetsUseCaseTest {
                 reps = 6,
                 rir = 1,
             )
-        val result = useCase(sessionId, listOf(amended))
+        val result = useCase(sessionId, listOf(amended), onRefreshDiagnostics = {})
 
         assertEquals(UpdateCompletedSessionSetsResult.Success, result)
         val stored = repo.getSetsForSession(sessionId).single()
@@ -72,7 +77,7 @@ class UpdateCompletedSessionSetsUseCaseTest {
         repo.seedSet(set)
         val useCase = buildUseCase(repo)
 
-        val result = useCase(sessionId, listOf(set.copy(reps = 10)))
+        val result = useCase(sessionId, listOf(set.copy(reps = 10)), onRefreshDiagnostics = {})
 
         assertEquals(
             UpdateCompletedSessionSetsResult.SessionNotCompleted(
@@ -90,7 +95,7 @@ class UpdateCompletedSessionSetsUseCaseTest {
         val repo = FakeTrainingLogRepository()
         val useCase = buildUseCase(repo)
 
-        val result = useCase(TrainingSessionId("non-existent"), listOf(loggedSet("set-1")))
+        val result = useCase(TrainingSessionId("non-existent"), listOf(loggedSet("set-1")), onRefreshDiagnostics = {})
 
         assertEquals(
             UpdateCompletedSessionSetsResult.SessionNotFound(TrainingSessionId("non-existent")),
@@ -105,7 +110,7 @@ class UpdateCompletedSessionSetsUseCaseTest {
         repo.seedSession(completedSession())
         val useCase = buildUseCase(repo)
 
-        val result = useCase(sessionId, emptyList())
+        val result = useCase(sessionId, emptyList(), onRefreshDiagnostics = {})
 
         assertEquals(UpdateCompletedSessionSetsResult.MustRetainAtLeastOneSet(sessionId), result)
     }
@@ -123,7 +128,7 @@ class UpdateCompletedSessionSetsUseCaseTest {
 
         val added =
             loggedSet("set-3", setIndex = 1, weight = 140.0, reps = 5, rir = 2)
-        val result = useCase(sessionId, listOf(keep, added))
+        val result = useCase(sessionId, listOf(keep, added), onRefreshDiagnostics = {})
 
         assertEquals(UpdateCompletedSessionSetsResult.Success, result)
         val ids = repo.getSetsForSession(sessionId).map { it.id.value }.toSet()
@@ -172,7 +177,7 @@ class UpdateCompletedSessionSetsUseCaseTest {
                 reps = 5,
                 rir = 0,
             )
-        assertEquals(UpdateCompletedSessionSetsResult.Success, useCase(sessionId, listOf(demoted)))
+        assertEquals(UpdateCompletedSessionSetsResult.Success, useCase(sessionId, listOf(demoted), onRefreshDiagnostics = {}))
 
         val older = repo.getSetsForLift(liftId).first { it.id.value == "older-strong" }
         val current = repo.getSetsForLift(liftId).first { it.id.value == "current-pr" }
@@ -214,7 +219,7 @@ class UpdateCompletedSessionSetsUseCaseTest {
         val useCase = buildUseCase(repo)
 
         val demoted = currentPr.copy(reps = 8)
-        assertEquals(UpdateCompletedSessionSetsResult.Success, useCase(sessionId, listOf(demoted)))
+        assertEquals(UpdateCompletedSessionSetsResult.Success, useCase(sessionId, listOf(demoted), onRefreshDiagnostics = {}))
 
         val older = repo.getSetsForLift(liftId).first { it.id.value == "older-strong" }
         val current = repo.getSetsForLift(liftId).first { it.id.value == "current-pr" }
@@ -251,7 +256,7 @@ class UpdateCompletedSessionSetsUseCaseTest {
         repo.seedSet(backoff)
         val useCase = buildUseCase(repo)
 
-        assertEquals(UpdateCompletedSessionSetsResult.Success, useCase(sessionId, listOf(working, backoff)))
+        assertEquals(UpdateCompletedSessionSetsResult.Success, useCase(sessionId, listOf(working, backoff), onRefreshDiagnostics = {}))
 
         val stored = repo.getSetsForLift(liftId)
         assertTrue(stored.first { it.id.value == "work" }.isPersonalRecord)
@@ -283,7 +288,7 @@ class UpdateCompletedSessionSetsUseCaseTest {
         val scheduler = FakeResponseModelingSchedulerPort()
         val useCase = buildUseCase(repo, scheduler, metadataRepo)
 
-        assertEquals(UpdateCompletedSessionSetsResult.Success, useCase(sessionId, listOf(set.copy(reps = 7))))
+        assertEquals(UpdateCompletedSessionSetsResult.Success, useCase(sessionId, listOf(set.copy(reps = 7)), onRefreshDiagnostics = {}))
         assertEquals(1, scheduler.historyInvalidationCount)
         assertEquals(0, scheduler.enqueueCount)
     }
@@ -313,7 +318,7 @@ class UpdateCompletedSessionSetsUseCaseTest {
         val scheduler = FakeResponseModelingSchedulerPort()
         val useCase = buildUseCase(repo, scheduler, metadataRepo)
 
-        assertEquals(UpdateCompletedSessionSetsResult.Success, useCase(sessionId, listOf(set.copy(reps = 7))))
+        assertEquals(UpdateCompletedSessionSetsResult.Success, useCase(sessionId, listOf(set.copy(reps = 7)), onRefreshDiagnostics = {}))
         assertEquals(0, scheduler.historyInvalidationCount)
         assertEquals(0, scheduler.enqueueCount)
     }
@@ -328,7 +333,7 @@ class UpdateCompletedSessionSetsUseCaseTest {
         val scheduler = FakeResponseModelingSchedulerPort()
         val useCase = buildUseCase(repo, scheduler, FakeResponseProfileMetadataRepository())
 
-        assertEquals(UpdateCompletedSessionSetsResult.Success, useCase(sessionId, listOf(set.copy(reps = 7))))
+        assertEquals(UpdateCompletedSessionSetsResult.Success, useCase(sessionId, listOf(set.copy(reps = 7)), onRefreshDiagnostics = {}))
         assertEquals(0, scheduler.historyInvalidationCount)
     }
 
@@ -340,9 +345,57 @@ class UpdateCompletedSessionSetsUseCaseTest {
         val useCase = buildUseCase(repo)
 
         val foreign = loggedSet("set-foreign", sessionId = TrainingSessionId("other-session"))
-        val result = useCase(sessionId, listOf(foreign))
+        val result = useCase(sessionId, listOf(foreign), onRefreshDiagnostics = {})
 
         assertEquals(UpdateCompletedSessionSetsResult.SetsBelongToAnotherSession(sessionId), result)
+    }
+
+    @Test
+    @DisplayName("refresh stage failure diagnostics are delivered to onRefreshDiagnostics exactly once (STR-240)")
+    fun deliversRefreshDiagnosticsExactlyOnce() = runTest {
+        val repo = FakeTrainingLogRepository()
+        repo.seedSession(completedSession())
+        val set = loggedSet("set-1")
+        repo.seedSet(set)
+        val failure = RuntimeException("simulated refresh failure")
+        val failingInsights = ExtractTrainingInsightsUseCase(
+            trainingLogRepository = repo,
+            liftTrainingInsightsRepository = FakeLiftTrainingInsightsRepository(),
+            supersetAffinityRepository = FakeSupersetAffinityRepository(),
+            muscleVolumeBaselineRepository = FakeMuscleVolumeBaselineRepository(),
+            importAnalysisMetadataRepository = FakeImportAnalysisMetadataRepository(getFailure = failure),
+            liftRepository = FakeLiftRepository(),
+        )
+        val useCase = buildUseCase(repo, insights = failingInsights)
+        val deliveries = mutableListOf<List<OperationalDiagnostic>>()
+
+        val result = useCase(sessionId, listOf(set.copy(reps = 7)), onRefreshDiagnostics = { deliveries += it })
+
+        assertEquals(UpdateCompletedSessionSetsResult.Success, result)
+        // Exactly one delivery, carrying exactly the extract failure's diagnostic.
+        val diagnostic = deliveries.single().single()
+        assertEquals("ExtractTrainingInsights", diagnostic.tag)
+        assertEquals(
+            "Failed to extract training insights: simulated refresh failure",
+            diagnostic.message,
+        )
+        org.junit.jupiter.api.Assertions.assertSame(failure, diagnostic.cause)
+    }
+
+    @Test
+    @DisplayName("refresh callback is not invoked when the refresh produces no diagnostics (STR-240)")
+    fun doesNotDeliverOnCleanRefresh() = runTest {
+        val repo = FakeTrainingLogRepository()
+        repo.seedSession(completedSession())
+        val set = loggedSet("set-1")
+        repo.seedSet(set)
+        val useCase = buildUseCase(repo)
+        val deliveries = mutableListOf<List<OperationalDiagnostic>>()
+
+        val result = useCase(sessionId, listOf(set.copy(reps = 7)), onRefreshDiagnostics = { deliveries += it })
+
+        assertEquals(UpdateCompletedSessionSetsResult.Success, result)
+        assertTrue(deliveries.isEmpty())
     }
 
     private fun completedSession(id: String = sessionId.value): TrainingSession =
@@ -370,8 +423,8 @@ class UpdateCompletedSessionSetsUseCaseTest {
         repo: FakeTrainingLogRepository,
         scheduler: FakeResponseModelingSchedulerPort = FakeResponseModelingSchedulerPort(),
         metadataRepo: FakeResponseProfileMetadataRepository = FakeResponseProfileMetadataRepository(),
+        insights: ExtractTrainingInsightsUseCase = buildInsights(repo),
     ): UpdateCompletedSessionSetsUseCase {
-        val insights = buildInsights(repo)
         val persistence = FakeResponseProfilePersistencePort(metadataRepository = metadataRepo)
         return UpdateCompletedSessionSetsUseCase(
             trainingLogRepository = repo,
