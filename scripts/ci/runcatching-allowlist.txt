@@ -15,7 +15,6 @@ core/domain/src/main/kotlin/com/stratum/domain/program/generation/synthesis/wire
 # --- :core:domain — non-suspend, result consumed by the caller ---
 core/domain/src/main/kotlin/com/stratum/domain/program/ProgramSchedule.kt 1 # fallback computation, non-suspend, result consumed via fold
 core/domain/src/main/kotlin/com/stratum/domain/program/schedule/ProgramCycleSpace.kt 1 # invariant-failure-to-empty, non-suspend, result consumed via getOrDefault
-core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/telemetry/TelemetryThrowableSanitizer.kt 3 # best-effort reflection reconstruction, non-suspend (STR-237 moved this file — path update, not a shrink; STR-240 owns the sanitizer entries)
 #
 # --- :core:infrastructure — enum/decode control flow — permanent: blocks are non-suspend, so plain runCatching cannot absorb coroutine cancellation there ---
 core/infrastructure/src/main/kotlin/com/stratum/core/infrastructure/db/EnumConverters.kt 49 # Room @TypeConverter enum/ID decodes via getOrNull, non-suspend

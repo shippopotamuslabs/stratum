@@ -66,8 +66,7 @@ object TelemetryThrowableSanitizer {
         val originalCause = original.cause
         if (originalCause != null && originalCause !== original) {
             val sanitizedCause = copySanitized(originalCause, copies, names)
-            val initialized = runCatching { copy.initCause(sanitizedCause) }
-            if (initialized.isFailure && copy.cause !== sanitizedCause) {
+            if (!initCauseOrFalse(copy, sanitizedCause) && copy.cause !== sanitizedCause) {
                 copy.addSuppressed(sanitizedCause)
             }
         }
@@ -79,19 +78,65 @@ object TelemetryThrowableSanitizer {
         return copy
     }
 
+    /**
+     * Rebuilds [original] with the scrubbed [message] by direct construction, trying each
+     * constructor shape in turn. Every way a shape can be unusable has an explicit fallback
+     * to the next shape instead of failing the whole reconstruction:
+     * - no public constructor with the wanted signature (looked up in the constructor list,
+     *   so a missing shape is a plain null, never an exception),
+     * - the constructor itself fails (its body throws, the type is abstract, it is not
+     *   accessible),
+     * - the constructed instance already carries a cause (a `(String)` constructor that
+     *   installs its own cause would re-attach an unscrubbed chain, so that shape is
+     *   rejected); the `(String, Throwable)` shape is instead invoked with an explicit
+     *   null cause.
+     * When neither shape yields a causeless copy, the final fallback is
+     * [SanitizedTelemetryException], which keeps the original class name as its
+     * `originalClassName` field and in its message. This function never throws for an
+     * input the sanitizer accepts.
+     */
     private fun reconstruct(original: Throwable, message: String): Throwable {
         val type = original.javaClass
-        runCatching { type.getConstructor(String::class.java).newInstance(message) }
-            .getOrNull()
+        construct(type, arrayOf(String::class.java), message)
             ?.takeIf { reconstructed -> reconstructed.cause == null }
             ?.let { return it }
-        runCatching {
-            type.getConstructor(String::class.java, Throwable::class.java).newInstance(message, null)
-        }.getOrNull()
+        construct(type, arrayOf(String::class.java, Throwable::class.java), message, null)
             ?.takeIf { reconstructed -> reconstructed.cause == null }
             ?.let { return it }
         return SanitizedTelemetryException(type.name, message)
     }
+
+    private fun construct(
+        type: Class<out Throwable>,
+        parameterTypes: Array<Class<*>>,
+        vararg arguments: Any?,
+    ): Throwable? {
+        val constructor = type.constructors.firstOrNull { candidate ->
+            candidate.parameterTypes.contentEquals(parameterTypes)
+        } ?: return null
+        return try {
+            constructor.newInstance(*arguments) as Throwable
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /**
+     * `Throwable.initCause` throws when the cause was already initialized at construction
+     * time (including a `(String, Throwable)` construction with an explicit null cause);
+     * that state cannot be distinguished from "not yet initialized" through the public
+     * API (`cause` reads null in both), so the throw is caught and reported as false,
+     * and the caller falls back to attaching the sanitized cause as suppressed.
+     */
+    private fun initCauseOrFalse(copy: Throwable, sanitizedCause: Throwable): Boolean =
+        try {
+            copy.initCause(sanitizedCause)
+            true
+        } catch (_: IllegalStateException) {
+            false
+        } catch (_: IllegalArgumentException) {
+            false
+        }
 }
 
 /**

@@ -185,6 +185,48 @@ class TelemetryThrowableSanitizerTest {
         assertEquals(emptyList<String>(), result.originalClassNames)
     }
 
+    @Test
+    fun `sanitize uses pair constructor when no string constructor exists`() {
+        val original = PairOnlyException(42)
+
+        val result = TelemetryThrowableSanitizer.sanitizeWithNames(original)
+
+        assertEquals(PairOnlyException::class.java, result.sanitized.javaClass)
+        assertNull(result.sanitized.cause)
+        assertTrue(result.sanitized.message!!.contains(TelemetryPiiScrubber.REDACTED_EMAIL))
+        assertFalse(result.sanitized.message!!.contains("user@example.com"))
+        assertEquals(emptyList<String>(), result.originalClassNames)
+    }
+
+    @Test
+    fun `sanitize uses pair constructor when the string constructor throws`() {
+        val original = ThrowingStringWithPairConstructorException(7)
+
+        val result = TelemetryThrowableSanitizer.sanitizeWithNames(original)
+
+        assertEquals(ThrowingStringWithPairConstructorException::class.java, result.sanitized.javaClass)
+        assertNull(result.sanitized.cause)
+        assertTrue(result.sanitized.message!!.contains(TelemetryPiiScrubber.REDACTED_EMAIL))
+        assertFalse(result.sanitized.message!!.contains("user@example.com"))
+        assertEquals(emptyList<String>(), result.originalClassNames)
+    }
+
+    @Test
+    fun `sanitize falls back when the string constructor throws and no pair constructor exists`() {
+        val original = ThrowingStringOnlyConstructorException(9)
+
+        val result = TelemetryThrowableSanitizer.sanitizeWithNames(original)
+
+        val fallback = assertInstanceOf(SanitizedTelemetryException::class.java, result.sanitized)
+        assertEquals(ThrowingStringOnlyConstructorException::class.java.name, fallback.originalClassName)
+        assertEquals(
+            listOf(ThrowingStringOnlyConstructorException::class.java.name),
+            result.originalClassNames,
+        )
+        assertTrue(fallback.message!!.contains(TelemetryPiiScrubber.REDACTED_EMAIL))
+        assertFalse(fallback.message!!.contains("user@example.com"))
+    }
+
     private class IntCodeException(val code: Int) : RuntimeException("failed for user@example.com ($code)")
 
     private class PairCodeException(val code: Int, val reason: String) :
@@ -193,4 +235,28 @@ class TelemetryThrowableSanitizerTest {
     private class PrefedCause(message: String) : RuntimeException(message, RuntimeException("token=secret123"))
 
     private class LockedNullCause(message: String, cause: Throwable?) : RuntimeException(message, cause)
+
+    private class PairOnlyException : RuntimeException {
+        constructor(message: String, cause: Throwable?) : super(message, cause)
+
+        constructor(code: Int) : super("failed for user@example.com ($code)")
+    }
+
+    private class ThrowingStringWithPairConstructorException : RuntimeException {
+        constructor(message: String) : super(message) {
+            throw IllegalStateException("string constructor unavailable")
+        }
+
+        constructor(message: String, cause: Throwable?) : super(message, cause)
+
+        constructor(code: Int) : super("failed for user@example.com ($code)")
+    }
+
+    private class ThrowingStringOnlyConstructorException : RuntimeException {
+        constructor(message: String) : super(message) {
+            throw IllegalStateException("string constructor unavailable")
+        }
+
+        constructor(code: Int) : super("failed for user@example.com ($code)")
+    }
 }
