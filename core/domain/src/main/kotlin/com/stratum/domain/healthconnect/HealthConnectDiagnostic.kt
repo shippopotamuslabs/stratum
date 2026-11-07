@@ -17,8 +17,9 @@ package com.stratum.domain.healthconnect
  */
 sealed interface HealthConnectDiagnostic {
     /**
-     * The snapshot read failed after grants were resolved, so the pages were assembled
-     * from an empty snapshot — indistinguishable from "no metrics" without this record.
+     * The snapshot read failed after grants were resolved, so the load returns explicit
+     * degraded pages carrying this diagnostic (STR-240) — the dashboard renders them as
+     * unavailable, never as assembled "no metrics" pages.
      * The read-side failure is unclassified, so the kind is always [HealthFailureKind.Unknown].
      * [cause] is the real caught throwable, carried as a §10 diagnostic value and
      * recorded exactly once at the dashboard boundary drain (AQ1 ruling, 2026-11-06).

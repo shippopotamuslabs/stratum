@@ -3,7 +3,10 @@ package com.stratum
 import com.stratum.core.ui.component.TrendBandUi
 import com.stratum.core.ui.component.TrendPointUi
 import com.stratum.domain.health.DailyVitalSample
+import com.stratum.domain.health.HealthMetricsAvailability
 import com.stratum.domain.health.HealthMetricsPages
+import com.stratum.domain.healthconnect.HealthConnectDiagnostic
+import com.stratum.domain.healthconnect.HealthFailureKind
 import com.stratum.domain.health.NightlySleepDuration
 import com.stratum.domain.health.RecoveryMetrics
 import com.stratum.domain.health.SleepNight
@@ -91,6 +94,45 @@ class DashboardHealthUiTest {
                 hrvDailyPoints = listOf(TrendPointUi(0, 48f), TrendPointUi(1, 47f)),
             ).hasChart(),
         )
+    }
+
+    @Test
+    @DisplayName("STR-240: degraded pages render as unavailable with no chart or page data")
+    fun degradedPagesRenderUnavailable() {
+        val zone = ZoneOffset.UTC
+        val pages = HealthMetricsPages(
+            visible = true,
+            availability = HealthMetricsAvailability.Degraded,
+            diagnostics = listOf(
+                HealthConnectDiagnostic.SnapshotReadFailed(
+                    kind = HealthFailureKind.Unknown,
+                    cause = IllegalStateException("sdk blip"),
+                ),
+            ),
+        )
+
+        val ui = pages.toHealthUi(Weight.WeightUnit.Lb, zone)
+
+        assertTrue(ui.visible)
+        assertTrue(ui.unavailable)
+        assertFalse(ui.hasChart())
+        assertNull(ui.activity.todayStepsText)
+        assertTrue(ui.activity.dailyPoints.isEmpty())
+        assertNull(ui.weight.latestText)
+        assertTrue(ui.weight.trendPoints.isEmpty())
+        assertNull(ui.recovery.lastNightDurationText)
+        assertTrue(ui.recovery.nightlyPoints.isEmpty())
+    }
+
+    @Test
+    @DisplayName("STR-240: available pages do not render as unavailable")
+    fun availablePagesAreNotUnavailable() {
+        val pages = HealthMetricsPages(visible = true)
+
+        val ui = pages.toHealthUi(Weight.WeightUnit.Lb, ZoneOffset.UTC)
+
+        assertTrue(ui.visible)
+        assertFalse(ui.unavailable)
     }
 
     @Test

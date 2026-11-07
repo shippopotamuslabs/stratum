@@ -25,6 +25,7 @@ import com.stratum.domain.healthconnect.HealthConnectDiagnostic
 import com.stratum.domain.healthconnect.HealthConnectPreferences
 import com.stratum.domain.health.HealthMetricType
 import kotlin.coroutines.cancellation.CancellationException
+import com.stratum.domain.health.HealthMetricsAvailability
 import com.stratum.domain.health.HealthMetricsRequest
 import com.stratum.domain.health.HealthMetricsSnapshot
 import com.stratum.domain.health.HeartRateSample
@@ -896,8 +897,8 @@ class LoadHealthConnectMetricsUseCaseTest {
     }
 
     @Test
-    @DisplayName("STR-257: snapshot read failure carries a diagnostic and assembles empty pages")
-    fun readFailureCarriesDiagnosticWithEmptyPages() = runTest {
+    @DisplayName("STR-240: snapshot read failure returns degraded pages carrying the diagnostic")
+    fun readFailureReturnsDegradedPages() = runTest {
         prefs.setPreferences(HealthConnectPreferences(enabled = true))
         val granted = setOf(HealthMetricType.Steps, HealthMetricType.Weight)
         metrics.granted = granted
@@ -907,6 +908,7 @@ class LoadHealthConnectMetricsUseCaseTest {
         val pages = load(zone, now)
 
         assertTrue(pages.visible)
+        assertEquals(HealthMetricsAvailability.Degraded, pages.availability)
         assertEquals(
             listOf(
                 HealthConnectDiagnostic.SnapshotReadFailed(
@@ -916,12 +918,12 @@ class LoadHealthConnectMetricsUseCaseTest {
             ),
             pages.diagnostics,
         )
-        val expected = assembleHealthMetricsPages(
-            granted = granted,
-            snapshot = HealthMetricsSnapshot(grantedTypes = granted),
-            request = HealthMetricsRequest(zone = zone, now = now),
-        )
-        assertEquals(expected, pages.copy(diagnostics = emptyList()))
+        // No snapshot is manufactured: nothing was assembled or zero-filled from an
+        // empty snapshot (the pre-STR-240 shape assembled a full 7-day zero week here).
+        assertEquals(emptyList<DailyStepCount>(), pages.activity.dailyCounts)
+        assertNull(pages.activity.todaySteps)
+        assertTrue(pages.weight.samples.isEmpty())
+        assertTrue(pages.recovery.nightlyDurations.isEmpty())
     }
 
     @Test
@@ -937,6 +939,7 @@ class LoadHealthConnectMetricsUseCaseTest {
         // The use case records nothing itself; the carried cause is recorded
         // exactly once at the dashboard boundary drain (asserted in the
         // DashboardHealthViewModelTest read-failure test).
+        assertEquals(HealthMetricsAvailability.Degraded, pages.availability)
         val diagnostic = pages.diagnostics.single() as HealthConnectDiagnostic.SnapshotReadFailed
         assertEquals(HealthFailureKind.Unknown, diagnostic.kind)
         assertSame(cause, diagnostic.cause)
@@ -955,6 +958,7 @@ class LoadHealthConnectMetricsUseCaseTest {
         val pages = load(zone, now)
 
         assertTrue(pages.visible)
+        assertEquals(HealthMetricsAvailability.Available, pages.availability)
         assertTrue(pages.diagnostics.isEmpty())
     }
 

@@ -137,3 +137,21 @@ fun healthDisabledPromptNeo() {
         DashboardHealthDisabledPrompt(onNavigateToSettings = {})
     }
 }
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun healthUnavailableTonal() {
+    StratumTheme(themeId = StratumThemeId.Tonal) {
+        DashboardHealthUnavailable()
+    }
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun healthUnavailableNeo() {
+    StratumTheme(themeId = StratumThemeId.NeoBrutalist) {
+        DashboardHealthUnavailable()
+    }
+}

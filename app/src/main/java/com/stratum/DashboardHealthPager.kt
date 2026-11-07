@@ -206,9 +206,32 @@ internal fun DashboardHealthDisabledPrompt(
 }
 
 /**
+ * Hero-band replacement when the metrics load degraded (STR-240): same full-bleed shaded
+ * slab as the pager, stating plainly that the metrics are unavailable. No pager pages,
+ * no charts, and no Settings prompt — Health Connect is enabled; its read failed.
+ */
+@Composable
+internal fun DashboardHealthUnavailable(
+    modifier: Modifier = Modifier,
+) {
+    StratumEdgeToEdgeCard(
+        modifier = modifier,
+        contentPadding = PaddingValues(horizontal = StratumSpacing.s16, vertical = 20.dp),
+        drawEdgeBands = false,
+    ) {
+        StratumText(
+            text = stringResource(R.string.dashboard_health_unavailable),
+            muted = true,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+/**
  * Single hero-band entry point: pager when Health Connect is enabled, Settings prompt when
- * disabled. Both the status-column and loaded-grid paths render through here so band content
- * can't drift between call sites.
+ * disabled, unavailable slab when the metrics load degraded. Both the status-column and
+ * loaded-grid paths render through here so band content can't drift between call sites.
  */
 @Composable
 internal fun DashboardHeroBand(
@@ -217,14 +240,14 @@ internal fun DashboardHeroBand(
     onNavigateToSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    if (health.visible) {
-        DashboardHealthPager(
+    when {
+        health.unavailable -> DashboardHealthUnavailable(modifier = modifier)
+        health.visible -> DashboardHealthPager(
             state = health,
             pagerState = pagerState,
             modifier = modifier,
         )
-    } else {
-        DashboardHealthDisabledPrompt(
+        else -> DashboardHealthDisabledPrompt(
             onNavigateToSettings = onNavigateToSettings,
             modifier = modifier,
         )

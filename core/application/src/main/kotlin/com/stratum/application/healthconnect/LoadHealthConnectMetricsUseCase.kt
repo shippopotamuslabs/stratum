@@ -14,6 +14,7 @@ import com.stratum.domain.health.DailyVitalSample
 import com.stratum.domain.healthconnect.HealthConnectDiagnostic
 import com.stratum.domain.healthconnect.HealthFailureKind
 import com.stratum.domain.health.HealthMetricType
+import com.stratum.domain.health.HealthMetricsAvailability
 import com.stratum.domain.health.HealthMetricsPages
 import com.stratum.domain.health.HealthMetricsRequest
 import com.stratum.domain.health.HealthMetricsSnapshot
@@ -42,12 +43,11 @@ class LoadHealthConnectMetricsUseCase @Inject constructor(
         val granted = metricsPort.grantedReadTypes()
         if (granted.isEmpty()) return HealthMetricsPages.Hidden
         val request = HealthMetricsRequest(zone = zone, now = now)
-        // A read failure does not fail the load — it is recorded as a diagnostic carrying
-        // the real cause and the pages are assembled from an empty snapshot (STR-257;
-        // the empty-snapshot manufacture itself is unchanged — STR-240 owns that
-        // behavior). Cancellation still propagates: it is not a degradation of this
-        // computation.
-        var readDiagnostic: HealthConnectDiagnostic? = null
+        // A read failure does not fail the load — it returns explicit degraded pages
+        // carrying a diagnostic with the real cause (STR-240; replaces the STR-257
+        // empty-snapshot manufacture, under which a read outage rendered as zero-filled
+        // "no metrics" pages). Cancellation still propagates: it is not a degradation
+        // of this computation.
         val snapshot = try {
             metricsPort.readSnapshot(request)
         } catch (e: CancellationException) {
@@ -57,17 +57,21 @@ class LoadHealthConnectMetricsUseCase @Inject constructor(
             // kind is honestly Unknown. The failure is recorded as a diagnostic carrying
             // the real cause (AQ1 ruling, 2026-11-06); this use case records nothing —
             // the dashboard boundary drain records it exactly once.
-            readDiagnostic = HealthConnectDiagnostic.SnapshotReadFailed(
-                kind = HealthFailureKind.Unknown,
-                cause = error,
+            return HealthMetricsPages(
+                visible = true,
+                diagnostics = listOf(
+                    HealthConnectDiagnostic.SnapshotReadFailed(
+                        kind = HealthFailureKind.Unknown,
+                        cause = error,
+                    ),
+                ),
+                availability = HealthMetricsAvailability.Degraded,
             )
-            HealthMetricsSnapshot(grantedTypes = granted)
         }
         return assembleHealthMetricsPages(
             granted,
             snapshot,
             request,
-            diagnostics = listOfNotNull(readDiagnostic),
         )
     }
 }

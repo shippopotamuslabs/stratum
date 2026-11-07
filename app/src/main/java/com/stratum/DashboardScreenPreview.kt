@@ -509,6 +509,10 @@ private fun previewStagelessSleepState(includeLastNight: Boolean): DashboardHeal
         ),
     )
 
+/** Degraded Health Connect load (STR-240): the hero band renders as unavailable. */
+internal fun previewUnavailableHealthState(): DashboardHealthUiState =
+    DashboardHealthUiState(visible = true, unavailable = true)
+
 /** Empty Health Connect week: axis labels with no samples — matches the live emulator with no Toolbox data. */
 internal fun previewEmptyHealthState(selectedPage: Int = 0): DashboardHealthUiState {
     val zeroWeek = PREVIEW_DAY_LABELS.mapIndexed { index, _ -> TrendPointUi(index, 0f) }
