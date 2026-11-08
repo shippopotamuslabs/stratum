@@ -64,10 +64,13 @@ import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -107,6 +110,14 @@ class OnboardingViewModel @Inject constructor(
     private var importProgramJob: Job? = null
     /** Fallback unit for the current historical import session. */
     private var sessionImportFallbackUnit: Weight.WeightUnit = Weight.WeightUnit.Lb
+
+    /**
+     * One-shot picker request (gospel §12.2): the unit prompt dismiss/confirm
+     * emits here exactly once; the route consumes it in `LaunchedEffect(Unit)`
+     * so recomposition can never replay the picker.
+     */
+    private val importPickerRequestChannel = Channel<Unit>(Channel.BUFFERED)
+    val importPickerRequests: Flow<Unit> = importPickerRequestChannel.receiveAsFlow()
 
     private val wizardState: StateFlow<OnboardingWizardState> =
         getOnboardingWizardState().stateIn(
@@ -447,7 +458,7 @@ class OnboardingViewModel @Inject constructor(
     /** User tapped Import history — show unit gate before the file picker (unless resuming). */
     fun onBeginHistoricalImportClick() {
         ephemeral.update {
-            it.copy(showImportWeightUnitPrompt = true, launchHistoricalImportPicker = false)
+            it.copy(showImportWeightUnitPrompt = true)
         }
     }
 
@@ -462,15 +473,9 @@ class OnboardingViewModel @Inject constructor(
         sessionImportFallbackUnit =
             if (useKg) Weight.WeightUnit.Kg else Weight.WeightUnit.Lb
         ephemeral.update {
-            it.copy(
-                showImportWeightUnitPrompt = false,
-                launchHistoricalImportPicker = true,
-            )
+            it.copy(showImportWeightUnitPrompt = false)
         }
-    }
-
-    fun onHistoricalImportPickerLaunched() {
-        ephemeral.update { it.copy(launchHistoricalImportPicker = false) }
+        importPickerRequestChannel.trySend(Unit)
     }
 
     fun onImportFilesSelected(files: List<ImportFileInput>) {

@@ -62,6 +62,9 @@ import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import app.cash.turbine.test
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -92,6 +95,54 @@ class ImportExportOnboardingRegressionTest {
         advanceUntilIdle()
         assertTrue(onboardingRepo.current.isComplete)
         assertTrue(programRepo.current != null)
+    }
+
+    @Test
+    @DisplayName("IE-S8-003 Unit prompt confirm emits the picker request exactly once with no replay")
+    fun ieS8_003_unitPromptConfirmEmitsPickerOnce() = runTest {
+        val viewModel =
+            buildViewModel(
+                importPort = FakeProgramTemplateImportPort(),
+                onboardingRepo = FakeOnboardingRepository(),
+                programRepo = FakeProgramRepository(),
+                profileRepo = FakeUserTrainingProfileRepository(),
+                liftRepo = FakeLiftRepository(),
+                testScheduler = testScheduler,
+            )
+        viewModel.onBeginHistoricalImportClick()
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.showImportWeightUnitPrompt)
+
+        viewModel.importPickerRequests.test {
+            viewModel.onImportWeightUnitConfirmed(useKg = true)
+            assertEquals(Unit, awaitItem())
+            // Channel consumed: a second collect (e.g. after recomposition) sees nothing.
+            expectNoEvents()
+        }
+        advanceUntilIdle()
+        assertFalse(viewModel.uiState.value.showImportWeightUnitPrompt)
+    }
+
+    @Test
+    @DisplayName("IE-S8-004 Unit prompt dismiss emits no picker request")
+    fun ieS8_004_unitPromptDismissEmitsNothing() = runTest {
+        val viewModel =
+            buildViewModel(
+                importPort = FakeProgramTemplateImportPort(),
+                onboardingRepo = FakeOnboardingRepository(),
+                programRepo = FakeProgramRepository(),
+                profileRepo = FakeUserTrainingProfileRepository(),
+                liftRepo = FakeLiftRepository(),
+                testScheduler = testScheduler,
+            )
+        viewModel.onBeginHistoricalImportClick()
+        viewModel.onImportWeightUnitPromptDismissed()
+        advanceUntilIdle()
+        assertFalse(viewModel.uiState.value.showImportWeightUnitPrompt)
+
+        viewModel.importPickerRequests.test {
+            expectNoEvents()
+        }
     }
 
     private fun buildViewModel(

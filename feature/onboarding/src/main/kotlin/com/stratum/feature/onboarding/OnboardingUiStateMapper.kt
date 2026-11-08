@@ -80,7 +80,6 @@ internal fun buildOnboardingUiState(
         navigationError = ephemeral.navigationError,
         showImportWeightUnitPrompt = ephemeral.showImportWeightUnitPrompt,
         appWeightUnitIsKg = ephemeral.appWeightUnitIsKg,
-        launchHistoricalImportPicker = ephemeral.launchHistoricalImportPicker,
     )
 }
 
