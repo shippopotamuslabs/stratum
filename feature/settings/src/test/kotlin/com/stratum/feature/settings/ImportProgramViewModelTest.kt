@@ -93,7 +93,7 @@ class ImportProgramViewModelTest {
         val useCase = RecordingImportProgramTemplatesUseCase()
         val vm = ImportProgramViewModel(
             useCase,
-            auth,
+            com.stratum.application.auth.GetAuthStateUseCase(auth),
             AnalyticsRecorder(FakeAnalyticsPort()),
             DiagnosticDrain(FakeLoggingPort()),
         )
@@ -111,7 +111,7 @@ class ImportProgramViewModelTest {
         val useCase = RecordingImportProgramTemplatesUseCase()
         val vm = ImportProgramViewModel(
             useCase,
-            auth,
+            com.stratum.application.auth.GetAuthStateUseCase(auth),
             AnalyticsRecorder(FakeAnalyticsPort()),
             DiagnosticDrain(FakeLoggingPort()),
         )
@@ -131,7 +131,7 @@ class ImportProgramViewModelTest {
         val useCase = RecordingImportProgramTemplatesUseCase()
         val vm = ImportProgramViewModel(
             useCase,
-            auth,
+            com.stratum.application.auth.GetAuthStateUseCase(auth),
             AnalyticsRecorder(FakeAnalyticsPort()),
             DiagnosticDrain(FakeLoggingPort()),
         )
@@ -152,7 +152,7 @@ class ImportProgramViewModelTest {
         val analytics = FakeAnalyticsPort()
         val vm = ImportProgramViewModel(
             useCase,
-            auth,
+            com.stratum.application.auth.GetAuthStateUseCase(auth),
             AnalyticsRecorder(analytics),
             DiagnosticDrain(FakeLoggingPort()),
         )
@@ -191,7 +191,7 @@ class ImportProgramViewModelTest {
         val drainLogging = FakeLoggingPort()
         val vm = ImportProgramViewModel(
             useCase,
-            auth,
+            com.stratum.application.auth.GetAuthStateUseCase(auth),
             AnalyticsRecorder(analytics),
             DiagnosticDrain(drainLogging),
         )
@@ -239,7 +239,7 @@ class ImportProgramViewModelTest {
         val drainLogging = FakeLoggingPort()
         val vm = ImportProgramViewModel(
             useCase,
-            auth,
+            com.stratum.application.auth.GetAuthStateUseCase(auth),
             AnalyticsRecorder(analytics),
             DiagnosticDrain(drainLogging),
         )
@@ -282,7 +282,7 @@ class ImportProgramViewModelTest {
         val drainLogging = FakeLoggingPort()
         val vm = ImportProgramViewModel(
             useCase,
-            auth,
+            com.stratum.application.auth.GetAuthStateUseCase(auth),
             AnalyticsRecorder(analytics),
             DiagnosticDrain(drainLogging),
         )
@@ -329,7 +329,7 @@ class ImportProgramViewModelTest {
         val drainLogging = FakeLoggingPort()
         val vm = ImportProgramViewModel(
             useCase,
-            auth,
+            com.stratum.application.auth.GetAuthStateUseCase(auth),
             AnalyticsRecorder(analytics),
             DiagnosticDrain(drainLogging),
         )
@@ -370,7 +370,7 @@ class ImportProgramViewModelTest {
         val vm =
             ImportProgramViewModel(
                 useCase,
-                auth,
+                com.stratum.application.auth.GetAuthStateUseCase(auth),
                 AnalyticsRecorder(analytics),
                 DiagnosticDrain(logging),
             )
@@ -402,7 +402,7 @@ class ImportProgramViewModelTest {
         val vm =
             ImportProgramViewModel(
                 useCase,
-                auth,
+                com.stratum.application.auth.GetAuthStateUseCase(auth),
                 AnalyticsRecorder(analytics),
                 DiagnosticDrain(logging),
             )

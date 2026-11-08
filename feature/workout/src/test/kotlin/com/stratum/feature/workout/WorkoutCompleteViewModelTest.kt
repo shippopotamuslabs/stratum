@@ -23,6 +23,7 @@ import com.stratum.application.importing.ExtractTrainingInsightsUseCase
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.application.lift.AnalyzeSessionEquipmentProposalsUseCase
 import com.stratum.application.lift.ApplyEquipmentIncrementProposalUseCase
+import com.stratum.application.lift.DismissEquipmentProposalUseCase
 import com.stratum.application.lift.EquipmentProposalDiagnostic
 import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.IncrementTier
@@ -42,6 +43,7 @@ import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.domain.healthconnect.HealthFailureKind
 import com.stratum.application.workout.AnalyzeSessionRepRangeShiftProposalsUseCase
 import com.stratum.application.workout.ApplyRepRangeShiftUseCase
+import com.stratum.application.workout.DismissRepRangeShiftProposalUseCase
 import com.stratum.application.workout.RepRangeShiftDiagnostic
 import com.stratum.feature.workout.ui.EquipmentEditorDestination
 import com.stratum.feature.workout.ui.WorkoutCompleteEvent
@@ -725,7 +727,7 @@ class WorkoutCompleteViewModelTest {
                     ApplyEquipmentIncrementProposalUseCase(
                         equipmentRepository = equipmentRepo,
                     ),
-                equipmentProposalPreferences = equipPrefs,
+                dismissEquipmentProposal = DismissEquipmentProposalUseCase(equipPrefs),
                 analyzeSessionRepRangeShiftProposals =
                     AnalyzeSessionRepRangeShiftProposalsUseCase(
                         trainingLogRepository = seededLog,
@@ -750,7 +752,7 @@ class WorkoutCompleteViewModelTest {
                         programRepository = programRepo,
                         programChangeEventRepository = FakeProgramChangeEventRepository(),
                     ),
-                repRangeShiftProposalPreferences = repRangePrefs,
+                dismissRepRangeShiftProposal = DismissRepRangeShiftProposalUseCase(repRangePrefs),
                 observeWeightDisplayPreferences =
                     ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
                 observeHealthConnectSyncErrors =
@@ -837,7 +839,7 @@ class WorkoutCompleteViewModelTest {
                     ApplyEquipmentIncrementProposalUseCase(
                         equipmentRepository = equipmentRepo,
                     ),
-                equipmentProposalPreferences = prefs,
+                dismissEquipmentProposal = DismissEquipmentProposalUseCase(prefs),
                 analyzeSessionRepRangeShiftProposals =
                     AnalyzeSessionRepRangeShiftProposalsUseCase(
                         trainingLogRepository = logRepo,
@@ -862,7 +864,7 @@ class WorkoutCompleteViewModelTest {
                         programRepository = programRepo,
                         programChangeEventRepository = FakeProgramChangeEventRepository(),
                     ),
-                repRangeShiftProposalPreferences = repRangePrefs,
+                dismissRepRangeShiftProposal = DismissRepRangeShiftProposalUseCase(repRangePrefs),
                 observeWeightDisplayPreferences =
                     ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
                 observeHealthConnectSyncErrors =
@@ -954,7 +956,7 @@ class WorkoutCompleteViewModelTest {
                     ApplyEquipmentIncrementProposalUseCase(
                         equipmentRepository = equipmentRepo,
                     ),
-                equipmentProposalPreferences = prefs,
+                dismissEquipmentProposal = DismissEquipmentProposalUseCase(prefs),
                 analyzeSessionRepRangeShiftProposals =
                     AnalyzeSessionRepRangeShiftProposalsUseCase(
                         trainingLogRepository = logRepo,
@@ -978,7 +980,7 @@ class WorkoutCompleteViewModelTest {
                         programRepository = programRepo,
                         programChangeEventRepository = FakeProgramChangeEventRepository(),
                     ),
-                repRangeShiftProposalPreferences = repRangePrefs,
+                dismissRepRangeShiftProposal = DismissRepRangeShiftProposalUseCase(repRangePrefs),
                 observeWeightDisplayPreferences =
                     ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
                 observeHealthConnectSyncErrors =
@@ -1045,7 +1047,7 @@ class WorkoutCompleteViewModelTest {
                 ApplyEquipmentIncrementProposalUseCase(
                     equipmentRepository = equipmentRepo,
                 ),
-            equipmentProposalPreferences = prefs,
+            dismissEquipmentProposal = DismissEquipmentProposalUseCase(prefs),
             analyzeSessionRepRangeShiftProposals =
                 AnalyzeSessionRepRangeShiftProposalsUseCase(
                     trainingLogRepository = logRepo,
@@ -1069,7 +1071,7 @@ class WorkoutCompleteViewModelTest {
                     programRepository = programRepo,
                     programChangeEventRepository = FakeProgramChangeEventRepository(),
                 ),
-            repRangeShiftProposalPreferences = repRangePrefs,
+            dismissRepRangeShiftProposal = DismissRepRangeShiftProposalUseCase(repRangePrefs),
             observeWeightDisplayPreferences =
                 ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
             observeHealthConnectSyncErrors =
