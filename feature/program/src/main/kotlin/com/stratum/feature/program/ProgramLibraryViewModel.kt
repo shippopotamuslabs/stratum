@@ -2,20 +2,15 @@ package com.stratum.feature.program
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.stratum.domain.lift.Lift
-import com.stratum.application.lift.ObserveLiftCatalogUseCase
 import com.stratum.application.program.ActivateStoredProgramResult
 import com.stratum.application.program.ActivateStoredProgramUseCase
 import com.stratum.application.program.DeleteProgramResult
 import com.stratum.application.program.DeleteProgramUseCase
-import com.stratum.application.program.ObserveLibraryProgramsUseCase
-import com.stratum.application.program.ObserveProgramUseCase
-import com.stratum.domain.program.Program
+import com.stratum.application.program.ObserveProgramLibraryUseCase
+import com.stratum.application.program.ProgramLibrarySnapshot
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.application.training.AbandonTrainingSessionResult
 import com.stratum.application.training.AbandonTrainingSessionUseCase
-import com.stratum.application.training.ObserveActiveSessionUseCase
-import com.stratum.domain.training.TrainingSession
 import com.stratum.domain.training.TrainingSessionStatus
 import com.stratum.feature.program.ui.ProgramLibraryUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -31,10 +26,7 @@ import kotlinx.coroutines.launch
 
 @HiltViewModel
 class ProgramLibraryViewModel @Inject constructor(
-    observeProgram: ObserveProgramUseCase,
-    observeLibraryPrograms: ObserveLibraryProgramsUseCase,
-    observeLiftCatalog: ObserveLiftCatalogUseCase,
-    private val observeActiveSession: ObserveActiveSessionUseCase,
+    private val observeProgramLibrary: ObserveProgramLibraryUseCase,
     private val activateStoredProgram: ActivateStoredProgramUseCase,
     private val abandonTrainingSession: AbandonTrainingSessionUseCase,
     private val deleteProgram: DeleteProgramUseCase,
@@ -47,14 +39,6 @@ class ProgramLibraryViewModel @Inject constructor(
     private val isDeleting = MutableStateFlow(false)
     private val userMessage = MutableStateFlow<String?>(null)
     private val restDayLabel = MutableStateFlow("Rest Day")
-
-    private val programsFlow =
-        combine(
-            observeProgram(),
-            observeLibraryPrograms(),
-        ) { active, library ->
-            mergeActiveAndLibraryPrograms(active, library)
-        }
 
     private val deleteTransientFlow =
         combine(
@@ -88,14 +72,19 @@ class ProgramLibraryViewModel @Inject constructor(
             )
         }
 
+    /**
+     * Single public state flow for the library screen (ARCHITECTURE.md §4.1). The
+     * durable multi-source composition lives in [ObserveProgramLibraryUseCase]
+     * (§4.4); this pipeline only folds that snapshot with transient locals at
+     * the boundary. The rest-day label stays transient and is passed to the
+     * pure mapper as an input.
+     */
     val uiState: StateFlow<ProgramLibraryUiState> =
         combine(
-            programsFlow,
-            observeLiftCatalog(),
-            observeActiveSession(),
+            observeProgramLibrary(),
             transientFlow,
-        ) { programs, lifts, activeSession, transient ->
-            mapUiState(programs, lifts, activeSession, transient)
+        ) { library, transient ->
+            mapUiState(library, transient)
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
@@ -157,11 +146,12 @@ class ProgramLibraryViewModel @Inject constructor(
         if (isDeleting.value) return
         viewModelScope.launch {
             val target = ProgramId(programId)
-            val programs = programsFlow.first()
-            val alreadyActive = programs.any { program -> program.id == target && program.isActive }
+            val library = observeProgramLibrary().first()
+            val alreadyActive =
+                library.programs.any { program -> program.id == target && program.isActive }
             if (alreadyActive) return@launch
 
-            val session = observeActiveSession().first()
+            val session = library.activeSession
             val hasLiveSession =
                 session != null && session.status == TrainingSessionStatus.IN_PROGRESS
             if (hasLiveSession) {
@@ -179,7 +169,7 @@ class ProgramLibraryViewModel @Inject constructor(
     fun confirmActivateDiscardingSession() {
         val programId = pendingActivateProgramId.value ?: return
         viewModelScope.launch {
-            val session = observeActiveSession().first()
+            val session = observeProgramLibrary().first().activeSession
             if (session != null && session.status == TrainingSessionStatus.IN_PROGRESS) {
                 val abandonResult = abandonTrainingSession(session.id)
                 if (abandonResult is AbandonTrainingSessionResult.PersistenceFailed) {
@@ -220,21 +210,20 @@ class ProgramLibraryViewModel @Inject constructor(
     }
 
     private fun mapUiState(
-        programs: List<Program>,
-        lifts: List<Lift>,
-        activeSession: TrainingSession?,
+        library: ProgramLibrarySnapshot,
         transient: TransientUi,
     ): ProgramLibraryUiState {
-        val liftsById = lifts.associateBy { lift -> lift.id }
+        val liftsById = library.lifts.associateBy { lift -> lift.id }
         val cards =
-            programs.toProgramLibraryCards(
+            library.programs.toProgramLibraryCards(
                 liftsById = liftsById,
                 restDayName = transient.restDayName,
             )
         val pendingDeleteProgram =
-            programs.firstOrNull { program -> program.id.value == transient.pendingDeleteId }
+            library.programs.firstOrNull { program -> program.id.value == transient.pendingDeleteId }
         val pendingActivateProgram =
-            programs.firstOrNull { program -> program.id.value == transient.pendingActivateId }
+            library.programs.firstOrNull { program -> program.id.value == transient.pendingActivateId }
+        val activeSession = library.activeSession
         val hasActiveSession =
             activeSession != null &&
                 activeSession.status == TrainingSessionStatus.IN_PROGRESS &&
@@ -270,24 +259,3 @@ class ProgramLibraryViewModel @Inject constructor(
         val restDayName: String,
     )
 }
-
-/**
- * Merges active + library program lists for the library screen.
- *
- * Active and library flows can re-emit out of lockstep during [ActivateStoredProgramUseCase]
- * (demote/promote). Without de-duplication the same [ProgramId] can appear twice and crash
- * LazyColumn keys on the library UI.
- */
-internal fun mergeActiveAndLibraryPrograms(
-    active: Program?,
-    library: List<Program>,
-): List<Program> =
-    buildList {
-        val activeId = active?.id
-        if (active != null) add(active)
-        addAll(
-            library
-                .filter { program -> program.id != activeId }
-                .sortedByDescending { program -> program.createdAt },
-        )
-    }
