@@ -89,7 +89,7 @@ private fun LegendPreviewContent(isMuscles: Boolean, dark: Boolean = false) {
 private fun DashboardScreenEmptyPreview() {
     StratumTheme {
         DashboardScreen(
-            state = DashboardUiState.Empty,
+            state = DashboardBoardUiState.Empty,
             onNavigateToSettings = {},
         )
     }
@@ -100,7 +100,7 @@ private fun DashboardScreenEmptyPreview() {
 private fun DashboardScreenLoadingPreview() {
     StratumTheme {
         DashboardScreen(
-            state = DashboardUiState.Loading,
+            state = DashboardBoardUiState.Loading,
             onNavigateToSettings = {},
         )
     }
@@ -151,7 +151,7 @@ private fun DashboardScreenHealthRecoveryPreview() {
 private fun DashboardScreenHealthEmptyPreview() {
     StratumTheme {
         DashboardScreen(
-            state = DashboardUiState.Empty,
+            state = DashboardBoardUiState.Empty,
             health = previewEmptyHealthState(),
             isRefreshing = false,
             onRefresh = {},
@@ -305,7 +305,7 @@ internal fun DashboardScreenPreviewContent(
     health: DashboardHealthUiState = DashboardHealthUiState(),
 ) {
     DashboardScreen(
-        state = DashboardUiState.Loaded(
+        state = DashboardBoardUiState.Loaded(
             windowWeeks = 13,
             // Ordered by sets/wk descending (matches LoadDashboardUseCase).
             // Progress points are log-index vs baseline (about zero), not e1RM-scale values.
