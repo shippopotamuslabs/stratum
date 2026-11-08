@@ -92,6 +92,9 @@ internal fun LiftDeleteImpact.toPendingDeleteUi(): PendingLiftDeleteUi =
         inActiveSession = inActiveSession,
     )
 
+// STR-216: STR-207 §2 exception — `userMessage` transient-snackbar side-flow
+// alongside `uiState`; bless-vs-migrate decision recorded on STR-216.
+@Suppress("ForbiddenMultipleStateFlowInViewModel")
 @HiltViewModel
 class GymViewModel @Inject constructor(
     private val observeLiftCatalog: ObserveLiftCatalogUseCase,

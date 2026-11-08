@@ -60,6 +60,9 @@ import kotlinx.coroutines.launch
  * after a swap is a follow-up slice; this ViewModel emits the swap selection via
  * [swapSelections] for the route to persist.
  */
+// STR-216: STR-207 §2 exception — `userMessage` transient-snackbar side-flow
+// alongside `programsUiState`; bless-vs-migrate decision recorded on STR-216.
+@Suppress("ForbiddenMultipleStateFlowInViewModel")
 @HiltViewModel
 class ProgramsViewModel @Inject constructor(
     observeProgram: ObserveProgramUseCase,

@@ -105,6 +105,9 @@ data class LiftInformationUiState(
     val details: LiftDetailsEditorState = LiftDetailsEditorState(),
 )
 
+// STR-216: STR-207 §2 exception — `userMessage` transient-snackbar side-flow
+// alongside `uiState`; bless-vs-migrate decision recorded on STR-216.
+@Suppress("ForbiddenMultipleStateFlowInViewModel")
 @HiltViewModel
 class LiftInformationViewModel @Inject constructor(
     private val observeLiftDetail: ObserveLiftDetailStateUseCase,

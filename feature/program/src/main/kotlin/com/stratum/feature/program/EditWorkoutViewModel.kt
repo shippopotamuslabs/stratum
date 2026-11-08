@@ -65,7 +65,9 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 // Start pipeline + set/superset/scheme mutations keep this façade large; start body lives in
 // EditWorkoutStartCoordinator.
-@Suppress("TooManyFunctions", "LargeClass")
+// STR-216: STR-207 §2 exception — `userMessage` transient-snackbar side-flow
+// alongside `uiState`; bless-vs-migrate decision recorded on STR-216.
+@Suppress("TooManyFunctions", "LargeClass", "ForbiddenMultipleStateFlowInViewModel")
 class EditWorkoutViewModel @Inject constructor(
     private val observeProgram: ObserveProgramUseCase,
     private val observeProgramById: ObserveProgramByIdUseCase,

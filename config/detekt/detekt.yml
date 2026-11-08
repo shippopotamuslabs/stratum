@@ -30,6 +30,12 @@ stratum:
     active: true
   ForbiddenRawSpacingLiteralInUi:
     active: true
+  ForbiddenMultipleStateFlowInViewModel:
+    active: true
+  ForbiddenBooleanStateFlowInViewModel:
+    active: true
+  ForbiddenSharedFlowInViewModel:
+    active: true
   # STR-243: raw-Throwable failure gate for :core:domain + :core:application main sources.
   # Final legacyFiles state (review round 1): every entry is either
   # (a) a sanctioned funnel definition - RunCatchingCancellable.kt, the
