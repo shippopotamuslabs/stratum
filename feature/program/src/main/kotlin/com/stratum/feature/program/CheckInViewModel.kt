@@ -61,9 +61,9 @@ class CheckInViewModel @Inject constructor(
         viewModelScope.launch {
             val muscles = getCheckInMuscleGroups()
             applyInFlight.set(false)
-            _uiState.value =
+            _uiState.update { current ->
                 CheckInUiState(
-                    showBanner = _uiState.value.showBanner,
+                    showBanner = current.showBanner,
                     isOpen = true,
                     phase = CheckInPhase.Subjective,
                     overallRecovery = RecoverySignalUi.Good,
@@ -76,12 +76,13 @@ class CheckInViewModel @Inject constructor(
                             )
                         },
                 )
+            }
         }
     }
 
     fun dismiss() {
         applyInFlight.set(false)
-        _uiState.value = CheckInUiState(showBanner = _uiState.value.showBanner)
+        _uiState.update { current -> CheckInUiState(showBanner = current.showBanner) }
     }
 
     fun skip() {
