@@ -2,6 +2,7 @@ package com.stratum.application.training
 
 import com.stratum.application.lift.ObserveLiftCatalogUseCase
 import com.stratum.application.workout.ManageWorkoutOverlayUseCase
+import com.stratum.domain.coroutines.runCatchingCancellable
 import com.stratum.domain.training.CycleProgress
 import com.stratum.domain.training.TrainingSessionDisplayName
 import com.stratum.domain.training.TrainingSessionKind
@@ -57,7 +58,7 @@ class ObserveMinimizedWorkoutBarUseCase @Inject constructor(
         return when (session.kind) {
             TrainingSessionKind.AD_HOC -> {
                 val nextLiftName =
-                    runCatching {
+                    runCatchingCancellable {
                         val lifts = observeLiftCatalog().first()
                         val liftNames = lifts.associate { it.id to it.name }
                         val overlay = manageWorkoutOverlay.load(session.id)
@@ -84,7 +85,7 @@ class ObserveMinimizedWorkoutBarUseCase @Inject constructor(
                 }
                 // Soft-fail set/catalog load so a bad read never kills the bar.
                 val nextLiftName =
-                    runCatching {
+                    runCatchingCancellable {
                         val loggedSets = getLoggedSetsForSession(session.id)
                         val lifts = observeLiftCatalog().first()
                         val liftNames = lifts.associate { it.id to it.name }

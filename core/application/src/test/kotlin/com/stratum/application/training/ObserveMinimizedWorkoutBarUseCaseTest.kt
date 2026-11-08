@@ -18,6 +18,7 @@ import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.Workout
 import com.stratum.domain.program.identity.WorkoutId
+import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.TrainingSessionKind
 import com.stratum.domain.training.identity.TrainingSessionId
 import kotlinx.coroutines.test.runTest
@@ -127,6 +128,31 @@ class ObserveMinimizedWorkoutBarUseCaseTest {
 
         subject().test {
             assertNull(awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("logged-sets read failure still emits Workout in progress fallback")
+    fun loggedSetsFailureEmitsProgressFallback() = runTest {
+        val delegateLog = FakeTrainingLogRepository()
+        delegateLog.seedSession(inProgressSession(id = "ts-live-1"))
+        val failingLog =
+            object : TrainingLogRepository by delegateLog {
+                override suspend fun getSetsForSession(sessionId: TrainingSessionId): List<LoggedSet> =
+                    throw IllegalStateException("store unavailable")
+            }
+        val subject =
+            ObserveMinimizedWorkoutBarUseCase(
+                ObserveCycleProgressUseCase(FakeProgramRepository(programWithBenchLift()), delegateLog),
+                ObserveLiftCatalogUseCase(FakeLiftRepository(initialLifts = listOf(benchLift()))),
+                ManageWorkoutOverlayUseCase(FakeWorkoutOverlayStore()),
+                GetLoggedSetsForSessionUseCase(failingLog),
+            )
+
+        subject().test {
+            val bar = awaitItem()
+            assertEquals("Workout in progress", bar?.nextLiftName)
             cancelAndIgnoreRemainingEvents()
         }
     }
