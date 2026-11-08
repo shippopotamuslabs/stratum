@@ -10,6 +10,7 @@ import com.stratum.domain.onboarding.OnboardingProgress
 import com.stratum.domain.onboarding.OnboardingStep
 import com.stratum.domain.subscription.EntitlementSource
 import com.stratum.domain.subscription.EntitlementState
+import com.stratum.application.subscription.ObserveAppGateDestinationUseCase
 import com.stratum.application.subscription.ObserveEntitlementUseCase
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
@@ -36,11 +37,14 @@ class EntitlementGateViewModelTest {
     }
 
     private fun buildViewModel(
-        loadingTimeoutMs: Long = EntitlementGateViewModel.DEFAULT_GATE_LOADING_TIMEOUT_MS,
+        loadingTimeoutMs: Long =
+            ObserveAppGateDestinationUseCase.DEFAULT_GATE_LOADING_TIMEOUT_MS,
     ): EntitlementGateViewModel =
         EntitlementGateViewModel(
-            observeEntitlement = ObserveEntitlementUseCase(fakeEntitlement),
-            observeOnboardingComplete = ObserveOnboardingCompleteUseCase(fakeOnboarding),
+            observeAppGateDestination = ObserveAppGateDestinationUseCase(
+                observeOnboardingComplete = ObserveOnboardingCompleteUseCase(fakeOnboarding),
+                observeEntitlement = ObserveEntitlementUseCase(fakeEntitlement),
+            ),
             loadingTimeoutMs = loadingTimeoutMs,
         )
 

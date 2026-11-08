@@ -1,8 +1,6 @@
 package com.stratum.navigation
 
 import androidx.navigation3.runtime.NavKey
-import com.stratum.domain.subscription.EntitlementSource
-import com.stratum.domain.subscription.EntitlementState
 import com.stratum.feature.onboarding.navigation.OnboardingKey
 import com.stratum.feature.program.navigation.CreateProgramKey
 import com.stratum.feature.settings.navigation.SettingsKey
@@ -16,54 +14,6 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 
 class EntitlementGateTest {
-
-    @Test
-    @DisplayName("Destination mapping: loading or unknown completeness stays Loading")
-    fun loadingAndUnknownMapToLoading() {
-        assertEquals(
-            AppGateDestination.Loading,
-            resolveAppGateDestination(isComplete = null, EntitlementState.Loading),
-        )
-        assertEquals(
-            AppGateDestination.Loading,
-            resolveAppGateDestination(isComplete = true, EntitlementState.Loading),
-        )
-        assertEquals(
-            AppGateDestination.Loading,
-            resolveAppGateDestination(
-                isComplete = null,
-                EntitlementState.Entitled(EntitlementSource.GooglePlaySubscription),
-            ),
-        )
-        assertEquals(
-            AppGateDestination.Loading,
-            resolveAppGateDestination(isComplete = false, EntitlementState.Loading),
-        )
-    }
-
-    @Test
-    @DisplayName("Destination mapping: NotEntitled is Paywall before onboarding")
-    fun notEntitledMapsToPaywall() {
-        assertEquals(
-            AppGateDestination.Paywall,
-            resolveAppGateDestination(isComplete = false, EntitlementState.NotEntitled()),
-        )
-        assertEquals(
-            AppGateDestination.Paywall,
-            resolveAppGateDestination(isComplete = true, EntitlementState.NotEntitled()),
-        )
-    }
-
-    @Test
-    @DisplayName("Destination mapping: Entitled routes by onboarding completeness")
-    fun entitledRoutesByOnboarding() {
-        val play = EntitlementState.Entitled(EntitlementSource.GooglePlaySubscription)
-        val complimentary = EntitlementState.Entitled(EntitlementSource.ComplimentaryAccess)
-        assertEquals(AppGateDestination.Onboarding, resolveAppGateDestination(false, play))
-        assertEquals(AppGateDestination.Main, resolveAppGateDestination(true, play))
-        assertEquals(AppGateDestination.Onboarding, resolveAppGateDestination(false, complimentary))
-        assertEquals(AppGateDestination.Main, resolveAppGateDestination(true, complimentary))
-    }
 
     @Test
     @DisplayName("startKey is hard paywall, onboarding, or main — never Loading")
