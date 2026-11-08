@@ -27,6 +27,7 @@ class ReorderLiftsViewModel @Inject constructor(
     val uiState: StateFlow<ReorderLiftsUiState> = _uiState.asStateFlow()
 
     fun initialize() {
+        if (_uiState.value.isLoaded) return
         _uiState.value =
             ReorderLiftsUiState(
                 lifts =

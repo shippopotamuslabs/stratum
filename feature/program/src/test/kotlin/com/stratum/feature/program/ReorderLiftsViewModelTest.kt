@@ -40,6 +40,17 @@ class ReorderLiftsViewModelTest {
     }
 
     @Test
+    @DisplayName("Given reordered lifts when initialize again then in-progress order is preserved")
+    fun initialize_secondCallPreservesOrder() {
+        viewModel.initialize()
+        viewModel.reorderLifts(fromIndex = 0, toIndex = 1)
+
+        viewModel.initialize()
+
+        assertEquals(listOf("wl-2", "wl-1"), viewModel.uiState.value.lifts.map { it.workoutLiftId })
+    }
+
+    @Test
     @DisplayName("Given loaded lifts when reorder then order changes")
     fun reorder_movesItem() {
         viewModel.initialize()
