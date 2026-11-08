@@ -21,11 +21,13 @@ import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.application.lift.ObserveEquipmentAffectedLiftsUseCase
 import com.stratum.application.lift.ObserveEquipmentCatalogUseCase
+import com.stratum.application.lift.ObserveEquipmentEditorStateUseCase
 import com.stratum.application.lift.RenameAndSetIncrementTiersUseCase
 import com.stratum.application.lift.ScanIncrementTiersUseCase
 import com.stratum.application.lift.SetEquipmentIncrementTiersUseCase
 import com.stratum.application.lift.SetLiftEquipmentUseCase
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.WeightDisplayPreferences
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.EquipmentPickResult
 import com.stratum.domain.lift.identity.LiftId
@@ -58,6 +60,8 @@ class EquipmentIncrementsViewModelTest {
     private val fakeLiftRepository = FakeLiftRepository()
     private val fakeFeatureFlags = FakeFeatureFlagRepository()
     private val fakeProposalPrefs = FakeEquipmentProposalPreferences()
+    private val fakeWeightPrefs =
+        com.stratum.core.testing.lift.FakeWeightDisplayPreferencesRepository()
     private val equipmentPickResult = EquipmentPickResult()
     private lateinit var subject: EquipmentIncrementsViewModel
 
@@ -85,9 +89,14 @@ class EquipmentIncrementsViewModelTest {
         )
         subject =
             EquipmentIncrementsViewModel(
-                observeEquipmentCatalog = ObserveEquipmentCatalogUseCase(fakeEquipmentRepository),
-                observeEquipmentAffectedLifts =
-                    ObserveEquipmentAffectedLiftsUseCase(fakeLiftRepository),
+                observeEquipmentEditorState =
+                    ObserveEquipmentEditorStateUseCase(
+                        ObserveEquipmentCatalogUseCase(fakeEquipmentRepository),
+                        ObserveEquipmentAffectedLiftsUseCase(fakeLiftRepository),
+                        com.stratum.application.lift.ObserveWeightDisplayPreferencesUseCase(
+                            fakeWeightPrefs,
+                        ),
+                    ),
                 setEquipmentIncrementTiers =
                     SetEquipmentIncrementTiersUseCase(
                         fakeEquipmentRepository,
@@ -114,10 +123,6 @@ class EquipmentIncrementsViewModelTest {
                         FakeProgramRepository(),
                     ),
                 equipmentPickResult = equipmentPickResult,
-                observeWeightDisplayPreferences =
-                    com.stratum.application.lift.ObserveWeightDisplayPreferencesUseCase(
-                        com.stratum.core.testing.lift.FakeWeightDisplayPreferencesRepository(),
-                    ),
                 scanDelegate =
                     IncrementScanDelegate(
                         ScanIncrementTiersUseCase(
@@ -219,17 +224,84 @@ class EquipmentIncrementsViewModelTest {
         subject.initialize(cableId.value)
         advanceUntilIdle()
 
-        subject.onStartDelete()
+        subject.uiState.test {
+            awaitItemWith { it.equipmentName == "Cables" }
+            subject.onStartDelete()
+            val pending = awaitItemWith { it.pendingDelete != null }.pendingDelete
+            assertNotNull(pending)
+            assertEquals(5, pending!!.affectedLiftNames.size)
+            assertTrue(pending.usesBodyweightFallback)
+            subject.deleteEquipment()
+            val cleared =
+                awaitItemWith { it.pendingDelete == null && it.deleteSucceeded }
+            assertTrue(cleared.deleteSucceeded)
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertTrue(fakeEquipmentRepository.getEquipment(cableId)!!.isDeleted)
+    }
+
+    @Test
+    @DisplayName("Given staged delete when dismissed then UiState clears the pending delete")
+    fun deleteDialogDismissClearsUiState() = runTest {
+        subject.initialize(cableId.value)
         advanceUntilIdle()
 
-        val pending = subject.deleteDialog.value
-        assertNotNull(pending)
-        assertEquals(5, pending!!.affectedLiftNames.size)
-        assertTrue(pending.usesBodyweightFallback)
-        subject.deleteEquipment()
+        subject.uiState.test {
+            awaitItemWith { it.equipmentName == "Cables" }
+            subject.onStartDelete()
+            awaitItemWith { it.pendingDelete != null }
+            subject.onDismissDelete()
+            awaitItemWith { it.pendingDelete == null }
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName(
+        "Given edited drafts when the display unit changes then drafts reset and reseed " +
+            "from stored values in the new unit (STR-284)",
+    )
+    fun unitChangeResetsDraftsAndReseeds() = runTest {
+        val kg = Weight.WeightUnit.Kg
+        val expectedKg = IncrementTierDraftOps.toDraft(openFive.single(), kg)
+        subject.initialize(cableId.value)
         advanceUntilIdle()
-        assertTrue(fakeEquipmentRepository.getEquipment(cableId)!!.isDeleted)
-        assertNull(subject.deleteDialog.value)
+
+        subject.uiState.test {
+            awaitItemWith { it.equipmentName == "Cables" && it.editor.tiers.isNotEmpty() }
+            subject.onTierIncrementChanged(0, "10")
+            awaitItemWith { it.editor.tiers[0].increment == "10" }
+            fakeWeightPrefs.seed(WeightDisplayPreferences(displayUnit = kg))
+            val reseeded =
+                awaitItemWith {
+                    it.editor.unitLabel == "kg" && it.editor.tiers[0].increment == expectedKg.increment
+                }
+            assertEquals("kg", reseeded.editor.unitLabel)
+            assertEquals(expectedKg, reseeded.editor.tiers.single())
+            assertNull(reseeded.editor.validationMessage)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Given kg prefs when initialized then drafts seed from stored values in kg (STR-284)")
+    fun seededDraftsConvertStoredValuesToUnit() = runTest {
+        val kg = Weight.WeightUnit.Kg
+        val expectedKg = IncrementTierDraftOps.toDraft(openFive.single(), kg)
+        fakeWeightPrefs.seed(WeightDisplayPreferences(displayUnit = kg))
+        subject.initialize(cableId.value)
+        advanceUntilIdle()
+
+        subject.uiState.test {
+            val state =
+                awaitItemWith {
+                    it.equipmentName == "Cables" &&
+                        it.editor.unitLabel == "kg" &&
+                        it.editor.tiers.isNotEmpty()
+                }
+            assertEquals(expectedKg, state.editor.tiers.single())
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     private fun seedCustomStack(): EquipmentId {

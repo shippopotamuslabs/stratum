@@ -54,7 +54,7 @@ fun EquipmentIncrementsRoute(
         viewModel.initialize(equipmentId, sourceLiftId, initialTiersLb, proposalContext)
     }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val pendingDelete by viewModel.deleteDialog.collectAsStateWithLifecycle()
+    val pendingDelete = state.pendingDelete
     LaunchedEffect(state.editor.saveSucceeded, state.deleteSucceeded) {
         if (state.editor.saveSucceeded || state.deleteSucceeded) onBackClick()
     }
