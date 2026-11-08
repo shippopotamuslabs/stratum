@@ -9,7 +9,12 @@ import com.stratum.core.ui.component.StratumMuscleVolumeCardState
 sealed interface ProgramsUiState {
     val status: Status
 
-    data object Empty : ProgramsUiState {
+    /** Minimized live-session bar; rendered as a bottom overlay for Empty and Loaded alike. */
+    val activeBar: MinimizedWorkoutState?
+
+    data class Empty(
+        override val activeBar: MinimizedWorkoutState? = null,
+    ) : ProgramsUiState {
         override val status: Status = Status.Empty
     }
 
@@ -18,6 +23,9 @@ sealed interface ProgramsUiState {
         val upperVolumeByMuscle: List<StratumMuscleVolumeCardState>,
         val lowerVolumeByMuscle: List<StratumMuscleVolumeCardState>,
         val scheduleItems: List<ScheduleItemState>,
+        /** Last expanded schedule workout card id from DataStore; null means all cards collapsed. */
+        val expandedWorkoutId: String? = null,
+        override val activeBar: MinimizedWorkoutState? = null,
     ) : ProgramsUiState {
         override val status: Status = Status.Loaded
     }

@@ -89,9 +89,6 @@ internal fun ProgramsScreen(
     callbacks: ProgramsScreenCallbacks,
     onSwapLiftClick: (String, WorkoutLiftLineState) -> Unit,
     modifier: Modifier = Modifier,
-    activeWorkoutBar: MinimizedWorkoutState? = null,
-    /** Last expanded workout card id from DataStore; null means all cards collapsed. */
-    expandedWorkoutId: String? = null,
     onCancelWorkoutClick: () -> Unit = {},
     onExpandWorkoutClick: (String) -> Unit = {},
     isPreviewMode: Boolean = false,
@@ -107,6 +104,8 @@ internal fun ProgramsScreen(
     var pendingUnskipWorkoutId by remember { mutableStateOf<String?>(null) }
     var pendingUnskipWorkoutName by remember { mutableStateOf<String?>(null) }
     var pendingStartAction by remember { mutableStateOf<ProgramsStartAction?>(null) }
+
+    val activeWorkoutBar = state.activeBar
 
     StratumTabScaffold(
         modifier = modifier,
@@ -233,7 +232,7 @@ internal fun ProgramsScreen(
                         onSwapLiftClick = onSwapLiftClick,
                         isPreviewMode = isPreviewMode,
                         hasActiveWorkout = activeWorkoutBar != null,
-                        expandedWorkoutId = expandedWorkoutId,
+                        expandedWorkoutId = state.expandedWorkoutId,
                         onPendingStart = { action -> pendingStartAction = action },
                         onPendingUnskip = { workoutId, workoutName ->
                             pendingUnskipWorkoutId = workoutId

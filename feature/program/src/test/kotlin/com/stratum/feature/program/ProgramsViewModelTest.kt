@@ -1,6 +1,7 @@
 package com.stratum.feature.program
 
 import com.stratum.core.testing.logging.FakeLoggingPort
+import app.cash.turbine.ReceiveTurbine
 import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.onboarding.FakeLiftRepository
@@ -29,6 +30,7 @@ import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.application.training.ObserveCycleProgressUseCase
+import com.stratum.application.training.ObserveMinimizedWorkoutBarUseCase
 import com.stratum.application.training.StartTrainingSessionUseCase
 import com.stratum.application.workout.ManageWorkoutOverlayUseCase
 import com.stratum.feature.program.ui.ProgramsUiEvent
@@ -65,7 +67,7 @@ class ProgramsViewModelTest {
             val viewModel = buildViewModel(initial = null)
 
             viewModel.programsUiState.test {
-                assertEquals(ProgramsUiState.Empty, awaitItem())
+                assertEquals(ProgramsUiState.Empty(), awaitItem())
                 cancelAndIgnoreRemainingEvents()
             }
         }
@@ -271,19 +273,20 @@ class ProgramsViewModelTest {
     @DisplayName("Active workout bar state")
     inner class ActiveWorkoutBar {
         @Test
-        fun `when active session exists then activeWorkoutBarState emits MinimizedWorkoutState`() = runTest {
+        fun `when active session exists then programsUiState carries the minimized bar`() = runTest {
             val viewModel = buildViewModel(initial = PROGRAM_PPL)
 
-            viewModel.activeWorkoutBarState.test {
-                assertEquals(null, awaitItem())
+            viewModel.programsUiState.test {
+                val initial = awaitItem()
+                assertTrue(initial is ProgramsUiState.Loaded)
+                assertNull(initial.activeBar)
 
                 viewModel.startProgramWorkout("w-1")
 
-                val state = awaitItem()
-                assertTrue(state != null)
-                assertEquals("w-1", state?.workoutId)
-                assertEquals("Push Day", state?.workoutName)
-                assertTrue(state?.startedAtEpochMilli != null)
+                val withBar = awaitLoadedWithBar()
+                assertEquals("w-1", withBar.activeBar?.workoutId)
+                assertEquals("Push Day", withBar.activeBar?.workoutName)
+                assertTrue(withBar.activeBar?.startedAtEpochMilli != null)
                 cancelAndIgnoreRemainingEvents()
             }
         }
@@ -292,16 +295,17 @@ class ProgramsViewModelTest {
         fun `when empty session is active then bar uses session id and Empty Workout name`() = runTest {
             val viewModel = buildViewModel(initial = PROGRAM_PPL)
 
-            viewModel.activeWorkoutBarState.test {
-                assertEquals(null, awaitItem())
+            viewModel.programsUiState.test {
+                val initial = awaitItem()
+                assertTrue(initial is ProgramsUiState.Loaded)
+                assertNull(initial.activeBar)
 
                 viewModel.startEmptyWorkout()
 
-                val state = awaitItem()
-                assertTrue(state != null)
-                assertTrue(state!!.workoutId.isNotBlank())
-                assertEquals("Empty Workout", state.workoutName)
-                assertEquals("Add lifts", state.nextLiftName)
+                val withBar = awaitLoadedWithBar()
+                assertTrue(withBar.activeBar!!.workoutId.isNotBlank())
+                assertEquals("Empty Workout", withBar.activeBar?.workoutName)
+                assertEquals("Add lifts", withBar.activeBar?.nextLiftName)
                 cancelAndIgnoreRemainingEvents()
             }
         }
@@ -344,8 +348,13 @@ class ProgramsViewModelTest {
                     observeCycleProgress = ObserveCycleProgressUseCase(repository, trainingLog),
                     abandonTrainingSession =
                         com.stratum.application.training.AbandonTrainingSessionUseCase(trainingLog),
-                    getLoggedSetsForSession =
-                        com.stratum.application.training.GetLoggedSetsForSessionUseCase(trainingLog),
+                    observeMinimizedBar =
+                        ObserveMinimizedWorkoutBarUseCase(
+                            ObserveCycleProgressUseCase(repository, trainingLog),
+                            ObserveLiftCatalogUseCase(liftRepository),
+                            ManageWorkoutOverlayUseCase(FakeWorkoutOverlayStore()),
+                            com.stratum.application.training.GetLoggedSetsForSessionUseCase(trainingLog),
+                        ),
                     recordWorkoutSkip =
                         com.stratum.application.training.RecordWorkoutSkipUseCase(trainingLog, repository),
                     recordRestDaySkip =
@@ -360,16 +369,16 @@ class ProgramsViewModelTest {
                     diagnosticDrain = DiagnosticDrain(logging),
                 )
 
-            // Collect bar so WhileSubscribed starts; orphan cleanup runs from init.
-            viewModel.activeWorkoutBarState.test {
-                assertNull(awaitItem())
+            // Collect so WhileSubscribed starts; orphan cleanup runs from init.
+            viewModel.programsUiState.test {
+                val first = awaitItem()
+                assertNull(first.activeBar)
                 advanceUntilIdle()
-                expectNoEvents()
                 cancelAndIgnoreRemainingEvents()
             }
             assertNull(trainingLog.getActiveSession())
             // Keep VM referenced so init collector is not GC'd mid-test.
-            assertNull(viewModel.activeWorkoutBarState.value)
+            assertNull((viewModel.programsUiState.value as? ProgramsUiState.Loaded)?.activeBar)
         }
 
         @Test
@@ -411,8 +420,13 @@ class ProgramsViewModelTest {
                     observeCycleProgress = ObserveCycleProgressUseCase(repository, trainingLog),
                     abandonTrainingSession =
                         com.stratum.application.training.AbandonTrainingSessionUseCase(trainingLog),
-                    getLoggedSetsForSession =
-                        com.stratum.application.training.GetLoggedSetsForSessionUseCase(trainingLog),
+                    observeMinimizedBar =
+                        ObserveMinimizedWorkoutBarUseCase(
+                            ObserveCycleProgressUseCase(repository, trainingLog),
+                            ObserveLiftCatalogUseCase(liftRepository),
+                            ManageWorkoutOverlayUseCase(FakeWorkoutOverlayStore()),
+                            com.stratum.application.training.GetLoggedSetsForSessionUseCase(trainingLog),
+                        ),
                     recordWorkoutSkip =
                         com.stratum.application.training.RecordWorkoutSkipUseCase(trainingLog, repository),
                     recordRestDaySkip =
@@ -427,8 +441,9 @@ class ProgramsViewModelTest {
                     diagnosticDrain = DiagnosticDrain(logging),
                 )
 
-            viewModel.activeWorkoutBarState.test {
-                awaitItem()
+            viewModel.programsUiState.test {
+                val first = awaitItem()
+                assertNull(first.activeBar)
                 advanceUntilIdle()
                 cancelAndIgnoreRemainingEvents()
             }
@@ -442,7 +457,7 @@ class ProgramsViewModelTest {
     @DisplayName("Expanded workout card preference")
     inner class ExpandedWorkout {
         @Test
-        fun `seeded expanded workout id is exposed on expandedWorkoutId`() = runTest {
+        fun `seeded expanded workout id is exposed on Loaded`() = runTest {
             val viewModel =
                 buildViewModel(
                     initial = PROGRAM_PPL,
@@ -451,13 +466,9 @@ class ProgramsViewModelTest {
                     ),
                 )
 
-            viewModel.expandedWorkoutId.test {
-                // stateIn starts at null until the preference flow delivers.
-                var id = awaitItem()
-                if (id == null) {
-                    id = awaitItem()
-                }
-                assertEquals("w-1", id)
+            viewModel.programsUiState.test {
+                val state = awaitItem() as ProgramsUiState.Loaded
+                assertEquals("w-1", state.expandedWorkoutId)
                 cancelAndIgnoreRemainingEvents()
             }
         }
@@ -467,13 +478,15 @@ class ProgramsViewModelTest {
             val uiPrefs = FakeProgramsUiPreferencesRepository()
             val viewModel = buildViewModel(initial = PROGRAM_PPL, uiPrefs = uiPrefs)
 
-            viewModel.expandedWorkoutId.test {
-                assertNull(awaitItem())
+            viewModel.programsUiState.test {
+                val initial = awaitItem() as ProgramsUiState.Loaded
+                assertNull(initial.expandedWorkoutId)
 
                 viewModel.setExpandedWorkout("w-1")
                 advanceUntilIdle()
 
-                assertEquals("w-1", awaitItem())
+                val updated = awaitItem() as ProgramsUiState.Loaded
+                assertEquals("w-1", updated.expandedWorkoutId)
                 assertEquals("w-1", uiPrefs.current.expandedWorkoutId)
                 cancelAndIgnoreRemainingEvents()
             }
@@ -487,21 +500,32 @@ class ProgramsViewModelTest {
                 )
             val viewModel = buildViewModel(initial = PROGRAM_PPL, uiPrefs = uiPrefs)
 
-            viewModel.expandedWorkoutId.test {
-                var id = awaitItem()
-                if (id == null) {
-                    id = awaitItem()
-                }
-                assertEquals("w-1", id)
+            viewModel.programsUiState.test {
+                val initial = awaitItem() as ProgramsUiState.Loaded
+                assertEquals("w-1", initial.expandedWorkoutId)
 
                 viewModel.setExpandedWorkout(null)
                 advanceUntilIdle()
 
-                assertNull(awaitItem())
+                val cleared = awaitItem() as ProgramsUiState.Loaded
+                assertNull(cleared.expandedWorkoutId)
                 assertNull(uiPrefs.current.expandedWorkoutId)
                 cancelAndIgnoreRemainingEvents()
             }
         }
+    }
+
+    /**
+     * Reads [ProgramsUiState] emissions until the minimized bar is present. Starting a
+     * session re-emits the combined pipeline once with the stale (null) bar before the
+     * bar recomputes, so a single [awaitItem] is not enough.
+     */
+    private suspend fun ReceiveTurbine<ProgramsUiState>.awaitLoadedWithBar(): ProgramsUiState.Loaded {
+        var state = awaitItem()
+        while ((state as? ProgramsUiState.Loaded)?.activeBar == null) {
+            state = awaitItem()
+        }
+        return state as ProgramsUiState.Loaded
     }
 
     private fun buildViewModel(
@@ -520,6 +544,7 @@ class ProgramsViewModelTest {
             )
         val logging = FakeLoggingPort()
         lastLogging = logging
+        val overlayStore = FakeWorkoutOverlayStore()
         return ProgramsViewModel(
             observeProgram = com.stratum.application.program.ObserveProgramUseCase(repository),
             observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
@@ -527,11 +552,17 @@ class ProgramsViewModelTest {
             startTrainingSession = StartTrainingSessionUseCase(trainingLog, repository),
             observeCycleProgress = ObserveCycleProgressUseCase(repository, trainingLog),
             abandonTrainingSession = com.stratum.application.training.AbandonTrainingSessionUseCase(trainingLog),
-            getLoggedSetsForSession = com.stratum.application.training.GetLoggedSetsForSessionUseCase(trainingLog),
+            observeMinimizedBar =
+                ObserveMinimizedWorkoutBarUseCase(
+                    ObserveCycleProgressUseCase(repository, trainingLog),
+                    ObserveLiftCatalogUseCase(liftRepository),
+                    ManageWorkoutOverlayUseCase(overlayStore),
+                    com.stratum.application.training.GetLoggedSetsForSessionUseCase(trainingLog),
+                ),
             recordWorkoutSkip = com.stratum.application.training.RecordWorkoutSkipUseCase(trainingLog, repository),
             recordRestDaySkip = com.stratum.application.training.RecordRestDaySkipUseCase(trainingLog, repository),
             unskipWorkout = com.stratum.application.training.UnskipWorkoutUseCase(trainingLog, repository),
-            manageWorkoutOverlay = ManageWorkoutOverlayUseCase(FakeWorkoutOverlayStore()),
+            manageWorkoutOverlay = ManageWorkoutOverlayUseCase(overlayStore),
             observeProgramsUiPreferences = ObserveProgramsUiPreferencesUseCase(uiPrefs),
             setExpandedWorkoutId = SetExpandedWorkoutIdUseCase(uiPrefs),
             diagnosticDrain = DiagnosticDrain(logging),
