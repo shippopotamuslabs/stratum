@@ -38,7 +38,6 @@ import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.feature.workout.LiveSetKind
 import com.stratum.feature.workout.WorkoutViewModel
-import com.stratum.feature.workout.notification.RestTimerDefaults
 import com.stratum.feature.workout.notification.RestTimerState
 import kotlinx.coroutines.delay
 
@@ -78,9 +77,9 @@ fun WorkoutRoute(
     LaunchedEffect(restState) {
         while (restState is RestTimerState.Running) {
             nowMs = System.currentTimeMillis()
-            if (viewModel.restTimer.remainingSeconds(nowMs) <= 0) {
+            if (viewModel.restRemainingSeconds(nowMs) <= 0) {
                 // Same completion gate as RestTimerForegroundService — one bell max.
-                viewModel.restCompletion.completeIfDue()
+                viewModel.completeRestIfDue()
                 break
             }
             delay(250L)
@@ -90,7 +89,7 @@ fun WorkoutRoute(
 
     val running = restState as? RestTimerState.Running
     val remainingRestSeconds = if (running != null) {
-        viewModel.restTimer.remainingSeconds(nowMs)
+        viewModel.restRemainingSeconds(nowMs)
     } else {
         0
     }
@@ -98,8 +97,6 @@ fun WorkoutRoute(
     val isRestTimerActive = running != null && remainingRestSeconds > 0
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val userMessage by viewModel.userMessage.collectAsStateWithLifecycle()
-    val equipmentSwap by viewModel.equipmentSwap.collectAsStateWithLifecycle()
-    val equipmentRewritePrompt by viewModel.equipmentRewritePrompt.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var pendingSetLogged by remember { mutableStateOf<WorkoutUiEvent.SetLogged?>(null) }
     var failedLogSlotKey by remember { mutableStateOf<String?>(null) }
@@ -145,15 +142,15 @@ fun WorkoutRoute(
                 remainingSeconds = remainingRestSeconds,
                 totalSeconds = totalRestSeconds,
                 onStart = { seconds ->
-                    viewModel.restTimer.start(
-                        seconds = seconds.coerceAtMost(RestTimerDefaults.MAX_REST_SECONDS),
+                    viewModel.startRest(
+                        seconds = seconds,
                         workoutId = state.workoutId,
                         workoutName = state.workoutName,
                     )
                 },
-                onAdd10s = viewModel.restTimer::add10Seconds,
-                onSubtract10s = viewModel.restTimer::subtract10Seconds,
-                onSkip = viewModel.restTimer::skip,
+                onAdd10s = viewModel::add10SecondsToRest,
+                onSubtract10s = viewModel::subtract10SecondsFromRest,
+                onSkip = viewModel::skipRest,
             )
             WorkoutScreen(
                 state = state,
@@ -165,7 +162,7 @@ fun WorkoutRoute(
                 onFailedLogConsumed = { failedLogSlotKey = null },
                 equipmentSwapHost =
                     EquipmentSwapHost(
-                        sheet = equipmentSwap,
+                        sheet = state.equipmentSwap,
                         onQuery = viewModel::setEquipmentSwapQuery,
                         onSelect = viewModel::selectSwapEquipment,
                         onDismiss = viewModel::closeEquipmentSwap,
@@ -173,7 +170,7 @@ fun WorkoutRoute(
                             viewModel.beginCreateEquipment()
                             onCreateEquipmentClick()
                         },
-                        rewritePrompt = equipmentRewritePrompt,
+                        rewritePrompt = state.equipmentRewritePrompt,
                         onRewrite = viewModel::confirmRewriteLoggedSets,
                         onKeepOld = viewModel::keepLoggedSetsEquipment,
                         onDismissPrompt = viewModel::dismissRewritePrompt,

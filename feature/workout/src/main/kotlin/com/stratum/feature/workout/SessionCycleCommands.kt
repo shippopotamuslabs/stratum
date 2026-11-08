@@ -68,11 +68,19 @@ internal fun LiveWorkoutSessionRuntime.handleRenderOnly() {
 }
 
 internal suspend fun LiveWorkoutSessionRuntime.handleApplyCycleSnapshot(cmd: SessionCommand.ApplyCycleSnapshot) {
+    // Retained tombstoned rows survive snapshot reinstalls (STR-209): live
+    // rows win on id collision so an un-deleted row resolves live again.
+    val retainedLifts = liftsById.filterKeys { it in tombstonedLiftIds }
+    val retainedEquipment = equipmentById.filterKeys { it in tombstonedEquipmentIds }
     liftNamesById = cmd.catalog.associate { lift -> lift.id to lift.name }
-    liftsById = cmd.catalog.associateBy { lift -> lift.id }
-    equipmentById = cmd.equipment.associateBy { equipment -> equipment.id }
-    tombstonedEquipmentIds = cmd.equipment.filter { it.isTombstoned }.map { it.id }.toSet()
-    tombstonedLiftIds = cmd.catalog.filter { it.isTombstoned }.map { it.id }.toSet()
+    liftsById = retainedLifts + cmd.catalog.associateBy { lift -> lift.id }
+    equipmentById = retainedEquipment + cmd.equipment.associateBy { equipment -> equipment.id }
+    catalogEquipment = cmd.equipment
+    liftNamesById = liftNamesById + retainedLifts.mapValues { (_, lift) -> lift.name }
+    tombstonedEquipmentIds =
+        cmd.equipment.filter { it.isTombstoned }.map { it.id }.toSet() + retainedEquipment.keys
+    tombstonedLiftIds =
+        cmd.catalog.filter { it.isTombstoned }.map { it.id }.toSet() + retainedLifts.keys
 
     val program = cmd.program
     val session = cmd.session
@@ -178,6 +186,9 @@ internal suspend fun LiveWorkoutSessionRuntime.handleApplyCycleSnapshot(cmd: Ses
             shouldRecompute = true
         }
     }
+    // Tombstoned rows referenced by this session but missing from the live
+    // catalog resolve by id before the frame renders (STR-209).
+    resolveRetainedCatalogRows()
     applyPinnedNotesFromTemplate()
     if (shouldRecompute) {
         recomputeRecommendations()

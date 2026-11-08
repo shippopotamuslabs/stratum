@@ -10,7 +10,6 @@ import com.stratum.domain.lift.CatalogNoteInput
 import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.EquipmentPickResult
 import com.stratum.application.lift.GetLiftNoteListsUseCase
-import com.stratum.application.lift.ObserveEquipmentCatalogUseCase
 import com.stratum.application.lift.GetPastSessionNotesForLiftUseCase
 import com.stratum.domain.lift.EquipmentPickAwaiter
 import com.stratum.application.lift.GetRecentlyUsedEquipmentForLiftUseCase
@@ -22,7 +21,6 @@ import com.stratum.domain.program.identity.WorkoutLiftNoteId
 import com.stratum.feature.workout.ui.LiftNoteListsSaveRequest
 import com.stratum.feature.workout.ui.NoteDraftUi
 import com.stratum.feature.workout.ui.NoteListsUi
-import com.stratum.application.lift.ObserveLiftCatalogUseCase
 import com.stratum.application.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.OptionalNoteEdit
 import com.stratum.domain.lift.SaveLiftNotesCommand
@@ -39,7 +37,6 @@ import com.stratum.application.training.DeleteLoggedSetUseCase
 import com.stratum.application.training.FinalizeTrainingSessionUseCase
 import com.stratum.application.training.GetLoggedSetsForSessionUseCase
 import com.stratum.application.training.LogSetUseCase
-import com.stratum.application.training.ObserveCycleProgressUseCase
 import com.stratum.application.training.AbandonTrainingSessionResult
 import com.stratum.application.training.RewriteSessionLiftEquipmentResult
 import com.stratum.application.training.RewriteSessionLiftEquipmentUseCase
@@ -52,6 +49,7 @@ import com.stratum.application.workout.EstimateAddedSetRepsUseCase
 import com.stratum.application.workout.GenerateProgressionSnapshotUseCase
 import com.stratum.application.workout.ManageWorkoutOverlayUseCase
 import com.stratum.application.workout.MergeRenderedWorkoutUseCase
+import com.stratum.application.workout.ObserveWorkoutSessionInputsUseCase
 import com.stratum.application.workout.ProjectWorkoutStructureUseCase
 import com.stratum.application.workout.RecomputeRecommendationsUseCase
 import com.stratum.domain.workout.SetSlotId
@@ -59,7 +57,6 @@ import com.stratum.domain.workout.WorkoutEditSession
 import com.stratum.feature.workout.notification.LiveWorkoutSurfaces
 import com.stratum.feature.workout.notification.RestTimerState
 import com.stratum.feature.workout.ui.EquipmentRewritePromptUi
-import com.stratum.feature.workout.ui.enrichTemplateChangeNames
 import com.stratum.feature.workout.ui.EquipmentSwapUi
 import com.stratum.feature.workout.ui.PastSessionNotesGroupUi
 import com.stratum.feature.workout.ui.RenderedLiftUi
@@ -74,11 +71,13 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -97,7 +96,7 @@ import kotlin.coroutines.cancellation.CancellationException
 @HiltViewModel
 @Suppress("TooManyFunctions", "LongParameterList", "LargeClass")
 class WorkoutViewModel @Inject constructor(
-    private val observeCycleProgress: ObserveCycleProgressUseCase,
+    private val observeWorkoutSessionInputs: ObserveWorkoutSessionInputsUseCase,
     generateSnapshot: GenerateProgressionSnapshotUseCase,
     mergeRenderedWorkout: MergeRenderedWorkoutUseCase,
     projectStructure: ProjectWorkoutStructureUseCase,
@@ -105,7 +104,6 @@ class WorkoutViewModel @Inject constructor(
     estimateAddedSetReps: EstimateAddedSetRepsUseCase,
     logSetUseCase: LogSetUseCase,
     updateLoggedSet: UpdateLoggedSetUseCase,
-    private val observeLiftCatalog: ObserveLiftCatalogUseCase,
     private val getLiftsByIds: com.stratum.application.lift.GetLiftsByIdsUseCase,
     getLoggedSetsForSession: GetLoggedSetsForSessionUseCase,
     deleteLoggedSet: DeleteLoggedSetUseCase,
@@ -124,7 +122,6 @@ class WorkoutViewModel @Inject constructor(
     private val getPastSessionNotesForLift: GetPastSessionNotesForLiftUseCase,
     private val getLiftNoteLists: GetLiftNoteListsUseCase,
     getSessionPinnedNoteLists: GetSessionPinnedNoteListsUseCase,
-    private val observeEquipmentCatalog: ObserveEquipmentCatalogUseCase,
     private val getEquipment: com.stratum.application.lift.GetEquipmentUseCase,
     private val getRecentlyUsedEquipment: GetRecentlyUsedEquipmentForLiftUseCase,
     private val equipmentPickResult: EquipmentPickResult,
@@ -142,27 +139,26 @@ class WorkoutViewModel @Inject constructor(
     /** Session frames from the runtime; equipment editing is always enabled. */
     private val sessionFrames = MutableStateFlow<WorkoutUiState>(WorkoutUiState.Loading)
 
-    val uiState: StateFlow<WorkoutUiState> = sessionFrames.asStateFlow()
-
-    /** Equipment catalog mirror for subheader names + the swap sheet full list. */
-    private val equipmentCatalog = MutableStateFlow<List<Equipment>>(emptyList())
-
-    /** Tombstoned rows referenced by this session, resolved by id (STR-105 Scope 5). */
-    private val retainedEquipment = MutableStateFlow<List<Equipment>>(emptyList())
-
-    /** Tombstoned lifts referenced by this session, resolved by id (STR-131 Scope 4.5). */
-    private val retainedLifts = MutableStateFlow<List<com.stratum.domain.lift.Lift>>(emptyList())
-
-    /** Open equipment swap sheet, or null when closed. */
+    /** Open equipment swap sheet, or null when closed (transient; folded into [uiState]). */
     // Declared above init: the pick collector launched below reads these eagerly.
     private val _equipmentSwap = MutableStateFlow<EquipmentSwapUi?>(null)
-    val equipmentSwap: StateFlow<EquipmentSwapUi?> = _equipmentSwap.asStateFlow()
 
-    /** Partial-swap prompt, or null when no decision is pending. */
+    /** Partial-swap prompt, or null when no decision is pending (transient; folded into [uiState]). */
     private val _equipmentRewritePrompt = MutableStateFlow<EquipmentRewritePromptUi?>(null)
     private var rewriteInFlight = false
-    val equipmentRewritePrompt: StateFlow<EquipmentRewritePromptUi?> =
-        _equipmentRewritePrompt.asStateFlow()
+
+    /**
+     * The only screen-state flow (STR-209): runtime session frames layered
+     * with the transient swap sheet + rewrite prompt. Catalog mirrors live in
+     * `LiveWorkoutSessionRuntime` — never here.
+     */
+    val uiState: StateFlow<WorkoutUiState> =
+        combine(sessionFrames, _equipmentSwap, _equipmentRewritePrompt) { frames, swap, prompt ->
+            when (frames) {
+                is WorkoutUiState.Loaded -> frames.copy(equipmentSwap = swap, equipmentRewritePrompt = prompt)
+                else -> frames
+            }
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, WorkoutUiState.Loading)
 
     /** Create-new arming: target card + pick generation snapshot (see [beginCreateEquipment]). */
     private val pickAwaiter = EquipmentPickAwaiter(equipmentPickResult)
@@ -171,13 +167,47 @@ class WorkoutViewModel @Inject constructor(
     private val _userMessage = MutableStateFlow<String?>(null)
     val userMessage: StateFlow<String?> = _userMessage.asStateFlow()
 
-    val restTimerState: StateFlow<RestTimerState> = liveWorkoutSurfaces.restTimer.state
+    /**
+     * Process-scoped rest countdown, VM-owned sharing over the singleton
+     * controller's state (STR-209).
+     *
+     * The rest controller stays the process-scoped `@Singleton` shared with
+     * the rest foreground service: this flow only owns the ViewModel-side
+     * subscription, and the delegates below only forward —
+     * [remainingSeconds][restRemainingSeconds] and
+     * [completeIfDue][completeRestIfDue] semantics are unchanged.
+     */
+    val restTimerState: StateFlow<RestTimerState> =
+        liveWorkoutSurfaces.restTimer.state.stateIn(
+            viewModelScope,
+            SharingStarted.Eagerly,
+            liveWorkoutSurfaces.restTimer.state.value,
+        )
 
-    /** Process-scoped rest timer; adjust/skip/remaining are exposed for the route + notifications. */
-    val restTimer get() = liveWorkoutSurfaces.restTimer
+    /** Remaining countdown seconds for the tick loop; forwarded to the shared controller. */
+    fun restRemainingSeconds(nowMs: Long): Int =
+        liveWorkoutSurfaces.restTimer.remainingSeconds(nowMs)
 
     /** Single completion gate (bell + silent heads-up) shared with the rest FGS. */
-    val restCompletion get() = liveWorkoutSurfaces.restCompletion
+    fun completeRestIfDue(): Boolean = liveWorkoutSurfaces.restCompletion.completeIfDue()
+
+    /** Starts the shared rest countdown; forwarded to the shared controller. */
+    fun startRest(seconds: Int, workoutId: String, workoutName: String) {
+        liveWorkoutSurfaces.restTimer.start(
+            seconds = seconds,
+            workoutId = workoutId,
+            workoutName = workoutName,
+        )
+    }
+
+    /** Adds 10 seconds to the shared rest countdown. */
+    fun add10SecondsToRest() = liveWorkoutSurfaces.restTimer.add10Seconds()
+
+    /** Subtracts 10 seconds from the shared rest countdown. */
+    fun subtract10SecondsFromRest() = liveWorkoutSurfaces.restTimer.subtract10Seconds()
+
+    /** Skips the shared rest countdown. */
+    fun skipRest() = liveWorkoutSurfaces.restTimer.skip()
 
     private val _events = Channel<WorkoutUiEvent>(Channel.BUFFERED)
     val events: Flow<WorkoutUiEvent> = _events.receiveAsFlow()
@@ -196,7 +226,9 @@ class WorkoutViewModel @Inject constructor(
     private val sessionEffects =
         object : SessionEffects {
             override fun publishUi(state: WorkoutUiState) {
-                sessionFrames.value = attachEquipmentNames(state)
+                // Frames arrive complete from the runtime (names attached in
+                // render); the swap/prompt layer folds on top in [uiState].
+                sessionFrames.value = state
             }
 
             override fun publishUserMessage(message: String?) {
@@ -250,6 +282,8 @@ class WorkoutViewModel @Inject constructor(
             manageWorkoutOverlay = manageWorkoutOverlay,
             getSessionPinnedNoteLists = getSessionPinnedNoteLists,
             diagnosticDrain = diagnosticDrain,
+            getEquipment = getEquipment,
+            getLiftsByIds = getLiftsByIds,
         )
 
     init {
@@ -261,30 +295,6 @@ class WorkoutViewModel @Inject constructor(
                         _equipmentSwap.value = null
                     }
                 }
-            }
-        }
-        viewModelScope.launch {
-            observeEquipmentCatalog().collect { catalog ->
-                equipmentCatalog.value = catalog
-                // STR-105 Scope 5: retained rows for this session (see helper).
-                fetchRetainedEquipment(catalog)
-                // Re-attach names to the current frame + refresh an open sheet's full list.
-                sessionFrames.value = attachEquipmentNames(sessionFrames.value)
-                _equipmentSwap.value?.let { open ->
-                    _equipmentSwap.value =
-                        open.copy(
-                            sheet =
-                                open.sheet.copy(
-                                    all = catalog.map { it.toSwapOption() },
-                                ),
-                        )
-                }
-            }
-        }
-        viewModelScope.launch {
-            observeLiftCatalog().collect { catalog ->
-                // STR-131 Scope 4.5: retained rows for this session (see helper).
-                fetchRetainedLifts(catalog)
             }
         }
         viewModelScope.launch {
@@ -385,28 +395,28 @@ class WorkoutViewModel @Inject constructor(
         sessionObservationJob =
             viewModelScope.launch {
                 session.send(SessionCommand.StartSession(workoutId))
-                // Catalogs are combined so a mid-session lift merge (delete/hide source + overlay
-                // remap) rebinds even when the program row fingerprint is unchanged, and the
-                // equipment catalog rides the same snapshot (STR-128) so tier saves on the
-                // equipment in use re-resolve the adjust chip atomically with the lifts.
-                combine(
-                    observeCycleProgress(),
-                    observeLiftCatalog(),
-                    observeEquipmentCatalog(),
-                    retainedEquipment,
-                    retainedLifts,
-                ) { progress, catalog, equipment, retained, retainedLiftRows ->
-                    // Live catalog wins on id collisions; retained rows only
-                    // fill in lifts the catalog no longer surfaces (STR-131).
-                    val liveIds = catalog.map { it.id }.toSet()
-                    Triple(
-                        progress,
-                        catalog + retainedLiftRows.filterNot { it.id in liveIds },
-                        equipment + retained,
-                    )
-                }.collect { (progress, catalog, equipment) ->
-                    val program = progress.program
-                    val trainingSession = progress.activeSession
+                // Single durable source (STR-209): the use case combines cycle
+                // progress + lift/equipment catalogs so a mid-session lift merge
+                // (delete/hide source + overlay remap) rebinds even when the
+                // program row fingerprint is unchanged, and the equipment
+                // catalog rides the same snapshot (STR-128) so tier saves on
+                // the equipment in use re-resolve the adjust chip atomically
+                // with the lifts. Tombstoned-row retention lives in the
+                // runtime, which merges retained rows into its own maps.
+                observeWorkoutSessionInputs().collect { inputs ->
+                    // Refresh an open sheet's full list from the same emission
+                    // that feeds the snapshot (no held catalog mirror).
+                    _equipmentSwap.value?.let { open ->
+                        _equipmentSwap.value =
+                            open.copy(
+                                sheet =
+                                    open.sheet.copy(
+                                        all = inputs.equipment.map { it.toSwapOption() },
+                                    ),
+                            )
+                    }
+                    val program = inputs.progress.program
+                    val trainingSession = inputs.progress.activeSession
                     if (
                         program == null ||
                         trainingSession == null ||
@@ -418,8 +428,8 @@ class WorkoutViewModel @Inject constructor(
                                 program = program,
                                 session = trainingSession,
                                 workout = null,
-                                catalog = catalog,
-                                equipment = equipment,
+                                catalog = inputs.lifts,
+                                equipment = inputs.equipment,
                             ),
                         )
                         return@collect
@@ -442,8 +452,8 @@ class WorkoutViewModel @Inject constructor(
                                 program = program,
                                 session = trainingSession,
                                 workout = null,
-                                catalog = catalog,
-                                equipment = equipment,
+                                catalog = inputs.lifts,
+                                equipment = inputs.equipment,
                             ),
                         )
                         return@collect
@@ -454,8 +464,8 @@ class WorkoutViewModel @Inject constructor(
                             program = program,
                             session = trainingSession,
                             workout = workout,
-                            catalog = catalog,
-                            equipment = equipment,
+                            catalog = inputs.lifts,
+                            equipment = inputs.equipment,
                         ),
                     )
                 }
@@ -550,7 +560,8 @@ class WorkoutViewModel @Inject constructor(
     fun openEquipmentSwap(workoutLiftId: String) {
         val loaded = sessionFrames.value as? WorkoutUiState.Loaded ?: return
         val lift = loaded.lifts.firstOrNull { it.workoutLiftId == workoutLiftId } ?: return
-        val catalog = equipmentCatalog.value
+        // Tap-time read of runtime memory (STR-209): no held catalog mirror.
+        val catalog = session.equipmentCatalogSnapshot()
         _equipmentSwap.value =
             EquipmentSwapUi(
                 workoutLiftId = workoutLiftId,
@@ -674,60 +685,6 @@ class WorkoutViewModel @Inject constructor(
     fun dismissRewritePrompt() {
         if (rewriteInFlight) return
         _equipmentRewritePrompt.value = null
-    }
-
-    /**
-     * Resolves tombstoned rows referenced by the current frame (deleted
-     * mid-session) into [retainedEquipment] so subheader names and retained
-     * tiers never blank. Live catalog rows are never retained.
-     */
-    private suspend fun fetchRetainedEquipment(catalog: List<Equipment>) {
-        val loaded = sessionFrames.value as? WorkoutUiState.Loaded ?: return
-        val referenced = loaded.lifts.mapNotNull { it.sessionEquipmentId }.toSet()
-        val known = catalog.map { it.id.value }.toSet() +
-            retainedEquipment.value.map { it.id.value }
-        val fetched =
-            (referenced - known).mapNotNull { id ->
-                getEquipment(com.stratum.domain.lift.identity.EquipmentId(id))
-            }.filter { it.isTombstoned }
-        if (fetched.isNotEmpty()) {
-            retainedEquipment.value = retainedEquipment.value + fetched
-        }
-    }
-
-    /**
-     * Resolves tombstoned lifts referenced by the current frame (deleted
-     * mid-session) into [retainedLifts] so the session keeps resolving the
-     * retained row by id and can finish normally (STR-131 grandfathering).
-     * Live catalog rows are never retained.
-     */
-    private suspend fun fetchRetainedLifts(catalog: List<com.stratum.domain.lift.Lift>) {
-        val loaded = sessionFrames.value as? WorkoutUiState.Loaded ?: return
-        val referenced = loaded.lifts.map { it.liftId }.toSet()
-        val known = catalog.map { it.id.value }.toSet() +
-            retainedLifts.value.map { it.id.value }.toSet()
-        val missing = referenced - known
-        if (missing.isEmpty()) return
-        val fetched =
-            getLiftsByIds(missing.map { com.stratum.domain.lift.identity.LiftId(it) })
-                .filter { it.isTombstoned }
-        if (fetched.isNotEmpty()) {
-            retainedLifts.value = retainedLifts.value + fetched
-        }
-    }
-
-    private fun attachEquipmentNames(state: WorkoutUiState): WorkoutUiState {
-        if (state !is WorkoutUiState.Loaded) return state
-        val names = (equipmentCatalog.value + retainedEquipment.value).associate { it.id.value to it.name }
-        if (names.isEmpty()) return state
-        return state.copy(
-            lifts =
-                state.lifts.map { lift ->
-                    lift.copy(sessionEquipmentName = lift.sessionEquipmentId?.let(names::get))
-                },
-            templateChanges =
-                state.templateChanges?.let { enrichTemplateChangeNames(it, names) },
-        )
     }
 
     private fun Equipment.toSwapOption(): EquipmentSwapOption =

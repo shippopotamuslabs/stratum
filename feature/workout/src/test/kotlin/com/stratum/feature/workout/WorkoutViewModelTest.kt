@@ -56,6 +56,7 @@ import com.stratum.domain.training.TrainingSessionOrigin
 import com.stratum.domain.training.TrainingSessionStatus
 import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.application.workout.EstimateAddedSetRepsUseCase
+import com.stratum.application.workout.ObserveWorkoutSessionInputsUseCase
 import com.stratum.application.workout.GenerateProgressionSnapshotUseCase
 import com.stratum.application.workout.GetSessionPinnedNoteListsUseCase
 import com.stratum.application.workout.ManageWorkoutOverlayUseCase
@@ -80,6 +81,8 @@ import com.stratum.feature.workout.ui.RestEditedUi
 import com.stratum.feature.workout.ui.TemplateChangeCategoryUi
 import com.stratum.feature.workout.ui.WorkoutUiEvent
 import com.stratum.feature.workout.ui.WorkoutUiState
+import com.stratum.feature.workout.ui.EquipmentRewritePromptUi
+import com.stratum.feature.workout.ui.EquipmentSwapUi
 import com.stratum.feature.workout.ui.EquipmentSwappedUi
 import com.stratum.feature.workout.ui.equipmentEditRequestFor
 import com.stratum.feature.workout.ui.liveEquipmentEditRequestFor
@@ -383,7 +386,11 @@ class WorkoutViewModelTest {
     ): WorkoutViewModel {
         // Uses the seeded [programRepository] / [progressionHistory] from [setUp].
         return WorkoutViewModel(
-            observeCycleProgress = ObserveCycleProgressUseCase(programRepository, trainingLogRepository),
+            observeWorkoutSessionInputs = ObserveWorkoutSessionInputsUseCase(
+                ObserveCycleProgressUseCase(programRepository, trainingLogRepository),
+                ObserveLiftCatalogUseCase(liftRepository),
+                ObserveEquipmentCatalogUseCase(equipmentRepository),
+            ),
             generateSnapshot =
                 GenerateProgressionSnapshotUseCase(
                     progressionHistoryPort = progressionHistory,
@@ -404,7 +411,6 @@ class WorkoutViewModelTest {
                 loggedLiftContextFactory = DefaultLoggedLiftContextFactory(),
             ),
             updateLoggedSet = UpdateLoggedSetUseCase(trainingLogRepository),
-            observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
             getLiftsByIds = com.stratum.application.lift.GetLiftsByIdsUseCase(liftRepository),
             getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
             deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository),
@@ -439,7 +445,6 @@ class WorkoutViewModelTest {
                 programRepository,
                 liftRepository,
             ),
-            observeEquipmentCatalog = ObserveEquipmentCatalogUseCase(equipmentRepository),
             getEquipment = com.stratum.application.lift.GetEquipmentUseCase(equipmentRepository),
             getRecentlyUsedEquipment = GetRecentlyUsedEquipmentForLiftUseCase(
                 trainingLogRepository,
@@ -482,7 +487,11 @@ class WorkoutViewModelTest {
         progressionHistory = FakeProgressionHistoryRepository()
         val liftRepository = FakeLiftRepository(initialLifts = lifts)
         return WorkoutViewModel(
-            observeCycleProgress = ObserveCycleProgressUseCase(programRepository, trainingLogRepository),
+            observeWorkoutSessionInputs = ObserveWorkoutSessionInputsUseCase(
+                ObserveCycleProgressUseCase(programRepository, trainingLogRepository),
+                ObserveLiftCatalogUseCase(liftRepository),
+                ObserveEquipmentCatalogUseCase(equipmentRepository),
+            ),
             generateSnapshot =
                 GenerateProgressionSnapshotUseCase(
                     progressionHistoryPort = progressionHistory,
@@ -503,7 +512,6 @@ class WorkoutViewModelTest {
                 loggedLiftContextFactory = DefaultLoggedLiftContextFactory(),
             ),
             updateLoggedSet = UpdateLoggedSetUseCase(trainingLogRepository),
-            observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
             getLiftsByIds = com.stratum.application.lift.GetLiftsByIdsUseCase(liftRepository),
             getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
             deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository),
@@ -538,7 +546,6 @@ class WorkoutViewModelTest {
                 programRepository,
                 liftRepository,
             ),
-            observeEquipmentCatalog = ObserveEquipmentCatalogUseCase(equipmentRepository),
             getEquipment = com.stratum.application.lift.GetEquipmentUseCase(equipmentRepository),
             getRecentlyUsedEquipment = GetRecentlyUsedEquipmentForLiftUseCase(
                 trainingLogRepository,
@@ -567,7 +574,11 @@ class WorkoutViewModelTest {
         progressionHistory = FakeProgressionHistoryRepository()
         val liftRepository = FakeLiftRepository(initialLifts = listOf(catalogLift()))
         return WorkoutViewModel(
-            observeCycleProgress = ObserveCycleProgressUseCase(programRepository, trainingLogRepository),
+            observeWorkoutSessionInputs = ObserveWorkoutSessionInputsUseCase(
+                ObserveCycleProgressUseCase(programRepository, trainingLogRepository),
+                ObserveLiftCatalogUseCase(liftRepository),
+                ObserveEquipmentCatalogUseCase(equipmentRepository),
+            ),
             generateSnapshot =
                 GenerateProgressionSnapshotUseCase(
                     progressionHistoryPort = progressionHistory,
@@ -588,7 +599,6 @@ class WorkoutViewModelTest {
                 loggedLiftContextFactory = DefaultLoggedLiftContextFactory(),
             ),
             updateLoggedSet = UpdateLoggedSetUseCase(trainingLogRepository),
-            observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
             getLiftsByIds = com.stratum.application.lift.GetLiftsByIdsUseCase(liftRepository),
             getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
             deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository),
@@ -635,7 +645,6 @@ class WorkoutViewModelTest {
                 programRepository,
                 liftRepository,
             ),
-            observeEquipmentCatalog = ObserveEquipmentCatalogUseCase(equipmentRepository),
             getEquipment = com.stratum.application.lift.GetEquipmentUseCase(equipmentRepository),
             getRecentlyUsedEquipment = GetRecentlyUsedEquipmentForLiftUseCase(
                 trainingLogRepository,
@@ -1358,7 +1367,11 @@ class WorkoutViewModelTest {
         val emptyHistory = FakeProgressionHistoryRepository()
         val liftRepository = FakeLiftRepository(initialLifts = listOf(catalogLift()))
         val localViewModel = WorkoutViewModel(
-            observeCycleProgress = ObserveCycleProgressUseCase(programRepository, trainingLogRepository),
+            observeWorkoutSessionInputs = ObserveWorkoutSessionInputsUseCase(
+                ObserveCycleProgressUseCase(programRepository, trainingLogRepository),
+                ObserveLiftCatalogUseCase(liftRepository),
+                ObserveEquipmentCatalogUseCase(equipmentRepository),
+            ),
             generateSnapshot =
                 GenerateProgressionSnapshotUseCase(
                     progressionHistoryPort = emptyHistory,
@@ -1379,7 +1392,6 @@ class WorkoutViewModelTest {
                 loggedLiftContextFactory = DefaultLoggedLiftContextFactory(),
             ),
             updateLoggedSet = UpdateLoggedSetUseCase(trainingLogRepository),
-            observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
             getLiftsByIds = com.stratum.application.lift.GetLiftsByIdsUseCase(liftRepository),
             getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
             deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository),
@@ -1414,7 +1426,6 @@ class WorkoutViewModelTest {
                 programRepository,
                 liftRepository,
             ),
-            observeEquipmentCatalog = ObserveEquipmentCatalogUseCase(equipmentRepository),
             getEquipment = com.stratum.application.lift.GetEquipmentUseCase(equipmentRepository),
             getRecentlyUsedEquipment = GetRecentlyUsedEquipmentForLiftUseCase(
                 trainingLogRepository,
@@ -1454,7 +1465,11 @@ class WorkoutViewModelTest {
         val emptyHistory = FakeProgressionHistoryRepository()
         val liftRepository = FakeLiftRepository(initialLifts = listOf(catalogLift()))
         val localViewModel = WorkoutViewModel(
-            observeCycleProgress = ObserveCycleProgressUseCase(programRepository, trainingLogRepository),
+            observeWorkoutSessionInputs = ObserveWorkoutSessionInputsUseCase(
+                ObserveCycleProgressUseCase(programRepository, trainingLogRepository),
+                ObserveLiftCatalogUseCase(liftRepository),
+                ObserveEquipmentCatalogUseCase(equipmentRepository),
+            ),
             generateSnapshot =
                 GenerateProgressionSnapshotUseCase(
                     progressionHistoryPort = emptyHistory,
@@ -1475,7 +1490,6 @@ class WorkoutViewModelTest {
                 loggedLiftContextFactory = DefaultLoggedLiftContextFactory(),
             ),
             updateLoggedSet = UpdateLoggedSetUseCase(trainingLogRepository),
-            observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
             getLiftsByIds = com.stratum.application.lift.GetLiftsByIdsUseCase(liftRepository),
             getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
             deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository),
@@ -1510,7 +1524,6 @@ class WorkoutViewModelTest {
                 programRepository,
                 liftRepository,
             ),
-            observeEquipmentCatalog = ObserveEquipmentCatalogUseCase(equipmentRepository),
             getEquipment = com.stratum.application.lift.GetEquipmentUseCase(equipmentRepository),
             getRecentlyUsedEquipment = GetRecentlyUsedEquipmentForLiftUseCase(
                 trainingLogRepository,
@@ -3892,18 +3905,14 @@ class WorkoutViewModelTest {
         viewModel.startSession(workoutId)
         advanceUntilIdle()
 
-        viewModel.equipmentSwap.test {
-            assertNull(awaitItem())
-            viewModel.openEquipmentSwap(workoutLiftId.value)
-            val opened = checkNotNull(awaitItem())
-            assertEquals("barbell", opened.sheet.current?.id)
-            assertEquals("Olympic Barbell", opened.sheet.current?.name)
-            assertEquals(3, opened.sheet.all.size)
-            // Recents load asynchronously after the sheet opens.
-            val withRecents = checkNotNull(awaitItem())
-            assertEquals(listOf("ssb"), withRecents.sheet.recent.map { it.id })
-            cancelAndIgnoreRemainingEvents()
-        }
+        viewModel.openEquipmentSwap(workoutLiftId.value)
+        advanceUntilIdle()
+        val opened = checkNotNull(loadedSwap(viewModel))
+        assertEquals("barbell", opened.sheet.current?.id)
+        assertEquals("Olympic Barbell", opened.sheet.current?.name)
+        assertEquals(3, opened.sheet.all.size)
+        // Recents load asynchronously after the sheet opens.
+        assertEquals(listOf("ssb"), opened.sheet.recent.map { it.id })
     }
 
     @Test
@@ -3917,12 +3926,12 @@ class WorkoutViewModelTest {
 
         viewModel.openEquipmentSwap(workoutLiftId.value)
         advanceUntilIdle()
-        assertNotNull(viewModel.equipmentSwap.value)
+        assertNotNull(loadedSwap(viewModel))
 
         viewModel.selectSwapEquipment("ssb")
         advanceUntilIdle()
 
-        assertNull(viewModel.equipmentSwap.value)
+        assertNull(loadedSwap(viewModel))
         val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
         val lift = loaded.lifts.single { it.workoutLiftId == workoutLiftId.value }
         assertEquals("ssb", lift.sessionEquipmentId)
@@ -3949,7 +3958,7 @@ class WorkoutViewModelTest {
         equipmentPickResult.publish(com.stratum.domain.lift.identity.EquipmentId("new-machine"))
         advanceUntilIdle()
 
-        assertNull(viewModel.equipmentSwap.value)
+        assertNull(loadedSwap(viewModel))
         val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
         val lift = loaded.lifts.single { it.workoutLiftId == workoutLiftId.value }
         assertEquals("new-machine", lift.sessionEquipmentId)
@@ -3971,11 +3980,19 @@ class WorkoutViewModelTest {
         viewModel.beginCreateEquipment()
         advanceUntilIdle()
 
-        assertNotNull(viewModel.equipmentSwap.value)
+        assertNotNull(loadedSwap(viewModel))
         val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
         val lift = loaded.lifts.single { it.workoutLiftId == workoutLiftId.value }
         assertEquals("barbell", lift.sessionEquipmentId)
     }
+
+    /** Swap sheet folded into the Loaded frame (STR-209). */
+    private fun loadedSwap(viewModel: WorkoutViewModel): EquipmentSwapUi? =
+        (viewModel.uiState.value as WorkoutUiState.Loaded).equipmentSwap
+
+    /** Rewrite prompt folded into the Loaded frame (STR-209). */
+    private fun loadedPrompt(viewModel: WorkoutViewModel): EquipmentRewritePromptUi? =
+        (viewModel.uiState.value as WorkoutUiState.Loaded).equipmentRewritePrompt
 
     private suspend fun kotlinx.coroutines.test.TestScope.logFirstSet(viewModel: WorkoutViewModel) {
         viewModel.logSet(
@@ -4002,12 +4019,12 @@ class WorkoutViewModelTest {
         viewModel.selectSwapEquipment("ssb")
         advanceUntilIdle()
 
-        val prompt = checkNotNull(viewModel.equipmentRewritePrompt.value)
+        val prompt = checkNotNull(loadedPrompt(viewModel))
         assertEquals(1, prompt.loggedCount)
         assertEquals("ssb", prompt.newId)
         assertEquals("Safety Squat Bar", prompt.newName)
         assertEquals("Olympic Barbell", prompt.oldName)
-        assertNull(viewModel.equipmentSwap.value)
+        assertNull(loadedSwap(viewModel))
         val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
         assertEquals(
             "barbell",
@@ -4028,12 +4045,12 @@ class WorkoutViewModelTest {
         advanceUntilIdle()
         viewModel.selectSwapEquipment("ssb")
         advanceUntilIdle()
-        assertNotNull(viewModel.equipmentRewritePrompt.value)
+        assertNotNull(loadedPrompt(viewModel))
 
         viewModel.confirmRewriteLoggedSets()
         advanceUntilIdle()
 
-        assertNull(viewModel.equipmentRewritePrompt.value)
+        assertNull(loadedPrompt(viewModel))
         val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
         assertEquals(
             "ssb",
@@ -4060,7 +4077,7 @@ class WorkoutViewModelTest {
         advanceUntilIdle()
         viewModel.selectSwapEquipment("ssb")
         advanceUntilIdle()
-        assertNotNull(viewModel.equipmentRewritePrompt.value)
+        assertNotNull(loadedPrompt(viewModel))
 
         // Complete the session behind the prompt so the rewrite guard rejects.
         viewModel.completeWorkout(saveTemplate = false)
@@ -4068,7 +4085,7 @@ class WorkoutViewModelTest {
         viewModel.confirmRewriteLoggedSets()
         advanceUntilIdle()
 
-        assertNotNull(viewModel.equipmentRewritePrompt.value)
+        assertNotNull(loadedPrompt(viewModel))
         assertNotNull(viewModel.userMessage.value)
         val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
         assertEquals(
@@ -4094,12 +4111,12 @@ class WorkoutViewModelTest {
         advanceUntilIdle()
         viewModel.selectSwapEquipment("ssb")
         advanceUntilIdle()
-        assertNotNull(viewModel.equipmentRewritePrompt.value)
+        assertNotNull(loadedPrompt(viewModel))
 
         viewModel.keepLoggedSetsEquipment()
         advanceUntilIdle()
 
-        assertNull(viewModel.equipmentRewritePrompt.value)
+        assertNull(loadedPrompt(viewModel))
         val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
         assertEquals(
             "ssb",
@@ -4125,12 +4142,12 @@ class WorkoutViewModelTest {
         advanceUntilIdle()
         viewModel.selectSwapEquipment("ssb")
         advanceUntilIdle()
-        assertNotNull(viewModel.equipmentRewritePrompt.value)
+        assertNotNull(loadedPrompt(viewModel))
 
         viewModel.dismissRewritePrompt()
         advanceUntilIdle()
 
-        assertNull(viewModel.equipmentRewritePrompt.value)
+        assertNull(loadedPrompt(viewModel))
         val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
         assertEquals(
             "barbell",
@@ -4204,7 +4221,7 @@ class WorkoutViewModelTest {
         viewModel.selectSwapEquipment("ssb")
         advanceUntilIdle()
 
-        assertNull(viewModel.equipmentRewritePrompt.value)
+        assertNull(loadedPrompt(viewModel))
         val after = viewModel.uiState.value as WorkoutUiState.Loaded
         assertEquals(
             "100 × 5",
@@ -4233,7 +4250,7 @@ class WorkoutViewModelTest {
         equipmentPickResult.publish(com.stratum.domain.lift.identity.EquipmentId("new-machine"))
         advanceUntilIdle()
 
-        assertNull(viewModel.equipmentSwap.value)
+        assertNull(loadedSwap(viewModel))
         val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
         val lift = loaded.lifts.single { it.workoutLiftId == workoutLiftId.value }
         assertEquals("barbell", lift.sessionEquipmentId)
@@ -4258,7 +4275,7 @@ class WorkoutViewModelTest {
         equipmentPickResult.publish(com.stratum.domain.lift.identity.EquipmentId("new-machine"))
         advanceUntilIdle()
 
-        assertNull(viewModel.equipmentSwap.value)
+        assertNull(loadedSwap(viewModel))
         val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
         val lift = loaded.lifts.single { it.workoutLiftId == workoutLiftId.value }
         assertEquals("ssb", lift.sessionEquipmentId)
@@ -4286,7 +4303,7 @@ class WorkoutViewModelTest {
         val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
         val first = loaded.lifts.single { it.workoutLiftId == "wl-1" }
         assertEquals("barbell", first.sessionEquipmentId)
-        assertEquals("wl-2", viewModel.equipmentSwap.value?.workoutLiftId)
+        assertEquals("wl-2", loadedSwap(viewModel)?.workoutLiftId)
     }
 
     private fun programWithTwoLifts(): Program {
@@ -4319,12 +4336,12 @@ class WorkoutViewModelTest {
         viewModel.openEquipmentSwap(workoutLiftId.value)
         advanceUntilIdle()
         // No template or lift equipment: current is null, sheet still opens.
-        assertNull(viewModel.equipmentSwap.value?.sheet?.current)
+        assertNull(loadedSwap(viewModel)?.sheet?.current)
 
         viewModel.setEquipmentSwapQuery("cable")
-        assertEquals("cable", viewModel.equipmentSwap.value?.sheet?.query)
+        assertEquals("cable", loadedSwap(viewModel)?.sheet?.query)
 
         viewModel.closeEquipmentSwap()
-        assertNull(viewModel.equipmentSwap.value)
+        assertNull(loadedSwap(viewModel))
     }
 }

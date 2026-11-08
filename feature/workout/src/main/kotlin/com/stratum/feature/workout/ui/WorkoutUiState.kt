@@ -18,6 +18,16 @@ sealed interface WorkoutUiState {
         val lifts: List<RenderedLiftUi>,
         val isFinalizing: Boolean,
         val sessionStartedAtEpochMilli: Long,
+        /**
+         * Open equipment swap sheet for one lift card, or null when closed.
+         * Transient screen state folded from the former ViewModel flow (STR-209).
+         */
+        val equipmentSwap: EquipmentSwapUi? = null,
+        /**
+         * Partial-swap prompt, or null when no decision is pending.
+         * Transient screen state folded from the former ViewModel flow (STR-209).
+         */
+        val equipmentRewritePrompt: EquipmentRewritePromptUi? = null,
         val hasIncompleteLifts: Boolean = false,
         /**
          * When true, complete flow may offer "save structural edits to the program day".

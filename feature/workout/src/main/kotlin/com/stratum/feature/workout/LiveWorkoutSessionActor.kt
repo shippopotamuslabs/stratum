@@ -29,6 +29,8 @@ import com.stratum.application.workout.RecomputeRecommendationsUseCase
 import com.stratum.domain.workout.RenderedWorkout
 import com.stratum.domain.workout.SetSlotId
 import com.stratum.application.importing.ObserveLiftTrainingInsightsUseCase
+import com.stratum.application.lift.GetEquipmentUseCase
+import com.stratum.application.lift.GetLiftsByIdsUseCase
 import com.stratum.feature.workout.ui.WorkoutUiEvent
 import com.stratum.feature.workout.ui.WorkoutUiState
 import kotlin.coroutines.cancellation.CancellationException
@@ -65,6 +67,8 @@ internal class LiveWorkoutSessionActor(
     manageWorkoutOverlay: ManageWorkoutOverlayUseCase,
     getSessionPinnedNoteLists: GetSessionPinnedNoteListsUseCase,
     private val diagnosticDrain: DiagnosticDrain,
+    getEquipment: GetEquipmentUseCase,
+    getLiftsByIds: GetLiftsByIdsUseCase,
 ) {
     private var commands = Channel<SessionCommand>(Channel.UNLIMITED)
     private var consumerJob: Job? = null
@@ -90,6 +94,8 @@ internal class LiveWorkoutSessionActor(
             manageWorkoutOverlay = manageWorkoutOverlay,
             getSessionPinnedNoteLists = getSessionPinnedNoteLists,
             diagnosticDrain = diagnosticDrain,
+            getEquipment = getEquipment,
+            getLiftsByIds = getLiftsByIds,
         )
 
     init {
@@ -165,6 +171,14 @@ internal class LiveWorkoutSessionActor(
     }
 
     fun mergeRendered(): RenderedWorkout = runtime.merge()
+
+    /**
+     * Live equipment catalog rows for the swap sheet's full list (STR-209).
+     * Synchronous tap-time read of runtime memory; retained tombstoned rows
+     * are excluded — the sheet shows the live catalog only.
+     */
+    fun equipmentCatalogSnapshot(): List<com.stratum.domain.lift.Equipment> =
+        runtime.equipmentCatalogSnapshot()
 
     /**
      * Tap-time inference inputs for one live lift card's editor request (read of
