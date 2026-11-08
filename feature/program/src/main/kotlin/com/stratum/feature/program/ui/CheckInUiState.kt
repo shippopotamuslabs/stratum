@@ -4,6 +4,8 @@ import androidx.annotation.StringRes
 
 /** Presentation state for the coach check-in wizard (no domain types). */
 data class CheckInUiState(
+    /** Pending-check-in banner flag, folded from the former showBanner flow (STR-290). */
+    val showBanner: Boolean = false,
     val isOpen: Boolean = false,
     val phase: CheckInPhase = CheckInPhase.Subjective,
     val overallRecovery: RecoverySignalUi = RecoverySignalUi.Good,

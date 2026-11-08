@@ -27,11 +27,9 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -51,12 +49,13 @@ class CheckInViewModel @Inject constructor(
 
     private val applyInFlight = AtomicBoolean(false)
 
-    val showBanner: StateFlow<Boolean> =
-        observePendingCheckIn().stateIn(
-            viewModelScope,
-            SharingStarted.WhileSubscribed(5_000),
-            initialValue = false,
-        )
+    init {
+        viewModelScope.launch {
+            observePendingCheckIn().collect { pending ->
+                _uiState.update { it.copy(showBanner = pending) }
+            }
+        }
+    }
 
     fun openCheckIn() {
         viewModelScope.launch {
@@ -64,6 +63,7 @@ class CheckInViewModel @Inject constructor(
             applyInFlight.set(false)
             _uiState.value =
                 CheckInUiState(
+                    showBanner = _uiState.value.showBanner,
                     isOpen = true,
                     phase = CheckInPhase.Subjective,
                     overallRecovery = RecoverySignalUi.Good,
@@ -81,7 +81,7 @@ class CheckInViewModel @Inject constructor(
 
     fun dismiss() {
         applyInFlight.set(false)
-        _uiState.value = CheckInUiState()
+        _uiState.value = CheckInUiState(showBanner = _uiState.value.showBanner)
     }
 
     fun skip() {

@@ -27,7 +27,6 @@ fun ProgramsRoute(
     val state by viewModel.programsUiState.collectAsStateWithLifecycle()
     val activeWorkoutBar by viewModel.activeWorkoutBarState.collectAsStateWithLifecycle()
     val expandedWorkoutId by viewModel.expandedWorkoutId.collectAsStateWithLifecycle()
-    val showCheckInBanner by checkInViewModel.showBanner.collectAsStateWithLifecycle()
     val checkInUiState by checkInViewModel.uiState.collectAsStateWithLifecycle()
     val userMessage by viewModel.userMessage.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -87,7 +86,7 @@ fun ProgramsRoute(
             onExpandWorkoutClick = onNavigateToWorkout,
             modifier = modifier,
             isPreviewMode = isPreviewMode,
-            showCheckInBanner = showCheckInBanner && !isPreviewMode,
+            showCheckInBanner = checkInUiState.showBanner && !isPreviewMode,
             onCheckInBannerClick = checkInViewModel::openCheckIn,
             onCheckInSkipClick = checkInViewModel::skip,
             snackbarHostState = snackbarHostState,
