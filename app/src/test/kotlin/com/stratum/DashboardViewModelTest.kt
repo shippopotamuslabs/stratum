@@ -22,6 +22,7 @@ import com.stratum.domain.dashboard.DashboardPreferences
 import com.stratum.application.dashboard.LoadDashboardUseCase
 import com.stratum.application.dashboard.LoadGraphDetailUseCase
 import com.stratum.application.dashboard.ObserveDashboardPreferencesUseCase
+import com.stratum.application.dashboard.ObserveDashboardStateUseCase
 import com.stratum.application.healthconnect.LoadHealthConnectMetricsUseCase
 import com.stratum.application.healthconnect.ObserveHealthConnectPreferencesUseCase
 import com.stratum.application.lift.ObserveWeightDisplayPreferencesUseCase
@@ -48,6 +49,7 @@ import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.temporal.ChronoUnit
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -66,8 +68,9 @@ class DashboardViewModelTest {
     @Test
     fun `emits Empty when no weekly data exists`() = runTest {
         val viewModel = buildViewModel()
+        advanceUntilIdle()
 
-        assertEquals(DashboardUiState.Empty, viewModel.uiState.value)
+        assertEquals(DashboardBoardUiState.Empty, viewModel.uiState.value.board)
     }
 
     @Test
@@ -79,7 +82,7 @@ class DashboardViewModelTest {
         val viewModel = buildViewModel(stimulusRepo = stimulusRepo, logging = logging)
         advanceUntilIdle()
 
-        assertEquals(DashboardUiState.Error, viewModel.uiState.value)
+        assertEquals(DashboardBoardUiState.Error, viewModel.uiState.value.board)
         // STR-237: the boundary drain records the carried diagnostic exactly once.
         assertEquals(1, logging.errors.size)
         assertEquals("LoadDashboard", logging.errors.single().tag)
@@ -98,7 +101,7 @@ class DashboardViewModelTest {
         viewModel.openLiftGraph("bench")
         advanceUntilIdle()
 
-        assertEquals(GraphDetailUiState.Error, viewModel.graphDetailState.value)
+        assertEquals(GraphDetailUiState.Error, viewModel.uiState.value.graphDetail)
         // STR-237: the boundary drain records the carried diagnostic exactly once.
         assertEquals(1, logging.errors.size)
         assertEquals("LoadGraphDetail", logging.errors.single().tag)
@@ -109,7 +112,7 @@ class DashboardViewModelTest {
         viewModel.retryGraphDetail()
         advanceUntilIdle()
 
-        assertEquals(GraphDetailUiState.Empty, viewModel.graphDetailState.value)
+        assertEquals(GraphDetailUiState.Empty, viewModel.uiState.value.graphDetail)
     }
 
     @Test
@@ -148,7 +151,7 @@ class DashboardViewModelTest {
             programLiftIds = setOf(benchId),
         )
 
-        val loaded = viewModel.uiState.value as DashboardUiState.Loaded
+        val loaded = viewModel.uiState.value.board as DashboardBoardUiState.Loaded
         val muscle = loaded.muscles.single { it.name == "Chest" }
         assertEquals("13 sets/wk", muscle.headlineVolume)
         assertEquals(TrendBadge.Up, muscle.badge, "log-scale rise above 0.002/wk → Up")
@@ -187,7 +190,7 @@ class DashboardViewModelTest {
             liftRepo = liftRepo,
         )
 
-        val muscle = (viewModel.uiState.value as DashboardUiState.Loaded).muscles.single()
+        val muscle = (viewModel.uiState.value.board as DashboardBoardUiState.Loaded).muscles.single()
         assertEquals(TrendBadge.Flat, muscle.badge, "tiny log-index noise stays Flat")
     }
 
@@ -221,7 +224,7 @@ class DashboardViewModelTest {
             programLiftIds = setOf(benchId),
         )
 
-        val loaded = viewModel.uiState.value as DashboardUiState.Loaded
+        val loaded = viewModel.uiState.value.board as DashboardBoardUiState.Loaded
         assertEquals(listOf(SECTION_UPPER), loaded.liftSections.map { it.title })
         val liftUi = loaded.liftSections.single().lifts.single { it.name == "Bench Press" }
         assertTrue(liftUi.e1rmText?.contains("lb") == true, "e1RM text includes unit (default lbs)")
@@ -257,7 +260,7 @@ class DashboardViewModelTest {
             programLiftIds = setOf(benchId, squatId),
         )
 
-        val loaded = viewModel.uiState.value as DashboardUiState.Loaded
+        val loaded = viewModel.uiState.value.board as DashboardBoardUiState.Loaded
         assertEquals(listOf(SECTION_UPPER, SECTION_LOWER), loaded.liftSections.map { it.title })
         assertEquals(listOf("Bench Press"), loaded.liftSections[0].lifts.map { it.name })
         assertEquals(listOf("Back Squat"), loaded.liftSections[1].lifts.map { it.name })
@@ -301,9 +304,9 @@ class DashboardViewModelTest {
             liftRepo = liftRepo,
         )
 
-        assertTrue(viewModel.uiState.value is DashboardUiState.Loaded)
+        assertTrue(viewModel.uiState.value.board is DashboardBoardUiState.Loaded)
         viewModel.load()
-        assertTrue(viewModel.uiState.value is DashboardUiState.Loaded, "keep Loaded on reload")
+        assertTrue(viewModel.uiState.value.board is DashboardBoardUiState.Loaded, "keep Loaded on reload")
     }
 
     @Test
@@ -320,7 +323,7 @@ class DashboardViewModelTest {
             cloudSync = cloudSync,
         )
         advanceUntilIdle()
-        assertEquals(DashboardUiState.Empty, viewModel.uiState.value)
+        assertEquals(DashboardBoardUiState.Empty, viewModel.uiState.value.board)
 
         // Simulate post-pull rebuild filling weekly tables, then Idle.
         val now = Instant.now()
@@ -330,7 +333,7 @@ class DashboardViewModelTest {
         advanceUntilIdle()
 
         assertTrue(
-            viewModel.uiState.value is DashboardUiState.Loaded,
+            viewModel.uiState.value.board is DashboardBoardUiState.Loaded,
             "dashboard should reload after sync Idle once weekly series exist",
         )
     }
@@ -399,7 +402,7 @@ class DashboardViewModelTest {
         viewModel.openLiftGraph(benchId.value)
         advanceUntilIdle()
 
-        val detail = viewModel.graphDetailState.value as GraphDetailUiState.Ready
+        val detail = viewModel.uiState.value.graphDetail as GraphDetailUiState.Ready
         assertEquals("Bench Press", detail.title)
         assertEquals(GraphDetailKindUi.Lift, detail.kind)
         assertEquals(GraphViewMode.Primary, detail.selectedMode)
@@ -412,7 +415,7 @@ class DashboardViewModelTest {
         )
 
         viewModel.selectGraphTimeRange(GraphTimeRangeUi.All)
-        val allRange = viewModel.graphDetailState.value as GraphDetailUiState.Ready
+        val allRange = viewModel.uiState.value.graphDetail as GraphDetailUiState.Ready
         assertEquals(2, allRange.primaryPoints.size, "All shows full history")
     }
 
@@ -435,7 +438,7 @@ class DashboardViewModelTest {
         advanceUntilIdle()
         viewModel.selectGraphMode(GraphViewMode.Volume)
 
-        val detail = viewModel.graphDetailState.value as GraphDetailUiState.Ready
+        val detail = viewModel.uiState.value.graphDetail as GraphDetailUiState.Ready
         assertEquals(GraphViewMode.Volume, detail.selectedMode)
         assertEquals(4f, detail.primaryPoints.single().value)
         assertTrue(detail.secondaryPoints == null)
@@ -465,7 +468,7 @@ class DashboardViewModelTest {
         advanceUntilIdle()
         viewModel.selectGraphMode(GraphViewMode.Dual)
 
-        val detail = viewModel.graphDetailState.value as GraphDetailUiState.Ready
+        val detail = viewModel.uiState.value.graphDetail as GraphDetailUiState.Ready
         assertEquals(GraphViewMode.Dual, detail.selectedMode)
         assertEquals(2, detail.primaryPoints.size)
         assertEquals(2, detail.secondaryPoints?.size)
@@ -490,7 +493,7 @@ class DashboardViewModelTest {
         viewModel.openLiftGraph(benchId.value)
         advanceUntilIdle()
         viewModel.dismissGraphDetail()
-        assertEquals(GraphDetailUiState.Hidden, viewModel.graphDetailState.value)
+        assertEquals(GraphDetailUiState.Hidden, viewModel.uiState.value.graphDetail)
     }
 
     @Test
@@ -571,7 +574,7 @@ class DashboardViewModelTest {
         )
         advanceUntilIdle()
 
-        val loaded = viewModel.uiState.value as DashboardUiState.Loaded
+        val loaded = viewModel.uiState.value.board as DashboardBoardUiState.Loaded
         val daily = loaded.runningDailyVolume.single { it.name == "Chest" }
         assertEquals(7, daily.dayLabels.size)
         assertEquals("W", daily.dayLabels.last(), "rightmost label must be local Wednesday")
@@ -619,7 +622,7 @@ class DashboardViewModelTest {
         )
         advanceUntilIdle()
 
-        val loaded = viewModel.uiState.value as DashboardUiState.Loaded
+        val loaded = viewModel.uiState.value.board as DashboardBoardUiState.Loaded
         val daily = loaded.runningDailyVolume.single { it.name == "Chest" }
         assertEquals("1 set", daily.headlineSets)
         assertEquals(7, daily.volumePoints.size)
@@ -629,7 +632,7 @@ class DashboardViewModelTest {
         viewModel.openMuscleDailyVolumeGraph("Chest")
         advanceUntilIdle()
 
-        val detail = viewModel.graphDetailState.value as GraphDetailUiState.Ready
+        val detail = viewModel.uiState.value.graphDetail as GraphDetailUiState.Ready
         assertEquals(GraphDetailKindUi.MuscleDailyVolume, detail.kind)
         assertEquals(GraphViewMode.Volume, detail.selectedMode)
         assertEquals(GraphTimeRangeUi.OneWeek, detail.selectedRange)
@@ -643,7 +646,7 @@ class DashboardViewModelTest {
         val viewModel = buildViewModel()
         advanceUntilIdle()
 
-        assertEquals(DashboardBoardTabUi.Muscles, viewModel.selectedTab.value)
+        assertEquals(DashboardBoardTabUi.Muscles, viewModel.uiState.value.selectedTab)
     }
 
     @Test
@@ -654,7 +657,7 @@ class DashboardViewModelTest {
         val viewModel = buildViewModel(dashboardPreferences = prefs)
         advanceUntilIdle()
 
-        assertEquals(DashboardBoardTabUi.SevenDay, viewModel.selectedTab.value)
+        assertEquals(DashboardBoardTabUi.SevenDay, viewModel.uiState.value.selectedTab)
     }
 
     @Test
@@ -666,7 +669,7 @@ class DashboardViewModelTest {
         viewModel.selectTab(DashboardBoardTabUi.Lifts)
         advanceUntilIdle()
 
-        assertEquals(DashboardBoardTabUi.Lifts, viewModel.selectedTab.value)
+        assertEquals(DashboardBoardTabUi.Lifts, viewModel.uiState.value.selectedTab)
         assertEquals(DashboardBoardTab.Lifts, prefs.current.selectedTab)
     }
 
@@ -679,7 +682,7 @@ class DashboardViewModelTest {
         viewModel.selectTab(DashboardBoardTabUi.Muscles)
         advanceUntilIdle()
 
-        assertEquals(DashboardBoardTabUi.Muscles, viewModel.selectedTab.value)
+        assertEquals(DashboardBoardTabUi.Muscles, viewModel.uiState.value.selectedTab)
         assertEquals(DashboardBoardTab.Muscles, prefs.current.selectedTab)
     }
 
@@ -690,6 +693,20 @@ class DashboardViewModelTest {
             assertEquals(tab, tab.toDomain().toUi())
         }
         assertEquals(DashboardBoardTabUi.Muscles, DashboardBoardTabUi.fromIndex(99))
+    }
+
+    @Test
+    @DisplayName("exposes exactly one public StateFlow: uiState (single-flow contract)")
+    fun exposesSingleFlowContract() {
+        val flows = DashboardViewModel::class.java.methods
+            .filter {
+                !it.isSynthetic &&
+                    java.lang.reflect.Modifier.isPublic(it.modifiers) &&
+                    it.returnType == StateFlow::class.java
+            }
+            .map { it.name }
+            .sorted()
+        assertEquals(listOf("getUiState"), flows)
     }
 
     private fun buildViewModel(
@@ -730,7 +747,7 @@ class DashboardViewModelTest {
                 },
             )
         }
-        val useCase = LoadDashboardUseCase(
+        val loadDashboard = LoadDashboardUseCase(
             muscleWeeklyStimulusRepository = stimulusRepo,
             liftWeeklyPerformanceRepository = performanceRepo,
             muscleWeeklyOutcomeIndexRepository = outcomeIndexRepo,
@@ -745,21 +762,24 @@ class DashboardViewModelTest {
             liftRepository = liftRepo,
             trainingLogRepository = trainingLog,
         )
-        return DashboardViewModel(
-            loadDashboard = useCase,
-            loadGraphDetail = detailUseCase,
-            setDashboardBoardTab = SetDashboardBoardTabUseCase(
-                dashboardPreferences,
+        val observeDashboardState = ObserveDashboardStateUseCase(
+            loadDashboard = loadDashboard,
+            loadHealthConnectMetrics = LoadHealthConnectMetricsUseCase(
+                healthConnectMetrics,
+                healthConnectPreferences,
             ),
             observeDashboardPreferences = ObserveDashboardPreferencesUseCase(dashboardPreferences),
-            observeCloudSyncStatus = ObserveCloudSyncStatusUseCase(cloudSync),
             observeWeightDisplayPreferences =
                 ObserveWeightDisplayPreferencesUseCase(weightDisplayPreferences),
             observeHealthConnectPreferences =
                 ObserveHealthConnectPreferencesUseCase(healthConnectPreferences),
-            loadHealthConnectMetrics = LoadHealthConnectMetricsUseCase(
-                healthConnectMetrics,
-                healthConnectPreferences,
+            observeCloudSyncStatus = ObserveCloudSyncStatusUseCase(cloudSync),
+        )
+        return DashboardViewModel(
+            observeDashboardState = observeDashboardState,
+            loadGraphDetail = detailUseCase,
+            setDashboardBoardTab = SetDashboardBoardTabUseCase(
+                dashboardPreferences,
             ),
             requestCloudSync = RequestCloudSyncUseCase(cloudSync),
             diagnosticDrain = DiagnosticDrain(logging),

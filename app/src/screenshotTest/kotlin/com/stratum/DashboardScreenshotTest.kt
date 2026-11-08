@@ -72,7 +72,7 @@ fun dashboardLoadedRecoveryNeo() {
 fun dashboardEmptyTonal() {
     StratumTheme(themeId = StratumThemeId.Tonal) {
         DashboardScreen(
-            state = DashboardUiState.Empty,
+            state = DashboardBoardUiState.Empty,
             health = previewEmptyHealthState(),
             isRefreshing = false,
             onRefresh = {},
@@ -87,7 +87,7 @@ fun dashboardEmptyTonal() {
 fun dashboardEmptyNeo() {
     StratumTheme(themeId = StratumThemeId.NeoBrutalist) {
         DashboardScreen(
-            state = DashboardUiState.Empty,
+            state = DashboardBoardUiState.Empty,
             health = previewEmptyHealthState(),
             isRefreshing = false,
             onRefresh = {},
@@ -102,7 +102,7 @@ fun dashboardEmptyNeo() {
 fun dashboardLoadingTonal() {
     StratumTheme(themeId = StratumThemeId.Tonal) {
         DashboardScreen(
-            state = DashboardUiState.Loading,
+            state = DashboardBoardUiState.Loading,
             onNavigateToSettings = {},
         )
     }
@@ -114,7 +114,7 @@ fun dashboardLoadingTonal() {
 fun dashboardLoadingNeo() {
     StratumTheme(themeId = StratumThemeId.NeoBrutalist) {
         DashboardScreen(
-            state = DashboardUiState.Loading,
+            state = DashboardBoardUiState.Loading,
             onNavigateToSettings = {},
         )
     }

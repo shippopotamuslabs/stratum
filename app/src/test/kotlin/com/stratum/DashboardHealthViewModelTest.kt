@@ -18,6 +18,7 @@ import com.stratum.core.testing.training.WorkoutLoggingFixtures
 import com.stratum.application.dashboard.LoadDashboardUseCase
 import com.stratum.application.dashboard.LoadGraphDetailUseCase
 import com.stratum.application.dashboard.ObserveDashboardPreferencesUseCase
+import com.stratum.application.dashboard.ObserveDashboardStateUseCase
 import com.stratum.application.dashboard.SetDashboardBoardTabUseCase
 import com.stratum.domain.health.DailyStepCount
 import com.stratum.domain.healthconnect.HealthConnectPreferences
@@ -57,8 +58,8 @@ class DashboardHealthViewModelTest {
     fun healthPagerHiddenWhenDisabled() = runTest {
         val viewModel = buildViewModel()
         advanceUntilIdle()
-        assertEquals(false, viewModel.healthUiState.value.visible)
-        assertEquals(DashboardUiState.Empty, viewModel.uiState.value)
+        assertEquals(false, viewModel.uiState.value.health.visible)
+        assertEquals(DashboardBoardUiState.Empty, viewModel.uiState.value.board)
     }
 
     @Test
@@ -73,7 +74,7 @@ class DashboardHealthViewModelTest {
             healthConnectMetrics = metrics,
         )
         advanceUntilIdle()
-        assertEquals(false, viewModel.healthUiState.value.visible)
+        assertEquals(false, viewModel.uiState.value.health.visible)
     }
 
     @Test
@@ -97,8 +98,8 @@ class DashboardHealthViewModelTest {
         )
         advanceUntilIdle()
 
-        assertEquals(DashboardUiState.Empty, viewModel.uiState.value)
-        val health = viewModel.healthUiState.value
+        assertEquals(DashboardBoardUiState.Empty, viewModel.uiState.value.board)
+        val health = viewModel.uiState.value.health
         assertEquals(true, health.visible)
         assertEquals("8,432", health.activity.todayStepsText)
     }
@@ -116,7 +117,7 @@ class DashboardHealthViewModelTest {
         )
         advanceUntilIdle()
 
-        val health = viewModel.healthUiState.value
+        val health = viewModel.uiState.value.health
         assertEquals(true, health.visible)
         assertEquals(null, health.activity.todayStepsText)
     }
@@ -146,11 +147,11 @@ class DashboardHealthViewModelTest {
             now = now,
         )
         advanceUntilIdle()
-        assertTrue(viewModel.healthUiState.value.weight.latestText?.contains("lb") == true)
+        assertTrue(viewModel.uiState.value.health.weight.latestText?.contains("lb") == true)
 
         weightPrefs.seed(WeightDisplayPreferences(displayUnit = Weight.WeightUnit.Kg))
         advanceUntilIdle()
-        assertEquals("80.0 kg", viewModel.healthUiState.value.weight.latestText)
+        assertEquals("80.0 kg", viewModel.uiState.value.health.weight.latestText)
     }
 
     @Test
@@ -175,14 +176,14 @@ class DashboardHealthViewModelTest {
             now = now,
         )
         advanceUntilIdle()
-        assertEquals(false, viewModel.healthUiState.value.visible)
+        assertEquals(false, viewModel.uiState.value.health.visible)
 
         healthPrefs.setPreferences(HealthConnectPreferences(enabled = false))
         advanceUntilIdle()
         gate.complete(Unit)
         advanceUntilIdle()
 
-        assertEquals(false, viewModel.healthUiState.value.visible)
+        assertEquals(false, viewModel.uiState.value.health.visible)
     }
 
     @Test
@@ -204,7 +205,7 @@ class DashboardHealthViewModelTest {
             now = now,
         )
         advanceUntilIdle()
-        assertEquals("1,000", viewModel.healthUiState.value.activity.todayStepsText)
+        assertEquals("1,000", viewModel.uiState.value.health.activity.todayStepsText)
         val readsAfterLoad = metrics.readSnapshotCount
 
         metrics.snapshot = HealthMetricsSnapshot(
@@ -213,9 +214,9 @@ class DashboardHealthViewModelTest {
         viewModel.refresh()
         advanceUntilIdle()
 
-        assertEquals("9,999", viewModel.healthUiState.value.activity.todayStepsText)
+        assertEquals("9,999", viewModel.uiState.value.health.activity.todayStepsText)
         assertTrue(metrics.readSnapshotCount > readsAfterLoad)
-        assertEquals(false, viewModel.isRefreshing.value)
+        assertEquals(false, viewModel.uiState.value.isRefreshing)
     }
 
     @Test
@@ -252,7 +253,7 @@ class DashboardHealthViewModelTest {
         // STR-240 supersedes the AQ1-era "empty pages still publish" pin: the degraded
         // pages publish as unavailable (visible, no chart, no page data), and the
         // diagnostic itself still never reaches UI state.
-        val health = viewModel.healthUiState.value
+        val health = viewModel.uiState.value.health
         assertEquals(true, health.visible)
         assertEquals(true, health.unavailable)
         assertEquals(false, health.hasChart())
@@ -267,10 +268,13 @@ class DashboardHealthViewModelTest {
         weightDisplayPreferences: FakeWeightDisplayPreferencesRepository =
             FakeWeightDisplayPreferencesRepository(),
         drainLogging: FakeLoggingPort = FakeLoggingPort(),
+        cloudSync: FakeCloudSyncPort = FakeCloudSyncPort(),
+        dashboardPreferences: FakeDashboardPreferencesRepository =
+            FakeDashboardPreferencesRepository(),
         now: Instant? = null,
     ): DashboardViewModel {
         val program = WorkoutLoggingFixtures.twoWorkoutProgram()
-        return DashboardViewModel(
+        val observeDashboardState = ObserveDashboardStateUseCase(
             loadDashboard = LoadDashboardUseCase(
                 muscleWeeklyStimulusRepository = FakeMuscleWeeklyStimulusRepository(),
                 liftWeeklyPerformanceRepository = FakeLiftWeeklyPerformanceRepository(),
@@ -279,6 +283,20 @@ class DashboardHealthViewModelTest {
                 trainingLogRepository = FakeTrainingLogRepository(),
                 programRepository = FakeProgramRepository(program),
             ),
+            loadHealthConnectMetrics = LoadHealthConnectMetricsUseCase(
+                healthConnectMetrics,
+                healthConnectPreferences,
+            ),
+            observeDashboardPreferences =
+                ObserveDashboardPreferencesUseCase(dashboardPreferences),
+            observeWeightDisplayPreferences =
+                ObserveWeightDisplayPreferencesUseCase(weightDisplayPreferences),
+            observeHealthConnectPreferences =
+                ObserveHealthConnectPreferencesUseCase(healthConnectPreferences),
+            observeCloudSyncStatus = ObserveCloudSyncStatusUseCase(cloudSync),
+        )
+        return DashboardViewModel(
+            observeDashboardState = observeDashboardState,
             loadGraphDetail = LoadGraphDetailUseCase(
                 liftWeeklyPerformanceRepository = FakeLiftWeeklyPerformanceRepository(),
                 muscleWeeklyStimulusRepository = FakeMuscleWeeklyStimulusRepository(),
@@ -287,20 +305,9 @@ class DashboardHealthViewModelTest {
                 trainingLogRepository = FakeTrainingLogRepository(),
             ),
             setDashboardBoardTab = SetDashboardBoardTabUseCase(
-                FakeDashboardPreferencesRepository(),
+                dashboardPreferences,
             ),
-            observeDashboardPreferences =
-                ObserveDashboardPreferencesUseCase(FakeDashboardPreferencesRepository()),
-            observeCloudSyncStatus = ObserveCloudSyncStatusUseCase(FakeCloudSyncPort()),
-            observeWeightDisplayPreferences =
-                ObserveWeightDisplayPreferencesUseCase(weightDisplayPreferences),
-            observeHealthConnectPreferences =
-                ObserveHealthConnectPreferencesUseCase(healthConnectPreferences),
-            loadHealthConnectMetrics = LoadHealthConnectMetricsUseCase(
-                healthConnectMetrics,
-                healthConnectPreferences,
-            ),
-            requestCloudSync = RequestCloudSyncUseCase(FakeCloudSyncPort()),
+            requestCloudSync = RequestCloudSyncUseCase(cloudSync),
             diagnosticDrain = DiagnosticDrain(drainLogging),
             zone = testZone,
             clock = { now ?: Instant.now() },

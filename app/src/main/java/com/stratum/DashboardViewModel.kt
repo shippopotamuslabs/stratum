@@ -3,65 +3,62 @@ package com.stratum
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.core.ui.component.TrendPointUi
-import com.stratum.domain.dashboard.CalloutDirection
-import com.stratum.domain.dashboard.CalloutKind
-import com.stratum.domain.dashboard.DashboardSummary
-import com.stratum.domain.dashboard.GraphDetailSubject
-import com.stratum.domain.dashboard.LIFT_E1RM_SLOPE_THRESHOLD
-import com.stratum.domain.dashboard.LiftSeries
 import com.stratum.app.DiagnosticDrain
 import com.stratum.application.dashboard.DashboardPreferenceResult
 import com.stratum.application.dashboard.LoadDashboardResult
-import com.stratum.application.dashboard.LoadDashboardUseCase
 import com.stratum.application.dashboard.LoadGraphDetailResult
 import com.stratum.application.dashboard.LoadGraphDetailUseCase
+import com.stratum.application.dashboard.ObserveDashboardStateUseCase
+import com.stratum.application.dashboard.SetDashboardBoardTabUseCase
+import com.stratum.application.healthconnect.HEALTH_CONNECT_METRICS_TAG
+import com.stratum.application.sync.CloudSyncOperation
+import com.stratum.application.sync.CloudSyncOutcome
+import com.stratum.application.sync.RequestCloudSyncUseCase
+import com.stratum.application.sync.isNotStarted
+import com.stratum.domain.dashboard.CalloutDirection
+import com.stratum.domain.dashboard.CalloutKind
+import com.stratum.application.dashboard.DashboardBoardState
+import com.stratum.domain.dashboard.DashboardSummary
+import com.stratum.domain.dashboard.GraphDetailSeries
+import com.stratum.domain.dashboard.GraphDetailSubject
+import com.stratum.domain.dashboard.LIFT_E1RM_SLOPE_THRESHOLD
+import com.stratum.domain.dashboard.LiftSeries
 import com.stratum.domain.dashboard.MUSCLE_PROGRESS_SLOPE_THRESHOLD
 import com.stratum.domain.dashboard.MuscleDailyVolumeSeries
 import com.stratum.domain.dashboard.MuscleSeries
-import com.stratum.application.dashboard.ObserveDashboardPreferencesUseCase
-import com.stratum.application.dashboard.SetDashboardBoardTabUseCase
 import com.stratum.domain.dashboard.TrendPoint
 import com.stratum.domain.dashboard.olsSlope
 import com.stratum.domain.dashboard.slopeToDirection
-import com.stratum.domain.healthconnect.HealthConnectDiagnostic
 import com.stratum.domain.health.HealthMetricsPages
-import com.stratum.application.healthconnect.HEALTH_CONNECT_METRICS_TAG
-import com.stratum.application.healthconnect.LoadHealthConnectMetricsUseCase
-import com.stratum.application.healthconnect.ObserveHealthConnectPreferencesUseCase
-import com.stratum.application.lift.ObserveWeightDisplayPreferencesUseCase
+import com.stratum.domain.healthconnect.HealthConnectDiagnostic
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.WeightConversion
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.shortLabel
 import com.stratum.domain.onboarding.MuscleGroup
-import com.stratum.application.sync.CloudSyncOperation
-import com.stratum.application.sync.CloudSyncOutcome
-import com.stratum.application.sync.isNotStarted
-import com.stratum.application.sync.ObserveCloudSyncStatusUseCase
-import com.stratum.application.sync.RequestCloudSyncUseCase
-import com.stratum.domain.sync.SyncStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.ZoneId
 import javax.inject.Inject
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.transform
+import kotlinx.coroutines.flow.withIndex
 import kotlinx.coroutines.launch
 
 @HiltViewModel
 class DashboardViewModel(
-    private val loadDashboard: LoadDashboardUseCase,
+    observeDashboardState: ObserveDashboardStateUseCase,
     private val loadGraphDetail: LoadGraphDetailUseCase,
     private val setDashboardBoardTab: SetDashboardBoardTabUseCase,
-    observeDashboardPreferences: ObserveDashboardPreferencesUseCase,
-    observeCloudSyncStatus: ObserveCloudSyncStatusUseCase,
-    observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
-    observeHealthConnectPreferences: ObserveHealthConnectPreferencesUseCase,
-    private val loadHealthConnectMetrics: LoadHealthConnectMetricsUseCase,
     private val requestCloudSync: RequestCloudSyncUseCase,
     private val diagnosticDrain: DiagnosticDrain,
     /**
@@ -78,134 +75,116 @@ class DashboardViewModel(
      */
     @Inject
     constructor(
-        loadDashboard: LoadDashboardUseCase,
+        observeDashboardState: ObserveDashboardStateUseCase,
         loadGraphDetail: LoadGraphDetailUseCase,
         setDashboardBoardTab: SetDashboardBoardTabUseCase,
-        observeDashboardPreferences: ObserveDashboardPreferencesUseCase,
-        observeCloudSyncStatus: ObserveCloudSyncStatusUseCase,
-        observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
-        observeHealthConnectPreferences: ObserveHealthConnectPreferencesUseCase,
-        loadHealthConnectMetrics: LoadHealthConnectMetricsUseCase,
         requestCloudSync: RequestCloudSyncUseCase,
         diagnosticDrain: DiagnosticDrain,
     ) : this(
-        loadDashboard,
+        observeDashboardState,
         loadGraphDetail,
         setDashboardBoardTab,
-        observeDashboardPreferences,
-        observeCloudSyncStatus,
-        observeWeightDisplayPreferences,
-        observeHealthConnectPreferences,
-        loadHealthConnectMetrics,
         requestCloudSync,
         diagnosticDrain,
         ZoneId.systemDefault(),
         Instant::now,
     )
 
-    private val _uiState = MutableStateFlow<DashboardUiState>(DashboardUiState.Loading)
-    val uiState: StateFlow<DashboardUiState> = _uiState.asStateFlow()
-
-    private val _graphDetailState = MutableStateFlow<GraphDetailUiState>(GraphDetailUiState.Hidden)
-    val graphDetailState: StateFlow<GraphDetailUiState> = _graphDetailState.asStateFlow()
-
-    /**
-     * Board tab shown in the title toggle. Source of truth is DataStore via
-     * [observeDashboardPreferences] — local state only mirrors successful emissions (Settings
-     * prefs pattern). Cold start defaults to Muscles until the first prefs read.
-     */
-    private val _selectedTab = MutableStateFlow(DashboardBoardTabUi.Muscles)
-    val selectedTab: StateFlow<DashboardBoardTabUi> = _selectedTab.asStateFlow()
-
-    private val _healthUiState = MutableStateFlow(DashboardHealthUiState())
-    val healthUiState: StateFlow<DashboardHealthUiState> = _healthUiState.asStateFlow()
+    /** Reload trigger for the board pipeline; buffered so resume/load never suspend. */
+    private val reloads = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
     private val _isRefreshing = MutableStateFlow(false)
-    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
-    /** Preferred weight unit for lift e1RM headlines, chart points, and graph detail. */
-    private val displayUnit = MutableStateFlow(Weight.WeightUnit.Lb)
-    private val healthEnabled = MutableStateFlow(false)
+    private val detailStatus = MutableStateFlow<GraphDetailUiState>(GraphDetailUiState.Hidden)
 
-    private var loadJob: Job? = null
-    private var healthJob: Job? = null
+    /**
+     * Presentation-only graph-detail cache. Mode/range chips re-derive without reloading and
+     * without storing domain series — the domain [GraphDetailSession] lives only transiently
+     * inside the load coroutine that builds these variants.
+     */
+    private val detailStore = MutableStateFlow<GraphDetailStore?>(null)
+
     private var detailJob: Job? = null
-    private var detailSession: GraphDetailSession? = null
-    /** Last successful domain summary so unit toggles re-map without a reload. */
-    private var lastSummary: DashboardSummary? = null
-    private var lastHealthPages: HealthMetricsPages? = null
-    private var lastDetailSubject: GraphDetailSubject? = null
 
-    init {
-        viewModelScope.launch {
-            observeDashboardPreferences()
-                .catch {
-                    // Keep the last selected tab if DataStore throws; do not kill the process.
+    /**
+     * Last requested detail key, kept across load failures so [retryGraphDetail] can re-invoke
+     * the load after an [GraphDetailUiState.Error] (the presentation [detailStore] only lands
+     * on success). Cleared on [dismissGraphDetail].
+     */
+    private var pendingDetailKey: GraphDetailRequestKey? = null
+
+    /**
+     * Board pipeline mapped to presentation. The pipeline starts eagerly (the init load) and
+     * reloads on every [load]. The last Loaded board stays visible while reloading: only fresh
+     * mapped states are emitted, never a synthetic Loading.
+     *
+     * Diagnostics drain with log-once semantics: the interactor re-emits the last loaded board
+     * on every prefs change, so the drain fires only when the health payload itself changes (the
+     * dedup lives inside this operator, not in a field). `SnapshotReadFailed` logs nothing in
+     * the drain (see [logHealthDiagnostics]).
+     */
+    private val boardParts: StateFlow<BoardParts> = run {
+        var lastDrainedPages: HealthMetricsPages? = null
+        var lastDrainedBoard: LoadDashboardResult? = null
+        observeDashboardState(reloads, zone, clock)
+            .withIndex()
+            .transform { (generation, state) ->
+                val pages = state.healthPages
+                if (pages !== lastDrainedPages) {
+                    lastDrainedPages = pages
+                    logHealthDiagnostics(pages.diagnostics)
                 }
-                .collect { prefs ->
-                    _selectedTab.value = prefs.selectedTab.toUi()
-                }
-        }
-        viewModelScope.launch {
-            observeWeightDisplayPreferences()
-                .catch {
-                    // Keep the last display unit if DataStore throws.
-                }
-                .collect { prefs ->
-                    if (displayUnit.value == prefs.displayUnit) return@collect
-                    displayUnit.value = prefs.displayUnit
-                    lastSummary?.let { summary ->
-                        _uiState.value = summary.toUiState(prefs.displayUnit, zone)
-                    }
-                    lastHealthPages?.let { pages -> publishHealth(pages) }
-                    publishReady()
-                }
-        }
-        viewModelScope.launch {
-            observeHealthConnectPreferences()
-                .catch {
-                    // Keep the last Health Connect enabled flag if DataStore throws.
-                }
-                .collect { prefs ->
-                    healthEnabled.value = prefs.enabled
-                    if (!prefs.enabled) {
-                        hideHealth()
-                    } else {
-                        loadHealth()
+                val board = state.board
+                if (board !== lastDrainedBoard) {
+                    lastDrainedBoard = board
+                    if (board is LoadDashboardResult.Failed) {
+                        diagnosticDrain.drain(board.diagnostics)
                     }
                 }
+                emit(state.toParts(generation))
+            }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, BoardParts())
+    }
+
+    private val detailView: Flow<GraphDetailUiState> =
+        combine(detailStatus, detailStore, boardParts) { status, store, parts ->
+            store?.ready(parts.unitIsLb) ?: status
         }
-        load()
-        // Weekly series tables are rebuilt after a successful cloud pull (not synced themselves).
-        // Reload when sync returns to Idle so a first-hydrate or multi-device pull fills charts
-        // without requiring the user to leave and re-enter the tab.
-        viewModelScope.launch {
-            var sawBusy = false
-            observeCloudSyncStatus()
-                .catch {
-                    // Keep the last sync-driven refresh trigger; do not invent a fake Error status.
-                }
-                .collect { status ->
-                    when (status) {
-                        SyncStatus.Syncing, SyncStatus.Hydrating -> sawBusy = true
-                        SyncStatus.Idle -> {
-                            if (sawBusy) {
-                                sawBusy = false
-                                load()
-                            }
-                        }
-                        is SyncStatus.Error -> {
-                            // Stay put; residual retry may still succeed and emit Idle later.
-                            sawBusy = true
-                        }
-                    }
-                }
-        }
+
+    /**
+     * The single public dashboard state (STR-208 stage 2). Board composition (board + health +
+     * tab + unit) is owned by [ObserveDashboardStateUseCase] — including reloads on explicit
+     * [load], on sync busy → Idle, and on the health-enable rising edge. Transient presentation
+     * holders (refreshing, graph detail) are combined here. No domain model is cached in
+     * ViewModel fields: the interactor flow is mapped to presentation before [stateIn], and the
+     * graph-detail cache holds only precomputed presentation [GraphDetailUiState.Ready] variants.
+     */
+    val uiState: StateFlow<DashboardUiState> =
+        combine(boardParts, _isRefreshing, detailView) { parts, refreshing, detail ->
+            DashboardUiState(
+                board = parts.board,
+                health = parts.health,
+                graphDetail = detail,
+                selectedTab = parts.tab,
+                isRefreshing = refreshing,
+            )
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, DashboardUiState())
+
+    /**
+     * Reloads the dashboard. Called on init (via the eagerly-started pipeline), after cloud
+     * sync settles to Idle (post-pull weekly rebuild, owned by the interactor), and on
+     * lifecycle resume so a workout completed while the dashboard was in the background shows
+     * up. Keeps the last [DashboardBoardUiState.Loaded] visible while refreshing so tab
+     * switches do not flash the empty copy.
+     */
+    fun load() {
+        reloads.tryEmit(Unit)
     }
 
     /**
      * Pull-to-refresh: reloads the board and Health Connect pages without flashing the empty
-     * loading chrome. No-ops while a pull is already in flight.
+     * loading chrome. No-ops while a pull is already in flight. A fresh pipeline emission —
+     * board and health reload together per reload — ends the pull.
      */
     fun refresh() {
         if (_isRefreshing.value) return
@@ -213,32 +192,22 @@ class DashboardViewModel(
         viewModelScope.launch {
             val outcome = requestCloudSync()
             if (outcome is CloudSyncOutcome.Failed) {
-                // STR-238: this ViewModel invoked the pass, so it is the
-                // pass's recording boundary — its failures drain here
-                // exactly once through the drain facade's sync entry point
-                // (shared factory rendering, requestSync shape; log-only,
-                // never surfaced in the UI). The not-started exclusion
-                // lives at this call only (NOT baked into the factory):
-                // mirroring CloudSyncWorker's classification
-                // (classifySyncWork → NotStarted → no-op success), a
-                // not-started pass (no active session) is not an error and
-                // records nothing — pre-STR-238 it was returned unlogged.
                 val recordable = outcome.diagnostics.filterNot { it.isNotStarted }
                 diagnosticDrain.drainSync(recordable, CloudSyncOperation.RequestSync)
             }
         }
+        val startedGeneration = boardParts.value.generation
         load()
-        val boardJob = loadJob
-        val metricsJob = healthJob
         viewModelScope.launch {
             try {
-                boardJob?.join()
-                metricsJob?.join()
+                boardParts.first { it.generation > startedGeneration }
             } finally {
                 _isRefreshing.value = false
             }
         }
     }
+
+    fun retry() = refresh()
 
     /**
      * Requests a board-tab change. UI updates only when prefs re-emit after a successful write
@@ -246,71 +215,12 @@ class DashboardViewModel(
      * DataStore emissions).
      */
     fun selectTab(tab: DashboardBoardTabUi) {
-        if (tab == _selectedTab.value) return
+        if (tab == boardParts.value.tab) return
         viewModelScope.launch {
             val result = setDashboardBoardTab(tab.toDomain())
             if (result is DashboardPreferenceResult.PersistenceFailed) {
                 diagnosticDrain.drain(result.diagnostics)
             }
-        }
-    }
-
-    /**
-     * Reloads the dashboard. Called on init, after cloud sync settles to Idle (post-pull weekly
-     * rebuild), and on lifecycle resume so a workout completed while the dashboard was in the
-     * background shows up. Keeps the last [DashboardUiState.Loaded] visible while refreshing so
-     * tab switches do not flash the empty copy.
-     */
-    fun load() {
-        loadJob?.cancel()
-        loadJob = viewModelScope.launch {
-            if (_uiState.value !is DashboardUiState.Loaded) {
-                _uiState.value = DashboardUiState.Loading
-            }
-            _uiState.value =
-                when (val result = loadDashboard(now = clock(), zone = zone)) {
-                    is LoadDashboardResult.Loaded -> {
-                        lastSummary = result.summary
-                        result.summary.toUiState(displayUnit.value, zone)
-                    }
-                    LoadDashboardResult.Empty -> {
-                        lastSummary = null
-                        DashboardUiState.Empty
-                    }
-                    is LoadDashboardResult.Failed -> {
-                        diagnosticDrain.drain(result.diagnostics)
-                        lastSummary = null
-                        DashboardUiState.Error
-                    }
-                }
-        }
-        if (healthEnabled.value) {
-            loadHealth()
-        }
-    }
-
-    fun retry() = refresh()
-
-    private fun hideHealth() {
-        healthJob?.cancel()
-        healthJob = null
-        lastHealthPages = HealthMetricsPages.Hidden
-        _healthUiState.value = DashboardHealthUiState()
-        _isRefreshing.value = false
-    }
-
-    private fun loadHealth() {
-        if (!healthEnabled.value) {
-            hideHealth()
-            return
-        }
-        healthJob?.cancel()
-        healthJob = viewModelScope.launch {
-            val pages = loadHealthConnectMetrics(zone = zone, now = clock())
-            if (!healthEnabled.value) return@launch
-            logHealthDiagnostics(pages.diagnostics)
-            lastHealthPages = pages
-            publishHealth(pages)
         }
     }
 
@@ -334,98 +244,200 @@ class DashboardViewModel(
         }
     }
 
-    private fun publishHealth(pages: HealthMetricsPages) {
-        if (!healthEnabled.value) return
-        _healthUiState.value = pages.toHealthUi(
-            displayUnit = displayUnit.value,
-            zone = zone,
-        )
-    }
-
     fun openLiftGraph(liftId: String) {
-        openGraphDetail(GraphDetailSubject.Lift(LiftId(liftId)))
+        openGraphDetail(
+            subject = GraphDetailSubject.Lift(LiftId(liftId)),
+            key = GraphDetailRequestKey(kind = GraphDetailKindUi.Lift, id = liftId),
+        )
     }
 
     fun openMuscleGraph(muscleKey: String) {
         val muscle = runCatching { MuscleGroup.valueOf(muscleKey) }.getOrNull() ?: return
-        openGraphDetail(GraphDetailSubject.Muscle(muscle))
+        openGraphDetail(
+            subject = GraphDetailSubject.Muscle(muscle),
+            key = GraphDetailRequestKey(kind = GraphDetailKindUi.Muscle, id = muscleKey),
+        )
     }
 
     fun openMuscleDailyVolumeGraph(muscleKey: String) {
         val muscle = runCatching { MuscleGroup.valueOf(muscleKey) }.getOrNull() ?: return
-        openGraphDetail(GraphDetailSubject.MuscleDailyVolume(muscle))
+        openGraphDetail(
+            subject = GraphDetailSubject.MuscleDailyVolume(muscle),
+            key = GraphDetailRequestKey(kind = GraphDetailKindUi.MuscleDailyVolume, id = muscleKey),
+        )
     }
 
+    /**
+     * Re-invokes the detail load from the presentation request key (kind + stable string id),
+     * not from a cached domain subject. Uses the last requested key so retry works after a
+     * failed load, when no Ready store exists yet.
+     */
     fun retryGraphDetail() {
-        val subject = lastDetailSubject ?: return
-        openGraphDetail(subject)
+        val key = pendingDetailKey ?: return
+        val subject = key.toSubject() ?: return
+        openGraphDetail(subject, key)
     }
 
     fun dismissGraphDetail() {
         detailJob?.cancel()
-        detailSession = null
-        lastDetailSubject = null
-        _graphDetailState.value = GraphDetailUiState.Hidden
+        pendingDetailKey = null
+        detailStore.value = null
+        detailStatus.value = GraphDetailUiState.Hidden
     }
 
+    /**
+     * Mode/range chips re-derive the Ready variant without reloading and without touching
+     * domain state — the selection just picks another precomputed presentation variant.
+     */
     fun selectGraphMode(mode: GraphViewMode) {
-        val session = detailSession ?: return
-        if (mode !in modesFor(session.kind)) return
-        detailSession = session.copy(selectedMode = mode)
-        publishReady()
+        val store = detailStore.value ?: return
+        if (mode !in modesFor(store.key.kind)) return
+        if (mode == store.selectedMode) return
+        detailStore.value = store.copy(selectedMode = mode)
     }
 
     fun selectGraphTimeRange(range: GraphTimeRangeUi) {
-        val session = detailSession ?: return
-        if (range !in rangesFor(session.kind)) return
-        detailSession = session.copy(selectedRange = range)
-        publishReady()
+        val store = detailStore.value ?: return
+        if (range !in rangesFor(store.key.kind)) return
+        if (range == store.selectedRange) return
+        detailStore.value = store.copy(selectedRange = range)
     }
 
-    private fun openGraphDetail(subject: GraphDetailSubject) {
-        lastDetailSubject = subject
+    private fun openGraphDetail(subject: GraphDetailSubject, key: GraphDetailRequestKey) {
         detailJob?.cancel()
+        pendingDetailKey = key
         detailJob = viewModelScope.launch {
-            _graphDetailState.value = GraphDetailUiState.Loading
+            detailStore.value = null
+            detailStatus.value = GraphDetailUiState.Loading
             when (val result = loadGraphDetail(subject, zone = zone)) {
                 is LoadGraphDetailResult.Loaded -> {
-                    detailSession = result.series.toSession(zone = zone)
-                    publishReady()
+                    detailStore.value = result.series.toStore(key = key, now = clock())
                 }
                 LoadGraphDetailResult.Empty -> {
-                    detailSession = null
-                    _graphDetailState.value = GraphDetailUiState.Empty
+                    detailStatus.value = GraphDetailUiState.Empty
                 }
                 is LoadGraphDetailResult.Failed -> {
                     diagnosticDrain.drain(result.diagnostics)
-                    detailSession = null
-                    _graphDetailState.value = GraphDetailUiState.Error
+                    detailStatus.value = GraphDetailUiState.Error
                 }
             }
         }
     }
 
-    private fun publishReady() {
-        val session = detailSession ?: return
-        _graphDetailState.value = session.toReadyUi(
-            now = clock(),
-            displayUnit = displayUnit.value,
+    /**
+     * Builds every presentation variant for the loaded subject up front. The domain session
+     * lives only inside this call; the stored result is presentation-only. Both display units
+     * are precomputed so a unit toggle re-derives without reloading.
+     */
+    private fun GraphDetailSeries.toStore(
+        key: GraphDetailRequestKey,
+        now: Instant,
+    ): GraphDetailStore {
+        val session = toSession(zone = zone)
+        val variants = buildMap {
+            for (mode in modesFor(session.kind)) {
+                for (range in rangesFor(session.kind)) {
+                    for (unitIsLb in listOf(true, false)) {
+                        val unit = if (unitIsLb) Weight.WeightUnit.Lb else Weight.WeightUnit.Kg
+                        val ready = session.copy(selectedMode = mode, selectedRange = range)
+                            .toReadyUi(now = now, displayUnit = unit)
+                        put(GraphDetailVariantKey(mode, range, unitIsLb), ready)
+                    }
+                }
+            }
+        }
+        return GraphDetailStore(
+            key = key,
+            variants = variants,
+            selectedMode = session.selectedMode,
+            selectedRange = session.selectedRange,
         )
     }
+
+    private fun GraphDetailRequestKey.toSubject(): GraphDetailSubject? = when (kind) {
+        GraphDetailKindUi.Lift -> GraphDetailSubject.Lift(LiftId(id))
+        GraphDetailKindUi.Muscle ->
+            runCatching { MuscleGroup.valueOf(id) }.getOrNull()?.let { GraphDetailSubject.Muscle(it) }
+        GraphDetailKindUi.MuscleDailyVolume ->
+            runCatching { MuscleGroup.valueOf(id) }.getOrNull()
+                ?.let { GraphDetailSubject.MuscleDailyVolume(it) }
+    }
+
+    private fun DashboardBoardState.toParts(generation: Int): BoardParts {
+        val board = when (val result = board) {
+            is LoadDashboardResult.Loaded -> result.summary.toBoardUi(displayUnit, zone)
+            LoadDashboardResult.Empty -> DashboardBoardUiState.Empty
+            is LoadDashboardResult.Failed -> DashboardBoardUiState.Error
+        }
+        return BoardParts(
+            board = board,
+            health = healthPages.toHealthUi(displayUnit, zone),
+            tab = selectedTab.toUi(),
+            unitIsLb = displayUnit == Weight.WeightUnit.Lb,
+            generation = generation,
+        )
+    }
+
+    private data class BoardParts(
+        val board: DashboardBoardUiState = DashboardBoardUiState.Loading,
+        val health: DashboardHealthUiState = DashboardHealthUiState(),
+        val tab: DashboardBoardTabUi = DashboardBoardTabUi.Muscles,
+        val unitIsLb: Boolean = true,
+        val generation: Int = -1,
+    )
+
+    /**
+     * Presentation-only graph-detail cache: the retry request key, every precomputed Ready
+     * variant, and the current chip selection. No domain types.
+     */
+    private data class GraphDetailStore(
+        val key: GraphDetailRequestKey,
+        val variants: Map<GraphDetailVariantKey, GraphDetailUiState.Ready>,
+        val selectedMode: GraphViewMode,
+        val selectedRange: GraphTimeRangeUi,
+    ) {
+        fun ready(unitIsLb: Boolean): GraphDetailUiState =
+            variants[GraphDetailVariantKey(selectedMode, selectedRange, unitIsLb)]
+                ?: GraphDetailUiState.Error
+    }
+
+    /** Presentation request key: the detail kind plus the stable lift-id or muscle-key string. */
+    private data class GraphDetailRequestKey(
+        val kind: GraphDetailKindUi,
+        val id: String,
+    )
+
+    private data class GraphDetailVariantKey(
+        val mode: GraphViewMode,
+        val range: GraphTimeRangeUi,
+        val unitIsLb: Boolean,
+    )
 }
 
-/** Presentation-only dashboard state — no domain types leak into composables (Detekt-enforced). */
-sealed interface DashboardUiState {
-    data object Loading : DashboardUiState
-    data object Empty : DashboardUiState
-    data object Error : DashboardUiState
+/** Single dashboard screen state — presentation types only (Detekt-enforced). */
+data class DashboardUiState(
+    val board: DashboardBoardUiState = DashboardBoardUiState.Loading,
+    val health: DashboardHealthUiState = DashboardHealthUiState(),
+    val graphDetail: GraphDetailUiState = GraphDetailUiState.Hidden,
+    val selectedTab: DashboardBoardTabUi = DashboardBoardTabUi.Muscles,
+    val isRefreshing: Boolean = false,
+)
+
+/**
+ * Presentation-only dashboard board — no domain types leak into composables (Detekt-enforced).
+ * The single screen state is [DashboardUiState]; this sealed type is its `board` field.
+ */
+sealed interface DashboardBoardUiState {
+    data object Loading : DashboardBoardUiState
+    data object Empty : DashboardBoardUiState
+    data object Error : DashboardBoardUiState
     data class Loaded(
         val windowWeeks: Int,
         val muscles: List<MuscleSeriesUi>,
         val liftSections: List<LiftSectionUi>,
         /** 7-Day tab: per-muscle daily hard-set volume (zero-filled last 7 local days). */
         val runningDailyVolume: List<MuscleDailyVolumeUi> = emptyList(),
-    ) : DashboardUiState
+    ) : DashboardBoardUiState
 }
 
 /**
@@ -483,17 +495,17 @@ data class LiftSeriesUi(
 /** Coarse direction used to pick a color + arrow glyph in the UI. */
 enum class TrendBadge { Up, Flat, Down, Unknown }
 
-private fun DashboardSummary.toUiState(
+private fun DashboardSummary.toBoardUi(
     displayUnit: Weight.WeightUnit,
     zone: ZoneId,
-): DashboardUiState.Loaded {
+): DashboardBoardUiState.Loaded {
     val muscleHighlights = callouts
         .filter { it.kind == CalloutKind.Muscle }
         .associate { it.subjectName to it.direction.toUi() }
     val liftHighlights = callouts
         .filter { it.kind == CalloutKind.Lift }
         .associate { it.subjectName to it.direction.toUi() }
-    return DashboardUiState.Loaded(
+    return DashboardBoardUiState.Loaded(
         windowWeeks = windowWeeks,
         muscles = muscles.map { it.toUi(highlight = muscleHighlights[it.displayName]) },
         liftSections = lifts.toLiftSections(

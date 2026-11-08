@@ -68,18 +68,14 @@ fun DashboardScreen(
         onPauseOrDispose { }
     }
 
-    val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val selectedTab by viewModel.selectedTab.collectAsStateWithLifecycle()
-    val health by viewModel.healthUiState.collectAsStateWithLifecycle()
-    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
-    val graphDetail by viewModel.graphDetailState.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     DashboardScreen(
-        state = state,
-        selectedTab = selectedTab,
-        health = health,
-        isRefreshing = isRefreshing,
-        onRefresh = if (health.visible) viewModel::refresh else null,
+        state = uiState.board,
+        selectedTab = uiState.selectedTab,
+        health = uiState.health,
+        isRefreshing = uiState.isRefreshing,
+        onRefresh = if (uiState.health.visible) viewModel::refresh else null,
         onSelectedTabChange = viewModel::selectTab,
         onNavigateToSettings = onNavigateToSettings,
         onOpenLiftGraph = viewModel::openLiftGraph,
@@ -90,7 +86,7 @@ fun DashboardScreen(
     )
 
     DashboardGraphDetailHost(
-        state = graphDetail,
+        state = uiState.graphDetail,
         onDismiss = viewModel::dismissGraphDetail,
         onSelectMode = viewModel::selectGraphMode,
         onSelectRange = viewModel::selectGraphTimeRange,
@@ -100,7 +96,7 @@ fun DashboardScreen(
 
 @Composable
 internal fun DashboardScreen(
-    state: DashboardUiState,
+    state: DashboardBoardUiState,
     onNavigateToSettings: () -> Unit,
     modifier: Modifier = Modifier,
     selectedTab: DashboardBoardTabUi = DashboardBoardTabUi.Muscles,
@@ -129,7 +125,7 @@ internal fun DashboardScreen(
     // The hero band (pager when Health Connect is enabled, Settings prompt when disabled)
     // shows for every board state except Error, which renders only the error fallback. The
     // top bar stays shaded exactly when the band is shown so they read as one slab.
-    val heroVisible = state != DashboardUiState.Error
+    val heroVisible = state != DashboardBoardUiState.Error
     val chrome = rememberGlassChromePadding()
     DashboardHealthScaffold(
         heroVisible = heroVisible,
@@ -139,21 +135,21 @@ internal fun DashboardScreen(
         modifier = modifier,
     ) {
         when (state) {
-            DashboardUiState.Loading -> LoadingState(
+            DashboardBoardUiState.Loading -> LoadingState(
                 health = health,
                 pagerState = healthPagerState,
                 onNavigateToSettings = onNavigateToSettings,
             )
-            DashboardUiState.Empty -> EmptyState(
+            DashboardBoardUiState.Empty -> EmptyState(
                 health = health,
                 pagerState = healthPagerState,
                 onNavigateToSettings = onNavigateToSettings,
             )
-            DashboardUiState.Error ->
+            DashboardBoardUiState.Error ->
                 Box(modifier = Modifier.padding(bottom = chrome.bottom)) {
                     StratumFeatureErrorFallback(onRetry = onRetry)
                 }
-            is DashboardUiState.Loaded -> LoadedContent(
+            is DashboardBoardUiState.Loaded -> LoadedContent(
                 state = state,
                 tab = selectedTab,
                 health = health,
@@ -255,7 +251,7 @@ private fun ColumnScope.DashboardStatusColumn(
 
 @Composable
 private fun ColumnScope.LoadedContent(
-    state: DashboardUiState.Loaded,
+    state: DashboardBoardUiState.Loaded,
     tab: DashboardBoardTabUi,
     health: DashboardHealthUiState,
     pagerState: PagerState,
