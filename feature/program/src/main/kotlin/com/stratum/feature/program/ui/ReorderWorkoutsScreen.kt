@@ -25,8 +25,7 @@ fun ReorderWorkoutsRoute(
         viewModel.initialize(programId)
     }
 
-    val days by viewModel.days.collectAsState()
-    val isLoaded by viewModel.isLoaded.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
     val userMessage by viewModel.userMessage.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -37,8 +36,8 @@ fun ReorderWorkoutsRoute(
     )
 
     ReorderWorkoutsScreen(
-        days = days,
-        confirmEnabled = isLoaded && days.isNotEmpty(),
+        days = uiState.days,
+        confirmEnabled = uiState.isLoaded && uiState.days.isNotEmpty(),
         onReorder = viewModel::reorderDays,
         onCancel = onBackClick,
         onConfirm = {
