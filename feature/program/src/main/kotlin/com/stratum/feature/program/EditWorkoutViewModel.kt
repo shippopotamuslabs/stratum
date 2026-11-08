@@ -51,10 +51,15 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 @HiltViewModel
@@ -90,51 +95,93 @@ class EditWorkoutViewModel @Inject constructor(
             diagnosticDrain = diagnosticDrain,
         )
 
-    // Declared above init: the pick collector launched below reads these eagerly.
-    private val _equipmentSwap = MutableStateFlow<EditEquipmentSwapUi?>(null)
-    val equipmentSwap: StateFlow<EditEquipmentSwapUi?> = _equipmentSwap.asStateFlow()
+    // Transient editor inputs (ARCHITECTURE.md §4.4 — only transient state lives
+    // in the ViewModel). The durable program/catalog composition stays in the
+    // observe use cases; this pipeline folds their snapshot with the VM-side
+    // draft overlay, swap sheet, and start flag at the boundary.
+    private data class EditTarget(val workoutId: String, val programId: ProgramId?)
+
+    private data class EditSource(
+        val target: EditTarget,
+        val program: Program?,
+        val lifts: List<Lift>,
+        val equipment: List<Equipment>,
+    )
+
+    private data class EditDraft(val target: EditTarget, val state: EditWorkoutUiState)
+
+    private val targetFlow = MutableStateFlow<EditTarget?>(null)
+    private val draftFlow = MutableStateFlow<EditDraft?>(null)
+    private val retainedNamesFlow = MutableStateFlow<Map<String, String>>(emptyMap())
+    private val sheetFlow = MutableStateFlow<EditEquipmentSwapUi?>(null)
+    private val startingFlow = MutableStateFlow(false)
+
+    private data class SheetStarting(
+        val sheet: EditEquipmentSwapUi?,
+        val starting: Boolean,
+    )
+
+    private val sheetStartingFlow: Flow<SheetStarting> =
+        combine(sheetFlow, startingFlow) { sheet, starting ->
+            SheetStarting(sheet = sheet, starting = starting)
+        }
 
     /** Create-new arming: target card + pick generation snapshot (see [beginCreateEquipment]). */
     private val pickAwaiter = EquipmentPickAwaiter(equipmentPickResult)
 
-    init {
-        viewModelScope.launch {
-            workoutEditSession.events.collect { event ->
-                when (event) {
-                    is EditSessionEvent.LiftSelected -> {
-                        if (event.workoutId == targetWorkoutId.value) {
-                            handleLiftSelected(event.workoutLiftId, event.liftId)
-                        }
-                    }
-                    is EditSessionEvent.LiftsSelected -> {
-                        if (event.workoutId == targetWorkoutId.value) {
-                            handleLiftsSelected(event.liftIds, event.asSuperset)
-                        }
-                    }
-                    is EditSessionEvent.LiftsReordered -> {
-                        if (event.workoutId == targetWorkoutId.value) {
-                            handleLiftsReordered(event.orderedWorkoutLiftIds)
-                        }
-                    }
+    private val sourceFlow: Flow<EditSource?> =
+        targetFlow.flatMapLatest { target ->
+            if (target == null) {
+                flowOf(null)
+            } else {
+                combine(
+                    editableProgramFlow(target.programId),
+                    observeLiftCatalog(),
+                    observeEquipmentCatalog(),
+                ) { program, lifts, equipment ->
+                    EditSource(target = target, program = program, lifts = lifts, equipment = equipment)
                 }
             }
-        }
-        viewModelScope.launch {
-            equipmentPickResult.result.collect { pick ->
-                pickAwaiter.onPick(pick, _equipmentSwap.value?.workoutLiftId)?.let { (targetId, resolved) ->
-                    resolved.equipmentId?.let { newId ->
-                        setEquipment(targetId, newId.value)
-                        _equipmentSwap.value = null
-                    }
-                }
-            }
-        }
-    }
-    private val targetWorkoutId = MutableStateFlow<String?>(null)
-    private val hasSnapshot = MutableStateFlow(false)
+        }.distinctUntilChanged()
 
-    private val _uiState = MutableStateFlow<EditWorkoutUiState>(EditWorkoutUiState.Loading)
-    val uiState: StateFlow<EditWorkoutUiState> = _uiState.asStateFlow()
+    /**
+     * Single public state flow for the editor (ARCHITECTURE.md §4.1). The
+     * WorkoutEditSession draft overlay stays VM-side transient: session events
+     * and the equipment pick result feed [draftFlow]/[sheetFlow], while the
+     * equipment catalog only re-joins display names here (never marking dirty).
+     */
+    val uiState: StateFlow<EditWorkoutUiState> =
+        combine(sourceFlow, targetFlow, draftFlow, retainedNamesFlow, sheetStartingFlow) {
+                source, target, draft, retainedNames, sheetStarting ->
+            val seeded = draft?.takeIf { it.target == target }?.state
+                ?: return@combine EditWorkoutUiState.Loading
+            val loaded = seeded as? EditWorkoutUiState.Loaded
+                ?: return@combine seeded
+            val equipmentNamesById =
+                source?.equipment?.associate { item -> item.id.value to item.name }
+                    .orEmpty() + retainedNames
+            val sheetWithCatalog =
+                sheetStarting.sheet?.copy(
+                    sheet =
+                        sheetStarting.sheet.sheet.copy(
+                            all = source?.equipment?.map { it.toSwapOption() }.orEmpty(),
+                        ),
+                )
+            loaded.copy(
+                lifts =
+                    loaded.lifts.map { lift ->
+                        lift.copy(equipmentName = lift.equipmentId?.let(equipmentNamesById::get))
+                    },
+                isStarting = sheetStarting.starting,
+                equipmentSwap = sheetWithCatalog,
+            )
+        }
+            .distinctUntilChanged()
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5_000),
+                initialValue = EditWorkoutUiState.Loading,
+            )
 
     private val _userMessage = MutableStateFlow<String?>(null)
     val userMessage: StateFlow<String?> = _userMessage.asStateFlow()
@@ -146,12 +193,46 @@ class EditWorkoutViewModel @Inject constructor(
     private val _events = Channel<EditWorkoutUiEvent>(Channel.BUFFERED)
     val events: Flow<EditWorkoutUiEvent> = _events.receiveAsFlow()
 
-    private val _isStarting = MutableStateFlow(false)
-    /** True while a start (save/abandon/session) is in flight — disable Start chrome. */
-    val isStarting: StateFlow<Boolean> = _isStarting.asStateFlow()
-
     private var catalogLifts: List<Lift> = emptyList()
     private var equipmentCatalog: List<Equipment> = emptyList()
+
+    init {
+        viewModelScope.launch {
+            sourceFlow.collect { source -> onSource(source) }
+        }
+        viewModelScope.launch {
+            workoutEditSession.events.collect { event ->
+                val targetWorkoutId = targetFlow.value?.workoutId ?: return@collect
+                when (event) {
+                    is EditSessionEvent.LiftSelected -> {
+                        if (event.workoutId == targetWorkoutId) {
+                            handleLiftSelected(event.workoutLiftId, event.liftId)
+                        }
+                    }
+                    is EditSessionEvent.LiftsSelected -> {
+                        if (event.workoutId == targetWorkoutId) {
+                            handleLiftsSelected(event.liftIds, event.asSuperset)
+                        }
+                    }
+                    is EditSessionEvent.LiftsReordered -> {
+                        if (event.workoutId == targetWorkoutId) {
+                            handleLiftsReordered(event.orderedWorkoutLiftIds)
+                        }
+                    }
+                }
+            }
+        }
+        viewModelScope.launch {
+            equipmentPickResult.result.collect { pick ->
+                pickAwaiter.onPick(pick, sheetFlow.value?.workoutLiftId)?.let { (targetId, resolved) ->
+                    resolved.equipmentId?.let { newId ->
+                        setEquipment(targetId, newId.value)
+                        sheetFlow.value = null
+                    }
+                }
+            }
+        }
+    }
 
     /** Row state stashed per (slot, lift) pair when a lift is swapped out (STR-127). */
     private data class SwappedEditLiftStash(
@@ -163,69 +244,83 @@ class EditWorkoutViewModel @Inject constructor(
     private val liftSwapStash = mutableMapOf<SlotLiftPair, SwappedEditLiftStash>()
     private var programSnapshot: Program? = null
     private var baselineWorkout: Workout? = null
-    /** When set, loads/saves that program (library or active); null = active only. */
-    private var scopedProgramId: ProgramId? = null
-    private var loadJob: Job? = null
     private var startJob: Job? = null
 
     fun initialize(workoutId: String, programId: String? = null) {
-        if (targetWorkoutId.value == workoutId && hasSnapshot.value && scopedProgramId?.value == programId) {
+        val target = EditTarget(workoutId, programId?.let { ProgramId(it) })
+        if (targetFlow.value == target && draftFlow.value?.target == target) {
             return
         }
-        targetWorkoutId.value = workoutId
-        scopedProgramId = programId?.let { ProgramId(it) }
-        hasSnapshot.value = false
-        _uiState.value = EditWorkoutUiState.Loading
-        loadJob?.cancel()
-        loadJob =
-            viewModelScope.launch {
-                combine(
-                    editableProgramFlow(scopedProgramId),
-                    observeLiftCatalog(),
-                    observeEquipmentCatalog(),
-                ) { program, lifts, equipment ->
-                    Triple(program, lifts, equipment)
-                }.collect { (program, lifts, equipment) ->
-                    catalogLifts = lifts
-                    equipmentCatalog = equipment
-                    refreshOpenSheetCatalog()
-                    if (hasSnapshot.value) {
-                        // Active edit session exists. Baseline updates from Room are ignored,
-                        // but equipment display names re-join so renames don't go stale.
-                        rejoinEquipmentNames()
-                        return@collect
-                    }
-                    programSnapshot = program
-                    val liftNamesById = lifts.associate { lift -> lift.id.value to lift.name }
-                    val workout =
-                        program?.workouts?.firstOrNull { candidate -> candidate.id.value == workoutId }
-                    baselineWorkout = workout
-                    if (program == null || workout == null) {
-                        _uiState.value = EditWorkoutUiState.NotFound
-                        return@collect
-                    }
-                    val compoundByLiftId = catalogLifts.associate { lift -> lift.id.value to lift.isCompound }
-                    // STR-105 Scope 5: slots referencing tombstoned equipment
-                    // (legacy orphans) still show the retained name.
-                    val catalogNames = equipment.associate { item -> item.id.value to item.name }
-                    val referencedIds =
-                        workout.workoutLifts.mapNotNull { it.equipmentId?.value }.toSet()
-                    val retainedNames =
-                        referencedIds
-                            .filterNot { it in catalogNames }
-                            .mapNotNull { id ->
-                                getEquipment(com.stratum.domain.lift.identity.EquipmentId(id))
-                                    ?.let { row -> id to row.name }
-                            }
-                            .toMap()
-                    val equipmentNamesById = catalogNames + retainedNames
-                    val loaded =
-                        workout.toEditWorkoutUiState(liftNamesById, compoundByLiftId, equipmentNamesById)
-                            .markSaveState()
-                    _uiState.value = applyDerivedMetrics(loaded)
-                    hasSnapshot.value = true
-                }
+        // Reset transient inputs BEFORE publishing the target: StateFlow
+        // collectors may run inline on the setter thread (UnconfinedTestDispatcher
+        // in tests, Main.immediate on Android), so the seed written by that inline
+        // cascade must not be cleared by a later line in this function.
+        draftFlow.value = null
+        retainedNamesFlow.value = emptyMap()
+        sheetFlow.value = null
+        startingFlow.value = false
+        programSnapshot = null
+        baselineWorkout = null
+        targetFlow.value = target
+    }
+
+    private suspend fun onSource(source: EditSource?) {
+        val target = targetFlow.value ?: return
+        val current = source?.takeIf { it.target == target } ?: return
+        catalogLifts = current.lifts
+        equipmentCatalog = current.equipment
+        if (draftFlow.value?.target == target) {
+            // Active edit session exists. Baseline updates from Room are ignored;
+            // equipment display names re-join in the pipeline so renames don't go stale.
+            return
+        }
+        seedDraft(target, current)
+    }
+
+    private suspend fun seedDraft(target: EditTarget, source: EditSource) {
+        val program = source.program
+        val workout =
+            program?.workouts?.firstOrNull { candidate -> candidate.id.value == target.workoutId }
+        if (program == null || workout == null) {
+            if (targetFlow.value == target && draftFlow.value?.target != target) {
+                draftFlow.value = EditDraft(target, EditWorkoutUiState.NotFound)
             }
+            return
+        }
+        val liftNamesById = source.lifts.associate { lift -> lift.id.value to lift.name }
+        val compoundByLiftId = source.lifts.associate { lift -> lift.id.value to lift.isCompound }
+        // STR-105 Scope 5: slots referencing tombstoned equipment
+        // (legacy orphans) still show the retained name.
+        val catalogNames = source.equipment.associate { item -> item.id.value to item.name }
+        val referencedIds =
+            workout.workoutLifts.mapNotNull { it.equipmentId?.value }.toSet()
+        val retainedNames =
+            referencedIds
+                .filterNot { it in catalogNames }
+                .mapNotNull { id ->
+                    getEquipment(com.stratum.domain.lift.identity.EquipmentId(id))
+                        ?.let { row -> id to row.name }
+                }
+                .toMap()
+        if (targetFlow.value != target || draftFlow.value?.target == target) return
+        programSnapshot = program
+        baselineWorkout = workout
+        retainedNamesFlow.value = retainedNames
+        val equipmentNamesById = catalogNames + retainedNames
+        val loaded =
+            workout.toEditWorkoutUiState(liftNamesById, compoundByLiftId, equipmentNamesById)
+                .markSaveState()
+        draftFlow.value = EditDraft(target, applyDerivedMetrics(loaded))
+    }
+
+    private fun draftLoaded(): EditWorkoutUiState.Loaded? {
+        val target = targetFlow.value ?: return null
+        return draftFlow.value?.takeIf { it.target == target }?.state as? EditWorkoutUiState.Loaded
+    }
+
+    private fun setDraftLoaded(loaded: EditWorkoutUiState.Loaded) {
+        val target = targetFlow.value ?: return
+        draftFlow.value = EditDraft(target, loaded)
     }
 
     private fun editableProgramFlow(programId: ProgramId?): Flow<Program?> =
@@ -287,12 +382,12 @@ class EditWorkoutViewModel @Inject constructor(
         }
         startJob =
             viewModelScope.launch {
-                _isStarting.value = true
+                startingFlow.value = true
                 try {
                     applyStartOutcome(
                         startCoordinator.run(
-                            uiState = _uiState.value,
-                            scopedProgramId = scopedProgramId,
+                            uiState = uiState.value,
+                            scopedProgramId = targetFlow.value?.programId,
                             discardActiveFirst = discardActiveFirst,
                             resolveDirty = resolveDirty,
                             persistIfDirty = { persistWorkoutIfNeeded() },
@@ -300,7 +395,7 @@ class EditWorkoutViewModel @Inject constructor(
                         ),
                     )
                 } finally {
-                    _isStarting.value = false
+                    startingFlow.value = false
                 }
             }
     }
@@ -332,11 +427,11 @@ class EditWorkoutViewModel @Inject constructor(
                 )
                 .copy(isDirty = false, isSaving = false)
                 .markSaveState()
-        _uiState.value = applyDerivedMetrics(restored)
+        setDraftLoaded(applyDerivedMetrics(restored))
     }
 
     private suspend fun persistWorkoutIfNeeded(): EditWorkoutStartCoordinator.PersistResult {
-        val loaded = _uiState.value as? EditWorkoutUiState.Loaded
+        val loaded = draftLoaded()
         val baseline = baselineWorkout
         if (loaded == null || baseline == null) {
             return EditWorkoutStartCoordinator.PersistResult.Failed
@@ -363,13 +458,13 @@ class EditWorkoutViewModel @Inject constructor(
                 "Deleted equipment is still assigned to $names. Pick a live equipment first."
             return EditWorkoutStartCoordinator.PersistResult.Failed
         }
-        _uiState.value = loaded.copy(isSaving = true)
+        setDraftLoaded(loaded.copy(isSaving = true))
         val updatedWorkout = loaded.lifts.toWorkout(baseline, WorkoutId(loaded.workoutId))
         val result =
             saveWorkoutUseCase(
                 workoutId = WorkoutId(loaded.workoutId),
                 updatedWorkout = updatedWorkout,
-                programId = scopedProgramId ?: programSnapshot?.id,
+                programId = targetFlow.value?.programId ?: programSnapshot?.id,
             )
         if (result is SaveWorkoutResult.PersistenceFailed) {
             diagnosticDrain.drain(result.diagnostics)
@@ -389,10 +484,10 @@ class EditWorkoutViewModel @Inject constructor(
                     )
                     .copy(isDirty = false, isSaving = false)
                     .markSaveState()
-            _uiState.value = applyDerivedMetrics(savedState)
+            setDraftLoaded(applyDerivedMetrics(savedState))
             EditWorkoutStartCoordinator.PersistResult.Success
         } else {
-            _uiState.value = loaded.copy(isSaving = false)
+            setDraftLoaded(loaded.copy(isSaving = false))
             _userMessage.value = MSG_SAVE_FAILED
             EditWorkoutStartCoordinator.PersistResult.Failed
         }
@@ -452,7 +547,7 @@ class EditWorkoutViewModel @Inject constructor(
     }
 
     fun startReorderLifts() {
-        val loaded = _uiState.value as? EditWorkoutUiState.Loaded ?: return
+        val loaded = draftLoaded() ?: return
         val items = loaded.lifts.map { com.stratum.domain.workout.ReorderLiftItem(it.workoutLiftId, it.name) }
         workoutEditSession.setReorderLifts(items)
     }
@@ -593,7 +688,7 @@ class EditWorkoutViewModel @Inject constructor(
     }
 
     fun addLift(onNavigateToPicker: (workoutId: String, workoutLiftId: String?, liftId: String?, liftName: String?) -> Unit) {
-        val loaded = _uiState.value as? EditWorkoutUiState.Loaded ?: return
+        val loaded = draftLoaded() ?: return
         onNavigateToPicker(loaded.workoutId, null, null, null)
     }
 
@@ -708,7 +803,7 @@ class EditWorkoutViewModel @Inject constructor(
      * `max ≥ min` and Linear/Double shape stay consistent with generation.
      */
     fun setReps(setId: String, min: Int? = null, max: Int? = null) {
-        val loaded = _uiState.value as? EditWorkoutUiState.Loaded ?: return
+        val loaded = draftLoaded() ?: return
         val ownerLiftId =
             loaded.lifts.firstOrNull { lift -> lift.sets.any { it.setId == setId } }
                 ?.workoutLiftId
@@ -766,7 +861,7 @@ class EditWorkoutViewModel @Inject constructor(
      * when the scheme actually changes.
      */
     fun setProgressionScheme(workoutLiftId: String, scheme: ProgressionScheme) {
-        val current = _uiState.value as? EditWorkoutUiState.Loaded ?: return
+        val current = draftLoaded() ?: return
         val lift = current.lifts.firstOrNull { it.workoutLiftId == workoutLiftId } ?: return
         // Isolation lifts are pinned to Double; same-scheme is a no-op. Neither marks
         // dirty — isDirty only flips when the scheme actually changes.
@@ -811,10 +906,10 @@ class EditWorkoutViewModel @Inject constructor(
 
     /** Opens the equipment swap sheet for one template lift card; recents load async. */
     fun openEquipmentSwap(workoutLiftId: String) {
-        val loaded = _uiState.value as? EditWorkoutUiState.Loaded ?: return
+        val loaded = draftLoaded() ?: return
         val lift = loaded.lifts.firstOrNull { it.workoutLiftId == workoutLiftId } ?: return
         val catalog = equipmentCatalog
-        _equipmentSwap.value =
+        sheetFlow.value =
             EditEquipmentSwapUi(
                 workoutLiftId = workoutLiftId,
                 liftId = lift.liftId,
@@ -831,23 +926,23 @@ class EditWorkoutViewModel @Inject constructor(
             )
         viewModelScope.launch {
             val recent = getRecentlyUsedEquipment(LiftId(lift.liftId)).map { it.toSwapOption() }
-            _equipmentSwap.value?.let { open ->
+            sheetFlow.value?.let { open ->
                 if (open.workoutLiftId == workoutLiftId) {
-                    _equipmentSwap.value = open.copy(sheet = open.sheet.copy(recent = recent))
+                    sheetFlow.value = open.copy(sheet = open.sheet.copy(recent = recent))
                 }
             }
         }
     }
 
     fun setEquipmentSwapQuery(query: String) {
-        _equipmentSwap.value?.let { open ->
-            _equipmentSwap.value = open.copy(sheet = open.sheet.copy(query = query))
+        sheetFlow.value?.let { open ->
+            sheetFlow.value = open.copy(sheet = open.sheet.copy(query = query))
         }
     }
 
     fun closeEquipmentSwap() {
         pickAwaiter.disarm()
-        _equipmentSwap.value = null
+        sheetFlow.value = null
     }
 
     /**
@@ -856,38 +951,16 @@ class EditWorkoutViewModel @Inject constructor(
      * template draft when the pick publishes.
      */
     fun beginCreateEquipment() {
-        val target = _equipmentSwap.value ?: return
+        val target = sheetFlow.value ?: return
         pickAwaiter.arm(target.workoutLiftId)
     }
 
     /** Applies the selection to the template draft + closes. */
     fun selectSwapEquipment(optionId: String) {
-        val target = _equipmentSwap.value ?: return
+        val target = sheetFlow.value ?: return
         pickAwaiter.disarm()
         setEquipment(target.workoutLiftId, optionId)
-        _equipmentSwap.value = null
-    }
-
-    /**
-     * Re-resolves equipment display names on catalog emissions without touching draft
-     * state: bypasses [updateLoaded] (which marks dirty) and skips no-op writes.
-     */
-    private fun rejoinEquipmentNames() {
-        val current = _uiState.value as? EditWorkoutUiState.Loaded ?: return
-        val names = equipmentCatalog.associate { it.id.value to it.name }
-        val relabeled =
-            current.lifts.map { lift -> lift.copy(equipmentName = lift.equipmentId?.let(names::get)) }
-        if (relabeled.map { it.equipmentName } == current.lifts.map { it.equipmentName }) return
-        _uiState.value = current.copy(lifts = relabeled)
-    }
-
-    private fun refreshOpenSheetCatalog() {
-        _equipmentSwap.value?.let { open ->
-            _equipmentSwap.value =
-                open.copy(
-                    sheet = open.sheet.copy(all = equipmentCatalog.map { it.toSwapOption() }),
-                )
-        }
+        sheetFlow.value = null
     }
 
     private fun Equipment.toSwapOption(): EquipmentSwapOption =
@@ -932,10 +1005,8 @@ class EditWorkoutViewModel @Inject constructor(
     }
 
     private inline fun updateLoaded(transform: (EditWorkoutUiState.Loaded) -> EditWorkoutUiState.Loaded) {
-        val current = _uiState.value
-        if (current is EditWorkoutUiState.Loaded) {
-            _uiState.value = applyDerivedMetrics(transform(current).markDirty())
-        }
+        val current = draftLoaded() ?: return
+        setDraftLoaded(applyDerivedMetrics(transform(current).markDirty()))
     }
 
     private fun EditWorkoutUiState.Loaded.markDirty(): EditWorkoutUiState.Loaded =
@@ -958,27 +1029,22 @@ class EditWorkoutViewModel @Inject constructor(
      * the VM stays alive for Lift Swap / Reorder Lifts).
      */
     internal fun clearSession() {
-        loadJob?.cancel()
-        loadJob = null
-        hasSnapshot.value = false
-        targetWorkoutId.value = null
-        scopedProgramId = null
+        targetFlow.value = null
+        draftFlow.value = null
+        retainedNamesFlow.value = emptyMap()
+        sheetFlow.value = null
+        startingFlow.value = false
         programSnapshot = null
         baselineWorkout = null
         catalogLifts = emptyList()
         liftSwapStash.clear()
-        _uiState.value = EditWorkoutUiState.Loading
     }
 
-    private fun applyDerivedMetrics(state: EditWorkoutUiState): EditWorkoutUiState =
-        when (state) {
-            is EditWorkoutUiState.Loaded ->
-                state.withDerivedMetrics(
-                    liftCatalog = catalogLifts,
-                    program = programSnapshot,
-                    computeWorkoutMuscleVolume = computeWorkoutMuscleVolume,
-                    estimateWorkoutDurationMinutes = estimateWorkoutDurationMinutes,
-                )
-            else -> state
-        }
+    private fun applyDerivedMetrics(state: EditWorkoutUiState.Loaded): EditWorkoutUiState.Loaded =
+        state.withDerivedMetrics(
+            liftCatalog = catalogLifts,
+            program = programSnapshot,
+            computeWorkoutMuscleVolume = computeWorkoutMuscleVolume,
+            estimateWorkoutDurationMinutes = estimateWorkoutDurationMinutes,
+        )
 }

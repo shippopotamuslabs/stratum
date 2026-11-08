@@ -97,8 +97,9 @@ fun EditWorkoutRoute(
 
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val userMessage by viewModel.userMessage.collectAsStateWithLifecycle()
-    val isStarting by viewModel.isStarting.collectAsStateWithLifecycle()
-    val equipmentSwap by viewModel.equipmentSwap.collectAsStateWithLifecycle()
+    val loaded = state as? EditWorkoutUiState.Loaded
+    val isStarting = loaded?.isStarting == true
+    val equipmentSwap = loaded?.equipmentSwap
     val snackbarHostState = remember { SnackbarHostState() }
     var showLeaveDiscardDialog by remember { mutableStateOf(false) }
     var showDirtyStartDialog by remember { mutableStateOf(false) }

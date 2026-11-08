@@ -577,26 +577,27 @@ class EditWorkoutViewModelTest {
         val viewModel = buildViewModel()
         viewModel.initialize(WORKOUT_ID)
         viewModel.uiState.test {
-            awaitLoaded()
-            cancelAndIgnoreRemainingEvents()
-        }
-        viewModel.equipmentSwap.test {
-            assertNull(awaitItem())
+            assertNull(awaitLoaded().equipmentSwap)
             viewModel.openEquipmentSwap(WORKOUT_LIFT_ID)
-            val opened = checkNotNull(awaitItem())
+            val opened = checkNotNull((awaitItem() as EditWorkoutUiState.Loaded).equipmentSwap)
             assertNull(opened.sheet.current)
             assertEquals(2, opened.sheet.all.size)
             viewModel.setEquipmentSwapQuery("safety")
-            assertEquals("safety", checkNotNull(awaitItem()).sheet.query)
+            var queried = awaitItem() as EditWorkoutUiState.Loaded
+            while (checkNotNull(queried.equipmentSwap).sheet.query != "safety") {
+                queried = awaitItem() as EditWorkoutUiState.Loaded
+            }
             viewModel.selectSwapEquipment("ssb")
-            assertNull(awaitItem())
+            var closed = awaitItem() as EditWorkoutUiState.Loaded
+            while (closed.equipmentSwap != null) {
+                closed = awaitItem() as EditWorkoutUiState.Loaded
+            }
+            val lift = closed.lifts.single { it.workoutLiftId == WORKOUT_LIFT_ID }
+            assertEquals("ssb", lift.equipmentId)
+            assertEquals("Safety Squat Bar", lift.equipmentName)
+            assertTrue(closed.isDirty)
             cancelAndIgnoreRemainingEvents()
         }
-        val loaded = viewModel.uiState.value as EditWorkoutUiState.Loaded
-        val lift = loaded.lifts.single { it.workoutLiftId == WORKOUT_LIFT_ID }
-        assertEquals("ssb", lift.equipmentId)
-        assertEquals("Safety Squat Bar", lift.equipmentName)
-        assertTrue(loaded.isDirty)
     }
 
     @Test
@@ -669,12 +670,9 @@ class EditWorkoutViewModelTest {
         equipmentPickResult.publish(com.stratum.domain.lift.identity.EquipmentId("new-machine"))
         advanceUntilIdle()
 
-        viewModel.equipmentSwap.test {
-            // Sheet closed by the applied pick.
-            assertNull(awaitItem())
-            cancelAndIgnoreRemainingEvents()
-        }
+        // Sheet closed by the applied pick.
         val loaded = viewModel.uiState.value as EditWorkoutUiState.Loaded
+        assertNull(loaded.equipmentSwap)
         val lift = loaded.lifts.single { it.workoutLiftId == WORKOUT_LIFT_ID }
         assertEquals("new-machine", lift.equipmentId)
         assertEquals("New Machine", lift.equipmentName)
@@ -698,8 +696,8 @@ class EditWorkoutViewModelTest {
         // Let the (ignored) pick flow through the collector.
         advanceUntilIdle()
 
-        assertNotNull(viewModel.equipmentSwap.value)
         val loaded = viewModel.uiState.value as EditWorkoutUiState.Loaded
+        assertNotNull(loaded.equipmentSwap)
         assertNull(loaded.lifts.single { it.workoutLiftId == WORKOUT_LIFT_ID }.equipmentId)
         assertFalse(loaded.isDirty)
     }
@@ -730,8 +728,8 @@ class EditWorkoutViewModelTest {
         equipmentPickResult.publish(com.stratum.domain.lift.identity.EquipmentId("new-machine"))
         advanceUntilIdle()
 
-        assertNull(viewModel.equipmentSwap.value)
         val loaded = viewModel.uiState.value as EditWorkoutUiState.Loaded
+        assertNull(loaded.equipmentSwap)
         assertNull(loaded.lifts.single { it.workoutLiftId == WORKOUT_LIFT_ID }.equipmentId)
         assertFalse(loaded.isDirty)
     }
@@ -761,8 +759,8 @@ class EditWorkoutViewModelTest {
         equipmentPickResult.publish(com.stratum.domain.lift.identity.EquipmentId("new-machine"))
         advanceUntilIdle()
 
-        assertNull(viewModel.equipmentSwap.value)
         val loaded = viewModel.uiState.value as EditWorkoutUiState.Loaded
+        assertNull(loaded.equipmentSwap)
         val lift = loaded.lifts.single { it.workoutLiftId == WORKOUT_LIFT_ID }
         assertEquals("ssb", lift.equipmentId)
         assertEquals("Safety Squat Bar", lift.equipmentName)
@@ -796,7 +794,7 @@ class EditWorkoutViewModelTest {
 
         val loaded = viewModel.uiState.value as EditWorkoutUiState.Loaded
         assertNull(loaded.lifts.single { it.workoutLiftId == WORKOUT_LIFT_ID }.equipmentId)
-        assertEquals("wl-2", viewModel.equipmentSwap.value?.workoutLiftId)
+        assertEquals("wl-2", loaded.equipmentSwap?.workoutLiftId)
     }
 
     private fun twoLiftProgram(): Program {
@@ -827,7 +825,7 @@ class EditWorkoutViewModelTest {
             val viewModel = buildViewModel()
             viewModel.initialize(WORKOUT_ID)
             viewModel.uiState.test {
-                awaitLoaded()
+                assertFalse(awaitLoaded().isStarting)
                 cancelAndIgnoreRemainingEvents()
             }
 
@@ -836,6 +834,8 @@ class EditWorkoutViewModelTest {
                 assertEquals(EditWorkoutUiEvent.NavigateToWorkout(WORKOUT_ID), awaitItem())
                 cancelAndIgnoreRemainingEvents()
             }
+            // Start flag folds into the single state pipeline and clears after the run.
+            assertFalse((viewModel.uiState.value as EditWorkoutUiState.Loaded).isStarting)
         }
 
         @Test
