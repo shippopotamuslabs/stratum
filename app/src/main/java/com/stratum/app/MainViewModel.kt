@@ -5,60 +5,46 @@ import androidx.lifecycle.viewModelScope
 import com.stratum.app.theme.toUi
 import com.stratum.core.ui.auth.loginFailureToGoogleSignInMessage
 import com.stratum.core.ui.theme.ThemePreferences
-import com.stratum.domain.auth.AuthState
-import com.stratum.application.auth.GetAuthStateUseCase
 import com.stratum.application.auth.LoginWithGoogleResult
 import com.stratum.application.auth.LoginWithGoogleUseCase
 import com.stratum.application.auth.LogoutResult
 import com.stratum.application.auth.LogoutUseCase
+import com.stratum.application.auth.ObserveShellStateUseCase
 import com.stratum.application.auth.records
 import com.stratum.application.sync.CloudSyncOperation
 import com.stratum.application.sync.CloudSyncOutcome
-import com.stratum.domain.sync.CloudSessionState
-import com.stratum.application.sync.ObserveCloudSessionStateUseCase
 import com.stratum.application.sync.StartCloudSyncUseCase
 import com.stratum.application.theme.ObserveThemePreferencesUseCase
+import com.stratum.domain.auth.AuthState
+import com.stratum.domain.sync.CloudSessionState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
-    getAuthState: GetAuthStateUseCase,
+    private val observeShellState: ObserveShellStateUseCase,
     private val loginWithGoogle: LoginWithGoogleUseCase,
     private val logout: LogoutUseCase,
     private val startCloudSync: StartCloudSyncUseCase,
-    observeSessionState: ObserveCloudSessionStateUseCase,
     observeThemePreferences: ObserveThemePreferencesUseCase,
     private val diagnosticDrain: DiagnosticDrain,
 ) : ViewModel() {
     private val signInError = MutableStateFlow<String?>(null)
-    private val authenticatedUserId = MutableStateFlow<String?>(null)
-
-    /**
-     * Sticky: once the shell has entered [ShellUiState.Ready] for the current authenticated
-     * user, stay Ready until sign-out. Prevents logout teardown (session → Inactive) from
-     * unmounting NavHost and cancelling Settings-scoped logout work mid-flight.
-     */
-    private val hasEnteredApp = MutableStateFlow(false)
-
-    private val authStateFlow = getAuthState()
-    private val sessionStateFlow = observeSessionState()
 
     val shellUiState: StateFlow<ShellUiState> =
         combine(
-            authStateFlow,
-            sessionStateFlow,
+            observeShellState(),
             signInError,
-            hasEnteredApp,
-        ) { auth, session, errorMessage, entered ->
-            mapShellState(auth, session, errorMessage, entered)
+        ) { snapshot, errorMessage ->
+            mapShellState(snapshot.auth, snapshot.session, errorMessage, snapshot.hasEnteredApp)
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.Eagerly,
@@ -74,27 +60,6 @@ class MainViewModel @Inject constructor(
                 started = SharingStarted.WhileSubscribed(5_000),
                 initialValue = ThemePreferences(),
             )
-
-    init {
-        viewModelScope.launch {
-            combine(authStateFlow, sessionStateFlow) { auth, session ->
-                auth to session
-            }.collect { (auth, session) ->
-                when (auth) {
-                    is AuthState.Authenticated -> {
-                        authenticatedUserId.value = auth.user.uid
-                        if (session is CloudSessionState.Ready) {
-                            hasEnteredApp.value = true
-                        }
-                    }
-                    else -> {
-                        authenticatedUserId.value = null
-                        hasEnteredApp.value = false
-                    }
-                }
-            }
-        }
-    }
 
     fun onSignInWithGoogle() {
         viewModelScope.launch {
@@ -115,7 +80,7 @@ class MainViewModel @Inject constructor(
 
     fun onRetrySession() {
         viewModelScope.launch {
-            val uid = authenticatedUserId.value ?: return@launch
+            val uid = observeShellState().first().authenticatedUserId ?: return@launch
             signInError.value = null
             val outcome = startCloudSync(uid)
             if (outcome is CloudSyncOutcome.Failed) {
