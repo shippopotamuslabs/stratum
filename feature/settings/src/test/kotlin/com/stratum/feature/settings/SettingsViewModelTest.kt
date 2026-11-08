@@ -66,6 +66,7 @@ import com.stratum.application.healthconnect.ObserveHealthConnectSyncErrorsUseCa
 import com.stratum.application.healthconnect.SetHealthConnectEnabledUseCase
 import com.stratum.domain.subscription.EntitlementSource
 import com.stratum.domain.subscription.EntitlementState
+import com.stratum.application.settings.ObserveSettingsStateUseCase
 import com.stratum.application.subscription.ObserveEntitlementUseCase
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -126,20 +127,18 @@ class SettingsViewModelTest {
         loggingPort: FakeLoggingPort = this.loggingPort,
     ): SettingsViewModel =
         SettingsViewModel(
-            observeThemePreferences = ObserveThemePreferencesUseCase(fakeThemePreferences),
-            observeCheckInPreferences = ObserveCheckInPreferencesUseCase(fakeCheckInPreferences),
-            observeEquipmentProposalsEnabled =
-                ObserveEquipmentProposalsEnabledUseCase(fakeEquipmentProposals),
-            observeRepRangeShiftProposalsEnabled =
-                ObserveRepRangeShiftProposalsEnabledUseCase(fakeRepRangeProposals),
-            observeWeightDisplayPreferences =
-                ObserveWeightDisplayPreferencesUseCase(fakeWeightDisplayPreferences),
-            observeHealthConnectPreferences =
-                ObserveHealthConnectPreferencesUseCase(fakeHealthConnectPreferences),
+            observeSettingsState =
+                ObserveSettingsStateUseCase(
+                    ObserveThemePreferencesUseCase(fakeThemePreferences),
+                    ObserveCheckInPreferencesUseCase(fakeCheckInPreferences),
+                    ObserveEquipmentProposalsEnabledUseCase(fakeEquipmentProposals),
+                    ObserveRepRangeShiftProposalsEnabledUseCase(fakeRepRangeProposals),
+                    ObserveWeightDisplayPreferencesUseCase(fakeWeightDisplayPreferences),
+                    ObserveHealthConnectPreferencesUseCase(fakeHealthConnectPreferences),
+                    ObserveEntitlementUseCase(fakeEntitlementRepository),
+                ),
             observeHealthConnectSyncErrors =
                 ObserveHealthConnectSyncErrorsUseCase(fakeHealthConnectSyncStatus),
-            observeEntitlement =
-                ObserveEntitlementUseCase(fakeEntitlementRepository),
             setThemeFamily = SetThemeFamilyUseCase(fakeThemePreferences),
             setColorMode = SetColorModeUseCase(fakeThemePreferences),
             setCheckInEnabled = SetCheckInEnabledUseCase(fakeCheckInPreferences),
