@@ -4,9 +4,9 @@ import app.cash.turbine.ReceiveTurbine
 import app.cash.turbine.test
 import com.stratum.application.onboarding.ObserveOnboardingCompleteUseCase
 import com.stratum.core.testing.onboarding.FakeOnboardingRepository
+import com.stratum.core.testing.onboarding.completeOnboardingProgress
+import com.stratum.core.testing.onboarding.incompleteOnboardingProgress
 import com.stratum.core.testing.subscription.FakeEntitlementRepository
-import com.stratum.domain.onboarding.OnboardingProgress
-import com.stratum.domain.onboarding.OnboardingStep
 import com.stratum.domain.subscription.EntitlementSource
 import com.stratum.domain.subscription.EntitlementState
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -28,7 +28,7 @@ class ObserveAppGateDestinationUseCaseTest {
 
     @BeforeEach
     fun setup() {
-        fakeOnboarding.seed(incompleteProgress())
+        fakeOnboarding.seed(incompleteOnboardingProgress())
         fakeEntitlement.setState(EntitlementState.Loading)
         subject = buildUseCase()
     }
@@ -42,7 +42,7 @@ class ObserveAppGateDestinationUseCaseTest {
     @Test
     @DisplayName("Loading entitlement maps to Loading even when onboarding is complete")
     fun loadingEntitlementMapsToLoading() = runTest {
-        fakeOnboarding.seed(completeProgress())
+        fakeOnboarding.seed(completeOnboardingProgress())
         fakeEntitlement.setState(EntitlementState.Loading)
 
         subject(emptyFlow()).test {
@@ -58,7 +58,7 @@ class ObserveAppGateDestinationUseCaseTest {
 
         subject(emptyFlow()).test {
             awaitDestination(AppGateReadModel.Paywall)
-            fakeOnboarding.seed(completeProgress())
+            fakeOnboarding.seed(completeOnboardingProgress())
             awaitDestination(AppGateReadModel.Paywall)
             cancelAndIgnoreRemainingEvents()
         }
@@ -67,7 +67,7 @@ class ObserveAppGateDestinationUseCaseTest {
     @Test
     @DisplayName("Entitled and incomplete onboarding maps to Onboarding for both sources")
     fun entitledIncompleteMapsToOnboarding() = runTest {
-        fakeOnboarding.seed(incompleteProgress())
+        fakeOnboarding.seed(incompleteOnboardingProgress())
         fakeEntitlement.setState(
             EntitlementState.Entitled(EntitlementSource.GooglePlaySubscription),
         )
@@ -90,7 +90,7 @@ class ObserveAppGateDestinationUseCaseTest {
     @Test
     @DisplayName("Entitled and complete onboarding maps to Main")
     fun entitledCompleteMapsToMain() = runTest {
-        fakeOnboarding.seed(completeProgress())
+        fakeOnboarding.seed(completeOnboardingProgress())
         fakeEntitlement.setState(
             EntitlementState.Entitled(EntitlementSource.GooglePlaySubscription),
         )
@@ -104,7 +104,7 @@ class ObserveAppGateDestinationUseCaseTest {
     @Test
     @DisplayName("Becoming entitled while incomplete routes from Paywall to Onboarding")
     fun purchaseWhileIncompleteRoutesToOnboarding() = runTest {
-        fakeOnboarding.seed(incompleteProgress())
+        fakeOnboarding.seed(incompleteOnboardingProgress())
         fakeEntitlement.setState(EntitlementState.NotEntitled())
 
         subject(emptyFlow()).test {
@@ -120,7 +120,7 @@ class ObserveAppGateDestinationUseCaseTest {
     @Test
     @DisplayName("Losing entitlement while in the app routes to Paywall")
     fun losingEntitlementRoutesToPaywall() = runTest {
-        fakeOnboarding.seed(completeProgress())
+        fakeOnboarding.seed(completeOnboardingProgress())
         fakeEntitlement.setState(
             EntitlementState.Entitled(EntitlementSource.GooglePlaySubscription),
         )
@@ -136,7 +136,7 @@ class ObserveAppGateDestinationUseCaseTest {
     @Test
     @DisplayName("Entitlement flow failure maps to Failed and retry recovers")
     fun entitlementFlowFailureMapsToFailedThenRetry() = runTest {
-        fakeOnboarding.seed(completeProgress())
+        fakeOnboarding.seed(completeOnboardingProgress())
         fakeEntitlement.setState(
             EntitlementState.Entitled(EntitlementSource.GooglePlaySubscription),
         )
@@ -154,7 +154,7 @@ class ObserveAppGateDestinationUseCaseTest {
     @Test
     @DisplayName("Loading timeout maps to Failed")
     fun loadingTimeoutMapsToFailed() = runTest {
-        fakeOnboarding.seed(completeProgress())
+        fakeOnboarding.seed(completeOnboardingProgress())
         fakeEntitlement.setState(EntitlementState.Loading)
 
         subject(emptyFlow(), loadingTimeoutMs = 1_000L).test {
@@ -168,7 +168,7 @@ class ObserveAppGateDestinationUseCaseTest {
     @Test
     @DisplayName("Entitlement emission failure after Main maps to Failed")
     fun entitlementEmissionFailureAfterMainMapsToFailed() = runTest {
-        fakeOnboarding.seed(completeProgress())
+        fakeOnboarding.seed(completeOnboardingProgress())
         fakeEntitlement.setState(
             EntitlementState.Entitled(EntitlementSource.GooglePlaySubscription),
         )
@@ -194,17 +194,3 @@ private suspend fun ReceiveTurbine<AppGateReadModel>.awaitDestination(
         return
     }
 }
-
-private fun incompleteProgress(): OnboardingProgress =
-    OnboardingProgress(
-        currentStep = OnboardingStep.Profile,
-        startedAt = FakeOnboardingRepository.STARTED_AT,
-        completedAt = null,
-    )
-
-private fun completeProgress(): OnboardingProgress =
-    OnboardingProgress(
-        currentStep = OnboardingStep.Profile,
-        startedAt = FakeOnboardingRepository.STARTED_AT,
-        completedAt = FakeOnboardingRepository.COMPLETED_AT,
-    )
