@@ -7,6 +7,8 @@ import com.stratum.core.ui.component.unlinkLiftFromSuperset
 import com.stratum.domain.importing.FatigueDecay
 import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.application.importing.ObserveLiftTrainingInsightsUseCase
+import com.stratum.application.lift.GetEquipmentUseCase
+import com.stratum.application.lift.GetLiftsByIdsUseCase
 import com.stratum.domain.lift.EffectiveSteps
 import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.Lift
@@ -66,8 +68,10 @@ import com.stratum.domain.workout.intensifier.RestDefaultForTransition
 import com.stratum.domain.workout.progression.ProgressionDiagnostic
 import com.stratum.feature.workout.ui.TemplateChangeSummaryMapper
 import com.stratum.feature.workout.ui.TemplateChangeSummaryUi
+import com.stratum.feature.workout.ui.enrichTemplateChangeNames
 import com.stratum.feature.workout.ui.WorkoutUiEvent
 import com.stratum.feature.workout.ui.WorkoutUiMapper
+import com.stratum.feature.workout.ui.WorkoutUiState
 import java.time.Instant
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -102,6 +106,8 @@ internal class LiveWorkoutSessionRuntime(
     val manageWorkoutOverlay: ManageWorkoutOverlayUseCase,
     val getSessionPinnedNoteLists: GetSessionPinnedNoteListsUseCase,
     val diagnosticDrain: DiagnosticDrain,
+    private val getEquipment: GetEquipmentUseCase,
+    private val getLiftsByIds: GetLiftsByIdsUseCase,
 ) {
     var activeWorkoutId: WorkoutId? = null
     var cachedProgramId: ProgramId? = null
@@ -126,6 +132,13 @@ internal class LiveWorkoutSessionRuntime(
 
     /** Tombstoned lifts retained for this session (STR-131 grandfathering). */
     var tombstonedLiftIds: Set<LiftId> = emptySet()
+
+    /**
+     * Equipment catalog as delivered by the latest cycle snapshot (STR-209):
+     * the live rows behind the swap sheet's full list. Retained tombstoned
+     * rows live in [equipmentById] only — never here.
+     */
+    var catalogEquipment: List<Equipment> = emptyList()
     var fatigueByLiftId: Map<LiftId, FatigueDecay> = emptyMap()
     var snapshotLoaded: Boolean = false
     var templateLiftFingerprint: List<String> = emptyList()
@@ -156,6 +169,9 @@ internal class LiveWorkoutSessionRuntime(
         snapshotBySlot = emptyMap()
         liftsById = emptyMap()
         equipmentById = emptyMap()
+        catalogEquipment = emptyList()
+        tombstonedEquipmentIds = emptySet()
+        tombstonedLiftIds = emptySet()
         liftNamesById = emptyMap()
         resetOverlay(WorkoutOverlay())
         baselineWorkout = null
@@ -176,6 +192,7 @@ internal class LiveWorkoutSessionRuntime(
         fatigueByLiftId = emptyMap()
         liftsById = emptyMap()
         equipmentById = emptyMap()
+        catalogEquipment = emptyList()
         liftNamesById = emptyMap()
         resetOverlay(WorkoutOverlay())
         cachedProgramId = null
@@ -421,8 +438,68 @@ internal class LiveWorkoutSessionRuntime(
             )
         // Active-workout notification snapshot is derived from domain session by
         // DomainActiveSessionSurfaceSync — do not dual-publish from render().
-        effects.publishUi(mapped)
+        effects.publishUi(attachEquipmentNames(mapped))
     }
+
+    /**
+     * Joins session equipment display names onto a mapped frame (STR-209).
+     *
+     * The catalog mirror moved out of the ViewModel: [equipmentById] carries
+     * the live catalog plus tombstoned rows retained for this session, so the
+     * frame arrives complete and the ViewModel no longer re-attaches names.
+     */
+    internal fun attachEquipmentNames(state: WorkoutUiState): WorkoutUiState {
+        if (state !is WorkoutUiState.Loaded) return state
+        val names = equipmentById.entries.associate { (id, equipment) -> id.value to equipment.name }
+        if (names.isEmpty()) return state
+        return state.copy(
+            lifts =
+                state.lifts.map { lift ->
+                    lift.copy(sessionEquipmentName = lift.sessionEquipmentId?.let(names::get))
+                },
+            templateChanges =
+                state.templateChanges?.let { enrichTemplateChangeNames(it, names) },
+        )
+    }
+
+    /**
+     * Resolves tombstoned rows referenced by the current session but absent
+     * from the live catalog (STR-105 / STR-131 grandfathering, moved out of
+     * the ViewModel in STR-209).
+     *
+     * References come from the merged session render — the equipment in use
+     * per lift (live-swap override, else template, else lift default) plus
+     * the performed lifts — so rows deleted mid-session keep resolving by id
+     * and the session can finish normally. Live catalog rows win on id
+     * collision; previously retained rows survive snapshot reinstalls.
+     */
+    internal suspend fun resolveRetainedCatalogRows() {
+        if (structure == null) return
+        val rendered = merge()
+        val referencedLiftIds = rendered.lifts.map { it.liftId }.toSet()
+        val missingLiftIds = (referencedLiftIds - liftsById.keys).toList()
+        if (missingLiftIds.isNotEmpty()) {
+            val fetched = getLiftsByIds(missingLiftIds).filter { it.isTombstoned }
+            if (fetched.isNotEmpty()) {
+                liftsById = liftsById + fetched.associateBy { it.id }
+                liftNamesById = liftNamesById + fetched.associate { it.id to it.name }
+                tombstonedLiftIds = tombstonedLiftIds + fetched.map { it.id }.toSet()
+            }
+        }
+        val referencedEquipmentIds = rendered.lifts.mapNotNull { it.equipmentId }.toSet()
+        val missingEquipmentIds = (referencedEquipmentIds - equipmentById.keys).toList()
+        if (missingEquipmentIds.isNotEmpty()) {
+            val fetched =
+                missingEquipmentIds.mapNotNull { getEquipment(it) }.filter { it.isTombstoned }
+            if (fetched.isNotEmpty()) {
+                equipmentById = equipmentById + fetched.associateBy { it.id }
+                tombstonedEquipmentIds = tombstonedEquipmentIds + fetched.map { it.id }.toSet()
+            }
+        }
+    }
+
+    /** Live equipment catalog rows behind the swap sheet's full list (STR-209). */
+    fun equipmentCatalogSnapshot(): List<Equipment> = catalogEquipment
 
     /**
      * End-of-workout change summary (STR-125): diffs the baseline against the applied
