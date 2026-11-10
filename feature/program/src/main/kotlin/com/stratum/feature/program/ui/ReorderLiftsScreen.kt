@@ -22,10 +22,10 @@ fun ReorderLiftsRoute(
         viewModel.initialize()
     }
 
-    val lifts by viewModel.lifts.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
 
     ReorderLiftsScreen(
-        lifts = lifts,
+        lifts = uiState.lifts,
         onReorder = viewModel::reorderLifts,
         onCancel = onBackClick,
         onConfirm = {
