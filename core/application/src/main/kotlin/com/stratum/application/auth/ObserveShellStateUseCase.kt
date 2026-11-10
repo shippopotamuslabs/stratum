@@ -29,15 +29,25 @@ data class ShellSnapshot(
  * stream, owning the entered-app latch: once the shell has entered Ready for
  * the current authenticated user (auth Authenticated + session Ready), it
  * stays entered until sign-out. This keeps logout teardown (session →
- * Inactive) from unmounting the NavHost mid-flight. The latch is
- * per-collection state, mirroring the former ViewModel `init` collector.
+ * Inactive) from unmounting the NavHost mid-flight. The latch lives on this
+ * use case, mirroring the former ViewModel `init` collector, which was the
+ * shell's single latch owner.
  */
 class ObserveShellStateUseCase @Inject constructor(
     private val getAuthState: GetAuthStateUseCase,
     private val observeSessionState: ObserveCloudSessionStateUseCase,
 ) {
+    /**
+     * The entered-app latch, held as use-case state so every collection of
+     * [invoke] shares one latch history. The shell ViewModel keeps one
+     * long-lived collection for UI state and takes short `first()` snapshots
+     * on retry; if the latch were captured per collection, the two would
+     * diverge (a fresh snapshot after Ready-then-Inactive would recompute
+     * `entered = false` while the UI collector stays entered).
+     */
+    private var entered = false
+
     operator fun invoke(): Flow<ShellSnapshot> {
-        var entered = false
         return combine(getAuthState(), observeSessionState()) { auth, session ->
             val uid = (auth as? AuthState.Authenticated)?.user?.uid
             if (auth !is AuthState.Authenticated) {

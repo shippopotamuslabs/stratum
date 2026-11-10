@@ -7,6 +7,7 @@ import com.stratum.core.testing.sync.FakeCloudSyncPort
 import com.stratum.domain.auth.AuthState
 import com.stratum.domain.auth.UserProfile
 import com.stratum.domain.sync.CloudSessionState
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -109,6 +110,27 @@ class ObserveShellStateUseCaseTest {
             val snapshot = awaitItem()
             assertNull(snapshot.authenticatedUserId)
             assertFalse(snapshot.hasEnteredApp)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Given first collection entered when a second collection starts after teardown then it sees the shared latch")
+    fun latchSharedAcrossCollections() = runTest {
+        fakeAuth.setState(authenticated())
+        fakeCloudSync.setSessionState(CloudSessionState.Ready("uid-1"))
+
+        subject().test {
+            assertTrue(awaitItem().hasEnteredApp)
+
+            fakeCloudSync.setSessionState(CloudSessionState.Inactive)
+            assertTrue(awaitItem().hasEnteredApp)
+
+            // The retry shape: a fresh short-lived collection of the same use
+            // case must observe the same latch, not recompute it from scratch.
+            val snapshot = subject().first()
+            assertTrue(snapshot.hasEnteredApp)
+            assertEquals("uid-1", snapshot.authenticatedUserId)
             cancelAndIgnoreRemainingEvents()
         }
     }
