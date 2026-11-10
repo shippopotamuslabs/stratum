@@ -8,7 +8,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 data class EquipmentAffectedLifts(
-    val equipmentId: EquipmentId,
+    /** The equipment these lifts inherit from; null only for the empty no-selection set. */
+    val equipmentId: EquipmentId?,
     val count: Int,
     val lifts: List<AffectedLift>,
 )

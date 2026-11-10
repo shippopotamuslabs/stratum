@@ -113,7 +113,6 @@ class EquipmentIncrementsViewModel @Inject constructor(
     private val deleteDialog = MutableStateFlow<PendingDeleteUi?>(null)
     /** Test-visible: the editor operation message channel (save/fork/delete/swap errors share it). */
     internal val validationOverride = MutableStateFlow<String?>(null)
-    private val displayUnit = MutableStateFlow(Weight.WeightUnit.Lb)
 
     private data class PendingSwap(
         val liftId: String,
@@ -135,13 +134,28 @@ class EquipmentIncrementsViewModel @Inject constructor(
     private val editorState: Flow<EquipmentEditorSnapshot> =
         observeEquipmentEditorState(equipmentId)
 
+    /**
+     * The editor's display unit, derived from the durable snapshot — never a
+     * second settable flow. Scan, tier/stop mutations, and the validated-draft
+     * paths read the current unit from here, so the snapshot stays the single
+     * source of truth for the unit.
+     */
+    private val displayUnit: StateFlow<Weight.WeightUnit> =
+        editorState
+            .map { it.displayUnit }
+            .distinctUntilChanged()
+            .stateIn(viewModelScope, SharingStarted.Eagerly, Weight.WeightUnit.Lb)
+
     init {
         viewModelScope.launch {
+            // Side effects only: a unit change re-seeds the drafts and tells
+            // the scan delegate. The value itself lives on [displayUnit].
+            var lastUnit = Weight.WeightUnit.Lb
             editorState.map { it.displayUnit }.distinctUntilChanged().collect { unit ->
-                if (displayUnit.value != unit) {
+                if (lastUnit != unit) {
+                    lastUnit = unit
                     resetDrafts()
                     scanDelegate.onDisplayUnitChanged()
-                    displayUnit.value = unit
                 }
             }
         }
@@ -202,36 +216,32 @@ class EquipmentIncrementsViewModel @Inject constructor(
         val validation: String?,
         val scan: IncrementScanDelegate.ScanUi,
         val deleted: Boolean,
-        val pendingDelete: PendingDeleteUi?,
     )
 
     val uiState: StateFlow<EquipmentIncrementsUiState> =
         combine(
             editorState,
-            // Typed combine stages producing named holders: the save pair rides a
-            // single slot alongside the delegate-owned scan state.
+            // Typed combine stage producing a named holder: the save pair rides
+            // a single slot alongside the delegate-owned scan state.
             combine(
-                combine(
-                    combine(isSaving, saveSucceeded, deleteSucceeded, ::SaveInputs),
-                    drafts,
-                    proposalSession.input,
-                    validationOverride,
-                    scanDelegate.observeScanUi(),
-                ) { save, editorDrafts, input, validation, scan ->
-                    Flags(
-                        editorDrafts,
-                        input,
-                        save.saving,
-                        save.saved,
-                        validation,
-                        scan,
-                        save.deleted,
-                        null,
-                    )
-                },
-                deleteDialog,
-            ) { flags, pending -> flags.copy(pendingDelete = pending) },
-        ) { snapshot, flags ->
+                combine(isSaving, saveSucceeded, deleteSucceeded, ::SaveInputs),
+                drafts,
+                proposalSession.input,
+                validationOverride,
+                scanDelegate.observeScanUi(),
+            ) { save, editorDrafts, input, validation, scan ->
+                Flags(
+                    editorDrafts,
+                    input,
+                    save.saving,
+                    save.saved,
+                    validation,
+                    scan,
+                    save.deleted,
+                )
+            },
+            deleteDialog,
+        ) { snapshot, flags, pendingDelete ->
             buildState(
                 snapshot = snapshot,
                 drafts = flags.drafts,
@@ -239,7 +249,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
                 saving = flags.saving,
                 saved = flags.saved,
                 deleted = flags.deleted,
-                pendingDelete = flags.pendingDelete,
+                pendingDelete = pendingDelete,
                 validation = flags.validation,
                 scan = flags.scan,
             )

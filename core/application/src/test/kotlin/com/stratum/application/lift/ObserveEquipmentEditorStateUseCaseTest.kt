@@ -111,6 +111,7 @@ class ObserveEquipmentEditorStateUseCaseTest {
             val snapshot = awaitItem()
             assertNull(snapshot.equipment)
             assertEquals(0, snapshot.affected.count)
+            assertNull(snapshot.affected.equipmentId)
             cancelAndIgnoreRemainingEvents()
         }
     }

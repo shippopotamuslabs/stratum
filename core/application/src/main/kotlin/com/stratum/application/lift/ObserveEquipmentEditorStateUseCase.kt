@@ -61,13 +61,13 @@ class ObserveEquipmentEditorStateUseCase @Inject constructor(
         }
     }
 
-    // Blank means "no equipment selected": the affected set is hardcoded empty,
-    // so the stamped id is cosmetic. (The former ViewModel built
-    // EquipmentId("") here, which throws when collected — this path never
-    // survived collection before.)
+    // Blank means "no equipment selected": the affected set is empty and its
+    // id is null — absence is modeled as absence, never a fabricated domain
+    // id. (The former ViewModel built EquipmentId("") here, which throws when
+    // collected — this path never survived collection before.)
     private fun emptyAffected(): EquipmentAffectedLifts =
         EquipmentAffectedLifts(
-            equipmentId = EquipmentId("unselected"),
+            equipmentId = null,
             count = 0,
             lifts = emptyList(),
         )
