@@ -10,6 +10,7 @@ import com.stratum.domain.auth.AuthState
 import com.stratum.application.auth.GetAuthStateUseCase
 import com.stratum.application.auth.LoginWithGoogleUseCase
 import com.stratum.application.auth.LogoutUseCase
+import com.stratum.application.auth.ObserveShellStateUseCase
 import com.stratum.domain.auth.UserProfile
 import com.stratum.domain.sync.CloudSessionState
 import com.stratum.application.sync.EndSessionAndWipeUseCase
@@ -49,7 +50,10 @@ class MainViewModelTest {
 
     private fun buildViewModel(): MainViewModel =
         MainViewModel(
-            getAuthState = GetAuthStateUseCase(fakeAuth),
+            observeShellState = ObserveShellStateUseCase(
+                getAuthState = GetAuthStateUseCase(fakeAuth),
+                observeSessionState = ObserveCloudSessionStateUseCase(fakeCloudSync),
+            ),
             loginWithGoogle = LoginWithGoogleUseCase(fakeAuth),
             logout = LogoutUseCase(
                 authManager = fakeAuth,
@@ -58,7 +62,6 @@ class MainViewModelTest {
                 startCloudSync = StartCloudSyncUseCase(fakeCloudSync),
             ),
             startCloudSync = StartCloudSyncUseCase(fakeCloudSync),
-            observeSessionState = ObserveCloudSessionStateUseCase(fakeCloudSync),
             observeThemePreferences = ObserveThemePreferencesUseCase(fakeTheme),
             diagnosticDrain = DiagnosticDrain(loggingPort),
         )
@@ -191,6 +194,23 @@ class MainViewModelTest {
             loggingPort.errors.single().message,
         )
         assertSame(signInErrorCause, loggingPort.errors.single().throwable)
+    }
+
+    @Test
+    @DisplayName("When sign-in fails then shell is SignInError")
+    fun signInFailureSurfacesErrorOverlay() = runTest {
+        fakeAuth.signInFailure = IllegalStateException("network down")
+        subject = buildViewModel()
+        advanceUntilIdle()
+
+        subject.onSignInWithGoogle()
+        advanceUntilIdle()
+
+        subject.shellUiState.test {
+            val state = awaitItem()
+            assertTrue(state is ShellUiState.SignInError)
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     @Test
