@@ -1,14 +1,13 @@
 package com.stratum.navigation
 
 import androidx.navigation3.runtime.NavKey
-import com.stratum.domain.subscription.EntitlementState
 import com.stratum.feature.onboarding.navigation.OnboardingKey
 import com.stratum.feature.program.navigation.CreateProgramKey
 import com.stratum.feature.subscription.navigation.PaywallKey
 
 /**
- * Top-level destination after Firebase Auth. Mapped in [EntitlementGateViewModel] so
- * [StratumNavHost] never reads domain entitlement types.
+ * Top-level destination after Firebase Auth. Mapped from the application gate read model
+ * in [EntitlementGateViewModel] so [StratumNavHost] never reads domain entitlement types.
  */
 enum class AppGateDestination {
     Loading,
@@ -17,21 +16,6 @@ enum class AppGateDestination {
     Onboarding,
     Main,
 }
-
-internal fun resolveAppGateDestination(
-    isComplete: Boolean?,
-    entitlement: EntitlementState,
-): AppGateDestination =
-    when {
-        isComplete == null || entitlement is EntitlementState.Loading ->
-            AppGateDestination.Loading
-        entitlement is EntitlementState.NotEntitled ->
-            AppGateDestination.Paywall
-        isComplete == false ->
-            AppGateDestination.Onboarding
-        else ->
-            AppGateDestination.Main
-    }
 
 internal fun AppGateDestination.isContentDestination(): Boolean =
     this == AppGateDestination.Paywall ||

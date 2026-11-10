@@ -48,3 +48,19 @@ class FakeOnboardingRepository(
         const val COMPLETED_AT: Long = 1_700_000_123_456L
     }
 }
+
+/** Shared fixture: onboarding started (at the profile step) but not completed. */
+fun incompleteOnboardingProgress(): OnboardingProgress =
+    OnboardingProgress(
+        currentStep = OnboardingStep.Profile,
+        startedAt = FakeOnboardingRepository.STARTED_AT,
+        completedAt = null,
+    )
+
+/** Shared fixture: onboarding completed. */
+fun completeOnboardingProgress(): OnboardingProgress =
+    OnboardingProgress(
+        currentStep = OnboardingStep.Profile,
+        startedAt = FakeOnboardingRepository.STARTED_AT,
+        completedAt = FakeOnboardingRepository.COMPLETED_AT,
+    )
