@@ -9,8 +9,7 @@ import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.MuscleLengthBias
-import com.stratum.application.lift.ObserveLiftCatalogUseCase
-import com.stratum.application.lift.ObserveWeightDisplayPreferencesUseCase
+import com.stratum.application.lift.ObserveLiftDetailStateUseCase
 import com.stratum.domain.lift.SeedEquipmentIds
 import com.stratum.application.lift.SetLiftDefaultRestResult
 import com.stratum.application.lift.SetLiftDefaultRestUseCase
@@ -108,8 +107,7 @@ data class LiftInformationUiState(
 
 @HiltViewModel
 class LiftInformationViewModel @Inject constructor(
-    private val observeLiftCatalog: ObserveLiftCatalogUseCase,
-    observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
+    private val observeLiftDetail: ObserveLiftDetailStateUseCase,
     private val updateLiftMuscles: UpdateLiftMusclesUseCase,
     private val updateCustomLiftDetails: UpdateCustomLiftDetailsUseCase,
     private val setLiftDefaultRest: SetLiftDefaultRestUseCase,
@@ -158,11 +156,15 @@ class LiftInformationViewModel @Inject constructor(
         val displayUnit: Weight.WeightUnit,
     )
 
+    /**
+     * Single public state flow for the lift detail screen (ARCHITECTURE.md §4.1). The
+     * durable multi-source composition (lift id + catalog + display prefs) lives in
+     * [ObserveLiftDetailStateUseCase] (§4.4); this pipeline only folds that snapshot
+     * with transient controls at the boundary.
+     */
     val uiState: StateFlow<LiftInformationUiState> =
         combine(
-            liftId,
-            observeLiftCatalog(),
-            observeWeightDisplayPreferences(),
+            observeLiftDetail(liftId),
             combine(
                 selectedTab,
                 muscleRole,
@@ -181,12 +183,11 @@ class LiftInformationViewModel @Inject constructor(
                 // displayUnit filled in the outer combine
                 UiControls(tab, role, expanded, hist, sheets, Weight.WeightUnit.Lb)
             },
-        ) { id, catalog, weightPrefs, controls ->
-            val lift = catalog.firstOrNull { it.id.value == id }
+        ) { detail, controls ->
             mapState(
-                id,
-                lift,
-                controls.copy(displayUnit = weightPrefs.displayUnit),
+                detail.liftId,
+                detail.lift,
+                controls.copy(displayUnit = detail.displayUnit),
             )
         }.stateIn(
             viewModelScope,
