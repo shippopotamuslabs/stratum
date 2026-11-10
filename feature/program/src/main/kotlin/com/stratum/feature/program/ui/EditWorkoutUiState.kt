@@ -25,6 +25,10 @@ sealed interface EditWorkoutUiState {
         val isDirty: Boolean = false,
         val isSaving: Boolean = false,
         val saveBlockedReason: SaveBlockedReason? = null,
+        /** True while a start (save/abandon/session) is in flight — disables Start chrome. */
+        val isStarting: Boolean = false,
+        /** Open equipment swap sheet for one template lift card; null when closed. */
+        val equipmentSwap: EditEquipmentSwapUi? = null,
     ) : EditWorkoutUiState
 }
 
