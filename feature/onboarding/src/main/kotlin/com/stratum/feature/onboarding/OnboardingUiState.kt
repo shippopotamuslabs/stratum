@@ -36,8 +36,6 @@ data class OnboardingUiState(
     val showImportWeightUnitPrompt: Boolean = false,
     /** Prefill for import weight-unit segmented control. */
     val appWeightUnitIsKg: Boolean = false,
-    /** One-shot: route should open the historical import document picker. */
-    val launchHistoricalImportPicker: Boolean = false,
 ) {
     val isFirst: Boolean get() = step.isFirst
     val isLast: Boolean get() = step.isLast

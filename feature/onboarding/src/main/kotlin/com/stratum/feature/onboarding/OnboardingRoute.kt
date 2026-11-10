@@ -109,9 +109,10 @@ fun OnboardingRoute(
         }
     }
 
-    LaunchedEffect(state.launchHistoricalImportPicker) {
-        if (state.launchHistoricalImportPicker) {
-            viewModel.onHistoricalImportPickerLaunched()
+    // One-shot picker request (gospel §12.2): keyed on Unit so recomposition
+    // can never replay the picker; the unit-prompt gate below is unchanged.
+    LaunchedEffect(Unit) {
+        viewModel.importPickerRequests.collect {
             importLauncher.launch(HISTORICAL_IMPORT_MIME_TYPES)
         }
     }
