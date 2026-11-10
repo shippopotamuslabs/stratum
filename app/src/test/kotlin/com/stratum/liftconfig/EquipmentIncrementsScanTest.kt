@@ -22,6 +22,7 @@ import com.stratum.application.lift.IncrementScanPort
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.application.lift.ObserveEquipmentAffectedLiftsUseCase
 import com.stratum.application.lift.ObserveEquipmentCatalogUseCase
+import com.stratum.application.lift.ObserveEquipmentEditorStateUseCase
 import com.stratum.application.lift.RenameAndSetIncrementTiersUseCase
 import com.stratum.application.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.application.lift.ScanIncrementTiersUseCase
@@ -89,9 +90,14 @@ class EquipmentIncrementsScanTest {
 
     private fun buildSubject(scanPort: IncrementScanPort): EquipmentIncrementsViewModel =
         EquipmentIncrementsViewModel(
-            observeEquipmentCatalog = ObserveEquipmentCatalogUseCase(fakeEquipmentRepository),
-            observeEquipmentAffectedLifts =
-                ObserveEquipmentAffectedLiftsUseCase(fakeLiftRepository),
+            observeEquipmentEditorState =
+                ObserveEquipmentEditorStateUseCase(
+                    ObserveEquipmentCatalogUseCase(fakeEquipmentRepository),
+                    ObserveEquipmentAffectedLiftsUseCase(fakeLiftRepository),
+                    ObserveWeightDisplayPreferencesUseCase(
+                        com.stratum.core.testing.lift.FakeWeightDisplayPreferencesRepository(),
+                    ),
+                ),
             setEquipmentIncrementTiers =
                 SetEquipmentIncrementTiersUseCase(
                     fakeEquipmentRepository,
@@ -126,10 +132,6 @@ class EquipmentIncrementsScanTest {
                     FakeProgramRepository(),
                 ),
             equipmentPickResult = equipmentPickResult,
-            observeWeightDisplayPreferences =
-                ObserveWeightDisplayPreferencesUseCase(
-                    com.stratum.core.testing.lift.FakeWeightDisplayPreferencesRepository(),
-                ),
             scanDelegate =
                 IncrementScanDelegate(
                     ScanIncrementTiersUseCase(

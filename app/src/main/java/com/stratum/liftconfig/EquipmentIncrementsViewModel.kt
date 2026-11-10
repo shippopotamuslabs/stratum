@@ -3,16 +3,13 @@ package com.stratum.liftconfig
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.domain.lift.CatalogNames
-import com.stratum.domain.lift.Equipment
-import com.stratum.application.lift.EquipmentAffectedLifts
+import com.stratum.application.lift.EquipmentEditorSnapshot
 import com.stratum.application.lift.ForkEquipmentWithTiersResult
 import com.stratum.application.lift.ForkEquipmentWithTiersUseCase
 import com.stratum.domain.lift.IncrementLattice
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.IncrementTiersValidationResult
-import com.stratum.application.lift.ObserveEquipmentAffectedLiftsUseCase
-import com.stratum.application.lift.ObserveEquipmentCatalogUseCase
-import com.stratum.application.lift.ObserveWeightDisplayPreferencesUseCase
+import com.stratum.application.lift.ObserveEquipmentEditorStateUseCase
 import com.stratum.domain.lift.MicroIncrementsValidationResult
 import com.stratum.domain.lift.ScanPhoto
 import com.stratum.application.lift.RenameAndSetIncrementTiersResult
@@ -47,9 +44,9 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
@@ -70,6 +67,8 @@ data class EquipmentIncrementsUiState(
     val affectedLiftNames: List<String> = emptyList(),
     /** Lifts inheriting these defaults (id + display name + enabled for the sheet). */
     val affectedLifts: List<AffectedLiftUi> = emptyList(),
+    /** STR-105 delete dialog staging, folded into UiState (STR-284). */
+    val pendingDelete: PendingDeleteUi? = null,
 )
 
 /** Presentation row for the affected-lifts sheet (domain stays out of composables). */
@@ -83,8 +82,7 @@ data class AffectedLiftUi(
 @HiltViewModel
 @Suppress("TooManyFunctions") // Single-screen editor VM: many small draft actions by design.
 class EquipmentIncrementsViewModel @Inject constructor(
-    private val observeEquipmentCatalog: ObserveEquipmentCatalogUseCase,
-    private val observeEquipmentAffectedLifts: ObserveEquipmentAffectedLiftsUseCase,
+    private val observeEquipmentEditorState: ObserveEquipmentEditorStateUseCase,
     private val setEquipmentIncrementTiers: SetEquipmentIncrementTiersUseCase,
     private val renameAndSetIncrementTiers: RenameAndSetIncrementTiersUseCase,
     private val forkEquipmentWithTiers: ForkEquipmentWithTiersUseCase,
@@ -94,7 +92,6 @@ class EquipmentIncrementsViewModel @Inject constructor(
     private val deleteCustomEquipment: DeleteCustomEquipmentUseCase,
     private val getDeleteImpact: GetEquipmentDeleteImpactUseCase,
     private val equipmentPickResult: EquipmentPickResult,
-    observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
     private val scanDelegate: IncrementScanDelegate,
     private val diagnosticDrain: DiagnosticDrain,
 ) : ViewModel() {
@@ -112,13 +109,10 @@ class EquipmentIncrementsViewModel @Inject constructor(
     private val isSaving = MutableStateFlow(false)
     private val saveSucceeded = MutableStateFlow(false)
     private val deleteSucceeded = MutableStateFlow(false)
-    private val _deleteDialog = MutableStateFlow<PendingDeleteUi?>(null)
-
-    /** STR-105 delete dialog staging (impact + single replacement pick). */
-    val deleteDialog: StateFlow<PendingDeleteUi?> = _deleteDialog
+    /** STR-105 delete dialog staging (impact + single replacement pick); folded into UiState. */
+    private val deleteDialog = MutableStateFlow<PendingDeleteUi?>(null)
     /** Test-visible: the editor operation message channel (save/fork/delete/swap errors share it). */
     internal val validationOverride = MutableStateFlow<String?>(null)
-    private val displayUnit = MutableStateFlow(Weight.WeightUnit.Lb)
 
     private data class PendingSwap(
         val liftId: String,
@@ -131,13 +125,37 @@ class EquipmentIncrementsViewModel @Inject constructor(
     /** One-shot navigation requests for the sheet's quick swap (see [requestSwapForLift]). */
     val swapNavRequests: Flow<String> = swapNav.receiveAsFlow()
 
+    /**
+     * Single durable source for the editor (ARCHITECTURE.md §4.4): the equipment
+     * id plus catalog, affected lifts, and display prefs compose in
+     * [ObserveEquipmentEditorStateUseCase]; this pipeline only folds that
+     * snapshot with transient drafts/flags at the boundary.
+     */
+    private val editorState: Flow<EquipmentEditorSnapshot> =
+        observeEquipmentEditorState(equipmentId)
+
+    /**
+     * The editor's display unit, derived from the durable snapshot — never a
+     * second settable flow. Scan, tier/stop mutations, and the validated-draft
+     * paths read the current unit from here, so the snapshot stays the single
+     * source of truth for the unit.
+     */
+    private val displayUnit: StateFlow<Weight.WeightUnit> =
+        editorState
+            .map { it.displayUnit }
+            .distinctUntilChanged()
+            .stateIn(viewModelScope, SharingStarted.Eagerly, Weight.WeightUnit.Lb)
+
     init {
         viewModelScope.launch {
-            observeWeightDisplayPreferences().collect { prefs ->
-                if (displayUnit.value != prefs.displayUnit) {
+            // Side effects only: a unit change re-seeds the drafts and tells
+            // the scan delegate. The value itself lives on [displayUnit].
+            var lastUnit = Weight.WeightUnit.Lb
+            editorState.map { it.displayUnit }.distinctUntilChanged().collect { unit ->
+                if (lastUnit != unit) {
+                    lastUnit = unit
                     resetDrafts()
                     scanDelegate.onDisplayUnitChanged()
-                    displayUnit.value = prefs.displayUnit
                 }
             }
         }
@@ -200,23 +218,11 @@ class EquipmentIncrementsViewModel @Inject constructor(
         val deleted: Boolean,
     )
 
-    private val affectedLifts =
-        equipmentId.flatMapLatest { id ->
-            if (id.isNullOrBlank()) {
-                flowOf(emptyAffected())
-            } else {
-                observeEquipmentAffectedLifts(EquipmentId(id))
-            }
-        }
-
     val uiState: StateFlow<EquipmentIncrementsUiState> =
         combine(
-            equipmentId,
-            observeEquipmentCatalog(),
-            affectedLifts,
-            displayUnit,
-            // Typed combine stages producing named holders: the save pair rides a
-            // single slot alongside the delegate-owned scan state.
+            editorState,
+            // Typed combine stage producing a named holder: the save pair rides
+            // a single slot alongside the delegate-owned scan state.
             combine(
                 combine(isSaving, saveSucceeded, deleteSucceeded, ::SaveInputs),
                 drafts,
@@ -234,17 +240,16 @@ class EquipmentIncrementsViewModel @Inject constructor(
                     save.deleted,
                 )
             },
-        ) { id, catalog, affected, unit, flags ->
+            deleteDialog,
+        ) { snapshot, flags, pendingDelete ->
             buildState(
-                id = id,
-                catalog = catalog,
-                affected = affected,
-                unit = unit,
+                snapshot = snapshot,
                 drafts = flags.drafts,
                 proposalInput = flags.proposalInput,
                 saving = flags.saving,
                 saved = flags.saved,
                 deleted = flags.deleted,
+                pendingDelete = pendingDelete,
                 validation = flags.validation,
                 scan = flags.scan,
             )
@@ -544,7 +549,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
         deleteLoadJob =
             viewModelScope.launch {
                 val impact = getDeleteImpact(EquipmentId(id))
-                _deleteDialog.value =
+                deleteDialog.value =
                     impact?.toPendingDeleteUi()
                         ?: PendingDeleteUi(id = id, name = uiState.value.equipmentName)
             }
@@ -554,14 +559,14 @@ class EquipmentIncrementsViewModel @Inject constructor(
         this != null && !canConfirmDelete
 
     fun onSelectDeleteReplacement(replacementId: String) {
-        val pending = _deleteDialog.value ?: return
-        _deleteDialog.value = pending.copy(selectedReplacementId = replacementId)
+        val pending = deleteDialog.value ?: return
+        deleteDialog.value = pending.copy(selectedReplacementId = replacementId)
     }
 
     fun onDismissDelete() {
         deleteLoadJob?.cancel()
         deleteLoadJob = null
-        _deleteDialog.value = null
+        deleteDialog.value = null
     }
 
     /**
@@ -569,7 +574,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
      * navigates back on [EquipmentIncrementsUiState.deleteSucceeded].
      */
     fun deleteEquipment() {
-        val pending = _deleteDialog.value
+        val pending = deleteDialog.value
         // Delete the staged row, never whatever the live flow opened since.
         val id = pending?.id ?: requireEquipmentId("delete") ?: return
         if (pending.needsReplacementPick()) return
@@ -579,7 +584,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
             } else {
                 null
             }
-        _deleteDialog.value = null
+        deleteDialog.value = null
         viewModelScope.launch {
             // STR-243 C4: branch on the outcome kinds; the user copy is sourced
             // from the kind (NotDeletable carries the shipped refusal copy).
@@ -716,19 +721,20 @@ class EquipmentIncrementsViewModel @Inject constructor(
     }
 
     private fun buildState(
-        id: String?,
-        catalog: List<Equipment>,
-        affected: EquipmentAffectedLifts,
-        unit: Weight.WeightUnit,
+        snapshot: EquipmentEditorSnapshot,
         drafts: EditorDrafts?,
         proposalInput: ProposalInput?,
         saving: Boolean,
         saved: Boolean,
         deleted: Boolean,
+        pendingDelete: PendingDeleteUi?,
         validation: String?,
         scan: IncrementScanDelegate.ScanUi,
     ): EquipmentIncrementsUiState {
-        val equipment = catalog.firstOrNull { it.id.value == id }
+        val id = snapshot.equipmentId
+        val unit = snapshot.displayUnit
+        val affected = snapshot.affected
+        val equipment = snapshot.equipment
         val tiers =
             drafts?.tiers
                 ?: IncrementTierDraftOps.fromProposalArgs(
@@ -787,6 +793,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
                     )
                 },
             deleteSucceeded = deleted,
+            pendingDelete = pendingDelete,
         )
     }
 
@@ -832,12 +839,6 @@ class EquipmentIncrementsViewModel @Inject constructor(
         return check.message
     }
 
-    private fun emptyAffected(): EquipmentAffectedLifts =
-        EquipmentAffectedLifts(
-            equipmentId = EquipmentId(""),
-            count = 0,
-            lifts = emptyList(),
-        )
 }
 
 // STR-243 C3: user copy for the save/fork outcome branches, sourced from the kind.
