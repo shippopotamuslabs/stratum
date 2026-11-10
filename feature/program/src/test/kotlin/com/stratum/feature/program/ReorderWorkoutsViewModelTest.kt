@@ -51,12 +51,12 @@ class ReorderWorkoutsViewModelTest {
         viewModel.initialize(PROGRAM_ID)
         advanceUntilIdle()
 
-        viewModel.days.test {
-            val days = awaitItem()
-            assertEquals(listOf("w-a", "rest-1-prog-1", "w-b", "rest-3-prog-1"), days.map { it.dayId })
+        viewModel.uiState.test {
+            val state = awaitItem()
+            assertEquals(listOf("w-a", "rest-1-prog-1", "w-b", "rest-3-prog-1"), state.days.map { it.dayId })
             cancelAndIgnoreRemainingEvents()
         }
-        assertTrue(viewModel.isLoaded.value)
+        assertTrue(viewModel.uiState.value.isLoaded)
     }
 
     @Test
@@ -129,8 +129,8 @@ class ReorderWorkoutsViewModelTest {
             )
         viewModel.initialize("missing")
         advanceUntilIdle()
-        assertTrue(viewModel.isLoaded.value)
-        assertTrue(viewModel.days.value.isEmpty())
+        assertTrue(viewModel.uiState.value.isLoaded)
+        assertTrue(viewModel.uiState.value.days.isEmpty())
 
         var done = false
         viewModel.confirmReorder { done = true }

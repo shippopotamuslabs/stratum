@@ -19,6 +19,11 @@ data class ReorderWorkoutUiState(
     val name: String,
 )
 
+data class ReorderWorkoutsUiState(
+    val days: List<ReorderWorkoutUiState> = emptyList(),
+    val isLoaded: Boolean = false,
+)
+
 /**
  * Persist-only reorder of an existing program's cycle days (Programs tab).
  * Create Program drafts host [com.stratum.core.ui.component.StratumReorderListScreen] locally.
@@ -29,11 +34,8 @@ class ReorderWorkoutsViewModel @Inject constructor(
     private val diagnosticDrain: DiagnosticDrain,
 ) : ViewModel() {
 
-    private val _days = MutableStateFlow<List<ReorderWorkoutUiState>>(emptyList())
-    val days: StateFlow<List<ReorderWorkoutUiState>> = _days.asStateFlow()
-
-    private val _isLoaded = MutableStateFlow(false)
-    val isLoaded: StateFlow<Boolean> = _isLoaded.asStateFlow()
+    private val _uiState = MutableStateFlow(ReorderWorkoutsUiState())
+    val uiState: StateFlow<ReorderWorkoutsUiState> = _uiState.asStateFlow()
 
     private val _userMessage = MutableStateFlow<String?>(null)
     val userMessage: StateFlow<String?> = _userMessage.asStateFlow()
@@ -43,27 +45,26 @@ class ReorderWorkoutsViewModel @Inject constructor(
     private var persistJob: Job? = null
 
     fun initialize(programId: String) {
-        if (this.programId == programId && _isLoaded.value) return
+        if (this.programId == programId && _uiState.value.isLoaded) return
         this.programId = programId
-        _isLoaded.value = false
-        _days.value = emptyList()
+        _uiState.value = ReorderWorkoutsUiState()
         loadJob?.cancel()
         loadJob =
             viewModelScope.launch {
-                _days.value =
+                val days =
                     reorderProgramCycleDays.loadReorderItems(ProgramId(programId)).map { item ->
                         ReorderWorkoutUiState(dayId = item.dayId, name = item.name)
                     }
-                _isLoaded.value = true
+                _uiState.value = ReorderWorkoutsUiState(days = days, isLoaded = true)
             }
     }
 
     fun reorderDays(fromIndex: Int, toIndex: Int) {
-        val current = _days.value.toMutableList()
+        val current = _uiState.value.days.toMutableList()
         if (fromIndex in current.indices && toIndex in current.indices) {
             val item = current.removeAt(fromIndex)
             current.add(toIndex, item)
-            _days.value = current
+            _uiState.value = _uiState.value.copy(days = current)
         }
     }
 
@@ -72,9 +73,9 @@ class ReorderWorkoutsViewModel @Inject constructor(
      * navigation does not race a failed write.
      */
     fun confirmReorder(onDone: () -> Unit) {
-        if (!_isLoaded.value) return
+        if (!_uiState.value.isLoaded) return
         if (persistJob?.isActive == true) return
-        val orderedIds = _days.value.map { day -> day.dayId }
+        val orderedIds = _uiState.value.days.map { day -> day.dayId }
         if (orderedIds.isEmpty()) return
         persistJob =
             viewModelScope.launch {
