@@ -27,15 +27,18 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
+// STR-216: STR-207 §2 exception — `userMessage` transient-snackbar side-flow
+// alongside `uiState`; bless-vs-migrate decision recorded on STR-216.
+@Suppress("ForbiddenMultipleStateFlowInViewModel")
 @HiltViewModel
 class EditHistoricalWorkoutViewModel @Inject constructor(
     private val getCompletedSessionForEdit: GetCompletedSessionForEditUseCase,
@@ -51,8 +54,8 @@ class EditHistoricalWorkoutViewModel @Inject constructor(
     private val _userMessage = MutableStateFlow<String?>(null)
     val userMessage: StateFlow<String?> = _userMessage.asStateFlow()
 
-    private val _events = MutableSharedFlow<EditHistoricalWorkoutEvent>(extraBufferCapacity = 1)
-    val events: SharedFlow<EditHistoricalWorkoutEvent> = _events.asSharedFlow()
+    private val _events = Channel<EditHistoricalWorkoutEvent>(Channel.BUFFERED)
+    val events: Flow<EditHistoricalWorkoutEvent> = _events.receiveAsFlow()
 
     private var sessionId: TrainingSessionId? = null
     private var draftLifts: List<DraftLift> = emptyList()
@@ -191,7 +194,7 @@ class EditHistoricalWorkoutViewModel @Inject constructor(
                 UpdateCompletedSessionSetsResult.Success -> {
                     baselineSignature = signature(draftLifts)
                     publishLoaded()
-                    _events.tryEmit(EditHistoricalWorkoutEvent.NavigateBack)
+                    _events.trySend(EditHistoricalWorkoutEvent.NavigateBack)
                 }
                 else -> {
                     if (result is UpdateCompletedSessionSetsResult.PersistenceFailed) {

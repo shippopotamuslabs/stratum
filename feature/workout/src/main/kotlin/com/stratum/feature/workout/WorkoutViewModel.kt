@@ -94,7 +94,10 @@ import kotlin.coroutines.cancellation.CancellationException
  * lift.
  */
 @HiltViewModel
-@Suppress("TooManyFunctions", "LongParameterList", "LargeClass")
+// STR-216: STR-207 §2 exceptions — `userMessage` transient-snackbar side-flow
+// (bless-vs-migrate recorded on STR-216) + `restTimerState` STR-209
+// process-scoped rest passthrough shared with the rest FGS.
+@Suppress("TooManyFunctions", "LongParameterList", "LargeClass", "ForbiddenMultipleStateFlowInViewModel")
 class WorkoutViewModel @Inject constructor(
     private val observeWorkoutSessionInputs: ObserveWorkoutSessionInputsUseCase,
     generateSnapshot: GenerateProgressionSnapshotUseCase,

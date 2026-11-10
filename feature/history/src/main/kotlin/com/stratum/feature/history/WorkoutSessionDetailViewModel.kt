@@ -22,6 +22,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
+// STR-216: STR-207 §2 exception — `userMessage` transient-snackbar side-flow
+// alongside `uiState`; bless-vs-migrate decision recorded on STR-216.
+@Suppress("ForbiddenMultipleStateFlowInViewModel")
 @HiltViewModel
 class WorkoutSessionDetailViewModel @Inject constructor(
     private val getWorkoutSessionDetail: GetWorkoutSessionDetailUseCase,

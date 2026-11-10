@@ -9,12 +9,12 @@ import com.stratum.application.export.PreviewExportProgramsUseCase
 import com.stratum.domain.program.identity.ProgramId
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -40,8 +40,8 @@ class ExportProgramsViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(ExportProgramsUiState())
     val uiState: StateFlow<ExportProgramsUiState> = _uiState.asStateFlow()
 
-    private val _shareEvents = MutableSharedFlow<ExportFileResult>(extraBufferCapacity = 1)
-    val shareEvents: SharedFlow<ExportFileResult> = _shareEvents.asSharedFlow()
+    private val _shareEvents = Channel<ExportFileResult>(Channel.BUFFERED)
+    val shareEvents: Flow<ExportFileResult> = _shareEvents.receiveAsFlow()
 
     init {
         viewModelScope.launch {
@@ -104,7 +104,7 @@ class ExportProgramsViewModel @Inject constructor(
             when (val result = exportPrograms(selected.map { ProgramId(it) })) {
                 is ExportProgramsResult.Success -> {
                     _uiState.update { it.copy(isExporting = false, errorMessage = null) }
-                    _shareEvents.emit(result.file)
+                    _shareEvents.send(result.file)
                 }
                 ExportProgramsResult.NoProgramsSelected ->
                     _uiState.update {

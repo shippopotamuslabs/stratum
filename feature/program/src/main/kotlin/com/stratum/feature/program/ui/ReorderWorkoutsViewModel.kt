@@ -28,6 +28,9 @@ data class ReorderWorkoutsUiState(
  * Persist-only reorder of an existing program's cycle days (Programs tab).
  * Create Program drafts host [com.stratum.core.ui.component.StratumReorderListScreen] locally.
  */
+// STR-216: STR-207 §2 exception — `userMessage` transient-snackbar side-flow
+// alongside `uiState`; bless-vs-migrate decision recorded on STR-216.
+@Suppress("ForbiddenMultipleStateFlowInViewModel")
 @HiltViewModel
 class ReorderWorkoutsViewModel @Inject constructor(
     private val reorderProgramCycleDays: ReorderProgramCycleDaysUseCase,

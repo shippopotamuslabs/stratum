@@ -36,6 +36,9 @@ import kotlinx.coroutines.launch
  * Commit mode is nav-owned ([LiftSwapCommitMode]): Programs uses [LiftSwapCommitMode.PersistToProgram];
  * Edit / Create / live Workout use [LiftSwapCommitMode.EditSession].
  */
+// STR-216: STR-207 §2 exception — `liftSwapState` sheet state + `userMessage`
+// transient-snackbar side-flow; bless-vs-migrate decision recorded on STR-216.
+@Suppress("ForbiddenMultipleStateFlowInViewModel")
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class LiftSwapViewModel @Inject constructor(

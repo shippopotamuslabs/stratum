@@ -28,6 +28,9 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+// STR-216: STR-207 §2 exception — `themePreferences` is the sanctioned shell theme
+// stream alongside `shellUiState`; suppressed per-class with ticket reference.
+@Suppress("ForbiddenMultipleStateFlowInViewModel")
 @HiltViewModel
 class MainViewModel @Inject constructor(
     private val observeShellState: ObserveShellStateUseCase,

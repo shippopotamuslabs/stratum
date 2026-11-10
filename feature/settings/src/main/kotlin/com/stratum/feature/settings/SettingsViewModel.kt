@@ -55,7 +55,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-@Suppress("LongParameterList")
+// STR-216: STR-207 §2 exception — `userMessage` transient-snackbar side-flow
+// alongside `uiState`; bless-vs-migrate decision recorded on STR-216.
+@Suppress("LongParameterList", "ForbiddenMultipleStateFlowInViewModel")
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     observeSettingsState: ObserveSettingsStateUseCase,

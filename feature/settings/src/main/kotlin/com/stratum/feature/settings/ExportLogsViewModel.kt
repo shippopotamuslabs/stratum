@@ -11,12 +11,12 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.LocalDate
 import java.time.ZoneId
 import javax.inject.Inject
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -70,8 +70,8 @@ class ExportLogsViewModel(
     private val _uiState = MutableStateFlow(ExportLogsUiState())
     val uiState: StateFlow<ExportLogsUiState> = _uiState.asStateFlow()
 
-    private val _shareEvents = MutableSharedFlow<ExportFileResult>(extraBufferCapacity = 1)
-    val shareEvents: SharedFlow<ExportFileResult> = _shareEvents.asSharedFlow()
+    private val _shareEvents = Channel<ExportFileResult>(Channel.BUFFERED)
+    val shareEvents: Flow<ExportFileResult> = _shareEvents.receiveAsFlow()
 
     init {
         refreshPreview()
@@ -125,7 +125,7 @@ class ExportLogsViewModel(
             when (val result = exportLogs(range)) {
                 is ExportTrainingLogsResult.Success -> {
                     _uiState.update { it.copy(isExporting = false, error = null) }
-                    _shareEvents.emit(result.file)
+                    _shareEvents.send(result.file)
                 }
                 is ExportTrainingLogsResult.InvalidRange ->
                     _uiState.update {
