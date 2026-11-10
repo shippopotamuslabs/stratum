@@ -14,18 +14,20 @@ import com.stratum.domain.healthconnect.HealthFailureKind
 import com.stratum.application.lift.AnalyzeSessionEquipmentProposalsUseCase
 import com.stratum.application.lift.ApplyEquipmentIncrementProposalUseCase
 import com.stratum.application.lift.ApplyEquipmentIncrementResult
+import com.stratum.application.lift.DismissEquipmentProposalResult
+import com.stratum.application.lift.DismissEquipmentProposalUseCase
 import com.stratum.application.lift.EquipmentProposalDiagnostic
 import com.stratum.domain.lift.EquipmentIncrementRemedy
-import com.stratum.application.lift.EquipmentProposalPreferences
 import com.stratum.application.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.application.training.GetWorkoutSummaryResult
 import com.stratum.application.training.GetWorkoutSummaryUseCase
 import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.application.workout.AnalyzeSessionRepRangeShiftProposalsUseCase
+import com.stratum.application.workout.DismissRepRangeShiftProposalResult
+import com.stratum.application.workout.DismissRepRangeShiftProposalUseCase
 import com.stratum.application.workout.RepRangeShiftDiagnostic
 import com.stratum.domain.workout.ApplyRepRangeShiftResult
 import com.stratum.application.workout.ApplyRepRangeShiftUseCase
-import com.stratum.application.workout.RepRangeShiftProposalPreferences
 import com.stratum.feature.workout.ui.EquipmentProposalUiMapper
 import com.stratum.feature.workout.ui.LiftBestSetUi
 import com.stratum.feature.workout.ui.RepRangeShiftUiMapper
@@ -60,10 +62,10 @@ class WorkoutCompleteViewModel @Inject constructor(
     private val getWorkoutSummary: GetWorkoutSummaryUseCase,
     private val analyzeSessionEquipmentProposals: AnalyzeSessionEquipmentProposalsUseCase,
     private val applyEquipmentIncrementProposal: ApplyEquipmentIncrementProposalUseCase,
-    private val equipmentProposalPreferences: EquipmentProposalPreferences,
+    private val dismissEquipmentProposal: DismissEquipmentProposalUseCase,
     private val analyzeSessionRepRangeShiftProposals: AnalyzeSessionRepRangeShiftProposalsUseCase,
     private val applyRepRangeShift: ApplyRepRangeShiftUseCase,
-    private val repRangeShiftProposalPreferences: RepRangeShiftProposalPreferences,
+    private val dismissRepRangeShiftProposal: DismissRepRangeShiftProposalUseCase,
     private val observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
     observeHealthConnectSyncErrors: ObserveHealthConnectSyncErrorsUseCase,
     private val clearHealthConnectSyncError: ClearHealthConnectSyncErrorUseCase,
@@ -364,12 +366,21 @@ class WorkoutCompleteViewModel @Inject constructor(
         viewModelScope.launch {
             when {
                 equipmentSession.proposal(proposalId) != null -> {
-                    equipmentProposalPreferences.dismiss(proposalId)
+                    // STR-215: dismiss routes through the use case; a failed
+                    // write drains exactly once (EquipmentIncrements precedent)
+                    // while the card is still removed session-side.
+                    val result = dismissEquipmentProposal(proposalId)
+                    (result as? DismissEquipmentProposalResult.PersistenceFailed)?.let {
+                        diagnosticDrain.drain(it.diagnostics)
+                    }
                     applyEquipmentSnapshot(equipmentSession.remove(proposalId))
                 }
                 repRangeSession.proposal(proposalId) != null -> {
                     if (repRangeSession.isApplying(proposalId)) return@launch
-                    repRangeShiftProposalPreferences.dismiss(proposalId)
+                    val result = dismissRepRangeShiftProposal(proposalId)
+                    (result as? DismissRepRangeShiftProposalResult.PersistenceFailed)?.let {
+                        diagnosticDrain.drain(it.diagnostics)
+                    }
                     applyRepRangeSnapshot(repRangeSession.remove(proposalId))
                 }
             }

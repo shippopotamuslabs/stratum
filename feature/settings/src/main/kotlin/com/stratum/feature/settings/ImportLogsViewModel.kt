@@ -2,7 +2,7 @@ package com.stratum.feature.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.stratum.application.auth.AuthManager
+import com.stratum.application.auth.GetAuthStateUseCase
 import com.stratum.domain.auth.AuthState
 import com.stratum.application.importing.CancelHistoricalImportUseCase
 import com.stratum.application.importing.ExecuteHistoricalImportUseCase
@@ -44,7 +44,7 @@ data class ImportLogsUiState(
 class ImportLogsViewModel @Inject constructor(
     private val executeImport: ExecuteHistoricalImportUseCase,
     private val cancelImport: CancelHistoricalImportUseCase,
-    private val authManager: AuthManager,
+    private val getAuthState: GetAuthStateUseCase,
     private val diagnosticDrain: DiagnosticDrain,
     private val logAnalytics: AnalyticsRecorder,
     observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
@@ -60,7 +60,7 @@ class ImportLogsViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            authManager.authState.collect { state ->
+            getAuthState().collect { state ->
                 val authenticated = state is AuthState.Authenticated
                 _uiState.update {
                     it.copy(
@@ -81,7 +81,10 @@ class ImportLogsViewModel @Inject constructor(
 
     /** User tapped import — show unit gate before the file picker. */
     fun onBeginImportClick() {
-        if (authManager.authState.value !is AuthState.Authenticated) {
+        // STR-215: tap-time guard on the collected isAuthenticated snapshot (same
+        // flow GetAuthStateUseCase exposes); a tap racing the first emission sees
+        // the Unauthenticated initial, matching the pre-existing guard behavior.
+        if (!_uiState.value.isAuthenticated) {
             _uiState.update {
                 it.copy(signedOutGuidanceVisible = true, errorMessage = null, progress = null)
             }
@@ -120,7 +123,7 @@ class ImportLogsViewModel @Inject constructor(
      */
     fun onFilesSelected(files: List<Pair<ByteArray, String>>) {
         val inputs = files.map { (bytes, name) -> ImportFileInput(bytes, name) }
-        if (authManager.authState.value !is AuthState.Authenticated) {
+        if (!_uiState.value.isAuthenticated) {
             _uiState.update {
                 it.copy(
                     signedOutGuidanceVisible = true,
@@ -175,7 +178,7 @@ class ImportLogsViewModel @Inject constructor(
     }
 
     fun onRetryFromFailedFile() {
-        if (authManager.authState.value !is AuthState.Authenticated) {
+        if (!_uiState.value.isAuthenticated) {
             _uiState.update { it.copy(signedOutGuidanceVisible = true) }
             return
         }

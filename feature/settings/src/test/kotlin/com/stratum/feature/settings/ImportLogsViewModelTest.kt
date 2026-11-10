@@ -161,7 +161,7 @@ class ImportLogsViewModelTest {
         return ImportLogsViewModel(
             executeImport = execute,
             cancelImport = cancel,
-            authManager = auth,
+            getAuthState = com.stratum.application.auth.GetAuthStateUseCase(auth),
             diagnosticDrain = DiagnosticDrain(loggingPort),
             logAnalytics = AnalyticsRecorder(analytics),
             observeWeightDisplayPreferences =

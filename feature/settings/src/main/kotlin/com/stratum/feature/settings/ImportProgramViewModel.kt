@@ -2,7 +2,7 @@ package com.stratum.feature.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.stratum.application.auth.AuthManager
+import com.stratum.application.auth.GetAuthStateUseCase
 import com.stratum.domain.auth.AuthState
 import com.stratum.application.program.importing.ImportProgramTemplatesUseCase
 import com.stratum.application.program.importing.ProgramTemplateImportOutcome
@@ -35,7 +35,7 @@ data class ImportProgramUiState(
 @HiltViewModel
 class ImportProgramViewModel @Inject constructor(
     private val importPrograms: ImportProgramTemplatesUseCase,
-    private val authManager: AuthManager,
+    private val getAuthState: GetAuthStateUseCase,
     private val logAnalytics: AnalyticsRecorder,
     private val diagnosticDrain: DiagnosticDrain,
 ) : ViewModel() {
@@ -44,7 +44,7 @@ class ImportProgramViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            authManager.authState.collect { state ->
+            getAuthState().collect { state ->
                 val authenticated = state is AuthState.Authenticated
                 _uiState.update {
                     it.copy(isAuthenticated = authenticated)
@@ -54,7 +54,10 @@ class ImportProgramViewModel @Inject constructor(
     }
 
     fun onFileSelected(bytes: ByteArray, fileName: String) {
-        if (authManager.authState.value !is AuthState.Authenticated) {
+        // STR-215: tap-time guard on the collected isAuthenticated snapshot (same
+        // flow GetAuthStateUseCase exposes); a tap racing the first emission sees
+        // the Unauthenticated initial, matching the pre-existing guard behavior.
+        if (!_uiState.value.isAuthenticated) {
             _uiState.update {
                 it.copy(
                     signedOutGuidanceVisible = true,
