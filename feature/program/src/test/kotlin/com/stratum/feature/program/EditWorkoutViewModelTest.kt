@@ -97,6 +97,28 @@ class EditWorkoutViewModelTest {
     }
 
     @Test
+    @DisplayName("Given first emission has no program when the program arrives then the editor loads")
+    fun notFoundDraftDoesNotBlockLaterValidEmission() = runTest {
+        repository = FakeProgramRepository()
+        val viewModel = buildViewModel()
+        viewModel.initialize(WORKOUT_ID)
+
+        viewModel.uiState.test {
+            var item = awaitItem()
+            while (item is EditWorkoutUiState.Loading) {
+                item = awaitItem()
+            }
+            assertEquals(EditWorkoutUiState.NotFound, item)
+
+            repository.saveProgram(PROGRAM)
+
+            val loaded = awaitLoaded()
+            assertEquals("Push Day", loaded.workoutName)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     @DisplayName("Given loaded workout when initialized then volume and duration are derived")
     fun derivedMetricsOnLoad() = runTest {
         val viewModel = buildViewModel()

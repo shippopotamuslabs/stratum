@@ -248,7 +248,7 @@ class EditWorkoutViewModel @Inject constructor(
 
     fun initialize(workoutId: String, programId: String? = null) {
         val target = EditTarget(workoutId, programId?.let { ProgramId(it) })
-        if (targetFlow.value == target && draftFlow.value?.target == target) {
+        if (targetFlow.value == target && hasSeededDraft(target)) {
             return
         }
         // Reset transient inputs BEFORE publishing the target: StateFlow
@@ -261,6 +261,12 @@ class EditWorkoutViewModel @Inject constructor(
         startingFlow.value = false
         programSnapshot = null
         baselineWorkout = null
+        if (targetFlow.value == target) {
+            // Same target but no seeded draft (only NotFound so far): StateFlow
+            // will not re-emit an equal value, so cycle through null to restart
+            // the source pipeline and re-seed from the latest program emission.
+            targetFlow.value = null
+        }
         targetFlow.value = target
     }
 
@@ -269,7 +275,7 @@ class EditWorkoutViewModel @Inject constructor(
         val current = source?.takeIf { it.target == target } ?: return
         catalogLifts = current.lifts
         equipmentCatalog = current.equipment
-        if (draftFlow.value?.target == target) {
+        if (hasSeededDraft(target)) {
             // Active edit session exists. Baseline updates from Room are ignored;
             // equipment display names re-join in the pipeline so renames don't go stale.
             return
@@ -282,7 +288,7 @@ class EditWorkoutViewModel @Inject constructor(
         val workout =
             program?.workouts?.firstOrNull { candidate -> candidate.id.value == target.workoutId }
         if (program == null || workout == null) {
-            if (targetFlow.value == target && draftFlow.value?.target != target) {
+            if (targetFlow.value == target && !hasSeededDraft(target)) {
                 draftFlow.value = EditDraft(target, EditWorkoutUiState.NotFound)
             }
             return
@@ -302,7 +308,7 @@ class EditWorkoutViewModel @Inject constructor(
                         ?.let { row -> id to row.name }
                 }
                 .toMap()
-        if (targetFlow.value != target || draftFlow.value?.target == target) return
+        if (targetFlow.value != target || hasSeededDraft(target)) return
         programSnapshot = program
         baselineWorkout = workout
         retainedNamesFlow.value = retainedNames
@@ -312,6 +318,16 @@ class EditWorkoutViewModel @Inject constructor(
                 .markSaveState()
         draftFlow.value = EditDraft(target, applyDerivedMetrics(loaded))
     }
+
+    /**
+     * A draft counts as seeded only once it holds an editable
+     * [EditWorkoutUiState.Loaded]. A [EditWorkoutUiState.NotFound] draft is a
+     * placeholder left by a source emission that arrived before the program
+     * did; it must never block a later valid emission (or a re-initialize of
+     * the same target) from seeding the real draft.
+     */
+    private fun hasSeededDraft(target: EditTarget): Boolean =
+        draftFlow.value?.takeIf { it.target == target }?.state is EditWorkoutUiState.Loaded
 
     private fun draftLoaded(): EditWorkoutUiState.Loaded? {
         val target = targetFlow.value ?: return null
