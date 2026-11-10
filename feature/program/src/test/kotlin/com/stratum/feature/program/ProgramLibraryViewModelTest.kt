@@ -17,6 +17,7 @@ import com.stratum.application.program.ActivateStoredProgramUseCase
 import com.stratum.application.program.DeleteProgramUseCase
 import com.stratum.domain.program.LiftSet
 import com.stratum.application.program.ObserveLibraryProgramsUseCase
+import com.stratum.application.program.ObserveProgramLibraryUseCase
 import com.stratum.application.program.ObserveProgramUseCase
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.ProgressionScheme
@@ -208,21 +209,33 @@ class ProgramLibraryViewModelTest {
     }
 
     @Test
-    @DisplayName("mergeActiveAndLibraryPrograms drops library row that still matches active id")
-    fun mergeDedupesActiveStillPresentInLibrary() {
-        val active = program(id = "shared", name = "Shared", isActive = true)
-        // Stale library emission still includes the program that is now (or still) active.
-        val library =
-            listOf(
-                program(id = "shared", name = "Shared stale", isActive = false),
-                program(id = "other", name = "Other", isActive = false),
+    @DisplayName("Rest-day label stays transient and reaches card day names via the mapper")
+    fun restDayLabelReachesCards() = runTest {
+        val active =
+            program(
+                id = "active",
+                name = "Active",
+                isActive = true,
+                weekdays = setOf(Weekday.Monday, Weekday.Wednesday),
             )
+        val viewModel = buildViewModel(FakeProgramRepository(active))
 
-        val merged = mergeActiveAndLibraryPrograms(active, library)
-
-        assertEquals(listOf("shared", "other"), merged.map { it.id.value })
-        assertTrue(merged.first().isActive)
-        assertEquals(1, merged.count { it.id.value == "shared" })
+        viewModel.uiState.test {
+            val initial = awaitItemUntil { it.programs.isNotEmpty() }
+            assertTrue(
+                initial.programs.single().days.filter { day -> day.isRest }.all { day ->
+                    day.name == "Rest Day"
+                },
+            )
+            viewModel.setRestDayLabel("Ruhetag")
+            val relabeled =
+                awaitItemUntil {
+                    it.programs.isNotEmpty() &&
+                        it.programs.single().days.any { day -> day.isRest && day.name == "Ruhetag" }
+                }
+            assertTrue(relabeled.programs.single().days.any { day -> day.isRest })
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     @Test
@@ -322,10 +335,13 @@ class ProgramLibraryViewModelTest {
                     ),
             )
         return ProgramLibraryViewModel(
-            observeProgram = ObserveProgramUseCase(programRepo),
-            observeLibraryPrograms = ObserveLibraryProgramsUseCase(programRepo),
-            observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepo),
-            observeActiveSession = ObserveActiveSessionUseCase(trainingLog),
+            observeProgramLibrary =
+                ObserveProgramLibraryUseCase(
+                    ObserveProgramUseCase(programRepo),
+                    ObserveLibraryProgramsUseCase(programRepo),
+                    ObserveLiftCatalogUseCase(liftRepo),
+                    ObserveActiveSessionUseCase(trainingLog),
+                ),
             activateStoredProgram = ActivateStoredProgramUseCase(programRepo),
             abandonTrainingSession =
                 com.stratum.application.training.AbandonTrainingSessionUseCase(
