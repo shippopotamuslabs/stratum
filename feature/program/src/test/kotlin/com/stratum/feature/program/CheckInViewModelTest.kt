@@ -40,6 +40,7 @@ import com.stratum.domain.training.identity.ProgramChangeEventId
 import java.time.Instant
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
@@ -127,6 +128,49 @@ class CheckInViewModelTest {
         assertEquals("Failed to complete check-in: prefs boom", entry.message)
         assertSame(cause, entry.throwable)
         assertEquals("Could not apply check-in", viewModel.uiState.value.errorMessage)
+    }
+
+    @Test
+    @DisplayName("banner flag mirrors pending check-in in uiState (STR-290)")
+    fun bannerMirrorsPendingCheckIn() = runTest {
+        val prefs = FakeCheckInPreferencesRepository()
+        val viewModel = buildViewModel(prefs = prefs)
+
+        assertFalse(viewModel.uiState.value.showBanner)
+
+        prefs.markPending(Instant.parse("2026-02-01T00:00:00Z"))
+
+        assertTrue(viewModel.uiState.value.showBanner)
+    }
+
+    @Test
+    @DisplayName("skip clears the banner flag (STR-290)")
+    fun skipClearsBannerFlag() = runTest {
+        val prefs = FakeCheckInPreferencesRepository()
+        val viewModel = buildViewModel(prefs = prefs)
+        prefs.markPending(Instant.parse("2026-02-01T00:00:00Z"))
+        assertTrue(viewModel.uiState.value.showBanner)
+
+        viewModel.skip()
+
+        assertFalse(viewModel.uiState.value.showBanner)
+    }
+
+    @Test
+    @DisplayName("open and dismiss preserve the banner flag (STR-290)")
+    fun openAndDismissPreserveBannerFlag() = runTest {
+        val prefs = FakeCheckInPreferencesRepository()
+        val viewModel = buildViewModel(prefs = prefs)
+        prefs.markPending(Instant.parse("2026-02-01T00:00:00Z"))
+
+        viewModel.openCheckIn()
+
+        assertTrue(viewModel.uiState.value.showBanner)
+
+        viewModel.dismiss()
+
+        assertTrue(viewModel.uiState.value.showBanner)
+        assertFalse(viewModel.uiState.value.isOpen)
     }
 
     private fun buildViewModel(
