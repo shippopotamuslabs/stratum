@@ -53,6 +53,7 @@ stratum:
       - 'core/domain/src/main/kotlin/com/stratum/domain/coroutines/RunCatchingCancellable.kt'
       - 'core/application/src/main/kotlin/com/stratum/application/training/ComputePersonalRecordsUseCase.kt'
       - 'core/application/src/main/kotlin/com/stratum/application/training/RefreshWeeklySeriesUseCase.kt'
+      - 'core/application/src/main/kotlin/com/stratum/application/training/ObserveMinimizedWorkoutBarUseCase.kt'
     diagnosticExemptTypes:
       - 'ScheduleDiagnostic'
       - 'ProgramImportRollbackDiagnostic'

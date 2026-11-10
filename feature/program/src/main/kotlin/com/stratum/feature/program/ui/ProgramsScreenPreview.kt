@@ -230,11 +230,11 @@ private fun LoadedProgramsScreen(
                                 ),
                         ),
                     ),
+                activeBar = activeWorkoutBar,
             ),
         callbacks = ProgramsScreenCallbacks(),
         onSwapLiftClick = { _, _ -> },
         isPreviewMode = isPreviewMode,
-        activeWorkoutBar = activeWorkoutBar,
     )
 }
 
@@ -257,7 +257,7 @@ internal fun ProgramsEmptyPreviewContent(
 ) {
     StratumTheme(themeId = family, darkTheme = darkTheme) {
         ProgramsScreen(
-            state = ProgramsUiState.Empty,
+            state = ProgramsUiState.Empty(),
             callbacks = ProgramsScreenCallbacks(),
             onSwapLiftClick = { _, _ -> },
         )

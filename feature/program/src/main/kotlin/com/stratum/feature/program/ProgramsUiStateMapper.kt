@@ -34,7 +34,7 @@ internal fun Program?.toProgramsUiState(
     completedRestSlotIndices: Set<Int> = emptySet(),
 ): ProgramsUiState =
     if (this == null) {
-        ProgramsUiState.Empty
+        ProgramsUiState.Empty()
     } else {
         ProgramsUiState.Loaded(
             program = ProgramViewState(programId = id.value, name = name),

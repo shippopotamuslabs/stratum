@@ -25,8 +25,6 @@ fun ProgramsRoute(
     isPreviewMode: Boolean = false,
 ) {
     val state by viewModel.programsUiState.collectAsStateWithLifecycle()
-    val activeWorkoutBar by viewModel.activeWorkoutBarState.collectAsStateWithLifecycle()
-    val expandedWorkoutId by viewModel.expandedWorkoutId.collectAsStateWithLifecycle()
     val checkInUiState by checkInViewModel.uiState.collectAsStateWithLifecycle()
     val userMessage by viewModel.userMessage.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -63,8 +61,6 @@ fun ProgramsRoute(
     } else {
         ProgramsScreen(
             state = state,
-            activeWorkoutBar = activeWorkoutBar,
-            expandedWorkoutId = expandedWorkoutId,
             callbacks =
                 callbacks.copy(
                     onStartNextWorkoutClick = viewModel::startNextWorkout,

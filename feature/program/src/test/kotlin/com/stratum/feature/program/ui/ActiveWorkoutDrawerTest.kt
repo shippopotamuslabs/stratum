@@ -94,13 +94,6 @@ class ActiveWorkoutDrawerTest {
                                     state = LoadedState,
                                     callbacks = ProgramsScreenCallbacks(),
                                     onSwapLiftClick = { _, _ -> },
-                                    activeWorkoutBar =
-                                        MinimizedWorkoutState(
-                                            workoutId = "w-1",
-                                            workoutName = "Minimal Lower A",
-                                            nextLiftName = "Barbell Romanian Deadlift",
-                                            startedAtEpochMilli = System.currentTimeMillis(),
-                                        ),
                                     onExpandWorkoutClick = { expandedWorkoutId = it },
                                     onCancelWorkoutClick = { cancelClicks++ },
                                 )
@@ -218,6 +211,13 @@ class ActiveWorkoutDrawerTest {
                                         ),
                                 ),
                         ),
+                    ),
+                activeBar =
+                    MinimizedWorkoutState(
+                        workoutId = "w-1",
+                        workoutName = "Minimal Lower A",
+                        nextLiftName = "Barbell Romanian Deadlift",
+                        startedAtEpochMilli = System.currentTimeMillis(),
                     ),
             )
     }

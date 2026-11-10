@@ -10,27 +10,23 @@ import com.stratum.application.program.SetExpandedWorkoutIdUseCase
 import com.stratum.application.program.ProgramsUiPreferenceResult
 import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.domain.program.identity.WorkoutId
-import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.training.StartTrainingSessionResult
 import com.stratum.application.training.AbandonTrainingSessionResult
 import com.stratum.application.training.AbandonTrainingSessionUseCase
-import com.stratum.application.training.GetLoggedSetsForSessionUseCase
+import com.stratum.application.training.MinimizedWorkoutBar
 import com.stratum.application.training.ObserveCycleProgressUseCase
+import com.stratum.application.training.ObserveMinimizedWorkoutBarUseCase
 import com.stratum.application.training.RecordRestDaySkipResult
 import com.stratum.application.training.RecordRestDaySkipUseCase
 import com.stratum.application.training.RecordWorkoutSkipResult
 import com.stratum.application.training.RecordWorkoutSkipUseCase
 import com.stratum.domain.training.StartTrainingSessionRequest
 import com.stratum.application.training.StartTrainingSessionUseCase
-import com.stratum.domain.training.TrainingSession
-import com.stratum.domain.training.TrainingSessionDisplayName
-import com.stratum.domain.training.TrainingSessionKind
 import com.stratum.application.training.UnskipWorkoutResult
 import com.stratum.application.training.UnskipWorkoutUseCase
 import com.stratum.domain.training.isOrphanedAgainstActiveProgram
 import com.stratum.domain.training.liveWorkoutRouteId
 import com.stratum.application.workout.ManageWorkoutOverlayUseCase
-import com.stratum.domain.workout.WorkoutOverlay
 import com.stratum.feature.program.ui.MinimizedWorkoutState
 import com.stratum.feature.program.ui.ProgramsStartAction
 import com.stratum.feature.program.ui.ProgramsUiEvent
@@ -38,7 +34,6 @@ import com.stratum.feature.program.ui.ProgramsUiState
 import com.stratum.feature.program.ui.findNextWorkoutId
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -48,8 +43,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
@@ -75,7 +68,7 @@ class ProgramsViewModel @Inject constructor(
     private val startTrainingSession: StartTrainingSessionUseCase,
     private val observeCycleProgress: ObserveCycleProgressUseCase,
     private val abandonTrainingSession: AbandonTrainingSessionUseCase,
-    private val getLoggedSetsForSession: GetLoggedSetsForSessionUseCase,
+    private val observeMinimizedBar: ObserveMinimizedWorkoutBarUseCase,
     private val recordWorkoutSkip: RecordWorkoutSkipUseCase,
     private val recordRestDaySkip: RecordRestDaySkipUseCase,
     private val unskipWorkout: UnskipWorkoutUseCase,
@@ -124,7 +117,7 @@ class ProgramsViewModel @Inject constructor(
         }
     }
 
-    val programsUiState: StateFlow<ProgramsUiState> =
+    private val programBase: Flow<ProgramsUiState> =
         combine(
             observeProgram(),
             observeLiftCatalog(),
@@ -143,24 +136,43 @@ class ProgramsViewModel @Inject constructor(
                 activeWorkoutId = progress.activeSession?.workoutId?.value,
                 completedRestSlotIndices = progress.completedRestSlotIndicesThisCycle,
             )
+        }
+
+    /**
+     * Single public state flow for the Programs screen (ARCHITECTURE.md §4.1). The
+     * minimized-bar assembly lives in [ObserveMinimizedWorkoutBarUseCase] (§4.4); this
+     * pipeline only folds the bar read model and the persisted expansion id into the
+     * presentation state at the boundary. Expansion stays independent of program load
+     * so editing/swapping lifts does not force a different card open.
+     */
+    val programsUiState: StateFlow<ProgramsUiState> =
+        combine(
+            programBase,
+            observeMinimizedBar(),
+            observeProgramsUiPreferences(),
+        ) { base, bar, prefs ->
+            val activeBar = bar?.toMinimizedWorkoutState()
+            when (base) {
+                is ProgramsUiState.Empty -> base.copy(activeBar = activeBar)
+                is ProgramsUiState.Loaded ->
+                    base.copy(
+                        activeBar = activeBar,
+                        expandedWorkoutId = prefs.expandedWorkoutId,
+                    )
+            }
         }.stateIn(
             viewModelScope,
             SharingStarted.WhileSubscribed(5_000),
-            ProgramsUiState.Empty,
+            ProgramsUiState.Empty(),
         )
 
-    /**
-     * Last expanded schedule workout card, restored from DataStore. Independent of program load
-     * so editing/swapping lifts does not force a different card open.
-     */
-    val expandedWorkoutId: StateFlow<String?> =
-        observeProgramsUiPreferences()
-            .map { prefs -> prefs.expandedWorkoutId }
-            .stateIn(
-                viewModelScope,
-                SharingStarted.WhileSubscribed(5_000),
-                null,
-            )
+    private fun MinimizedWorkoutBar.toMinimizedWorkoutState(): MinimizedWorkoutState =
+        MinimizedWorkoutState(
+            workoutId = workoutId,
+            workoutName = workoutName,
+            nextLiftName = nextLiftName,
+            startedAtEpochMilli = startedAtEpochMilli,
+        )
 
     fun setExpandedWorkout(workoutId: String?) {
         viewModelScope.launch {
@@ -252,77 +264,6 @@ class ProgramsViewModel @Inject constructor(
             showUserMessage(MSG_START_WORKOUT_FAILED)
         }
     }
-
-    @OptIn(ExperimentalCoroutinesApi::class)
-    val activeWorkoutBarState: StateFlow<MinimizedWorkoutState?> =
-        observeCycleProgress().flatMapLatest { progress ->
-            flow {
-                val session = progress.activeSession
-                if (session == null) {
-                    emit(null)
-                    return@flow
-                }
-                when (session.kind) {
-                    TrainingSessionKind.AD_HOC -> {
-                        val nextLiftName =
-                            runCatching {
-                                val lifts = observeLiftCatalog().first()
-                                val liftNames = lifts.associate { it.id to it.name }
-                                val overlay = manageWorkoutOverlay.load(session.id)
-                                val loggedSets = getLoggedSetsForSession(session.id)
-                                findNextAdHocLiftName(overlay, loggedSets, liftNames)
-                            }.getOrNull()
-                        emit(
-                            MinimizedWorkoutState(
-                                workoutId = session.liveWorkoutRouteId(),
-                                workoutName = TrainingSessionDisplayName.resolve(
-                                    session = session,
-                                    program = progress.program,
-                                ),
-                                nextLiftName = nextLiftName ?: "Add lifts",
-                                startedAtEpochMilli = session.startedAt.toEpochMilli(),
-                            ),
-                        )
-                    }
-                    TrainingSessionKind.PROGRAM_WORKOUT -> {
-                        val workoutId = session.workoutId
-                        if (workoutId == null) {
-                            emit(null)
-                            return@flow
-                        }
-                        val program = progress.program
-                        val workout = program?.workouts?.firstOrNull { it.id == workoutId }
-                        if (workout == null) {
-                            // Orphan: init collector abandons; hide bar so expand cannot open a dead route.
-                            emit(null)
-                        } else {
-                            // Soft-fail set/catalog load so a bad read never kills the bar or the VM.
-                            val nextLiftName =
-                                runCatching {
-                                    val loggedSets = getLoggedSetsForSession(session.id)
-                                    val lifts = observeLiftCatalog().first()
-                                    val liftNames = lifts.associate { it.id to it.name }
-                                    findNextLiftName(workout, loggedSets, liftNames)
-                                }.getOrNull()
-                            emit(
-                                MinimizedWorkoutState(
-                                    workoutId = workoutId.value,
-                                    workoutName = workout.name,
-                                    nextLiftName = nextLiftName ?: "Workout in progress",
-                                    startedAtEpochMilli = session.startedAt.toEpochMilli(),
-                                ),
-                            )
-                        }
-                    }
-                    // Rest-day ledger rows are not interactive live sessions.
-                    TrainingSessionKind.REST_DAY -> emit(null)
-                }
-            }
-        }.stateIn(
-            viewModelScope,
-            SharingStarted.WhileSubscribed(5_000),
-            null
-        )
 
     fun abandonActiveSession() {
         viewModelScope.launch {
@@ -416,63 +357,6 @@ class ProgramsViewModel @Inject constructor(
                 ProgramsStartAction.StartEmptyWorkout -> startEmptyWorkout()
             }
         }
-    }
-
-    private fun findNextLiftName(
-        workout: com.stratum.domain.program.Workout,
-        loggedSets: List<com.stratum.domain.training.LoggedSet>,
-        liftNames: Map<LiftId, String>,
-    ): String? {
-        val sortedLifts = workout.workoutLifts.sortedBy { it.position }
-        for (workoutLift in sortedLifts) {
-            val sortedSets = workoutLift.sets.sortedBy { it.position }
-            for (setIndex in sortedSets.indices) {
-                val isLogged = loggedSets.any {
-                    it.liftContext.workoutLiftId == workoutLift.id && it.setIndex == setIndex
-                }
-                if (!isLogged) {
-                    return liftNames[workoutLift.liftId] ?: "Unknown Lift"
-                }
-            }
-        }
-        return null
-    }
-
-    /**
-     * Next incomplete session-added lift for the minimized bar. Prefers overlay structure;
-     * falls back to durable logs when overlay is missing.
-     */
-    private fun findNextAdHocLiftName(
-        overlay: WorkoutOverlay?,
-        loggedSets: List<com.stratum.domain.training.LoggedSet>,
-        liftNames: Map<LiftId, String>,
-    ): String {
-        if (overlay != null && overlay.addedLifts.isNotEmpty()) {
-            val order =
-                overlay.orderedLiftIds
-                    ?: overlay.addedLifts.map { it.workoutLiftId.value }
-            for (wlIdValue in order) {
-                val workoutLiftId = com.stratum.domain.program.identity.WorkoutLiftId(wlIdValue)
-                if (workoutLiftId in overlay.deletedLiftIds) continue
-                val slots =
-                    overlay.addedSlots
-                        .filter { it.workoutLiftId == workoutLiftId }
-                        .filterNot { it.slotId in overlay.deletedSlotIds }
-                        .sortedBy { it.position }
-                val hasUnlogged = slots.any { it.slotId !in overlay.loggedSets }
-                if (hasUnlogged || slots.isEmpty()) {
-                    val added = overlay.addedLifts.firstOrNull { it.workoutLiftId == workoutLiftId }
-                    val liftId = overlay.swappedLifts[workoutLiftId] ?: added?.liftId
-                    return liftId?.let { liftNames[it] } ?: "Workout in progress"
-                }
-            }
-            return "Workout in progress"
-        }
-        if (loggedSets.isEmpty()) return "Add lifts"
-        // Overlay lost but sets exist — surface generic progress, not a stale "Add lifts".
-        val last = loggedSets.maxByOrNull { it.completedAt }
-        val liftId = last?.liftId
-        return liftId?.let { liftNames[it] } ?: "Workout in progress"
     }
 
     private companion object {
