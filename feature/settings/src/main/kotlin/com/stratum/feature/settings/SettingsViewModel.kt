@@ -10,12 +10,11 @@ import com.stratum.application.auth.records
 import com.stratum.application.diagnostics.OperationalDiagnostic
 import com.stratum.application.checkin.CheckInPreferenceResult
 import com.stratum.application.checkin.MarkCheckInPendingUseCase
-import com.stratum.application.checkin.ObserveCheckInPreferencesUseCase
 import com.stratum.application.checkin.SetCheckInEnabledUseCase
 import com.stratum.application.healthconnect.ClearHealthConnectSyncErrorResult
 import com.stratum.application.healthconnect.ClearHealthConnectSyncErrorUseCase
-import com.stratum.application.healthconnect.ObserveHealthConnectPreferencesUseCase
 import com.stratum.application.healthconnect.ObserveHealthConnectSyncErrorsUseCase
+import com.stratum.application.settings.ObserveSettingsStateUseCase
 import com.stratum.domain.healthconnect.HealthFailureKind
 import com.stratum.application.healthconnect.ApplyGrantedPermissionsDiagnostic
 import com.stratum.application.healthconnect.ApplyGrantedPermissionsOutcome
@@ -24,38 +23,33 @@ import com.stratum.application.healthconnect.SetHealthConnectEnabledResult
 import com.stratum.application.healthconnect.SetHealthConnectEnabledUseCase
 import com.stratum.domain.subscription.EntitlementSource
 import com.stratum.domain.subscription.EntitlementState
-import com.stratum.application.subscription.ObserveEntitlementUseCase
-import com.stratum.application.lift.ObserveEquipmentProposalsEnabledUseCase
-import com.stratum.application.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.application.lift.EquipmentProposalPreferenceResult
 import com.stratum.application.lift.SetEquipmentProposalsEnabledUseCase
 import com.stratum.application.lift.SetWeightDisplayUnitUseCase
 import com.stratum.application.lift.WeightDisplayPreferenceResult
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.theme.ColorMode
-import com.stratum.application.theme.ObserveThemePreferencesUseCase
 import com.stratum.application.theme.SetColorModeUseCase
 import com.stratum.application.theme.SetThemeFamilyUseCase
 import com.stratum.application.theme.ThemePreferenceResult
 import com.stratum.domain.theme.ThemeFamily
 import com.stratum.application.training.ForceRefreshDerivedTrainingData
 import com.stratum.application.training.ForceRefreshDerivedTrainingDataResult
-import com.stratum.application.workout.ObserveRepRangeShiftProposalsEnabledUseCase
 import com.stratum.application.workout.RepRangeShiftPreferenceResult
 import com.stratum.application.workout.SetRepRangeShiftProposalsEnabledUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Instant
 import javax.inject.Inject
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.update
@@ -64,14 +58,8 @@ import kotlinx.coroutines.launch
 @Suppress("LongParameterList")
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    observeThemePreferences: ObserveThemePreferencesUseCase,
-    observeCheckInPreferences: ObserveCheckInPreferencesUseCase,
-    observeEquipmentProposalsEnabled: ObserveEquipmentProposalsEnabledUseCase,
-    observeRepRangeShiftProposalsEnabled: ObserveRepRangeShiftProposalsEnabledUseCase,
-    observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
-    observeHealthConnectPreferences: ObserveHealthConnectPreferencesUseCase,
+    observeSettingsState: ObserveSettingsStateUseCase,
     observeHealthConnectSyncErrors: ObserveHealthConnectSyncErrorsUseCase,
-    observeEntitlement: ObserveEntitlementUseCase,
     private val setThemeFamily: SetThemeFamilyUseCase,
     private val setColorMode: SetColorModeUseCase,
     private val setCheckInEnabled: SetCheckInEnabledUseCase,
@@ -93,9 +81,9 @@ class SettingsViewModel @Inject constructor(
     val userMessage: StateFlow<String?> = _userMessage.asStateFlow()
 
     private val _healthConnectPermissionAction =
-        MutableSharedFlow<HealthConnectPermissionAction>(extraBufferCapacity = 1)
-    val healthConnectPermissionAction: SharedFlow<HealthConnectPermissionAction> =
-        _healthConnectPermissionAction.asSharedFlow()
+        Channel<HealthConnectPermissionAction>(Channel.BUFFERED)
+    val healthConnectPermissionAction: Flow<HealthConnectPermissionAction> =
+        _healthConnectPermissionAction.receiveAsFlow()
 
     private val healthConnectGranted = MutableStateFlow<Set<String>>(emptySet())
 
@@ -120,53 +108,26 @@ class SettingsViewModel @Inject constructor(
 
     val uiState: StateFlow<SettingsUiState> =
         combine(
-            combine(
-                combine(
-                    observeThemePreferences(),
-                    observeCheckInPreferences(),
-                    observeEquipmentProposalsEnabled(),
-                ) { theme, checkIn, equipment -> Triple(theme, checkIn, equipment) },
-                combine(
-                    observeRepRangeShiftProposalsEnabled(),
-                    observeWeightDisplayPreferences(),
-                    observeHealthConnectPreferences(),
-                ) { repRange, weightDisplay, healthConnect ->
-                    Triple(repRange, weightDisplay, healthConnect)
-                },
-                observeEntitlement(),
-            ) { appearance, training, entitlement ->
-                val (theme, checkIn, equipmentEnabled) = appearance
-                val (repRangeEnabled, weightDisplay, healthConnect) = training
-                PreferenceSnapshot(
-                    appearance = theme.colorMode.toAppearanceUi(),
-                    themeFamily = theme.family.toThemeFamilyUi(),
-                    checkInsEnabled = checkIn.enabled,
-                    equipmentProposalsEnabled = equipmentEnabled,
-                    repRangeProposalsEnabled = repRangeEnabled,
-                    weightUnit = weightDisplay.displayUnit.toWeightUnitUi(),
-                    healthConnectEnabled = healthConnect.enabled,
-                    isEntitled = entitlement is EntitlementState.Entitled,
-                    isComplimentary = entitlement is EntitlementState.Entitled &&
-                        entitlement.source == EntitlementSource.ComplimentaryAccess,
-                )
-            },
+            observeSettingsState(),
             debugStatusMessage,
             accountUi,
             rebuildProgressUi,
             healthConnectGranted,
-        ) { prefs, debugStatus, account, rebuild, granted ->
+        ) { settings, debugStatus, account, rebuild, granted ->
+            val entitlement = settings.entitlement
             SettingsUiState(
-                appearance = prefs.appearance,
-                themeFamily = prefs.themeFamily,
-                checkInsEnabled = prefs.checkInsEnabled,
-                equipmentProposalsEnabled = prefs.equipmentProposalsEnabled,
-                repRangeProposalsEnabled = prefs.repRangeProposalsEnabled,
-                weightUnit = prefs.weightUnit,
-                healthConnectEnabled = prefs.healthConnectEnabled,
+                appearance = settings.colorMode.toAppearanceUi(),
+                themeFamily = settings.themeFamily.toThemeFamilyUi(),
+                checkInsEnabled = settings.checkInsEnabled,
+                equipmentProposalsEnabled = settings.equipmentProposalsEnabled,
+                repRangeProposalsEnabled = settings.repRangeProposalsEnabled,
+                weightUnit = settings.displayUnit.toWeightUnitUi(),
+                healthConnectEnabled = settings.healthConnectEnabled,
                 healthConnectWriteGranted = healthConnectWriteGranted(granted),
                 healthConnectReadsGranted = healthConnectReadsGranted(granted),
-                isEntitled = prefs.isEntitled,
-                isComplimentary = prefs.isComplimentary,
+                isEntitled = entitlement is EntitlementState.Entitled,
+                isComplimentary = entitlement is EntitlementState.Entitled &&
+                    entitlement.source == EntitlementSource.ComplimentaryAccess,
                 showDebugTools = BuildConfig.DEBUG,
                 debugStatusMessage = debugStatus,
                 isForceRefreshingDerived = rebuild.isRunning,
@@ -245,9 +206,9 @@ class SettingsViewModel @Inject constructor(
                         HealthConnectLaunchPermissions.all,
                     ),
                 )
-                _healthConnectPermissionAction.emit(HealthConnectPermissionAction.OpenSettings)
+                _healthConnectPermissionAction.send(HealthConnectPermissionAction.OpenSettings)
             } else {
-                _healthConnectPermissionAction.emit(HealthConnectPermissionAction.Request(missing))
+                _healthConnectPermissionAction.send(HealthConnectPermissionAction.Request(missing))
             }
         }
     }
@@ -507,18 +468,6 @@ class SettingsViewModel @Inject constructor(
             }
         }
     }
-
-    private data class PreferenceSnapshot(
-        val appearance: AppearanceUi,
-        val themeFamily: ThemeFamilyUi,
-        val checkInsEnabled: Boolean,
-        val equipmentProposalsEnabled: Boolean,
-        val repRangeProposalsEnabled: Boolean,
-        val weightUnit: WeightUnitUi,
-        val healthConnectEnabled: Boolean,
-        val isEntitled: Boolean,
-        val isComplimentary: Boolean,
-    )
 
     private data class RebuildProgressUi(
         val showConfirm: Boolean = false,
