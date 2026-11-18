@@ -89,26 +89,82 @@ private suspend fun LazyListState.revealOffscreenStripItem(
 ) {
     val visible = layout.visibleItemsInfo
     val anchor = stripRevealAnchor(visible, index) ?: return
+    val startedForward = visible.isNotEmpty() && index > visible.last().index
     animateOffscreenStripReveal(index, anchor, visible, layout)
-    if (correctComposedStripReveal(index)) return
+    if (startedForward) {
+        settleForwardStripReveal(index)
+    } else {
+        settleBackwardStripReveal(index)
+    }
+}
+
+/**
+ * Forward jumps end-align once the item is composed, including a negative
+ * correction when a wide anchor overshot. [animateScrollToItem] is refused
+ * here: it would pin the target to the leading edge and the landing delta
+ * would not undo a fully on-screen pin.
+ */
+private suspend fun LazyListState.settleForwardStripReveal(index: Int) {
+    if (correctForwardLanding(index)) return
     val after = layoutInfo
     val visibleAfter = after.visibleItemsInfo
-    val firstAfter = visibleAfter.firstOrNull() ?: return
-    when {
-        index < firstAfter.index -> {
-            // Backward only. animateScrollToItem pins to the leading edge, which is
-            // the minimum scroll when the target is still before the viewport. A
-            // forward target must not take this path: once it is fully on screen the
-            // pin is no longer corrected by a later reveal.
-            animateScrollToItem(index)
-            correctComposedStripReveal(index)
-        }
-        index > visibleAfter.last().index -> {
-            val nextAnchor = stripRevealAnchor(visibleAfter, index) ?: return
-            animateOffscreenStripReveal(index, nextAnchor, visibleAfter, after)
-            correctComposedStripReveal(index)
-        }
+    val nextAnchor = stripRevealAnchor(visibleAfter, index) ?: return
+    if (nextAnchor.index > index) {
+        animateOvershotStripReveal(index, nextAnchor, visibleAfter, after)
+    } else {
+        animateOffscreenStripReveal(index, nextAnchor, visibleAfter, after)
     }
+    correctForwardLanding(index)
+}
+
+private suspend fun LazyListState.animateOvershotStripReveal(
+    index: Int,
+    anchor: LazyListItemInfo,
+    visible: List<LazyListItemInfo>,
+    layout: LazyListLayoutInfo,
+) {
+    val delta =
+        stripRevealOvershootDelta(
+            targetIndex = index,
+            anchorIndex = anchor.index,
+            anchorOffsetPx = anchor.offset,
+            stepSizePx = visible.minOf { it.size },
+            spacingPx = stripVisibleSpacingPx(visible),
+            viewportEndPx = layout.viewportEndOffset,
+        )
+    if (delta != 0) {
+        animateScrollBy(delta.toFloat())
+    }
+}
+
+/** Backward jumps may pin to the leading edge. That is the minimum scroll. */
+private suspend fun LazyListState.settleBackwardStripReveal(index: Int) {
+    if (correctComposedStripReveal(index)) return
+    val firstAfter = layoutInfo.visibleItemsInfo.firstOrNull() ?: return
+    if (index < firstAfter.index) {
+        animateScrollToItem(index)
+        correctComposedStripReveal(index)
+    }
+}
+
+/**
+ * Applies [stripRevealForwardLandingDelta] when [index] is composed.
+ * Returns false when it is not.
+ */
+private suspend fun LazyListState.correctForwardLanding(index: Int): Boolean {
+    val landed = layoutInfo
+    val item = landed.visibleItemsInfo.firstOrNull { it.index == index } ?: return false
+    val delta =
+        stripRevealForwardLandingDelta(
+            itemOffsetPx = item.offset,
+            itemSizePx = item.size,
+            viewportStartPx = landed.viewportStartOffset,
+            viewportEndPx = landed.viewportEndOffset,
+        )
+    if (delta != 0) {
+        animateScrollBy(delta.toFloat())
+    }
+    return true
 }
 
 /** Applies [stripReveal] when [index] is composed. Returns false when it is not. */
@@ -149,6 +205,7 @@ private suspend fun LazyListState.animateOffscreenStripReveal(
             anchorIndex = anchor.index,
             anchorOffsetPx = anchor.offset,
             anchorSizePx = anchor.size,
+            stepSizePx = visible.minOf { it.size },
             spacingPx = stripVisibleSpacingPx(visible),
             viewportStartPx = layout.viewportStartOffset,
             viewportEndPx = layout.viewportEndOffset,

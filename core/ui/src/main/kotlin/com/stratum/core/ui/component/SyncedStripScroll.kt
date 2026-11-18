@@ -51,27 +51,75 @@ internal fun stripReveal(
  * scroll that puts that end on the viewport end. Backward start-aligns the
  * estimated start to [viewportStartPx]. A zero step is not a scroll.
  *
- * The pitch is the anchor's size plus [spacingPx], measured by the caller from
- * visible items. This does not read a list spacing API.
+ * [anchorSizePx] is the anchor's own size, so its end is real. [stepSizePx] is
+ * the pitch of the items between the anchor and the target. Callers pass the
+ * narrowest visible size on a forward jump so a wide anchor undershoots and
+ * [stripRevealForwardLandingDelta] can finish on the trailing edge. Using the
+ * anchor's size as the pitch overshoots when later items are narrower, and the
+ * composed item then looks fully visible.
  */
 internal fun stripRevealOffscreenDelta(
     targetIndex: Int,
     anchorIndex: Int,
     anchorOffsetPx: Int,
     anchorSizePx: Int,
+    stepSizePx: Int,
     spacingPx: Int,
     viewportStartPx: Int,
     viewportEndPx: Int,
 ): Int {
     val steps = targetIndex - anchorIndex
     if (steps > 0) {
-        val estimatedTargetEnd = anchorOffsetPx + anchorSizePx + steps * (anchorSizePx + spacingPx)
+        val estimatedTargetEnd = anchorOffsetPx + anchorSizePx + steps * (stepSizePx + spacingPx)
         return estimatedTargetEnd - viewportEndPx
     }
     if (steps < 0) {
         val estimatedTargetStart =
-            anchorOffsetPx - (anchorIndex - targetIndex) * (anchorSizePx + spacingPx)
+            anchorOffsetPx - (anchorIndex - targetIndex) * (stepSizePx + spacingPx)
         return estimatedTargetStart - viewportStartPx
     }
     return 0
+}
+
+/**
+ * Where a forward off-screen item should sit once it is composed.
+ *
+ * Not for an item that was already visible: [stripReveal] leaves that item
+ * alone. A forward jump's minimum scroll leaves a fitting item's end on
+ * [viewportEndPx], including a negative delta when the estimate overshot.
+ * An item wider than the viewport start-aligns instead, so its leading edge
+ * stays on screen.
+ */
+internal fun stripRevealForwardLandingDelta(
+    itemOffsetPx: Int,
+    itemSizePx: Int,
+    viewportStartPx: Int,
+    viewportEndPx: Int,
+): Int {
+    if (itemSizePx > viewportEndPx - viewportStartPx) {
+        return itemOffsetPx - viewportStartPx
+    }
+    return itemOffsetPx + itemSizePx - viewportEndPx
+}
+
+/**
+ * Scroll that puts an overshot forward target's end on [viewportEndPx].
+ *
+ * The anchor is a visible item after [targetIndex] (the jump scrolled past
+ * the target). [stepSizePx] is the narrowest visible size. This is not a
+ * start-align: pinning the leading edge is the wrong minimum for a target
+ * that began ahead of the viewport.
+ */
+internal fun stripRevealOvershootDelta(
+    targetIndex: Int,
+    anchorIndex: Int,
+    anchorOffsetPx: Int,
+    stepSizePx: Int,
+    spacingPx: Int,
+    viewportEndPx: Int,
+): Int {
+    val steps = anchorIndex - targetIndex
+    if (steps <= 0) return 0
+    val estimatedTargetEnd = anchorOffsetPx - steps * (stepSizePx + spacingPx) + stepSizePx
+    return estimatedTargetEnd - viewportEndPx
 }
