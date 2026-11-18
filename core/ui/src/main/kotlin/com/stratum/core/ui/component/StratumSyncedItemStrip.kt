@@ -110,6 +110,9 @@ private suspend fun LazyListState.revealOffscreenStripItem(
     } else if (index > visibleAfter.last().index) {
         val nextAnchor = stripRevealAnchor(visibleAfter, index) ?: return
         animateOffscreenStripReveal(index, nextAnchor, visibleAfter, after)
+        val landed = layoutInfo
+        val item = landed.visibleItemsInfo.firstOrNull { it.index == index } ?: return
+        animateComposedStripReveal(index, item, landed)
     }
 }
 
