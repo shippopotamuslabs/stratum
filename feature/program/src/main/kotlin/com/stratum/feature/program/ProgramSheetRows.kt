@@ -109,3 +109,30 @@ internal fun programSheetAdjacentLift(
     val adjacent = lifts.getOrNull(adjacentIndex) ?: return null
     return ProgramSheetLiftTarget(dayId = adjacent.dayId, workoutLiftId = adjacent.workoutLiftId)
 }
+
+/**
+ * One laid-out sheet row. [stickyHeader] is a workout header pinned over the list;
+ * scroll math stays free of Compose types.
+ */
+internal data class SheetPlacedItem(
+    val index: Int,
+    val offsetPx: Int,
+    val sizePx: Int,
+    val stickyHeader: Boolean,
+)
+
+/**
+ * Pixels of [targetIndex] hidden under a sticky header.
+ * A header counts only when it is flagged and its index is before the target.
+ * Overlap is the header's end minus the target offset; several headers use the largest.
+ * Zero when the target is absent or already clear of every header.
+ */
+internal fun sheetStickyHeaderOverlapPx(items: List<SheetPlacedItem>, targetIndex: Int): Int {
+    val target = items.firstOrNull { item -> item.index == targetIndex } ?: return 0
+    val overlap =
+        items
+            .filter { header -> header.stickyHeader && header.index < targetIndex }
+            .maxOfOrNull { header -> header.offsetPx + header.sizePx - target.offsetPx }
+            ?: return 0
+    return overlap.coerceAtLeast(0)
+}

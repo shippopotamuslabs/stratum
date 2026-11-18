@@ -8,12 +8,16 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import com.stratum.core.ui.component.LiftActionsBottomSheet
 import com.stratum.core.ui.component.RirTargetSheetContent
 import com.stratum.core.ui.component.StratumBottomSheet
+import com.stratum.core.ui.component.workoutlog.validateRepRangeDrafts
+import com.stratum.domain.program.ProgressionScheme
 import com.stratum.feature.program.CreateProgramDayUi
 import com.stratum.feature.program.ProgramSheetLiftStep
 import com.stratum.feature.program.ProgramSheetLiftTarget
 import com.stratum.feature.program.ProgramSheetRow
+import com.stratum.feature.program.isEditMatchBackoff
 import com.stratum.feature.program.isMiniRestKind
 import com.stratum.feature.program.programSheetAdjacentLift
+import com.stratum.feature.program.showsRepRange
 
 /** Collapse control for one expanded sheet card. Null keeps the tabbed editor card unchanged. */
 internal val LocalEditLiftCollapse = staticCompositionLocalOf<(() -> Unit)?> { null }
@@ -24,9 +28,50 @@ internal data class ProgramSheetLiftMove(
 )
 
 /**
+ * Before a close that is followed by a programmatic lift scroll, skip the dock's
+ * collapse scroll-restore so it does not cancel that scroll. A blocked leave that
+ * keeps the dock open clears the flag; a closed dock leaves it false.
+ *
+ * @return whatever [leave] returns.
+ */
+internal fun skipDockRestoreForProgramSheetLiftScroll(
+    host: EditWorkoutDockHostState,
+    leave: () -> Boolean,
+): Boolean {
+    host.overlay.skipNextCollapseScrollRestore = host.isOpen
+    val left = leave()
+    if (!left && host.isOpen) {
+        host.overlay.skipNextCollapseScrollRestore = false
+    }
+    return left
+}
+
+/**
+ * Set an open rep pad can retarget onto.
+ * Prefers [preferredIndex], then the nearest eligible set in [step]'s direction,
+ * then the nearest the other way. Hidden cells and bands the pad would reject
+ * (including stored `0/0`) are skipped. Null when none qualify.
+ */
+internal fun programSheetRepPadTarget(
+    sets: List<EditSetState>,
+    scheme: ProgressionScheme,
+    preferredIndex: Int,
+    step: ProgramSheetLiftStep,
+): EditSetState? {
+    if (preferredIndex !in sets.indices) return null
+    val primaryDirection = if (step == ProgramSheetLiftStep.Next) 1 else -1
+    return listOf(0, primaryDirection, -primaryDirection)
+        .flatMap { direction -> repPadCandidateIndices(sets.lastIndex, preferredIndex, direction) }
+        .firstNotNullOfOrNull { index ->
+            sets[index].takeIf { isProgramSheetRepPadSet(sets, scheme, index) }
+        }
+}
+
+/**
  * Walks to the adjacent sheet lift, selects that day, and retargets an open
- * rep, rest, or RIR editor onto the same field. Does not commit; the caller
- * runs [EditWorkoutDockHostState.tryCommitPendingAndStay] first.
+ * rep, rest, or RIR editor. Rep pads land on an eligible band, or close when
+ * the destination has none. Does not commit; the caller runs
+ * [EditWorkoutDockHostState.tryCommitPendingAndStay] first.
  */
 internal fun movedProgramSheetLift(
     expanded: ProgramSheetLiftTarget?,
@@ -52,7 +97,7 @@ internal fun movedProgramSheetLift(
     val destinationLift = findSheetLift(days, destination) ?: return null
     onSelectDay(destination.dayId)
     if (destinationLift.sets.isEmpty()) {
-        host.closeWithoutCommit()
+        closeProgramSheetDockForLiftScroll(host)
         return ProgramSheetLiftMove(target = destination, rirSetId = null)
     }
     val sourceLift = findSheetLift(days, current)
@@ -61,14 +106,14 @@ internal fun movedProgramSheetLift(
     val destinationSet = destinationLift.sets[resolvedIndex]
     when (host.session) {
         is EditWorkoutDockSession.RepRange ->
-            host.retargetRepRange(
-                setId = destinationSet.setId,
-                minText = destinationSet.repMin.toString(),
-                maxText = destinationSet.repMax.toString(),
-                onCommitBand = { repMin, repMax ->
-                    onSelectDay(destination.dayId)
-                    onSetRepBand(destinationSet.setId, repMin, repMax)
-                },
+            retargetProgramSheetRepPad(
+                host = host,
+                destinationLift = destinationLift,
+                preferredIndex = resolvedIndex,
+                step = step,
+                dayId = destination.dayId,
+                onSelectDay = onSelectDay,
+                onSetRepBand = onSetRepBand,
             )
         is EditWorkoutDockSession.Rest ->
             host.retargetRest(
@@ -88,6 +133,70 @@ internal fun movedProgramSheetLift(
     }
     val nextRir = if (rirSetId == null) null else destinationSet.setId
     return ProgramSheetLiftMove(target = destination, rirSetId = nextRir)
+}
+
+private fun closeProgramSheetDockForLiftScroll(host: EditWorkoutDockHostState) {
+    skipDockRestoreForProgramSheetLiftScroll(host) {
+        host.closeWithoutCommit()
+        true
+    }
+}
+
+private fun retargetProgramSheetRepPad(
+    host: EditWorkoutDockHostState,
+    destinationLift: EditLiftState,
+    preferredIndex: Int,
+    step: ProgramSheetLiftStep,
+    dayId: String,
+    onSelectDay: (String) -> Unit,
+    onSetRepBand: (setId: String, repMin: Int, repMax: Int) -> Unit,
+) {
+    val repSet =
+        programSheetRepPadTarget(
+            sets = destinationLift.sets,
+            scheme = destinationLift.progressionScheme,
+            preferredIndex = preferredIndex,
+            step = step,
+        )
+    if (repSet == null) {
+        closeProgramSheetDockForLiftScroll(host)
+        return
+    }
+    host.retargetRepRange(
+        setId = repSet.setId,
+        minText = repSet.repMin.toString(),
+        maxText = repSet.repMax.toString(),
+        onCommitBand = { repMin, repMax ->
+            onSelectDay(dayId)
+            onSetRepBand(repSet.setId, repMin, repMax)
+        },
+    )
+}
+
+private fun repPadCandidateIndices(lastIndex: Int, start: Int, direction: Int): List<Int> =
+    when (direction) {
+        0 -> listOf(start)
+        1 -> (start + 1..lastIndex).toList()
+        -1 -> (start - 1 downTo 0).toList()
+        else -> emptyList()
+    }
+
+private fun isProgramSheetRepPadSet(
+    sets: List<EditSetState>,
+    scheme: ProgressionScheme,
+    index: Int,
+): Boolean {
+    val set = sets[index]
+    val showsCell =
+        showsRepRange(scheme, set) &&
+            set.setKind != EditSetKind.DropSet &&
+            !isEditMatchBackoff(sets, index)
+    if (!showsCell) return false
+    return validateRepRangeDrafts(
+        minText = set.repMin.toString(),
+        maxText = set.repMax.toString(),
+        requireCompleteBand = true,
+    ).isValid
 }
 
 @Composable

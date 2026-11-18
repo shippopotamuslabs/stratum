@@ -179,4 +179,62 @@ class EditWorkoutDockHostStateTest {
             assertEquals(listOf(8 to 12), commits)
         }
     }
+
+    @Nested
+    @DisplayName("sheet lift scroll skips dock restore")
+    inner class SheetLiftScroll {
+        @Test
+        @DisplayName("an open rep session arms skip restore")
+        fun openSessionArmsSkip() {
+            openRep()
+
+            val left = skipDockRestoreForProgramSheetLiftScroll(host) { true }
+
+            assertTrue(left)
+            assertTrue(host.overlay.skipNextCollapseScrollRestore)
+            assertTrue(host.isOpen)
+        }
+
+        @Test
+        @DisplayName("a closed dock leaves skip restore false")
+        fun closedDockLeavesFlagFalse() {
+            val left = skipDockRestoreForProgramSheetLiftScroll(host) { true }
+
+            assertTrue(left)
+            assertFalse(host.overlay.skipNextCollapseScrollRestore)
+            assertFalse(host.isOpen)
+        }
+
+        @Test
+        @DisplayName("a blocked leave clears skip restore and keeps the session")
+        fun blockedLeaveClearsFlag() {
+            openRep(min = "3", max = "12")
+
+            val left =
+                skipDockRestoreForProgramSheetLiftScroll(host) {
+                    host.tryCommitPendingOrBlock()
+                }
+
+            assertFalse(left)
+            assertFalse(host.overlay.skipNextCollapseScrollRestore)
+            assertTrue(host.isOpen)
+            assertTrue(commits.isEmpty())
+        }
+
+        @Test
+        @DisplayName("a successful leave keeps skip restore armed after the dock closes")
+        fun successfulLeaveKeepsFlag() {
+            openRep()
+
+            val left =
+                skipDockRestoreForProgramSheetLiftScroll(host) {
+                    host.tryCommitPendingOrBlock()
+                }
+
+            assertTrue(left)
+            assertFalse(host.isOpen)
+            assertTrue(host.overlay.skipNextCollapseScrollRestore)
+            assertEquals(listOf(8 to 12), commits)
+        }
+    }
 }

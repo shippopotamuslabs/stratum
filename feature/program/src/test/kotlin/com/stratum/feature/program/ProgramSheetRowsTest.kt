@@ -6,6 +6,7 @@ import com.stratum.feature.program.ui.EditWorkoutUiState
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 
 class ProgramSheetRowsTest {
@@ -109,6 +110,76 @@ class ProgramSheetRowsTest {
             programSheetRows(days),
         )
         assertEquals(2, programSheetAnchorIndex(programSheetRows(days), "rest"))
+    }
+
+    @Nested
+    @DisplayName("sheetStickyHeaderOverlapPx")
+    inner class StickyHeaderOverlap {
+        private val lift = placed(index = 2, offsetPx = 0, sizePx = 48, stickyHeader = false)
+
+        @Test
+        @DisplayName("header and lift both at offset 0 overlap by the header size")
+        fun headerCoveringLiftAtZero() {
+            val header = placed(index = 0, offsetPx = 0, sizePx = 64, stickyHeader = true)
+
+            assertEquals(64, sheetStickyHeaderOverlapPx(listOf(header, lift), targetIndex = 2))
+        }
+
+        @Test
+        @DisplayName("a lift already below the header does not overlap")
+        fun liftBelowHeader() {
+            val header = placed(index = 0, offsetPx = 0, sizePx = 64, stickyHeader = true)
+            val below = lift.copy(offsetPx = 64)
+            val further = lift.copy(offsetPx = 80)
+
+            assertEquals(0, sheetStickyHeaderOverlapPx(listOf(header, below), targetIndex = 2))
+            assertEquals(0, sheetStickyHeaderOverlapPx(listOf(header, further), targetIndex = 2))
+        }
+
+        @Test
+        @DisplayName("no sticky header overlaps")
+        fun noHeader() {
+            val plain = placed(index = 0, offsetPx = 0, sizePx = 64, stickyHeader = false)
+
+            assertEquals(0, sheetStickyHeaderOverlapPx(listOf(plain, lift), targetIndex = 2))
+        }
+
+        @Test
+        @DisplayName("a header after the target index does not overlap")
+        fun headerAfterTarget() {
+            val later = placed(index = 4, offsetPx = 0, sizePx = 64, stickyHeader = true)
+
+            assertEquals(0, sheetStickyHeaderOverlapPx(listOf(lift, later), targetIndex = 2))
+        }
+
+        @Test
+        @DisplayName("two overlapping headers use the larger overlap")
+        fun largerOfTwoHeaders() {
+            val tall = placed(index = 0, offsetPx = 0, sizePx = 64, stickyHeader = true)
+            val short = placed(index = 1, offsetPx = 0, sizePx = 40, stickyHeader = true)
+            val mostlyAbove = placed(index = 0, offsetPx = -40, sizePx = 100, stickyHeader = true)
+            val covering = placed(index = 1, offsetPx = 0, sizePx = 64, stickyHeader = true)
+            val partlyUnder = lift.copy(offsetPx = 50)
+
+            assertEquals(64, sheetStickyHeaderOverlapPx(listOf(tall, short, lift), targetIndex = 2))
+            assertEquals(14, sheetStickyHeaderOverlapPx(listOf(mostlyAbove, covering, partlyUnder), targetIndex = 2))
+        }
+
+        @Test
+        @DisplayName("a missing target overlaps by zero")
+        fun missingTarget() {
+            val header = placed(index = 0, offsetPx = 0, sizePx = 64, stickyHeader = true)
+
+            assertEquals(0, sheetStickyHeaderOverlapPx(listOf(header), targetIndex = 2))
+        }
+
+        private fun placed(index: Int, offsetPx: Int, sizePx: Int, stickyHeader: Boolean): SheetPlacedItem =
+            SheetPlacedItem(
+                index = index,
+                offsetPx = offsetPx,
+                sizePx = sizePx,
+                stickyHeader = stickyHeader,
+            )
     }
 
     private fun daysWithRestBetweenWorkouts(): List<CreateProgramDayUi> =

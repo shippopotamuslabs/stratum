@@ -2,6 +2,7 @@ package com.stratum.feature.program.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -56,12 +57,14 @@ import com.stratum.feature.program.ProgramSheetLiftStep
 import com.stratum.feature.program.ProgramSheetLiftTarget
 import com.stratum.feature.program.ProgramSheetRow
 import com.stratum.feature.program.R
+import com.stratum.feature.program.SheetPlacedItem
 import com.stratum.feature.program.formatEstimatedWorkoutDuration
 import com.stratum.feature.program.programSheetAdjacentLift
 import com.stratum.feature.program.programSheetAnchorIndex
 import com.stratum.feature.program.programSheetFollowDayId
 import com.stratum.feature.program.programSheetLiftIndex
 import com.stratum.feature.program.programSheetRows
+import com.stratum.feature.program.sheetStickyHeaderOverlapPx
 import kotlinx.coroutines.flow.distinctUntilChanged
 
 /**
@@ -170,7 +173,7 @@ internal fun ProgramSheet(
                 rows.forEach { row ->
                     when (row) {
                         is ProgramSheetRow.WorkoutHeader ->
-                            stickyHeader(key = "header-${row.dayId}") { _ ->
+                            stickyHeader(key = "$SHEET_WORKOUT_HEADER_KEY_PREFIX${row.dayId}") { _ ->
                                 val day = state.days.firstOrNull { it.id == row.dayId } ?: return@stickyHeader
                                 val edit = day.editState ?: return@stickyHeader
                                 ProgramSheetWorkoutHeader(
@@ -308,7 +311,11 @@ private fun ProgramSheetLiftSlot(
             allLifts = edit.lifts,
             callbacks = editWorkoutCallbacks(callbacks).scopedToDay(day.id, callbacks.onSelectDay),
             onCollapse = collapse@{
-                if (!dockHost.tryCommitPendingOrBlock()) return@collapse
+                val left =
+                    skipDockRestoreForProgramSheetLiftScroll(dockHost) {
+                        dockHost.tryCommitPendingOrBlock()
+                    }
+                if (!left) return@collapse
                 onCollapse(target)
             },
             onShowLiftActions = { onShowLiftActions(lift.workoutLiftId) },
@@ -320,7 +327,11 @@ private fun ProgramSheetLiftSlot(
             lift = lift,
             zebra = edit.lifts.indexOf(lift) % 2 == 1,
             onClick = expand@{
-                if (!dockHost.tryCommitPendingOrBlock()) return@expand
+                val left =
+                    skipDockRestoreForProgramSheetLiftScroll(dockHost) {
+                        dockHost.tryCommitPendingOrBlock()
+                    }
+                if (!left) return@expand
                 onExpand(target)
             },
         )
@@ -469,6 +480,27 @@ private suspend fun LazyListState.scrollToSheetLift(
 ) {
     val index = programSheetLiftIndex(rows, dayId, workoutLiftId) ?: return
     animateScrollToItem(index)
+    // A stuck workout header occupies this offset and does not push the lift down.
+    val overlap =
+        sheetStickyHeaderOverlapPx(
+            items =
+                layoutInfo.visibleItemsInfo.map { item ->
+                    val itemKey = item.key
+                    SheetPlacedItem(
+                        index = item.index,
+                        offsetPx = item.offset,
+                        sizePx = item.size,
+                        stickyHeader =
+                            itemKey is String &&
+                                itemKey.startsWith(SHEET_WORKOUT_HEADER_KEY_PREFIX) &&
+                                item.index < index,
+                    )
+                },
+            targetIndex = index,
+        )
+    if (overlap > 0) {
+        animateScrollBy(-overlap.toFloat())
+    }
 }
 
 @Composable
@@ -732,6 +764,7 @@ private fun sheetRestLabel(sets: List<EditSetState>): String {
     return formatRestDisplay(first.restSeconds)
 }
 
+private const val SHEET_WORKOUT_HEADER_KEY_PREFIX = "header-"
 private const val LIFT_COLUMN_WEIGHT = 0.40f
 private const val SETS_COLUMN_WEIGHT = 0.12f
 private const val REPS_COLUMN_WEIGHT = 0.16f
