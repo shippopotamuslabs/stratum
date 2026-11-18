@@ -39,6 +39,22 @@ class ProgramSheetRowsTest {
     }
 
     @Test
+    @DisplayName("a fully visible sheet keeps the latched later day")
+    fun followKeepsLatchedDayWhenEveryRowIsVisible() {
+        val rows = programSheetRows(daysWithRestBetweenWorkouts())
+
+        assertEquals(DAY_B, programSheetFollowDayId(rows, rows.indices.toList(), DAY_B))
+    }
+
+    @Test
+    @DisplayName("a viewport that only shows an earlier day follows that day")
+    fun followMovesToTheEarlierDayWhenTheLatchHasLeft() {
+        val rows = programSheetRows(daysWithRestBetweenWorkouts())
+
+        assertEquals(DAY_A, programSheetFollowDayId(rows, listOf(0, 1, 2, 3), DAY_B))
+    }
+
+    @Test
     @DisplayName("an empty workout is a header and column header, and a rest day is one row")
     fun emptyWorkoutAndRest() {
         val days =

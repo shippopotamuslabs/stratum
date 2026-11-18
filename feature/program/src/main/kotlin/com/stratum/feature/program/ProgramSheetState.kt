@@ -13,7 +13,7 @@ import com.stratum.feature.program.ui.EditWorkoutUiState
  * Lift mutations stay in [EditWorkoutLiftMutations]; volume and duration stay in the
  * existing workout use cases so primary 1.0 / secondary 0.5 credit is not reimplemented.
  */
-data class ProgramSheetWorkoutMetrics(
+internal data class ProgramSheetWorkoutMetrics(
     val dayId: String,
     val setTotal: Int,
     val estimatedDurationMinutes: Int,
@@ -21,7 +21,7 @@ data class ProgramSheetWorkoutMetrics(
     val lowerVolumeByMuscle: List<StratumMuscleVolumeCardState>,
 )
 
-data class ProgramSheetMetrics(
+internal data class ProgramSheetMetrics(
     val workouts: List<ProgramSheetWorkoutMetrics>,
     val programUpperVolumeByMuscle: List<StratumMuscleVolumeCardState>,
     val programLowerVolumeByMuscle: List<StratumMuscleVolumeCardState>,

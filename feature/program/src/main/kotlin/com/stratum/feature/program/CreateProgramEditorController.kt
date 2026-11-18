@@ -51,6 +51,12 @@ internal class CreateProgramEditorController(
     var liftNamesById: Map<String, String> = emptyMap()
     var compoundByLiftId: Map<String, Boolean> = emptyMap()
 
+    /**
+     * Day id captured before [CreateProgramActiveSessionGuard.inProgressSessionOrNull] suspends.
+     * Confirm-discard removes this id, not whichever day is selected after the wait.
+     */
+    private var pendingRemoveDayId: String? = null
+
     fun clearLoadedMeta() {
         loadedProgramMeta = null
     }
@@ -99,16 +105,23 @@ internal class CreateProgramEditorController(
             if (current.days.size <= 1) return@launch
             val session = activeSessionGuard.inProgressSessionOrNull()
             if (activeSessionGuard.isActiveWorkoutDay(selectedId, session)) {
+                pendingRemoveDayId = selectedId
                 activeSessionGuard.stageRemoveDayDiscard()
                 return@launch
             }
-            applyRemoveSelectedDay()
+            pendingRemoveDayId = null
+            state.update { snap ->
+                CreateProgramDayEditor.removeDay(snap, selectedId).withEditorDerivedMetrics()
+            }
         }
     }
 
     fun applyRemoveSelectedDay() {
+        val dayId = pendingRemoveDayId
+        pendingRemoveDayId = null
         state.update { current ->
-            CreateProgramDayEditor.removeSelectedDay(current).withEditorDerivedMetrics()
+            CreateProgramDayEditor.removeDay(current, dayId ?: current.selectedDayId)
+                .withEditorDerivedMetrics()
         }
     }
 
@@ -521,14 +534,6 @@ internal class CreateProgramEditorController(
                             ),
                     )
                 },
-            // Derived display only. copy() leaves isDirty and editorSurface unchanged.
-            sheetMetrics =
-                deriveProgramSheet(
-                    days = days,
-                    liftCatalog = liftCatalog,
-                    computeWorkoutMuscleVolume = computeWorkoutMuscleVolume,
-                    estimateWorkoutDurationMinutes = estimateWorkoutDurationMinutes,
-                ),
         )
     }
 }

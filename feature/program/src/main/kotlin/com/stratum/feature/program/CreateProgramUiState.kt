@@ -100,8 +100,6 @@ data class CreateProgramUiState(
     val loadErrorMessage: String? = null,
     /** Editor body. Not saved, and changing it does not mark the draft dirty. */
     val editorSurface: ProgramEditorSurface = ProgramEditorSurface.Tabbed,
-    /** Derived sheet totals. Not saved, and refreshing them does not mark the draft dirty. */
-    val sheetMetrics: ProgramSheetMetrics? = null,
 ) {
     val selectedDay: CreateProgramDayUi?
         get() = days.firstOrNull { day -> day.id == selectedDayId }

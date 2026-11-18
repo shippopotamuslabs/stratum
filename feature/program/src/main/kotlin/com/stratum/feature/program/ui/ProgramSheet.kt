@@ -26,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -53,11 +54,10 @@ import com.stratum.feature.program.CreateProgramUiState
 import com.stratum.feature.program.ProgramSheetRow
 import com.stratum.feature.program.R
 import com.stratum.feature.program.formatEstimatedWorkoutDuration
-import com.stratum.feature.program.programSheetActiveDayId
 import com.stratum.feature.program.programSheetAnchorIndex
+import com.stratum.feature.program.programSheetFollowDayId
 import com.stratum.feature.program.programSheetRows
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.drop
 
 /**
  * One scroll of every program day. The tabbed editor stays the default;
@@ -108,8 +108,8 @@ internal fun ProgramSheet(
                             val edit = day.editState ?: return@stickyHeader
                             ProgramSheetWorkoutHeader(
                                 day = day,
-                                setTotal = setTotalFor(state, day, edit),
-                                minutes = minutesFor(state, day, edit),
+                                setTotal = edit.lifts.sumOf { lift -> lift.sets.size },
+                                minutes = edit.estimatedDurationMinutes,
                                 onAddLift = {
                                     callbacks.onSelectDay(day.id)
                                     callbacks.onAddExercise()
@@ -140,7 +140,10 @@ internal fun ProgramSheet(
                     is ProgramSheetRow.Rest ->
                         item(key = "rest-${row.dayId}") {
                             val day = state.days.firstOrNull { it.id == row.dayId } ?: return@item
-                            ProgramSheetRestRow(name = day.name)
+                            ProgramSheetRestRow(
+                                name = day.name,
+                                onOpenMenu = { menuDayId = day.id },
+                            )
                         }
                 }
             }
@@ -151,6 +154,7 @@ internal fun ProgramSheet(
     if (menuDay != null) {
         ProgramSheetWorkoutMenu(
             dayName = menuDay.name,
+            showReorderLifts = !menuDay.isRest && menuDay.editState != null,
             onRename = {
                 menuDayId = null
                 callbacks.onSelectDay(menuDay.id)
@@ -176,8 +180,7 @@ internal fun ProgramSheet(
     if (edit != null && lift != null) {
         ProgramSheetLiftEditor(
             liftName = lift.name,
-            // Display copy only. The stored day's lift list is not filtered.
-            editState = edit.copy(lifts = listOf(lift)),
+            editState = edit,
             callbacks = callbacks,
             onDismiss = { editing = null },
         )
@@ -199,8 +202,10 @@ private class ProgramSheetListScroll(
 )
 
 /**
- * Strip taps and add-day scroll in flight. Scroll-follow is ignored until that
- * scroll finishes, and a follow-driven selection does not request another scroll.
+ * Strip taps, add-day, and the opening selection scroll in flight.
+ * Follow reads visible indices only, so clearing suppression does not emit.
+ * The latched day stays selected while any of its rows are visible — scrolling
+ * inside a workout does not jump back to that header or to day 0.
  */
 @Composable
 private fun rememberProgramSheetListScroll(
@@ -210,43 +215,57 @@ private fun rememberProgramSheetListScroll(
     onSelectDay: (String) -> Unit,
 ): ProgramSheetListScroll {
     val listState = rememberLazyListState()
-    val followSuppressed = remember { mutableStateOf(false) }
-    val requestId = remember { mutableIntStateOf(0) }
-    val pendingScroll = remember { mutableStateOf<SheetScroll?>(null) }
+    val entryDayId = remember { selectedDayId }
+    val followSuppressed = remember { mutableStateOf(entryDayId != null) }
+    val latchedDayId = remember { mutableStateOf(entryDayId) }
+    val pendingScroll = remember { mutableStateOf<SheetScroll?>(entryDayId?.let(SheetScroll::ToDay)) }
+    val requestId = remember { mutableIntStateOf(if (entryDayId != null) 1 else 0) }
     val rowsState = rememberUpdatedState(rows)
     val daysState = rememberUpdatedState(days)
-    val selectedState = rememberUpdatedState(selectedDayId)
     val onSelectState = rememberUpdatedState(onSelectDay)
     val generation = requestId.intValue
 
     LaunchedEffect(listState) {
-        snapshotFlow { listState.firstVisibleItemIndex to followSuppressed.value }
+        snapshotFlow { listState.layoutInfo.visibleItemsInfo.map { item -> item.index } }
             .distinctUntilChanged()
-            .drop(1)
-            .collect { (index, suppressed) ->
-                if (suppressed) return@collect
-                val dayId = programSheetActiveDayId(rowsState.value, index) ?: return@collect
-                if (dayId != selectedState.value) onSelectState.value(dayId)
+            .collect { visibleIndices ->
+                val dayId =
+                    if (followSuppressed.value) {
+                        null
+                    } else {
+                        programSheetFollowDayId(
+                            rows = rowsState.value,
+                            visibleIndices = visibleIndices,
+                            latchedDayId = latchedDayId.value,
+                        )
+                    }
+                if (dayId != null && dayId != latchedDayId.value) {
+                    latchedDayId.value = dayId
+                    onSelectState.value(dayId)
+                }
             }
     }
 
-    LaunchedEffect(generation, days.size) {
+    LaunchedEffect(generation) {
         val id = requestId.intValue
-        val target = pendingScroll.value ?: return@LaunchedEffect
-        val dayId =
-            when (target) {
-                is SheetScroll.ToDay -> target.dayId
-                is SheetScroll.AfterAdd -> {
-                    if (daysState.value.size <= target.previousCount) return@LaunchedEffect
-                    daysState.value.last().id
+        val target = pendingScroll.value
+        if (target != null) {
+            try {
+                val dayId =
+                    when (target) {
+                        is SheetScroll.ToDay -> target.dayId
+                        is SheetScroll.AfterAdd ->
+                            awaitAddedSheetDayId(target.previousCount) { daysState.value }
+                    }
+                if (dayId != null) {
+                    latchedDayId.value = dayId
+                    listState.scrollToSheetAnchor(rowsState.value, dayId)
                 }
-            }
-        try {
-            listState.scrollToSheetAnchor(rowsState.value, dayId)
-        } finally {
-            if (requestId.intValue == id) {
-                followSuppressed.value = false
-                pendingScroll.value = null
+            } finally {
+                if (requestId.intValue == id) {
+                    followSuppressed.value = false
+                    pendingScroll.value = null
+                }
             }
         }
     }
@@ -255,6 +274,7 @@ private fun rememberProgramSheetListScroll(
         listState = listState,
         jumpToDay = { dayId ->
             followSuppressed.value = true
+            latchedDayId.value = dayId
             pendingScroll.value = SheetScroll.ToDay(dayId)
             requestId.intValue++
         },
@@ -264,6 +284,23 @@ private fun rememberProgramSheetListScroll(
             requestId.intValue++
         },
     )
+}
+
+/**
+ * addRestDay appends on the following composition. A no-op never grows the
+ * list; after a frame that miss clears suppression instead of leaving follow off.
+ */
+private suspend fun awaitAddedSheetDayId(
+    previousCount: Int,
+    days: () -> List<CreateProgramDayUi>,
+): String? {
+    var framesWaited = 0
+    while (days().size <= previousCount && framesWaited < ADD_DAY_LAYOUT_FRAMES) {
+        withFrameNanos { }
+        framesWaited++
+    }
+    val resolved = days()
+    return if (resolved.size <= previousCount) null else resolved.last().id
 }
 
 private suspend fun LazyListState.scrollToSheetAnchor(rows: List<ProgramSheetRow>, dayId: String) {
@@ -376,18 +413,33 @@ private fun ProgramSheetLiftRow(
 }
 
 @Composable
-private fun ProgramSheetRestRow(name: String) {
-    StratumText(
-        text = name,
-        muted = true,
-        style = StratumThemeAccessor.typography.bodyLarge,
+private fun ProgramSheetRestRow(name: String, onOpenMenu: () -> Unit) {
+    val colors = StratumThemeAccessor.colors
+    Row(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .background(StratumThemeAccessor.colors.surfaceBase)
+                .background(colors.surfaceBase)
                 .sheetHairline()
-                .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s8),
-    )
+                .padding(horizontal = StratumSpacing.s16),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        StratumText(
+            text = name,
+            modifier = Modifier.weight(1f),
+            muted = true,
+            style = StratumThemeAccessor.typography.bodyLarge,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        StratumIconButton(onClick = onOpenMenu) {
+            Icon(
+                painter = painterResource(CoreUiR.drawable.ic_more_vert),
+                contentDescription = stringResource(R.string.create_program_sheet_workout_menu),
+                tint = colors.textPrimary,
+            )
+        }
+    }
 }
 
 @Composable
@@ -458,6 +510,7 @@ private fun RowScope.NumberCell(text: String, weight: Float) {
 @Composable
 private fun ProgramSheetWorkoutMenu(
     dayName: String,
+    showReorderLifts: Boolean,
     onRename: () -> Unit,
     onRemove: () -> Unit,
     onReorderLifts: () -> Unit,
@@ -474,11 +527,13 @@ private fun ProgramSheetWorkoutMenu(
             leadingIconRes = CoreUiR.drawable.ic_delete,
             onClick = onRemove,
         )
-        CreateProgramOptionRow(
-            text = stringResource(CoreUiR.string.edit_workout_reorder_lifts),
-            leadingIconRes = CoreUiR.drawable.ic_swap_vert,
-            onClick = onReorderLifts,
-        )
+        if (showReorderLifts) {
+            CreateProgramOptionRow(
+                text = stringResource(CoreUiR.string.edit_workout_reorder_lifts),
+                leadingIconRes = CoreUiR.drawable.ic_swap_vert,
+                onClick = onReorderLifts,
+            )
+        }
     }
 }
 
@@ -516,22 +571,6 @@ private fun Modifier.sheetHairline(): Modifier {
     }
 }
 
-private fun setTotalFor(
-    state: CreateProgramUiState,
-    day: CreateProgramDayUi,
-    edit: EditWorkoutUiState.Loaded,
-): Int =
-    state.sheetMetrics?.workouts?.firstOrNull { workout -> workout.dayId == day.id }?.setTotal
-        ?: edit.lifts.sumOf { lift -> lift.sets.size }
-
-private fun minutesFor(
-    state: CreateProgramUiState,
-    day: CreateProgramDayUi,
-    edit: EditWorkoutUiState.Loaded,
-): Int =
-    state.sheetMetrics?.workouts?.firstOrNull { workout -> workout.dayId == day.id }?.estimatedDurationMinutes
-        ?: edit.estimatedDurationMinutes
-
 /** Shared band when every set matches; otherwise the first set's band. */
 private fun sheetRepLabel(sets: List<EditSetState>): String {
     val first = sets.firstOrNull() ?: return SHEET_EMPTY_CELL
@@ -554,5 +593,6 @@ private const val REPS_COLUMN_WEIGHT = 0.16f
 private const val RIR_COLUMN_WEIGHT = 0.12f
 private const val REST_COLUMN_WEIGHT = 0.20f
 private const val LIFT_EDITOR_HEIGHT_FRACTION = 0.55f
+private const val ADD_DAY_LAYOUT_FRAMES = 2
 private const val REP_RANGE_DASH = "–"
 private const val SHEET_EMPTY_CELL = "—"
