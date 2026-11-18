@@ -90,30 +90,33 @@ private suspend fun LazyListState.revealOffscreenStripItem(
     val visible = layout.visibleItemsInfo
     val anchor = stripRevealAnchor(visible, index) ?: return
     animateOffscreenStripReveal(index, anchor, visible, layout)
+    if (correctComposedStripReveal(index)) return
     val after = layoutInfo
-    val composed = after.visibleItemsInfo.firstOrNull { it.index == index }
-    if (composed != null) {
-        animateComposedStripReveal(index, composed, after)
-        return
-    }
     val visibleAfter = after.visibleItemsInfo
     val firstAfter = visibleAfter.firstOrNull() ?: return
-    if (index < firstAfter.index) {
-        // Backward only. animateScrollToItem pins to the leading edge, which is
-        // the minimum scroll when the target is still before the viewport. A
-        // forward target must not take this path: once it is fully on screen the
-        // pin is no longer corrected by a later reveal.
-        animateScrollToItem(index)
-        val landed = layoutInfo
-        val item = landed.visibleItemsInfo.firstOrNull { it.index == index } ?: return
-        animateComposedStripReveal(index, item, landed)
-    } else if (index > visibleAfter.last().index) {
-        val nextAnchor = stripRevealAnchor(visibleAfter, index) ?: return
-        animateOffscreenStripReveal(index, nextAnchor, visibleAfter, after)
-        val landed = layoutInfo
-        val item = landed.visibleItemsInfo.firstOrNull { it.index == index } ?: return
-        animateComposedStripReveal(index, item, landed)
+    when {
+        index < firstAfter.index -> {
+            // Backward only. animateScrollToItem pins to the leading edge, which is
+            // the minimum scroll when the target is still before the viewport. A
+            // forward target must not take this path: once it is fully on screen the
+            // pin is no longer corrected by a later reveal.
+            animateScrollToItem(index)
+            correctComposedStripReveal(index)
+        }
+        index > visibleAfter.last().index -> {
+            val nextAnchor = stripRevealAnchor(visibleAfter, index) ?: return
+            animateOffscreenStripReveal(index, nextAnchor, visibleAfter, after)
+            correctComposedStripReveal(index)
+        }
     }
+}
+
+/** Applies [stripReveal] when [index] is composed. Returns false when it is not. */
+private suspend fun LazyListState.correctComposedStripReveal(index: Int): Boolean {
+    val landed = layoutInfo
+    val item = landed.visibleItemsInfo.firstOrNull { it.index == index } ?: return false
+    animateComposedStripReveal(index, item, landed)
+    return true
 }
 
 private suspend fun LazyListState.animateComposedStripReveal(
