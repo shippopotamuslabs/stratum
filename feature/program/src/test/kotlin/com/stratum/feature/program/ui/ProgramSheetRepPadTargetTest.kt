@@ -183,6 +183,7 @@ class MovedProgramSheetLiftRepPadTest {
     fun doubleBackoffRetargetsTopSet() {
         val host = openRepHost()
         assertTrue(host.tryCommitPendingAndStay())
+        val revealEpoch = host.overlay.revealEpoch
         val writes = mutableListOf<Triple<String, Int, Int>>()
 
         val move =
@@ -207,7 +208,23 @@ class MovedProgramSheetLiftRepPadTest {
         assertEquals("12", host.maxText)
         assertTrue(host.isOpen)
         assertFalse(host.overlay.skipNextCollapseScrollRestore)
+        assertEquals(revealEpoch, host.overlay.revealEpoch)
         assertTrue(writes.isEmpty())
+    }
+
+    @Test
+    @DisplayName("reveal after the lift scroll bumps the epoch only while the dock is open")
+    fun revealAfterLiftScrollWaitsUntilTheDockIsOpen() {
+        val host = openRepHost()
+        val openEpoch = host.overlay.revealEpoch
+
+        revealSheetDockAfterLiftScroll(host)
+
+        assertEquals(openEpoch + 1, host.overlay.revealEpoch)
+        host.closeWithoutCommit()
+        val closedEpoch = host.overlay.revealEpoch
+        revealSheetDockAfterLiftScroll(host)
+        assertEquals(closedEpoch, host.overlay.revealEpoch)
     }
 
     @Test
@@ -251,6 +268,7 @@ class MovedProgramSheetLiftRepPadTest {
             onApplyToSet = {},
             onApplyToAllSets = {},
         )
+        val revealEpoch = host.overlay.revealEpoch
 
         movedProgramSheetLift(
             expanded = ProgramSheetLiftTarget(DAY_A, LIFT_A),
@@ -266,6 +284,7 @@ class MovedProgramSheetLiftRepPadTest {
             rirSetId = null,
         )
 
+        assertEquals(revealEpoch, host.overlay.revealEpoch)
         val session = host.session as EditWorkoutDockSession.Rest
         assertEquals(DEST_BACKOFF, session.setId)
         assertEquals(45, host.restSeconds)

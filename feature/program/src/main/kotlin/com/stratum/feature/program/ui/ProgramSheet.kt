@@ -87,19 +87,20 @@ internal fun ProgramSheet(
 ) {
     val rows = remember(state.days) { programSheetRows(state.days) }
     val seededLift = LocalInitialProgramSheetLift.current
+    val dockHost = remember { EditWorkoutDockHostState() }
     val scroll =
         rememberProgramSheetListScroll(
             rows = rows,
             days = state.days,
             selectedDayId = state.selectedDayId,
             onSelectDay = callbacks.onSelectDay,
+            onLiftScrollSettled = { revealSheetDockAfterLiftScroll(dockHost) },
         )
     var menuDayId by remember { mutableStateOf<String?>(null) }
     var expanded by remember { mutableStateOf(seededLift) }
     var rirSetId by remember { mutableStateOf<String?>(null) }
     var liftActionsLiftId by remember { mutableStateOf<String?>(null) }
     var showProgressionSchemeExplainer by remember { mutableStateOf(false) }
-    val dockHost = remember { EditWorkoutDockHostState() }
     DisposableEffect(dockHost) {
         onDispose { dockHost.commitIfValidThenClose() }
     }
@@ -365,6 +366,7 @@ private fun rememberProgramSheetListScroll(
     days: List<CreateProgramDayUi>,
     selectedDayId: String?,
     onSelectDay: (String) -> Unit,
+    onLiftScrollSettled: () -> Unit,
 ): ProgramSheetListScroll {
     val listState = rememberLazyListState()
     val entryDayId = remember { selectedDayId }
@@ -375,6 +377,7 @@ private fun rememberProgramSheetListScroll(
     val rowsState = rememberUpdatedState(rows)
     val daysState = rememberUpdatedState(days)
     val onSelectState = rememberUpdatedState(onSelectDay)
+    val onLiftScrollSettledState = rememberUpdatedState(onLiftScrollSettled)
     val generation = requestId.intValue
 
     LaunchedEffect(listState) {
@@ -413,8 +416,12 @@ private fun rememberProgramSheetListScroll(
                 if (dayId != null) {
                     latchedDayId.value = dayId
                     when (target) {
-                        is SheetScroll.ToLift ->
+                        is SheetScroll.ToLift -> {
                             listState.scrollToSheetLift(rowsState.value, target.dayId, target.workoutLiftId)
+                            // Reveal waits until this scroll returns. Starting it from
+                            // retarget cancels the lift scroll at the same priority.
+                            onLiftScrollSettledState.value()
+                        }
                         is SheetScroll.ToDay,
                         is SheetScroll.AfterAdd,
                         -> listState.scrollToSheetAnchor(rowsState.value, dayId)

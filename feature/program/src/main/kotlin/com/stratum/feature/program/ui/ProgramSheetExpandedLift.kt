@@ -28,6 +28,16 @@ internal data class ProgramSheetLiftMove(
 )
 
 /**
+ * Reveal the open dock cell after the lift scroll has finished.
+ * A closed dock stays quiet so a later open is not a stale reveal.
+ * An immediate reveal from retarget cancels the lift scroll: both use the
+ * default scroll priority, and an equal priority interrupts the one in progress.
+ */
+internal fun revealSheetDockAfterLiftScroll(host: EditWorkoutDockHostState) {
+    if (host.isOpen) host.overlay.requestReveal()
+}
+
+/**
  * Before a close that is followed by a programmatic lift scroll, skip the dock's
  * collapse scroll-restore so it does not cancel that scroll. A blocked leave that
  * keeps the dock open clears the flag; a closed dock leaves it false.

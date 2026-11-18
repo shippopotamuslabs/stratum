@@ -292,6 +292,10 @@ class EditWorkoutDockHostState(
     /**
      * Point the open rep session at another set without closing.
      * Keeps the active min/max field.
+     *
+     * Does not reveal. A sheet move scrolls the lift first; revealing here
+     * starts another list scroll at the same priority and cancels that one.
+     * [revealSheetDockAfterLiftScroll] runs after the lift scroll.
      */
     fun retargetRepRange(
         setId: String,
@@ -306,10 +310,12 @@ class EditWorkoutDockHostState(
         maxCursor = maxText.length
         requireCompleteBand = false
         session = current.copy(setId = setId, onCommitBand = onCommitBand)
-        overlay.requestReveal()
     }
 
-    /** Point the open rest session at another set without applying the previous draft. */
+    /**
+     * Point the open rest session at another set without applying the previous draft.
+     * Does not reveal. See [retargetRepRange].
+     */
     fun retargetRest(
         setId: String,
         restSeconds: Int,
@@ -327,7 +333,6 @@ class EditWorkoutDockHostState(
                 onApplyToAllSets = onApplyToAllSets,
                 isMiniRest = isMiniRest,
             )
-        overlay.requestReveal()
     }
 
     /** Set id of the open rep or rest session, if any. */
