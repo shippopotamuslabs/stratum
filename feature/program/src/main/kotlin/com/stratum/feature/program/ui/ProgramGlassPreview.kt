@@ -26,6 +26,16 @@ internal fun CreateProgramGlassPreviewContent() {
 }
 
 @Composable
+internal fun CreateProgramSheetGlassPreviewContent() {
+    StratumGlassHost {
+        CreateProgramStepPreviewContent(
+            family = StratumThemeId.Tonal,
+            state = previewProgramSheetState(),
+        )
+    }
+}
+
+@Composable
 internal fun EditWorkoutGlassPreviewContent() {
     StratumGlassHost {
         EditWorkoutScreenPreviewContent(family = StratumThemeId.Tonal)

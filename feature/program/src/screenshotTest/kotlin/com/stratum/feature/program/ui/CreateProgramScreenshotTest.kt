@@ -93,3 +93,10 @@ fun createProgramEditorTonal() {
 fun createProgramEditorNeo() {
     CreateProgramStepPreviewContent(family = StratumThemeId.NeoBrutalist, state = previewEditorState())
 }
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun createProgramSheetTonal() {
+    CreateProgramStepPreviewContent(family = StratumThemeId.Tonal, state = previewProgramSheetState())
+}

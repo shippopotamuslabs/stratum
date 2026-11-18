@@ -21,6 +21,12 @@ enum class CreateProgramPath {
     Scratch,
 }
 
+/** Which editor body is on screen. Not written by save, and not a draft edit. */
+enum class ProgramEditorSurface {
+    Tabbed,
+    Sheet,
+}
+
 enum class CreateProgramGenerateState {
     Idle,
     Loading,
@@ -92,6 +98,10 @@ data class CreateProgramUiState(
     val originalIsActive: Boolean = false,
     /** Load failure when [isEditingExisting] entry cannot resolve the program. */
     val loadErrorMessage: String? = null,
+    /** Editor body. Not saved, and changing it does not mark the draft dirty. */
+    val editorSurface: ProgramEditorSurface = ProgramEditorSurface.Tabbed,
+    /** Derived sheet totals. Not saved, and refreshing them does not mark the draft dirty. */
+    val sheetMetrics: ProgramSheetMetrics? = null,
 ) {
     val selectedDay: CreateProgramDayUi?
         get() = days.firstOrNull { day -> day.id == selectedDayId }

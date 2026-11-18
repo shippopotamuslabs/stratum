@@ -83,6 +83,11 @@ internal class CreateProgramEditorController(
         state.update { it.copy(selectedDayId = dayId) }
     }
 
+    /** Dev entry onto the whole-program sheet. Does not mark the draft dirty. */
+    fun showSheet() {
+        state.update { current -> current.copy(editorSurface = ProgramEditorSurface.Sheet) }
+    }
+
     fun addDay() {
         state.update { current -> CreateProgramDayEditor.addRestDay(current) }
     }
@@ -516,6 +521,14 @@ internal class CreateProgramEditorController(
                             ),
                     )
                 },
+            // Derived display only. copy() leaves isDirty and editorSurface unchanged.
+            sheetMetrics =
+                deriveProgramSheet(
+                    days = days,
+                    liftCatalog = liftCatalog,
+                    computeWorkoutMuscleVolume = computeWorkoutMuscleVolume,
+                    estimateWorkoutDurationMinutes = estimateWorkoutDurationMinutes,
+                ),
         )
     }
 }
