@@ -1,38 +1,18 @@
 package com.stratum.core.ui.component
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.PreviewLightDark
-import androidx.compose.ui.unit.dp
-import com.stratum.core.ui.R
 import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumTheme
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.core.ui.theme.StratumThemeId
-
-private const val PREVIEW_INACTIVE_ALPHA = 0.4f
-private val PreviewTextTabHeight = 48.dp
-private val PreviewTextTabIndicator = 2.dp
-private val PreviewTileSize = 56.dp
-private val PreviewTileUnderline = 3.dp
 
 @PreviewLightDark
 @Composable
@@ -66,10 +46,10 @@ internal fun SyncedItemStripTextTabsPreview(family: StratumThemeId) {
             StratumSyncedItemStrip(
                 itemCount = labels.size,
                 selectedIndex = 1,
-                modifier = Modifier.height(PreviewTextTabHeight),
+                verticalAlignment = Alignment.CenterVertically,
                 trailingContent = { SyncedStripPreviewAddLabel() },
             ) { index, selected ->
-                SyncedStripPreviewTextTab(
+                SyncedStripPreviewTextLabel(
                     label = labels[index],
                     selected = selected,
                 )
@@ -92,9 +72,10 @@ internal fun SyncedItemStripInitialsPreview(family: StratumThemeId) {
             StratumSyncedItemStrip(
                 itemCount = initials.size,
                 selectedIndex = 0,
-                trailingContent = { SyncedStripPreviewAddTile() },
+                verticalAlignment = Alignment.CenterVertically,
+                trailingContent = { SyncedStripPreviewAddLabel() },
             ) { index, selected ->
-                SyncedStripPreviewInitialsTile(
+                SyncedStripPreviewInitials(
                     initials = initials[index],
                     selected = selected,
                 )
@@ -104,30 +85,13 @@ internal fun SyncedItemStripInitialsPreview(family: StratumThemeId) {
 }
 
 @Composable
-private fun SyncedStripPreviewTextTab(
+private fun SyncedStripPreviewTextLabel(
     label: String,
     selected: Boolean,
 ) {
-    val colors = StratumThemeAccessor.colors
-    Column(
-        modifier =
-            Modifier
-                .height(PreviewTextTabHeight)
-                .defaultMinSize(minWidth = 72.dp)
-                .drawBehind {
-                    if (!selected) return@drawBehind
-                    val stroke = PreviewTextTabIndicator.toPx()
-                    val y = size.height - stroke / 2f
-                    drawLine(
-                        color = colors.accent,
-                        start = Offset(0f, y),
-                        end = Offset(size.width, y),
-                        strokeWidth = stroke,
-                    )
-                }
-                .padding(horizontal = StratumSpacing.s12),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
+    Box(
+        modifier = Modifier.padding(horizontal = StratumSpacing.s12),
+        contentAlignment = Alignment.Center,
     ) {
         StratumText(
             text = label,
@@ -141,14 +105,11 @@ private fun SyncedStripPreviewTextTab(
 @Composable
 private fun SyncedStripPreviewAddLabel() {
     Box(
-        modifier =
-            Modifier
-                .height(PreviewTextTabHeight)
-                .padding(horizontal = StratumSpacing.s12),
+        modifier = Modifier.padding(horizontal = StratumSpacing.s12),
         contentAlignment = Alignment.Center,
     ) {
         StratumText(
-            text = "Add +",
+            text = "Add",
             style = StratumThemeAccessor.typography.bodyLarge,
             muted = true,
         )
@@ -156,67 +117,23 @@ private fun SyncedStripPreviewAddLabel() {
 }
 
 @Composable
-private fun SyncedStripPreviewInitialsTile(
+private fun SyncedStripPreviewInitials(
     initials: String,
     selected: Boolean,
 ) {
     val colors = StratumThemeAccessor.colors
     val shapes = StratumThemeAccessor.shapes
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(
-            modifier =
-                Modifier
-                    .size(PreviewTileSize)
-                    .alpha(if (selected) 1f else PREVIEW_INACTIVE_ALPHA)
-                    .clip(shapes.chip)
-                    .background(colors.surfaceSunken),
-            contentAlignment = Alignment.Center,
-        ) {
-            StratumText(
-                text = initials,
-                style = StratumThemeAccessor.typography.titleMedium,
-                muted = !selected,
-            )
-        }
-        Box(
-            modifier =
-                Modifier
-                    .padding(top = StratumSpacing.s4)
-                    .height(PreviewTileUnderline)
-                    .width(PreviewTileSize)
-                    .then(
-                        if (selected) {
-                            Modifier.background(colors.accent)
-                        } else {
-                            Modifier
-                        },
-                    ),
-        )
-    }
-}
-
-@Composable
-private fun SyncedStripPreviewAddTile() {
-    val colors = StratumThemeAccessor.colors
-    val shapes = StratumThemeAccessor.shapes
     Box(
         modifier =
             Modifier
-                .size(PreviewTileSize)
-                .clip(shapes.chip)
-                .background(colors.surfaceRaised)
-                .border(
-                    width = shapes.borderWidth,
-                    color = colors.borderSubtle,
-                    shape = shapes.chip,
-                ),
+                .size(StratumSpacing.s48)
+                .background(colors.surfaceSunken, shapes.chip),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(
-            painter = painterResource(R.drawable.ic_add),
-            contentDescription = null,
-            tint = colors.textPrimary,
-            modifier = Modifier.size(StratumSpacing.s24),
+        StratumText(
+            text = initials,
+            style = StratumThemeAccessor.typography.titleMedium,
+            muted = !selected,
         )
     }
 }

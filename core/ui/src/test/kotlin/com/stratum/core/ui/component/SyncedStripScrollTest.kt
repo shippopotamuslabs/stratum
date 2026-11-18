@@ -91,17 +91,49 @@ class SyncedStripScrollTest {
     }
 
     @Test
-    @DisplayName("item wider than the viewport and overlapping both edges aligns its start")
-    fun widerThanViewportAlignsStart() {
+    @DisplayName("item wider than the viewport start-aligns when its start is inside")
+    fun widerThanViewportStartAlignsWhenStartIsInside() {
         val reveal =
             stripReveal(
                 itemIndex = 0,
-                itemOffsetPx = -15,
+                itemOffsetPx = 20,
                 itemSizePx = 400,
-                viewportStartPx = 10,
-                viewportEndPx = 210,
+                viewportStartPx = 0,
+                viewportEndPx = 200,
             )
         assertNull(reveal.scrollToIndex)
-        assertEquals(-25, reveal.scrollByPx)
+        assertEquals(20, reveal.scrollByPx)
+    }
+
+    @Test
+    @DisplayName("forward off-screen target scrolls by the end overflow, not a pin to zero")
+    fun forwardOffscreenScrollsByEndOverflow() {
+        val delta =
+            stripRevealOffscreenDelta(
+                targetIndex = 2,
+                anchorIndex = 1,
+                anchorOffsetPx = 150,
+                anchorSizePx = 40,
+                spacingPx = 4,
+                viewportStartPx = 0,
+                viewportEndPx = 200,
+            )
+        assertEquals(34, delta)
+    }
+
+    @Test
+    @DisplayName("backward off-screen target start-aligns")
+    fun backwardOffscreenStartAligns() {
+        val delta =
+            stripRevealOffscreenDelta(
+                targetIndex = 1,
+                anchorIndex = 3,
+                anchorOffsetPx = 40,
+                anchorSizePx = 50,
+                spacingPx = 10,
+                viewportStartPx = 0,
+                viewportEndPx = 200,
+            )
+        assertEquals(-80, delta)
     }
 }

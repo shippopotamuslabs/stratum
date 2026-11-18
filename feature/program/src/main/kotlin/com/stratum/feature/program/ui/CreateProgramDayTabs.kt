@@ -77,22 +77,7 @@ internal fun DayTabsRow(
             itemKey = { index -> days[index].id },
             trailingContent =
                 if (canAddDay) {
-                    {
-                        Box(
-                            modifier =
-                                Modifier
-                                    .fillMaxHeight()
-                                    .clickable(onClick = onAddDay)
-                                    .padding(horizontal = StratumSpacing.s12),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            StratumText(
-                                text = stringResource(R.string.create_program_add_day) + " +",
-                                style = StratumThemeAccessor.typography.bodyLarge,
-                                muted = true,
-                            )
-                        }
-                    }
+                    { AddDayTab(onAddDay = onAddDay) }
                 } else {
                     null
                 },
@@ -104,6 +89,24 @@ internal fun DayTabsRow(
                 onSelect = { onSelectDay(day.id) },
             )
         }
+    }
+}
+
+@Composable
+private fun AddDayTab(onAddDay: () -> Unit) {
+    Box(
+        modifier =
+            Modifier
+                .fillMaxHeight()
+                .clickable(onClick = onAddDay)
+                .padding(horizontal = StratumSpacing.s12),
+        contentAlignment = Alignment.Center,
+    ) {
+        StratumText(
+            text = stringResource(R.string.create_program_add_day) + " +",
+            style = StratumThemeAccessor.typography.bodyLarge,
+            muted = true,
+        )
     }
 }
 
