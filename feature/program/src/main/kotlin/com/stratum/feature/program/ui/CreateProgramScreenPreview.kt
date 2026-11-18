@@ -1,6 +1,7 @@
 package com.stratum.feature.program.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import com.stratum.core.ui.theme.StratumTheme
 import com.stratum.core.ui.theme.StratumThemeId
@@ -9,6 +10,7 @@ import com.stratum.feature.program.CreateProgramGenerateState
 import com.stratum.feature.program.CreateProgramStep
 import com.stratum.feature.program.CreateProgramUiState
 import com.stratum.feature.program.ProgramEditorSurface
+import com.stratum.feature.program.ProgramSheetLiftTarget
 
 /**
  * Screenshot-test previews for [CreateProgramScreen] wizard steps (STR-92). Covers the
@@ -94,13 +96,39 @@ private fun CreateProgramSheetTonalPreview() {
     CreateProgramStepPreviewContent(family = StratumThemeId.Tonal, state = previewProgramSheetState())
 }
 
+@PreviewLightDark
 @Composable
-internal fun CreateProgramStepPreviewContent(family: StratumThemeId, state: CreateProgramUiState) {
+private fun CreateProgramSheetExpandedLiftTonalPreview() {
+    CreateProgramStepPreviewContent(
+        family = StratumThemeId.Tonal,
+        state = previewProgramSheetState(),
+        initialExpandedLift = previewSheetExpandedLift(),
+    )
+}
+
+internal fun previewSheetExpandedLift(): ProgramSheetLiftTarget =
+    ProgramSheetLiftTarget(dayId = "day-push", workoutLiftId = "wl-press")
+
+@Composable
+internal fun CreateProgramStepPreviewContent(
+    family: StratumThemeId,
+    state: CreateProgramUiState,
+    initialExpandedLift: ProgramSheetLiftTarget? = null,
+) {
     StratumTheme(themeId = family) {
-        CreateProgramScreen(
-            state = state,
-            callbacks = CreateProgramScreenCallbacks(),
-        )
+        if (initialExpandedLift == null) {
+            CreateProgramScreen(
+                state = state,
+                callbacks = CreateProgramScreenCallbacks(),
+            )
+        } else {
+            CompositionLocalProvider(LocalInitialProgramSheetLift provides initialExpandedLift) {
+                CreateProgramScreen(
+                    state = state,
+                    callbacks = CreateProgramScreenCallbacks(),
+                )
+            }
+        }
     }
 }
 

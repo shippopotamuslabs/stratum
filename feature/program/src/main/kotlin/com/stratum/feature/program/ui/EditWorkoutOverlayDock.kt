@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -279,7 +280,70 @@ class EditWorkoutDockHostState(
      *
      * Call from hide, system/toolbar back, save, and before opening a different dock target.
      */
-    fun tryCommitPendingOrBlock(): Boolean {
+    fun tryCommitPendingOrBlock(): Boolean = finishLeave(closeAfter = true)
+
+    /**
+     * Same leave rule as [tryCommitPendingOrBlock], but a valid rep band stays open
+     * after commit and rest stays open without applying, so the caller can retarget.
+     * An invalid rep range blocks and leaves the session on that field.
+     */
+    fun tryCommitPendingAndStay(): Boolean = finishLeave(closeAfter = false)
+
+    /**
+     * Point the open rep session at another set without closing.
+     * Keeps the active min/max field.
+     */
+    fun retargetRepRange(
+        setId: String,
+        minText: String,
+        maxText: String,
+        onCommitBand: (repMin: Int, repMax: Int) -> Unit,
+    ) {
+        val current = session as? EditWorkoutDockSession.RepRange ?: return
+        this.minText = minText
+        this.maxText = maxText
+        minCursor = minText.length
+        maxCursor = maxText.length
+        requireCompleteBand = false
+        session = current.copy(setId = setId, onCommitBand = onCommitBand)
+        overlay.requestReveal()
+    }
+
+    /** Point the open rest session at another set without applying the previous draft. */
+    fun retargetRest(
+        setId: String,
+        restSeconds: Int,
+        onApplyToSet: (Int) -> Unit,
+        onApplyToAllSets: (Int) -> Unit,
+        isMiniRest: Boolean,
+    ) {
+        if (session !is EditWorkoutDockSession.Rest) return
+        this.restSeconds = restSeconds
+        requireCompleteBand = false
+        session =
+            EditWorkoutDockSession.Rest(
+                setId = setId,
+                onApplyToSet = onApplyToSet,
+                onApplyToAllSets = onApplyToAllSets,
+                isMiniRest = isMiniRest,
+            )
+        overlay.requestReveal()
+    }
+
+    /** Set id of the open rep or rest session, if any. */
+    fun openSetId(): String? =
+        when (val current = session) {
+            is EditWorkoutDockSession.RepRange -> current.setId
+            is EditWorkoutDockSession.Rest -> current.setId
+            null -> null
+        }
+
+    /** Close without committing. A move that already committed uses this when it cannot retarget. */
+    fun closeWithoutCommit() {
+        close()
+    }
+
+    private fun finishLeave(closeAfter: Boolean): Boolean {
         when (val current = session) {
             is EditWorkoutDockSession.RepRange -> {
                 val validation =
@@ -293,11 +357,15 @@ class EditWorkoutDockHostState(
                     return false
                 }
                 current.onCommitBand(parseRepRangeDraft(minText), parseRepRangeDraft(maxText))
-                close()
+                if (closeAfter) {
+                    close()
+                } else {
+                    requireCompleteBand = false
+                }
                 return true
             }
             is EditWorkoutDockSession.Rest -> {
-                close()
+                if (closeAfter) close()
                 return true
             }
             null -> return true
@@ -371,6 +439,10 @@ val LocalEditWorkoutDock =
 fun ProvideEditWorkoutDock(
     modifier: Modifier = Modifier,
     host: EditWorkoutDockHostState? = null,
+    onPreviousLift: (() -> Unit)? = null,
+    onNextLift: (() -> Unit)? = null,
+    previousLiftEnabled: Boolean = false,
+    nextLiftEnabled: Boolean = false,
     content: @Composable (listModifier: Modifier, dock: EditWorkoutDockHostState) -> Unit,
 ) {
     val rememberedHost = remember { EditWorkoutDockHostState() }
@@ -379,6 +451,21 @@ fun ProvideEditWorkoutDock(
     val repPadHeight =
         remember(configuration.screenHeightDp) {
             setLogKeyboardContentHeight(configuration)
+        }
+    val liftSteps =
+        if (onPreviousLift != null && onNextLift != null) {
+            EditWorkoutLiftSteps(
+                onPrevious = {
+                    if (dockHost.tryCommitPendingAndStay()) onPreviousLift()
+                },
+                onNext = {
+                    if (dockHost.tryCommitPendingAndStay()) onNextLift()
+                },
+                previousEnabled = previousLiftEnabled,
+                nextEnabled = nextLiftEnabled,
+            )
+        } else {
+            null
         }
 
     CompositionLocalProvider(LocalEditWorkoutDock provides dockHost) {
@@ -394,9 +481,10 @@ fun ProvideEditWorkoutDock(
                                     host = dockHost,
                                     session = session,
                                     contentHeight = repPadHeight,
+                                    liftSteps = liftSteps,
                                 )
                             is EditWorkoutDockSession.Rest ->
-                                EditWorkoutRestDock(host = dockHost)
+                                EditWorkoutRestDock(host = dockHost, liftSteps = liftSteps)
                         }
                     }
                 },
@@ -414,6 +502,7 @@ private fun EditWorkoutRepRangeDock(
     host: EditWorkoutDockHostState,
     session: EditWorkoutDockSession.RepRange,
     contentHeight: Dp,
+    liftSteps: EditWorkoutLiftSteps?,
 ) {
     val validation = host.repRangeValidation
     val errorMessage =
@@ -429,32 +518,45 @@ private fun EditWorkoutRepRangeDock(
             RepRangeDraftIssue.MaxNotAboveMin ->
                 stringResource(CoreUiR.string.rep_range_error_max_not_above_min)
         }
-    StratumRepRangeKeyboardContent(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .height(contentHeight),
-        activeField = session.field,
-        errorMessage = errorMessage,
-        onDigit = { digit ->
-            host.activeBuffer()?.let { base ->
-                host.applyPadEditToDrafts(insertNumericKey(base, digit, allowDecimal = false))
-            }
-        },
-        onBackspace = {
-            host.activeBuffer()?.let { base ->
-                host.applyPadEditToDrafts(backspaceNumericBuffer(base))
-            }
-        },
-        onOver = {
-            host.setRepField(toggleRepRangeField(session.field))
-        },
-        onDismiss = host::dismiss,
-    )
+    val pad = @Composable {
+        StratumRepRangeKeyboardContent(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(contentHeight),
+            activeField = session.field,
+            errorMessage = errorMessage,
+            onDigit = { digit ->
+                host.activeBuffer()?.let { base ->
+                    host.applyPadEditToDrafts(insertNumericKey(base, digit, allowDecimal = false))
+                }
+            },
+            onBackspace = {
+                host.activeBuffer()?.let { base ->
+                    host.applyPadEditToDrafts(backspaceNumericBuffer(base))
+                }
+            },
+            onOver = {
+                host.setRepField(toggleRepRangeField(session.field))
+            },
+            onDismiss = host::dismiss,
+        )
+    }
+    if (liftSteps == null) {
+        pad()
+    } else {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            EditWorkoutLiftStepButtons(steps = liftSteps)
+            pad()
+        }
+    }
 }
 
 @Composable
-private fun EditWorkoutRestDock(host: EditWorkoutDockHostState) {
+private fun EditWorkoutRestDock(
+    host: EditWorkoutDockHostState,
+    liftSteps: EditWorkoutLiftSteps?,
+) {
     val sheetColor = StratumThemeAccessor.colors.surfaceRaised
     val restSession = host.session as? EditWorkoutDockSession.Rest
     val isMiniRest = restSession?.isMiniRest == true
@@ -465,6 +567,9 @@ private fun EditWorkoutRestDock(host: EditWorkoutDockHostState) {
                 .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s12),
         verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
     ) {
+        if (liftSteps != null) {
+            EditWorkoutLiftStepButtons(steps = liftSteps)
+        }
         Box(
             modifier = Modifier.fillMaxWidth(),
         ) {
@@ -523,5 +628,66 @@ private fun EditWorkoutRestDock(host: EditWorkoutDockHostState) {
             containerColor = sheetColor,
             modifier = Modifier.fillMaxWidth(),
         )
+    }
+}
+
+private data class EditWorkoutLiftSteps(
+    val onPrevious: () -> Unit,
+    val onNext: () -> Unit,
+    val previousEnabled: Boolean,
+    val nextEnabled: Boolean,
+)
+
+@Composable
+internal fun EditWorkoutLiftStepButtons(
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    previousEnabled: Boolean,
+    nextEnabled: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    EditWorkoutLiftStepButtons(
+        steps =
+            EditWorkoutLiftSteps(
+                onPrevious = onPrevious,
+                onNext = onNext,
+                previousEnabled = previousEnabled,
+                nextEnabled = nextEnabled,
+            ),
+        modifier = modifier,
+    )
+}
+
+@Composable
+private fun EditWorkoutLiftStepButtons(
+    steps: EditWorkoutLiftSteps,
+    modifier: Modifier = Modifier,
+) {
+    val colors = StratumThemeAccessor.colors
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        StratumIconButton(
+            onClick = steps.onPrevious,
+            enabled = steps.previousEnabled,
+        ) {
+            Icon(
+                painter = painterResource(CoreUiR.drawable.ic_chevron_left),
+                contentDescription = stringResource(R.string.create_program_sheet_previous_lift),
+                tint = if (steps.previousEnabled) colors.textPrimary else colors.textMuted,
+            )
+        }
+        StratumIconButton(
+            onClick = steps.onNext,
+            enabled = steps.nextEnabled,
+        ) {
+            Icon(
+                painter = painterResource(CoreUiR.drawable.ic_chevron_right),
+                contentDescription = stringResource(R.string.create_program_sheet_next_lift),
+                tint = if (steps.nextEnabled) colors.textPrimary else colors.textMuted,
+            )
+        }
     }
 }

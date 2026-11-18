@@ -18,6 +18,11 @@ internal sealed interface ProgramSheetRow {
     data class Rest(override val dayId: String) : ProgramSheetRow
 }
 
+/** One expanded lift in the sheet. Remembered by the composable, not by the draft. */
+internal data class ProgramSheetLiftTarget(val dayId: String, val workoutLiftId: String)
+
+internal enum class ProgramSheetLiftStep { Previous, Next }
+
 internal fun programSheetRows(days: List<CreateProgramDayUi>): List<ProgramSheetRow> =
     buildList {
         for (day in days) {
@@ -65,4 +70,42 @@ internal fun programSheetFollowDayId(
     if (latchVisible) return latchedDayId
     val firstVisibleIndex = visibleIndices.firstOrNull() ?: return null
     return programSheetActiveDayId(rows, firstVisibleIndex)
+}
+
+/** Index of that lift row, or null when the lift is not in the sheet. */
+internal fun programSheetLiftIndex(
+    rows: List<ProgramSheetRow>,
+    dayId: String,
+    workoutLiftId: String,
+): Int? {
+    val index =
+        rows.indexOfFirst { row ->
+            row is ProgramSheetRow.Lift &&
+                row.dayId == dayId &&
+                row.workoutLiftId == workoutLiftId
+        }
+    return index.takeIf { it >= 0 }
+}
+
+/**
+ * Previous or next [ProgramSheetRow.Lift] in sheet order.
+ * Headers, column headers, and rest rows are not stops, so a rest day between
+ * workouts is skipped. Ends return null.
+ */
+internal fun programSheetAdjacentLift(
+    rows: List<ProgramSheetRow>,
+    dayId: String,
+    workoutLiftId: String,
+    step: ProgramSheetLiftStep,
+): ProgramSheetLiftTarget? {
+    val lifts = rows.filterIsInstance<ProgramSheetRow.Lift>()
+    val index = lifts.indexOfFirst { lift -> lift.dayId == dayId && lift.workoutLiftId == workoutLiftId }
+    if (index < 0) return null
+    val adjacentIndex =
+        when (step) {
+            ProgramSheetLiftStep.Previous -> index - 1
+            ProgramSheetLiftStep.Next -> index + 1
+        }
+    val adjacent = lifts.getOrNull(adjacentIndex) ?: return null
+    return ProgramSheetLiftTarget(dayId = adjacent.dayId, workoutLiftId = adjacent.workoutLiftId)
 }

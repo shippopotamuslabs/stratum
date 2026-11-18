@@ -682,7 +682,7 @@ private fun EditWorkoutExerciseSummaryHeader(
 }
 
 @Composable
-private fun EditLiftPanel(
+internal fun EditLiftPanel(
     lift: EditLiftState,
     allLifts: List<EditLiftState>,
     onAddSet: () -> Unit,
@@ -698,6 +698,7 @@ private fun EditLiftPanel(
     onSetMatchBackoffCount: (activationSetId: String, count: Int) -> Unit = { _, _ -> },
     onEquipmentSwapClick: (() -> Unit)? = null,
 ) {
+    val onCollapse = LocalEditLiftCollapse.current
     StratumEdgeToEdgeCard(
         verticalArrangement = Arrangement.spacedBy(StratumSpacing.s12),
     ) {
@@ -714,6 +715,19 @@ private fun EditLiftPanel(
                 style = StratumThemeAccessor.typography.titleMedium,
                 modifier = Modifier.weight(1f),
             )
+            if (onCollapse != null) {
+                StratumIconButton(
+                    onClick = onCollapse,
+                    containerColor = Color.Transparent,
+                ) {
+                    Icon(
+                        painter = painterResource(CoreUiR.drawable.ic_chevron_down),
+                        contentDescription =
+                            stringResource(R.string.program_library_collapse_a11y, lift.name),
+                        tint = StratumThemeAccessor.colors.textPrimary,
+                    )
+                }
+            }
             StratumIconButton(
                 onClick = onShowLiftActions,
                 containerColor = Color.Transparent,

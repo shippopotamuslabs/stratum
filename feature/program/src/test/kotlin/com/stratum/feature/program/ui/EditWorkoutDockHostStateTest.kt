@@ -115,4 +115,68 @@ class EditWorkoutDockHostStateTest {
             assertTrue(host.requireCompleteBand)
         }
     }
+
+    @Nested
+    @DisplayName("commit and stay")
+    inner class CommitAndStay {
+        @Test
+        @DisplayName("invalid band stays open and uncommitted")
+        fun invalidBandStaysOpen() {
+            openRep(min = "3", max = "12")
+            assertFalse(host.tryCommitPendingAndStay())
+            assertTrue(commits.isEmpty())
+            assertTrue(host.isOpen)
+            assertTrue(host.requireCompleteBand)
+            assertEquals("s1", (host.session as EditWorkoutDockSession.RepRange).setId)
+        }
+
+        @Test
+        @DisplayName("valid band commits and stays open")
+        fun validBandStaysOpen() {
+            openRep(field = RepRangeKeyboardField.Max, min = "8", max = "12")
+            assertTrue(host.tryCommitPendingAndStay())
+            assertEquals(listOf(8 to 12), commits)
+            assertTrue(host.isOpen)
+            val session = host.session as EditWorkoutDockSession.RepRange
+            assertEquals("s1", session.setId)
+            assertEquals(RepRangeKeyboardField.Max, session.field)
+        }
+
+        @Test
+        @DisplayName("rest stays open and does not apply")
+        fun restStaysOpenWithoutApply() {
+            var applied: Int? = null
+            host.openRest(
+                setId = "s1",
+                restSeconds = 90,
+                onApplyToSet = { applied = it },
+                onApplyToAllSets = {},
+            )
+            host.updateRestSeconds(60)
+            assertTrue(host.tryCommitPendingAndStay())
+            assertEquals(null, applied)
+            assertTrue(host.isRestActive("s1"))
+            assertEquals(60, host.restSeconds)
+        }
+
+        @Test
+        @DisplayName("retarget keeps the rep field open on the next set")
+        fun retargetKeepsRepField() {
+            openRep(field = RepRangeKeyboardField.Max, min = "8", max = "12")
+            assertTrue(host.tryCommitPendingAndStay())
+            host.retargetRepRange(
+                setId = "s2",
+                minText = "5",
+                maxText = "8",
+                onCommitBand = { _, _ -> },
+            )
+            val session = host.session as EditWorkoutDockSession.RepRange
+            assertEquals("s2", session.setId)
+            assertEquals(RepRangeKeyboardField.Max, session.field)
+            assertEquals("5", host.minText)
+            assertEquals("8", host.maxText)
+            assertTrue(host.isOpen)
+            assertEquals(listOf(8 to 12), commits)
+        }
+    }
 }

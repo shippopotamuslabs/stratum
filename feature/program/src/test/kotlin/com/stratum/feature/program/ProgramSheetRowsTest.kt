@@ -55,6 +55,32 @@ class ProgramSheetRowsTest {
     }
 
     @Test
+    @DisplayName("adjacent lifts skip a rest day and the index is the lift row")
+    fun adjacentLiftSkipsRestDay() {
+        val rows = programSheetRows(daysWithRestBetweenWorkouts())
+
+        assertEquals(
+            ProgramSheetLiftTarget(DAY_B, LIFT_B),
+            programSheetAdjacentLift(rows, DAY_A, LIFT_A2, ProgramSheetLiftStep.Next),
+        )
+        assertEquals(
+            ProgramSheetLiftTarget(DAY_A, LIFT_A2),
+            programSheetAdjacentLift(rows, DAY_B, LIFT_B, ProgramSheetLiftStep.Previous),
+        )
+        assertEquals(
+            ProgramSheetLiftTarget(DAY_A, LIFT_A2),
+            programSheetAdjacentLift(rows, DAY_A, LIFT_A1, ProgramSheetLiftStep.Next),
+        )
+        assertNull(programSheetAdjacentLift(rows, DAY_A, LIFT_A1, ProgramSheetLiftStep.Previous))
+        assertNull(programSheetAdjacentLift(rows, DAY_B, LIFT_B, ProgramSheetLiftStep.Next))
+        assertNull(programSheetAdjacentLift(rows, DAY_A, "missing", ProgramSheetLiftStep.Next))
+        assertEquals(2, programSheetLiftIndex(rows, DAY_A, LIFT_A1))
+        assertEquals(3, programSheetLiftIndex(rows, DAY_A, LIFT_A2))
+        assertEquals(7, programSheetLiftIndex(rows, DAY_B, LIFT_B))
+        assertNull(programSheetLiftIndex(rows, DAY_A, "missing"))
+    }
+
+    @Test
     @DisplayName("an empty workout is a header and column header, and a rest day is one row")
     fun emptyWorkoutAndRest() {
         val days =

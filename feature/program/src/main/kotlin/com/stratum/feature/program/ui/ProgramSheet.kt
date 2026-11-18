@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -18,7 +17,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -32,7 +33,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -47,17 +47,29 @@ import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumNumber
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.formatRirLabel
+import com.stratum.core.ui.component.workoutlog.rememberOverlayDockListBinding
 import com.stratum.core.ui.theme.StratumSpacing
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.program.CreateProgramDayUi
 import com.stratum.feature.program.CreateProgramUiState
+import com.stratum.feature.program.ProgramSheetLiftStep
+import com.stratum.feature.program.ProgramSheetLiftTarget
 import com.stratum.feature.program.ProgramSheetRow
 import com.stratum.feature.program.R
 import com.stratum.feature.program.formatEstimatedWorkoutDuration
+import com.stratum.feature.program.programSheetAdjacentLift
 import com.stratum.feature.program.programSheetAnchorIndex
 import com.stratum.feature.program.programSheetFollowDayId
+import com.stratum.feature.program.programSheetLiftIndex
 import com.stratum.feature.program.programSheetRows
 import kotlinx.coroutines.flow.distinctUntilChanged
+
+/**
+ * Preview seam for one expanded sheet lift. Production leaves this null;
+ * expansion after that is remembered on [ProgramSheet], not in the draft.
+ */
+internal val LocalInitialProgramSheetLift =
+    staticCompositionLocalOf<ProgramSheetLiftTarget?> { null }
 
 /**
  * One scroll of every program day. The tabbed editor stays the default;
@@ -71,6 +83,7 @@ internal fun ProgramSheet(
     modifier: Modifier = Modifier,
 ) {
     val rows = remember(state.days) { programSheetRows(state.days) }
+    val seededLift = LocalInitialProgramSheetLift.current
     val scroll =
         rememberProgramSheetListScroll(
             rows = rows,
@@ -79,72 +92,137 @@ internal fun ProgramSheet(
             onSelectDay = callbacks.onSelectDay,
         )
     var menuDayId by remember { mutableStateOf<String?>(null) }
-    var editing by remember { mutableStateOf<SheetLiftTarget?>(null) }
-
-    Column(modifier = modifier.fillMaxSize().padding(top = topClearance)) {
-        DayTabsRow(
-            days = state.days,
-            selectedDayId = state.selectedDayId,
-            canAddDay = state.canAddDay,
-            onSelectDay = { dayId ->
-                scroll.jumpToDay(dayId)
-                callbacks.onSelectDay(dayId)
-            },
-            onAddDay = {
-                scroll.scrollAfterAdd()
-                callbacks.onAddDay()
-            },
+    var expanded by remember { mutableStateOf(seededLift) }
+    var rirSetId by remember { mutableStateOf<String?>(null) }
+    var liftActionsLiftId by remember { mutableStateOf<String?>(null) }
+    var showProgressionSchemeExplainer by remember { mutableStateOf(false) }
+    val dockHost = remember { EditWorkoutDockHostState() }
+    DisposableEffect(dockHost) {
+        onDispose { dockHost.commitIfValidThenClose() }
+    }
+    val dockHeight =
+        rememberOverlayDockListBinding(
+            listState = scroll.listState,
+            dock = dockHost.overlay,
         )
-        LazyColumn(
-            state = scroll.listState,
-            modifier = Modifier.weight(1f),
-            contentPadding = PaddingValues(bottom = StratumSpacing.s16),
-        ) {
-            rows.forEach { row ->
-                when (row) {
-                    is ProgramSheetRow.WorkoutHeader ->
-                        stickyHeader(key = "header-${row.dayId}") { _ ->
-                            val day = state.days.firstOrNull { it.id == row.dayId } ?: return@stickyHeader
-                            val edit = day.editState ?: return@stickyHeader
-                            ProgramSheetWorkoutHeader(
-                                day = day,
-                                setTotal = edit.lifts.sumOf { lift -> lift.sets.size },
-                                minutes = edit.estimatedDurationMinutes,
-                                onAddLift = {
-                                    callbacks.onSelectDay(day.id)
-                                    callbacks.onAddExercise()
-                                },
-                                onOpenMenu = { menuDayId = day.id },
-                            )
-                        }
-                    is ProgramSheetRow.ColumnHeader ->
-                        item(key = "columns-${row.dayId}") {
-                            ProgramSheetColumnHeader()
-                        }
-                    is ProgramSheetRow.Lift ->
-                        item(key = "lift-${row.dayId}-${row.workoutLiftId}") {
-                            val day = state.days.firstOrNull { it.id == row.dayId } ?: return@item
-                            val edit = day.editState ?: return@item
-                            val lift =
-                                edit.lifts.firstOrNull { it.workoutLiftId == row.workoutLiftId }
-                                    ?: return@item
-                            ProgramSheetLiftRow(
-                                lift = lift,
-                                zebra = edit.lifts.indexOf(lift) % 2 == 1,
-                                onClick = {
-                                    callbacks.onSelectDay(day.id)
-                                    editing = SheetLiftTarget(day.id, lift.workoutLiftId)
-                                },
-                            )
-                        }
-                    is ProgramSheetRow.Rest ->
-                        item(key = "rest-${row.dayId}") {
-                            val day = state.days.firstOrNull { it.id == row.dayId } ?: return@item
-                            ProgramSheetRestRow(
-                                name = day.name,
-                                onOpenMenu = { menuDayId = day.id },
-                            )
-                        }
+    val openLift = expanded
+    val previousEnabled = sheetLiftStepEnabled(rows, openLift, ProgramSheetLiftStep.Previous)
+    val nextEnabled = sheetLiftStepEnabled(rows, openLift, ProgramSheetLiftStep.Next)
+    val stepTo = { step: ProgramSheetLiftStep, anchorSetId: String? ->
+        val moved =
+            movedProgramSheetLift(
+                expanded = expanded,
+                rows = rows,
+                days = state.days,
+                step = step,
+                anchorSetId = anchorSetId,
+                host = dockHost,
+                onSelectDay = callbacks.onSelectDay,
+                onSetRepBand = callbacks.onSetRepBand,
+                onSetRestSeconds = callbacks.onSetRestSeconds,
+                onSetRestSecondsForAllSetsOnLift = callbacks.onSetRestSecondsForAllSetsOnLift,
+                rirSetId = rirSetId,
+            )
+        if (moved != null) {
+            rirSetId = moved.rirSetId
+            expanded = moved.target
+            scroll.jumpToLift(moved.target)
+        }
+    }
+
+    ProvideEditWorkoutDock(
+        modifier = modifier.fillMaxSize().padding(top = topClearance),
+        host = dockHost,
+        onPreviousLift =
+            if (openLift == null) {
+                null
+            } else {
+                { stepTo(ProgramSheetLiftStep.Previous, dockHost.openSetId()) }
+            },
+        onNextLift =
+            if (openLift == null) {
+                null
+            } else {
+                { stepTo(ProgramSheetLiftStep.Next, dockHost.openSetId()) }
+            },
+        previousLiftEnabled = previousEnabled,
+        nextLiftEnabled = nextEnabled,
+    ) { listModifier, _ ->
+        Column(modifier = listModifier) {
+            DayTabsRow(
+                days = state.days,
+                selectedDayId = state.selectedDayId,
+                canAddDay = state.canAddDay,
+                onSelectDay = { dayId ->
+                    scroll.jumpToDay(dayId)
+                    callbacks.onSelectDay(dayId)
+                },
+                onAddDay = {
+                    scroll.scrollAfterAdd()
+                    callbacks.onAddDay()
+                },
+            )
+            LazyColumn(
+                state = scroll.listState,
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(bottom = StratumSpacing.s16 + dockHeight),
+            ) {
+                rows.forEach { row ->
+                    when (row) {
+                        is ProgramSheetRow.WorkoutHeader ->
+                            stickyHeader(key = "header-${row.dayId}") { _ ->
+                                val day = state.days.firstOrNull { it.id == row.dayId } ?: return@stickyHeader
+                                val edit = day.editState ?: return@stickyHeader
+                                ProgramSheetWorkoutHeader(
+                                    day = day,
+                                    setTotal = edit.lifts.sumOf { lift -> lift.sets.size },
+                                    minutes = edit.estimatedDurationMinutes,
+                                    onAddLift = {
+                                        callbacks.onSelectDay(day.id)
+                                        callbacks.onAddExercise()
+                                    },
+                                    onOpenMenu = { menuDayId = day.id },
+                                )
+                            }
+                        is ProgramSheetRow.ColumnHeader ->
+                            item(key = "columns-${row.dayId}") {
+                                ProgramSheetColumnHeader()
+                            }
+                        is ProgramSheetRow.Lift ->
+                            item(key = "lift-${row.dayId}-${row.workoutLiftId}") {
+                                ProgramSheetLiftSlot(
+                                    day = state.days.firstOrNull { it.id == row.dayId },
+                                    workoutLiftId = row.workoutLiftId,
+                                    expanded = openLift,
+                                    callbacks = callbacks,
+                                    dockHost = dockHost,
+                                    onExpand = { target ->
+                                        rirSetId = null
+                                        liftActionsLiftId = null
+                                        callbacks.onSelectDay(target.dayId)
+                                        expanded = target
+                                        scroll.jumpToLift(target)
+                                    },
+                                    onCollapse = { target ->
+                                        rirSetId = null
+                                        liftActionsLiftId = null
+                                        expanded = null
+                                        scroll.jumpToLift(target)
+                                    },
+                                    onShowLiftActions = { liftActionsLiftId = it },
+                                    onRirClick = { set -> rirSetId = set.setId },
+                                    onShowProgressionSchemeInfo = { showProgressionSchemeExplainer = true },
+                                )
+                            }
+                        is ProgramSheetRow.Rest ->
+                            item(key = "rest-${row.dayId}") {
+                                val day = state.days.firstOrNull { it.id == row.dayId } ?: return@item
+                                ProgramSheetRestRow(
+                                    name = day.name,
+                                    onOpenMenu = { menuDayId = day.id },
+                                )
+                            }
+                    }
                 }
             }
         }
@@ -174,23 +252,85 @@ internal fun ProgramSheet(
         )
     }
 
-    val target = editing
-    val edit = target?.let { open -> state.days.firstOrNull { it.id == open.dayId }?.editState }
-    val lift = target?.let { open -> edit?.lifts?.firstOrNull { it.workoutLiftId == open.workoutLiftId } }
-    if (edit != null && lift != null) {
-        ProgramSheetLiftEditor(
-            liftName = lift.name,
-            editState = edit,
-            callbacks = callbacks,
-            onDismiss = { editing = null },
+    ProgramSheetLiftSheets(
+        days = state.days,
+        callbacks = callbacks,
+        rirSetId = rirSetId,
+        onDismissRir = { rirSetId = null },
+        onPreviousLift = {
+            if (dockHost.tryCommitPendingAndStay()) {
+                stepTo(ProgramSheetLiftStep.Previous, rirSetId ?: dockHost.openSetId())
+            }
+        },
+        onNextLift = {
+            if (dockHost.tryCommitPendingAndStay()) {
+                stepTo(ProgramSheetLiftStep.Next, rirSetId ?: dockHost.openSetId())
+            }
+        },
+        previousEnabled = previousEnabled,
+        nextEnabled = nextEnabled,
+        liftActionsLiftId = liftActionsLiftId,
+        onDismissLiftActions = { liftActionsLiftId = null },
+        showProgressionSchemeExplainer = showProgressionSchemeExplainer,
+        onDismissProgressionSchemeExplainer = { showProgressionSchemeExplainer = false },
+    )
+}
+
+private fun sheetLiftStepEnabled(
+    rows: List<ProgramSheetRow>,
+    openLift: ProgramSheetLiftTarget?,
+    step: ProgramSheetLiftStep,
+): Boolean {
+    val target = openLift ?: return false
+    return programSheetAdjacentLift(rows, target.dayId, target.workoutLiftId, step) != null
+}
+
+@Composable
+private fun ProgramSheetLiftSlot(
+    day: CreateProgramDayUi?,
+    workoutLiftId: String,
+    expanded: ProgramSheetLiftTarget?,
+    callbacks: CreateProgramScreenCallbacks,
+    dockHost: EditWorkoutDockHostState,
+    onExpand: (ProgramSheetLiftTarget) -> Unit,
+    onCollapse: (ProgramSheetLiftTarget) -> Unit,
+    onShowLiftActions: (String) -> Unit,
+    onRirClick: (EditSetState) -> Unit,
+    onShowProgressionSchemeInfo: () -> Unit,
+) {
+    val edit = day?.editState ?: return
+    val lift = edit.lifts.firstOrNull { it.workoutLiftId == workoutLiftId } ?: return
+    val target = ProgramSheetLiftTarget(day.id, lift.workoutLiftId)
+    val isOpen = expanded == target
+    if (isOpen) {
+        ProgramSheetExpandedLift(
+            lift = lift,
+            allLifts = edit.lifts,
+            callbacks = editWorkoutCallbacks(callbacks).scopedToDay(day.id, callbacks.onSelectDay),
+            onCollapse = collapse@{
+                if (!dockHost.tryCommitPendingOrBlock()) return@collapse
+                onCollapse(target)
+            },
+            onShowLiftActions = { onShowLiftActions(lift.workoutLiftId) },
+            onRirClick = onRirClick,
+            onShowProgressionSchemeInfo = onShowProgressionSchemeInfo,
+        )
+    } else {
+        ProgramSheetLiftRow(
+            lift = lift,
+            zebra = edit.lifts.indexOf(lift) % 2 == 1,
+            onClick = expand@{
+                if (!dockHost.tryCommitPendingOrBlock()) return@expand
+                onExpand(target)
+            },
         )
     }
 }
 
-private data class SheetLiftTarget(val dayId: String, val workoutLiftId: String)
-
 private sealed interface SheetScroll {
     data class ToDay(val dayId: String) : SheetScroll
+
+    data class ToLift(val dayId: String, val workoutLiftId: String) : SheetScroll
 
     data class AfterAdd(val previousCount: Int) : SheetScroll
 }
@@ -199,6 +339,7 @@ private class ProgramSheetListScroll(
     val listState: LazyListState,
     val jumpToDay: (String) -> Unit,
     val scrollAfterAdd: () -> Unit,
+    val jumpToLift: (ProgramSheetLiftTarget) -> Unit,
 )
 
 /**
@@ -254,12 +395,19 @@ private fun rememberProgramSheetListScroll(
                 val dayId =
                     when (target) {
                         is SheetScroll.ToDay -> target.dayId
+                        is SheetScroll.ToLift -> target.dayId
                         is SheetScroll.AfterAdd ->
                             awaitAddedSheetDayId(target.previousCount) { daysState.value }
                     }
                 if (dayId != null) {
                     latchedDayId.value = dayId
-                    listState.scrollToSheetAnchor(rowsState.value, dayId)
+                    when (target) {
+                        is SheetScroll.ToLift ->
+                            listState.scrollToSheetLift(rowsState.value, target.dayId, target.workoutLiftId)
+                        is SheetScroll.ToDay,
+                        is SheetScroll.AfterAdd,
+                        -> listState.scrollToSheetAnchor(rowsState.value, dayId)
+                    }
                 }
             } finally {
                 if (requestId.intValue == id) {
@@ -281,6 +429,12 @@ private fun rememberProgramSheetListScroll(
         scrollAfterAdd = {
             followSuppressed.value = true
             pendingScroll.value = SheetScroll.AfterAdd(daysState.value.size)
+            requestId.intValue++
+        },
+        jumpToLift = { target ->
+            followSuppressed.value = true
+            latchedDayId.value = target.dayId
+            pendingScroll.value = SheetScroll.ToLift(target.dayId, target.workoutLiftId)
             requestId.intValue++
         },
     )
@@ -305,6 +459,15 @@ private suspend fun awaitAddedSheetDayId(
 
 private suspend fun LazyListState.scrollToSheetAnchor(rows: List<ProgramSheetRow>, dayId: String) {
     val index = programSheetAnchorIndex(rows, dayId) ?: return
+    animateScrollToItem(index)
+}
+
+private suspend fun LazyListState.scrollToSheetLift(
+    rows: List<ProgramSheetRow>,
+    dayId: String,
+    workoutLiftId: String,
+) {
+    val index = programSheetLiftIndex(rows, dayId, workoutLiftId) ?: return
     animateScrollToItem(index)
 }
 
@@ -538,24 +701,6 @@ private fun ProgramSheetWorkoutMenu(
 }
 
 @Composable
-private fun ProgramSheetLiftEditor(
-    liftName: String,
-    editState: EditWorkoutUiState.Loaded,
-    callbacks: CreateProgramScreenCallbacks,
-    onDismiss: () -> Unit,
-) {
-    val listHeight = (LocalConfiguration.current.screenHeightDp * LIFT_EDITOR_HEIGHT_FRACTION).dp
-    StratumBottomSheet(onDismissRequest = onDismiss, title = liftName) {
-        EditWorkoutEmbeddedContent(
-            state = editState,
-            callbacks = editWorkoutCallbacks(callbacks),
-            modifier = Modifier.fillMaxWidth().height(listHeight),
-            showVolume = false,
-        )
-    }
-}
-
-@Composable
 private fun Modifier.sheetHairline(): Modifier {
     val color = StratumThemeAccessor.colors.borderSubtle
     val width = StratumThemeAccessor.shapes.borderWidth
@@ -592,7 +737,6 @@ private const val SETS_COLUMN_WEIGHT = 0.12f
 private const val REPS_COLUMN_WEIGHT = 0.16f
 private const val RIR_COLUMN_WEIGHT = 0.12f
 private const val REST_COLUMN_WEIGHT = 0.20f
-private const val LIFT_EDITOR_HEIGHT_FRACTION = 0.55f
 private const val ADD_DAY_LAYOUT_FRAMES = 2
 private const val REP_RANGE_DASH = "–"
 private const val SHEET_EMPTY_CELL = "—"
