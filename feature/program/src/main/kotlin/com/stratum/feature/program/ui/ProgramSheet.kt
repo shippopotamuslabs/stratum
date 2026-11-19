@@ -954,6 +954,7 @@ private fun ProgramSheetWorkoutMenu(
             text = stringResource(R.string.create_program_remove_day),
             leadingIconRes = CoreUiR.drawable.ic_delete,
             onClick = onRemove,
+            destructive = true,
         )
         if (showReorderLifts) {
             CreateProgramOptionRow(

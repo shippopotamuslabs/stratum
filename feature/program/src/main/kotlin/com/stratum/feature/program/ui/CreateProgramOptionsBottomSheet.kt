@@ -99,11 +99,13 @@ internal fun CreateProgramOptionRow(
     text: String,
     onClick: () -> Unit,
     @DrawableRes leadingIconRes: Int,
+    destructive: Boolean = false,
 ) {
     CreateProgramOptionRow(
         text = text,
         leadingIcon = painterResource(leadingIconRes),
         onClick = onClick,
+        destructive = destructive,
     )
 }
 
@@ -112,9 +114,11 @@ internal fun CreateProgramOptionRow(
     text: String,
     leadingIcon: Painter,
     onClick: () -> Unit,
+    destructive: Boolean = false,
 ) {
     val colors = StratumThemeAccessor.colors
     val shapes = StratumThemeAccessor.shapes
+    val contentColor = if (destructive) colors.error else colors.textPrimary
     Row(
         modifier =
             Modifier
@@ -129,13 +133,14 @@ internal fun CreateProgramOptionRow(
         Icon(
             painter = leadingIcon,
             contentDescription = null,
-            tint = colors.textPrimary,
+            tint = contentColor,
             modifier = Modifier.size(24.dp),
         )
         StratumText(
             text = text,
             style = StratumThemeAccessor.typography.bodyLarge,
             modifier = Modifier.weight(1f),
+            color = contentColor,
         )
     }
 }
