@@ -1,46 +1,32 @@
-// Holds StripReveal, stripReveal, and stripRevealOffscreenDelta; the file name is the helper.
-@file:Suppress("MatchingDeclarationName")
-
 package com.stratum.core.ui.component
 
-internal data class StripReveal(
-    val scrollToIndex: Int?,
-    val scrollByPx: Int,
-)
-
 /**
- * How to bring item [itemIndex] fully into the strip viewport.
+ * Scroll, in px, that brings a composed item fully into the strip viewport.
  *
- * Null offset or size means the item is not composed: [StripReveal.scrollToIndex]
- * is that index and [StripReveal.scrollByPx] is 0. Callers must not turn that
- * result into [androidx.compose.foundation.lazy.LazyListState.animateScrollToItem]
+ * The item must be composed: callers branch on composition first, and an
+ * uncomposed target goes through [stripRevealOffscreenDelta] instead.
+ * Callers must not fall back to
+ * [androidx.compose.foundation.lazy.LazyListState.animateScrollToItem]
  * for a forward target — that pins the item to the leading edge.
- * [stripRevealOffscreenDelta] is the minimum scroll for an uncomposed item.
  *
- * A composed item wider than the viewport always start-aligns, including when
+ * An item wider than the viewport always start-aligns, including when
  * its start is already inside and only the end is clipped. End-aligning a wide
  * item slides the start off the leading edge. A narrower item scrolls by its
  * leading overflow, else its trailing overflow, else not at all.
  */
 internal fun stripReveal(
-    itemIndex: Int,
-    itemOffsetPx: Int?,
-    itemSizePx: Int?,
+    itemOffsetPx: Int,
+    itemSizePx: Int,
     viewportStartPx: Int,
     viewportEndPx: Int,
-): StripReveal {
-    if (itemOffsetPx == null || itemSizePx == null) {
-        return StripReveal(scrollToIndex = itemIndex, scrollByPx = 0)
-    }
+): Int {
     val itemEndPx = itemOffsetPx + itemSizePx
-    val scrollByPx =
-        when {
-            itemSizePx > viewportEndPx - viewportStartPx -> itemOffsetPx - viewportStartPx
-            itemOffsetPx < viewportStartPx -> itemOffsetPx - viewportStartPx
-            itemEndPx > viewportEndPx -> itemEndPx - viewportEndPx
-            else -> 0
-        }
-    return StripReveal(scrollToIndex = null, scrollByPx = scrollByPx)
+    return when {
+        itemSizePx > viewportEndPx - viewportStartPx -> itemOffsetPx - viewportStartPx
+        itemOffsetPx < viewportStartPx -> itemOffsetPx - viewportStartPx
+        itemEndPx > viewportEndPx -> itemEndPx - viewportEndPx
+        else -> 0
+    }
 }
 
 /**
