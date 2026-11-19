@@ -39,11 +39,11 @@ import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.program.CreateProgramUiState
 import com.stratum.feature.program.ProgramSheetVolumePivot
 import com.stratum.feature.program.R
+import com.stratum.feature.program.formatSheetSetCount
 import com.stratum.feature.program.programSheetMetricsFromEditorDays
 import com.stratum.feature.program.programSheetVolumeMuscleLine
 import com.stratum.feature.program.programSheetVolumePivot
 import com.stratum.feature.program.programSheetVolumeStrip
-import java.util.Locale
 
 /**
  * Pinned volume line under the day jump strip. The muscle line is the program
@@ -129,8 +129,8 @@ internal fun ProgramSheetVolumePivotTable(
                         .clipToBounds(),
             ) {
                 Column(modifier = Modifier.offset { IntOffset(x = 0, y = -vertical.value) }) {
-                    pivot.muscleNames.forEach { name ->
-                        VolumeNameCell(text = name, header = false)
+                    pivot.rows.forEach { row ->
+                        VolumeNameCell(text = row.muscleName, header = false)
                     }
                 }
             }
@@ -144,7 +144,7 @@ internal fun ProgramSheetVolumePivotTable(
                     .horizontalScroll(horizontal),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                pivot.workoutColumns.forEach { column ->
+                pivot.columns.forEach { column ->
                     VolumeNameCell(
                         text = column.workoutName,
                         header = true,
@@ -160,17 +160,15 @@ internal fun ProgramSheetVolumePivotTable(
                         .weight(1f)
                         .verticalScroll(vertical),
             ) {
-                pivot.muscleNames.forEachIndexed { index, _ ->
+                pivot.rows.forEach { row ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        pivot.workoutColumns.forEach { column ->
-                            VolumeCountCell(column.cells[index])
-                        }
-                        VolumeCountCell(pivot.programTotals[index])
+                        row.cells.forEach { cell -> VolumeCountCell(cell) }
+                        VolumeCountCell(row.programTotal)
                     }
                 }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                pivot.columnTotals.forEach { total -> VolumeCountCell(total) }
+                pivot.columns.forEach { column -> VolumeCountCell(column.total) }
                 VolumeCountCell(pivot.cornerTotal)
             }
         }
@@ -262,7 +260,7 @@ private fun VolumeCountCell(sets: Double) {
         contentAlignment = Alignment.Center,
     ) {
         StratumNumber(
-            text = String.format(Locale.US, ONE_DECIMAL, sets),
+            text = formatSheetSetCount(sets),
             style = StratumThemeAccessor.typography.sectionLabel.copy(fontFeatureSettings = TABULAR_FIGURES),
             maxLines = 1,
             textAlign = TextAlign.Center,
@@ -271,7 +269,6 @@ private fun VolumeCountCell(sets: Double) {
 }
 
 private const val TABULAR_FIGURES = "tnum"
-private const val ONE_DECIMAL = "%.1f"
 private const val PIVOT_TABLE_HEIGHT_FRACTION = 0.55f
 private val VolumeRowHeight = StratumSpacing.s32
 private val VolumeNameMinWidth = StratumSpacing.s64 + StratumSpacing.s32

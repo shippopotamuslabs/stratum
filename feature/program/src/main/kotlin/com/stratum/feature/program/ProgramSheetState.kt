@@ -1,17 +1,13 @@
 package com.stratum.feature.program
 
-import com.stratum.application.program.ComputeWorkoutMuscleVolumeUseCase
-import com.stratum.application.program.EstimateWorkoutDurationMinutesUseCase
 import com.stratum.core.ui.component.StratumMuscleVolumeCardState
-import com.stratum.core.ui.component.toLowerVolumeCards
-import com.stratum.core.ui.component.toUpperVolumeCards
-import com.stratum.domain.lift.Lift
 import com.stratum.feature.program.ui.EditWorkoutUiState
 
 /**
  * In-memory edit state for every cycle day at once.
- * Lift mutations stay in [EditWorkoutLiftMutations]; volume and duration stay in the
- * existing workout use cases so primary 1.0 / secondary 0.5 credit is not reimplemented.
+ * Lift mutations stay in [EditWorkoutLiftMutations]; the metrics below are built
+ * from the volume cards already stored on each day's edit state, not re-derived
+ * through the workout use cases.
  */
 internal data class ProgramSheetWorkoutMetrics(
     val dayId: String,
@@ -27,6 +23,14 @@ internal data class ProgramSheetMetrics(
     val programLowerVolumeByMuscle: List<StratumMuscleVolumeCardState>,
 )
 
+/**
+ * The day's edit state when the day is an editable workout; null for rest days
+ * and days without an edit state. Read paths use this guard. Writes go through
+ * [updateProgramDay], which also clears the rest flag on the day it writes.
+ */
+internal fun CreateProgramDayUi.sheetEditOrNull(): EditWorkoutUiState.Loaded? =
+    if (isRest) null else editState
+
 internal fun updateProgramDay(
     days: List<CreateProgramDayUi>,
     dayId: String,
@@ -40,54 +44,3 @@ internal fun updateProgramDay(
             day.copy(editState = transform(edit), isRest = false)
         }
     }
-
-internal fun deriveProgramSheet(
-    days: List<CreateProgramDayUi>,
-    liftCatalog: List<Lift>,
-    computeWorkoutMuscleVolume: ComputeWorkoutMuscleVolumeUseCase,
-    estimateWorkoutDurationMinutes: EstimateWorkoutDurationMinutesUseCase,
-): ProgramSheetMetrics {
-    val workouts =
-        days.mapNotNull { day ->
-            val edit = day.editState ?: return@mapNotNull null
-            metricsForDay(
-                dayId = day.id,
-                edit = edit,
-                liftCatalog = liftCatalog,
-                computeWorkoutMuscleVolume = computeWorkoutMuscleVolume,
-                estimateWorkoutDurationMinutes = estimateWorkoutDurationMinutes,
-            )
-        }
-    val programInputs = days.flatMap { day -> day.editState?.lifts?.toVolumeInputs().orEmpty() }
-    val programVolume = computeWorkoutMuscleVolume(programInputs, liftCatalog)
-    return ProgramSheetMetrics(
-        workouts = workouts,
-        programUpperVolumeByMuscle = programVolume.toUpperVolumeCards(),
-        programLowerVolumeByMuscle = programVolume.toLowerVolumeCards(),
-    )
-}
-
-private fun metricsForDay(
-    dayId: String,
-    edit: EditWorkoutUiState.Loaded,
-    liftCatalog: List<Lift>,
-    computeWorkoutMuscleVolume: ComputeWorkoutMuscleVolumeUseCase,
-    estimateWorkoutDurationMinutes: EstimateWorkoutDurationMinutesUseCase,
-): ProgramSheetWorkoutMetrics {
-    // program = null leaves this call's program cards empty. Sheet totals are folded
-    // from every edited day in deriveProgramSheet, not taken from these cards.
-    val derived =
-        edit.withDerivedMetrics(
-            liftCatalog = liftCatalog,
-            program = null,
-            computeWorkoutMuscleVolume = computeWorkoutMuscleVolume,
-            estimateWorkoutDurationMinutes = estimateWorkoutDurationMinutes,
-        )
-    return ProgramSheetWorkoutMetrics(
-        dayId = dayId,
-        setTotal = edit.lifts.sumOf { lift -> lift.sets.size },
-        estimatedDurationMinutes = derived.estimatedDurationMinutes,
-        upperVolumeByMuscle = derived.upperVolumeByMuscle,
-        lowerVolumeByMuscle = derived.lowerVolumeByMuscle,
-    )
-}

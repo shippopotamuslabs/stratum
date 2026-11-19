@@ -3,6 +3,8 @@ package com.stratum.feature.program
 import com.stratum.application.program.ComputeWorkoutMuscleVolumeUseCase
 import com.stratum.application.program.EstimateWorkoutDurationMinutesUseCase
 import com.stratum.core.ui.component.StratumMuscleVolumeCardState
+import com.stratum.core.ui.component.toLowerVolumeCards
+import com.stratum.core.ui.component.toUpperVolumeCards
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
@@ -80,10 +82,11 @@ class ProgramSheetVolumeTest {
 
         val beforeWorkout = before.workouts.single { it.dayId == DAY_A }
         val afterWorkout = after.workouts.single { it.dayId == DAY_A }
-        val row = pivotAfter.muscleNames.indexOf(changedName)
+        val row = pivotAfter.rows.indexOfFirst { it.muscleName == changedName }
+        val columnA = pivotAfter.columns.indexOfFirst { it.dayId == DAY_A }
         val cellDelta =
-            pivotAfter.workoutColumns.single { it.dayId == DAY_A }.cells[row] -
-                pivotBefore.workoutColumns.single { it.dayId == DAY_A }.cells[row]
+            pivotAfter.rows[row].cells[columnA] -
+                pivotBefore.rows[row].cells[columnA]
         val workoutDelta =
             afterWorkout.cards().single { it.displayName == changedName }.setCount -
                 beforeWorkout.cards().single { it.displayName == changedName }.setCount
@@ -98,8 +101,8 @@ class ProgramSheetVolumeTest {
         val pivot = programSheetVolumePivot(sheet, days)
         val strip = programSheetVolumeStrip(sheet)
 
-        assertTrue(pivot.workoutColumns.none { column -> column.dayId == DAY_REST })
-        assertEquals(listOf(DAY_A, DAY_B), pivot.workoutColumns.map { column -> column.dayId })
+        assertTrue(pivot.columns.none { column -> column.dayId == DAY_REST })
+        assertEquals(listOf(DAY_A, DAY_B), pivot.columns.map { column -> column.dayId })
         assertEquals(sheet.workouts.sumOf { workout -> workout.setTotal }, strip.programSetTotal)
         assertEquals(
             sheet.programCards().filter { card -> card.setCount != 0.0 }.map { card -> card.displayName },
@@ -114,27 +117,26 @@ class ProgramSheetVolumeTest {
         val sheet = derive(days)
         val pivot = programSheetVolumePivot(sheet, days)
 
-        assertEquals(pivot.programTotals.sum(), pivot.cornerTotal)
+        assertEquals(pivot.rows.sumOf { row -> row.programTotal }, pivot.cornerTotal)
         assertTrue(
-            pivot.workoutColumns.indices.any { index ->
-                val setTotal = sheet.workouts.single { it.dayId == pivot.workoutColumns[index].dayId }.setTotal.toDouble()
-                pivot.columnTotals[index] != setTotal
+            pivot.columns.indices.any { index ->
+                val setTotal = sheet.workouts.single { it.dayId == pivot.columns[index].dayId }.setTotal.toDouble()
+                pivot.columns[index].total != setTotal
             },
         )
-        pivot.workoutColumns.forEachIndexed { index, column ->
-            val cellSum = column.cells.sum()
-            assertEquals(cellSum, pivot.columnTotals[index])
+        pivot.columns.forEachIndexed { index, column ->
+            val cellSum = pivot.rows.sumOf { row -> row.cells[index] }
+            assertEquals(cellSum, column.total)
             val workout = sheet.workouts.single { it.dayId == column.dayId }
-            assertNotEquals(workout.setTotal.toDouble(), pivot.columnTotals[index])
-            column.cells.forEachIndexed { cellIndex, cell ->
-                val name = pivot.muscleNames[cellIndex]
-                val card = workout.cards().firstOrNull { it.displayName == name }
-                assertEquals(card?.setCount ?: 0.0, cell)
+            assertNotEquals(workout.setTotal.toDouble(), column.total)
+            pivot.rows.forEach { row ->
+                val card = workout.cards().firstOrNull { it.muscle == row.muscle }
+                assertEquals(card?.setCount ?: 0.0, row.cells[index])
             }
         }
         assertEquals(
             sheet.programCards().filter { it.setCount != 0.0 }.map { it.setCount },
-            pivot.programTotals,
+            pivot.rows.map { row -> row.programTotal },
         )
     }
 
@@ -166,13 +168,13 @@ class ProgramSheetVolumeTest {
 
         val pivot = programSheetVolumePivot(metrics, days)
 
-        assertEquals(listOf(DAY_A), pivot.workoutColumns.map { column -> column.dayId })
-        assertEquals(listOf(2.0), pivot.workoutColumns.single().cells)
-        assertEquals(listOf(2.0), pivot.columnTotals)
-        assertEquals(listOf(9.0), pivot.programTotals)
+        assertEquals(listOf(DAY_A), pivot.columns.map { column -> column.dayId })
+        assertEquals(listOf(2.0), pivot.rows.single().cells)
+        assertEquals(listOf(2.0), pivot.columns.map { column -> column.total })
+        assertEquals(listOf(9.0), pivot.rows.map { row -> row.programTotal })
         assertEquals(9.0, pivot.cornerTotal)
-        assertNotEquals(pivot.columnTotals.single(), pivot.programTotals.single())
-        assertNotEquals(4.0, pivot.workoutColumns.single().cells.single())
+        assertNotEquals(pivot.columns.single().total, pivot.rows.single().programTotal)
+        assertNotEquals(4.0, pivot.rows.single().cells.single())
     }
 
     @Test
@@ -228,6 +230,65 @@ class ProgramSheetVolumeTest {
     }
 
     @Test
+    @DisplayName("program cards come from the first day that holds them, not the first edit day")
+    fun programCardsSkipEmptyFirstDay() {
+        val programChest = card(MuscleGroup.Chest, "Chest", sets = 9.0)
+        val days =
+            listOf(
+                day(
+                    id = DAY_A,
+                    name = "Push",
+                    isRest = false,
+                    lifts = listOf(editLift(workoutLiftId = LIFT_A, liftId = BENCH_ID, setCount = SETS_A)),
+                ),
+                day(DAY_B, "Legs", isRest = false).let { legs ->
+                    val edit = requireNotNull(legs.editState)
+                    legs.copy(editState = edit.copy(programUpperVolumeByMuscle = listOf(programChest)))
+                },
+            )
+
+        val metrics = programSheetMetricsFromEditorDays(days)
+        val strip = programSheetVolumeStrip(metrics)
+
+        assertEquals(listOf(programChest), metrics.programUpperVolumeByMuscle)
+        assertEquals(listOf(9.0), strip.programMuscles.map { muscle -> muscle.sets })
+    }
+
+    @Test
+    @DisplayName("pivot cells key on the muscle, so two cards sharing a display name keep their own values")
+    fun pivotCellsKeyOnMuscle() {
+        val metrics =
+            ProgramSheetMetrics(
+                workouts =
+                    listOf(
+                        ProgramSheetWorkoutMetrics(
+                            dayId = DAY_A,
+                            setTotal = 3,
+                            estimatedDurationMinutes = 10,
+                            upperVolumeByMuscle =
+                                listOf(
+                                    card(MuscleGroup.AnteriorDeltoid, "Delts", sets = 2.0),
+                                    card(MuscleGroup.PosteriorDeltoid, "Delts", sets = 1.0),
+                                ),
+                            lowerVolumeByMuscle = emptyList(),
+                        ),
+                    ),
+                programUpperVolumeByMuscle =
+                    listOf(
+                        card(MuscleGroup.AnteriorDeltoid, "Delts", sets = 5.0),
+                        card(MuscleGroup.PosteriorDeltoid, "Delts", sets = 3.0),
+                    ),
+                programLowerVolumeByMuscle = emptyList(),
+            )
+        val days = listOf(day(DAY_A, "Push", isRest = false))
+
+        val pivot = programSheetVolumePivot(metrics, days)
+
+        assertEquals(listOf(2.0, 1.0), pivot.rows.map { row -> row.cells.single() })
+        assertEquals(listOf(5.0, 3.0), pivot.rows.map { row -> row.programTotal })
+    }
+
+    @Test
     @DisplayName("muscle labels use one decimal in Locale.US")
     fun muscleLabelUsesUsDecimal() {
         assertEquals("Chest 13.0", programSheetVolumeMuscleLabel("Chest", 13.0))
@@ -247,12 +308,36 @@ class ProgramSheetVolumeTest {
     }
 
     private fun derive(days: List<CreateProgramDayUi>): ProgramSheetMetrics =
-        deriveProgramSheet(
-            days = days,
-            liftCatalog = CATALOG,
-            computeWorkoutMuscleVolume = computeWorkoutMuscleVolume,
-            estimateWorkoutDurationMinutes = estimateWorkoutDurationMinutes,
-        )
+        programSheetMetricsFromEditorDays(days.withStoredCards())
+
+    /**
+     * Stores volume cards on the edit states the way the editor does, so the
+     * sheet metrics read the stored-cards path instead of a derivation.
+     */
+    private fun List<CreateProgramDayUi>.withStoredCards(): List<CreateProgramDayUi> {
+        val programSummaries =
+            computeWorkoutMuscleVolume(
+                flatMap { day -> day.editState?.lifts?.toVolumeInputs().orEmpty() },
+                CATALOG,
+            )
+        return map { day ->
+            val edit = day.editState ?: return@map day
+            val derived =
+                edit.withDerivedMetrics(
+                    CATALOG,
+                    null,
+                    computeWorkoutMuscleVolume,
+                    estimateWorkoutDurationMinutes,
+                )
+            day.copy(
+                editState =
+                    derived.copy(
+                        programUpperVolumeByMuscle = programSummaries.toUpperVolumeCards(),
+                        programLowerVolumeByMuscle = programSummaries.toLowerVolumeCards(),
+                    ),
+            )
+        }
+    }
 
     private fun fixtureDays(): List<CreateProgramDayUi> =
         listOf(
