@@ -320,15 +320,6 @@ internal fun ProgramSheet(
                 sheetCallbacks.onSelectDay(menuDay.id)
                 sheetCallbacks.onReorderLifts()
             },
-            onSelect =
-                if (selection.active || menuDay.isRest || menuDay.editState == null) {
-                    null
-                } else {
-                    {
-                        menuDayId = null
-                        sheetCallbacks.onBeginSheetSelect(null, null)
-                    }
-                },
             onDismiss = { menuDayId = null },
         )
     }
@@ -948,7 +939,6 @@ private fun ProgramSheetWorkoutMenu(
     onRename: () -> Unit,
     onRemove: () -> Unit,
     onReorderLifts: () -> Unit,
-    onSelect: (() -> Unit)?,
     onDismiss: () -> Unit,
 ) {
     StratumBottomSheet(onDismissRequest = onDismiss, title = dayName) {
@@ -967,13 +957,6 @@ private fun ProgramSheetWorkoutMenu(
                 text = stringResource(CoreUiR.string.edit_workout_reorder_lifts),
                 leadingIconRes = CoreUiR.drawable.ic_swap_vert,
                 onClick = onReorderLifts,
-            )
-        }
-        if (onSelect != null) {
-            CreateProgramOptionRow(
-                text = stringResource(CoreUiR.string.edit_workout_select_lift),
-                leadingIconRes = CoreUiR.drawable.ic_check,
-                onClick = onSelect,
             )
         }
     }

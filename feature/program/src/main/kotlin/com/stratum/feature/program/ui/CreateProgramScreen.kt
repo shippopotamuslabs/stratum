@@ -309,10 +309,15 @@ fun CreateProgramScreen(
                     }
                 showReorderWorkouts = reorderItems.isNotEmpty()
             },
-            onReorderLifts = {
-                showProgramOptionsSheet = false
-                callbacks.onReorderLifts()
-            },
+            onSelectLifts =
+                if (LocalProgramSheetSelection.current.active) {
+                    null
+                } else {
+                    {
+                        showProgramOptionsSheet = false
+                        callbacks.onBeginSheetSelect(null, null)
+                    }
+                },
             onRenameProgram = { name ->
                 callbacks.onRenameProgram(name)
                 showProgramOptionsSheet = false

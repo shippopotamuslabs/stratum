@@ -43,7 +43,7 @@ fun CreateProgramOptionsBottomSheet(
     programName: String,
     onModeChange: (CreateProgramOptionsMode) -> Unit,
     onReorderWorkouts: () -> Unit,
-    onReorderLifts: () -> Unit,
+    onSelectLifts: (() -> Unit)?,
     onRenameProgram: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -58,11 +58,13 @@ fun CreateProgramOptionsBottomSheet(
                     leadingIconRes = CoreUiR.drawable.ic_swap_vert,
                     onClick = onReorderWorkouts,
                 )
-                CreateProgramOptionRow(
-                    text = stringResource(CoreUiR.string.edit_workout_reorder_lifts),
-                    leadingIconRes = CoreUiR.drawable.ic_swap_vert,
-                    onClick = onReorderLifts,
-                )
+                if (onSelectLifts != null) {
+                    CreateProgramOptionRow(
+                        text = stringResource(CoreUiR.string.edit_workout_select_lift),
+                        leadingIconRes = CoreUiR.drawable.ic_check,
+                        onClick = onSelectLifts,
+                    )
+                }
                 CreateProgramOptionRow(
                     text = stringResource(R.string.create_program_rename_program_menu),
                     leadingIcon = rememberVectorPainter(Icons.Outlined.Edit),

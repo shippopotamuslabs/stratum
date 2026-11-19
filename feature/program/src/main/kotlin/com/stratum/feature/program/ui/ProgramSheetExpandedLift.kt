@@ -307,11 +307,6 @@ internal fun ProgramSheetLiftSheets(
                     removedMessage,
                 )
             },
-            onReorderLifts = {
-                onDismissLiftActions()
-                callbacks.onSelectDay(locatedActions.dayId)
-                callbacks.onReorderLifts()
-            },
             onCut =
                 if (sheetSelecting) {
                     null
