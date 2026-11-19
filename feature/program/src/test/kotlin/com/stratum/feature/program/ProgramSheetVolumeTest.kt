@@ -331,7 +331,9 @@ class ProgramSheetVolumeTest {
                 )
             day.copy(
                 editState =
-                    derived.copy(
+                    edit.copy(
+                        upperVolumeByMuscle = derived.upperVolumeByMuscle,
+                        lowerVolumeByMuscle = derived.lowerVolumeByMuscle,
                         programUpperVolumeByMuscle = programSummaries.toUpperVolumeCards(),
                         programLowerVolumeByMuscle = programSummaries.toLowerVolumeCards(),
                     ),
