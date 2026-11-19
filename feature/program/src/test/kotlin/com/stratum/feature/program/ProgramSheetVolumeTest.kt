@@ -299,9 +299,9 @@ class ProgramSheetVolumeTest {
             "Chest 4.0 - Back 4.0 - Triceps 4.0",
             programSheetVolumeMuscleLine(
                 listOf(
-                    ProgramSheetMuscleSets("Chest", 4.0),
-                    ProgramSheetMuscleSets("Back", 4.0),
-                    ProgramSheetMuscleSets("Triceps", 4.0),
+                    ProgramSheetMuscleSets(MuscleGroup.Chest, "Chest", 4.0),
+                    ProgramSheetMuscleSets(MuscleGroup.Back, "Back", 4.0),
+                    ProgramSheetMuscleSets(MuscleGroup.Tricep, "Triceps", 4.0),
                 ),
             ),
         )
