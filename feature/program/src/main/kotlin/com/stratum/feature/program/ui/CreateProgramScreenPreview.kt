@@ -5,6 +5,8 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import com.stratum.application.program.ComputeWorkoutMuscleVolumeUseCase
 import com.stratum.application.program.EstimateWorkoutDurationMinutesUseCase
+import com.stratum.core.ui.component.toLowerVolumeCards
+import com.stratum.core.ui.component.toUpperVolumeCards
 import com.stratum.core.ui.theme.StratumTheme
 import com.stratum.core.ui.theme.StratumThemeId
 import com.stratum.domain.lift.Lift
@@ -16,7 +18,8 @@ import com.stratum.feature.program.CreateProgramStep
 import com.stratum.feature.program.CreateProgramUiState
 import com.stratum.feature.program.ProgramEditorSurface
 import com.stratum.feature.program.ProgramSheetLiftTarget
-import com.stratum.feature.program.deriveProgramSheet
+import com.stratum.feature.program.toVolumeInputs
+import com.stratum.feature.program.withDerivedMetrics
 
 /**
  * Screenshot-test previews for [CreateProgramScreen] wizard steps (STR-92). Covers the
@@ -286,26 +289,27 @@ private fun previewSheetLift(
 
 /**
  * Lift ids match [previewSheetLift]. Primary plus secondary tags make the
- * sheet golden show one-decimal credits from the volume use case.
+ * sheet golden show one-decimal credits from the volume use case. Cards are
+ * stored on the edit states the same way the editor stores them, so the sheet
+ * reads them through its stored-cards path.
  */
 private fun List<CreateProgramDayUi>.withPreviewSheetVolume(): List<CreateProgramDayUi> {
-    val metrics =
-        deriveProgramSheet(
-            days = this,
-            liftCatalog = previewSheetLiftCatalog(),
-            computeWorkoutMuscleVolume = ComputeWorkoutMuscleVolumeUseCase(),
-            estimateWorkoutDurationMinutes = EstimateWorkoutDurationMinutesUseCase(),
+    val catalog = previewSheetLiftCatalog()
+    val computeVolume = ComputeWorkoutMuscleVolumeUseCase()
+    val estimateDuration = EstimateWorkoutDurationMinutesUseCase()
+    val programSummaries =
+        computeVolume(
+            flatMap { day -> day.editState?.lifts?.toVolumeInputs().orEmpty() },
+            catalog,
         )
     return map { day ->
         val edit = day.editState ?: return@map day
-        val workout = metrics.workouts.firstOrNull { it.dayId == day.id } ?: return@map day
+        val derived = edit.withDerivedMetrics(catalog, null, computeVolume, estimateDuration)
         day.copy(
             editState =
-                edit.copy(
-                    upperVolumeByMuscle = workout.upperVolumeByMuscle,
-                    lowerVolumeByMuscle = workout.lowerVolumeByMuscle,
-                    programUpperVolumeByMuscle = metrics.programUpperVolumeByMuscle,
-                    programLowerVolumeByMuscle = metrics.programLowerVolumeByMuscle,
+                derived.copy(
+                    programUpperVolumeByMuscle = programSummaries.toUpperVolumeCards(),
+                    programLowerVolumeByMuscle = programSummaries.toLowerVolumeCards(),
                 ),
         )
     }

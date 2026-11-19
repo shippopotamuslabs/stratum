@@ -36,11 +36,11 @@ import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.program.CreateProgramUiState
 import com.stratum.feature.program.ProgramSheetVolumePivot
 import com.stratum.feature.program.R
+import com.stratum.feature.program.formatSheetSetCount
 import com.stratum.feature.program.programSheetMetricsFromEditorDays
 import com.stratum.feature.program.programSheetVolumeMuscleLabel
 import com.stratum.feature.program.programSheetVolumePivot
 import com.stratum.feature.program.programSheetVolumeStrip
-import java.util.Locale
 
 /**
  * Pinned program-volume line under the day jump strip. Tap opens the muscle
@@ -119,23 +119,21 @@ internal fun ProgramSheetVolumePivotTable(
             Column {
                 VolumePivotRow {
                     VolumeNameCell(text = muscleHeader, header = true)
-                    pivot.workoutColumns.forEach { column ->
+                    pivot.columns.forEach { column ->
                         VolumeNameCell(text = column.workoutName, header = true, centered = true, countWidth = true)
                     }
                     VolumeNameCell(text = programHeader, header = true, centered = true, countWidth = true)
                 }
-                pivot.muscleNames.forEachIndexed { index, name ->
+                pivot.rows.forEach { row ->
                     VolumePivotRow {
-                        VolumeNameCell(text = name, header = false)
-                        pivot.workoutColumns.forEach { column ->
-                            VolumeCountCell(column.cells[index])
-                        }
-                        VolumeCountCell(pivot.programTotals[index])
+                        VolumeNameCell(text = row.muscleName, header = false)
+                        row.cells.forEach { cell -> VolumeCountCell(cell) }
+                        VolumeCountCell(row.programTotal)
                     }
                 }
                 VolumePivotRow {
                     VolumeNameCell(text = "", header = true)
-                    pivot.columnTotals.forEach { total -> VolumeCountCell(total) }
+                    pivot.columns.forEach { column -> VolumeCountCell(column.total) }
                     VolumeCountCell(pivot.cornerTotal)
                 }
             }
@@ -240,7 +238,7 @@ private fun VolumeCountCell(sets: Double) {
         contentAlignment = Alignment.Center,
     ) {
         StratumNumber(
-            text = String.format(Locale.US, ONE_DECIMAL, sets),
+            text = formatSheetSetCount(sets),
             style = StratumThemeAccessor.typography.sectionLabel.copy(fontFeatureSettings = TABULAR_FIGURES),
             maxLines = 1,
             textAlign = TextAlign.Center,
@@ -250,6 +248,5 @@ private fun VolumeCountCell(sets: Double) {
 
 private const val VOLUME_ITEM_GAP = " - "
 private const val TABULAR_FIGURES = "tnum"
-private const val ONE_DECIMAL = "%.1f"
 private val VolumeNameMinWidth = StratumSpacing.s64 + StratumSpacing.s32
 private val VolumeCountMinWidth = StratumSpacing.s64 + StratumSpacing.s8

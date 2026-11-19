@@ -23,6 +23,14 @@ internal data class ProgramSheetMetrics(
     val programLowerVolumeByMuscle: List<StratumMuscleVolumeCardState>,
 )
 
+/**
+ * The day's edit state when the day is an editable workout; null for rest days
+ * and days without an edit state. Read paths use this guard. Writes go through
+ * [updateProgramDay], which also clears the rest flag on the day it writes.
+ */
+internal fun CreateProgramDayUi.sheetEditOrNull(): EditWorkoutUiState.Loaded? =
+    if (isRest) null else editState
+
 internal fun updateProgramDay(
     days: List<CreateProgramDayUi>,
     dayId: String,
