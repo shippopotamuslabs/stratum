@@ -414,6 +414,7 @@ internal class CreateProgramEditorController(
     private suspend fun persistNow(mode: CreateProgramPersistMode, onDone: () -> Unit) {
         onPersistProceeding()
         val current = state.value
+        val writtenDays = current.days
         state.update { it.copy(isSaving = true, saveErrorMessage = null) }
         val draft = current.toDomainProgram(loadedProgramMeta)
         val failureMessage =
@@ -454,6 +455,10 @@ internal class CreateProgramEditorController(
                     }
             }
         if (failureMessage == null) {
+            if (state.value.days != writtenDays) {
+                state.update { it.copy(isSaving = false) }
+                return
+            }
             if (finishOnboarding() && mode == CreateProgramPersistMode.Activate) {
                 completeOnboarding(getUserTrainingProfile())
             }
