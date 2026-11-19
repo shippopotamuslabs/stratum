@@ -653,7 +653,7 @@ private fun ProgramSheetWorkoutHeader(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .background(colors.surfaceBase)
+                .background(colors.surfaceRaised)
                 .sheetHairline()
                 .padding(horizontal = StratumSpacing.s16, vertical = StratumSpacing.s8),
     ) {
@@ -664,7 +664,7 @@ private fun ProgramSheetWorkoutHeader(
             StratumText(
                 text = day.name,
                 modifier = Modifier.weight(1f),
-                style = StratumThemeAccessor.typography.titleMedium,
+                style = StratumThemeAccessor.typography.titleLarge,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
