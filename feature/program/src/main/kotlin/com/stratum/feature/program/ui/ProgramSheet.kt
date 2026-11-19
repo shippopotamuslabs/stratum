@@ -88,8 +88,7 @@ internal val LocalProgramSheetClipboard =
     staticCompositionLocalOf<ProgramSheetClipboard?> { null }
 
 /**
- * One scroll of every program day. The tabbed editor stays the default;
- * [CreateProgramUiState.editorSurface] chooses this body.
+ * One scroll of every program day. The editor step always shows this body.
  */
 @Composable
 internal fun ProgramSheet(

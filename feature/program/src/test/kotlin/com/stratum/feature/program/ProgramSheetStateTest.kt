@@ -147,7 +147,6 @@ class ProgramSheetStateTest {
         val state =
             CreateProgramUiState(
                 step = CreateProgramStep.Editor,
-                editorSurface = ProgramEditorSurface.Sheet,
                 programId = "prog-sheet",
                 programName = "Sheet",
                 days = updated,

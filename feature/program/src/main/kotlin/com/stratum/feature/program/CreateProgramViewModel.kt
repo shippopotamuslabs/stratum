@@ -276,8 +276,6 @@ class CreateProgramViewModel @Inject constructor(
 
     fun selectDay(dayId: String) = editor.selectDay(dayId)
 
-    fun showSheet() = editor.showSheet()
-
     fun addDay() = editor.addDay()
 
     fun removeSelectedDay() = editor.removeSelectedDay()
