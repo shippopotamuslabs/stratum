@@ -256,13 +256,11 @@ internal fun ProgramSheet(
                                         liftActionsLiftId = null
                                         callbacks.onSelectDay(target.dayId)
                                         expanded = target
-                                        scroll.jumpToLift(target)
                                     },
-                                    onCollapse = { target ->
+                                    onCollapse = { _ ->
                                         rirSetId = null
                                         liftActionsLiftId = null
                                         expanded = null
-                                        scroll.jumpToLift(target)
                                     },
                                     onShowLiftActions = { liftActionsLiftId = it },
                                     onRirClick = { set -> rirSetId = set.setId },
