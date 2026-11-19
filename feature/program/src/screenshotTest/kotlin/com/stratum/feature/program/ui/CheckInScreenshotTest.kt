@@ -28,6 +28,20 @@ fun checkInSubjectiveNeo() {
 @PreviewTest
 @PreviewLightDark
 @Composable
+fun checkInSubjectiveReadyTonal() {
+    CheckInPreviewContent(family = StratumThemeId.Tonal, state = subjectiveReadyState())
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
+fun checkInSubjectiveReadyNeo() {
+    CheckInPreviewContent(family = StratumThemeId.NeoBrutalist, state = subjectiveReadyState())
+}
+
+@PreviewTest
+@PreviewLightDark
+@Composable
 fun checkInLocalizedMusclesTonal() {
     CheckInPreviewContent(family = StratumThemeId.Tonal, state = subjectiveLocalizedState())
 }
