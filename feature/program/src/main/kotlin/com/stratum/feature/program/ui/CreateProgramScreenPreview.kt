@@ -3,14 +3,20 @@ package com.stratum.feature.program.ui
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.tooling.preview.PreviewLightDark
+import com.stratum.application.program.ComputeWorkoutMuscleVolumeUseCase
+import com.stratum.application.program.EstimateWorkoutDurationMinutesUseCase
 import com.stratum.core.ui.theme.StratumTheme
 import com.stratum.core.ui.theme.StratumThemeId
+import com.stratum.domain.lift.Lift
+import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.feature.program.CreateProgramDayUi
 import com.stratum.feature.program.CreateProgramGenerateState
 import com.stratum.feature.program.CreateProgramStep
 import com.stratum.feature.program.CreateProgramUiState
 import com.stratum.feature.program.ProgramEditorSurface
 import com.stratum.feature.program.ProgramSheetLiftTarget
+import com.stratum.feature.program.deriveProgramSheet
 
 /**
  * Screenshot-test previews for [CreateProgramScreen] wizard steps (STR-92). Covers the
@@ -173,13 +179,14 @@ internal fun previewEditorState(): CreateProgramUiState =
         selectedDayId = "day-1",
     )
 
-internal fun previewProgramSheetState(): CreateProgramUiState =
-    CreateProgramUiState(
-        step = CreateProgramStep.Editor,
-        editorSurface = ProgramEditorSurface.Sheet,
-        programName = "My 3 Day",
-        days =
-            listOf(
+internal fun previewProgramSheetState(): CreateProgramUiState {
+    val bare =
+        CreateProgramUiState(
+            step = CreateProgramStep.Editor,
+            editorSurface = ProgramEditorSurface.Sheet,
+            programName = "My 3 Day",
+            days =
+                listOf(
                 CreateProgramDayUi(
                     id = "day-push",
                     name = "Push",
@@ -244,9 +251,11 @@ internal fun previewProgramSheetState(): CreateProgramUiState =
                                 ),
                         ),
                 ),
-            ),
-        selectedDayId = "day-push",
-    )
+                ),
+            selectedDayId = "day-push",
+        )
+    return bare.copy(days = bare.days.withPreviewSheetVolume())
+}
 
 private fun previewSheetLift(
     workoutLiftId: String,
@@ -273,4 +282,70 @@ private fun previewSheetLift(
                     rirGoal = rirGoal,
                 )
             },
+    )
+
+/**
+ * Lift ids match [previewSheetLift]. Primary plus secondary tags make the
+ * sheet golden show one-decimal credits from the volume use case.
+ */
+private fun List<CreateProgramDayUi>.withPreviewSheetVolume(): List<CreateProgramDayUi> {
+    val metrics =
+        deriveProgramSheet(
+            days = this,
+            liftCatalog = previewSheetLiftCatalog(),
+            computeWorkoutMuscleVolume = ComputeWorkoutMuscleVolumeUseCase(),
+            estimateWorkoutDurationMinutes = EstimateWorkoutDurationMinutesUseCase(),
+        )
+    return map { day ->
+        val edit = day.editState ?: return@map day
+        val workout = metrics.workouts.firstOrNull { it.dayId == day.id } ?: return@map day
+        day.copy(
+            editState =
+                edit.copy(
+                    upperVolumeByMuscle = workout.upperVolumeByMuscle,
+                    lowerVolumeByMuscle = workout.lowerVolumeByMuscle,
+                    programUpperVolumeByMuscle = metrics.programUpperVolumeByMuscle,
+                    programLowerVolumeByMuscle = metrics.programLowerVolumeByMuscle,
+                ),
+        )
+    }
+}
+
+private fun previewSheetLiftCatalog(): List<Lift> =
+    listOf(
+        previewCatalogLift(
+            id = "wl-bench",
+            name = "Bench Press",
+            primary = MuscleGroup.Chest,
+            secondary = MuscleGroup.Tricep,
+        ),
+        previewCatalogLift(
+            id = "wl-press",
+            name = "Overhead Press",
+            primary = MuscleGroup.AnteriorDeltoid,
+            secondary = MuscleGroup.Tricep,
+        ),
+        previewCatalogLift(
+            id = "wl-row",
+            name = "Barbell Row",
+            primary = MuscleGroup.Back,
+            secondary = MuscleGroup.Bicep,
+        ),
+    )
+
+private fun previewCatalogLift(
+    id: String,
+    name: String,
+    primary: MuscleGroup,
+    secondary: MuscleGroup,
+): Lift =
+    Lift(
+        id = LiftId(id),
+        name = name,
+        movementPatterns = emptySet(),
+        primaryMuscles = setOf(primary),
+        secondaryMuscles = setOf(secondary),
+        incrementTiers = emptyList(),
+        presetTags = emptySet(),
+        enabled = true,
     )
