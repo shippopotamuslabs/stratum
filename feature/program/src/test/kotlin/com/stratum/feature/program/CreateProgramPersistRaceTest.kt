@@ -80,7 +80,20 @@ class CreateProgramPersistRaceTest {
         val editor = editor(state, repository, this)
         var finished = false
         val writtenSetIds = setIds(state.value)
-        val earlier = mapOf("A" to listOf(lift(setId = "older-set")))
+        val earlierLift = lift(setId = "older-set")
+        val earlier =
+            ProgramSheetUndo(
+                mapOf(
+                    "A" to
+                        listOf(
+                            SheetLiftUndoStep.InsertLift(
+                                lift = earlierLift,
+                                originalIndex = 0,
+                                sourceLiftsBefore = listOf(earlierLift),
+                            ),
+                        ),
+                ),
+            )
 
         editor.persist(CreateProgramPersistMode.SaveToLibrary) { finished = true }
         advanceUntilIdle()
@@ -88,7 +101,7 @@ class CreateProgramPersistRaceTest {
         val decision =
             consumeSheetUndo(
                 isSaving = state.value.isSaving,
-                snapshot = earlier,
+                undo = earlier,
                 days = state.value.days,
             )
         assertFalse(decision.consumed)

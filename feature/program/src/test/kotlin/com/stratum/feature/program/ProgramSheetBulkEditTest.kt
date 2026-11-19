@@ -1,7 +1,5 @@
 package com.stratum.feature.program
 
-import com.stratum.application.program.ComputeWorkoutMuscleVolumeUseCase
-import com.stratum.application.program.EstimateWorkoutDurationMinutesUseCase
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.feature.program.ui.EditLiftState
 import com.stratum.feature.program.ui.EditSetKind
@@ -14,9 +12,6 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 
 class ProgramSheetBulkEditTest {
-    private val computeWorkoutMuscleVolume = ComputeWorkoutMuscleVolumeUseCase()
-    private val estimateWorkoutDurationMinutes = EstimateWorkoutDurationMinutesUseCase()
-
     @Test
     @DisplayName("Given three lifts on two days when one set is added then only those lifts grow and one undo restores them")
     fun addSetOnTwoDaysUndoRestoresSetIds() {
@@ -50,7 +45,7 @@ class ProgramSheetBulkEditTest {
         assertEquals(beforeTotal + 3, sheetSetTotal(edited.days))
         assertEquals(selection, edited.selection)
 
-        val restored = restoreProgramSheetLiftOrder(edited.days, edited.undo)
+        val restored = applySheetUndo(edited.days, edited.undo)
         assertEquals(setIds(days, "a", "a1"), setIds(restored, "a", "a1"))
         assertEquals(setIds(days, "a", "a2"), setIds(restored, "a", "a2"))
         assertEquals(setIds(days, "b", "b1"), setIds(restored, "b", "b1"))
@@ -217,7 +212,7 @@ class ProgramSheetBulkEditTest {
         assertEquals(emptyList<ProgramSheetLiftRef>(), edited.selection)
         assertEquals(setIds(days, "a", "keep"), setIds(edited.days, "a", "keep"))
 
-        val restored = restoreProgramSheetLiftOrder(edited.days, edited.undo)
+        val restored = applySheetUndo(edited.days, edited.undo)
         assertEquals(beforeA.map { it.workoutLiftId }, ids(restored, "a"))
         assertEquals(beforeB.map { it.workoutLiftId }, ids(restored, "b"))
         assertEquals(GROUP, lift(restored, "a", "gone").supersetGroupId)
@@ -281,7 +276,7 @@ class ProgramSheetBulkEditTest {
         val edited = setRirOnSelectedSheetLifts(days, selection, rir = 4)
 
         assertSame(days, edited.days)
-        assertEquals(emptyMap<String, List<EditLiftState>>(), edited.undo)
+        assertEquals(ProgramSheetUndo(emptyMap()), edited.undo)
     }
 
     @Test
@@ -297,7 +292,7 @@ class ProgramSheetBulkEditTest {
         assertNotSame(days, edited.days)
         assertSame(same, edited.days.first())
         assertEquals(listOf(4), lift(edited.days, "b", "other").sets.map { set -> set.rirGoal })
-        assertEquals(setOf("b"), edited.undo.keys)
+        assertEquals(setOf("b"), edited.undo.stepsByDayId.keys)
         assertEquals(selection, edited.selection)
     }
 
@@ -338,7 +333,7 @@ class ProgramSheetBulkEditTest {
                 repMax = 10,
             )
         assertSame(days, already.days)
-        assertEquals(emptyMap<String, List<EditLiftState>>(), already.undo)
+        assertEquals(ProgramSheetUndo(emptyMap()), already.undo)
 
         val flooredOnly =
             setRepBandOnSelectedSheetLifts(
@@ -359,7 +354,7 @@ class ProgramSheetBulkEditTest {
         val edited = setRepBandOnSelectedSheetLifts(days, selection, repMin = 6, repMax = 10)
 
         assertNotSame(days, edited.days)
-        assertEquals(setOf("a"), edited.undo.keys)
+        assertEquals(setOf("a"), edited.undo.stepsByDayId.keys)
         assertEquals(
             listOf(6 to 10, 6 to 10),
             lift(edited.days, "a", "linear").sets.map { set -> set.repMin to set.repMax },
@@ -428,13 +423,101 @@ class ProgramSheetBulkEditTest {
         assertEquals(ProgramSheetPadAction.None, programSheetPadAction(ProgramSheetPadMoment.HostDisposed, null))
     }
 
+    @Test
+    @DisplayName("Given a bulk delete and a later edit on a lift that stayed when the delete is undone then the edit stays and both lifts return in order")
+    fun bulkDeleteUndoKeepsInterveningEdits() {
+        val days =
+            listOf(
+                day(
+                    "a",
+                    listOf(
+                        lift("a1", sets("a1", 1)),
+                        lift("a2", sets("a2", 1)),
+                        lift("other", sets("other", 1)),
+                    ),
+                ),
+            )
+        val edited = deleteSelectedSheetLifts(days, listOf(ProgramSheetLiftRef("a", "a1"), ProgramSheetLiftRef("a", "a2")))
+        val withInterveningEdit =
+            edited.days.map { day ->
+                val edit = day.editState ?: return@map day
+                day.copy(editState = EditWorkoutLiftMutations.addSet(edit, "other"))
+            }
+
+        val restored = applySheetUndo(withInterveningEdit, edited.undo)
+
+        assertEquals(listOf("a1", "a2", "other"), ids(restored, "a"))
+        assertEquals(2, lift(restored, "a", "other").sets.size)
+    }
+
+    @Test
+    @DisplayName("Given a bulk RIR write and a later rest edit on the same lift when undone then RIR returns and the rest edit stays")
+    fun bulkRirUndoKeepsInterveningEdits() {
+        val days = listOf(day("a", listOf(lift("pick", listOf(set("pick-1", 1, rir = 1))))))
+        val edited = setRirOnSelectedSheetLifts(days, listOf(ProgramSheetLiftRef("a", "pick")), rir = 4)
+        val withInterveningEdit =
+            edited.days.map { day ->
+                val edit = day.editState ?: return@map day
+                day.copy(
+                    editState =
+                        EditWorkoutLiftMutations.setRestSecondsForAllSetsOnLift(edit, "pick", 30),
+                )
+            }
+
+        val restored = applySheetUndo(withInterveningEdit, edited.undo)
+
+        assertEquals(listOf(1), lift(restored, "a", "pick").sets.map { set -> set.rirGoal })
+        assertEquals(listOf(30), lift(restored, "a", "pick").sets.map { set -> set.restSeconds })
+    }
+
+    @Test
+    @DisplayName("Given a bulk add and another set added by hand when undone then only the bulk set leaves")
+    fun bulkAddSetUndoRemovesOnlyTheBulkSet() {
+        val days = listOf(day("a", listOf(lift("a1", sets("a1", 1)))))
+        val edited = addSetToSelectedSheetLifts(days, listOf(ProgramSheetLiftRef("a", "a1")))
+        val bulkAddedId =
+            lift(edited.days, "a", "a1").sets.first { set -> set.setId != "a1-1" }.setId
+        val withInterveningEdit =
+            edited.days.map { day ->
+                val edit = day.editState ?: return@map day
+                day.copy(editState = EditWorkoutLiftMutations.addSet(edit, "a1"))
+            }
+
+        val restored = applySheetUndo(withInterveningEdit, edited.undo)
+
+        val restoredIds = lift(restored, "a", "a1").sets.map { set -> set.setId }
+        assertEquals(2, restoredIds.size)
+        assertEquals(false, restoredIds.contains(bulkAddedId))
+    }
+
+    @Test
+    @DisplayName("Given a bulk move and a later edit on the destination when undone then the lift returns and the edit stays")
+    fun bulkMoveUndoKeepsInterveningEdits() {
+        val days =
+            listOf(
+                day("a", listOf(lift("a1", sets("a1", 1)), lift("a2", sets("a2", 1)))),
+                day("b", listOf(lift("b1", sets("b1", 1)))),
+            )
+        val edited = moveSelectedSheetLifts(days, listOf(ProgramSheetLiftRef("a", "a1")), toDayId = "b")
+        val withInterveningEdit =
+            edited.days.map { day ->
+                val edit = day.editState ?: return@map day
+                if (day.id != "b") {
+                    day
+                } else {
+                    day.copy(editState = EditWorkoutLiftMutations.addSet(edit, "b1"))
+                }
+            }
+
+        val restored = applySheetUndo(withInterveningEdit, edited.undo)
+
+        assertEquals(listOf("a1", "a2"), ids(restored, "a"))
+        assertEquals(listOf("b1"), ids(restored, "b"))
+        assertEquals(2, lift(restored, "b", "b1").sets.size)
+    }
+
     private fun sheetSetTotal(days: List<CreateProgramDayUi>): Int =
-        deriveProgramSheet(
-            days = days,
-            liftCatalog = emptyList(),
-            computeWorkoutMuscleVolume = computeWorkoutMuscleVolume,
-            estimateWorkoutDurationMinutes = estimateWorkoutDurationMinutes,
-        ).workouts.sumOf { workout -> workout.setTotal }
+        days.sumOf { day -> day.editState?.lifts?.sumOf { lift -> lift.sets.size } ?: 0 }
 
     private fun ids(days: List<CreateProgramDayUi>, dayId: String): List<String> =
         days.first { day -> day.id == dayId }.editState!!.lifts.map { lift -> lift.workoutLiftId }
