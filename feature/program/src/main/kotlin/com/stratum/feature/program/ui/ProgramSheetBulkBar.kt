@@ -21,7 +21,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
@@ -76,7 +76,7 @@ internal fun ProgramSheetBulkHost(
     onDelete: (String) -> Unit,
     onCancel: () -> Unit,
 ) {
-    val context = LocalContext.current
+    val resources = LocalResources.current
     val enabled = selection.isNotEmpty()
     var showRir by rememberSaveable { mutableStateOf(false) }
     var showMove by rememberSaveable { mutableStateOf(false) }
@@ -111,7 +111,7 @@ internal fun ProgramSheetBulkHost(
                     onSetRepBand(
                         repMin,
                         repMax,
-                        context.getString(R.string.create_program_sheet_set_reps_done, repMin, repMax),
+                        resources.getString(R.string.create_program_sheet_set_reps_done, repMin, repMax),
                     )
                 },
             )
@@ -138,7 +138,7 @@ internal fun ProgramSheetBulkHost(
             RirTargetSheetContent(
                 selectedRirGoal = selectedRir,
                 onRirSelected = { rir ->
-                    onSetRir(rir, context.getString(R.string.create_program_sheet_set_rir_done, rir))
+                    onSetRir(rir, resources.getString(R.string.create_program_sheet_set_rir_done, rir))
                 },
                 onDismiss = { showRir = false },
             )
