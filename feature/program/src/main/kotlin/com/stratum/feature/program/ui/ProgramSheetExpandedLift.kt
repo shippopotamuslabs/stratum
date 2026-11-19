@@ -254,6 +254,7 @@ internal fun ProgramSheetLiftSheets(
     nextEnabled: Boolean,
     liftActionsLiftId: String?,
     onDismissLiftActions: () -> Unit,
+    onRemoveLift: (dayId: String, workoutLiftId: String) -> Unit,
     showProgressionSchemeExplainer: Boolean,
     onDismissProgressionSchemeExplainer: () -> Unit,
 ) {
@@ -293,8 +294,14 @@ internal fun ProgramSheetLiftSheets(
             },
             onRemoveLift = {
                 onDismissLiftActions()
-                callbacks.onSelectDay(locatedActions.dayId)
-                callbacks.onRemoveLift(locatedActions.lift.workoutLiftId)
+                if (
+                    locatedRir != null &&
+                        locatedRir.dayId == locatedActions.dayId &&
+                        locatedActions.lift.sets.any { set -> set.setId == rirSetId }
+                ) {
+                    onDismissRir()
+                }
+                onRemoveLift(locatedActions.dayId, locatedActions.lift.workoutLiftId)
             },
             onReorderLifts = {
                 onDismissLiftActions()

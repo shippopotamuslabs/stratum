@@ -112,6 +112,26 @@ class ProgramSheetRowsTest {
         assertEquals(2, programSheetAnchorIndex(programSheetRows(days), "rest"))
     }
 
+    @Test
+    @DisplayName("removing the expanded lift, or its whole day, clears the expansion")
+    fun removalOfExpandedLiftOrItsDayClearsExpansion() {
+        val expanded = ProgramSheetLiftTarget(DAY_A, LIFT_A1)
+
+        assertNull(expandedAfterSheetRemoval(expanded, DAY_A, LIFT_A1))
+        assertNull(expandedAfterSheetRemoval(expanded, DAY_A, null))
+    }
+
+    @Test
+    @DisplayName("removing another lift or another day keeps the expansion")
+    fun removalElsewhereKeepsExpansion() {
+        val expanded = ProgramSheetLiftTarget(DAY_A, LIFT_A1)
+
+        assertEquals(expanded, expandedAfterSheetRemoval(expanded, DAY_A, LIFT_A2))
+        assertEquals(expanded, expandedAfterSheetRemoval(expanded, DAY_B, LIFT_B))
+        assertEquals(expanded, expandedAfterSheetRemoval(expanded, DAY_B, null))
+        assertNull(expandedAfterSheetRemoval(null, DAY_A, LIFT_A1))
+    }
+
     @Nested
     @DisplayName("sheetStickyHeaderOverlapPx")
     inner class StickyHeaderOverlap {

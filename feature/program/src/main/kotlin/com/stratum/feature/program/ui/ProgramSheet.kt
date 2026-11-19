@@ -58,6 +58,7 @@ import com.stratum.feature.program.ProgramSheetLiftTarget
 import com.stratum.feature.program.ProgramSheetRow
 import com.stratum.feature.program.R
 import com.stratum.feature.program.SheetPlacedItem
+import com.stratum.feature.program.expandedAfterSheetRemoval
 import com.stratum.feature.program.formatEstimatedWorkoutDuration
 import com.stratum.feature.program.programSheetAdjacentLift
 import com.stratum.feature.program.programSheetAnchorIndex
@@ -244,6 +245,16 @@ internal fun ProgramSheet(
             },
             onRemove = {
                 menuDayId = null
+                val kept =
+                    expandedAfterSheetRemoval(
+                        expanded = expanded,
+                        removedDayId = menuDay.id,
+                        removedWorkoutLiftId = null,
+                    )
+                if (kept != expanded) {
+                    expanded = kept
+                    rirSetId = null
+                }
                 callbacks.onSelectDay(menuDay.id)
                 callbacks.onRemoveDay()
             },
@@ -275,6 +286,16 @@ internal fun ProgramSheet(
         nextEnabled = nextEnabled,
         liftActionsLiftId = liftActionsLiftId,
         onDismissLiftActions = { liftActionsLiftId = null },
+        onRemoveLift = { dayId, workoutLiftId ->
+            expanded =
+                expandedAfterSheetRemoval(
+                    expanded = expanded,
+                    removedDayId = dayId,
+                    removedWorkoutLiftId = workoutLiftId,
+                )
+            callbacks.onSelectDay(dayId)
+            callbacks.onRemoveLift(workoutLiftId)
+        },
         showProgressionSchemeExplainer = showProgressionSchemeExplainer,
         onDismissProgressionSchemeExplainer = { showProgressionSchemeExplainer = false },
     )

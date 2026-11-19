@@ -21,6 +21,22 @@ internal sealed interface ProgramSheetRow {
 /** One expanded lift in the sheet. Remembered by the composable, not by the draft. */
 internal data class ProgramSheetLiftTarget(val dayId: String, val workoutLiftId: String)
 
+/**
+ * The expanded target that survives a removal: null when the removed lift was the
+ * expanded one, or when its whole day was removed ([removedWorkoutLiftId] null).
+ * A target on another day, or another lift on the same day, survives.
+ */
+internal fun expandedAfterSheetRemoval(
+    expanded: ProgramSheetLiftTarget?,
+    removedDayId: String,
+    removedWorkoutLiftId: String?,
+): ProgramSheetLiftTarget? {
+    val open = expanded ?: return null
+    if (open.dayId != removedDayId) return open
+    if (removedWorkoutLiftId != null && open.workoutLiftId != removedWorkoutLiftId) return open
+    return null
+}
+
 internal enum class ProgramSheetLiftStep { Previous, Next }
 
 internal fun programSheetRows(days: List<CreateProgramDayUi>): List<ProgramSheetRow> =
