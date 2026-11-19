@@ -212,6 +212,7 @@ internal fun ProgramSheet(
                     sheetCallbacks.onAddDay()
                 },
             )
+            ProgramSheetVolumeStrip(state = state)
             LazyColumn(
                 state = scroll.listState,
                 modifier = Modifier.weight(1f),
