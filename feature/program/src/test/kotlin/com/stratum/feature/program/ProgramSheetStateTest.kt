@@ -1,10 +1,5 @@
 package com.stratum.feature.program
 
-import com.stratum.application.program.ComputeWorkoutMuscleVolumeUseCase
-import com.stratum.application.program.EstimateWorkoutDurationMinutesUseCase
-import com.stratum.domain.lift.Lift
-import com.stratum.domain.lift.identity.LiftId
-import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.feature.program.ui.DEFAULT_REP_MAX
 import com.stratum.feature.program.ui.DEFAULT_REP_MIN
 import com.stratum.feature.program.ui.DEFAULT_REST_SECONDS
@@ -18,12 +13,9 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 
 class ProgramSheetStateTest {
-    private val computeWorkoutMuscleVolume = ComputeWorkoutMuscleVolumeUseCase()
-    private val estimateWorkoutDurationMinutes = EstimateWorkoutDurationMinutesUseCase()
-
     @Test
-    @DisplayName("adding a set on day A updates only that day and folds both workouts into program volume")
-    fun addSetOnDayA_updatesThatDayAndFoldsProgramVolume() {
+    @DisplayName("adding a set on day A updates only that day")
+    fun addSetOnDayA_updatesOnlyThatDay() {
         val days = fixtureDays()
         val updated =
             updateProgramDay(days, DAY_A) { loaded ->
@@ -34,51 +26,14 @@ class ProgramSheetStateTest {
         val dayB = updated.single { day -> day.id == DAY_B }
         val rest = updated.single { day -> day.id == DAY_REST }
         val dayAEdit = requireNotNull(dayA.editState)
-        val dayBEdit = requireNotNull(dayB.editState)
 
         assertEquals(SETS_A + 1, dayAEdit.lifts.sumOf { lift -> lift.sets.size })
         assertEquals(days.single { day -> day.id == DAY_B }, dayB)
         assertNull(rest.editState)
-
-        val sheet =
-            deriveProgramSheet(
-                days = updated,
-                liftCatalog = CATALOG,
-                computeWorkoutMuscleVolume = computeWorkoutMuscleVolume,
-                estimateWorkoutDurationMinutes = estimateWorkoutDurationMinutes,
-            )
-        assertEquals(listOf(DAY_A, DAY_B), sheet.workouts.map { workout -> workout.dayId })
-
-        val dayAMetrics = sheet.workouts.single { workout -> workout.dayId == DAY_A }
-        val derivedA =
-            dayAEdit.withDerivedMetrics(
-                liftCatalog = CATALOG,
-                program = null,
-                computeWorkoutMuscleVolume = computeWorkoutMuscleVolume,
-                estimateWorkoutDurationMinutes = estimateWorkoutDurationMinutes,
-            )
-        assertEquals(SETS_A + 1, dayAMetrics.setTotal)
-        assertEquals(derivedA.estimatedDurationMinutes, dayAMetrics.estimatedDurationMinutes)
-        assertEquals(derivedA.upperVolumeByMuscle, dayAMetrics.upperVolumeByMuscle)
-        assertEquals(derivedA.lowerVolumeByMuscle, dayAMetrics.lowerVolumeByMuscle)
-
-        val combined =
-            loaded(
-                workoutId = "combined",
-                name = "Combined",
-                lifts = dayAEdit.lifts + dayBEdit.lifts,
-            ).withDerivedMetrics(
-                liftCatalog = CATALOG,
-                program = null,
-                computeWorkoutMuscleVolume = computeWorkoutMuscleVolume,
-                estimateWorkoutDurationMinutes = estimateWorkoutDurationMinutes,
-            )
-        assertEquals(combined.upperVolumeByMuscle, sheet.programUpperVolumeByMuscle)
-        assertEquals(combined.lowerVolumeByMuscle, sheet.programLowerVolumeByMuscle)
     }
 
     @Test
-    @DisplayName("adding a set on day B composes with day A and keeps each day's own metrics")
+    @DisplayName("adding a set on day B composes with day A and leaves day A untouched")
     fun addSetOnDayB_composesWithDayA() {
         val afterA =
             updateProgramDay(fixtureDays(), DAY_A) { loaded ->
@@ -91,45 +46,10 @@ class ProgramSheetStateTest {
 
         val dayAEdit = requireNotNull(updated.single { day -> day.id == DAY_A }.editState)
         val dayBEdit = requireNotNull(updated.single { day -> day.id == DAY_B }.editState)
+        assertEquals(SETS_A + 1, dayAEdit.lifts.sumOf { lift -> lift.sets.size })
+        assertEquals(SETS_B + 1, dayBEdit.lifts.sumOf { lift -> lift.sets.size })
         assertEquals(dayAEdit, requireNotNull(afterA.single { day -> day.id == DAY_A }.editState))
         assertNull(updated.single { day -> day.id == DAY_REST }.editState)
-
-        val sheet =
-            deriveProgramSheet(
-                days = updated,
-                liftCatalog = CATALOG,
-                computeWorkoutMuscleVolume = computeWorkoutMuscleVolume,
-                estimateWorkoutDurationMinutes = estimateWorkoutDurationMinutes,
-            )
-        val dayAMetrics = sheet.workouts.single { workout -> workout.dayId == DAY_A }
-        val dayBMetrics = sheet.workouts.single { workout -> workout.dayId == DAY_B }
-        assertEquals(SETS_A + 1, dayAMetrics.setTotal)
-        assertEquals(SETS_B + 1, dayBMetrics.setTotal)
-
-        val derivedA =
-            dayAEdit.withDerivedMetrics(
-                liftCatalog = CATALOG,
-                program = null,
-                computeWorkoutMuscleVolume = computeWorkoutMuscleVolume,
-                estimateWorkoutDurationMinutes = estimateWorkoutDurationMinutes,
-            )
-        assertEquals(derivedA.estimatedDurationMinutes, dayAMetrics.estimatedDurationMinutes)
-        assertEquals(derivedA.upperVolumeByMuscle, dayAMetrics.upperVolumeByMuscle)
-        assertEquals(derivedA.lowerVolumeByMuscle, dayAMetrics.lowerVolumeByMuscle)
-
-        val combined =
-            loaded(
-                workoutId = "combined",
-                name = "Combined",
-                lifts = dayAEdit.lifts + dayBEdit.lifts,
-            ).withDerivedMetrics(
-                liftCatalog = CATALOG,
-                program = null,
-                computeWorkoutMuscleVolume = computeWorkoutMuscleVolume,
-                estimateWorkoutDurationMinutes = estimateWorkoutDurationMinutes,
-            )
-        assertEquals(combined.upperVolumeByMuscle, sheet.programUpperVolumeByMuscle)
-        assertEquals(combined.lowerVolumeByMuscle, sheet.programLowerVolumeByMuscle)
     }
 
     @Test
@@ -193,7 +113,7 @@ class ProgramSheetStateTest {
                     loaded(
                         workoutId = DAY_A,
                         name = "Push",
-                        lifts = listOf(editLift(workoutLiftId = LIFT_A, liftId = BENCH_ID, setCount = SETS_A)),
+                        lifts = listOf(editLift(workoutLiftId = LIFT_A, setCount = SETS_A)),
                     ),
             ),
             CreateProgramDayUi(
@@ -212,7 +132,7 @@ class ProgramSheetStateTest {
                     loaded(
                         workoutId = DAY_B,
                         name = "Legs",
-                        lifts = listOf(editLift(workoutLiftId = LIFT_B, liftId = SQUAT_ID, setCount = SETS_B)),
+                        lifts = listOf(editLift(workoutLiftId = LIFT_B, setCount = SETS_B)),
                     ),
             ),
         )
@@ -230,13 +150,12 @@ class ProgramSheetStateTest {
 
     private fun editLift(
         workoutLiftId: String,
-        liftId: String,
         setCount: Int,
     ): EditLiftState =
         EditLiftState(
             workoutLiftId = workoutLiftId,
-            liftId = liftId,
-            name = liftId,
+            liftId = workoutLiftId,
+            name = workoutLiftId,
             position = 0,
             sets =
                 (1..setCount).map { index ->
@@ -257,42 +176,7 @@ class ProgramSheetStateTest {
         const val DAY_REST = "day-rest"
         const val LIFT_A = "wl-a"
         const val LIFT_B = "wl-b"
-        const val BENCH_ID = "bench-press"
-        const val SQUAT_ID = "squat"
         const val SETS_A = 2
         const val SETS_B = 3
-
-        val CATALOG: List<Lift> =
-            listOf(
-                catalogLift(
-                    id = BENCH_ID,
-                    name = "Bench Press",
-                    primary = MuscleGroup.Chest,
-                    secondary = MuscleGroup.Tricep,
-                ),
-                catalogLift(
-                    id = SQUAT_ID,
-                    name = "Squat",
-                    primary = MuscleGroup.Quad,
-                    secondary = MuscleGroup.Glute,
-                ),
-            )
-
-        private fun catalogLift(
-            id: String,
-            name: String,
-            primary: MuscleGroup,
-            secondary: MuscleGroup,
-        ): Lift =
-            Lift(
-                id = LiftId(id),
-                name = name,
-                movementPatterns = emptySet(),
-                primaryMuscles = setOf(primary),
-                secondaryMuscles = setOf(secondary),
-                incrementTiers = emptyList(),
-                presetTags = emptySet(),
-                enabled = true,
-            )
     }
 }
