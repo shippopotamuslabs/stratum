@@ -174,6 +174,14 @@ internal class CreateProgramEditorController(
         }
     }
 
+    /** Applies a pure day-list result. Same list instance is not dirty and does not refresh metrics. */
+    fun applyEditorDays(nextDays: List<CreateProgramDayUi>) {
+        state.update { current ->
+            if (nextDays === current.days) return@update current
+            current.copy(days = nextDays, isDirty = true).withEditorDerivedMetrics()
+        }
+    }
+
     fun startReorderLifts(onNavigate: (workoutId: String) -> Unit) {
         val day = state.value.selectedDay ?: return
         val edit = day.editState ?: return

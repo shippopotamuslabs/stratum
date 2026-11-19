@@ -24,6 +24,7 @@ import com.stratum.application.training.ObserveActiveSessionUseCase
 import com.stratum.core.ui.component.SupersetLinkDirection
 import com.stratum.domain.workout.EditSessionEvent
 import com.stratum.domain.workout.WorkoutEditSession
+import com.stratum.feature.program.ui.EditLiftState
 import com.stratum.feature.program.ui.EditWorkoutUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.UUID
@@ -43,7 +44,9 @@ import kotlinx.coroutines.launch
  * - [CreateProgramEditorController] — day/lift editor + save/activate
  */
 @HiltViewModel
-@Suppress("LongParameterList", "TooManyFunctions") // Hilt façade over the two controllers.
+// STR-216: STR-207 §2 exception — `userMessage` transient-snackbar side-flow
+// alongside `uiState`; bless-vs-migrate decision recorded on STR-216.
+@Suppress("LongParameterList", "TooManyFunctions", "ForbiddenMultipleStateFlowInViewModel")
 class CreateProgramViewModel @Inject constructor(
     generateProgram: GenerateProgramUseCase,
     activateProgram: ActivateProgramUseCase,
@@ -71,6 +74,16 @@ class CreateProgramViewModel @Inject constructor(
         CreateProgramUiState(programId = UUID.randomUUID().toString()),
     )
     val uiState: StateFlow<CreateProgramUiState> = _uiState.asStateFlow()
+
+    private val _userMessage = MutableStateFlow<String?>(null)
+    val userMessage: StateFlow<String?> = _userMessage.asStateFlow()
+
+    private val _sheetClipboard = MutableStateFlow<ProgramSheetClipboard?>(null)
+
+    /** Sheet tray. Not on [CreateProgramUiState], so save and [toDomainProgram] never see it. */
+    internal val sheetClipboard: StateFlow<ProgramSheetClipboard?> = _sheetClipboard.asStateFlow()
+
+    private var sheetLiftUndo: Map<String, List<EditLiftState>>? = null
 
     private var finishOnboarding: Boolean = false
     private var entryConfigured: Boolean = false
@@ -266,6 +279,173 @@ class CreateProgramViewModel @Inject constructor(
             EditWorkoutLiftMutations.removeLift(loaded, workoutLiftId)
         }
     }
+
+    fun userMessageShown() {
+        _userMessage.value = null
+    }
+
+    /** Sheet cut. Removes immediately. A pending cut is put back first. Not an undo entry. */
+    fun beginSheetCut(dayId: String, workoutLiftId: String) {
+        returnPendingCut()
+        val days = _uiState.value.days
+        val day = days.firstOrNull { candidate -> candidate.id == dayId } ?: return
+        val edit = day.editState ?: return
+        if (day.isRest) return
+        val index = edit.lifts.indexOfFirst { lift -> lift.workoutLiftId == workoutLiftId }
+        if (index < 0) return
+        val next =
+            days.map { candidate ->
+                if (candidate.id != dayId) {
+                    candidate
+                } else {
+                    candidate.copy(
+                        editState =
+                            edit.copy(
+                                lifts = removeLiftAndCleanupSupersets(edit.lifts, workoutLiftId),
+                                isDirty = true,
+                            ),
+                    )
+                }
+            }
+        editor.applyEditorDays(next)
+        _sheetClipboard.value =
+            ProgramSheetClipboard(
+                kind = ProgramSheetClipboardKind.Cut,
+                fromDayId = dayId,
+                lift = edit.lifts[index],
+                originalIndex = index,
+                sourceLiftsBefore = edit.lifts,
+            )
+    }
+
+    /** Sheet copy. Holds a snapshot and does not change the workout. */
+    fun beginSheetCopy(dayId: String, workoutLiftId: String) {
+        returnPendingCut()
+        val edit =
+            _uiState.value.days.firstOrNull { candidate -> candidate.id == dayId }?.editState
+                ?: return
+        val index = edit.lifts.indexOfFirst { lift -> lift.workoutLiftId == workoutLiftId }
+        if (index < 0) return
+        _sheetClipboard.value =
+            ProgramSheetClipboard(
+                kind = ProgramSheetClipboardKind.Copy,
+                fromDayId = dayId,
+                lift = edit.lifts[index],
+                originalIndex = index,
+                sourceLiftsBefore = edit.lifts,
+            )
+    }
+
+    /** Cancel. A cut goes back to its prior index. A copy only clears the tray. Not an undo entry. */
+    fun cancelSheetClipboard() {
+        returnPendingCut()
+    }
+
+    fun pasteSheetLift(toDayId: String, message: String) {
+        val clip = _sheetClipboard.value ?: return
+        val days = _uiState.value.days
+        val target = days.firstOrNull { day -> day.id == toDayId } ?: return
+        val targetEdit = target.editState ?: return
+        if (target.isRest) return
+        val undo = sheetPasteUndo(days, clip, toDayId, targetEdit.lifts)
+        val next =
+            when (clip.kind) {
+                ProgramSheetClipboardKind.Cut ->
+                    moveProgramSheetLift(
+                        days = days,
+                        fromDayId = clip.fromDayId,
+                        toDayId = toDayId,
+                        workoutLiftId = clip.lift.workoutLiftId,
+                        targetPosition = targetEdit.lifts.size,
+                        detachedLift = clip.lift,
+                    )
+                ProgramSheetClipboardKind.Copy ->
+                    copyProgramSheetLift(
+                        days = days,
+                        fromDayId = clip.fromDayId,
+                        toDayId = toDayId,
+                        workoutLiftId = clip.lift.workoutLiftId,
+                        targetPosition = targetEdit.lifts.size,
+                    )
+            }
+        if (next === days) return
+        _sheetClipboard.value = null
+        sheetLiftUndo = undo
+        _userMessage.value = message
+        editor.applyEditorDays(next)
+    }
+
+    /**
+     * Sheet delete. Snapshots first, then the existing remove. Tabbed delete does not call this,
+     * so it does not gain a snackbar.
+     */
+    fun removeSheetLift(dayId: String, workoutLiftId: String, message: String) {
+        val day = _uiState.value.days.firstOrNull { candidate -> candidate.id == dayId } ?: return
+        val lifts = day.editState?.lifts ?: return
+        if (day.isRest || lifts.none { lift -> lift.workoutLiftId == workoutLiftId }) return
+        sheetLiftUndo = mapOf(dayId to lifts)
+        _userMessage.value = message
+        editor.selectDay(dayId)
+        removeSelectedLift(workoutLiftId)
+    }
+
+    fun undoSheetLiftChange() {
+        val snapshot = sheetLiftUndo
+        sheetLiftUndo = null
+        _userMessage.value = null
+        if (snapshot.isNullOrEmpty()) return
+        editor.applyEditorDays(restoreProgramSheetLiftOrder(_uiState.value.days, snapshot))
+        val clip = _sheetClipboard.value ?: return
+        val cutLiftReturned =
+            clip.kind == ProgramSheetClipboardKind.Cut &&
+                _uiState.value.days.any { day ->
+                    day.editState?.lifts?.any { lift -> lift.workoutLiftId == clip.lift.workoutLiftId } == true
+                }
+        if (cutLiftReturned) {
+            _sheetClipboard.value = null
+        }
+    }
+
+    fun dismissSheetLiftUndo() {
+        sheetLiftUndo = null
+        _userMessage.value = null
+    }
+
+    private fun returnPendingCut() {
+        val clip = _sheetClipboard.value ?: return
+        _sheetClipboard.value = null
+        if (clip.kind != ProgramSheetClipboardKind.Cut) return
+        editor.applyEditorDays(
+            restoreProgramSheetLiftOrder(
+                days = _uiState.value.days,
+                liftsByDayId = mapOf(clip.fromDayId to clip.sourceLiftsBefore),
+            ),
+        )
+    }
+
+    private fun sheetPasteUndo(
+        days: List<CreateProgramDayUi>,
+        clip: ProgramSheetClipboard,
+        toDayId: String,
+        targetLifts: List<EditLiftState>,
+    ): Map<String, List<EditLiftState>> =
+        when (clip.kind) {
+            ProgramSheetClipboardKind.Cut ->
+                if (clip.fromDayId == toDayId) {
+                    mapOf(toDayId to clip.sourceLiftsBefore)
+                } else {
+                    mapOf(clip.fromDayId to clip.sourceLiftsBefore, toDayId to targetLifts)
+                }
+            ProgramSheetClipboardKind.Copy -> {
+                val sourceLifts =
+                    days.firstOrNull { day -> day.id == clip.fromDayId }?.editState?.lifts
+                if (sourceLifts != null && clip.fromDayId != toDayId) {
+                    mapOf(clip.fromDayId to sourceLifts, toDayId to targetLifts)
+                } else {
+                    mapOf(toDayId to targetLifts)
+                }
+            }
+        }
 
     fun linkSupersetWithPrevious(workoutLiftId: String) {
         editor.updateSelectedWorkout { loaded ->

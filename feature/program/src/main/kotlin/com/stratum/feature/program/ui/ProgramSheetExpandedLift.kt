@@ -5,6 +5,7 @@ package com.stratum.feature.program.ui
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.res.stringResource
 import com.stratum.core.ui.component.LiftActionsBottomSheet
 import com.stratum.core.ui.component.RirTargetSheetContent
 import com.stratum.core.ui.component.StratumBottomSheet
@@ -14,6 +15,7 @@ import com.stratum.feature.program.CreateProgramDayUi
 import com.stratum.feature.program.ProgramSheetLiftStep
 import com.stratum.feature.program.ProgramSheetLiftTarget
 import com.stratum.feature.program.ProgramSheetRow
+import com.stratum.feature.program.R
 import com.stratum.feature.program.isEditMatchBackoff
 import com.stratum.feature.program.isMiniRestKind
 import com.stratum.feature.program.programSheetAdjacentLift
@@ -279,6 +281,11 @@ internal fun ProgramSheetLiftSheets(
 
     val locatedActions = liftActionsLiftId?.let { liftId -> locateSheetLift(days, liftId) }
     if (locatedActions != null) {
+        val removedMessage =
+            stringResource(
+                R.string.create_program_sheet_removed,
+                locatedActions.lift.name,
+            )
         LiftActionsBottomSheet(
             onConfigureSuperset = onDismissLiftActions,
             onSwapLift = {
@@ -293,13 +300,30 @@ internal fun ProgramSheetLiftSheets(
             },
             onRemoveLift = {
                 onDismissLiftActions()
-                callbacks.onSelectDay(locatedActions.dayId)
-                callbacks.onRemoveLift(locatedActions.lift.workoutLiftId)
+                callbacks.onRemoveSheetLift(
+                    locatedActions.dayId,
+                    locatedActions.lift.workoutLiftId,
+                    removedMessage,
+                )
             },
             onReorderLifts = {
                 onDismissLiftActions()
                 callbacks.onSelectDay(locatedActions.dayId)
                 callbacks.onReorderLifts()
+            },
+            onCut = {
+                onDismissLiftActions()
+                callbacks.onCutSheetLift(
+                    locatedActions.dayId,
+                    locatedActions.lift.workoutLiftId,
+                )
+            },
+            onCopy = {
+                onDismissLiftActions()
+                callbacks.onCopySheetLift(
+                    locatedActions.dayId,
+                    locatedActions.lift.workoutLiftId,
+                )
             },
             onDismiss = onDismissLiftActions,
         )

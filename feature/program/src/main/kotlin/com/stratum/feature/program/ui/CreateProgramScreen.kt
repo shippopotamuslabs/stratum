@@ -16,8 +16,11 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Icon
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -64,6 +67,7 @@ fun CreateProgramScreen(
     state: CreateProgramUiState,
     callbacks: CreateProgramScreenCallbacks,
     modifier: Modifier = Modifier,
+    userMessage: String? = null,
 ) {
     val isEditor = state.step == CreateProgramStep.Editor
     val topBarTitle =
@@ -76,6 +80,14 @@ fun CreateProgramScreen(
     var programOptionsMode by remember { mutableStateOf(CreateProgramOptionsMode.Menu) }
     var showReorderWorkouts by remember { mutableStateOf(false) }
     var reorderItems by remember { mutableStateOf<List<StratumReorderItem>>(emptyList()) }
+    val sheetUndoHost =
+        rememberProgramSheetUndoHost(
+            userMessage = userMessage,
+            step = state.step,
+            editorSurface = state.editorSurface,
+            onUndo = callbacks.onUndoSheetLift,
+            onDismiss = callbacks.onDismissSheetUndo,
+        )
 
     if (showReorderWorkouts) {
         BackHandler { showReorderWorkouts = false }
@@ -110,6 +122,7 @@ fun CreateProgramScreen(
     // in-flow geometry exactly.
     StratumDetailScaffold(
         modifier = modifier.fillMaxSize(),
+        snackbarHostState = sheetUndoHost,
         topBar = {
             StratumTopBar(
                 titleContent = {
@@ -331,6 +344,40 @@ fun CreateProgramScreen(
             onDismiss = callbacks.onDismissRenameWorkout,
         )
     }
+}
+
+@Composable
+private fun rememberProgramSheetUndoHost(
+    userMessage: String?,
+    step: CreateProgramStep,
+    editorSurface: ProgramEditorSurface,
+    onUndo: () -> Unit,
+    onDismiss: () -> Unit,
+): SnackbarHostState? {
+    val snackbarHostState = remember { SnackbarHostState() }
+    val undoLabel = stringResource(R.string.create_program_sheet_undo)
+    val visible =
+        userMessage != null &&
+            step == CreateProgramStep.Editor &&
+            editorSurface == ProgramEditorSurface.Sheet
+    LaunchedEffect(userMessage) {
+        val message = userMessage ?: return@LaunchedEffect
+        if (!visible) {
+            onDismiss()
+            return@LaunchedEffect
+        }
+        val result =
+            snackbarHostState.showSnackbar(
+                message = message,
+                actionLabel = undoLabel,
+            )
+        if (result == SnackbarResult.ActionPerformed) {
+            onUndo()
+        } else {
+            onDismiss()
+        }
+    }
+    return if (visible) snackbarHostState else null
 }
 
 @Composable
