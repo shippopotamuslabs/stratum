@@ -87,7 +87,7 @@ class CreateProgramViewModel @Inject constructor(
     /** Sheet tray. Not on [CreateProgramUiState], so save and [toDomainProgram] never see it. */
     internal val sheetClipboard: StateFlow<ProgramSheetClipboard?> = _sheetClipboard.asStateFlow()
 
-    private var sheetLiftUndo: Map<String, List<EditLiftState>>? = null
+    private var sheetLiftUndo: ProgramSheetUndo? = null
 
     private var finishOnboarding: Boolean = false
     private var entryConfigured: Boolean = false
@@ -351,9 +351,7 @@ class CreateProgramViewModel @Inject constructor(
         val target = days.firstOrNull { day -> day.id == toDayId } ?: return
         val targetEdit = target.editState ?: return
         if (target.isRest) return
-        val liveSourceLifts =
-            days.firstOrNull { day -> day.id == clip.fromDayId }?.editState?.lifts.orEmpty()
-        val undo = sheetPasteUndo(clip, toDayId, targetEdit.lifts, liveSourceLifts)
+        var pastedWorkoutLiftId = clip.lift.workoutLiftId
         val next =
             when (clip.kind) {
                 ProgramSheetClipboardKind.Cut ->
@@ -373,24 +371,28 @@ class CreateProgramViewModel @Inject constructor(
                         workoutLiftId = clip.lift.workoutLiftId,
                         targetPosition = targetEdit.lifts.size,
                         sourceLift = clip.lift,
+                        newWorkoutLiftId = {
+                            newWorkoutLiftId().also { generated -> pastedWorkoutLiftId = generated }
+                        },
                     )
             }
         if (next === days) return
         _sheetClipboard.value = null
-        sheetLiftUndo = undo
+        sheetLiftUndo = sheetPasteUndo(clip, toDayId, pastedWorkoutLiftId)
         publishSheetUndo(publishSheetUndoMessage(currentEpoch = _sheetUndoEpoch.value, message = message))
         editor.applyEditorDays(next)
     }
 
     /**
-     * Sheet delete. Snapshots first, then the existing remove. Tabbed delete does not call this,
-     * so it does not gain a snackbar.
+     * Sheet delete. Records the lift and its index for Undo, then the existing remove.
+     * Tabbed delete does not call this, so it does not gain a snackbar.
      */
     fun removeSheetLift(dayId: String, workoutLiftId: String, message: String) {
         val day = _uiState.value.days.firstOrNull { candidate -> candidate.id == dayId } ?: return
         val lifts = day.editState?.lifts ?: return
-        if (day.isRest || lifts.none { lift -> lift.workoutLiftId == workoutLiftId }) return
-        sheetLiftUndo = mapOf(dayId to lifts)
+        val index = lifts.indexOfFirst { lift -> lift.workoutLiftId == workoutLiftId }
+        if (day.isRest || index < 0) return
+        sheetLiftUndo = sheetDeleteUndo(dayId, lifts[index], index, lifts)
         publishSheetUndo(publishSheetUndoMessage(currentEpoch = _sheetUndoEpoch.value, message = message))
         editor.selectDay(dayId)
         removeSelectedLift(workoutLiftId)
@@ -400,7 +402,7 @@ class CreateProgramViewModel @Inject constructor(
         val decision =
             consumeSheetUndo(
                 isSaving = _uiState.value.isSaving,
-                snapshot = sheetLiftUndo,
+                undo = sheetLiftUndo,
                 days = _uiState.value.days,
             )
         if (!decision.consumed) return
@@ -448,7 +450,7 @@ class CreateProgramViewModel @Inject constructor(
         if (next === days) return false
         _sheetClipboard.value = null
         sheetLiftUndo =
-            rebaseSheetLiftUndoForReturnedCut(
+            rebaseSheetUndoForReturnedCut(
                 undo = sheetLiftUndo,
                 fromDayId = clip.fromDayId,
                 lift = clip.lift,
