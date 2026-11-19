@@ -9,8 +9,8 @@ internal enum class ProgramSheetClipboardKind { Cut, Copy }
  * In-memory sheet tray. Not part of [CreateProgramUiState] and not saved.
  * [sourceLiftsBefore] is the source day's lift list from before a cut.
  * Cancel inserts [lift] into the current list and uses this snapshot only to
- * put the cut's superset id back on partners. A completed move's Undo still
- * restores the whole list.
+ * put the cut's superset id back on partners. A completed move's Undo reinserts
+ * the cut lift into the source list as it was when the lift was pasted.
  */
 internal data class ProgramSheetClipboard(
     val kind: ProgramSheetClipboardKind,
@@ -186,23 +186,55 @@ internal fun rebaseSheetLiftUndoForReturnedCut(
 }
 
 /**
- * Undo lists for a sheet paste. Copy only snapshots [toDayId]. Cut still
- * restores [ProgramSheetClipboard.sourceLiftsBefore] for the source day.
+ * Undo lists for a sheet paste. Copy only snapshots [toDayId].
+ * Cut reinserts [ProgramSheetClipboard.lift] into [liveSourceLifts] (the source
+ * day at paste time), so an edit made after the cut stays on that day.
  */
 internal fun sheetPasteUndo(
     clip: ProgramSheetClipboard,
     toDayId: String,
     targetLifts: List<EditLiftState>,
+    liveSourceLifts: List<EditLiftState>,
 ): Map<String, List<EditLiftState>> =
     when (clip.kind) {
-        ProgramSheetClipboardKind.Cut ->
+        ProgramSheetClipboardKind.Cut -> {
+            val sourceRestored =
+                insertCutLiftIntoCurrent(
+                    current = liveSourceLifts,
+                    lift = clip.lift,
+                    originalIndex = clip.originalIndex,
+                    sourceLiftsBefore = clip.sourceLiftsBefore,
+                )
             if (clip.fromDayId == toDayId) {
-                mapOf(toDayId to clip.sourceLiftsBefore)
+                mapOf(toDayId to sourceRestored)
             } else {
-                mapOf(clip.fromDayId to clip.sourceLiftsBefore, toDayId to targetLifts)
+                mapOf(clip.fromDayId to sourceRestored, toDayId to targetLifts)
             }
+        }
         ProgramSheetClipboardKind.Copy -> mapOf(toDayId to targetLifts)
     }
+
+/**
+ * Sheet undo while a save is writing is refused. The snapshot stays put.
+ * An idle undo returns the restored day list, or null when there is nothing to put back.
+ */
+internal fun consumeSheetUndo(
+    isSaving: Boolean,
+    snapshot: Map<String, List<EditLiftState>>?,
+    days: List<CreateProgramDayUi>,
+): SheetUndoConsumption {
+    if (isSaving) return SheetUndoConsumption(consumed = false, days = null)
+    if (snapshot.isNullOrEmpty()) return SheetUndoConsumption(consumed = true, days = null)
+    return SheetUndoConsumption(
+        consumed = true,
+        days = restoreProgramSheetLiftOrder(days, snapshot),
+    )
+}
+
+internal data class SheetUndoConsumption(
+    val consumed: Boolean,
+    val days: List<CreateProgramDayUi>?,
+)
 
 /** Next snackbar identity. The same [message] still advances [currentEpoch]. */
 internal fun publishSheetUndoMessage(currentEpoch: Int, message: String): SheetUndoPublish =

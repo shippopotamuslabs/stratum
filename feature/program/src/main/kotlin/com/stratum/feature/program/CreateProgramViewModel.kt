@@ -351,7 +351,9 @@ class CreateProgramViewModel @Inject constructor(
         val target = days.firstOrNull { day -> day.id == toDayId } ?: return
         val targetEdit = target.editState ?: return
         if (target.isRest) return
-        val undo = sheetPasteUndo(clip, toDayId, targetEdit.lifts)
+        val liveSourceLifts =
+            days.firstOrNull { day -> day.id == clip.fromDayId }?.editState?.lifts.orEmpty()
+        val undo = sheetPasteUndo(clip, toDayId, targetEdit.lifts, liveSourceLifts)
         val next =
             when (clip.kind) {
                 ProgramSheetClipboardKind.Cut ->
@@ -395,11 +397,19 @@ class CreateProgramViewModel @Inject constructor(
     }
 
     fun undoSheetLiftChange() {
-        val snapshot = sheetLiftUndo
+        val decision =
+            consumeSheetUndo(
+                isSaving = _uiState.value.isSaving,
+                snapshot = sheetLiftUndo,
+                days = _uiState.value.days,
+            )
+        if (!decision.consumed) return
         sheetLiftUndo = null
         _userMessage.value = null
-        if (snapshot.isNullOrEmpty()) return
-        editor.applyEditorDays(restoreProgramSheetLiftOrder(_uiState.value.days, snapshot))
+        val restored = decision.days
+        if (restored != null) {
+            editor.applyEditorDays(restored)
+        }
         val clip = _sheetClipboard.value ?: return
         val cutLiftReturned =
             clip.kind == ProgramSheetClipboardKind.Cut &&
