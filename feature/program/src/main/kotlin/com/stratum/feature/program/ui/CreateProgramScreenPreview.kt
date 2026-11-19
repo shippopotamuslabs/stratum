@@ -269,7 +269,9 @@ private fun List<CreateProgramDayUi>.withPreviewSheetVolume(): List<CreateProgra
         val derived = edit.withDerivedMetrics(catalog, null, computeVolume, estimateDuration)
         day.copy(
             editState =
-                derived.copy(
+                edit.copy(
+                    upperVolumeByMuscle = derived.upperVolumeByMuscle,
+                    lowerVolumeByMuscle = derived.lowerVolumeByMuscle,
                     programUpperVolumeByMuscle = programSummaries.toUpperVolumeCards(),
                     programLowerVolumeByMuscle = programSummaries.toLowerVolumeCards(),
                 ),
