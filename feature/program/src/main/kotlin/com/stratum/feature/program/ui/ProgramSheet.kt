@@ -826,6 +826,11 @@ private fun ProgramSheetLiftRow(
                 .background(background)
                 .sheetHairline()
                 .heightIn(min = 48.dp)
+                .combinedClickable(
+                    role = Role.Button,
+                    onClick = onClick,
+                    onLongClick = onLongClick,
+                )
                 .padding(start = StratumSpacing.s16, end = StratumSpacing.s16),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -836,14 +841,7 @@ private fun ProgramSheetLiftRow(
             rir = sheetRirLabel(lift.sets),
             rest = sheetRestLabel(lift.sets),
             header = false,
-            modifier =
-                Modifier
-                    .weight(1f)
-                    .combinedClickable(
-                        role = Role.Button,
-                        onClick = onClick,
-                        onLongClick = onLongClick,
-                    ),
+            modifier = Modifier.weight(1f),
         )
         StratumIconButton(onClick = onLongClick) {
             Icon(
